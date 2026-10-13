@@ -240,7 +240,7 @@ export const MobileProductCard: React.FC<Props> = ({
         styles.card,
         dark && styles.darkCard,
         isParent && !isSingleVariationCard && (dark ? styles.darkParentCard : styles.parentCard),
-        !isActive && !isDraft && styles.deactivatedCard,
+        !isActive && !isDraft && !isSalvado && styles.deactivatedCard,
       ]}
     >
       {/* Linha Superior: Botão Variações + Código + Atalhos de Ação */}
@@ -271,7 +271,7 @@ export const MobileProductCard: React.FC<Props> = ({
             </View>
           )}
 
-          {!isActive && !isDraft && (
+          {!isActive && !isDraft && !isSalvado && (
             <View style={styles.deactivatedBadge}>
               <Text style={styles.deactivatedBadgeText}>Desativado</Text>
             </View>

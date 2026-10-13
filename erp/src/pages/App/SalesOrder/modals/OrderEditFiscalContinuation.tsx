@@ -93,7 +93,10 @@ export default function OrderEditFiscalContinuation({ order: initialOrder, repla
                     className={buttonClass}
                     onClick={() =>
                       void run(async () => {
-                        const preparedOrder = await prepareOrderFiscalSnapshotForEmission(order);
+                        const preparedOrder = await prepareOrderFiscalSnapshotForEmission(
+                          order,
+                          row.environment
+                        );
                         setOrder(preparedOrder);
                         setEmission(row);
                       })

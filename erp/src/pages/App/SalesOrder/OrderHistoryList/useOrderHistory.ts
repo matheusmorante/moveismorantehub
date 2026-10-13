@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { CircuitBreakerError } from '@/services/monitoring';
 import Order, { IsButtonsClicked } from '../../../types/order.type';
 import {
   subscribeToOrderChanges,
@@ -32,6 +33,20 @@ import {
 const PAGE_SIZE = 15;
 const CARD_VIEW_BREAKPOINT = 1024;
 const EMPTY_ORDERS: Order[] = [];
+
+const isCircuitBreakerFailure = (error: unknown) => {
+  if (error instanceof CircuitBreakerError) return true;
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { name?: unknown; message?: unknown };
+  return (
+    candidate.name === 'CircuitBreakerError' ||
+    (typeof candidate.message === 'string' &&
+      candidate.message.includes('Requisição bloqueada pelo Query Guard (Loop Detectado)'))
+  );
+};
+
+const shouldRetryOrderRead = (failureCount: number, error: unknown) =>
+  !isCircuitBreakerFailure(error) && failureCount < 1;
 
 export const useOrderHistory = (filters?: any) => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -104,6 +119,7 @@ export const useOrderHistory = (filters?: any) => {
         const candidateOrders = await queryClient.fetchQuery({
           queryKey: ['orders', 'client-filter-candidates', filters],
           queryFn: () => fetchOrdersForClientFiltering(filters, { throwOnError: true }),
+          retry: shouldRetryOrderRead,
           staleTime: 30 * 1000,
         });
         result = selectFilteredOrderHistoryPage(
@@ -131,6 +147,7 @@ export const useOrderHistory = (filters?: any) => {
       }
       return { orders: pageOrders, total, fiscalStatuses };
     },
+    retry: shouldRetryOrderRead,
     staleTime: 30 * 1000, // 30 segundos em memória
     gcTime: 5 * 60 * 1000,
   });

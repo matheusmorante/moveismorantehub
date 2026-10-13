@@ -1,6 +1,7 @@
 import React from 'react';
 import { PatternFormat as PatternFormatBase } from 'react-number-format';
 import { AppSettings } from '@/pages/utils/settingsService';
+import { formatRecipientTaxId, normalizeRecipientTaxId } from '../../../../../../../shared-utils/recipientTaxId';
 
 const PatternFormat = PatternFormatBase as any;
 interface Props {
@@ -54,11 +55,11 @@ export default function CompanySettingsSection({ settings, onChange }: Props) {
       </Field>
       <Field title="CNPJ" description="Cadastro Nacional da Pessoa Jurídica da empresa.">
         <div className="w-full md:w-80">
-          <PatternFormat
-            format="##.###.###/####-##"
-            mask="_"
-            value={settings.companyCnpj || ''}
-            onValueChange={(values: any) => onChange('companyCnpj', values.value || '')}
+          <input
+            type="text"
+            aria-label="CNPJ"
+            value={formatRecipientTaxId(settings.companyCnpj || '', 'PJ')}
+            onChange={(event) => onChange('companyCnpj', normalizeRecipientTaxId(formatRecipientTaxId(event.target.value, 'PJ')))}
             className={inputClass}
           />
         </div>

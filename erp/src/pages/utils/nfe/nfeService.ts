@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN } from '../../../../../shared-utils/fiscalIdentifiers';
 import type Order from '@/pages/types/order.type';
 import { parseFiscalItemSelections } from '../../../../../shared-utils/fiscalItemSelections';
 import {
@@ -470,7 +471,7 @@ export async function emitNfeForOrder(
 
       if (
         !retryMetadata.accessKey ||
-        !/^\d{44}$/.test(retryMetadata.accessKey) ||
+        !ACCESS_KEY_PATTERN.test(retryMetadata.accessKey) ||
         !retryMetadata.nfeNumber ||
         !retryMetadata.series ||
         !retryMetadata.model ||
@@ -873,7 +874,7 @@ export async function printOrderDanfe(order: Order): Promise<void> {
     throw new Error('Este pedido ainda não possui NF-e emitida.');
   }
   if (
-    !/^\d{44}$/.test(nfeData.accessKey || '') ||
+    !ACCESS_KEY_PATTERN.test(nfeData.accessKey || '') ||
     !/^\d{15}$/.test(nfeData.protocolNumber || '') ||
     !nfeData.protocolDate ||
     !nfeData.series ||

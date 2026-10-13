@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN } from '../../../../../shared-utils/fiscalIdentifiers';
 /** Fail closed at the ordinary outbound endpoint. Estorno and return need their own reviewed draft. */
 export function validateOrdinaryOutboundEnvelope(input: {
   xml: string;
@@ -18,7 +19,7 @@ export function validateOrdinaryOutboundEnvelope(input: {
     return 'Esta rota transmite somente nota de saída normal. Estorno e devolução exigem revisão fiscal própria.';
   }
   const referencedAccessKeys = [
-    ...ide[0][1].matchAll(/<(refNFe|refNFeSig)>(\d{44})<\/\1>/g),
+    ...ide[0][1].matchAll(/<(refNFe|refNFeSig)>([0-9]{6}[A-Z0-9]{12}[0-9]{26})<\/\1>/g),
   ].map(([, , key]) => key);
   if (input.model === '55' && referencedAccessKeys.some((key) => key.slice(20, 22) === '65')) {
     return 'NF-e de saída modelo 55 não pode referenciar chave de NFC-e modelo 65 nesta rota.';
@@ -28,7 +29,7 @@ export function validateOrdinaryOutboundEnvelope(input: {
     only('tpAmb') !== String(input.environment) ||
     Number(only('nNF')) !== input.nfeNumber ||
     Number(only('serie')) !== Number(input.series) ||
-    !/^\d{44}$/.test(input.accessKey) ||
+    !ACCESS_KEY_PATTERN.test(input.accessKey) ||
     !xml.includes(`Id="NFe${input.accessKey}"`)
   ) {
     return 'XML não corresponde ao modelo, ambiente, numeração ou chave informados.';

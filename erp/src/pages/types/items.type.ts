@@ -1,4 +1,4 @@
-import type { FiscalInfo } from './product.type';
+import type { FiscalInfo } from './product.type.js';
 
 type DiscountType = 'percentage' | 'fixed';
 

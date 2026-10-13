@@ -104,6 +104,25 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     )
   );
   afterAll(() => vi.unstubAllGlobals());
+  it.each([false, true])('preserva CNPJ alfanumérico em XML assinado e XSD (consumidor final=%s)', async (finalConsumer) => {
+    const facts = makeFacts();
+    facts.issuerProfile.companyCnpj = '12ABC34501DE35';
+    facts.emissionRequest.finalConsumer = finalConsumer;
+    facts.emissionRequest.cardNotIntegrated = true;
+    facts.emissionRequest.recipientTaxId = '12ABC34501DE35';
+    (facts.fiscalInputs!.customer as any).personType = 'PJ';
+    const rules = await createNormalSaleRuleSet(facts);
+    const result = resolveFiscalDocument(facts, rules);
+    if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
+    const key = generateNfeAccessKey({ ufCode: '41', yearMonth: '2609', cnpj: '12ABC34501DE35', model: result.document.model, series: 1, number: 701, emissionType: '1', randomCode: '12345678' });
+    const xml = serializeFiscalDocument(facts, result.document, rules, { accessKey: key.accessKey, series: 1, number: 701, issuedAt: '2026-09-30T10:00:00-03:00' });
+    expect(xml).toContain(`<infNFe Id="NFe${key.accessKey}"`);
+    expect(xml.match(/<CNPJ>12ABC34501DE35<\/CNPJ>/g)).toHaveLength(2);
+    await expect(validateUnsignedNfeStructure(xml)).resolves.toBeUndefined();
+    const pair = forge.pki.rsa.generateKeyPair({ bits: 2048, workers: 0 });
+    const signed = signNfeXml(xml, forge.pki.privateKeyToPem(pair.privateKey), Buffer.from('synthetic certificate').toString('base64'));
+    await expect(validateNfeAgainstOfficialSchema(signed)).resolves.toBeUndefined();
+  });
   it.each([false, true])(
     'usa a mesma determinação de negócio em HML e Produção (consumidor final=%s)',
     async (finalConsumer) => {

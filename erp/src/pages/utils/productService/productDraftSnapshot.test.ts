@@ -128,4 +128,23 @@ describe('persistência completa do rascunho', () => {
       costPrice: 240, stock: 4,
     });
   });
+
+  it('não cria variação DEFAULT sintética para rascunhos sem variações e normaliza status ao concluir', () => {
+    const draftMapped = mapFromDB({
+      id: product.id,
+      code: '004033',
+      name: 'Rascunho sem variação',
+      item_type: 'product',
+      is_draft: true,
+      status: 'draft',
+      product_variations: [],
+    });
+    expect(draftMapped.variations).toEqual([]);
+    expect(draftMapped.hasVariations).toBe(false);
+
+    const completedPayload = mapToDB({ ...product, isDraft: false, status: 'draft' });
+    expect(completedPayload.is_draft).toBe(false);
+    expect(completedPayload.status).toBe('hidden');
+    expect(completedPayload.technical_specs.draftProduct).toBeNull();
+  });
 });

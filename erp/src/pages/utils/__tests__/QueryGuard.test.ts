@@ -1,4 +1,4 @@
-/** @vitest-environment jsdom */
+/** @vitest-environment happy-dom */
 import { expect, test, describe, beforeEach, afterEach, vi, Mock } from 'vitest';
 import { supabaseMonitor, CircuitBreakerError } from '../../../services/monitoring';
 
@@ -14,15 +14,17 @@ describe('QueryGuard (SupabaseMonitorService)', () => {
       headers: new Headers(),
     });
     window.fetch = mockFetch;
-    // Limpar estado interno
-    (supabaseMonitor as any).hitCounters = new Map();
-    (supabaseMonitor as any).circuitStates = new Map();
-    (supabaseMonitor as any).globalHitCounter = [];
+    // Limpar o breaker que mantém os contadores; o wrapper não os armazena.
+    const circuitBreaker = (supabaseMonitor as any).circuitBreaker;
+    circuitBreaker.hitCounters = new Map();
+    circuitBreaker.circuitStates = new Map();
+    circuitBreaker.globalHitCounter = [];
     (supabaseMonitor as any).inFlightRequests = new Map();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   test('Caso A - loop de leitura (Circuit Breaker abre)', async () => {
@@ -81,17 +83,18 @@ describe('QueryGuard (SupabaseMonitorService)', () => {
       })
     );
 
-    // Disparar 5 requisições simultâneas sem avançar o timer
-    const req1 = supabaseMonitor.customFetch(url, { method: 'GET' });
-    const req2 = supabaseMonitor.customFetch(url, { method: 'GET' });
-    const req3 = supabaseMonitor.customFetch(url, { method: 'GET' });
+    // Mais chamadas que o limite devem compartilhar uma única leitura pendente.
+    const requests = Array.from({ length: 25 }, () =>
+      supabaseMonitor.customFetch(url, { method: 'GET' })
+    );
 
     vi.advanceTimersByTime(250); // Resolve as promises
 
-    await Promise.all([req1, req2, req3]);
+    const results = await Promise.allSettled(requests);
 
     // Deveria ter ido pra rede apenas 1 vez, e retornado a mesma promise clonada
     expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(results.every((result) => result.status === 'fulfilled')).toBe(true);
   });
 
   test('Caso D - cooldown (OPEN -> HALF_OPEN -> CLOSED)', async () => {

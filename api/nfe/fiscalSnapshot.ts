@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers';
 import { determineWithApprovedRules, type ApprovedFiscalRuleSet } from './fiscalCore';
 import { parseItemCsosnOverrides } from './csosnPolicy';
 import {
@@ -429,7 +430,7 @@ export function parseFiscalEmissionCommand(
       (proof.model !== '55' && proof.model !== '65') ||
       typeof proof.series !== 'string' || !/^\d{1,3}$/.test(proof.series) ||
       typeof proof.number !== 'number' || !Number.isInteger(proof.number) || proof.number < 1 || proof.number > 999999999 ||
-      typeof proof.accessKey !== 'string' || !/^\d{44}$/.test(proof.accessKey)
+      typeof proof.accessKey !== 'string' || !ACCESS_KEY_PATTERN.test(proof.accessKey)
     )
       return { error: 'Vínculo da prévia fiscal incompleto ou inválido.' };
     previewProof = {

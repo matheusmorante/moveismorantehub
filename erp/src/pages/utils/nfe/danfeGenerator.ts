@@ -167,8 +167,7 @@ function generateDanfeNfceHtml(data: DanfeData): string {
       <div class="item-values"><span>${escapeDanfeHtml(item.quantity)} ${escapeDanfeHtml(item.unit)} × ${formatCurrency(item.unitValue)}</span><strong>${formatCurrency(item.total)}</strong></div>
     </div>`;
   }).join('');
-  const key = accessKey.replace(/\D/g, '');
-  const formattedKey = key.replace(/(.{4})/g, '$1 ').trim();
+  const formattedKey = formatAccessKey(accessKey);
   const total = fiscalDetails?.general.total || fiscalDetails?.summary.invoiceTotal || '';
   const issueDate = formatToBRDate(fiscalDetails?.general.issueDate || '');
   const payments = (fiscalDetails?.payments || [])

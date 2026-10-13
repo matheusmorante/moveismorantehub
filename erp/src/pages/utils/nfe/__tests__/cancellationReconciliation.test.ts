@@ -49,14 +49,20 @@ describe('reconciliação do evento de cancelamento fiscal', () => {
     const updates: Array<{ table: string; values: Record<string, unknown> }> = [];
     const sourceDocument = {
       id: 'TEST_AUT_document',
-      status: 'autorizada',
+      status: 'homologada',
       modelo: '55',
       ambiente: 2,
       chave_acesso: '41' + '2610' + '12345678000195' + '55' + '001' + '000000001' + '1' + '00000000' + '0',
       numero_protocolo: '141260000000001',
       xml_nfe: '<NFe><emit><CNPJ>12345678000195</CNPJ></emit></NFe>',
     };
+    let observedSoapStart = 0;
+    mocks.sendSoapToSefaz.mockImplementation(async () => {
+      observedSoapStart = Date.now();
+      return `<retConsSitNFe xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>2</tpAmb><chNFe>${sourceDocument.chave_acesso}</chNFe><cStat>100</cStat><protNFe><infProt><tpAmb>2</tpAmb><chNFe>${sourceDocument.chave_acesso}</chNFe><cStat>100</cStat><nProt>${sourceDocument.numero_protocolo}</nProt></infProt></protNFe></retConsSitNFe>`;
+    });
     const db = {
+      rpc: vi.fn().mockResolvedValue({ data: { documentId: sourceDocument.id, status: 'homologada' }, error: null }),
       from: vi.fn((table: string) => {
         let updateValues: Record<string, unknown> | null = null;
         const query: any = {
@@ -79,6 +85,7 @@ describe('reconciliação do evento de cancelamento fiscal', () => {
                   : { id: 'TEST_AUT_event', status: 'unknown' },
             error: null,
           }),
+          // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are intentionally thenable.
           then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
             Promise.resolve({ data: null, error: null }).then(resolve, reject),
         };
@@ -118,13 +125,11 @@ describe('reconciliação do evento de cancelamento fiscal', () => {
       cancellationAttemptState: 'not_registered',
       reconciliationRequired: false,
     });
-    expect(updates).toContainEqual({
-      table: 'nfe_document_events',
-      values: expect.objectContaining({
-        status: 'rejected',
-        xmotivo: expect.stringContaining('sem registro do evento de cancelamento'),
-      }),
-    });
+    expect(updates).toEqual([]);
+    expect(db.rpc).toHaveBeenCalledWith('persist_nfe_legacy_consultation', expect.objectContaining({ p_document_id: sourceDocument.id, p_event_id: 'TEST_AUT_event' }));
     expect(mocks.sendSoapToSefaz).toHaveBeenCalledOnce();
+    const params = db.rpc.mock.calls[0]?.[1] as any;
+    expect(Number.isFinite(Date.parse(params.p_consultation_started_at))).toBe(true);
+    expect(Date.parse(params.p_consultation_started_at)).toBeLessThanOrEqual(observedSoapStart);
   });
 });

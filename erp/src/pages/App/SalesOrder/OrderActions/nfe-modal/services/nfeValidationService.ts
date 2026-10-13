@@ -104,7 +104,7 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
 
   if (recipientRequired) {
     const missingMessage = recipientReqs.message || 'Documento do destinatário obrigatório.';
-    if (!validForPerson) {
+    if (!recipientTaxId.trim() || !validForPerson) {
       const message = recipientTaxId.trim()
         ? recipientTaxIdValidationMessage || 'Documento do destinatário inválido.'
         : missingMessage;

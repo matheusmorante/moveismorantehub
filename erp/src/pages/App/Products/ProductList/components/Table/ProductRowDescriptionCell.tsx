@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Product from '@/pages/types/product.type';
 import ProductImage from '@/components/ProductImage';
+import { getProductKind } from '@/pages/utils/productKindRules';
 import type { ProductListRow } from '../../types';
 
 export interface ProductRowDescriptionCellProps {
@@ -40,11 +41,23 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
   exitedVariationIds,
 }) => {
   const [imageError, setImageError] = useState(false);
-  const isDraft = Boolean(product.isDraft) || Boolean(product.is_draft);
+  const isDraft =
+    Boolean(product.isDraft) || Boolean(product.is_draft) || product.status === 'draft';
+  const isSalvado =
+    getProductKind(product) === 'salvado' ||
+    getProductKind(singleVariation as any) === 'salvado' ||
+    Boolean(oppName && oppName.toLowerCase().includes('salvado')) ||
+    Boolean(
+      (product.opportunityName || product.opportunity?.name || '')
+        .toLowerCase()
+        .includes('salvado')
+    );
   const isDeactivated =
     (singleVariation
-      ? singleVariation.active === false || singleVariation.status === 'hidden'
-      : product.active === false || product.status === 'hidden' || product.deleted) && !isDraft;
+      ? (!isSalvado && singleVariation.active === false) || singleVariation.status === 'hidden'
+      : (!isSalvado && product.active === false) ||
+        product.status === 'hidden' ||
+        product.deleted) && !isDraft;
 
   const count = variationsCount ?? product.allVariations?.length ?? 0;
   const parentImages = (product as any).parentImages as string[] | undefined;

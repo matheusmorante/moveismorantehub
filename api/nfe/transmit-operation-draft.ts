@@ -232,7 +232,7 @@ function assertDraftXmlMatchesReview(input: {
       throw new Error('Referências fiscais dos itens da devolução divergem das alocações revisadas.');
   } else {
     const ide = extractXmlBlock(signedXml, 'ide');
-    const references = [...ide.matchAll(/<refNFe>(\d{44})<\/refNFe>/g)].map(([, key]) => key);
+    const references = [...ide.matchAll(/<refNFe>([0-9]{6}[A-Z0-9]{12}[0-9]{26})<\/refNFe>/g)].map(([, key]) => key);
     if (references.length !== 1 || references[0] !== sourceAccessKey || /<DFeReferenciado\b/.test(signedXml))
       throw new Error('XML de estorno deve referenciar somente a chave fiscal original.');
   }

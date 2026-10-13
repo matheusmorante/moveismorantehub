@@ -101,7 +101,7 @@ export function resolveNormalSalePayments(params: {
         !['1', '2'].includes(card.integrationType) ||
         (card.integrationType === '1' &&
           ['03', '04'].includes(methodCode) &&
-          (!/^\d{14}$/.test(card.acquirerCnpj || '') || !card.authorization)))
+          (!/^[A-Z0-9]{12}[0-9]{2}$/.test(card.acquirerCnpj || '') || !card.authorization)))
     )
       throw new Error(
         `Pagamento ${index + 1}: informe a integração e os dados fiscais reais do cartão/PIX para NFC-e.`

@@ -1,4 +1,4 @@
-import { getCancellationWindow } from './nfeEventRules';
+import { getCancellationWindow } from './nfeEventRules.js';
 
 export type FiscalCancellationAction =
   | 'cancel'

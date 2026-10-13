@@ -193,7 +193,8 @@ export const saveMobileCategory = async (
   name: string,
   environmentIdsOrId?: string[] | string,
   attributeIds?: string[],
-  id?: string
+  id?: string,
+  optionalAttributeIds: readonly string[] = []
 ): Promise<MobileCategory | null> => {
   const trimmed = name.trim();
   if (!trimmed) return null;
@@ -254,11 +255,12 @@ export const saveMobileCategory = async (
     if (attrDelErr) throw attrDelErr;
 
     const uniqueAttrIds = [...new Set(attributeIds)];
+    const optionalAttributeIdSet = new Set(optionalAttributeIds);
     if (uniqueAttrIds.length > 0) {
       const attrLinks = uniqueAttrIds.map((attrId) => ({
         category_id: actualId,
         attribute_id: attrId,
-        is_required: true,
+        is_required: !optionalAttributeIdSet.has(attrId),
       }));
       const { error: attrInsErr } = await supabase.from('category_attributes').insert(attrLinks);
       if (attrInsErr) throw attrInsErr;

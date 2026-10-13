@@ -176,17 +176,25 @@ export const mapToDB = (product: Partial<Product>) => {
   if (product.featured !== undefined) data.featured = product.featured;
   if (product.depthUseLength !== undefined) data.depth_use_length = product.depthUseLength;
   if (product.status !== undefined) data.status = product.status;
+  if (data.is_draft === false && (data.status === 'draft' || data.status === undefined)) {
+    data.status = 'hidden';
+  }
   if (product.condition !== undefined) data.is_salvado = product.condition === 'salvado';
   if (product.opportunityId !== undefined) data.opportunity_id = product.opportunityId || null;
 
   // Persistência de Especificações Técnicas na coluna jsonb 'technical_specs'
-  if (product.technicalValues !== undefined || product.technicalSpecs || product.variations) {
+  if (
+    product.technicalValues !== undefined ||
+    product.technicalSpecs ||
+    product.variations ||
+    data.is_draft === false
+  ) {
     const existingSpecs = product.technicalSpecs || (product as any).technical_specs || {};
     data.technical_specs = {
       ...existingSpecs,
       ...(product.technicalValues !== undefined ? { technicalValues: product.technicalValues } : {}),
       ...(product.variations ? { variationDetails: product.variations.map(removeInitialStockFields) } : {}),
-      ...(product.isDraft === false ? { draftProduct: null } : {}),
+      ...(data.is_draft === false ? { draftProduct: null } : {}),
     };
   }
 

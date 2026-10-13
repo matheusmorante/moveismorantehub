@@ -13,6 +13,7 @@
 
 ## Invariantes operacionais
 
+- O MoranteHub não utiliza Carta de Correção Eletrônica (CC-e), inclusive para alterações pequenas. Não oferecer nem implementar novas transmissões. Correções seguem cancelamento ou estorno direto, selecionados pela política central conforme prazo, circulação e elegibilidade fiscal. Após circulação, usar devolução vinculada; preservar eventos antigos de CC-e apenas para histórico e reconciliação.
 - O Pedido de Venda e a tela de Notas Fiscais de Saída iniciam a mesma operação comercial transacional e usam a mesma política/serviço fiscal central. A tela fiscal não altera status diretamente.
 - `hasGoodsCirculated(order)` trata `fulfilled` como circulação tanto para entrega quanto para retirada, além das evidências de saída/trânsito definidas pelo serviço central. Trânsito ou estado não reconciliado não pode ser presumido como operação não realizada.
 - No Paraná, a janela é 168 horas para NF-e modelo 55 e 30 minutos para NFC-e modelo 65. Centralizar os prazos e cobrir o instante exato do limite a partir da autorização.

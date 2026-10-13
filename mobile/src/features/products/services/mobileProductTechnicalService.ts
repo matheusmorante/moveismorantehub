@@ -15,6 +15,7 @@ export interface MobileProductTechnicalField {
   readonly decimal_places: 1 | 2 | 3 | null;
   readonly unit: string | null;
   readonly categoryIds: string[];
+  readonly requiredCategoryIds?: string[];
   readonly isRequired: boolean;
   readonly isCustom: boolean;
   readonly options: MobileTechnicalFieldOption[];
@@ -60,7 +61,7 @@ export const fetchMobileProductTechnicalFields = async (): Promise<
 
   const [optionsResult, { data: categoryLinks }] = await Promise.all([
     supabase.from('attribute_values').select('id, attribute_id, value, sort_order'),
-    supabase.from('category_attributes').select('attribute_id, category_id'),
+    supabase.from('category_attributes').select('attribute_id, category_id, is_required'),
   ]);
   const optionResult =
     optionsResult.error &&
@@ -75,7 +76,7 @@ const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
   return (attributes ?? [])
     .filter((attribute) => !/^reclin[aá]vel$/i.test(String(attribute.name).trim()))
     .map((attribute) => {
-      const normalizedName = String(attribute.name).toLocaleLowerCase('pt-BR');
+      const normalizedName = String(attribute.name).trim().toLocaleLowerCase('pt-BR');
       const isFirmnessField = normalizedName === 'nível de firmeza do estofamento';
       const links = (categoryLinks ?? []).filter((link) => link.attribute_id === attribute.id);
       const values = (options ?? [])
@@ -106,6 +107,9 @@ const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
       return {
         ...attribute,
         categoryIds: links.map((link) => link.category_id),
+        requiredCategoryIds: links
+          .filter((link) => link.is_required && normalizedName !== 'peso')
+          .map((link) => link.category_id),
         decimal_places:
           attribute.decimal_places === 1 ||
           attribute.decimal_places === 2 ||

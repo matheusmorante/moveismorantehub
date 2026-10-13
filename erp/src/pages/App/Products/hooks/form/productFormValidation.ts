@@ -66,19 +66,18 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
         });
       }
 
-      const opportunityCanBeSelected = data.itemType === 'service' || Boolean(data.productKind);
-      if (!options.isStockistOnly && opportunityCanBeSelected && !data.opportunityId) {
+      const isOpportunityRequired =
+        !options.isStockistOnly && data.itemType !== 'service' && data.productKind === 'salvado';
+      if (isOpportunityRequired && !data.opportunityId) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'A oportunidade é obrigatória.',
+          message: 'A oportunidade é obrigatória para produtos salvados.',
           path: ['opportunityId'],
         });
       }
 
       const hasVars =
-        Boolean(data.hasVariations) &&
-        Array.isArray(data.variations) &&
-        data.variations.length > 0;
+        Boolean(data.hasVariations) && Array.isArray(data.variations) && data.variations.length > 0;
       if (!hasVars) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

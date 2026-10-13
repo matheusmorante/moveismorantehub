@@ -7,6 +7,7 @@ import {
   type RecipientIeIndicator,
 } from '../../../../../../../shared-utils/recipientIeIndicator';
 import { fiscalPresence } from '../../../../../../../shared-utils/fiscalDocumentModel';
+import { normalizeRecipientTaxId } from '../../../../../../../shared-utils/recipientTaxId';
 import { getSettings } from '@/pages/utils/settingsService';
 import { NfeItemRow } from './NfeItemRow';
 import { resolveNfeItemCfopOptions } from './domain/itemFiscalCfopOptions';
@@ -80,10 +81,7 @@ export const NfeItemsSection: React.FC<Props> = ({
     customer: customerData.ieIndicator,
     ie: customerData.ie,
   });
-  const recipientDocument = String(customerData.cpfCnpj || customerData.document || '').replace(
-    /\D/g,
-    ''
-  );
+  const recipientDocument = normalizeRecipientTaxId(String(customerData.cpfCnpj || customerData.document || ''));
   const recipientPersonType =
     customerData.personType === 'PF' || customerData.personType === 'PJ'
       ? customerData.personType

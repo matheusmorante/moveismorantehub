@@ -1,5 +1,6 @@
 import { toTitleCase } from '../../../../../shared-utils/productText';
 import { supabase } from '../../../services/supabaseClient';
+import { isWeightCharacteristicName } from '../domain/productCharacteristics';
 
 export interface MobileAttributeValue {
   id: string;
@@ -139,7 +140,9 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
         attribute.decimal_places === 3
           ? attribute.decimal_places
           : undefined,
-      isGloballyRequired: Boolean(attribute.is_globally_required ?? attribute.isGloballyRequired),
+      isGloballyRequired:
+        !isWeightCharacteristicName(attribute.name) &&
+        Boolean(attribute.is_globally_required ?? attribute.isGloballyRequired),
       isCustom: Boolean(attribute.is_custom ?? attribute.isCustom),
       unit: attribute.unit || '',
       options: orderedOptions,
@@ -149,7 +152,8 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
             .filter((link) => String(link.attribute_id) === String(attribute.id))
             .map((link) => ({
               categoryId: String(link.category_id),
-              isRequired: Boolean(link.is_required),
+              isRequired:
+                !isWeightCharacteristicName(attribute.name) && Boolean(link.is_required),
             })),
     };
   });
@@ -178,7 +182,8 @@ export const saveMobileAttributeDefinition = async (
           ? '%'
           : definition.unit?.trim() || '',
     decimalPlaces: definition.dataType === 'decimal' ? (definition.decimalPlaces ?? 2) : undefined,
-    isGloballyRequired: definition.isGloballyRequired ?? false,
+    isGloballyRequired:
+      !isWeightCharacteristicName(name) && (definition.isGloballyRequired ?? false),
     isCustom: definition.isCustom ?? true,
     options: definition.options.map((option, index) => ({
       ...(option.id ? { id: option.id } : {}),
@@ -189,7 +194,7 @@ export const saveMobileAttributeDefinition = async (
   if (definition.categoryAttributes) {
     payload.categoryAttributes = definition.categoryAttributes.map((link) => ({
       categoryId: link.categoryId,
-      isRequired: link.isRequired,
+      isRequired: !isWeightCharacteristicName(name) && link.isRequired,
     }));
   }
 

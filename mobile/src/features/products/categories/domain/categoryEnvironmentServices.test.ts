@@ -174,7 +174,9 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       const result = await saveMobileCategory(
         'SOFÁ RETRÁTIL',
         ['env-1', 'env-2'], // Vínculo com 2 ambientes
-        ['attr-cor', 'attr-tecido'] // 2 características associadas
+        ['attr-cor', 'attr-tecido', 'attr-peso'], // Peso deve ser opcional em qualquer categoria
+        undefined,
+        ['attr-peso']
       );
 
       expect(result).toEqual({ id: 'cat-new-1', name: 'SOFÁ RETRÁTIL' });
@@ -185,6 +187,7 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       expect(mockInsertAttr).toHaveBeenCalledWith([
         { category_id: 'cat-new-1', attribute_id: 'attr-cor', is_required: true },
         { category_id: 'cat-new-1', attribute_id: 'attr-tecido', is_required: true },
+        { category_id: 'cat-new-1', attribute_id: 'attr-peso', is_required: false },
       ]);
     });
 

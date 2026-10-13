@@ -125,7 +125,15 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
               catalogStatus={v.status}
               isParent={false}
               isNonConventional={isNonConventionalProduct(product) || isNonConventionalProduct(v as any)}
-              isSalvado={getProductKind(product) === 'salvado'}
+              isSalvado={
+                getProductKind(product) === 'salvado' ||
+                getProductKind(v as any) === 'salvado' ||
+                Boolean(
+                  (product.opportunityName || product.opportunity?.name || '')
+                    .toLowerCase()
+                    .includes('salvado')
+                )
+              }
               canManageCatalog={canManageCatalog && !readOnly}
               canToggleActive={canDeleteProducts}
               showCatalogControl={showCatalogControl}

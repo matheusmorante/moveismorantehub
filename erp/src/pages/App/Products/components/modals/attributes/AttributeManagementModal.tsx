@@ -33,7 +33,7 @@ export const AttributeManagementModal: React.FC<AttributeManagementModalProps> =
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10002] flex"
+      className="fixed inset-0 z-[1000031] flex"
       role="dialog"
       aria-modal="true"
       aria-label="Gerenciamento de Atributos e Variações"

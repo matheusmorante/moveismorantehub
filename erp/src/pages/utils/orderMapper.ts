@@ -48,6 +48,13 @@ export interface OrderDatabaseRow {
   order_data?: any | null;
 }
 
+// Status changes use this raw JSON because normalized columns can rehydrate
+// into values that differ from the fiscal snapshot stored in order_data.
+const persistedOrderDataSnapshots = new WeakMap<Order, Record<string, unknown>>();
+
+export const getPersistedOrderDataSnapshot = (order: Order): Record<string, unknown> | undefined =>
+  persistedOrderDataSnapshots.get(order);
+
 /**
  * Mapper Canônico: Converte a linha bruta do banco Supabase para o modelo de domínio Order.
  * Regra: As colunas estruturadas são a FONTE DE VERDADE (Master).
@@ -319,5 +326,9 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
         : rawLegacy.originalSoldTotal,
   };
 
-  return capitalizeOrder(orderDomain);
+  const mappedOrder = capitalizeOrder(orderDomain);
+  if (row.order_data && typeof row.order_data === 'object' && !Array.isArray(row.order_data)) {
+    persistedOrderDataSnapshots.set(mappedOrder, row.order_data);
+  }
+  return mappedOrder;
 }

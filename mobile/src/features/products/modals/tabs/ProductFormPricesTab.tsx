@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Truck, DollarSign, Search, X, Plus } from 'lucide-react-native';
 import { saveSupplier as persistSupplier } from '../../../../services/stockService';
@@ -56,6 +57,10 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
       : formData.productKind === 'usado' || formData.condition === 'usado'
         ? 'usados'
         : 'normal';
+  const isOwnProduction =
+    formData.merchandiseOrigin === 'own_production' ||
+    formData.isOwnProduction === true ||
+    formData.fiscal?.merchandiseOrigin === 'own_production';
 
   const set = useCallback(
     (field: string, value: any) => {
@@ -243,11 +248,87 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
       supplierId: nextIds[0] || '',
     }));
   };
+  const handleToggleOrigin = (ownProduction: boolean) => {
+    const newOrigin = ownProduction ? 'own_production' : 'third_party';
+    setFormData((previous) => ({
+      ...previous,
+      merchandiseOrigin: newOrigin,
+      isOwnProduction: ownProduction,
+      fiscal: {
+        ...previous.fiscal,
+        merchandiseOrigin: newOrigin,
+        cfop: ownProduction
+          ? previous.fiscal?.cfop === '5102'
+            ? '5101'
+            : previous.fiscal?.cfop
+          : previous.fiscal?.cfop === '5101'
+            ? '5102'
+            : previous.fiscal?.cfop,
+      },
+    }));
+  };
 
   return (
     <View style={styles.container}>
-      {/* ─── Fornecedores ─── */}
       <View style={[styles.card, dark && styles.darkCard]}>
+        <Text style={[styles.label, dark && styles.dimText]}>Origem Comercial do Produto</Text>
+        <Text style={[styles.originDescription, dark && styles.dimText]}>
+          {isOwnProduction
+            ? 'Produção própria da empresa — seleção de fornecedor externo dispensada (CFOP base 5.101).'
+            : 'Mercadoria adquirida/recebida de parceiros — exige fornecedor externo (CFOP base 5.102).'}
+        </Text>
+        <View style={[styles.originToggle, dark && styles.darkOriginToggle]}>
+          <TouchableOpacity
+            onPress={() => handleToggleOrigin(false)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !isOwnProduction }}
+            style={[
+              styles.originOption,
+              !isOwnProduction && styles.originThirdPartySelected,
+              dark && !isOwnProduction && styles.darkOriginThirdPartySelected,
+            ]}
+          >
+            <Text
+              style={[
+                styles.originOptionText,
+                !isOwnProduction && styles.originThirdPartyTextSelected,
+                dark && styles.lightText,
+                dark && !isOwnProduction && styles.darkOriginThirdPartyTextSelected,
+              ]}
+            >
+              Adquirido de Terceiros
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleToggleOrigin(true)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isOwnProduction }}
+            style={[
+              styles.originOption,
+              isOwnProduction && styles.originOwnProductionSelected,
+              dark && isOwnProduction && styles.darkOriginOwnProductionSelected,
+            ]}
+          >
+            <Text
+              style={[
+                styles.originOptionText,
+                isOwnProduction && styles.originOwnProductionTextSelected,
+                dark && isOwnProduction && styles.originOwnProductionTextSelected,
+              ]}
+            >
+              Fabricação Própria
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {isOwnProduction && (
+          <Text style={[styles.ownProductionNotice, dark && styles.darkOwnProductionNotice]}>
+            Fabricação Própria (Móveis Morante). A seleção de fornecedor externo é dispensada.
+          </Text>
+        )}
+      </View>
+
+      {/* ─── Fornecedores ─── */}
+      {!isOwnProduction && <View style={[styles.card, dark && styles.darkCard]}>
         <View style={styles.supplierHeading}>
           <View style={styles.cardHeader}>
             <Truck size={16} color="#2563eb" />
@@ -356,7 +437,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
             })}
           </View>
         )}
-      </View>
+      </View>}
 
       {/* ─── Seção 2: Preços de Venda & Descontos ─── */}
       <View style={[styles.card, dark && styles.darkCard]}>
@@ -547,6 +628,40 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   darkCard: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  originToggle: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: '#e2e8f0',
+  },
+  darkOriginToggle: { backgroundColor: '#0f172a' },
+  originOption: {
+    flex: 1,
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    borderRadius: 9,
+  },
+  originThirdPartySelected: { backgroundColor: '#ffffff' },
+  darkOriginThirdPartySelected: { backgroundColor: '#1e293b' },
+  originOwnProductionSelected: { backgroundColor: '#ecfdf5' },
+  darkOriginOwnProductionSelected: { backgroundColor: '#052e16' },
+  originOptionText: { textAlign: 'center', fontSize: 10, fontWeight: '800', color: '#64748b' },
+  originThirdPartyTextSelected: { color: '#2563eb' },
+  darkOriginThirdPartyTextSelected: { color: '#60a5fa' },
+  originOwnProductionTextSelected: { color: '#047857' },
+  originDescription: { color: '#64748b', fontSize: 11, fontWeight: '500' },
+  ownProductionNotice: {
+    borderRadius: 10,
+    padding: 10,
+    color: '#065f46',
+    backgroundColor: '#ecfdf5',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  darkOwnProductionNotice: { color: '#a7f3d0', backgroundColor: '#052e16' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
   supplierHeading: {
     flexDirection: 'row',

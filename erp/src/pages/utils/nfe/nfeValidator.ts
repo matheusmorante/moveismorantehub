@@ -1,3 +1,4 @@
+import { normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers';
 import type Order from '@/pages/types/order.type';
 import { resolveFiscalCfopOrderScope } from '../../../../../shared-utils/fiscalCfopModel';
 import {
@@ -27,7 +28,7 @@ export function validateOrderForNfe(order: Order, settings: AppSettings): NfeVal
   const warnings: string[] = [];
 
   // 1. Validação do Emitente
-  const cleanCnpj = (settings.companyCnpj || '').replace(/\D/g, '');
+  const cleanCnpj = normalizeFiscalIdentifier((settings.companyCnpj || ''));
   if (!cleanCnpj || cleanCnpj.length !== 14) {
     errors.push('CNPJ da empresa emitente não configurado ou inválido nas Configurações Fiscais.');
   }

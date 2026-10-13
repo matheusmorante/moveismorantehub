@@ -14,16 +14,21 @@ describe('findAuthorizedFiscalDocument', () => {
     vi.clearAllMocks();
   });
 
-  const setupQuery = (rows: any[], error: any = null) => {
+  const setupQuery = (rows: any[] | null, error: any = null) => {
+    const filters: Array<[string, unknown]> = [];
     const query: any = {
       select: () => query,
-      eq: () => query,
+      eq: (column: string, value: unknown) => {
+        filters.push([column, value]);
+        return query;
+      },
       in: () => query,
       order: () => query,
       then: (resolve: any, reject: any) =>
         Promise.resolve({ data: rows, error }).then(resolve, reject),
     };
     mocks.from.mockReturnValue(query);
+    return filters;
     return query;
   };
 
@@ -43,6 +48,14 @@ describe('findAuthorizedFiscalDocument', () => {
     setupQuery(null, new Error('Network error'));
     const result = await findAuthorizedFiscalDocument('sale-123');
     expect(result).toBeNull();
+  });
+
+  it('propaga a falha de leitura quando a decisão depende de provar que não há nota autorizada', async () => {
+    setupQuery(null, { message: 'Network error' });
+
+    await expect(findAuthorizedFiscalDocument('sale-123', { throwOnError: true })).rejects.toThrow(
+      'Não foi possível consultar a nota fiscal autorizada vinculada ao pedido.'
+    );
   });
 
   it('retorna documento autorizado de saída em produção', async () => {
@@ -73,6 +86,31 @@ describe('findAuthorizedFiscalDocument', () => {
 
     const result = await findAuthorizedFiscalDocument('sale-123');
     expect(result).toEqual(doc);
+  });
+
+  it('filtra documento autorizado pelo ambiente solicitado', async () => {
+    const hmlDoc = {
+      id: 'doc-hml',
+      order_id: 'sale-123',
+      status: 'homologada',
+      document_type: 'outbound',
+      ambiente: 2,
+      modelo: '65',
+    };
+    const prodDoc = {
+      id: 'doc-prod',
+      order_id: 'sale-123',
+      status: 'autorizada',
+      document_type: 'outbound',
+      ambiente: 1,
+      modelo: '65',
+    };
+    const filters = setupQuery([hmlDoc, prodDoc]);
+
+    const result = await findAuthorizedFiscalDocument('sale-123', { environment: 1 });
+
+    expect(result).toEqual(prodDoc);
+    expect(filters).toContainEqual(['ambiente', 1]);
   });
 
   it('ignora documentos de devolução ou estorno', async () => {

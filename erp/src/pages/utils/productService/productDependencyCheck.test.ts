@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   checkProductHasMoves,
+  checkProductIsUnreferenced,
   checkProductIsUsed,
   checkProductLinkedToSales,
   checkVariationIsUsed,
+  physicalDeleteProduct,
   physicalDeleteVariation,
 } from './productDependencyCheck';
 
-const mockDb = vi.hoisted(() => ({ from: vi.fn() }));
+const mockDb = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
 vi.mock('./productLocalCache', () => ({
@@ -111,14 +113,17 @@ describe('checkProductLinkedToSales', () => {
 describe('physicalDeleteVariation', () => {
   beforeEach(() => {
     mockDb.from.mockReset();
+    mockDb.rpc.mockReset();
   });
 
   it('bloqueia a exclusão da última variação sem excluir o produto pai', async () => {
-    mockDb.from.mockImplementation((table: string) => {
-      if (table === 'product_variations') {
-        return queryResult({ data: [{ id: '44444444-4444-4444-8444-444444444444' }], error: null });
-      }
-      return queryResult({ data: [], error: null });
+    mockDb.rpc.mockResolvedValue({
+      data: {
+        success: false,
+        code: 'last_variation',
+        message: 'Todo produto precisa manter ao menos uma variação.',
+      },
+      error: null,
     });
 
     const result = await physicalDeleteVariation(
@@ -129,5 +134,27 @@ describe('physicalDeleteVariation', () => {
     expect(result).toMatchObject({ success: false });
     expect(result.message).toContain('ao menos uma variação');
     expect(mockDb.from).not.toHaveBeenCalledWith('products');
+  });
+
+  it('verifica ausência de vínculos e exclui produto sem referências via RPC', async () => {
+    const productId = '66666666-6666-4666-8666-666666666666';
+    mockDb.rpc
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({
+        data: { success: true, code: 'product_deleted', message: 'Produto excluído com sucesso.' },
+        error: null,
+      });
+
+    await expect(checkProductIsUnreferenced(productId)).resolves.toBe(true);
+    await expect(physicalDeleteProduct(productId)).resolves.toEqual({
+      success: true,
+      message: 'Produto excluído com sucesso.',
+    });
+    expect(mockDb.rpc).toHaveBeenNthCalledWith(1, 'product_is_unreferenced', {
+      p_product_id: productId,
+    });
+    expect(mockDb.rpc).toHaveBeenNthCalledWith(2, 'delete_unreferenced_product', {
+      p_product_id: productId,
+    });
   });
 });

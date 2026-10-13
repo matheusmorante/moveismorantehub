@@ -12,7 +12,7 @@ describe('NF-e access key validation', () => {
   it.each([
     valid.slice(0, 43),
     `${valid}0`,
-    `${valid.slice(0, 10)}A${valid.slice(11)}`,
+    `A${valid.slice(1)}`,
     `${valid.slice(0, 43)}0`,
   ])('rejects invalid key %s', (key) => {
     expect(validateNfeAccessKey(key).valid).toBe(false);
@@ -21,5 +21,9 @@ describe('NF-e access key validation', () => {
     const incomplete = '4126080221630000013855001000004020127609';
     expect(normalizeNfeAccessKey(incomplete)).toBe(incomplete);
     expect(validateNfeAccessKey(incomplete)).toMatchObject({ valid: false, reason: 'length' });
+  });
+  it('aceita letra na raiz do CNPJ quando os DVs continuam válidos', () => {
+    // ASCII(A)-48 = 17 e 17-6 = 11: os restos módulo 11 permanecem iguais.
+    expect(validateNfeAccessKey(`${valid.slice(0, 10)}A${valid.slice(11)}`).valid).toBe(true);
   });
 });

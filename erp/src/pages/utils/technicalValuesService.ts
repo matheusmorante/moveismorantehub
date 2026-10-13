@@ -67,7 +67,10 @@ export const groupCharacteristicsByTopic = <
   const otherFields: T[] = [];
 
   fields.forEach((field) => {
-    if (field.isRequired === true || isRequiredCharacteristicName(field.name)) {
+    if (
+      !isWeightCharacteristicName(field.name) &&
+      (field.isRequired === true || isPrimaryCharacteristicName(field.name))
+    ) {
       requiredCharacteristicFields.push(field);
       return;
     }
@@ -124,20 +127,31 @@ export const groupTechnicalFields = <T extends { name: string; isCustom?: boolea
 
 export type TechnicalValuesMap = Record<string, any>;
 
-export const REQUIRED_CHARACTERISTIC_NAMES = [
-  'Cor',
+export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Modelo', 'Marca'] as const;
+
+export const PRIMARY_CHARACTERISTIC_NAMES = [
+  ...REQUIRED_CHARACTERISTIC_NAMES,
   'Altura',
   'Largura',
   'Profundidade',
-  'Peso',
+  'Modelo',
+  'Marca',
 ] as const;
 
 const normalizeCharacteristicName = (name: string) => name.trim().toLocaleLowerCase('pt-BR');
+
+export const isWeightCharacteristicName = (name: string) =>
+  normalizeCharacteristicName(name) === 'peso';
 
 export const isRequiredCharacteristicName = (name: string) =>
   REQUIRED_CHARACTERISTIC_NAMES.some(
     (requiredName) =>
       normalizeCharacteristicName(requiredName) === normalizeCharacteristicName(name)
+  );
+
+export const isPrimaryCharacteristicName = (name: string) =>
+  PRIMARY_CHARACTERISTIC_NAMES.some(
+    (primaryName) => normalizeCharacteristicName(primaryName) === normalizeCharacteristicName(name)
   );
 
 export const getMissingRequiredCharacteristics = (values: TechnicalValuesMap = {}): string[] => {
@@ -336,7 +350,9 @@ export const formatValueForName = (field: TechnicalFieldDefinition, value: any):
   const rawValue = String(value).trim();
   const strVal =
     field.dataType === 'decimal' && Number.isFinite(Number(value))
-      ? Number(value).toFixed(field.decimalPlaces ?? 2).replace('.', ',')
+      ? Number(value)
+          .toFixed(field.decimalPlaces ?? 2)
+          .replace('.', ',')
       : rawValue;
   if (!strVal) return '';
 
@@ -398,6 +414,7 @@ export const getApplicableTechnicalFields = (
   const activeCategorySet = new Set(productCategoryIds);
   const manualSet = new Set(manuallyAddedFieldNames);
   const isRequiredForProduct = (field: TechnicalFieldDefinition) =>
+    !isWeightCharacteristicName(field.name) &&
     Boolean(
       field.isRequired ||
         field.requiredCategoryIds?.some((categoryId) => activeCategorySet.has(categoryId))
@@ -405,7 +422,10 @@ export const getApplicableTechnicalFields = (
 
   let applicable = allFields.filter((field) => {
     if (/^reclin[aá]vel$/i.test(field.name.trim())) return false;
-    const hasExistingValue = Object.prototype.hasOwnProperty.call(productTechnicalValues, field.name);
+    const hasExistingValue = Object.prototype.hasOwnProperty.call(
+      productTechnicalValues,
+      field.name
+    );
 
     // Campos inativos deixam de ser oferecidos em novos produtos, mas continuam visíveis
     // quando já possuem um valor no cadastro em edição para preservar o dado existente.

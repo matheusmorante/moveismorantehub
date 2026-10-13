@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
-import VariationType, { VariationOption } from '../../types/variation.type';
-import { getVariationErrorMessage, updateVariation } from '../../utils/variationService';
-import { normalizeSearchTerm } from '../../utils/textUtils';
+import type VariationType from '../../types/variation.type';
 import { groupTechnicalFields } from '../../utils/technicalValuesService';
-import { AttributeCard } from './AttributeCard';
-import { parseAttributeValueBatch } from './attributeValueBatch';
-import VariationFormModal from './VariationFormModal';
-import { useVariations } from './useVariations';
+import { normalizeSearchTerm } from '../../utils/textUtils';
+import { AttributeCard } from './components/AttributeCard';
+import { useVariations } from './hooks/useVariations';
+import { VariationFormModal } from './modals/VariationFormModal';
 
 interface VariationsProps {
   readonly focusAttributeName?: string;
@@ -15,7 +12,7 @@ interface VariationsProps {
 }
 
 const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
-  const { variations, loading, error, handleDelete, refresh } = useVariations();
+  const { variations, loading, error, refresh } = useVariations();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingAttribute, setEditingAttribute] = useState<VariationType | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -51,55 +48,9 @@ const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
     hasFocusedInitialAttribute.current = true;
   }, [focusAttributeName, loading, variations]);
 
-  const openForm = (attribute: VariationType | null) => {
+  const openForm = (attribute: VariationType) => {
     setEditingAttribute(attribute);
     setFormOpen(true);
-  };
-
-  const handleDeleteValue = async (attribute: VariationType, option: VariationOption) => {
-    if (
-      !window.confirm(
-        `Tem certeza que deseja remover o valor "${option.value}" da característica "${attribute.name}"?`
-      )
-    )
-      return;
-
-    try {
-      await updateVariation(attribute.id!, {
-        options: attribute.options.filter((candidate) => candidate.id !== option.id),
-      });
-      toast.success('Valor removido com sucesso!');
-      refresh();
-    } catch (error: unknown) {
-      const message = getVariationErrorMessage(error, 'Erro ao remover valor.');
-      toast.error(`Erro ao remover valor: ${message}`);
-    }
-  };
-
-  const handleAddValues = async (attribute: VariationType, input: string): Promise<boolean> => {
-    const newValues = parseAttributeValueBatch(
-      input,
-      attribute.options.map((option) => option.value)
-    );
-    if (newValues.length === 0) {
-      toast.info('Todos os valores informados já existem nessa característica.');
-      return false;
-    }
-
-    try {
-      await updateVariation(attribute.id!, {
-        options: [...attribute.options, ...newValues.map((value) => ({ id: '', value }))],
-      });
-      toast.success(
-        `${newValues.length} ${newValues.length === 1 ? 'valor adicionado' : 'valores adicionados'}!`
-      );
-      refresh();
-      return true;
-    } catch (error: unknown) {
-      const message = getVariationErrorMessage(error, 'Erro ao adicionar valores.');
-      toast.error(`Erro ao adicionar valores: ${message}`);
-      return false;
-    }
   };
 
   return (
@@ -125,19 +76,10 @@ const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
               <input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar campos..."
+                placeholder="Buscar características..."
                 className="w-full pl-9 pr-3 py-2 sm:py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-slate-200"
               />
             </div>
-            <button
-              type="button"
-              onClick={() => openForm(null)}
-              title="Nova característica"
-              className="px-3 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-700 text-xs font-black text-white cursor-pointer flex items-center justify-center gap-2 shrink-0"
-            >
-              <i className="bi bi-plus-lg" aria-hidden="true" />
-              <span className="whitespace-nowrap">Nova característica</span>
-            </button>
             {onClose && (
               <button
                 type="button"
@@ -169,9 +111,16 @@ const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
               </p>
             </div>
           ) : error && filteredVariations.length === 0 ? (
-            <div role="alert" className="rounded-3xl border border-red-200 bg-white p-12 text-center text-red-600 shadow-sm">
+            <div
+              role="alert"
+              className="rounded-3xl border border-red-200 bg-white p-12 text-center text-red-600 shadow-sm"
+            >
               <p className="font-bold">Não foi possível carregar as características.</p>
-              <button onClick={refresh} className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">
+              <button
+                type="button"
+                onClick={refresh}
+                className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white"
+              >
                 Tentar novamente
               </button>
             </div>
@@ -197,9 +146,6 @@ const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
                     <AttributeCard
                       key={attribute.id}
                       attribute={attribute}
-                      onAddValues={handleAddValues}
-                      onDeleteAttribute={handleDelete}
-                      onDeleteValue={handleDeleteValue}
                       onEdit={openForm}
                     />
                   ))}

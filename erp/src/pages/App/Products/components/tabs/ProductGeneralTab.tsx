@@ -352,13 +352,17 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
       {!isStockistOnly && (
         <div id="field-product-opportunity" className="md:col-span-2 w-full min-w-0">
           <div className="flex w-full flex-col gap-1.5">
-            <label className="flex w-full h-6 items-center gap-1.5 text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-slate-500">
+            <label
+              htmlFor="field-product-opportunity-select"
+              className="flex w-full h-6 items-center gap-1.5 text-[10px] uppercase font-black tracking-widest text-slate-400 dark:text-slate-500"
+            >
               <span>Oportunidade</span>
-              <span className="text-red-500" aria-label="Obrigatório">*</span>
+              {formData.productKind === 'salvado' && <span className="text-red-500">*</span>}
             </label>
             <select
+              id="field-product-opportunity-select"
               value={formData.opportunityId || ''}
-              aria-required="true"
+              aria-required={formData.productKind === 'salvado' ? 'true' : 'false'}
               aria-invalid={Boolean(validationErrors.opportunityId)}
               onChange={(event) => {
                 setFormData((prev) => ({ ...prev, opportunityId: event.target.value || null }));
@@ -371,9 +375,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
               className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-70 dark:disabled:bg-slate-800 dark:disabled:text-slate-400"
               disabled={!isService && (!formData.productKind || formData.productKind === 'salvado')}
             >
-              <option value="" disabled>
-                Selecione
-              </option>
+              <option value=""></option>
               {opportunities
                 .filter((opp) => {
                   if (formData.productKind === 'normal' || !formData.productKind) {
@@ -393,9 +395,9 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
               </span>
             )}
             {validationErrors.opportunityId &&
-              (isService || Boolean(formData.productKind)) && (
+              (isService || formData.productKind === 'salvado') && (
                 <span className="text-[10px] text-red-600 dark:text-red-400">
-                  Selecione uma oportunidade.
+                  {validationErrors.opportunityId}
                 </span>
               )}
           </div>

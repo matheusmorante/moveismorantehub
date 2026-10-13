@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -48,4 +48,19 @@ describe('ProductFormReadinessIndicators', () => {
 
     expect(screen.queryByText('Ao menos uma dimensão ativa; todas as ativas > 0')).toBeNull();
   });
+
+  it('oculta a pílula do canal ERP para produtos de origem Salvados', () => {
+    render(
+      <ProductFormReadinessIndicators
+        formData={{ productKind: 'salvado', status: 'published' }}
+        ecomStatus={ecomStatus}
+        isService={false}
+        navigateToRequirementField={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText(/ERP:/i)).toBeNull();
+    expect(screen.getByText('Catálogo: Publicado')).toBeTruthy();
+  });
 });
+

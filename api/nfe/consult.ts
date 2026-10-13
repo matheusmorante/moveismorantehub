@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers';
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
@@ -5,12 +6,13 @@ import { extractCertificateAndKey } from './nfeSigner';
 import { sendSoapToSefaz } from './sefazClient';
 import { randomUUID } from 'node:crypto';
 import { sefazTransportDiagnostic } from './sefazTransportDiagnostic';
-import { parseSefazNfeSituation } from '../../erp/src/pages/utils/nfe/nfeEventRules';
+import { reconcileLegacyConsultation } from './reconcileLegacyConsultation';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import { retryHmlTechnical, consultAuthorizedHmlTechnical, isHmlRuleSet } from './emitHmlTechnical';
 import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
 import { reconcileNormalSale } from './normal-sale/outboundAttempt';
 import { NORMAL_SALE_RULESET_VERSION } from './normal-sale/constants';
+import { consultAuthorizedDocument } from './consultAuthorizedDocument';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -47,7 +49,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (error || !doc)
       return res.status(404).json({ success: false, error: 'Documento fiscal não encontrado.' });
     if (doc.fiscal_ruleset_version === NORMAL_SALE_RULESET_VERSION) {
-      const result = await reconcileNormalSale(supabase, doc.id);
+      const result = ['autorizada', 'homologada'].includes(doc.status)
+        ? await consultAuthorizedDocument(doc)
+        : await reconcileNormalSale(supabase, doc.id);
       return res.status(result.status).json(result.body);
     }
     if (isHmlRuleSet(doc.fiscal_ruleset_version)) {
@@ -69,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const model = String(doc.modelo) as '55' | '65';
     const environment = Number(doc.ambiente) as 1 | 2;
     const accessKey = String(doc.chave_acesso || '');
-    if (!['55', '65'].includes(model) || ![1, 2].includes(environment) || !/^\d{44}$/.test(accessKey)) {
+    if (!['55', '65'].includes(model) || ![1, 2].includes(environment) || !ACCESS_KEY_PATTERN.test(accessKey)) {
       return res
         .status(409)
         .json({ success: false, error: 'Modelo, ambiente ou chave de acesso inválidos.' });
@@ -82,6 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .json({ success: false, error: 'Certificado digital do emitente não configurado.' });
     const certificate = extractCertificateAndKey(pfx, password || '');
     const queryXml = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${environment}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${accessKey}</chNFe></consSitNFe>`;
+    const consultationStartedAt = new Date().toISOString();
     const responseXml = await sendSoapToSefaz({
       url: getNfeServiceEndpoint(model, environment, 'NFeConsultaProtocolo4'),
       action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF',
@@ -90,139 +95,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       certPem: certificate.certPem,
       privateKeyPem: certificate.privateKeyPem,
     });
-    const situation = parseSefazNfeSituation(responseXml);
-    if (situation.state === 'not_found') {
-      await supabase
-        .from('nfe_documents')
-        .update({
-          status: 'erro',
-          motivo_status: situation.xMotivo || 'NF-e não consta na base de dados da SEFAZ.',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', doc.id);
-      return res.status(200).json({
-        success: false,
-        state: 'not_found',
-        cStat: situation.cStat,
-        xMotivo: situation.xMotivo,
-      });
-    }
-    if (situation.state === 'unknown') {
-      return res.status(502).json({
-        success: false,
-        pending: true,
-        cStat: situation.cStat,
-        xMotivo: situation.xMotivo || 'A consulta não confirmou a situação atual.',
-      });
-    }
-    if (situation.state === 'cancelled') {
-      const cancellation = situation.cancellationEventXml || '';
-      const readTag = (xml: string, tag: string) =>
-        xml
-          .match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'i'))?.[1]
-          ?.replace(/<[^>]+>/g, '')
-          .trim() || null;
-      const protocolNumber = readTag(cancellation, 'nProt');
-      const protocolDate = readTag(cancellation, 'dhRegEvento');
-      const { data: event } = await supabase
-        .from('nfe_document_events')
-        .select('id')
-        .eq('document_id', doc.id)
-        .eq('event_type', '110111')
-        .order('requested_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (event?.id)
-        await supabase
-          .from('nfe_document_events')
-          .update({
-            status: 'registered',
-            response_xml: responseXml,
-            cstat: '135',
-            xmotivo: situation.xMotivo,
-            protocol_number: protocolNumber,
-            protocol_date: protocolDate,
-            confirmed_at: new Date().toISOString(),
-          })
-          .eq('id', event.id);
-      const { error: updateError } = await supabase
-        .from('nfe_documents')
-        .update({
-          status: 'cancelada',
-          motivo_status: situation.xMotivo || 'Cancelamento confirmado em consulta à SEFAZ.',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', doc.id)
-        .in('status', ['autorizada', 'homologada', 'pendente', 'processando']);
-      return res.status(200).json({
-        success: true,
-        state: 'cancelled',
-        cStat: situation.cStat,
-        xMotivo: situation.xMotivo,
-        protocolNumber,
-        reconciliationRequired: Boolean(updateError),
-      });
-    }
-    let cancellationAttemptState: 'not_registered' | 'registered' | 'unknown' | undefined;
-    let cancellationEventSyncError = false;
-    const { data: latestCancellationEvent, error: cancellationEventError } = await supabase
-      .from('nfe_document_events')
-      .select('id,status')
-      .eq('document_id', doc.id)
-      .eq('event_type', '110111')
-      .order('attempt_number', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (cancellationEventError) cancellationEventSyncError = true;
-    else if (latestCancellationEvent?.status === 'registered') {
-      cancellationAttemptState = 'registered';
-      cancellationEventSyncError = true;
-    } else if (
-      latestCancellationEvent &&
-      ['transmitting', 'unknown'].includes(String(latestCancellationEvent.status))
-    ) {
-      const { data: reconciledEvent, error: updateEventError } = await supabase
-        .from('nfe_document_events')
-        .update({
-          status: 'rejected',
-          response_xml: responseXml,
-          xmotivo: 'Consulta confirmou NF-e autorizada, sem registro do evento de cancelamento.',
-          confirmed_at: new Date().toISOString(),
-        })
-        .eq('id', latestCancellationEvent.id)
-        .in('status', ['transmitting', 'unknown'])
-        .select('id')
-        .maybeSingle();
-      cancellationEventSyncError = Boolean(updateEventError || !reconciledEvent?.id);
-      cancellationAttemptState = cancellationEventSyncError ? 'unknown' : 'not_registered';
-    } else if (latestCancellationEvent?.status === 'rejected') {
-      cancellationAttemptState = 'not_registered';
-    }
-    const protocolBlock =
-      responseXml.match(/<infProt\b[^>]*>[\s\S]*?<\/infProt>/i)?.[0] || responseXml;
-    const protocolNumber = protocolBlock.match(/<nProt>([^<]+)<\/nProt>/i)?.[1]?.trim() || null;
-    const protocolDate = protocolBlock.match(/<dhRecbto>([^<]+)<\/dhRecbto>/i)?.[1]?.trim() || null;
-    const { error: documentSyncError } = await supabase
-      .from('nfe_documents')
-      .update({
-        status: environment === 2 ? 'homologada' : 'autorizada',
-        motivo_status: situation.xMotivo || 'Autorização confirmada em consulta à SEFAZ.',
-        numero_protocolo: protocolNumber || doc.numero_protocolo,
-        xml_protocolo: responseXml,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', doc.id)
-      .in('status', ['pendente', 'processando', 'erro']);
-    return res.status(200).json({
-      success: !cancellationEventSyncError,
-      state: 'authorized',
-      cStat: situation.cStat,
-      xMotivo: situation.xMotivo,
-      protocolNumber,
-      protocolDate,
-      cancellationAttemptState,
-      reconciliationRequired: Boolean(documentSyncError || cancellationEventSyncError),
-    });
+    const result = await reconcileLegacyConsultation(supabase, doc, responseXml, consultationStartedAt);
+    return res.status(result.status).json(result.body);
   } catch (err: any) {
     const diagnosticId = randomUUID();
     const transportDiagnostic = sefazTransportDiagnostic(err);

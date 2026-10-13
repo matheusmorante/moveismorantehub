@@ -367,11 +367,6 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                 *
                               </span>
                             )}
-                            {isManual && (
-                              <span className="text-[8px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-1 py-0.2 rounded border border-blue-200/50">
-                                Manual
-                              </span>
-                            )}
                           </label>
                           <div className="flex items-center gap-1.5">
                             {isColorField && (
@@ -399,7 +394,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                               </button>
                             )}
                             {/* Campos opcionais começam desligados; valor vazio explícito significa que se aplica. */}
-                            {!field.isRequired && (
+                            {!field.isRequired && !isManual && (
                               <button
                                 type="button"
                                 role="switch"

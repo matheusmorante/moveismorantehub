@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers';
 import { createHash, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateNfeAccessKey } from '../../erp/src/pages/utils/nfe/nfeAccessKey';
@@ -231,7 +232,7 @@ const hasProtocolKey = (xml: string, key: string) => {
   const protocol =
     xml.match(/<(?:[\w.-]+:)?protNFe\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?protNFe>/i)?.[1] || '';
   return (
-    /^\d{44}$/.test(key) &&
+    ACCESS_KEY_PATTERN.test(key) &&
     new RegExp(`<(?:[\\w.-]+:)?chNFe>\\s*${key}\\s*<\\/(?:[\\w.-]+:)?chNFe>`, 'i').test(protocol)
   );
 };
@@ -451,7 +452,7 @@ export async function consultAuthorizedHmlTechnical(
     !['55', '65'].includes(doc.modelo) ||
     doc.status !== 'homologada' ||
     !isHmlRuleSet(doc.fiscal_ruleset_version) ||
-    !/^\d{44}$/.test(doc.chave_acesso) ||
+    !ACCESS_KEY_PATTERN.test(doc.chave_acesso) ||
     !doc.numero_protocolo
   )
     return failure(

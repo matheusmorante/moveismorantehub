@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers';
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
@@ -63,7 +64,7 @@ export function evaluateDocumentEligibility(
     );
   if (!document.numero_protocolo)
     return blocked('A nota não tem protocolo original para referenciar o evento.', 'none');
-  if (!/^\d{44}$/.test(String(document.chave_acesso || '')))
+  if (!ACCESS_KEY_PATTERN.test(String(document.chave_acesso || '')))
     return blocked('A nota não tem uma chave de acesso válida para o evento fiscal.', 'none');
   if (String(document.chave_acesso).slice(20, 22) !== String(document.modelo))
     return blocked('O modelo gravado diverge do modelo informado na chave de acesso.', 'none');

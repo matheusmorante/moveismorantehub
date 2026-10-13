@@ -177,7 +177,7 @@ const OrderHistoryCard = ({
         : colorKey === 'green'
           ? 'bg-emerald-200/90 dark:bg-emerald-950/80 border-b border-emerald-300 dark:border-emerald-800'
           : colorKey === 'purple'
-            ? 'bg-purple-50/80 dark:bg-purple-900/20 border-b border-purple-100 dark:border-purple-900/30'
+            ? 'bg-purple-400 dark:bg-purple-800/80 border-b border-purple-500 dark:border-purple-700'
             : colorKey === 'orange'
               ? 'bg-orange-50/80 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/30'
               : 'bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-700';

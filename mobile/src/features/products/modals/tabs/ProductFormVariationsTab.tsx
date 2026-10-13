@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -83,11 +84,14 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
       syncPromoPrice: true,
       syncCostPrice: true,
       syncFiscal: true,
+      syncCondition: true,
       syncDescription: true,
       syncWidth: true,
       syncHeight: true,
       syncDepth: true,
       syncWeight: true,
+      syncIpi: true,
+      syncFreight: true,
       attributes: [],
       technicalValues: {},
       images: [],

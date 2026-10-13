@@ -1,9 +1,11 @@
 # Documentação fiscal: índice e vigência
 
-**Reconciliado com o checkout e publicações oficiais em 12/10/2026.** Use este índice para diferenciar as regras/documentos vigentes dos snapshots históricos. Relatórios datados continuam disponíveis para preservar evidências, mas não substituem o estado atual do código.
+**Reconciliado com o checkout em 13/10/2026.** A consulta oficial foi restrita às regras e fontes registradas em cada revisão. Use este índice para diferenciar as regras/documentos vigentes dos snapshots históricos. Relatórios datados continuam disponíveis para preservar evidências, mas não substituem o estado atual do código.
 
 ## Referências atuais
 
+- **Política de correção:** o ERP não utiliza CC-e. Correções seguem cancelamento ou estorno direto pela política central, conforme prazo e elegibilidade fiscal. Após circulação, aplica-se devolução vinculada. CC-e antiga é preservada apenas como histórico/reconciliação, sem nova transmissão e sem pendência de implementação para habilitá-la.
+- [Revisão dos fluxos de saída — 13/10](revisao-fluxos-saida-2026-10-13.md): correções de consulta, cancelamento, devolução e modal; evidências locais e pendências concretas.
 - [Status dos testes fiscais](status-testes-homologacao.md): implementação, testes, evidência HML, bloqueios e pendências por fluxo.
 - [Roadmap de emissão](roadmap-configuracao-emissao-producao.md): arquitetura atual e prontidão para Produção.
 - [Invariantes arquiteturais](invariantes-arquiteturais.md): critérios permanentes de revisão do emissor.
@@ -14,9 +16,9 @@
 - [`api/nfe/schemas/README.md`](../../api/nfe/schemas/README.md): origem, pacote e hash dos XSDs fixados no código.
 - [E2E fiscal pela interface](../testing/fiscal-interface-e2e.md): política de segurança, estado do runner e critério para testes de interface.
 
-## Etapa atual da implantação — 12/10/2026
+## Etapa atual da implantação — 13/10/2026
 
-Neste checkout, a variável global `NFE_PRODUCTION_ENABLED` foi removida do runtime: o backend permite os fluxos de Produção sem depender dela, mantendo confirmação da operação, autorização do operador, configuração fiscal e validações do cenário. Essa alteração local ainda não foi publicada e não comprova prontidão ponta a ponta. A tentativa Production mais recente registrada falhou com `git_info_fail`; as intermediárias foram canceladas e o domínio principal continua no deployment anterior. Não houve transmissão em Produção. Consulte o [status detalhado](status-testes-homologacao.md) para os limites da evidência HML e o [roadmap](roadmap-configuracao-emissao-producao.md) para a arquitetura fiscal.
+Produção está disponível por padrão no caminho de emissão; cada operação conserva confirmação explícita, autorização do operador, configuração fiscal e validações próprias do cenário. Isso não comprova prontidão ponta a ponta nem autorização para transmitir. Não há emissão real de Produção comprovada nesta revisão. Consulte o [status detalhado](status-testes-homologacao.md) para evidências atuais e limitações e o [roadmap](roadmap-configuracao-emissao-producao.md) para a arquitetura fiscal.
 
 
 ## Publicações que ainda precisam de análise de aplicabilidade

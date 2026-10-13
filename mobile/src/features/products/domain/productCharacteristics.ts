@@ -1,5 +1,4 @@
-/** Características sem opção de desligar, conforme a regra canônica do ERP. */
-export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor'] as const;
+export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Modelo', 'Marca'] as const;
 
 export interface ProductCharacteristicAttribute {
   name: string;
@@ -13,6 +12,7 @@ export interface ProductTechnicalField {
   isRequired?: boolean;
   is_globally_required?: boolean;
   requiredForCategory?: boolean;
+  requiredCategoryIds?: readonly string[];
   isCustom?: boolean;
   is_custom?: boolean;
   categoryIds?: readonly string[];
@@ -136,6 +136,17 @@ export const isRequiredCharacteristicName = (name: string) =>
     (requiredName) => normalizeName(requiredName) === normalizeName(name)
   );
 
+export const isWeightCharacteristicName = (name: string) => normalizeName(name) === 'peso';
+
+export const isProductTechnicalFieldRequired = (
+  field: ProductTechnicalField,
+  categoryIds: readonly string[] = []
+) =>
+  !isWeightCharacteristicName(field.name) &&
+  (field.isRequired === true ||
+    isRequiredCharacteristicName(field.name) ||
+    field.requiredCategoryIds?.some((id) => categoryIds.map(String).includes(String(id))));
+
 /** Valores do produto pai: atributos legados e, depois, technicalValues como fonte prioritária. */
 export const getEffectiveProductTechnicalValues = (product: any = {}) => {
   const legacyValues = Object.fromEntries(
@@ -243,7 +254,7 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
     const hasExistingValue = hasTechnicalValue(values, field.name);
     if (field.active === false)
       return hasExistingValue || manualNames.has(normalizeName(field.name));
-    if (field.isRequired ?? isRequiredCharacteristicName(field.name)) return true;
+    if (isProductTechnicalFieldRequired(field, categoryIds)) return true;
     if (hasExistingValue) return true;
     if (manualNames.has(normalizeName(field.name))) return true;
     return Boolean(field.categoryIds?.some((id) => activeCategories.has(String(id))));
@@ -284,7 +295,10 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
     });
   }
 
-  return applicable;
+  return applicable.map((field) => ({
+    ...field,
+    isRequired: isProductTechnicalFieldRequired(field, categoryIds),
+  }));
 };
 
 /** Agrupa os campos como no ERP e mantém a ordem das dimensões. */

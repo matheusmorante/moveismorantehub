@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers';
 import { calculateMod11CheckDigit } from '../../erp/src/pages/utils/nfe/nfeAccessKey';
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -130,7 +131,7 @@ export function validateAuthorizedOutboundNfe(
     ![1, 2].includes(Number(source.ambiente)) ||
     (expectedEnvironment !== undefined && Number(source.ambiente) !== expectedEnvironment) ||
     source.status !== (Number(source.ambiente) === 1 ? 'autorizada' : 'homologada') ||
-    !/^\d{44}$/.test(source.chave_acesso || '') ||
+    !ACCESS_KEY_PATTERN.test(source.chave_acesso || '') ||
     source.chave_acesso.slice(20, 22) !== String(source.modelo) ||
     source.chave_acesso.slice(22, 25) !== String(Number(source.serie)).padStart(3, '0') ||
     source.chave_acesso.slice(25, 34) !== String(Number(source.numero_nfe)).padStart(9, '0') ||
@@ -262,7 +263,7 @@ export async function loadReturnFiscalSourceContext(
     ? (settingsData.fiscalDefaults as Record<string, unknown>)
     : settingsData;
   const companyUf = String(fiscalDefaults.companyUF || '');
-  const companyCnpj = String(fiscalDefaults.companyCnpj || '').replace(/\D/g, '');
+  const companyCnpj = normalizeFiscalIdentifier(String(fiscalDefaults.companyCnpj || ''));
   const taxRegime = String(fiscalDefaults.companyCRT || '');
   if (companyCnpj.length !== 14) {
     return { error: 'CNPJ do estabelecimento ausente na configuração fiscal do servidor.' };

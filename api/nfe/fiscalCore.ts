@@ -96,9 +96,9 @@ export function validateFiscalDocument(
     document.snapshotHash !== fiscalSnapshotHash(snapshot) ||
     document.ruleSetVersion !== ruleSet.version ||
     document.environment !== snapshot.emissionRequest.environment ||
-    document.issuer.cnpj.replace(/\D/g, '') !== ruleSet.issuerCnpj.replace(/\D/g, '') ||
-    document.issuer.cnpj.replace(/\D/g, '') !==
-      String(snapshot.issuerProfile.companyCnpj || '').replace(/\D/g, '')
+    normalizeRecipientTaxId(document.issuer.cnpj) !== normalizeRecipientTaxId(ruleSet.issuerCnpj) ||
+    normalizeRecipientTaxId(document.issuer.cnpj) !==
+      normalizeRecipientTaxId(String(snapshot.issuerProfile.companyCnpj || ''))
   ) {
     throw new Error(
       'Documento fiscal não corresponde ao snapshot, ambiente, emitente ou regra aprovada.'
@@ -314,7 +314,7 @@ export function determineWithApprovedRules(
   if (
     !ruleSet.version ||
     !ruleSet.approvedBy ||
-    !/^\d{14}$/.test(ruleSet.issuerCnpj.replace(/\D/g, '')) ||
+    !/^[A-Z0-9]{12}[0-9]{2}$/.test(normalizeRecipientTaxId(ruleSet.issuerCnpj)) ||
     !Number.isFinite(Date.parse(ruleSet.approvedAt)) ||
     !Number.isFinite(Date.parse(ruleSet.effectiveFrom)) ||
     (ruleSet.effectiveUntil !== undefined &&

@@ -44,8 +44,8 @@ Para executar somente a API, use `node scripts/run-vercel-env-dev.cjs api`.
 
 ## Segurança fiscal
 
-- `NFE_ENVIRONMENT` e `NFE_PRODUCTION_ENABLED` não são configurações de runtime: não os exija, copie, defina ou consulte em variáveis de ambiente. A interface fiscal seleciona o ambiente do documento; o padrão do ERP é Homologação (`tpAmb=2`). Todos os testes fiscais que abrem a interface devem selecionar Homologação e conferir o XML/retorno com `tpAmb=2`.
-- O caminho de Produção no backend fica habilitado sem uma flag global. Cada operação de Produção ainda exige as confirmações explícitas do fluxo, operador autorizado, certificado e configuração fiscal válidos, integridade dos vínculos, idempotência e validação SEFAZ. A habilitação do caminho não comprova prontidão fiscal nem autoriza uma transmissão; qualquer transmissão de teste continua exclusiva da interface e em Homologação.
+- A interface fiscal seleciona explicitamente o ambiente de cada documento; o padrão do ERP é Homologação (`tpAmb=2`). Todos os testes fiscais que abrem a interface devem selecionar Homologação e conferir o XML/retorno com `tpAmb=2`.
+- Produção está disponível por padrão. Cada operação ainda exige a confirmação explícita no fluxo, operador autorizado, certificado e configuração fiscal válidos, integridade dos vínculos, idempotência e validação SEFAZ. A disponibilidade do caminho não comprova prontidão fiscal nem autoriza uma transmissão; qualquer transmissão de teste continua exclusiva da interface e em Homologação.
 - Não amplie por padrão para Development ou Preview certificados, senhas, CSC/CSRT ou outros secrets fiscais. Uma instrução explícita do usuário pode autorizar ampliar os escopos de CSC/CSRT fiscais já existentes; preserve valores e tipos e limite alterações às chaves nomeadas.
 - A sincronização local não emite documentos nem altera configuração remota. Persistência/emissão fiscal e dados seguem os gates da skill `testes-seguros-erp` e das skills fiscais.
 

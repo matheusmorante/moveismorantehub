@@ -401,15 +401,16 @@ const fetchSharedOrders = async () => {
 };
 
 const scheduleSharedOrdersRefresh = () => {
-  if (ordersSubscribers.size === 0 || sharedOrdersRefreshTimer) return;
+  if ((ordersSubscribers.size === 0 && orderChangeSubscribers.size === 0) || sharedOrdersRefreshTimer)
+    return;
   sharedOrdersRefreshTimer = setTimeout(() => {
     sharedOrdersRefreshTimer = null;
-    void fetchSharedOrders();
+    orderChangeSubscribers.forEach((callback) => callback());
+    if (ordersSubscribers.size > 0) void fetchSharedOrders();
   }, 3000);
 };
 
 const notifyOrderChange = () => {
-  orderChangeSubscribers.forEach((callback) => callback());
   scheduleSharedOrdersRefresh();
 };
 

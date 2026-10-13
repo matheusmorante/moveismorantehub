@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers';
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
@@ -280,7 +281,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         xmlModel !== String(model) ||
         !orderId ||
         !nfeNumber ||
-        !/^\d{44}$/.test(String(accessKey)) ||
+        !ACCESS_KEY_PATTERN.test(String(accessKey)) ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
           String(fiscalSnapshotId || '')
         ) ||

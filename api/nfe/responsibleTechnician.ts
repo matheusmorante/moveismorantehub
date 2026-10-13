@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers';
 import { createHash } from 'node:crypto';
 
 export interface ResponsibleTechnicianConfig {
@@ -13,10 +14,7 @@ function readResponsibleTechnicianConfig(
   env: Record<string, string | undefined> = process.env,
   environment: 1 | 2 = 2
 ): ResponsibleTechnicianConfig {
-  const cnpj = String(env.NFE_RESP_TECH_CNPJ || env.NFE_RESPONSIBLE_TECH_CNPJ || '').replace(
-    /\D/g,
-    ''
-  );
+  const cnpj = normalizeFiscalIdentifier(env.NFE_RESP_TECH_CNPJ || env.NFE_RESPONSIBLE_TECH_CNPJ);
   const contact = String(
     env.NFE_RESP_TECH_CONTACT || env.NFE_RESPONSIBLE_TECH_CONTACT || ''
   ).trim();
@@ -41,7 +39,7 @@ function readResponsibleTechnicianConfig(
 
 function invalidConfigurationFields(config: ResponsibleTechnicianConfig): string[] {
   const validations: [string, boolean][] = [
-    ['responsibleTechnician.cnpj', /^\d{14}$/.test(config.cnpj)],
+    ['responsibleTechnician.cnpj', /^[A-Z0-9]{12}[0-9]{2}$/.test(config.cnpj)],
     ['responsibleTechnician.contact', config.contact.length >= 2 && config.contact.length <= 60],
     ['responsibleTechnician.email', config.email.length >= 6 && config.email.length <= 60],
     ['responsibleTechnician.phone', /^\d{6,14}$/.test(config.phone)],
@@ -85,7 +83,7 @@ export function appendResponsibleTechnician(
   accessKey: string,
   config: ResponsibleTechnicianConfig
 ): string {
-  if (!/^\d{44}$/.test(accessKey)) throw new Error('Chave de acesso inválida para CSRT.');
+  if (!ACCESS_KEY_PATTERN.test(accessKey)) throw new Error('Chave de acesso inválida para CSRT.');
   if (/<infRespTec(?:\s|>)/.test(xml))
     throw new Error('O XML já contém infRespTec; o grupo deve ser gerado pelo servidor.');
 

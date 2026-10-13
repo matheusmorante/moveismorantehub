@@ -1,8 +1,8 @@
 import { toast } from 'react-toastify';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import {
   deactivateProduct,
   deleteProduct,
+  physicalDeleteProduct,
   bulkMoveToTrash,
   bulkRestoreProducts,
 } from '@/pages/utils/productService';
@@ -18,14 +18,20 @@ export const discardProductDraft = async (id: string, refresh: () => void): Prom
 
   const toastId = toast.loading('Descartando rascunho...');
   try {
-    await supabase.from('product_variations').delete().eq('product_id', id);
-    const { error } = await supabase.from('products').delete().eq('id', id);
-    if (error) {
-      await supabase.from('products').update({ deleted: true, active: false }).eq('id', id);
+    const result = await physicalDeleteProduct(id);
+    if (!result.success) {
+      toast.update(toastId, {
+        render: result.message || 'Não foi possível descartar o rascunho.',
+        type: 'error',
+        isLoading: false,
+        autoClose: 5000,
+      });
+      return;
     }
+
     refresh();
     toast.update(toastId, {
-      render: 'Rascunho descartado com sucesso!',
+      render: result.message || 'Rascunho descartado com sucesso!',
       type: 'success',
       isLoading: false,
       autoClose: 3000,
@@ -60,17 +66,20 @@ export const deactivateSingleProduct = async (id: string): Promise<void> => {
   }
 };
 
-/**
- * Exclui permanentemente um produto do sistema
- */
+/** Exclui permanentemente um produto após confirmar a ausência de referências no banco. */
 export const deleteProductPermanently = async (id: string, refresh: () => void): Promise<void> => {
-  const toastId = toast.loading('Verificando e excluindo produto...');
+  const confirmed = window.confirm(
+    'Excluir este produto permanentemente?\n\nA exclusão só será permitida se não houver vínculos, estoque ou histórico. Esta ação não poderá ser desfeita.'
+  );
+  if (!confirmed) return;
+
+  const toastId = toast.loading('Verificando vínculos e excluindo produto...');
   try {
-    const result = await deleteProduct(id, { deferQueryInvalidation: true });
-    refresh();
+    const result = await physicalDeleteProduct(id);
     if (result.success) {
+      refresh();
       toast.update(toastId, {
-        render: 'Produto excluído com sucesso!',
+        render: result.message || 'Produto excluído com sucesso.',
         type: 'success',
         isLoading: false,
         autoClose: 3000,

@@ -9,23 +9,53 @@ import {
   groupProductTechnicalFields,
   hasTechnicalValue,
   isExcludedProductTechnicalField,
+  isProductTechnicalFieldRequired,
   isRequiredCharacteristicName,
+  isWeightCharacteristicName,
   upsertProductCharacteristicAttribute,
 } from './productCharacteristics';
 
 describe('productCharacteristics', () => {
-  it('exige Cor como característica obrigatória, como no ERP', () => {
+  it('exige Cor, Modelo e Marca como características obrigatórias, como no ERP', () => {
     expect(isRequiredCharacteristicName('cor')).toBe(true);
+    expect(isRequiredCharacteristicName('modelo')).toBe(true);
+    expect(isRequiredCharacteristicName('marca')).toBe(true);
     expect(isRequiredCharacteristicName('Material da Estrutura')).toBe(false);
-    expect(getMissingRequiredCharacteristics({ Cor: 'Azul' })).toEqual([]);
+    expect(
+      getMissingRequiredCharacteristics({ Cor: 'Azul', Modelo: 'Capri', Marca: 'Morante' })
+    ).toEqual([]);
+    expect(getMissingRequiredCharacteristics({ Cor: 'Azul' })).toEqual(['Modelo', 'Marca']);
+  });
+
+  it('mantém Peso opcional mesmo quando uma categoria ainda o marca como obrigatório', () => {
+    const weightField = {
+      name: 'Peso',
+      isRequired: true,
+      requiredCategoryIds: ['cat-chair'],
+      categoryIds: ['cat-chair'],
+    };
+
+    expect(isWeightCharacteristicName(' peso ')).toBe(true);
+    expect(isProductTechnicalFieldRequired(weightField, ['cat-chair'])).toBe(false);
+    expect(
+      getApplicableProductTechnicalFields([weightField], ['cat-chair']).map((field) => ({
+        name: field.name,
+        isRequired: field.isRequired,
+      }))
+    ).toEqual([{ name: 'Peso', isRequired: false }]);
   });
 
   it('considera variação própria e herança do produto pai com precedência da variação', () => {
     const effectiveValues = getEffectiveVariationTechnicalValues(
-      { Cor: 'Azul', 'Material da estrutura': 'Madeira' },
+      { Cor: 'Azul', 'Material da estrutura': 'Madeira', Modelo: 'Capri', Marca: 'Morante' },
       { technicalValues: { Cor: 'Verde' } }
     );
-    expect(effectiveValues).toEqual({ cor: 'Verde', 'material da estrutura': 'Madeira' });
+    expect(effectiveValues).toEqual({
+      cor: 'Verde',
+      'material da estrutura': 'Madeira',
+      modelo: 'Capri',
+      marca: 'Morante',
+    });
     expect(getMissingRequiredCharacteristics(effectiveValues)).toEqual([]);
   });
 
@@ -35,6 +65,8 @@ describe('productCharacteristics', () => {
       {
         attributes: [
           { name: 'Cor', value: 'Azul' },
+          { name: 'Modelo', value: 'Capri' },
+          { name: 'Marca', value: 'Morante' },
           { name: 'Material da estrutura', value: 'N/A' },
         ],
       }

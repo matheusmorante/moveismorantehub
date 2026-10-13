@@ -52,6 +52,7 @@ import {
   type MobileVariationRegistrationIssue,
 } from '../domain/productRegistrationRules';
 import { prepareMobileProductSaveState } from '../domain/productSaveState';
+import { syncMobileVariationsWithParent } from '../domain/productVariationParentSync';
 import { ProductFormBasicTab } from '../modals/tabs/ProductFormBasicTab';
 import { ProductFormDescriptionTab } from '../modals/tabs/ProductFormDescriptionTab';
 import { ProductFormFiscalTab } from '../modals/tabs/ProductFormFiscalTab';
@@ -252,7 +253,11 @@ export const ProductFormScreen: React.FC<Props> = ({
   const setFormData = useCallback((fn: any) => {
     dirtyRef.current = true;
     saveOperationIdRef.current = null;
-    setFormDataRaw((prev: any) => (typeof fn === 'function' ? fn(prev) : { ...prev, ...fn }));
+    setFormDataRaw((prev: any) => {
+      const next = typeof fn === 'function' ? fn(prev) : { ...prev, ...fn };
+      const variations = syncMobileVariationsWithParent(next.variations, next, prev);
+      return variations === next.variations ? next : { ...next, variations };
+    });
   }, []);
 
   const handleRequestClose = useCallback(() => {
@@ -364,37 +369,52 @@ export const ProductFormScreen: React.FC<Props> = ({
         depth: product.depth ?? '',
         weight: product.weight ?? '',
         images: Array.isArray(product.images) ? product.images : [],
-        variations: rawVariations.map((variation: any) => ({
-          ...variation,
-          differentiateTitle: Boolean(
-            variation.differentiateTitle ||
-              (variation.title && variation.title !== variation.name) ||
-              (variation.marketplaceTitle && variation.marketplaceTitle !== variation.name)
-          ),
-          attributes: (() => {
-            const normalizedAttributes = getProductCharacteristicAttributes(variation.attributes);
-            return normalizedAttributes.length ? normalizedAttributes : variation.attributes || {};
-          })(),
-          price: variation.price ?? variation.unit_price ?? '',
-          costPrice: variation.costPrice ?? variation.cost_price ?? '',
-          promoPrice: variation.promoPrice ?? variation.promo_price ?? '',
-          syncUnitPrice: variation.syncUnitPrice ?? variation.use_parent_price !== false,
-          syncPromoPrice: variation.syncPromoPrice ?? variation.use_parent_promo_price !== false,
-          syncDescription: variation.syncDescription ?? variation.use_parent_description !== false,
-          syncWidth: variation.syncWidth ?? variation.use_parent_dimensions !== false,
-          syncHeight: variation.syncHeight ?? variation.use_parent_dimensions !== false,
-          syncDepth: variation.syncDepth ?? variation.use_parent_dimensions !== false,
-          comboItems:
-            typeof variation.combo_items === 'string'
-              ? (() => {
-                  try {
-                    return JSON.parse(variation.combo_items);
-                  } catch {
-                    return [];
-                  }
-                })()
-              : variation.combo_items || variation.comboItems || [],
-        })),
+        variations: syncMobileVariationsWithParent(
+          rawVariations.map((variation: any) => ({
+            ...variation,
+            syncName: variation.syncName ?? variation.use_parent_name !== false,
+            differentiateTitle: Boolean(
+              variation.differentiateTitle ||
+                (variation.title && variation.title !== variation.name) ||
+                (variation.marketplaceTitle && variation.marketplaceTitle !== variation.name)
+            ),
+            attributes: (() => {
+              const normalizedAttributes = getProductCharacteristicAttributes(variation.attributes);
+              return normalizedAttributes.length
+                ? normalizedAttributes
+                : variation.attributes || {};
+            })(),
+            price: variation.price ?? variation.unit_price ?? '',
+            costPrice: variation.costPrice ?? variation.cost_price ?? '',
+            promoPrice: variation.promoPrice ?? variation.promo_price ?? '',
+            syncUnitPrice: variation.syncUnitPrice ?? variation.use_parent_price !== false,
+            syncPromoPrice: variation.syncPromoPrice ?? variation.use_parent_promo_price !== false,
+            syncCostPrice:
+              variation.syncCostPrice ?? variation.use_parent_cost_price !== false,
+            syncDescription:
+              variation.syncDescription ?? variation.use_parent_description !== false,
+            syncCondition: variation.syncCondition ?? variation.use_parent_condition !== false,
+            syncFiscal: variation.syncFiscal ?? variation.use_parent_fiscal !== false,
+            syncIpi: variation.syncIpi ?? variation.use_parent_ipi !== false,
+            syncFreight: variation.syncFreight ?? variation.use_parent_freight !== false,
+            syncWidth: variation.syncWidth ?? variation.use_parent_dimensions !== false,
+            syncHeight: variation.syncHeight ?? variation.use_parent_dimensions !== false,
+            syncDepth: variation.syncDepth ?? variation.use_parent_dimensions !== false,
+            syncWeight: variation.syncWeight ?? variation.use_parent_dimensions !== false,
+            comboItems:
+              typeof variation.combo_items === 'string'
+                ? (() => {
+                    try {
+                      return JSON.parse(variation.combo_items);
+                    } catch {
+                      return [];
+                    }
+                  })()
+                : variation.combo_items || variation.comboItems || [],
+          })),
+          product,
+          product
+        ),
         comboItems: comboItems.length
           ? comboItems
           : product.allVariations && product.allVariations.length > 0
@@ -423,7 +443,12 @@ export const ProductFormScreen: React.FC<Props> = ({
         fiscal: product.fiscal || {},
       });
     } else {
-      setFormDataRaw({ ...INITIAL_FORM, ...(initialData || {}) });
+      const initialFormData = { ...INITIAL_FORM, ...(initialData || {}) };
+      initialFormData.variations = syncMobileVariationsWithParent(
+        initialFormData.variations,
+        initialFormData
+      );
+      setFormDataRaw(initialFormData);
       void (async () => {
         try {
           const defaults = await fetchMobileProductFiscalDefaults();
@@ -453,7 +478,7 @@ export const ProductFormScreen: React.FC<Props> = ({
           setFormDataRaw((prev: any) => {
             const productCode = String(prev.code || nextCode);
             clientProductCodeRef.current = productCode;
-            return {
+            const nextFormData = {
               ...prev,
               code: productCode,
               ...(prev.itemType === 'composition'
@@ -475,15 +500,29 @@ export const ProductFormScreen: React.FC<Props> = ({
                               images: [],
                               syncUnitPrice: true,
                               syncPromoPrice: true,
+                              syncCostPrice: true,
+                              syncFiscal: true,
+                              syncCondition: true,
                               syncDescription: true,
+                              syncIpi: true,
+                              syncFreight: true,
                               syncWidth: true,
                               syncHeight: true,
                               syncDepth: true,
+                              syncWeight: true,
                               active: false,
                               status: 'hidden',
                             },
                           ],
                   }),
+            };
+            return {
+              ...nextFormData,
+              variations: syncMobileVariationsWithParent(
+                nextFormData.variations,
+                nextFormData,
+                prev
+              ),
             };
           });
         })

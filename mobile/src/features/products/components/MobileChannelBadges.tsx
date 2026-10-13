@@ -67,36 +67,42 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   return (
     <View style={styles.channelsGroup}>
       {/* Botão ERP */}
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={canToggleActive ? handleToggleERP : undefined}
-        disabled={!canToggleActive || ((isParent || disabled) && !isSalvado)}
-        style={[
-          styles.bipartiteBtn,
-          erpActive ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
-          dark && styles.darkBipartiteBorder,
-        ]}
-      >
-        <View style={[styles.bipartiteTag, styles.erpTag, dark && styles.darkErpTag]}>
-          <Text style={[styles.bipartiteTagText, styles.erpTagText, dark && styles.darkErpTagText]}>
-            ERP
-          </Text>
-        </View>
-        <View
+      {!isSalvado && (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={canToggleActive ? handleToggleERP : undefined}
+          disabled={!canToggleActive || isParent || disabled}
           style={[
-            styles.bipartiteStatus,
-            erpActive ? styles.statusActiveBg : styles.statusInactiveBg,
-            dark && (erpActive ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg),
+            styles.bipartiteBtn,
+            erpActive ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
+            dark && styles.darkBipartiteBorder,
           ]}
         >
+          <View style={[styles.bipartiteTag, styles.erpTag, dark && styles.darkErpTag]}>
+            <Text
+              style={[styles.bipartiteTagText, styles.erpTagText, dark && styles.darkErpTagText]}
+            >
+              ERP
+            </Text>
+          </View>
           <View
-            style={[styles.statusDot, { backgroundColor: erpActive ? '#10b981' : '#94a3b8' }]}
-          />
-          <Text style={[styles.bipartiteStatusText, { color: erpActive ? '#047857' : '#64748b' }]}>
-            {erpActive ? 'Ativo' : 'Desativado'}
-          </Text>
-        </View>
-      </TouchableOpacity>
+            style={[
+              styles.bipartiteStatus,
+              erpActive ? styles.statusActiveBg : styles.statusInactiveBg,
+              dark && (erpActive ? styles.darkStatusActiveBg : styles.darkStatusInactiveBg),
+            ]}
+          >
+            <View
+              style={[styles.statusDot, { backgroundColor: erpActive ? '#10b981' : '#94a3b8' }]}
+            />
+            <Text
+              style={[styles.bipartiteStatusText, { color: erpActive ? '#047857' : '#64748b' }]}
+            >
+              {erpActive ? 'Ativo' : 'Desativado'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* Botão Catálogo */}
       {showCatalog && onToggleCatalog && (

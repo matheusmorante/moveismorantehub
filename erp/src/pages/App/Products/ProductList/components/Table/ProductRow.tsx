@@ -50,6 +50,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
   onEdit,
   onDelete,
   onRestore,
+  onPermanentDelete,
   onToggleActive,
   onDeactivateCatalog,
   onShowHistory,
@@ -79,14 +80,26 @@ export const ProductRow: React.FC<ProductRowProps> = ({
     message: '',
   });
 
-  const isDraft = Boolean(product.isDraft) || Boolean((product as { is_draft?: boolean }).is_draft);
-  const isSalvado = getProductKind(product) === 'salvado';
+  const isDraft =
+    Boolean(product.isDraft) ||
+    Boolean((product as { is_draft?: boolean }).is_draft) ||
+    product.status === 'draft';
+  const isSalvado =
+    getProductKind(product) === 'salvado' ||
+    getProductKind(singleVariation as any) === 'salvado' ||
+    Boolean(
+      (product.opportunityName || product.opportunity?.name || '')
+        .toLowerCase()
+        .includes('salvado')
+    );
   const canManageCatalog = !isDraft && (product.active !== false || isSalvado);
   const isChildVar = Boolean(product.isVariation) || Boolean(product.parentId);
   const isDeactivated =
     (singleVariation
-      ? singleVariation.active === false || singleVariation.status === 'hidden'
-      : product.active === false || product.status === 'hidden' || product.deleted) && !isDraft;
+      ? (!isSalvado && singleVariation.active === false) || singleVariation.status === 'hidden'
+      : (!isSalvado && product.active === false) ||
+        product.status === 'hidden' ||
+        product.deleted) && !isDraft;
 
   const { oppName, supplierNames } = useProductMetadata(product);
   const rowBackground = isDeactivated
@@ -159,6 +172,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
           onEdit={onEdit}
           onRestore={onRestore}
           onDelete={onDelete}
+          onPermanentDelete={onPermanentDelete}
           onDuplicate={onDuplicate}
           onShowHistory={onShowHistory}
           onLaunchStock={onLaunchStock}

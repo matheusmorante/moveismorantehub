@@ -445,10 +445,15 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
         emissionRequestId: 'a19b3e63-6f84-45ea-8c5f-39476d709a3d',
       }),
     ]);
-    expect(results.filter((r) => r.body.success)).toHaveLength(1);
-    expect(results.find((r) => !r.body.success)?.body.code).toBe('FISCAL_PREVIEW_STALE');
-    expect(d.attempts).toHaveLength(1);
-    expect(mocks.send).toHaveBeenCalledTimes(1);
+    expect(results.every((r) => r.body.success)).toBe(true);
+    expect(d.attempts.map((a) => a.number).sort()).toEqual([102, 103]);
+    expect(new Set(d.attempts.map((a) => a.access_key)).size).toBe(2);
+    expect(mocks.send).toHaveBeenCalledTimes(2);
+    for (const attempt of d.attempts) {
+      expect(mocks.send.mock.calls.filter(([p]) =>
+        p.xmlPayload.includes(`Id="NFe${attempt.access_key}"`)
+      )).toHaveLength(1);
+    }
   });
   it('concurrent identical requests create one attempt and send once', async () => {
     const d = database();

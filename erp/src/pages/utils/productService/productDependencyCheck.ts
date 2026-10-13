@@ -74,6 +74,22 @@ export const checkProductHasMoves = async (
   }
 };
 
+export const checkProductIsUnreferenced = async (productId: string): Promise<boolean> => {
+  const realId = String(productId).split('_')[0];
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
+  if (!isUUID) return false;
+
+  const { data, error } = await supabase.rpc('product_is_unreferenced', {
+    p_product_id: realId,
+  });
+  if (error) {
+    console.error('Erro ao verificar uso do produto:', error);
+    throw error;
+  }
+
+  return data === true;
+};
+
 export const checkProductIsUsed = async (productId: string): Promise<boolean> => {
   try {
     const realId = String(productId).split('_')[0];
@@ -160,24 +176,27 @@ export const physicalDeleteProduct = async (
   try {
     const realId = String(id).split('_')[0];
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId);
+    if (!isUUID) return { success: false, message: 'ID do produto inválido.' };
 
-    if (isUUID) {
-      const isUsed = await checkProductIsUsed(realId);
-      if (isUsed) {
-        return { success: false, message: 'Produto em uso. Não pode ser excluído.' };
-      }
+    const { data, error } = await supabase.rpc('delete_unreferenced_product', {
+      p_product_id: realId,
+    });
+    if (error) throw error;
 
-      const { error } = await supabase.from('products').delete().eq('id', realId);
-      if (error) throw error;
-      invalidateProductQueries();
-
-      let products = getLocalProducts();
-      products = products.filter((p) => String(p.id).split('_')[0] !== realId);
-      saveLocalProducts(products);
-      notifySubscribers();
+    const result = data as { success?: boolean; message?: string } | null;
+    if (!result?.success) {
+      return {
+        success: false,
+        message: result?.message || 'Produto possui vínculos ou histórico e não pode ser excluído.',
+      };
     }
 
-    return { success: true, message: 'Produto excluído definitivamente.' };
+    invalidateProductQueries();
+    const products = getLocalProducts().filter((product) => String(product.id).split('_')[0] !== realId);
+    saveLocalProducts(products);
+    notifySubscribers();
+
+    return { success: true, message: result.message || 'Produto excluído com sucesso.' };
   } catch (error: any) {
     console.error('Erro ao excluir produto fisicamente:', error);
     return { success: false, message: error.message || 'Erro ao excluir o produto.' };

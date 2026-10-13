@@ -1,17 +1,13 @@
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
-import VariationType, { VariationOption } from '../types/variation.type';
+import type VariationType from '../types/variation.type';
+import type { VariationOption } from '../types/variation.type';
 import { toTitleCase } from './textUtils';
 import { sortAttributeValuesNaturally } from './attributeValueSorting';
 import { queryClient } from '@/lib/queryClient';
+import { isWeightCharacteristicName } from './technicalValuesService';
+import { normalizeAttributeDataType } from './attributeDataType';
 
-export const normalizeAttributeDataType = (
-  value?: VariationType['dataType']
-): NonNullable<VariationType['dataType']> => {
-  if (value === 'text') return 'text_short';
-  if (value === 'number') return 'integer';
-  if (value === 'list') return 'radio';
-  return value || 'text_short';
-};
+export { normalizeAttributeDataType };
 
 // Compatibilidade para instalações onde a coluna data_type ainda não existe
 // ou perdeu os valores durante uma sincronização antiga.
@@ -249,7 +245,8 @@ export const fetchVariations = async (
         attr.decimal_places === 1 || attr.decimal_places === 2 || attr.decimal_places === 3
           ? attr.decimal_places
           : undefined,
-      isGloballyRequired: Boolean(attr.is_globally_required),
+      isGloballyRequired:
+        Boolean(attr.is_globally_required) && !isWeightCharacteristicName(attr.name),
       isCustom: Boolean(attr.is_custom),
       options: (() => {
         const values = (valData || [])
@@ -271,7 +268,7 @@ export const fetchVariations = async (
         .filter((ca: any) => ca.attribute_id === attr.id)
         .map((ca: any) => ({
           categoryId: ca.category_id,
-          isRequired: ca.is_required,
+          isRequired: Boolean(ca.is_required) && !isWeightCharacteristicName(attr.name),
         })),
       deleted: false, // Exclusões sem uso são físicas; itens usados ficam ativos=false.
     }));
@@ -297,8 +294,30 @@ export const subscribeToVariations = (callback: (variations: VariationType[]) =>
   };
 };
 
-export const saveVariation = async (variation: VariationType): Promise<void> => {
-  await persistVariationDefinition(variation);
+export const saveVariation = async (
+  variation: VariationType,
+  options: { invalidate?: boolean } = {}
+): Promise<string> => {
+  return persistVariationDefinition(variation, options);
+};
+
+export const fetchVariationOptionByValue = async (
+  attributeId: string,
+  value: string
+): Promise<VariationOption> => {
+  const normalizedValue = capitalize(value.trim());
+  const { data, error } = await supabase
+    .from('attribute_values')
+    .select('id, value')
+    .eq('attribute_id', attributeId)
+    .eq('value', normalizedValue)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error('A opção foi salva, mas não foi localizada para atualizar a lista.');
+
+  return { id: String(data.id), value: String(data.value) };
 };
 
 export const getVariationErrorMessage = (error: unknown, fallback: string): string => {
@@ -323,7 +342,10 @@ const invalidateVariationsQueries = () => {
     .catch((error) => console.error('[Variations] Falha ao atualizar o cache:', error));
 };
 
-const persistVariationDefinition = async (variation: Partial<VariationType>): Promise<void> => {
+const persistVariationDefinition = async (
+  variation: Partial<VariationType>,
+  options: { invalidate?: boolean } = {}
+): Promise<string> => {
   const definition: Record<string, unknown> = { ...variation };
   if (variation.dataType) definition.dataType = normalizeAttributeDataType(variation.dataType);
   if (variation.name !== undefined) definition.name = capitalize(variation.name.trim());
@@ -335,11 +357,15 @@ const persistVariationDefinition = async (variation: Partial<VariationType>): Pr
     }));
   }
 
-  const { error } = await supabase.rpc('save_product_characteristic_definition', {
+  const { data, error } = await supabase.rpc('save_product_characteristic_definition', {
     p_definition: definition,
   });
   if (error) throw error;
-  invalidateVariationsQueries();
+  if (typeof data !== 'string' || !data) {
+    throw new Error('O banco não retornou o identificador da característica salva.');
+  }
+  if (options.invalidate !== false) invalidateVariationsQueries();
+  return data;
 };
 
 export const moveToTrash = async (id: string): Promise<'deactivated' | 'deleted'> => {

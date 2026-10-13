@@ -98,193 +98,196 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
       className="inline-flex items-center gap-2 flex-wrap"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Tag/Badge ERP */}
-      {isParent ? (
-        /* No pai: Somente visualização com popover explicativo no hover */
-        <div
-          ref={erpBadgeAnchorRef}
-          className={`relative inline-flex items-center ${isNonConventional ? 'cursor-not-allowed' : 'cursor-help'}`}
-          onMouseEnter={() => (isNonConventional ? setShowNonConventionalPopover(true) : setShowPopover(true))}
-          onMouseLeave={() => {
-            setShowPopover(false);
-            setShowNonConventionalPopover(false);
-          }}
-          title={
-            isNonConventional
-              ? 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
-              : undefined
-          }
-          aria-label={
-            isNonConventional
-              ? 'Status ERP: Desativado (Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.)'
-              : 'Status ERP derivado das variações'
-          }
-        >
+      {/* Tag/Badge ERP — oculto para produtos de origem Salvados */}
+      {!isSalvado &&
+        (isParent ? (
+          /* No pai: Somente visualização com popover explicativo no hover */
           <div
-            className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden ${
-              isNonConventional
-                ? 'border-slate-300 dark:border-slate-700 opacity-50 bg-slate-200/80 dark:bg-slate-800/80 grayscale'
-                : isERPActive
-                  ? 'border-emerald-200/80 dark:border-emerald-800/50'
-                  : 'border-slate-200/80 dark:border-slate-700/60'
-            }`}
-          >
-            {/* Tag Fixa ERP */}
-            <span
-              className={`${
-                isNonConventional
-                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-r border-slate-300 dark:border-slate-700'
-                  : 'bg-blue-50/90 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-r border-blue-100 dark:border-blue-900/40'
-              } font-extrabold ${textSize} ${pxTag} ${py} flex items-center`}
-            >
-              ERP
-            </span>
-
-            {/* Status Somente Leitura ERP */}
-            <span
-              className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-                isNonConventional
-                  ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500'
-                  : isERPActive
-                    ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
-                    : 'bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              <span
-                className={`${dotSize} rounded-full shrink-0 ${
-                  isNonConventional
-                    ? 'bg-slate-400 dark:bg-slate-600'
-                    : isERPActive
-                      ? 'bg-emerald-500'
-                      : 'bg-slate-400'
-                }`}
-              />
-              <span>{isERPActive ? 'Ativo' : 'Desativado'}</span>
-            </span>
-          </div>
-
-          {/* Popover Explicativo no Hover do Pai */}
-          {showPopover && !isSalvado && (
-            <DropdownPortal
-              isOpen={showPopover}
-              anchorRef={erpBadgeAnchorRef}
-              className="min-w-[260px] max-w-[280px] pointer-events-none"
-              onClose={() => setShowPopover(false)}
-            >
-              <div className="p-3 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-150 select-none">
-                <div className="flex items-center gap-1.5 font-bold text-amber-300 mb-1">
-                  <i className="bi bi-info-circle-fill text-[12px]" />
-                  <span>Status Calculado pelas Variações</span>
-                </div>
-                <p className="text-slate-200 leading-snug">
-                  O produto pai fica <strong>Ativo</strong> enquanto ao menos uma variação estiver
-                  ativa, e só fica <strong>Desativado</strong> se todas as suas variações estiverem
-                  desativadas.
-                </p>
-                {typeof activeVariationsCount === 'number' &&
-                  typeof totalVariationsCount === 'number' && (
-                    <div className="mt-2 pt-1.5 border-t border-slate-700/80 flex items-center justify-between text-[10px] text-slate-300 font-medium">
-                      <span>Variações ativas:</span>
-                      <span
-                        className={`font-bold px-1.5 py-0.5 rounded ${activeVariationsCount > 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}
-                      >
-                        {activeVariationsCount} de {totalVariationsCount} ativas
-                      </span>
-                    </div>
-                  )}
-                <div className="mt-1 text-[9px] text-slate-400 italic text-center">
-                  Altere o status diretamente em cada variação filha.
-                </div>
-              </div>
-            </DropdownPortal>
-          )}
-        </div>
-      ) : (
-        /* Na variação ou produto simples: Botão interativo */
-        <div
-          ref={!isParent ? erpBadgeAnchorRef : undefined}
-          className="relative inline-flex items-center"
-          onMouseEnter={() => {
-            if (isNonConventional) {
-              setShowNonConventionalPopover(true);
-            } else if (disabled) {
-              setShowDisabledPopover(true);
+            ref={erpBadgeAnchorRef}
+            className={`relative inline-flex items-center ${isNonConventional ? 'cursor-not-allowed' : 'cursor-help'}`}
+            onMouseEnter={() =>
+              isNonConventional ? setShowNonConventionalPopover(true) : setShowPopover(true)
             }
-          }}
-          onMouseLeave={() => {
-            setShowNonConventionalPopover(false);
-            setShowDisabledPopover(false);
-          }}
-        >
-          <button
-            type="button"
-            onClick={handleERPClick}
-            disabled={isERPDisabled}
-            aria-label={
-              isNonConventional
-                ? 'Status ERP: Desativado (Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.)'
-                : `Status ERP: ${isERPActive ? 'Ativo' : 'Desativado'}`
-            }
+            onMouseLeave={() => {
+              setShowPopover(false);
+              setShowNonConventionalPopover(false);
+            }}
             title={
               isNonConventional
                 ? 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
-                : isDraft
-                  ? 'Produto em rascunho. Termine o cadastramento para poder ativá-lo no ERP.'
-                  : !canToggleActive
-                    ? 'Seu perfil não permite excluir ou desativar produtos.'
-                  : disabled
-                    ? undefined
-                    : isERPActive
-                      ? 'Clique para desativar esta variação no ERP'
-                      : 'Clique para ativar esta variação no ERP'
+                : undefined
             }
-            className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden ${
-              isNonConventional || isDraft || !canToggleActive
-                ? 'border-slate-300 dark:border-slate-700 opacity-50 cursor-not-allowed bg-slate-200/80 dark:bg-slate-800/80 grayscale'
-                : disabled
-                  ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'
-                  : isERPActive
-                    ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 cursor-pointer active:scale-95'
-                    : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 cursor-pointer active:scale-95'
-            }`}
+            aria-label={
+              isNonConventional
+                ? 'Status ERP: Desativado (Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.)'
+                : 'Status ERP derivado das variações'
+            }
           >
-            {/* Tag Fixa ERP */}
-            <span
-              className={`${
+            <div
+              className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden ${
                 isNonConventional
-                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-r border-slate-300 dark:border-slate-700'
-                  : 'bg-blue-50/90 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-r border-blue-100 dark:border-blue-900/40'
-              } font-extrabold ${textSize} ${pxTag} ${py} flex items-center`}
+                  ? 'border-slate-300 dark:border-slate-700 opacity-50 bg-slate-200/80 dark:bg-slate-800/80 grayscale'
+                  : isERPActive
+                    ? 'border-emerald-200/80 dark:border-emerald-800/50'
+                    : 'border-slate-200/80 dark:border-slate-700/60'
+              }`}
             >
-              ERP
-            </span>
+              {/* Tag Fixa ERP */}
+              <span
+                className={`${
+                  isNonConventional
+                    ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-r border-slate-300 dark:border-slate-700'
+                    : 'bg-blue-50/90 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-r border-blue-100 dark:border-blue-900/40'
+                } font-extrabold ${textSize} ${pxTag} ${py} flex items-center`}
+              >
+                ERP
+              </span>
 
-            {/* Status Interativo ERP */}
-            <span
-              className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-                isNonConventional || isDraft
-                  ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500'
-                  : disabled
-                    ? 'bg-slate-200/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-500'
+              {/* Status Somente Leitura ERP */}
+              <span
+                className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
+                  isNonConventional
+                    ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500'
                     : isERPActive
                       ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
                       : 'bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                <span
+                  className={`${dotSize} rounded-full shrink-0 ${
+                    isNonConventional
+                      ? 'bg-slate-400 dark:bg-slate-600'
+                      : isERPActive
+                        ? 'bg-emerald-500'
+                        : 'bg-slate-400'
+                  }`}
+                />
+                <span>{isERPActive ? 'Ativo' : 'Desativado'}</span>
+              </span>
+            </div>
+
+            {/* Popover Explicativo no Hover do Pai */}
+            {showPopover && !isSalvado && (
+              <DropdownPortal
+                isOpen={showPopover}
+                anchorRef={erpBadgeAnchorRef}
+                className="min-w-[260px] max-w-[280px] pointer-events-none"
+                onClose={() => setShowPopover(false)}
+              >
+                <div className="p-3 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-150 select-none">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-300 mb-1">
+                    <i className="bi bi-info-circle-fill text-[12px]" />
+                    <span>Status Calculado pelas Variações</span>
+                  </div>
+                  <p className="text-slate-200 leading-snug">
+                    O produto pai fica <strong>Ativo</strong> enquanto ao menos uma variação estiver
+                    ativa, e só fica <strong>Desativado</strong> se todas as suas variações estiverem
+                    desativadas.
+                  </p>
+                  {typeof activeVariationsCount === 'number' &&
+                    typeof totalVariationsCount === 'number' && (
+                      <div className="mt-2 pt-1.5 border-t border-slate-700/80 flex items-center justify-between text-[10px] text-slate-300 font-medium">
+                        <span>Variações ativas:</span>
+                        <span
+                          className={`font-bold px-1.5 py-0.5 rounded ${activeVariationsCount > 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}`}
+                        >
+                          {activeVariationsCount} de {totalVariationsCount} ativas
+                        </span>
+                      </div>
+                    )}
+                  <div className="mt-1 text-[9px] text-slate-400 italic text-center">
+                    Altere o status diretamente em cada variação filha.
+                  </div>
+                </div>
+              </DropdownPortal>
+            )}
+          </div>
+        ) : (
+          /* Na variação ou produto simples: Botão interativo */
+          <div
+            ref={!isParent ? erpBadgeAnchorRef : undefined}
+            className="relative inline-flex items-center"
+            onMouseEnter={() => {
+              if (isNonConventional) {
+                setShowNonConventionalPopover(true);
+              } else if (disabled) {
+                setShowDisabledPopover(true);
+              }
+            }}
+            onMouseLeave={() => {
+              setShowNonConventionalPopover(false);
+              setShowDisabledPopover(false);
+            }}
+          >
+            <button
+              type="button"
+              onClick={handleERPClick}
+              disabled={isERPDisabled}
+              aria-label={
+                isNonConventional
+                  ? 'Status ERP: Desativado (Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.)'
+                  : `Status ERP: ${isERPActive ? 'Ativo' : 'Desativado'}`
+              }
+              title={
+                isNonConventional
+                  ? 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
+                  : isDraft
+                    ? 'Produto em rascunho. Termine o cadastramento para poder ativá-lo no ERP.'
+                    : !canToggleActive
+                      ? 'Seu perfil não permite excluir ou desativar produtos.'
+                      : disabled
+                        ? undefined
+                        : isERPActive
+                          ? 'Clique para desativar esta variação no ERP'
+                          : 'Clique para ativar esta variação no ERP'
+              }
+              className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden ${
+                isNonConventional || isDraft || !canToggleActive
+                  ? 'border-slate-300 dark:border-slate-700 opacity-50 cursor-not-allowed bg-slate-200/80 dark:bg-slate-800/80 grayscale'
+                  : disabled
+                    ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'
+                    : isERPActive
+                      ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 cursor-pointer active:scale-95'
+                      : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 cursor-pointer active:scale-95'
               }`}
             >
+              {/* Tag Fixa ERP */}
               <span
-                className={`${dotSize} rounded-full shrink-0 ${
+                className={`${
                   isNonConventional
-                    ? 'bg-slate-400 dark:bg-slate-600'
-                    : isERPActive
-                      ? 'bg-emerald-500'
-                      : 'bg-slate-400'
+                    ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-r border-slate-300 dark:border-slate-700'
+                    : 'bg-blue-50/90 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-r border-blue-100 dark:border-blue-900/40'
+                } font-extrabold ${textSize} ${pxTag} ${py} flex items-center`}
+              >
+                ERP
+              </span>
+
+              {/* Status Interativo ERP */}
+              <span
+                className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
+                  isNonConventional || isDraft
+                    ? 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500'
+                    : disabled
+                      ? 'bg-slate-200/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-500'
+                      : isERPActive
+                        ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-slate-100/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400'
                 }`}
-              />
-              <span>{isERPActive ? 'Ativo' : 'Desativado'}</span>
-            </span>
-          </button>
-        </div>
-      )}
+              >
+                <span
+                  className={`${dotSize} rounded-full shrink-0 ${
+                    isNonConventional
+                      ? 'bg-slate-400 dark:bg-slate-600'
+                      : isERPActive
+                        ? 'bg-emerald-500'
+                        : 'bg-slate-400'
+                  }`}
+                />
+                <span>{isERPActive ? 'Ativo' : 'Desativado'}</span>
+              </span>
+            </button>
+          </div>
+        ))}
 
       {/* Botão Catálogo (apenas para itens que não são agrupadores de produto pai) */}
       {!isParent && showCatalogControl && (

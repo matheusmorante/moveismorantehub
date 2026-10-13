@@ -6,6 +6,7 @@ import {
   RequiredCategoryAttribute,
 } from '../types/reconciliation.types';
 import { detectProductPendencies, calculateReconciliationSummary } from './pendencyDetector';
+import { isWeightCharacteristicName } from '@/pages/utils/technicalValuesService';
 
 /**
  * Busca todos os atributos que foram configurados como obrigatórios por categoria
@@ -32,7 +33,12 @@ export async function fetchRequiredCategoryAttributes(): Promise<RequiredCategor
       return [];
     }
 
-    return (data || []).map((row: any) => ({
+    return (data || [])
+      .filter((row: any) => {
+        const attribute = Array.isArray(row.attributes) ? row.attributes[0] : row.attributes;
+        return !isWeightCharacteristicName(attribute?.name || '');
+      })
+      .map((row: any) => ({
       categoryId: row.category_id,
       attributeId: row.attribute_id,
       isRequired: Boolean(row.is_required),
@@ -44,7 +50,7 @@ export async function fetchRequiredCategoryAttributes(): Promise<RequiredCategor
             unit: row.attributes.unit || undefined,
           }
         : undefined,
-    }));
+      }));
   } catch (err) {
     console.error('[Reconciliation] Erro ao carregar atributos obrigatórios:', err);
     return [];

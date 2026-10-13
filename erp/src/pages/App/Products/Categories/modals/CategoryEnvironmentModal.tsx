@@ -8,7 +8,10 @@ import {
 import { SecureDeleteButton } from '../components/SecureDeleteButton';
 import AttributeAutocomplete from '@/components/AttributeAutocomplete';
 import type { CategoryAttributeSelection } from '@/pages/utils/categoryService';
-import { isRequiredCharacteristicName } from '@/pages/utils/technicalValuesService';
+import {
+  isRequiredCharacteristicName,
+  isWeightCharacteristicName,
+} from '@/pages/utils/technicalValuesService';
 
 interface CategoryEnvironmentModalProps {
   readonly showModal: ModalType | null;
@@ -56,6 +59,9 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
   if (!showModal) return null;
 
   const isEnv = showModal === 'ambiente';
+  const isAttributeRequired = (attribute: CategoryAttributeSelection) =>
+    !isWeightCharacteristicName(attribute.name) &&
+    (attribute.isRequired || isRequiredCharacteristicName(attribute.name));
   const title = editingNode
     ? `Editar ${isEnv ? 'Ambiente' : 'Categoria'}`
     : `Novo ${isEnv ? 'Ambiente' : 'Categoria'}`;
@@ -176,7 +182,10 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                     if (exists) {
                       return prev.filter((a) => a.id !== attr.id);
                     }
-                    return [...prev, { ...attr, isRequired: isRequiredCharacteristicName(attr.name) }];
+                    return [
+                      ...prev,
+                      { ...attr, isRequired: isRequiredCharacteristicName(attr.name) },
+                    ];
                   });
                 }}
                 placeholder="Buscar característica (mínimo 2 letras)..."
@@ -193,25 +202,38 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={attr.isRequired || isRequiredCharacteristicName(attr.name)}
+                        aria-checked={isAttributeRequired(attr)}
                         aria-label={`Característica ${attr.name} obrigatória`}
                         title={
-                          isRequiredCharacteristicName(attr.name)
-                            ? 'Cor é obrigatória em todas as categorias'
-                            : attr.isRequired
-                              ? 'Obrigatória — clique para tornar opcional'
-                              : 'Opcional — clique para tornar obrigatória'
+                          isWeightCharacteristicName(attr.name)
+                            ? 'Peso é sempre opcional'
+                            : isRequiredCharacteristicName(attr.name)
+                              ? `${attr.name} é obrigatória em todas as categorias`
+                              : attr.isRequired
+                                ? 'Obrigatória — clique para tornar opcional'
+                                : 'Opcional — clique para tornar obrigatória'
                         }
                         onClick={() =>
                           setSelectedAttributes((prev) =>
                             prev.map((item) =>
-                              item.id === attr.id ? { ...item, isRequired: !item.isRequired } : item
+                              item.id === attr.id
+                                ? {
+                                    ...item,
+                                    isRequired: isWeightCharacteristicName(item.name)
+                                      ? false
+                                      : !item.isRequired,
+                                  }
+                                : item
                             )
                           )
                         }
-                        disabled={isSubmitting || isRequiredCharacteristicName(attr.name)}
+                        disabled={
+                          isSubmitting ||
+                          isRequiredCharacteristicName(attr.name) ||
+                          isWeightCharacteristicName(attr.name)
+                        }
                         className={`relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors ${
-                          attr.isRequired || isRequiredCharacteristicName(attr.name)
+                          isAttributeRequired(attr)
                             ? 'bg-blue-600'
                             : 'bg-slate-300 dark:bg-slate-700'
                         } disabled:cursor-not-allowed disabled:opacity-70`}
@@ -219,14 +241,12 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                         <span
                           aria-hidden="true"
                           className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition ${
-                            attr.isRequired || isRequiredCharacteristicName(attr.name)
-                              ? 'translate-x-3'
-                              : 'translate-x-0'
+                            isAttributeRequired(attr) ? 'translate-x-3' : 'translate-x-0'
                           }`}
                         />
                       </button>
                       <span className="text-[9px] font-semibold">
-                        {attr.isRequired || isRequiredCharacteristicName(attr.name) ? 'Obrigatória' : 'Opcional'}
+                        {isAttributeRequired(attr) ? 'Obrigatória' : 'Opcional'}
                       </span>
                       <button
                         type="button"

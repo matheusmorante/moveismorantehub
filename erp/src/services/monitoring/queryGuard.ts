@@ -196,18 +196,19 @@ class QueryGuard {
     const { tableName, operationType } = this.getOperationType(urlStr, method);
     const fingerprint = this.getFingerprint(input, init);
 
+    // Deduplicate SELECTs before counting them. Only outgoing requests should
+    // consume the loop budget; multiple callers sharing one in-flight read do
+    // not create additional Supabase traffic.
+    if (operationType === 'SELECT') {
+      const inFlight = this.inFlightRequests.get(fingerprint);
+      if (inFlight) return inFlight.then((res) => res.clone());
+    }
+
     // 2. Passar pelo Circuit Breaker
     if (!this.circuitBreaker.check(fingerprint, operationType)) {
       throw new CircuitBreakerError(
         `Requisição bloqueada pelo Query Guard (Loop Detectado). Aguarde e tente novamente.`
       );
-    }
-
-    // 3. Deduplicação (In-Flight Requests) apenas para SELECT
-    if (operationType === 'SELECT') {
-      if (this.inFlightRequests.has(fingerprint)) {
-        return this.inFlightRequests.get(fingerprint)!.then((res) => res.clone());
-      }
     }
 
     const start = performance.now();

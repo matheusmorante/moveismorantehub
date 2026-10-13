@@ -267,8 +267,8 @@ export async function createNormalSaleRuleSet(
   }
 
   const contribution = resolveNormalSaleContribution(inputs, modelDecision.model);
-  const issuerCnpj = String(facts.issuerProfile.companyCnpj || '').replace(/\D/g, '');
-  if (!/^\d{14}$/.test(issuerCnpj)) throw new Error('CNPJ do emitente inválido.');
+  const issuerCnpj = normalizeRecipientTaxId(String(facts.issuerProfile.companyCnpj || ''));
+  if (!/^[A-Z0-9]{12}[0-9]{2}$/.test(issuerCnpj)) throw new Error('CNPJ do emitente inválido.');
   if (facts.issuerProfile.companyCRT !== '1' || facts.issuerProfile.companyUF !== 'PR')
     throw new Error('Regra de venda normal exige emitente Simples Nacional no Paraná.');
   const cpfCnpj = normalizeRecipientTaxId(
@@ -451,7 +451,7 @@ export async function createNormalSaleRuleSet(
       const resolvedTransporter =
         resolvedTransport.isEmitterTransporter && modelDecision.model === '55'
           ? {
-              cnpj: String(issuer.companyCnpj || '').replace(/\D/g, ''),
+              cnpj: normalizeRecipientTaxId(String(issuer.companyCnpj || '')),
               name: String(issuer.companyName || ''),
               ie: String(issuer.companyIE || '').replace(/\D/g, ''),
               city: issuerAddress.municipality,
@@ -468,7 +468,7 @@ export async function createNormalSaleRuleSet(
         modelDecision,
         environment: snapshot.emissionRequest.environment,
         issuer: {
-          cnpj: required(issuer.companyCnpj, 'CNPJ emitente').replace(/\D/g, ''),
+          cnpj: normalizeRecipientTaxId(required(issuer.companyCnpj, 'CNPJ emitente')),
           name: required(issuer.companyName, 'Razão social'),
           ie: required(issuer.companyIE, 'IE emitente').replace(/\D/g, ''),
           crt: '1',

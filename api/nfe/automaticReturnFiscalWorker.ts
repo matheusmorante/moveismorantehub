@@ -52,8 +52,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isReturnFiscalEligibility(value: Record<string, unknown>): value is ReturnFiscalEligibilityResponse {
+function isReturnFiscalEligibility(value: unknown): value is ReturnFiscalEligibilityResponse {
   return (
+    isRecord(value) &&
     typeof value.eligible === 'boolean' &&
     typeof value.hasAuthorizedOriginal === 'boolean' &&
     Array.isArray(value.sources)
@@ -103,23 +104,7 @@ export async function processAutomaticReturnFiscalJob(
     let hasPendingTransmission = false;
     for (const sourceResult of rawEligibility.sources) {
       if (sourceResult.state === 'authorized') continue;
-      if (sourceResult.state === 'pending') {
-        if (!sourceResult.draftId) {
-          hasPendingTransmission = true;
-          continue;
-        }
-        const pendingResult = await transmitDraft(
-          request,
-          sourceResult.draftId,
-          Number(sourceResult.source?.ambiente || 0)
-        );
-        if (pendingResult === 'blocked') {
-          return { status: 'blocked', errorCode: 'fiscal_transmission_blocked' };
-        }
-        hasPendingTransmission ||= pendingResult === 'reconciling';
-        continue;
-      }
-      if (sourceResult.state !== 'ready' && sourceResult.state !== 'draft') {
+      if (!['ready', 'draft', 'pending'].includes(sourceResult.state)) {
         return { status: 'blocked', errorCode: 'fiscal_source_blocked' };
       }
 
@@ -130,6 +115,10 @@ export async function processAutomaticReturnFiscalJob(
 
       let draftId = sourceResult.draftId || null;
       if (!draftId) {
+        if (sourceResult.state === 'pending') {
+          hasPendingTransmission = true;
+          continue;
+        }
         if (sourceResult.state !== 'ready') {
           return { status: 'blocked', errorCode: 'fiscal_draft_missing' };
         }
@@ -164,6 +153,9 @@ export async function processAutomaticReturnFiscalJob(
         return { status: 'blocked', errorCode: 'fiscal_draft_link_mismatch' };
       }
       if (draft.status === 'authorized') continue;
+      if (sourceResult.state === 'pending' && !['transmitting', 'unknown'].includes(String(draft.status))) {
+        return { status: 'blocked', errorCode: 'fiscal_pending_draft_state_mismatch' };
+      }
       if (draft.status === 'transmitting' || draft.status === 'unknown') {
         const reconciliation = await transmitDraft(request, draftId, Number(source.ambiente));
         if (reconciliation === 'blocked') {

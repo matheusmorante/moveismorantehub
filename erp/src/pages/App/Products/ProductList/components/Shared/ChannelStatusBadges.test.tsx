@@ -9,8 +9,53 @@ import type Product from '@/pages/types/product.type';
 afterEach(cleanup);
 
 describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
-  describe('Produto Pai com Origem Salvados', () => {
-    it('renderiza o produto pai salvado como desativado no ERP com estilo acinzentado e sem botão interativo', () => {
+  describe('Produto com Origem Salvados (isSalvado=true)', () => {
+    it('oculta a pílula de status do canal ERP para produto pai e variação Salvados, mantendo o Catálogo Digital visível e interativo', () => {
+      const handleToggleActive = vi.fn();
+      const handleToggleCatalog = vi.fn();
+
+      const { rerender } = render(
+        <ChannelStatusBadges
+          active={false}
+          catalogStatus="published"
+          isParent={true}
+          isNonConventional={true}
+          isSalvado={true}
+          onToggleActive={handleToggleActive}
+        />
+      );
+
+      expect(screen.queryByText('ERP')).toBeNull();
+      expect(screen.queryByRole('button', { name: /status erp/i })).toBeNull();
+
+      rerender(
+        <ChannelStatusBadges
+          active={false}
+          catalogStatus="published"
+          isParent={false}
+          isNonConventional={true}
+          isSalvado={true}
+          onToggleActive={handleToggleActive}
+          onToggleCatalog={handleToggleCatalog}
+        />
+      );
+
+      expect(screen.queryByText('ERP')).toBeNull();
+      expect(screen.queryByRole('button', { name: /Status ERP/i })).toBeNull();
+
+      const catalogButton = screen.getByRole('button', {
+        name: /Status Catálogo: Publicado/i,
+      }) as HTMLButtonElement;
+      expect(catalogButton).toBeDefined();
+      expect(catalogButton.disabled).toBe(false);
+
+      fireEvent.click(catalogButton);
+      expect(handleToggleCatalog).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Produto Pai Não Convencional (Usados)', () => {
+    it('renderiza o produto pai não convencional como desativado no ERP com estilo acinzentado e sem botão interativo', () => {
       const handleToggleActive = vi.fn();
 
       const { container } = render(
@@ -18,6 +63,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
           active={false}
           isParent={true}
           isNonConventional={true}
+          isSalvado={false}
           onToggleActive={handleToggleActive}
         />
       );
@@ -43,7 +89,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
     });
   });
 
-  describe('Variação com Origem Salvados', () => {
+  describe('Variação Não Convencional (Usados)', () => {
     it('renderiza botão ERP desabilitado, impede clique e mantém Catálogo Digital ativo e clicável', () => {
       const handleToggleActive = vi.fn();
       const handleToggleCatalog = vi.fn();
@@ -54,6 +100,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
           catalogStatus="published"
           isParent={false}
           isNonConventional={true}
+          isSalvado={false}
           onToggleActive={handleToggleActive}
           onToggleCatalog={handleToggleCatalog}
         />
@@ -136,6 +183,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
         unit: 'UN',
         active: false,
         isDraft: false,
+        itemType: 'product',
         productKind: 'salvado',
       };
 
@@ -161,6 +209,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
         unit: 'UN',
         active: false,
         isDraft: false,
+        itemType: 'product',
         productKind: 'salvado',
         variations: [
           {

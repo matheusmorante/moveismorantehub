@@ -11,6 +11,8 @@ import {
   getAvailableAdditionalFields,
   getMissingRequiredTechnicalFields,
   groupCharacteristicsByTopic,
+  isRequiredCharacteristicName,
+  getMissingRequiredCharacteristics,
   TechnicalFieldDefinition,
   TechnicalValuesMap,
 } from '../technicalValuesService';
@@ -18,15 +20,33 @@ import {
 describe('technicalValuesService', () => {
   it('mantém personalizadas em características adicionais e não cria tópico removido', () => {
     const groups = groupCharacteristicsByTopic([
-      { name: 'Altura', isCustom: false },
+      { name: 'Tipo de pés', isCustom: false },
       { name: 'Acabamento especial', isCustom: true },
     ]);
-    expect(groups.map((group) => group.title)).toEqual([
-      'Dimensões e peso',
-      'Outras características',
-    ]);
+    expect(groups.map((group) => group.title)).toEqual(['Acessórios', 'Outras características']);
     expect(groups[1].fields[0].name).toBe('Acabamento especial');
   });
+
+  it('agrupa Modelo e Marca dentro de Características principais', () => {
+    const groups = groupCharacteristicsByTopic([
+      { name: 'Modelo', isCustom: false },
+      { name: 'Marca', isCustom: false },
+      { name: 'Cor', isCustom: false },
+    ]);
+    expect(groups.map((group) => group.title)).toEqual(['Características principais']);
+    expect(groups[0].fields.map((f) => f.name)).toEqual(['Modelo', 'Marca', 'Cor']);
+  });
+  it('exige Cor, Modelo e Marca como características obrigatórias globais', () => {
+    expect(isRequiredCharacteristicName('cor')).toBe(true);
+    expect(isRequiredCharacteristicName('modelo')).toBe(true);
+    expect(isRequiredCharacteristicName('marca')).toBe(true);
+    expect(isRequiredCharacteristicName('tecido')).toBe(false);
+    expect(
+      getMissingRequiredCharacteristics({ Cor: 'Preto', Modelo: 'Premium', Marca: 'Morante' })
+    ).toEqual([]);
+    expect(getMissingRequiredCharacteristics({ Cor: 'Preto' })).toEqual(['Modelo', 'Marca']);
+  });
+
   it('exige valor somente nas especificações globais obrigatórias', () => {
     const missing = getMissingRequiredTechnicalFields(['Cor', 'Estrutura'], {
       Cor: 'Branco',
@@ -35,6 +55,22 @@ describe('technicalValuesService', () => {
     });
 
     expect(missing).toEqual(['Estrutura']);
+  });
+
+  it('mantém Peso opcional mesmo com configuração global ou de categoria legada', () => {
+    const peso: TechnicalFieldDefinition = {
+      id: 'peso',
+      name: 'Peso',
+      dataType: 'measure',
+      isRequired: true,
+      requiredCategoryIds: ['cat-chair'],
+      categoryIds: ['cat-chair'],
+      options: [],
+    };
+
+    expect(
+      getApplicableTechnicalFields([peso], ['cat-chair']).map((field) => field.isRequired)
+    ).toEqual([false]);
   });
 
   it('herda valor padrão do produto pai quando não há override', () => {
@@ -228,7 +264,12 @@ describe('technicalValuesService', () => {
         },
       ];
 
-      const applicable = getApplicableTechnicalFields(fieldsWithReclinavel, [catMesas], { Reclinável: 'Sim' }, []);
+      const applicable = getApplicableTechnicalFields(
+        fieldsWithReclinavel,
+        [catMesas],
+        { Reclinável: 'Sim' },
+        []
+      );
       expect(applicable.some((f) => f.name.toLowerCase().includes('reclinável'))).toBe(false);
 
       const available = getAvailableAdditionalFields(fieldsWithReclinavel, []);

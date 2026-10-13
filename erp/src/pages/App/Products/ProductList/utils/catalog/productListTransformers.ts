@@ -38,7 +38,13 @@ export function flattenProductsForList(products: readonly Product[]): ProductLis
     const variationsList =
       (product.variations as unknown as readonly RawVariationItem[] | undefined) || [];
     const hasJsonVariations = Array.isArray(variationsList) && variationsList.length > 0;
-    const isParent = Boolean(product.hasVariations) || hasJsonVariations;
+    const isDraft =
+      Boolean(product.isDraft) ||
+      Boolean((product as { is_draft?: boolean }).is_draft) ||
+      product.status === 'draft';
+    const isParent = isDraft
+      ? hasJsonVariations
+      : Boolean(product.hasVariations) || hasJsonVariations;
 
     const allVariations = hasJsonVariations
       ? variationsList.map((variation, index) =>

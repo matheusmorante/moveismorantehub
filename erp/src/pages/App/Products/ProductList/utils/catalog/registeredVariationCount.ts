@@ -59,7 +59,12 @@ export const calculateVariationCatalogStats = (
   (products || []).forEach((product) => {
     if (product.deleted) return;
 
-    const isParentDraft = Boolean(product.is_draft);
+    const isParentDraft = Boolean(product.is_draft) || product.status === 'draft';
+    if (isParentDraft) {
+      drafts += 1;
+      return;
+    }
+
     const isParentActive = product.active !== false;
     const variations = Array.isArray(product.product_variations) ? product.product_variations : [];
 
@@ -67,24 +72,20 @@ export const calculateVariationCatalogStats = (
       // Ignora se não for variação com SKU estruturado
       if (!hasVariationSku(v)) return;
 
-      if (isParentDraft) {
-        drafts += 1;
-      } else {
-        total += 1;
-        const isVarActive = isParentActive && v.active !== false;
-        const isVarPublished =
-          (product.status === 'published' || !product.status) && v.status !== 'hidden';
+      total += 1;
+      const isVarActive = isParentActive && v.active !== false;
+      const isVarPublished =
+        (product.status === 'published' || !product.status) && v.status !== 'hidden';
 
-        if (isVarPublished) {
-          published += 1;
-        } else {
-          hidden += 1;
-        }
-        if (isVarActive) {
-          active += 1;
-        } else {
-          disabled += 1;
-        }
+      if (isVarPublished) {
+        published += 1;
+      } else {
+        hidden += 1;
+      }
+      if (isVarActive) {
+        active += 1;
+      } else {
+        disabled += 1;
       }
     });
   });

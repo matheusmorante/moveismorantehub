@@ -70,6 +70,21 @@ describe('nfeValidationService', () => {
     expect(result.toastError).toBeUndefined();
   });
 
+  it.each([
+    ['55', 'pickup', 100],
+    ['65', 'delivery', 100],
+    ['65', 'pickup', 12000],
+  ] as const)('bloqueia documento vazio quando obrigatório: %s, %s, %s', (model, deliveryMethod, total) => {
+    const result = validateNfeEmission({
+      order: { ...baseOrder, shipping: { ...baseOrder.shipping, deliveryMethod }, paymentsSummary: { totalOrderValue: total } } as Order,
+      currentModel: model, deliveryMethod, recipientTaxId: ' ',
+      nfeItems: baseOrder.items as any, isLoadingFiscalData: false, fiscalPreparationError: null,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.recipientTaxIdError).toBeTruthy();
+    expect(result.fiscalFieldError?.fieldId).toBe('nfe-recipient-tax-id');
+  });
+
   it('bloqueia a emissão quando o cliente selecionado não tem PF/PJ resolvido no cadastro', () => {
     const result = validateNfeEmission({
       order: {

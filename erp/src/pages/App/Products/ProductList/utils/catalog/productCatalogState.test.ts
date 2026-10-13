@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { updateProductCatalogState } from './productCatalogState';
+import { calculateVariationCatalogStats } from './registeredVariationCount';
 
 const products: any[] = [
   {
@@ -46,5 +47,35 @@ describe('updateProductCatalogState', () => {
     expect(updated[0].variations.every((variation: any) => variation.status === 'published')).toBe(
       true
     );
+  });
+
+  it('contabiliza produtos em rascunho no resumo mesmo sem variações estruturadas', () => {
+    const stats = calculateVariationCatalogStats([
+      {
+        id: 'draft-1',
+        is_draft: true,
+        status: 'draft',
+        active: false,
+        deleted: false,
+        product_variations: [],
+      },
+      {
+        id: 'registered-1',
+        is_draft: false,
+        status: 'published',
+        active: true,
+        deleted: false,
+        product_variations: [{ id: 'v1', sku: '000001-01', status: 'published', active: true }],
+      },
+    ]);
+
+    expect(stats).toEqual({
+      total: 1,
+      published: 1,
+      hidden: 0,
+      active: 1,
+      disabled: 0,
+      drafts: 1,
+    });
   });
 });

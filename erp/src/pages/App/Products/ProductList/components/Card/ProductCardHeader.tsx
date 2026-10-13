@@ -1,14 +1,10 @@
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
-import {
-  canPrintProductIdentificationLabels,
-  isProductIdentificationLabelOnlyProfile,
-} from '@/pages/utils/accessRoles';
+import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/accessRoles';
 import Product from '../../../../../types/product.type';
 import { getProductKind, isNonConventionalProduct } from '../../../../../utils/productKindRules';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import type { CardVariationItem } from '../Variations/ProductCardVariationList';
-import { VariationItemActions } from '../Variations/VariationItemActions';
 import { ProductCardActions } from './ProductCardActions';
 
 interface ProductCardHeaderProps {
@@ -29,6 +25,7 @@ interface ProductCardHeaderProps {
   onEdit: (product: Product) => void;
   onLaunchStock?: (product: Product) => void;
   onDelete: (id: string) => void;
+  onPermanentDelete: (id: string) => void;
   onToggleActive: (id: string, currentStatus: boolean) => void;
   onDeactivateCatalog: (id: string) => void;
   onShowHistory?: (product: Product) => void;
@@ -56,6 +53,7 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
   onEdit,
   onLaunchStock,
   onDelete,
+  onPermanentDelete,
   onToggleActive,
   onDeactivateCatalog,
   onShowHistory,
@@ -66,11 +64,6 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
 }) => {
   const { profile } = useAuth();
   const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(profile);
-  const canPrintIdentificationLabel = canPrintProductIdentificationLabels(profile);
-  const [activeVariationMenuId, setActiveVariationMenuId] = React.useState<string | null>(null);
-  const variationMenuAnchorRef = React.useRef<HTMLButtonElement>(null);
-  const variationMenuId = singleVariation?.id || singleVariation?.variationId || 'single-variation';
-  const isVariationMenuOpen = activeVariationMenuId === variationMenuId;
   const singleVariationId = singleVariation?.variationId || singleVariation?.id || product.id!;
 
   return (
@@ -115,7 +108,11 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
           catalogStatus={singleVariation?.status || product.status}
           isParent={isParent && !singleVariation}
           isNonConventional={isNonConventionalProduct(product)}
-          isSalvado={getProductKind(product) === 'salvado'}
+          isSalvado={
+            getProductKind(product) === 'salvado' ||
+            getProductKind(singleVariation as any) === 'salvado' ||
+            Boolean(oppName && oppName.toLowerCase().includes('salvado'))
+          }
           canManageCatalog={canManageCatalog}
           canToggleActive={canDeleteProducts}
           showCatalogControl={showCatalogControl}
@@ -185,65 +182,24 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
             <i className="bi bi-eye" />
           </button>
         ) : (
-        /* Botões de Ação */
-        <>
-        {!showTrash && singleVariation && (
-          <>
-            {!readOnly && <button
-              type="button"
-              onClick={() => onEdit(product)}
-              aria-label={isDraft ? 'Retomar cadastro' : 'Editar Produto'}
-              title={isDraft ? 'Retomar cadastro' : 'Editar Produto'}
-              className="w-7 h-7 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-all border border-slate-100 dark:border-slate-700 shrink-0 cursor-pointer"
-            >
-              <i
-                className={
-                  isDraft
-                    ? 'bi bi-play-fill text-sm text-blue-600 dark:text-blue-400'
-                    : 'bi bi-pencil text-xs'
-                }
-              />
-            </button>}
-            {(!isLabelOnlyProfile || canPrintIdentificationLabel) && <button
-              ref={variationMenuAnchorRef}
-              type="button"
-              onClick={() => setActiveVariationMenuId(isVariationMenuOpen ? null : variationMenuId)}
-              aria-haspopup="menu"
-              aria-expanded={isVariationMenuOpen}
-              aria-label="Ações da variação"
-              title="Opções da variação"
-              className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all border shrink-0 cursor-pointer ${isVariationMenuOpen ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 text-indigo-600' : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
-            >
-              <i className="bi bi-three-dots-vertical text-xs" />
-            </button>}
-            {(!isLabelOnlyProfile || canPrintIdentificationLabel) && <VariationItemActions
+          !showTrash &&
+          !isVariation && (
+            <ProductCardActions
               product={product}
-              variation={singleVariation}
-              anchorRef={variationMenuAnchorRef}
-              isMenuOpen={isVariationMenuOpen}
-              onSetActiveVarMenuId={setActiveVariationMenuId}
+              singleVariation={!isDraft ? singleVariation : undefined}
+              showEditButton={!readOnly}
+              canDeleteProducts={canDeleteProducts}
               onEdit={onEdit}
+              onDuplicate={onDuplicate}
               onShowHistory={onShowHistory}
               onLaunchStock={onLaunchStock}
+              onDelete={onDelete}
+              onPermanentDelete={onPermanentDelete}
               onMoveToAnotherFamily={onMoveToAnotherFamily}
               onMergeWithAnotherVariation={onMergeWithAnotherVariation}
-            />}
-          </>
-        )}
-        {!showTrash && !isVariation && !singleVariation && (
-          <ProductCardActions
-            product={product}
-            showEditButton={!readOnly}
-            canDeleteProducts={canDeleteProducts}
-            onEdit={onEdit}
-            onDuplicate={onDuplicate}
-            onShowHistory={onShowHistory}
-            onLaunchStock={onLaunchStock}
-            onDelete={onDelete}
-            onOpenSalesModal={onOpenSalesModal}
-          />
-        )}
-        </>
+              onOpenSalesModal={onOpenSalesModal}
+            />
+          )
         )}
       </div>
     </div>

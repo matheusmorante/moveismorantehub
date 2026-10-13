@@ -1,3 +1,4 @@
+import { normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers';
 import { getSettings } from '@/pages/utils/settingsService';
 import { getNextNfeNumberPreview } from '@/pages/utils/nfe/nfeService';
 import { resolveNfeSequenceSettings } from '@/pages/utils/nfe/nfeSequenceSettings';
@@ -5,7 +6,7 @@ import { resolveNfeSequenceSettings } from '@/pages/utils/nfe/nfeSequenceSetting
 /** Warm the read-only sequence preview before the user opens the emission modal. */
 export async function prefetchNfeNumberPreviews(): Promise<void> {
   const settings = getSettings();
-  if (!String(settings.companyCnpj || '').replace(/\D/g, '')) return;
+  if (!normalizeFiscalIdentifier(String(settings.companyCnpj || ''))) return;
 
   const requests: Promise<number>[] = [];
   for (const environment of [1, 2] as const) {

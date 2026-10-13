@@ -1,10 +1,8 @@
-import { ArrowLeftRight, Check, Link, Search, Trash2, Unlink } from 'lucide-react-native';
+import { ArrowLeftRight, Check, Link, PlusCircle, Search, Trash2, Unlink } from 'lucide-react-native';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -21,6 +19,7 @@ import {
   groupProductTechnicalFields,
   hasTechnicalValue,
   isExcludedProductTechnicalField,
+  isProductTechnicalFieldRequired,
   isRequiredCharacteristicName,
   upsertProductCharacteristicAttribute,
 } from '../../domain/productCharacteristics';
@@ -78,14 +77,42 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
 }) => {
   const [technicalFields, setTechnicalFields] = useState<MobileProductTechnicalField[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
-  const [showAdditionalAttributes, setShowAdditionalAttributes] = useState(false);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
-  const [optionSearch, setOptionSearch] = useState('');
   const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
   const [debouncedCharacteristicSearchTerm, setDebouncedCharacteristicSearchTerm] = useState('');
   const parentTechnicalValues = useMemo(
-    () => (parentData ? getEffectiveProductTechnicalValues(parentData) : {}),
-    [parentData?.attributes, parentData?.technicalValues, parentData?.technical_specs]
+    () => {
+      if (!parentData) return {};
+      const values = getEffectiveProductTechnicalValues(parentData);
+      const dimensions = [
+        ['Altura', parentData.height],
+        ['Largura', parentData.width],
+        [parentData.depthUseLength || parentData.depth_use_length ? 'Comprimento' : 'Profundidade', parentData.depth],
+        ['Peso', parentData.weight],
+      ] as const;
+      for (const [name, value] of dimensions) {
+        if (
+          value !== undefined &&
+          value !== null &&
+          String(value).trim() &&
+          !String(getTechnicalValue(values, name) ?? '').trim()
+        ) {
+          values[name] = value;
+        }
+      }
+      return values;
+    },
+    [
+      parentData?.attributes,
+      parentData?.technicalValues,
+      parentData?.technical_specs,
+      parentData?.height,
+      parentData?.width,
+      parentData?.depth,
+      parentData?.weight,
+      parentData?.depthUseLength,
+      parentData?.depth_use_length,
+    ]
   );
   const ownTechnicalValues = useMemo(
     () => getEffectiveVariationTechnicalValues({}, formData),
@@ -138,9 +165,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       }));
     const allVisibleFields = [...visible, ...preservedLegacyFields];
     return requiredFieldsOnly
-      ? allVisibleFields.filter(
-          (field) => field.isRequired ?? isRequiredCharacteristicName(field.name)
-        )
+      ? allVisibleFields.filter((field) => isProductTechnicalFieldRequired(field, categoryIds))
       : allVisibleFields;
   }, [
     technicalFields,
@@ -154,26 +179,51 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   const requiredFieldGroups = useMemo(
     () =>
       groupProductTechnicalFields(
-        visibleTechnicalFields.filter(
-          (field) => field.isRequired ?? isRequiredCharacteristicName(field.name)
+        visibleTechnicalFields.filter((field) =>
+          isProductTechnicalFieldRequired(field, categoryIds)
         )
       ),
-    [visibleTechnicalFields]
+    [visibleTechnicalFields, categoryIds.join('|')]
   );
   const optionalTechnicalFields = useMemo(
     () =>
       visibleTechnicalFields.filter(
-        (field) => !(field.isRequired ?? isRequiredCharacteristicName(field.name))
+        (field) => !isProductTechnicalFieldRequired(field, categoryIds)
       ),
-    [visibleTechnicalFields]
+    [visibleTechnicalFields, categoryIds.join('|')]
   );
+  const selectedOptionalFields = useMemo(() => {
+    if (parentData) return optionalTechnicalFields;
+    return optionalTechnicalFields.filter((field) => {
+      const hasConfiguredValue = hasTechnicalValue(ownTechnicalValues, field.name);
+      const value = String(getTechnicalValue(ownTechnicalValues, field.name) ?? '')
+        .trim()
+        .toLocaleLowerCase('pt-BR');
+      return (
+        manualFieldNames.some((name) => normalizeName(name) === normalizeName(field.name)) ||
+        (hasConfiguredValue && !['não se aplica', 'nao se aplica', 'n/a'].includes(value))
+      );
+    });
+  }, [parentData, optionalTechnicalFields, ownTechnicalValues, manualFieldNames]);
+  const searchableOptionalFields = useMemo(() => {
+    if (parentData) return [];
+    const selectedNames = new Set(selectedOptionalFields.map((field) => normalizeName(field.name)));
+    return technicalFields.filter(
+      (field) =>
+        field.active !== false &&
+        !isProductTechnicalFieldRequired(field, categoryIds) &&
+        !isExcludedProductTechnicalField(field.name) &&
+        !selectedNames.has(normalizeName(field.name))
+    );
+  }, [parentData, technicalFields, selectedOptionalFields, categoryIds.join('|')]);
   const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
   const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
   const matchingOptionalFields =
     !requiredFieldsOnly &&
+    !parentData &&
     normalizedSearchTerm.length >= 3 &&
     normalizedSearchTerm === normalizedDebouncedSearchTerm
-      ? optionalTechnicalFields
+      ? searchableOptionalFields
           .filter((field) =>
             normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm)
           )
@@ -181,9 +231,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       : [];
   const fieldGroups = [
     ...requiredFieldGroups,
-    ...(matchingOptionalFields.length > 0
-      ? [{ title: 'Resultados da busca', fields: matchingOptionalFields }]
-      : []),
+    ...groupProductTechnicalFields(selectedOptionalFields),
   ];
 
   useEffect(() => {
@@ -279,7 +327,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     });
 
   const characteristicSearchControl =
-    !requiredFieldsOnly && optionalTechnicalFields.length > 0 ? (
+    !requiredFieldsOnly && !parentData ? (
       <View style={styles.searchControl}>
         <Text style={[styles.searchLabel, dark && styles.dimText]}>Pesquisar característica</Text>
         <View style={[styles.searchInputWrap, dark && styles.darkInput]}>
@@ -303,6 +351,35 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                 ? 'Nenhuma característica encontrada.'
                 : 'Exibindo até 3 características correspondentes.'}
         </Text>
+        {matchingOptionalFields.length > 0 && (
+          <View style={[styles.searchResults, dark && styles.darkCard]}>
+            {matchingOptionalFields.map((field) => (
+              <TouchableOpacity
+                key={field.id}
+                onPress={() => {
+                  setManualFieldNames((previous) =>
+                    previous.some((name) => normalizeName(name) === normalizeName(field.name))
+                      ? previous
+                      : [...previous, field.name]
+                  );
+                  setTechnicalValue(field.name, '');
+                  setCharacteristicSearchTerm('');
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Adicionar característica ${field.name}`}
+                style={[styles.searchResultRow, dark && styles.darkOptionRow]}
+              >
+                <Text style={[styles.searchResultName, dark && styles.lightText]}>
+                  {field.name}{field.unit ? ` (${field.unit})` : ''}
+                </Text>
+                <View style={styles.searchResultAction}>
+                  <PlusCircle size={14} color="#2563eb" />
+                  <Text style={styles.searchResultActionText}>Adicionar</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
     ) : null;
 
@@ -311,11 +388,14 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       {loadingFields ? (
         <ActivityIndicator color="#2563eb" />
       ) : visibleTechnicalFields.length === 0 ? (
-        <View style={[styles.card, dark && styles.darkCard]}>
-          <Text style={[styles.helper, dark && styles.dimText]}>
-            Selecione uma categoria para ver as características aplicáveis.
-          </Text>
-        </View>
+        <>
+          <View style={[styles.card, dark && styles.darkCard]}>
+            <Text style={[styles.helper, dark && styles.dimText]}>
+              Selecione uma categoria para ver as características aplicáveis.
+            </Text>
+          </View>
+          {characteristicSearchControl}
+        </>
       ) : (
         <>
           {fieldGroups.map((group, groupIndex) => (
@@ -331,7 +411,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                   const currentValue = Array.isArray(storedValue)
                     ? storedValue.join(', ')
                     : String(storedValue ?? '');
-                  const alwaysApplicable = isRequiredCharacteristicName(field.name);
+                  const alwaysApplicable = isProductTechnicalFieldRequired(field, categoryIds);
                   const isPhysicalDimension = getDimensionField(field.name) !== null;
                   const hasConfiguredParentValue =
                     Boolean(parentData) && hasTechnicalValue(parentTechnicalValues, field.name);
@@ -383,7 +463,6 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                             {field.unit ? ` (${field.unit})` : ''}
                             {applicable && <Text style={{ color: '#ef4444' }}> *</Text>}
                           </Text>
-                          {isManual && <Text style={styles.manualBadge}>Manual</Text>}
                         </View>
                         <View style={styles.attributeActions}>
                           {['profundidade', 'comprimento'].includes(normalizeName(field.name)) && (
@@ -396,7 +475,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                               <ArrowLeftRight size={15} color="#64748b" />
                             </TouchableOpacity>
                           )}
-                          {!alwaysApplicable && (
+                          {!alwaysApplicable && !isManual && (
                             <Switch
                               value={applicable}
                               disabled={Boolean(parentData && !hasOwnValue)}
@@ -417,7 +496,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                                 else
                                   setTechnicalValue(
                                     field.name,
-                                    parentTechnicalValues[field.name] ?? ''
+                                    getTechnicalValue(parentTechnicalValues, field.name) ?? ''
                                   );
                               }}
                               style={styles.inheritanceButton}
@@ -441,8 +520,11 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                                   previous.filter((name) => name !== field.name)
                                 );
                                 setFormData((previous: any) => {
-                                  const technicalValues = { ...(previous.technicalValues || {}) };
-                                  delete technicalValues[field.name];
+                                  const technicalValues = Object.fromEntries(
+                                    Object.entries(previous.technicalValues || {}).filter(
+                                      ([name]) => normalizeName(name) !== normalizeName(field.name)
+                                    )
+                                  );
                                   return { ...previous, technicalValues };
                                 });
                               }}
@@ -513,79 +595,6 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
           {fieldGroups.length === requiredFieldGroups.length && characteristicSearchControl}
         </>
       )}
-      {!parentData && !requiredFieldsOnly && visibleTechnicalFields.length > 0 && (
-        <View>
-          {technicalFields.some(
-            (field: any) => !visibleTechnicalFields.some((visible) => visible.name === field.name)
-          ) && (
-            <TouchableOpacity
-              onPress={() => {
-                setOptionSearch('');
-                setShowAdditionalAttributes(true);
-              }}
-              style={styles.addAttributeButton}
-            >
-              <Text style={styles.addAttributeButtonText}>＋ Adicionar outra característica</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      <Modal
-        visible={showAdditionalAttributes}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowAdditionalAttributes(false)}
-      >
-        <View style={styles.pickerOverlay}>
-          <View style={[styles.pickerCard, dark && styles.darkCard]}>
-            <Text style={[styles.cardTitle, dark && styles.lightText]}>
-              Adicionar característica
-            </Text>
-            <TextInput
-              value={optionSearch}
-              onChangeText={setOptionSearch}
-              placeholder="Buscar característica..."
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-            />
-            <ScrollView keyboardShouldPersistTaps="handled" style={styles.optionList}>
-              {technicalFields
-                .filter(
-                  (field: any) =>
-                    !isExcludedProductTechnicalField(field.name) &&
-                    field.active !== false &&
-                    !visibleTechnicalFields.some(
-                      (visible) => normalizeName(visible.name) === normalizeName(field.name)
-                    ) &&
-                    field.name.toLowerCase().includes(optionSearch.trim().toLowerCase())
-                )
-                .map((field: any) => (
-                  <TouchableOpacity
-                    key={field.id}
-                    onPress={() => {
-                      setManualFieldNames((previous) => [...previous, field.name]);
-                      setTechnicalValue(field.name, '');
-                      setShowAdditionalAttributes(false);
-                    }}
-                    style={styles.optionRow}
-                  >
-                    <Text style={[styles.optionRowText, dark && styles.lightText]}>
-                      {field.name}
-                    </Text>
-                    <Text style={styles.selectedMark}>＋</Text>
-                  </TouchableOpacity>
-                ))}
-            </ScrollView>
-            <TouchableOpacity
-              onPress={() => setShowAdditionalAttributes(false)}
-              style={styles.pickerCloseButton}
-            >
-              <Text style={styles.pickerCloseText}>Fechar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -635,6 +644,28 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, minWidth: 0, paddingVertical: 9, color: '#0f172a', fontSize: 13 },
   searchHint: { fontSize: 10, lineHeight: 15, color: '#94a3b8' },
+  searchResults: {
+    overflow: 'hidden',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#fff',
+  },
+  searchResultRow: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e2e8f0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  darkOptionRow: { borderBottomColor: '#334155' },
+  searchResultName: { flex: 1, color: '#334155', fontSize: 12, fontWeight: '600' },
+  searchResultAction: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  searchResultActionText: { color: '#2563eb', fontSize: 11, fontWeight: '800' },
   attributeField: { gap: 7 },
   attributeHeading: {
     minHeight: 34,
@@ -683,48 +714,6 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     backgroundColor: '#f1f5f9',
   },
-  manualBadge: {
-    color: '#2563eb',
-    backgroundColor: '#dbeafe',
-    borderRadius: 4,
-    overflow: 'hidden',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  pickerOverlay: { flex: 1, backgroundColor: '#0f172a99', justifyContent: 'center', padding: 18 },
-  pickerCard: { maxHeight: '82%', backgroundColor: '#fff', borderRadius: 18, padding: 16, gap: 12 },
-  optionList: { flexGrow: 0 },
-  optionRow: {
-    minHeight: 44,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  optionRowText: { color: '#334155', fontSize: 13, fontWeight: '600', flex: 1 },
-  selectedMark: { color: '#2563eb', fontWeight: '900' },
-  pickerCloseButton: {
-    height: 42,
-    borderRadius: 11,
-    backgroundColor: '#2563eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pickerCloseText: { color: '#fff', fontWeight: '800' },
-  addAttributeButton: {
-    minHeight: 42,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#93c5fd',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addAttributeButtonText: { color: '#2563eb', fontSize: 12, fontWeight: '800' },
   row: { flexDirection: 'row', gap: 10 },
   flex1: { flex: 1 },
   labelRow: {

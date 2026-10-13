@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers';
 import {
   decideFiscalRecipientRequirements,
   getHomologationRecipientName,
@@ -27,13 +28,13 @@ export function serializeFiscalDocument(
   identity: FiscalXmlIdentity
 ): string {
   validateFiscalDocument(snapshot, document, ruleSet);
-  const key = requireCode(identity.accessKey, /^\d{44}$/, 'Chave de acesso');
-  requireCode(document.issuer.cnpj, /^\d{14}$/, 'CNPJ do emitente');
+  const key = requireCode(identity.accessKey, ACCESS_KEY_PATTERN, 'Chave de acesso');
+  requireCode(document.issuer.cnpj, /^[A-Z0-9]{12}[0-9]{2}$/, 'CNPJ do emitente');
   if (
     document.issuer.address.uf !== 'PR' ||
     key.slice(0, 2) !== '41' ||
     document.issuer.municipalityCode !== document.issuer.address.municipalityCode ||
-    key.slice(6, 20) !== document.issuer.cnpj.replace(/\D/g, '') ||
+    key.slice(6, 20) !== normalizeRecipientTaxId(document.issuer.cnpj) ||
     key.slice(20, 22) !== document.model ||
     Number(key.slice(22, 25)) !== identity.series ||
     Number(key.slice(25, 34)) !== identity.number ||
@@ -209,7 +210,7 @@ export function serializeFiscalDocument(
                 requireCode(payment.card.integrationType, /^[12]$/, 'Integração cartão')
               ) +
               (payment.card.acquirerCnpj
-                ? tag('CNPJ', requireCode(payment.card.acquirerCnpj, /^\d{14}$/, 'CNPJ adquirente'))
+                ? tag('CNPJ', requireCode(payment.card.acquirerCnpj, /^[A-Z0-9]{12}[0-9]{2}$/, 'CNPJ adquirente'))
                 : '') +
               (payment.card.brand
                 ? tag('tBand', requireCode(payment.card.brand, /^\d{2}$/, 'Bandeira'))

@@ -1,16 +1,16 @@
 # Roadmap Canônico: NF-e e NFC-e de Saída (MoranteHub)
 
-**Atualizado em:** 09/10/2026
+**Atualizado em:** 13/10/2026
 **Fonte de Verdade para:** Arquitetura e prontidão de Produção da emissão de Documentos Fiscais de Saída. Para execução de testes, estados de homologação e pendências verificadas, use o [status central de testes fiscais](status-testes-homologacao.md).
 
-## Estado da implantação — 09/10/2026
+## Estado da implantação — 13/10/2026
 
-**Etapa:** validação do código para Homologação; Produção fiscal ainda bloqueada. O checkout atual (`fdbfee2be094ae1c9debacecde1cb7b7caa068b0`) passou em 104 dos 106 testes focados executados em sete arquivos. Os dois restantes exercitam a validação XSD real de NFC-e pickup e delivery e falham porque `infAdProd` está em posição inválida no XML. Nenhuma transmissão SEFAZ foi feita nesta rodada.
+**Etapa:** o caminho de emissão para Produção está disponível por padrão e compartilha o core fiscal; cada transmissão exige confirmação explícita da operação e validações/autorização próprias. A [revisão concluída em 13/10](revisao-fluxos-saida-2026-10-13.md) aprovou 305 testes da bateria principal, 40 testes com assinatura/XSD e regressões adicionais. Isso é evidência local com SEFAZ simulada, não autorização real em Produção. O estado do deployment e os limites de validação HML são acompanhados no [status central](status-testes-homologacao.md).
 
-- **Homologação:** existe evidência histórica de autorização de NF-e 55, descrita abaixo e na [baseline de 01/10](baseline-e2e-homologacao-2026-10-01.md). Ela não valida o checkout atual nem a jornada visual. Não há XML/resposta/protocolo de autorização NFC-e 65 verificável neste checkout.
-- **Produção:** o código tem os caminhos compartilhados para `tpAmb=1/2`, mas o backend exige a flag explícita e a decisão persistida segue `productionApproved=false`. Não há emissão nem autorização real em Produção registrada.
-- **Deployment:** o deployment Production de HEAD (`fdbfee2be094ae1c9debacecde1cb7b7caa068b0`) falha no `patchBuild` pelo limite de 12 Serverless Functions da Vercel Hobby (`exceeded_serverless_functions_per_deployment`); as alterações locais não commitadas também não foram publicadas. As duas tentativas Preview recentes da branch `codex/fiscal-hml-stage5` falharam pelo mesmo motivo. O último deployment Production READY é de 07/10, commit `3dd46b2dadc8721e464e546eb818bccdd8ce613d`; `morantehub.com` e `morantehub.vercel.app` continuam nesse deployment. Isso significa que o checkout atual não está publicado; o deployment anterior continua ativo. A falha de publicação não é uma resposta da SEFAZ.
-- **Próximos bloqueios:** corrigir e validar a ordem XSD dos elementos NFC-e; resolver o limite de funções para publicar o checkout; só então validar a jornada pela interface. Antes da janela HML de 26/10, comparar as NTs adiadas com as regras e cenários aplicáveis ao produto.
+- **Homologação:** as evidências históricas NF-e/NFC-e estão no status central e na [baseline de 01/10](baseline-e2e-homologacao-2026-10-01.md). A consulta registrada em 12/10 confirmou NF-e 55 com `100`, mas um registro NFC-e 65 respondeu `217`; esse registro requer reconciliação antes de retry. A revisão de 13/10 não repetiu consultas nem transmissões reais e não valida a jornada visual.
+- **Produção:** o código tem os caminhos compartilhados para `tpAmb=1/2`; não há gate global de ambiente. Confirmação por operação, autorização, integridade, idempotência e cenário fiscal válido continuam obrigatórios. Não há emissão nem autorização real em Produção comprovada nesta revisão.
+- **Build e deployment:** o build fiscal local passou em 13/10, com 15 rotas carregadas, XSD/WASM resolvidos e 11/12 funções. O diagnóstico de 09/10 registrava falha de publicação por excesso de funções para o commit `fdbfee2be094ae1c9debacecde1cb7b7caa068b0` e último Production READY no commit `3dd46b2dadc8721e464e546eb818bccdd8ce613d` de 07/10. Esses dados remotos são históricos: deployment e domínios não foram reconsultados nesta revisão, e build local aprovado não comprova publicação.
+- **Próximas validações:** persistência/concorrência reais e interface dos fluxos afetados, sob a política de testes. O erro XSD NFC-e relatado em 09/10 não se reproduz na bateria atual. Antes da janela HML registrada para 26/10, comparar as NTs adiadas com as regras e cenários aplicáveis ao produto.
 
 Para contagens, resultados por cenário e distinção entre evidência local, HML e Produção, veja o [status central](status-testes-homologacao.md).
 
@@ -69,7 +69,7 @@ Referências: [correção de série/IE e consistência](correcao-serie-ie-hml.md
 
 ## 1. Estado Atual e Correções Conceituais (Auditoria Revisada)
 
-**Status do código:** o fluxo normal está conectado à reserva, persistência e reconciliação comuns para os ambientes 1 e 2. Isso não significa que a Produção esteja liberada: o backend mantém guarda explícita, `productionApproved=false` continua persistido e não há autorização real de Produção registrada. A decisão fiscal da venda normal declara escopo para os modelos 55 e 65; cenários fora desse escopo seguem bloqueados sem fallback de modelo. A responsável dispensou novo plano aprovado ou evidência conjunta de autorização 55/65 como gate documental adicional, mas isso não transforma a autorização de NFC-e 65 em evidência verificável. O código do checkout atual também não está publicado, pois o deployment mais recente falhou no limite de funções da Vercel. Confira o [status central](status-testes-homologacao.md) para os testes, bloqueios e deployments atuais. A evidência histórica HML de NF-e 55 permanece na baseline. Ver [registro técnico e evidências](emissao-normal-reserva-reconciliacao.md).
+**Status do código:** o fluxo normal está conectado à reserva, persistência e reconciliação comuns para os ambientes 1 e 2. Produção está disponível por padrão; a chamada exige confirmação explícita por operação, autorização do operador e validações fiscais específicas. A decisão fiscal da venda normal declara escopo para os modelos 55 e 65; cenários fora desse escopo seguem bloqueados sem fallback de modelo. Testes locais e autorização HML não comprovam uma emissão real em Produção. O estado de publicação do código e os cenários cobertos estão no [status central](status-testes-homologacao.md). A evidência histórica HML de NF-e 55 permanece na baseline. Ver [registro técnico e evidências](emissao-normal-reserva-reconciliacao.md).
 
 **Separação arquitetural para a emissão normal:** o mesmo core de determinação fiscal, serialização XML, assinatura, validação, comunicação SEFAZ e interpretação de retorno atende os dois ambientes. `tpAmb`, endpoints, certificado/configuração, numeração e confirmação de Produção pertencem à configuração do ambiente. A política de tentativa/idempotência/reconciliação é comum. A fixture técnica `HML_TECHNICAL_V1` e suas funções históricas permanecem exclusivas de HML. `nfe_establishment_sequences` isola CNPJ completo, modelo, ambiente e série; o emitente existente mantém compatibilidade com seu contador legado.
 
@@ -85,7 +85,7 @@ A auditoria identificou exageros e incorreções conceituais na análise anterio
 - **Contingência Subestimada:** Não existe regra única como "basta usar `tpEmis=9`" para ambos os modelos.
   - **NFC-e (Mod 65) no PR:** Adota contingência offline (`tpEmis=9`), o que exige guardar XML assinado e transmiti-lo depois.
   - **NF-e (Mod 55) no PR:** Adota contingências complexas como SVC-RS ou EPEC, que requerem comunicação com ambientes nacionais distintos. A lógica deve ser implementada e auditada separadamente.
-- **Carta de Correção (CC-e):** É um evento *posterior* à autorização. Não bloqueia a emissão principal da NF-e, logo foi reclassificada para a fila de completude operacional (P1), não sendo prioritária (P0) para ligar a chave do emissor.
+- **Carta de Correção (CC-e):** não utilizada pelo MoranteHub e fora da fila de implementação. Correções seguem cancelamento ou estorno direto pela política central, conforme elegibilidade; eventos antigos ficam somente para histórico/reconciliação, sem novas transmissões.
 
 ## 2. Roadmap por prioridade
 
@@ -146,7 +146,7 @@ Envio automático de XML/DANFE por WhatsApp ou e-mail é uma funcionalidade oper
 - **Contingências Específicas:**
   - NFC-e Offline (`tpEmis=9`).
   - NF-e SVC-RS/EPEC.
-- **Carta de Correção (CC-e):** Apenas Mod 55.
+- **Carta de Correção (CC-e, referência histórica superada):** não utilizada pelo MoranteHub; novas transmissões estão fora do escopo. Aplicar cancelamento ou estorno direto conforme a política central.
 - **Tratamento de Rejeições:** Tela/soluções que ajudem o usuário a corrigir XML e reenviar sem corromper o banco.
 
 ### 🟢 P2 — Maturidade Operacional e Otimização (histórico)
@@ -166,4 +166,6 @@ Envio automático de XML/DANFE por WhatsApp ou e-mail é uma funcionalidade oper
 ---
 ## 5. Próximo Passo Exato
 
-**Próximo passo:** corrigir a ordem XSD de `infAdProd` nos XMLs NFC-e pickup e delivery; resolver o limite de funções da Vercel para publicar o checkout; e então validar a interface e o deployment antes de qualquer emissão HML. Também revisar a aplicabilidade das NTs 2025.002 v1.52, 2026.007 v1.10 e 2026.008 v1.00 antes da janela HML de 26/10/2026, e avaliar separadamente a NT 2026.002 v1.11 (DANFE Simplificado Tipo 2/contingência) e a NT 2026.010 v1.00 (DANFE para RTC). O [aviso do Portal Nacional](https://www.nfe.fazenda.gov.br/portal/informe.aspx?AspxAutoDetectCookieSupport=1&ehCTG=false&page=0&pagesize=30) adiou as três primeiras para 26/10 em homologação e 16/11 em produção. O pipeline normal atende os modelos 55/65 dentro dos cenários fiscais implementados, mas o XML dos dois cenários NFC-e citados ainda reprova o XSD. A autorização SEFAZ 65 continua sem evidência verificável neste checkout; confira o [status central](status-testes-homologacao.md). Uma validação operacional pela interface é evidência separada.
+**Próximo passo:** validar persistência, rollback e concorrência dos fluxos afetados no Supabase remoto com artefatos próprios e autorização específica; conferir deployment e jornada visual separadamente. Reconciliar a situação NFC-e que respondeu `217` em 12/10 antes de qualquer retry; emissão HML real exige autorização explícita e uso da interface. O gate XSD de documentos e a contagem local de funções passaram; não são mais os bloqueios locais anteriormente registrados.
+
+A leitura dirigida de 13/10 delimitou a aplicabilidade das NTs 2025.002 v1.52, 2026.007 v1.10 e 2026.008 v1.00 antes da janela HML de 26/10/2026, além de pontos de DANFE/RTC e CNPJ alfanumérico. A comparação integral com os cenários do produto e os fluxos de inutilização/contingência permanece pendente. Gate XSD do cancelamento e reconciliação legada passaram nos testes locais; a migration 20261013115005 necessária à persistência atômica foi aplicada e passou em 12 testes pgTAP de catálogo/ACL. Deploy e prova de rollback/concorrência permanecem pendentes. Fontes, evidências e ordem de aplicação/deploy estão na [revisão de 13/10](revisao-fluxos-saida-2026-10-13.md).

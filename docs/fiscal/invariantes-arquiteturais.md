@@ -1,6 +1,6 @@
 # Invariantes do emissor fiscal de saída
 
-**Escopo:** NF-e 55; aplicar à NFC-e 65 somente onde a regra e o serviço forem compatíveis. **Revisão:** 2026-10-09. Estas são exigências de projeto e critérios de revisão, não uma declaração de conformidade geral da implementação. O estado dos testes fiscais está no [status central de homologação](status-testes-homologacao.md). A fonte normativa de cada mudança deve ser consultada novamente nas publicações oficiais aplicáveis, listadas em [manuais](manuais/README.md).
+**Escopo:** NF-e 55; aplicar à NFC-e 65 somente onde a regra e o serviço forem compatíveis. **Revisão:** 2026-10-13. Estas são exigências de projeto e critérios de revisão, não uma declaração de conformidade geral da implementação. O estado dos testes fiscais está no [status central de homologação](status-testes-homologacao.md). A fonte normativa de cada mudança deve ser consultada novamente nas publicações oficiais aplicáveis, listadas em [manuais](manuais/README.md).
 
 | ID | Invariante | Evidência mínima para considerá-la atendida |
 |---|---|---|
@@ -19,7 +19,7 @@
 | FISCAL-013 | A NF-e preserva snapshot dos dados usados na emissão. | XML e itens/dados fiscais da tentativa sobrevivem a edições futuras do pedido/cadastro. |
 | FISCAL-014 | Falha local após autorização é reconciliável. | Chave, XML, resposta e protocolo recuperáveis; teste de falha na persistência. |
 | FISCAL-015 | Cancelar pedido ou estado local não cancela a NF-e na SEFAZ. | Evento fiscal com retorno/protocolo próprio e estado separado. |
-| FISCAL-016 | CC-e não reescreve XML original autorizado. | Evento assinado, sequência, retorno e vínculo com documento original. |
+| FISCAL-016 | O ERP não utiliza CC-e; correções seguem cancelamento/estorno direto conforme elegibilidade. | Nova emissão de CC-e bloqueada. Eventos antigos somente como histórico/reconciliação, sem reescrever XML autorizado. |
 | FISCAL-017 | Biblioteca de terceiros não substitui especificação oficial. | Regra fiscal ligada a MOC/Anexo/NT/XSD/UF e versão aplicável. |
 | FISCAL-018 | Alteração de regra fiscal tem evidência oficial verificável. | Fonte, versão, seção, data, ambiente/modelo/UF e decisão registrados no diff ou documentação. |
 
@@ -29,8 +29,8 @@
 - **Transmissão:** persistir XML/chave e estado antes de chamar a SEFAZ. Não manter transação PostgreSQL aberta durante SOAP/mTLS. Timeout, crash ou resposta perdida preservam estado incerto e bloqueiam nova emissão da mesma intenção até reconciliação.
 - **Autorização confirmada:** persistir resposta, `cStat`, protocolo, XML autorizado e itens/snapshot; efeitos internos vinculados ao estado autorizado devem ocorrer atomicamente ou ficar numa fila/estado reconciliável, sem declarar conclusão parcial. Uma reconsulta não cria efeitos pela segunda vez.
 - **Rejeição confirmada:** preservar tentativa e motivo; permitir nova tentativa apenas conforme regra de numeração e idempotência da operação, sem reclassificar timeout como rejeição.
-- **Cancelamento e CC-e:** manter eventos e protocolos próprios, ligados à nota; não apagar autorização nem substituir seu XML. Qualquer reversão de estoque/financeiro segue a regra específica do pedido/devolução e precisa de vínculo e idempotência próprios.
+- **Cancelamento e histórico de CC-e:** manter eventos e protocolos próprios, ligados à nota; não apagar autorização nem substituir seu XML. Não transmitir novas CC-e. Qualquer reversão de estoque/financeiro segue a regra específica do pedido/devolução e precisa de vínculo e idempotência próprios.
 
 ## Gatilhos de revisão antes de produção
 
-FISCAL-010 deixou de ser ausente no caminho principal: `api/nfe/emit.ts`, `api/nfe/emitNormalSale.ts` e `api/nfe/transmit-operation-draft.ts` chamam o validador do XSD oficial em suas rotas de transmissão/retry. Na execução focada de 09/10, os 11 testes de `fiscalOperationXml.test.ts` passaram; em `hmlNormalSaleRuleSet.test.ts`, os XMLs NFC-e pickup e delivery falharam porque o XSD PL_010f rejeitou a posição de `infAdProd`. Portanto o gate está implementado, mas FISCAL-010 ainda não está comprovado em todos os modelos/cenários aplicáveis. FISCAL-007/008/014 exigem prova com banco real, falha após autorização e duas sessões; testes mockados não bastam. O estado completo está no [status central de homologação](status-testes-homologacao.md).
+FISCAL-010 possui gate no caminho principal: `api/nfe/emit.ts`, `api/nfe/emitNormalSale.ts` e `api/nfe/transmit-operation-draft.ts` chamam o validador do XSD oficial em suas rotas de transmissão/retry. Na revisão de 13/10, passaram os 29 testes de `hmlNormalSaleRuleSet.test.ts` e os 11 de `fiscalOperationXml.test.ts`, incluindo XML assinado de NF-e 55, NFC-e de retirada/entrega, estorno e devolução. A falha histórica de posição de `infAdProd` não se reproduziu. O cancelamento agora valida envelope assinado e detalhe 110111 antes de reservar/enviar; 13 testes de XSD passaram. Isso comprova os cenários locais com os pacotes fixados, sem certificar toda regra fiscal. Nova CC-e não é utilizada e não integra o escopo de prontidão. FISCAL-007/008/014 exigem prova com banco real, falha após autorização e duas sessões; a migration de cancelamento atômico 20261013115005 foi aplicada e passou em 12 testes pgTAP de catálogo/ACL, sem comprovar o comportamento transacional. Testes mockados não bastam. Consulte a [revisão de 13/10](revisao-fluxos-saida-2026-10-13.md) e o [status central de homologação](status-testes-homologacao.md).

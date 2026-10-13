@@ -185,11 +185,26 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
             onEdit={onEdit}
             onShowHistory={onShowHistory}
             onLaunchStock={onLaunchStock}
-            onDelete={handleDelete}
-            onRestore={handleRestore}
-            onPermanentDelete={handlePermanentDelete}
-            onToggleActive={toggleActive}
-            onDeactivateCatalog={deactivateCatalog}
+            onDelete={async (id) => {
+              await handleDelete(id);
+              onRefresh?.();
+            }}
+            onRestore={async (id) => {
+              await handleRestore(id);
+              onRefresh?.();
+            }}
+            onPermanentDelete={async (id) => {
+              await handlePermanentDelete(id);
+              onRefresh?.();
+            }}
+            onToggleActive={async (id, currentStatus) => {
+              await toggleActive(id, currentStatus);
+              onRefresh?.();
+            }}
+            onDeactivateCatalog={async (id) => {
+              await deactivateCatalog(id);
+              onRefresh?.();
+            }}
             visibilitySettings={visibilitySettings}
             onToggleColumn={onToggleColumn}
             showTrash={listFilters.showTrash}
@@ -199,9 +214,18 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
             onToggleSelection={toggleSelection}
             onSelectAll={selectAll}
             onClearSelection={clearSelection}
-            onBulkTrash={handleBulkTrash}
-            onBulkRestore={handleBulkRestore}
-            onBulkPermanentDelete={handleBulkPermanentDelete}
+            onBulkTrash={async () => {
+              await handleBulkTrash();
+              onRefresh?.();
+            }}
+            onBulkRestore={async () => {
+              await handleBulkRestore();
+              onRefresh?.();
+            }}
+            onBulkPermanentDelete={async () => {
+              await handleBulkPermanentDelete();
+              onRefresh?.();
+            }}
             categoryTree={categoryTree}
             onRefresh={() => {
               refresh();

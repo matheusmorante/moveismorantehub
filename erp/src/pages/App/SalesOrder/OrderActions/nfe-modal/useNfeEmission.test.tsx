@@ -31,9 +31,15 @@ const mocks = vi.hoisted(() => ({
   setReplacementSource: vi.fn(),
   buildFiscalChoices: vi.fn(),
   updateOrder: vi.fn(),
+  prepareOrderSnapshot: vi.fn(),
+  profileRole: 'administrator' as string,
 }));
 vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ profile: { role: 'administrator' } }),
+  useAuth: () => ({
+    profile: { role: mocks.profileRole },
+    isRealAdministrator: mocks.profileRole === 'administrator',
+    activeRoleMode: null,
+  }),
 }));
 vi.mock('@/pages/utils/nfe/csosnConfigurationService', () => ({
   prepareHmlItemCsosns: mocks.prepare,
@@ -65,6 +71,9 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
 }));
 vi.mock('@/pages/utils/nfe/orderFiscalBadgeService', () => ({
   fetchOrderFiscalBadgeStatuses: vi.fn().mockResolvedValue({}),
+}));
+vi.mock('@/pages/utils/nfeEmissionSnapshotService', () => ({
+  prepareOrderFiscalSnapshotForEmission: mocks.prepareOrderSnapshot,
 }));
 vi.mock('@/pages/utils/orderHistoryService', () => ({ updateOrder: mocks.updateOrder }));
 vi.mock('./NcmSelect', () => ({
@@ -99,6 +108,8 @@ describe('preenchimento dos itens da NF-e', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     clearFiscalEmissionDrafts();
+    mocks.profileRole = 'administrator';
+    mocks.prepareOrderSnapshot.mockImplementation(async (currentOrder: any) => currentOrder);
     mocks.preview.mockResolvedValue({
       success: true,
       preview: true,
@@ -161,17 +172,49 @@ describe('preenchimento dos itens da NF-e', () => {
   }
   const order: any = {
     id: 'synthetic-order',
+    fiscalContext: { finalConsumer: false },
     shipping: { deliveryMethod: 'pickup' },
     customerData: { cpfCnpj: '12345678909' },
     items: [
       {
         quantity: 1,
         description: 'ITEM A',
-        fiscal: { ncm: '94036000', cfop: '5102', origem: '2' },
+        fiscalSnapshotVersion: 1,
+        fiscal: { ncm: '94036000', cfop: '5102', origem: '2', commercialUnit: 'UN', taxableUnit: 'UN' },
       },
-      { quantity: 1, description: 'ITEM B', fiscal: { cst: '500', ncm: '94036000', origem: '0' } },
+      {
+        quantity: 1,
+        description: 'ITEM B',
+        fiscalSnapshotVersion: 1,
+        fiscal: { cst: '500', ncm: '94036000', origem: '0', commercialUnit: 'UN', taxableUnit: 'UN' },
+      },
     ],
   };
+  it('permite emitir sem solicitar prévia e limita o botão de prévia ao administrador real', async () => {
+    mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
+    const { unmount } = render(
+      <NfeEmissionModal isOpen order={{ ...order, id: 'direct-emission-without-preview' }} onClose={vi.fn()} />
+    );
+    const preview = await screen.findByTestId('nfe-preview-xml-button');
+    expect(preview).toBeTruthy();
+    await waitFor(() =>
+      expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false)
+    );
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+    await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
+    expect(mocks.preview).not.toHaveBeenCalled();
+
+    unmount();
+    cleanup();
+    mocks.profileRole = 'manager';
+    render(
+      <NfeEmissionModal isOpen order={{ ...order, id: 'preview-hidden-for-manager' }} onClose={vi.fn()} />
+    );
+    await waitFor(() =>
+      expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false)
+    );
+    expect(screen.queryByTestId('nfe-preview-xml-button')).toBeNull();
+  });
   it.each([
     [
       'CEST',
@@ -212,7 +255,7 @@ describe('preenchimento dos itens da NF-e', () => {
     [
       'indFinal',
       (value: any) => {
-        value.fiscalContext = { finalConsumer: false };
+        value.fiscalContext = { finalConsumer: true };
       },
     ],
     [
@@ -249,7 +292,7 @@ describe('preenchimento dos itens da NF-e', () => {
     const manualFiscalFields = { current: new Map() };
     const initial = structuredClone(order);
     const { result, rerender } = renderHook(
-      ({ source }) => useNfeItemEnrichment({ order: source, environment: 2, manualFiscalFields }),
+      ({ source }) => useNfeItemEnrichment({ order: source, environment: 2, model: '55', manualFiscalFields }),
       { initialProps: { source: initial } }
     );
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
@@ -280,7 +323,7 @@ describe('preenchimento dos itens da NF-e', () => {
   it('mudança para SC elimina tributação interna e sugere CFOP interestadual compatível', async () => {
     const manualFiscalFields = { current: new Map() };
     const { result, rerender } = renderHook(
-      ({ source }) => useNfeItemEnrichment({ order: source, environment: 2, manualFiscalFields }),
+      ({ source }) => useNfeItemEnrichment({ order: source, environment: 2, model: '55', manualFiscalFields }),
       { initialProps: { source: order } }
     );
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
@@ -301,7 +344,7 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(mocks.toast).not.toHaveBeenCalled();
     expect(mocks.prepare).toHaveBeenCalledTimes(2);
   });
-  it('bloqueia a transmissão e identifica o item ausente da consulta fiscal em lote', async () => {
+  it('bloqueia a transmissão e identifica o item sem snapshot fiscal preparado', async () => {
     const productIds = Array.from(
       { length: 10 },
       (_, index) => `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`
@@ -313,13 +356,7 @@ describe('preenchimento dos itens da NF-e', () => {
       description: `TEST_AUT_ITEM_${index + 1}`,
     }));
     const missingItemNumber = 7;
-    mocks.getProductsFiscalData.mockResolvedValue(
-      new Map(
-        productIds
-          .filter((_, index) => index + 1 !== missingItemNumber)
-          .map((id) => [id, { id, ncm: '94036000', cfop: '5102', origem: '0' }])
-      )
-    );
+    items[missingItemNumber - 1].fiscalSnapshotVersion = 0;
 
     render(
       <NfeEmissionModal
@@ -330,26 +367,22 @@ describe('preenchimento dos itens da NF-e', () => {
       />
     );
 
+    await screen.findByTestId('nfe-fiscal-footer-error');
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() =>
       expect(mocks.toast).toHaveBeenCalledWith(
-        expect.stringContaining(`item(ns): ${missingItemNumber}`)
+        expect.stringContaining(`itens ${missingItemNumber}`)
       )
     );
-    expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(true);
-    expect(mocks.getProductsFiscalData).toHaveBeenCalledWith(productIds, { useCache: false });
-    expect(mocks.getProductsFiscalData).toHaveBeenCalledTimes(1);
+    expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByTestId('nfe-fiscal-footer-error').textContent).toContain(`itens ${missingItemNumber}`);
+    expect(mocks.getProductsFiscalData).not.toHaveBeenCalled();
     expect(mocks.emit).not.toHaveBeenCalled();
   });
 
-  it('inicia a consulta fiscal em lote em paralelo com a preparação de CSOSN', async () => {
+  it('prepara CSOSN de NF-e sem recarregar o catálogo de um snapshot completo', async () => {
     const productId = '00000000-0000-4000-8000-000000000001';
-    let resolveProductData!: (data: Map<string, any>) => void;
     let resolveCsosns!: (items: any[]) => void;
-    mocks.getProductsFiscalData.mockReturnValue(
-      new Promise((resolve) => {
-        resolveProductData = resolve;
-      })
-    );
     mocks.prepare.mockReturnValue(
       new Promise((resolve) => {
         resolveCsosns = resolve;
@@ -366,23 +399,23 @@ describe('preenchimento dos itens da NF-e', () => {
       useNfeItemEnrichment({
         order: batchOrder,
         environment: 2,
+        model: '55',
         manualFiscalFields,
       })
     );
 
     await waitFor(() => {
-      expect(mocks.getProductsFiscalData).toHaveBeenCalledWith([productId], { useCache: false });
       expect(mocks.prepare).toHaveBeenCalledWith('TEST_AUT_parallel');
     });
     expect(result.current.isLoadingFiscalData).toBe(true);
 
     await act(async () => {
-      resolveProductData(new Map([[productId, { id: productId }]]));
       resolveCsosns([{ itemNumber: 1, csosn: '103', source: 'default', cfop: '5102' }]);
     });
 
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
     expect(result.current.fiscalPreparationError).toBeNull();
+    expect(mocks.getProductsFiscalData).not.toHaveBeenCalled();
   });
 
   it('localiza a intenção com resposta perdida e consulta sem outra emissão', async () => {
@@ -476,14 +509,8 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(screen.getByText('409')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('nfe-start-fresh-hml-emission'));
-    await screen.findByTestId('nfe-xml-preview-dialog');
-    expect(mocks.emit).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByTestId('nfe-xml-preview-close'));
-    await waitFor(() =>
-      expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false)
-    );
-    fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
+    expect(mocks.preview).toHaveBeenCalledTimes(1);
     expect(mocks.abandonAttempt).toHaveBeenCalledWith(order.id, 'hml-document-616', requestId, {
       itemCsosnOverrides: {},
       itemFiscalSelections: {
@@ -635,7 +662,7 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(screen.getByTestId('nfe-number-preview-context').textContent).toContain(
       'Série 1 · Homologação'
     );
-    expect(mocks.nextNumber).toHaveBeenCalledWith('65', DEFAULT_NFE_ENVIRONMENT, '1', 600);
+    expect(mocks.nextNumber).toHaveBeenCalledWith('55', DEFAULT_NFE_ENVIRONMENT, '1', 102);
 
     await prepareNfeEmission();
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
@@ -750,13 +777,8 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(screen.queryByRole('button', { name: 'Retransmitir a mesma NFC-e' })).toBeNull();
     fireEvent.click(fresh);
     fireEvent.click(fresh);
-    await screen.findByTestId('nfe-xml-preview-dialog');
-    fireEvent.click(screen.getByTestId('nfe-xml-preview-close'));
-    await waitFor(() =>
-      expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false)
-    );
-    fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
+    expect(mocks.preview).toHaveBeenCalledTimes(1);
     expect(mocks.emit.mock.calls[1][3]).toBeUndefined();
     expect(mocks.emit.mock.calls[1][4]).toBeUndefined();
   });
@@ -1064,41 +1086,21 @@ describe('preenchimento dos itens da NF-e', () => {
   });
 
   it('mostra carregamento não bloqueante e deixa CPF opcional na NFC-e comum', async () => {
-    let resolveProduct!: (product: unknown) => void;
-    mocks.getProductsFiscalData.mockReturnValue(
-      new Promise((resolve) => {
-        resolveProduct = resolve;
-      })
-    );
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
     const pickupOrder = {
       ...order,
       id: 'synthetic-nfce-without-tax-id',
       customerData: { fullName: 'Cliente', personType: 'PF' },
       paymentsSummary: { totalOrderValue: 100 },
-      items: [{ ...order.items[0], productId: 'registered-product' }],
+      fiscalContext: { finalConsumer: true },
+      items: [{ ...order.items[0], productId: 'registered-product', fiscal: { ...order.items[0].fiscal, cst: '102' } }],
     } as any;
 
     render(<NfeEmissionModal isOpen order={pickupOrder} onClose={vi.fn()} />);
     expect(screen.getByText('Carregando dados do cliente e dos produtos…')).toBeTruthy();
     expect(document.querySelector('[aria-busy="true"]')).toBeTruthy();
-    expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(true);
-    await waitFor(() =>
-      expect(mocks.getProductsFiscalData).toHaveBeenCalledWith(['registered-product'], {
-        useCache: false,
-      })
-    );
-
-    await act(async () =>
-      resolveProduct(
-        new Map([
-          [
-            'registered-product',
-            { id: 'registered-product', ncm: '94036000', cfop: '5102', origem: '0' },
-          ],
-        ])
-      )
-    );
+    expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false);
+    expect(mocks.getProductsFiscalData).not.toHaveBeenCalled();
 
     await waitFor(() =>
       expect(screen.queryByText('Carregando dados do cliente e dos produtos…')).toBeNull()
@@ -1115,12 +1117,12 @@ describe('preenchimento dos itens da NF-e', () => {
   });
 
   it.each([undefined, '94036000'])(
-    'autopreenche o campo do modal com o NCM cadastrado quando o pedido contém %s',
+    'preserva o NCM do snapshot (%s), mesmo com catálogo divergente',
     async (savedNcm) => {
       const registeredOrder: any = {
         ...order,
         id: `catalog-ncm-${savedNcm || 'empty'}`,
-        items: [{ ...order.items[0], productId: 'registered-product', fiscal: { ncm: savedNcm } }],
+        items: [{ ...order.items[0], productId: 'registered-product', fiscal: { ...order.items[0].fiscal, ncm: savedNcm } }],
       };
       const original = structuredClone(registeredOrder);
       mocks.getProductsFiscalData.mockResolvedValue(
@@ -1129,17 +1131,15 @@ describe('preenchimento dos itens da NF-e', () => {
       render(<NfeEmissionModal isOpen order={registeredOrder} onClose={vi.fn()} />);
       await waitFor(() =>
         expect((screen.getByRole('textbox', { name: 'NCM' }) as HTMLInputElement).value).toBe(
-          '94035000'
+          savedNcm || ''
         )
       );
-      expect(mocks.getProductsFiscalData).toHaveBeenCalledWith(['registered-product'], {
-        useCache: false,
-      });
+      expect(mocks.getProductsFiscalData).not.toHaveBeenCalled();
       expect(registeredOrder).toEqual(original);
     }
   );
 
-  it('herda o NCM do produto quando a variação cadastrada não tem NCM próprio', async () => {
+  it('preserva o NCM capturado na variação mesmo se o catálogo atual mudar', async () => {
     mocks.getProductsFiscalData.mockResolvedValue(
       new Map([
         [
@@ -1165,7 +1165,8 @@ describe('preenchimento dos itens da NF-e', () => {
     };
     const { result } = renderHook(() => useNfeEmission(registeredOrder));
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
-    expect(result.current.nfeItems[0].fiscal.ncm).toBe('94035000');
+    expect(result.current.nfeItems[0].fiscal.ncm).toBe('94036000');
+    expect(mocks.getProductsFiscalData).not.toHaveBeenCalled();
   });
 
   it('preserva o NCM do pedido quando o cadastro não fornece um código', async () => {
@@ -1207,7 +1208,7 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(registeredOrder).toEqual(original);
   });
 
-  it('usa 103 para item de teste e o CSOSN atual do produto cadastrado', async () => {
+  it('preserva o CSOSN do snapshot de cada item e permite revisão manual', async () => {
     const testOrder = {
       ...order,
       id: 'hml-test-order-csosn',
@@ -1225,9 +1226,10 @@ describe('preenchimento dos itens da NF-e', () => {
     );
     const { result } = renderHook(() => useNfeEmission(testOrder));
     await waitFor(() =>
-      expect(result.current.nfeItems.map((item) => item.fiscal.cst)).toEqual(['103', '500'])
+      expect(result.current.nfeItems.map((item) => item.fiscal.cst)).toEqual(['102', '500'])
     );
-    expect(result.current.nfeItems.map((item) => item.fiscal.cst)).toEqual(['103', '500']);
+    expect(result.current.nfeItems.map((item) => item.fiscal.cst)).toEqual(['102', '500']);
+    expect(mocks.prepare).not.toHaveBeenCalled();
     expect(result.current.nfeItems[0].fiscal).toMatchObject({
       ncm: '94036000',
       cfop: '5102',
@@ -1357,17 +1359,17 @@ describe('preenchimento dos itens da NF-e', () => {
       id: 'delivery-missing-tax-id',
       shipping: { deliveryMethod: 'delivery', deliveryAddress: { state: 'PR' } },
       fiscalContext: { acquisitionPurpose: 'resale', finalConsumer: false },
-      customerData: { fullName: 'Cliente' },
+      customerData: { fullName: 'Cliente', personType: 'PF' },
     };
     const { result } = renderHook(() => useNfeEmission(deliveryOrder));
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
     await act(async () => result.current.handlePreviewXml());
     expect(result.current.recipientTaxIdError).toBe(
-      'A NF-e modelo 55 desta venda doméstica exige CPF/CNPJ do destinatário.'
+      'A NF-e modelo 55 desta venda doméstica exige CPF do destinatário.'
     );
     expect(mocks.emit).not.toHaveBeenCalled();
     expect(mocks.toast).toHaveBeenCalledWith(
-      'A NF-e modelo 55 desta venda doméstica exige CPF/CNPJ do destinatário.'
+      'A NF-e modelo 55 desta venda doméstica exige CPF do destinatário.'
     );
   });
 
@@ -1436,7 +1438,7 @@ describe('preenchimento dos itens da NF-e', () => {
     render(<NfeEmissionModal isOpen order={highValueNfceOrder} onClose={vi.fn()} />);
     await requestXmlPreview();
     const field = await screen.findByLabelText(/CPF/);
-    expect(field.getAttribute('aria-invalid')).toBe('true');
+    await waitFor(() => expect(field.getAttribute('aria-invalid')).toBe('true'));
     expect(
       await screen.findByText(
         'Esta NFC-e tem valor igual ou superior a R$ 10.000; informe o CPF do destinatário.'
@@ -1451,12 +1453,12 @@ describe('preenchimento dos itens da NF-e', () => {
       id: 'delivery-missing-tax-id-ui',
       shipping: { deliveryMethod: 'delivery', deliveryAddress: { state: 'PR' } },
       fiscalContext: { acquisitionPurpose: 'resale', finalConsumer: false },
-      customerData: { fullName: 'Cliente' },
+      customerData: { fullName: 'Cliente', personType: 'PF' },
     };
     render(<NfeEmissionModal isOpen order={deliveryOrder} onClose={vi.fn()} />);
     await requestXmlPreview();
     const field = await screen.findByLabelText(/CPF/);
-    expect(field.getAttribute('aria-invalid')).toBe('true');
+    await waitFor(() => expect(field.getAttribute('aria-invalid')).toBe('true'));
     expect(field.getAttribute('aria-describedby')).toBe('nfe-recipient-tax-id-error');
     expect(mocks.emit).not.toHaveBeenCalled();
   });
@@ -1583,7 +1585,7 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(screen.queryByText('Serviço de montagem')).toBeNull();
   });
 
-  it('mantém as linhas na tela quando a API fiscal está indisponível e desabilita a emissão', async () => {
+  it('mantém as linhas e o botão acessíveis para explicar a falha da preparação', async () => {
     mocks.prepare.mockRejectedValue(new Error('Configuração indisponível'));
     const orderWithUnregisteredItem: any = {
       ...order,
@@ -1602,7 +1604,9 @@ describe('preenchimento dos itens da NF-e', () => {
 
     expect(await screen.findByText('Item avulso para conferência')).toBeTruthy();
     expect(await screen.findByTestId('nfe-fiscal-footer-error')).toBeTruthy();
-    expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByTestId('nfe-emit-button').hasAttribute('disabled')).toBe(false);
+    fireEvent.click(screen.getByTestId('nfe-emit-button'));
+    expect(mocks.emit).not.toHaveBeenCalled();
   });
 
   it('informa exatamente o campo NCM faltante com toast específico, alterna para a aba de itens e destaca o campo', async () => {
@@ -1613,7 +1617,8 @@ describe('preenchimento dos itens da NF-e', () => {
         {
           quantity: 1,
           description: 'CADEIRA GAMER',
-          fiscal: { ncm: '', cfop: '5102', cst: '102', origem: '0' },
+          fiscalSnapshotVersion: 1,
+          fiscal: { ...order.items[0].fiscal, ncm: '', cfop: '5102', cst: '102', origem: '0' },
         },
       ],
     };
@@ -1640,7 +1645,8 @@ describe('preenchimento dos itens da NF-e', () => {
         {
           quantity: 1,
           description: 'MESA OFFICE',
-          fiscal: { ncm: '9403', cfop: '5102', cst: '102', origem: '0' },
+          fiscalSnapshotVersion: 1,
+          fiscal: { ...order.items[0].fiscal, ncm: '9403', cfop: '5102', cst: '102', origem: '0' },
         },
       ],
     };
@@ -1663,7 +1669,8 @@ describe('preenchimento dos itens da NF-e', () => {
           quantity: 1,
           description: 'ESTANTE DE LIVROS',
           merchandiseOrigin: 'own_production',
-          fiscal: { ncm: '94036000', cfop: '5101', cst: '102', origem: '0' },
+          fiscalSnapshotVersion: 1,
+          fiscal: { ...order.items[0].fiscal, ncm: '94036000', cfop: '5101', cst: '102', origem: '0' },
         },
       ],
     };
@@ -1678,7 +1685,7 @@ describe('preenchimento dos itens da NF-e', () => {
     const cfopSelect = document.getElementById('nfe-item-cfop-0') as HTMLSelectElement;
     fireEvent.change(cfopSelect, { target: { value: '' } });
 
-    expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false);
     await requestXmlPreview();
 
     expect(mocks.toast).toHaveBeenCalledWith('Selecione o CFOP do produto "ESTANTE DE LIVROS".');
@@ -1729,6 +1736,8 @@ describe('preenchimento dos itens da NF-e', () => {
 
     const hmlButton = screen.getByText('Homologação').closest('button');
     expect(hmlButton?.hasAttribute('disabled')).toBe(true);
+    expect(mocks.prepareOrderSnapshot).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(hmlButton?.getAttribute('title')).toBe(
       'Nota fiscal de homologação já emitida para este pedido.'
     );
@@ -1755,7 +1764,10 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(prodButton?.hasAttribute('disabled')).toBe(false);
     expect(prodButton?.getAttribute('title')).toContain('tpAmb=1');
     fireEvent.click(prodButton!);
-    expect(onSelectEnvironment).toHaveBeenCalledWith(1);
+    await waitFor(() =>
+      expect(mocks.prepareOrderSnapshot).toHaveBeenCalledWith(orderForTest, 1)
+    );
+    expect(onSelectEnvironment).toHaveBeenCalledWith(1, orderForTest);
   });
 
   it('mantém Produção disponível quando o pedido tem somente uma NFC-e de homologação', async () => {
@@ -1783,7 +1795,8 @@ describe('preenchimento dos itens da NF-e', () => {
     const prodButton = screen.getByText('Produção').closest('button');
     expect(prodButton?.hasAttribute('disabled')).toBe(false);
     fireEvent.click(prodButton!);
-    expect(onSelectEnvironment).toHaveBeenCalledWith(1);
+    await waitFor(() => expect(mocks.prepareOrderSnapshot).toHaveBeenCalledWith(hmlOrder, 1));
+    expect(onSelectEnvironment).toHaveBeenCalledWith(1, hmlOrder);
   });
 
   it('no modal de formulário, não exibe os botões de seleção de ambiente no cabeçalho e inicializa com o ambiente escolhido', async () => {
@@ -1832,7 +1845,7 @@ describe('preenchimento dos itens da NF-e', () => {
   });
 
   it('prepara novamente a resolução fiscal quando a condição do destinatário muda', async () => {
-    mocks.getProductsFiscalData.mockClear();
+    mocks.prepare.mockClear();
 
     const registeredOrder: any = {
       ...order,
@@ -1846,7 +1859,7 @@ describe('preenchimento dos itens da NF-e', () => {
     });
 
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
-    const initialCallCount = mocks.getProductsFiscalData.mock.calls.length;
+    const initialCallCount = mocks.prepare.mock.calls.length;
     expect(initialCallCount).toBeGreaterThanOrEqual(1);
 
     // Re-render simulando atualização de dados do cliente (ex: personType alterado de PF para PJ)
@@ -1862,11 +1875,12 @@ describe('preenchimento dos itens da NF-e', () => {
     });
 
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
-    expect(mocks.getProductsFiscalData.mock.calls.length).toBe(initialCallCount + 1);
+    expect(mocks.prepare.mock.calls.length).toBe(initialCallCount + 1);
+    expect(mocks.getProductsFiscalData).not.toHaveBeenCalled();
   });
 
   it('não reinicia o carregamento fiscal dos itens enquanto o CPF do destinatário é digitado', async () => {
-    mocks.getProductsFiscalData.mockClear();
+    mocks.prepare.mockClear();
     const registeredOrder: any = {
       ...order,
       id: 'typing-tax-id-order',
@@ -1876,7 +1890,7 @@ describe('preenchimento dos itens da NF-e', () => {
     const { result } = renderHook(() => useNfeEmission(registeredOrder));
 
     await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
-    const initialCallCount = mocks.getProductsFiscalData.mock.calls.length;
+    const initialCallCount = mocks.prepare.mock.calls.length;
     expect(initialCallCount).toBe(1);
 
     for (const value of ['1', '12', '123', '1234', '12345']) {
@@ -1885,6 +1899,7 @@ describe('preenchimento dos itens da NF-e', () => {
       expect(result.current.recipientTaxId).toBe(value);
     }
 
-    expect(mocks.getProductsFiscalData).toHaveBeenCalledTimes(initialCallCount);
+    expect(mocks.prepare).toHaveBeenCalledTimes(initialCallCount);
+    expect(mocks.getProductsFiscalData).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import Product, { ProductVisibilitySettings, Variation } from '../../types/product.type';
 import ProductList from './ProductList';
 import ProductFilters, { ProductFiltersData } from './ProductFilters';
@@ -108,13 +108,20 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
   });
   const [summaryChannel, setSummaryChannel] = React.useState<'erp' | 'catalog'>('erp');
 
+  const showTestProductsForCurrentRole = isAdministrator && showTestProducts;
+
   const fetchStats = React.useCallback(async () => {
     try {
-      setCatalogStats(await loadProductCatalogStats());
+      setCatalogStats(
+        await loadProductCatalogStats({
+          showTestProducts: showTestProductsForCurrentRole,
+          mode,
+        })
+      );
     } catch (err: unknown) {
       console.error('Erro ao carregar estatísticas dos produtos:', err);
     }
-  }, []);
+  }, [showTestProductsForCurrentRole, mode]);
 
   React.useEffect(() => {
     fetchStats();
@@ -167,7 +174,6 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
     // Ordenação gerenciada internamente pela ProductList
   };
 
-  const showTestProductsForCurrentRole = isAdministrator && showTestProducts;
   const currentFilters = React.useMemo(
     () => ({
       ...filters,

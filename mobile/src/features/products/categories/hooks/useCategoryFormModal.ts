@@ -5,7 +5,7 @@ import {
   saveMobileEnvironment,
   saveMobileCategory,
 } from '../../services/mobileCategoryService';
-import {
+import type {
   EnvironmentNode,
   CategoryNode,
   ModalType,
@@ -132,7 +132,16 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
         await saveMobileEnvironment(formattedName, selectedLinks, editingNode?.id);
       } else {
         const attributeIds = selectedAttributes.map((a) => a.id);
-        await saveMobileCategory(formattedName, selectedLinks, attributeIds, editingNode?.id);
+        const optionalAttributeIds = selectedAttributes
+          .filter((attribute) => attribute.name.trim().toLocaleLowerCase('pt-BR') === 'peso')
+          .map((attribute) => attribute.id);
+        await saveMobileCategory(
+          formattedName,
+          selectedLinks,
+          attributeIds,
+          editingNode?.id,
+          optionalAttributeIds
+        );
       }
       closeForm();
       await onSuccess();

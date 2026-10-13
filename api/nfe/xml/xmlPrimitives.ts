@@ -1,3 +1,4 @@
+import { calculateAccessKeyDigit } from '../../../shared-utils/fiscalIdentifiers';
 import type { FiscalAddress } from '../fiscalSnapshot';
 
 const escapeXml = (value: string | number) =>
@@ -35,10 +36,7 @@ export function percent(value: number): string {
 }
 
 export function accessKeyDigit(base43: string): number {
-  let sum = 0;
-  for (let index = 42; index >= 0; index--) sum += Number(base43[index]) * (2 + ((42 - index) % 8));
-  const digit = 11 - (sum % 11);
-  return digit >= 10 ? 0 : digit;
+  return calculateAccessKeyDigit(base43);
 }
 
 export function requireCode(value: string, pattern: RegExp, field: string): string {

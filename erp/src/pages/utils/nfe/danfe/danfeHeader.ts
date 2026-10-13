@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN } from '../../../../../../shared-utils/fiscalIdentifiers';
 import { AppSettings } from '../../settingsService';
 import type { ParsedFiscalDetails } from '@/pages/App/FiscalDocuments/types/fiscalDocuments.types';
 import bwipjs from 'bwip-js';
@@ -165,7 +166,7 @@ export function buildDanfeHeaderOfficialHtml(p: DanfeHeaderParams): string {
  * Gera barras de código de barras estilizadas com base no hash da chave de acesso
  */
 function generateBarcodeSvg(key: string): string {
-  if (!/^\d{44}$/.test(key)) return '';
+  if (!ACCESS_KEY_PATTERN.test(key)) return '';
   try {
     const toSVG = (bwipjs as unknown as {
       toSVG: (options: {

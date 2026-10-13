@@ -94,6 +94,11 @@ describe('processAutomaticReturnFiscalJob', () => {
       if (path === '/api/nfe/transmit-operation-draft') {
         return { pending: true, reconciliationRequired: true };
       }
+      if (path === `/api/nfe/operation-drafts?id=${draftId}`) return {
+        draft: { operation_kind: 'return', return_order_id: returnOrderId, environment: 1, status: 'unknown' },
+        source: { id: originalDocumentId, ambiente: 1 },
+        returnOrder: { id: returnOrderId },
+      };
       throw new Error(`Unexpected request: ${path}`);
     });
 
@@ -101,7 +106,27 @@ describe('processAutomaticReturnFiscalJob', () => {
       status: 'reconciling',
       errorCode: 'sefaz_reconciliation_pending',
     });
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledTimes(3);
+  });
+
+  it.each(['environment', 'return', 'source', 'state'])('blocks a pending draft with inconsistent %s before transmission', async (mismatch) => {
+    const request = vi.fn(async (path: string) => {
+      if (path.startsWith('/api/nfe/return-fiscal-eligibility')) return {
+        eligible: true, hasAuthorizedOriginal: true,
+        sources: [{ state: 'pending', draftId, source: { id: originalDocumentId, ambiente: 2 } }],
+      };
+      if (path === `/api/nfe/operation-drafts?id=${draftId}`) return {
+        draft: {
+          operation_kind: 'return', return_order_id: mismatch === 'return' ? 'different-return' : returnOrderId,
+          environment: mismatch === 'environment' ? 1 : 2, status: mismatch === 'state' ? 'ready' : 'unknown',
+        },
+        source: { id: mismatch === 'source' ? 'different-source' : originalDocumentId, ambiente: 2 },
+        returnOrder: { id: returnOrderId },
+      };
+      throw new Error('Unexpected mutation');
+    });
+    expect((await processAutomaticReturnFiscalJob(returnOrderId, request)).status).toBe('blocked');
+    expect(request.mock.calls.every(([path]) => !path.includes('transmit-operation-draft'))).toBe(true);
   });
 
   it('blocks automatic transmission when the generated review has an invalid CFOP', async () => {

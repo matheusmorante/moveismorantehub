@@ -1,12 +1,14 @@
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import {
   isRequiredCharacteristicName,
+  isWeightCharacteristicName,
   type TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
 
 export type TechnicalFieldUnitPolicy = 'product-form' | 'variation-form';
 
 const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
+const MEASURE_CHARACTERISTIC_NAMES = new Set(['altura', 'largura', 'profundidade', 'comprimento']);
 
 interface TechnicalAttributeRow {
   readonly id: string;
@@ -67,8 +69,11 @@ export const fetchTechnicalFieldDefinitions = async (
   return (attributes ?? [])
     .filter((attribute) => !/^reclin[aá]vel$/i.test(String(attribute.name).trim()))
     .map((attribute) => {
-      const normalizedName = String(attribute.name).toLocaleLowerCase('pt-BR');
+      const normalizedName = String(attribute.name).trim().toLocaleLowerCase('pt-BR');
       const isFirmnessField = normalizedName === 'nível de firmeza do estofamento';
+      // Dimensões são valores numéricos livres. Atributos legados sem tipo (ou como lista)
+      // viram comboboxes e Ctrl+V só filtra opções, sem atualizar o valor da característica.
+      const isMeasureCharacteristic = MEASURE_CHARACTERISTIC_NAMES.has(normalizedName);
       const options = (values ?? [])
         .filter((value) => value.attribute_id === attribute.id)
         .map((value) => ({
@@ -100,9 +105,14 @@ export const fetchTechnicalFieldDefinitions = async (
       const requiredCategoryIds = categoryLinksError
         ? []
         : (categoryLinks ?? [])
-            .filter((link) => link.attribute_id === attribute.id && link.is_required)
+            .filter(
+              (link) =>
+                link.attribute_id === attribute.id &&
+                link.is_required &&
+                !isWeightCharacteristicName(attribute.name)
+            )
             .map((link) => link.category_id);
-      const dimensionUnit = ['altura', 'largura', 'profundidade'].includes(normalizedName)
+      const dimensionUnit = isMeasureCharacteristic
         ? 'cm'
         : unitPolicy === 'product-form' && normalizedName === 'peso'
           ? 'kg'
@@ -112,7 +122,7 @@ export const fetchTechnicalFieldDefinitions = async (
         id: attribute.id,
         name: attribute.name,
         active: attribute.active ?? true,
-        dataType: attribute.data_type || 'list',
+        dataType: isMeasureCharacteristic ? 'measure' : attribute.data_type || 'list',
         unit: attribute.unit || dimensionUnit,
         decimalPlaces:
           attribute.decimal_places === 1 ||

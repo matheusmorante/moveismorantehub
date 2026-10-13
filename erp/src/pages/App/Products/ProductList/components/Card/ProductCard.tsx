@@ -44,6 +44,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onEdit,
   onLaunchStock,
   onDelete,
+  onPermanentDelete,
   onRestore,
   onToggleActive,
   onDeactivateCatalog,
@@ -148,6 +149,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         onEdit={onEdit}
         onLaunchStock={onLaunchStock}
         onDelete={onDelete}
+        onPermanentDelete={onPermanentDelete}
         onToggleActive={onToggleActive}
         onDeactivateCatalog={onDeactivateCatalog}
         onShowHistory={onShowHistory}

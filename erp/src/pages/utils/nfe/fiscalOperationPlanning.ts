@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN } from '../../../../../shared-utils/fiscalIdentifiers';
 import type { AuthorizedInvoiceLineSnapshot } from './invoiceLineSnapshot';
 import {
   originalItemCfop,
@@ -53,7 +54,7 @@ export type FiscalOperationDraft = {
 };
 
 function assertAuthorizedSource(document: FiscalSourceDocument, environment: 1 | 2): void {
-  if (!/^\d{44}$/.test(document.accessKey)) throw new Error('Chave fiscal de origem inválida.');
+  if (!ACCESS_KEY_PATTERN.test(document.accessKey)) throw new Error('Chave fiscal de origem inválida.');
   if (
     document.environment !== environment ||
     document.status !== (environment === 1 ? 'autorizada' : 'homologada')

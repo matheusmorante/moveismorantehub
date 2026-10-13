@@ -2,7 +2,7 @@ import Shipping from '../types/Shipping.type';
 
 export const formatOrderSchedulingText = (shipping: any, order?: any): string => {
   const sched = shipping?.scheduling || {};
-  if (sched.pendingScheduling) return 'Agendamento: Pendente';
+  if (sched.pendingScheduling && !sched.immediatePickup) return 'Agendamento: Pendente';
 
   const formatDateStr = (dStr: string) => {
     if (!dStr) return '';
@@ -48,11 +48,11 @@ export const resolveCompletedOrderStatus = (order: {
 
   if (isPickup) {
     const scheduling = shipping?.scheduling;
-    if (scheduling?.pendingScheduling) {
-      return 'scheduled';
-    }
     if (scheduling?.immediatePickup) {
       return 'fulfilled';
+    }
+    if (scheduling?.pendingScheduling) {
+      return 'scheduled';
     }
 
     const schedDateStr = (

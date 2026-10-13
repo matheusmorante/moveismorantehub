@@ -18,9 +18,10 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
   onSelectEnvironment,
 }) => {
   const [fiscalStatuses, setFiscalStatuses] = React.useState<OrderFiscalBadgeStatuses | null>(null);
-  const [preparedOrder, setPreparedOrder] = React.useState<Order | null>(null);
   const [isPreparingSnapshot, setIsPreparingSnapshot] = React.useState(false);
   const [snapshotError, setSnapshotError] = React.useState<string | null>(null);
+  const selectionAttempt = React.useRef(0);
+  const snapshotRequestInProgress = React.useRef(false);
 
   React.useEffect(() => {
     let active = true;
@@ -45,52 +46,56 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
     };
   }, [isOpen, order?.id]);
 
-  const itemSnapshotSignature = JSON.stringify(
-    (order?.items || []).map((item) => [
-      item.orderItemId,
-      item.productId,
-      item.variationId,
-      item.fiscalSnapshotVersion,
-    ])
-  );
-
   React.useEffect(() => {
-    let active = true;
-    if (!isOpen || !order) {
-      setPreparedOrder(null);
-      setIsPreparingSnapshot(false);
-      setSnapshotError(null);
-      return;
-    }
+    selectionAttempt.current += 1;
+    snapshotRequestInProgress.current = false;
+    setIsPreparingSnapshot(false);
+    setSnapshotError(null);
+    return () => {
+      selectionAttempt.current += 1;
+    };
+  }, [isOpen, order?.id]);
 
-    setPreparedOrder(null);
+  const selectEnvironment = async (environment: 1 | 2) => {
+    if (!isOpen || !order || snapshotRequestInProgress.current) return;
+    snapshotRequestInProgress.current = true;
+    const attempt = ++selectionAttempt.current;
     setSnapshotError(null);
     setIsPreparingSnapshot(true);
-    void prepareOrderFiscalSnapshotForEmission(order)
-      .then((prepared) => {
-        if (active) setPreparedOrder(prepared);
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          setSnapshotError(
-            error instanceof Error
-              ? error.message
-              : 'Não foi possível preparar os dados fiscais do pedido.'
-          );
-        }
-      })
-      .finally(() => {
-        if (active) setIsPreparingSnapshot(false);
-      });
+    try {
+      const preparedOrder = await prepareOrderFiscalSnapshotForEmission(order, environment);
+      if (attempt === selectionAttempt.current && isOpen) {
+        onSelectEnvironment(environment, preparedOrder);
+      }
+    } catch (error: unknown) {
+      if (attempt === selectionAttempt.current) {
+        setSnapshotError(
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível preparar os dados fiscais do pedido.'
+        );
+      }
+    } finally {
+      if (attempt === selectionAttempt.current) {
+        snapshotRequestInProgress.current = false;
+        setIsPreparingSnapshot(false);
+      }
+    }
+  };
 
-    return () => {
-      active = false;
-    };
-  }, [isOpen, order, itemSnapshotSignature]);
+  const close = () => {
+    selectionAttempt.current += 1;
+    snapshotRequestInProgress.current = false;
+    setIsPreparingSnapshot(false);
+    onClose();
+  };
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
+        selectionAttempt.current += 1;
+        snapshotRequestInProgress.current = false;
+        setIsPreparingSnapshot(false);
         onClose();
       }
     };
@@ -111,8 +116,6 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
       (order.nfeData?.environment === 1 &&
         (order.nfeData?.accessKey || order.nfeData?.protocolNumber))
   );
-  const isSnapshotReady = Boolean(preparedOrder && preparedOrder.id === order.id);
-  const cannotContinue = isPreparingSnapshot || !isSnapshotReady || Boolean(snapshotError);
   const snapshotStatusMessage = isPreparingSnapshot
     ? 'Preparando os dados fiscais dos itens do pedido...'
     : snapshotError;
@@ -124,7 +127,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
         type="button"
         aria-label="Fechar seleção de ambiente fiscal"
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity"
-        onClick={onClose}
+        onClick={close}
       />
 
       {/* Modal Dialog */}
@@ -155,7 +158,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-rose-500 dark:hover:bg-slate-700 transition-colors"
             title="Fechar"
           >
@@ -187,22 +190,17 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
             {/* Opção Homologação */}
             <button
               type="button"
-              disabled={isHmlIssued || cannotContinue}
+              disabled={isHmlIssued || isPreparingSnapshot}
               title={
                 isHmlIssued
                   ? 'Nota fiscal de homologação já emitida para este pedido.'
-                  : snapshotError ||
-                    (cannotContinue
-                      ? 'Aguarde a preparação dos dados fiscais do pedido.'
-                      : 'Emitir nota fiscal no ambiente de homologação (testes)')
+                  : isPreparingSnapshot
+                    ? 'Aguarde a preparação dos dados fiscais do pedido.'
+                    : 'Emitir nota fiscal no ambiente de homologação (testes)'
               }
-              onClick={() => {
-                if (!isHmlIssued && !cannotContinue && preparedOrder) {
-                  onSelectEnvironment(2, preparedOrder);
-                }
-              }}
+              onClick={() => void selectEnvironment(2)}
               className={`flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
-                isHmlIssued || cannotContinue
+                isHmlIssued || isPreparingSnapshot
                   ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 pointer-events-auto'
                   : 'border-amber-200 dark:border-amber-900/40 bg-amber-50/70 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100/80 dark:hover:bg-amber-900/30 hover:-translate-y-1 hover:shadow-lg cursor-pointer'
               }`}
@@ -221,22 +219,17 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
             {/* Produção abre o fluxo normal, que exige confirmação explícita antes do envio. */}
             <button
               type="button"
-              disabled={isProdIssued || cannotContinue}
+              disabled={isProdIssued || isPreparingSnapshot}
               title={
                 isProdIssued
                   ? 'Nota fiscal de produção já emitida para este pedido.'
-                  : snapshotError ||
-                    (cannotContinue
-                      ? 'Aguarde a preparação dos dados fiscais do pedido.'
-                      : 'Abrir emissão real em Produção (tpAmb=1); a próxima etapa exige confirmação.')
+                  : isPreparingSnapshot
+                    ? 'Aguarde a preparação dos dados fiscais do pedido.'
+                    : 'Abrir emissão real em Produção (tpAmb=1); a próxima etapa exige confirmação.'
               }
-              onClick={() => {
-                if (!isProdIssued && !cannotContinue && preparedOrder) {
-                  onSelectEnvironment(1, preparedOrder);
-                }
-              }}
+              onClick={() => void selectEnvironment(1)}
               className={`flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
-                isProdIssued || cannotContinue
+                isProdIssued || isPreparingSnapshot
                   ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 pointer-events-auto'
                   : 'border-rose-200 dark:border-rose-900/40 bg-rose-50/70 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 hover:bg-rose-100/80 dark:hover:bg-rose-900/30 hover:-translate-y-1 hover:shadow-lg cursor-pointer'
               }`}
@@ -264,7 +257,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
         <div className="flex justify-end border-t border-slate-100 bg-slate-50/70 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/50">
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="flex items-center gap-2 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 transition-all"
           >
             <i className="bi bi-x-lg" />

@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier, isValidCnpj } from '../../../../../../shared-utils/fiscalIdentifiers';
 import { AppSettings } from '../../settingsService';
 
 export function escapeXml(unsafe: string = ''): string {
@@ -31,7 +32,7 @@ export interface IdeParams {
 export function buildIdeXml(p: IdeParams): string {
   if (!/^\d{7}$/.test(String(p.municipalityCode || '')))
     throw new Error('Código IBGE do município do fato gerador não configurado ou inválido.');
-  if (p.referencedAccessKey && (p.finalidade !== 3 || !/^\d{44}$/.test(p.referencedAccessKey))) {
+  if (p.referencedAccessKey && (p.finalidade !== 3 || !ACCESS_KEY_PATTERN.test(p.referencedAccessKey))) {
     throw new Error(
       'Referência de cabeçalho permitida apenas para estorno com chave fiscal válida.'
     );
@@ -65,8 +66,9 @@ export function buildEmitXml(settings: AppSettings): string {
   const emitCMun = String((settings as any).companyCMun || '');
   if (!/^\d{7}$/.test(emitCMun))
     throw new Error('Código IBGE do município do emitente não configurado ou inválido.');
-  const emitCnpj = (settings.companyCnpj || '00000000000000').replace(/\D/g, '').padStart(14, '0');
+  const emitCnpj = normalizeFiscalIdentifier(settings.companyCnpj);
   const emitName = settings.companyName || 'MOVEIS MORANTE LTDA';
+  if (!isValidCnpj(emitCnpj)) throw new Error('CNPJ do emitente inválido.');
   const emitIE = ((settings as any).companyIE || 'ISENTO').replace(/[^\w]/g, '');
   const emitCRT = (settings as any).companyCRT || '1';
   const emitCep = ((settings as any).companyCEP || '80000000').replace(/\D/g, '');

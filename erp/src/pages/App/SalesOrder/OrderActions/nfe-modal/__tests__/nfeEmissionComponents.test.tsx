@@ -111,7 +111,7 @@ describe('NfeEmission Components', () => {
     expect(onEmit).toHaveBeenCalledWith(false, false);
   });
 
-  it('mantém emissão indisponível até concluir as consultas fiscais obrigatórias', () => {
+  it('mantém o botão Emitir habilitado durante a preparação fiscal para exibir o erro no clique', () => {
     const { container } = render(
       <NfeEmissionFooter
         invoiceTotal={250.75}
@@ -133,7 +133,7 @@ describe('NfeEmission Components', () => {
 
     expect(
       (container.querySelector('[data-testid="nfe-emit-button"]') as HTMLButtonElement).disabled
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('não exibe o botão de prévia do XML na emissão', () => {

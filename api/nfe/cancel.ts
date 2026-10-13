@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers';
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
@@ -6,7 +7,6 @@ import { sendSoapToSefaz } from './sefazClient';
 import {
   decideCancellationRecovery,
   getAuthorizedAt,
-  parseSefazCancellationEvent,
   parseSefazNfeSituation,
   validateCancellationReason,
 } from '../../erp/src/pages/utils/nfe/nfeEventRules';
@@ -15,6 +15,9 @@ import { getGoodsCirculationState } from '../../erp/src/pages/utils/nfe/cancella
 import { formatNfeDateTime } from '../../erp/src/pages/utils/nfe/nfeXmlBuilder';
 import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
 import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
+import { matchesConsultedDocument } from './consultAuthorizedDocument';
+import { validateCancellationAgainstOfficialSchema } from './schemaValidator';
+import { persistCancellationResult } from './cancellationPersistence';
 import {
   assertAuthorizedFiscalSnapshot,
   findFiscalOrderEditChanges,
@@ -41,9 +44,6 @@ const escapeXml = (value: string) =>
         "'": '&apos;',
       })[character] as string
   );
-
-const valueIn = (xml: string, tag: string) =>
-  xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([^<]*)</${tag}>`, 'i'))?.[1]?.trim() || null;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -114,7 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       !['55', '65'].includes(String(doc.modelo)) ||
       ![1, 2].includes(Number(doc.ambiente)) ||
       doc.status !== (Number(doc.ambiente) === 2 ? 'homologada' : 'autorizada') ||
-      !/^\d{44}$/.test(String(doc.chave_acesso || ''))
+      !ACCESS_KEY_PATTERN.test(String(doc.chave_acesso || ''))
     ) {
       return res.status(409).json({
         success: false,
@@ -242,6 +242,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       const certificate = extractCertificateAndKey(pfx, password || '');
       const queryXml = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${Number(doc.ambiente)}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${doc.chave_acesso}</chNFe></consSitNFe>`;
+      const consultationStartedAt = new Date().toISOString();
       let situationXml: string;
       try {
         situationXml = await sendSoapToSefaz({
@@ -265,38 +266,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
       const situation = parseSefazNfeSituation(situationXml);
+      if (
+        ['authorized', 'cancelled'].includes(situation.state) &&
+        !matchesConsultedDocument(situationXml, doc, situation.state === 'cancelled' ? '101' : '100')
+      ) {
+        return res.status(202).json({
+          success: false,
+          pending: true,
+          reconciliationRequired: true,
+          error: 'Consulta sem identidade fiscal correspondente. Nenhum documento foi alterado ou evento retransmitido.',
+        });
+      }
       const recoveryDecision = decideCancellationRecovery(priorEvent.status, situation.state);
       if (recoveryDecision === 'already_cancelled') {
-        const { error: eventUpdateError } = await supabase
-          .from('nfe_document_events')
-          .update({
-            status: 'registered',
-            response_xml: situationXml,
-            cstat: situation.cStat,
-            xmotivo: situation.xMotivo,
-            protocol_number: valueIn(situation.cancellationEventXml || '', 'nProt'),
-            protocol_date: valueIn(situation.cancellationEventXml || '', 'dhRegEvento'),
-            confirmed_at: new Date().toISOString(),
-          })
-          .eq('id', priorEvent.id);
-        const { error: docUpdateError } = await supabase
-          .from('nfe_documents')
-          .update({
-            status: 'cancelada',
-            motivo_status: situation.xMotivo || 'Cancelamento confirmado em consulta à SEFAZ.',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', doc.id)
-          .in('status', ['autorizada', 'homologada']);
-        return res.status(200).json({
-          success: !eventUpdateError && !docUpdateError,
-          status: 'cancelada',
-          cStat: situation.cStat,
-          xMotivo: situation.xMotivo,
-          protocolNumber: valueIn(situation.cancellationEventXml || '', 'nProt'),
-          protocolDate: valueIn(situation.cancellationEventXml || '', 'dhRegEvento'),
-          reconciliationRequired: Boolean(eventUpdateError || docUpdateError),
+        const persisted = await persistCancellationResult(supabase, doc, priorEvent.id, situationXml);
+        return res.status(persisted.status).json(persisted.body);
+      }
+      if (recoveryDecision === 'retry_after_authorized_consult' && priorEvent.status !== 'rejected') {
+        const { error } = await supabase.rpc('persist_nfe_cancellation_result', {
+          p_document_id: doc.id, p_event_id: priorEvent.id, p_environment: Number(doc.ambiente),
+          p_status: 'rejected', p_response_xml: situationXml, p_cstat: '100',
+          p_reason: 'Consulta confirmou autorização ativa sem cancelamento registrado.',
+          p_protocol: null, p_protocol_date: null,
+          p_consultation_started_at: consultationStartedAt,
         });
+        if (error) return res.status(503).json({ success: false, pending: true,
+          error: 'Não foi possível reconciliar a tentativa anterior. Nenhum evento foi reenviado.' });
       }
       if (recoveryDecision === 'still_uncertain')
         return res.status(202).json({
@@ -428,14 +423,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(503)
         .json({ success: false, error: 'Certificado digital do emitente não configurado.' });
     }
-    let certificate;
+    let certificate: ReturnType<typeof extractCertificateAndKey>;
     try {
       certificate = extractCertificateAndKey(pfxBase64, pfxPassword || '');
     } catch {
       await recordPreflightFailure('Não foi possível carregar o certificado digital do emitente.');
       return res.status(503).json({ success: false, error: 'Não foi possível carregar o certificado digital do emitente.' });
     }
-    const issuerCnpj = doc.xml_nfe.match(/<emit\b[^>]*>[\s\S]*?<CNPJ>(\d{14})<\/CNPJ>/i)?.[1];
+    const issuerCnpj = doc.xml_nfe.match(/<emit\b[^>]*>[\s\S]*?<CNPJ>([A-Z0-9]{12}[0-9]{2})<\/CNPJ>/i)?.[1];
     if (!issuerCnpj) {
       await recordPreflightFailure('CNPJ do emitente não encontrado no XML original.');
       return res
@@ -450,21 +445,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       certificate.privateKeyPem,
       certificate.certDerBase64
     );
-    const { data: event, error: reserveError } = await supabase
-      .from('nfe_document_events')
-      .insert({
-        document_id: doc.id,
-        event_type: '110111',
-        event_sequence: 1,
-        attempt_number: (priorEvent?.attempt_number || 0) + 1,
-        environment,
-        status: 'transmitting',
-        justification: reason,
-        signed_xml: signedXml,
-        requested_by: fiscalAuthorization.userId,
-      })
-      .select('id')
-      .single();
+    try {
+      await validateCancellationAgainstOfficialSchema(signedXml, {
+        accessKey: doc.chave_acesso, environment, protocol: doc.numero_protocolo,
+      });
+    } catch {
+      return res.status(422).json({
+        success: false, code: 'CANCELLATION_XML_INVALID',
+        error: 'XML de cancelamento inválido. Nenhum evento foi transmitido.',
+      });
+    }
+    const { data: reservation, error: reserveError } = await supabase.rpc('reserve_nfe_cancellation_event', {
+      p_document_id: doc.id, p_environment: environment, p_signed_xml: signedXml,
+      p_reason: reason, p_user_id: fiscalAuthorization.userId, p_previous_event_id: priorEvent?.id || null,
+    });
+    const event = reservation?.eventId ? { id: reservation.eventId } : null;
     if (reserveError || !event?.id) {
       return res.status(409).json({
         success: false,
@@ -489,14 +484,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         certPem: certificate.certPem,
         privateKeyPem: certificate.privateKeyPem,
       });
-    } catch (error: any) {
-      await supabase
-        .from('nfe_document_events')
-        .update({
-          status: 'unknown',
-          xmotivo: 'Transmissão iniciada, mas a resposta da SEFAZ não foi confirmada.',
-        })
-        .eq('id', event.id);
+    } catch {
+      // The same transactional writer protects a confirmation from a concurrent
+      // consultation. Failure here leaves the original transmitting attempt intact.
+      await persistCancellationResult(supabase, doc, event.id, '');
       return res.status(502).json({
         success: false,
         pending: true,
@@ -504,54 +495,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const result = parseSefazCancellationEvent(responseXml);
-    const eventStatus = result.registered ? 'registered' : result.pending ? 'unknown' : 'rejected';
-    const { error: eventUpdateError } = await supabase
-      .from('nfe_document_events')
-      .update({
-        status: eventStatus,
-        response_xml: responseXml,
-        cstat: result.cStat,
-        xmotivo: result.xMotivo,
-        protocol_number: result.protocolNumber,
-        protocol_date: result.protocolDate,
-        confirmed_at: result.registered ? new Date().toISOString() : null,
-      })
-      .eq('id', event.id);
-    if (eventUpdateError)
-      return res.status(503).json({
-        success: result.registered,
-        pending: result.registered,
-        error: result.registered
-          ? 'SEFAZ confirmou o cancelamento, mas a atualização do histórico local precisa de reconciliação.'
-          : 'Não foi possível persistir o retorno fiscal.',
-      });
-    if (!result.registered)
-      return res.status(result.pending ? 202 : 422).json({
-        success: false,
-        pending: result.pending,
-        cStat: result.cStat,
-        xMotivo: result.xMotivo || 'A SEFAZ não confirmou o cancelamento.',
-      });
-
-    const { error: documentUpdateError } = await supabase
-      .from('nfe_documents')
-      .update({
-        status: 'cancelada',
-        motivo_status: result.xMotivo || 'Cancelamento registrado pela SEFAZ.',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', doc.id)
-      .in('status', ['autorizada', 'homologada']);
-    return res.status(200).json({
-      success: true,
-      status: 'cancelada',
-      cStat: result.cStat,
-      xMotivo: result.xMotivo,
-      protocolNumber: result.protocolNumber,
-      protocolDate: result.protocolDate,
-      reconciliationRequired: Boolean(documentUpdateError),
-    });
+    const persisted = await persistCancellationResult(supabase, doc, event.id, responseXml);
+    return res.status(persisted.status).json(persisted.body);
   } catch (error: any) {
     console.error(
       '[NF-e Cancel] Falha no fluxo de cancelamento fiscal:',

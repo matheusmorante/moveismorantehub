@@ -202,7 +202,7 @@ export function useNfeItemEnrichment({
     );
     if (unsnapshottedItems.length > 0) {
       setFiscalPreparationError(
-        `O snapshot fiscal dos itens ${unsnapshottedItems.join(', ')} não foi preparado. Feche e reabra a emissão para tentar novamente.`
+        `Os dados fiscais dos itens ${unsnapshottedItems.join(', ')} não estão completos. Feche e reabra a emissão para tentar novamente.`
       );
       setIsLoadingFiscalData(false);
       return () => {

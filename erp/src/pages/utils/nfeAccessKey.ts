@@ -1,4 +1,6 @@
-export const normalizeNfeAccessKey = (value: unknown) => String(value || '').replace(/\D/g, '');
+import { ACCESS_KEY_PATTERN, hasValidAccessKeyDigit, isValidCnpj, normalizeFiscalIdentifier } from '../../../../shared-utils/fiscalIdentifiers';
+
+export const normalizeNfeAccessKey = normalizeFiscalIdentifier;
 
 export type NfeAccessKeyValidation = {
   valid: boolean;
@@ -11,19 +13,9 @@ export function validateNfeAccessKey(value: unknown): NfeAccessKeyValidation {
   const normalized = normalizeNfeAccessKey(raw);
   if (!raw) return { valid: false, normalized, reason: 'missing' };
   if (normalized.length !== 44) return { valid: false, normalized, reason: 'length' };
-  if (/[^\d\s.\-/]/.test(raw)) return { valid: false, normalized, reason: 'non_numeric' };
+  if (!ACCESS_KEY_PATTERN.test(normalized)) return { valid: false, normalized, reason: 'non_numeric' };
   if (normalized.slice(20, 22) !== '55') return { valid: false, normalized, reason: 'model' };
-  const weights = [
-    4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2, 9, 8, 7, 6, 5,
-    4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2,
-  ];
-  const sum = weights.reduce(
-    (total, weight, index) => total + Number(normalized[index]) * weight,
-    0
-  );
-  const expected = 11 - (sum % 11);
-  const digit = expected >= 10 ? 0 : expected;
-  return Number(normalized[43]) === digit
+  return isValidCnpj(normalized.slice(6, 20)) && hasValidAccessKeyDigit(normalized)
     ? { valid: true, normalized }
     : { valid: false, normalized, reason: 'check_digit' };
 }

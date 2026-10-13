@@ -1,3 +1,4 @@
+import { normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers';
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
@@ -144,7 +145,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const fiscalSettings = getCompanyFiscalSettings(settingsRow?.data);
     const companyUf = String(fiscalSettings.companyUF || '');
     const companyTaxRegime = String(fiscalSettings.companyCRT || '');
-    const companyCnpj = String(fiscalSettings.companyCnpj || '').replace(/\D/g, '');
+    const companyCnpj = normalizeFiscalIdentifier(String(fiscalSettings.companyCnpj || ''));
     const sourceById = new Map((sourceDocuments || []).map((source) => [source.id, source]));
     const lineByDocumentAndNumber = new Map(
       (originalLines || []).map((line) => [`${line.document_id}:${line.item_number}`, line])

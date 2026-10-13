@@ -1,6 +1,5 @@
-import React from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Sparkles } from 'lucide-react-native';
+import type React from 'react';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 interface Props {
   formData: any;
@@ -12,25 +11,9 @@ export const ProductFormDescriptionTab: React.FC<Props> = ({ formData, setFormDa
   <View style={styles.container}>
     <View style={styles.heading}>
       <Text style={[styles.title, dark && styles.lightText]}>DESCRIÇÃO DO PRODUTO</Text>
-      <View style={styles.helperRow}>
-        <Text style={[styles.helper, dark && styles.dimText]}>
-          Descreva o produto, seus diferenciais e informações importantes para o catálogo.
-        </Text>
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Aperfeiçoar descrição com IA"
-          style={styles.improveButton}
-          onPress={() =>
-            Alert.alert(
-              'Aperfeiçoar descrição',
-              'A ação será conectada na etapa de funcionalidades.'
-            )
-          }
-        >
-          <Sparkles size={14} color="#7e22ce" />
-          <Text style={styles.improveButtonText}>Aperfeiçoar</Text>
-        </TouchableOpacity>
-      </View>
+      <Text style={[styles.helper, dark && styles.dimText]}>
+        Descreva o produto, seus diferenciais e informações importantes para o catálogo.
+      </Text>
     </View>
     <TextInput
       value={formData.description || ''}
@@ -48,12 +31,6 @@ export const ProductFormDescriptionTab: React.FC<Props> = ({ formData, setFormDa
 const styles = StyleSheet.create({
   container: { gap: 12 },
   heading: { gap: 6 },
-  helperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
   title: { fontSize: 12, fontWeight: '900', letterSpacing: 1, color: '#334155' },
   helper: {
     flex: 1,
@@ -63,17 +40,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#94a3b8',
   },
-  improveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    backgroundColor: '#f3e8ff',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 12,
-  },
-  improveButtonText: { fontSize: 10, fontWeight: '900', color: '#7e22ce' },
   lightText: { color: '#f8fafc' },
   dimText: { color: '#94a3b8' },
   input: {

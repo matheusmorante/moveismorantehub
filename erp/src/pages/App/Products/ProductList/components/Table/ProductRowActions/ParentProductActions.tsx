@@ -1,12 +1,24 @@
 import React, { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Product from '@/pages/types/product.type';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import { LabelPrintType } from '@/pages/App/Products/components/modals/product/LabelPrintSelectionModal';
 import { useAuth } from '@/context/AuthContext';
-import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/accessRoles';
+import {
+  canPrintProductIdentificationLabels,
+  isProductIdentificationLabelOnlyProfile,
+} from '@/pages/utils/accessRoles';
+import {
+  buildProductVariationName,
+  getSelectedProductDisplayName,
+  normalizeProductVariationName,
+} from '@/pages/utils/productVariationDefaults';
+import { checkProductIsUnreferenced } from '@/pages/utils/productService';
+import type { ActionProductLike } from '../ProductRowActionsCell';
 
 export interface ParentProductActionsProps {
   readonly product: Product;
+  readonly singleVariation?: ActionProductLike;
   readonly showTrash?: boolean;
   readonly showEditButton?: boolean;
   readonly canDeleteProducts: boolean;
@@ -14,14 +26,18 @@ export interface ParentProductActionsProps {
   readonly onEdit: (product: Product) => void;
   readonly onRestore: (id: string) => void;
   readonly onDelete: (id: string) => void;
+  readonly onPermanentDelete?: (id: string) => void;
   readonly onDuplicate?: (product: Product) => void;
   readonly onLaunchStock?: (product: Product) => void;
   readonly onOpenSalesModal: () => void;
   readonly onOpenLabelModal: (type: LabelPrintType) => void;
+  readonly onMoveToAnotherFamily?: (product: ActionProductLike) => void;
+  readonly onMergeWithAnotherVariation?: (product: ActionProductLike) => void;
 }
 
 export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
   product,
+  singleVariation,
   showTrash,
   showEditButton = true,
   canDeleteProducts,
@@ -29,14 +45,21 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
   onEdit,
   onRestore,
   onDelete,
+  onPermanentDelete,
   onDuplicate,
   onOpenSalesModal,
   onOpenLabelModal,
+  onMoveToAnotherFamily,
+  onMergeWithAnotherVariation,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isCheckingUsage, setIsCheckingUsage] = useState(false);
+  const [isUnreferenced, setIsUnreferenced] = useState<boolean | null>(null);
   const menuAnchorRef = useRef<HTMLButtonElement>(null);
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(profile);
+  const canPrintIdentificationLabel = canPrintProductIdentificationLabels(profile);
 
   if (showTrash && !isLabelOnlyProfile) {
     return (
@@ -51,6 +74,47 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
       </button>
     );
   }
+
+  const handlePrintSingleVariationLabel = () => {
+    if (!singleVariation) return;
+    const parentTitle = product.name || product.title || '';
+    const varName =
+      singleVariation.displayName || (singleVariation as any).variation || singleVariation.description;
+    const variationName =
+      getSelectedProductDisplayName(product, singleVariation) || varName || parentTitle;
+    const fullName = variationName.toLowerCase().includes(parentTitle.toLowerCase())
+      ? normalizeProductVariationName(parentTitle, variationName)
+      : buildProductVariationName(parentTitle, variationName);
+
+    navigate('/estoque/etiquetas?cat=identificacao', {
+      state: {
+        product: {
+          ...product,
+          ...singleVariation,
+          id: singleVariation.variationId || singleVariation.id || product.id,
+          parentId: product.id,
+          name: fullName,
+          title: fullName,
+          description: fullName,
+          variation: varName,
+          variationName: varName,
+          sku: singleVariation.sku || singleVariation.code || product.sku || product.code,
+          barcode:
+            (singleVariation as any).barcode ||
+            singleVariation.sku ||
+            singleVariation.code ||
+            product.sku ||
+            product.code,
+          unitPrice: singleVariation.unitPrice ?? product.unitPrice,
+          isVariation: true,
+          images: singleVariation.images || product.images,
+          parentImages: product.images,
+        },
+        quantity: 10,
+        fillSheet: true,
+      },
+    });
+  };
 
   return (
     <div className="flex items-center justify-center gap-2">
@@ -82,7 +146,23 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setIsMenuOpen((prev) => !prev);
+              const nextOpen = !isMenuOpen;
+              setIsMenuOpen(nextOpen);
+              if (
+                nextOpen &&
+                !isDraft &&
+                canDeleteProducts &&
+                onPermanentDelete &&
+                isUnreferenced === null &&
+                !isCheckingUsage &&
+                product.id
+              ) {
+                setIsCheckingUsage(true);
+                checkProductIsUnreferenced(product.id)
+                  .then((result) => setIsUnreferenced(result))
+                  .catch(() => setIsUnreferenced(false))
+                  .finally(() => setIsCheckingUsage(false));
+              }
             }}
             aria-label="Mais opções"
             aria-haspopup="menu"
@@ -98,110 +178,233 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
               isOpen={isMenuOpen}
               onClose={() => setIsMenuOpen(false)}
               anchorRef={menuAnchorRef}
-              className="min-w-[180px]"
+              className="min-w-[200px]"
             >
               <div
                 role="menu"
                 className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
                 onMouseLeave={() => setIsMenuOpen(false)}
               >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMenuOpen(false);
+                    onEdit(product);
+                  }}
+                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full cursor-pointer"
+                >
+                  <i
+                    className={
+                      isDraft ? 'bi bi-play-fill text-blue-500' : 'bi bi-pencil-fill text-blue-500'
+                    }
+                  />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                    {isDraft ? 'Retomar cadastro' : 'Editar Produto'}
+                  </span>
+                </button>
+
+                {onDuplicate && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onDuplicate(product);
+                    }}
+                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
+                  >
+                    <i className="bi bi-copy text-blue-500" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                      Duplicar Produto
+                    </span>
+                  </button>
+                )}
+
+                {(!product.isParent || Boolean(singleVariation)) && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onOpenSalesModal();
+                    }}
+                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
+                  >
+                    <i className="bi bi-receipt text-indigo-500" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                      Histórico de Vendas
+                    </span>
+                  </button>
+                )}
+
+                {singleVariation && !isDraft && !singleVariation.mergedToVariationId && (
+                  <>
+                    {canPrintIdentificationLabel && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsMenuOpen(false);
+                          handlePrintSingleVariationLabel();
+                        }}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full cursor-pointer"
+                      >
+                        <i className="bi bi-qr-code text-blue-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                          Imprimir Etiqueta de Identificação
+                        </span>
+                      </button>
+                    )}
+
+                    {onMoveToAnotherFamily && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setIsMenuOpen(false);
+
+                          if (!singleVariation.supplierId && !product.supplierId) {
+                            const { toast } = await import('react-toastify');
+                            toast.error(
+                              'Este produto não possui um fornecedor. Selecione um fornecedor antes de mover ou mesclar suas variações.'
+                            );
+                            return;
+                          }
+
+                          const attrs = singleVariation.attributes || [];
+                          const hasValidAttribute = attrs.some(
+                            (a: any) => a.name?.trim() && a.value?.trim()
+                          );
+
+                          if (!hasValidAttribute) {
+                            const { toast } = await import('react-toastify');
+                            toast.error('Este produto deve ter um atributo / valor definido.');
+                            return;
+                          }
+
+                          onMoveToAnotherFamily(singleVariation);
+                        }}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full cursor-pointer"
+                      >
+                        <i className="bi bi-arrow-left-right text-indigo-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                          Mover para outro produto pai
+                        </span>
+                      </button>
+                    )}
+
+                    {onMergeWithAnotherVariation && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setIsMenuOpen(false);
+
+                          if (!singleVariation.supplierId && !product.supplierId) {
+                            const { toast } = await import('react-toastify');
+                            toast.error(
+                              'Este produto não possui um fornecedor. Selecione um fornecedor antes de mover ou mesclar suas variações.'
+                            );
+                            return;
+                          }
+
+                          onMergeWithAnotherVariation(singleVariation);
+                        }}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full cursor-pointer"
+                      >
+                        <i className="bi bi-intersect text-violet-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                          Mesclar com outra variação
+                        </span>
+                      </button>
+                    )}
+                  </>
+                )}
+
+                <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onOpenLabelModal('price');
+                    }}
+                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full cursor-pointer"
+                  >
+                    <i className="bi bi-tag-fill text-emerald-500" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                      Etiq. de Preço
+                    </span>
+                  </button>
+                </div>
+
+                {isDraft && canDeleteProducts && (
+                  <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
                     <button
                       type="button"
                       role="menuitem"
                       onClick={(e) => {
                         e.stopPropagation();
                         setIsMenuOpen(false);
-                        onEdit(product);
+                        if (product.id) onDelete(product.id);
                       }}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full cursor-pointer"
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-left group w-full text-red-600 dark:text-red-400 cursor-pointer"
+                      title="Descartar Rascunho"
+                    >
+                      <i className="bi bi-trash3-fill text-red-500" />
+                      <span className="text-[10px] font-black uppercase tracking-widest font-bold">
+                        Descartar Rascunho
+                      </span>
+                    </button>
+                  </div>
+                )}
+
+                {!isDraft && canDeleteProducts && onPermanentDelete && (
+                  <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={isCheckingUsage || isUnreferenced === false}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isCheckingUsage || isUnreferenced === false) return;
+                        setIsMenuOpen(false);
+                        if (product.id) onPermanentDelete(product.id);
+                      }}
+                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-left group w-full ${
+                        isCheckingUsage || isUnreferenced === false
+                          ? 'opacity-40 cursor-not-allowed text-slate-400 dark:text-slate-600'
+                          : 'hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 cursor-pointer'
+                      }`}
+                      title={
+                        isCheckingUsage
+                          ? 'Verificando vínculos...'
+                          : isUnreferenced === false
+                            ? 'Produto possui vínculos com pedidos ou movimentações de estoque e não pode ser excluído'
+                            : 'Excluir produto permanentemente'
+                      }
                     >
                       <i
                         className={
-                          isDraft
-                            ? 'bi bi-play-fill text-blue-500'
-                            : 'bi bi-pencil-fill text-blue-500'
+                          isCheckingUsage
+                            ? 'bi bi-hourglass-split text-slate-400 animate-spin'
+                            : 'bi bi-trash3-fill text-red-500'
                         }
                       />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                        {isDraft ? 'Retomar cadastro' : 'Editar Produto'}
+                      <span className="text-[10px] font-black uppercase tracking-widest font-bold">
+                        {isCheckingUsage ? 'Verificando...' : 'Excluir Produto'}
                       </span>
                     </button>
-
-                    {onDuplicate && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsMenuOpen(false);
-                          onDuplicate(product);
-                        }}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
-                      >
-                        <i className="bi bi-copy text-blue-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                          Duplicar Produto
-                        </span>
-                      </button>
-                    )}
-
-                    {!product.isParent && (
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsMenuOpen(false);
-                            onOpenSalesModal();
-                          }}
-                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
-                        >
-                          <i className="bi bi-receipt text-indigo-500" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                            Histórico de Vendas
-                          </span>
-                        </button>
-
-                    )}
-
-                    <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsMenuOpen(false);
-                          onOpenLabelModal('price');
-                        }}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group w-full cursor-pointer"
-                      >
-                        <i className="bi bi-tag-fill text-emerald-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                          Etiq. de Preço
-                        </span>
-                      </button>
-                    </div>
-
-                    {isDraft && canDeleteProducts && (
-                      <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsMenuOpen(false);
-                            if (product.id) onDelete(product.id);
-                          }}
-                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-left group w-full text-red-600 dark:text-red-400 cursor-pointer"
-                          title="Descartar Rascunho"
-                        >
-                          <i className="bi bi-trash3-fill text-red-500" />
-                          <span className="text-[10px] font-black uppercase tracking-widest font-bold">
-                            Descartar Rascunho
-                          </span>
-                        </button>
-                      </div>
-                    )}
+                  </div>
+                )}
               </div>
             </DropdownPortal>
           )}
@@ -210,3 +413,4 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
     </div>
   );
 };
+

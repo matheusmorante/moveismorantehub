@@ -252,7 +252,15 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
               catalogStatus={singleVariation?.status || product.status}
               isParent={Boolean(product.isParent && !singleVariation)}
               isNonConventional={isNonConventionalProduct(product as any)}
-              isSalvado={getProductKind(product) === 'salvado'}
+              isSalvado={
+                getProductKind(product) === 'salvado' ||
+                getProductKind(singleVariation as any) === 'salvado' ||
+                Boolean(
+                  (product.opportunityName || product.opportunity?.name || '')
+                    .toLowerCase()
+                    .includes('salvado')
+                )
+              }
               canManageCatalog={canManageCatalog}
               canToggleActive={canDeleteProducts}
               showCatalogControl={showCatalogControl}

@@ -1,7 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 
-const mockDb = vi.hoisted(() => ({ from: vi.fn() }));
+const mockDb = vi.hoisted(() => ({
+  from: vi.fn(),
+  channel: vi.fn(),
+  removeChannel: vi.fn(),
+  realtimeCallback: { current: undefined as (() => void) | undefined },
+}));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
 
@@ -12,7 +17,12 @@ import {
   fetchOrdersForClientFiltering,
   fetchRecentOrders,
   fetchScheduledAndDraftOrders,
+  subscribeToOrderChanges,
 } from '../orderSyncQueries';
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('dashboard order projections', () => {
   beforeEach(() => {
@@ -368,5 +378,43 @@ describe('fetchAllOrdersForDashboard', () => {
 
     expect(selectedColumns[0]).toContain('test_run_id:order_data->>testRunId');
     expect(orders.map((order) => order.id)).toEqual(['regular-order']);
+  });
+});
+
+describe('subscribeToOrderChanges', () => {
+  beforeEach(() => {
+    mockDb.channel.mockReset().mockImplementation(() => {
+      const channel: any = {};
+      channel.on = vi.fn((_event: string, _filter: unknown, callback: () => void) => {
+        mockDb.realtimeCallback.current = callback;
+        return channel;
+      });
+      channel.subscribe = vi.fn(() => channel);
+      return channel;
+    });
+    mockDb.removeChannel.mockReset().mockResolvedValue(undefined);
+    mockDb.realtimeCallback.current = undefined;
+  });
+
+  it('coalesces a burst of Realtime events before invalidating paginated queries', async () => {
+    vi.useFakeTimers();
+    const listener = vi.fn();
+    const unsubscribe = subscribeToOrderChanges(listener);
+    const notify = mockDb.realtimeCallback.current;
+
+    expect(notify).toBeTypeOf('function');
+    notify?.();
+    notify?.();
+    notify?.();
+    expect(listener).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(2999);
+    expect(listener).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(listener).toHaveBeenCalledOnce();
+
+    unsubscribe();
+    expect(mockDb.removeChannel).toHaveBeenCalledOnce();
   });
 });

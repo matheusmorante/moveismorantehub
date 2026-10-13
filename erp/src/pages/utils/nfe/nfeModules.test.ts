@@ -174,8 +174,8 @@ describe('NF-e XML Builder (Homologação)', () => {
     expect(xml).toContain(
       '<xProd>NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xProd>'
     );
-    expect(xml).toContain('<xNome>João da Silva</xNome>');
-    expect(xml).not.toContain('NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO');
+    expect(xml).toContain('<xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome>');
+    expect(xml).not.toContain('<xNome>João da Silva</xNome>');
     expect(xml).toContain('<mod>65</mod>');
     expect(xml).toContain('<NCM>94036000</NCM>');
     expect(xml).toContain('<vNF>850.00</vNF>');

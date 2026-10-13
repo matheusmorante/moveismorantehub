@@ -340,7 +340,7 @@ const SalesOrder = () => {
     nfeSnapshotPreparationInProgress.current = true;
     setNfeSnapshotPreparationOrderId(order.id || 'pending');
     try {
-      const preparedOrder = await prepareOrderFiscalSnapshotForEmission(order);
+      const preparedOrder = await prepareOrderFiscalSnapshotForEmission(order, environment);
       setChosenNfeEnvironment(environment);
       setNfeEmissionOpenedAt(performance.now());
       setNfeModalOrder(preparedOrder);
@@ -362,7 +362,7 @@ const SalesOrder = () => {
       <div
         className={`flex-1 flex flex-col min-w-0 ${
           isSalesOrderRoute
-            ? 'px-2 pt-2 pb-2 sm:px-4 sm:pt-3 sm:pb-4 lg:px-6 lg:pt-3 lg:pb-6'
+            ? 'px-2 pt-1 pb-2 sm:px-4 sm:pt-2 sm:pb-4 lg:px-6 lg:pt-2 lg:pb-6'
             : 'p-2 sm:p-4 lg:p-6'
         }`}
       >

@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-10-13",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "project": "MoranteHub",
+  "branch": "primary",
+  "schema": "public",
+  "requestedLocalVersion": "20261013065235",
+  "appliedVersion": "20261013115005",
+  "migrationName": "atomic_nfe_cancellation_confirmation",
+  "status": "APPLIED",
+  "sqlSha256": "48D2FC17345E30D3A70F23A41595189B2DEEEE2823906A627183930E3C9A96D1",
+  "firstApplication": {
+    "success": false,
+    "sqlstate": "42601",
+    "reconciledHistoryRows": 0,
+    "reconciledFunctions": 0,
+    "repair": "Parentheses around CASE expressions; no behavior change."
+  },
+  "catalogTest": {
+    "framework": "pgTAP",
+    "planned": 12,
+    "passed": 12,
+    "results": [
+      {
+        "existence": "ok 1 - public.reserve_nfe_cancellation_event(uuid,integer,text,text,uuid,uuid): exists",
+        "security": "ok 2 - public.reserve_nfe_cancellation_event(uuid,integer,text,text,uuid,uuid): invoker with empty search_path",
+        "server_acl": "ok 3 - public.reserve_nfe_cancellation_event(uuid,integer,text,text,uuid,uuid): service_role can execute",
+        "client_acl": "ok 4 - public.reserve_nfe_cancellation_event(uuid,integer,text,text,uuid,uuid): client roles cannot execute"
+      },
+      {
+        "existence": "ok 5 - public.persist_nfe_cancellation_result(uuid,uuid,integer,text,text,text,text,text,timestamptz,timestamptz): exists",
+        "security": "ok 6 - public.persist_nfe_cancellation_result(uuid,uuid,integer,text,text,text,text,text,timestamptz,timestamptz): invoker with empty search_path",
+        "server_acl": "ok 7 - public.persist_nfe_cancellation_result(uuid,uuid,integer,text,text,text,text,text,timestamptz,timestamptz): service_role can execute",
+        "client_acl": "ok 8 - public.persist_nfe_cancellation_result(uuid,uuid,integer,text,text,text,text,text,timestamptz,timestamptz): client roles cannot execute"
+      },
+      {
+        "existence": "ok 9 - public.persist_nfe_legacy_consultation(uuid,integer,text,text,text,timestamptz,uuid): exists",
+        "security": "ok 10 - public.persist_nfe_legacy_consultation(uuid,integer,text,text,text,timestamptz,uuid): invoker with empty search_path",
+        "server_acl": "ok 11 - public.persist_nfe_legacy_consultation(uuid,integer,text,text,text,timestamptz,uuid): service_role can execute",
+        "client_acl": "ok 12 - public.persist_nfe_legacy_consultation(uuid,integer,text,text,text,timestamptz,uuid): client roles cannot execute"
+      }
+    ]
+  },
+  "securityAdvisorsNewFunctionFindings": [],
+  "limits": {
+    "businessRowsWritten": false,
+    "sefazTransmitted": false,
+    "deployed": false,
+    "rollbackBehaviorProven": false,
+    "concurrencyBehaviorProven": false
+  }
+}

@@ -1,3 +1,4 @@
+import { normalizeFiscalIdentifier, isValidCnpj } from '../../shared-utils/fiscalIdentifiers';
 import type { ApprovedFiscalRuleSet } from './fiscalCore';
 import {
   parseHmlCsosnConfiguration,
@@ -84,7 +85,8 @@ export function createHmlTechnicalRuleSet(
     )
   )
     throw new Error('Decisão persistida de PIS/COFINS para HML indisponível.');
-  const issuerCnpj = digits(snapshot.issuerProfile.companyCnpj, 14, 'CNPJ do emitente');
+  const issuerCnpj = normalizeFiscalIdentifier(snapshot.issuerProfile.companyCnpj);
+  if (!isValidCnpj(issuerCnpj)) throw new Error('CNPJ do emitente inválido.');
   if (snapshot.issuerProfile.companyCRT !== '1' || snapshot.issuerProfile.companyUF !== 'PR')
     throw new Error('Regra HML exige emitente Simples Nacional no Paraná.');
 

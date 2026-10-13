@@ -12,15 +12,18 @@ export interface NfeEmissionFooterProps {
   isNfce: boolean;
   canOperateFiscal: boolean;
   isSubmitting: boolean;
+  isPreparingPreview?: boolean;
   isLoadingFiscalData: boolean;
   isLoadingCustomerType: boolean;
   isOperationIncomplete?: boolean;
   fiscalPreparationError: string | null;
   emissionResult: NfeEmissionResult | null;
   productionConfirmed: boolean;
+  canPreviewXml?: boolean;
   onClose: () => void;
   onEmit: (productionConfirmed: boolean, isRetry: boolean) => void;
   onPrintDanfe: () => void;
+  onPreview?: () => void;
   onOpenFiscalIssue?: () => void;
   onTransmissionEnabled?: () => void;
 }
@@ -31,15 +34,18 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
   isNfce,
   canOperateFiscal,
   isSubmitting,
+  isPreparingPreview = false,
   isLoadingFiscalData,
   isLoadingCustomerType,
   isOperationIncomplete = false,
   fiscalPreparationError,
   emissionResult,
   productionConfirmed,
+  canPreviewXml = false,
   onClose,
   onEmit,
   onPrintDanfe,
+  onPreview,
   onOpenFiscalIssue,
   onTransmissionEnabled,
 }) => {
@@ -131,11 +137,30 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
         {!emissionResult?.success && !emissionResult?.pending ? (
           isSpecialHmlConflictState ? null : (
             <>
+              {canPreviewXml && onPreview && (
+                <button
+                  type="button"
+                  data-testid="nfe-preview-xml-button"
+                  onClick={onPreview}
+                  disabled={
+                    isSubmitting ||
+                    isPreparingPreview ||
+                    isLoadingFiscalData ||
+                    isLoadingCustomerType ||
+                    isOperationIncomplete ||
+                    hasBlockingPreparationFailure
+                  }
+                  aria-busy={isPreparingPreview}
+                  className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  {isPreparingPreview ? 'Preparando prévia…' : 'Prévia do XML'}
+                </button>
+              )}
               <button
                 type="button"
                 data-testid="nfe-emit-button"
                 onClick={() => onEmit(productionConfirmed, false)}
-                disabled={!isTransmissionReady || isUnapprovedInterstateMatrix}
+                disabled={!canOperateFiscal || isSubmitting}
                 aria-busy={isSubmitting}
                 className="px-5 py-2 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
               >

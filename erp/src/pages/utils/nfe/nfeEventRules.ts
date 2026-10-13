@@ -15,7 +15,8 @@ export type SefazNfeSituation = {
 };
 
 const readTag = (xml: string, tag: string): string | null => {
-  const match = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  const name = `(?:[\\w.-]+:)?${tag}`;
+  const match = xml.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, 'i'));
   return match?.[1]?.replace(/<[^>]+>/g, '').trim() || null;
 };
 
@@ -57,8 +58,12 @@ export const validateCancellationReason = (reason: string): string | null => {
   return null;
 };
 
-export const parseSefazCancellationEvent = (xml: string): SefazEventResult => {
-  const eventResponse = xml.match(/<retEvento\b[^>]*>[\s\S]*?<\/retEvento>/i)?.[0];
+export const parseSefazCancellationEvent = (
+  xml: string,
+  expected?: { accessKey: string; environment: number }
+): SefazEventResult => {
+  const events = [...xml.matchAll(/<(?:[\w.-]+:)?retEvento\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?retEvento>/gi)];
+  const eventResponse = events[0]?.[0];
   if (!eventResponse) {
     const lotStatus = readTag(xml, 'cStat');
     return {
@@ -67,17 +72,29 @@ export const parseSefazCancellationEvent = (xml: string): SefazEventResult => {
       protocolNumber: null,
       protocolDate: null,
       registered: false,
-      pending: lotStatus === '128',
+      pending: !lotStatus || ['100', '101', '108', '109', '128', '135', '155', '573', '999'].includes(lotStatus),
     };
   }
   const cStat = readTag(eventResponse, 'cStat');
+  if (expected && (
+    events.length !== 1 ||
+    readTag(eventResponse, 'tpAmb') !== String(expected.environment) ||
+    readTag(eventResponse, 'chNFe') !== expected.accessKey ||
+    readTag(eventResponse, 'tpEvento') !== '110111' ||
+    readTag(eventResponse, 'nSeqEvento') !== '1' ||
+    (['135', '155'].includes(cStat || '') && !/^\d{15}$/.test(readTag(eventResponse, 'nProt') || ''))
+  )) return {
+    cStat,
+    xMotivo: 'Resposta do evento não corresponde ao documento, ambiente ou protocolo esperado. Consulte antes de repetir.',
+    protocolNumber: null, protocolDate: null, registered: false, pending: true,
+  };
   return {
     cStat,
     xMotivo: readTag(eventResponse, 'xMotivo'),
     protocolNumber: readTag(eventResponse, 'nProt'),
     protocolDate: readTag(eventResponse, 'dhRegEvento'),
     registered: cStat === '135' || cStat === '155',
-    pending: false,
+    pending: !cStat || ['128', '136', '573'].includes(cStat),
   };
 };
 
@@ -132,15 +149,21 @@ export const findRegisteredSefazCceEvent = (
 };
 
 export const parseSefazNfeSituation = (xml: string): SefazNfeSituation => {
-  const eventBlocks = [...xml.matchAll(/<procEventoNFe\b[^>]*>[\s\S]*?<\/procEventoNFe>/gi)].map(
-    (match) => match[0]
-  );
-  const cancellationEventXml =
-    eventBlocks.find(
-      (event) =>
-        readTag(event, 'tpEvento') === '110111' &&
-        ['135', '155'].includes(readTag(event, 'cStat') || '')
-    ) || null;
+  // retConsSitNFe describes the current situation. Its embedded infProt remains
+  // the original authorization even after cancellation (MOC 7, consulta protocolo).
+  const consultation = xml.match(/<(?:[\w.-]+:)?retConsSitNFe\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?retConsSitNFe>/i)?.[1];
+  const currentStatus = consultation ? readTag(consultation, 'cStat') : null;
+  if (currentStatus && currentStatus !== '100') {
+    return {
+      cStat: currentStatus,
+      xMotivo: readTag(consultation || '', 'xMotivo'),
+      state: currentStatus === '101' ? 'cancelled' : currentStatus === '217' ? 'not_found' : 'unknown',
+      cancellationEventXml: currentStatus === '101'
+        ? findCancellationEvent(xml)
+        : null,
+    };
+  }
+  const cancellationEventXml = findCancellationEvent(xml);
   if (cancellationEventXml) {
     return {
       cStat: readTag(cancellationEventXml, 'cStat'),
@@ -149,11 +172,11 @@ export const parseSefazNfeSituation = (xml: string): SefazNfeSituation => {
       cancellationEventXml,
     };
   }
-  const protocol = xml.match(/<infProt\b[^>]*>[\s\S]*?<\/infProt>/i)?.[0] || xml;
-  const cStat = readTag(protocol, 'cStat');
+  const protocol = xml.match(/<(?:[\w.-]+:)?infProt\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?infProt>/i)?.[0] || xml;
+  const cStat = currentStatus || readTag(protocol, 'cStat');
   return {
     cStat,
-    xMotivo: readTag(protocol, 'xMotivo'),
+    xMotivo: readTag(consultation || protocol, 'xMotivo'),
     state:
       cStat === '100'
         ? 'authorized'
@@ -165,6 +188,19 @@ export const parseSefazNfeSituation = (xml: string): SefazNfeSituation => {
     cancellationEventXml,
   };
 };
+
+function findCancellationEvent(xml: string): string | null {
+  const eventBlocks = [...xml.matchAll(/<(?:[\w.-]+:)?procEventoNFe\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?procEventoNFe>/gi)].map(
+    (match) => match[0]
+  );
+  return (
+    eventBlocks.find(
+      (event) =>
+        readTag(event, 'tpEvento') === '110111' &&
+        ['135', '155'].includes(readTag(event, 'cStat') || '')
+    ) || null
+  );
+}
 
 export type OperationDraftRecoveryDecision =
   | 'authorized'

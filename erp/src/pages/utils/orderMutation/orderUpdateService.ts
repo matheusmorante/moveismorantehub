@@ -14,6 +14,7 @@ import { assertOwnedByTestContext, getTestArtifactContext, stampTestOrder } from
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
 import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
+import { getPersistedOrderDataSnapshot } from '../orderMapper';
 import type { OrderUpdateOptions } from './orderMutationTypes';
 
 const TABLE_NAME = 'orders';
@@ -39,6 +40,12 @@ export const executeUpdateOrder = async (
         cleanUpdates[k] = v;
       }
     }
+    const isStatusOnlyUpdate =
+      Object.hasOwn(cleanUpdates, 'status') &&
+      Object.keys(cleanUpdates).every((key) => key === 'status' || key === 'autoFulfillExempt');
+    let persistedOrderDataSnapshot = currentOrder
+      ? getPersistedOrderDataSnapshot(currentOrder)
+      : undefined;
 
     if (currentOrder) {
       const { id: _id, ...rest } = { ...currentOrder, ...cleanUpdates } as any;
@@ -61,6 +68,7 @@ export const executeUpdateOrder = async (
       }
 
       previousOrderData = current.order_data || {};
+      persistedOrderDataSnapshot = current.order_data || undefined;
       currentCirculationState = current as OrderCirculationState;
       const { id: _id, ...rest } = { ...(current.order_data || {}), ...cleanUpdates } as any;
       merged = rest;
@@ -90,7 +98,9 @@ export const executeUpdateOrder = async (
     }
 
     if (!options.metadataOnly) {
-      merged = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(merged as Order));
+      if (!isStatusOnlyUpdate) {
+        merged = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(merged as Order));
+      }
     }
     if (
       !options.metadataOnly &&
@@ -119,7 +129,7 @@ export const executeUpdateOrder = async (
     }
     // 3. Garantir cliente no CRM
     const customerId =
-      options.metadataOnly || merged.is_test
+      options.metadataOnly || merged.is_test || isStatusOnlyUpdate
         ? merged.customerData?.id
         : await ensureCustomerInCrm(merged.customerData, merged.marketingOrigin, false);
     if (merged.is_test && !customerId) {
@@ -130,6 +140,24 @@ export const executeUpdateOrder = async (
     }
 
     const updatePayload = buildOrderPersistencePayload(merged);
+    if (isStatusOnlyUpdate) {
+      const statusUpdateSnapshot =
+        persistedOrderDataSnapshot ?? (currentOrder && !currentOrder.updatedAt ? merged : undefined);
+      if (!statusUpdateSnapshot) {
+        throw new Error(
+          'Não foi possível preservar o snapshot original do pedido. Atualize a lista e tente novamente.'
+        );
+      }
+      // Keep fiscal inputs byte-for-byte equivalent at the JSON value level;
+      // the database guard should only see the intended status transition.
+      updatePayload.order_data = {
+        ...statusUpdateSnapshot,
+        status: cleanUpdates.status,
+        ...(Object.hasOwn(cleanUpdates, 'autoFulfillExempt')
+          ? { autoFulfillExempt: cleanUpdates.autoFulfillExempt }
+          : {}),
+      };
+    }
     const orderItemsPayload = merged.items || [];
     const orderPaymentsPayload = merged.payments || [];
 
@@ -171,7 +199,7 @@ export const executeUpdateOrder = async (
     }
 
     // 6. Sincronização em background do cliente no CRM
-    if (!options.metadataOnly && !merged.is_test) syncCustomerToCrmBackground(
+    if (!options.metadataOnly && !isStatusOnlyUpdate && !merged.is_test) syncCustomerToCrmBackground(
       merged.customerData?.id,
       merged.customerData?.phone,
       merged.marketingOrigin

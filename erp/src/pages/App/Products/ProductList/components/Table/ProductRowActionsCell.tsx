@@ -28,6 +28,7 @@ export interface ProductRowActionsCellProps {
   readonly onEdit: (product: Product) => void;
   readonly onRestore: (id: string) => void;
   readonly onDelete: (id: string) => void;
+  readonly onPermanentDelete?: (id: string) => void;
   readonly onDuplicate?: (product: Product) => void;
   readonly onShowHistory?: (product: Product) => void;
   readonly onLaunchStock?: (product: Product) => void;
@@ -51,6 +52,7 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
   onEdit,
   onRestore,
   onDelete,
+  onPermanentDelete,
   onDuplicate,
   onLaunchStock,
   onOpenSalesModal,
@@ -83,32 +85,10 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
           onMergeWithAnotherVariation={onMergeWithAnotherVariation}
           onRefresh={onRefresh}
         />
-      ) : singleVariation && !showTrash ? (
-        <div className="flex items-center justify-center gap-2">
-          <ParentProductActions
-            product={product}
-            showTrash={showTrash && !isLabelOnlyProfile}
-            canDeleteProducts={canDeleteProducts}
-            showEditButton={!readOnly}
-            isDraft={isDraft}
-            onEdit={onEdit}
-            onRestore={onRestore}
-            onDelete={onDelete}
-            onDuplicate={onDuplicate}
-            onLaunchStock={onLaunchStock}
-            onOpenSalesModal={onOpenSalesModal}
-            onOpenLabelModal={onOpenLabelModal}
-          />
-          <ChildVariationActions
-            product={singleVariation}
-            onMoveToAnotherFamily={onMoveToAnotherFamily}
-            onMergeWithAnotherVariation={onMergeWithAnotherVariation}
-            onRefresh={onRefresh}
-          />
-        </div>
       ) : (
         <ParentProductActions
           product={product}
+          singleVariation={!isDraft ? singleVariation : undefined}
           showTrash={showTrash && !isLabelOnlyProfile}
           canDeleteProducts={canDeleteProducts}
           showEditButton={!readOnly}
@@ -116,10 +96,13 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
           onEdit={onEdit}
           onRestore={onRestore}
           onDelete={onDelete}
+          onPermanentDelete={onPermanentDelete}
           onDuplicate={onDuplicate}
           onLaunchStock={onLaunchStock}
           onOpenSalesModal={onOpenSalesModal}
           onOpenLabelModal={onOpenLabelModal}
+          onMoveToAnotherFamily={onMoveToAnotherFamily}
+          onMergeWithAnotherVariation={onMergeWithAnotherVariation}
         />
       )}
     </td>

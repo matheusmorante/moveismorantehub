@@ -1,6 +1,7 @@
 import { closeSync, existsSync, openSync, readFileSync, readSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 
 export const NFE_SCHEMA_PACKAGE = 'PL_010f_v1.04';
 const schemaRelativePath = `api/nfe/schemas/${NFE_SCHEMA_PACKAGE}/nfe_v4.00.xsd`;
@@ -65,7 +66,7 @@ export async function validateUnsignedNfeStructure(xml: string): Promise<void> {
     document = XmlDocument.fromBuffer(Buffer.from(xml, 'utf8'));
     if (
       !/<NFe\s+xmlns="http:\/\/www\.portalfiscal\.inf\.br\/nfe">/.test(xml) ||
-      !/<infNFe\s+Id="NFe\d{44}"\s+versao="4\.00">/.test(xml) ||
+      !/<infNFe\s+Id="NFe[0-9]{6}[A-Z0-9]{12}[0-9]{26}"\s+versao="4\.00">/.test(xml) ||
       /<(?:\w+:)?Signature(?:\s|>)/.test(xml)
     )
       throw new Error('Envelope NF-e pré-assinatura inesperado.');
@@ -80,11 +81,58 @@ export async function validateUnsignedNfeStructure(xml: string): Promise<void> {
 
 /** Validate locally against the pinned official NF-e package. No SEFAZ request is made. */
 export async function validateNfeAgainstOfficialSchema(xml: string): Promise<void> {
+  return validatePinnedSchema(xml, schemaRelativePath, NFE_SCHEMA_PACKAGE);
+}
+
+/** Validate the unchanged signed envelope and the cancellation-specific detail. */
+export async function validateCancellationAgainstOfficialSchema(
+  xml: string,
+  expected: { accessKey: string; environment: number; protocol: string }
+): Promise<void> {
+  await validatePinnedSchema(
+    xml,
+    'api/nfe/schemas/Evento_NT2026.004/envEvento_v1.00.xsd',
+    'Evento_NT2026.004'
+  );
+  const document = new DOMParser().parseFromString(xml, 'text/xml');
+  const ns = 'http://www.portalfiscal.inf.br/nfe';
+  const events = document.getElementsByTagNameNS(ns, 'infEvento');
+  const detail = document.getElementsByTagNameNS(ns, 'detEvento');
+  const tag = (name: string) => {
+    const elements = events[0]?.getElementsByTagNameNS(ns, name);
+    return elements?.length === 1 ? elements[0].textContent : null;
+  };
+  if (
+    events.length !== 1 ||
+    detail.length !== 1 ||
+    tag('tpEvento') !== '110111' ||
+    tag('nSeqEvento') !== '1' ||
+    tag('chNFe') !== expected.accessKey ||
+    tag('tpAmb') !== String(expected.environment) ||
+    tag('nProt') !== expected.protocol ||
+    events[0].getAttribute('Id') !== `ID110111${expected.accessKey}01`
+  ) {
+    throw new Error('Identidade do evento de cancelamento divergente do documento.');
+  }
+  const fragment = detail[0].cloneNode(true) as (typeof detail)[0];
+  fragment.setAttribute('xmlns', ns);
+  await validatePinnedSchema(
+    new XMLSerializer().serializeToString(fragment),
+    'api/nfe/schemas/Evento_Canc_PL_v1.01/e110111_v1.00.xsd',
+    'Evento_Canc_PL_v1.01'
+  );
+}
+
+async function validatePinnedSchema(
+  xml: string,
+  relativePath: string,
+  packageName: string
+): Promise<void> {
   if (!xml || /<!DOCTYPE|<!ENTITY/i.test(xml))
     throw new Error('XML fiscal contém declaração não permitida.');
   const candidates = [
-    resolve(process.cwd(), schemaRelativePath),
-    resolve(process.cwd(), '..', schemaRelativePath),
+    resolve(process.cwd(), relativePath),
+    resolve(process.cwd(), '..', relativePath),
   ];
   const path = candidates.find(existsSync) || candidates[0];
   const { XmlDocument, XsdValidator, xmlRegisterInputProvider } = await import('libxml2-wasm');
@@ -99,7 +147,7 @@ export async function validateNfeAgainstOfficialSchema(xml: string): Promise<voi
     validator.validate(document);
   } catch (error) {
     const detail = error instanceof Error ? error.message.slice(0, 500) : 'erro desconhecido';
-    throw new Error(`XML da NF-e não passou pelo schema oficial ${NFE_SCHEMA_PACKAGE}: ${detail}`);
+    throw new Error(`XML da NF-e não passou pelo schema oficial ${packageName}: ${detail}`);
   } finally {
     document?.dispose();
     validator?.dispose();

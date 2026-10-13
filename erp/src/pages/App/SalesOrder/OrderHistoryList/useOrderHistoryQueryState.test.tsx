@@ -2,6 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { CircuitBreakerError } from '@/services/monitoring';
 
 const mocks = vi.hoisted(() => ({
   fetchOrdersPage: vi.fn(),
@@ -52,14 +53,28 @@ afterEach(() => {
 });
 
 describe('useOrderHistory query state', () => {
-  const createWrapper = (gcTime = 0) => {
+  const createWrapper = (gcTime = 0, retry: boolean | number = false) => {
     const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime } },
+      defaultOptions: { queries: { retry, gcTime } },
     });
     return ({ children }: { children: React.ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
   };
+
+  it('não repete automaticamente uma leitura bloqueada pelo Query Guard', async () => {
+    mocks.fetchOrdersPage.mockRejectedValue(
+      new CircuitBreakerError('Requisição bloqueada pelo Query Guard (Loop Detectado).')
+    );
+    mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
+
+    const { result } = renderHook(() => useOrderHistory(), {
+      wrapper: createWrapper(0, 1),
+    });
+
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(CircuitBreakerError));
+    expect(mocks.fetchOrdersPage).toHaveBeenCalledOnce();
+  });
 
   it('transmite a NFD só depois de confirmar a coleta e concluir a transação comercial', async () => {
     const collectionOrder = {

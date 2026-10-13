@@ -1,3 +1,4 @@
+import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import type { Element } from '@xmldom/xmldom';
 import type { AppSettings } from '../settingsService';
@@ -143,14 +144,14 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
     input.originalEnvironment !== input.environment ||
     input.originalStatus !== expectedStatus ||
     !/^\d{15}$/.test(input.originalProtocol || '') ||
-    !/^\d{44}$/.test(input.originalAccessKey) ||
+    !ACCESS_KEY_PATTERN.test(input.originalAccessKey) ||
     calculateMod11CheckDigit(input.originalAccessKey.slice(0, 43)) !==
       Number(input.originalAccessKey[43])
   ) {
     throw new Error('NF-e original não autorizada e protocolada no ambiente selecionado.');
   }
   if (
-    !/^\d{44}$/.test(input.accessKey) ||
+    !ACCESS_KEY_PATTERN.test(input.accessKey) ||
     !/^\d{8}$/.test(input.randomCode) ||
     calculateMod11CheckDigit(input.accessKey.slice(0, 43)) !== Number(input.accessKey[43]) ||
     input.accessKey.slice(20, 22) !== '55' ||
@@ -173,7 +174,7 @@ export function buildReviewedFiscalOperationXml(input: ReviewedFiscalOperationXm
     throw new Error('Data de emissão incompatível com a chave fiscal.');
   }
   const settings = input.settings;
-  const cnpj = String(settings.companyCnpj || '').replace(/\D/g, '');
+  const cnpj = normalizeFiscalIdentifier(String(settings.companyCnpj || ''));
   if (
     cnpj.length !== 14 ||
     input.accessKey.slice(6, 20) !== cnpj ||

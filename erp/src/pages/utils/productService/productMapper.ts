@@ -41,10 +41,13 @@ export const mapFromDB = (data: any, index?: number): Product => {
   const fallbackCode = index !== undefined ? String(index + 1).padStart(6, '0') : '';
   const parentCode = data.code || data.sku || fallbackCode;
 
+  const isDraftProduct = Boolean(data.is_draft ?? data.isDraft) || data.status === 'draft';
   const mappedVariations = mapDbVariations(variationRecords, data, parentCode);
 
   const finalVariations =
-    mappedVariations.length === 0 && (!data.item_type || data.item_type === 'product')
+    !isDraftProduct &&
+    mappedVariations.length === 0 &&
+    (!data.item_type || data.item_type === 'product')
       ? createDefaultVariation(data, parentCode, rawName, productImages)
       : mappedVariations;
 
@@ -88,7 +91,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
       : finalVariations.length > 0
         ? finalVariations.some((v) => v.active)
         : Boolean(data.active),
-    isDraft: Boolean(data.is_draft ?? data.isDraft) || data.status === 'draft',
+    isDraft: isDraftProduct,
     deleted: data.deleted ?? false,
     supplierId: data.supplier_id || data.main_supplier_id || '',
     mainSupplierId: data.main_supplier_id || data.supplier_id || '',
@@ -105,7 +108,9 @@ export const mapFromDB = (data: any, index?: number): Product => {
     whatsappTemplate: data.whatsapp_template || '',
     ecommerceTemplate: data.ecommerce_template || '',
     hasVariations:
-      data.item_type === 'product' || !data.item_type ? true : Boolean(data.has_variations),
+      !isDraftProduct && (data.item_type === 'product' || !data.item_type)
+        ? true
+        : Boolean(data.has_variations),
     variations: isNonConventionalProduct({ productKind })
       ? finalVariations.map((v) => ({ ...v, active: false }))
       : finalVariations,
@@ -155,7 +160,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
         : undefined,
     featured: data.featured ?? false,
     depthUseLength: data.depth_use_length ?? false,
-    status: data.status || 'draft',
+    status: data.status || (isDraftProduct ? 'draft' : 'hidden'),
     supplierRef: data.supplier_ref || '',
     observations: data.observations || '',
     parentId: data.parent_id || '',

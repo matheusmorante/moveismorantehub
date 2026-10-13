@@ -12,6 +12,23 @@ import {
 } from '../nfeEventRules';
 
 describe('regras do evento de cancelamento NF-e', () => {
+  it.each(['', 'nfe:'])('prioriza o cancelamento atual sobre o protocolo original, prefixo %s', (prefix) => {
+    const xml = `<${prefix}retConsSitNFe><${prefix}cStat>101</${prefix}cStat><${prefix}xMotivo>Cancelada</${prefix}xMotivo><${prefix}protNFe><${prefix}infProt><${prefix}cStat>100</${prefix}cStat><${prefix}xMotivo>Autorizada</${prefix}xMotivo></${prefix}infProt></${prefix}protNFe></${prefix}retConsSitNFe>`;
+    expect(parseSefazNfeSituation(xml)).toMatchObject({ state: 'cancelled', cStat: '101', xMotivo: 'Cancelada' });
+  });
+
+  it.each(['108', '109', '217'])('não confunde cStat %s da consulta com autorização histórica', (cStat) => {
+    const xml = `<retConsSitNFe><cStat>${cStat}</cStat><protNFe><infProt><cStat>100</cStat></infProt></protNFe></retConsSitNFe>`;
+    expect(parseSefazNfeSituation(xml)).toMatchObject({ cStat, state: cStat === '217' ? 'not_found' : 'unknown' });
+  });
+
+  it.each([['55', 168 * 60 * 60_000], ['65', 30 * 60_000]] as const)('aceita o limite exato de %s e expira no milissegundo seguinte', (model, limit) => {
+    const authorizedAt = '2026-10-01T12:00:00-03:00';
+    const deadline = Date.parse(authorizedAt) + limit;
+    expect(getCancellationWindow(model, authorizedAt, deadline)).toMatchObject({ valid: true, expired: false, remainingMs: 0 });
+    expect(getCancellationWindow(model, authorizedAt, deadline + 1).expired).toBe(true);
+  });
+
   it('valida justificativa entre 15 e 255 caracteres', () => {
     expect(validateCancellationReason('Motivo válido para cancelar')).toBeNull();
     expect(validateCancellationReason('curto')).toContain('15');
@@ -31,12 +48,24 @@ describe('regras do evento de cancelamento NF-e', () => {
     ).toBe(false);
   });
 
+  it.each(['valid', 'environment', 'key', 'type', 'sequence', 'protocol', 'duplicate'])('confere a identidade do cancelamento: %s', (scenario) => {
+    const key = '4'.repeat(44);
+    const event = `<retEvento><infEvento><tpAmb>${scenario === 'environment' ? 1 : 2}</tpAmb><chNFe>${scenario === 'key' ? '5'.repeat(44) : key}</chNFe><tpEvento>${scenario === 'type' ? '110110' : '110111'}</tpEvento><nSeqEvento>${scenario === 'sequence' ? 2 : 1}</nSeqEvento><cStat>135</cStat><nProt>${scenario === 'protocol' ? '' : '141260000000001'}</nProt></infEvento></retEvento>`;
+    const result = parseSefazCancellationEvent(`<retEnvEvento>${event}${scenario === 'duplicate' ? event : ''}</retEnvEvento>`, { accessKey: key, environment: 2 });
+    expect(result.registered).toBe(scenario === 'valid');
+    expect(result.pending).toBe(scenario !== 'valid');
+  });
+
   it('preserva situação pendente sem inferir rejeição/autorização do lote', () => {
     expect(
       parseSefazCancellationEvent(
         '<retEnvEvento><cStat>128</cStat><xMotivo>Lote processado</xMotivo></retEnvEvento>'
       ).pending
     ).toBe(true);
+  });
+
+  it.each(['', '<retEnvEvento/>', '<retEnvEvento><cStat>108</cStat></retEnvEvento>', '<retEnvEvento><retEvento><infEvento><cStat>573</cStat></infEvento></retEvento></retEnvEvento>', '<retConsSitNFe><cStat>101</cStat></retConsSitNFe>', '<retEnvEvento><cStat>135</cStat></retEnvEvento>'])('mantém retorno ausente, indisponibilidade ou duplicidade pendentes', (xml) => {
+    expect(parseSefazCancellationEvent(xml)).toMatchObject({ registered: false, pending: true });
   });
 
   it('só confirma CC-e vinculada e sinaliza resposta incerta para reconciliação', () => {

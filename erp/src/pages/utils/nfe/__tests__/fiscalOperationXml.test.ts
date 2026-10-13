@@ -102,6 +102,15 @@ const input = (kind: 'estorno' | 'return'): ReviewedFiscalOperationXmlInput => (
 });
 
 describe('prévia estrutural do XML fiscal revisado', () => {
+  it.each(['estorno', 'return'] as const)('preserva emitente e referência alfanuméricos em %s', (kind) => {
+    const params = { ufCode: '41', yearMonth: '2609', cnpj: '12ABC34501DE35', model: '55', series: '1', emissionType: '1', randomCode: '12345678' };
+    const originalAccessKey = generateNfeAccessKey({ ...params, number: 700 }).accessKey;
+    const generated = generateNfeAccessKey({ ...params, number: 701 });
+    const xml = buildReviewedFiscalOperationXml({ ...input(kind), ...generated, originalAccessKey, settings: { ...settings, companyCnpj: params.cnpj } });
+    expect(xml).toContain(kind === 'estorno' ? `<refNFe>${originalAccessKey}</refNFe>` : `<chaveAcesso>${originalAccessKey}</chaveAcesso>`);
+    expect(xml).toContain('<CNPJ>12ABC34501DE35</CNPJ>');
+    expect(xml).toContain(`Id="NFe${generated.accessKey}"`);
+  });
   it('estorno usa finalidade 3 e referência da NF-e original no cabeçalho', () => {
     const xml = buildReviewedFiscalOperationXml(input('estorno'));
     expect(xml).toContain('<finNFe>3</finNFe>');

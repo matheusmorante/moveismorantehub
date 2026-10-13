@@ -2,9 +2,9 @@ import {
   getGoodsCirculationState,
   hasGoodsCirculated,
   type OrderCirculationState,
-} from './cancellationEligibility';
-import { getFiscalCancellationPolicy } from './fiscalCancellationPolicy';
-import { getAuthorizedAt } from './nfeEventRules';
+} from './cancellationEligibility.js';
+import { getFiscalCancellationPolicy } from './fiscalCancellationPolicy.js';
+import { getAuthorizedAt } from './nfeEventRules.js';
 
 export const ORDER_EDIT_CCE_DISABLED_REASON =
   'O ERP não utiliza CC-e. Para alterar dados fiscais antes da circulação, use cancelamento ou estorno e emita uma nova nota.';
