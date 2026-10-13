@@ -55,7 +55,10 @@ import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fisca
 import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
 import { assertNfeSignature } from './fiscalXmlAudit';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const supabaseUrl =
+  process.env.VITE_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  'https://hkoxhourxwlddgsfdgws.supabase.co';
 const serviceKey = getSupabaseSecretKey() || '';
 type Environment = 1 | 2;
 

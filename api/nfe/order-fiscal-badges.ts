@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { getSupabaseSecretKey } from '../supabaseSecretKey';
+import { getSupabaseSecretKey, getSupabaseUrl, getSupabaseAnonKey } from '../supabaseSecretKey';
 import { getAuthorizedAt } from '../../erp/src/pages/utils/nfe/nfeEventRules';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const supabaseUrl = getSupabaseUrl();
 const serviceKey = getSupabaseSecretKey() || '';
-const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+const anonKey = getSupabaseAnonKey();
 const orderIdPattern = /^[A-Za-z0-9_-]{1,100}$/;
 const documentSelect =
   'id,order_id,status,document_type,ambiente,created_at,numero_nfe,serie,modelo,valor_total';
@@ -24,6 +24,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' });
+
+  const supabaseUrl = getSupabaseUrl();
+  const serviceKey = getSupabaseSecretKey() || '';
+  const anonKey = getSupabaseAnonKey();
   if (!supabaseUrl || !serviceKey || !anonKey)
     return res.status(503).json({ error: 'Backend fiscal indisponível.' });
 

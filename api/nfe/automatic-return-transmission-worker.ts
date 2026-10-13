@@ -10,7 +10,10 @@ import {
 } from './automaticReturnWorkerAuthorization';
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const supabaseUrl =
+  process.env.VITE_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  'https://hkoxhourxwlddgsfdgws.supabase.co';
 const serviceKey = getSupabaseSecretKey() || '';
 
 function resolveInternalBaseUrl(): string | null {

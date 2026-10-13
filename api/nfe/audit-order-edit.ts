@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { getSupabaseSecretKey } from '../supabaseSecretKey';
+import { getSupabaseSecretKey, getSupabaseUrl, getSupabaseAnonKey } from '../supabaseSecretKey';
 import {
   assertAuthorizedFiscalSnapshot,
   findFiscalOrderEditChanges,
@@ -14,9 +14,9 @@ import { getOrderEditFiscalPolicy } from '../../erp/src/pages/utils/nfe/orderEdi
 import { buildOrderPersistencePayload } from '../../erp/src/pages/utils/orderPersistencePayload';
 import type Order from '../../erp/src/pages/types/order.type';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const supabaseUrl = getSupabaseUrl();
 const serviceKey = getSupabaseSecretKey() || '';
-const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+const anonKey = getSupabaseAnonKey();
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type AuthorizedDocumentRow = {
@@ -74,6 +74,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido.' });
+
+  const supabaseUrl = getSupabaseUrl();
+  const serviceKey = getSupabaseSecretKey() || '';
+  const anonKey = getSupabaseAnonKey();
   if (!supabaseUrl || !serviceKey || !anonKey)
     return res.status(503).json({ error: 'Serviço de auditoria fiscal indisponível.' });
 
