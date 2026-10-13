@@ -13,7 +13,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { getMaxParentProductImages, MAX_VARIATION_IMAGES } from '../../domain/productImageLimits';
+import {
+  getMaxParentProductImages,
+  MAX_PARENT_PRODUCT_IMAGES,
+  MAX_VARIATION_IMAGES,
+} from '../../domain/productImageLimits';
 
 const CATALOG_API_URL = (
   process.env.EXPO_PUBLIC_CATALOG_API_URL || 'https://www.moveismorante.com.br'
@@ -55,8 +59,7 @@ interface Props {
 
 export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
   const images: string[] = Array.isArray(formData.images) ? formData.images : [];
-  const variationCount = Array.isArray(formData.variations) ? formData.variations.length : 0;
-  const maxPhotos = getMaxParentProductImages(variationCount);
+  const maxPhotos = MAX_PARENT_PRODUCT_IMAGES;
   const [selectedPhotoIdx, setSelectedPhotoIdx] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -219,11 +222,10 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
           <Text
             style={[styles.photoNoteText, styles.photoNoteStrong, dark && styles.photoNoteTextDark]}
           >
-            Limite do produto pai: {maxPhotos} foto(s).
+            Limite da galeria: {maxPhotos} fotos.
           </Text>
           <Text style={[styles.photoNoteText, dark && styles.photoNoteTextDark]}>
-            Cada variação acrescenta mais {MAX_VARIATION_IMAGES} espaços para fotos à galeria e pode
-            vincular até {MAX_VARIATION_IMAGES} fotos.
+            Cada variação pode vincular até {MAX_VARIATION_IMAGES} fotos desta galeria.
           </Text>
           {images.length > maxPhotos && (
             <Text
@@ -233,9 +235,8 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
                 dark && styles.photoNoteOverLimitDark,
               ]}
             >
-              Este cadastro já possui {images.length} fotos, acima do limite atual. As fotos
-              existentes serão preservadas; remova algumas ou aumente a quantidade de variações até
-              o limite cobrir o total atual antes de incluir novas.
+              Este cadastro já possui {images.length} fotos, acima do limite de {maxPhotos}. As
+              fotos existentes serão preservadas; remova algumas antes de incluir novas.
             </Text>
           )}
         </View>

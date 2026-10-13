@@ -1,7 +1,11 @@
-import { getMaxParentProductImages, MAX_VARIATION_IMAGES } from '../productImageLimits';
+import {
+  getMaxParentProductImages,
+  MAX_PARENT_PRODUCT_IMAGES,
+  MAX_VARIATION_IMAGES,
+} from '../productImageLimits';
 import Product from '../../types/product.type';
 
-export { getMaxParentProductImages, MAX_VARIATION_IMAGES };
+export { getMaxParentProductImages, MAX_PARENT_PRODUCT_IMAGES, MAX_VARIATION_IMAGES };
 
 export const validateProductImageLimits = (
   product: Partial<Product>,
@@ -9,17 +13,13 @@ export const validateProductImageLimits = (
 ): void => {
   const images = product.images ?? existingProduct?.images ?? [];
   const variations = product.variations ?? existingProduct?.variations ?? [];
-  const maxParentImages = getMaxParentProductImages(variations.length);
+  const maxParentImages = MAX_PARENT_PRODUCT_IMAGES;
   const existingImageCount = existingProduct?.images?.length ?? 0;
 
   if (images.length > maxParentImages && images.length > existingImageCount) {
     throw new Error(`O produto pai pode ter no máximo ${maxParentImages} fotos neste cadastro.`);
   }
-  if (
-    variations.some(
-      (variation) => (variation.images || []).length > MAX_VARIATION_IMAGES
-    )
-  ) {
+  if (variations.some((variation) => (variation.images || []).length > MAX_VARIATION_IMAGES)) {
     throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
   }
 };

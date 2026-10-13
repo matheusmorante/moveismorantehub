@@ -1,5 +1,5 @@
+export const MAX_PARENT_PRODUCT_IMAGES = 75;
 export const MAX_VARIATION_IMAGES = 15;
 
-/** O produto pai mantém ao menos 15 fotos e ganha mais 15 por variação adicional. */
-export const getMaxParentProductImages = (variationCount = 0): number =>
-  Math.max(1, variationCount) * MAX_VARIATION_IMAGES;
+/** Limite de fotos da galeria do produto pai (fixo em 75 fotos). */
+export const getMaxParentProductImages = (_variationCount = 0): number => MAX_PARENT_PRODUCT_IMAGES;

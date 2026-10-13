@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import { compressImageToFile } from '@/pages/utils/imageUtils';
-import { getMaxParentProductImages } from '@/pages/utils/productImageLimits';
-import { uploadFile } from '@/pages/utils/storageService';
+import {
+  getMaxParentProductImages,
+  MAX_PARENT_PRODUCT_IMAGES,
+} from '@/pages/utils/productImageLimits';
 import type Product from '../../../../types/product.type';
 
 export type FileInputSource =
@@ -31,7 +32,7 @@ export function useProductFormImages(
 
     if (files.length === 0) return;
 
-    const MAX_PHOTOS = getMaxParentProductImages(formData.variations?.length);
+    const MAX_PHOTOS = MAX_PARENT_PRODUCT_IMAGES;
     const currentCount = (formData.images || []).length;
 
     if (currentCount >= MAX_PHOTOS) {

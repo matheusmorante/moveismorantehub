@@ -1,9 +1,11 @@
 import type React from 'react';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import { compressImageToFile } from '@/pages/utils/imageUtils';
-import { getMaxParentProductImages, MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
-import { uploadFile } from '@/pages/utils/storageService';
+import {
+  getMaxParentProductImages,
+  MAX_PARENT_PRODUCT_IMAGES,
+  MAX_VARIATION_IMAGES,
+} from '@/pages/utils/productImageLimits';
 import type Product from '../../../../types/product.type';
 import { moveProductImage, replaceProductImage } from './images/productImageOrdering';
 import { SquareImageCropper } from './images/SquareImageCropper';
@@ -42,8 +44,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
   const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
   const [croppingIndex, setCroppingIndex] = useState<number | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
-  const variationCount = formData.variations?.length ?? 0;
-  const maxPhotos = getMaxParentProductImages(variationCount);
+  const maxPhotos = MAX_PARENT_PRODUCT_IMAGES;
   const currentCount = (formData.images || []).length;
 
   const handleReplacePhoto = async (index: number, file: File) => {
@@ -124,16 +125,12 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
               Adicione aqui as fotos principais do produto. As variações poderão vincular fotos
               desta galeria para mostrar imagens específicas de cada modelo.
             </p>
-            <p className="font-black">Limite do produto pai: {maxPhotos} foto(s).</p>
-            <p>
-              Cada variação acrescenta mais {MAX_VARIATION_IMAGES} espaços para fotos à galeria e
-              pode vincular até {MAX_VARIATION_IMAGES} fotos.
-            </p>
+            <p className="font-black">Limite da galeria: {maxPhotos} fotos.</p>
+            <p>Cada variação pode vincular até {MAX_VARIATION_IMAGES} fotos desta galeria.</p>
             {currentCount > maxPhotos && (
               <p className="font-semibold">
-                Este cadastro já possui {currentCount} fotos, acima do limite atual. As fotos
-                existentes serão preservadas; remova algumas ou aumente a quantidade de variações
-                até o limite cobrir o total atual antes de incluir novas.
+                Este cadastro já possui {currentCount} fotos, acima do limite de {maxPhotos}. As
+                fotos existentes serão preservadas; remova algumas antes de incluir novas.
               </p>
             )}
           </div>
