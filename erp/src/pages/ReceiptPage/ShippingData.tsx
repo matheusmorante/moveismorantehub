@@ -46,8 +46,8 @@ const ShippingData = ({ shipping }: Props) => {
           </span>
           <span className="text-sm font-bold text-slate-800 lowercase">
             {scheduling?.dateType === 'range' && scheduling?.endDate
-              ? `de ${formatDate(scheduling.date)} até ${formatDate(scheduling.endDate)}`
-              : formatDate(scheduling?.date)}
+              ? `de ${formatDate(shippingDate)} até ${formatDate(scheduling.endDate)}`
+              : formatDate(shippingDate)}
             <span className="text-slate-400 px-1">|</span>
             {scheduling?.type === 'range' &&
             scheduling?.startTime &&

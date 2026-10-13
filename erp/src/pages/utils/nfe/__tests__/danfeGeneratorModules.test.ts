@@ -1,4 +1,5 @@
-// @vitest-environment jsdom
+// HTML/SVG generation and XML parsing use the supported Node fallback; no DOM is required.
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { generateDanfeHtml, DanfeData } from '../danfeGenerator';
 import { buildDanfeRecipientOfficialHtml } from '../danfe/danfeRecipient';

@@ -1,0 +1,168 @@
+{
+  "date": "2026-10-13",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "readOnly": true,
+  "commercialWrites": false,
+  "ddl": false,
+  "policyStatus": {
+    "ready": true,
+    "policyVersion": "json-artifacts-v1",
+    "behavioralProofRequired": false
+  },
+  "catalog": {
+    "guards": [
+      {
+        "table": "products",
+        "enabled": "O",
+        "trigger": "test_artifact_record_guard",
+        "rowSecurity": true
+      },
+      {
+        "table": "product_variations",
+        "enabled": "O",
+        "trigger": "test_artifact_record_guard",
+        "rowSecurity": true
+      },
+      {
+        "table": "people",
+        "enabled": "O",
+        "trigger": "test_artifact_record_guard",
+        "rowSecurity": true
+      },
+      {
+        "table": "orders",
+        "enabled": "O",
+        "trigger": "test_artifact_record_guard",
+        "rowSecurity": true
+      },
+      {
+        "table": "inventory_moves",
+        "enabled": "O",
+        "trigger": "test_artifact_record_guard",
+        "rowSecurity": true
+      },
+      {
+        "table": "accounts_payable",
+        "enabled": "O",
+        "trigger": "test_artifact_record_guard",
+        "rowSecurity": true
+      },
+      {
+        "table": "accounts_receivable",
+        "enabled": "O",
+        "trigger": "test_artifact_record_guard",
+        "rowSecurity": true
+      },
+      {
+        "table": "financial_transactions",
+        "enabled": "O",
+        "trigger": "test_artifact_record_guard",
+        "rowSecurity": true
+      },
+      {
+        "table": "app_notifications",
+        "enabled": "O",
+        "trigger": "suppress_test_artifact_notification",
+        "rowSecurity": true
+      },
+      {
+        "table": "purchases",
+        "enabled": "O",
+        "trigger": "test_artifact_record_guard",
+        "rowSecurity": true
+      },
+      {
+        "table": "goods_receipts",
+        "enabled": "O",
+        "trigger": "test_artifact_record_guard",
+        "rowSecurity": true
+      },
+      {
+        "table": "goods_receipt_items",
+        "enabled": "O",
+        "trigger": "test_artifact_record_guard",
+        "rowSecurity": true
+      }
+    ],
+    "policies": null,
+    "functions": [
+      {
+        "name": "assert_test_artifact_identity",
+        "settings": [
+          "search_path=\"\""
+        ],
+        "arguments": "p_data jsonb",
+        "definitionMd5": "dcb777e4e446d06789d7927bd1ece8d0",
+        "securityDefiner": true
+      },
+      {
+        "name": "assert_test_artifact_link",
+        "settings": [
+          "search_path=\"\""
+        ],
+        "arguments": "p_identity jsonb, p_table text, p_id text",
+        "definitionMd5": "dd91035e95c0e6d97894510f6d0fa0da",
+        "securityDefiner": true
+      },
+      {
+        "name": "create_order_with_inventory_transaction",
+        "settings": [
+          "search_path=public, extensions"
+        ],
+        "arguments": "p_order_id text, p_order_payload jsonb, p_items jsonb, p_payments jsonb, p_is_update boolean",
+        "definitionMd5": "c3e89afdd84e4529c7fb5e0bf5209ec6",
+        "securityDefiner": true
+      },
+      {
+        "name": "create_return_order_with_capacity",
+        "settings": [
+          "search_path=public, extensions"
+        ],
+        "arguments": "p_order_id text, p_order_payload jsonb, p_items jsonb, p_payments jsonb",
+        "definitionMd5": "56f10e508ee4372f88b6abcee84b1de9",
+        "securityDefiner": true
+      },
+      {
+        "name": "guard_test_artifact_record",
+        "settings": [
+          "search_path=\"\""
+        ],
+        "arguments": "",
+        "definitionMd5": "f210ce455a60d12aeb822451dd9582ed",
+        "securityDefiner": true
+      },
+      {
+        "name": "suppress_test_artifact_notification",
+        "settings": [
+          "search_path=\"\""
+        ],
+        "arguments": "",
+        "definitionMd5": "0e52f16458ff4ba4f319025e38a69798",
+        "securityDefiner": true
+      },
+      {
+        "name": "test_artifact_policy_status",
+        "settings": [
+          "search_path=\"\""
+        ],
+        "arguments": "",
+        "definitionMd5": "6749de553fc85c52bcc2cba3b2beac93",
+        "securityDefiner": true
+      },
+      {
+        "name": "update_order_with_inventory_transaction_if_version",
+        "settings": [
+          "search_path=pg_catalog, public, extensions"
+        ],
+        "arguments": "p_order_id text, p_expected_updated_at timestamp with time zone, p_order_payload jsonb, p_items jsonb, p_payments jsonb",
+        "definitionMd5": "473459520c7f79036c482a1e61165c2d",
+        "securityDefiner": true
+      }
+    ]
+  },
+  "limitations": [
+    "Catalog and readiness only; no operational transaction, rollback or concurrency proof.",
+    "The policy RPC returns behavioralProofRequired=false as a constant; this is not new behavioral evidence."
+  ]
+}
