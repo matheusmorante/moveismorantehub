@@ -36,21 +36,24 @@ describe('validação do documento fiscal do destinatário', () => {
     expect(recipientTaxIdMatchesPersonType('12ABC34501DE35', 'PJ')).toBe(true);
   });
 
-  it('explica formato incorreto, tipo incompatível e dígitos verificadores inválidos', () => {
+  it('explica formato incorreto, tipo incompatível e dígitos verificadores inválidos com detalhes matemáticos', () => {
     expect(getRecipientTaxIdValidationMessage('123.456.789-0', 'PF')).toBe(
-      'CPF inválido: informe 11 dígitos numéricos.'
+      'CPF incompleto: foram informados apenas 10 dos 11 dígitos necessários (faltam 1 dígito).'
     );
     expect(getRecipientTaxIdValidationMessage('333.333.333-33', 'PF')).toBe(
-      'CPF inválido: os dígitos verificadores calculados não conferem.'
+      'CPF inválido: todos os 11 dígitos são repetidos (333.333.333-33). Sequências repetidas são rejeitadas pela Receita Federal.'
     );
-    expect(getRecipientTaxIdValidationMessage('343.324.234-23', 'PF')).toBe(
-      'CPF inválido: os dígitos verificadores calculados não conferem.'
+    expect(getRecipientTaxIdValidationMessage('343.324.234-23', 'PF')).toContain(
+      'CPF inválido: os 2 dígitos verificadores informados (23) não conferem com o cálculo oficial da Receita Federal'
     );
-    expect(getRecipientTaxIdValidationMessage('11.222.333/0001-80', 'PJ')).toBe(
-      'CNPJ inválido: os dígitos verificadores calculados não conferem.'
+    expect(getRecipientTaxIdValidationMessage('11.222.333/0001-80', 'PJ')).toContain(
+      'CNPJ inválido: o 2º dígito verificador informado (0) não confere com o cálculo oficial (deveria ser 1).'
     );
     expect(getRecipientTaxIdValidationMessage('11.222.333/0001-81', 'PF')).toBe(
-      'Tipo de documento incompatível: cliente PF precisa de um CPF.'
+      'Tipo de documento divergente: o cliente é Pessoa Física (PF), mas foi informado um CNPJ de 14 dígitos. Digite um CPF válido.'
+    );
+    expect(getRecipientTaxIdValidationMessage('12345678909', 'PJ')).toBe(
+      'Tipo de documento divergente: a empresa é Pessoa Jurídica (PJ), mas foi informado um CPF de 11 dígitos. Digite um CNPJ válido.'
     );
     expect(getRecipientTaxIdValidationMessage('123.456.789-09', 'PF')).toBeNull();
     expect(getRecipientTaxIdValidationMessage('', 'PF')).toBeNull();

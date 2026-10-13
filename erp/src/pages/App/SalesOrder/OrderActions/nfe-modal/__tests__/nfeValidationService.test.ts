@@ -147,8 +147,8 @@ describe('nfeValidationService', () => {
     });
 
     expect(result.valid).toBe(false);
-    expect(result.recipientTaxIdError).toContain('os dígitos verificadores calculados não conferem');
-    expect(result.toastError).toContain('os dígitos verificadores calculados não conferem');
+    expect(result.recipientTaxIdError).toContain('não conferem com o cálculo oficial da Receita Federal');
+    expect(result.toastError).toContain('não conferem com o cálculo oficial da Receita Federal');
   });
 
   it('bloqueia emissão se estiver aguardando preparação fiscal dos itens', () => {

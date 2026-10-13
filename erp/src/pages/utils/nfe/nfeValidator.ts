@@ -8,6 +8,7 @@ import {
   resolveOrderFiscalModel,
 } from '../../../../../shared-utils/fiscalDocumentModel';
 import {
+  getRecipientTaxIdValidationMessage,
   isValidRecipientTaxId,
   normalizeRecipientTaxId,
   recipientTaxIdMatchesPersonType,
@@ -151,7 +152,10 @@ export function validateOrderForNfe(order: Order, settings: AppSettings): NfeVal
       (!isValidRecipientTaxId(document) ||
         !recipientTaxIdMatchesPersonType(document, order.customerData?.personType))
     )
-      errors.push('CPF/CNPJ do destinatário inválido.');
+      errors.push(
+        getRecipientTaxIdValidationMessage(document, order.customerData?.personType) ||
+          'CPF/CNPJ do destinatário incompleto ou com dígitos verificadores incorretos.'
+      );
     if (requirements.addressRequired) {
       const address = getFiscalRecipientAddress(order);
       const missing = [

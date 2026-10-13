@@ -102,18 +102,32 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
   );
   const validForPerson = !recipientTaxIdValidationMessage;
 
+  const docTypeName =
+    registeredPersonType === 'PF'
+      ? 'CPF'
+      : registeredPersonType === 'PJ'
+        ? 'CNPJ'
+        : 'CPF ou CNPJ';
+
   if (recipientRequired) {
-    const missingMessage = recipientReqs.message || 'Documento do destinatário obrigatório.';
+    const missingMessage =
+      recipientReqs.message ||
+      (currentModel === '55'
+        ? `A emissão de NF-e (modelo 55) exige a identificação do destinatário com ${docTypeName} válido.`
+        : deliveryMethod === 'delivery'
+          ? `O ${docTypeName} do destinatário é obrigatório na emissão com entrega em domicílio.`
+          : effectiveInvoiceTotal >= 10000
+            ? `NFC-e com valor a partir de R$ 10.000,00 exige a identificação do destinatário com ${docTypeName}.`
+            : `Informe o ${docTypeName} do destinatário para autorizar a nota fiscal.`);
+
     if (!recipientTaxId.trim() || !validForPerson) {
       const message = recipientTaxId.trim()
-        ? recipientTaxIdValidationMessage || 'Documento do destinatário inválido.'
+        ? recipientTaxIdValidationMessage || `Número de ${docTypeName} incompleto ou com dígitos verificadores incorretos.`
         : missingMessage;
       const fieldErr: FiscalFieldError = {
         tab: 'customer',
         fieldId: 'nfe-recipient-tax-id',
-        message: recipientTaxId.trim()
-          ? message
-          : missingMessage,
+        message,
       };
       return {
         valid: false,
@@ -124,16 +138,19 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
     }
   } else {
     if (recipientTaxId.trim() && !validForPerson) {
+      const specificInvalidMessage =
+        recipientTaxIdValidationMessage ||
+        `Número de ${docTypeName} incompleto ou com dígitos verificadores incorretos.`;
       const fieldErr: FiscalFieldError = {
         tab: 'customer',
         fieldId: 'nfe-recipient-tax-id',
-        message: recipientTaxIdValidationMessage || 'Documento do destinatário inválido.',
+        message: specificInvalidMessage,
       };
       return {
         valid: false,
-        recipientTaxIdError: recipientTaxIdValidationMessage || 'Documento do destinatário inválido.',
+        recipientTaxIdError: specificInvalidMessage,
         fiscalFieldError: fieldErr,
-        toastError: recipientTaxIdValidationMessage || fieldErr.message,
+        toastError: specificInvalidMessage,
       };
     }
   }
