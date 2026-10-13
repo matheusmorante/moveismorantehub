@@ -154,18 +154,12 @@ describe('preenchimento dos itens da NF-e', () => {
   });
 
   async function requestXmlPreview(): Promise<void> {
-    const button = screen.getByTestId('nfe-preview-xml-button') as HTMLButtonElement;
+    const button = screen.getByTestId('nfe-emit-button') as HTMLButtonElement;
     await waitFor(() => expect(button.disabled).toBe(false));
     fireEvent.click(button);
   }
 
   async function prepareNfeEmission(): Promise<void> {
-    await requestXmlPreview();
-    await screen.findByTestId('nfe-xml-preview-dialog');
-    expect(screen.getByTestId('nfe-xml-preview-content').textContent).toContain(
-      'tpAmb>2'
-    );
-    fireEvent.click(screen.getByTestId('nfe-xml-preview-close'));
     await waitFor(() =>
       expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false)
     );
@@ -190,13 +184,12 @@ describe('preenchimento dos itens da NF-e', () => {
       },
     ],
   };
-  it('permite emitir sem solicitar prévia e limita o botão de prévia ao administrador real', async () => {
+  it('permite emitir diretamente e não exibe o botão de prévia do XML', async () => {
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
     const { unmount } = render(
       <NfeEmissionModal isOpen order={{ ...order, id: 'direct-emission-without-preview' }} onClose={vi.fn()} />
     );
-    const preview = await screen.findByTestId('nfe-preview-xml-button');
-    expect(preview).toBeTruthy();
+    expect(screen.queryByTestId('nfe-preview-xml-button')).toBeNull();
     await waitFor(() =>
       expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false)
     );
@@ -510,7 +503,6 @@ describe('preenchimento dos itens da NF-e', () => {
 
     fireEvent.click(screen.getByTestId('nfe-start-fresh-hml-emission'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
-    expect(mocks.preview).toHaveBeenCalledTimes(1);
     expect(mocks.abandonAttempt).toHaveBeenCalledWith(order.id, 'hml-document-616', requestId, {
       itemCsosnOverrides: {},
       itemFiscalSelections: {
@@ -778,7 +770,6 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(fresh);
     fireEvent.click(fresh);
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(2));
-    expect(mocks.preview).toHaveBeenCalledTimes(1);
     expect(mocks.emit.mock.calls[1][3]).toBeUndefined();
     expect(mocks.emit.mock.calls[1][4]).toBeUndefined();
   });
@@ -930,7 +921,7 @@ describe('preenchimento dos itens da NF-e', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Consultar tentativa em andamento' })
     );
-    await waitFor(() => expect(screen.getByTestId('nfe-preview-xml-button')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('nfe-emit-button')).toBeTruthy());
     await prepareNfeEmission();
     expect(mocks.emit).toHaveBeenCalledTimes(1);
     fireEvent.click(await screen.findByTestId('nfe-fiscal-issue-trigger'));

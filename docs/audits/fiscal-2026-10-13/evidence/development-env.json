@@ -1,0 +1,195 @@
+{
+  "name": "development-env",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "label": "development",
+      "node": "v22.18.0",
+      "openssl": "3.0.16",
+      "startupExtraCA": false,
+      "defaultCACount": 150,
+      "variables": {
+        "NFE_CERTIFICATE_BASE64": {
+          "present": true,
+          "length": 12168,
+          "hash": "6fd97c999281995e8706c22f05bb495df5bcde3da25480b63e5ea987108bf47a"
+        },
+        "NFE_CERTIFICATE_PASSWORD": {
+          "present": true,
+          "length": 14,
+          "hash": "7729136598ba70fe6352bac70e5d8600fe6b7f1b1f76f971064fc3f1194cb008"
+        },
+        "NFE_CSC_HOMOLOGACAO": {
+          "present": true,
+          "length": 36,
+          "hash": "0162e7961fc985f7132067e1f101888e4d7fe5a76ff7b7b3a6dcb8f91db48427"
+        },
+        "NFE_CSC_ID_HOMOLOGACAO": {
+          "present": true,
+          "length": 6,
+          "hash": "bb4e22f920a632a2e7f375001ba32f3cc7a173638fffe4fce94fbcf1610b18e2"
+        },
+        "NFE_CSC_ID_PRODUCAO": {
+          "present": true,
+          "length": 6,
+          "hash": "bb4e22f920a632a2e7f375001ba32f3cc7a173638fffe4fce94fbcf1610b18e2"
+        },
+        "NFE_CSC_PRODUCAO": {
+          "present": true,
+          "length": 36,
+          "hash": "dec0de516a91e8ee1d88ae4c98becc7f8ec8d884a14d7211fe7e9dd847eaf69d"
+        },
+        "NFE_CSRT_HOMOLOGACAO": {
+          "present": true,
+          "length": 36,
+          "hash": "584f3c7126e2c953c17bfeff5c79d3720bd1fd4f2d1da0cec9c2286e68cffbef"
+        },
+        "NFE_CSRT_PRODUCAO": {
+          "present": true,
+          "length": 36,
+          "hash": "4ff72fc3666ab7580e0f0a5eb18e8aa59f9bb01cf9b474ef5d48b1df46d96bda"
+        },
+        "NFE_HML_TEST_OPERATOR_EMAIL": {
+          "present": true,
+          "length": 27,
+          "hash": "067b6032bfc6fe43284fbed2dde28319fca10b0189297379781adb296ec6cf7d"
+        },
+        "NFE_HML_TEST_OPERATOR_PASSWORD": {
+          "present": true,
+          "length": 16,
+          "hash": "0207c91773bb46317b7575bec39fcdad9e6232e1bebbb4afea7719be0c3e7143"
+        },
+        "NFE_ID_CSRT_HOMOLOGACAO": {
+          "present": true,
+          "length": 2,
+          "hash": "52ca30870aa67c5489fa492e04578cb717a25216286801f92d00a8b4f43340e9"
+        },
+        "NFE_ID_CSRT_PRODUCAO": {
+          "present": true,
+          "length": 2,
+          "hash": "0c9a9e180ba34e6de2e18d2caec6b6ea57fcd83559b56f949c98b7e3456cb8ca"
+        },
+        "NFE_RESPONSIBLE_TECH_CNPJ": {
+          "present": true,
+          "length": 14,
+          "hash": "14697d97e01d4bc88c9e391dd2676b9def449526a527748631a6589ad9b94776"
+        },
+        "NFE_RESPONSIBLE_TECH_CONTACT": {
+          "present": true,
+          "length": 7,
+          "hash": "1282ed3856552d6452bfd5315d04f9ad1bb0c5ba8a30b95c81c831948dfb6329"
+        },
+        "NFE_RESPONSIBLE_TECH_EMAIL": {
+          "present": true,
+          "length": 28,
+          "hash": "1cb5cb81ba6dd452632c9c2942f98b2e9388a6d6ba5a2514a04d7c47e7723421"
+        },
+        "NFE_RESPONSIBLE_TECH_PHONE": {
+          "present": true,
+          "length": 11,
+          "hash": "f04b938e81b8c65fa272b81726516eecf9f05f78f08fc1e0e391e00826a9b619"
+        },
+        "NODE_EXTRA_CA_CERTS": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "NODE_TLS_REJECT_UNAUTHORIZED": {
+          "present": false,
+          "length": 0,
+          "hash": null,
+          "value": null
+        },
+        "SUPABASE_SECRET_KEY": {
+          "present": true,
+          "length": 41,
+          "hash": "db47e53e2488b356b94c389ff03508e73ca05d367c91ef038b412939d9d2d7b8"
+        },
+        "SUPABASE_SERVICE_ROLE_KEY": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "SUPABASE_URL": {
+          "present": false,
+          "length": 0,
+          "hash": null
+        },
+        "VITE_SUPABASE_ANON_KEY": {
+          "present": true,
+          "length": 208,
+          "hash": "8c9dbc85f5ad34f86ad92314dfc541fcacb82485a2c1efddbb7c87fb453c12d4"
+        },
+        "VITE_SUPABASE_URL": {
+          "present": true,
+          "length": 40,
+          "hash": "958a23e5817c31f5272024a9b9db9e9f33bb1effdb644681fbf24533ff915c87"
+        }
+      },
+      "certificate": {
+        "strictBase64": true,
+        "decodedBytes": 9124,
+        "pkcs12Valid": true,
+        "passwordCorrect": true,
+        "leaf": {
+          "subject": "C=BR\nO=ICP-Brasil\nST=PR\nL=Colombo\nOU=AC SOLUTI Multipla v5\nOU=34878804000100\nOU=Certificado Digital\nOU=Certificado PJ A1\nCN=MOVEIS MORANTE LTDA:44512248000107",
+          "issuer": "C=BR\nO=ICP-Brasil\nOU=AC SOLUTI v5\nCN=AC SOLUTI Multipla v5",
+          "ca": false,
+          "validFrom": "Sep 25 15:04:00 2026 GMT",
+          "validTo": "Sep 25 15:04:00 2027 GMT",
+          "fingerprint256": "8B:26:3A:53:F2:22:2C:B5:22:6F:50:9B:58:D2:87:21:A9:2C:85:C4:B8:48:79:A0:6C:73:69:D5:F7:72:7B:80",
+          "currentlyValid": true
+        },
+        "chain": [
+          {
+            "subject": "C=BR\nO=ICP-Brasil\nST=PR\nL=Colombo\nOU=AC SOLUTI Multipla v5\nOU=34878804000100\nOU=Certificado Digital\nOU=Certificado PJ A1\nCN=MOVEIS MORANTE LTDA:44512248000107",
+            "issuer": "C=BR\nO=ICP-Brasil\nOU=AC SOLUTI v5\nCN=AC SOLUTI Multipla v5",
+            "ca": false,
+            "validFrom": "Sep 25 15:04:00 2026 GMT",
+            "validTo": "Sep 25 15:04:00 2027 GMT",
+            "fingerprint256": "8B:26:3A:53:F2:22:2C:B5:22:6F:50:9B:58:D2:87:21:A9:2C:85:C4:B8:48:79:A0:6C:73:69:D5:F7:72:7B:80",
+            "currentlyValid": true
+          },
+          {
+            "subject": "C=BR\nO=ICP-Brasil\nOU=AC SOLUTI v5\nCN=AC SOLUTI Multipla v5",
+            "issuer": "C=BR\nO=ICP-Brasil\nOU=Autoridade Certificadora Raiz Brasileira v5\nCN=AC SOLUTI v5",
+            "ca": true,
+            "validFrom": "Feb  5 14:34:56 2019 GMT",
+            "validTo": "Mar  2 11:58:59 2029 GMT",
+            "fingerprint256": "C2:A4:DE:C2:25:FB:2C:94:0C:A5:46:5A:AB:D6:74:2B:9D:E9:46:6C:25:30:F0:69:AC:D0:6D:24:85:2D:7A:4E",
+            "currentlyValid": true
+          },
+          {
+            "subject": "C=BR\nO=ICP-Brasil\nOU=Autoridade Certificadora Raiz Brasileira v5\nCN=AC SOLUTI v5",
+            "issuer": "C=BR\nO=ICP-Brasil\nOU=Instituto Nacional de Tecnologia da Informacao - ITI\nCN=Autoridade Certificadora Raiz Brasileira v5",
+            "ca": true,
+            "validFrom": "Jun 29 18:55:20 2018 GMT",
+            "validTo": "Mar  2 12:00:20 2029 GMT",
+            "fingerprint256": "86:D4:58:36:5C:FA:BF:FA:E4:54:2A:B9:8B:99:39:0F:51:9E:C9:D8:31:81:2B:53:00:45:C4:12:AE:6E:B5:B6",
+            "currentlyValid": true
+          },
+          {
+            "subject": "C=BR\nO=ICP-Brasil\nOU=Instituto Nacional de Tecnologia da Informacao - ITI\nCN=Autoridade Certificadora Raiz Brasileira v5",
+            "issuer": "C=BR\nO=ICP-Brasil\nOU=Instituto Nacional de Tecnologia da Informacao - ITI\nCN=Autoridade Certificadora Raiz Brasileira v5",
+            "ca": true,
+            "validFrom": "Mar  2 13:01:38 2016 GMT",
+            "validTo": "Mar  2 23:59:38 2029 GMT",
+            "fingerprint256": "CA:A5:3F:C6:09:1C:69:51:88:7C:97:6E:37:8F:6E:F8:9A:A6:37:7C:55:D9:7B:64:75:42:2B:71:ED:7E:9B:17",
+            "currentlyValid": true
+          }
+        ]
+      },
+      "extraCA": {
+        "configured": false,
+        "exists": false
+      },
+      "originalPfx": {
+        "exists": false,
+        "sha256": null,
+        "matchesDecoded": null
+      },
+      "supabaseRef": "hkoxhourxwlddgsfdgws"
+    }
+  ]
+}

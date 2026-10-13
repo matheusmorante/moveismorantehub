@@ -18,6 +18,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
 }) => {
   const [isSelectModalOpen, setIsSelectModalOpen] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
 
   const handleRemoveImage = (indexToRemove: number) => {
     if (isSingleVariation) return;
@@ -73,7 +74,17 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
             <div
               key={`${url}-${index}`}
               draggable={!isSingleVariation}
-              onDragStart={() => !isSingleVariation && setDraggedIndex(index)}
+              onClick={() => {
+                if (!isSingleVariation) {
+                  setActiveImageIndex((prev) => (prev === index ? null : index));
+                }
+              }}
+              onDragStart={() => {
+                if (!isSingleVariation) {
+                  setActiveImageIndex(null);
+                  setDraggedIndex(index);
+                }
+              }}
               onDragOver={(e) => {
                 e.preventDefault();
                 if (draggedIndex === null || draggedIndex === index) return;
@@ -89,7 +100,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
                   ? 'border-blue-500 ring-2 ring-blue-500/30'
                   : 'border-slate-200 dark:border-slate-800 hover:border-blue-300'
               } ${draggedIndex === index ? 'opacity-50 scale-95' : 'opacity-100'}`}
-              title={isSingleVariation ? 'Fotos sincronizadas com o produto' : 'Arraste para reordenar as fotos'}
+              title={isSingleVariation ? 'Fotos sincronizadas com o produto' : 'Clique para ver opções ou arraste para reordenar'}
             >
               <ProductImage
                 src={url}
@@ -107,24 +118,39 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
               )}
 
               {/* Botão Remover/Desvincular */}
-              {!isSingleVariation && <button
-                type="button"
-                aria-label={`Desvincular foto ${index + 1}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRemoveImage(index);
-                }}
-                className="absolute top-2 right-2 z-10 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-all hover:scale-110 cursor-pointer"
-                title="Desvincular foto"
-              >
-                <i className="bi bi-trash text-xs" aria-hidden="true" />
-              </button>}
+              {!isSingleVariation && (
+                <button
+                  type="button"
+                  aria-label={`Desvincular foto ${index + 1}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveImageIndex(null);
+                    handleRemoveImage(index);
+                  }}
+                  className={`absolute top-2 right-2 z-10 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md transition-all hover:scale-110 cursor-pointer ${
+                    activeImageIndex === index
+                      ? 'opacity-100 pointer-events-auto visible'
+                      : 'opacity-0 pointer-events-none invisible group-hover:opacity-100 group-hover:pointer-events-auto group-hover:visible'
+                  }`}
+                  title="Desvincular foto"
+                >
+                  <i className="bi bi-trash text-xs" aria-hidden="true" />
+                </button>
+              )}
 
               {/* Dica de arrasto em hover */}
-              {!isSingleVariation && <div className="absolute inset-x-0 bottom-0 py-1 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[8px] font-black uppercase tracking-wider gap-1 pointer-events-none">
-                <i className="bi bi-arrows-move" aria-hidden="true" />
-                Arrastar
-              </div>}
+              {!isSingleVariation && (
+                <div
+                  className={`absolute inset-x-0 bottom-0 py-1 bg-gradient-to-t from-black/70 to-transparent transition-opacity flex items-center justify-center text-white text-[8px] font-black uppercase tracking-wider gap-1 pointer-events-none ${
+                    activeImageIndex === index
+                      ? 'opacity-100 visible'
+                      : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
+                  }`}
+                >
+                  <i className="bi bi-arrows-move" aria-hidden="true" />
+                  Arrastar
+                </div>
+              )}
             </div>
           );
         })}

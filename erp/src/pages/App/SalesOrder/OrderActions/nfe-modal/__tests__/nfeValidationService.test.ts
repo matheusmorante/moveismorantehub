@@ -135,7 +135,7 @@ describe('nfeValidationService', () => {
     expect(result.toastError).toContain('deve conter exatamente 8 dígitos');
   });
 
-  it('não rejeita CPF de tamanho correto por dígitos verificadores ou sequência repetida', () => {
+  it('bloqueia CPF com dígitos verificadores matematicamente inválidos antes de emitir', () => {
     const result = validateNfeEmission({
       order: baseOrder,
       currentModel: '55',
@@ -146,8 +146,9 @@ describe('nfeValidationService', () => {
       fiscalPreparationError: null,
     });
 
-    expect(result.recipientTaxIdError).toBeNull();
-    expect(result.toastError ?? '').not.toContain('CPF inválido');
+    expect(result.valid).toBe(false);
+    expect(result.recipientTaxIdError).toContain('os dígitos verificadores calculados não conferem');
+    expect(result.toastError).toContain('os dígitos verificadores calculados não conferem');
   });
 
   it('bloqueia emissão se estiver aguardando preparação fiscal dos itens', () => {

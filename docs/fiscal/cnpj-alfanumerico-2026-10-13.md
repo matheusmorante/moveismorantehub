@@ -2,7 +2,7 @@
 
 ## Resultado e fontes
 
-**PARCIAL.** Compatibilidade local ampliada no fluxo de saída. A implantação depende da migration específica abaixo, ainda não aplicada. Não houve transmissão SEFAZ, geração de artefatos comerciais remotos ou deployment nesta continuação. CC-e continua fora da operação do produto.
+**PARCIAL.** Compatibilidade local ampliada no fluxo de saída. A migration específica abaixo foi aplicada com autorização e passou nos 24 testes pgTAP; deployment da API e prova operacional ponta a ponta continuam pendentes. Não houve transmissão SEFAZ, geração de artefatos comerciais remotos ou deployment nesta continuação. CC-e continua fora da operação do produto.
 
 Fontes oficiais consultadas em 13/10/2026:
 
@@ -38,7 +38,7 @@ O TypeScript fiscal do ERP encontrou `TS2345` em `ReceiptPage/ShippingData.tsx:5
 
 ## Migration e implantação
 
-**BLOCKED — [20261013123000_alphanumeric_fiscal_identifiers.sql](../../supabase/migrations/20261013123000_alphanumeric_fiscal_identifiers.sql).** Destino: projeto operacional `MoranteHub`, ref `hkoxhourxwlddgsfdgws`, branch primária, schema `public`. Preparada após ler histórico, definições, constraints, índice e ACLs reais. Falta autorização específica de aplicação e validação do SQL no PostgreSQL; a autorização anterior de cancelamento não abrange esta expansão.
+**APPLIED — [20261013123000_alphanumeric_fiscal_identifiers.sql](../../supabase/migrations/20261013123000_alphanumeric_fiscal_identifiers.sql).** Destino: projeto operacional `MoranteHub`, ref `hkoxhourxwlddgsfdgws`, branch primária, schema `public`. Preparada após ler histórico, definições, constraints, índice e ACLs reais. Após autorização específica do usuário, aplicada isoladamente pelo CLI com o histórico remoto obtido em diretório temporário e exatamente uma migration pendente. A versão `20261013123000` foi confirmada no histórico. O hash do arquivo aplicado permanece `47F7FB66FF2D207F0ED17B32EBEE75CEBE65CB2C7273CCC1763631AC09E2B28A`. O comentário inicial BLOCKED no SQL registra seu estado de preparação e foi preservado porque a migration aplicada é imutável.
 
 A migration:
 
@@ -51,6 +51,6 @@ O SQL roda em uma transação com `lock_timeout=5s` e `statement_timeout=60s`. A
 
 `npm run advisors -- --output json` executou com saída 0 e 367 alertas/avisos existentes (18 de search_path, 2 de extensão em public, 72 de execução de security definer, 1 de proteção de senha, 27 de initplan, 246 de políticas múltiplas e 1 de índice duplicado). Não é parecer de banco sem riscos. As funções legadas com `search_path=public` continuam com esse contrato; nenhuma correção geral de segurança foi incorporada.
 
-Foi preparado [alphanumeric_fiscal_identifiers_contract.sql](../../supabase/tests/alphanumeric_fiscal_identifiers_contract.sql): **24 verificações pgTAP ainda não executadas**, de definições, ACLs, constraints, índice e função pura de conflito. Não cria fixtures ou documentos e não comprova reserva, rollback ou concorrência. Após autorização: reconferir projeto/histórico/Advisors, aplicar somente esta migration, conferir versão exata e executar esse roteiro. Qualquer teste com gravação comercial ou transmissão continua exigindo escopo próprio.
+Foi preparado [alphanumeric_fiscal_identifiers_contract.sql](../../supabase/tests/alphanumeric_fiscal_identifiers_contract.sql): **24 verificações pgTAP executadas e aprovadas**, de definições, ACLs, constraints, índice e função pura de conflito. Não cria fixtures ou documentos e não comprova reserva, rollback ou concorrência. Projeto, histórico e Advisors foram reconferidos antes da aplicação. As oito definições aplicadas correspondem ao SQL local (normalização somente de CRLF/LF); as cinco constraints estão validadas, o índice está único/válido/pronto e ACLs/configurações de segurança foram preservadas. A primeira chamada de aplicação foi bloqueada pelo CLI antes de aplicar SQL, por ausência das migrations históricas no diretório temporário; o histórico foi obtido pelo comando oficial `migration fetch`, sem reparar ou reescrever o histórico remoto. O roteiro pgTAP foi repetido com saída consolidada porque o CLI inicialmente apresentou apenas o último resultado. [Evidência completa](../audits/fiscal-2026-10-13/evidence/alphanumeric-identifiers-migration.json). Qualquer teste com gravação comercial ou transmissão continua exigindo escopo próprio.
 
 Não reverter para restrições numéricas depois de existirem fatos alfanuméricos. Preferir correção por nova migration; não apagar ou reescrever documentos para viabilizar rollback. A migration de cancelamento [20261013115005](../../supabase/migrations/20261013115005_atomic_nfe_cancellation_confirmation.sql) permanece **APPLIED** e foi preservada.

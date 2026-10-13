@@ -41,6 +41,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
   const [croppingIndex, setCroppingIndex] = useState<number | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
   const variationCount = formData.variations?.length ?? 0;
   const maxPhotos = getMaxParentProductImages(variationCount);
   const currentCount = (formData.images || []).length;
@@ -156,7 +157,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                 <div
                   key={url}
                   draggable
-                  onDragStart={() => setDraggedIndex(index)}
+                  onClick={() => setActiveImageIndex((prev) => (prev === index ? null : index))}
+                  onDragStart={() => {
+                    setActiveImageIndex(null);
+                    setDraggedIndex(index);
+                  }}
                   onDragOver={(e) => {
                     e.preventDefault();
                     if (draggedIndex === null || draggedIndex === index) return;
@@ -166,7 +171,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                   }}
                   onDragEnd={() => setDraggedIndex(null)}
                   className={`group relative aspect-square w-full rounded-none overflow-hidden border-2 cursor-move transition-all shadow-sm ${borderClass}`}
-                  title="Arraste para reordenar ou passe o mouse para obter opções"
+                  title="Clique para ver opções ou arraste para reordenar"
                 >
                   <img
                     src={url}
@@ -183,15 +188,22 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     </div>
                   )}
 
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-10 p-2">
+                  <div
+                    className={`absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 z-10 p-2 transition-all duration-200 ${
+                      activeImageIndex === index
+                        ? 'opacity-100 pointer-events-auto visible'
+                        : 'opacity-0 pointer-events-none invisible group-hover:opacity-100 group-hover:pointer-events-auto group-hover:visible'
+                    }`}
+                  >
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
+                          setActiveImageIndex(null);
                           setCroppingIndex(index);
                         }}
-                        className="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center"
+                        className="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer"
                         title="Recortar foto em 1:1"
                       >
                         <i className="bi bi-crop text-xs"></i>
@@ -200,6 +212,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                       <label
                         className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl transition-all shadow-md cursor-pointer hover:scale-110 active:scale-95 flex items-center justify-center"
                         title="Substituir foto"
+                        onClick={(event) => event.stopPropagation()}
                       >
                         <i className="bi bi-camera text-xs"></i>
                         <input
@@ -207,6 +220,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                           accept="image/*"
                           className="hidden"
                           onChange={(e) => {
+                            setActiveImageIndex(null);
                             const file = e.target.files?.[0];
                             if (file) {
                               handleReplacePhoto(index, file);
@@ -220,9 +234,10 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
+                          setActiveImageIndex(null);
                           removePhoto(url);
                         }}
-                        className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center"
+                        className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-xl transition-all shadow-md hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer"
                         title="Apagar foto"
                       >
                         <i className="bi bi-trash text-xs"></i>

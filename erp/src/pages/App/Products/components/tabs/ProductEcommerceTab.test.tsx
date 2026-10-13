@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ProductEcommerceTab from './ProductEcommerceTab';
 
@@ -66,5 +66,24 @@ describe('ProductEcommerceTab image limits', () => {
 
     expect(screen.queryByText('Capa')).toBeNull();
     expect(screen.queryByText('Definir Capa')).toBeNull();
+  });
+
+  it('hides photo actions with pointer-events-none by default and reveals them on click', () => {
+    renderTab(1, ['photo-1.jpg']);
+
+    const deleteBtn = screen.getByTitle('Apagar foto');
+    const overlay = deleteBtn.closest('div.absolute.inset-0');
+    expect(overlay).toBeTruthy();
+    expect(overlay?.className).toContain('pointer-events-none');
+    expect(overlay?.className).toContain('opacity-0');
+
+    // Ao clicar no card da foto, o overlay se torna visível e clicável
+    const photoImg = screen.getByAltText('Foto 1');
+    const card = photoImg.closest('div.group');
+    expect(card).toBeTruthy();
+    card && fireEvent.click(card);
+
+    expect(overlay?.className).toContain('pointer-events-auto');
+    expect(overlay?.className).toContain('opacity-100');
   });
 });
