@@ -13,7 +13,7 @@ import {
 export function useSearch() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const currentSearchParam = searchParams.get('search') || '';
+  const currentSearchParam = searchParams?.get('search') || '';
 
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState(currentSearchParam);

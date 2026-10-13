@@ -58,25 +58,23 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              try {
+                if (typeof window !== 'undefined') {
+                  window.__NEXT_DATA__ = window.__NEXT_DATA__ || { query: {}, props: {}, page: '/' };
+                }
+              } catch (_) {}
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                  for (var i = 0; i < registrations.length; i++) {
+                    registrations[i].unregister();
+                  }
+                });
+              }
               if ('caches' in window) {
                 caches.keys().then(function(names) {
                   names.forEach(function(name) {
-                    if (name.startsWith('morante-cache-')) {
-                      caches.delete(name);
-                    }
+                    caches.delete(name);
                   });
-                });
-              }
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').then(
-                    function(registration) {
-                      registration.update();
-                    },
-                    function(err) {
-                      console.warn('ServiceWorker registration failed: ', err);
-                    }
-                  );
                 });
               }
             `,
