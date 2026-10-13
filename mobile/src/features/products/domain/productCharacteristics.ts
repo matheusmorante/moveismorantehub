@@ -1,4 +1,11 @@
+export const REQUIRED_DIMENSION_NAMES = ['Altura', 'Largura', 'Profundidade'] as const;
+
 export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Modelo', 'Marca'] as const;
+
+export const GLOBAL_REQUIRED_ATTRIBUTE_NAMES = [
+  ...REQUIRED_CHARACTERISTIC_NAMES,
+  ...REQUIRED_DIMENSION_NAMES,
+] as const;
 
 export interface ProductCharacteristicAttribute {
   name: string;
@@ -133,10 +140,13 @@ const normalizeValues = (values: Record<string, unknown>) =>
       .map(([name, value]) => [normalizeName(name), value])
   );
 
-export const isRequiredCharacteristicName = (name: string) =>
-  REQUIRED_CHARACTERISTIC_NAMES.some(
-    (requiredName) => normalizeName(requiredName) === normalizeName(name)
+export const isRequiredCharacteristicName = (name: string) => {
+  const normalized = normalizeName(name);
+  if (normalized === 'comprimento') return true;
+  return GLOBAL_REQUIRED_ATTRIBUTE_NAMES.some(
+    (requiredName) => normalizeName(requiredName) === normalized
   );
+};
 
 export const isWeightCharacteristicName = (name: string) => normalizeName(name) === 'peso';
 
@@ -359,4 +369,34 @@ export const getMissingRequiredCharacteristics = (values: Record<string, unknown
       .toLocaleLowerCase('pt-BR');
     return !value || ['não se aplica', 'nao se aplica', 'n/a'].includes(value);
   });
+};
+
+export const getMissingRequiredDimensions = (
+  values: Record<string, unknown> = {},
+  directDimensions?: { width?: number; height?: number; depth?: number }
+) => {
+  const isPositive = (val: unknown): boolean => {
+    if (typeof val === 'number') return Number.isFinite(val) && val > 0;
+    if (typeof val === 'string' && val.trim()) {
+      const num = Number(val.replace(',', '.'));
+      return Number.isFinite(num) && num > 0;
+    }
+    return false;
+  };
+
+  const missing: string[] = [];
+  if (!isPositive(directDimensions?.height) && !isPositive(getTechnicalValue(values, 'altura'))) {
+    missing.push('Altura');
+  }
+  if (!isPositive(directDimensions?.width) && !isPositive(getTechnicalValue(values, 'largura'))) {
+    missing.push('Largura');
+  }
+  if (
+    !isPositive(directDimensions?.depth) &&
+    !isPositive(getTechnicalValue(values, 'profundidade')) &&
+    !isPositive(getTechnicalValue(values, 'comprimento'))
+  ) {
+    missing.push('Profundidade');
+  }
+  return missing;
 };

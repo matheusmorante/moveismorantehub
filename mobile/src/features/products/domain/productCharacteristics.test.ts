@@ -4,6 +4,7 @@ import {
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
   getMissingRequiredCharacteristics,
+  getMissingRequiredDimensions,
   getPersistableProductTechnicalValues,
   getProductCharacteristicAttributes,
   groupProductTechnicalFields,
@@ -16,15 +17,26 @@ import {
 } from './productCharacteristics';
 
 describe('productCharacteristics', () => {
-  it('exige Cor, Modelo e Marca como características obrigatórias, como no ERP', () => {
+  it('exige Cor, Modelo, Marca e Dimensões como características obrigatórias, como no ERP', () => {
     expect(isRequiredCharacteristicName('cor')).toBe(true);
     expect(isRequiredCharacteristicName('modelo')).toBe(true);
     expect(isRequiredCharacteristicName('marca')).toBe(true);
+    expect(isRequiredCharacteristicName('altura')).toBe(true);
+    expect(isRequiredCharacteristicName('largura')).toBe(true);
+    expect(isRequiredCharacteristicName('profundidade')).toBe(true);
+    expect(isRequiredCharacteristicName('comprimento')).toBe(true);
     expect(isRequiredCharacteristicName('Material da Estrutura')).toBe(false);
     expect(
       getMissingRequiredCharacteristics({ Cor: 'Azul', Modelo: 'Capri', Marca: 'Morante' })
     ).toEqual([]);
     expect(getMissingRequiredCharacteristics({ Cor: 'Azul' })).toEqual(['Modelo', 'Marca']);
+    expect(
+      getMissingRequiredDimensions({ Altura: '180', Largura: '80', Profundidade: '50' })
+    ).toEqual([]);
+    expect(
+      getMissingRequiredDimensions({ Altura: '180', Largura: '80', Comprimento: '50' })
+    ).toEqual([]);
+    expect(getMissingRequiredDimensions({ Altura: '180' })).toEqual(['Largura', 'Profundidade']);
   });
 
   it('mantém Peso opcional mesmo quando uma categoria ainda o marca como obrigatório', () => {

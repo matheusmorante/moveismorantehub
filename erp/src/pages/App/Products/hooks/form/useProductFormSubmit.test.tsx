@@ -17,6 +17,8 @@ const complete: Product = {
   categoryIds: ['categoria'], mainSupplierId: 'fornecedor', width: 80, height: 180, depth: 50,
   technicalValues: {
     Cor: 'Azul',
+    Modelo: 'Padrão',
+    Marca: 'Morante',
     Altura: '180',
     Largura: '80',
     Profundidade: '50',

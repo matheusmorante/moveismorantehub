@@ -127,15 +127,18 @@ export const groupTechnicalFields = <T extends { name: string; isCustom?: boolea
 
 export type TechnicalValuesMap = Record<string, any>;
 
+export const REQUIRED_DIMENSION_NAMES = ['Altura', 'Largura', 'Profundidade'] as const;
+
 export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Modelo', 'Marca'] as const;
 
-export const PRIMARY_CHARACTERISTIC_NAMES = [
+export const GLOBAL_REQUIRED_ATTRIBUTE_NAMES = [
   ...REQUIRED_CHARACTERISTIC_NAMES,
-  'Altura',
-  'Largura',
-  'Profundidade',
-  'Modelo',
-  'Marca',
+  ...REQUIRED_DIMENSION_NAMES,
+] as const;
+
+export const PRIMARY_CHARACTERISTIC_NAMES = [
+  ...GLOBAL_REQUIRED_ATTRIBUTE_NAMES,
+  'Comprimento',
 ] as const;
 
 const normalizeCharacteristicName = (name: string) => name.trim().toLocaleLowerCase('pt-BR');
@@ -143,11 +146,13 @@ const normalizeCharacteristicName = (name: string) => name.trim().toLocaleLowerC
 export const isWeightCharacteristicName = (name: string) =>
   normalizeCharacteristicName(name) === 'peso';
 
-export const isRequiredCharacteristicName = (name: string) =>
-  REQUIRED_CHARACTERISTIC_NAMES.some(
-    (requiredName) =>
-      normalizeCharacteristicName(requiredName) === normalizeCharacteristicName(name)
+export const isRequiredCharacteristicName = (name: string) => {
+  const normalized = normalizeCharacteristicName(name);
+  if (normalized === 'comprimento') return true;
+  return GLOBAL_REQUIRED_ATTRIBUTE_NAMES.some(
+    (requiredName) => normalizeCharacteristicName(requiredName) === normalized
   );
+};
 
 export const isPrimaryCharacteristicName = (name: string) =>
   PRIMARY_CHARACTERISTIC_NAMES.some(
@@ -166,6 +171,41 @@ export const getMissingRequiredCharacteristics = (values: TechnicalValuesMap = {
       .toLocaleLowerCase('pt-BR');
     return !value || ['não se aplica', 'nao se aplica', 'n/a'].includes(value);
   });
+};
+
+export const getMissingRequiredDimensions = (
+  values: TechnicalValuesMap = {},
+  directDimensions?: { width?: number; height?: number; depth?: number }
+): string[] => {
+  const valuesByName = new Map<string, unknown>();
+  Object.entries(values).forEach(([name, value]) => {
+    valuesByName.set(normalizeCharacteristicName(name), value);
+  });
+
+  const isPositive = (val: unknown): boolean => {
+    if (typeof val === 'number') return Number.isFinite(val) && val > 0;
+    if (typeof val === 'string' && val.trim()) {
+      const num = Number(val.replace(',', '.'));
+      return Number.isFinite(num) && num > 0;
+    }
+    return false;
+  };
+
+  const missing: string[] = [];
+  if (!isPositive(directDimensions?.height) && !isPositive(valuesByName.get('altura'))) {
+    missing.push('Altura');
+  }
+  if (!isPositive(directDimensions?.width) && !isPositive(valuesByName.get('largura'))) {
+    missing.push('Largura');
+  }
+  if (
+    !isPositive(directDimensions?.depth) &&
+    !isPositive(valuesByName.get('profundidade')) &&
+    !isPositive(valuesByName.get('comprimento'))
+  ) {
+    missing.push('Profundidade');
+  }
+  return missing;
 };
 
 export const getEffectiveVariationTechnicalValues = (

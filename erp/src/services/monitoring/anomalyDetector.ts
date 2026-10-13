@@ -1,4 +1,4 @@
-import { AggregatedMetric, SupabaseAnomalyEvent } from './types';
+import type { AggregatedMetric, SupabaseAnomalyEvent } from './types';
 
 export class AnomalyDetector {
   private emitAnomaly: (event: SupabaseAnomalyEvent) => void;
@@ -21,10 +21,13 @@ export class AnomalyDetector {
 
       // Regra 2: Retornando dados demais
       if (metric.rows_returned > 5000) {
+        const isSingleQuery = metric.execution_count <= 1;
         this.emitAnomaly({
           level: 'WARNING',
           title: `Carga Massiva em ${metric.table_name}`,
-          message: `Consulta retornou ${metric.rows_returned} registros. Requer paginação.`,
+          message: isSingleQuery
+            ? `Consulta retornou ${metric.rows_returned} registros. Requer paginação.`
+            : `Múltiplas consultas (${metric.execution_count}x) retornaram ${metric.rows_returned} registros agregados na tabela ${metric.table_name}.`,
           metric,
         });
       }

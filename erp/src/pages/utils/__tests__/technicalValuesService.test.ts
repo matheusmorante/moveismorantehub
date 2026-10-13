@@ -13,6 +13,7 @@ import {
   groupCharacteristicsByTopic,
   isRequiredCharacteristicName,
   getMissingRequiredCharacteristics,
+  getMissingRequiredDimensions,
   TechnicalFieldDefinition,
   TechnicalValuesMap,
 } from '../technicalValuesService';
@@ -36,15 +37,26 @@ describe('technicalValuesService', () => {
     expect(groups.map((group) => group.title)).toEqual(['Características principais']);
     expect(groups[0].fields.map((f) => f.name)).toEqual(['Modelo', 'Marca', 'Cor']);
   });
-  it('exige Cor, Modelo e Marca como características obrigatórias globais', () => {
+  it('exige Cor, Modelo, Marca e Dimensões como características obrigatórias globais', () => {
     expect(isRequiredCharacteristicName('cor')).toBe(true);
     expect(isRequiredCharacteristicName('modelo')).toBe(true);
     expect(isRequiredCharacteristicName('marca')).toBe(true);
+    expect(isRequiredCharacteristicName('altura')).toBe(true);
+    expect(isRequiredCharacteristicName('largura')).toBe(true);
+    expect(isRequiredCharacteristicName('profundidade')).toBe(true);
+    expect(isRequiredCharacteristicName('comprimento')).toBe(true);
     expect(isRequiredCharacteristicName('tecido')).toBe(false);
     expect(
       getMissingRequiredCharacteristics({ Cor: 'Preto', Modelo: 'Premium', Marca: 'Morante' })
     ).toEqual([]);
     expect(getMissingRequiredCharacteristics({ Cor: 'Preto' })).toEqual(['Modelo', 'Marca']);
+    expect(
+      getMissingRequiredDimensions({ Altura: '180', Largura: '80', Profundidade: '50' })
+    ).toEqual([]);
+    expect(
+      getMissingRequiredDimensions({ Altura: '180', Largura: '80', Comprimento: '50' })
+    ).toEqual([]);
+    expect(getMissingRequiredDimensions({ Altura: '180' })).toEqual(['Largura', 'Profundidade']);
   });
 
   it('exige valor somente nas especificações globais obrigatórias', () => {

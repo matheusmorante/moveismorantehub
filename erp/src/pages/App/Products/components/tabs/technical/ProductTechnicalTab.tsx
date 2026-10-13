@@ -20,8 +20,7 @@ interface ProductTechnicalTabProps {
   readonly validationErrors?: Record<string, boolean>;
 }
 
-const normalizeTechnicalName = (value: string): string =>
-  value.trim().toLocaleLowerCase('pt-BR');
+const normalizeTechnicalName = (value: string): string => value.trim().toLocaleLowerCase('pt-BR');
 
 const normalizeSearchTerm = (value: string): string =>
   value
@@ -97,7 +96,16 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
             .filter((field) => field.isRequired && field.active !== false)
             .forEach((field) => {
               if (!Object.prototype.hasOwnProperty.call(technicalValues, field.name)) {
-                technicalValues[field.name] = '';
+                const norm = normalizeTechnicalName(field.name);
+                if (norm === 'altura' && prev.height) {
+                  technicalValues[field.name] = prev.height;
+                } else if (norm === 'largura' && prev.width) {
+                  technicalValues[field.name] = prev.width;
+                } else if ((norm === 'profundidade' || norm === 'comprimento') && prev.depth) {
+                  technicalValues[field.name] = prev.depth;
+                } else {
+                  technicalValues[field.name] = '';
+                }
                 changed = true;
               }
             });
@@ -128,9 +136,7 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     ? applicableFields.filter((field) => field.isRequired)
     : applicableFields;
   const requiredFields = visibleFields.filter((field) => field.isRequired);
-  const requiredFieldGroups = groupTechnicalFields(
-    requiredFields
-  );
+  const requiredFieldGroups = groupTechnicalFields(requiredFields);
   const optionalFields = visibleFields.filter((field) => !field.isRequired);
   const isOptionalFieldSelected = (field: TechnicalFieldDefinition) => {
     const hasConfiguredValue = Object.prototype.hasOwnProperty.call(
@@ -161,13 +167,21 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     normalizedSearchTerm.length >= 3 &&
     normalizedSearchTerm === normalizedDebouncedSearchTerm
       ? searchableOptionalFields
-          .filter((field) => normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm))
+          .filter((field) =>
+            normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm)
+          )
           .slice(0, 3)
       : [];
-  const fieldGroups = [
-    ...requiredFieldGroups,
-    ...groupTechnicalFields(selectedOptionalFields),
-  ];
+  const fieldGroups = [...requiredFieldGroups, ...groupTechnicalFields(selectedOptionalFields)];
+
+  const parseNumericDimension = (val: any) => {
+    if (typeof val === 'number') return Number.isFinite(val) && val > 0 ? val : undefined;
+    if (typeof val === 'string' && val.trim()) {
+      const n = Number(val.replace(',', '.'));
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    }
+    return undefined;
+  };
 
   const handleTechnicalValueChange = (fieldName: string, value: any) => {
     setFormData((prev) => {
@@ -184,6 +198,30 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
       if (/^marca$/i.test(fieldName.trim())) {
         next.brand = typeof value === 'string' ? value : String(value || '');
       }
+
+      const norm = normalizeTechnicalName(fieldName);
+      let dimensionChanged = false;
+      if (norm === 'altura') {
+        next.height = parseNumericDimension(value);
+        dimensionChanged = true;
+      } else if (norm === 'largura') {
+        next.width = parseNumericDimension(value);
+        dimensionChanged = true;
+      } else if (norm === 'profundidade' || norm === 'comprimento') {
+        next.depth = parseNumericDimension(value);
+        dimensionChanged = true;
+      }
+
+      if (dimensionChanged && next.variations?.length) {
+        next.variations = syncVariationsWithParent(next.variations, {
+          description: next.description,
+          width: next.width,
+          height: next.height,
+          depth: next.depth,
+          weight: next.weight,
+        });
+      }
+
       return next;
     });
   };
@@ -223,7 +261,21 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
         tv[actualNewName] = '';
       }
       delete tv[oldName];
-      return { ...prev, technicalValues: tv };
+      const next: Partial<Product> = {
+        ...prev,
+        technicalValues: tv,
+        depth: parseNumericDimension(currentValue),
+      };
+      if (next.variations?.length) {
+        next.variations = syncVariationsWithParent(next.variations, {
+          description: next.description,
+          width: next.width,
+          height: next.height,
+          depth: next.depth,
+          weight: next.weight,
+        });
+      }
+      return next;
     });
 
     setManualFieldNames((prev) => {
@@ -315,144 +367,165 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                   aria-labelledby={`technical-group-${group.title}`}
                   className="flex flex-col gap-3"
                 >
-                <h4
-                  id={`technical-group-${group.title}`}
-                  className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
-                >
-                  {group.title}
-                </h4>
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,280px))] gap-x-5 gap-y-4">
-                  {group.fields.map((field) => {
-                    const rawValue =
-                      formData.technicalValues?.[field.name] ??
-                      (/^marca$/i.test(field.name.trim()) ? formData.brand : undefined);
-                    const hasConfiguredValue =
-                      (formData.technicalValues?.[field.name] !== undefined &&
-                        formData.technicalValues?.[field.name] !== null) ||
-                      (/^marca$/i.test(field.name.trim()) && Boolean(formData.brand));
-                    const hasSelectedValue =
-                      rawValue !== undefined && rawValue !== null && String(rawValue).trim() !== '';
-                    const isManual = manualFieldNames.includes(field.name);
-                    const isNotApplicable = rawValue === 'Não se aplica';
-                    const isAlwaysApplicable = field.isRequired;
-                    const isApplicable =
-                      isAlwaysApplicable ||
-                      (hasConfiguredValue && !isNotApplicable);
-                    const isFieldInvalid =
-                      isApplicable && !hasSelectedValue && validationErrors?.technicalValues;
-                    const isColorField = normalizeTechnicalName(field.name) === 'cor';
+                  <h4
+                    id={`technical-group-${group.title}`}
+                    className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
+                  >
+                    {group.title}
+                  </h4>
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,280px))] gap-x-5 gap-y-4">
+                    {group.fields.map((field) => {
+                      const norm = normalizeTechnicalName(field.name);
+                      let rawValue =
+                        formData.technicalValues?.[field.name] ??
+                        (/^marca$/i.test(field.name.trim()) ? formData.brand : undefined);
+                      if (
+                        (rawValue === undefined || rawValue === '') &&
+                        !Object.prototype.hasOwnProperty.call(
+                          formData.technicalValues || {},
+                          field.name
+                        )
+                      ) {
+                        if (norm === 'altura' && formData.height) rawValue = formData.height;
+                        else if (norm === 'largura' && formData.width) rawValue = formData.width;
+                        else if (
+                          (norm === 'profundidade' || norm === 'comprimento') &&
+                          formData.depth
+                        )
+                          rawValue = formData.depth;
+                      }
+                      const hasConfiguredValue =
+                        (formData.technicalValues?.[field.name] !== undefined &&
+                          formData.technicalValues?.[field.name] !== null) ||
+                        (/^marca$/i.test(field.name.trim()) && Boolean(formData.brand)) ||
+                        (norm === 'altura' && Boolean(formData.height)) ||
+                        (norm === 'largura' && Boolean(formData.width)) ||
+                        ((norm === 'profundidade' || norm === 'comprimento') &&
+                          Boolean(formData.depth));
+                      const hasSelectedValue =
+                        rawValue !== undefined &&
+                        rawValue !== null &&
+                        String(rawValue).trim() !== '';
+                      const isManual = manualFieldNames.includes(field.name);
+                      const isNotApplicable = rawValue === 'Não se aplica';
+                      const isAlwaysApplicable = field.isRequired;
+                      const isApplicable =
+                        isAlwaysApplicable || (hasConfiguredValue && !isNotApplicable);
+                      const isFieldInvalid =
+                        isApplicable && !hasSelectedValue && validationErrors?.technicalValues;
+                      const isColorField = normalizeTechnicalName(field.name) === 'cor';
 
-                    return (
-                      <div
-                        key={field.id}
-                        id={`technical-field-${field.name}`}
-                        className="flex w-[280px] max-w-full flex-col gap-1.5 p-1 transition-all"
-                      >
-                        <div className="flex w-full items-center justify-between gap-2">
-                          <label
-                            className={`min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
-                              isFieldInvalid
-                                ? 'text-red-600 dark:text-red-400'
-                                : isNotApplicable
-                                  ? 'text-slate-400 dark:text-slate-500'
-                                  : 'text-slate-600 dark:text-slate-300'
-                            }`}
-                          >
-                            <span>
-                              {field.name}
-                              {field.unit ? ` (${field.unit})` : ''}
-                            </span>
-                            {isApplicable && (
-                              <span className="text-red-500" aria-label="Obrigatório">
-                                *
+                      return (
+                        <div
+                          key={field.id}
+                          id={`technical-field-${field.name}`}
+                          className="flex w-[280px] max-w-full flex-col gap-1.5 p-1 transition-all"
+                        >
+                          <div className="flex w-full items-center justify-between gap-2">
+                            <label
+                              className={`min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
+                                isFieldInvalid
+                                  ? 'text-red-600 dark:text-red-400'
+                                  : isNotApplicable
+                                    ? 'text-slate-400 dark:text-slate-500'
+                                    : 'text-slate-600 dark:text-slate-300'
+                              }`}
+                            >
+                              <span>
+                                {field.name}
+                                {field.unit ? ` (${field.unit})` : ''}
                               </span>
-                            )}
-                          </label>
-                          <div className="flex items-center gap-1.5">
-                            {isColorField && (
-                              <span className="inline-flex shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
+                              {isApplicable && (
+                                <span className="text-red-500" aria-label="Obrigatório">
+                                  *
+                                </span>
+                              )}
+                            </label>
+                            <div className="flex items-center gap-1.5">
+                              {isColorField && (
+                                <span className="inline-flex shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
+                                  <button
+                                    type="button"
+                                    title="Gerenciar cores"
+                                    aria-label="Gerenciar cores"
+                                    onClick={() => setIsAttributeModalOpen(true)}
+                                    className="inline-flex items-center rounded-md px-1.5 py-1 text-[9px] font-black normal-case tracking-normal text-blue-700 transition-colors hover:bg-white dark:text-blue-300 dark:hover:bg-blue-900/60"
+                                  >
+                                    Gerenciar
+                                  </button>
+                                </span>
+                              )}
+                              {(normalizeTechnicalName(field.name) === 'profundidade' ||
+                                normalizeTechnicalName(field.name) === 'comprimento') && (
                                 <button
                                   type="button"
-                                  title="Gerenciar cores"
-                                  aria-label="Gerenciar cores"
-                                  onClick={() => setIsAttributeModalOpen(true)}
-                                  className="inline-flex items-center rounded-md px-1.5 py-1 text-[9px] font-black normal-case tracking-normal text-blue-700 transition-colors hover:bg-white dark:text-blue-300 dark:hover:bg-blue-900/60"
+                                  title={`Alternar para ${normalizeTechnicalName(field.name) === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
+                                  onClick={() => handleToggleDepthLength(field)}
+                                  className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
                                 >
-                                  Gerenciar
+                                  <i className="bi bi-arrow-left-right" />
                                 </button>
-                              </span>
-                            )}
-                            {(normalizeTechnicalName(field.name) === 'profundidade' ||
-                              normalizeTechnicalName(field.name) === 'comprimento') && (
-                              <button
-                                type="button"
-                                title={`Alternar para ${normalizeTechnicalName(field.name) === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
-                                onClick={() => handleToggleDepthLength(field)}
-                                className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
-                              >
-                                <i className="bi bi-arrow-left-right" />
-                              </button>
-                            )}
-                            {/* Campos opcionais começam desligados; valor vazio explícito significa que se aplica. */}
-                            {!field.isRequired && !isManual && (
-                              <button
-                                type="button"
-                                role="switch"
-                                aria-checked={isApplicable}
-                                onClick={() => {
-                                  // Se estava aplicável, ao desligar vira 'Não se aplica'
-                                  // Se estava desligado ('Não se aplica'), ao ligar volta a ser vazio/editável
-                                  handleTechnicalValueChange(
-                                    field.name,
-                                    isApplicable ? 'Não se aplica' : ''
-                                  );
-                                }}
-                                className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                  isApplicable
-                                    ? 'bg-blue-600 dark:bg-blue-500'
-                                    : 'bg-slate-300 dark:bg-slate-700'
-                                }`}
-                                title="Se aplica?"
-                              >
-                                <span
-                                  aria-hidden="true"
-                                  className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                                    isApplicable ? 'translate-x-3' : 'translate-x-0'
+                              )}
+                              {/* Campos opcionais começam desligados; valor vazio explícito significa que se aplica. */}
+                              {!field.isRequired && !isManual && (
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={isApplicable}
+                                  onClick={() => {
+                                    // Se estava aplicável, ao desligar vira 'Não se aplica'
+                                    // Se estava desligado ('Não se aplica'), ao ligar volta a ser vazio/editável
+                                    handleTechnicalValueChange(
+                                      field.name,
+                                      isApplicable ? 'Não se aplica' : ''
+                                    );
+                                  }}
+                                  className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                    isApplicable
+                                      ? 'bg-blue-600 dark:bg-blue-500'
+                                      : 'bg-slate-300 dark:bg-slate-700'
                                   }`}
-                                />
-                              </button>
-                            )}
+                                  title="Se aplica?"
+                                >
+                                  <span
+                                    aria-hidden="true"
+                                    className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                                      isApplicable ? 'translate-x-3' : 'translate-x-0'
+                                    }`}
+                                  />
+                                </button>
+                              )}
 
-                            {isManual && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveManualField(field.name)}
-                                title={`Remover ${field.name}`}
-                                aria-label={`Remover campo ${field.name}`}
-                                className="text-slate-400 hover:text-red-500 p-0.5 text-xs transition-colors ml-1"
-                              >
-                                <i className="bi bi-trash3" />
-                              </button>
-                            )}
+                              {isManual && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveManualField(field.name)}
+                                  title={`Remover ${field.name}`}
+                                  aria-label={`Remover campo ${field.name}`}
+                                  className="text-slate-400 hover:text-red-500 p-0.5 text-xs transition-colors ml-1"
+                                >
+                                  <i className="bi bi-trash3" />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
 
-                        <TechnicalFieldInput
-                          field={field}
-                          value={rawValue !== undefined && rawValue !== null ? rawValue : ''}
-                          isInvalid={Boolean(isFieldInvalid)}
-                          disabled={
-                            !isAlwaysApplicable &&
-                            (rawValue === 'Não se aplica' || rawValue === 'N/A')
-                          }
-                          onChange={(selectedVal) =>
-                            handleTechnicalValueChange(field.name, selectedVal)
-                          }
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+                          <TechnicalFieldInput
+                            field={field}
+                            value={rawValue !== undefined && rawValue !== null ? rawValue : ''}
+                            isInvalid={Boolean(isFieldInvalid)}
+                            disabled={
+                              !isAlwaysApplicable &&
+                              (rawValue === 'Não se aplica' || rawValue === 'N/A')
+                            }
+                            onChange={(selectedVal) =>
+                              handleTechnicalValueChange(field.name, selectedVal)
+                            }
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </section>
               </React.Fragment>
             ))}

@@ -60,18 +60,21 @@ export const fetchMobileProductTechnicalFields = async (): Promise<
   if (error) throw error;
 
   const [optionsResult, { data: categoryLinks }] = await Promise.all([
-    supabase.from('attribute_values').select('id, attribute_id, value, sort_order'),
-    supabase.from('category_attributes').select('attribute_id, category_id, is_required'),
+    supabase.from('attribute_values').select('id, attribute_id, value, sort_order').limit(10000),
+    supabase
+      .from('category_attributes')
+      .select('attribute_id, category_id, is_required')
+      .limit(10000),
   ]);
   const optionResult =
     optionsResult.error &&
     (optionsResult.error.code === '42703' || optionsResult.error.message?.includes('sort_order'))
-      ? await supabase.from('attribute_values').select('id, attribute_id, value')
+      ? await supabase.from('attribute_values').select('id, attribute_id, value').limit(10000)
       : optionsResult;
   if (optionResult.error) throw optionResult.error;
   const options = optionResult.data;
 
-const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
+  const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
 
   return (attributes ?? [])
     .filter((attribute) => !/^reclin[aá]vel$/i.test(String(attribute.name).trim()))
@@ -114,8 +117,8 @@ const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
           normalizedName === 'peso' || attribute.data_type === 'weight'
             ? 1
             : attribute.decimal_places === 1 ||
-              attribute.decimal_places === 2 ||
-              attribute.decimal_places === 3
+                attribute.decimal_places === 2 ||
+                attribute.decimal_places === 3
               ? attribute.decimal_places
               : null,
         isRequired: isRequiredCharacteristicName(attribute.name),
@@ -124,4 +127,3 @@ const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
       };
     });
 };
-

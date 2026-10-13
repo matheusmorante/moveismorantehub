@@ -1,11 +1,11 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import Product from '../../types/product.type';
-import { resolveUniqueSlug } from '../uniqueSlug';
+import type Product from '../../types/product.type';
+import { isNonConventionalProduct } from '../productKindRules';
 import { normalizeVariationSku } from '../productVariationDefaults';
+import { resolveUniqueSlug } from '../uniqueSlug';
 import { MAX_VARIATION_IMAGES } from './productImageHelpers';
 import { mapToDB } from './productMapper';
-import { isNonConventionalProduct } from '../productKindRules';
-import { TABLE_NAME, generateUniqueCode } from './productSkuService';
+import { generateUniqueCode, TABLE_NAME } from './productSkuService';
 
 export const ensureUuidFormat = (product: Partial<Product>): string => {
   if (!product.id) return crypto.randomUUID();
@@ -119,7 +119,9 @@ export const syncProductToSupabase = async (
           .eq('product_id', product.id);
         if (deleteImagesError) throw deleteImagesError;
         if (imageRecords.length > 0) {
-          const { error: insertImagesError } = await supabase.from('product_images').insert(imageRecords);
+          const { error: insertImagesError } = await supabase
+            .from('product_images')
+            .insert(imageRecords);
           if (insertImagesError) throw insertImagesError;
         }
       } catch (imgErr) {
@@ -138,14 +140,16 @@ export const syncProductToSupabase = async (
         const variationsToPersist = [...product.variations];
         let generatedDefaultId: string | undefined;
         if (!isNonConventionalProduct(product)) {
-          const { data: currentParentVariations, error: currentParentVariationsError } = await supabase
-            .from('product_variations')
-            .select('id, sku')
-            .eq('product_id', product.id);
+          const { data: currentParentVariations, error: currentParentVariationsError } =
+            await supabase
+              .from('product_variations')
+              .select('id, sku')
+              .eq('product_id', product.id);
           if (currentParentVariationsError) throw currentParentVariationsError;
           const requestedIds = new Set(variationsToPersist.map((item) => item.id));
           const generatedDefault = (currentParentVariations || []).find(
-            (item: any) => String(item.sku || '').startsWith('DEFAULT-') && !requestedIds.has(item.id)
+            (item: any) =>
+              String(item.sku || '').startsWith('DEFAULT-') && !requestedIds.has(item.id)
           );
           generatedDefaultId = generatedDefault?.id;
         }
@@ -163,16 +167,34 @@ export const syncProductToSupabase = async (
           );
         }
 
-        const { data: existingVariations, error: existingVariationsError } = await supabase
-          .from('product_variations')
-          .select('sku')
-          .neq('product_id', product.id);
-        if (existingVariationsError) throw existingVariationsError;
-        const usedSkus = new Set(
-          (existingVariations || [])
-            .map((variation: any) => String(variation.sku || ''))
-            .filter(Boolean)
-        );
+        const candidateSkus = variationsWithUuid
+          .map(({ variation: v, originalIndex: index }) => {
+            const parentCode =
+              product.code && product.code !== '000000'
+                ? product.code
+                : generateUniqueCode(product.id, product.itemType);
+            const suffix = String(index + 1).padStart(2, '0');
+            const defaultSku = `${parentCode}-${suffix}`;
+            const rawSku =
+              v.sku && typeof v.sku === 'string' ? normalizeVariationSku(v.sku.trim()) : '';
+            return rawSku || defaultSku;
+          })
+          .filter(Boolean);
+
+        let usedSkus = new Set<string>();
+        if (candidateSkus.length > 0) {
+          const { data: existingVariations, error: existingVariationsError } = await supabase
+            .from('product_variations')
+            .select('sku')
+            .in('sku', candidateSkus)
+            .neq('product_id', product.id);
+          if (existingVariationsError) throw existingVariationsError;
+          usedSkus = new Set(
+            (existingVariations || [])
+              .map((variation: any) => String(variation.sku || ''))
+              .filter(Boolean)
+          );
+        }
 
         const recordsToSave = variationsWithUuid.map(({ variation: v, originalIndex: index }) => {
           const attributesToSave = (v.attributes || [])
@@ -211,9 +233,10 @@ export const syncProductToSupabase = async (
           usedSkus.add(resolvedSku);
           v.sku = resolvedSku;
 
-          const effectiveImages = variationsToPersist.length === 1
-            ? (product.images ?? []).slice(0, MAX_VARIATION_IMAGES)
-            : v.images || [];
+          const effectiveImages =
+            variationsToPersist.length === 1
+              ? (product.images ?? []).slice(0, MAX_VARIATION_IMAGES)
+              : v.images || [];
           return {
             ...(v.id ? { id: v.id } : {}),
             product_id: product.id,

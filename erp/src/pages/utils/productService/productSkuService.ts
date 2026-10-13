@@ -164,8 +164,12 @@ export const getNextSequentialProductCode = async (): Promise<string> => {
   try {
     let maxNum = 0;
 
-    // 1. Consulta códigos de produtos do Supabase
-    const { data: productsData } = await supabase.from(TABLE_NAME).select('code');
+    // 1. Consulta códigos de produtos do Supabase (ordenados decrescente com limite)
+    const { data: productsData } = await supabase
+      .from(TABLE_NAME)
+      .select('code')
+      .order('code', { ascending: false })
+      .limit(50);
 
     if (Array.isArray(productsData)) {
       productsData.forEach((p: any) => {
@@ -181,7 +185,11 @@ export const getNextSequentialProductCode = async (): Promise<string> => {
     }
 
     // 2. Consulta SKUs de variações existentes para evitar colisão com prefixos de variações
-    const { data: variationsData } = await supabase.from('product_variations').select('sku');
+    const { data: variationsData } = await supabase
+      .from('product_variations')
+      .select('sku')
+      .order('sku', { ascending: false })
+      .limit(50);
 
     if (Array.isArray(variationsData)) {
       variationsData.forEach((v: any) => {
