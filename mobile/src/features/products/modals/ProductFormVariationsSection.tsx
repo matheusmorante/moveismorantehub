@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import { Layers, Plus } from 'lucide-react-native';
+import type React from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Plus, Layers } from 'lucide-react-native';
+import { generateVariationSku } from '../domain/productSku';
 
 interface Props {
   formData: any;
@@ -19,10 +21,8 @@ export const ProductFormVariationsSection: React.FC<Props> = ({ formData, setFor
 
   const handleAddVariation = () => {
     if (!attrVal.trim()) return;
-    // SKU sequencial: parentCode-01, parentCode-02, etc (padrão oficial do ERP)
     const parentCode = (formData.code || 'PRD').trim();
-    const suffix = String(variations.length + 1).padStart(2, '0');
-    const autoSku = `${parentCode}-${suffix}`;
+    const autoSku = generateVariationSku(parentCode, variations);
     const inputSku = varSku.trim();
     // Se o usuário digitou um SKU, validar se já tem o prefixo correto; caso contrário, usar o auto-gerado
     const resolvedSku = inputSku
@@ -83,7 +83,7 @@ export const ProductFormVariationsSection: React.FC<Props> = ({ formData, setFor
             <TextInput
               value={varSku}
               onChangeText={setVarSku}
-              placeholder={`${(formData.code || 'PRD').trim()}-${String(variations.length + 1).padStart(2, '0')}`}
+              placeholder={generateVariationSku((formData.code || 'PRD').trim(), variations)}
               placeholderTextColor="#94a3b8"
               style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
             />

@@ -1,9 +1,9 @@
+import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { getProductKind } from '../productKindRules';
-import { getLocalProducts, saveLocalProducts, notifySubscribers } from './productLocalCache';
-import { updateProduct } from './productMutationService';
+import { getLocalProducts, notifySubscribers, saveLocalProducts } from './productLocalCache';
 import type { ProductMutationOptions } from './productMutationService';
-import { queryClient } from '@/lib/queryClient';
+import { updateProduct } from './productMutationService';
 
 export const checkProductLinkedToSales = async (id: string | number): Promise<string | null> => {
   const realId = String(id).split('_')[0];
@@ -121,9 +121,11 @@ export const checkProductIsUsed = async (productId: string): Promise<boolean> =>
   }
 };
 
+import { invalidateProductCatalogStatsCache } from '@/pages/App/Products/ProductList/services/productCatalogStatsService';
 
 const invalidateProductQueries = () => {
   try {
+    invalidateProductCatalogStatsCache();
     queryClient.invalidateQueries({ queryKey: ['products'] });
   } catch {
     // Cache invalidation is best effort after the product update has committed.
@@ -192,7 +194,9 @@ export const physicalDeleteProduct = async (
     }
 
     invalidateProductQueries();
-    const products = getLocalProducts().filter((product) => String(product.id).split('_')[0] !== realId);
+    const products = getLocalProducts().filter(
+      (product) => String(product.id).split('_')[0] !== realId
+    );
     saveLocalProducts(products);
     notifySubscribers();
 
@@ -271,7 +275,12 @@ export const checkVariationIsUsed = async (variationId: string): Promise<boolean
 export const physicalDeleteVariation = async (
   productId: string,
   variationId: string
-): Promise<{ success: boolean; message?: string; parentDeactivated?: boolean; inUse?: boolean }> => {
+): Promise<{
+  success: boolean;
+  message?: string;
+  parentDeactivated?: boolean;
+  inUse?: boolean;
+}> => {
   try {
     const realProductId = String(productId).split('_')[0];
     const isVarUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

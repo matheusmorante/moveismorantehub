@@ -1,44 +1,45 @@
-import { supabase } from '@/pages/utils/supabaseConfig';
-import Product from '../../types/product.type';
-import { isProductDraft } from './productDraftSnapshot';
-import { persistProductDraft } from './productDraftPersistence';
-import { ensureDefaultVariation } from '../productVariationDefaults';
-import { validateProductImageLimits } from './productImageHelpers';
-import { getLocalProducts, saveLocalProducts, notifySubscribers } from './productLocalCache';
-import { TABLE_NAME, generateUniqueCode, checkSkusUniquenessBatch } from './productSkuService';
 import { queryClient } from '@/lib/queryClient';
-import { mapToDB, mapFromDB } from './productMapper';
-import { isNonConventionalProduct } from '../productKindRules';
-import {
-  isTestProduct,
-  isTestProductCatalogPublicationBlocked,
-  TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
-} from '../hmlTestData';
-import { ensureUuidFormat, syncProductToSupabase } from './productPersistenceService';
-import { formatProductTextData } from './productValidation';
+import { invalidateProductCatalogStatsCache } from '@/pages/App/Products/ProductList/services/productCatalogStatsService';
+import { supabase } from '@/pages/utils/supabaseConfig';
 import {
   assertOwnedByTestContext,
   getTestArtifactContext,
   stampTestArtifact,
 } from '../../../../../shared-utils/testArtifactContext';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import type Product from '../../types/product.type';
 import {
-  checkProductLinkedToSales,
+  isTestProduct,
+  isTestProductCatalogPublicationBlocked,
+  TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
+} from '../hmlTestData';
+import { isNonConventionalProduct } from '../productKindRules';
+import { ensureDefaultVariation } from '../productVariationDefaults';
+import {
+  activateProduct,
   checkProductHasMoves,
   checkProductIsUsed,
+  checkProductLinkedToSales,
   deactivateProduct,
-  activateProduct,
+  deleteProduct,
   moveToTrash,
   physicalDeleteProduct,
   restoreProduct,
-  deleteProduct,
 } from './productDependencyCheck';
-
+import { persistProductDraft } from './productDraftPersistence';
+import { isProductDraft } from './productDraftSnapshot';
+import { validateProductImageLimits } from './productImageHelpers';
+import { getLocalProducts, notifySubscribers, saveLocalProducts } from './productLocalCache';
+import { mapFromDB, mapToDB } from './productMapper';
+import { ensureUuidFormat, syncProductToSupabase } from './productPersistenceService';
+import { checkSkusUniquenessBatch, generateUniqueCode, TABLE_NAME } from './productSkuService';
+import { formatProductTextData } from './productValidation';
 
 const invalidateProductQueries = () => {
   try {
+    invalidateProductCatalogStatsCache();
     queryClient.invalidateQueries({ queryKey: ['products'] });
-  } catch (err) {
+  } catch {
     // Failsafe para testes headless
   }
 };
@@ -52,7 +53,7 @@ export type ProductMutationOptions = {
 export const saveProduct = async (
   product: Product,
   forceInsert = false,
-  options: ProductMutationOptions = {},
+  options: ProductMutationOptions = {}
 ): Promise<string> => {
   const testIdentity = options.isTestArtifact ? getTestArtifactContext() : null;
   if (options.isTestArtifact && !testIdentity) {
@@ -98,7 +99,8 @@ export const saveProduct = async (
 
   const existingLocalProduct = products.find((item) => String(item.id) === String(resolvedId));
   const isContextBound = Boolean(getTestArtifactContext());
-  if (isContextBound && isIdentifiedTestArtifact(existingLocalProduct)) assertOwnedByTestContext(existingLocalProduct);
+  if (isContextBound && isIdentifiedTestArtifact(existingLocalProduct))
+    assertOwnedByTestContext(existingLocalProduct);
 
   const skusToValidate: string[] = [];
   if (product.code) skusToValidate.push(product.code);
@@ -252,7 +254,10 @@ export const updateProduct = async (
     }
   }
 
-  if (isProductDraft(productToUpdate) || (index !== -1 && isProductDraft(products[index]) && productToUpdate.isDraft !== false)) {
+  if (
+    isProductDraft(productToUpdate) ||
+    (index !== -1 && isProductDraft(products[index]) && productToUpdate.isDraft !== false)
+  ) {
     const draft = { ...products[index], ...productToUpdate, id: resolvedId } as Product;
     await persistProductDraft(draft);
     if (index === -1) products.push(draft);
@@ -352,7 +357,9 @@ export const bulkMoveToTrash = async (
       errors.push(
         `${idsWithOrders.size} produto(s) possuem pedidos de venda/assistência vinculados e não puderam ser movidos para a lixeira.`
       );
-      orderConflicts.forEach((oc) => errors.push(oc));
+      orderConflicts.forEach((oc) => {
+        errors.push(oc);
+      });
     }
 
     const updateResults = await Promise.allSettled(
@@ -363,7 +370,8 @@ export const bulkMoveToTrash = async (
     );
     updateResults.forEach((result, index) => {
       if (result.status === 'rejected') {
-        const reason = result.reason instanceof Error ? result.reason.message : 'falha ao desativar';
+        const reason =
+          result.reason instanceof Error ? result.reason.message : 'falha ao desativar';
         errors.push(`Produto ID ${idsToUpdate[index]}: ${reason}`);
       }
     });
