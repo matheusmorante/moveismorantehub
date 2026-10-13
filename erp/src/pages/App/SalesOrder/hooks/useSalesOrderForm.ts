@@ -151,7 +151,13 @@ export const useSalesOrderForm = (
     [orderIndex]
   );
 
-  const { isSavingDraft, draftAutoSaveStatus, autoSaveTimerRef, waitForActiveSave } = useOrderAutoSave(
+  const {
+    isSavingDraft,
+    draftAutoSaveStatus,
+    autoSaveTimerRef,
+    waitForActiveSave,
+    cancelAutoSave,
+  } = useOrderAutoSave(
     items,
     shipping,
     payments,
@@ -166,7 +172,7 @@ export const useSalesOrderForm = (
     setCurrentOrderId,
     latestState,
     isDraftAutoSaveEnabled,
-    testModeFields,
+    testModeFields
   );
 
   const loadOrderForEditing = useCallback(
@@ -326,8 +332,16 @@ export const useSalesOrderForm = (
 
       if (submissionInFlightRef.current) return false;
       submissionInFlightRef.current = true;
+      latestState.current.submissionInFlight = true;
+
+      cancelAutoSave();
+      latestState.current.isSaving = true;
+      setIsSaving(true);
 
       try {
+        await waitForActiveSave();
+        cancelAutoSave();
+
         if (!latestState.current.isTestMode) {
           const currentIdx = await ensureOrderCode();
           if (!currentIdx) return false;
@@ -347,15 +361,13 @@ export const useSalesOrderForm = (
           return false;
         }
 
-        if (latestState.current.isSaving) return false;
-        setIsSaving(true);
-        latestState.current.isSaving = true;
         setErrors({});
 
         try {
           const savedId = await saveOrder(orderData);
           if (!latestState.current.currentOrderId && savedId) {
             setCurrentOrderId(savedId);
+            latestState.current.currentOrderId = savedId;
           }
           setStatus(savedStatus);
           toast.success(
@@ -369,15 +381,16 @@ export const useSalesOrderForm = (
         } catch (error: any) {
           toast.error(error?.message || 'Erro ao salvar pedido.');
           return false;
-        } finally {
-          latestState.current.isSaving = false;
-          setIsSaving(false);
         }
       } finally {
+        cancelAutoSave();
+        latestState.current.isSaving = false;
+        latestState.current.submissionInFlight = false;
+        setIsSaving(false);
         submissionInFlightRef.current = false;
       }
     },
-    [getOrderData, ensureOrderCode]
+    [getOrderData, ensureOrderCode, cancelAutoSave, waitForActiveSave]
   );
 
   const handleCompleteOrder = useCallback(
@@ -386,8 +399,16 @@ export const useSalesOrderForm = (
 
       if (submissionInFlightRef.current) return false;
       submissionInFlightRef.current = true;
+      latestState.current.submissionInFlight = true;
+
+      cancelAutoSave();
+      latestState.current.isSaving = true;
+      setIsSaving(true);
 
       try {
+        await waitForActiveSave();
+        cancelAutoSave();
+
         if (!latestState.current.isTestMode) {
           const currentIdx = await ensureOrderCode();
           if (!currentIdx) return false;
@@ -403,20 +424,9 @@ export const useSalesOrderForm = (
           return false;
         }
 
-        if (latestState.current.isSaving) return false;
-        setIsSaving(true);
-        latestState.current.isSaving = true;
         setErrors({});
 
         try {
-          if (autoSaveTimerRef.current) {
-            clearTimeout(autoSaveTimerRef.current);
-          }
-          await waitForActiveSave();
-          if (autoSaveTimerRef.current) {
-            clearTimeout(autoSaveTimerRef.current);
-          }
-          const orderData = getOrderData(resolvedStatus);
           const savedId = await saveOrder(orderData);
           // Atualizar currentOrderId IMEDIATAMENTE após o insert confirmado.
           // Isso garante que qualquer falha posterior (UI, notificação, etc.)
@@ -447,18 +457,16 @@ export const useSalesOrderForm = (
         } catch (error: any) {
           toast.error(error?.message || 'Erro ao cadastrar pedido.');
           return false;
-        } finally {
-          if (autoSaveTimerRef.current) {
-            clearTimeout(autoSaveTimerRef.current);
-          }
-          latestState.current.isSaving = false;
-          setIsSaving(false);
         }
       } finally {
+        cancelAutoSave();
+        latestState.current.isSaving = false;
+        latestState.current.submissionInFlight = false;
+        setIsSaving(false);
         submissionInFlightRef.current = false;
       }
     },
-    [getOrderData, ensureOrderCode, autoSaveTimerRef, orderIndex, waitForActiveSave]
+    [getOrderData, ensureOrderCode, orderIndex, cancelAutoSave, waitForActiveSave]
   );
 
   const clearForm = useCallback(() => {
@@ -589,12 +597,13 @@ export const useSalesOrderForm = (
     // Atualiza a referência síncrona para que salvar imediatamente após o clique
     // não perca o marcador antes do próximo render.
     latestState.current.isTestMode = enabled;
-    const fields: Pick<Order, 'is_test' | 'testArtifact'> = enabled && identity
-      ? {
-          is_test: true,
-          testArtifact: testArtifactMetadata(identity) as NonNullable<Order['testArtifact']>,
-        }
-      : { is_test: false, testArtifact: null };
+    const fields: Pick<Order, 'is_test' | 'testArtifact'> =
+      enabled && identity
+        ? {
+            is_test: true,
+            testArtifact: testArtifactMetadata(identity) as NonNullable<Order['testArtifact']>,
+          }
+        : { is_test: false, testArtifact: null };
     latestState.current.testModeFields = fields;
     setTestModeFields(fields);
   }, []);
@@ -621,12 +630,15 @@ export const useSalesOrderForm = (
         const customerChanged = nextCustomer.id !== customerData.id;
         setCustomerData(nextCustomer);
         const address = nextCustomer.fullAddress;
-        const hasPhysicalAddress = Boolean(address?.street?.trim() && address?.city?.trim());
-        const routeAddress = hasPhysicalAddress
-          ? { ...address, mapsUrl: '', googleMapsUrl: '', mapsLink: '' }
-          : address?.mapsUrl || address?.googleMapsUrl || address?.mapsLink
-            ? { mapsUrl: address.mapsUrl || address.googleMapsUrl || address.mapsLink }
-            : null;
+        const hasLocation = Boolean(
+          (address?.street?.trim() && address?.city?.trim()) ||
+          address?.mapsUrl?.trim() ||
+          address?.googleMapsUrl?.trim() ||
+          address?.mapsLink?.trim() ||
+          (Array.isArray(address?.coords) && address.coords.length === 2) ||
+          address?.placeId?.trim()
+        );
+        const routeAddress = hasLocation ? address : null;
         if (
           (customerChanged || addressChanged) &&
           nextCustomer.id &&

@@ -96,6 +96,10 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
             value={formData.fullAddress?.street || ''}
             onChange={(val) => handleAddressChange('street', val)}
             onSelectAddress={(data) => {
+              const generatedMapsUrl =
+                data.coords && data.coords[0] !== 0 && data.coords[1] !== 0
+                  ? `https://www.google.com/maps?q=${data.coords[1]},${data.coords[0]}`
+                  : '';
               setFormData((prev: Partial<Person>) => ({
                 ...prev,
                 fullAddress: {
@@ -106,7 +110,11 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
                   city: data.city || prev.fullAddress?.city || '',
                   state: data.state || prev.fullAddress?.state || 'PR',
                   cep: data.cep || prev.fullAddress?.cep || '',
-                  mapsUrl: prev.fullAddress?.mapsUrl || '',
+                  mapsUrl: prev.fullAddress?.mapsUrl || generatedMapsUrl,
+                  placeId: data.placeId || (prev.fullAddress as any)?.placeId || '',
+                  coords: data.coords || (prev.fullAddress as any)?.coords,
+                  formattedAddress:
+                    data.formattedAddress || (prev.fullAddress as any)?.formattedAddress || '',
                 },
               }));
             }}

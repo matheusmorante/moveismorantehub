@@ -57,15 +57,14 @@ const ShippingData = ({
   const onChangeDistance = (newValue: string) => {
     const numValue = parseFloat(newValue.replace(',', '.'));
     setShipping((prev: Shipping) => {
-      const distance = Number.isFinite(numValue) && numValue > 0 ? numValue : undefined;
+      const distance = Number.isFinite(numValue) && numValue >= 0 ? numValue : undefined;
       let value = prev.value;
 
-      // Calcula o frete baseado na distância APENAS se o cálculo automático estiver ativado
-      if (distance !== undefined && prev.autoCalculateValue) {
+      if (distance !== undefined) {
         value = calculateFreightByDistance(distance);
       }
 
-      return { ...prev, distance, value };
+      return { ...prev, distance, value, autoCalculateValue: true };
     });
   };
 
@@ -219,6 +218,10 @@ const ShippingData = ({
                       value={shipping.deliveryAddress?.street || ''}
                       onChange={(val) => updateDeliveryAddress('street', val)}
                       onSelectAddress={(data) => {
+                        const generatedMapsUrl =
+                          data.coords && data.coords[0] !== 0 && data.coords[1] !== 0
+                            ? `https://www.google.com/maps?q=${data.coords[1]},${data.coords[0]}`
+                            : '';
                         setShipping((prev) => ({
                           ...prev,
                           deliveryAddress: {
@@ -230,7 +233,13 @@ const ShippingData = ({
                             state: data.state || prev.deliveryAddress?.state || 'PR',
                             cep: data.cep || prev.deliveryAddress?.cep || '',
                             number: data.number || prev.deliveryAddress?.number || '',
-                            mapsUrl: prev.deliveryAddress?.mapsUrl || '',
+                            mapsUrl: prev.deliveryAddress?.mapsUrl || generatedMapsUrl,
+                            placeId: data.placeId || (prev.deliveryAddress as any)?.placeId || '',
+                            coords: data.coords || (prev.deliveryAddress as any)?.coords,
+                            formattedAddress:
+                              data.formattedAddress ||
+                              (prev.deliveryAddress as any)?.formattedAddress ||
+                              '',
                           },
                         }));
                       }}

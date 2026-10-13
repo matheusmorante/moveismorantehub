@@ -94,7 +94,7 @@ export function useOrderDistanceCalculator(
             durationMinutes: routeResult?.durationMinutes,
             destinationCoords: routeResult?.destinationCoords,
             routeGeoJSON: routeResult?.routeGeoJSON,
-            value: prev.autoCalculateValue === false ? prev.value : calculatedFreight,
+            value: calculatedFreight,
           }));
           if (!options.silentSuccess) {
             toast.success(

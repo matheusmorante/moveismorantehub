@@ -23,7 +23,7 @@ export function useOrderAutoSave(
   setCurrentOrderId: (id: string | undefined) => void,
   latestStateRef: React.MutableRefObject<any>,
   isDraftAutoSaveEnabled: boolean,
-  draftClassification?: unknown,
+  draftClassification?: unknown
 ) {
   const [draftAutoSaveStatus, setDraftAutoSaveStatus] = useState<DraftAutoSaveStatus>('idle');
   const autoSaveTimerRef = useRef<any>(null);
@@ -32,9 +32,23 @@ export function useOrderAutoSave(
   const activeSavePromiseRef = useRef<Promise<string> | null>(null);
   const saveRevisionRef = useRef(0);
   const isSavingDraft = draftAutoSaveStatus === 'saving';
-  const waitForActiveSave = useCallback(async () => {
-    if (activeSavePromiseRef.current) await activeSavePromiseRef.current;
+  const cancelAutoSave = useCallback(() => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
   }, []);
+
+  const waitForActiveSave = useCallback(async () => {
+    cancelAutoSave();
+    if (activeSavePromiseRef.current) {
+      try {
+        await activeSavePromiseRef.current;
+      } catch {
+        // Silenciosamente tolera falhas do rascunho para permitir que a ação manual prossiga
+      }
+    }
+  }, [cancelAutoSave]);
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -101,7 +115,12 @@ export function useOrderAutoSave(
         return;
       }
 
-      if (latestStateRef.current.isSaving || isSavingRef.current) {
+      if (latestStateRef.current.isSaving || latestStateRef.current.submissionInFlight) {
+        setDraftAutoSaveStatus('idle');
+        return;
+      }
+
+      if (isSavingRef.current) {
         setDraftAutoSaveStatus('pending');
         autoSaveTimerRef.current = setTimeout(saveDraft, 250);
         return;
@@ -163,5 +182,6 @@ export function useOrderAutoSave(
     draftAutoSaveStatus,
     autoSaveTimerRef,
     waitForActiveSave,
+    cancelAutoSave,
   };
 }

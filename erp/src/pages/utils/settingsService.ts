@@ -635,7 +635,7 @@ export const getDefaultSettings = (): AppSettings => ({
       ],
     },
   ],
-  freightPerKm: 0,
+  freightPerKm: 2,
   openRouteServiceApiKey: '',
   googleMapsApiKey: '__REDACTED_GCP_API_KEY__',
   geminiApiKey: '',

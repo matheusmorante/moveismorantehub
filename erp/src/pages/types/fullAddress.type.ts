@@ -11,6 +11,9 @@ type FullAddress = {
   mapsUrl?: string;
   googleMapsUrl?: string;
   mapsLink?: string;
+  placeId?: string;
+  coords?: [number, number];
+  formattedAddress?: string;
 };
 
 export type AddressViaCep = {

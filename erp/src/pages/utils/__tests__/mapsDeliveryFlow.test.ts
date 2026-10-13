@@ -272,4 +272,152 @@ describe('fluxo de endereço e logística com Google Maps', () => {
     expect(usageCheck).toHaveBeenCalledTimes(2);
     expect(usageRecord).toHaveBeenCalledTimes(2);
   });
+
+  it('prioriza coordenadas diretas no endereço sem acionar geocodificação textual', async () => {
+    let geocodeCalled = false;
+    const maps = {
+      places: {},
+      Geocoder: class {
+        geocode() {
+          geocodeCalled = true;
+        }
+      },
+      importLibrary: vi.fn(async () => ({
+        Route: {
+          computeRoutes: vi.fn(async () => ({
+            routes: [
+              {
+                distanceMeters: 6200,
+                durationMillis: 600000,
+                path: [
+                  { lng: -49.17, lat: -25.35 },
+                  { lng: -49.25, lat: -25.42 },
+                ],
+              },
+            ],
+          })),
+        },
+      })),
+    };
+    (globalThis as any).window = { google: { maps } };
+
+    const addressWithCoords = {
+      street: 'Rua Preservada do Autocomplete',
+      number: '120',
+      neighborhood: 'Bairro Teste',
+      city: 'Colombo',
+      state: 'PR',
+      coords: [-49.25, -25.42] as [number, number],
+    };
+
+    const result = await autoCalculateRouteDistance(addressWithCoords);
+
+    expect(result).not.toBeNull();
+    expect(result?.distanceKm).toBe(6.2);
+    expect(result?.destinationCoords).toEqual([-49.25, -25.42]);
+    expect(geocodeCalled).toBe(false);
+  });
+
+  it('recupera com sucesso via fallback sem bairro quando a query com bairro informal falha', async () => {
+    const executedQueries: string[] = [];
+    const maps = {
+      places: {},
+      Geocoder: class {
+        geocode(req: any, callback: (results: unknown[], status: string) => void) {
+          executedQueries.push(req.address);
+          // Simula falha na query que contém o bairro informal "Loteamento Não Oficial"
+          if (req.address.includes('Loteamento Não Oficial')) {
+            callback([], 'ZERO_RESULTS');
+          } else {
+            callback(
+              [{ geometry: { location: { lng: () => -49.21, lat: () => -25.38 } } }],
+              'OK'
+            );
+          }
+        }
+      },
+      importLibrary: vi.fn(async () => ({
+        Route: {
+          computeRoutes: vi.fn(async () => ({
+            routes: [
+              {
+                distanceMeters: 7500,
+                durationMillis: 700000,
+                path: [
+                  { lng: -49.17, lat: -25.35 },
+                  { lng: -49.21, lat: -25.38 },
+                ],
+              },
+            ],
+          })),
+        },
+      })),
+    };
+    (globalThis as any).window = { google: { maps } };
+
+    const addressWithInformalNeighborhood = {
+      street: 'Rua das Camélias',
+      number: '45',
+      neighborhood: 'Loteamento Não Oficial',
+      city: 'Colombo',
+      state: 'PR',
+    };
+
+    const result = await autoCalculateRouteDistance(addressWithInformalNeighborhood);
+
+    expect(result).not.toBeNull();
+    expect(result?.distanceKm).toBe(7.5);
+    expect(executedQueries.length).toBeGreaterThan(1);
+    expect(executedQueries[0]).toContain('Loteamento Não Oficial');
+    expect(executedQueries.some((q) => !q.includes('Loteamento Não Oficial') && q.includes('45'))).toBe(true);
+  });
+
+  it('normaliza o logradouro para não duplicar o número quando já contido no nome da via', async () => {
+    const executedQueries: string[] = [];
+    const maps = {
+      places: {},
+      Geocoder: class {
+        geocode(req: any, callback: (results: unknown[], status: string) => void) {
+          executedQueries.push(req.address);
+          callback(
+            [{ geometry: { location: { lng: () => -49.22, lat: () => -25.39 } } }],
+            'OK'
+          );
+        }
+      },
+      importLibrary: vi.fn(async () => ({
+        Route: {
+          computeRoutes: vi.fn(async () => ({
+            routes: [
+              {
+                distanceMeters: 5000,
+                durationMillis: 500000,
+                path: [
+                  { lng: -49.17, lat: -25.35 },
+                  { lng: -49.22, lat: -25.39 },
+                ],
+              },
+            ],
+          })),
+        },
+      })),
+    };
+    (globalThis as any).window = { google: { maps } };
+
+    const addressWithDuplicateNumber = {
+      street: 'Rua Presidente Faria, 150',
+      number: '150',
+      neighborhood: 'Centro',
+      city: 'Curitiba',
+      state: 'PR',
+    };
+
+    const result = await autoCalculateRouteDistance(addressWithDuplicateNumber);
+
+    expect(result).not.toBeNull();
+    expect(executedQueries.length).toBeGreaterThan(0);
+    // Não deve conter '150, 150'
+    expect(executedQueries[0]).not.toContain('150, 150');
+    expect(executedQueries[0]).toContain('Rua Presidente Faria, 150');
+  });
 });

@@ -73,13 +73,20 @@ const FreteDistancia = ({
       <div className="flex h-fit flex-1 flex-row flex-wrap items-end gap-6 sm:gap-8">
         {/* Valor do Frete */}
         <div className="group relative flex w-44 max-w-full flex-none flex-col">
-          <label className="mb-1 ml-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Valor do Frete
-          </label>
+          <div className="flex items-center justify-between mb-1 ml-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Valor do Frete
+            </label>
+            {distance !== undefined && distance >= 0 && distance < 5 && (
+              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                Grátis (&lt; 5 km)
+              </span>
+            )}
+          </div>
           <div className="relative">
             <NumericFormat
               className={`w-full border-b-2 bg-transparent py-2 pl-2 pr-2 text-sm font-bold outline-none transition-colors placeholder:text-slate-300 dark:text-slate-300 dark:placeholder:text-slate-700 ${errors['shipping_value'] ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500'}`}
-              value={value === 0 ? '' : value}
+              value={value ?? 0}
               allowNegative={false}
               thousandSeparator="."
               prefix={'R$ '}
