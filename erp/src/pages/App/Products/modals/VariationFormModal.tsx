@@ -9,6 +9,7 @@ import type { VariationTabId } from '../hooks/variation/variationForm.types';
 import { VariationIdentificationTab } from '../components/variationTabs/VariationIdentificationTab';
 import { VariationPricingTab } from '../components/variationTabs/VariationPricingTab';
 import { VariationTechnicalTab } from '../components/variationTabs/VariationTechnicalTab';
+import { VariationDescriptionTab } from '../components/variationTabs/VariationDescriptionTab';
 import { VariationCompositionItemsTab } from '../components/variationTabs/VariationCompositionItemsTab';
 import { checkERPLegibility, checkEcomLegibility } from '../domain/productLegibilityRules';
 import { isStockistOnlyProfile } from '@/pages/utils/accessRoles';
@@ -40,7 +41,7 @@ const getFormTabs = (isComposition: boolean, isStockistOnly: boolean): readonly 
     ...(!isStockistOnly ? [{ id: 'descricao' as const, label: 'Descrição', icon: 'bi-file-text' }] : []),
   ];
 
-  tabs.push({ id: 'estoque', label: 'Estoque e Precificação', icon: 'bi-box-seam' });
+  tabs.push({ id: 'estoque', label: 'Precificação', icon: 'bi-tag' });
 
   if (isComposition) {
     tabs.push({ id: 'compostos', label: 'Produtos Componentes', icon: 'bi-diagram-3' });
@@ -104,6 +105,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
 
   const effectiveProductForValidation: Partial<Product> = {
     ...parentProduct,
+    mainSupplierId: parentProduct.mainSupplierId || parentProduct.supplierId || 'inherited',
     description: formData.name || parentProduct.name || parentProduct.description,
     unitPrice: formData.syncUnitPrice
       ? parentProduct.unitPrice
@@ -229,16 +231,10 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                   </li>
                   <li className="flex items-center gap-2 p-1 rounded-xl">
                     <i
-                      className={`bi ${erpStatus.checks.supplier ? 'bi-check-circle-fill text-blue-500' : 'bi-x-circle-fill text-amber-500'}`}
+                      className="bi bi-check-circle-fill text-blue-500"
                       aria-hidden="true"
                     />
-                    <span
-                      className={
-                        erpStatus.checks.supplier
-                          ? 'text-blue-700 dark:text-blue-400'
-                          : 'text-slate-500 font-bold'
-                      }
-                    >
+                    <span className="text-blue-700 dark:text-blue-400">
                       Fornecedor (Herdado do Pai)
                     </span>
                   </li>
@@ -407,19 +403,13 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
               )}
 
               {!isStockistOnly && activeTab === 'descricao' && (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                    Descrição da variação
-                  </h3>
-                  <textarea
-                    rows={16}
-                    value={isSingleVariation ? parentProduct.description || '' : formData.description || ''}
-                    disabled={isSingleVariation}
-                    onChange={(event) => handleChange('description', event.target.value)}
-                    placeholder="Descrição específica desta variação..."
-                    className="w-full min-h-[320px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-transparent p-4 text-sm font-semibold outline-none focus:border-blue-600 resize-y dark:text-slate-200 disabled:cursor-not-allowed disabled:opacity-70"
-                  />
-                </div>
+                <VariationDescriptionTab
+                  formData={formData}
+                  setFormData={setFormData}
+                  parentProduct={parentProduct}
+                  handleChange={handleChange}
+                  isSingleVariation={isSingleVariation}
+                />
               )}
 
               {activeTab === 'compostos' && (

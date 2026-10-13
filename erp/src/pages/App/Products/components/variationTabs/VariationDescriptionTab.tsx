@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState } from 'react';
 import type { Product, Variation } from '@/pages/types/product.type';
 import { aiService } from '@/pages/utils/aiService';
 import { toast } from 'react-toastify';
@@ -20,9 +21,9 @@ export const VariationDescriptionTab: React.FC<VariationDescriptionTabProps> = (
 }) => {
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
 
-  const isSynced = isSingleVariation || (formData.syncDescription !== false);
+  const isSynced = isSingleVariation || formData.syncDescription !== false;
   const parentDescription = parentProduct.description || '';
-  const effectiveValue = isSynced ? parentDescription : (formData.description || '');
+  const effectiveValue = isSynced ? parentDescription : formData.description || '';
 
   const handleToggleSync = () => {
     if (isSingleVariation) return;
@@ -33,8 +34,8 @@ export const VariationDescriptionTab: React.FC<VariationDescriptionTabProps> = (
         ...prev,
         syncDescription: nextSync,
         description: nextSync
-          ? (parentProduct.description || '')
-          : (prev.description || parentProduct.description || ''),
+          ? parentProduct.description || ''
+          : prev.description || parentProduct.description || '',
       };
     });
   };
@@ -46,7 +47,7 @@ export const VariationDescriptionTab: React.FC<VariationDescriptionTabProps> = (
       const result = await aiService.improveProductDescription({
         currentDescription: formData.description || '',
         title,
-        attributes: formData.attributes,
+        technicalValues: formData.technicalValues,
         width: formData.syncWidth ? parentProduct.width : formData.width,
         height: formData.syncHeight ? parentProduct.height : formData.height,
         depth: formData.syncDepth ? parentProduct.depth : formData.depth,
@@ -76,12 +77,18 @@ export const VariationDescriptionTab: React.FC<VariationDescriptionTabProps> = (
             >
               {isImprovingDescription ? (
                 <>
-                  <i className="bi bi-arrow-repeat animate-spin text-purple-600 dark:text-purple-400" aria-hidden="true" />
+                  <i
+                    className="bi bi-arrow-repeat animate-spin text-purple-600 dark:text-purple-400"
+                    aria-hidden="true"
+                  />
                   <span>Aperfeiçoando...</span>
                 </>
               ) : (
                 <>
-                  <i className="bi bi-stars text-purple-600 dark:text-purple-400 text-xs font-bold" aria-hidden="true" />
+                  <i
+                    className="bi bi-stars text-purple-600 dark:text-purple-400 text-xs font-bold"
+                    aria-hidden="true"
+                  />
                   <span>Aperfeiçoar com IA</span>
                 </>
               )}

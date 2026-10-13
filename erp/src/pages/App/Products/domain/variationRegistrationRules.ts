@@ -34,11 +34,20 @@ export function getVariationRegistrationIssue(
   variation: Variation
 ): { message: string; tab: VariationTabId } | null {
   if (hasDuplicateVariationAttributeCombination(variation, parent.variations || [])) {
-    return { message: 'Já existe outra variação com a mesma combinação de atributos e valores.', tab: 'identificacao' };
+    return {
+      message: 'Já existe outra variação com a mesma combinação de atributos e valores.',
+      tab: 'identificacao',
+    };
   }
-  if (parent.variations?.some((item) => item.id !== variation.id &&
-    item.sku?.toUpperCase() === variation.sku?.toUpperCase())) {
-    return { message: `O SKU "${variation.sku}" já está em uso em outra variação.`, tab: 'identificacao' };
+  if (
+    parent.variations?.some(
+      (item) => item.id !== variation.id && item.sku?.toUpperCase() === variation.sku?.toUpperCase()
+    )
+  ) {
+    return {
+      message: `O SKU "${variation.sku}" já está em uso em outra variação.`,
+      tab: 'identificacao',
+    };
   }
 
   const dimensions = resolveVariationDimensions(parent, variation);
@@ -55,8 +64,10 @@ export function getVariationRegistrationIssue(
     .filter(({ field, names }) => {
       if (dimensions[field] > 0) return false;
       return names.some((name) => {
-        if (!Object.prototype.hasOwnProperty.call(technicalValues, name)) return false;
-        const value = String(technicalValues[name] ?? '').trim().toLocaleLowerCase('pt-BR');
+        if (!Object.hasOwn(technicalValues, name)) return false;
+        const value = String(technicalValues[name] ?? '')
+          .trim()
+          .toLocaleLowerCase('pt-BR');
         return !['não se aplica', 'nao se aplica', 'n/a'].includes(value);
       });
     })
@@ -69,25 +80,41 @@ export function getVariationRegistrationIssue(
   }
   const missing = getMissingRequiredCharacteristics(technicalValues);
   if (missing.length) {
-    return { message: `Preencha as características obrigatórias da variação: ${missing.join(', ')}.`, tab: 'tecnico' };
+    return {
+      message: `Preencha as características obrigatórias da variação: ${missing.join(', ')}.`,
+      tab: 'tecnico',
+    };
   }
 
   // A origem controla a ativação do canal ERP; o cadastro usa os requisitos comuns.
+  // A variação aponta para o fornecedor do pai, portanto o fornecedor do pai não é obrigatório para cadastrar/editar a variação.
   const eligibility = checkERPLegibility({
     ...parent,
     name: variation.name,
     hasVariations: false,
     unitPrice: variation.syncUnitPrice !== false ? parent.unitPrice : variation.unitPrice,
-    promoPrice: variation.syncPromoPrice !== false && variation.syncUnitPrice !== false
-      ? parent.promoPrice : variation.promoPrice,
-    mainSupplierId: parent.mainSupplierId || parent.supplierId,
-    isOwnProduction: parent.isOwnProduction ?? (parent.merchandiseOrigin === 'own_production' || parent.fiscal?.merchandiseOrigin === 'own_production'),
+    promoPrice:
+      variation.syncPromoPrice !== false && variation.syncUnitPrice !== false
+        ? parent.promoPrice
+        : variation.promoPrice,
+    mainSupplierId: parent.mainSupplierId || parent.supplierId || 'inherited-from-parent',
+    isOwnProduction:
+      parent.isOwnProduction ??
+      (parent.merchandiseOrigin === 'own_production' ||
+        parent.fiscal?.merchandiseOrigin === 'own_production'),
     productKind: 'normal',
   });
-  if (!eligibility.isLegible) {
-    return { message: eligibility.errors[0], tab:
-      !eligibility.checks.description || !eligibility.checks.categories || !eligibility.checks.supplier
-        ? 'identificacao' : 'estoque' };
+  const variationErrors = eligibility.errors.filter(
+    (err) => !err.toLowerCase().includes('fornecedor')
+  );
+  if (variationErrors.length > 0) {
+    return {
+      message: variationErrors[0],
+      tab:
+        !eligibility.checks.description || !eligibility.checks.categories
+          ? 'identificacao'
+          : 'estoque',
+    };
   }
   return null;
 }

@@ -32,32 +32,31 @@ describe('ProductEcommerceTab image limits', () => {
       />
     );
 
-  it('shows the parent limit and add-variation guidance', () => {
+  it('shows the fixed 75 photo gallery limit regardless of variation count', () => {
     renderTab(2);
 
     const notice = screen.getByRole('note', { name: 'Limite de fotos do produto' });
-    expect(notice.textContent).toContain('30 foto(s)');
-    expect(notice.textContent).toContain('Cada variação acrescenta mais 15 espaços');
-    expect(notice.textContent).toContain('pode vincular até 15 fotos');
+    expect(notice.textContent).toContain('Limite da galeria: 75 fotos');
+    expect(notice.textContent).toContain('Cada variação pode vincular até 15 fotos desta galeria');
   });
 
-  it('keeps a 15 photo baseline when the product has no variations', () => {
+  it('keeps the 75 photo limit when the product has no variations or single variation', () => {
     renderTab(0);
 
     const notice = screen.getByRole('note', { name: 'Limite de fotos do produto' });
-    expect(notice.textContent).toContain('15 foto(s)');
-    expect(notice.textContent).toContain('Cada variação acrescenta mais 15 espaços');
+    expect(notice.textContent).toContain('Limite da galeria: 75 fotos');
+    expect(notice.textContent).toContain('Cada variação pode vincular até 15 fotos desta galeria');
   });
 
-  it('warns when existing photos exceed the current cap without hiding them', () => {
+  it('warns when existing photos exceed the 75 cap without hiding them', () => {
     renderTab(
       1,
-      Array.from({ length: 16 }, (_, index) => `photo-${index}`)
+      Array.from({ length: 76 }, (_, index) => `photo-${index}`)
     );
 
     const notice = screen.getByRole('note', { name: 'Limite de fotos do produto' });
-    expect(notice.textContent).toContain('possui 16 fotos, acima do limite atual');
-    expect(screen.getByText('Galeria (16/15)')).toBeTruthy();
+    expect(notice.textContent).toContain('possui 76 fotos, acima do limite de 75');
+    expect(screen.getByText('Galeria (76/75)')).toBeTruthy();
     expect(screen.queryByText('Adicionar')).toBeNull();
   });
 

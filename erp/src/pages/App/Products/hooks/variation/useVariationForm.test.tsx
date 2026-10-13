@@ -112,12 +112,18 @@ describe('edição explícita de variação', () => {
       height: 180,
       depth: 50,
       unitPrice: 120,
-      technicalValues: { Cor: 'Azul', 'Material da estrutura': 'Madeira' },
+      technicalValues: {
+        Cor: 'Azul',
+        Modelo: 'Padrão',
+        Marca: 'Morante',
+        'Material da estrutura': 'Madeira',
+      },
       syncFiscal: false,
       fiscal: { ncm: '94035000' },
     };
     const completeParent: Product = {
       ...parent,
+      unitPrice: 120,
       categoryIds: ['categoria'],
       mainSupplierId: 'fornecedor',
       variations: [complete],
@@ -140,7 +146,9 @@ describe('edição explícita de variação', () => {
       await result.current.handleSubmit({ preventDefault() {} } as React.FormEvent);
     });
 
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ status: 'hidden', active: false }));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'hidden', active: false })
+    );
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(completeParent.status).toBe('draft');
   });
@@ -153,10 +161,16 @@ describe('edição explícita de variação', () => {
       height: 180,
       depth: 50,
       unitPrice: 120,
-      technicalValues: { Cor: 'Azul', 'Material da estrutura': 'Madeira' },
+      technicalValues: {
+        Cor: 'Azul',
+        Modelo: 'Padrão',
+        Marca: 'Morante',
+        'Material da estrutura': 'Madeira',
+      },
     };
     const completeParent: Product = {
       ...parent,
+      unitPrice: 120,
       categoryIds: ['categoria'],
       mainSupplierId: 'fornecedor',
       variations: [complete],
