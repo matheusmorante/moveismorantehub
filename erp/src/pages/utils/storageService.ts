@@ -19,14 +19,40 @@ export const uploadFile = async (file: File, path: string): Promise<string> => {
     const catalogApiUrl = getCatalogApiUrl();
     const endpoint = catalogApiUrl ? `${catalogApiUrl}/api/upload` : '/api/upload';
     const contentType = file.type || 'image/jpeg';
-    const credentialResponse = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName: path.replace(/^\/+/, ''), contentType }),
-    });
+    const bodyPayload = JSON.stringify({ fileName: path.replace(/^\/+/, ''), contentType });
 
-    if (!credentialResponse.ok) {
-      const details = await credentialResponse.json().catch(() => ({}));
+    let credentialResponse: Response | null = null;
+    try {
+      credentialResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: bodyPayload,
+      });
+    } catch (primaryError) {
+      console.warn('Erro ao chamar endpoint principal de upload:', primaryError);
+    }
+
+    // Se o endpoint local falhar ou retornar erro e nenhuma URL customizada foi fornecida,
+    // tenta fallback automático para a API do catálogo
+    if ((!credentialResponse || !credentialResponse.ok) && !catalogApiUrl) {
+      try {
+        const fallbackResponse = await fetch('https://www.moveismorante.com.br/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: bodyPayload,
+        });
+        if (fallbackResponse.ok) {
+          credentialResponse = fallbackResponse;
+        }
+      } catch (fallbackError) {
+        console.warn('Fallback para moveismorante.com.br falhou:', fallbackError);
+      }
+    }
+
+    if (!credentialResponse || !credentialResponse.ok) {
+      const details = credentialResponse
+        ? await credentialResponse.json().catch(() => ({}))
+        : {};
       throw new Error(details.error || 'Não foi possível preparar o envio da imagem para o R2.');
     }
 

@@ -37,4 +37,37 @@ describe('storageService', () => {
     expect(result).toBe(mockFileUrl);
     expect(globalFetch).toHaveBeenCalledTimes(2);
   });
+
+  it('uploadFile falls back to moveismorante.com.br if /api/upload returns non-ok', async () => {
+    const mockFile = new File(['dummy'], 'foto.jpg', { type: 'image/jpeg' });
+    const mockUploadUrl = 'https://r2.test.com/signed-put';
+    const mockFileUrl = 'https://pub-r2.test.com/products/foto.jpg';
+
+    const globalFetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === '/api/upload') {
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'Internal Error' }),
+        });
+      }
+      if (url === 'https://www.moveismorante.com.br/api/upload') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ uploadUrl: mockUploadUrl, fileUrl: mockFileUrl }),
+        });
+      }
+      if (url === mockUploadUrl) {
+        expect(init?.method).toBe('PUT');
+        return Promise.resolve({ ok: true });
+      }
+      return Promise.reject(new Error(`Unknown url: ${url}`));
+    });
+
+    vi.stubGlobal('fetch', globalFetch);
+
+    const result = await uploadFile(mockFile, 'products/foto.jpg');
+    expect(result).toBe(mockFileUrl);
+    expect(globalFetch).toHaveBeenCalledTimes(3);
+  });
 });

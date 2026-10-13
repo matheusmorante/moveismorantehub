@@ -270,12 +270,6 @@ export const MobileProductCard: React.FC<Props> = ({
               <Text style={styles.draftBadgeText}>Rascunho</Text>
             </View>
           )}
-
-          {!isActive && !isDraft && !isSalvado && (
-            <View style={styles.deactivatedBadge}>
-              <Text style={styles.deactivatedBadgeText}>Desativado</Text>
-            </View>
-          )}
         </View>
 
         {/* Atalhos: Editar Rápido e Menu de 3 Pontinhos */}
@@ -677,20 +671,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
     color: '#b45309',
-    textTransform: 'uppercase',
-  },
-  deactivatedBadge: {
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-  },
-  deactivatedBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#b91c1c',
     textTransform: 'uppercase',
   },
   headerActions: {

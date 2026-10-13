@@ -1,11 +1,13 @@
 import type React from 'react';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import { compressImageToFile } from '@/pages/utils/imageUtils';
 import {
   getMaxParentProductImages,
   MAX_PARENT_PRODUCT_IMAGES,
   MAX_VARIATION_IMAGES,
 } from '@/pages/utils/productImageLimits';
+import { uploadFile } from '@/pages/utils/storageService';
 import type Product from '../../../../types/product.type';
 import { moveProductImage, replaceProductImage } from './images/productImageOrdering';
 import { SquareImageCropper } from './images/SquareImageCropper';
@@ -80,8 +82,14 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
 
       const [originalUrl] = await Promise.all([
         uploadFile(file, originalPath),
-        uploadFile(mediumFile, mediumPath),
-        uploadFile(thumbFile, thumbPath),
+        uploadFile(mediumFile, mediumPath).catch((err) => {
+          console.warn('Falha no upload da versão medium, fallback para original:', err);
+          return originalPath;
+        }),
+        uploadFile(thumbFile, thumbPath).catch((err) => {
+          console.warn('Falha no upload da versão thumbnail, fallback para original:', err);
+          return originalPath;
+        }),
       ]);
       const newUrl = originalUrl;
 

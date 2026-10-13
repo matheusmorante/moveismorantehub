@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import Product from '@/pages/types/product.type';
+import type Product from '@/pages/types/product.type';
 import ProductImage from '@/components/ProductImage';
-import { getProductKind } from '@/pages/utils/productKindRules';
 import type { ProductListRow } from '../../types';
 
 export interface ProductRowDescriptionCellProps {
@@ -43,21 +42,6 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
   const [imageError, setImageError] = useState(false);
   const isDraft =
     Boolean(product.isDraft) || Boolean(product.is_draft) || product.status === 'draft';
-  const isSalvado =
-    getProductKind(product) === 'salvado' ||
-    getProductKind(singleVariation as any) === 'salvado' ||
-    Boolean(oppName && oppName.toLowerCase().includes('salvado')) ||
-    Boolean(
-      (product.opportunityName || product.opportunity?.name || '')
-        .toLowerCase()
-        .includes('salvado')
-    );
-  const isDeactivated =
-    (singleVariation
-      ? (!isSalvado && singleVariation.active === false) || singleVariation.status === 'hidden'
-      : (!isSalvado && product.active === false) ||
-        product.status === 'hidden' ||
-        product.deleted) && !isDraft;
 
   const count = variationsCount ?? product.allVariations?.length ?? 0;
   const parentImages = (product as any).parentImages as string[] | undefined;
@@ -173,13 +157,6 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
                     </span>
                   ))}
               </div>
-            )}
-
-            {/* Status Desativado */}
-            {isDeactivated && (
-              <span className="inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 mt-0.5">
-                <i className="bi bi-slash-circle text-rose-500" /> Desativado
-              </span>
             )}
 
             {/* Selos de Triagem e Tipo */}

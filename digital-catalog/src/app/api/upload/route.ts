@@ -17,6 +17,8 @@ const allowedOrigins = new Set([
   'https://www.moveismorante.com.br',
   'https://erp.moveismorante.com.br',
   'https://morantehub.vercel.app',
+  'https://morantehub.com',
+  'https://www.morantehub.com',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
@@ -31,11 +33,18 @@ const allowedOrigins = new Set([
     .filter(Boolean),
 ]);
 
+function isOriginAllowed(origin: string): boolean {
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+  if (origin.endsWith('.vercel.app')) return true;
+  return false;
+}
+
 function corsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get('origin') || '';
-  return allowedOrigins.has(origin)
+  return isOriginAllowed(origin)
     ? {
-        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Origin': origin || '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
       }
@@ -49,7 +58,7 @@ export async function OPTIONS(request: Request) {
 export async function POST(req: Request) {
   try {
     const origin = req.headers.get('origin');
-    if (origin && !allowedOrigins.has(origin)) {
+    if (origin && !isOriginAllowed(origin)) {
       return NextResponse.json({ error: 'Origem não autorizada.' }, { status: 403 });
     }
 

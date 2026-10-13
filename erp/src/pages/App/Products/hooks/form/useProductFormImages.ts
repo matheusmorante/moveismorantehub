@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import { compressImageToFile } from '@/pages/utils/imageUtils';
 import {
   getMaxParentProductImages,
   MAX_PARENT_PRODUCT_IMAGES,
 } from '@/pages/utils/productImageLimits';
+import { uploadFile } from '@/pages/utils/storageService';
 import type Product from '../../../../types/product.type';
 
 export type FileInputSource =
