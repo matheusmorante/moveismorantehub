@@ -1,0 +1,110 @@
+{
+  "checkedAt": "2026-10-13",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "branch": "primary",
+  "schema": "public",
+  "migration": {
+    "version": "20261013123000",
+    "name": "alphanumeric_fiscal_identifiers",
+    "status": "BLOCKED",
+    "applied": false,
+    "blockers": [
+      "Specific application authorization",
+      "Remote SQL/catalog validation"
+    ],
+    "sha256": "47f7fb66ff2d207f0ed17b32ebee75cebe65cb2c7273ccc1763631ac09e2b28a"
+  },
+  "catalogInspection": {
+    "historyRows": 169,
+    "latestVersionAtInspection": "20261013115005",
+    "functions": [
+      {
+        "signature": "apply_nfe_snapshot_recipient_tax_id(jsonb,uuid,text)",
+        "priorDefinitionMd5": "2815b6261d5afd94c45b2cd7d391ca51"
+      },
+      {
+        "signature": "is_nfe_hml_number_conflict(text,text)",
+        "priorDefinitionMd5": "83973f54e5b60f17ef26760594985180"
+      },
+      {
+        "signature": "prepare_nfe_operation_draft(text,uuid,text,smallint,text,uuid)",
+        "priorDefinitionMd5": "297ca988481986b0e6045cc4958c079d"
+      },
+      {
+        "signature": "reserve_nfe_outbound_emission(text,character varying,integer,uuid,character varying,text,integer,character varying)",
+        "priorDefinitionMd5": "2a2d402936d01237a27b89e84f4e888d"
+      },
+      {
+        "signature": "persist_authorized_nfe_operation_draft(uuid,uuid,integer,text,character varying,text,text,text,timestamp with time zone,text,text,jsonb)",
+        "priorDefinitionMd5": "ba330683dbe84d03aa2f8087e090e79c"
+      },
+      {
+        "signature": "peek_nfe_outbound_number(text,text,integer,text,integer)",
+        "priorDefinitionMd5": "2788a7a6c3a64d09bbf604aad301d2a5"
+      },
+      {
+        "signature": "prepare_nfe_outbound_attempt(jsonb,text,text,jsonb,uuid,uuid,integer)",
+        "priorDefinitionMd5": "02e5a87ca7ebd88b4a8d97aa3acf33c8"
+      },
+      {
+        "signature": "reserve_hml_nfe_outbound(text,uuid,character varying,text,integer,character varying,jsonb,uuid)",
+        "priorDefinitionMd5": "abab2b3327fc16d16a6596506b272710"
+      }
+    ],
+    "constraints": [
+      "nfe_operation_drafts_original_access_key_check",
+      "nfe_establishment_sequences_issuer_cnpj_check",
+      "nfe_legacy_sequence_scope_issuer_cnpj_check",
+      "nfe_outbound_attempts_issuer_cnpj_check",
+      "nfe_outbound_attempts_access_key_check"
+    ],
+    "indexes": [
+      "uq_nfe_snapshot_establishment_sequence"
+    ]
+  },
+  "validation": {
+    "apiTypescript": "passed",
+    "erpFiscalTypescript": "failed: unrelated concurrent ReceiptPage/ShippingData.tsx:50 TS2345",
+    "fiscalBuild": "passed, 15 route handlers, XSD/WASM, 12/12 functions",
+    "eslint": "passed after fixing one test-call line break",
+    "biomeApi": "passed with 6 existing warnings and 1 info",
+    "pgTap": {
+      "prepared": 24,
+      "executed": false
+    },
+    "danfeNode": {
+      "passed": 2
+    },
+    "legacyDanfeJsdom": "could not start: missing native canvas.node",
+    "integrationMocks": {
+      "passed": 164,
+      "files": 9
+    },
+    "finalIdentifiersCancellationEnvelope": {
+      "passed": 59,
+      "files": 4
+    },
+    "testCountsOverlap": true
+  },
+  "advisors": {
+    "counts": {
+      "function_search_path_mutable": 18,
+      "extension_in_public": 2,
+      "anon_security_definer_function_executable": 18,
+      "authenticated_security_definer_function_executable": 54,
+      "auth_leaked_password_protection": 1,
+      "auth_rls_initplan": 27,
+      "multiple_permissive_policies": 246,
+      "duplicate_index": 1
+    },
+    "relevant": []
+  },
+  "limits": {
+    "businessRowsWritten": false,
+    "sefazTransmitted": false,
+    "deployed": false,
+    "newMigrationApplied": false,
+    "rollbackBehaviorProven": false,
+    "concurrencyBehaviorProven": false
+  }
+}

@@ -188,10 +188,16 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                           [btn.key]: true,
                         } as Order['isButtonsClicked'];
                         order.isButtonsClicked = clicked;
-                        await updateOrder(order.id, {
-                          isButtonsClicked: clicked,
-                          ...(btn.key === 'sendCustomerReviews' ? { reviewRequested: true } : {}),
-                        });
+                        await updateOrder(
+                          order.id,
+                          {
+                            isButtonsClicked: clicked,
+                            ...(btn.key === 'sendCustomerReviews' ? { reviewRequested: true } : {}),
+                          },
+                          order,
+                          undefined,
+                          { metadataOnly: true }
+                        );
                       }
                     } catch (err: unknown) {
                       console.error('Erro ao executar ação pós-venda:', err);

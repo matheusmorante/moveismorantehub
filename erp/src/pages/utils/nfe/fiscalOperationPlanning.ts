@@ -1,4 +1,4 @@
-import { ACCESS_KEY_PATTERN } from '../../../../../shared-utils/fiscalIdentifiers';
+import { ACCESS_KEY_PATTERN } from '../../../../../shared-utils/fiscalIdentifiers.js';
 import type { AuthorizedInvoiceLineSnapshot } from './invoiceLineSnapshot';
 import {
   originalItemCfop,

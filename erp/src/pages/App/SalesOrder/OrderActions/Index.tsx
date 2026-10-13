@@ -33,7 +33,9 @@ const OrderActions = ({ order, context = 'list' }: { order: Order; context?: 'fo
     try {
       const { updateOrder } = await import('../../../utils/orderHistoryService');
       if (order.id) {
-        await updateOrder(order.id, { isButtonsClicked: next });
+        await updateOrder(order.id, { isButtonsClicked: next }, order, undefined, {
+          metadataOnly: true,
+        });
       }
     } catch (e) {
       console.error('Erro ao salvar estado do botão:', e);

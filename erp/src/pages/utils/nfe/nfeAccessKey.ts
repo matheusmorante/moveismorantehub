@@ -1,4 +1,4 @@
-import { calculateAccessKeyDigit, isValidCnpj, normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers';
+import { calculateAccessKeyDigit, isValidCnpj, normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers.js';
 
 /**
  * Utilitário para cálculo e validação da chave de acesso de 44 caracteres (NF-e / NFC-e)

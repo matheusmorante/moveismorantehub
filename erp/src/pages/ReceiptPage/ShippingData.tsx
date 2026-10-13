@@ -4,11 +4,13 @@ import { NumericFormat as NumericFormatBase } from 'react-number-format';
 const NumericFormat = NumericFormatBase as any;
 
 interface Props {
-  shipping: Shipping;
+  shipping?: Shipping | null;
 }
 
 const ShippingData = ({ shipping }: Props) => {
   const shippingDate = shipping?.scheduling?.date || (shipping as any)?.date || '';
+  const shippingValue = Number(shipping?.value ?? 0);
+  const scheduling = shipping?.scheduling;
 
   return (
     <section className="flex flex-col gap-4">
@@ -22,11 +24,11 @@ const ShippingData = ({ shipping }: Props) => {
             Valor do Frete
           </span>
           <div className="text-sm font-black text-slate-800">
-            {shipping.value === 0 ? (
+            {shippingValue === 0 ? (
               <span className="text-emerald-600 uppercase tracking-tighter">FRETE GRÁTIS</span>
             ) : (
               <NumericFormat
-                value={shipping.value}
+                value={shippingValue}
                 allowNegative={false}
                 thousandSeparator="."
                 prefix={'R$ '}
@@ -43,15 +45,15 @@ const ShippingData = ({ shipping }: Props) => {
             Agendamento
           </span>
           <span className="text-sm font-bold text-slate-800 lowercase">
-            {shipping.scheduling?.dateType === 'range' && shipping.scheduling?.endDate
-              ? `de ${formatDate(shipping.scheduling.date)} até ${formatDate(shipping.scheduling.endDate)}`
-              : formatDate(shipping.scheduling?.date)}
+            {scheduling?.dateType === 'range' && scheduling?.endDate
+              ? `de ${formatDate(scheduling.date)} até ${formatDate(scheduling.endDate)}`
+              : formatDate(scheduling?.date)}
             <span className="text-slate-400 px-1">|</span>
-            {shipping.scheduling?.type === 'range' &&
-            shipping.scheduling?.startTime &&
-            shipping.scheduling?.endTime
-              ? `${shipping.scheduling.startTime} às ${shipping.scheduling.endTime}`
-              : shipping.scheduling?.startTime || shipping.scheduling?.time || 'A combinar'}
+            {scheduling?.type === 'range' &&
+            scheduling?.startTime &&
+            scheduling?.endTime
+              ? `${scheduling.startTime} às ${scheduling.endTime}`
+              : scheduling?.startTime || scheduling?.time || 'A combinar'}
           </span>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { ACCESS_KEY_PATTERN } from '../../../../../shared-utils/fiscalIdentifiers';
+import { ACCESS_KEY_PATTERN } from '../../../../../shared-utils/fiscalIdentifiers.js';
 /** Fail closed at the ordinary outbound endpoint. Estorno and return need their own reviewed draft. */
 export function validateOrdinaryOutboundEnvelope(input: {
   xml: string;

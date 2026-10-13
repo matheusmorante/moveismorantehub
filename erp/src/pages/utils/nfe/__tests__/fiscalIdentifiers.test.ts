@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateAccessKeyDigit, hasValidAccessKeyDigit, isValidCnpj, normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
+import { calculateAccessKeyDigit, hasValidAccessKeyDigit, isValidCnpj, normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers.js';
 import { formatAccessKey, generateNfeAccessKey } from '../nfeAccessKey';
 import { validateNfeAccessKey } from '../../nfeAccessKey';
 
@@ -10,8 +10,9 @@ describe('identificadores fiscais numéricos e alfanuméricos', () => {
   it.each(['12ABC34501DE35', '12.abc.345/01de-35', '44512248000107', '12345678000195'])(
     'valida os dois DVs do CNPJ %s', (value) => expect(isValidCnpj(value)).toBe(true)
   );
-  it.each(['12ABC34501DE36', '00000000000000', '12ABC34501DE3A', '12ABC34501DÉ35', '12ABC34501DE35!', '12345678000196', '123'])
-    ('recusa CNPJ inválido %s', (value) => expect(isValidCnpj(value)).toBe(false));
+  it.each(['12ABC34501DE36', '00000000000000', '12ABC34501DE3A', '12ABC34501DÉ35', '12ABC34501DE35!', '12345678000196', '123'])(
+    'recusa CNPJ inválido %s', (value) => expect(isValidCnpj(value)).toBe(false)
+  );
   it('não apaga caracteres desconhecidos durante a normalização', () => {
     expect(normalizeFiscalIdentifier('12.abc.345/01de-35!')).toBe('12ABC34501DE35!');
   });

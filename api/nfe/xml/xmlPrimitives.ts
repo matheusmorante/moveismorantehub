@@ -1,4 +1,4 @@
-import { calculateAccessKeyDigit } from '../../../shared-utils/fiscalIdentifiers';
+import { calculateAccessKeyDigit } from '../../../shared-utils/fiscalIdentifiers.js';
 import type { FiscalAddress } from '../fiscalSnapshot';
 
 const escapeXml = (value: string | number) =>

@@ -1,9 +1,32 @@
+import { useMemo } from 'react';
 import { dateNow, stringifyFullAddress, stringifyItems } from './utils/formatters';
 
 const WarrantyTermPage = () => {
   const storedOrder = sessionStorage.getItem('order');
-  const order = storedOrder ? JSON.parse(storedOrder) : null;
+  const order = useMemo(() => {
+    if (!storedOrder) return null;
+    try {
+      return JSON.parse(storedOrder);
+    } catch {
+      return null;
+    }
+  }, [storedOrder]);
   const date = dateNow();
+
+  if (!order) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-10 text-center bg-white text-slate-800">
+        <i className="bi bi-exclamation-triangle-fill text-5xl text-amber-500 mb-4"></i>
+        <h1 className="text-2xl font-black italic">Nenhum pedido encontrado</h1>
+        <button
+          onClick={() => window.close()}
+          className="mt-6 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold uppercase tracking-widest text-xs"
+        >
+          Fechar Janela
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="text-slate-900 dark:text-slate-100 transition-colors duration-300">

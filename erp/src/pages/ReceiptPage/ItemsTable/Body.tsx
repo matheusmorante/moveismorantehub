@@ -4,13 +4,14 @@ import CurrencyDisplay from '../../../components/CurrencyDisplay';
 import UnitDisplay from '../../../components/UnitDisplay';
 
 interface Props {
-  items: Item[];
+  items?: Item[] | null;
 }
 
 const Body = ({ items }: Props) => {
+  const safeItems = items || [];
   return (
     <tbody className="divide-y divide-slate-50">
-      {items.map((item, idx) => (
+      {safeItems.map((item, idx) => (
         <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
           <td className="px-4 py-1 text-sm font-bold text-slate-700">
             {item.description}

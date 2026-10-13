@@ -1,4 +1,4 @@
-import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier, isValidCnpj } from '../../../../../../shared-utils/fiscalIdentifiers';
+import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier, isValidCnpj } from '../../../../../../shared-utils/fiscalIdentifiers.js';
 import { AppSettings } from '../../settingsService';
 
 export function escapeXml(unsafe: string = ''): string {

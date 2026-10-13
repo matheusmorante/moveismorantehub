@@ -204,9 +204,11 @@ export const executeUpdateOrder = async (
       merged.customerData?.phone,
       merged.marketingOrigin
     );
-    void queryClient
-      .invalidateQueries({ queryKey: ['orders'] })
-      .catch((error) => console.error('[OrderUpdate] Falha ao atualizar a lista de pedidos:', error));
+    if (!options.metadataOnly) {
+      void queryClient
+        .invalidateQueries({ queryKey: ['orders'] })
+        .catch((error) => console.error('[OrderUpdate] Falha ao atualizar a lista de pedidos:', error));
+    }
   } catch (error) {
     console.error('Erro ao atualizar o pedido: ', error);
     throw error;

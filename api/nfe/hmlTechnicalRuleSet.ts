@@ -1,4 +1,4 @@
-import { normalizeFiscalIdentifier, isValidCnpj } from '../../shared-utils/fiscalIdentifiers';
+import { normalizeFiscalIdentifier, isValidCnpj } from '../../shared-utils/fiscalIdentifiers.js';
 import type { ApprovedFiscalRuleSet } from './fiscalCore';
 import {
   parseHmlCsosnConfiguration,

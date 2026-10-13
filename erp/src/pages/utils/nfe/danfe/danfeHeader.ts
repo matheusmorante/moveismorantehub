@@ -1,4 +1,4 @@
-import { ACCESS_KEY_PATTERN } from '../../../../../../shared-utils/fiscalIdentifiers';
+import { ACCESS_KEY_PATTERN } from '../../../../../../shared-utils/fiscalIdentifiers.js';
 import { AppSettings } from '../../settingsService';
 import type { ParsedFiscalDetails } from '@/pages/App/FiscalDocuments/types/fiscalDocuments.types';
 import bwipjs from 'bwip-js';

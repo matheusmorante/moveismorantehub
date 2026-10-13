@@ -1,4 +1,4 @@
-import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers';
+import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers.js';
 import { createHash } from 'node:crypto';
 import { DOMParser } from '@xmldom/xmldom';
 import { parseSefazNfeSituation } from '../../erp/src/pages/utils/nfe/nfeEventRules';

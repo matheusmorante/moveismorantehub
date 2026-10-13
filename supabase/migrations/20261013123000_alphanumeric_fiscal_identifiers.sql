@@ -32,6 +32,24 @@ BEGIN
   IF pg_catalog.md5(pg_catalog.pg_get_functiondef('public.reserve_hml_nfe_outbound(text,uuid,character varying,text,integer,character varying,jsonb,uuid)'::regprocedure)) <> 'abab2b3327fc16d16a6596506b272710' THEN
     RAISE EXCEPTION 'CNPJ_ALPHA_SCHEMA_DRIFT: reserve_hml_nfe_outbound';
   END IF;
+  IF (SELECT pg_catalog.md5(pg_catalog.pg_get_constraintdef(oid)) FROM pg_catalog.pg_constraint WHERE conrelid='public.nfe_operation_drafts'::regclass AND conname='nfe_operation_drafts_original_access_key_check') IS DISTINCT FROM 'b11000cd7d7e753d85a5c0d424cca45b' THEN
+    RAISE EXCEPTION 'CNPJ_ALPHA_SCHEMA_DRIFT: nfe_operation_drafts_original_access_key_check';
+  END IF;
+  IF (SELECT pg_catalog.md5(pg_catalog.pg_get_constraintdef(oid)) FROM pg_catalog.pg_constraint WHERE conrelid='public.nfe_establishment_sequences'::regclass AND conname='nfe_establishment_sequences_issuer_cnpj_check') IS DISTINCT FROM '9f0bd4955a16859353c60ded76fc188d' THEN
+    RAISE EXCEPTION 'CNPJ_ALPHA_SCHEMA_DRIFT: nfe_establishment_sequences_issuer_cnpj_check';
+  END IF;
+  IF (SELECT pg_catalog.md5(pg_catalog.pg_get_constraintdef(oid)) FROM pg_catalog.pg_constraint WHERE conrelid='public.nfe_legacy_sequence_scope'::regclass AND conname='nfe_legacy_sequence_scope_issuer_cnpj_check') IS DISTINCT FROM '9f0bd4955a16859353c60ded76fc188d' THEN
+    RAISE EXCEPTION 'CNPJ_ALPHA_SCHEMA_DRIFT: nfe_legacy_sequence_scope_issuer_cnpj_check';
+  END IF;
+  IF (SELECT pg_catalog.md5(pg_catalog.pg_get_constraintdef(oid)) FROM pg_catalog.pg_constraint WHERE conrelid='public.nfe_outbound_attempts'::regclass AND conname='nfe_outbound_attempts_issuer_cnpj_check') IS DISTINCT FROM '9f0bd4955a16859353c60ded76fc188d' THEN
+    RAISE EXCEPTION 'CNPJ_ALPHA_SCHEMA_DRIFT: nfe_outbound_attempts_issuer_cnpj_check';
+  END IF;
+  IF (SELECT pg_catalog.md5(pg_catalog.pg_get_constraintdef(oid)) FROM pg_catalog.pg_constraint WHERE conrelid='public.nfe_outbound_attempts'::regclass AND conname='nfe_outbound_attempts_access_key_check') IS DISTINCT FROM 'b060d0fdd811bf187c19fe41c5e38924' THEN
+    RAISE EXCEPTION 'CNPJ_ALPHA_SCHEMA_DRIFT: nfe_outbound_attempts_access_key_check';
+  END IF;
+  IF pg_catalog.md5(pg_catalog.pg_get_indexdef('public.uq_nfe_snapshot_establishment_sequence'::regclass)) <> '69f93db2f6b21e759fb48bf93a13619a' THEN
+    RAISE EXCEPTION 'CNPJ_ALPHA_SCHEMA_DRIFT: uq_nfe_snapshot_establishment_sequence';
+  END IF;
 END;
 $guard$;
 
@@ -187,11 +205,16 @@ BEGIN
     IF p_return_order_id IS NOT NULL OR length(btrim(COALESCE(p_reason, ''))) < 15 THEN
       RAISE EXCEPTION 'Estorno exige justificativa e não pode apontar uma devolução';
     END IF;
-    IF lower(btrim(COALESCE(v_sale.status, ''))) NOT IN ('cancelled', 'cancelado')
- AND NOT EXISTS (SELECT 1 FROM public.nfe_order_edit_replacements r
-   WHERE r.original_document_id=v_source.id AND r.order_id=v_sale.id AND r.environment=p_environment
-   AND r.reversal_kind='estorno' AND r.status='awaiting_reversal' AND v_sale.status='scheduled'
-   AND NOT public.order_has_fiscal_circulation(to_jsonb(v_sale))
+    IF lower(btrim(COALESCE(v_sale.status, ''))) NOT IN ('cancelled', 'cancelado')
+
+ AND NOT EXISTS (SELECT 1 FROM public.nfe_order_edit_replacements r
+
+   WHERE r.original_document_id=v_source.id AND r.order_id=v_sale.id AND r.environment=p_environment
+
+   AND r.reversal_kind='estorno' AND r.status='awaiting_reversal' AND v_sale.status='scheduled'
+
+   AND NOT public.order_has_fiscal_circulation(to_jsonb(v_sale))
+
    AND NOT public.order_has_delivery_in_progress(to_jsonb(v_sale))) THEN
       RAISE EXCEPTION 'Venda comercial precisa estar cancelada antes de preparar estorno';
     END IF;
@@ -596,10 +619,12 @@ BEGIN
   RAISE EXCEPTION 'IDEMPOTENCY_KEY_REUSED' USING ERRCODE='23505';
  END IF;
  IF EXISTS(SELECT 1 FROM public.nfe_documents WHERE order_id=v_order_id AND ambiente=v_env AND
-   modelo IN ('55','65') AND document_type='outbound' AND status IN ('processando','pendente','autorizada','homologada')
+   modelo IN ('55','65') AND document_type='outbound' AND status IN ('processando','pendente','autorizada','homologada')
+
    AND NOT public.is_order_edit_reversal_confirmed(id)) OR
     EXISTS(SELECT 1 FROM public.nfe_outbound_attempts WHERE order_id=v_order_id AND environment=v_env AND
-      issuer_cnpj=v_issuer AND state<>'rejected'
+      issuer_cnpj=v_issuer AND state<>'rejected'
+
    AND NOT public.is_order_edit_reversal_confirmed(document_id)) THEN
   RAISE EXCEPTION 'ALREADY_ACTIVE_FISCAL_ATTEMPT' USING ERRCODE='23505';
  END IF;

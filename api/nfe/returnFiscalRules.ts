@@ -1,4 +1,4 @@
-import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers';
+import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers.js';
 import { calculateMod11CheckDigit } from '../../erp/src/pages/utils/nfe/nfeAccessKey';
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
 import type { SupabaseClient } from '@supabase/supabase-js';

@@ -36,3 +36,12 @@ it('preserva fallback legado somente quando a chave nova está vazia', async () 
   const { getSupabaseSecretKey } = await import('../../../../../../api/supabaseSecretKey');
   expect(getSupabaseSecretKey()).toBe('TEST_AUT_LEGACY_KEY');
 });
+it('aceita service_role injetado pela integracao da Vercel quando outras variaveis estao ausentes', async () => {
+  vi.stubEnv('SUPABASE_SECRET_KEY', '');
+  vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
+  vi.stubEnv('SUPABASE_SERVICE_KEY', '');
+  vi.stubEnv('service_role', 'TEST_AUT_VERCEL_INTEGRATION_KEY');
+  const { getSupabaseSecretKey } = await import('../../../../../../api/supabaseSecretKey');
+  expect(getSupabaseSecretKey()).toBe('TEST_AUT_VERCEL_INTEGRATION_KEY');
+});
+

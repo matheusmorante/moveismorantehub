@@ -1,4 +1,4 @@
-import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers';
+import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers.js';
 import { createHash } from 'node:crypto';
 
 export interface ResponsibleTechnicianConfig {

@@ -1,4 +1,4 @@
-import { normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers';
+import { normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers.js';
 import { getSettings } from '@/pages/utils/settingsService';
 import { getNextNfeNumberPreview } from '@/pages/utils/nfe/nfeService';
 import { resolveNfeSequenceSettings } from '@/pages/utils/nfe/nfeSequenceSettings';

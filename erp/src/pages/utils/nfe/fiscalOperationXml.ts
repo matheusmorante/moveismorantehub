@@ -1,4 +1,4 @@
-import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers';
+import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers.js';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import type { Element } from '@xmldom/xmldom';
 import type { AppSettings } from '../settingsService';

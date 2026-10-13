@@ -1,4 +1,4 @@
-import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers';
+import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers.js';
 import { determineWithApprovedRules, type ApprovedFiscalRuleSet } from './fiscalCore';
 import { parseItemCsosnOverrides } from './csosnPolicy';
 import {

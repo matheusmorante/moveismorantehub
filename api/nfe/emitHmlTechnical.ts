@@ -1,4 +1,4 @@
-import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers';
+import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers.js';
 import { createHash, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateNfeAccessKey } from '../../erp/src/pages/utils/nfe/nfeAccessKey';

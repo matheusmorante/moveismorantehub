@@ -1,16 +1,25 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { getSettings } from '@/pages/utils/settingsService';
 import ReceiptPrintDocument from './ReceiptPrintDocument';
 
 const ReceiptPage = () => {
   const storedOrder = sessionStorage.getItem('order');
-  const order = storedOrder ? JSON.parse(storedOrder) : null;
+  const order = useMemo(() => {
+    if (!storedOrder) return null;
+    try {
+      return JSON.parse(storedOrder);
+    } catch {
+      return null;
+    }
+  }, [storedOrder]);
   const settings = getSettings();
   const queryParams = new URLSearchParams(window.location.search);
   const isSilent = queryParams.get('silent') === '1';
+  const hasPrintedRef = useRef(false);
 
   useEffect(() => {
-    if (order && !isSilent) {
+    if (order && !isSilent && !hasPrintedRef.current) {
+      hasPrintedRef.current = true;
       const timer = setTimeout(() => window.print(), 400);
       return () => clearTimeout(timer);
     }

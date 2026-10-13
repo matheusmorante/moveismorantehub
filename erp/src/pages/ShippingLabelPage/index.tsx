@@ -1,14 +1,23 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import Order from '../types/order.type';
 import logoMorante from '../../assets/brand-mark.svg';
 import { formatOrderCode } from '../utils/orderCode';
 
 const ShippingLabelPage = () => {
   const storedOrder = sessionStorage.getItem('order');
-  const order: Order | null = storedOrder ? JSON.parse(storedOrder) : null;
+  const order: Order | null = useMemo(() => {
+    if (!storedOrder) return null;
+    try {
+      return JSON.parse(storedOrder);
+    } catch {
+      return null;
+    }
+  }, [storedOrder]);
+  const hasPrintedRef = useRef(false);
 
   useEffect(() => {
-    if (order) {
+    if (order && !hasPrintedRef.current) {
+      hasPrintedRef.current = true;
       const timer = setTimeout(() => window.print(), 500);
       return () => clearTimeout(timer);
     }

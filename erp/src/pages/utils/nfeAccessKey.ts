@@ -1,4 +1,4 @@
-import { ACCESS_KEY_PATTERN, hasValidAccessKeyDigit, isValidCnpj, normalizeFiscalIdentifier } from '../../../../shared-utils/fiscalIdentifiers';
+import { ACCESS_KEY_PATTERN, hasValidAccessKeyDigit, isValidCnpj, normalizeFiscalIdentifier } from '../../../../shared-utils/fiscalIdentifiers.js';
 
 export const normalizeNfeAccessKey = normalizeFiscalIdentifier;
 

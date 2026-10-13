@@ -1,4 +1,4 @@
-import { normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers';
+import { normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers.js';
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';

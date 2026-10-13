@@ -349,8 +349,9 @@ describe('API de cancelamento de NF-e', () => {
     db.from.mock.results.forEach(({ value }) => { expect(value.update).not.toHaveBeenCalled(); });
   });
 
-  it('envia dhEvento sem fração de segundo, com fuso explícito, e persiste o protocolo do cancelamento', async () => {
-    const db = database('cancelled');
+  it.each(['12345678000195', '12ABC34501DE35'])('envia dhEvento com fuso e persiste cancelamento com CNPJ %s', async (cnpj) => {
+    const source = { ...fiscalDocument, chave_acesso: fiscalDocument.chave_acesso.replace('12345678000195', cnpj), xml_nfe: fiscalDocument.xml_nfe.replace('12345678000195', cnpj) };
+    const db = database('cancelled', { documentOverrides: source });
     mocks.createClient.mockReturnValue(db);
     process.env.NFE_CERTIFICATE_BASE64 = 'mock-certificate';
     mocks.extractCertificateAndKey.mockReturnValue({
@@ -360,7 +361,7 @@ describe('API de cancelamento de NF-e', () => {
     });
     mocks.signNfeEventXml.mockImplementation((xml: string) => xml);
     mocks.sendSoapToSefaz.mockResolvedValue(
-      `<retEnvEvento><retEvento><infEvento><tpAmb>2</tpAmb><chNFe>${fiscalDocument.chave_acesso}</chNFe><tpEvento>110111</tpEvento><nSeqEvento>1</nSeqEvento><cStat>135</cStat><xMotivo>Evento registrado e vinculado a NF-e</xMotivo><nProt>141260000000001</nProt><dhRegEvento>2026-10-01T15:00:00-03:00</dhRegEvento></infEvento></retEvento></retEnvEvento>`
+      `<retEnvEvento><retEvento><infEvento><tpAmb>2</tpAmb><chNFe>${source.chave_acesso}</chNFe><tpEvento>110111</tpEvento><nSeqEvento>1</nSeqEvento><cStat>135</cStat><xMotivo>Evento registrado e vinculado a NF-e</xMotivo><nProt>141260000000001</nProt><dhRegEvento>2026-10-01T15:00:00-03:00</dhRegEvento></infEvento></retEvento></retEnvEvento>`
     );
     const handler = (await import('../../../../../../api/nfe/cancel')).default;
     const result = response();
@@ -384,6 +385,8 @@ describe('API de cancelamento de NF-e', () => {
       reconciliationRequired: false,
     });
     const xml = mocks.signNfeEventXml.mock.calls[0][0] as string;
+    expect(xml).toContain(`<CNPJ>${cnpj}</CNPJ>`);
+    expect(xml).toContain(`<chNFe>${source.chave_acesso}</chNFe>`);
     const timestamp = xml.match(/<dhEvento>([^<]+)<\/dhEvento>/)?.[1];
     expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-03:00$/);
     expect(Date.parse(timestamp!)).toBeGreaterThanOrEqual(before - 1000);

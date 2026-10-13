@@ -1,4 +1,4 @@
-import { normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers';
+import { normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers.js';
 import type Order from '@/pages/types/order.type';
 import { resolveFiscalCfopOrderScope } from '../../../../../shared-utils/fiscalCfopModel';
 import {

@@ -392,9 +392,13 @@ export const useOrderHistory = (filters?: any) => {
       );
 
       try {
-        await updateOrder(order.id!, { isButtonsClicked: newClicks }, order);
+        await updateOrder(order.id!, { isButtonsClicked: newClicks }, order, undefined, {
+          metadataOnly: true,
+        });
         if (actionKey === 'sendCustomerReviews' && !order.reviewRequested) {
-          await updateOrder(order.id, { reviewRequested: true });
+          await updateOrder(order.id, { reviewRequested: true }, order, undefined, {
+            metadataOnly: true,
+          });
         }
       } catch (error) {
         setOrders((prev) =>
