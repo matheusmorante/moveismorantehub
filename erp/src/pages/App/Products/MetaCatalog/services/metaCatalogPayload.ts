@@ -183,8 +183,10 @@ export function buildMetaCatalogItems(
           size = String(variation.attributes.Tamanho || variation.attributes.tamanho || '').trim();
         }
 
-        const variationName = variation.name || color || size || 'Variação';
-        const variationTitle = `${parentTitle} - ${variationName}`;
+        const fallbackVariationTitle = [color, size].filter(Boolean).join(' / ');
+        const variationTitle =
+          String(variation.name || '').trim() ||
+          (fallbackVariationTitle ? `${parentTitle} - ${fallbackVariationTitle}` : parentTitle);
 
         let variationImages: string[] = [];
         if (variation.image_url) {

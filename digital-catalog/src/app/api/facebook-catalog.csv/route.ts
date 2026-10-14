@@ -269,26 +269,18 @@ export async function GET(request: Request) {
             size = String(v.attributes.Tamanho || v.attributes.tamanho || '').trim();
           }
 
-          // Se a variação tem nome próprio diferenciado do pai, respeita o nome específico
-          const hasDistinctName = v.name && String(v.name).trim() !== String(p.name).trim();
-          const isParentName = v.use_parent_name !== false && !hasDistinctName;
-          let varName = isParentName ? p.name : v.name || p.name;
+          // O nome enviado para o feed da Meta deve ser exclusivamente o nome da variação
+          let varName = String(v.name || '').trim();
+          if (!varName) {
+            const suffixParts: string[] = [];
+            if (color) suffixParts.push(color);
+            if (size) suffixParts.push(size);
+            varName = suffixParts.length > 0 ? `${p.name} - ${suffixParts.join(' / ')}` : String(p.name).trim();
+          }
 
           // Se a cor ainda não foi detectada pelos atributos, mas o nome contém a cor (ex: Branco)
           if (!color && /branco/i.test(varName)) {
             color = 'Branco';
-          }
-
-          // Adiciona cor e tamanho ao título da variante se ainda não constar
-          const suffixParts: string[] = [];
-          if (color && !new RegExp(`\\b${color}\\b`, 'i').test(varName)) {
-            suffixParts.push(color);
-          }
-          if (size && !new RegExp(`\\b${size}\\b`, 'i').test(varName)) {
-            suffixParts.push(size);
-          }
-          if (suffixParts.length > 0) {
-            varName = `${varName} - ${suffixParts.join(' / ')}`;
           }
 
           // Se a variação tiver imagem própria, trata se houver lista separada por vírgula

@@ -53,7 +53,7 @@ describe('buildMetaCatalogItems', () => {
     expect(items[0]).toMatchObject({
       id: 'variation-1',
       code: 'MESA-AMENDOA',
-      name: 'Mesa Morante - Amêndoa',
+      name: 'Amêndoa',
       sales_price: 250,
       stock: 3,
       images: ['mesa-1.jpg'],

@@ -240,14 +240,10 @@ export async function POST(request: Request) {
           const isParentPrice = v.use_parent_price !== false;
           const isParentPromo = v.use_parent_promo_price !== false;
           const isParentDesc = v.use_parent_description !== false;
-          const hasDistinctName = v.name && String(v.name).trim() !== String(p.name).trim();
-          const isParentName = v.use_parent_name !== false && !hasDistinctName;
 
           const varPrice = isParentPrice ? p.price || p.unit_price : v.price || p.price;
           const varPromo = isParentPromo ? p.promo_price : v.promo_price;
           const varDesc = isParentDesc ? p.description : v.description || p.description;
-          let varName = isParentName ? p.name : v.name || p.name;
-
           // Extração de cor e tamanho
           let color = '';
           let size = '';
@@ -274,19 +270,17 @@ export async function POST(request: Request) {
             size = String(v.attributes.Tamanho || v.attributes.tamanho || '').trim();
           }
 
-          if (!color && /branco/i.test(varName)) {
-            color = 'Branco';
+          // O nome enviado para a Meta deve ser exclusivamente o nome da variação
+          let varName = String(v.name || '').trim();
+          if (!varName) {
+            const suffixParts: string[] = [];
+            if (color) suffixParts.push(color);
+            if (size) suffixParts.push(size);
+            varName = suffixParts.length > 0 ? `${p.name} - ${suffixParts.join(' / ')}` : String(p.name).trim();
           }
 
-          const suffixParts: string[] = [];
-          if (color && !new RegExp(`\\b${color}\\b`, 'i').test(varName)) {
-            suffixParts.push(color);
-          }
-          if (size && !new RegExp(`\\b${size}\\b`, 'i').test(varName)) {
-            suffixParts.push(size);
-          }
-          if (suffixParts.length > 0) {
-            varName = `${varName} - ${suffixParts.join(' / ')}`;
+          if (!color && /branco/i.test(varName)) {
+            color = 'Branco';
           }
 
           // Descrição com prefixo global e observações de oportunidade
