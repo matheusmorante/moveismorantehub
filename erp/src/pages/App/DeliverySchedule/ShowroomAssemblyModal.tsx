@@ -1,9 +1,11 @@
+import type { z } from 'zod';
 import { ZodForm } from '@/components/forms/ZodForm';
 import { assemblyScheduleFormSchema } from '../../../../../shared-utils/operationsFormSchemas';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatToBRDate } from '../../utils/formatters';
 import { Drill } from '@/components/shared/DrillIcon';
+import { toast } from 'react-toastify';
 
 export interface ShowroomAssembly {
   id?: string;
@@ -60,8 +62,7 @@ const ShowroomAssemblyModal = ({ onClose }: ShowroomAssemblyModalProps) => {
     fetchAssemblies();
   }, []);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async ({ item, date, time }: z.output<typeof assemblyScheduleFormSchema>) => {
     if (!item || !date || !time) {
       toast.warning('Preencha todos os campos');
       return;
@@ -147,7 +148,7 @@ const ShowroomAssemblyModal = ({ onClose }: ShowroomAssemblyModalProps) => {
         <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
           {/* Form Section */}
           <ZodForm schema={assemblyScheduleFormSchema} values={{ item, date, time }}
-            onSubmit={handleSave}
+            onValid={handleSave}
             className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700/50"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

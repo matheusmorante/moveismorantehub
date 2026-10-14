@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import { ZodForm } from '@/components/forms/ZodForm';
 import { marketingAssetFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
 import React, { useState, useEffect, useMemo } from 'react';
@@ -56,8 +57,7 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
     });
   }, [assets, selectedCategory, search, selectedCampaignId]);
 
-  const handleAddCustomAsset = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddCustomAsset = async ({ name: uploadName, url: uploadUrl }: z.output<typeof marketingAssetFormSchema>) => {
     if (!uploadUrl || !uploadName) return;
 
     await assetService.save({
@@ -153,7 +153,7 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
 
         {/* Adicionar Novo Asset Rápido */}
         <ZodForm schema={marketingAssetFormSchema} values={{ name: uploadName, url: uploadUrl }}
-          onSubmit={handleAddCustomAsset}
+          onValid={handleAddCustomAsset}
           className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center gap-3"
         >
           <input

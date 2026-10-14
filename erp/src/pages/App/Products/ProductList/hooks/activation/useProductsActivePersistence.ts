@@ -2,6 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '@/pages/types/product.type';
 import { updateProduct } from '@/pages/utils/productService';
 import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { triggerProductMetaCatalogSync } from '@/pages/utils/productService/productMetaCatalogSync';
 
 interface SiblingVariationRow {
   readonly active?: boolean | null;
@@ -54,6 +55,8 @@ export const persistProductActiveState = async (
     product.variations?.some((variation) => variation.id === id)
   );
   const parentId = variationParent?.id || (id.includes('_') ? id.split('_')[0] : id);
+
+  const executeCore = async () => {
   if (newActive) {
     const { data: parent, error } = await supabase
       .from('products')
@@ -194,4 +197,8 @@ export const persistProductActiveState = async (
   }
 
   await updateProduct(id, { active: newActive }, { deferQueryInvalidation: true });
+  };
+
+  await executeCore();
+  triggerProductMetaCatalogSync(parentId);
 };

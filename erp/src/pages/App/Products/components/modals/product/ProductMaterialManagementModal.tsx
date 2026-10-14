@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import { ZodForm } from '@/components/forms/ZodForm';
 import { catalogNameFormSchema } from '../../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -60,8 +61,7 @@ export const ProductMaterialManagementModal: React.FC<ProductMaterialManagementM
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, fetchMaterials, onClose]);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAdd = async ({ name: newName }: z.output<typeof catalogNameFormSchema>) => {
     const value = newName.trim().toUpperCase();
     if (!value) return;
 
@@ -143,7 +143,7 @@ export const ProductMaterialManagementModal: React.FC<ProductMaterialManagementM
         </div>
 
         <div className="p-8 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-6">
-          <ZodForm schema={catalogNameFormSchema} values={{ name: newName }} onSubmit={handleAdd} className="flex gap-2">
+          <ZodForm schema={catalogNameFormSchema} values={{ name: newName }} onValid={handleAdd} className="flex gap-2">
             <input
               type="text"
               value={newName}

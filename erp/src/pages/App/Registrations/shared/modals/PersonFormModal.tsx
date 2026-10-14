@@ -107,7 +107,7 @@ const PersonFormModal: React.FC<PersonFormModalProps> = ({
           </button>
         </div>
 
-        <form
+        <form noValidate
           onSubmit={handleSubmit}
           className="p-8 flex flex-col gap-8 max-h-[70vh] overflow-y-auto custom-scrollbar"
         >

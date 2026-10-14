@@ -40,7 +40,7 @@ export function useMobileProducts(
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const { validateAndRun: validateList } = useZodForm(productListFormSchema, { page: currentPage, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated });
+  const { validateValues: validateList } = useZodForm(productListFormSchema, { page: currentPage, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated });
   const showTestProductsForCurrentRole = canShowMobileTestProducts(
     isAdministrator,
     showTestProducts
@@ -75,7 +75,7 @@ export function useMobileProducts(
       pull ? setRefreshing(true) : setLoading(true);
       setLoadError(null);
       try {
-        const values = await validateList({ page, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated }, (values) => values,
+        const values = await validateList({ page, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated },
           (errors) => setLoadError(Object.values(flattenFormErrors(errors))[0]));
         if (!values) return;
         const { data, total } = await fetchMobileProductsPage(values.page, ITEMS_PER_PAGE, {

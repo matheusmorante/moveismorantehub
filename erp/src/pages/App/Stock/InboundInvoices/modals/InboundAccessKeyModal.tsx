@@ -68,7 +68,7 @@ export function InboundAccessKeyModal({
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-default"
         onClick={onClose}
       />
-      <form
+      <form noValidate
         onSubmit={handleFormSubmit}
         className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800"
       >

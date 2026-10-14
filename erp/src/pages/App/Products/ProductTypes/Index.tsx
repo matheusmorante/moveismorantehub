@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import { ZodForm } from '@/components/forms/ZodForm';
 import { catalogNameFormSchema } from '../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState, useEffect } from 'react';
@@ -32,8 +33,7 @@ const ProductTypes = () => {
     fetchTypes();
   }, []);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAdd = async ({ name: newName }: z.output<typeof catalogNameFormSchema>) => {
     if (!newName.trim()) return;
 
     setLoading(true);
@@ -77,7 +77,7 @@ const ProductTypes = () => {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 p-8 shadow-premium-lg flex flex-col gap-8">
-        <ZodForm schema={catalogNameFormSchema} values={{ name: newName }} onSubmit={handleAdd} className="flex flex-col md:flex-row gap-4">
+        <ZodForm schema={catalogNameFormSchema} values={{ name: newName }} onValid={handleAdd} className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
             <i className="bi bi-plus-circle absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
             <input

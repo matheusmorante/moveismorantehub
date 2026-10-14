@@ -84,7 +84,7 @@ export const useInventoryAuditWorkflow = (
       scopeType: scope.scopeType,
       supplierId: scope.supplierId,
       status: 'in_progress' as const,
-      items: nextItems,
+      items: nextItems.map((item) => ({ ...item })),
       scannedLabelIds: [...scannedLabelsRef.current],
       updatedAt: new Date().toISOString(),
     };
@@ -230,7 +230,7 @@ export const useInventoryAuditWorkflow = (
   }, [isOpen, editingSession, allProducts, suppliers, copiedItems, getSupplierNames, persistItems]);
 
   const handleConfirmScope = (nextConfig: ScopeConfiguration) => validateScope({
-    ...nextConfig, supplierId: nextConfig.supplierId ?? '',
+    ...nextConfig, supplierId: nextConfig.supplierId ?? '', itemsSnapshot: nextConfig.itemsSnapshot.map((item) => ({ ...item })),
   }, async (config) => {
     frozenSubmissionRef.current = false;
     await ensureOfflineInventoryCatalogSynced();
@@ -334,7 +334,8 @@ export const useInventoryAuditWorkflow = (
       await flushLocalWrites();
       await validateCompletion({
         id: draftRef.current.id || '', code: draftRef.current.code || '',
-        items: latestItemsRef.current, adjustments: itemsWithAdjustment,
+        items: latestItemsRef.current.map((item) => ({ ...item })),
+        adjustments: itemsWithAdjustment.map((item) => ({ ...item, physicalCount: item.physicalCount! })),
       }, async (values) => {
       const auditId = values.id;
       const code = values.code;

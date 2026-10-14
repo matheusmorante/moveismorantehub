@@ -1,9 +1,11 @@
+import type { z } from 'zod';
 import { ZodForm } from '@/components/forms/ZodForm';
 import { assemblyListFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
 import { Drill } from '@/components/shared/DrillIcon';
+import { getLocalISODate } from '@/pages/utils/formatters';
 
 interface Assembly {
   id: string;
@@ -68,16 +70,9 @@ const AssemblyList = ({ onClose }: Props) => {
     fetchAssemblies();
   }, []);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (values: z.output<typeof assemblyListFormSchema>) => {
 
-    const payload = {
-      item,
-      date,
-      time,
-      type,
-      status,
-    };
+    const payload = values;
 
     let error;
     if (editingAssembly) {
@@ -200,7 +195,7 @@ const AssemblyList = ({ onClose }: Props) => {
                 {editingAssembly ? 'Editar Montagem' : 'Nova Montagem'}
               </h3>
 
-              <ZodForm schema={assemblyListFormSchema} values={{ item, date, time, type, status }} onSubmit={handleSave} className="space-y-6">
+              <ZodForm schema={assemblyListFormSchema} values={{ item, date, time, type, status }} onValid={handleSave} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block ml-1">

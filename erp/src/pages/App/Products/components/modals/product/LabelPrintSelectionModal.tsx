@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { toast } from 'react-toastify';
+import { labelPrintSelectionFormSchema } from '../../../../../../../../shared-utils/labelDesignFormSchemas';
 import {
   createInitialLabelPrintSelection,
   orderLabelPrintProducts,
@@ -45,6 +48,7 @@ export const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> =
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Map<string, SelectedLabelPrintProduct>>(new Map());
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const form = useZodForm(labelPrintSelectionFormSchema, { labelType, products: [] });
 
   // Carrega todos os produtos ativos elegíveis ao abrir
   useEffect(() => {
@@ -63,12 +67,12 @@ export const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> =
 
     window.addEventListener('keydown', handleKeyDown);
 
-    supabase
+    Promise.resolve(supabase
       .from('products')
       .select('id, description, code, sku, unit_price, images')
       .eq('active', true)
       .is('parent_id', null)
-      .order('description', { ascending: true })
+      .order('description', { ascending: true }))
       .then(({ data, error }) => {
         if (!error && data) {
           const rows = data as unknown as readonly RawProductDbRow[];
@@ -111,15 +115,18 @@ export const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> =
     if (selected.size === 0) return;
     const products = Array.from(selected.values()).map((s) => ({
       ...s.product,
+      images: s.product.images ? [...s.product.images] : undefined,
       labelQty: s.qty,
     }));
+    return form.validateAndRun({ labelType, products }, (values) => {
     navigate('/estoque/etiquetas', {
       state: {
-        batchProducts: products,
-        labelType,
+        batchProducts: values.products,
+        labelType: values.labelType,
       },
     });
     onClose();
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   if (!isOpen) return null;

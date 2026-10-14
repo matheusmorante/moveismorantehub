@@ -74,7 +74,8 @@
         "test:e2e:stock": "playwright test --config=playwright.stock.config.ts",
         "storybook": "storybook dev -p 6006",
         "build-storybook": "storybook build",
-        "dev:serve": "vite"
+        "dev:serve": "vite",
+        "test:unit:mobile-forms": "vitest run --config vitest.mobile-forms.config.ts"
     },
     "browserslist": {
         "production": [

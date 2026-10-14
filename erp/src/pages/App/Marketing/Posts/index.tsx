@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { marketingImageSelectionFormSchema } from '../../../../../shared-utils/marketingFormSchemas';
+import { marketingImageSelectionFormSchema } from '../../../../../../shared-utils/marketingFormSchemas';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { usePostEditor } from './components/Editor/usePostEditor';
 import { CampaignElementsPanel } from './components/CampaignElementsPanel';

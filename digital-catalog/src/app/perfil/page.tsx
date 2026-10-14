@@ -463,7 +463,7 @@ function ProfileContent() {
                 </CardDescription>
               </CardHeader>
 
-              <form onSubmit={handleUpdateName}>
+              <form noValidate onSubmit={handleUpdateName}>
                 <CardContent className="p-6 space-y-6">
                   <div className="space-y-2 max-w-xl">
                     <Label htmlFor="fullName" className="font-bold text-gray-700">
@@ -529,7 +529,7 @@ function ProfileContent() {
               </CardHeader>
 
               {emailStep === 1 ? (
-                <form onSubmit={handleRequestEmailChangeCode}>
+                <form noValidate onSubmit={handleRequestEmailChangeCode}>
                   <CardContent className="p-6 space-y-6">
                     <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3 text-blue-900">
                       <ShieldCheck className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
@@ -607,7 +607,7 @@ function ProfileContent() {
                   </CardFooter>
                 </form>
               ) : (
-                <form onSubmit={handleVerifyEmailCode}>
+                <form noValidate onSubmit={handleVerifyEmailCode}>
                   <CardContent className="p-6 space-y-6">
                     <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-start gap-3 text-green-900">
                       <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
@@ -693,7 +693,7 @@ function ProfileContent() {
 
               {passwordMode === 'with_current' ? (
                 /* MODO A: CONFIRMAÇÃO COM SENHA ATUAL */
-                <form onSubmit={handlePasswordUpdateWithCurrentPassword}>
+                <form noValidate onSubmit={handlePasswordUpdateWithCurrentPassword}>
                   <CardContent className="p-6 space-y-6">
                     <div className="space-y-2 max-w-xl">
                       <Label htmlFor="currentPassword" className="font-bold text-gray-700">
@@ -775,7 +775,7 @@ function ProfileContent() {
                 </form>
               ) : (
                 /* MODO B: CÓDIGO ENVIADO POR EMAIL (SE ESQUECEU A SENHA ATUAL) */
-                <form onSubmit={handleVerifyPasswordCodeAndSave}>
+                <form noValidate onSubmit={handleVerifyPasswordCodeAndSave}>
                   <CardContent className="p-6 space-y-6">
                     <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-amber-900">
                       <Key className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />

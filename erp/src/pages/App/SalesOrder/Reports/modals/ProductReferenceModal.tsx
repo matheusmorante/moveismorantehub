@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import { ZodForm } from '@/components/forms/ZodForm';
 import { productReferenceFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState, useEffect, useMemo } from 'react';
@@ -56,8 +57,7 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
     setLoading(false);
   };
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAdd = async ({ masterName: newMaster, referenceName: newReference }: z.output<typeof productReferenceFormSchema>) => {
     if (!newMaster || !newReference) return;
 
     setLoading(true);
@@ -147,7 +147,7 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
             </div>
 
             <ZodForm schema={productReferenceFormSchema} values={{ masterName: newMaster, referenceName: newReference }}
-              onSubmit={handleAdd}
+              onValid={handleAdd}
               className="flex flex-wrap gap-4 items-end bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm"
             >
               <div className="flex-1 min-w-[200px]">

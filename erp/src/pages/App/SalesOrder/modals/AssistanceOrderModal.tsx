@@ -396,7 +396,7 @@ const AssistanceOrderModal = ({
       >
         <AssistanceOrderHeader isEditing={isEditing} onClose={onClose} />
 
-        <form
+        <form noValidate
           onSubmit={handleSave}
           className="p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar"
         >

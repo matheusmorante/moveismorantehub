@@ -77,7 +77,7 @@ describe('useFiscalDocumentsList', () => {
 
     const { result } = renderHook(() => useFiscalDocumentsList(true), { wrapper: createWrapper() });
     await waitFor(() => expect(mocks.fetchFiscalDocumentsList).toHaveBeenCalledTimes(1));
-    act(() => result.current.setStatusFilter('rejected'));
+    act(() => result.current.setStatusFilter('rejeitada'));
     await waitFor(() => expect(mocks.fetchFiscalDocumentsList).toHaveBeenCalledTimes(2));
 
     await act(async () => {
@@ -106,13 +106,40 @@ describe('useFiscalDocumentsList', () => {
     await waitFor(() => expect(result.current.pageIndex).toBe(3));
     await waitFor(() => expect(mocks.fetchFiscalDocumentsList).toHaveBeenCalled());
 
-    mocks.searchParams = new URLSearchParams('documentId=doc-target');
+    mocks.searchParams = new URLSearchParams('documentId=34d868e3-64fd-4909-a126-bdbf96b03b9b');
     rerender();
 
     await waitFor(() => expect(result.current.pageIndex).toBe(0));
     await waitFor(() => expect(result.current.filters.environment).toBe('all'));
     await waitFor(() => expect(mocks.fetchFiscalDocumentsList).toHaveBeenLastCalledWith(
-      expect.objectContaining({ pageIndex: 0, targetDocumentId: 'doc-target' })
+      expect.objectContaining({ pageIndex: 0, targetDocumentId: '34d868e3-64fd-4909-a126-bdbf96b03b9b' })
     ));
+  });
+
+  it('keeps an invalid custom period editable, blocks the query and recovers when corrected', async () => {
+    const { result } = renderHook(() => useFiscalDocumentsList(true), { wrapper: createWrapper() });
+    await waitFor(() => expect(mocks.fetchFiscalDocumentsList).toHaveBeenCalledTimes(1));
+    act(() => {
+      result.current.setPeriod('custom');
+      result.current.setCustomDateFrom('2026-10-14');
+      result.current.setCustomDateTo('2026-10-01');
+    });
+    await waitFor(() => expect(result.current.loadError).toMatch(/data final/));
+    expect(result.current.customDateTo).toBe('2026-10-01');
+    expect(mocks.fetchFiscalDocumentsList).toHaveBeenCalledTimes(1);
+    act(() => result.current.setCustomDateTo('2026-10-15'));
+    await waitFor(() => expect(mocks.fetchFiscalDocumentsList).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.loadError).toBeNull());
+    expect(mocks.fetchFiscalDocumentsList).toHaveBeenLastCalledWith(expect.objectContaining({ filters: expect.objectContaining({ dateFrom: '2026-10-14', dateTo: '2026-10-15' }) }));
+  });
+
+  it('preserves lookup by document identity when the service ignores an incomplete period', async () => {
+    mocks.searchParams = new URLSearchParams('documentId=34d868e3-64fd-4909-a126-bdbf96b03b9b');
+    const { result } = renderHook(() => useFiscalDocumentsList(true), { wrapper: createWrapper() });
+    await waitFor(() => expect(mocks.fetchFiscalDocumentsList).toHaveBeenCalledTimes(1));
+    act(() => { result.current.setPeriod('custom'); result.current.setCustomDateFrom(''); });
+    await waitFor(() => expect(mocks.fetchFiscalDocumentsList).toHaveBeenCalledTimes(2));
+    expect(result.current.loadError).toBeNull();
+    expect(mocks.fetchFiscalDocumentsList).toHaveBeenLastCalledWith(expect.objectContaining({ targetDocumentId: '34d868e3-64fd-4909-a126-bdbf96b03b9b' }));
   });
 });

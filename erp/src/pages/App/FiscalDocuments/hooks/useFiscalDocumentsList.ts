@@ -2,6 +2,9 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { endOfMonth, format, startOfMonth, startOfYear, subDays, subMonths } from 'date-fns';
 import { useSearchParams } from 'react-router-dom';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { fiscalDocumentsListFormSchema } from '../../../../../../shared-utils/listingFormSchemas';
+import type { z } from 'zod';
 import type {
   FiscalDocumentFilters,
   FiscalDocumentPeriod,
@@ -21,6 +24,7 @@ export function useFiscalDocumentsList(canViewFiscal: boolean) {
   const previousTargetDocumentId = useRef(targetDocumentId);
   const queryClient = useQueryClient();
   const [pageIndex, setPageIndex] = useState(0);
+  const [filterValidationError, setFilterValidationError] = useState<string | null>(null);
 
   // Filtros
   const [searchInput, setSearchInput] = useState('');
@@ -72,6 +76,7 @@ export function useFiscalDocumentsList(canViewFiscal: boolean) {
     dateFrom,
     dateTo,
   };
+  const { validateValues: validateList } = useZodForm(fiscalDocumentsListFormSchema, { filters, pageIndex, targetDocumentId } as z.input<typeof fiscalDocumentsListFormSchema>);
 
   const fiscalDocumentsQuery = useQuery<FetchFiscalDocumentsResult>({
     queryKey: [
@@ -85,19 +90,12 @@ export function useFiscalDocumentsList(canViewFiscal: boolean) {
       pageIndex,
       targetDocumentId,
     ],
-    queryFn: () =>
-      fetchFiscalDocumentsList({
-        filters: {
-          search,
-          status: statusFilter,
-          model: modelFilter,
-          environment: environmentFilter,
-          dateFrom,
-          dateTo,
-        },
-        pageIndex,
-        targetDocumentId,
-      }),
+    queryFn: async () => {
+      const values = await validateList({ filters, pageIndex, targetDocumentId } as z.input<typeof fiscalDocumentsListFormSchema>, (errors) => setFilterValidationError(Object.values(flattenFormErrors(errors))[0]));
+      if (!values) throw new Error('Revise os filtros da consulta fiscal.');
+      setFilterValidationError(null);
+      return fetchFiscalDocumentsList(values);
+    },
     enabled: canViewFiscal,
     staleTime: 0,
   });
@@ -107,9 +105,9 @@ export function useFiscalDocumentsList(canViewFiscal: boolean) {
   const orderNumbers = fiscalDocumentsQuery.data?.orderNumbers ?? {};
   const cancellationEligibility = fiscalDocumentsQuery.data?.cancellationEligibility ?? {};
   const loading = fiscalDocumentsQuery.isFetching;
-  const loadError = fiscalDocumentsQuery.isError
+  const loadError = filterValidationError || (fiscalDocumentsQuery.isError
     ? 'Falha ao consultar as notas fiscais. Tente atualizar a lista.'
-    : null;
+    : null);
 
   const loadDocuments = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['fiscal-documents'] });

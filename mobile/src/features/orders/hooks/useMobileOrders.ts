@@ -21,11 +21,11 @@ export function useMobileOrders() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const { validateAndRun: validateList } = useZodForm(orderListFormSchema, { page: currentPage, search: searchTerm, status: statusFilter });
+  const { validateValues: validateList } = useZodForm(orderListFormSchema, { page: currentPage, search: searchTerm, status: statusFilter });
 
   const refresh = useCallback(
     async (pull = false, page = currentPage) => {
-      const values = await validateList({ page, search: searchTerm, status: statusFilter }, (values) => values,
+      const values = await validateList({ page, search: searchTerm, status: statusFilter },
         (errors) => Alert.alert('Revise os filtros', Object.values(flattenFormErrors(errors))[0]));
       if (!values) return;
       pull ? setRefreshing(true) : setLoading(true);

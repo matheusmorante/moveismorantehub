@@ -16,7 +16,7 @@ export const usePurchases = (filters: PurchaseFilters = {}) => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const { validateAndRun: validateList } = useZodForm(purchaseListFormSchema, { page, ...filters });
+  const { validateValues: validateList } = useZodForm(purchaseListFormSchema, { page, ...filters });
 
   const loadPurchases = useCallback(
     async (isRefresh = false, pageNum = 0) => {
@@ -32,7 +32,7 @@ export const usePurchases = (filters: PurchaseFilters = {}) => {
 
       try {
         setError(null);
-        const values = await validateList({ ...filters, page: pageNum }, (values) => values,
+        const values = await validateList({ ...filters, page: pageNum },
           (errors) => setError(Object.values(flattenFormErrors(errors))[0]));
         if (!values) return;
         const { page: validatedPage, ...validatedFilters } = values;

@@ -1,5 +1,3 @@
-import { ZodForm } from '@/components/forms/ZodForm';
-import { searchFormSchema } from '@/shared-utils/lookupFormSchemas';
 import { Search, X, Loader2, Compass, Tag, ChevronRight, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SEARCH_PLACEHOLDER } from './constants';
@@ -67,7 +65,7 @@ export function DesktopSearchBar({
 }: DesktopSearchBarProps) {
   return (
     <div ref={searchContainerRef} className="hidden lg:block flex-1 max-w-xl mx-6 relative">
-      <ZodForm schema={searchFormSchema} values={{ search: query }} onSubmit={onSubmit} className="relative w-full">
+      <form noValidate onSubmit={onSubmit} className="relative w-full">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none z-10" />
         <input
           type="search"
@@ -82,7 +80,7 @@ export function DesktopSearchBar({
           className="w-full h-11 pl-11 pr-4 rounded-full border border-gray-200 bg-gray-50 text-sm
             focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-gray-400"
         />
-      </ZodForm>
+      </form>
 
       {/* Dropdown de Sugestões Inteligentes */}
       {showSuggestions && (
@@ -251,7 +249,7 @@ export function MobileSearchOverlay({
       ref={searchContainerRef}
       className="lg:hidden absolute inset-x-0 top-full bg-white border-b border-gray-100 shadow-lg z-50 px-4 py-3 animate-in slide-in-from-top-2 duration-200"
     >
-      <ZodForm schema={searchFormSchema} values={{ search: query }} onSubmit={onSubmit} className="flex gap-2 items-center">
+      <form noValidate onSubmit={onSubmit} className="flex gap-2 items-center">
         <SearchInput
           value={query}
           onChange={setQuery}
@@ -271,7 +269,7 @@ export function MobileSearchOverlay({
         >
           <X className="h-5 w-5" />
         </Button>
-      </ZodForm>
+      </form>
 
       {/* Sugestões no Mobile */}
       {showSuggestions && (

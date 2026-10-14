@@ -4,6 +4,7 @@ import { validateNfeAccessKey } from './nfeAccessKeyValidation';
 
 export const manualScanFormSchema = z.object({ code: z.string().trim().min(1, 'Informe o código.') });
 export const searchFormSchema = z.object({ search: z.string() });
+export const submittedSearchFormSchema = z.object({ search: z.string().trim().min(1, 'Informe o texto da busca.') });
 export const inboundXmlFormSchema = z.object({
   xml: z.string().refine((value) => Boolean(value.trim()), 'Selecione um arquivo XML ou cole o conteúdo do XML da NF-e.'),
 });

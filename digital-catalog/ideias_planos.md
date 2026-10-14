@@ -54,3 +54,5 @@ Este documento serve para guardar ideias de melhorias futuras para o sistema da 
 
 
 
+
+- **Continuação RHF (14/10):** eliminadas cópias dos contratos Zod em favor de reexports de `../shared-utils`; Next passa a incluir a raiz compartilhada. Editor de produto e seus anexos/variações têm integração conferida; buscas desktop/móvel/sugestões agora possuem proprietário único com RHF. Build e typecheck do catálogo passaram. A conferência global dos formulários permanece no inventário central.

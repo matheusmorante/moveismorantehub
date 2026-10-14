@@ -57,7 +57,7 @@ export function Header() {
         ref={search.searchContainerRef as any}
         className="lg:hidden px-6 pb-4 pt-2 border-t border-gray-100/50 bg-white flex flex-col justify-center items-center relative"
       >
-        <form onSubmit={search.submit} className="flex w-full max-w-md items-center">
+        <form noValidate onSubmit={search.submit} className="flex w-full max-w-md items-center">
           <SearchInput
             value={search.query}
             onChange={search.setQuery}

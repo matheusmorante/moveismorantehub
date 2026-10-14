@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZodForm } from './ZodForm';
 import { bulkAttributeFormSchema, bulkNcmFormSchema, catalogNameFormSchema, cartesianVariationFormSchema } from '../../../../shared-utils/catalogFormSchemas';
-import { inboundAccessKeyFormSchema, manualScanFormSchema } from '../../../../shared-utils/lookupFormSchemas';
+import { inboundAccessKeyFormSchema, manualScanFormSchema, submittedSearchFormSchema } from '../../../../shared-utils/lookupFormSchemas';
 import { stockUnavailabilityFormSchema } from '../../../../shared-utils/operationsFormSchemas';
 
 const { error } = vi.hoisted(() => ({ error: vi.fn() }));
@@ -28,6 +28,22 @@ describe('controlled form boundary', () => {
 });
 
 describe('shared small form contracts', () => {
+  it('blocks empty submitted searches and delivers the trimmed text to navigation', async () => {
+    const navigate = vi.fn();
+    const { rerender } = render(<ZodForm schema={submittedSearchFormSchema} values={{ search: '   ' }} onValid={navigate}><button>Buscar</button></ZodForm>);
+    fireEvent.submit(screen.getByRole('button').closest('form')!);
+    await waitFor(() => expect(error).toHaveBeenCalled());
+    expect(navigate).not.toHaveBeenCalled();
+    rerender(<ZodForm schema={submittedSearchFormSchema} values={{ search: ' Mesa azul ' }} onValid={navigate}><button>Buscar</button></ZodForm>);
+    fireEvent.submit(screen.getByRole('button').closest('form')!);
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ search: 'Mesa azul' }));
+  });
+  it('delivers transformed values to the effect rather than the controlled snapshot', async () => {
+    const save = vi.fn();
+    render(<ZodForm schema={bulkNcmFormSchema} values={{ ncm: '9403.50.00' }} onValid={save}><button>Salvar NCM</button></ZodForm>);
+    fireEvent.submit(screen.getByRole('button').closest('form')!);
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ ncm: '94035000' }));
+  });
   it('validates masked NCM without accepting an incomplete code', () => {
     expect(bulkNcmFormSchema.parse({ ncm: '9403.50.00' }).ncm).toBe('94035000');
     expect(bulkNcmFormSchema.safeParse({ ncm: '9403' }).success).toBe(false);

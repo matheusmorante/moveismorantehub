@@ -505,11 +505,9 @@ export function useFinancialAiChat({
 
     setRegistering(true);
     markActiveTimelineCard('SAVING');
-
-    const draftIdKey = `${pendingIntent.supplier || pendingIntent.description}_${pendingIntent.totalAmount || pendingIntent.amount}_${pendingIntent.installmentList?.length || 1}`;
+    try {
+    const draftIdKey = `${values.supplier || values.description}_${values.totalAmount || values.amount}_${values.installmentList?.length || 1}`;
     const res = await confirmFinancialDraft(values as ParsedFinancialIntent, draftIdKey, userName);
-
-    setRegistering(false);
 
     if (res.success) {
       finishActiveTimelineCard('SAVED');
@@ -519,6 +517,12 @@ export function useFinancialAiChat({
     } else {
       markActiveTimelineCard('ERROR');
       Alert.alert('Erro ao Salvar', res.error || 'Nao foi possivel registrar a movimentacao.');
+    }
+    } catch (error) {
+      markActiveTimelineCard('ERROR');
+      Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Não foi possível registrar a movimentação.');
+    } finally {
+      setRegistering(false);
     }
     }, (errors) => Alert.alert('Revise a movimentação', Object.values(flattenFormErrors(errors))[0]));
   };
@@ -541,6 +545,9 @@ export function useFinancialAiChat({
 
       setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, 'ERROR'));
       Alert.alert('Erro ao Salvar', res.error || 'Nao foi possivel registrar a movimentacao.');
+    } catch (error) {
+      setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, 'ERROR'));
+      Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Não foi possível registrar a movimentação.');
     } finally {
       confirmingTimelineCardIdsRef.current.delete(cardId);
     }

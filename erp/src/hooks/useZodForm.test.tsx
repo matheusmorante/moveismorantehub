@@ -7,6 +7,19 @@ import { useZodForm } from './useZodForm';
 afterEach(cleanup);
 describe('React Hook Form with the shared Zod resolver', () => {
   const schema = z.object({ name: z.string().trim().min(1), quantity: z.number().positive() });
+  it('validates concurrent query snapshots in order without dropping the newest or stalling after invalid input', async () => {
+    const asyncSchema = schema.refine(async () => { await Promise.resolve(); return true; });
+    const { result } = renderHook(() => useZodForm(asyncSchema, { name: '', quantity: 0 }));
+    await act(async () => {
+      const values = await Promise.all([
+        result.current.validateValues({ name: ' First ', quantity: 1 }),
+        result.current.validateValues({ name: ' Second ', quantity: 2 }),
+        result.current.validateValues({ name: '', quantity: 0 }),
+        result.current.validateValues({ name: ' Last ', quantity: 3 }),
+      ]);
+      expect(values).toEqual([{ name: 'First', quantity: 1 }, { name: 'Second', quantity: 2 }, false, { name: 'Last', quantity: 3 }]);
+    });
+  });
   it('blocks invalid submission before the persistence callback', async () => {
     const action = vi.fn();
     const invalid = vi.fn();

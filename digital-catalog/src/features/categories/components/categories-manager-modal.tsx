@@ -257,7 +257,7 @@ export function CategoriesManagerModal({
         {/* MODAL DE CRIAÇÃO/EDIÇÃO DETALHADA */}
         <Dialog open={isEditingDialogOpen} onOpenChange={setIsEditingDialogOpen}>
           <DialogContent className="sm:max-w-md rounded-2xl z-[100]">
-            <form onSubmit={handleSave}>
+            <form noValidate onSubmit={handleSave}>
               <DialogHeader>
                 <DialogTitle className="text-base font-bold">
                   {currentCategory ? 'Editar Item' : 'Novo Item'}

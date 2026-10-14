@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { labelGridModelDraftFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
+import { labelGridModelDraftFormSchema, labelDefaultLayoutFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
 import { getSettings, saveSettings, subscribeToSettings } from '../../../../utils/settingsService';
 import {
   deleteRemoteLabelLayout,
@@ -79,6 +79,7 @@ export const useLabelLayouts = ({
   );
   const modelForm = useZodForm(labelGridModelDraftFormSchema, { name: '', columns: 1, rows: 1, marginT: 0, marginB: 0, marginL: 0, marginR: 0, gapH: 0, gapV: 0, paperSize: 'A4', icon: '' });
   const configRef = useRef(config);
+  const defaultForm = useZodForm(labelDefaultLayoutFormSchema, { modelId: '', category: '', type: 'rect' });
   configRef.current = config;
 
   const prevCategoryRef = useRef<CategoryType | null>(null);
@@ -251,17 +252,18 @@ export const useLabelLayouts = ({
     const model = [...DEFAULT_LAYOUT_MODELS, ...customLayouts].find((m) => m.id === modelId);
     if (!model) return;
 
-    const key = `${category}_${model.type || 'rect'}`;
-    const newDefaults = { ...defaultLayoutIds, [key]: modelId };
-    setDefaultLayoutIds(newDefaults);
+    return defaultForm.validateAndRun({ modelId, category, type: model.type || 'rect' }, async (values) => {
+    const key = `${values.category}_${values.type}`;
+    const newDefaults = { ...defaultLayoutIds, [key]: values.modelId };
 
     // Persist to Supabase app settings
     const currentSettings = getSettings();
-    saveSettings({
+    await saveSettings({
       ...currentSettings,
       defaultLabelLayoutIds: newDefaults,
     })
       .then(() => {
+        setDefaultLayoutIds(newDefaults);
         toast.info(
           `Modelo definido como padrão para ${model.type === 'round' ? 'etiquetas redondas' : 'etiquetas retangulares'} (Salvo na nuvem).`
         );
@@ -270,6 +272,7 @@ export const useLabelLayouts = ({
         console.error('Erro ao salvar modelo padrão', err);
         toast.error('Erro ao salvar modelo padrão na nuvem.');
       });
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const handleDeleteLayout = async (modelId: string) => {

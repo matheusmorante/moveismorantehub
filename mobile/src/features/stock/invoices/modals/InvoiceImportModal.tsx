@@ -174,13 +174,13 @@ export const InvoiceImportModal: React.FC<Props> = ({
                 </View>
               </View>
 
-              {accessKey && !isAccessKeyValid ? <Text style={{ color: '#dc2626', marginTop: 8 }}>Informe uma chave NF-e válida de 44 caracteres, incluindo o dígito verificador.</Text> : null}
             )}
 
             <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
               <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
                 Consultar Chave de Acesso
               </Text>
+              {accessKey && !isAccessKeyValid ? <Text style={{ color: '#dc2626', marginTop: 8 }}>Informe uma chave NF-e válida de 44 caracteres, incluindo o dígito verificador.</Text> : null}
 
               <View style={styles.inputRow}>
                 <View style={[styles.inputWrapper, isDarkMode && styles.inputWrapperDark]}>

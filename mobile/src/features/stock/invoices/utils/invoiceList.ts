@@ -52,7 +52,7 @@ export const buildInboundInvoiceSearchFilter = (searchTerm: string): string | nu
     filters.push(`emitente_cnpj.ilike.${numericPattern}`, `chave_acesso.ilike.${numericPattern}`);
   }
   const fiscalIdentifier = normalizeFiscalIdentifier(term);
-  if (/[A-Z]/.test(fiscalIdentifier) && /^[A-Z0-9]+$/.test(fiscalIdentifier)) {
+  if (/[A-Z]/.test(fiscalIdentifier) && /\d/.test(fiscalIdentifier) && /^[A-Z0-9]+$/.test(fiscalIdentifier)) {
     filters.push(`emitente_cnpj.ilike.*${fiscalIdentifier}*`, `chave_acesso.ilike.*${fiscalIdentifier}*`);
   }
 

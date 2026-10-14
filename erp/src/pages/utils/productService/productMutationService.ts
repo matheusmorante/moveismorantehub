@@ -27,6 +27,7 @@ import { mapFromDB, mapToDB } from './productMapper';
 import { ensureUuidFormat, syncProductToSupabase } from './productPersistenceService';
 import { checkSkusUniquenessBatch, generateUniqueCode, TABLE_NAME } from './productSkuService';
 import { formatProductTextData } from './productValidation';
+import { triggerProductMetaCatalogSync } from './productMetaCatalogSync';
 
 const invalidateProductQueries = () => {
   try {
@@ -162,6 +163,7 @@ export const saveProduct = async (
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('product-updated', { detail: { productId: resolvedId } }));
   }
+  triggerProductMetaCatalogSync(resolvedId);
   return resolvedId;
 };
 
@@ -299,6 +301,7 @@ export const updateProduct = async (
     currentProducts.push(fullProduct);
     saveLocalProducts(currentProducts);
     notifySubscribers();
+    triggerProductMetaCatalogSync(resolvedId);
     return;
   }
 
@@ -318,6 +321,7 @@ export const updateProduct = async (
   // Sincronizar com Supabase e aguardar conclusão
   await syncProductToSupabase(updatedProduct);
   if (!options.deferQueryInvalidation) invalidateProductQueries();
+  triggerProductMetaCatalogSync(resolvedId);
 };
 
 export const bulkMoveToTrash = async (

@@ -26,9 +26,9 @@ Todos os caminhos abaixo precisam de conferência individual. `Manual` significa
 | [ ] | `pages/App/Variations/hooks/useCharacteristicForm.ts:67` | formData/options | fila de autosave + closeModal | validateCharacteristicSnapshot; não tem botão submit final |
 | [ ] | `pages/App/Products/components/modals/attributes/ManageAttributesModal.tsx:70` | newAttrName, newDataType, newDecimalPlaces, newUnit, tempValues | handleSaveAttribute; handleAddValueToExisting | múltiplas operações |
 | [ ] | `pages/App/Products/components/variationTabs/VariationAttributeValueInput.tsx:60` | attributeId, value | handleRegisterNewValue | gravação independente dentro de formulário |
-| [ ] | `pages/App/Products/ProductTypes/Index.tsx:78` | newName | handleAdd | manual/required |
-| [ ] | `pages/App/Products/components/modals/product/ProductTypeManagementModal.tsx:132` | newName | handleAdd | mesmo domínio, outro proprietário |
-| [ ] | `pages/App/Products/components/modals/product/ProductMaterialManagementModal.tsx:144` | newName | handleAdd | manual |
+| [x] | `pages/App/Products/ProductTypes/Index.tsx:78` | newName | handleAdd | manual/required |
+| [x] | `pages/App/Products/components/modals/product/ProductTypeManagementModal.tsx:132` | newName | handleAdd | mesmo domínio, outro proprietário |
+| [x] | `pages/App/Products/components/modals/product/ProductMaterialManagementModal.tsx:144` | newName | handleAdd | manual |
 | [ ] | `pages/App/Products/Categories/modals/CategoryEnvironmentModal.tsx:77` | formData | onSave (hook de categorias) | categoria dinâmica, não ENUM |
 | [ ] | `pages/App/Products/components/modals/variations/CartesianVariationModal.tsx:84` | selectedOptions/attributes | handleGenerate | geração de variantes locais |
 | [ ] | `pages/App/Products/components/modals/product/ProductConversionModal.tsx:118` | attrName, attrValue | handleConvert | conversão altera agregado |
@@ -52,11 +52,11 @@ Todos os caminhos abaixo precisam de conferência individual. `Manual` significa
 | [ ] | `pages/App/SalesOrder/OrderHistoryList/ReturnConfirmationModal.tsx` | confirmação/itens de devolução | callback de confirmação | conferir payload efetivo |
 | [ ] | `pages/App/SalesOrder/OrderHistoryList/ReturnFulfillmentConfirmModal.tsx` | confirmação recebimento | callback de confirmação | conferir payload efetivo |
 | [ ] | `pages/App/SalesOrder/components/SmartAIFillModal.tsx:116` | promptText, manualJSON, lastParsedResult | handleGenerateAI; handleProcessManualJSON; handleConfirmApply | entrada assistida não deve contornar schema do pedido |
-| [ ] | `pages/App/SalesOrder/AssemblyList/Index.tsx:69` | item, date, time, type, status | handleSave | montagem |
-| [ ] | `pages/App/Logistics/components/ShowcaseAssemblyModal.tsx:42` | formData | handleSubmit | montagem de mostruário |
-| [ ] | `pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx:61` | item, date, time | handleSave | outro caminho de montagem |
+| [x] | `pages/App/SalesOrder/AssemblyList/Index.tsx:69` | item, date, time, type, status | handleSave | montagem |
+| [x] | `pages/App/Logistics/components/ShowcaseAssemblyModal.tsx:42` | formData | handleSubmit | montagem de mostruário |
+| [x] | `pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx:61` | item, date, time | handleSave | outro caminho de montagem |
 | [x] | `pages/App/SalesOrder/Reports/modals/ReportConfigModal.tsx:86` | source, mapping, name, thresholds, csvData | handleSave → form.submit → onSave(values) | reportConfigFormSchema; erro visível; CSV mantém parser/owner existentes; 6 testes de configuração em reportForms.test.tsx |
-| [ ] | `pages/App/SalesOrder/Reports/modals/ProductReferenceModal.tsx:147` | newMaster, newReference, selectedSupplier | handleAdd | referência de produto |
+| [x] | `pages/App/SalesOrder/Reports/modals/ProductReferenceModal.tsx:147` | newMaster, newReference, selectedSupplier | handleAdd | referência de produto |
 | [x] | `pages/App/SalesOrder/Reports/modals/ItemExclusionModal.tsx:24` | localExcludedItems | handleConfirm → form.submit → onConfirm(values.excludedItems) | itemExclusionFormSchema; erro impede confirmar/fechar; preserva exclusões fora do filtro; 3 testes em reportForms.test.tsx |
 | [ ] | `pages/App/SalesOrder/Reports/components/ReportView.tsx:516` | reportName, reportConfig, productMappings | autosave / handleUpdateReport | debounce também é submissão |
 | [ ] | `pages/App/Finance/Transactions/index.tsx:70` | formData | handleSaveTransaction | modal por botão |
@@ -69,12 +69,12 @@ Todos os caminhos abaixo precisam de conferência individual. `Manual` significa
 | [ ] | `pages/App/Stock/Receipts/hooks/useReceiptForm.ts:352` | supplierId, items/inboundItems, custos, receiptDate, fiscalKey, attachments | handleFinalize; draft autosave:285 | validação manual de vínculos/itens/chave |
 | [ ] | `pages/App/Stock/Receipts/modals/ReceiptAIFillModal.tsx:178` | text | interpretar/aplicar entrada assistida | schema final no recebimento |
 | [ ] | `pages/App/Stock/Movements/modals/InventoryMoveEditModal.tsx:55` | type, quantity, date, observation | handleSave | edição de movimento |
-| [ ] | `pages/App/Stock/Movements/modals/InventoryMoveDeleteModal.tsx:43` | reason | handleSubmit | justificativa de exclusão |
+| [x] | `pages/App/Stock/Movements/modals/InventoryMoveDeleteModal.tsx:43` | reason | handleSubmit | justificativa de exclusão |
 | [ ] | `pages/App/Stock/modals/StockLaunchModal.tsx:96` | type, quantity, newDesiredStock, reason | handleSave | múltiplos tipos de lançamento |
 | [ ] | `pages/App/Stock/Unavailabilities/modals/UnavailabilityFormModal.tsx:47` | hook form state | actions.handleSubmit | indisponibilidade |
 | [ ] | `pages/App/Stock/Inventory/modals/InventoryScopeModal.tsx:45` | scopeType, selectedSupplierId, selectedResponsibleId | handleConfirm | campos em InventoryScopeConfigForm |
 | [ ] | `pages/App/Stock/Inventory/modals/InventoryReviewModal.tsx:271` | reconciledItems/physicalCount | onConfirm | contagem/conferência antes de persistir |
-| [ ] | `pages/App/Stock/InboundInvoices/modals/QuickRegisterVariationModal.tsx:58` | sku/suffix/ean/attributes | handleSubmit | cadastro rápido independente |
+| [x] | `pages/App/Stock/InboundInvoices/modals/QuickRegisterVariationModal.tsx:58` | sku/suffix/ean/attributes | handleSubmit | cadastro rápido independente |
 | [ ] | `pages/App/Stock/InboundInvoices/modals/InboundAccessKeyModal.tsx:36` | accessKey | handleSubmit (Enter e botão) | duas entradas para mesmo handler |
 | [ ] | `pages/App/Stock/InboundInvoices/modals/InboundDocumentImportModal.tsx:178` | accessKey | handleDirectSefazQuery / handleScan | consulta externa; não executar na migração |
 | [ ] | `pages/App/Stock/InboundInvoices/modals/InboundXmlImportModal.tsx:52` | xmlText/file | handleProcessImport | parser XML + domínio |
@@ -87,16 +87,16 @@ Todos os caminhos abaixo precisam de conferência individual. `Manual` significa
 | [ ] | `pages/App/FiscalDocuments/components/NfeOperationDraftSetup.tsx:147` | kind/source/justification | onPrepare | preparar devolução/estorno fiscal |
 | [ ] | `pages/App/FiscalDocuments/hooks/useFiscalCceModal.ts:94` | cceText | handleSubmit / handleReconcile | CC-e histórica; não habilitar nova transmissão |
 | [ ] | `pages/App/Settings/index.tsx:61` | settings + path/value | handleChange → debounce/saveSettings | proprietário de todas as seções de configuração abaixo |
-| [ ] | `pages/App/Settings/components/general/ProductMaterialsSection.tsx:44` | newMaterial/newType | handleAddMaterial; handleAddType:65 | duas submissões nativas independentes |
+| [x] | `pages/App/Settings/components/general/ProductMaterialsSection.tsx:44` | newMaterial/newType | handleAddMaterial; handleAddType:65 | duas submissões nativas independentes |
 | [ ] | `pages/App/Settings/components/fiscal/HmlCsosnSettings.tsx:32` | csosn | save | CSOSN restrito à homologação |
 | [ ] | `pages/App/Settings/components/fiscal/NcmManagementPanel.tsx:318` | preview, selectedProducts, destination, correlationType/version | applySync; applyProductReview:337; saveCorrelation:370 | três operações; busca separada |
 | [ ] | `pages/App/Settings/components/integrations/WhatsAppConfigSection.tsx:55` | settings/testPhone/template parameters | handleTestConnection; handleTestTemplateSend:99 | envio externo requer autorização prévia, só integrar validação |
 | [ ] | `pages/App/ApiUsage/components/ApiConfigEditModal.tsx:25` | formData | handleSave | configuração API |
 | [ ] | `pages/App/Marketing/Posts/components/CampaignManagerModal.tsx:34` | editing | save | campanha |
 | [ ] | `pages/App/Marketing/Posts/components/GeneralCampaignRules.tsx:59` | rules | onSubmit → saveGlobalRules | regras de campanha |
-| [ ] | `pages/App/Marketing/Posts/components/ModelFormModal.tsx:248` | name,prompt,format,assets,extras | submit; generatePreview | modelo de post |
+| [x] | `pages/App/Marketing/Posts/components/ModelFormModal.tsx:248` | name,prompt,format,assets,extras | submit; generatePreview | modelo de post |
 | [ ] | `pages/App/Marketing/Posts/components/PostCreatorModelModal.tsx:85` | name,prompt,references,opportunityId | submit | outro modelo de criador |
-| [ ] | `pages/App/Marketing/Posts/components/Assets/AssetLibraryModal.tsx:57` | uploadUrl, uploadName | handleAddCustomAsset | ativo por URL |
+| [x] | `pages/App/Marketing/Posts/components/Assets/AssetLibraryModal.tsx:57` | uploadUrl, uploadName | handleAddCustomAsset | ativo por URL |
 | [ ] | `pages/App/Marketing/Posts/components/PostsLibrary/UploadPostModal.tsx:116` | form, file, produto/campanha | handleUpload | upload de post |
 | [ ] | `pages/App/Marketing/Posts/components/Editor/ElementModelsPanel.tsx:35` | name/layer props | save | modelo de elemento |
 | [ ] | `pages/App/Marketing/Posts/index.tsx:234` | campaign/global rules/model config | saveCampaign; autosave configuration | caminhos inline fora dos modais |
@@ -159,7 +159,7 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | components/shared/AddressAutocompleteInput.tsx:206 | suggestions, isOpen, loading | handleInputChange, handleSelectSuggestion | nenhum símbolo explícito neste arquivo |
 | [ ] | components/shared/AIChatAssistant.tsx:493 | internalIsOpen, settings, messages, geminiHistory, input, isLoading, isListening, isCallMode, isAutoSpeakEnabled | handleGlobalOpen, handleSendMessage, handleClearHistory, toggleCallMode, toggleListening | nenhum símbolo explícito neste arquivo |
 | [ ] | components/shared/AttendanceVoiceInput.tsx:137 | isOpen, customerPhone | handleProcess, startRecording, pauseRecording, clearTranscript | nenhum símbolo explícito neste arquivo |
-| [ ] | components/shared/QRScannerModal.tsx:412 | error, step, isInitializing, showManualInput, manualCode, isRecognizingText, isProcessingScan | processingScanRef, startScanner | nenhum símbolo explícito neste arquivo |
+| [x] | components/shared/QRScannerModal.tsx:412 | error, step, isInitializing, showManualInput, manualCode, isRecognizingText, isProcessingScan | processingScanRef, startScanner | nenhum símbolo explícito neste arquivo |
 | [ ] | components/shared/SendWhatsAppModal.tsx:109 | phone, message, isSending | handleSendDirect, handleOpenManual | nenhum símbolo explícito neste arquivo |
 | [ ] | components/shared/ShowTestDataToggle.tsx:17 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | components/SmartInput.tsx:154 | isOpen, dynamicSuggestions, activeIndex, inputValue | handleSelect | nenhum símbolo explícito neste arquivo |
@@ -174,23 +174,23 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Dashboard/components/RegionalHeatmap.tsx:311 | metric, opacity, isLoaded | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Dashboard/Index.tsx:81 | activeTab, period, customStartDate, customEndDate | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/DeliverySchedule/index.tsx:127 | showShowroomModal, orderToEdit, sidebarOpen | handleShare | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx:158 | assemblies, loading, editingId, item, date, time | handleSave, handleEdit, handleDelete | ZodForm, assemblyScheduleFormSchema |
+| [x] | pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx:158 | assemblies, loading, editingId, item, date, time | handleSave, handleEdit, handleDelete | ZodForm, assemblyScheduleFormSchema |
 | [ ] | pages/App/Finance/Payables/index.tsx:137 | payables, loading, loadError, isModalOpen, selectedPayable, search, statusFilter | handleEdit, handleNew, handleModalClose | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Finance/Payables/PayableModal.tsx:200 | loading, categories, formData, expenseType, installmentsCount, recurringFrequency | handleChange, handleSave, handlePay | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Finance/Receivables/index.tsx:137 | receivables, loading, loadError, isModalOpen, selectedReceivable, search, statusFilter | handleEdit, handleNew, handleModalClose | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Finance/Receivables/ReceivableModal.tsx:137 | loading, categories, formData | handleChange, handleSave, handleReceive | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Finance/Settings/index.tsx:103 | loading, config, transactions | handleSave | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Finance/Transactions/index.tsx:201 | transactions, loading, loadError, search, typeFilter, isModalOpen, categories, saving, formData | handleSaveTransaction | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/FiscalDocuments/components/FiscalDocumentsFilterBar.tsx:47 | isMoreFiltersOpen | handlePeriodChange, onSearchSubmit | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/FiscalDocuments/components/FiscalDocumentsFilterBar.tsx:47 | isMoreFiltersOpen | handlePeriodChange, onSearchSubmit | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/FiscalDocuments/components/NfeOperationDraftReview.tsx:37 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/FiscalDocuments/components/NfeOperationDraftSetup.tsx:89 | props/contexto | onPrepare | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/FiscalDocuments/modals/FiscalCancelModal.tsx:124 | props/contexto | onConsultSituation, onConfirmCancel | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/FiscalDocuments/modals/FiscalCceModal.tsx:94 | props/contexto | onReconcile, onSubmit | validateNfeCce |
 | [ ] | pages/App/Logistics/AssemblyListPage.tsx:122 | searchTerm, collapsedSections, isModalOpen, selectedAssembly, selectedOrder | handleDeleteShowcase, handleEditShowcase, handleAddShowcase, handleShareWhatsApp | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Logistics/components/ShowcaseAssemblyModal.tsx:93 | formData, isSaving | handleSubmit | ZodForm, showcaseAssemblyFormSchema |
+| [x] | pages/App/Logistics/components/ShowcaseAssemblyModal.tsx:93 | formData, isSaving | handleSubmit | ZodForm, showcaseAssemblyFormSchema |
 | [ ] | pages/App/Marketing/ChannelCatalog/components/ChannelCatalogHeader.tsx:46 | props/contexto | onSyncAllActive, onRefresh | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/Ambientation/AmbientationStudioModal.tsx:108 | prompt, isGenerating, previewUrl | handleGeneratePrompt, handleSimulateAmbientation | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Marketing/Posts/components/Assets/AssetLibraryModal.tsx:104 | assets, search, selectedCategory, uploadUrl, uploadName | handleAddCustomAsset, handleDelete | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/Marketing/Posts/components/Assets/AssetLibraryModal.tsx:104 | assets, search, selectedCategory, uploadUrl, uploadName | handleAddCustomAsset, handleDelete | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/CampaignManagerModal.tsx:67 | editing, busy | save | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/Campaigns/CampaignSelector.tsx:41 | campaigns, error | createCampaign | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/Editor/ElementModelsPanel.tsx:140 | models, busy | save | nenhum símbolo explícito neste arquivo |
@@ -198,7 +198,7 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Marketing/Posts/components/Editor/ProductPostControls.tsx:30 | prompt | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/Editor/TemplateSelector.tsx:26 | templates | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/GeneralCampaignRules.tsx:66 | value, open, saving, loaded | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Marketing/Posts/components/ModelFormModal.tsx:289 | name, prompt, format, assets, extras, saving, previewImage, previewHash, previewStatus, previewBusy | submit | validateGenerationPreFlight |
+| [x] | pages/App/Marketing/Posts/components/ModelFormModal.tsx:289 | name, prompt, format, assets, extras, saving, previewImage, previewHash, previewStatus, previewBusy | submit | validateGenerationPreFlight |
 | [ ] | pages/App/Marketing/Posts/components/PostCreatorModelModal.tsx:124 | name, prompt, references, opportunityId, saving | submit | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/PostsLibrary/PostsLibraryPage.tsx:161 | posts, loading, uploadOpen, deletingId, filterProductId, filterProductName, filterCampaignId, filterFormat, productSearch, productSuggestions | handleSearchProducts, handleProductSearch, handleDelete, handleDownload | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/PostsLibrary/UploadPostModal.tsx:169 | form, productQuery, productResults, searching, uploading | handleSearchProduct, handleFileChange, handleUpload | validateImageRatio |
@@ -219,10 +219,10 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Products/components/modals/attributes/AttributeSelectionModal.tsx:102 | availableVariations, selectedAttribute, searchTerm | onManageAttributes | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/components/modals/attributes/ManageAttributesModal.tsx:218 | searchTerm, newAttrName, newDataType, newDecimalPlaces, newUnit, tempValues, currentValInput, isSaving, existingValInputs | handleSaveAttribute, handleDeleteValue, handleAddValueToExisting | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/components/modals/product/CategorySearchModal.tsx:88 | search | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Products/components/modals/product/LabelPrintSelectionModal.tsx:197 | allProducts, search, loading, selected | handleConfirm | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/Products/components/modals/product/LabelPrintSelectionModal.tsx:197 | allProducts, search, loading, selected | handleConfirm | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/components/modals/product/ProductConversionModal.tsx:118 | attrName, attrValue | handleConvert | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Products/components/modals/product/ProductMaterialManagementModal.tsx:147 | materials, newName, loading, fetching | handleAdd, handleDelete | ZodForm, catalogNameFormSchema |
-| [ ] | pages/App/Products/components/modals/product/ProductTypeManagementModal.tsx:135 | types, newName, loading, fetching | handleAdd, handleDelete | ZodForm, catalogNameFormSchema |
+| [x] | pages/App/Products/components/modals/product/ProductMaterialManagementModal.tsx:147 | materials, newName, loading, fetching | handleAdd, handleDelete | ZodForm, catalogNameFormSchema |
+| [x] | pages/App/Products/components/modals/product/ProductTypeManagementModal.tsx:135 | types, newName, loading, fetching | handleAdd, handleDelete | ZodForm, catalogNameFormSchema |
 | [ ] | pages/App/Products/components/modals/variations/CartesianVariationModal.tsx:175 | availableVariations, selectedOptions | handleAddAttribute, handleAttributeChange, handleValueToggle, handleGenerate | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/components/ProductFilters.tsx:98 | availableCategories | resetFilters | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/components/tabs/fiscal/ProductFiscalTab.tsx:121 | isInfoModalOpen, pendingCsosn, isCsosnConfirmationOpen | confirmCsosnChange | nenhum símbolo explícito neste arquivo |
@@ -254,7 +254,7 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Products/ProductList/modals/MergeVariationModal.tsx:97 | props/contexto | handleCancel, confirm | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/ProductList/modals/MoveVariationFamily/AttributeConflictResolver.tsx:39 | props/contexto | onAddAttribute | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/ProductList/modals/MoveVariationFamily/FamilySearchSelector.tsx:39 | familySearch, isFamilySuggestionsOpen | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Products/ProductTypes/Index.tsx:83 | types, newName, loading, fetching | handleAdd, handleDelete | ZodForm, catalogNameFormSchema |
+| [x] | pages/App/Products/ProductTypes/Index.tsx:83 | types, newName, loading, fetching | handleAdd, handleDelete | ZodForm, catalogNameFormSchema |
 | [ ] | pages/App/Products/Reconciliation/components/ReconciliationFiltersBar.tsx:46 | searchTerm | handleClearFilters | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/Reconciliation/components/ReconciliationProductCard.tsx:181 | supplierId, categoryId, categoryName, ncm, price, variations, isExpanded, isSaving, hasChanges | handleUpdateVariationAttribute, handleApplySharedAttribute, handleSave | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/Reconciliation/components/SupplierReconciliationFilters.tsx:121 | searchTerm | clearFilters | nenhum símbolo explícito neste arquivo |
@@ -275,7 +275,7 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Registrations/shared/modals/personForm/PersonIdentificationSection.tsx:92 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Registrations/shared/modals/personForm/PersonObservationsSection.tsx:25 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Registrations/shared/modals/PersonImportModal.tsx:352 | file, importData, isImporting, isCompleted, progress, encoding, selectedIndexes, step, csvHeaders, csvRows | handleFileLoad, handleMappingChange, processMappingToPreview, runImport, toggleAll | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/SalesOrder/AssemblyList/Index.tsx:209 | assemblies, loading, showForm, editingAssembly, item, date, time, type, status | handleSave, handleDelete, resetForm | ZodForm, assemblyListFormSchema |
+| [x] | pages/App/SalesOrder/AssemblyList/Index.tsx:209 | assemblies, loading, showForm, editingAssembly, item, date, time, type, status | handleSave, handleDelete, resetForm | ZodForm, assemblyListFormSchema |
 | [ ] | pages/App/SalesOrder/AssistanceOrderModalComponents/AssistanceCustomerSection.tsx:114 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/SalesOrder/AssistanceOrderModalComponents/AssistanceDescriptionSection.tsx:34 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/SalesOrder/AssistanceOrderModalComponents/AssistanceSchedulingSection.tsx:29 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
@@ -311,7 +311,7 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/SalesOrder/PaymentsTable/BodyRow.tsx:201 | isPixModalOpen, isDropdownOpen, tempFeeReais, tempFeePercent | onDelete | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/SalesOrder/Reports/components/ReportView.tsx:1646 | reportName, viewMode, reportType, showFilters, abcBasis, reportSource, reportConfig, selectedSuppliers, searchTerm, minProfit | handleRowClick, handleCloseModal, handleShareWhatsApp, handleSort, handleUpdateReport, saveTimeout | nenhum símbolo explícito neste arquivo |
 | [x] | pages/App/SalesOrder/Reports/modals/ItemExclusionModal.tsx:126 | localExcludedItems, searchTerm, selectedSupplier, selectedQuadrant, sortConfig | handleConfirm; filtros e ordenação locais | useZodForm.submit, itemExclusionFormSchema; callback recebe a seleção atual parseada; reportForms.test.tsx |
-| [ ] | pages/App/SalesOrder/Reports/modals/ProductReferenceModal.tsx:127 | references, loading, newMaster, newReference, searchTerm, selectedSupplier | handleAdd, handleDelete | ZodForm, productReferenceFormSchema |
+| [x] | pages/App/SalesOrder/Reports/modals/ProductReferenceModal.tsx:127 | references, loading, newMaster, newReference, searchTerm, selectedSupplier | handleAdd, handleDelete | ZodForm, productReferenceFormSchema |
 | [x] | pages/App/SalesOrder/Reports/modals/ReportConfigModal.tsx:169 | source, abcBasis, csvData, headers, mapping, name, turnoverThresholdMode, profitThresholdMode, turnoverThreshold, profitThreshold | handleFileUpload; handleSave | useZodForm.submit, reportConfigFormSchema; registros CSV de texto e mapeamento condicional; reportForms.test.tsx |
 | [ ] | pages/App/SalesOrder/ReportsBling/Index.tsx:86 | openMenuId, dateRange | handleCreateReport | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/SalesOrder/ShippingComponents/Agendamento.tsx:163 | props/contexto | handleImmediatePickupToggle | nenhum símbolo explícito neste arquivo |
@@ -328,7 +328,7 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Settings/components/general/CardFlagSettings.tsx:75 | newFlag, addingRateFor, installments, rate | addFlag | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Settings/components/general/ChannelDescriptionsSection.tsx:104 | activeChannel | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Settings/components/general/CompanySettingsSection.tsx:49 | props/contexto | openWhatsApp | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Settings/components/general/ProductMaterialsSection.tsx:146 | materials, productTypes, newMaterial, newType, loadingMaterial, loadingType, fetching | handleAddMaterial, handleAddType, handleDeleteMaterial, handleDeleteType | ZodForm, catalogNameFormSchema |
+| [x] | pages/App/Settings/components/general/ProductMaterialsSection.tsx:146 | materials, productTypes, newMaterial, newType, loadingMaterial, loadingType, fetching | handleAddMaterial, handleAddType, handleDeleteMaterial, handleDeleteType | ZodForm, catalogNameFormSchema |
 | [ ] | pages/App/Settings/components/general/StatusLabelsSection.tsx:89 | props/contexto | addStatus | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Settings/components/integrations/BlingConfigSection.tsx:80 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Settings/components/integrations/WhatsAppConfigSection.tsx:192 | isTesting, isTestingTemplate, isLoadingTemplates, fetchedTemplates, testPhone | handleFieldChange, handleTestConnection, handleFetchTemplates, handleTestTemplateSend | nenhum símbolo explícito neste arquivo |
@@ -376,7 +376,7 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Stock/LabelPrinting/modals/PriceLabelDataFillModal.tsx:136 | dataFillTab, productSearchTerm, searchResults, isSearchingProducts | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/LabelPrinting/modals/PriceLabelTestValuesModal.tsx:117 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/modals/StockLaunchModal.tsx:264 | type, quantity, newDesiredStock, reason, isSaving, moves | handleSave | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Stock/Movements/modals/InventoryMoveDeleteModal.tsx:81 | reason | handleSubmit | ZodForm, inventoryReversalFormSchema |
+| [x] | pages/App/Stock/Movements/modals/InventoryMoveDeleteModal.tsx:81 | reason | handleSubmit | ZodForm, inventoryReversalFormSchema |
 | [ ] | pages/App/Stock/Movements/modals/InventoryMoveEditModal.tsx:179 | type, quantity, date, observation, isSaving | handleSave | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/Purchases/components/PurchaseAttachmentsSection.tsx:43 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/Purchases/components/PurchaseSupplierFilter.tsx:61 | query, isOpen | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
@@ -403,3 +403,13 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/Login/index.tsx:78 | email, password, showPassword, isSubmitting | handleForgotPassword, handleSubmit | useZodForm, loginFormSchema |
 | [ ] | pages/ResetPassword/index.tsx:156 | stage, email, code, password, confirmation, isSubmitting, message | saveNewPassword | useZodForm, passwordRecoveryCodeSchema, passwordRecoveryEmailSchema, passwordSetupFormSchema |
 | [ ] | pages/Signup/index.tsx:85 | email, password, confirmPassword, fullName, showPassword, isSubmitting | handleSubmit | useZodForm, signupFormSchema |
+
+## Conferência desta continuação
+
+As linhas marcadas nesta rodada foram conferidas no callback que recebe os valores parseados (`ZodForm.onValid` ou `validateAndRun`). A prova comum do resolver e da entrega do payload está em `components/forms/ZodForm.test.tsx`; não equivale a executar cada tela no navegador. Contratos e efeitos específicos de marketing/etiquetas têm testes adicionais. Demais checkboxes permanecem pendentes.
+
+- `LabelPrintSelectionModal` valida identificação/quantidade antes de navegar; teste do proprietário bloqueia produto sem identidade e preserva a seleção válida.
+- `ModelFormModal` valida salvar/prévia/anexos separadamente e reconstrói o payload com `buildPostTemplateDraft`, mantendo `imagePrompt` e `aspectRatio`.
+- `StockCheckModal` não possui consumidor ativo. O badge operacional é alternância sem campos; sua operação continua no serviço, sem alegar cobertura pelo modal legado.
+
+- Filtros fiscais: `useFiscalDocumentsList` valida a consulta completa (datas/modelo/status/ambiente/identidade), com fila de validação; 6 testes do proprietário cobrem autorização de leitura, falha de rede, concorrência, troca de nota alvo e contexto do período. O formulário visual de busca continua delegado ao proprietário.

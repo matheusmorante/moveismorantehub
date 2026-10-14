@@ -44,7 +44,7 @@ export default function UnavailabilityFormModal({
           </button>
         </div>
 
-        <form onSubmit={actions.handleSubmit} className="p-6 space-y-5">
+        <form noValidate onSubmit={actions.handleSubmit} className="p-6 space-y-5">
           {/* Seleção do Produto e Variação */}
           <div>
             <span className="block text-sm font-semibold mb-1">

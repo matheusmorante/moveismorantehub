@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import { ZodForm } from '@/components/forms/ZodForm';
 import { catalogNameFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState, useEffect } from 'react';
@@ -43,8 +44,7 @@ export default function ProductCatalogConfigSection() {
     fetchData();
   }, []);
 
-  const handleAddMaterial = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddMaterial = async ({ name: newMaterial }: z.output<typeof catalogNameFormSchema>) => {
     const value = newMaterial.trim().toUpperCase();
     if (!value) return;
     setLoadingMaterial(true);
@@ -64,8 +64,7 @@ export default function ProductCatalogConfigSection() {
     }
   };
 
-  const handleAddType = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddType = async ({ name: newType }: z.output<typeof catalogNameFormSchema>) => {
     const value = newType.trim().toUpperCase();
     if (!value) return;
     setLoadingType(true);
@@ -142,7 +141,7 @@ export default function ProductCatalogConfigSection() {
           </p>
         </div>
 
-        <ZodForm schema={catalogNameFormSchema} values={{ name: newMaterial }} onSubmit={handleAddMaterial} className="flex gap-3 max-w-xl">
+        <ZodForm schema={catalogNameFormSchema} values={{ name: newMaterial }} onValid={handleAddMaterial} className="flex gap-3 max-w-xl">
           <input
             value={newMaterial}
             onChange={(e) => setNewMaterial(e.target.value)}
@@ -198,7 +197,7 @@ export default function ProductCatalogConfigSection() {
           </p>
         </div>
 
-        <ZodForm schema={catalogNameFormSchema} values={{ name: newType }} onSubmit={handleAddType} className="flex gap-3 max-w-xl">
+        <ZodForm schema={catalogNameFormSchema} values={{ name: newType }} onValid={handleAddType} className="flex gap-3 max-w-xl">
           <input
             value={newType}
             onChange={(e) => setNewType(e.target.value)}

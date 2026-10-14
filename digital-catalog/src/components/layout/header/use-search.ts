@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { submittedSearchFormSchema } from '@/shared-utils/lookupFormSchemas';
+import { toast } from 'sonner';
 import {
   filterPublicCatalogSuggestions,
   isCatalogSearchLongEnough,
@@ -17,6 +20,8 @@ export function useSearch() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState(currentSearchParam);
+  const form = useZodForm(submittedSearchFormSchema, { search: query });
+  const { validateValues } = useZodForm(submittedSearchFormSchema, { search: query });
   const inputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
@@ -92,7 +97,9 @@ export function useSearch() {
 
     const timer = setTimeout(async () => {
       try {
-        const cleanQuery = normalizeText(trimmed);
+        const values = await validateValues({ search: trimmed });
+        if (!values || !isCurrent) return;
+        const cleanQuery = normalizeText(values.search);
         const queryTokens = cleanQuery.split(' ').filter((token) => token.length >= 2);
 
         const getSynonyms = (token: string): string[] => {
@@ -132,7 +139,7 @@ export function useSearch() {
         const { data: searchRows, error: prodErr } = await supabase.rpc(
           'search_catalog_product_page',
           {
-            p_search: trimmed,
+            p_search: values.search,
             p_category_ids: null,
             p_environment_category_ids: null,
             p_type: 'all',
@@ -195,16 +202,14 @@ export function useSearch() {
       isCurrent = false;
       clearTimeout(timer);
     };
-  }, [isOpen, query, allDbCategories]);
+  }, [isOpen, query, allDbCategories, validateValues]);
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!query.trim()) return;
+  const submit = form.submit(({ search }) => {
     // Reseta filtros de ambiente e categoria anteriores para busca ampla
-    router.push(`/?search=${encodeURIComponent(query.trim())}`);
+    router.push(`/?search=${encodeURIComponent(search)}`);
     setIsOpen(false);
     setShowSuggestions(false);
-  }
+  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
 
   function close() {
     setIsOpen(false);

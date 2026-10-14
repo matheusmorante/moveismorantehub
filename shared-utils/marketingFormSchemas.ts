@@ -4,6 +4,11 @@ import type { MarketingTemplate } from '../erp/src/pages/App/Marketing/Posts/typ
 const requiredText = z.string().refine((value) => Boolean(value.trim()), 'Preencha este campo.');
 export const marketingAssetFormSchema = z.object({ name: requiredText, url: z.url('Informe uma URL válida.') });
 export const postModelFormSchema = z.object({ name: requiredText, prompt: requiredText, format: z.enum(['4:5', '9:16']) });
+const postModelAsset = z.object({ id: z.string(), name: z.string(), description: z.string().optional(), fileUrl: z.string(), mimeType: z.string() });
+const postModelExtra = z.object({ id: z.string(), name: z.string(), type: z.enum(['TEXT', 'FILE']), textValue: z.string().optional(), fileId: z.string().optional() });
+export const postModelEditorFormSchema = postModelFormSchema.extend({ assets: z.array(postModelAsset), extras: z.array(postModelExtra) });
+export const postModelPreviewFormSchema = postModelEditorFormSchema.extend({ name: z.string() });
+export const postModelFilesFormSchema = z.object({ files: z.array(z.custom<File>((file) => typeof file === 'object' && file !== null && 'type' in file && typeof file.type === 'string' && (/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type) || file.type === 'application/pdf'), 'Use imagens PNG, JPEG, WebP, SVG ou arquivos PDF.')).min(1, 'Selecione um arquivo.') });
 export const postElementModelFormSchema = z.object({
   name: requiredText, prompt: z.string(), elementType: z.string(), opportunityId: z.string(),
 }).superRefine((value, ctx) => {

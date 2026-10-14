@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import { ZodForm } from '@/components/forms/ZodForm';
 import { showcaseAssemblyFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
 import React, { useState, useEffect } from 'react';
@@ -41,8 +42,7 @@ const ShowcaseAssemblyModal = ({ isOpen, onClose, assembly, onSaveSuccess }: Pro
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (formData: z.output<typeof showcaseAssemblyFormSchema>) => {
     if (!formData.description) {
       toast.error('A descrição é obrigatória.');
       return;
@@ -84,7 +84,7 @@ const ShowcaseAssemblyModal = ({ isOpen, onClose, assembly, onSaveSuccess }: Pro
           </button>
         </div>
 
-        <ZodForm schema={showcaseAssemblyFormSchema} values={{...formData}} onSubmit={handleSubmit} className="p-8 space-y-6">
+        <ZodForm schema={showcaseAssemblyFormSchema} values={{...formData}} onValid={handleSubmit} className="p-8 space-y-6">
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">

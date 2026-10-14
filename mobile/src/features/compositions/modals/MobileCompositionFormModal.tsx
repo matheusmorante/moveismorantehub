@@ -11,7 +11,9 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FileText, Package, Grid2X2, Images, Search, Minus, Plus, Trash2, Hammer, Layers, X, Check } from 'lucide-react-native';
+import { fetchMobileProductsPage } from '../../products/services/mobileProductFetchService';
+import { submittedSearchFormSchema } from '../../../../../shared-utils/lookupFormSchemas';
 import type { Composition, CompositionVariationItem } from '../types/composition.type';
 import { saveComposition } from '../services/mobileCompositionService';
 import { z } from 'zod';
@@ -55,18 +57,41 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
     pricing_mode: 'sum',
   });
   const [items, setItems] = useState<CompositionVariationItem[]>([]);
-  const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
+  const [manualPriceInput, setManualPriceInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
-  const formValues = { data: { ...formData, name: formData.name || '', pricing_mode: formData.pricing_mode || 'sum' }, items };
+  const formValues = { data: { ...formData, name: formData.name || '', pricing_mode: formData.pricing_mode || 'sum', manual_price: formData.pricing_mode === 'sum' ? formData.manual_price : manualPriceInput.trim() ? Number(manualPriceInput.trim().replace(',', '.')) : undefined }, items };
   const { validateAndRun } = useZodForm(mobileCompositionFormSchema, formValues);
+  const { validateValues: validateSearch } = useZodForm(submittedSearchFormSchema, { search: searchTerm });
+
+  useEffect(() => {
+    if (!visible || searchTerm.trim().length < 2) { setResults([]); setSearching(false); setSearchError(false); return; }
+    let current = true;
+    setSearching(true);
+    setSearchError(false);
+    const timer = setTimeout(async () => {
+      try {
+        const values = await validateSearch({ search: searchTerm });
+        if (!values || !current) return;
+        const result = await fetchMobileProductsPage(1, 5, { search: values.search, itemType: 'standard', statusFilter: 'active', includeDeactivated: false, throwOnError: true });
+        if (!current) return;
+        setResults(result.data.flatMap((product) => {
+          const variations = (product.allVariations || product.variations || []).filter((variation: any) => variation.active !== false && !variation.merged_to_variation_id);
+          return variations.length ? variations.map((variation: any) => ({ ...product, variation, variationName: variation.name, variationSku: variation.sku, variationPrice: variation.unitPrice ?? variation.price, variationStock: variation.stock })) : [product];
+        }));
+      } catch { if (current) { setResults([]); setSearchError(true); } }
+      finally { if (current) setSearching(false); }
+    }, 300);
+    return () => { current = false; clearTimeout(timer); };
+  }, [visible, searchTerm, validateSearch]);
 
   useEffect(() => {
     if (visible && composition) {
       setFormData(composition);
+      setManualPriceInput(composition.manual_price === undefined ? '' : String(composition.manual_price));
       setItems(composition.variations?.[0]?.items || []);
     } else if (visible) {
       setFormData({
@@ -75,6 +100,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
         pricing_mode: 'sum',
       });
       setItems([]);
+      setManualPriceInput('');
       setActiveTab('info');
     }
   }, [visible, composition]);
@@ -86,7 +112,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
       quantity: 1,
       productName: product.description || product.name,
       productSku: variation ? variation.sku : product.code,
-      unitPrice: variation ? variation.price : product.sellPrice,
+      unitPrice: Number(variation?.unitPrice ?? variation?.price ?? product.unitPrice ?? product.sellPrice ?? product.price ?? 0),
       currentStock: variation ? variation.stock : product.stock,
     };
     setItems([...items, newItem]);
@@ -154,10 +180,10 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
       }}
     >
       {[
-        { id: 'info', label: 'Cadastro Geral', icon: 'document-text-outline' },
-        { id: 'items', label: 'Produtos', icon: 'cube-outline' },
-        { id: 'variations', label: 'VariaÃ§Ãµes', icon: 'grid-outline' },
-        { id: 'images', label: 'Fotos', icon: 'images-outline' },
+        { id: 'info', label: 'Cadastro Geral', icon: FileText },
+        { id: 'items', label: 'Produtos', icon: Package },
+        { id: 'variations', label: 'VariaÃ§Ãµes', icon: Grid2X2 },
+        { id: 'images', label: 'Fotos', icon: Images },
       ].map((tab) => (
         <TouchableOpacity
           key={tab.id}
@@ -171,8 +197,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
             alignItems: 'center',
           }}
         >
-          <Ionicons
-            name={tab.icon as any}
+          <tab.icon
             size={16}
             color={activeTab === tab.id ? themeColors.primary : themeColors.textMuted}
             style={{ marginRight: 8 }}
@@ -304,10 +329,8 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
             placeholder="R$ 0,00"
             keyboardType="numeric"
             placeholderTextColor={themeColors.textMuted}
-            value={formData.manual_price ? String(formData.manual_price) : ''}
-            onChangeText={(text) =>
-              setFormData({ ...formData, manual_price: parseFloat(text) || 0 })
-            }
+            value={manualPriceInput}
+            onChangeText={setManualPriceInput}
           />
         </>
       )}
@@ -351,7 +374,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
             paddingHorizontal: 12,
           }}
         >
-          <Ionicons name="search" size={16} color={themeColors.textMuted} />
+          <Search size={16} color={themeColors.textMuted} />
           <TextInput
             style={{ flex: 1, padding: 12, color: themeColors.text }}
             placeholder="Buscar por nome ou cÃ³digo..."
@@ -396,7 +419,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
                   borderBottomWidth: i < results.length - 1 ? 1 : 0,
                   borderBottomColor: themeColors.border,
                 }}
-                onPress={() => handleAddItem(r)}
+                onPress={() => handleAddItem(r, r.variation)}
               >
                 <Text style={{ fontSize: 12, fontWeight: 'bold', color: themeColors.text }}>
                   {r.name}
@@ -426,7 +449,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
             borderStyle: 'dashed',
           }}
         >
-          <Ionicons name="cube-outline" size={48} color={themeColors.textMuted} />
+          <Package size={48} color={themeColors.textMuted} />
           <Text style={{ color: themeColors.text, fontWeight: 'bold', marginTop: 16 }}>
             ComposiÃ§Ã£o vazia
           </Text>
@@ -497,7 +520,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
                     onPress={() => updateItemQuantity(index, Math.max(1, item.quantity - 1))}
                     style={{ padding: 8 }}
                   >
-                    <Ionicons name="remove" size={16} color={themeColors.text} />
+                    <Minus size={16} color={themeColors.text} />
                   </TouchableOpacity>
                   <Text
                     style={{
@@ -513,14 +536,14 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
                     onPress={() => updateItemQuantity(index, item.quantity + 1)}
                     style={{ padding: 8 }}
                   >
-                    <Ionicons name="add" size={16} color={themeColors.text} />
+                    <Plus size={16} color={themeColors.text} />
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity
                   onPress={() => removeItem(index)}
                   style={{ padding: 8, backgroundColor: '#fee2e2', borderRadius: 8 }}
                 >
-                  <Ionicons name="trash-outline" size={16} color={themeColors.danger} />
+                  <Trash2 size={16} color={themeColors.danger} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -532,7 +555,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
 
   const renderConstructionTab = (name: string) => (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-      <Ionicons name="hammer-outline" size={48} color={themeColors.textMuted} />
+      <Hammer size={48} color={themeColors.textMuted} />
       <Text style={{ color: themeColors.text, fontWeight: 'bold', marginTop: 16 }}>
         Aba {name} em ConstruÃ§Ã£o
       </Text>
@@ -570,14 +593,14 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
                 marginRight: 12,
               }}
             >
-              <Ionicons name="layers-outline" size={20} color={themeColors.primary} />
+              <Layers size={20} color={themeColors.primary} />
             </View>
             <Text style={{ fontSize: 18, fontWeight: 'bold', color: themeColors.text }}>
               {composition ? 'Editar ComposiÃ§Ã£o' : 'Nova ComposiÃ§Ã£o'}
             </Text>
           </View>
           <TouchableOpacity onPress={onClose} style={{ padding: 8 }}>
-            <Ionicons name="close" size={24} color={themeColors.textMuted} />
+            <X size={24} color={themeColors.textMuted} />
           </TouchableOpacity>
         </View>
 
@@ -628,7 +651,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
             {isSaving ? (
               <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
             ) : (
-              <Ionicons name="checkmark" size={16} color="#fff" style={{ marginRight: 8 }} />
+              <Check size={16} color="#fff" style={{ marginRight: 8 }} />
             )}
             <Text style={{ color: '#fff', fontWeight: 'bold' }}>
               {isSaving ? 'Salvando...' : 'Salvar'}
@@ -636,13 +659,6 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-
-      <MobileCompositionSearchModal
-        visible={isProductSearchOpen}
-        onClose={() => setIsProductSearchOpen(false)}
-        onSelect={handleAddItem}
-        isDarkMode={isDarkMode}
-      />
     </Modal>
   );
 };

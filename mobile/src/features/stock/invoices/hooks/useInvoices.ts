@@ -18,7 +18,7 @@ export const useInvoices = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [reloadVersion, setReloadVersion] = useState(0);
   const requestId = useRef(0);
-  const { validateAndRun: validateList } = useZodForm(invoiceListFormSchema, { page: page - 1, searchTerm, dateFilter });
+  const { validateValues: validateList } = useZodForm(invoiceListFormSchema, { page: page - 1, searchTerm, dateFilter });
 
   useEffect(() => {
     const currentRequest = ++requestId.current;
@@ -26,9 +26,9 @@ export const useInvoices = () => {
     setError(null);
 
     const timer = setTimeout(() => {
-      void validateList({ page: page - 1, searchTerm, dateFilter }, (values) => values,
+      void validateList({ page: page - 1, searchTerm, dateFilter },
         (errors) => { if (currentRequest === requestId.current) setError(Object.values(flattenFormErrors(errors))[0]); })
-        .then((values) => values ? stockService.fetchInboundInvoicesPage(values) : false)
+        .then(async (values) => values ? await stockService.fetchInboundInvoicesPage(values) : false)
         .then((result) => {
           if (!result || currentRequest !== requestId.current) return;
           setInvoices(result.invoices);

@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import { ZodForm } from '@/components/forms/ZodForm';
 import { quickRegisterSelectionFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
 import React, { useEffect, useState } from 'react';
@@ -57,16 +58,15 @@ export function QuickRegisterVariationModal({
 
   if (!isOpen || !item) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (mode === 'EXISTING_PARENT') {
-      if (!selectedParent?.id) {
+  const handleSubmit = (values: z.output<typeof quickRegisterSelectionFormSchema>) => {
+    if (values.mode === 'EXISTING_PARENT') {
+      if (!selectedParent?.id || values.parentProductId !== selectedParent.id) {
         toast.warning('Selecione o produto pai.');
         return;
       }
       onConfirmSelection({
         mode: 'EXISTING_PARENT',
-        parentProductId: selectedParent.id,
+        parentProductId: values.parentProductId,
         parentProductName: selectedParent.name,
       });
     } else {
@@ -118,7 +118,7 @@ export function QuickRegisterVariationModal({
           </button>
         </header>
 
-        <ZodForm schema={quickRegisterSelectionFormSchema} values={{ mode, parentProductId: selectedParent?.id }} onSubmit={handleSubmit} className="p-6 space-y-5">
+        <ZodForm schema={quickRegisterSelectionFormSchema} values={{ mode, parentProductId: selectedParent?.id }} onValid={handleSubmit} className="p-6 space-y-5">
           {/* Seleção do Modo de Cadastro */}
           <div className="space-y-2">
             <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">

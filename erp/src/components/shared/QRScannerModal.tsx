@@ -398,10 +398,9 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
             </div>
           ) : (
             <ZodForm schema={manualScanFormSchema} values={{ code: manualCode }}
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (manualCode.trim()) {
-                  parentOnScan(manualCode.trim());
+              onValid={({ code }) => {
+                if (code) {
+                  parentOnScan(code);
                   if (closeOnScan) handleClose();
                 }
               }}

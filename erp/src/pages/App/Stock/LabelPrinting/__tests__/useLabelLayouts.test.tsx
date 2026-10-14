@@ -257,6 +257,17 @@ describe('useLabelLayouts', () => {
     expect(saveSettings).not.toHaveBeenCalled();
   });
 
+  it('valida a categoria antes de persistir o padrão e salva a seleção válida', async () => {
+    const { saveSettings } = await import('../../../../utils/settingsService');
+    const { result } = renderHook(() => useLabelLayouts({ selectedCategory: 'identificacao' }));
+    const model = DEFAULT_LAYOUT_MODELS[0];
+    vi.mocked(saveSettings).mockResolvedValue(undefined);
+    await act(async () => { await result.current.toggleDefaultLayout(model.id, ''); });
+    expect(saveSettings).not.toHaveBeenCalled();
+    await act(async () => { await result.current.toggleDefaultLayout(model.id, 'identificacao'); });
+    expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ defaultLabelLayoutIds: { [`identificacao_${model.type || 'rect'}`]: model.id } }));
+  });
+
   it('sincroniza artConfig do layout selecionado quando disponível em savedArtConfigs', async () => {
     const { result } = renderHook(() => useLabelLayouts({ selectedCategory: 'identificacao' }));
 

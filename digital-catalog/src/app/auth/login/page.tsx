@@ -180,7 +180,7 @@ export default function LoginPage() {
           <CardDescription>Entre com seu e-mail e senha para acessar sua conta.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form noValidate onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
               <Input
@@ -247,7 +247,7 @@ export default function LoginPage() {
           </DialogHeader>
 
           {resetStep === 1 ? (
-            <form onSubmit={handleSendResetCode} className="space-y-4 py-2">
+            <form noValidate onSubmit={handleSendResetCode} className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label htmlFor="resetEmail">E-mail Cadastrado</Label>
                 <Input
@@ -280,7 +280,7 @@ export default function LoginPage() {
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleVerifyCodeAndResetPassword} className="space-y-4 py-2">
+            <form noValidate onSubmit={handleVerifyCodeAndResetPassword} className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label htmlFor="resetCode" className="font-bold flex items-center gap-2">
                   <Mail className="h-4 w-4 text-primary" />

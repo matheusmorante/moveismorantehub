@@ -73,7 +73,7 @@ export function useInboundDocumentImport({
    * Persiste a nota no banco de dados e aciona o callback de sucesso
    */
   const persistAndFinish = async (parsedInvoice: InboundInvoice) => {
-    const validated = await validateAndRun({ ...parsedInvoice }, (data) => data,
+    const validated = await validateAndRun({ ...parsedInvoice, items: parsedInvoice.items.map((item) => ({ ...item })) }, (data) => data,
       (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
     if (!validated) return;
     if (String(parsedInvoice.model || '').replace(/\D/g, '') === '65') {

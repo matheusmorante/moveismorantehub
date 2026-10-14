@@ -16,3 +16,18 @@ export const invoiceDateFilterFormSchema = z.object({
   if (values.mode === 'custom_range' && (!month(values.startMonth) || !month(values.endMonth) || values.startMonth > values.endMonth)) ctx.addIssue({ code: 'custom', path: ['endMonth'], message: 'Informe um intervalo de meses válido.' });
 });
 export const invoiceListFormSchema = z.object({ page: z.number().int().nonnegative(), searchTerm: z.string(), dateFilter: invoiceDateFilterFormSchema });
+export const fiscalDocumentsListFormSchema = z.object({
+  pageIndex: z.number().int().nonnegative(), targetDocumentId: z.string().uuid('Identificação da nota inválida.').nullish(),
+  filters: z.object({
+    search: z.string(), model: z.enum(['all', '55', '65']), environment: z.enum(['all', '1', '2']),
+    status: z.enum(['all', 'pendente', 'processando', 'autorizada', 'homologada', 'cancelada', 'rejeitada', 'denegada', 'erro', 'abandoned']),
+    dateFrom: z.string(), dateTo: z.string(),
+  }),
+}).superRefine((values, ctx) => {
+  // The existing service ignores the period when opening a specific document.
+  if (values.targetDocumentId) return;
+  for (const field of ['dateFrom', 'dateTo'] as const) {
+    if (!z.iso.date().safeParse(values.filters[field]).success) ctx.addIssue({ code: 'custom', path: ['filters', field], message: field === 'dateFrom' ? 'Informe a data inicial.' : 'Informe a data final.' });
+  }
+  if (values.filters.dateFrom > values.filters.dateTo) ctx.addIssue({ code: 'custom', path: ['filters', 'dateTo'], message: 'A data final deve ser igual ou posterior à inicial.' });
+});

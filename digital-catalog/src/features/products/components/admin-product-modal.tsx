@@ -49,7 +49,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Database } from '@/types/database';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { parseStorefrontPrice, storefrontProductDraftFormSchema, storefrontProductFormSchema, storefrontVariationFormSchema, storefrontAttributeFormSchema, storefrontAttributeValueFormSchema, storefrontImageUploadFormSchema } from '@/shared-utils/storefrontProductFormSchemas';
+import { parseStorefrontPrice, storefrontProductDraftFormSchema, storefrontProductFormSchema, storefrontVariationFormSchema, storefrontAttributeFormSchema, storefrontAttributeValueFormSchema, storefrontImageUploadFormSchema, storefrontImageUrlFormSchema } from '@/shared-utils/storefrontProductFormSchemas';
 import type { z } from 'zod';
 import { cn } from '@/lib/utils';
 import { CategoriesManagerModal } from '@/features/categories/components/categories-manager-modal';
@@ -179,6 +179,7 @@ export function AdminProductModal({
   const attributeForm = useZodForm(storefrontAttributeFormSchema, { name: fastAttrName, values: fastAttrValues });
   const attributeValueForm = useZodForm(storefrontAttributeValueFormSchema, { attributeId: '', value: '' });
   const uploadForm = useZodForm(storefrontImageUploadFormSchema, { files: [] });
+  const imageUrlForm = useZodForm(storefrontImageUrlFormSchema, { url: '' });
   const showFormError = (errors: Parameters<typeof flattenFormErrors>[0]) => toast.error(Object.values(flattenFormErrors(errors))[0]);
 
   const getDefaultVariationName = (attributes: Record<string, string> = {}) => {
@@ -1398,16 +1399,21 @@ export function AdminProductModal({
       // 2. Tentar obter a URL de uma imagem arrastada diretamente de outro site
       const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('URL');
       if (imageUrl) {
+        const validatedUrl = await imageUrlForm.validateAndRun({ url: imageUrl }, (values) => values, showFormError);
+        if (!validatedUrl) return;
         setIsSaving(true);
         const toastId = toast.loading('Tentando baixar imagem arrastada do site...');
         try {
-          const response = await fetch(imageUrl);
+          const response = await fetch(validatedUrl.url);
+          if (!response.ok) throw new Error('Não foi possível baixar a imagem.');
           const blob = await response.blob();
           if (!blob.type.startsWith('image/')) {
             throw new Error('O link não corresponde a uma imagem válida.');
           }
           const file = new File([blob], `dragged-${Date.now()}.jpg`, { type: blob.type });
-          const optimizedBlob = await optimizeProductImage(file);
+          const validatedFiles = await uploadForm.validateAndRun({ files: [file] }, (values) => values, showFormError);
+          if (!validatedFiles) { toast.dismiss(toastId); return; }
+          const optimizedBlob = await optimizeProductImage(validatedFiles.files[0]);
           const optimizedFile = new File([optimizedBlob], `dragged-${Date.now()}.jpg`, {
             type: 'image/jpeg',
           });
@@ -1455,6 +1461,7 @@ export function AdminProductModal({
           sm:rounded-[32px] sm:w-[95vw] sm:h-[90vh] sm:max-h-[850px] sm:max-w-[850px]"
       >
         <form
+          noValidate
           onSubmit={handleFinish}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
@@ -2250,6 +2257,7 @@ export function AdminProductModal({
                 <Dialog open={isVarFormOpen} onOpenChange={setIsVarFormOpen}>
                   <DialogContent className="p-0 border-none shadow-2xl bg-white gap-0 w-full h-[90dvh] max-h-[90dvh] rounded-none flex flex-col sm:rounded-[32px] sm:w-[90vw] sm:h-[80vh] sm:max-h-[700px] sm:max-w-[700px] overflow-hidden">
                     <form
+                      noValidate
                       onSubmit={handleSaveVarForm}
                       className="flex flex-col h-full min-h-0 overflow-hidden"
                     >

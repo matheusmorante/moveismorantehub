@@ -2,10 +2,18 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useZodForm } from '@/hooks/useZodForm';
-import { storefrontProductDraftFormSchema, storefrontProductFormSchema, storefrontVariationFormSchema, storefrontAttributeFormSchema, storefrontImageUploadFormSchema, parseStorefrontPrice } from '../../../../shared-utils/storefrontProductFormSchemas';
+import { storefrontProductDraftFormSchema, storefrontProductFormSchema, storefrontVariationFormSchema, storefrontAttributeFormSchema, storefrontImageUploadFormSchema, storefrontImageUrlFormSchema, parseStorefrontPrice } from '../../../../shared-utils/storefrontProductFormSchemas';
 afterEach(cleanup);
 const product = { name: 'Mesa', slug: 'mesa', description: '', price: '1.250,50', promo_price: '', is_salvado: false, opportunity_id: null, category_ids: ['34d868e3-64fd-4909-a126-bdbf96b03b9b'], width: '', depth: '', height: '', depth_use_length: false, images: [] };
 describe('catalog product contracts', () => {
+  it('validates dropped image addresses before the download callback', async () => {
+    const download = vi.fn();
+    const { result } = renderHook(() => useZodForm(storefrontImageUrlFormSchema, { url: '' }));
+    await act(async () => { await result.current.validateAndRun({ url: 'javascript:alert(1)' }, download); });
+    expect(download).not.toHaveBeenCalled();
+    await act(async () => { await result.current.validateAndRun({ url: ' https://example.com/image.jpg ' }, download); });
+    expect(download).toHaveBeenCalledWith({ url: 'https://example.com/image.jpg' });
+  });
   it('preserves the existing currency interpretation', () => {
     expect(parseStorefrontPrice(product.price)).toBe(1250.5);
     expect(parseStorefrontPrice('12.50')).toBe(12.5);

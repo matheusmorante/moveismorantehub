@@ -14,8 +14,8 @@ O [inventário detalhado do ERP](../audits/fiscal-2026-10-14/form-migration-inve
 
 | Aplicação | Arquivos com integração localizada |
 |---|---|
-| erp | 110 |
-| mobile | 29 |
+| erp | 113 |
+| mobile | 34 |
 | digital-catalog | 10 |
 
 ### erp
@@ -36,6 +36,7 @@ O [inventário detalhado do ERP](../audits/fiscal-2026-10-14/form-migration-inve
 - `erp/src/pages/App/FiscalDocuments/components/FiscalDocumentsFilterBar.tsx`
 - `erp/src/pages/App/FiscalDocuments/hooks/useFiscalCancelModal.ts`
 - `erp/src/pages/App/FiscalDocuments/hooks/useFiscalCceModal.ts`
+- `erp/src/pages/App/FiscalDocuments/hooks/useFiscalDocumentsList.ts`
 - `erp/src/pages/App/FiscalDocuments/hooks/useNfeOperationDraft.ts`
 - `erp/src/pages/App/Logistics/components/ShowcaseAssemblyModal.tsx`
 - `erp/src/pages/App/Marketing/Posts/components/Ambientation/AmbientationStudioModal.tsx`
@@ -48,6 +49,7 @@ O [inventário detalhado do ERP](../audits/fiscal-2026-10-14/form-migration-inve
 - `erp/src/pages/App/Marketing/Posts/components/ModelFormModal.tsx`
 - `erp/src/pages/App/Marketing/Posts/components/PostCreatorModelModal.tsx`
 - `erp/src/pages/App/Marketing/Posts/components/PostsLibrary/UploadPostModal.tsx`
+- `erp/src/pages/App/Marketing/Posts/index.tsx`
 - `erp/src/pages/App/Products/Categories/hooks/useCategoriesAndEnvironments.ts`
 - `erp/src/pages/App/Products/Categories/modals/CategoryEnvironmentModal.tsx`
 - `erp/src/pages/App/Products/ProductList/modals/MergeVariation/useMergeVariation.ts`
@@ -59,6 +61,7 @@ O [inventário detalhado do ERP](../audits/fiscal-2026-10-14/form-migration-inve
 - `erp/src/pages/App/Products/Reconciliation/modals/ApplyNcmModal.tsx`
 - `erp/src/pages/App/Products/Reconciliation/modals/ApplySupplierModal.tsx`
 - `erp/src/pages/App/Products/components/modals/attributes/ManageAttributesModal.tsx`
+- `erp/src/pages/App/Products/components/modals/product/LabelPrintSelectionModal.tsx`
 - `erp/src/pages/App/Products/components/modals/product/ProductConversionModal.tsx`
 - `erp/src/pages/App/Products/components/modals/product/ProductMaterialManagementModal.tsx`
 - `erp/src/pages/App/Products/components/modals/product/ProductTypeManagementModal.tsx`
@@ -142,8 +145,10 @@ O [inventário detalhado do ERP](../audits/fiscal-2026-10-14/form-migration-inve
 - `mobile/src/features/finance/hooks/useFinancialAiChat.ts`
 - `mobile/src/features/finance/hooks/useTransactionForm.ts`
 - `mobile/src/features/orders/components/delivery/UnattendedModal.tsx`
+- `mobile/src/features/orders/hooks/useMobileOrders.ts`
 - `mobile/src/features/orders/screens/DeliveryPreparationScreen.tsx`
 - `mobile/src/features/products/categories/hooks/useCategoryFormModal.ts`
+- `mobile/src/features/products/hooks/useMobileProducts.ts`
 - `mobile/src/features/products/modals/AttributesManagerModal.tsx`
 - `mobile/src/features/products/modals/EnvironmentsManagerModal.tsx`
 - `mobile/src/features/products/modals/MobileMergeVariationModal.tsx`
@@ -153,13 +158,16 @@ O [inventário detalhado do ERP](../audits/fiscal-2026-10-14/form-migration-inve
 - `mobile/src/features/schedule/components/CreateEventModal.tsx`
 - `mobile/src/features/stock/inventory/hooks/useInventoryAuditWorkflow.ts`
 - `mobile/src/features/stock/inventory/hooks/useInventoryPersistenceQueue.ts`
+- `mobile/src/features/stock/invoices/hooks/useInvoices.ts`
 - `mobile/src/features/stock/invoices/modals/InboundInvoiceMappingsModal.tsx`
 - `mobile/src/features/stock/invoices/modals/InvoiceImportModal.tsx`
 - `mobile/src/features/stock/moves/modals/InventoryMoveDeleteModal.tsx`
 - `mobile/src/features/stock/moves/modals/InventoryMoveEditModal.tsx`
 - `mobile/src/features/stock/moves/modals/StockPeriodModal.tsx`
 - `mobile/src/features/stock/purchases/PurchaseFormModal.tsx`
+- `mobile/src/features/stock/purchases/usePurchases.ts`
 - `mobile/src/features/stock/suppliers/SupplierFormModal.tsx`
+- `mobile/src/features/stock/suppliers/useSuppliers.ts`
 - `mobile/src/features/stock/unavailabilities/hooks/useMobileUnavailabilityForm.ts`
 - `mobile/src/hooks/useZodForm.ts`
 
@@ -170,7 +178,7 @@ O [inventário detalhado do ERP](../audits/fiscal-2026-10-14/form-migration-inve
 - `digital-catalog/src/app/page.tsx`
 - `digital-catalog/src/app/perfil/page.tsx`
 - `digital-catalog/src/components/forms/ZodForm.tsx`
-- `digital-catalog/src/components/layout/header/search-bar.tsx`
+- `digital-catalog/src/components/layout/header/use-search.ts`
 - `digital-catalog/src/components/layout/user-nav.tsx`
 - `digital-catalog/src/features/categories/components/categories-manager-modal.tsx`
 - `digital-catalog/src/features/products/components/admin-product-modal.tsx`
@@ -182,6 +190,24 @@ Rodada anterior de 131 testes em 10 arquivos aprovada. Na continuação, 41 test
 
 A interface ERP voltou a carregar após reiniciar o servidor local que mantinha um módulo compartilhado antigo. Submissão vazia do login foi bloqueada com erro visível; evidência `scratch/rhf-login-validation.png`. Isso não comprova todos os fluxos pela interface nem execução nativa do móvel.
 
-CSV de pessoas, estoque/conferência, editores de etiquetas/marketing, relatórios e cadastro administrativo do catálogo receberam integração. No móvel, compra, composição, agenda, atributos, importação/vínculos, inventário e edição financeira receberam integração. Ainda é necessário fechar a conferência individual de callbacks e provas dos grupos recentes e dos filtros/buscas inline; o inventário ERP e o censo móvel não são listas encerradas. `StockCheckModal` não possui uso ativo: seu teste não cobre o fluxo operacional de badge. `ProductConfigModal` móvel é navegação e `InventoryReviewModal` ERP é revisão/confirmacão; seus campos pertencem aos proprietários correspondentes. Nenhuma transmissão SEFAZ, gravação comercial remota, nova DDL ou deploy foi usada como verificação.
+CSV de pessoas, estoque/conferência, editores de etiquetas/marketing, relatórios e cadastro administrativo do catálogo receberam integração. No móvel, compra, composição, agenda, atributos, importação/vínculos, inventário e edição financeira receberam integração. Ainda é necessário fechar a conferência individual dos demais proprietários do inventário; o inventário ERP e o censo móvel não são listas encerradas. `StockCheckModal` não possui uso ativo: seu teste não cobre o fluxo operacional de badge. `ProductConfigModal` móvel é navegação e `InventoryReviewModal` ERP é revisão/confirmacão; seus campos pertencem aos proprietários correspondentes. Nenhuma transmissão SEFAZ, gravação comercial remota, nova DDL ou deploy foi usada como verificação.
 
 A auditoria de autoridade do backend e o gerador sintético continuam seguindo sua sequência própria; população em massa não está autorizada por esta migração de interface.
+
+### Continuação conferida
+
+Foram retiradas as oito cópias de schemas do catálogo; os antigos caminhos reexportam a fonte em `shared-utils`. O Next.js inclui a raiz compartilhada no bundler e no rastreamento de arquivos. ERP e catálogo compilaram; o typecheck completo do catálogo passou separadamente, pois o build está configurado previamente para não validar tipos.
+
+`ZodForm.onValid` entrega o resultado parseado ao salvamento; montagens, referências, materiais, tipos, ativos, leitura manual e seleção rápida de variação utilizam esse callback. O modelo de post valida nome/prompt/formato, anexos e extras, com contratos próprios para salvar, gerar prévia sem nome e ler arquivos. Seleção de produtos/quantidades para etiquetas e seleção de modelo padrão passam pelo resolver antes de navegar/persistir.
+
+A rodada do ERP passou em 58 testes em 6 arquivos (`scratch/rhf-latest-regression.log`), incluindo 7 de UI e 21 de API para consulta/transmissão em Produção. Os 11 testes móveis de busca/chave passaram. Os 6 testes de handlers móveis foram preservados em `erp/tests/mobile-forms/owners.test.tsx`; repetir com `npm run test:unit:mobile-forms --prefix erp`. Eles usam RN/serviços simulados e React do ERP, sem substituir prova de execução nativa. Teste real do modal de seleção de etiquetas também passou. As execuções têm sobreposições.
+
+O badge ativo de checagem de estoque dispara somente uma alternância de estado, sem campos: `OrderOperationalBadges.tsx` → `createOrderHistoryOperations.handleStockCheckUpdate`. Ele não usa o modal legado e não é um formulário de quantidades. O teste de `StockCheckModal` continua limitado ao componente legado.
+
+A conferência adicional localizou a busca móvel do catálogo fora do formulário desktop. Ambas agora usam `useSearch.submit`, com schema de busca submetida e prévias passando pela validação em fila em uma intenção separada. Campos filhos permanecem no proprietário; não foi acrescentada uma validação artificial em cada input.
+
+O formulário móvel de composição tinha um componente inexistente e uma dependência de ícones ausente, que impediam a renderização; a busca inline também não tinha requisição conectada. O formulário reutiliza `lucide-react-native` e `fetchMobileProductsPage`, preserva a identidade da variação selecionada, ignora respostas obsoletas e valida o preço manual sem converter texto inválido em zero. O runner móvel passou em 7 testes, incluindo abrir/buscar/selecionar e salvar a composição com preço decimal. Continua sendo teste com serviços/RN simulados, sem gravação remota.
+
+**Verificação final desta rodada:** 48 testes em 9 arquivos ERP passaram, mais 8 testes do boundary de busca/formulário após o ajuste do catálogo; os conjuntos têm sobreposições. Compilação ERP atualizada passou (`scratch/rhf-erp-build-completed-batch.log`); compilação e typecheck completo do catálogo passaram (`rhf-catalog-build-final.log`, `rhf-catalog-typecheck-final.log`); typecheck fiscal ERP passou (`rhf-fiscal-completed-tsc.log`). ESLint dos arquivos ERP alterados: zero erros e 23 avisos. TypeScript global ERP/móvel mantém diagnósticos legados; não está aprovado globalmente. Cobertura ponta a ponta de todas as telas e execução nativa móvel seguem pendentes, além da conferência dos demais proprietários marcados no inventário.
+
+O runner de proprietários móveis fica em `erp/tests/mobile-forms`, fora do `src` do ERP, pois simula superfícies RN de outro projeto/versão de React; não é código de produção. Nenhuma aplicação foi excluída de typecheck para fazer os testes passarem.

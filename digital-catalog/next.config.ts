@@ -3,8 +3,9 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   turbopack: {
-    root: path.resolve(process.cwd()),
+    root: path.resolve(__dirname, '..'),
   },
+  outputFileTracingRoot: path.resolve(__dirname, '..'),
   allowedDevOrigins: ['192.168.100.2'],
   transpilePackages: ['@smithy/core', '@smithy/types'],
   images: {

@@ -7,6 +7,7 @@ import {
   isTestProduct,
   TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
 } from '@/pages/utils/hmlTestData';
+import { triggerProductMetaCatalogSync } from '@/pages/utils/productService/productMetaCatalogSync';
 
 /**
  * Resolve os objetos de variação e produto pai para ações de catálogo
@@ -233,6 +234,9 @@ export const persistCatalogStatus = async (
         }
       }
     }
+    if (parentProduct?.id) {
+      triggerProductMetaCatalogSync(parentProduct.id);
+    }
     return;
   }
 
@@ -274,4 +278,5 @@ export const persistCatalogStatus = async (
         updateProduct(child.id!, { status: newStatus }, { deferQueryInvalidation: true })
       )
   );
+  triggerProductMetaCatalogSync(id);
 };

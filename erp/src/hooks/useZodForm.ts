@@ -14,6 +14,7 @@ export function useZodForm<TSchema extends z.ZodType<FieldValues, FieldValues>>(
   type Output = z.output<TSchema>;
   const currentValues = useRef(values);
   const submissionInFlight = useRef(false);
+  const validationQueue = useRef<Promise<void>>(Promise.resolve());
   currentValues.current = values;
   const form = useForm<Input, unknown, Output>({
     defaultValues: values as DefaultValues<Input>,
@@ -40,6 +41,13 @@ export function useZodForm<TSchema extends z.ZodType<FieldValues, FieldValues>>(
       submissionInFlight.current = false;
     }
   }, [reset, handleSubmit]);
+  // Queries may change while another snapshot is being validated. Serialize only
+  // validation, releasing the form before I/O; every query keeps its own values.
+  const validateValues = useCallback((nextValues: Input, onInvalid?: (errors: FieldErrors<Input>) => void): Promise<Output | false> => {
+    const validation = validationQueue.current.then(() => validateAndRun(nextValues, (data) => data, onInvalid));
+    validationQueue.current = validation.then(() => undefined, () => undefined);
+    return validation;
+  }, [validateAndRun]);
   const submitControlledValues = useCallback(<TResult,>(
     onValid: SubmitHandler<Output, TResult>, onInvalid?: SubmitErrorHandler<Input>,
   ) => async (event?: React.BaseSyntheticEvent): Promise<Awaited<TResult> | undefined> => {
@@ -53,7 +61,7 @@ export function useZodForm<TSchema extends z.ZodType<FieldValues, FieldValues>>(
   }, [validateAndRun]);
   // Using useForm.values would reset again during async validation when a button
   // supplies a different status/number. RHF cancels that pending submission.
-  return { ...form, submit: submitControlledValues, validateAndRun };
+  return { ...form, submit: submitControlledValues, validateAndRun, validateValues };
 }
 
 export function flattenFormErrors(errors: FieldErrors, prefix = ''): Record<string, string> {

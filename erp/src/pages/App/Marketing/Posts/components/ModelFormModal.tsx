@@ -1,5 +1,8 @@
+import type { z } from 'zod';
 import { ZodForm } from '@/components/forms/ZodForm';
-import { postModelFormSchema } from '../../../../../../../shared-utils/marketingFormSchemas';
+import { postModelEditorFormSchema, postModelPreviewFormSchema, postModelFilesFormSchema } from '../../../../../../../shared-utils/marketingFormSchemas';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { toast } from 'react-toastify';
 import React, { useEffect, useMemo, useState } from 'react';
 import { PostModelAsset, PostModelExtra, PostTemplate } from '../types/postTemplate';
 import { usePostEditor } from './Editor/usePostEditor';
@@ -55,6 +58,10 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
   const [previewError, setPreviewError] = useState('');
   const [debugModalOpen, setDebugModalOpen] = useState(false);
   const [productResultsOpen, setProductResultsOpen] = useState(false);
+  const modelValues = { name, prompt, format, assets: assets.map((asset) => ({ ...asset })), extras: extras.map((extra) => ({ ...extra })) };
+  const previewForm = useZodForm(postModelPreviewFormSchema, modelValues);
+  const fileForm = useZodForm(postModelFilesFormSchema, { files: [] });
+  const buildValidatedDraft = (values: z.output<typeof postModelPreviewFormSchema>) => buildPostTemplateDraft({ value, description, ...values, now: new Date().toISOString() });
 
   useEffect(() => {
     setName(value?.name || '');
@@ -189,12 +196,9 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
 
   const addFiles = async (files: FileList | null) => {
     if (!files) return;
+    return fileForm.validateAndRun({ files: [...files] }, async (values) => {
     const added = await Promise.all(
-      [...files]
-        .filter(
-          (file) =>
-            /^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type) || file.type === 'application/pdf'
-        )
+      values.files
         .map(async (file) => ({
           id: crypto.randomUUID(),
           name: file.name,
@@ -203,32 +207,36 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
         }))
     );
     setAssets((current) => [...current, ...added]);
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const generatePreview = async () => {
-    if (!editor.data || !prompt.trim()) return;
+    const productData = editor.data;
+    if (!productData || !prompt.trim()) return;
+    return previewForm.validateAndRun(modelValues, async (values) => {
+    const validatedDraft = buildValidatedDraft(values);
     setPreviewBusy(true);
     setPreviewError('');
 
     try {
       const result = await generatePostModelPreview({
-        model: draft,
+        model: validatedDraft,
         product: {
-          name: editor.data.name,
-          price: editor.data.price,
-          oldPrice: editor.data.oldPrice,
-          installmentValue: (editor.data as any).installmentValue,
+          name: productData.name,
+          price: productData.price,
+          oldPrice: productData.oldPrice,
+          installmentValue: (productData as any).installmentValue,
           mainImageUrl: productImages.primary,
           category: editor.product?.category,
           description: editor.product?.description,
         },
         productId: editor.product?.id || '',
-        format,
+        format: values.format,
         opportunity: editor.opportunity?.name,
         images: productImages,
       });
 
-      const key = getPostModelPreviewCacheKey(draft.id, editor.product?.id || '', format);
+      const key = getPostModelPreviewCacheKey(validatedDraft.id, editor.product?.id || '', values.format);
       writePostModelPreviewCache(key, {
         image: result.imageUrl,
         hash: currentHash,
@@ -245,14 +253,13 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
     } finally {
       setPreviewBusy(false);
     }
+    }, (errors) => setPreviewError(Object.values(flattenFormErrors(errors))[0]));
   };
 
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!name.trim() || !prompt.trim()) return;
+  const submit = async (values: z.output<typeof postModelEditorFormSchema>) => {
     setSaving(true);
     try {
-      await onSave(draft);
+      await onSave(buildValidatedDraft(values));
       onClose();
     } finally {
       setSaving(false);
@@ -261,8 +268,8 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
-      <ZodForm schema={postModelFormSchema} values={{ name, prompt, format }}
-        onSubmit={submit}
+      <ZodForm schema={postModelEditorFormSchema} values={modelValues}
+        onValid={submit}
         className="max-h-[94vh] w-full max-w-6xl overflow-hidden rounded-xl border border-slate-700 bg-slate-900 text-white shadow-2xl flex flex-col"
       >
         <header className="flex items-center justify-between border-b border-slate-700 p-5 shrink-0">

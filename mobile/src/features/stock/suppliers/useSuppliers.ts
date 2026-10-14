@@ -19,7 +19,7 @@ export const useSuppliers = () => {
   const [activeOnly, setActiveOnly] = useState<boolean | undefined>();
   const fetchedCountIds = useRef(new Set<string>());
   const requestSequence = useRef(0);
-  const { validateAndRun: validateList } = useZodForm(supplierListFormSchema, { page, search: debouncedSearch, sortBy, sortOrder, activeOnly });
+  const { validateValues: validateList } = useZodForm(supplierListFormSchema, { page, search: debouncedSearch, sortBy, sortOrder, activeOnly });
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedSearch(search), 300);
@@ -38,7 +38,7 @@ export const useSuppliers = () => {
       }
       setError(null);
       try {
-        const values = await validateList({ page: pageNum, search: debouncedSearch.trim(), sortBy, sortOrder, activeOnly }, (values) => values,
+        const values = await validateList({ page: pageNum, search: debouncedSearch.trim(), sortBy, sortOrder, activeOnly },
           (errors) => { if (requestId === requestSequence.current) setError(Object.values(flattenFormErrors(errors))[0]); });
         if (!values) return;
         const data = await stockService.fetchSuppliers(
