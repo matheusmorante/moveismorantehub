@@ -3,6 +3,9 @@ import Person from '../../../../types/person.type';
 import { savePeopleBatch, mapAddress } from '@/pages/utils/personService';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createPersonFormSchema, createPersonImportFormSchema } from '../../../../../../../shared-utils/personDomainValidation';
+import { getSettings } from '@/pages/utils/settingsService';
 
 interface PersonImportModalProps {
   isOpen: boolean;
@@ -34,6 +37,10 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
   const [progress, setProgress] = useState(0);
   const [encoding, setEncoding] = useState<'UTF-8' | 'ISO-8859-1'>('UTF-8');
   const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(new Set());
+  const [defaultMarketingOrigin, setDefaultMarketingOrigin] = useState('');
+  const requiredFields = getSettings().requiredFields;
+  const personSchema = createPersonFormSchema(collectionName, requiredFields);
+  const form = useZodForm(createPersonImportFormSchema(collectionName, requiredFields), { rows: [] });
 
   // Mapping States
   const [step, setStep] = useState<'upload' | 'mapping' | 'preview'>('upload');
@@ -56,6 +63,7 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
     city: null,
     state: null,
     observation: null,
+    marketingOrigin: null, noPhone: null, noAddress: null,
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +77,7 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
       setProgress(0);
       setIsCompleted(false);
       setSelectedIndexes(new Set());
+      setDefaultMarketingOrigin('');
       setMapping({
         id: null,
         fullName: null,
@@ -86,6 +95,7 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
         city: null,
         state: null,
         observation: null,
+        marketingOrigin: null, noPhone: null, noAddress: null,
       });
     }
   }, [isOpen]);
@@ -184,6 +194,20 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
     const numValue = value === '' ? null : Number(value);
     setMapping((prev) => ({ ...prev, [fieldId]: numValue }));
   };
+  const parseBoolean = (value?: string) => {
+    const normalized = value?.trim().toLocaleLowerCase('pt-BR');
+    if (!normalized) return undefined;
+    if (['sim', 'true', '1', 'yes'].includes(normalized)) return true;
+    if (['não', 'nao', 'false', '0', 'no'].includes(normalized)) return false;
+    return value;
+  };
+  const parseMarketingOrigin = (value?: string) => {
+    const normalized = value?.trim().toLocaleLowerCase('pt-BR');
+    if (!normalized) return defaultMarketingOrigin;
+    if (['paid', 'pago', 'tráfego pago', 'trafego pago', 'sim'].includes(normalized)) return 'paid';
+    if (['organic', 'orgânico', 'organico', 'não', 'nao'].includes(normalized)) return 'organic';
+    return normalized;
+  };
 
   const processMappingToPreview = () => {
     const mapped: ImportRow[] = csvRows
@@ -216,26 +240,35 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
             rgIe: getVal('rgIe'),
             email: getVal('email'),
             phone: getVal('phone'),
+            noPhone: parseBoolean(getVal('noPhone')),
+            noAddress: parseBoolean(getVal('noAddress')),
+            marketingOrigin: collectionName === 'customers' ? parseMarketingOrigin(getVal('marketingOrigin')) : undefined,
             fullAddress: mapAddress(addrData),
             observation: getVal('observation'),
             active: true,
             type: collectionName as any,
           } as any,
         };
-      })
-      .filter((r) => r.data.fullName && r.data.fullName.trim() !== '');
+      });
 
-    setImportData(mapped);
-    setSelectedIndexes(new Set(mapped.map((_, i) => i)));
+    const checked = mapped.map((row) => {
+      const parsed = personSchema.safeParse(row.data);
+      return parsed.success ? { ...row, data: parsed.data as Partial<Person> } : { ...row, status: 'error' as const, error: parsed.error.issues[0]?.message };
+    });
+    setImportData(checked);
+    setSelectedIndexes(new Set(checked.flatMap((row, i) => row.status === 'error' ? [] : [i])));
     setStep('preview');
   };
 
   const runImport = async () => {
+    const validated = await form.validateAndRun({ rows: importData.filter((_, i) => selectedIndexes.has(i)).map((row) => row.data) }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setIsImporting(true);
     setProgress(0);
     abortRef.current = false;
 
-    const toProcess = importData.filter((_, i) => selectedIndexes.has(i));
+    const toProcess = validated.rows.map((data) => ({ data: data as Partial<Person> }));
     const total = toProcess.length;
 
     if (total === 0) {
@@ -280,8 +313,9 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
   };
 
   const toggleAll = () => {
-    if (selectedIndexes.size === importData.length) setSelectedIndexes(new Set());
-    else setSelectedIndexes(new Set(importData.map((_, i) => i)));
+    const validIndexes = importData.flatMap((row, i) => row.status === 'error' ? [] : [i]);
+    if (selectedIndexes.size === validIndexes.length) setSelectedIndexes(new Set());
+    else setSelectedIndexes(new Set(validIndexes));
   };
 
   return (
@@ -361,6 +395,13 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
 
           {step === 'mapping' && (
             <div className="flex flex-col gap-8 max-w-4xl mx-auto">
+              {collectionName === 'customers' && <label className="flex flex-col gap-2 text-sm font-semibold">
+                Origem dos clientes quando não informada no CSV
+                <select value={defaultMarketingOrigin} onChange={(event) => setDefaultMarketingOrigin(event.target.value)} className="rounded-xl border p-3 dark:bg-slate-900">
+                  <option value="">Selecione ou mapeie a coluna de origem</option>
+                  <option value="paid">Tráfego pago</option><option value="organic">Orgânico</option>
+                </select>
+              </label>}
               <div className="grid grid-cols-2 gap-x-12 gap-y-6 bg-slate-50 dark:bg-slate-800/30 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
                 {[
                   { id: 'fullName', label: 'Nome Completo / Razão Social', required: true },
@@ -368,6 +409,9 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
                   { id: 'cpfCnpj', label: 'CPF / CNPJ' },
                   { id: 'email', label: 'E-mail' },
                   { id: 'phone', label: 'Telefone' },
+                  { id: 'noPhone', label: 'Sem telefone (sim/não)' },
+                  { id: 'noAddress', label: 'Sem endereço (sim/não)' },
+                  { id: 'marketingOrigin', label: 'Origem (paid/organic)' },
                   { id: 'zipCode', label: 'CEP' },
                   { id: 'street', label: 'Logradouro / Rua' },
                   { id: 'number', label: 'Número' },
@@ -415,7 +459,7 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
                   onClick={toggleAll}
                   className="text-[10px] font-black text-blue-600 uppercase tracking-widest underline underline-offset-4"
                 >
-                  {selectedIndexes.size === importData.length
+                  {selectedIndexes.size === importData.filter((row) => row.status !== 'error').length
                     ? 'Desmarcar Todos'
                     : 'Selecionar Todos'}
                 </button>
@@ -437,6 +481,7 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
                       <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400">
                         Localidade
                       </th>
+                      <th className="px-6 py-4 text-xs font-bold">Validação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -449,6 +494,7 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
                           <input
                             type="checkbox"
                             checked={selectedIndexes.has(i)}
+                            disabled={row.status === 'error'}
                             onChange={() => toggleSelection(i)}
                             className="w-4 h-4 rounded border-slate-300"
                           />
@@ -468,6 +514,7 @@ const PersonImportModal: React.FC<PersonImportModalProps> = ({
                         <td className="px-6 py-4 text-xs font-medium text-slate-400">
                           {row.data.fullAddress?.city} - {row.data.fullAddress?.state}
                         </td>
+                        <td className="px-6 py-4 text-xs"><span className={row.error ? 'text-red-600' : 'text-emerald-700'}>{row.error || 'Pronto para importar'}</span></td>
                       </tr>
                     ))}
                   </tbody>

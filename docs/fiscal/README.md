@@ -4,6 +4,8 @@
 
 ## Referências atuais
 
+- [Migração de todos os formulários para RHF + zodResolver — 14/10](../forms/migracao-rhf-zod-2026-10-14.md): escopo ERP, móvel e catálogo, contratos compartilhados, inventário e validação em andamento. Não equivale à conclusão global nem à prontidão fiscal ponta a ponta.
+
 - [Auditoria de domínio e gerador sintético — 14/10](auditoria-regras-gerador-sintetico-2026-10-14.md): pedido em etapas sequenciais, inventário de lacunas frontend/backend, correções em andamento e migration preparada. Gerador e população em massa ainda não habilitados.
 
 - [Marcador de teste dos formulários — retomada de 14/10](historico-correcoes-2026-10-14.md#marcador-de-teste-utilizável-nos-formulários-em-development): contexto de execução sem variável obrigatória; HTTP 403 resolvido ao retirar a precedência do `.env` legado da API. Endpoint retornou 204 e marcador confirmado visualmente na porta 5173. O [lote comercial](integracao-comercial-controlada-2026-10-13.md) já está autorizado e em retomada.

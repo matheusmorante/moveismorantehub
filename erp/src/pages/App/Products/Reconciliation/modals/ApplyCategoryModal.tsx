@@ -1,3 +1,6 @@
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { toast } from 'react-toastify';
+import { catalogSelectionFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState } from 'react';
 import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
 
@@ -18,13 +21,15 @@ export const ApplyCategoryModal: React.FC<Props> = ({
   const [selectedCategoryName, setSelectedCategoryName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const form = useZodForm(catalogSelectionFormSchema, { id: selectedCategoryId });
   if (!isOpen) return null;
 
   const handleConfirm = async () => {
-    if (!selectedCategoryId) return;
+    const validated = await form.validateAndRun({ id: selectedCategoryId }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setIsSubmitting(true);
     try {
-      await onConfirm(selectedCategoryId);
+      await onConfirm(validated.id);
       onClose();
     } finally {
       setIsSubmitting(false);

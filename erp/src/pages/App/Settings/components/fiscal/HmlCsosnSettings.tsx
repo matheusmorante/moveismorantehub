@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { hmlCsosnFormSchema } from '../../../../../../../shared-utils/fiscalOperationFormSchemas';
 import { CSOSN_OPTIONS } from '../../../../utils/nfe/fiscalConstants';
 import {
   getHmlCsosnConfiguration,
@@ -10,6 +12,7 @@ export function HmlCsosnSettings() {
   const [saved, setSaved] = useState('');
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
+  const form = useZodForm(hmlCsosnFormSchema, { csosn });
   useEffect(() => {
     let active = true;
     getHmlCsosnConfiguration()
@@ -30,10 +33,13 @@ export function HmlCsosnSettings() {
     };
   }, []);
   const save = async () => {
+    const validated = await form.validateAndRun({ csosn }, (data) => data,
+      (errors) => setError(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setBusy(true);
     setError('');
     try {
-      const config = await saveHmlCsosnConfiguration(csosn);
+      const config = await saveHmlCsosnConfiguration(validated.csosn);
       setCsosn(config.csosn);
       setSaved(config.csosn);
     } catch (reason) {

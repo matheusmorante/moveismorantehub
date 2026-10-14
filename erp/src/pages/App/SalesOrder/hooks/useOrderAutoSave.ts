@@ -6,7 +6,7 @@ import type { Payment } from '@/pages/types/payments.type';
 import CustomerData from '@/pages/types/customerData.type';
 import { saveOrder } from '@/pages/utils/orderHistoryService';
 import { useZodForm } from '@/hooks/useZodForm';
-import { createOrderDomainSchema } from '../../../../../../shared-utils/orderDomainValidation';
+import { orderDraftFormSchema } from '../../../../../../shared-utils/orderDomainValidation';
 import type { z } from 'zod';
 
 export type DraftAutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
@@ -33,7 +33,7 @@ export function useOrderAutoSave(
   const isInitialMount = useRef(true);
   const isSavingRef = useRef(false);
   const activeSavePromiseRef = useRef<Promise<string | false> | null>(null);
-  const form = useZodForm(createOrderDomainSchema(), { date: orderDate, seller, items, shipping, payments, customerData });
+  const { validateAndRun: validateOrderDraft } = useZodForm(orderDraftFormSchema, { status: 'draft', date: orderDate, seller, items, shipping, payments, customerData });
   const saveRevisionRef = useRef(0);
   const isSavingDraft = draftAutoSaveStatus === 'saving';
   const cancelAutoSave = useCallback(() => {
@@ -141,7 +141,7 @@ export function useOrderAutoSave(
       try {
         isSavingRef.current = true;
         setDraftAutoSaveStatus('saving');
-        const savePromise = form.validateAndRun(draft as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, (data) => saveOrder(data as unknown as Order));
+        const savePromise = validateOrderDraft(draft as unknown as z.input<typeof orderDraftFormSchema>, (data) => saveOrder(data as unknown as Order));
         activeSavePromiseRef.current = savePromise;
         const savedId = await savePromise;
         if (!savedId) throw new Error('Confira os campos inválidos do rascunho.');
@@ -180,6 +180,7 @@ export function useOrderAutoSave(
     latestStateRef,
     isDraftAutoSaveEnabled,
     draftClassification,
+    validateOrderDraft,
   ]);
 
   return {

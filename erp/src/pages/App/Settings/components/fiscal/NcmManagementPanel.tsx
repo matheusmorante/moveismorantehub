@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { ncmSyncFormSchema, ncmProductReviewFormSchema, ncmCorrelationFormSchema } from '../../../../../../../shared-utils/ncmManagementFormSchemas';
+import { searchFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 import { useAuth } from '@/context/AuthContext';
@@ -135,14 +138,20 @@ export function NcmManagementPanel() {
   >('one_to_one');
   const [correlationVersion, setCorrelationVersion] = useState('');
   const [isSavingCorrelation, setIsSavingCorrelation] = useState(false);
+  const syncForm = useZodForm(ncmSyncFormSchema, { syncRunId: preview?.sync_run_id || '' });
+  const productReviewForm = useZodForm(ncmProductReviewFormSchema, { destinationCode: destination?.code || '', productIds: selectedProducts });
+  const correlationForm = useZodForm(ncmCorrelationFormSchema, { sourceCode: selectedRow?.code || '', destinationCode: destination?.code || '', relationType: correlationType, version: correlationVersion });
+  const { validateAndRun: validateSearch } = useZodForm(searchFormSchema, { search: searchDraft });
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setPage(0);
-      setSearch(searchDraft.trim());
+      void validateSearch({ search: searchDraft }, (data) => {
+        setPage(0);
+        setSearch(data.search.trim());
+      });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [searchDraft]);
+  }, [searchDraft, validateSearch]);
 
   const loadCatalog = useCallback(async () => {
     setIsLoading(true);
@@ -317,11 +326,14 @@ export function NcmManagementPanel() {
 
   const applySync = async () => {
     if (!preview) return;
+    const validated = await syncForm.validateAndRun({ syncRunId: preview.sync_run_id }, (data) => data,
+      (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setIsSyncing(true);
     setErrorMessage('');
     try {
       const { data, error } = await supabase.functions.invoke('sync-ncms', {
-        body: { mode: 'apply', sync_run_id: preview.sync_run_id },
+        body: { mode: 'apply', sync_run_id: validated.syncRunId },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'A sincronização não foi aplicada.');
@@ -336,6 +348,9 @@ export function NcmManagementPanel() {
 
   const applyProductReview = async () => {
     if (!selectedRow || !destination || selectedProducts.length === 0) return;
+    const validated = await productReviewForm.validateAndRun({ destinationCode: destination.code, productIds: selectedProducts }, (data) => data,
+      (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     const confirmed = window.confirm(
       `Atualizar o NCM de ${selectedProducts.length} produto(s) de ${selectedRow.code} para ${destination.code}? Essa alteração vale para operações futuras; os documentos fiscais já emitidos permanecem inalterados.`
     );
@@ -348,7 +363,7 @@ export function NcmManagementPanel() {
         .map((product) => ({
           product_id: product.id,
           old_code: product.ncm_code,
-          new_code: destination.code,
+          new_code: validated.destinationCode,
         }));
       const { data, error } = await supabase.rpc('apply_ncm_product_reviews', {
         p_updates: updates,
@@ -369,6 +384,9 @@ export function NcmManagementPanel() {
 
   const saveCorrelation = async () => {
     if (!selectedRow || !destination || !correlationVersion.trim()) return;
+    const validated = await correlationForm.validateAndRun({ sourceCode: selectedRow.code, destinationCode: destination.code, relationType: correlationType, version: correlationVersion }, (data) => data,
+      (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setIsSavingCorrelation(true);
     setErrorMessage('');
     try {
@@ -376,10 +394,10 @@ export function NcmManagementPanel() {
       if (authError || !authData.user)
         throw new Error('Sessão expirada. Entre novamente para registrar a correlação.');
       const { error } = await supabase.from('ncm_correlations').insert({
-        source_code: selectedRow.code,
-        destination_code: destination.code,
-        relation_type: correlationType,
-        version_label: correlationVersion.trim(),
+        source_code: validated.sourceCode,
+        destination_code: validated.destinationCode,
+        relation_type: validated.relationType,
+        version_label: validated.version,
         source_name: 'Rastreador NCM do MDIC',
         source_reference: 'https://rastreador-ncm.dth.mdic.gov.br/',
         notes:

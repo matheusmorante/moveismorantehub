@@ -5,10 +5,13 @@ import { attendanceService } from '@/pages/utils/attendanceService';
 import { crmIntelligenceService } from '@/pages/utils/crmIntelligenceService';
 import { useAuth } from '@/context/AuthContext';
 import { AttendanceLog } from '@/pages/types/attendance.type';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { attendanceVoiceFormSchema } from '../../../shared-utils/messagingFormSchemas';
 
 export const useAttendanceVoice = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const { validateAndRun: validateAttendance } = useZodForm(attendanceVoiceFormSchema, { text: transcript, customerPhone: '' });
   const [isProcessing, setIsProcessing] = useState(false);
   const [suggestedAction, setSuggestedAction] = useState<{
     type: string;
@@ -99,11 +102,7 @@ export const useAttendanceVoice = () => {
 
   const processAttendance = useCallback(
     async (customerPhone: string) => {
-      if (!transcript.trim()) {
-        toast.warn('Nenhum relato capturado.');
-        return;
-      }
-
+      return validateAttendance({ text: transcript, customerPhone }, async ({ text: transcript, customerPhone }) => {
       setIsProcessing(true);
       let structuredData = {};
 
@@ -207,8 +206,9 @@ export const useAttendanceVoice = () => {
       } finally {
         setIsProcessing(false);
       }
+      }, (errors) => toast.warn(Object.values(flattenFormErrors(errors))[0]));
     },
-    [transcript, profile, suggestedAction]
+    [transcript, profile, suggestedAction, validateAttendance]
   );
 
   return {

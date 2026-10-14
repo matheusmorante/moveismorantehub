@@ -15,7 +15,24 @@ import { Ionicons } from '@expo/vector-icons';
 import type { Composition, CompositionVariationItem } from '../types/composition.type';
 import { saveComposition } from '../services/mobileCompositionService';
 import { MobileCompositionSearchModal } from './MobileCompositionSearchModal';
-import { supabase } from '../../../services/supabaseClient';
+import { z } from 'zod';
+import { useZodForm, flattenFormErrors } from '../../../hooks/useZodForm';
+
+const mobileCompositionFormSchema = z.object({
+  data: z.object({
+    id: z.string().optional(),
+    name: z.string().trim().min(1, 'O nome da composição é obrigatório.'),
+    sku: z.string().optional(), description: z.string().optional(),
+    active: z.boolean().optional(), catalog_published: z.boolean().optional(),
+    pricing_mode: z.enum(['sum', 'fixed', 'discount']),
+    manual_price: z.number().nonnegative('Informe um preço válido.').nullish().transform((value) => value ?? undefined),
+  }).passthrough(),
+  items: z.array(z.object({
+    product_id: z.string().min(1, 'Selecione um produto real.'),
+    variation_id: z.string().optional(),
+    quantity: z.number().positive('A quantidade deve ser maior que zero.'),
+  }).passthrough()).min(1, 'Adicione pelo menos um produto real à composição.'),
+});
 
 interface MobileCompositionFormModalProps {
   visible: boolean;
@@ -45,13 +62,13 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
   const [results, setResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
+  const formValues = { data: { ...formData, name: formData.name || '', pricing_mode: formData.pricing_mode || 'sum' }, items };
+  const { validateAndRun } = useZodForm(mobileCompositionFormSchema, formValues);
 
   useEffect(() => {
     if (visible && composition) {
       setFormData(composition);
-      if (composition.variations && composition.variations.length > 0) {
-        setItems(composition.variations[0].items || []);
-      }
+      setItems(composition.variations?.[0]?.items || []);
     } else if (visible) {
       setFormData({
         active: true,
@@ -87,31 +104,21 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
   };
 
   const handleSave = async () => {
-    if (!formData.name) {
-      Alert.alert('Erro', 'O nome da composiÃ§Ã£o Ã© obrigatÃ³rio.');
-      setActiveTab('info');
-      return;
-    }
-
-    if (items.length === 0) {
-      Alert.alert('Erro', 'Adicione pelo menos um produto real Ã  composiÃ§Ã£o.');
-      setActiveTab('items');
-      return;
-    }
-
+    if (isSaving) return;
+    await validateAndRun(formValues, async (values) => {
     try {
       setIsSaving(true);
       const variationsToSave = [
         {
           id: composition?.variations?.[0]?.id,
           name: 'PadrÃ£o',
-          sku: formData.sku,
-          items: items,
+          sku: values.data.sku,
+          items: values.items,
           active: true,
         },
       ];
 
-      await saveComposition(formData, variationsToSave);
+      await saveComposition(values.data, variationsToSave);
       Alert.alert('Sucesso', 'ComposiÃ§Ã£o salva com sucesso!');
       if (onSuccess) onSuccess();
       onClose();
@@ -121,6 +128,10 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
     } finally {
       setIsSaving(false);
     }
+    }, (errors) => {
+      Alert.alert('Revise a composição', Object.values(flattenFormErrors(errors))[0] || 'Revise os campos informados.');
+      setActiveTab(errors.data ? 'info' : 'items');
+    });
   };
 
   const themeColors = {

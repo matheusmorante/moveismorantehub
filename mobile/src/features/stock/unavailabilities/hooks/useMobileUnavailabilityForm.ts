@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
+import { stockUnavailabilityFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
 import { createStockUnavailability } from '../../../../services/stock/stockUnavailabilitiesService';
 import { searchProducts } from '../../../../services/stockService';
 import { supabase } from '../../../../services/supabaseClient';
@@ -43,6 +45,8 @@ export function useMobileUnavailabilityForm({
 
   const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
+  const formValues = { productId: selectedProductVariation?.id || '', variationId: selectedProductVariation?.variation_id || '', quantity: Number(quantity.replace(',', '.')), availableStock: Number(selectedProductVariation?.stock || 0), supplierId: selectedSupplierId, reason, treatment };
+  const form = useZodForm(stockUnavailabilityFormSchema, formValues);
 
   // Busca fornecedores vinculados ao produto selecionado
   useEffect(() => {
@@ -163,12 +167,15 @@ export function useMobileUnavailabilityForm({
   }, [resetForm, onClose]);
 
   const handleSubmit = async () => {
+    const validated = await form.validateAndRun(formValues, (data) => data,
+      (errors) => Alert.alert('Atenção', Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     if (!selectedProductVariation) {
       Alert.alert('Atenção', 'Selecione uma variação do produto.');
       return;
     }
 
-    const qty = parseFloat(quantity.replace(',', '.'));
+    const qty = validated.quantity;
     if (Number.isNaN(qty) || qty <= 0) {
       Alert.alert('Atenção', 'Informe uma quantidade válida maior que zero.');
       return;

@@ -18,7 +18,6 @@ import { completeGoogleSignIn, getGoogleAuthRedirectUrl } from '../services/goog
 import {
   signInWithEmailPassword,
   signInWithGoogle,
-  validatePasswordSetup,
 } from '../services/authPasswordSetup';
 import {
   getPasswordAuthErrorMessage,
@@ -28,6 +27,8 @@ import {
 } from '../services/authPasswordRecovery';
 import { useAuth } from '../contexts/AuthContext';
 import { styles } from './LoginScreen.styles';
+import { flattenFormErrors, useZodForm } from '../hooks/useZodForm';
+import { loginFormSchema, passwordRecoveryEmailSchema, passwordRecoveryCodeSchema, passwordSetupFormSchema } from '../../../shared-utils/authFormSchemas';
 
 interface Props {
   isDarkMode: boolean;
@@ -65,6 +66,10 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
     tone: 'success' | 'error';
     text: string;
   } | null>(null);
+  const loginForm = useZodForm(loginFormSchema, { email, password });
+  const recoveryEmailForm = useZodForm(passwordRecoveryEmailSchema, { email });
+  const recoveryCodeForm = useZodForm(passwordRecoveryCodeSchema, { email, code: recoveryCode });
+  const passwordForm = useZodForm(passwordSetupFormSchema, { password: newPassword, confirmation: confirmNewPassword });
 
   const startRecovery = () => {
     setErrorMsg('');
@@ -74,16 +79,14 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
   };
 
   const sendRecoveryCode = async () => {
-    const recoveryEmail = email.trim();
-    if (!recoveryEmail) {
-      setRecoveryMessage({ tone: 'error', text: 'Informe seu e-mail para continuar.' });
-      return;
-    }
+    const validated = await recoveryEmailForm.validateAndRun({ email }, (data) => data,
+      (errors) => setRecoveryMessage({ tone: 'error', text: Object.values(flattenFormErrors(errors))[0] }));
+    if (!validated) return;
 
     setRecoveryBusy(true);
     setRecoveryMessage(null);
     try {
-      const { error } = await requestPasswordRecoveryCode(supabase, recoveryEmail);
+      const { error } = await requestPasswordRecoveryCode(supabase, validated.email);
       if (error) {
         setRecoveryMessage({
           tone: 'error',
@@ -107,10 +110,13 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
   };
 
   const verifyRecoveryCode = async () => {
+    const validated = await recoveryCodeForm.validateAndRun({ email, code: recoveryCode }, (data) => data,
+      (errors) => setRecoveryMessage({ tone: 'error', text: Object.values(flattenFormErrors(errors))[0] }));
+    if (!validated) return;
     setRecoveryBusy(true);
     setRecoveryMessage(null);
     try {
-      const { error } = await verifyPasswordRecoveryCode(supabase, email, recoveryCode);
+      const { error } = await verifyPasswordRecoveryCode(supabase, validated.email, validated.code);
       if (error) {
         setRecoveryMessage({
           tone: 'error',
@@ -128,16 +134,14 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
   };
 
   const saveNewPassword = async () => {
-    const validationError = validatePasswordSetup(newPassword, confirmNewPassword);
-    if (validationError) {
-      setRecoveryMessage({ tone: 'error', text: validationError });
-      return;
-    }
+    const validated = await passwordForm.validateAndRun({ password: newPassword, confirmation: confirmNewPassword }, (data) => data,
+      (errors) => setRecoveryMessage({ tone: 'error', text: Object.values(flattenFormErrors(errors))[0] }));
+    if (!validated) return;
 
     setRecoveryBusy(true);
     setRecoveryMessage(null);
     try {
-      const { error } = await updateAuthenticatedPassword(supabase, newPassword);
+      const { error } = await updateAuthenticatedPassword(supabase, validated.password);
       if (error) {
         setRecoveryMessage({
           tone: 'error',
@@ -169,10 +173,13 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
   };
 
   const handleEmailPasswordLogin = async () => {
+    const validated = await loginForm.validateAndRun({ email, password }, (data) => data,
+      (errors) => setErrorMsg(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     try {
       setLoading(true);
       setErrorMsg('');
-      const { data, error } = await signInWithEmailPassword(supabase, email, password);
+      const { data, error } = await signInWithEmailPassword(supabase, validated.email, validated.password);
       if (error) throw error;
       if (!data.session) throw new Error('Não foi possível iniciar sua sessão. Tente novamente.');
       onLoginSuccess(data.session);

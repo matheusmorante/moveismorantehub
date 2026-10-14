@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { searchFormSchema } from '../../../../../../shared-utils/lookupFormSchemas';
 import React, { useEffect, useRef, useState } from 'react';
 import type {
   FiscalDocumentFilters,
@@ -155,7 +157,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
   }, [isMoreFiltersOpen]);
 
   return (
-    <form
+    <ZodForm schema={searchFormSchema} values={{ search: searchInput }}
       onSubmit={onSearchSubmit}
       className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900/70"
     >
@@ -351,6 +353,6 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
           </button>
         </footer>
       </dialog>
-    </form>
+    </ZodForm>
   );
 };

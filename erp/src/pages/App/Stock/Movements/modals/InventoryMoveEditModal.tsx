@@ -3,6 +3,8 @@ import { PackageMinus, PackagePlus, Scale } from 'lucide-react';
 import type InventoryMove from '@/pages/types/inventoryMove.type';
 import { updateInventoryMove } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inventoryMoveFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
 
 export interface InventoryMoveEditModalProps {
   readonly move: InventoryMove | null;
@@ -25,6 +27,8 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
   const [date, setDate] = useState<string>('');
   const [observation, setObservation] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
+  const values = { type, quantity, date, observation };
+  const form = useZodForm(inventoryMoveFormSchema, values);
 
   useEffect(() => {
     if (move && isOpen) {
@@ -53,6 +57,9 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
   if (!isOpen || !move) return null;
 
   const handleSave = async () => {
+    const validated = await form.validateAndRun(values, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     if (type !== 'balance' && quantity <= 0) {
       toast.error('Por favor, informe uma quantidade maior que zero.');
       return;
@@ -74,8 +81,8 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
         type,
         quantity,
         date: date ? new Date(date + 'T12:00:00Z').toISOString() : new Date().toISOString(),
-        label: observation.trim(),
-        observation: observation.trim(),
+        label: validated.observation,
+        observation: validated.observation,
       });
 
       toast.success('Movimentação atualizada com sucesso!');

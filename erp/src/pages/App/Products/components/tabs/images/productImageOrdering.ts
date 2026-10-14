@@ -23,6 +23,11 @@ export function setProductCoverImage(images: string[], imageIndex: number): stri
   return [coverImage, ...orderedImages];
 }
 
+export function setProductSecondaryImage(images: string[], imageIndex: number): string[] {
+  if (imageIndex <= 1 || imageIndex >= images.length) return images;
+  return moveProductImage(images, imageIndex, 1);
+}
+
 export function replaceProductImage(
   images: string[],
   imageIndex: number,

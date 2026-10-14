@@ -8,6 +8,8 @@ import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import { updateOrder } from '@/pages/utils/orderHistoryService';
 import { getSettings } from '@/pages/utils/settingsService';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { nfeAcquisitionPurposeFormSchema, nfeEmissionDraftFormSchema } from '../../../../../../../shared-utils/nfeEmissionFormValidation';
 import { resolveFiscalCfopOrderScope } from '../../../../../../../shared-utils/fiscalCfopModel';
 import { resolveOrderFiscalModel } from '../../../../../../../shared-utils/fiscalDocumentModel';
 import type { DeliveryMethod } from '../../../../../../../shared-utils/fiscalTransportModel';
@@ -63,6 +65,7 @@ export function useNfeEmission(
   const [isSavingAcquisitionPurpose, setIsSavingAcquisitionPurpose] = useState(false);
   const purposeSaveInProgress = useRef(false);
   const draftSaveInProgress = useRef(false);
+  const purposeForm = useZodForm(nfeAcquisitionPurposeFormSchema, { orderId: order?.id || '', purpose: acquisitionPurpose || 'use_consumption' });
   const finalConsumer = acquisitionPurpose === null ? undefined : acquisitionPurpose !== 'resale';
 
   const deliveryMethod: DeliveryMethod =
@@ -112,6 +115,7 @@ export function useNfeEmission(
     recipientIeIndicator,
     model: modelDecision?.status === 'ready' ? modelDecision.model : undefined,
   });
+  const draftForm = useZodForm(nfeEmissionDraftFormSchema, { order: order as Order, recipientTaxId, nfeItems, environment });
 
   // 2. Transporte
   const {
@@ -136,6 +140,9 @@ export function useNfeEmission(
       toast.error('Salve o pedido antes de registrar a finalidade da compra.');
       return;
     }
+    const validated = await purposeForm.validateAndRun({ orderId: order.id, purpose }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
 
     purposeSaveInProgress.current = true;
     setIsSavingAcquisitionPurpose(true);
@@ -143,11 +150,11 @@ export function useNfeEmission(
       await updateOrder(order.id, {
         fiscalContext: {
           ...order.fiscalContext,
-          acquisitionPurpose: purpose,
-          finalConsumer: purpose !== 'resale',
+          acquisitionPurpose: validated.purpose,
+          finalConsumer: validated.purpose !== 'resale',
         },
       });
-      setSavedAcquisitionPurpose(purpose);
+      setSavedAcquisitionPurpose(validated.purpose);
     } catch {
       toast.error('Não foi possível salvar a finalidade da compra no pedido.');
     } finally {
@@ -213,9 +220,12 @@ export function useNfeEmission(
 
   const handleSaveDraft = async () => {
     if (purposeSaveInProgress.current || draftSaveInProgress.current) return;
+    if (!order?.id || isLoadingFiscalData) return;
     draftSaveInProgress.current = true;
     try {
-      await saveNfeDraftToDatabase(order, recipientTaxId, nfeItems, environment);
+      await draftForm.validateAndRun({ order, recipientTaxId, nfeItems, environment },
+        (data) => saveNfeDraftToDatabase(data.order, data.recipientTaxId, data.nfeItems, data.environment),
+        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
     } catch {
       toast.error('Não foi possível salvar os dados fiscais do rascunho no pedido.');
     } finally {

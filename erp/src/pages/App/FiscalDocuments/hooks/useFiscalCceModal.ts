@@ -1,23 +1,23 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import { validateNfeCce } from '@/pages/utils/nfe/nfeCce';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { legacyCceFormSchema } from '../../../../../../shared-utils/legacyFiscalFormSchemas';
 import type { NfeDocumentRecord } from '../types/fiscalDocuments.types';
 import {
   fetchCceHistory,
   reconcileCce,
-  submitCce as submitCceApi,
 } from '../services/fiscalCceService';
 
 export function useFiscalCceModal(onDocumentUpdated?: () => Promise<void>) {
   const [showCceModal, setShowCceModal] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<NfeDocumentRecord | null>(null);
   const [cceText, setCceText] = useState('');
+  const form = useZodForm(legacyCceFormSchema, { correction: cceText });
   const [isSubmittingCce, setIsSubmittingCce] = useState(false);
   const [isLoadingCceInfo, setIsLoadingCceInfo] = useState(false);
   const [ccePreviousCorrection, setCcePreviousCorrection] = useState('');
   const [cceNextSequence, setCceNextSequence] = useState<number | null>(1);
   const [ccePending, setCcePending] = useState(false);
-  const [cceRequestId, setCceRequestId] = useState<string | null>(null);
   const [productionCceConfirmed, setProductionCceConfirmed] = useState(false);
 
   const loadHistory = async (document: NfeDocumentRecord) => {
@@ -26,7 +26,6 @@ export function useFiscalCceModal(onDocumentUpdated?: () => Promise<void>) {
     setCceText(result.previousCorrection || '');
     setCceNextSequence(result.nextSequence ?? null);
     setCcePending(Boolean(result.pending));
-    setCceRequestId(null);
   };
 
   const openCce = async (document: NfeDocumentRecord) => {
@@ -36,7 +35,6 @@ export function useFiscalCceModal(onDocumentUpdated?: () => Promise<void>) {
     setCcePreviousCorrection('');
     setCceNextSequence(null);
     setCcePending(false);
-    setCceRequestId(null);
     setProductionCceConfirmed(false);
     setIsLoadingCceInfo(true);
 
@@ -58,7 +56,6 @@ export function useFiscalCceModal(onDocumentUpdated?: () => Promise<void>) {
     setSelectedDoc(null);
     setCceText('');
     setCcePreviousCorrection('');
-    setCceRequestId(null);
     setCcePending(false);
     setProductionCceConfirmed(false);
   };
@@ -80,6 +77,7 @@ export function useFiscalCceModal(onDocumentUpdated?: () => Promise<void>) {
         `CC-e ${result.sequence} confirmada pela SEFAZ${result.protocolNumber ? ` (protocolo ${result.protocolNumber})` : ''}.`
       );
       await loadHistory(selectedDoc);
+      if (onDocumentUpdated) await onDocumentUpdated();
     } catch (error: unknown) {
       toast.error(
         error instanceof Error && error.message
@@ -93,58 +91,8 @@ export function useFiscalCceModal(onDocumentUpdated?: () => Promise<void>) {
 
   const handleSubmit = async () => {
     if (!selectedDoc || isSubmittingCce || ccePending) return;
-
-    const correctionError = validateNfeCce(cceText);
-    if (correctionError) {
-      toast.error(correctionError);
-      return;
-    }
-    if (selectedDoc.ambiente === 1 && !productionCceConfirmed) {
-      toast.error('Confirme que deseja transmitir a CC-e no ambiente de Produção.');
-      return;
-    }
-
-    setIsSubmittingCce(true);
-    let transmissionStarted = false;
-    try {
-      const requestId = cceRequestId || window.crypto.randomUUID();
-      setCceRequestId(requestId);
-      transmissionStarted = true;
-
-      const result = await submitCceApi({
-        documentId: selectedDoc.id,
-        correction: cceText,
-        requestId,
-        productionConfirmed: productionCceConfirmed,
-      });
-
-      if (result.pending) {
-        setCcePending(true);
-        toast.warning(result.error || 'Resultado incerto. Consulte a SEFAZ antes de repetir.');
-        return;
-      }
-      if (!result.success) {
-        setCceRequestId(null);
-        throw new Error(result.error || result.xMotivo || 'A SEFAZ não confirmou a CC-e.');
-      }
-
-      toast.success(
-        `CC-e ${result.sequence} registrada pela SEFAZ${result.protocolNumber ? ` (protocolo ${result.protocolNumber})` : ''}.`
-      );
-      closeCce();
-      if (onDocumentUpdated) await onDocumentUpdated();
-    } catch (error: unknown) {
-      if (transmissionStarted) setCcePending(true);
-      toast.error(
-        transmissionStarted
-          ? 'Não foi possível confirmar a resposta. Consulte a tentativa antes de enviar novamente.'
-          : error instanceof Error && error.message
-            ? error.message
-            : 'Erro ao transmitir a CC-e.'
-      );
-    } finally {
-      setIsSubmittingCce(false);
-    }
+    await form.validateAndRun({ correction: cceText }, () => undefined,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   return {

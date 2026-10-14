@@ -1,5 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inboundAccessKeyFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
+import { normalizeFiscalIdentifier } from '../../../../../../../shared-utils/fiscalIdentifiers';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
 import { useInboundDocumentImport } from '../hooks/useInboundDocumentImport';
@@ -28,6 +31,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
   const [accessKey, setAccessKey] = useState('');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isDirectSyncing, setIsDirectSyncing] = useState(false);
+  const form = useZodForm(inboundAccessKeyFormSchema, { accessKey });
   const {
     isLoading,
     statusMessage,
@@ -44,18 +48,18 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
   if (!isOpen) return null;
 
   const handleScan = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    const key = digits.length === 44 ? digits : value.match(/(?:^|\D)(\d{44})(?:\D|$)/)?.[1];
+    const normalized = normalizeFiscalIdentifier(value);
+    const candidate = normalized.length === 44 ? normalized : value.toUpperCase().match(/(?:^|[^A-Z0-9])([0-9]{6}[A-Z0-9]{12}[0-9]{26})(?:[^A-Z0-9]|$)/)?.[1];
+    const parsed = inboundAccessKeyFormSchema.safeParse({ accessKey: candidate || '' });
     setIsScannerOpen(false);
-    if (key) setAccessKey(key);
+    if (parsed.success) setAccessKey(parsed.data.accessKey);
   };
 
   const handleDirectSefazQuery = async () => {
-    const clean = accessKey.replace(/\D/g, '');
-    if (clean.length !== 44) {
-      toast.warn('A chave de acesso deve conter exatamente 44 dígitos.');
-      return;
-    }
+    const validated = await form.validateAndRun({ accessKey }, (data) => data,
+      (errors) => toast.warn(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    const clean = validated.accessKey;
 
     setIsDirectSyncing(true);
     try {
@@ -178,9 +182,9 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                   <input
                     id="accessKey"
                     type="text"
-                    placeholder="Digite os 44 dígitos da chave de acesso..."
+                    placeholder="Digite os 44 caracteres da chave de acesso..."
                     value={accessKey}
-                    onChange={(e) => setAccessKey(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => setAccessKey(normalizeFiscalIdentifier(e.target.value))}
                     maxLength={44}
                     className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                   />

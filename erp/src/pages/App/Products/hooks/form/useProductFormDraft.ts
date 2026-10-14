@@ -20,7 +20,7 @@ export function useProductFormDraft(
   initialFormDataRef: React.MutableRefObject<string>
 ) {
   const [autoSaveStatus, setAutoSaveStatus] = useState<ProductDraftAutoSaveStatus>('idle');
-  const form = useZodForm(createProductFormSchema({ isStockistOnly: false, saveAsDraft: true }), formData);
+  const { validateAndRun: validateProductDraft } = useZodForm(createProductFormSchema({ isStockistOnly: false, saveAsDraft: true }), formData);
   const isSavingDraftRef = useRef(false);
   const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
   const queuedDataRef = useRef<Partial<Product> | null>(null);
@@ -60,7 +60,7 @@ export function useProductFormDraft(
             const draftTitle = getEnteredProductName(nextData);
             if (!draftTitle) continue;
 
-            const normalizedData = {
+            let normalizedData = {
               ...nextData,
               id: nextData.id || savedDraftIdRef.current || undefined,
               updatedAt: savedVersionRef.current || nextData.updatedAt,
@@ -72,10 +72,11 @@ export function useProductFormDraft(
               status: 'draft',
             } as Product;
 
-            const savedId = await form.validateAndRun(normalizedData, (data) => saveProduct(
-              data as Product, false,
-              readTestArtifactIdentity(nextData) ? { isTestArtifact: true } : {}
-            ));
+            const savedId = await validateProductDraft(normalizedData, (data) => {
+              normalizedData = data as Product;
+              return saveProduct(normalizedData, false,
+                readTestArtifactIdentity(nextData) ? { isTestArtifact: true } : {});
+            });
             if (!savedId) throw new Error('Confira os campos inválidos do rascunho do produto.');
             savedDraftIdRef.current = savedId;
             savedVersionRef.current = normalizedData.updatedAt;
@@ -113,7 +114,7 @@ export function useProductFormDraft(
       activeSavePromiseRef.current = completedSavePromise;
       return completedSavePromise;
     },
-    [setFormData, hasChanged, initialFormDataRef, form.validateAndRun]
+    [setFormData, hasChanged, initialFormDataRef, validateProductDraft]
   );
 
   return {

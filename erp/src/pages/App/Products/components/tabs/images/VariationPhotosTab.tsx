@@ -36,7 +36,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             {isSingleVariation
               ? 'As fotos desta variação acompanham automaticamente as fotos do produto.'
-              : 'Clique no botão para vincular fotos do produto pai. Arraste para reordenar (a 1ª foto é a capa).'}
+              : 'Clique no botão para vincular fotos do produto pai. Arraste para reordenar (1ª foto: Capa, 2ª foto: Imagem Secundária recomendada aberta).'}
           </p>
         </div>
 
@@ -69,6 +69,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
         {/* Fotos Vinculadas com Drag and Drop */}
         {images.map((url, index) => {
           const isCover = index === 0;
+          const isSecondary = index === 1;
 
           return (
             <div
@@ -98,6 +99,8 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
               className={`group relative aspect-square rounded-none overflow-hidden border-2 cursor-grab active:cursor-grabbing transition-all shadow-sm bg-slate-50 dark:bg-slate-900 ${
                 isCover
                   ? 'border-blue-500 ring-2 ring-blue-500/30'
+                  : isSecondary
+                  ? 'border-emerald-500 ring-2 ring-emerald-500/20'
                   : 'border-slate-200 dark:border-slate-800 hover:border-blue-300'
               } ${draggedIndex === index ? 'opacity-50 scale-95' : 'opacity-100'}`}
               title={isSingleVariation ? 'Fotos sincronizadas com o produto' : 'Clique para ver opções ou arraste para reordenar'}
@@ -114,6 +117,14 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
                 <div className="absolute top-2 left-2 z-10 bg-blue-600 text-white text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-md border border-white/40 flex items-center gap-1">
                   <i className="bi bi-star-fill text-[8px]" aria-hidden="true" />
                   Capa
+                </div>
+              )}
+
+              {/* Badge Imagem Secundária */}
+              {isSecondary && (
+                <div className="absolute top-2 left-2 z-10 bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-md border border-white/40 flex items-center gap-1">
+                  <i className="bi bi-door-open-fill text-[8px]" aria-hidden="true" />
+                  Secundária
                 </div>
               )}
 

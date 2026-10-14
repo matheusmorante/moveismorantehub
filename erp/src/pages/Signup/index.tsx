@@ -73,7 +73,7 @@ const Signup = () => {
             </p>
           </div>
 
-          <form noValidate onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+          <form noValidate onSubmit={form.submit(handleSubmit, (errors) => {
             toast.warning(Object.values(flattenFormErrors(errors))[0]);
           })} className="space-y-4">
             <div className="space-y-1.5">

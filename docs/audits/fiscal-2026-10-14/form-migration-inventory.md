@@ -55,9 +55,9 @@ Todos os caminhos abaixo precisam de conferência individual. `Manual` significa
 | [ ] | `pages/App/SalesOrder/AssemblyList/Index.tsx:69` | item, date, time, type, status | handleSave | montagem |
 | [ ] | `pages/App/Logistics/components/ShowcaseAssemblyModal.tsx:42` | formData | handleSubmit | montagem de mostruário |
 | [ ] | `pages/App/DeliverySchedule/ShowroomAssemblyModal.tsx:61` | item, date, time | handleSave | outro caminho de montagem |
-| [ ] | `pages/App/SalesOrder/Reports/modals/ReportConfigModal.tsx:149` | source, mapping, name, thresholds | importar CSV / callback de configuração | configuração e validação por linha |
+| [x] | `pages/App/SalesOrder/Reports/modals/ReportConfigModal.tsx:86` | source, mapping, name, thresholds, csvData | handleSave → form.submit → onSave(values) | reportConfigFormSchema; erro visível; CSV mantém parser/owner existentes; 6 testes de configuração em reportForms.test.tsx |
 | [ ] | `pages/App/SalesOrder/Reports/modals/ProductReferenceModal.tsx:147` | newMaster, newReference, selectedSupplier | handleAdd | referência de produto |
-| [ ] | `pages/App/SalesOrder/Reports/modals/ItemExclusionModal.tsx:117` | localExcludedItems | aplicar exclusões | seleção que altera relatório |
+| [x] | `pages/App/SalesOrder/Reports/modals/ItemExclusionModal.tsx:24` | localExcludedItems | handleConfirm → form.submit → onConfirm(values.excludedItems) | itemExclusionFormSchema; erro impede confirmar/fechar; preserva exclusões fora do filtro; 3 testes em reportForms.test.tsx |
 | [ ] | `pages/App/SalesOrder/Reports/components/ReportView.tsx:516` | reportName, reportConfig, productMappings | autosave / handleUpdateReport | debounce também é submissão |
 | [ ] | `pages/App/Finance/Transactions/index.tsx:70` | formData | handleSaveTransaction | modal por botão |
 | [ ] | `pages/App/Finance/Payables/PayableModal.tsx:52` | formData, expenseType, installmentsCount, recurringFrequency | handleSave; handlePay:135 | criar/editar/pagar são contratos distintos |
@@ -310,9 +310,9 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/SalesOrder/OrderHistoryList/OrderCustomerSearchBar.tsx:26 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/SalesOrder/PaymentsTable/BodyRow.tsx:201 | isPixModalOpen, isDropdownOpen, tempFeeReais, tempFeePercent | onDelete | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/SalesOrder/Reports/components/ReportView.tsx:1646 | reportName, viewMode, reportType, showFilters, abcBasis, reportSource, reportConfig, selectedSuppliers, searchTerm, minProfit | handleRowClick, handleCloseModal, handleShareWhatsApp, handleSort, handleUpdateReport, saveTimeout | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/SalesOrder/Reports/modals/ItemExclusionModal.tsx:117 | localExcludedItems, searchTerm, selectedSupplier, selectedQuadrant, sortConfig | handleSort | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/SalesOrder/Reports/modals/ItemExclusionModal.tsx:126 | localExcludedItems, searchTerm, selectedSupplier, selectedQuadrant, sortConfig | handleConfirm; filtros e ordenação locais | useZodForm.submit, itemExclusionFormSchema; callback recebe a seleção atual parseada; reportForms.test.tsx |
 | [ ] | pages/App/SalesOrder/Reports/modals/ProductReferenceModal.tsx:127 | references, loading, newMaster, newReference, searchTerm, selectedSupplier | handleAdd, handleDelete | ZodForm, productReferenceFormSchema |
-| [ ] | pages/App/SalesOrder/Reports/modals/ReportConfigModal.tsx:149 | source, abcBasis, csvData, headers, mapping, name, turnoverThresholdMode, profitThresholdMode, turnoverThreshold, profitThreshold | handleFileUpload | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/SalesOrder/Reports/modals/ReportConfigModal.tsx:169 | source, abcBasis, csvData, headers, mapping, name, turnoverThresholdMode, profitThresholdMode, turnoverThreshold, profitThreshold | handleFileUpload; handleSave | useZodForm.submit, reportConfigFormSchema; registros CSV de texto e mapeamento condicional; reportForms.test.tsx |
 | [ ] | pages/App/SalesOrder/ReportsBling/Index.tsx:86 | openMenuId, dateRange | handleCreateReport | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/SalesOrder/ShippingComponents/Agendamento.tsx:163 | props/contexto | handleImmediatePickupToggle | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/SalesOrder/ShippingComponents/FreteDistancia.tsx:116 | props/contexto | handleDistanceInput, onAutoCalculateDistance | nenhum símbolo explícito neste arquivo |

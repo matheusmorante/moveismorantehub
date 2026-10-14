@@ -1,13 +1,37 @@
 import React, { useState, useMemo } from 'react';
+import { z } from 'zod';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { bulkNcmFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import {
   ReconciliationProductItem,
   ReconciliationVariationItem,
-  ProductPendency,
 } from '../types/reconciliation.types';
 import SupplierAutocomplete from '../../../../../components/SupplierAutocomplete';
 import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
 import { VariationAttributeValueInput } from '../../components/variationTabs/VariationAttributeValueInput';
 import { toast } from 'react-toastify';
+
+const reconciliationProductFormSchema = z.object({
+  productUpdates: z.object({
+    id: z.string().trim().min(1, 'Produto não identificado.'),
+    mainSupplierId: z.string().trim().min(1, 'Selecione o fornecedor.').optional(),
+    categoryId: z.string().trim().min(1, 'Selecione a categoria.').optional(),
+    ncm: bulkNcmFormSchema.shape.ncm.optional(),
+    price: z.number().nonnegative('O preço não pode ser negativo.').optional(),
+  }),
+  variationUpdates: z.array(z.object({
+    id: z.string().trim().min(1, 'Variação não identificada.'),
+    price: z.number().nonnegative('O preço da variação não pode ser negativo.').optional(),
+    attributes: z.array(z.object({
+      name: z.string().trim().min(1, 'Informe o nome do atributo.'),
+      value: z.string(), showName: z.boolean().optional(),
+    }).passthrough()).optional(),
+  })).superRefine((variations, context) => {
+    if (new Set(variations.map((variation) => variation.id)).size !== variations.length) {
+      context.addIssue({ code: 'custom', message: 'A lista contém uma variação repetida.' });
+    }
+  }),
+});
 
 interface Props {
   product: ReconciliationProductItem;
@@ -52,6 +76,20 @@ export const ReconciliationProductCard: React.FC<Props> = ({
   );
   const [isExpanded, setIsExpanded] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const formValues = {
+    productUpdates: {
+      id: product.id,
+      ...(supplierId ? { mainSupplierId: supplierId } : {}),
+      ...(categoryId ? { categoryId } : {}),
+      ...(ncm ? { ncm } : {}),
+      ...(price ? { price: Number(price) } : {}),
+    },
+    variationUpdates: variations.map((variation) => ({
+      id: variation.id, price: variation.price, attributes: variation.attributes?.map((attribute) => ({ ...attribute })),
+    })),
+  };
+  const form = useZodForm(reconciliationProductFormSchema, formValues);
 
   // Rastreia se houve alterações
   const [hasChanges, setHasChanges] = useState(false);
@@ -62,7 +100,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
       if (p.level !== 'parent') return false;
       if (p.type === 'supplier' && supplierId.trim()) return false;
       if (p.type === 'category' && (categoryId.trim() || categoryName.trim())) return false;
-      if (p.type === 'ncm' && ncm.trim().length >= 4) return false;
+      if (p.type === 'ncm' && bulkNcmFormSchema.safeParse({ ncm }).success) return false;
       if (p.type === 'price' && Number(price) > 0) return false;
       return true;
     });
@@ -134,28 +172,21 @@ export const ReconciliationProductCard: React.FC<Props> = ({
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const productUpdates: any = { id: product.id };
-      if (supplierId) productUpdates.mainSupplierId = supplierId;
-      if (categoryId) productUpdates.categoryId = categoryId;
-      if (ncm) productUpdates.ncm = ncm;
-      if (price) productUpdates.price = Number(price);
-
-      const variationUpdates = variations.map((v) => ({
-        id: v.id,
-        price: v.price,
-        attributes: v.attributes,
-      }));
-
-      const success = await onSaveProduct(product.id, productUpdates, variationUpdates);
-      if (success) {
-        setHasChanges(false);
-        toast.success(`Alterações salvas para "${product.name}"!`);
+    setSaveError('');
+    await form.validateAndRun(formValues, async (validated) => {
+      setIsSaving(true);
+      try {
+        const success = await onSaveProduct(validated.productUpdates.id, validated.productUpdates, validated.variationUpdates);
+        if (success) {
+          setHasChanges(false);
+          toast.success(`Alterações salvas para "${product.name}"!`);
+        }
+      } catch (cause) {
+        setSaveError(cause instanceof Error ? cause.message : 'Não foi possível salvar as alterações.');
+      } finally {
+        setIsSaving(false);
       }
-    } finally {
-      setIsSaving(false);
-    }
+    }, (errors) => setSaveError(Object.values(flattenFormErrors(errors))[0] || 'Revise os dados informados.'));
   };
 
   // Identificar pendências de herança no pai
@@ -257,6 +288,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
 
       {/* ── Conteúdo Orientado a Pendências ─────────────────────────────── */}
       <div className="p-4 sm:p-5 space-y-4">
+        {saveError && <div role="alert" className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-800">{saveError}</div>}
         {/* 1. SEÇÃO PRODUTO PAI (Exibida SOMENTE se houver pendência no pai) */}
         {activeParentPendencies.length > 0 && (
           <div className="rounded-2xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/10 p-3 sm:p-4 space-y-3">

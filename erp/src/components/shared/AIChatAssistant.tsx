@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getSettings, AppSettings, subscribeToSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { textPromptFormSchema } from '../../../../shared-utils/assistedFormSchemas';
 import { GeminiAgentService } from '@/services/aiAgent/geminiAgentService';
 import {
   GeminiContent,
@@ -136,6 +138,7 @@ export default function AIChatAssistant({
   }, [geminiHistory]);
 
   const [input, setInput] = useState('');
+  const inputForm = useZodForm(textPromptFormSchema, { text: input });
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isCallMode, setIsCallMode] = useState(false);
@@ -258,7 +261,7 @@ export default function AIChatAssistant({
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || input).trim();
     if (!text || isLoading) return;
-
+    return inputForm.validateAndRun({ text }, async ({ text }) => {
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
       role: 'user',
@@ -304,6 +307,7 @@ export default function AIChatAssistant({
     } finally {
       setIsLoading(false);
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const handleClearHistory = () => {
@@ -714,7 +718,7 @@ export default function AIChatAssistant({
 
       {isFloating && (
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => isOpen ? handleClose() : setInternalIsOpen(true)}
           className={`w-16 h-16 rounded-[2rem] flex items-center justify-center text-white shadow-2xl transition-all hover:scale-110 active:scale-95 overflow-hidden ${
             isOpen
               ? 'bg-slate-800 dark:bg-slate-700 rotate-90'

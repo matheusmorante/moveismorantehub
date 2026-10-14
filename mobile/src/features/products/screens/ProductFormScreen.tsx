@@ -1,3 +1,5 @@
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { createMobileProductFormSchema } from '../../../../../shared-utils/mobileProductFormSchema';
 import {
   Check,
   ChevronLeft,
@@ -533,158 +535,37 @@ export const ProductFormScreen: React.FC<Props> = ({
     setActiveTab(product?.selectedVariationId ? 'variacoes' : 'geral');
   }, [visible, product, initialData]);
 
-  // Validação antes de salvar
-  const validate = useCallback(
-    (requestedDraft: boolean): boolean => {
-      const isDraft = requestedDraft;
-      if (!formData.name?.trim() || formData.name.trim().length < 2) {
-        Alert.alert('Campo Obrigatório', 'Informe o nome do produto (mínimo 2 caracteres).', [
-          { text: 'OK', onPress: () => setActiveTab('geral') },
-        ]);
-        return false;
-      }
-      if (!isDraft) {
-        if (
-          formData.itemType !== 'service' &&
-          !['normal', 'salvado', 'usado'].includes(formData.productKind || '')
-        ) {
-          Alert.alert('Origem do estoque', 'Selecione a origem do estoque do produto.', [
-            { text: 'OK', onPress: () => setActiveTab('geral') },
-          ]);
-          return false;
-        }
-        if (formData.itemType === 'composition') {
-          const componentCount = (
-            Array.isArray(formData.variations) ? formData.variations : []
-          ).reduce(
-            (total: number, variation: any) =>
-              total + (Array.isArray(variation.comboItems) ? variation.comboItems.length : 0),
-            0
-          );
-          const fallbackCount = Array.isArray(formData.comboItems) ? formData.comboItems.length : 0;
-          if (Math.max(componentCount, fallbackCount) < 2) {
-            Alert.alert(
-              'Componentes obrigatórios',
-              'Vincule pelo menos 2 produtos componentes na aba Variações.',
-              [{ text: 'OK', onPress: () => setActiveTab('variacoes') }]
-            );
-            return false;
-          }
-        }
-        if (
-          formData.itemType !== 'service' &&
-          !(Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) &&
-          !formData.categoryId
-        ) {
-          Alert.alert('Campo Obrigatório', 'Selecione a categoria do produto.', [
-            { text: 'OK', onPress: () => setActiveTab('geral') },
-          ]);
-          return false;
-        }
-        const isOwnProduction =
-          formData.merchandiseOrigin === 'own_production' ||
-          (formData as any).isOwnProduction === true ||
-          formData.fiscal?.merchandiseOrigin === 'own_production';
-        if (!isOwnProduction && !formData.mainSupplierId && !formData.supplierId) {
-          Alert.alert(
-            'Campo Obrigatório',
-            'Selecione o fornecedor principal na aba Estoque e Precificação.',
-            [{ text: 'OK', onPress: () => setActiveTab('estoque') }]
-          );
-          return false;
-        }
-        const variationPrices = Array.isArray(formData.variations) ? formData.variations : [];
-        if (variationPrices.length === 0) {
-          Alert.alert(
-            'Variação obrigatória',
-            'Mantenha a variação principal do produto ou adicione uma nova na aba Variações.',
-            [{ text: 'OK', onPress: () => setActiveTab('variacoes') }]
-          );
-          return false;
-        }
-        const parentPrice = parseLocalizedPrice(formData.unitPrice);
-        const hasValidPrice =
-          parentPrice > 0 ||
-          variationPrices.some(
-            (variation: any) =>
-              parseLocalizedPrice(
-                variation.syncUnitPrice !== false
-                  ? parentPrice
-                  : (variation.price ?? variation.unitPrice)
-              ) > 0
-          );
-        if (!hasValidPrice) {
-          Alert.alert('Campo Obrigatório', 'Informe o preço de venda do produto.', [
-            { text: 'OK', onPress: () => setActiveTab('estoque') },
-          ]);
-          return false;
-        }
-        const ncmDigits = String(formData.fiscal?.ncm || '').replace(/\D/g, '');
-        if (isStockistOnly && formData.itemType !== 'service' && ncmDigits.length !== 8) {
-          setNcmError(true);
-          Alert.alert(
-            'Campo Obrigatório',
-            'Informe um NCM válido com 8 dígitos na aba Tributário / NF.',
-            [{ text: 'OK', onPress: () => setActiveTab('fiscal') }]
-          );
-          return false;
-        }
-        setNcmError(false);
-      }
-      return true;
-    },
-    [formData, isStockistOnly]
-  );
+  const draftForm = useZodForm(createMobileProductFormSchema({ draft: true, isStockistOnly, published: false }), formData);
+  const finalForm = useZodForm(createMobileProductFormSchema({ draft: false, isStockistOnly, published: (product?.status || formData.status) === 'published' }), formData);
 
   const handleSubmit = useCallback(
     async (isDraft: boolean) => {
-      if (!validate(isDraft)) return;
+      const validated = await (isDraft ? draftForm : finalForm).validateAndRun(formData, (data) => data, (errors) => {
+        const messages = flattenFormErrors(errors);
+        const tab = Object.keys(messages)[0];
+        if (['geral', 'variacoes', 'estoque', 'fiscal'].includes(tab)) setActiveTab(tab as TabId);
+        setNcmError(tab === 'fiscal');
+        Alert.alert('Confira os campos', Object.values(messages)[0]);
+      });
+      if (!validated) return;
       const saveAsDraft = isDraft;
-      if (!saveAsDraft) {
-        const variations = Array.isArray(formData.variations) ? formData.variations : [];
-        const invalidVariation = variations
-          .map((variation: any) => ({
-            variation,
-            issue: getMobileVariationRegistrationIssue(formData, variation, variations),
-          }))
-          .find(
-            (entry: { issue: MobileVariationRegistrationIssue | null }) => entry.issue !== null
-          );
-        if (invalidVariation?.issue) {
-          Alert.alert('Variação inválida', invalidVariation.issue.message, [
-            { text: 'OK', onPress: () => setActiveTab('variacoes') },
-          ]);
-          setActiveTab('variacoes');
-          return;
-        }
-        if (
-          (product?.status || formData.status) === 'published' &&
-          !isMobileEcommerceLegible(formData)
-        ) {
-          Alert.alert(
-            'Catálogo publicado',
-            'Despublique o Catálogo antes de remover ou alterar um campo obrigatório.'
-          );
-          return;
-        }
-      }
       setSaving(true);
       try {
         const productCode =
-          String(formData.code || clientProductCodeRef.current || '').trim() ||
+          String(validated.code || clientProductCodeRef.current || '').trim() ||
           (product?.id ? '' : await getNextSequentialProductCode());
         clientProductCodeRef.current = productCode;
-        if (productCode && !formData.code) {
+        if (productCode && !validated.code) {
           setFormDataRaw((prev: any) => ({ ...prev, code: productCode }));
         }
-        const isSalvado = formData.productKind === 'salvado' || formData.condition === 'salvado';
-        const isUsado = formData.productKind === 'usado' || formData.condition === 'usado';
-        const saveState = prepareMobileProductSaveState(product, formData, saveAsDraft);
+        const isSalvado = validated.productKind === 'salvado' || validated.condition === 'salvado';
+        const isUsado = validated.productKind === 'usado' || validated.condition === 'usado';
+        const saveState = prepareMobileProductSaveState(product, validated, saveAsDraft);
         const operationId = saveOperationIdRef.current || createUuid();
         saveOperationIdRef.current = operationId;
 
         await onSave({
-          ...formData,
+          ...validated,
           code: productCode,
           operationId,
           clientProductId: product?.id || clientProductIdRef.current,
@@ -694,8 +575,8 @@ export const ProductFormScreen: React.FC<Props> = ({
           active: saveState.active,
           status: saveState.status,
           hasVariations:
-            formData.itemType !== 'composition' ||
-            Boolean(Array.isArray(formData.variations) && formData.variations.length > 0),
+            validated.itemType !== 'composition' ||
+            Boolean(Array.isArray(validated.variations) && validated.variations.length > 0),
           variations: saveState.variations,
         });
         dirtyRef.current = false;
@@ -709,7 +590,7 @@ export const ProductFormScreen: React.FC<Props> = ({
         setSaving(false);
       }
     },
-    [formData, validate, onSave, onClose, product]
+    [formData, draftForm, finalForm, onSave, onClose, product]
   );
 
   const touchStartX = useRef<number>(0);

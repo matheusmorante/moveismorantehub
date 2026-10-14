@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inboundAccessKeyFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
+import { normalizeFiscalIdentifier } from '../../../../../../../shared-utils/fiscalIdentifiers';
 
 interface InboundAccessKeyModalProps {
   readonly isOpen: boolean;
@@ -15,6 +18,7 @@ export function InboundAccessKeyModal({
   onSubmit,
 }: InboundAccessKeyModalProps) {
   const [accessKey, setAccessKey] = useState('');
+  const form = useZodForm(inboundAccessKeyFormSchema, { accessKey });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -34,13 +38,11 @@ export function InboundAccessKeyModal({
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
-    const normalizedKey = accessKey.replace(/\D/g, '');
-    if (normalizedKey.length !== 44) {
-      toast.error('Informe uma chave de acesso NF-e com exatamente 44 dígitos.');
-      return;
-    }
+    const validated = await form.validateAndRun({ accessKey }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     try {
-      await onSubmit(normalizedKey);
+      await onSubmit(validated.accessKey);
       setAccessKey('');
     } catch (error: unknown) {
       console.error('Erro ao consultar chave de acesso:', error);
@@ -96,18 +98,15 @@ export function InboundAccessKeyModal({
           <div className="flex items-center gap-2">
             <input
               autoFocus
-              inputMode="numeric"
+              inputMode="text"
               value={accessKey}
-              onBlur={(e) => setAccessKey(e.target.value.replace(/\D/g, '').slice(0, 44))}
+              onBlur={(e) => setAccessKey(normalizeFiscalIdentifier(e.target.value).slice(0, 44))}
               onChange={(event) =>
                 setAccessKey(
-                  event.target.value
-                    .replace(/[^\d\s]/g, '')
-                    .replace(/\s+/g, '')
-                    .slice(0, 44)
+                  normalizeFiscalIdentifier(event.target.value).slice(0, 44)
                 )
               }
-              placeholder="44 dígitos numéricos"
+              placeholder="44 caracteres da chave de acesso"
               className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-sm font-bold text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 transition-colors"
             />
             <a

@@ -11,20 +11,12 @@ export interface UnavailabilityFormModalProps {
   onSuccess: () => void;
 }
 
-export const UNAVAILABILITY_REASONS = [
-  'Avaria',
-  'Defeito',
-  'Separação para devolução ao fornecedor',
-  'Outro',
-] as const;
+export { UNAVAILABILITY_REASONS, UNAVAILABILITY_TREATMENTS } from '../../../../../../../shared-utils/operationsFormSchemas';
+import { UNAVAILABILITY_REASONS, UNAVAILABILITY_TREATMENTS } from '../../../../../../../shared-utils/operationsFormSchemas';
 
 export type UnavailabilityReason = (typeof UNAVAILABILITY_REASONS)[number];
 
-export const UNAVAILABILITY_TREATMENTS = [
-  'Devolução ao fornecedor',
-  'Descarte/perda',
-  'Outro',
-] as const;
+
 
 export type UnavailabilityTreatment = (typeof UNAVAILABILITY_TREATMENTS)[number];
 

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { stockUnavailabilityFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
 import type { Product, Variation } from '@/pages/types/product.type';
 import { createStockUnavailability } from '@/pages/utils/stockUnavailabilityService';
 import { fetchSuppliersForProduct } from '../services/unavailabilitySupplierService';
@@ -28,6 +30,8 @@ export function useUnavailabilityForm({ isOpen, onSuccess }: UseUnavailabilityFo
   const [suppliers, setSuppliers] = useState<UnavailabilitySupplier[]>([]);
   const [supplierId, setSupplierId] = useState<string>('');
   const [photos, setPhotos] = useState<File[]>([]);
+  const formValues = { productId: selectedProduct?.id || '', variationId: selectedVariation?.id || '', quantity: Number(quantity.replace(',', '.')), availableStock: selectedVariation?.stock || 0, supplierId, reason, treatment };
+  const form = useZodForm(stockUnavailabilityFormSchema, formValues);
 
   // Carrega apenas os fornecedores vinculados ao produto selecionado
   useEffect(() => {
@@ -75,13 +79,16 @@ export function useUnavailabilityForm({ isOpen, onSuccess }: UseUnavailabilityFo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validated = await form.validateAndRun(formValues, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
 
     if (!selectedProduct) {
       toast.error('Selecione um produto.');
       return;
     }
 
-    const qty = parseFloat(quantity.replace(',', '.'));
+    const qty = validated.quantity;
     if (Number.isNaN(qty) || qty <= 0) {
       toast.error('Informe uma quantidade válida maior que zero.');
       return;

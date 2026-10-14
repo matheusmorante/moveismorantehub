@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Alert } from 'react-native';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { financialTransactionFormSchema } from '../../../../../shared-utils/financialFormSchemas';
 import {
   FinancialCategory,
   FinancialTransaction,
@@ -55,6 +57,7 @@ export function useTransactionForm({
   const [collaboratorsList, setCollaboratorsList] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
+  const form = useZodForm(financialTransactionFormSchema, { type: type || 'expense', amount: amount || 0, description, date: transactionDate, payment_method: paymentMethod });
 
   const isExpense = type === 'expense';
 
@@ -222,6 +225,12 @@ export function useTransactionForm({
   );
 
   const handleSave = async () => {
+    const validated = await form.validateAndRun({ type: type!, amount: amount || 0, description, date: transactionDate, payment_method: paymentMethod }, (data) => data,
+      (errors) => {
+        setFieldErrors(Object.fromEntries(Object.keys(flattenFormErrors(errors)).map((key) => [key === 'payment_method' ? 'paymentMethod' : key, true])));
+        Alert.alert('Campos Obrigatórios', Object.values(flattenFormErrors(errors))[0]);
+      });
+    if (!validated) return;
     const errors: Record<string, boolean> = {};
 
     if (!type) {
@@ -271,8 +280,8 @@ export function useTransactionForm({
 
     const editablePayload: Partial<FinancialTransaction> = {
       type: type!,
-      amount: amount!,
-      description: description.trim(),
+      amount: validated.amount,
+      description: validated.description,
       category_id: realCatId,
       category_name: catName,
       payment_method: paymentMethod,
@@ -280,7 +289,7 @@ export function useTransactionForm({
       vehicle_id: isVehicleCategory ? vehicleId || null : null,
       collaborator_id: isPersonnelCategory ? collaboratorId || null : null,
       collaborator_name: isPersonnelCategory ? collaboratorName || null : null,
-      date: transactionDate,
+      date: validated.date,
       result_nature: selectedCategory?.result_nature || undefined,
     };
 
@@ -307,7 +316,7 @@ export function useTransactionForm({
 
     setType(null);
     setFieldErrors({});
-    setAmountStr('');
+    setAmount(null);
     setDescription('');
     setTransactionDate(toLocalIsoDate(new Date()));
     setSelectedCatId('');

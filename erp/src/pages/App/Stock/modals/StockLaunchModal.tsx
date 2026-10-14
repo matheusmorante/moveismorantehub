@@ -3,6 +3,8 @@ import { PackageMinus, PackagePlus, Scale } from 'lucide-react';
 import Product, { Variation } from '../../../types/product.type';
 import { saveInventoryMove, subscribeToInventoryMoves } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inventoryMoveFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
 import InventoryMove from '../../../types/inventoryMove.type';
 import { calculateInventoryTimelineBalance } from '@/pages/utils/inventoryTimelineBalance';
 
@@ -87,6 +89,7 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
     );
   }, [targetProduct, activeVariation, propCurrentStock, moves]);
 
+  const form = useZodForm(inventoryMoveFormSchema, { type: type === 'exit' ? 'withdrawal' : type, quantity, date: '', observation: reason });
   if (!isOpen || !targetProduct) return null;
 
   const fullDisplayName =
@@ -125,6 +128,9 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
       return;
     }
 
+    const validated = await form.validateAndRun({ type: type === 'exit' ? 'withdrawal' : type, quantity: moveQuantity, date: '', observation: reason }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setIsSaving(true);
     try {
       const move: InventoryMove = {
@@ -132,10 +138,10 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
         variationId: activeVariation.id,
         productDescription: fullDisplayName,
         type: type === 'adjustment' ? 'balance' : type === 'entry' ? 'entry' : 'withdrawal',
-        quantity: moveQuantity,
+        quantity: validated.quantity,
         date: new Date().toISOString(),
-        label: reason.trim(),
-        observation: reason.trim(),
+        label: validated.observation,
+        observation: validated.observation,
       };
 
       await saveInventoryMove(move, currentStock);

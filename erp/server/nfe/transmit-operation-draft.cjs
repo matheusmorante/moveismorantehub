@@ -2565,7 +2565,7 @@ async function handler(req, res) {
     if (!["ready", "transmitting", "unknown"].includes(draft.status)) {
       return res.status(409).json({ success: false, error: "Conclua e salve a revis\xE3o fiscal antes de transmitir." });
     }
-    if (!automaticReturnWorker && environment === 1 && req.body?.productionConfirmed !== true) {
+    if (!automaticReturnWorker && environment === 1 && draft.status === "ready" && req.body?.productionConfirmed !== true) {
       return res.status(400).json({
         success: false,
         error: "Confirme explicitamente a transmiss\xE3o deste documento em Produ\xE7\xE3o."

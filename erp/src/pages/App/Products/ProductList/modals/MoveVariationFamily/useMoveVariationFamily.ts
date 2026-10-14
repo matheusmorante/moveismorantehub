@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { variationFamilyFormSchema } from '../../../../../../../../shared-utils/catalogFormSchemas';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { ensureAttributeValue } from '@/pages/utils/variationService';
 import { moveVariationToFamily } from '@/pages/utils/productService';
@@ -14,6 +16,7 @@ export const useMoveVariationFamily = (
   const [families, setFamilies] = useState<readonly Family[]>([]);
   const [targetFamilyId, setTargetFamilyId] = useState('');
   const [attributes, setAttributes] = useState<Attribute[]>([]);
+  const { validateAndRun } = useZodForm(variationFamilyFormSchema, { sourceId: variation?.variationId || '', familyId: targetFamilyId, attributes });
   const [hasConflict, setHasConflict] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [isOnlyVariation, setIsOnlyVariation] = useState(false);
@@ -119,11 +122,14 @@ export const useMoveVariationFamily = (
     const validAttributes = attributes.filter(
       (attribute) => attribute.name.trim() && attribute.value.trim()
     );
+    const validated = await validateAndRun({ sourceId: variation.variationId, familyId: selectedFamily.id, attributes: validAttributes }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
 
     try {
       setSaving(true);
       const canonicalAttributes = await Promise.all(
-        validAttributes.map(async (attribute) => {
+        validated.attributes.map(async (attribute) => {
           const stored = await ensureAttributeValue(attribute.name, attribute.value);
           return { ...attribute, ...stored };
         })
@@ -174,7 +180,7 @@ export const useMoveVariationFamily = (
     } finally {
       setSaving(false);
     }
-  }, [families, targetFamilyId, variation, attributes, onMoved, onClose]);
+  }, [families, targetFamilyId, variation, attributes, onMoved, onClose, validateAndRun]);
 
   return {
     families,

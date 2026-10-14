@@ -32,7 +32,7 @@ const ServiceFormModal = ({ isOpen, onClose, service }: ServiceFormModalProps) =
     }
   }, [service, isOpen]);
 
-  const handleSubmit = form.handleSubmit(async (values) => {
+  const handleSubmit = form.submit(async (values) => {
     setLoading(true);
     try {
       const dataToSave = { ...formData, ...values, isDraft: false } as Service;

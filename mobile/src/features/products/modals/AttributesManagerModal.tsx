@@ -24,10 +24,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  validateAttribute,
-  validateAttributeOption,
-} from '../categories/domain/categoryEnvironmentRules';
+import { z } from 'zod';
+import { useZodForm, flattenFormErrors } from '../../../hooks/useZodForm';
+import { createCharacteristicFormSchema } from '../../../../../shared-utils/characteristicFormRules';
+import { validateAttributeOption } from '../categories/domain/categoryEnvironmentRules';
 import {
   addMobileAttributeValue,
   deleteMobileAttribute,
@@ -57,6 +57,15 @@ const ATTRIBUTE_TYPE_OPTIONS: Array<[MobileAttributeDataType, string]> = [
   ['boolean', 'Sim ou não'],
 ];
 
+const attributeOptionFormSchema = z.object({
+  value: z.string().trim().min(1, 'O valor da opção não pode estar vazio.'),
+  attributeId: z.string().min(1, 'Característica não encontrada.').optional(),
+  existingOptions: z.array(z.object({ id: z.string(), value: z.string() })),
+}).superRefine((values, ctx) => {
+  const result = validateAttributeOption(values.value, values.existingOptions);
+  if (!result.valid) ctx.addIssue({ code: 'custom', path: ['value'], message: result.error || 'Valor inválido.' });
+});
+
 export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose }) => {
   const insets = useSafeAreaInsets();
   const [attributes, setAttributes] = useState<MobileAttribute[]>([]);
@@ -82,6 +91,23 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   const [editOptionInput, setEditOptionInput] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [savingValueId, setSavingValueId] = useState<string | null>(null);
+  const allCharacteristics = attributes.map((attribute) => ({ ...attribute, active: attribute.active !== false }));
+  const newDefinition = {
+    name: newAttrName, dataType: newDataType, unit: newDataType === 'measure' ? newUnit : '',
+    decimalPlaces: newDecimalPlaces, active: true,
+    options: [...newOptions, ...((newDataType === 'radio' || newDataType === 'multi_select') && newOptionInput.trim() ? [newOptionInput.trim()] : [])]
+      .map((value) => ({ id: '', value })),
+  };
+  const editDefinition = {
+    name: editName, dataType: editDataType, unit: editDataType === 'measure' ? editUnit : '',
+    decimalPlaces: editDecimalPlaces, active: editActive, options: editOptions,
+  };
+  const { validateAndRun: validateNewDefinition } = useZodForm(createCharacteristicFormSchema(allCharacteristics), newDefinition);
+  const { validateAndRun: validateEditDefinition } = useZodForm(createCharacteristicFormSchema(allCharacteristics, editingId || undefined), editDefinition);
+  const { validateAndRun: validateOption } = useZodForm(attributeOptionFormSchema, { value: newOptionInput, existingOptions: [] });
+  const showValidationError = (errors: Parameters<typeof flattenFormErrors>[0]) => {
+    Alert.alert('Atenção', Object.values(flattenFormErrors(errors))[0] || 'Revise os campos informados.');
+  };
 
   const load = async () => {
     setLoading(true);
@@ -102,41 +128,18 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
 
   const handleAddAttr = async () => {
     if (isSavingNew) return;
-    const validation = validateAttribute(newAttrName, attributes, undefined, newDataType);
-    if (!validation.valid) {
-      Alert.alert('Atenção', validation.error || 'Nome inválido.');
-      return;
-    }
-
-    const isChoiceType = newDataType === 'radio' || newDataType === 'multi_select';
-    const options = [...newOptions];
-    if (isChoiceType && newOptionInput.trim()) {
-      const optionValidation = validateAttributeOption(
-        newOptionInput,
-        options.map((value, index) => ({ id: String(index), value }))
-      );
-      if (!optionValidation.valid) {
-        Alert.alert('Atenção', optionValidation.error || 'Valor inválido.');
-        return;
-      }
-      options.push(optionValidation.formattedName!);
-    }
-
-    if (isChoiceType && options.length === 0) {
-      Alert.alert('Atenção', 'Adicione pelo menos uma opção.');
-      return;
-    }
-
+    await validateNewDefinition(newDefinition, async (values) => {
+    const isChoiceType = values.dataType === 'radio' || values.dataType === 'multi_select';
     setIsSavingNew(true);
     try {
       await saveMobileAttributeDefinition({
-        name: validation.formattedName!,
-        dataType: newDataType,
-        unit: newDataType === 'measure' ? newUnit : '',
-        decimalPlaces: newDataType === 'decimal' ? newDecimalPlaces : undefined,
+        name: values.name,
+        dataType: values.dataType,
+        unit: values.unit,
+        decimalPlaces: values.dataType === 'decimal' ? values.decimalPlaces : undefined,
         active: true,
         isCustom: true,
-        options: isChoiceType ? options.map((value) => ({ id: '', value })) : [],
+        options: isChoiceType ? values.options : [],
       });
       setNewAttrName('');
       setNewUnit('cm');
@@ -152,6 +155,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     } finally {
       setIsSavingNew(false);
     }
+    }, showValidationError);
   };
 
   const handleDeleteAttr = (id: string, name: string) => {
@@ -189,14 +193,10 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     if (savingValueId) return;
     const attr = attributes.find((a) => a.id === attrId);
     const existingOptions = (attr?.options || []).map((o) => ({ id: o.id, value: o.value }));
-    const validation = validateAttributeOption(newValText, existingOptions);
-    if (!validation.valid) {
-      Alert.alert('Atenção', validation.error || 'Valor inválido.');
-      return;
-    }
+    await validateOption({ value: newValText, attributeId: attrId, existingOptions }, async (values) => {
     setSavingValueId(attrId);
     try {
-      await addMobileAttributeValue(attrId, validation.formattedName!);
+      await addMobileAttributeValue(values.attributeId!, values.value);
       setNewValText('');
       await load();
     } catch (error) {
@@ -207,6 +207,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     } finally {
       setSavingValueId(null);
     }
+    }, showValidationError);
   };
 
   const handleDeleteValue = (attributeName: string, valId: string, value: string) => {
@@ -230,49 +231,32 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     ]);
   };
 
-  const handleAddNewOption = () => {
-    const validation = validateAttributeOption(
-      newOptionInput,
-      newOptions.map((value, index) => ({ id: String(index), value }))
-    );
-    if (!validation.valid) {
-      Alert.alert('Atenção', validation.error || 'Valor inválido.');
-      return;
-    }
-    setNewOptions((previous) => [...previous, validation.formattedName!]);
-    setNewOptionInput('');
+  const handleAddNewOption = async () => {
+    await validateOption({ value: newOptionInput, existingOptions: newOptions.map((value, index) => ({ id: String(index), value })) }, (values) => {
+      setNewOptions((previous) => [...previous, values.value]);
+      setNewOptionInput('');
+    }, showValidationError);
   };
 
   const handleSaveEdit = async (id: string) => {
-    const validation = validateAttribute(editName, attributes, id, editDataType);
-    if (!validation.valid) {
-      Alert.alert('Atenção', validation.error || 'Nome inválido.');
-      return;
-    }
+    if (isSavingEdit || editingId !== id) return;
+    await validateEditDefinition(editDefinition, async (values) => {
     const current = attributes.find((attribute) => attribute.id === id);
-    const isChoiceType = editDataType === 'radio' || editDataType === 'multi_select';
-    if (isChoiceType && editOptions.length === 0) {
-      Alert.alert('Atenção', 'Adicione pelo menos uma opção para este tipo de preenchimento.');
-      return;
-    }
-    if (editDataType === 'measure' && !['cm', 'mm', 'm'].includes(editUnit)) {
-      Alert.alert('Atenção', 'Selecione uma unidade de medida válida.');
-      return;
-    }
+    const isChoiceType = values.dataType === 'radio' || values.dataType === 'multi_select';
 
     setIsSavingEdit(true);
     try {
       await saveMobileAttributeDefinition({
         id,
-        name: validation.formattedName!,
-        dataType: editDataType,
-        unit: editDataType === 'measure' ? editUnit : '',
-        decimalPlaces: editDataType === 'decimal' ? editDecimalPlaces : undefined,
-        active: editActive,
+        name: values.name,
+        dataType: values.dataType,
+        unit: values.unit,
+        decimalPlaces: values.dataType === 'decimal' ? values.decimalPlaces : undefined,
+        active: values.active,
         isGloballyRequired: current?.isGloballyRequired ?? false,
         isCustom: current?.isCustom ?? true,
         options: isChoiceType
-          ? editOptions.map((option, index) => ({
+          ? values.options.map((option, index) => ({
               id: option.id,
               value: option.value,
               sortOrder: index,
@@ -291,6 +275,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     } finally {
       setIsSavingEdit(false);
     }
+    }, showValidationError);
   };
 
   const startEditing = (attribute: MobileAttribute) => {
@@ -305,22 +290,19 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     setEditOptionInput('');
   };
 
-  const addEditedOption = (attributeId: string) => {
-    const validation = validateAttributeOption(editOptionInput, editOptions);
-    if (!validation.valid) {
-      Alert.alert('Atenção', validation.error || 'Valor inválido.');
-      return;
-    }
+  const addEditedOption = async (attributeId: string) => {
+    await validateOption({ value: editOptionInput, attributeId, existingOptions: editOptions }, (values) => {
     setEditOptions((previous) => [
       ...previous,
       {
         id: '',
-        value: validation.formattedName!,
-        attribute_id: attributeId,
+        value: values.value,
+        attribute_id: values.attributeId!,
         sortOrder: previous.length,
       },
     ]);
     setEditOptionInput('');
+    }, showValidationError);
   };
 
   return (

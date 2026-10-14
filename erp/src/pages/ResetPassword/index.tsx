@@ -146,7 +146,7 @@ const ResetPassword = () => {
           {stage === 'email' && (
             <form
               noValidate
-              onSubmit={emailForm.handleSubmit(sendRecoveryCode, showValidationError)}
+              onSubmit={emailForm.submit(sendRecoveryCode, showValidationError)}
               className="space-y-5"
             >
               <label className="block space-y-2">
@@ -174,7 +174,7 @@ const ResetPassword = () => {
           )}
 
           {stage === 'code' && (
-            <form noValidate onSubmit={codeForm.handleSubmit(verifyRecoveryCode, showValidationError)} className="space-y-4">
+            <form noValidate onSubmit={codeForm.submit(verifyRecoveryCode, showValidationError)} className="space-y-4">
               <label className="block space-y-2">
                 <span className="text-xs font-black uppercase tracking-widest text-slate-400">
                   Código de recuperação
@@ -208,7 +208,7 @@ const ResetPassword = () => {
           )}
 
           {stage === 'password' && (
-            <form noValidate onSubmit={passwordForm.handleSubmit(saveNewPassword, showValidationError)} className="space-y-4">
+            <form noValidate onSubmit={passwordForm.submit(saveNewPassword, showValidationError)} className="space-y-4">
               <label className="block space-y-2">
                 <span className="text-xs font-black uppercase tracking-widest text-slate-400">
                   Nova senha

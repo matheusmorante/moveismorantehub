@@ -1,3 +1,6 @@
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { toast } from 'react-toastify';
+import { catalogSelectionFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState, useCallback } from 'react';
 import { supabase } from '../../../../utils/supabaseConfig';
 import Person from '../../../../types/person.type';
@@ -67,16 +70,18 @@ export const ApplySupplierModal: React.FC<Props> = ({
     [searchSuppliers]
   );
 
+  const form = useZodForm(catalogSelectionFormSchema, { id: selectedSupplierId });
   if (!isOpen) return null;
 
   const affectedCount = isAllFilteredSelected ? totalFilteredCount : selectedCount;
 
   const handleConfirm = async () => {
-    if (!selectedSupplierId) return;
+    const validated = await form.validateAndRun({ id: selectedSupplierId }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setIsSubmitting(true);
     try {
       // replaceExisting = false fixo: sempre adiciona sem substituir fornecedores existentes
-      await onConfirm(selectedSupplierId, false);
+      await onConfirm(validated.id, false);
     } finally {
       setIsSubmitting(false);
     }

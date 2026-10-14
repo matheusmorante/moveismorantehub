@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { AppSettings } from '@/pages/utils/settingsService';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { whatsappConnectionFormSchema, whatsappTemplatesQueryFormSchema, whatsappTemplateTestFormSchema } from '../../../../../../../shared-utils/messagingFormSchemas';
 
 interface WhatsAppConfigSectionProps {
   settings: AppSettings;
@@ -47,15 +49,22 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
     templateLanguage: 'pt_BR',
     templateVariableCount: 7,
   };
+  const connectionForm = useZodForm(whatsappConnectionFormSchema, config);
+  const queryForm = useZodForm(whatsappTemplatesQueryFormSchema, config);
+  const templateForm = useZodForm(whatsappTemplateTestFormSchema, {
+    phone: testPhone, template: config.templateNameOrderConfirmation || '', language: config.templateLanguage || 'pt_BR', variableCount: config.templateVariableCount ?? 7,
+  });
+  const showFormError = (errors: Parameters<typeof flattenFormErrors>[0]) => toast.warning(Object.values(flattenFormErrors(errors))[0]);
 
   const handleFieldChange = (field: string, value: any) => {
     onChange(`whatsappConfig.${field}`, value);
   };
 
   const handleTestConnection = async () => {
+    return connectionForm.validateAndRun(config, async (values) => {
     setIsTesting(true);
     try {
-      await whatsappGraphService.testConnection(config);
+      await whatsappGraphService.testConnection(values);
       toast.success('Conexão com WhatsApp API estabelecida com sucesso! ✅');
     } catch (error: any) {
       toast.error(`Falha na conexão: ${error.message}`);
@@ -63,20 +72,11 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
     } finally {
       setIsTesting(false);
     }
+    }, showFormError);
   };
 
   const handleFetchTemplates = async () => {
-    if (!config.wabaId) {
-      toast.warning(
-        'Preencha o WABA ID (ID da Conta do WhatsApp Business) para listar automaticamente.'
-      );
-      return;
-    }
-    if (!config.accessToken) {
-      toast.warning('Preencha o Token de Acesso antes de consultar os modelos.');
-      return;
-    }
-
+    return queryForm.validateAndRun(config, async () => {
     setIsLoadingTemplates(true);
     try {
       const list = await whatsappGraphService.fetchMessageTemplates();
@@ -94,23 +94,14 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
     } finally {
       setIsLoadingTemplates(false);
     }
+    }, showFormError);
   };
 
   const handleTestTemplateSend = async () => {
-    const cleanPhone = testPhone.trim();
-    if (!cleanPhone) {
-      toast.warning('Digite um número de telefone com DDD para o teste.');
-      return;
-    }
-    if (!config.templateNameOrderConfirmation) {
-      toast.warning('Preencha o Nome do Modelo (Template Name) antes de testar.');
-      return;
-    }
-
+    return templateForm.validateAndRun({ phone: testPhone, template: config.templateNameOrderConfirmation || '', language: config.templateLanguage || 'pt_BR', variableCount: config.templateVariableCount ?? 7 }, async (values) => {
     setIsTestingTemplate(true);
     try {
-      const varCount =
-        typeof config.templateVariableCount === 'number' ? config.templateVariableCount : 7;
+      const varCount = values.variableCount;
       const mockParams = [
         'Cliente Teste',
         '26/08/2026',
@@ -123,10 +114,10 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
       const finalParams = varCount === 0 ? [] : mockParams.slice(0, varCount);
 
       await whatsappGraphService.sendTemplateMessage(
-        cleanPhone,
-        config.templateNameOrderConfirmation,
+        values.phone,
+        values.template,
         finalParams,
-        config.templateLanguage || 'pt_BR'
+        values.language
       );
       toast.success('✅ Mensagem de teste enviada com sucesso! Verifique seu WhatsApp.');
     } catch (err: any) {
@@ -135,6 +126,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
     } finally {
       setIsTestingTemplate(false);
     }
+    }, showFormError);
   };
 
   return (

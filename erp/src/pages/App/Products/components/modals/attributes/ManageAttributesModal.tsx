@@ -88,7 +88,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
     }
   };
 
-  const handleSaveAttribute = createForm.handleSubmit(async (values) => {
+  const handleSaveAttribute = createForm.submit(async (values) => {
     setIsSaving(true);
     try {
       await saveVariation({

@@ -13,6 +13,8 @@ import {
   Platform,
 } from 'react-native';
 import { X } from 'lucide-react-native';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { createPersonFormSchema } from '../../../../../shared-utils/personDomainValidation';
 
 interface Props {
   visible: boolean;
@@ -87,6 +89,7 @@ export const SupplierFormModal: React.FC<Props> = ({
 }) => {
   const [form, setForm] = useState<any>(emptyForm());
   const [isSaving, setIsSaving] = useState(false);
+  const personForm = useZodForm(createPersonFormSchema('suppliers'), form);
   const theme = isDarkMode
     ? {
         bg: '#0f172a',
@@ -161,6 +164,9 @@ export const SupplierFormModal: React.FC<Props> = ({
   );
 
   const handleSave = async () => {
+    const validated = await personForm.validateAndRun(form, (data) => data,
+      (errors) => Alert.alert('Campo obrigatório', Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     const name = form.fullName.trim();
     if (!name) {
       Alert.alert(
@@ -172,7 +178,7 @@ export const SupplierFormModal: React.FC<Props> = ({
     setIsSaving(true);
     try {
       await onSave({
-        ...form,
+        ...validated,
         id: supplier?.id,
         fullName: name,
         leadTime: Number(form.leadTime) || 0,

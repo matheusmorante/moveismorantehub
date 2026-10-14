@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Product, { Variation } from '../../../../../types/product.type';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { bulkAttributeFormSchema } from '../../../../../../../../shared-utils/catalogFormSchemas';
+import { toast } from 'react-toastify';
 
 export interface ProductConversionModalProps {
   readonly isOpen: boolean;
@@ -19,6 +22,7 @@ export const ProductConversionModal: React.FC<ProductConversionModalProps> = ({
 }) => {
   const [attrName, setAttrName] = useState('Cor');
   const [attrValue, setAttrValue] = useState('Padrão');
+  const form = useZodForm(bulkAttributeFormSchema, { name: attrName, value: attrValue });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -35,7 +39,10 @@ export const ProductConversionModal: React.FC<ProductConversionModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleConvert = () => {
+  const handleConvert = async () => {
+    const validated = await form.validateAndRun({ name: attrName, value: attrValue }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     const variationId =
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
@@ -53,7 +60,7 @@ export const ProductConversionModal: React.FC<ProductConversionModalProps> = ({
       syncDescription: true,
       images: [],
       active: true,
-      attributes: [{ name: attrName.trim(), value: attrValue.trim() }],
+      attributes: [{ name: validated.name, value: validated.value }],
       comboItems: [],
     };
 

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type Product from '@/pages/types/product.type';
@@ -116,6 +116,7 @@ describe('useProductFormDraft em modo de artefato de teste', () => {
     });
     let first: Promise<boolean>;
     act(() => { first = result.current.autoSaveDraft(result.current.data); });
+    await waitFor(() => expect(mocks.saveProduct).toHaveBeenCalledTimes(1));
     act(() => result.current.setData((prev) => setTestArtifactMode(prev, 'technicalSpecs', false)));
     let queued: Promise<boolean>;
     act(() => { queued = result.current.autoSaveDraft(result.current.data); });

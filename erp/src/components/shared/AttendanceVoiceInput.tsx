@@ -27,7 +27,7 @@ const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) 
 
   const handleProcess = async () => {
     const result = await processAttendance(customerPhone);
-    if (result?.success) {
+    if (result && result.success) {
       if (!result.suggestedAction) {
         setTimeout(() => {
           setTranscript('');

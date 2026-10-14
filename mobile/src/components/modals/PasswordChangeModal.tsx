@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { supabase } from '../../services/supabaseClient';
-import { validatePasswordSetup } from '../../services/authPasswordSetup';
+import { flattenFormErrors, useZodForm } from '../../hooks/useZodForm';
+import { createPasswordChangeFormSchema } from '../../../../shared-utils/accountFormSchemas';
 import {
   getPasswordAuthErrorMessage,
   isCurrentPasswordRequired,
@@ -39,6 +40,8 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
   const [reauthRequired, setReauthRequired] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const formValues = { password, confirmation, currentPassword, reauthenticationCode: reauthCode };
+  const form = useZodForm(createPasswordChangeFormSchema({ code: reauthRequired, currentPassword: currentPasswordRequired }), formValues);
 
   useEffect(() => {
     if (visible) return;
@@ -71,11 +74,9 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
   };
 
   const submitPassword = async () => {
-    const validationError = validatePasswordSetup(password, confirmation);
-    if (validationError) {
-      setMessage(validationError);
-      return;
-    }
+    const validated = await form.validateAndRun(formValues, (data) => data,
+      (errors) => setMessage(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     if (reauthRequired && !reauthCode.trim()) {
       setMessage('Informe o código enviado para confirmar sua identidade.');
       return;
@@ -90,9 +91,9 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
     try {
       const { error } = await updateAuthenticatedPassword(
         supabase,
-        password,
-        reauthRequired ? reauthCode : undefined,
-        currentPasswordRequired ? currentPassword : undefined
+        validated.password,
+        reauthRequired ? validated.reauthenticationCode : undefined,
+        currentPasswordRequired ? validated.currentPassword : undefined
       );
       if (error && !reauthRequired && isPasswordReauthenticationRequired(error)) {
         await requestReauthCode();

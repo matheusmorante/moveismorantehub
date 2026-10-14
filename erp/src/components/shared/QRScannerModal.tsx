@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { manualScanFormSchema } from '../../../../shared-utils/lookupFormSchemas';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
@@ -395,7 +397,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
               {footerContent}
             </div>
           ) : (
-            <form
+            <ZodForm schema={manualScanFormSchema} values={{ code: manualCode }}
               onSubmit={(e) => {
                 e.preventDefault();
                 if (manualCode.trim()) {
@@ -434,7 +436,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
                   Câmera
                 </button>
               </div>
-            </form>
+            </ZodForm>
           )}
         </div>
       </div>

@@ -8,6 +8,8 @@ import { formatToBRDate } from '../../../../utils/formatters';
 import { getProductsByIds } from '../../../../utils/productService';
 import Product, { Variation } from '../../../../types/product.type';
 import { extractScannedCodes, extractLabelIdentity } from '@/pages/utils/barcodeScannerUtils';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createPurchaseReceiptCheckFormSchema } from '../../../../../../../shared-utils/purchaseReceiptCheckFormSchema';
 
 export interface PurchaseReceiptCheckModalProps {
   readonly purchase: Purchase | null;
@@ -31,6 +33,10 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
   const [discrepancyNote, setDiscrepancyNote] = useState('');
+  const [validationError, setValidationError] = useState('');
+  const form = useZodForm(createPurchaseReceiptCheckFormSchema(
+    (purchase?.items || []).map((item) => item.productId + (item.variationId || '')),
+  ), { invoiceNumber, invoiceDate, discrepancyNote, receivedQuantities: scannedItems, invoicedQuantities });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -232,14 +238,14 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
     printWindow.document.close();
   };
 
-  const handleSave = async () => {
+  const handleSave = form.submit(async (values) => {
     setIsSaving(true);
     try {
       const updatedItems = purchase.items.map((item: PurchaseItem) => {
         const key = item.productId + (item.variationId || '');
         return {
           ...item,
-          receivedQuantity: scannedItems[key] || 0,
+          receivedQuantity: values.receivedQuantities[key],
         };
       });
 
@@ -248,8 +254,8 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
 
       const hasDiscrepancy = updatedItems.some((i) => {
         const key = i.productId + (i.variationId || '');
-        const invoiced = invoicedQuantities[key] || 0;
-        const received = scannedItems[key] || 0;
+        const invoiced = values.invoicedQuantities[key];
+        const received = values.receivedQuantities[key];
         return received !== i.quantity || received !== invoiced || invoiced !== i.quantity;
       });
 
@@ -266,11 +272,11 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
       await updatePurchase(purchase.id!, {
         items: updatedItems,
         status: newStatus,
-        invoiceNumber,
-        invoiceDate,
+        invoiceNumber: values.invoiceNumber,
+        invoiceDate: values.invoiceDate,
         invoiceStatus: invStatus,
-        observation: discrepancyNote
-          ? `${purchase.observation || ''}\n[Divergência: ${discrepancyNote}]`
+        observation: values.discrepancyNote
+          ? `${purchase.observation || ''}\n[Divergência: ${values.discrepancyNote}]`
           : purchase.observation,
       });
 
@@ -284,7 +290,7 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
     } finally {
       setIsSaving(false);
     }
-  };
+  }, (errors) => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira as quantidades dos itens.'));
 
   return (
     <div
@@ -490,10 +496,11 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
         </div>
 
         <div className="p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+          {validationError && <p role="alert" className="mb-3 text-sm font-bold text-red-600 dark:text-red-400">{validationError}</p>}
           <button
             type="button"
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || form.formState.isSubmitting}
             className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl font-black uppercase tracking-widest shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
           >
             {isSaving ? (

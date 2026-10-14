@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { aiService } from '@/pages/utils/aiService';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { assistedOrderFormSchema, textPromptFormSchema } from '../../../../../../shared-utils/assistedFormSchemas';
 
 interface SmartAIFillModalProps {
   isOpen: boolean;
@@ -24,6 +26,15 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
   const [activeTab, setActiveTab] = useState<'ai' | 'json_manual'>('ai');
   const [manualJSON, setManualJSON] = useState('');
   const [liveTranscript, setLiveTranscript] = useState('');
+  const promptForm = useZodForm(textPromptFormSchema, { text: `${promptText} ${liveTranscript}` });
+  const dataForm = useZodForm(assistedOrderFormSchema, {});
+  const applyData = async (data: unknown) => {
+    const validated = await dataForm.validateAndRun(data as never, (values) => values,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    onApplyData(validated);
+    onClose();
+  };
 
   const recognitionRef = useRef<any>(null);
 
@@ -129,9 +140,12 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
       }
     }
 
+    const validated = await promptForm.validateAndRun({ text: fullText }, (data) => data,
+      (errors) => toast.warn(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setIsProcessingAI(true);
     try {
-      const result = await aiService.parseOrderFromFreeText(fullText, sellerList);
+      const result = await aiService.parseOrderFromFreeText(validated.text, sellerList);
       setLastParsedResult(result);
       toast.success('Pedido analisado com sucesso pela IA Gemini!');
     } catch (err: any) {
@@ -142,13 +156,12 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
     }
   };
 
-  const handleConfirmApply = () => {
+  const handleConfirmApply = async () => {
     if (!lastParsedResult?.rawJSON) {
       toast.warn('Gere ou processe o pedido com a IA antes de aplicar.');
       return;
     }
-    onApplyData(lastParsedResult.rawJSON);
-    onClose();
+    await applyData(lastParsedResult.rawJSON);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,11 +169,10 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
-        onApplyData(parsed);
-        onClose();
+        await applyData(parsed);
       } catch (err: any) {
         toast.error('Arquivo JSON inválido: ' + err.message);
       }
@@ -168,11 +180,10 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
     reader.readAsText(file);
   };
 
-  const handleProcessManualJSON = () => {
+  const handleProcessManualJSON = async () => {
     try {
       const parsed = JSON.parse(manualJSON);
-      onApplyData(parsed);
-      onClose();
+      await applyData(parsed);
     } catch (err: any) {
       toast.error('JSON inválido: ' + err.message);
     }

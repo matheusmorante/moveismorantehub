@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inventoryBatchEditFormSchema } from '../../../../../../shared-utils/catalogFormSchemas';
 import { formatCurrency, formatDateTime } from '@/pages/utils/formatters';
 import Product from '@/pages/types/product.type';
 import { updateInventoryMove } from '@/pages/utils/inventoryService';
@@ -28,6 +30,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCost, setEditCost] = useState<number>(0);
   const [editQty, setEditQty] = useState<number>(0);
+  const form = useZodForm(inventoryBatchEditFormSchema, { quantity: editQty, unitCost: editCost });
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -358,11 +361,14 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                                   <button
                                     type="button"
                                     onClick={async () => {
+                                      const validated = await form.validateAndRun({ quantity: editQty, unitCost: editCost }, (data) => data,
+                                        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+                                      if (!validated) return;
                                       setIsSaving(true);
                                       try {
                                         await updateInventoryMove(entry.id, {
-                                          quantity: editQty,
-                                          unitCost: editCost,
+                                          quantity: validated.quantity,
+                                          unitCost: validated.unitCost,
                                         });
                                         toast.success('Lote atualizado com sucesso!');
                                         setEditingId(null);

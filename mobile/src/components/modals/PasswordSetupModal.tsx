@@ -12,7 +12,8 @@ import {
   View,
 } from 'react-native';
 import type { PasswordCredentialStatus } from '../../contexts/AuthContext';
-import { validatePasswordSetup } from '../../services/authPasswordSetup';
+import { flattenFormErrors, useZodForm } from '../../hooks/useZodForm';
+import { passwordSetupFormSchema } from '../../../../shared-utils/authFormSchemas';
 
 type Props = {
   visible: boolean;
@@ -27,20 +28,19 @@ export function PasswordSetupModal({ visible, status, email, onCreatePassword, o
   const [confirmation, setConfirmation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  const form = useZodForm(passwordSetupFormSchema, { password, confirmation });
 
   if (!visible || status !== 'required') return null;
 
   const handleCreatePassword = async () => {
-    const validationError = validatePasswordSetup(password, confirmation);
-    if (validationError) {
-      setMessage(validationError);
-      return;
-    }
+    const validated = await form.validateAndRun({ password, confirmation }, (data) => data,
+      (errors) => setMessage(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
 
     setIsSubmitting(true);
     setMessage('');
     try {
-      await onCreatePassword(password, confirmation);
+      await onCreatePassword(validated.password, validated.confirmation);
       setPassword('');
       setConfirmation('');
     } catch (error) {

@@ -48,13 +48,12 @@ export const useProductFormSubmit = ({
   onClose,
   isTestArtifact = false,
 }: SubmitProps) => {
-  const finalForm = useZodForm(createProductFormSchema({ isStockistOnly, saveAsDraft: false }), formData);
-  const draftForm = useZodForm(createProductFormSchema({ isStockistOnly, saveAsDraft: true }), formData);
+  const { validateAndRun: validateFinalProduct } = useZodForm(createProductFormSchema({ isStockistOnly, saveAsDraft: false }), formData);
+  const { validateAndRun: validateDraftProduct } = useZodForm(createProductFormSchema({ isStockistOnly, saveAsDraft: true }), formData);
   const handleSubmit = useCallback(
     async (showResult = true, saveAsDraft = false): Promise<boolean> => {
       const actualSaveAsDraft = isRegisteredProduct ? false : saveAsDraft;
-      const validatedData = await (actualSaveAsDraft ? draftForm : finalForm)
-        .validateAndRun(formData, (data) => data);
+      const validatedData = await (actualSaveAsDraft ? validateDraftProduct : validateFinalProduct)(formData, (data) => data);
 
       if (!actualSaveAsDraft) {
         const { errors, invalidVariation } = validateProductFormSubmission(formData, {
@@ -218,8 +217,8 @@ export const useProductFormSubmit = ({
     },
     [
       formData,
-      draftForm.validateAndRun,
-      finalForm.validateAndRun,
+      validateDraftProduct,
+      validateFinalProduct,
       setFormData,
       draft,
       variations,

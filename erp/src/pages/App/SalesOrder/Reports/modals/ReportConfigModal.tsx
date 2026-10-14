@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { parseCSV } from '../utils/csvUtils';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { reportConfigFormSchema } from './reportFormSchemas';
 
 interface ColumnMapping {
   date: string;
@@ -30,7 +32,6 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
   initialConfig,
   initialSource,
   initialName,
-  availableItems = [],
   loading,
 }) => {
   const [source, setSource] = useState<'erp' | 'csv' | 'bling'>(initialSource || 'erp');
@@ -67,6 +68,25 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
   const [profitThreshold, setProfitThreshold] = useState<number>(
     initialConfig?.profitThreshold || 0
   );
+  const [validationError, setValidationError] = useState('');
+  const form = useZodForm(reportConfigFormSchema, {
+    name,
+    source,
+    config: {
+      ...initialConfig,
+      ...mapping,
+      abcBasis,
+      turnoverThresholdMode,
+      profitThresholdMode,
+      turnoverThreshold,
+      profitThreshold,
+    },
+    csvData,
+  });
+  const handleSave = form.submit(async (values) => {
+    setValidationError('');
+    await onSave(values);
+  }, (errors) => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira a configuração do relatório.'));
 
   useEffect(() => {
     if (initialSource) setSource(initialSource);
@@ -299,35 +319,11 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
             </div>
           </div>
 
+          {validationError && <p role="alert" className="text-sm font-bold text-red-600 dark:text-red-400">{validationError}</p>}
           <button
-            onClick={() => {
-              if (!name) {
-                alert('Dê um nome ao relatório.');
-                return;
-              }
-              const isComplete = Object.values(mapping).every((v) => v !== '');
-              if (source === 'csv' && !isComplete) {
-                alert(
-                  'Todos os campos de mapeamento do CSV são obrigatórios para uma análise precisa.'
-                );
-                return;
-              }
-              onSave({
-                name,
-                source,
-                config: {
-                  ...initialConfig, // Preserve existing fields like excludedItems and filters
-                  ...mapping,
-                  abcBasis,
-                  turnoverThresholdMode,
-                  profitThresholdMode,
-                  turnoverThreshold: turnoverThreshold || 0,
-                  profitThreshold: profitThreshold || 0,
-                },
-                csvData,
-              });
-            }}
-            disabled={loading}
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={loading || form.formState.isSubmitting}
             className="w-full py-6 mt-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-[2rem] shadow-xl shadow-indigo-500/30 text-[12px] font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-4"
           >
             {loading ? (

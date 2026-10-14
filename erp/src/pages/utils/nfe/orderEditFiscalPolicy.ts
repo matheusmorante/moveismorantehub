@@ -6,8 +6,8 @@ import {
 import { getFiscalCancellationPolicy } from './fiscalCancellationPolicy.js';
 import { getAuthorizedAt } from './nfeEventRules.js';
 
-export const ORDER_EDIT_CCE_DISABLED_REASON =
-  'O ERP não utiliza CC-e. Para alterar dados fiscais antes da circulação, use cancelamento ou estorno e emita uma nova nota.';
+import { ORDER_EDIT_CCE_DISABLED_REASON } from '../../../../../shared-utils/fiscalCorrectionPolicy';
+export { ORDER_EDIT_CCE_DISABLED_REASON } from '../../../../../shared-utils/fiscalCorrectionPolicy';
 
 /** Replacement affects the complete original invoice; the commercial sale stays scheduled. */
 export function getOrderEditFiscalPolicy(

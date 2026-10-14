@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { parseReceiptWithAI, ReceiptAIResult } from '@/pages/utils/receiptAiService';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { assistedReceiptFormSchema, textPromptFormSchema } from '../../../../../../../shared-utils/assistedFormSchemas';
 
 export interface ReceiptAIFillModalProps {
   readonly isOpen: boolean;
@@ -46,6 +48,8 @@ export const ReceiptAIFillModal: React.FC<ReceiptAIFillModalProps> = ({
   const [listening, setListening] = useState(false);
   const [loading, setLoading] = useState(false);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
+  const promptForm = useZodForm(textPromptFormSchema, { text });
+  const resultForm = useZodForm(assistedReceiptFormSchema, { items: [], warnings: [] });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -112,16 +116,16 @@ export const ReceiptAIFillModal: React.FC<ReceiptAIFillModalProps> = ({
   }, [listening]);
 
   const analyze = async () => {
-    if (!text.trim()) {
-      toast.warn('Descreva os itens ou use o microfone. Informe sempre o fornecedor/fábrica.');
-      return;
-    }
-
+    const input = await promptForm.validateAndRun({ text }, (values) => values,
+      (errors) => toast.warn(Object.values(flattenFormErrors(errors))[0]));
+    if (!input) return;
     setLoading(true);
     try {
-      const parsed = await parseReceiptWithAI(text);
-      await onApply(parsed);
-      onClose();
+      const parsed = await parseReceiptWithAI(input.text);
+      await resultForm.validateAndRun(parsed, async (values) => {
+        await onApply(values);
+        onClose();
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Falha ao preencher com IA.';
       toast.error(message);

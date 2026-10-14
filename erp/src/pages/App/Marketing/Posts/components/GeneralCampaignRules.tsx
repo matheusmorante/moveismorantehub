@@ -68,7 +68,7 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
       {open && (
         <form
           noValidate
-          onSubmit={form.handleSubmit(persist, (errors) => {
+          onSubmit={form.submit(persist, (errors) => {
             toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira as regras da campanha.');
           })}
           className="border-t border-slate-800 p-4 pt-3"

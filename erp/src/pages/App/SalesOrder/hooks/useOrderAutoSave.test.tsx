@@ -6,9 +6,9 @@ import { useOrderAutoSave } from './useOrderAutoSave';
 
 vi.mock('@/pages/utils/orderHistoryService', () => ({ saveOrder: vi.fn() }));
 
-const emptyItems = [{ description: '', unitPrice: 0 }] as any;
-const changedItems = [{ description: 'Mesa lateral', unitPrice: 250 }] as any;
-const latestChangedItems = [{ description: 'Mesa lateral', unitPrice: 275 }] as any;
+const emptyItems = [{ description: '', unitPrice: 0, quantity: 1 }] as any;
+const changedItems = [{ description: 'Mesa lateral', unitPrice: 250, quantity: 1 }] as any;
+const latestChangedItems = [{ description: 'Mesa lateral', unitPrice: 275, quantity: 1 }] as any;
 const shipping = { value: 0, scheduling: { date: '', notInformed: false } } as any;
 const payments = [{ amount: 0 }] as any;
 const customerData = {
@@ -28,7 +28,7 @@ function renderAutoSave(isDraftAutoSaveEnabled = true) {
     },
   } as any;
   const getOrderData = vi.fn(
-    (status?: string) => ({ status, items: latestStateRef.current.items }) as any
+    (status?: string) => ({ status, date: '2026-09-30', seller: '', items: latestStateRef.current.items }) as any
   );
   const setCurrentOrderId = vi.fn((id?: string) => {
     latestStateRef.current.currentOrderId = id;
@@ -150,7 +150,7 @@ describe('useOrderAutoSave', () => {
 
     expect(result.current.draftAutoSaveStatus).toBe('saved');
     expect(saveOrder).toHaveBeenCalledTimes(2);
-    expect(vi.mocked(saveOrder).mock.calls[1][0].items).toBe(latestChangedItems);
+    expect(vi.mocked(saveOrder).mock.calls[1][0].items).toMatchObject(latestChangedItems);
   });
 
   it('permite aguardar a persistência do autosave antes de concluir o cadastro', async () => {

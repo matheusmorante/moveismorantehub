@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { whatsappManualFormSchema, whatsappMessageFormSchema } from '../../../../shared-utils/messagingFormSchemas';
 
 interface SendWhatsAppModalProps {
   isOpen: boolean;
@@ -24,6 +26,8 @@ export const SendWhatsAppModal: React.FC<SendWhatsAppModalProps> = ({
   const [phone, setPhone] = useState(initialPhone);
   const [message, setMessage] = useState(initialMessage);
   const [isSending, setIsSending] = useState(false);
+  const directForm = useZodForm(whatsappMessageFormSchema, { phone, message });
+  const manualForm = useZodForm(whatsappManualFormSchema, { phone, message });
 
   useEffect(() => {
     setPhone(initialPhone || '');
@@ -33,20 +37,10 @@ export const SendWhatsAppModal: React.FC<SendWhatsAppModalProps> = ({
   if (!isOpen) return null;
 
   const handleSendDirect = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) {
-      toast.warning('Por favor, informe um número de telefone com DDD válido.');
-      return;
-    }
-
-    if (!message.trim()) {
-      toast.warning('Por favor, digite uma mensagem para enviar.');
-      return;
-    }
-
+    return directForm.validateAndRun({ phone, message }, async (values) => {
     setIsSending(true);
     try {
-      await whatsappGraphService.sendTextMessage(cleanPhone, message);
+      await whatsappGraphService.sendTextMessage(values.phone, values.message);
       toast.success('Mensagem enviada com sucesso');
       if (onSuccess) onSuccess();
       onClose();
@@ -56,20 +50,21 @@ export const SendWhatsAppModal: React.FC<SendWhatsAppModalProps> = ({
     } finally {
       setIsSending(false);
     }
+    }, (errors) => toast.warning(Object.values(flattenFormErrors(errors))[0]));
   };
 
-  const handleOpenManual = () => {
-    const cleanPhone = phone.replace(/\D/g, '');
+  const handleOpenManual = async () => manualForm.validateAndRun({ phone, message }, (values) => {
+    const cleanPhone = values.phone;
     const formattedPhone =
       cleanPhone.length <= 11 && cleanPhone.length >= 10 ? `55${cleanPhone}` : cleanPhone;
-    const encodedMsg = encodeURIComponent(message);
+    const encodedMsg = encodeURIComponent(values.message);
     const url = formattedPhone
       ? `https://wa.me/${formattedPhone}?text=${encodedMsg}`
       : `https://api.whatsapp.com/send?text=${encodedMsg}`;
 
     window.open(url, '_blank');
     onClose();
-  };
+  }, (errors) => toast.warning(Object.values(flattenFormErrors(errors))[0]));
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">

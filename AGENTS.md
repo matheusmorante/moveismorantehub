@@ -57,3 +57,15 @@ Toda e qualquer correção de bug, ajuste de lógica, adequação de schema, oti
    * Utilizar a função de proteção `withTimeout` com temporizadores adequados e fallbacks seguros em chamadas críticas de sessão (`AuthContext.tsx`), perfil e status.
    * Preservar timers de failsafe ativos para garantir que o estado `loading` nunca permaneça `true` indefinidamente.
    * Fornecer sempre feedback visual claro e transparente (banners animados com spinner e textos explicativos de status).
+
+---
+
+## 5. Todos os Formulários: React Hook Form + zodResolver
+
+Por determinação do usuário, **todos os formulários do sistema** (ERP, aplicativo móvel e catálogo digital) devem usar `react-hook-form` e `@hookform/resolvers/zod`. A regra inclui modais com botões, cadastros inline, configurações, buscas submetidas, importações e autosave.
+
+* Toda operação de submissão deve executar o resolver real antes de chamar seu serviço; instalar/importar a biblioteca não satisfaz a regra.
+* Reutilizar schemas Zod explícitos de domínio em `shared-utils` quando as regras forem comuns. Não inferir regras de negócio apenas dos tipos do Supabase nem usar schemas vazios/permissivos para simular a integração.
+* Campos filhos pertencem ao formulário proprietário. Preservar contratos distintos de rascunho, finalização, baixa, cancelamento e consulta; um rascunho pode estar incompleto.
+* Erros devem impedir o efeito e ser apresentados na interface. Valores parseados seguem para a operação; regras de permissões, contexto, banco e fiscal continuam no backend.
+* Registrar a cobertura e os caminhos ainda pendentes no inventário de migração; não declarar conclusão global enquanto houver caminhos sem conferência.

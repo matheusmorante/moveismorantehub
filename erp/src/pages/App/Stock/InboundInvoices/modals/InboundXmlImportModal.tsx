@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inboundXmlFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
 import { importInboundInvoiceXml } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 
@@ -16,6 +18,7 @@ export const InboundXmlImportModal: React.FC<InboundXmlImportModalProps> = ({
 }) => {
   const [xmlText, setXmlText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const form = useZodForm(inboundXmlFormSchema, { xml: xmlText });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -50,14 +53,13 @@ export const InboundXmlImportModal: React.FC<InboundXmlImportModalProps> = ({
   };
 
   const handleProcessImport = async () => {
-    if (!xmlText.trim()) {
-      toast.error('Selecione um arquivo XML ou cole o conteúdo do XML da NF-e.');
-      return;
-    }
+    const validated = await form.validateAndRun({ xml: xmlText }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
 
     setIsLoading(true);
     try {
-      const imported = await importInboundInvoiceXml(xmlText);
+      const imported = await importInboundInvoiceXml(validated.xml);
       toast.success(
         `NF-e #${imported.nfeNumber} de ${imported.emitterName} importada com sucesso!`
       );

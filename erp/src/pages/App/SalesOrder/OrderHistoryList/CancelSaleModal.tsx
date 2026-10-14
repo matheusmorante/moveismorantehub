@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createOperationConfirmationFormSchema } from '../../../../../../shared-utils/operationConfirmationFormSchema';
+import { toast } from 'react-toastify';
 
 interface CancelSaleModalProps {
   readonly order: import('../../../types/order.type').default;
@@ -84,6 +87,7 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
     return () => clearInterval(timer);
   }, [secondsLeft]);
 
+  const form = useZodForm(createOperationConfirmationFormSchema(requiresProductionConfirmation), { productionConfirmed, waitingSeconds: secondsLeft });
   if (typeof document === 'undefined') return null;
 
   return createPortal(
@@ -220,11 +224,14 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
               confirmed ||
               (requiresProductionConfirmation && !productionConfirmed)
             }
-            onClick={() => {
+            onClick={async () => {
               if (confirmedRef.current) return;
+              const validated = await form.validateAndRun({ productionConfirmed, waitingSeconds: secondsLeft }, (data) => data,
+                (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+              if (!validated || confirmedRef.current) return;
               confirmedRef.current = true;
               setConfirmed(true);
-              onConfirm({ productionConfirmed });
+              onConfirm({ productionConfirmed: validated.productionConfirmed });
             }}
             className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-white transition-all ${
               secondsLeft > 0 ||

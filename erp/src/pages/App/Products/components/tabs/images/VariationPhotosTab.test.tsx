@@ -34,4 +34,18 @@ describe('VariationPhotosTab buttons clickability', () => {
     fireEvent.click(unlinkBtn);
     expect(onChangeImages).toHaveBeenCalledWith(['https://r2.test.com/photo-2.jpg']);
   });
+
+  it('renders Capa badge on the 1st photo and Secundária badge on the 2nd photo', () => {
+    render(
+      <VariationPhotosTab
+        images={['https://r2.test.com/photo-1.jpg', 'https://r2.test.com/photo-2.jpg', 'https://r2.test.com/photo-3.jpg']}
+        parentImages={['https://r2.test.com/photo-1.jpg', 'https://r2.test.com/photo-2.jpg', 'https://r2.test.com/photo-3.jpg']}
+        isSingleVariation={false}
+        onChangeImages={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Capa')).toBeTruthy();
+    expect(screen.getByText('Secundária')).toBeTruthy();
+  });
 });

@@ -290,7 +290,7 @@ const Profile = () => {
               </div>
             </div>
 
-            <form noValidate onSubmit={profileForm.handleSubmit(handleUpdateProfile, showValidationError)} className="space-y-4">
+            <form noValidate onSubmit={profileForm.submit(handleUpdateProfile, showValidationError)} className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-4">
@@ -420,7 +420,7 @@ const Profile = () => {
               </div>
             </div>
 
-            <form noValidate onSubmit={passwordForm.handleSubmit(handleChangePassword, showValidationError)} className="space-y-4">
+            <form noValidate onSubmit={passwordForm.submit(handleChangePassword, showValidationError)} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {currentPasswordRequired && (
                   <div className="space-y-2 md:col-span-2">

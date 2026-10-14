@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { itemExclusionFormSchema } from './reportFormSchemas';
 
 interface ItemExclusionModalProps {
   isOpen: boolean;
@@ -17,6 +19,13 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
   onConfirm,
 }) => {
   const [localExcludedItems, setLocalExcludedItems] = useState<string[]>(initialExcludedItems);
+  const [validationError, setValidationError] = useState('');
+  const form = useZodForm(itemExclusionFormSchema, { excludedItems: localExcludedItems });
+  const handleConfirm = form.submit((values) => {
+    setValidationError('');
+    onConfirm(values.excludedItems);
+    onClose();
+  }, (errors) => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira os itens excluídos.'));
 
   // Sincronizar estado local quando o modal abrir
   React.useEffect(() => {
@@ -299,11 +308,11 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
         </div>
 
         <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+          {validationError && <p role="alert" className="mb-3 text-sm font-bold text-red-600 dark:text-red-400">{validationError}</p>}
           <button
-            onClick={() => {
-              onConfirm(localExcludedItems);
-              onClose();
-            }}
+            type="button"
+            onClick={() => void handleConfirm()}
+            disabled={form.formState.isSubmitting}
             className="w-full py-4 bg-slate-900 dark:bg-indigo-600 hover:opacity-90 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-indigo-500/10"
           >
             Concluído ({items.length - localExcludedItems.length} itens inclusos)

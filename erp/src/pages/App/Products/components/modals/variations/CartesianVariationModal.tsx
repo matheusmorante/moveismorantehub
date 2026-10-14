@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import VariationType from '../../../../../types/variation.type';
 import { subscribeToVariations } from '../../../../../utils/variationService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { cartesianVariationFormSchema } from '../../../../../../../../shared-utils/catalogFormSchemas';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 export interface CartesianAttributeOption {
@@ -26,6 +28,7 @@ export const CartesianVariationModal: React.FC<CartesianVariationModalProps> = (
 }) => {
   const [availableVariations, setAvailableVariations] = useState<VariationType[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<CartesianAttributeOption[]>([]);
+  const form = useZodForm(cartesianVariationFormSchema, { attributes: selectedOptions });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -81,13 +84,12 @@ export const CartesianVariationModal: React.FC<CartesianVariationModalProps> = (
     setSelectedOptions(next);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     const validOptions = selectedOptions.filter((o) => o.name && o.values.length > 0);
-    if (validOptions.length === 0) {
-      toast.warning('Selecione pelo menos um atributo e um valor.');
-      return;
-    }
-    onGenerate(validOptions);
+    const validated = await form.validateAndRun({ attributes: validOptions }, (data) => data,
+      (errors) => toast.warning(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    onGenerate(validated.attributes);
     setSelectedOptions([]);
   };
 

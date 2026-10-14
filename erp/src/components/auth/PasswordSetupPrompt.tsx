@@ -56,7 +56,7 @@ export const PasswordSetupPrompt = () => {
           </p>
         )}
 
-        <form id="password-setup-form" noValidate className="mt-6 space-y-4" onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+        <form id="password-setup-form" noValidate className="mt-6 space-y-4" onSubmit={form.submit(handleSubmit, (errors) => {
           setMessage(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados informados.');
         })}>
           <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">

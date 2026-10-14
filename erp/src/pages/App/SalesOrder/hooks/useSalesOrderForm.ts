@@ -59,7 +59,7 @@ export const useSalesOrderForm = (
   const [currentStep, setCurrentStep] = useState(1);
   const [testModeFields, setTestModeFields] = useState<Pick<Order, 'is_test' | 'testArtifact'>>({});
   const isTestMode = testModeFields.is_test === true;
-  const form = useZodForm(createOrderDomainSchema(getSettings().requiredFields), {
+  const { validateAndRun: validateOrderForm } = useZodForm(createOrderDomainSchema(getSettings().requiredFields), {
     date: orderDate, seller, orderType, items, payments, shipping, customerData,
   });
 
@@ -359,7 +359,7 @@ export const useSalesOrderForm = (
           latestState.current.currentOrderId && latestState.current.status !== 'draft'
             ? latestState.current.status
             : 'draft';
-        const orderData = await form.validateAndRun(getOrderData(savedStatus) as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, (data) => data as unknown as Order,
+        const orderData = await validateOrderForm(getOrderData(savedStatus) as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, (data) => data as unknown as Order,
           (validationErrors) => setErrors(flattenFormErrors(validationErrors)));
 
         if (!orderData) {
@@ -396,7 +396,7 @@ export const useSalesOrderForm = (
         submissionInFlightRef.current = false;
       }
     },
-    [getOrderData, ensureOrderCode, cancelAutoSave, waitForActiveSave, form.validateAndRun]
+    [getOrderData, ensureOrderCode, cancelAutoSave, waitForActiveSave, validateOrderForm]
   );
 
   const handleCompleteOrder = useCallback(
@@ -421,7 +421,7 @@ export const useSalesOrderForm = (
         }
 
         const resolvedStatus = resolveCompletedOrderStatus(latestState.current);
-        const orderData = await form.validateAndRun(getOrderData(resolvedStatus) as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, (data) => data as unknown as Order,
+        const orderData = await validateOrderForm(getOrderData(resolvedStatus) as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, (data) => data as unknown as Order,
           (validationErrors) => setErrors(flattenFormErrors(validationErrors)));
 
         if (!orderData) {
@@ -471,7 +471,7 @@ export const useSalesOrderForm = (
         submissionInFlightRef.current = false;
       }
     },
-    [getOrderData, ensureOrderCode, orderIndex, cancelAutoSave, waitForActiveSave, form.validateAndRun]
+    [getOrderData, ensureOrderCode, orderIndex, cancelAutoSave, waitForActiveSave, validateOrderForm]
   );
 
   const clearForm = useCallback(() => {

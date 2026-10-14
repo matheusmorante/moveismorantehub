@@ -13,6 +13,16 @@ import { getWebInventoryDraft, saveWebInventoryDraft } from '../services/invento
 import { finalizeWebInventory } from '../services/finalizeWebInventory';
 import { getInventorySubmission } from '../services/inventoryOutbox';
 import { ensureOfflineInventoryCatalogSynced } from '../services/offlineInventoryCatalog';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import {
+  inventoryAuditCompletionSchema,
+  inventoryAuditDraftSchema,
+  inventoryAuditScopeSchema,
+} from '../../../../../../../shared-utils/inventoryAuditFormSchemas';
+
+const rejectInvalidSnapshot = (errors: Parameters<typeof flattenFormErrors>[0]) => {
+  throw new Error(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados do inventário.');
+};
 
 export const useInventoryAuditWorkflow = (
   isOpen: boolean,
@@ -46,14 +56,24 @@ export const useInventoryAuditWorkflow = (
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const writeErrorRef = useRef<unknown>(null);
   const initializedSessionRef = useRef<string | null>(null);
+  const { validateAndRun: validateDraft } = useZodForm(inventoryAuditDraftSchema, {
+    id: '', code: '', date: '', name: '', responsibleId: '', hasStages: false,
+    status: 'in_progress', items: [], updatedAt: '',
+  });
+  const { validateAndRun: validateScope } = useZodForm(inventoryAuditScopeSchema, {
+    type: 'full', name: '', supplierId: '', responsibleId: '', itemsSnapshot: [],
+  });
+  const { validateAndRun: validateCompletion } = useZodForm(inventoryAuditCompletionSchema, {
+    id: '', code: '', items: [], adjustments: [],
+  });
 
   const createItemId = () => crypto.randomUUID();
 
-  const persistItems = useCallback((nextItems: AuditItem[]) => {
+  const getDraftSnapshot = useCallback((nextItems: AuditItem[]) => {
     const draft = draftRef.current;
     const scope = scopeConfigRef.current;
     if (!draft.id || !draft.code || !scope) return;
-    const snapshot = {
+    return {
       id: draft.id,
       code: draft.code,
       date: draft.date || new Date().toISOString(),
@@ -68,7 +88,18 @@ export const useInventoryAuditWorkflow = (
       scannedLabelIds: [...scannedLabelsRef.current],
       updatedAt: new Date().toISOString(),
     };
-    const write = writeQueueRef.current.then(() => saveWebInventoryDraft(snapshot));
+  }, []);
+
+  const persistItems = useCallback((nextItems: AuditItem[]) => {
+    const snapshot = getDraftSnapshot(nextItems);
+    if (!snapshot) return;
+    const write = writeQueueRef.current.then(async () => {
+      const result = await validateDraft(snapshot, async (values) => {
+        await saveWebInventoryDraft(values);
+        return true;
+      }, rejectInvalidSnapshot);
+      if (!result) throw new Error('Não foi possível validar a contagem local.');
+    });
     writeQueueRef.current = write.then(
       () => {
         writeErrorRef.current = null;
@@ -79,7 +110,7 @@ export const useInventoryAuditWorkflow = (
         toast.error('Não foi possível salvar a contagem neste navegador.');
       }
     );
-  }, []);
+  }, [getDraftSnapshot, validateDraft]);
 
   const setItems: React.Dispatch<React.SetStateAction<AuditItem[]>> = useCallback(
     (nextValue) => {
@@ -198,7 +229,9 @@ export const useInventoryAuditWorkflow = (
     };
   }, [isOpen, editingSession, allProducts, suppliers, copiedItems, getSupplierNames, persistItems]);
 
-  const handleConfirmScope = async (config: ScopeConfiguration) => {
+  const handleConfirmScope = (nextConfig: ScopeConfiguration) => validateScope({
+    ...nextConfig, supplierId: nextConfig.supplierId ?? '',
+  }, async (config) => {
     frozenSubmissionRef.current = false;
     await ensureOfflineInventoryCatalogSynced();
     const initialItems = config.itemsSnapshot.map((snapshot) => ({
@@ -248,13 +281,15 @@ export const useInventoryAuditWorkflow = (
     } catch {
       toast.error('Não foi possível iniciar o inventário: armazenamento local indisponível.');
     }
-  };
+  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira o escopo do inventário.'));
 
   const saveDraft = useCallback(
     async (closeAfterSave = false) => {
       setIsSaving(true);
       try {
         await flushLocalWrites();
+        const snapshot = getDraftSnapshot(latestItemsRef.current);
+        if (snapshot && !await validateDraft(snapshot, () => true, rejectInvalidSnapshot)) return false;
         if (closeAfterSave) onClose();
         return true;
       } catch (error: unknown) {
@@ -265,7 +300,7 @@ export const useInventoryAuditWorkflow = (
         setIsSaving(false);
       }
     },
-    [flushLocalWrites, onClose]
+    [flushLocalWrites, getDraftSnapshot, onClose, validateDraft]
   );
 
   const incrementScannedItem = async (itemId: string, labelId?: string): Promise<number | null> => {
@@ -297,11 +332,12 @@ export const useInventoryAuditWorkflow = (
     setIsSaving(true);
     try {
       await flushLocalWrites();
-      const auditId = draftRef.current.id;
-      const code = draftRef.current.code;
-      if (!auditId || !code || !items.some((item) => item.physicalCount !== null)) {
-        throw new Error('Inventário sem identificação ou sem contagem.');
-      }
+      await validateCompletion({
+        id: draftRef.current.id || '', code: draftRef.current.code || '',
+        items: latestItemsRef.current, adjustments: itemsWithAdjustment,
+      }, async (values) => {
+      const auditId = values.id;
+      const code = values.code;
       const responsible = employees.find(
         (employee) => String(employee.id) === scopeConfig.responsibleId
       );
@@ -317,7 +353,7 @@ export const useInventoryAuditWorkflow = (
         responsibleName: responsible
           ? getEmployeeDisplayName(responsible)
           : scopeConfig.responsibleName || editingSession?.responsibleName || '',
-        items: items.map(
+        items: values.items.map(
           ({
             productId,
             variationId,
@@ -337,12 +373,13 @@ export const useInventoryAuditWorkflow = (
           })
         ),
       };
-      await finalizeWebInventory(auditId, code, auditObservation, itemsWithAdjustment);
+      await finalizeWebInventory(auditId, code, auditObservation, values.adjustments);
 
       toast.success(
-        `Inventário #${code} finalizado! ${items.length} produto(s) contados e ${itemsWithAdjustment.length} ajuste(s) lançados no estoque. ✨`
+        `Inventário #${code} finalizado! ${values.items.length} produto(s) contados e ${values.adjustments.length} ajuste(s) lançados no estoque. ✨`
       );
       onClose();
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira as contagens do inventário.'));
     } catch (error: unknown) {
       console.error('Erro ao salvar inventário:', error);
       const pending =

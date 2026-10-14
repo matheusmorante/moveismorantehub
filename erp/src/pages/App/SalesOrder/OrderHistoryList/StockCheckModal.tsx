@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { z } from 'zod';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import Order, { AssistanceItem } from '../../../types/order.type';
 import { Item } from '../../../types/items.type';
 import { formatOrderCode } from '../../../utils/orderCode';
@@ -29,6 +31,12 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
     });
     return initial;
   });
+  const [formError, setFormError] = useState('');
+  const formValues = { orderId: order.id || '', checkedItems: items.map((_, index) => Boolean(checkedItems[index])) };
+  const form = useZodForm(z.object({
+    orderId: z.string().trim().min(1, 'Pedido não identificado.'),
+    checkedItems: z.array(z.boolean()).min(1, 'O pedido não contém itens para etiquetar.').length(items.length, 'A conferência deve corresponder aos itens do pedido.'),
+  }), formValues);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -61,26 +69,25 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
     setCheckedItems(newState);
   };
 
-  const handleConfirm = () => {
-    const updatedItems = (order.items || []).map((item, idx) => ({
-      ...item,
-      isStockChecked: !!checkedItems[idx],
-    }));
-
-    const updatedAssistanceItems = (order.assistanceItems || []).map((item, idx) => {
-      const realIdx = (order.items || []).length + idx;
-      return {
+  const handleConfirm = async () => {
+    setFormError('');
+    await form.validateAndRun(formValues, async (validated) => {
+      const updatedItems = (order.items || []).map((item, idx) => ({
         ...item,
-        isStockChecked: !!checkedItems[realIdx],
-      };
-    });
-
-    const allChecked = [...updatedItems, ...updatedAssistanceItems].every(
-      (item) => item.isStockChecked
-    );
-
-    onStockCheckUpdate(order.id!, allChecked, updatedItems, updatedAssistanceItems);
-    onClose();
+        isStockChecked: validated.checkedItems[idx],
+      }));
+      const updatedAssistanceItems = (order.assistanceItems || []).map((item, idx) => {
+        const realIdx = (order.items || []).length + idx;
+        return { ...item, isStockChecked: validated.checkedItems[realIdx] };
+      });
+      const allChecked = [...updatedItems, ...updatedAssistanceItems].every((item) => item.isStockChecked);
+      try {
+        await onStockCheckUpdate(validated.orderId, allChecked, updatedItems, updatedAssistanceItems);
+        onClose();
+      } catch (cause) {
+        setFormError(cause instanceof Error ? cause.message : 'Não foi possível salvar a etiquetagem.');
+      }
+    }, (errors) => setFormError(Object.values(flattenFormErrors(errors))[0] || 'Revise a etiquetagem dos itens.'));
   };
 
   const isAllChecked = items.length > 0 && items.every((_, idx) => checkedItems[idx]);
@@ -125,6 +132,7 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
         </div>
 
         <div className="p-8 flex flex-col gap-4 max-h-[50vh] overflow-y-auto custom-scrollbar">
+          {formError && <div role="alert" className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-800">{formError}</div>}
           <div className="flex justify-between items-center mb-2">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
               Itens do Pedido ({items.length})

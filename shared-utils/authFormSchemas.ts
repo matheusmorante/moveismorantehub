@@ -38,3 +38,18 @@ export const passwordRecoveryEmailSchema = z.object({
 export const passwordRecoveryCodeSchema = passwordRecoveryEmailSchema.extend({
   code: z.string().trim().min(1, 'Informe o código recebido por e-mail.'),
 });
+
+// The catalog's existing password policy is six characters; preserve it while
+// sharing email/code validation rather than silently changing account access.
+export const catalogPasswordRecoveryFormSchema = passwordRecoveryCodeSchema.extend({
+  password: z.string().min(6, 'A nova senha deve ter no mínimo 6 caracteres.'),
+  confirmation: z.string(),
+}).refine((value) => value.password === value.confirmation, { path: ['confirmation'], message: 'As senhas digitadas não coincidem.' });
+
+export const catalogSignupFormSchema = z.object({
+  firstName: z.string().trim().min(1, 'Informe seu nome.'),
+  lastName: z.string().trim().min(1, 'Informe seu sobrenome.'),
+  phone: z.string().trim().min(1, 'Informe seu celular.'),
+  address: z.string(), complement: z.string(), zipCode: z.string(),
+  email: emailSchema, password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres.'),
+});

@@ -7,6 +7,8 @@ import { subscribeToProducts } from '@/pages/utils/productService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { savePurchase, updatePurchase } from '../../../../utils/purchaseService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { purchaseDraftFormSchema, purchaseFormSchema } from '../../../../../../../shared-utils/purchaseFormSchemas';
 import { formatCurrency } from '../../../../utils/formatters';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import { supabase } from '@/pages/utils/supabaseConfig';
@@ -50,6 +52,8 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
   const [validationErrors, setValidationErrors] = useState({ supplier: false, items: false });
   const [draftId, setDraftId] = useState<string | null>(null);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const { validateAndRun: validateDraft } = useZodForm(purchaseDraftFormSchema, { supplierId: selectedSupplierId, supplierName: '', date: purchaseDate, status: 'ordered', items: [], totalValue: 0 });
+  const { validateAndRun: validatePurchase } = useZodForm(purchaseFormSchema, { supplierId: selectedSupplierId, supplierName: '', date: purchaseDate, status: 'ordered', items: [], totalValue: 0 });
 
   // Campos legados mantidos como constantes
   const observation = '';
@@ -258,7 +262,8 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
           freightPercent,
         };
 
-        await savePurchase(draftPurchase);
+        const saved = await validateDraft(draftPurchase, (data) => savePurchase(data as Purchase), (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+        if (!saved) return;
         toast.info('Pedido de compra salvo como rascunho!');
       } catch (err: unknown) {
         console.error('Erro ao salvar rascunho de compra:', err);
@@ -289,9 +294,9 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
           freightPercent,
         };
         if (draftId) {
-          await updatePurchase(draftId, payload);
+          await validateDraft(payload, (data) => updatePurchase(draftId, data as Purchase));
         } else {
-          const savedId = await savePurchase(payload);
+          const savedId = await validateDraft(payload, (data) => savePurchase(data as Purchase));
           if (savedId) setDraftId(savedId);
         }
       } catch (error: unknown) {
@@ -313,6 +318,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
     attachments,
     draftId,
     totalValue,
+    validateDraft,
   ]);
 
   const handleSave = async (status: 'ordered' | 'fulfilled') => {
@@ -351,14 +357,17 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
       };
 
       const purchaseId = activePurchase?.id || draftId;
+      const validated = await validatePurchase(purchasePayload, (data) => data as Purchase,
+        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+      if (!validated) return;
       const hasOnlyRegisteredProducts = processedItems.every((item) =>
         products.some((product) => String(product.id) === String(item.productId))
       );
       if (purchaseId) {
-        await updatePurchase(purchaseId, purchasePayload);
+        await updatePurchase(purchaseId, validated);
         toast.success('Pedido de compra atualizado com sucesso!');
       } else {
-        const savedId = await savePurchase(purchasePayload);
+        const savedId = await savePurchase(validated);
         let message = savedId
           ? 'Pedido de compra confirmado!'
           : 'Não foi possível salvar o pedido de compra.';

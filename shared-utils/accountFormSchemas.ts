@@ -1,6 +1,16 @@
 import { z } from 'zod';
 import { passwordSetupFormSchema } from './authFormSchemas';
 
+export const accountNameFormSchema = z.object({ fullName: z.string().trim().min(1, 'O nome não pode estar vazio.') });
+export const accountEmailChangeFormSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Informe um e-mail válido.'),
+  confirmation: z.string().trim().toLowerCase().email('Confirme o novo e-mail.'),
+}).refine((value) => value.email === value.confirmation, { path: ['confirmation'], message: 'Os e-mails digitados não coincidem.' });
+export const catalogPasswordChangeFormSchema = z.object({
+  currentPassword: z.string().min(1, 'Por favor, digite a sua senha atual.'),
+  password: z.string().min(6, 'A nova senha deve ter no mínimo 6 caracteres.'), confirmation: z.string(),
+}).refine((value) => value.password === value.confirmation, { path: ['confirmation'], message: 'As senhas digitadas não coincidem.' });
+
 export const profileFormSchema = z.object({
   fullName: z.string().trim().min(1, 'Informe seu nome completo.'),
   position: z.string().trim(),

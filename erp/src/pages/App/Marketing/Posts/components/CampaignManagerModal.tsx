@@ -66,7 +66,7 @@ export function CampaignManagerModal({
         </header>
         <div className="max-h-[65vh] overflow-auto p-5">
           {editing ? (
-            <form noValidate onSubmit={form.handleSubmit((data) => persist(data, true), (errors) => {
+            <form noValidate onSubmit={form.submit((data) => persist(data, true), (errors) => {
               toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a campanha.');
             })} className="space-y-3">
               <label className="block text-xs">

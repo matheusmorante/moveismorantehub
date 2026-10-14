@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { ESTORNO_NATURE_OF_OPERATION } from './fiscalOperationContext';
 import { normalizeReviewedFiscalBlock } from '../erp/src/pages/utils/nfe/fiscalOperationXml';
+import { CSOSN_CODES } from './fiscalIcmsGroups';
+export const hmlCsosnFormSchema = z.object({
+  csosn: z.string().refine((value) => (CSOSN_CODES as readonly string[]).includes(value), 'CSOSN inválido. Selecione uma opção fiscal válida.'),
+});
 
 // Count Unicode code points as the event/XML validators do; do not rewrite inputs or snapshots.
 export const fiscalReasonFormSchema = z.string().refine(

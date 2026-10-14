@@ -9,6 +9,10 @@ import {
   shouldAutoFulfillScheduledSaleOnEdit,
 } from '@/pages/utils/orderHistoryService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createOrderDomainSchema, orderReconciliationFormSchema } from '../../../../../../shared-utils/orderDomainValidation';
+import { getSettings } from '@/pages/utils/settingsService';
+import type { z } from 'zod';
 import OrderStatusTimeline from '../OrderStatusTimeline';
 import OrderStepper from '../OrderStepper';
 import SellerSearchModal from './SellerSearchModal';
@@ -76,6 +80,8 @@ const OrderEditModal = ({
   }, []);
 
   const form = useSalesOrderForm();
+  const editSchema = reconciliationMode ? orderReconciliationFormSchema : createOrderDomainSchema(getSettings().requiredFields);
+  const { validateAndRun: validateEditedOrder } = useZodForm(editSchema, form.state.currentOrder as unknown as z.input<typeof editSchema>);
   const [view, setView] = useState<'form' | 'timeline'>('form');
   const [isSellerSearchOpen, setIsSellerSearchOpen] = useState(false);
   const [isSellerRegistrationOpen, setIsSellerRegistrationOpen] = useState(false);
@@ -297,8 +303,11 @@ const OrderEditModal = ({
     async (updatedOrder: Order): Promise<string | false> => {
       const orderId = effectiveOrder?.id;
       if (!orderId) return false;
+      const validated = await validateEditedOrder(updatedOrder as unknown as z.input<typeof editSchema>, (data) => data as unknown as Order,
+        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+      if (!validated) return false;
       try {
-        const audit = await auditFiscalOrderEdit(orderId, updatedOrder);
+        const audit = await auditFiscalOrderEdit(orderId, validated);
         if (audit.status === 'blocked') {
           toast.error(audit.error || 'A edição fiscal exige revisão antes de salvar.');
           return false;
@@ -308,7 +317,7 @@ const OrderEditModal = ({
             toast.error('A conferência fiscal retornou incompleta; o pedido permanece sem alteração.');
             return false;
           }
-          setPendingFiscalEdit({ requestId: crypto.randomUUID(), order: updatedOrder, audit });
+          setPendingFiscalEdit({ requestId: crypto.randomUUID(), order: validated, audit });
           setIsFiscalEditConfirmationOpen(true);
           return false;
         }
@@ -316,7 +325,7 @@ const OrderEditModal = ({
           toast.error('Não foi possível fixar a versão atual do pedido; nenhuma alteração foi salva.');
           return false;
         }
-        return persistUpdate(updatedOrder, audit.orderUpdatedAt);
+        return persistUpdate(validated, audit.orderUpdatedAt);
       } catch (error) {
         toast.error(
           error instanceof Error
@@ -326,7 +335,7 @@ const OrderEditModal = ({
         return false;
       }
     },
-    [effectiveOrder?.id, persistUpdate]
+    [effectiveOrder?.id, persistUpdate, validateEditedOrder]
   );
 
   const confirmFiscalOrderEdit = useCallback(async () => {

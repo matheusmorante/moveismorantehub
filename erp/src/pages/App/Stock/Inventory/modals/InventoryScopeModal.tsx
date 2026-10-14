@@ -1,4 +1,7 @@
 import React from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inventoryScopeFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
+import { toast } from 'react-toastify';
 import type Product from '@/pages/types/product.type';
 import type Person from '@/pages/types/person.type';
 import { useInventoryScopeBuilder } from '../hooks/useInventoryScopeBuilder';
@@ -42,7 +45,14 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
     handleNextStep,
   } = useInventoryScopeBuilder(allProducts, suppliers);
 
-  const handleConfirm = () => {
+  const values = { type: scopeType!, name: inventoryName, supplierId: selectedSupplierId, responsibleId: selectedResponsibleId };
+  const form = useZodForm(inventoryScopeFormSchema, values);
+  const handleConfirm = async () => {
+    const validated = await form.validateAndRun(values, (data) => data, (errors) => {
+      if (errors.responsibleId) setResponsibleError(true);
+      toast.error(Object.values(flattenFormErrors(errors))[0]);
+    });
+    if (!validated) return;
     if (scopeType === 'supplier' && !selectedSupplierId) return;
     if (!selectedResponsibleId) {
       setResponsibleError(true);
@@ -51,7 +61,7 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
 
     onConfirm({
       type: scopeType!,
-      name: inventoryName.trim(),
+      name: validated.name,
       supplierId: selectedSupplierId,
       responsibleId: selectedResponsibleId,
       customProductIds: undefined,

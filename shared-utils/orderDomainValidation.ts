@@ -53,6 +53,14 @@ export const createOrderDomainSchema = (requiredFields: CommercialRequiredFields
 });
 
 export const orderFormSchema = createOrderDomainSchema();
+// Autosave may persist an incomplete draft. Final/manual submission retains
+// the contextual business checks above; numeric and enum integrity still apply.
+export const orderDraftFormSchema = z.object(orderFormSchema.shape).extend({ status: z.literal('draft') }).passthrough();
+// Reconciliation only replaces temporary product links; preserve the rest of
+// the historical payload without inserting commercial defaults into items.
+export const orderReconciliationFormSchema = z.object({
+  items: z.array(z.object({ quantity: z.number().positive(), unitPrice: z.number().nonnegative(), productId: z.string().optional() }).passthrough()),
+}).passthrough();
 
 export const createAssistanceOrderFormSchema = (requiredFields: CommercialRequiredFields = {}) => z.object({
   status: z.enum(['draft', 'scheduled', 'fulfilled', 'cancelled']),

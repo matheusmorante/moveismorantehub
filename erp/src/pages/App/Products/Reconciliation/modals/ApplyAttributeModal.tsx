@@ -1,3 +1,6 @@
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { toast } from 'react-toastify';
+import { bulkAttributeFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState } from 'react';
 
 interface Props {
@@ -33,13 +36,15 @@ export const ApplyAttributeModal: React.FC<Props> = ({
     onClose();
   };
 
+  const form = useZodForm(bulkAttributeFormSchema, { name: attributeName, value: attributeValue });
   if (!isOpen) return null;
 
   const handleConfirm = async () => {
-    if (!attributeName.trim() || !attributeValue.trim()) return;
+    const validated = await form.validateAndRun({ name: attributeName, value: attributeValue }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setIsSubmitting(true);
     try {
-      await onConfirm(attributeName.trim(), attributeValue.trim());
+      await onConfirm(validated.name, validated.value);
       resetAndClose();
     } finally {
       setIsSubmitting(false);

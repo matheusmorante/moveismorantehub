@@ -22,7 +22,7 @@ export default function ApiConfigEditModal({
   const [formData, setFormData] = useState<ApiConfiguration>({ ...config });
   const [saving, setSaving] = useState(false);
   const form = useZodForm(apiConfigFormSchema, { ...formData });
-  const handleSave = form.handleSubmit(async (values) => {
+  const handleSave = form.submit(async (values) => {
     const dataToSave: ApiConfiguration = { ...formData, ...values };
     setSaving(true);
     try {

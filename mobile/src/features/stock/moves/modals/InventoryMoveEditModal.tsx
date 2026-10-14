@@ -14,6 +14,16 @@ import {
 import { X } from 'lucide-react-native';
 import { StockMove } from '../../types/stock.types';
 import { StockMoveTypeSelector, MoveTypeChoice } from '../components';
+import { z } from 'zod';
+import { useZodForm, flattenFormErrors } from '../../../../hooks/useZodForm';
+import { inventoryMoveFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
+
+// Mobile requires a real calendar date and persists the existing noon-UTC timestamp.
+const mobileInventoryMoveFormSchema = inventoryMoveFormSchema.safeExtend({
+  type: z.enum(['entry', 'withdrawal', 'balance']),
+  date: z.string().trim().pipe(z.iso.date('Informe uma data válida no formato AAAA-MM-DD.'))
+    .transform((value) => new Date(`${value}T12:00:00Z`).toISOString()),
+});
 
 export interface InventoryMoveEditModalProps {
   move: StockMove | null;
@@ -41,6 +51,8 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
   const [quantity, setQuantity] = useState('');
   const [date, setDate] = useState('');
   const [observation, setObservation] = useState('');
+  const formValues = { type, quantity: Number(quantity), date, observation };
+  const { validateAndRun } = useZodForm(mobileInventoryMoveFormSchema, formValues);
 
   useEffect(() => {
     if (move && isOpen) {
@@ -54,10 +66,9 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
       setType(initialType);
       setQuantity(String(Math.abs(Number(move.quantity || 0))));
       const rawDate = move.created_at || move.date;
+      const initialDate = rawDate ? new Date(rawDate) : new Date();
       setDate(
-        rawDate
-          ? new Date(rawDate).toISOString().slice(0, 10)
-          : new Date().toISOString().slice(0, 10)
+        Number.isNaN(initialDate.getTime()) ? '' : initialDate.toISOString().slice(0, 10)
       );
       setObservation(move.observation || move.label || '');
     }
@@ -66,36 +77,15 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
   if (!isOpen || !move) return null;
 
   const handleSave = async () => {
-    const numQty = Number(quantity);
-    if (isNaN(numQty)) {
-      Alert.alert('Quantidade inválida', 'Informe um valor numérico válido.');
-      return;
-    }
-    if (type !== 'balance' && numQty <= 0) {
-      Alert.alert(
-        'Quantidade inválida',
-        'Para entrada ou saída, a quantidade deve ser maior que zero.'
-      );
-      return;
-    }
-    if (type === 'balance' && numQty === 0) {
-      Alert.alert('Ajuste inválido', 'O valor do ajuste de saldo não pode ser zero.');
-      return;
-    }
-    if (!observation.trim()) {
-      Alert.alert('Observação obrigatória', 'Informe o motivo ou observação da alteração.');
-      return;
-    }
-    if (!date.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
-      Alert.alert('Data inválida', 'Informe uma data no formato AAAA-MM-DD.');
-      return;
-    }
-
-    await onSave({
-      type,
-      quantity: numQty,
-      date: new Date(`${date.trim()}T12:00:00Z`).toISOString(),
-      observation: observation.trim(),
+    if (isSaving) return;
+    await validateAndRun(formValues, async (values) => {
+      try {
+        await onSave(values);
+      } catch (error) {
+        Alert.alert('Erro ao salvar', error instanceof Error ? error.message : 'Tente novamente.');
+      }
+    }, (errors) => {
+      Alert.alert('Revise a movimentação', Object.values(flattenFormErrors(errors))[0] || 'Revise os campos informados.');
     });
   };
 

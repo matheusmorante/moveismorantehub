@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inboundInvoiceFormSchema } from '../../../../../../../shared-utils/inboundInvoiceFormSchema';
+import { normalizeFiscalIdentifier } from '../../../../../../../shared-utils/fiscalIdentifiers';
+import type { z } from 'zod';
 import {
   saveInboundInvoice,
   checkInboundInvoiceKeyExists,
@@ -20,11 +24,11 @@ async function ensureSupplier(
   emitterTradeName?: string,
   emitterCnpj?: string
 ): Promise<Person | null> {
-  const cleanDoc = (emitterCnpj || '').replace(/\D/g, '');
+  const cleanDoc = normalizeFiscalIdentifier(emitterCnpj);
   try {
     const suppliers = await fetchPersons('suppliers');
     if (cleanDoc) {
-      const matchByCnpj = suppliers.find((p) => (p.cpfCnpj || '').replace(/\D/g, '') === cleanDoc);
+      const matchByCnpj = suppliers.find((p) => normalizeFiscalIdentifier(p.cpfCnpj) === cleanDoc);
       if (matchByCnpj) return matchByCnpj;
     }
 
@@ -56,6 +60,7 @@ export function useInboundDocumentImport({
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const { validateAndRun } = useZodForm(inboundInvoiceFormSchema, {} as z.input<typeof inboundInvoiceFormSchema>);
 
   // Alerta de chave duplicada
   const [duplicateAlertOpen, setDuplicateAlertOpen] = useState(false);
@@ -68,11 +73,14 @@ export function useInboundDocumentImport({
    * Persiste a nota no banco de dados e aciona o callback de sucesso
    */
   const persistAndFinish = async (parsedInvoice: InboundInvoice) => {
+    const validated = await validateAndRun({ ...parsedInvoice }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     if (String(parsedInvoice.model || '').replace(/\D/g, '') === '65') {
       throw new Error('NFC-e (modelo 65) não pode ser cadastrada como NF de Entrada.');
     }
 
-    const cleanKey = (parsedInvoice.nfeKey || '').replace(/\D/g, '');
+    const cleanKey = validated.nfeKey;
     if (!cleanKey || cleanKey.length !== 44) {
       throw new Error('A chave de acesso da nota fiscal deve conter exatamente 44 dígitos.');
     }

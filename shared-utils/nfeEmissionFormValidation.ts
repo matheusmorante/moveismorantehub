@@ -57,6 +57,20 @@ export const nfeEmissionFormSchema = z.object({
   });
 });
 
+export const nfeAcquisitionPurposeFormSchema = z.object({
+  orderId: z.string().min(1, 'Salve o pedido antes de registrar a finalidade da compra.'),
+  purpose: z.enum(['resale', 'use_consumption', 'fixed_asset']),
+});
+export const nfeEmissionDraftFormSchema = z.object({
+  order: nfeEmissionFormSchema.shape.order.refine((value) => Boolean(value.id), 'Salve o pedido antes de registrar o rascunho fiscal.'),
+  recipientTaxId: z.string(), nfeItems: nfeEmissionFormSchema.shape.nfeItems,
+  environment: z.union([z.literal(1), z.literal(2)]),
+}).superRefine((value, ctx) => {
+  if (value.environment !== 1 || !value.recipientTaxId.trim()) return;
+  const message = getRecipientTaxIdValidationMessage(value.recipientTaxId, value.order.customerData?.personType);
+  if (message) ctx.addIssue({ code: 'custom', path: ['recipientTaxId'], message });
+});
+
 export function validateNfeEmission(params: ValidationParams): ValidationResult {
   const {
     order,

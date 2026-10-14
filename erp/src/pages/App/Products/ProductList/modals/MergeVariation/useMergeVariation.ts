@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { variationTargetFormSchema } from '../../../../../../../../shared-utils/catalogFormSchemas';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { mergeVariationIntoCanonical } from '@/pages/utils/productService';
 import type { VariationOption, MergeVariationModalProps } from '../MergeVariationModal';
@@ -15,6 +17,7 @@ export const useMergeVariation = (
   const [saving, setSaving] = useState(false);
 
   const sourceId = String(variation?.variationId || variation?.id || '');
+  const { validateAndRun } = useZodForm(variationTargetFormSchema, { sourceId, targetId: target?.id || '' });
 
   useEffect(() => {
     if (variation) {
@@ -77,9 +80,12 @@ export const useMergeVariation = (
 
   const confirm = useCallback(async () => {
     if (!target || !sourceId || saving) return;
+    const validated = await validateAndRun({ sourceId, targetId: target.id }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     try {
       setSaving(true);
-      const result = await mergeVariationIntoCanonical(sourceId, target.id);
+      const result = await mergeVariationIntoCanonical(validated.sourceId, validated.targetId);
       toast.success(
         `Variação mesclada. ${result.transferredSupplierIds.length} fornecedor(es) exclusivo(s) foram incorporados ao canônico.`
       );
@@ -96,7 +102,7 @@ export const useMergeVariation = (
     } finally {
       setSaving(false);
     }
-  }, [target, sourceId, saving, onMerged, onClose]);
+  }, [target, sourceId, saving, onMerged, onClose, validateAndRun]);
 
   const handleCancel = useCallback(() => {
     setQuery('');

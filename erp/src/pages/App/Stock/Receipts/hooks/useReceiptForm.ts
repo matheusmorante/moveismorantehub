@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { receiptDraftFormSchema, receiptFormSchema } from '../../../../../../../shared-utils/receiptFormSchemas';
 import type Person from '@/pages/types/person.type';
 import type { PurchaseItem } from '@/pages/types/purchase.type';
 import { subscribeToPeople } from '@/pages/utils/personService';
@@ -255,6 +257,9 @@ export function useReceiptForm({
     },
   });
   const totalValue = processedItems.reduce((sum, item) => sum + item.totalCost, 0);
+  const formValues = { supplierId, receiptDate, items: processedItems, totalValue, fiscalKey, ipiPercent, freightPercent };
+  const { validateAndRun: validateReceiptDraft } = useZodForm(receiptDraftFormSchema, formValues);
+  const { validateAndRun: validateReceipt } = useZodForm(receiptFormSchema, formValues);
 
   const baseValueForRateio = useMemo(
     () =>
@@ -275,6 +280,9 @@ export function useReceiptForm({
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(async () => {
       try {
+        const validated = await validateReceiptDraft(formValues, (data) => data,
+          (errors) => toast.error(Object.values(flattenFormErrors(errors))[0], { toastId: 'receipt-draft-validation' }));
+        if (!validated) return;
         const currentSupplier = suppliers.find((p) => p.id === supplierId);
         const safeReceivedAt = (() => {
           if (!receiptDate) return new Date().toISOString();
@@ -380,6 +388,9 @@ export function useReceiptForm({
       return;
     }
 
+    const validated = await validateReceipt(formValues, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setIsSaving(true);
     try {
       const receiptId = draftId || crypto.randomUUID();

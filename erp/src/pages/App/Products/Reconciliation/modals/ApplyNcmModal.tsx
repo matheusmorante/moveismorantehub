@@ -1,3 +1,6 @@
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { toast } from 'react-toastify';
+import { bulkNcmFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState } from 'react';
 
 interface Props {
@@ -11,13 +14,15 @@ export const ApplyNcmModal: React.FC<Props> = ({ isOpen, onClose, onConfirm, sel
   const [ncm, setNcm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const form = useZodForm(bulkNcmFormSchema, { ncm });
   if (!isOpen) return null;
 
   const handleConfirm = async () => {
-    if (!ncm.trim()) return;
+    const validated = await form.validateAndRun({ ncm }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setIsSubmitting(true);
     try {
-      await onConfirm(ncm.trim());
+      await onConfirm(validated.ncm);
       onClose();
     } finally {
       setIsSubmitting(false);

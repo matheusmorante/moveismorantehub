@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { bulkAttributeFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import { saveAttributeValue } from '@/pages/utils/variationService';
 import type { DbAttributeValueItem } from './VariationIdentificationTab';
 
@@ -29,6 +31,7 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
   const containerRef = useRef<HTMLDivElement>(null);
 
   const trimmedValue = (value || '').trim();
+  const form = useZodForm(bulkAttributeFormSchema, { name: attributeId || '', value: trimmedValue });
 
   // Verifica se o valor coincide com algum valor cadastrado para este atributo
   const isRegisteredValue = Boolean(
@@ -54,10 +57,13 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
 
   const handleRegisterNewValue = async () => {
     if (!attributeId || !trimmedValue || isSaving) return;
+    const validated = await form.validateAndRun({ name: attributeId, value: trimmedValue }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
 
     setIsSaving(true);
     try {
-      const saved = await saveAttributeValue(attributeId, trimmedValue);
+      const saved = await saveAttributeValue(validated.name, validated.value);
       onChange(saved.value);
       onValueRegistered?.(saved);
       setIsOpenSuggestions(false);

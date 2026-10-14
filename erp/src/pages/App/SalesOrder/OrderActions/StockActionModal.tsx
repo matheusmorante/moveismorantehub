@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Order from '../../../types/order.type';
 import { saveInventoryMove } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inventoryReversalFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
 import { formatOrderCode } from '@/pages/utils/orderCode';
 import { isStockEligibleSaleItem } from '@/pages/utils/saleInventoryRules';
 
@@ -15,6 +17,7 @@ interface Props {
 const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
   const [observation, setObservation] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const form = useZodForm(inventoryReversalFormSchema, { reason: observation });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -37,10 +40,9 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
     type === 'withdrawal' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700';
 
   const handleConfirm = async () => {
-    if (!observation.trim()) {
-      toast.error('Por favor, informe o motivo da ação.');
-      return;
-    }
+    const validated = await form.validateAndRun({ reason: observation }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
 
     const catalogItems = order.items.filter(isStockEligibleSaleItem);
     if (catalogItems.length === 0) {
@@ -62,7 +64,7 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
           type === 'withdrawal'
             ? `Saída - Pedido #${formatOrderCode(order)}`
             : `Estorno - Pedido #${formatOrderCode(order)}`,
-        observation: observation,
+        observation: validated.reason,
         unitPrice: item.unitPrice,
         relatedEntityId: order.id,
         relatedEntityType: 'sales_order' as const,

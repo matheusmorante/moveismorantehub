@@ -5,6 +5,8 @@ import { subscribeToProducts } from '@/pages/utils/productService';
 import { saveInventoryMove } from '@/pages/utils/inventoryService';
 import { updatePurchase } from '@/pages/utils/purchaseService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { purchaseStockEntryFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
 
 interface PurchaseStockEntryModalProps {
   readonly purchase: Purchase | null;
@@ -21,6 +23,7 @@ export function PurchaseStockEntryModal({
   const [date, setDate] = useState('');
   const [observation, setObservation] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const form = useZodForm(purchaseStockEntryFormSchema, { date, observation });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -41,6 +44,9 @@ export function PurchaseStockEntryModal({
   }, [isOpen, purchase]);
 
   const handleSave = async () => {
+    const validated = await form.validateAndRun({ date, observation }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     if (!purchase || !observation.trim()) {
       toast.error('Informe a observação da movimentação.');
       return;
@@ -67,7 +73,7 @@ export function PurchaseStockEntryModal({
             quantity: item.quantity,
             date: new Date(`${date}T12:00:00`).toISOString(),
             label: `Entrada a partir do Pedido #${purchase.purchaseNumber || purchase.id?.slice(-4)}`,
-            observation,
+            observation: validated.observation,
             unitCost: item.unitCost,
             relatedEntityId: purchase.id,
             relatedEntityType: 'purchase_order',

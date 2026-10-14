@@ -1,5 +1,8 @@
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
+import { z } from 'zod';
+import { useZodForm, flattenFormErrors } from '../../../../hooks/useZodForm';
+import { catalogNameFormSchema } from '../../../../../../shared-utils/catalogFormSchemas';
 import {
   fetchMobileCategoryRequiredAttributes,
   saveMobileEnvironment,
@@ -32,6 +35,26 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
   const [isLoadingAttributes, setIsLoadingAttributes] = useState(false);
   const [attributeLoadFailed, setAttributeLoadFailed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const formSchema = catalogNameFormSchema.extend({
+    name: catalogNameFormSchema.shape.name.transform((value) => value.trim().toUpperCase()),
+    type: z.enum(['ambiente', 'categoria']),
+    linkedIds: z.array(z.string().min(1, 'Selecione um vínculo válido.')),
+    attributes: z.array(z.object({ id: z.string().min(1), name: z.string().trim().min(1) })),
+  }).superRefine((values, ctx) => {
+    const isEnv = values.type === 'ambiente';
+    if (!canSaveCategoryAttributes(!isEnv, isLoadingAttributes, attributeLoadFailed)) {
+      ctx.addIssue({ code: 'custom', path: ['attributes'], message: 'Aguarde o carregamento dos atributos ou feche e reabra a categoria para tentar novamente.' });
+    }
+    const validation = validateNodeName(values.name, isEnv ? environments : categories, editingNode?.id, isEnv ? 'Ambiente' : 'Categoria');
+    if (!validation.valid) {
+      ctx.addIssue({ code: 'custom', path: ['name'], message: validation.error || 'Nome inválido.' });
+    }
+  });
+  const formValues = {
+    name: nameInput, type: showModal || 'categoria', linkedIds: selectedLinks,
+    attributes: selectedAttributes,
+  };
+  const { validateAndRun } = useZodForm(formSchema, formValues);
 
   const closeForm = useCallback(() => {
     setShowModal(null);
@@ -100,66 +123,37 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
   }, []);
 
   const handleSave = useCallback(async () => {
-    const isEnv = showModal === 'ambiente';
-    if (!canSaveCategoryAttributes(!isEnv, isLoadingAttributes, attributeLoadFailed)) {
-      Alert.alert(
-        'Salvamento bloqueado',
-        'Aguarde o carregamento dos atributos ou feche e reabra a categoria para tentar novamente.'
-      );
-      return;
-    }
-
-    const validation = validateNodeName(
-      nameInput,
-      isEnv ? environments : categories,
-      editingNode?.id,
-      isEnv ? 'Ambiente' : 'Categoria'
-    );
-
-    if (!validation.valid) {
-      Alert.alert(
-        validation.error?.includes('vazio') ? 'Nome obrigatório' : 'Nome duplicado',
-        validation.error || 'Nome inválido.'
-      );
-      return;
-    }
-
-    const formattedName = validation.formattedName!;
-
-    setIsSubmitting(true);
-    try {
-      if (isEnv) {
-        await saveMobileEnvironment(formattedName, selectedLinks, editingNode?.id);
-      } else {
-        const attributeIds = selectedAttributes.map((a) => a.id);
-        const optionalAttributeIds = selectedAttributes
-          .filter((attribute) => attribute.name.trim().toLocaleLowerCase('pt-BR') === 'peso')
-          .map((attribute) => attribute.id);
-        await saveMobileCategory(
-          formattedName,
-          selectedLinks,
-          attributeIds,
-          editingNode?.id,
-          optionalAttributeIds
-        );
+    if (!showModal || isSubmitting) return;
+    await validateAndRun({ name: nameInput, type: showModal, linkedIds: selectedLinks, attributes: selectedAttributes }, async (values) => {
+      setIsSubmitting(true);
+      try {
+        if (values.type === 'ambiente') {
+          await saveMobileEnvironment(values.name, values.linkedIds, editingNode?.id);
+        } else {
+          const attributeIds = values.attributes.map((a) => a.id);
+          const optionalAttributeIds = values.attributes
+            .filter((attribute) => attribute.name.trim().toLocaleLowerCase('pt-BR') === 'peso')
+            .map((attribute) => attribute.id);
+          await saveMobileCategory(values.name, values.linkedIds, attributeIds, editingNode?.id, optionalAttributeIds);
+        }
+        closeForm();
+        await onSuccess();
+      } catch (err: unknown) {
+        Alert.alert('Erro ao salvar', err instanceof Error ? err.message : 'Tente novamente.');
+      } finally {
+        setIsSubmitting(false);
       }
-      closeForm();
-      await onSuccess();
-    } catch (err: any) {
-      Alert.alert('Erro ao salvar', err?.message || 'Tente novamente.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    }, (errors) => {
+      Alert.alert('Revise o cadastro', Object.values(flattenFormErrors(errors))[0] || 'Revise os campos informados.');
+    });
   }, [
     nameInput,
     showModal,
-    environments,
-    categories,
     editingNode,
     selectedLinks,
     selectedAttributes,
-    isLoadingAttributes,
-    attributeLoadFailed,
+    isSubmitting,
+    validateAndRun,
     closeForm,
     onSuccess,
   ]);

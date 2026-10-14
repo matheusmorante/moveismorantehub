@@ -40,18 +40,20 @@ export function useZodForm<TSchema extends z.ZodType<FieldValues, FieldValues>>(
       submissionInFlight.current = false;
     }
   }, [reset, handleSubmit]);
-  const submitControlledValues = useCallback((
-    onValid: SubmitHandler<Output>, onInvalid?: SubmitErrorHandler<Input>,
-  ) => async (event?: React.BaseSyntheticEvent) => {
+  const submitControlledValues = useCallback(<TResult,>(
+    onValid: SubmitHandler<Output, TResult>, onInvalid?: SubmitErrorHandler<Input>,
+  ) => async (event?: React.BaseSyntheticEvent): Promise<Awaited<TResult> | undefined> => {
     event?.preventDefault();
     event?.persist?.();
+    let outcome: Awaited<TResult> | undefined;
     await validateAndRun(currentValues.current,
-      (data) => onValid(data, event),
+      async (data) => { outcome = await onValid(data, event); },
       (errors) => onInvalid?.(errors, event));
+    return outcome;
   }, [validateAndRun]);
   // Using useForm.values would reset again during async validation when a button
   // supplies a different status/number. RHF cancels that pending submission.
-  return { ...form, handleSubmit: submitControlledValues, validateAndRun };
+  return { ...form, submit: submitControlledValues, validateAndRun };
 }
 
 export function flattenFormErrors(errors: FieldErrors, prefix = ''): Record<string, string> {

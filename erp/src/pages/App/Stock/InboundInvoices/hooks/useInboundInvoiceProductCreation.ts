@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createInboundFamilyVariationSchema, createInboundProductLinkSchema, createInboundProductPreparationSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
@@ -58,6 +60,21 @@ export function useInboundInvoiceProductCreation({
 }: UseInboundInvoiceProductCreationParams) {
   const [creationQueue, setCreationQueue] = useState<number[]>([]);
   const [isSuggestingName, setIsSuggestingName] = useState(false);
+  const itemNumbers = items.map((item) => item.itemNumber);
+  const preparationForm = useZodForm(createInboundProductPreparationSchema(itemNumbers), {
+    itemNumber: creatingItemNumber || 0, supplierId: supplierId || '', markup: effectiveMarkup,
+    finalCost: 0, quantity: 1,
+  });
+  const familyForm = useZodForm(createInboundFamilyVariationSchema(itemNumbers), {
+    itemNumber: classifyingItem?.itemNumber || 0, supplierId: supplierId || '', markup: effectiveMarkup,
+    finalCost: classifyingItem ? itemCostWithAdditionalCosts(classifyingItem) : 0,
+    quantity: classifyingItem?.quantity || 0,
+    productId: aiClassification?.matchedProductId || '', normalizedParentName: aiClassification?.normalizedParentName || '',
+  });
+  const linkForm = useZodForm(createInboundProductLinkSchema(itemNumbers), {
+    itemNumber: classifyingItem?.itemNumber || 0, productId: aiClassification?.matchedProductId || '',
+    variationId: aiClassification?.matchedVariationId || undefined, supplierId,
+  });
 
   const advanceQueue = (queue: number[]) => {
     setCreationQueue(queue);
@@ -75,6 +92,11 @@ export function useInboundInvoiceProductCreation({
   ) => {
     if (!supplierId)
       return toast.info('Vincule o fornecedor para identificar ou cadastrar os produtos.');
+    const validated = await preparationForm.validateAndRun({
+      itemNumber: item.itemNumber, supplierId, markup: markupInput || '',
+      finalCost: itemCostWithAdditionalCosts(item), quantity: item.quantity,
+    }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setCreationQueue(queue);
     setCreatingItemNumber(item.itemNumber);
     setCreatingVariationId(null);
@@ -90,8 +112,8 @@ export function useInboundInvoiceProductCreation({
       );
       const resolvedCategory = await resolveAutoCategory(suggestion.title, activeCategories);
 
-      const finalCost = itemCostWithAdditionalCosts(item);
-      const markup = markupInput ? Number(markupInput.replace(',', '.')) : 0;
+      const finalCost = validated.finalCost;
+      const markup = validated.markup || 0;
       const salePrice =
         Number.isFinite(markup) && markup > 0
           ? Number((finalCost * (1 + markup / 100)).toFixed(2))
@@ -114,9 +136,9 @@ export function useInboundInvoiceProductCreation({
         active: true,
         isDraft: false,
         status: 'hidden',
-        mainSupplierId: supplierId,
-        supplierId,
-        supplierIds: [supplierId],
+        mainSupplierId: validated.supplierId,
+        supplierId: validated.supplierId,
+        supplierIds: [validated.supplierId],
         supplierRef: item.productCode || undefined,
         categoryIds: resolvedCategory ? [resolvedCategory.id] : [],
         parentId: family?.id,
@@ -151,6 +173,11 @@ export function useInboundInvoiceProductCreation({
   ) => {
     if (!supplierId)
       return toast.info('Vincule o fornecedor para identificar ou cadastrar os produtos.');
+    const validated = await preparationForm.validateAndRun({
+      itemNumber: item.itemNumber, supplierId, markup: markupInput || '',
+      finalCost: itemCostWithAdditionalCosts(item), quantity: item.quantity,
+    }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     if (item.productCode) {
       const existing = await findProductSupplierCodes(supplierId, [item.productCode]);
       const match = existing.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
@@ -178,7 +205,7 @@ export function useInboundInvoiceProductCreation({
       classification.decision === 'UNSURE' ||
       !classification.matchedProductId
     ) {
-      void startCreation(item, queue, undefined, markupInput);
+      void startCreation(item, queue, undefined, validated.markup === undefined ? undefined : String(validated.markup));
       return;
     }
     setAiClassification(classification);
@@ -186,34 +213,43 @@ export function useInboundInvoiceProductCreation({
 
   const confirmExistingVariationLink = async () => {
     if (!classifyingItem || !aiClassification?.matchedProductId) return;
+    await linkForm.validateAndRun({
+      itemNumber: classifyingItem.itemNumber, productId: aiClassification.matchedProductId,
+      variationId: aiClassification.matchedVariationId || undefined, supplierId,
+      productErpName: aiClassification.normalizedParentName,
+    }, async (validated) => {
     const details = await resolveLinkedProductDetails(
-      aiClassification.matchedProductId,
-      aiClassification.matchedVariationId || undefined
+      validated.productId,
+      validated.variationId
     );
-    onChange(classifyingItem.itemNumber, {
-      matchedProductId: aiClassification.matchedProductId,
-      matchedVariationId: aiClassification.matchedVariationId || undefined,
+    onChange(validated.itemNumber, {
+      matchedProductId: validated.productId,
+      matchedVariationId: validated.variationId,
       linkedProductCode: details?.linkedProductCode,
       productErpName:
         details?.productErpName ||
-        aiClassification.normalizedParentName ||
+        validated.productErpName ||
         'Variação vinculada pela IA',
     });
     toast.success('Item vinculado à variação existente identificada pela IA.');
     const queue = creationQueue.filter((n) => n !== classifyingItem.itemNumber);
     resetClassification();
     advanceQueue(queue);
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const confirmNewVariationInFamily = async () => {
     if (!classifyingItem || !aiClassification?.matchedProductId || !supplierId) return;
-    const markup = Number(effectiveMarkup.replace(',', '.'));
-    if (!Number.isFinite(markup) || markup < 0)
-      return toast.error('Informe um acréscimo válido sobre o custo final.');
+    await familyForm.validateAndRun({
+      itemNumber: classifyingItem.itemNumber, supplierId, markup: effectiveMarkup,
+      finalCost: itemCostWithAdditionalCosts(classifyingItem), quantity: classifyingItem.quantity,
+      productId: aiClassification.matchedProductId, normalizedParentName: aiClassification.normalizedParentName,
+    }, async (validated) => {
+    const markup = validated.markup!;
     try {
-      const family = await getFullProduct(aiClassification.matchedProductId);
+      const family = await getFullProduct(validated.productId);
       if (!family) throw new Error('Produto pai sugerido não encontrado no ERP.');
-      const finalCost = itemCostWithAdditionalCosts(classifyingItem);
+      const finalCost = validated.finalCost;
       const attributes: Variation['attributes'] = [];
       const variationId = crypto.randomUUID();
       await saveVariation(family.id as string, {
@@ -230,14 +266,14 @@ export function useInboundInvoiceProductCreation({
         images: [],
       });
       await saveProductSupplierCode({
-        supplierId,
+        supplierId: validated.supplierId,
         productId: family.id as string,
         productVariationId: variationId,
         supplierProductCode: classifyingItem.productCode,
         supplierDescription: classifyingItem.productDescription,
-        normalizedDescription: aiClassification.normalizedParentName,
+        normalizedDescription: validated.normalizedParentName,
       });
-      onChange(classifyingItem.itemNumber, {
+      onChange(validated.itemNumber, {
         matchedProductId: family.id,
         matchedVariationId: variationId,
         productErpName: `${family.name || family.title} — ${classifyingItem.productDescription}`,
@@ -249,6 +285,7 @@ export function useInboundInvoiceProductCreation({
     } catch (error: any) {
       toast.error(error.message || 'Não foi possível cadastrar a variação no produto pai.');
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const discardClassificationAndCreateNew = () => {
@@ -259,8 +296,13 @@ export function useInboundInvoiceProductCreation({
   };
 
   const handleCreatedProductFromModal = async (createdProduct: Product) => {
-    setIsProductModalOpen(false);
     if (!creatingItemNumber || !supplierId) return;
+    const validated = await linkForm.validateAndRun({
+      itemNumber: creatingItemNumber, productId: createdProduct.id || '', supplierId,
+      variationId: creatingVariationId || undefined,
+    }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    setIsProductModalOpen(false);
 
     const currentItem = items.find((item) => item.itemNumber === creatingItemNumber);
     if (currentItem) {
@@ -289,7 +331,7 @@ export function useInboundInvoiceProductCreation({
         ).trim();
 
         await saveProductSupplierCode({
-          supplierId,
+          supplierId: validated.supplierId!,
           productId: (productToUse.id || createdProduct.id) as string,
           productVariationId: variation?.id,
           supplierProductCode: currentItem.productCode,

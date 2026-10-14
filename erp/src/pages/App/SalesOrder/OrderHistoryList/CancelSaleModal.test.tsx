@@ -9,7 +9,7 @@ describe('modal de cancelamento da venda', () => {
     vi.useRealTimers();
   });
 
-  it('explica o efeito fiscal e bloqueia confirmação repetida', () => {
+  it('explica o efeito fiscal e bloqueia confirmação repetida', async () => {
     vi.useFakeTimers();
     const onConfirm = vi.fn();
     render(
@@ -41,8 +41,10 @@ describe('modal de cancelamento da venda', () => {
     });
     expect(confirm.disabled).toBe(true);
     fireEvent.click(productionConfirmation);
-    fireEvent.click(confirm);
-    fireEvent.click(confirm);
+    await act(async () => {
+      fireEvent.click(confirm);
+      fireEvent.click(confirm);
+    });
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onConfirm).toHaveBeenCalledWith({ productionConfirmed: true });
   });

@@ -185,3 +185,6 @@ export const getPersonFormValidationError = (
   }
   return null;
 };
+export const createPersonImportFormSchema = (collectionName: string, requiredFields: PersonRequiredFields = {}) => z.object({
+  rows: z.array(createPersonFormSchema(collectionName, requiredFields)).min(1, 'Selecione registros para importar.'),
+});

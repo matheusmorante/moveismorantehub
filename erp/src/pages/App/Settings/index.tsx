@@ -1,5 +1,8 @@
 /** @jsxImportSource react */
 import React, { useState, useEffect, useCallback } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { AppSettingsFormSchema } from '../../../../../shared-utils/appSettingsFormSchema';
+import type { z } from 'zod';
 import {
   getSettings,
   saveSettings,
@@ -35,6 +38,8 @@ export default function Settings(): any {
   const [settings, setSettings] = useState<AppSettings>(getSettings());
   const [search, setSearch] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const { validateAndRun: validateSettings } = useZodForm(AppSettingsFormSchema, settings as unknown as z.input<typeof AppSettingsFormSchema>);
   const saveTimeoutRef = React.useRef<any>(null);
 
   useEffect(() => {
@@ -79,14 +84,21 @@ export default function Settings(): any {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         setIsSaving(true);
         saveTimeoutRef.current = setTimeout(async () => {
-          await saveSettings(next);
-          setIsSaving(false);
+          try {
+            await validateSettings(next as unknown as z.input<typeof AppSettingsFormSchema>, async (data) => {
+              await saveSettings(data as unknown as AppSettings);
+              setValidationError(null);
+            }, (errors) => {
+              const [path, message] = Object.entries(flattenFormErrors(errors))[0] || ['configuração', 'Valor inválido.'];
+              setValidationError(`Confira ${path}: ${message}`);
+            });
+          } finally { setIsSaving(false); }
         }, 1000);
 
         return next;
       });
     },
-    [setTheme]
+    [setTheme, validateSettings]
   );
 
   const isVisible = (id: string) => {
@@ -144,6 +156,7 @@ export default function Settings(): any {
             />
           </div>
         </header>
+        {validationError && <div role="alert" className="mb-6 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{validationError}</div>}
 
         <div className="w-full space-y-8 pb-48">
           <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xl shadow-slate-200/20 dark:shadow-none space-y-1">
