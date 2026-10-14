@@ -32,11 +32,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { loginFormSchema } from '@/shared-utils/authFormSchemas';
 
 export function UserNav() {
   const { user, loginWithGoogle, logout } = useAuth();
   const { isAdminMode, toggleAdminMode } = useAdminMode();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const form = useForm({ resolver: zodResolver(loginFormSchema), defaultValues: { email: '', password: '' } });
 
   const handleLoginGoogle = async () => {
     const { error } = await loginWithGoogle();
@@ -76,14 +80,14 @@ export function UserNav() {
                 Entre para acompanhar seus pedidos e gerenciar seu perfil.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleEmailLoginPlaceholder} className="space-y-4 py-4">
+            <form noValidate onSubmit={form.handleSubmit((_data, event) => handleEmailLoginPlaceholder(event as React.FormEvent), (errors) => toast.error(errors.email?.message || errors.password?.message || 'Confira os dados.'))} className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
-                <Input id="email" type="email" placeholder="seu@email.com" required />
+                <Input {...form.register('email')} id="email" type="email" placeholder="seu@email.com" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
-                <Input id="password" type="password" required />
+                <Input {...form.register('password')} id="password" type="password" required />
               </div>
               <Button type="submit" className="w-full bg-primary text-white font-bold py-6">
                 Entrar

@@ -1,4 +1,7 @@
 'use client';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { accountNameFormSchema, accountEmailChangeFormSchema, catalogPasswordChangeFormSchema } from '@/shared-utils/accountFormSchemas';
+import { passwordRecoveryEmailSchema, passwordRecoveryCodeSchema, catalogPasswordRecoveryFormSchema } from '@/shared-utils/authFormSchemas';
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -112,9 +115,17 @@ function ProfileContent() {
       .substring(0, 2) || 'U';
 
   // 1. Atualizar Nome Completo
+  const nameForm = useZodForm(accountNameFormSchema, { fullName });
+  const emailForm = useZodForm(accountEmailChangeFormSchema, { email: newEmail, confirmation: confirmEmail });
+  const emailCodeForm = useZodForm(passwordRecoveryCodeSchema, { email: newEmail, code: emailOtpCode });
+  const currentPasswordForm = useZodForm(catalogPasswordChangeFormSchema, { password: newPassword, confirmation: confirmPassword, currentPassword });
+  const passwordEmailForm = useZodForm(passwordRecoveryEmailSchema, { email: user?.email || '' });
+  const passwordCodeForm = useZodForm(catalogPasswordRecoveryFormSchema, { email: user?.email || '', code: passwordOtpCode, password: newPassword, confirmation: confirmPassword });
   const handleUpdateName = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim()) {
+    const validated = await nameForm.validateAndRun({ fullName }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    if (!validated.fullName) {
       toast.error('O nome não pode estar vazio.');
       return;
     }
@@ -122,7 +133,7 @@ function ProfileContent() {
     setUpdatingName(true);
     try {
       const { error } = await supabase.auth.updateUser({
-        data: { full_name: fullName.trim() },
+        data: { full_name: validated.fullName },
       });
 
       if (error) throw error;
@@ -138,7 +149,9 @@ function ProfileContent() {
   // 2. E-mail — Etapa 1: Enviar Código de Verificação para o Novo E-mail
   const handleRequestEmailChangeCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedEmail = newEmail.trim().toLowerCase();
+    const validated = await emailForm.validateAndRun({ email: newEmail, confirmation: confirmEmail }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    const trimmedEmail = validated.email;
 
     if (!trimmedEmail) {
       toast.error('Por favor, digite o novo e-mail.');
@@ -150,7 +163,7 @@ function ProfileContent() {
       return;
     }
 
-    if (trimmedEmail !== confirmEmail.trim().toLowerCase()) {
+    if (trimmedEmail !== validated.confirmation) {
       toast.error('Os e-mails digitados não coincidem.');
       return;
     }
@@ -175,7 +188,9 @@ function ProfileContent() {
   // 2. E-mail — Etapa 2: Confirmar Código OTP Digitado
   const handleVerifyEmailCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    const code = emailOtpCode.trim();
+    const validated = await emailCodeForm.validateAndRun({ email: newEmail, code: emailOtpCode }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    const code = validated.code;
 
     if (!code) {
       toast.error('Por favor, informe o código de verificação enviado por e-mail.');
@@ -185,14 +200,14 @@ function ProfileContent() {
     setVerifyingEmailCode(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
-        email: newEmail.trim().toLowerCase(),
+        email: validated.email.toLowerCase(),
         token: code,
         type: 'email_change',
       });
 
       if (error) {
         const altRes = await supabase.auth.verifyOtp({
-          email: newEmail.trim().toLowerCase(),
+          email: validated.email.toLowerCase(),
           token: code,
           type: 'email',
         });
@@ -214,6 +229,8 @@ function ProfileContent() {
   // 3. Alterar Senha — MODO PRINCIPAL: Digitar Senha Atual para Confirmar
   const handlePasswordUpdateWithCurrentPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validated = await currentPasswordForm.validateAndRun({ password: newPassword, confirmation: confirmPassword, currentPassword }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
 
     if (!currentPassword) {
       toast.error('Por favor, digite a sua senha atual.');
@@ -235,7 +252,7 @@ function ProfileContent() {
       // 1. Re-autentica com a senha atual para garantir segurança
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: user?.email || '',
-        password: currentPassword,
+        password: validated.currentPassword,
       });
 
       if (authError) {
@@ -244,7 +261,7 @@ function ProfileContent() {
 
       // 2. Se a senha atual for válida, atualiza para a nova senha
       const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
+        password: validated.password,
       });
 
       if (updateError) throw updateError;
@@ -263,14 +280,15 @@ function ProfileContent() {
 
   // 3. Alterar Senha — MODO ALTERNATIVO (Esqueceu a senha atual estando logado): Código no E-mail
   const handleRequestPasswordCode = async () => {
-    if (!user?.email) return;
+    const validated = await passwordEmailForm.validateAndRun({ email: user?.email || '' }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
 
     setSendingPasswordCode(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email);
+      const { error } = await supabase.auth.resetPasswordForEmail(validated.email);
       if (error) throw error;
 
-      toast.success(`Código enviado para ${user.email}! Insira o código e defina sua nova senha.`);
+      toast.success(`Código enviado para ${validated.email}! Insira o código e defina sua nova senha.`);
     } catch (error: any) {
       console.error('Erro ao enviar código de senha:', error);
       toast.error(error.message || 'Erro ao enviar código.');
@@ -281,7 +299,9 @@ function ProfileContent() {
 
   const handleVerifyPasswordCodeAndSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const code = passwordOtpCode.trim();
+    const validated = await passwordCodeForm.validateAndRun({ email: user?.email || '', code: passwordOtpCode, password: newPassword, confirmation: confirmPassword }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    const code = validated.code;
 
     if (!code) {
       toast.error('Digite o código de 6 dígitos recebido no e-mail.');
@@ -309,7 +329,7 @@ function ProfileContent() {
       if (otpError) throw otpError;
 
       const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
+        password: validated.password,
       });
 
       if (updateError) throw updateError;

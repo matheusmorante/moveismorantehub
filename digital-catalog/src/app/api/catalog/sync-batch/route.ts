@@ -210,6 +210,8 @@ export async function POST(req: Request) {
         const regularPrice = Number(varPrice || 0);
         const promoPrice = varPromo ? Number(varPromo) : 0;
         const hasPromo = promoPrice > 0 && promoPrice < regularPrice;
+        const currentPrice = hasPromo ? promoPrice : regularPrice;
+        const oldPriceFormatted = hasPromo ? formatDecimalPrice(regularPrice) : undefined;
 
         const isStockAvailable = v.stock === null || v.stock === undefined || Number(v.stock) > 0;
         const quantityToSell = v.stock !== null && v.stock !== undefined ? Math.max(0, Number(v.stock)) : 1;
@@ -237,8 +239,8 @@ export async function POST(req: Request) {
             quantity_to_sell_on_facebook: quantityToSell,
             product_type: productType,
             custom_label_0: productType,
-            custom_label_1: formatDecimalPrice(regularPrice),
-            custom_label_2: hasPromo ? formatDecimalPrice(promoPrice) : undefined,
+            custom_label_1: formatDecimalPrice(currentPrice),
+            custom_label_2: oldPriceFormatted,
             custom_label_3: oppName || undefined,
           },
         });

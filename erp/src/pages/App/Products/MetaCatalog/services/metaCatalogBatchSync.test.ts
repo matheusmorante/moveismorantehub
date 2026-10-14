@@ -79,7 +79,47 @@ describe('whatsappGraphService - Meta Catalog items_batch sync', () => {
         price: '899.90 BRL',
         availability: 'in stock',
         brand: 'Móveis Morante',
+        custom_label_1: '899,90',
       }),
+    });
+    expect(calledBody.requests[0].data.custom_label_2).toBeUndefined();
+  });
+
+  it('mapeia custom_label_1 com preco promocional e custom_label_2 com preco antigo quando houver promocao', async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ handles: ['handle-promo-123'] }),
+      } as any;
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promoProducts = [
+      {
+        id: 'prod-promo',
+        code: 'SKU-PROMO-1',
+        name: 'Sofá Retrátil 3 Lugares',
+        sales_price: 1500.0,
+        promo_price: 1199.9,
+        opportunityName: 'Queima dos Salvados',
+        images: ['https://pub-389127050a434f568c29dc66bdce2567.r2.dev/sofa.jpg'],
+        status: 'published',
+        active: true,
+      },
+    ];
+
+    const result = await whatsappGraphService.syncBatchProductsToCatalog(promoProducts);
+    expect(result.success).toBe(true);
+
+    const calledBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(calledBody.requests[0].data).toMatchObject({
+      price: '1500.00 BRL',
+      sale_price: '1199.90 BRL',
+      custom_label_1: '1199,90',
+      custom_label_2: '1500,00',
+      custom_label_3: 'Queima dos Salvados',
     });
   });
 

@@ -131,6 +131,10 @@ export async function sendMetaCatalogBatch(
         return {
           method: req.method,
           retailer_id: req.retailer_id,
+          data: {
+            id: req.retailer_id,
+            ...(req.data || {}),
+          },
         };
       }
 
@@ -268,6 +272,8 @@ export function mapProductToMeta(
   const regularPrice = Number(product.price || 0);
   const promoPrice = product.promo_price ? Number(product.promo_price) : 0;
   const hasPromo = promoPrice > 0 && promoPrice < regularPrice;
+  const currentPrice = hasPromo ? promoPrice : regularPrice;
+  const oldPriceFormatted = hasPromo ? formatDecimalPrice(regularPrice) : undefined;
 
   const data: MetaProductData = {
     id: product.id,
@@ -281,8 +287,8 @@ export function mapProductToMeta(
     availability: product.status === 'published' ? 'in stock' : 'out of stock',
     brand: 'Móveis Morante',
     condition: product.is_salvado ? 'refurbished' : 'new',
-    custom_label_1: formatDecimalPrice(regularPrice),
-    custom_label_2: hasPromo ? formatDecimalPrice(promoPrice) : undefined,
+    custom_label_1: formatDecimalPrice(currentPrice),
+    custom_label_2: oldPriceFormatted,
     custom_label_3: oppName || undefined,
   };
 

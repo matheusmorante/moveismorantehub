@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { loginFormSchema, passwordRecoveryEmailSchema, catalogPasswordRecoveryFormSchema } from '@/shared-utils/authFormSchemas';
 import { LogIn, KeyRound, Mail, Loader2, CheckCircle2, Send, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
@@ -61,15 +63,22 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [sendingReset, setSendingReset] = useState(false);
   const [verifyingReset, setVerifyingReset] = useState(false);
+  const loginForm = useZodForm(loginFormSchema, { email, password });
+  const recoveryEmailForm = useZodForm(passwordRecoveryEmailSchema, { email: resetEmail });
+  const recoveryValues = { email: resetEmail, code: resetCode, password: newPassword, confirmation: confirmPassword };
+  const recoveryForm = useZodForm(catalogPasswordRecoveryFormSchema, recoveryValues);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validated = await loginForm.validateAndRun({ email, password }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setLoading(true);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: validated.email,
+        password: validated.password,
       });
 
       if (error) throw error;
@@ -87,11 +96,10 @@ export default function LoginPage() {
   // 1. Enviar código no e-mail para recuperação de senha esquecida
   const handleSendResetCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = resetEmail.trim().toLowerCase();
-    if (!trimmed) {
-      toast.error('Informe seu e-mail cadastrado.');
-      return;
-    }
+    const validated = await recoveryEmailForm.validateAndRun({ email: resetEmail }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    const trimmed = validated.email.toLowerCase();
 
     setSendingReset(true);
     try {
@@ -113,6 +121,9 @@ export default function LoginPage() {
   // 2. Validar código OTP e redefinir senha esquecida
   const handleVerifyCodeAndResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validated = await recoveryForm.validateAndRun(recoveryValues, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     const code = resetCode.trim();
 
     if (!code) {
@@ -133,15 +144,15 @@ export default function LoginPage() {
     setVerifyingReset(true);
     try {
       const { error: otpError } = await supabase.auth.verifyOtp({
-        email: resetEmail.trim().toLowerCase(),
-        token: code,
+        email: validated.email.toLowerCase(),
+        token: validated.code,
         type: 'recovery',
       });
 
       if (otpError) throw otpError;
 
       const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
+        password: validated.password,
       });
 
       if (updateError) throw updateError;

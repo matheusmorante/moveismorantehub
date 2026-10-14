@@ -146,8 +146,8 @@ export async function GET(request: Request) {
     const rows: string[][] = [];
 
     for (const p of products || []) {
-      // Ignora rascunhos ou removidos
-      if (p.is_draft || p.deleted || p.deleted_at) {
+      // Ignora rascunhos, inativos ou removidos
+      if (p.is_draft || p.deleted || p.deleted_at || p.active === false) {
         continue;
       }
 
@@ -165,9 +165,10 @@ export async function GET(request: Request) {
       if (hasRelationalVariations) {
         variationsList = p.product_variations.filter(
           (v: any) =>
-            v.status === 'published' ||
-            (!v.status && isParentPublished) ||
-            (isParentPublished && v.status !== 'hidden')
+            v.active !== false &&
+            (v.status === 'published' ||
+              (!v.status && isParentPublished) ||
+              (isParentPublished && v.status !== 'hidden'))
         );
       } else if (hasLegacyVariations) {
         const rawVars = Array.isArray(p.variations)
@@ -177,9 +178,10 @@ export async function GET(request: Request) {
             : [];
         variationsList = rawVars.filter(
           (v: any) =>
-            v.status === 'published' ||
-            (!v.status && isParentPublished) ||
-            (isParentPublished && v.status !== 'hidden')
+            v.active !== false &&
+            (v.status === 'published' ||
+              (!v.status && isParentPublished) ||
+              (isParentPublished && v.status !== 'hidden'))
         );
       }
 
@@ -327,9 +329,22 @@ export async function GET(request: Request) {
           }
           let descWithPrefix = stripHtml(descParts.join('\n\n'));
 
-          const regularVarPrice = Number(varPrice || 0);
-          const promoVarPrice = varPromo ? Number(varPromo) : 0;
+          let regularVarPrice = Number(varPrice || 0);
+          let promoVarPrice = varPromo ? Number(varPromo) : 0;
+          // Se o preço normal for zero mas houver preço promocional, usa o promocional como base
+          if (regularVarPrice <= 0 && promoVarPrice > 0) {
+            regularVarPrice = promoVarPrice;
+            promoVarPrice = 0;
+          }
+
+          // Meta exige preço estritamente positivo e imagem válida
+          if (regularVarPrice <= 0 || !varImageLink) {
+            continue;
+          }
+
           const hasVarPromo = promoVarPrice > 0 && promoVarPrice < regularVarPrice;
+          const currentVarPrice = hasVarPromo ? promoVarPrice : regularVarPrice;
+          const oldVarPriceFormatted = hasVarPromo ? formatDecimalPrice(regularVarPrice) : '';
 
           rows.push([
             v.sku || v.id, // id
@@ -353,8 +368,8 @@ export async function GET(request: Request) {
             '1', // quantity_to_sell_on_facebook
             productType, // product_type
             productType, // custom_label_0 (ambiente > categoria)
-            formatDecimalPrice(regularVarPrice), // custom_label_1 (preço antigo / base)
-            hasVarPromo ? formatDecimalPrice(promoVarPrice) : '', // custom_label_2 (preço promocional)
+            formatDecimalPrice(currentVarPrice), // custom_label_1 (preço promocional ou preço normal se não tiver promo)
+            oldVarPriceFormatted, // custom_label_2 (preço antigo se tiver promo ou vazio se não tiver)
             opportunityName, // custom_label_3 (oportunidade do produto)
           ]);
         }
@@ -374,16 +389,30 @@ export async function GET(request: Request) {
         }
         let descWithPrefix = stripHtml(descParts.join('\n\n'));
 
-        const regularParentPrice = Number(p.price || p.unit_price || 0);
-        const promoParentPrice = p.promo_price ? Number(p.promo_price) : 0;
+        let regularParentPrice = Number(p.price || p.unit_price || 0);
+        let promoParentPrice = p.promo_price ? Number(p.promo_price) : 0;
+        // Se o preço normal for zero mas houver preço promocional, usa o promocional como base
+        if (regularParentPrice <= 0 && promoParentPrice > 0) {
+          regularParentPrice = promoParentPrice;
+          promoParentPrice = 0;
+        }
+
+        const finalParentImage = normalizeMetaImageUrl(parentImage);
+        // Meta exige preço estritamente positivo e imagem válida
+        if (regularParentPrice <= 0 || !finalParentImage) {
+          continue;
+        }
+
         const hasParentPromo = promoParentPrice > 0 && promoParentPrice < regularParentPrice;
+        const currentParentPrice = hasParentPromo ? promoParentPrice : regularParentPrice;
+        const oldParentPriceFormatted = hasParentPromo ? formatDecimalPrice(regularParentPrice) : '';
 
         rows.push([
           p.id, // id
           p.name, // title
           descWithPrefix, // description
           `${origin}/produto/${p.slug}`, // link
-          normalizeMetaImageUrl(parentImage), // image_link
+          finalParentImage, // image_link
           additionalImages.split(',').map(normalizeMetaImageUrl).filter(Boolean).join(','), // additional_image_link
           'in stock', // availability
           descWithPrefix, // rich_text_description
@@ -400,8 +429,8 @@ export async function GET(request: Request) {
           '1', // quantity_to_sell_on_facebook
           productType, // product_type
           productType, // custom_label_0 (ambiente > categoria)
-          formatDecimalPrice(regularParentPrice), // custom_label_1 (preço antigo / base)
-          hasParentPromo ? formatDecimalPrice(promoParentPrice) : '', // custom_label_2 (preço promocional)
+          formatDecimalPrice(currentParentPrice), // custom_label_1 (preço promocional ou preço normal se não tiver promo)
+          oldParentPriceFormatted, // custom_label_2 (preço antigo se tiver promo ou vazio se não tiver)
           opportunityName, // custom_label_3 (oportunidade do produto)
         ]);
       }

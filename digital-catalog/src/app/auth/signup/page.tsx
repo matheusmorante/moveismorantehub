@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { catalogSignupFormSchema } from '@/shared-utils/authFormSchemas';
 import { UserPlus } from 'lucide-react';
 
 export default function SignupPage() {
@@ -36,16 +38,20 @@ export default function SignupPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
   };
+  const form = useZodForm(catalogSignupFormSchema, formData);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validated = await form.validateAndRun(formData, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setLoading(true);
 
     try {
       // 1. Sign up user in Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
+        email: validated.email,
+        password: validated.password,
       });
 
       if (authError) throw authError;
@@ -55,12 +61,12 @@ export default function SignupPage() {
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone: formData.phone,
-            address: formData.address,
-            complement: formData.complement,
-            zip_code: formData.zipCode,
+            first_name: validated.firstName,
+            last_name: validated.lastName,
+            phone: validated.phone,
+            address: validated.address,
+            complement: validated.complement,
+            zip_code: validated.zipCode,
           })
           .eq('id', authData.user.id);
 

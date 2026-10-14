@@ -135,14 +135,23 @@ export async function POST(request: Request) {
     // 3. Montar as requisições em lote para a Meta Catalog API (items_batch)
     const batchRequests: MetaBatchRequest[] = [];
     const visibleProducts = allProducts.filter(
-      (p: any) => p.status === 'published' && !p.deleted_at && !p.deleted && !p.is_draft
+      (p: any) =>
+        p.active !== false &&
+        p.status === 'published' &&
+        !p.deleted_at &&
+        !p.deleted &&
+        !p.is_draft
     );
 
     for (const p of allProducts as any[]) {
       const relationalVariations = p.product_variations || [];
       const hasRelationalVariations = relationalVariations.length > 0;
       const isParentVisible =
-        p.status === 'published' && !p.deleted_at && !p.deleted && !p.is_draft;
+        p.active !== false &&
+        p.status === 'published' &&
+        !p.deleted_at &&
+        !p.deleted &&
+        !p.is_draft;
       const visibleVariations = relationalVariations.filter(
         (v: any) =>
           v.active !== false &&
@@ -151,10 +160,14 @@ export async function POST(request: Request) {
             (isParentVisible && v.status !== 'hidden'))
       );
 
-      // Tratamento de exclusões (itens deletados ou ocultados)
+      // Tratamento de exclusões (itens deletados, desativados ou ocultados)
       if (hasRelationalVariations) {
         // Se o produto pai tiver variações, remove o id pai do catálogo pois a venda ocorre por variações
-        batchRequests.push({ method: 'DELETE', retailer_id: String(p.id) });
+        batchRequests.push({
+          method: 'DELETE',
+          retailer_id: String(p.id),
+          data: { id: String(p.id) },
+        });
 
         for (const variation of relationalVariations) {
           const isVarPublished =
@@ -166,12 +179,17 @@ export async function POST(request: Request) {
             batchRequests.push({
               method: 'DELETE',
               retailer_id: String(variation.sku || variation.id),
+              data: { id: String(variation.sku || variation.id) },
             });
           }
         }
         if (visibleVariations.length === 0) continue;
       } else if (!isParentVisible) {
-        batchRequests.push({ method: 'DELETE', retailer_id: String(p.id) });
+        batchRequests.push({
+          method: 'DELETE',
+          retailer_id: String(p.id),
+          data: { id: String(p.id) },
+        });
         continue;
       }
 
@@ -300,16 +318,33 @@ export async function POST(request: Request) {
             }
           }
 
-          const regularVarPrice = Number(varPrice || 0);
-          const promoVarPrice = varPromo ? Number(varPromo) : 0;
+          let regularVarPrice = Number(varPrice || 0);
+          let promoVarPrice = varPromo ? Number(varPromo) : 0;
+          if (regularVarPrice <= 0 && promoVarPrice > 0) {
+            regularVarPrice = promoVarPrice;
+            promoVarPrice = 0;
+          }
+
+          const retailerId = String(v.sku || v.id);
+
+          // Meta exige preço estritamente positivo e imagem válida
+          if (regularVarPrice <= 0 || !varImageLink) {
+            batchRequests.push({
+              method: 'DELETE',
+              retailer_id: retailerId,
+              data: { id: retailerId },
+            });
+            continue;
+          }
+
           const hasVarPromo = promoVarPrice > 0 && promoVarPrice < regularVarPrice;
+          const currentVarPrice = hasVarPromo ? promoVarPrice : regularVarPrice;
+          const oldVarPriceFormatted = hasVarPromo ? formatDecimalPrice(regularVarPrice) : undefined;
 
           const isStockAvailable =
             v.stock === null || v.stock === undefined || Number(v.stock) > 0;
           const quantityToSell =
             v.stock !== null && v.stock !== undefined ? Math.max(0, Number(v.stock)) : 1;
-
-          const retailerId = String(v.sku || v.id);
 
           batchRequests.push({
             method: 'UPDATE',
@@ -335,8 +370,8 @@ export async function POST(request: Request) {
               quantity_to_sell_on_facebook: quantityToSell,
               product_type: productType,
               custom_label_0: productType,
-              custom_label_1: formatDecimalPrice(regularVarPrice),
-              custom_label_2: hasVarPromo ? formatDecimalPrice(promoVarPrice) : undefined,
+              custom_label_1: formatDecimalPrice(currentVarPrice),
+              custom_label_2: oldVarPriceFormatted,
               custom_label_3: opportunityName || undefined,
             },
           });
@@ -353,16 +388,34 @@ export async function POST(request: Request) {
         if (p.description) descParts.push(p.description);
         const descWithPrefix = stripHtml(descParts.join('\n\n'));
 
-        const regularParentPrice = Number(p.price || p.unit_price || 0);
-        const promoParentPrice = p.promo_price ? Number(p.promo_price) : 0;
+        let regularParentPrice = Number(p.price || p.unit_price || 0);
+        let promoParentPrice = p.promo_price ? Number(p.promo_price) : 0;
+        if (regularParentPrice <= 0 && promoParentPrice > 0) {
+          regularParentPrice = promoParentPrice;
+          promoParentPrice = 0;
+        }
+
+        const finalParentImage = normalizeMetaImageUrl(parentImage);
+        const retailerId = String(p.code || p.id);
+
+        // Meta exige preço estritamente positivo e imagem válida
+        if (regularParentPrice <= 0 || !finalParentImage) {
+          batchRequests.push({
+            method: 'DELETE',
+            retailer_id: retailerId,
+            data: { id: retailerId },
+          });
+          continue;
+        }
+
         const hasParentPromo = promoParentPrice > 0 && promoParentPrice < regularParentPrice;
+        const currentParentPrice = hasParentPromo ? promoParentPrice : regularParentPrice;
+        const oldParentPriceFormatted = hasParentPromo ? formatDecimalPrice(regularParentPrice) : undefined;
 
         const isStockAvailable =
           p.stock === null || p.stock === undefined || Number(p.stock) > 0;
         const quantityToSell =
           p.stock !== null && p.stock !== undefined ? Math.max(0, Number(p.stock)) : 1;
-
-        const retailerId = String(p.code || p.id);
 
         batchRequests.push({
           method: 'UPDATE',
@@ -372,7 +425,7 @@ export async function POST(request: Request) {
             title: p.name,
             description: descWithPrefix,
             link: `${origin}/produto/${p.slug}`,
-            image_link: normalizeMetaImageUrl(parentImage),
+            image_link: finalParentImage,
             additional_image_link: additionalImages || undefined,
             availability: isStockAvailable ? 'in stock' : 'out of stock',
             price: `${regularParentPrice.toFixed(2)} BRL`,
@@ -386,8 +439,8 @@ export async function POST(request: Request) {
             quantity_to_sell_on_facebook: quantityToSell,
             product_type: productType,
             custom_label_0: productType,
-            custom_label_1: formatDecimalPrice(regularParentPrice),
-            custom_label_2: hasParentPromo ? formatDecimalPrice(promoParentPrice) : undefined,
+            custom_label_1: formatDecimalPrice(currentParentPrice),
+            custom_label_2: oldParentPriceFormatted,
             custom_label_3: opportunityName || undefined,
           },
         });

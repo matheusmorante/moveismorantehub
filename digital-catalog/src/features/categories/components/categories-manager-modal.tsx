@@ -1,4 +1,6 @@
 'use client';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { categoryEnvironmentFormSchema } from '@/shared-utils/catalogFormSchemas';
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
@@ -56,6 +58,7 @@ export function CategoriesManagerModal({
     type: 'category',
     linkedIds: [] as string[],
   });
+  const form = useZodForm(categoryEnvironmentFormSchema, formData);
   const [isAutoSlug, setIsAutoSlug] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -94,11 +97,13 @@ export function CategoriesManagerModal({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validated = await form.validateAndRun(formData, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setIsSaving(true);
 
     try {
       let itemId = currentCategory?.id;
-      const itemData = { name: formData.name, slug: formData.slug, type: formData.type };
+      const itemData = { name: validated.name, slug: validated.slug, type: validated.type };
 
       if (currentCategory) {
         const { error } = await supabase
@@ -113,16 +118,16 @@ export function CategoriesManagerModal({
       }
 
       // Atualizar Relacionamentos Bilaterais
-      if (formData.type === 'category') {
+      if (validated.type === 'category') {
         await supabase.from('category_relationships').delete().eq('child_id', itemId);
-        if (formData.linkedIds.length > 0) {
-          const newRels = formData.linkedIds.map((pId) => ({ parent_id: pId, child_id: itemId }));
+        if (validated.linkedIds.length > 0) {
+          const newRels = validated.linkedIds.map((pId) => ({ parent_id: pId, child_id: itemId }));
           await supabase.from('category_relationships').insert(newRels);
         }
       } else {
         await supabase.from('category_relationships').delete().eq('parent_id', itemId);
-        if (formData.linkedIds.length > 0) {
-          const newRels = formData.linkedIds.map((cId) => ({ parent_id: itemId, child_id: cId }));
+        if (validated.linkedIds.length > 0) {
+          const newRels = validated.linkedIds.map((cId) => ({ parent_id: itemId, child_id: cId }));
           await supabase.from('category_relationships').insert(newRels);
         }
       }

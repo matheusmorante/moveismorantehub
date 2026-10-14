@@ -6,6 +6,13 @@ import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
 const GRAPH_API_VERSION = 'v26.0';
 const FACEBOOK_GRAPH_URL = 'https://graph.facebook.com';
 
+function formatDecimalPrice(val: any): string {
+  if (val === null || val === undefined || val === '') return '';
+  const num = Number(val);
+  if (isNaN(num)) return '';
+  return num.toFixed(2).replace('.', ',');
+}
+
 export interface WhatsAppProduct {
   id: string;
   retailer_id: string;
@@ -133,6 +140,12 @@ export const whatsappGraphService = {
 
     const retailerId = String(product.code || product.sku || product.id);
     const itemPrice = Number(rawPrice || 0);
+    const promoPrice = (product.promo_price ?? product.promoPrice) ? Number(product.promo_price ?? product.promoPrice) : 0;
+    const hasPromo = promoPrice > 0 && promoPrice < itemPrice;
+    const currentPrice = hasPromo ? promoPrice : itemPrice;
+    const oldPriceFormatted = hasPromo ? formatDecimalPrice(itemPrice) : undefined;
+    const oppName = product.opportunityName || product.opportunity_name || (product.opportunities?.name) || '';
+    const productType = product.groupName || product.group_name || 'Furniture';
 
     const batchRequest = {
       item_type: 'PRODUCT_ITEM',
@@ -147,6 +160,7 @@ export const whatsappGraphService = {
                   title: cleanTitle,
                   description: cleanDescription,
                   price: `${itemPrice.toFixed(2)} BRL`,
+                  sale_price: hasPromo ? `${promoPrice.toFixed(2)} BRL` : undefined,
                   condition: product.condition === 'usado' ? 'used' : 'new',
                   availability: isInactiveOrHidden ? 'out of stock' : 'in stock',
                   image_link: mainImageUrl,
@@ -155,7 +169,11 @@ export const whatsappGraphService = {
                   link:
                     product.url ||
                     `https://moveismorante.com.br/produto/${product.slug || product.id}`,
-                  product_type: product.groupName || product.group_name || 'Furniture',
+                  product_type: productType,
+                  custom_label_0: productType,
+                  custom_label_1: formatDecimalPrice(currentPrice),
+                  custom_label_2: oldPriceFormatted,
+                  custom_label_3: oppName || undefined,
                 }
               : undefined,
         },
@@ -239,13 +257,18 @@ export const whatsappGraphService = {
         const isDeleted =
           product.deleted === true ||
           (product.deleted_at !== undefined && product.deleted_at !== null);
-        const isInactiveOrHidden = isHidden || isDeleted;
+        const isInactiveOrHidden =
+          isHidden ||
+          isDeleted ||
+          product.active === false ||
+          product.status === 'draft';
         const retailerId = String(product.code || product.sku || product.id);
 
         if (isInactiveOrHidden) {
           return {
             method: 'DELETE',
             retailer_id: retailerId,
+            data: { id: retailerId },
           };
         }
 
@@ -300,8 +323,17 @@ ____________________________________
 
         const cleanDescription = `${globalPrefix}\n\n${baseProdDesc}`;
         const rawPrice =
-          product.unitPrice ?? product.unit_price ?? product.price ?? product.sales_price ?? 0;
-        const itemPrice = Number(rawPrice);
+          product.sales_price ?? product.salesPrice ?? product.price ?? product.unitPrice ?? product.unit_price ?? 0;
+        let itemPrice = Number(rawPrice);
+        const promoPrice = (product.promo_price ?? product.promoPrice) ? Number(product.promo_price ?? product.promoPrice) : 0;
+        if (itemPrice <= 0 && promoPrice > 0) {
+          itemPrice = promoPrice;
+        }
+        const hasPromo = promoPrice > 0 && promoPrice < itemPrice;
+        const currentPrice = hasPromo ? promoPrice : itemPrice;
+        const oldPriceFormatted = hasPromo ? formatDecimalPrice(itemPrice) : undefined;
+        const oppName = product.opportunityName || product.opportunity_name || (product.opportunities?.name) || '';
+        const productType = product.groupName || product.group_name || 'Furniture';
 
         const allImageUrls: string[] = [];
         if (Array.isArray(product.images) && product.images.length > 0) {
@@ -328,13 +360,12 @@ ____________________________________
             });
         }
 
-        const fallbackUrl = 'https://moveismorante.com.br/logo.png';
         const SUPABASE_STORAGE_PATTERN =
           /https:\/\/.*?\.supabase\.co\/storage\/v1\/object\/public\/products\/(.*)/i;
         const R2_BASE_URL = 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev';
 
         const sanitizeUrl = (urlStr: string) => {
-          if (!urlStr) return fallbackUrl;
+          if (!urlStr) return '';
           let str = String(urlStr).trim().split('?')[0];
 
           if (SUPABASE_STORAGE_PATTERN.test(str)) {
@@ -352,8 +383,17 @@ ____________________________________
         };
 
         const sanitizedImages = allImageUrls.map(sanitizeUrl).filter(Boolean);
-        const mainImageUrl = sanitizedImages.length > 0 ? sanitizedImages[0] : fallbackUrl;
+        const mainImageUrl = sanitizedImages.length > 0 ? sanitizedImages[0] : '';
         const additionalImageUrls = sanitizedImages.length > 1 ? sanitizedImages.slice(1, 10) : [];
+
+        // Meta exige preço positivo e imagem válida
+        if (itemPrice <= 0 || !mainImageUrl) {
+          return {
+            method: 'DELETE',
+            retailer_id: retailerId,
+            data: { id: retailerId },
+          };
+        }
 
         return {
           method: 'UPDATE',
@@ -363,6 +403,7 @@ ____________________________________
             title: cleanTitle,
             description: cleanDescription,
             price: `${itemPrice.toFixed(2)} BRL`,
+            sale_price: hasPromo ? `${promoPrice.toFixed(2)} BRL` : undefined,
             condition: product.condition === 'usado' ? 'used' : 'new',
             availability: 'in stock',
             image_link: mainImageUrl,
@@ -370,8 +411,12 @@ ____________________________________
             brand: product.brand || 'Móveis Morante',
             link:
               product.url || `https://moveismorante.com.br/produto/${product.slug || product.id}`,
-            product_type: product.groupName || product.group_name || 'Furniture',
+            product_type: productType,
             item_group_id: product.group_name || product.groupName || '',
+            custom_label_0: productType,
+            custom_label_1: formatDecimalPrice(currentPrice),
+            custom_label_2: oldPriceFormatted,
+            custom_label_3: oppName || undefined,
           },
         };
       });
