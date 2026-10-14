@@ -1,14 +1,14 @@
 # Ignore heavy directories when deploying from monorepo root
-node_modules
-.git
-.git_backup_myfinance
-mobile
-desktop-print-agent
-output
-pet-runs
-rule-tests
-rules
-scratch
-.maintenance
-.playwright-cli
-.serena
+/node_modules
+/.git
+/.git_backup_myfinance
+/mobile
+/desktop-print-agent
+/output
+/pet-runs
+/rule-tests
+/rules
+/scratch
+/.maintenance
+/.playwright-cli
+/.serena
