@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type Order from '../../../types/order.type';
 import ReturnOrderModal from './ReturnOrderModal';
@@ -200,6 +200,62 @@ describe('cadastro e ações do pedido de devolução', () => {
     expect(notice.textContent).not.toContain('Não foi possível confirmar a NF-e original');
     expect(fetchMock).not.toHaveBeenCalled();
     expect(mocks.autoTransmitReturnFiscal).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia a devolução quando não consegue conferir as devoluções anteriores', async () => {
+    setupSupabaseFrom([]);
+    const originalFrom = mocks.from.getMockImplementation()!;
+    mocks.from.mockImplementation((table: string) => {
+      const query = originalFrom(table);
+      if (table === 'orders') query.or.mockResolvedValue({ data: null, error: { code: 'NETWORK' } });
+      return query;
+    });
+    render(<ReturnOrderModal order={order} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    expect((await screen.findByRole('alert')).textContent).toContain('saldo já devolvido');
+    expect(screen.getByRole('button', { name: 'Conferência indisponível' })).toHaveProperty('disabled', true);
+    expect(mocks.saveOrder).not.toHaveBeenCalled();
+    expect(mocks.autoTransmitReturnFiscal).not.toHaveBeenCalled();
+  });
+
+  it('não trata erro na consulta fiscal como ausência de nota autorizada', async () => {
+    setupSupabaseFrom([]);
+    const originalFrom = mocks.from.getMockImplementation()!;
+    mocks.from.mockImplementation((table: string) => {
+      const query = originalFrom(table);
+      if (table === 'nfe_documents') query.then = (resolve: any) => Promise.resolve({ data: null, error: { code: 'NETWORK' } }).then(resolve);
+      return query;
+    });
+    render(<ReturnOrderModal order={order} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    expect((await screen.findByRole('alert')).textContent).toContain('nota fiscal autorizada');
+    expect(screen.getByRole('button', { name: 'Conferência indisponível' })).toHaveProperty('disabled', true);
+    expect(mocks.saveOrder).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia a devolução sem venda original persistida', async () => {
+    setupSupabaseFrom([]);
+    render(<ReturnOrderModal order={{ ...order, id: undefined }} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    expect((await screen.findByRole('alert')).textContent).toContain('venda original já cadastrada');
+    expect(mocks.saveOrder).not.toHaveBeenCalled();
+  });
+
+  it('encerra a espera e bloqueia criação quando a consulta não responde', async () => {
+    vi.useFakeTimers();
+    try {
+      setupSupabaseFrom([]);
+      const originalFrom = mocks.from.getMockImplementation()!;
+      mocks.from.mockImplementation((table: string) => {
+        const query = originalFrom(table);
+        if (table === 'orders') query.or.mockImplementation(() => new Promise(() => {}));
+        return query;
+      });
+      render(<ReturnOrderModal order={order} onClose={vi.fn()} onSuccess={vi.fn()} />);
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_001); });
+      expect(screen.getByRole('alert').textContent).toContain('demorou mais que o esperado');
+      expect(screen.getByRole('button', { name: 'Conferência indisponível' })).toHaveProperty('disabled', true);
+      expect(mocks.saveOrder).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('trata documentos rejeitados/cancelados como venda sem nota fiscal emitida', async () => {

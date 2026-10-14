@@ -35,10 +35,12 @@ describe('ProductGeneralTab product name field', () => {
     expect(screen.getByText('Nome do Produto')).toBeTruthy();
   });
 
-  it('does not show the catalog title differentiation button', () => {
+  it('does not show the catalog title differentiation button or catalog title input', () => {
     renderTab();
 
     expect(screen.queryByRole('button', { name: 'Diferenciar Título no Catálogo' })).toBeNull();
+    expect(screen.queryByText('Título no Catálogo')).toBeNull();
+    expect(screen.queryByPlaceholderText('Digite o título no catálogo...')).toBeNull();
   });
 
   it('renders opportunity empty option without "Selecione" text and without required asterisk for conventional product', () => {

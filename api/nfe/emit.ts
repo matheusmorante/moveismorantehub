@@ -115,9 +115,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: 'Serviço fiscal sem credencial segura do banco.',
         });
       supabase = createClient<FiscalDatabase>(supabaseUrl, supabaseServiceKey, { db: { retry: false } });
-      const fiscalAuthorization = await authorizeFiscalOperator(
-        supabase,
-        req.headers.authorization
+      const fiscalAuthorization = await withNfeEmissionStage(
+        'operator_authorization',
+        () => authorizeFiscalOperator(supabase!, req.headers.authorization),
+        { emissionRequestId: command.emissionRequestId, environment: command.environment }
       );
       if (!fiscalAuthorization.ok)
         return res.status(fiscalAuthorization.status).json({
@@ -131,19 +132,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: 'Somente administradores podem visualizar a prévia do XML fiscal.',
         });
 
-      const normalRecovery = command.previewOnly ? null : await recoverNormalSale(supabase, command);
+      const normalRecovery = command.previewOnly
+        ? null
+        : await withNfeEmissionStage(
+            'idempotency_recovery',
+            () => recoverNormalSale(supabase!, command),
+            { emissionRequestId: command.emissionRequestId, environment: command.environment }
+          );
       if (normalRecovery) return res.status(normalRecovery.status).json(normalRecovery.body);
       const recovered =
         !command.previewOnly && command.environment === 2
-          ? await recoverHmlTechnical(supabase, command)
+          ? await withNfeEmissionStage(
+              'idempotency_recovery',
+              () => recoverHmlTechnical(supabase!, command),
+              { emissionRequestId: command.emissionRequestId, environment: command.environment }
+            )
           : null;
       if (recovered) return res.status(recovered.status).json(recovered.body);
 
-      const { data: orderRow, error: orderError } = await supabase
-        .from('orders')
-        .select('id,order_type,status,deleted,order_data,version,updated_at')
-        .eq('id', command.orderId)
-        .maybeSingle();
+      const [{ data: orderRow, error: orderError }, { data: settingsRow, error: settingsError }] =
+        await withNfeEmissionStage(
+          'order_and_settings_fetch',
+          () =>
+            Promise.all([
+              supabase!
+                .from('orders')
+                .select('id,order_type,status,deleted,order_data,version,updated_at')
+                .eq('id', command.orderId)
+                .maybeSingle(),
+              supabase!
+                .from('settings')
+                .select('data')
+                .eq('id', 'app')
+                .maybeSingle(),
+            ]),
+          { emissionRequestId: command.emissionRequestId, environment: command.environment }
+        );
       if (orderError)
         return res.status(503).json({
           success: false,
@@ -173,12 +197,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           code: 'ORDER_FISCAL_SNAPSHOT_INCOMPLETE',
           error: 'Pedido sem dados ou revisão necessários para snapshot fiscal.',
         });
-
-      const { data: settingsRow, error: settingsError } = await supabase
-        .from('settings')
-        .select('data')
-        .eq('id', 'app')
-        .maybeSingle();
       if (
         settingsError ||
         !settingsRow?.data ||

@@ -627,3 +627,13 @@ export const isCancelledOrder = (order: any): boolean => {
     data.deleted === true
   );
 };
+
+export const toTitleCase = (str: string): string => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};

@@ -1,12 +1,13 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import Product, { Variation } from '../../types/product.type';
-import { mapFromDB } from './productMapper';
+import type Product from '../../types/product.type';
+import type { Variation } from '../../types/product.type';
+import { getProductSalesStats, searchHistoricalItems } from './productAnalyticsQueryService';
+import { applyProductFiltersAndSort, type ProductQueryFilterOptions } from './productFilterBuilder';
 import { getLocalProducts, saveLocalProducts } from './productLocalCache';
+import { mapFromDB } from './productMapper';
 import { TABLE_NAME } from './productSkuService';
-import { applyProductFiltersAndSort, ProductQueryFilterOptions } from './productFilterBuilder';
-import { searchHistoricalItems, getProductSalesStats } from './productAnalyticsQueryService';
 
-export { searchHistoricalItems, getProductSalesStats };
+export { getProductSalesStats, searchHistoricalItems };
 
 export const LIGHT_COLUMNS =
   'id, name, marketplace_title, code, description, observations, brand, category_id, category, condition, product_kind, is_salvado, opportunity_id, width, height, depth, unit_price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, promo_price, initial_stock, stock, min_stock, unit, active, is_draft, status, deleted, supplier_id, main_supplier_id, supplier_ids, images, has_variations, item_type, created_at, updated_at, slug, featured, is_combo, combo_items, technical_specs';
@@ -94,7 +95,56 @@ export const fetchProductsPage = async (
       return { data: [], total: 0 };
     }
 
-    const mapped: Product[] = (data || []).map((p: any, idx: number) => mapFromDB(p, idx));
+    const productUuids = (data || [])
+      .map((p: any) => p.id)
+      .filter((id: any) =>
+        Boolean(
+          id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id))
+        )
+      );
+
+    const eligibilityMap = new Map<
+      string,
+      { can_trash: boolean; trash_block_reason: string | null }
+    >();
+
+    if (productUuids.length > 0) {
+      try {
+        const { data: eligibilityData, error: eligibilityError } = await supabase.rpc(
+          'get_products_trash_eligibility',
+          { p_product_ids: productUuids }
+        );
+
+        if (!eligibilityError && Array.isArray(eligibilityData)) {
+          eligibilityData.forEach((item: any) => {
+            if (item.product_id) {
+              eligibilityMap.set(String(item.product_id), {
+                can_trash: Boolean(item.can_trash),
+                trash_block_reason: item.trash_block_reason || null,
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('[ProductService] Falha ao verificar elegibilidade de lixeira em lote:', err);
+      }
+    }
+
+    const mapped: Product[] = (data || []).map((p: any, idx: number) => {
+      const product = mapFromDB(p, idx);
+      const eligibility = product.id ? eligibilityMap.get(product.id) : undefined;
+      if (eligibility) {
+        product.can_trash = eligibility.can_trash;
+        product.trash_block_reason = eligibility.trash_block_reason;
+      } else {
+        product.can_trash = false;
+        product.trash_block_reason = product.isDraft
+          ? 'Rascunhos devem ser descartados diretamente'
+          : 'Validando elegibilidade...';
+      }
+      return product;
+    });
+
     return {
       data: mapped,
       total: count ?? 0,

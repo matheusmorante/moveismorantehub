@@ -94,7 +94,8 @@ export const VariationFormModal = ({
 
         <form
           id="characteristic-form"
-          onSubmit={(event) => event.preventDefault()}
+          noValidate
+          onSubmit={(event) => { event.preventDefault(); flushFormSave(); }}
           className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-6 sm:p-8"
         >
           <div className="flex flex-col gap-5">

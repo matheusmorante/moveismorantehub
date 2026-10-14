@@ -1,0 +1,299 @@
+[
+  {
+    "name": "partial return",
+    "sold": [
+      {
+        "productId": "p",
+        "variationId": "v",
+        "description": "Cadeira",
+        "quantity": 3
+      }
+    ],
+    "prior": [],
+    "requested": [
+      {
+        "productId": "p",
+        "variationId": "v",
+        "description": "Cadeira",
+        "quantity": 1,
+        "originalOrderItemIndex": 0
+      }
+    ],
+    "expected": null
+  },
+  {
+    "name": "complete return",
+    "sold": [
+      {
+        "productId": "p",
+        "variationId": "v",
+        "description": "Cadeira",
+        "quantity": 3
+      }
+    ],
+    "prior": [],
+    "requested": [
+      {
+        "productId": "p",
+        "variationId": "v",
+        "description": "Cadeira",
+        "quantity": 3,
+        "returnedQuantity": 3,
+        "originalOrderItemIndex": 0
+      }
+    ],
+    "expected": null
+  },
+  {
+    "name": "empty",
+    "sold": [
+      {
+        "quantity": 1
+      }
+    ],
+    "prior": [],
+    "requested": [],
+    "expected": "RETURN_ITEMS_REQUIRED"
+  },
+  {
+    "name": "missing index",
+    "sold": [
+      {
+        "quantity": 1
+      }
+    ],
+    "prior": [],
+    "requested": [
+      {
+        "quantity": 1
+      }
+    ],
+    "expected": "RETURN_SOURCE_LINE_INVALID"
+  },
+  {
+    "name": "negative index",
+    "sold": [
+      {
+        "quantity": 1
+      }
+    ],
+    "prior": [],
+    "requested": [
+      {
+        "quantity": 1,
+        "originalOrderItemIndex": -1
+      }
+    ],
+    "expected": "RETURN_SOURCE_LINE_INVALID"
+  },
+  {
+    "name": "fractional index",
+    "sold": [
+      {
+        "quantity": 1
+      }
+    ],
+    "prior": [],
+    "requested": [
+      {
+        "quantity": 1,
+        "originalOrderItemIndex": 0.5
+      }
+    ],
+    "expected": "RETURN_SOURCE_LINE_INVALID"
+  },
+  {
+    "name": "foreign variation",
+    "sold": [
+      {
+        "variationId": "v1",
+        "quantity": 1
+      }
+    ],
+    "prior": [],
+    "requested": [
+      {
+        "variationId": "v2",
+        "quantity": 1,
+        "originalOrderItemIndex": 0
+      }
+    ],
+    "expected": "RETURN_SOURCE_LINE_MISMATCH"
+  },
+  {
+    "name": "zero quantity",
+    "sold": [
+      {
+        "quantity": 1
+      }
+    ],
+    "prior": [],
+    "requested": [
+      {
+        "quantity": 0,
+        "originalOrderItemIndex": 0
+      }
+    ],
+    "expected": "RETURN_QUANTITY_INVALID"
+  },
+  {
+    "name": "negative quantity",
+    "sold": [
+      {
+        "quantity": 1
+      }
+    ],
+    "prior": [],
+    "requested": [
+      {
+        "quantity": -1,
+        "originalOrderItemIndex": 0
+      }
+    ],
+    "expected": "RETURN_QUANTITY_INVALID"
+  },
+  {
+    "name": "divergent physical quantity",
+    "sold": [
+      {
+        "quantity": 3
+      }
+    ],
+    "prior": [],
+    "requested": [
+      {
+        "quantity": 3,
+        "returnedQuantity": 1,
+        "originalOrderItemIndex": 0
+      }
+    ],
+    "expected": "RETURN_QUANTITY_MISMATCH"
+  },
+  {
+    "name": "over capacity",
+    "sold": [
+      {
+        "quantity": 1
+      }
+    ],
+    "prior": [],
+    "requested": [
+      {
+        "quantity": 2,
+        "originalOrderItemIndex": 0
+      }
+    ],
+    "expected": "RETURN_CAPACITY_EXCEEDED"
+  },
+  {
+    "name": "repeated same line",
+    "sold": [
+      {
+        "quantity": 1
+      }
+    ],
+    "prior": [],
+    "requested": [
+      {
+        "quantity": 1,
+        "originalOrderItemIndex": 0
+      },
+      {
+        "quantity": 1,
+        "originalOrderItemIndex": 0
+      }
+    ],
+    "expected": "RETURN_CAPACITY_EXCEEDED"
+  },
+  {
+    "name": "identical sku lines retain independent capacity",
+    "sold": [
+      {
+        "productId": "p",
+        "quantity": 1
+      },
+      {
+        "productId": "p",
+        "quantity": 3
+      }
+    ],
+    "prior": [
+      {
+        "status": "fulfilled",
+        "items": [
+          {
+            "productId": "p",
+            "quantity": 1,
+            "originalOrderItemIndex": 0
+          }
+        ]
+      }
+    ],
+    "requested": [
+      {
+        "productId": "p",
+        "quantity": 1,
+        "originalOrderItemIndex": 0
+      }
+    ],
+    "expected": "RETURN_CAPACITY_EXCEEDED"
+  },
+  {
+    "name": "legacy allocated in source order",
+    "sold": [
+      {
+        "productId": "p",
+        "quantity": 1
+      },
+      {
+        "productId": "p",
+        "quantity": 3
+      }
+    ],
+    "prior": [
+      {
+        "status": "fulfilled",
+        "items": [
+          {
+            "productId": "p",
+            "quantity": 1
+          }
+        ]
+      }
+    ],
+    "requested": [
+      {
+        "productId": "p",
+        "quantity": 1,
+        "originalOrderItemIndex": 0
+      }
+    ],
+    "expected": "RETURN_CAPACITY_EXCEEDED"
+  },
+  {
+    "name": "cancelled return releases capacity",
+    "sold": [
+      {
+        "quantity": 1
+      }
+    ],
+    "prior": [
+      {
+        "status": "cancelled",
+        "items": [
+          {
+            "quantity": 1,
+            "originalOrderItemIndex": 0
+          }
+        ]
+      }
+    ],
+    "requested": [
+      {
+        "quantity": 1,
+        "originalOrderItemIndex": 0
+      }
+    ],
+    "expected": null
+  }
+]

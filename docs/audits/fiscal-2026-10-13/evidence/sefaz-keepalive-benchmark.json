@@ -1,0 +1,17 @@
+{
+  "name": "sefaz-keepalive-benchmark",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "mode": "keepalive",
+      "success": true,
+      "statusCStat": "107",
+      "request1_duration_ms": 212.26,
+      "request2_duration_ms": 33.04,
+      "saved_ms": 179.22,
+      "socket_reused": true
+    }
+  ],
+  "stderr": "Retrieving project…\nDownloading `development` Environment Variables\n"
+}

@@ -99,13 +99,13 @@ describe('Etapa 1.5: Cálculos financeiros do pedido [TESTE_AUT]', () => {
     it('deve compor total do pedido somando itens líquidos, frete e taxas de pagamento', () => {
       const shipping = 50;
       const payments: Payment[] = [
-        { method: 'Cartão de Crédito', amount: 500, fee: 10, feeType: 'fixed', status: 'pending' },
+        { method: 'Cartão de Crédito', amount: 500, fee: 10, feeType: 'fixed', status: 'Pago' },
         {
           method: 'Cartão de Débito',
           amount: 450,
           fee: 2,
           feeType: 'percentage',
-          status: 'pending',
+          status: 'Pago',
         }, // 2% de 450 = 9
       ];
 
@@ -125,7 +125,7 @@ describe('Etapa 1.5: Cálculos financeiros do pedido [TESTE_AUT]', () => {
     it('deve calcular saldo restante pendente quando o valor pago for inferior', () => {
       const shipping = 100;
       const payments: Payment[] = [
-        { method: 'Dinheiro', amount: 500, fee: 0, feeType: 'fixed', status: 'pending' },
+        { method: 'Dinheiro', amount: 500, fee: 0, feeType: 'fixed', status: 'Pago' },
       ];
 
       // totalOrderValue = 900 + 100 = 1000
@@ -140,7 +140,7 @@ describe('Etapa 1.5: Cálculos financeiros do pedido [TESTE_AUT]', () => {
       // totalOrderValue = 900
       // Cliente pagou 1000 em dinheiro
       const payments: Payment[] = [
-        { method: 'Dinheiro', amount: 1000, fee: 0, feeType: 'fixed', status: 'pending' },
+        { method: 'Dinheiro', amount: 1000, fee: 0, feeType: 'fixed', status: 'Pago' },
       ];
 
       const summary = calcPaymentsSummary(payments, mockItemsSummary, shipping);

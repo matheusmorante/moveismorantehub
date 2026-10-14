@@ -183,7 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (outboundDocumentIds.length) {
     const { data, error } = await db
       .from('nfe_operation_drafts')
-      .select('original_document_id,operation_kind,environment,status,created_at')
+      .select('id,original_document_id,operation_kind,environment,status,created_at')
       .in('original_document_id', outboundDocumentIds)
       .eq('operation_kind', 'estorno')
       .order('created_at', { ascending: false });
@@ -217,6 +217,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })),
     cancelledOrderIds,
     estornoDrafts: Array.from(latestDrafts.values()).map((draft) => ({
+      id: draft.id,
       original_document_id: draft.original_document_id,
       operation_kind: draft.operation_kind,
       environment: draft.environment,

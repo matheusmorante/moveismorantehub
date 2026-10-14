@@ -138,6 +138,8 @@ export type Product = {
   active: boolean;
   isDraft?: boolean;
   deleted?: boolean;
+  can_trash?: boolean;
+  trash_block_reason?: string | null;
   createdAt?: string;
   updatedAt?: string;
 

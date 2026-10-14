@@ -116,7 +116,7 @@ const CancelScheduledSaleButton = ({
         }}
         disabled={previewLoading}
         className="flex items-center gap-3 w-full p-2.5 rounded-xl text-left text-rose-600 transition-all hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30 cursor-pointer"
-        title="Consultar cancelamento ou devolução da venda"
+        title="Consultar cancelamento comercial ou devolução comercial da venda"
       >
         <i className="bi bi-x-circle-fill text-lg shrink-0" />
         <span className="text-xs font-black uppercase tracking-widest">
@@ -142,7 +142,7 @@ const CancelScheduledSaleButton = ({
                   .eq('id', preview.returnOrderId)
                   .maybeSingle();
                 if (error || !data) {
-                  window.alert('A devolução vinculada não foi encontrada. Atualize a lista e tente novamente.');
+                  window.alert('A devolução comercial vinculada não foi encontrada. Atualize a lista e tente novamente.');
                   return;
                 }
                 const returnOrder = mapOrderFromDatabase(data);

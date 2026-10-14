@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { showcaseAssemblyFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
 import React, { useState, useEffect } from 'react';
 import { ShowcaseAssembly, saveShowcaseAssembly } from '@/pages/utils/showcaseAssemblyService';
 import { toast } from 'react-toastify';
@@ -82,7 +84,7 @@ const ShowcaseAssemblyModal = ({ isOpen, onClose, assembly, onSaveSuccess }: Pro
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+        <ZodForm schema={showcaseAssemblyFormSchema} values={{...formData}} onSubmit={handleSubmit} className="p-8 space-y-6">
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
@@ -172,7 +174,7 @@ const ShowcaseAssemblyModal = ({ isOpen, onClose, assembly, onSaveSuccess }: Pro
             )}
             {isSaving ? 'Salvando...' : assembly ? 'Salvar Alterações' : 'Registrar Montagem'}
           </button>
-        </form>
+        </ZodForm>
       </div>
     </div>
   );

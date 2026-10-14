@@ -41,7 +41,7 @@ async function run(environment, args, name, cwd = path.join(root,'.vercel')) {
     child.on('error', () => resolve({name,exitCode:1,error:'PROCESS_START_FAILED'}));
     child.on('exit', code => {
       const records = stdout.split(/\r?\n/).filter(line => line.startsWith('{')).map(line => JSON.parse(line));
-      const result = {name,environment,exitCode:code,records};
+      const result = {name,environment,exitCode:code,records,stderr:stderr.slice(0,500)};
       if (!records.length) result.error = /not.*auth|forbidden|token/i.test(stderr) ? 'CLI_AUTH_OR_SCOPE_FAILED' : 'CLI_FAILED_NO_EVIDENCE';
       fs.writeFileSync(path.join(out,`${name}.json`),JSON.stringify(result,null,2)+'\n');
       console.log(JSON.stringify({name,exitCode:code,records:records.length,error:result.error,
@@ -81,7 +81,8 @@ async function run(environment, args, name, cwd = path.join(root,'.vercel')) {
           contradictoryTestCount:records[0].contradictoryTestCount,
           limitedRowsReturned:records[0].limitedRowsReturned,limitedLeakCount:records[0].limitedLeakCount,
           queriesValid:records[0].queriesValid} : {}),
-        ...(args[0]!=='env' && args[0]!=='operator' && args[0]!=='policy-status' && args[0]!=='artifact-reads' && args[0]!=='artifact-resolve' ? {results:records.map(r=>({service:r.service,model:r.model,policy:r.policy,success:r.success,http:r.http,error:r.error,errorCode:r.errorCode,cStat:r.cStat,reason:r.reason}))}:{}),
+        ...(args[0]!=='env' && args[0]!=='operator' && args[0]!=='policy-status' && args[0]!=='artifact-reads' && args[0]!=='artifact-resolve' && args[0]!=='perf' ? {results:records.map(r=>({service:r.service,model:r.model,policy:r.policy,success:r.success,http:r.http,error:r.error,errorCode:r.errorCode,cStat:r.cStat,reason:r.reason}))}:{}),
+        ...(args[0]==='perf' && records[0] ? {timings:records[0].timings,statusCStat:records[0].statusCStat} : {}),
       }));
       resolve(result);
     });
@@ -96,6 +97,8 @@ async function main() {
   else if (mode === 'operational') await capture('development',['operational'],`operational-${process.argv[3] === 'after' ? 'after' : 'before'}`);
   else if (mode === 'operator') await capture('development',['operator'],'development-operator-preflight');
   else if (mode === 'policy-status') await capture('development',['policy-status'],'development-guard-readiness');
+  else if (mode === 'perf') await capture('development',['perf'],'fiscal-performance-benchmark');
+  else if (mode === 'keepalive') await capture('development',['keepalive'],'sefaz-keepalive-benchmark');
   else if (mode === 'artifact-resolve') {
     const [runId,orderId,scenarioKey] = process.argv.slice(3);
     if (![runId,orderId].every(value => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '')) ||

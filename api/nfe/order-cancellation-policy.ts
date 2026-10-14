@@ -75,7 +75,7 @@ export function evaluateDocumentEligibility(
   const circulation = getGoodsCirculationState(order);
   if (circulation === 'completed')
     return blocked(
-      'Pedido entregue ou retirado; preserve a NF-e original e encaminhe ao fluxo de devolução.',
+      'Pedido entregue ou retirado; preserve a NF-e original e encaminhe ao fluxo de devolução comercial.',
       'return'
     );
   if (circulation === 'in_progress')

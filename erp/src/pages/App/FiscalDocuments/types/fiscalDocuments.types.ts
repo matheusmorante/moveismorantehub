@@ -228,6 +228,16 @@ export interface FiscalDocumentEventSummary {
   justification: string | null;
 }
 
+export interface FiscalOperationDraftSummary {
+  id: string;
+  operation_kind: 'estorno' | 'return';
+  environment: 1 | 2;
+  status: string;
+  reason?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface FiscalDocumentDetails {
   document: NfeDocumentRecord & {
     xml_nfe: string | null;
@@ -235,6 +245,7 @@ export interface FiscalDocumentDetails {
   };
   parsedXml: ParsedFiscalDetails | null;
   events: FiscalDocumentEventSummary[];
+  operationDrafts?: FiscalOperationDraftSummary[];
 }
 
 export type FiscalDocumentFilters = {

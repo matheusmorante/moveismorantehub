@@ -1,7 +1,9 @@
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { validatePasswordSetup } from '@/services/authPasswordSetup';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { passwordSetupFormSchema } from '../../../../shared-utils/authFormSchemas';
+import type { z } from 'zod';
 
 export const PasswordSetupPrompt = () => {
   const location = useLocation();
@@ -10,23 +12,17 @@ export const PasswordSetupPrompt = () => {
   const [confirmation, setConfirmation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  const form = useZodForm(passwordSetupFormSchema, { password, confirmation });
 
   if (location.pathname === '/reset-password' || !user || passwordCredentialStatus !== 'required') {
     return null;
   }
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const validationError = validatePasswordSetup(password, confirmation);
-    if (validationError) {
-      setMessage(validationError);
-      return;
-    }
-
+  const handleSubmit = async (data: z.output<typeof passwordSetupFormSchema>) => {
     setIsSubmitting(true);
     setMessage('');
     try {
-      await createPasswordCredential(password, confirmation);
+      await createPasswordCredential(data.password, data.confirmation);
       setPassword('');
       setConfirmation('');
     } catch (error) {
@@ -60,7 +56,9 @@ export const PasswordSetupPrompt = () => {
           </p>
         )}
 
-        <form id="password-setup-form" className="mt-6 space-y-4" onSubmit={handleSubmit}>
+        <form id="password-setup-form" noValidate className="mt-6 space-y-4" onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+          setMessage(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados informados.');
+        })}>
           <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
             Nova senha
             <input

@@ -1,4 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { toast } from 'react-toastify';
+import { postElementModelFormSchema } from '../../../../../../../shared-utils/marketingFormSchemas';
 import {
   defaultContentKind,
   ElementModel,
@@ -48,6 +51,7 @@ export function PostCreatorModelModal({
     value?.opportunityId || initialOpportunityId || ''
   );
   const [saving, setSaving] = useState(false);
+  const form = useZodForm(postElementModelFormSchema, { name, prompt, elementType, opportunityId });
   const initialEdit = useRef(true);
   useEffect(() => {
     setName(value?.name || '');
@@ -71,11 +75,13 @@ export function PostCreatorModelModal({
     updatedAt: new Date().toISOString(),
   });
   const persist = async (closeAfterSave = false) => {
-    if (!name.trim() || (elementType === 'BADGE' && !opportunityId)) return;
+    const validated = await form.validateAndRun({ name, prompt, elementType, opportunityId }, (data) => data,
+      closeAfterSave ? (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]) : undefined);
+    if (!validated) return;
     setSaving(true);
     onSavingChange(true);
     try {
-      await onSave(modelValue());
+      await onSave({ ...modelValue(), name: validated.name.trim(), prompt: validated.prompt, opportunityId: validated.elementType === 'BADGE' ? validated.opportunityId : null });
       if (closeAfterSave) onClose();
     } finally {
       setSaving(false);

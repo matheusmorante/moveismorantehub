@@ -19,6 +19,7 @@ export interface ProductRowProps {
   readonly onEdit: (product: Product) => void;
   readonly onDelete: (id: string) => void;
   readonly onRestore: (id: string) => void;
+  readonly onMoveToTrash?: (product: Product) => void;
   readonly onPermanentDelete?: (id: string) => void;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
   readonly onDeactivateCatalog: (id: string) => void;
@@ -50,6 +51,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
   onEdit,
   onDelete,
   onRestore,
+  onMoveToTrash,
   onPermanentDelete,
   onToggleActive,
   onDeactivateCatalog,
@@ -172,6 +174,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
           onEdit={onEdit}
           onRestore={onRestore}
           onDelete={onDelete}
+          onMoveToTrash={onMoveToTrash}
           onPermanentDelete={onPermanentDelete}
           onDuplicate={onDuplicate}
           onShowHistory={onShowHistory}

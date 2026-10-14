@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { supabase } from '../utils/supabaseConfig';
-import { validatePasswordSetup } from '@/services/authPasswordSetup';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import type { FieldErrors } from 'react-hook-form';
+import type { z } from 'zod';
+import { passwordRecoveryCodeSchema, passwordRecoveryEmailSchema, passwordSetupFormSchema } from '../../../../shared-utils/authFormSchemas';
 import {
   getPasswordAuthErrorMessage,
   requestPasswordRecoveryCode,
@@ -23,18 +26,18 @@ const ResetPassword = () => {
   const [confirmation, setConfirmation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const emailForm = useZodForm(passwordRecoveryEmailSchema, { email });
+  const codeForm = useZodForm(passwordRecoveryCodeSchema, { email, code });
+  const passwordForm = useZodForm(passwordSetupFormSchema, { password, confirmation });
+  const showValidationError = (errors: FieldErrors) => {
+    setMessage({ tone: 'error', text: Object.values(flattenFormErrors(errors))[0] || 'Confira os dados informados.' });
+  };
 
-  const sendRecoveryCode = async () => {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      setMessage({ tone: 'error', text: 'Informe seu e-mail para continuar.' });
-      return;
-    }
-
+  const sendRecoveryCode = async (data: z.output<typeof passwordRecoveryEmailSchema>) => {
     setIsSubmitting(true);
     setMessage(null);
     try {
-      const { error } = await requestPasswordRecoveryCode(supabase, trimmedEmail);
+      const { error } = await requestPasswordRecoveryCode(supabase, data.email);
       if (error) {
         setMessage({ tone: 'error', text: getPasswordAuthErrorMessage(error, 'recovery-send') });
         return;
@@ -54,11 +57,11 @@ const ResetPassword = () => {
     }
   };
 
-  const verifyRecoveryCode = async () => {
+  const verifyRecoveryCode = async (data: z.output<typeof passwordRecoveryCodeSchema>) => {
     setIsSubmitting(true);
     setMessage(null);
     try {
-      const { error } = await verifyPasswordRecoveryCode(supabase, email, code);
+      const { error } = await verifyPasswordRecoveryCode(supabase, data.email, data.code);
       if (error) {
         setMessage({ tone: 'error', text: getPasswordAuthErrorMessage(error, 'recovery-verify') });
         return;
@@ -72,18 +75,11 @@ const ResetPassword = () => {
     }
   };
 
-  const saveNewPassword = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const validationError = validatePasswordSetup(password, confirmation);
-    if (validationError) {
-      setMessage({ tone: 'error', text: validationError });
-      return;
-    }
-
+  const saveNewPassword = async (data: z.output<typeof passwordSetupFormSchema>) => {
     setIsSubmitting(true);
     setMessage(null);
     try {
-      const { error } = await updateAuthenticatedPassword(supabase, password);
+      const { error } = await updateAuthenticatedPassword(supabase, data.password);
       if (error) {
         setMessage({ tone: 'error', text: getPasswordAuthErrorMessage(error, 'password-update') });
         return;
@@ -149,10 +145,8 @@ const ResetPassword = () => {
 
           {stage === 'email' && (
             <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void sendRecoveryCode();
-              }}
+              noValidate
+              onSubmit={emailForm.handleSubmit(sendRecoveryCode, showValidationError)}
               className="space-y-5"
             >
               <label className="block space-y-2">
@@ -180,7 +174,7 @@ const ResetPassword = () => {
           )}
 
           {stage === 'code' && (
-            <div className="space-y-4">
+            <form noValidate onSubmit={codeForm.handleSubmit(verifyRecoveryCode, showValidationError)} className="space-y-4">
               <label className="block space-y-2">
                 <span className="text-xs font-black uppercase tracking-widest text-slate-400">
                   Código de recuperação
@@ -196,9 +190,8 @@ const ResetPassword = () => {
                 />
               </label>
               <button
-                type="button"
+                type="submit"
                 disabled={isSubmitting || !code.trim()}
-                onClick={() => void verifyRecoveryCode()}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl disabled:opacity-60"
               >
                 {isSubmitting ? 'Validando…' : 'Validar código'}
@@ -206,16 +199,16 @@ const ResetPassword = () => {
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={() => void sendRecoveryCode()}
+                onClick={() => void emailForm.validateAndRun({ email }, sendRecoveryCode, showValidationError)}
                 className="w-full py-3 text-sm font-bold text-blue-600 hover:text-blue-700 disabled:opacity-60"
               >
                 Reenviar código
               </button>
-            </div>
+            </form>
           )}
 
           {stage === 'password' && (
-            <form onSubmit={saveNewPassword} className="space-y-4">
+            <form noValidate onSubmit={passwordForm.handleSubmit(saveNewPassword, showValidationError)} className="space-y-4">
               <label className="block space-y-2">
                 <span className="text-xs font-black uppercase tracking-widest text-slate-400">
                   Nova senha

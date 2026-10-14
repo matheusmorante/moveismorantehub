@@ -1,121 +1,59 @@
-# Orientação de contexto do projeto
+# Regras Obrigatórias para Agentes de IA — MoranteHub
 
-## Cancelamento comercial e tratamento fiscal
+Este arquivo estabelece as regras e diretrizes mandatórias para qualquer agente de inteligência artificial (Antigravity, Codex, Gemini, Claude, Cursor, etc.) que for inspecionar, refatorar, corrigir ou criar código neste repositório.
 
-- O MoranteHub não utiliza Carta de Correção Eletrônica (CC-e). Não oferecer, habilitar ou implementar nova emissão de CC-e. Correções fiscais seguem cancelamento ou estorno direto, escolhidos pela política central conforme prazo, circulação e elegibilidade legal; isso não dispensa revisão fiscal nem permite estorno após circulação. Eventos antigos de CC-e são preservados somente para histórico e reconciliação, sem novas transmissões.
-- O cancelamento pode ser iniciado pelo Pedido de Venda ou pela tela de Notas Fiscais de Saída. Ambos devem usar a mesma operação comercial transacional e a mesma política/serviço fiscal central; a tela fiscal não altera status diretamente.
-- A regra central `hasGoodsCirculated(order)` considera `fulfilled` como circulação tanto para entrega (Entregue) quanto para retirada (Retirado), além de evidências de saída/trânsito.
-- Com circulação, bloquear cancelamento por operação não realizada e não gerar estorno; quando a mercadoria retornar, usar devolução vinculada à venda e preservar a NF-e original.
-- Sem circulação e sem documento autorizado (ausente, rejeitado ou nunca autorizado), cancelar somente o pedido/estoque, sem ação fiscal.
-- Sem circulação e com documento autorizado, selecionar automaticamente cancelamento fiscal dentro do prazo ou estorno quando a regra aplicável permitir. O usuário não escolhe entre esses efeitos.
-- No Paraná, NF-e 55: 168 horas; NFC-e 65: 30 minutos conforme orientação atual da SEFA/PR. Centralizar prazos e testar o instante exato do limite.
-- NF-e de estorno segue o RICMS/PR art. 298, VII e NPF 038/2022. É aplicável à emissão indevida após perda do prazo; quando emitida em período de apuração posterior, revisar diferenças/acréscimos do art. 298, §2º antes de transmitir. Exigir revisão fiscal, referenciar a chave original e preservar XML, chave, protocolo e linhagem.
-- Depois da circulação, usar pedido de devolução vinculado e preservar a NF-e original. “Coleta da devolução” é somente o agendamento operacional. A equipe pode confirmar a coleta antes do prazo; se não houver confirmação, o vencimento da data/hora agendada conclui automaticamente a devolução como `fulfilled`, exibida como “Devolvido”. `scheduled` com coleta aparece como “Coleta agendada”. Se o cliente já trouxe à loja, a devolução é concluída como “Devolvido”. A entrada de estoque acompanha a transição de conclusão na transação do pedido.
-- Após o commit da devolução concluída, transmitir automaticamente a NF-e de devolução quando a venda vinculada tiver NF-e autorizada no mesmo ambiente e o cenário fiscal passar as validações habilitadas. Sem NF-e autorizada, não emitir NFD. A chamada SEFAZ ocorre após o commit; manter estado de tentativa/reconciliação idempotente e nunca desfazer o fato comercial por falha fiscal posterior.
+---
 
-## Uso de skills
+## 1. Regra Fundamental: Consulta Prévia à Documentação Vigente
 
-- Ao concluir ou interromper qualquer tarefa, siga automaticamente [`relatorios-pos-tarefa`](.agents/skills/relatorios-pos-tarefa/SKILL.md) para apresentar o relatório final; aplique as regras de precisão e segurança da skill.
-- Carregue somente a skill diretamente relacionada à tarefa atual.
-- Não leia nem liste todas as skills antes de escolher uma.
-- Para tarefas simples (`git`, execução local, inspeção pontual), não carregue skill especializada.
-- Se mais de uma skill parecer aplicável, use a menor combinação que cubra a tarefa.
-- Para criar, alterar, substituir, remover ou aplicar migrations do Supabase, siga obrigatoriamente [`supabase-migration-lifecycle`](.agents/skills/supabase-migration-lifecycle/SKILL.md). Classifique e registre o destino de cada migration antes de concluir.
-- Leia referências adicionais de uma skill somente quando a tarefa exigir.
-- Ao escolher, inserir, trocar ou adaptar responsivamente logos, favicons ou splash screens, siga obrigatoriamente `morante-responsive-logo-usage`.
+Antes de propor, inspecionar ou alterar qualquer código relacionado ao sistema fiscal (NF-e modelo 55, NFC-e modelo 65, cancelamento, devolução, inutilização, reconciliação, transmissão SEFAZ, schemas ou banco de dados), **O AGENTE DEVE OBRIGATORIAMENTE CONSULTAR A DOCUMENTAÇÃO VIGENTE**:
 
-## Ambiente local da Vercel
+1. **Ler o índice oficial de vigência:** [`docs/fiscal/README.md`](docs/fiscal/README.md).
+2. **Consultar os invariantes arquiteturais:** [`docs/fiscal/invariantes-arquiteturais.md`](docs/fiscal/invariantes-arquiteturais.md) (invariantes `FISCAL-001` a `FISCAL-022`).
+3. **Verificar os históricos de correções recentes:** [`docs/fiscal/historico-correcoes-2026-10-14.md`](docs/fiscal/historico-correcoes-2026-10-14.md) e [`docs/fiscal/revisao-fluxos-saida-2026-10-13.md`](docs/fiscal/revisao-fluxos-saida-2026-10-13.md).
 
-- A política única para sincronização de variáveis, `.env.local`, Development, Preview, secrets, Supabase e ambiente fiscal local está em [`.agents/skills/vercel-development/SKILL.md`](.agents/skills/vercel-development/SKILL.md). Consulte-a antes de alterar scripts ou orientar setup local; skills de domínio devem referenciá-la em vez de duplicar regras de ambiente.
-- O comando diário é `npm run dev`, que inicia `dev:stack` com Vercel Development via `scripts/run-vercel-env-dev.cjs`. O CLI usa `.vercel` como cwd e recebe o project ID vinculado explicitamente para que `.env.local` não sobreponha as variáveis remotas.
+> **Aviso Crítico:** É terminantemente proibido agir com base em suposições, documentações legadas desatualizadas ou snapshots substituídos. O agente deve sempre conferir a documentação mais recente antes de realizar alterações.
 
-## Saída e investigação
+---
 
-- Prefira comandos com saída limitada e direcionada.
-- Não repita leituras do mesmo arquivo ou status sem mudança observável.
-- Preserve alterações existentes e faça mudanças pequenas, verificáveis e reversíveis.
+## 2. Regra de Registro: Documentação Mandatória de Toda Correção Fiscal
 
-## Regra global: atomicidade e consistência das operações
+Toda e qualquer correção de bug, ajuste de lógica, adequação de schema, otimização de performance, criação de migration ou refinamento de interface no ecossistema fiscal **DEVE SER IMEDIATAMENTE REGISTRADA NA DOCUMENTAÇÃO**:
 
-- Antes de alterar um fluxo, identifique os efeitos obrigatórios que ele cria ou reverte: estoque, financeiro, fiscal, reservas e históricos que representam estado confirmado. Declare o estado que dispara cada efeito e se uma transição posterior deve criar outro efeito.
-- Quando a operação principal e seus efeitos precisam permanecer consistentes, grave-os na mesma transação do banco ou RPC transacional. Se qualquer etapa essencial falhar, reverta tudo e apresente o erro. Chamadas independentes do cliente não constituem uma transação; não use fallback que salve apenas parte da operação.
-- Garanta idempotência e proteção contra retries, cliques repetidos e concorrência com vínculos e restrições apropriados no banco. Cancelamentos e reversões devem ser rastreáveis, vinculados à origem e não duplicados; preserve fatos confirmados em vez de apagá-los.
-- Declare quais efeitos podem ocorrer após o commit e como serão reconciliados em caso de falha. Antes de concluir, teste sucesso, falha em cada etapa essencial, repetição, concorrência, cancelamento e reversão.
-- A regra vale para todos os módulos, mas o gatilho de cada efeito deve seguir a regra de negócio específica do fluxo; não aplique o mesmo momento de movimentação a vendas, recebimentos, inventários e devoluções.
+* **Onde registrar:** Crie ou atualize o arquivo em [`docs/fiscal/historico-correcoes-YYYY-MM-DD.md`](docs/fiscal/).
+* **O que deve constar no registro:**
+  1. Problema identificado e sintomas observados.
+  2. Causa raiz técnica comprovada.
+  3. Lista exata dos arquivos e linhas modificados (backend, frontend, SQL/migrations).
+  4. Solução técnica implementada.
+  5. Testes executados e validações que comprovam a não-regressão.
+* **Atualização do índice:** Toda nova documentação deve ser imediatamente linkada na seção *Referências atuais* de [`docs/fiscal/README.md`](docs/fiscal/README.md).
+* **Nenhum agente pode finalizar uma tarefa sem documentar as correções realizadas.** Isso garante que agentes subsequentes não fiquem lendo documentações dessincronizadas ou reintroduzam falhas já sanadas.
 
-## Política de validação de código
+---
 
-- Ao alterar código, identifique pelo `git diff` os arquivos, módulo e dependências afetados; execute primeiro somente a validação focada mais barata para esse módulo, antes do commit.
-- Se o teste focado passar, rode apenas as verificações estáticas aplicáveis (TypeScript/compilação e lint nos arquivos alterados). Para mudanças exclusivamente de texto ou CSS, limite-se ao mínimo aplicável e faça validação visual somente se ela agregar evidência.
-- Só avance para integração, Playwright/E2E ou navegador depois que as etapas focadas anteriores passarem e quando o escopo exigir. Integração é indicada para persistência, API, autenticação, banco, sincronização ou contratos entre serviços; E2E deve cobrir apenas o fluxo afetado.
-- Sempre que uma tarefa replicar, portar ou adaptar uma tela, aba, componente ou módulo existente do ERP Web para o App Mobile, siga obrigatoriamente a skill `erp-web-to-mobile-replication`. Inspecione a implementação original, mapeie estados e interações, preserve semântica, regras e fluxos, e compare visualmente Web × Mobile. Adapte layout para telas menores sem mudar comportamento, salvo limitação técnica real ou solicitação explícita.
-- Mudanças na replicação/sincronização ERP ↔ App Mobile exigem teste focado do módulo de sync e, se envolverem persistência ou comunicação real entre serviços, integração isolada. E2E cobre somente o fluxo afetado quando agregar cobertura que testes focados não dão.
-- Não rode a suíte completa repetidamente durante o desenvolvimento; deixe-a preferencialmente para o CI no push/PR. Só execute localmente quando a mudança for transversal, houver risco concreto de regressão ampla ou o usuário solicitar.
-- Se uma camada falhar, corrija antes de escalar. Não repita validações aprovadas sem mudança relevante e mantenha logs resumidos.
+## 3. Invariantes de Segurança e Confiabilidade Fiscal
 
-## Roteamento rápido
+1. **Separação de Ambientes:** Isolamento estrito entre Homologação (`tpAmb = 2`) e Produção (`tpAmb = 1`). Produção exige autorização explícita do operador e certificado válido.
+2. **Idempotência e Numeração:** 
+   * `SELECT MAX(numero) + 1` é estritamente proibido. Numerações fiscais são reservadas de forma atômica no PostgreSQL.
+   * Não retransmitir automaticamente quando houver resultado incerto. Em caso de timeout de rede ou queda, consulte primeiro a mesma chave na SEFAZ.
+3. **Integridade de Snapshots:**
+   * Nunca injete campos arbitrários em objetos JSON de snapshot que sejam validados via hash ou RPC no banco (`prepare_nfe_outbound_attempt`). O payload enviado deve ser idêntico ao snapshot persistido.
+4. **Validação XSD:**
+   * Todo XML gerado deve ser validado localmente contra o pacote XSD oficial vigente antes de qualquer tentativa de transmissão à SEFAZ.
+5. **Segurança de Credenciais:**
+   * Certificados A1, chaves privadas, senhas e tokens de API nunca devem ser expostos no frontend, nem registrados em logs ou ferramentas de telemetria.
 
-- Código/arquitetura: `design-patterns`, `modularizacao_codigo`, `modelagem-negocio-arquitetura`.
-- Banco/Supabase: `database-supabase`, `supabase-egress-guard`; lifecycle de migrations: `supabase-migration-lifecycle` (obrigatória).
-- ERP/regras fiscais: `regras-de-negocio-erp`, `testes-seguros-erp`; para fontes oficiais de NF-e/NFC-e, consulte os links em `docs/fiscal/manuais/README.md`.
-- Testes/triagem: `rtk-tdd`, `testes-seguros-erp`, `issue-triage`.
-- Refatoração/limpeza: `safe-refactor`, `surgical-patch`, `limpeza-projeto-segura`.
-- Deploy/release: `release`, `mobile-eas-publicacao`.
-- Git/PR: `caveman-commit`, `pr-triage`.
-- Identidade visual responsiva: `morante-responsive-logo-usage`.
+---
 
-## Ferramentas de inspeção assistida
+## 4. Concorrência, Banco de Dados e Timeouts de Rede
 
-- **Serena MCP:** no início de uma tarefa de código, consulte `initial_instructions` e confirme/ative o projeto/cwd atual. Prefira `get_symbols_overview`, `find_symbol` e `find_referencing_symbols` antes de abrir arquivos completos; leia somente as definições e consumidores necessários. Use busca textual quando o alvo não for símbolo ou Serena não estiver disponível. No contexto Codex, use as ferramentas nativas para editar/rodar comandos; Serena é prioritariamente navegação semântica.
-- **CALM desativado neste projeto:** por decisão explícita do usuário em 2026-10-11, o servidor MCP foi removido de `.codex/config.toml`. Não inicie o CALM por configuração global, `npx`, CLI ou outro mecanismo neste repositório. Para navegação e análise de impacto, use Serena quando disponível, `rg`, `git diff` e ferramentas nativas. Esta instrução substitui as orientações anteriores sobre uso e gates do CALM.
-- **Chrome DevTools MCP:** para diagnóstico técnico do ERP no navegador, use Network/Console/Performance para confirmar requests, erros e comportamento real. Capture somente a interação/período relevante, não exporte ou exponha tokens, cookies, payloads pessoais ou dados sensíveis. Playwright continua sendo a ferramenta de automação funcional/E2E; DevTools complementa o diagnóstico, não o substitui.
-- **Sessão do ERP em testes manuais:** prefira a aba do ERP já autenticada que o usuário disponibilizou; não exija conta ou perfil de teste separado para validar a interface com artefatos próprios identificados por UUID e metadata JSON. O ciclo de vida do navegador deve seguir a regra canônica de sessão visível em [testes-seguros-erp](.agents/skills/testes-seguros-erp/SKILL.md): reutilize a janela existente e não abra instâncias duplicadas em retries; se ela estiver comprovadamente ocupada por outro chat ativo, a skill permite abrir outra aba ou, quando necessário para isolar estado, outra sessão visível, sempre com a menor quantidade necessária e sem executar o mesmo fluxo em paralelo. Se um agente precisar autenticar para qualquer teste/auditoria, use exclusivamente as secrets descritas na regra seguinte, inclusive em módulos não fiscais; não troque para Google/outro provedor se o preenchimento falhar. Não grave senhas, códigos ou tokens. Diferencie sessão deslogada de **Aguardando Aprovação**: este último indica que a identidade foi reconhecida, mas ainda não tem acesso aprovado no ERP; não tente contornar a aprovação ou trocar de conta para escapar dela. Peça ao usuário ou administrador autorizado para restaurar o acesso antes de continuar ações que dependam de permissão.
-- **Login de agentes em testes e auditorias do ERP:** sempre que um agente precisar autenticar, use `NFE_HML_TEST_OPERATOR_EMAIL` e `NFE_HML_TEST_OPERATOR_PASSWORD` de Vercel Development, em qualquer módulo; não crie variáveis alternativas nem troque para outra conta/provedor se o preenchimento falhar. Carregue e use os secrets somente em memória/runtime na sessão visível do ERP, sem gravá-los em arquivos, logs ou relatórios. Essa regra não concede permissão adicional nem contorna aprovação, perfil, RLS ou gates fiscais. Para emissão HML, a identidade autorizada é `matheusmorante002@gmail.com`: confirme em memória que o e-mail corresponde e que a senha está configurada; valide que a sessão retornada corresponde ao operador e que `is_administrator()` autoriza a conta. O Playwright deve consumir as credenciais somente em runtime. Nunca revele nem grave senha, códigos, tokens, cookies ou `storageState`; não imprima o e-mail em logs, diagnósticos automatizados ou relatórios. Se a fonte segura estiver indisponível ou a identidade divergir, pare antes do login e peça autenticação/correção pelo fluxo normal. A regra para rejeitar conta sintética está detalhada na skill `testes-seguros-erp`.
-- **Máscara de credencial:** `<redacted>`/`redacted` que aparece em acessibilidade, screenshot, clipboard, inspeção do navegador ou ferramenta de automação é apenas uma representação mascarada e nunca é um valor de e-mail ou senha. Não a preencha no formulário. Leia os valores diretamente das variáveis de runtime em memória, valide e rejeite qualquer placeholder antes do `fill`; se a ferramenta só devolver a máscara, pare e peça o login manual.
-- **Roteamento de testes por plataforma:**
-  - **Vitest**: lógica pura, cálculos de negócio, transformações e integração de serviços isolados em memória.
-  - **Playwright**: automação funcional e E2E no navegador (ERP React/Web e Expo Web quando suportado). Viewports mobile no Playwright são úteis para responsividade web, mas não comprovam runtime nativo.
-  - **Maestro**: ferramenta E2E para o app Android, somente em celular físico conectado por **Depuração sem fio (Wi‑Fi)**. Emulador/AVD e alvo USB são recusados pelo executor. O celular deve estar pareado/conectado no ADB antes de iniciar o Maestro; use `ANDROID_SERIAL` se houver mais de um alvo Wi‑Fi. Testes de integração que usam PostgreSQL/Supabase usam o projeto remoto configurado, com fixtures sintéticas isoladas conforme `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`; smoke test manual de emissão HML segue a exceção fiscal descrita nessa política.
-  - **ADB**: usado somente para parear/conectar o celular por Wi‑Fi e pelas operações necessárias ao Maestro (seleção do dispositivo, instalação/build e reverse da porta Metro). Não usar ADB para executar testes em emulador nem em alvo USB.
-  - **Teste manual no APK**: validação final de hardware não automatizável (sensores, biometria física, câmera real).
-- **Emissão fiscal em testes manuais**: qualquer transmissão real para a SEFAZ, inclusive em Homologação, deve ser iniciada e validada exclusivamente pelo fluxo da interface do ERP. Não transmitir NF-e/NFC-e por CLI, scripts, SQL ou chamadas HTTP diretas. CLI e testes automatizados podem cobrir validações locais/mocks e consultas somente leitura, mas nunca emitir. Testes de emissão sempre selecionam Homologação na interface e confirmam `tpAmb=2` no XML/retorno; a interface escolhe o ambiente fiscal do documento. O caminho de Produção está disponível sem configuração global e cada operação ainda exige confirmação explícita, permissões, validações fiscais e idempotência; isso não comprova prontidão nem autoriza uma transmissão. Antes de qualquer transmissão autorizada, confirme pedido, modelo, ambiente e ausência de tentativa anterior incerta; após timeout/502, consulte e reconcilie pela interface antes de qualquer retry. Trate documentos HML como fatos persistentes, sem presumir que possam ser desfeitos. Quando o usuário autorizar explicitamente um smoke test HML, o agente deve identificar e abrir o pedido elegível pela UI e executar a pré-validação automaticamente, sem delegar ao usuário a localização ou abertura do pedido. Essa autorização é específica da tarefa e do ambiente 2; não se estende à Produção nem elimina gates fiscais ou qualquer hand-off obrigatório da plataforma.
-- **CPF em emissão HML**: o CPF é opcional no cadastro do cliente. Em smoke test manual HML explicitamente autorizado, se o destinatário pessoa física e o documento/operação exigirem CPF, pode-se usar um CPF sintético válido somente no formulário de emissão; nunca gravá-lo no cadastro do cliente, pedido, código, arquivos de ambiente, logs ou relatório. NF-e 55 sempre exige identificação fiscal do destinatário (CPF para pessoa física; CNPJ para pessoa jurídica). NFC-e 65 exige identificação do destinatário na entrega em domicílio; sem entrega, deixe o CPF em branco quando os limites de valor e as validações aplicáveis permitirem. Fora desse teste HML, use somente dados de identificação informados legitimamente pelo cliente; não invente dados.
-- **CNPJ sintético do destinatário PJ em emissão HML**: em smoke test manual HML explicitamente autorizado, se o destinatário pessoa jurídica estiver sem CNPJ e o documento/operação exigir identificação, pode-se gerar um CNPJ sintético com dígitos verificadores válidos e preenchê-lo somente no formulário de emissão. Nunca gravá-lo no cadastro do cliente, pedido, código, arquivos de ambiente, logs ou relatório, nem usar fora de `environment=2`. Não inventar nem substituir o CNPJ do emitente: ele deve corresponder ao estabelecimento emissor e ao certificado fiscal. Fora desse teste HML, use somente dados de identificação informados legitimamente pelo cliente; não invente dados.
-- **Artefatos fiscais E2E**: a fonte única é o Supabase remoto operacional, branch principal e schema `public`. O runner recebe o UUID de `runId` e o UUID do pedido já persistidos; não gera massa, IDs ou clientes/produtos/pedidos/pagamentos/devoluções a partir de fixtures estáticas e falha se o cenário estiver ausente. Valide sessão Supabase real, operador administrativo/fiscal, owner, metadata canônica `order_data.testArtifact`, UUIDs e vínculos de cliente, itens, produtos, variações e pagamentos; confirme a prontidão dos guards e bloqueie documento/snapshot anterior incompatível ou incerto. Dados estáticos pequenos e mocks permanecem permitidos em testes unitários e nunca são artefatos E2E. Qualquer preparação/gravação remota exige autorização específica para a operação concreta e passa pelos serviços, schemas e validações usados pelos formulários; não aplicar migrations/DDL sem autorização. A transmissão real HML exige autorização explícita e ocorre somente pela interface do ERP, com produção desabilitada e sem defaults fiscais arbitrários. Retenha pedidos e históricos com fatos fiscais/ comerciais confirmados; remova somente artefato próprio sem fatos dependentes pelo fluxo normal. Siga [testes-seguros-erp](.agents/skills/testes-seguros-erp/SKILL.md) e [SUPABASE_REMOTE_TEST_POLICY.md](docs/testing/SUPABASE_REMOTE_TEST_POLICY.md).
-- **Replicação ERP ↔ App:** preservar testes Playwright do ERP e testar o caminho Expo Web no navegador quando aplicável. Complementar com Vitest e verificações estáticas focadas; no Android via Maestro e celular físico conectado por Wi‑Fi, validar os fluxos nativos do aplicativo. Para limitações nativas que não possam ser verificadas pelo Maestro, entregar APK para validação manual.
-
-## Controles de criação de artefatos E2E
-
-- Nos formulários de cliente, produto e pedido, a opção de marcar artefato de teste deve ficar restrita a administrador autenticado com contexto válido da execução (`runId` e `ownerId`) e iniciar desligada. Ao ativá-la, persistir `is_test`, `runId` e `ownerId` na metadata canônica pelos serviços normais do ERP. Pagamentos e devoluções vinculadas herdam o marcador do pedido; não oferecer marcador separado para pagamento ou devolução sem vínculo. A interface nunca substitui validação de ownership, permissões, RLS e integridade no backend.
-
-## Acesso ao Supabase
-
-- Se o plugin do Supabase ou o CLI/token não estiver disponível ou falhar, use o navegador integrado já autenticado em supabase.com. O usuário autorizou acessar o Dashboard da conta Movesmorante/Morante Hub e executar, no SQL Editor, o SQL necessário às tarefas de Supabase solicitadas; não é preciso pedir novamente autorização apenas por trocar de ferramenta.
-- No SQL Editor, confira o texto e o projeto selecionado antes de executar. Preserve migrations versionadas para alterações de schema e registre o resultado sem expor dados sensíveis. O navegador é um caminho de acesso, não uma exceção às regras de testes, isolamento e segurança do banco.
-- Antes de qualquer alteração remota, confirme que o projeto/ref corresponde ao configurado no app e limite a operação ao escopo autorizado.
-- Nunca exponha tokens, senhas ou outras credenciais; prefira ferramentas oficiais/API quando disponíveis e registre evidência sem dados sensíveis.
-
-
-## Governança de Desenvolvimento e Testes (Supabase, pgTAP, k6, ZAP)
-
-**Decisão do usuário em 09/10/2026:** utilizar o mesmo projeto, banco e schema remoto do ERP, com identificador de execução e metadata nos artefatos existentes; não criar schema, tabelas de segregação ou colunas físicas de teste. Testes devem gerar movimentações e históricos para auditoria, seguindo os gatilhos reais, sem afetar registros operacionais. Pedidos de teste não geram notificações no ERP, celular ou dispositivos conectados. Exclua-os de relatórios, agenda, cronograma, montagens e dashboard, também no SQL/backend. Não executar gravações E2E remotas antes da comprovação dessas proteções; não usar E2E_ISOLATED_DATA como atalho.
-
-**Correção permanente de ambiente:** use exclusivamente o projeto Supabase remoto operacional já utilizado pelo ERP, na branch primária/padrão existente e no schema real `public`. Não use, instale ou inicie Docker, Supabase Local, PostgreSQL local ou PGlite como substituto da integração remota. Não crie branch, projeto, banco ou schema paralelo. Uma autorização para consultas somente de leitura não autoriza gravações, DDL ou aplicação de migration.
-
-**Regra fiscal de ambiente:** `environment=1` é exclusivamente Produção; `environment=2` e `tpAmb=2` são Homologação. Documentos, eventos, cancelamentos e devoluções só se vinculam a registros do mesmo ambiente (1→1, 2→2). A localização remota do Supabase não altera o ambiente fiscal.
-- **Ambiente de banco**: O projeto remoto operacional já utilizado pelo ERP, na branch primária existente e no schema `public`, é o único alvo de integração com PostgreSQL/Supabase. Antes de qualquer operação, confirme o project ref e siga `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`. Use artefatos sintéticos próprios identificados por execução, preserve registros operacionais e exclua essa massa de relatórios, agenda, cronograma, montagens e dashboard, mesmo quando os pedidos estiverem agendados. Não gere notificações de artefatos de teste no ERP, celular ou dispositivos conectados. Mantenha os registros de teste acessíveis nos fluxos de vendas/fiscais e movimentações necessários para auditar e limpar as fixtures pelo fluxo normal. A exceção é smoke test manual de emissão fiscal HML autorizado explicitamente, que pode vincular o documento a um pedido existente sem exigir pedido sintético ou sessão isolada, conforme a política canônica. Limpe fixtures pelo fluxo normal. Mudanças versionadas de schema exigem revisão da migration, confirmação do projeto, `npm run advisors` e autorização para aplicar; não faça reset, DROP/TRUNCATE, fault injection ou carga ampla no projeto operacional.
-- **Supabase remoto**: Use para integração, persistência, RPC, RLS e migrations revisadas, sempre com escopo controlado e fixtures sintéticas. A única exceção para vincular teste a pedido operacional é o smoke test manual de emissão HML autorizado pelo usuário, conforme `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`. Não use Supabase Local ou Docker para testes.
-- **pgTAP**: Utilize para testes nativos de banco de dados (RPCs, RLS, Constraints, Triggers).
-- **Atomicidade e Banco Real**: Falhas no meio de transações devem ser provadas no banco, garantindo o rollback.
-- **k6 e ZAP**: Use k6 para concorrência/carga e OWASP ZAP para segurança dinâmica complementar (com escopo isolado e controlado; não gerar carga ampla no Supabase operacional).
-- **Separação Estrita**: Diferencie testes de persistência local (SQLite/IndexedDB) de persistência real (PostgreSQL). O fluxo de testes deve ser proporcional ao risco (Baixo a Crítico/Concorrente).
-
-## Ferramentas Oficiais de Qualidade, Infraestrutura e Segurança
-- **Knip (`npm run check:knip`)**: Executar para auditoria periódica de código morto, exports órfãos e dependências não utilizadas em todos os workspaces.
-- **Biome (`npm run lint:biome`, `npm run format:biome`)**: Formatação e linting ultrarrápido complementar para checagens de alta frequência.
-- **ast-grep**: Use `npm run quality:ast-grep:scan` para auditoria estrutural ampla solicitada e `npm run quality:ast-grep:critical` para regras críticas; não adicione à rotina de alterações pequenas. Critérios canônicos em `.agents/skills/governanca-skills/SKILL.md`.
-- **Supabase Advisors (`npm run advisors`)**: Obrigatório antes de qualquer migração para detectar RLS desabilitado, search_path vulnerável e índices faltantes.
-- **React Compiler**: Habilitado nativamente no Mobile (`experiments.reactCompiler`) e validado no ERP via `eslint-plugin-react-compiler` (`npm run lint --prefix erp`).
-- **Gitleaks (`npm run security:secrets`)**: Scanner de segredos. Primariamente focado para o CI, mas pode ser rodado localmente antes de commits específicos se for pertinente. Não rode automaticamente a cada tarefa.
-- **Trivy (`npm run security:vuln`, `npm run security:sbom`)**: Scanner de vulnerabilidades (CVEs). Use em CI ou auditoria de segurança direcionada.
-- **OpenTelemetry (`src/telemetry/tracer.ts`)**: Tracing padrão vendor-neutral para instrumentação de fluxos críticos de negócio com sanitização obrigatória de PII (LGPD).
+1. **Transações Ociosas no PostgreSQL:**
+   * Nunca mantenha transações abertas no PostgreSQL enquanto aguarda I/O de rede (chamadas à SEFAZ via SOAP/mTLS, APIs externas ou ações do cliente).
+   * O banco deve sempre respeitar `idle_in_transaction_session_timeout <= 60s` para impedir que conexões abandonadas segurem `advisory locks` e esgotem o pool do PostgREST.
+2. **Resiliência e Proteção contra Travamentos no Frontend:**
+   * Nenhuma consulta assíncrona ao Supabase ou à API pode bloquear a interface do usuário indefinidamente.
+   * Utilizar a função de proteção `withTimeout` com temporizadores adequados e fallbacks seguros em chamadas críticas de sessão (`AuthContext.tsx`), perfil e status.
+   * Preservar timers de failsafe ativos para garantir que o estado `loading` nunca permaneça `true` indefinidamente.
+   * Fornecer sempre feedback visual claro e transparente (banners animados com spinner e textos explicativos de status).

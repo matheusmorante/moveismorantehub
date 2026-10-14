@@ -31,8 +31,133 @@
   }
 }
 
+/* =========================================================================
+   React-Toastify: Acessibilidade, Contraste Alto (WCAG AAA) e Tipografia
+   ========================================================================= */
+:root {
+  --toastify-color-warning: #f59e0b;
+  --toastify-text-color-warning: #3b1900;
+}
+
 .Toastify__toast-container {
   z-index: 99999999 !important;
+}
+
+.Toastify__toast {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: 0.8125rem !important; /* 13px */
+  line-height: 1.45 !important;
+  border-radius: 0.875rem !important; /* 14px */
+  padding: 12px 16px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.18), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Toast de Alerta (Warning / Amarelo) - Contraste Alto WCAG AAA */
+.Toastify__toast--warning,
+.Toastify__toast-theme--colored.Toastify__toast--warning {
+  background-color: #f59e0b !important;
+  color: #3b1900 !important; /* Marrom escuro - contraste ~9:1 sobre fundo amarelo (WCAG AAA) */
+  font-weight: 700 !important;
+  border: 1px solid #d97706 !important;
+}
+
+.Toastify__toast--warning .Toastify__toast-body,
+.Toastify__toast-theme--colored.Toastify__toast--warning .Toastify__toast-body {
+  color: #3b1900 !important;
+  font-weight: 600 !important;
+}
+
+.Toastify__toast--warning .Toastify__toast-icon svg,
+.Toastify__toast-theme--colored.Toastify__toast--warning .Toastify__toast-icon svg {
+  fill: #3b1900 !important;
+}
+
+.Toastify__toast--warning .Toastify__close-button,
+.Toastify__toast-theme--colored.Toastify__toast--warning .Toastify__close-button {
+  color: #3b1900 !important;
+  opacity: 0.75 !important;
+}
+
+.Toastify__toast--warning .Toastify__close-button:hover,
+.Toastify__toast-theme--colored.Toastify__toast--warning .Toastify__close-button:hover {
+  opacity: 1 !important;
+  color: #000000 !important;
+}
+
+.Toastify__toast--warning .Toastify__progress-bar,
+.Toastify__toast-theme--colored.Toastify__toast--warning .Toastify__progress-bar {
+  background: #78350f !important;
+  height: 4px !important;
+}
+
+/* Modo escuro para Warning */
+.dark .Toastify__toast--warning,
+.dark .Toastify__toast-theme--colored.Toastify__toast--warning {
+  background-color: #451a03 !important;
+  color: #fef3c7 !important;
+  border: 1.5px solid #d97706 !important;
+}
+
+.dark .Toastify__toast--warning .Toastify__toast-body,
+.dark .Toastify__toast-theme--colored.Toastify__toast--warning .Toastify__toast-body {
+  color: #fef3c7 !important;
+}
+
+.dark .Toastify__toast--warning .Toastify__toast-icon svg,
+.dark .Toastify__toast-theme--colored.Toastify__toast--warning .Toastify__toast-icon svg {
+  fill: #f59e0b !important;
+}
+
+.dark .Toastify__toast--warning .Toastify__close-button,
+.dark .Toastify__toast-theme--colored.Toastify__toast--warning .Toastify__close-button {
+  color: #fde68a !important;
+}
+
+.dark .Toastify__toast--warning .Toastify__progress-bar,
+.dark .Toastify__toast-theme--colored.Toastify__toast--warning .Toastify__progress-bar {
+  background: #f59e0b !important;
+}
+
+/* Toast de Erro (Error / Vermelho) */
+.Toastify__toast--error,
+.Toastify__toast-theme--colored.Toastify__toast--error {
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  border: 1px solid #b91c1c !important;
+}
+
+.Toastify__toast--error .Toastify__progress-bar,
+.Toastify__toast-theme--colored.Toastify__toast--error .Toastify__progress-bar {
+  background: #7f1d1d !important;
+}
+
+/* Toast de Informação (Info / Azul) */
+.Toastify__toast--info,
+.Toastify__toast-theme--colored.Toastify__toast--info {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  border: 1px solid #1d4ed8 !important;
+}
+
+.Toastify__toast--info .Toastify__progress-bar,
+.Toastify__toast-theme--colored.Toastify__toast--info .Toastify__progress-bar {
+  background: #1e3a8a !important;
+}
+
+/* Toast de Sucesso (Success / Verde) */
+.Toastify__toast--success,
+.Toastify__toast-theme--colored.Toastify__toast--success {
+  background-color: #16a34a !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  border: 1px solid #15803d !important;
+}
+
+.Toastify__toast--success .Toastify__progress-bar,
+.Toastify__toast-theme--colored.Toastify__toast--success .Toastify__progress-bar {
+  background: #14532d !important;
 }
 
 @layer components {

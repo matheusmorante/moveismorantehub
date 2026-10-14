@@ -1,13 +1,13 @@
-import React, { useState, useRef, useCallback } from 'react';
+import type React from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Product from '@/pages/types/product.type';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import { useAuth } from '@/context/AuthContext';
+import type Product from '@/pages/types/product.type';
 import {
   canPrintProductIdentificationLabels,
   isProductIdentificationLabelOnlyProfile,
 } from '@/pages/utils/accessRoles';
-import { checkProductIsUnreferenced } from '@/pages/utils/productService';
 import {
   buildProductVariationName,
   getSelectedProductDisplayName,
@@ -25,7 +25,8 @@ export interface ProductCardActionsProps {
   readonly onShowHistory?: (product: Product) => void;
   readonly onLaunchStock?: (product: Product) => void;
   readonly onDelete: (id: string) => void;
-  readonly onPermanentDelete: (id: string) => void;
+  readonly onMoveToTrash?: (product: Product) => void;
+  readonly onPermanentDelete?: (id: string) => void;
   readonly onMoveToAnotherFamily?: (variation: CardVariationItem) => void;
   readonly onMergeWithAnotherVariation?: (variation: CardVariationItem) => void;
   readonly onOpenSalesModal: () => void;
@@ -42,14 +43,12 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
   onEdit,
   onDuplicate,
   onDelete,
-  onPermanentDelete,
+  onMoveToTrash,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
   onOpenSalesModal,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [usageCheck, setUsageCheck] = useState<'checking' | 'used' | 'unused' | 'error'>('checking');
-  const usageCheckRequest = useRef(0);
   const menuAnchorRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -114,48 +113,10 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
     [product.id, isDraft, canDeleteProducts, onDelete]
   );
 
-  const handleOpenMenu = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const willOpen = !isMenuOpen;
-      setIsMenuOpen(willOpen);
-
-      if (!willOpen || isDraft || !canDeleteProducts || !product.id) return;
-
-      const requestId = ++usageCheckRequest.current;
-      setUsageCheck('checking');
-      void checkProductIsUnreferenced(product.id)
-        .then((isUnreferenced) => {
-          if (usageCheckRequest.current === requestId) {
-            setUsageCheck(isUnreferenced ? 'unused' : 'used');
-          }
-        })
-        .catch(() => {
-          if (usageCheckRequest.current === requestId) setUsageCheck('error');
-        });
-    },
-    [isMenuOpen, isDraft, canDeleteProducts, product.id]
-  );
-
-  const handlePermanentDeleteClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      setIsMenuOpen(false);
-      if (usageCheck !== 'unused' || !canDeleteProducts || !product.id) return;
-      onPermanentDelete(product.id);
-    },
-    [usageCheck, canDeleteProducts, product.id, onPermanentDelete]
-  );
-
-  const permanentDeleteDisabled = usageCheck !== 'unused';
-  const permanentDeleteTitle =
-    usageCheck === 'checking'
-      ? 'Verificando vínculos do produto...'
-      : usageCheck === 'used'
-        ? 'Este produto possui vínculos, estoque ou histórico e não pode ser excluído.'
-        : usageCheck === 'error'
-          ? 'Não foi possível confirmar se este produto está sem vínculos.'
-          : 'Excluir produto permanentemente';
+  const handleOpenMenu = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMenuOpen((prev) => !prev);
+  }, []);
 
   return (
     <div className="relative flex items-center gap-1 ml-1">
@@ -369,22 +330,42 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={handlePermanentDeleteClick}
-                  disabled={permanentDeleteDisabled}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (product.can_trash !== true) return;
+                    setIsMenuOpen(false);
+                    if (onMoveToTrash) {
+                      onMoveToTrash(product);
+                    } else if (product.id) {
+                      onDelete(product.id);
+                    }
+                  }}
+                  disabled={product.can_trash !== true}
+                  aria-disabled={product.can_trash !== true}
                   className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-left group w-full ${
-                    permanentDeleteDisabled
-                      ? 'text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                    product.can_trash !== true
+                      ? 'text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-40'
                       : 'hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 cursor-pointer'
                   }`}
-                  title={permanentDeleteTitle}
-                  aria-disabled={permanentDeleteDisabled}
+                  title={
+                    product.can_trash === undefined
+                      ? 'Verificando elegibilidade para a lixeira...'
+                      : product.can_trash === true
+                        ? 'Mover produto e variações para a lixeira'
+                        : product.trash_block_reason ||
+                          'Este produto não pode ser movido para a lixeira porque possui operações históricas vinculadas a uma ou mais variações.'
+                  }
+                  aria-label={
+                    product.can_trash === undefined
+                      ? 'Mover para lixeira: Verificando elegibilidade...'
+                      : product.can_trash === true
+                        ? 'Mover para lixeira (produto e todas as variações)'
+                        : `Mover para lixeira: ${product.trash_block_reason || 'Este produto não pode ser movido para a lixeira porque possui operações históricas vinculadas a uma ou mais variações.'}`
+                  }
                 >
-                  <i
-                    className={`bi ${usageCheck === 'checking' ? 'bi-arrow-repeat animate-spin' : 'bi-trash3-fill'} ${permanentDeleteDisabled ? 'text-slate-400' : 'text-red-500'}`}
-                    aria-hidden="true"
-                  />
+                  <i className="bi bi-trash3-fill text-red-500" aria-hidden="true" />
                   <span className="text-[10px] uppercase tracking-widest font-bold">
-                    {usageCheck === 'checking' ? 'Verificando vínculos...' : 'Excluir Produto'}
+                    Mover para lixeira
                   </span>
                 </button>
               </div>

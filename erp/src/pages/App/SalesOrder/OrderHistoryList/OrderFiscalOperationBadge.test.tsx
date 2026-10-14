@@ -1,7 +1,11 @@
-// @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+// @vitest-environment happy-dom
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+afterEach(() => {
+  cleanup();
+});
 import { OrderFiscalOperationBadge } from './OrderFiscalOperationBadge';
 import type { ReturnFiscalDocumentSummary } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
@@ -64,5 +68,80 @@ describe('OrderFiscalOperationBadge NFD', () => {
     );
 
     expect(container.firstChild).toBeNull();
+  });
+});
+
+describe('OrderFiscalOperationBadge Estorno', () => {
+  it('opens document details modal when draftId is provided with onOpenDocument', () => {
+    const onOpenDocument = vi.fn();
+    render(
+      <MemoryRouter>
+        <OrderFiscalOperationBadge
+          kind="estorno"
+          status="prepared"
+          draftId="draft-123"
+          environment={2}
+          onOpenDocument={onOpenDocument}
+        />
+      </MemoryRouter>
+    );
+
+    const button = screen.getByRole('button', { name: /Nota fiscal de estorno.*detalhes/i });
+    expect(button).toBeTruthy();
+
+    fireEvent.click(button);
+    expect(onOpenDocument).toHaveBeenCalledWith('draft-123', 2);
+  });
+
+  it('calls onOpenDraft fallback when onOpenDocument is not provided', () => {
+    const onOpenDraft = vi.fn();
+    render(
+      <MemoryRouter>
+        <OrderFiscalOperationBadge
+          kind="estorno"
+          status="prepared"
+          draftId="draft-123"
+          onOpenDraft={onOpenDraft}
+        />
+      </MemoryRouter>
+    );
+
+    const button = screen.getByRole('button', { name: /Nota fiscal de estorno.*detalhes/i });
+    expect(button).toBeTruthy();
+
+    fireEvent.click(button);
+    expect(onOpenDraft).toHaveBeenCalledWith('draft-123');
+  });
+
+  it('opens document when documentId is provided', () => {
+    const onOpenDocument = vi.fn();
+    render(
+      <MemoryRouter>
+        <OrderFiscalOperationBadge
+          kind="estorno"
+          status="issued"
+          documentId="doc-456"
+          environment={2}
+          onOpenDocument={onOpenDocument}
+        />
+      </MemoryRouter>
+    );
+
+    const button = screen.getByRole('button', { name: /Nota fiscal de estorno.*documento fiscal/i });
+    expect(button).toBeTruthy();
+
+    fireEvent.click(button);
+    expect(onOpenDocument).toHaveBeenCalledWith('doc-456', 2);
+  });
+
+  it('renders a span when neither documentId nor draftId is provided', () => {
+    render(
+      <MemoryRouter>
+        <OrderFiscalOperationBadge kind="estorno" status="prepared" />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByText('NFE')).toBeTruthy();
   });
 });

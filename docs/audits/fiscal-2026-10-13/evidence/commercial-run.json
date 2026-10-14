@@ -1,0 +1,7 @@
+{
+  "runId": "72ebb3b0-f280-4796-bd7a-2c72f207ae60",
+  "authorization": "Two synthetic sales at BRL 1 each, cancel A, fulfill and return B, own customer/product/variation and two units initial stock; no SEFAZ or deploy",
+  "date": "2026-10-13",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "state": "preparing"
+}

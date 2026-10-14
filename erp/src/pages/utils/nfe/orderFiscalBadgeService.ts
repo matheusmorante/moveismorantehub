@@ -261,6 +261,7 @@ export const fetchOrderFiscalBadgeStatuses = async (
         if (!orderId) continue;
         const drafts = draftsByOrderId.get(orderId) || [];
         drafts.push({
+          id: (draft as any).id,
           original_document_id: draft.original_document_id,
           operation_kind: draft.operation_kind,
           environment: draft.environment,

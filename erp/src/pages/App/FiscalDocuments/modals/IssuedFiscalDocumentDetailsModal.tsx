@@ -109,8 +109,22 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
   const environment =
     visibleDocument?.ambiente || emissionResult?.environment || initialEnvironment || 1;
   const status = visibleDocument?.status || (environment === 2 ? 'homologada' : 'autorizada');
-  const title = model === '65' ? 'NFC-e' : 'NF-e';
+  const isEstorno = visibleDocument?.document_type === 'estorno';
+  const isDevolucao = visibleDocument?.document_type === 'return';
+  const title = isEstorno
+    ? 'NF-e de Estorno Fiscal'
+    : isDevolucao
+    ? 'NF-e de Devolução Fiscal'
+    : model === '65'
+    ? 'NFC-e'
+    : 'NF-e';
   const visibleDocumentNumber = visibleDocument?.numero_nfe ?? emissionResult?.nfeNumber;
+  const documentNumberLabel =
+    visibleDocumentNumber && visibleDocumentNumber > 0
+      ? `nº ${visibleDocumentNumber}`
+      : isEstorno
+      ? '(Rascunho de Ajuste)'
+      : '—';
   const orderNumber = order?.orderNumber || order?.orderIndex || providedOrderNumber;
 
   const handleDownloadXml = async () => {
@@ -198,7 +212,7 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h2 id="issued-fiscal-details-title" className="text-base font-black text-slate-900 dark:text-slate-100 sm:text-lg">
-                Detalhes da nota fiscal
+                {isEstorno ? 'Detalhes da nota fiscal de estorno fiscal' : isDevolucao ? 'Detalhes da nota fiscal de devolução fiscal' : 'Detalhes da nota fiscal'}
               </h2>
               <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${environment === 2 ? 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'}`}>
                 {environment === 2 ? 'Homologação' : 'Produção'}
@@ -206,7 +220,7 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
               <FiscalDocumentStatusBadge status={status} />
             </div>
             <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-              {title} nº {visibleDocumentNumber || '—'} · Série {visibleDocument?.serie || emissionResult?.series || '1'}
+              {title} {documentNumberLabel} · Série {visibleDocument?.serie || emissionResult?.series || '1'}
               {orderNumber ? ` · Pedido #${orderNumber}` : ''}
             </p>
           </div>
@@ -217,7 +231,9 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
 
         <IssuedFiscalDocumentDetailsTabList
           activeTab={activeTab}
-          eventsCount={details?.events?.length || 0}
+          eventsCount={
+            (details?.events?.length || 0) + (details?.operationDrafts?.length || 0)
+          }
           onChange={setActiveTab}
         />
 

@@ -167,7 +167,7 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
           </p>
           <ul className="space-y-1 text-xs font-bold text-slate-600 dark:text-slate-300">
             <li
-              onClick={() => navigateToRequirementField('marketplaceTitle')}
+              onClick={() => navigateToRequirementField('name')}
               className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item"
             >
               <div className="flex items-center gap-2">
@@ -181,7 +181,7 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
                       : 'text-slate-500 dark:text-slate-400 font-bold'
                   }
                 >
-                  Título do Produto (Catálogo)
+                  Nome do Produto
                 </span>
               </div>
               <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>

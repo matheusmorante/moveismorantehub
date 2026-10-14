@@ -51,7 +51,7 @@ export const FiscalCancelModal: React.FC<FiscalCancelModalProps> = ({
           <i className="bi bi-exclamation-octagon-fill text-lg" />
           <div>
             <h3 className="text-sm font-bold tracking-tight">
-              {isCancelAction ? 'Cancelar NF-e' : 'Aplicar tratamento fiscal'}
+              {isCancelAction ? 'Cancelamento fiscal de NF-e' : 'Tratamento de estorno fiscal'}
             </h3>
             <p className="text-[10px] text-slate-500">
               {document.modelo === '65' ? 'NFC-e' : 'NF-e'} #{document.numero_nfe} · Série{' '}
@@ -112,14 +112,14 @@ export const FiscalCancelModal: React.FC<FiscalCancelModalProps> = ({
         <div className="space-y-2">
           <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
             {isCancelAction
-              ? 'O mesmo fluxo comercial do pedido será aplicado e, após o commit do pedido e do estoque, o serviço fiscal central solicitará o evento à SEFAZ. A nota só muda para cancelada após confirmação válida.'
-              : 'A política central identificou que o prazo normal de cancelamento expirou. O pedido será cancelado pelo fluxo comercial e o sistema abrirá um rascunho de estorno para revisão fiscal; nenhum evento será transmitido nesta etapa.'}
+              ? 'O fluxo de cancelamento comercial do pedido será aplicado e, após o commit do pedido e do estoque, o serviço fiscal central solicitará o cancelamento fiscal à SEFAZ. A nota só muda para cancelada após confirmação fiscal válida.'
+              : 'A política central identificou que o prazo normal de cancelamento fiscal expirou. O pedido receberá o cancelamento comercial e o sistema abrirá um rascunho de estorno fiscal para revisão; nenhum evento será transmitido nesta etapa.'}
           </p>
 
           {isCancelAction && (
             <div>
               <label className="mb-1 block text-[10px] font-semibold text-slate-500">
-                Justificativa do cancelamento · 15–255 caracteres
+                Justificativa do cancelamento fiscal · 15–255 caracteres
               </label>
               <textarea
                 value={cancelReason}
@@ -139,7 +139,7 @@ export const FiscalCancelModal: React.FC<FiscalCancelModalProps> = ({
                 onChange={(event) => onProductionConfirmedChange(event.target.checked)}
                 className="mt-0.5 accent-red-600"
               />
-              Confirmo a transmissão em Produção e o possível cancelamento definitivo do
+              Confirmo a transmissão em Produção e o possível cancelamento fiscal definitivo do
               documento.
             </label>
           )}
@@ -174,8 +174,8 @@ export const FiscalCancelModal: React.FC<FiscalCancelModalProps> = ({
               <i className="bi bi-x-circle-fill" />
             )}
             {isCancelAction
-              ? 'Confirmar e solicitar cancelamento'
-              : 'Confirmar e preparar estorno'}
+              ? 'Confirmar e solicitar cancelamento fiscal'
+              : 'Confirmar e preparar estorno fiscal'}
           </button>
         </div>
       </div>

@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { UserRole } from '@/context/AuthContext';
 import { roleLabel, SYSTEM_ROLES } from '@/pages/utils/accessRoles';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createUserRolesFormSchema } from '../../../../../shared-utils/userRolesFormSchema';
+import { toast } from 'react-toastify';
+
+const rolesFormSchema = createUserRolesFormSchema<UserRole>(SYSTEM_ROLES.map(([role]) => role));
 
 export interface AccessProfile {
   id: string;
@@ -19,6 +24,7 @@ const UserRolesModal = ({ profile, onClose, onSave }: UserRolesModalProps) => {
   const [roles, setRoles] = useState<UserRole[]>(profile.roles);
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const [saving, setSaving] = useState(false);
+  const form = useZodForm(rolesFormSchema, { roles });
 
   useEffect(() => {
     setRoles(profile.roles);
@@ -27,10 +33,10 @@ const UserRolesModal = ({ profile, onClose, onSave }: UserRolesModalProps) => {
     if (selectedRole) setRoles((items) => [...new Set([...items, selectedRole])]);
     setSelectedRole('');
   };
-  const save = async () => {
+  const save = async (data: { roles: UserRole[] }) => {
     setSaving(true);
     try {
-      await onSave(roles);
+      await onSave(data.roles);
       onClose();
     } finally {
       setSaving(false);
@@ -122,7 +128,9 @@ const UserRolesModal = ({ profile, onClose, onSave }: UserRolesModalProps) => {
             Cancelar
           </button>
           <button
-            onClick={() => void save()}
+            onClick={() => void form.validateAndRun({ roles }, save, (errors) => {
+              toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira os cargos.');
+            })}
             disabled={saving}
             className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-black text-white disabled:opacity-50"
           >

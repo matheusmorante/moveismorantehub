@@ -4,6 +4,9 @@ import { financeService } from '@/pages/services/financeService';
 import { FinancialTransaction, FinancialCategory } from '../../../types/finance.type';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import CurrencyInput from '../../../../components/CurrencyInput';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { financialTransactionFormSchema } from '../../../../../../shared-utils/financialFormSchemas';
+import type { z } from 'zod';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -36,6 +39,7 @@ export default function Transactions() {
     category_id: '',
     notes: '',
   });
+  const form = useZodForm(financialTransactionFormSchema, formData);
 
   const fetchTransactions = useCallback(async () => {
     const currentRequestId = ++requestId.current;
@@ -67,15 +71,10 @@ export default function Transactions() {
     };
   }, [fetchTransactions]);
 
-  const handleSaveTransaction = async () => {
-    if (!formData.description || formData.amount <= 0 || !formData.date) {
-      toast.error('Preencha descrição, valor e data.');
-      return;
-    }
-
+  const handleSaveTransaction = async (data: z.output<typeof financialTransactionFormSchema>) => {
     setSaving(true);
     try {
-      await financeService.createTransaction(formData);
+      await financeService.createTransaction(data);
       toast.success('Movimentação registrada!');
       setIsModalOpen(false);
       setFormData({
@@ -424,7 +423,9 @@ export default function Transactions() {
                 Cancelar
               </button>
               <button
-                onClick={handleSaveTransaction}
+                onClick={() => void form.validateAndRun(formData, handleSaveTransaction, (errors) => {
+                  toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a movimentação.');
+                })}
                 disabled={saving}
                 className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl transition-colors disabled:opacity-50 text-xs uppercase tracking-widest shadow-lg shadow-blue-200 dark:shadow-none flex justify-center items-center gap-2"
               >

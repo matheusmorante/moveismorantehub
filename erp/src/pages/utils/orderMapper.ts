@@ -55,6 +55,15 @@ const persistedOrderDataSnapshots = new WeakMap<Order, Record<string, unknown>>(
 export const getPersistedOrderDataSnapshot = (order: Order): Record<string, unknown> | undefined =>
   persistedOrderDataSnapshots.get(order);
 
+export const setPersistedOrderDataSnapshot = (
+  order: Order,
+  snapshot: Record<string, unknown>
+): void => {
+  if (order && typeof order === 'object') {
+    persistedOrderDataSnapshots.set(order, snapshot);
+  }
+};
+
 /**
  * Mapper Canônico: Converte a linha bruta do banco Supabase para o modelo de domínio Order.
  * Regra: As colunas estruturadas são a FONTE DE VERDADE (Master).

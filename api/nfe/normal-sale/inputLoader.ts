@@ -16,8 +16,8 @@ export async function loadNormalSaleInputs(
   const ids = Array.from(
     new Set(
       items
-        .filter((item) => item.itemType !== 'service' && !hasFiscalItemSnapshot(item))
-        .map((item) => item.productId || item.fiscalSnapshotProductId)
+        .filter((item) => item.itemType !== 'service')
+        .map((item) => item.productId)
         .filter(
           (id): id is string =>
             typeof id === 'string' &&
@@ -26,7 +26,11 @@ export async function loadNormalSaleInputs(
     )
   );
   const customerId = obj(facts.order.data.customerData).id;
-  const [catalog, customer, decision] = await Promise.all([
+  const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
+  const codes = [...new Set(Object.values(selections).map((selected) => selected.ncm))];
+  if (!codes.length) throw new Error('Confirme os campos fiscais de todos os itens no modal.');
+
+  const [catalog, customer, decision, ncms] = await Promise.all([
     ids.length
       ? db.from('products').select('id,fiscal,unit').in('id', ids)
       : Promise.resolve({ data: [], error: null }),
@@ -36,18 +40,22 @@ export async function loadNormalSaleInputs(
       .eq('id', String(customerId || ''))
       .maybeSingle(),
     db.from('settings').select('id,data').in('id', [normalSaleContributionSettingsId()]),
+    db.from('ncms').select('code,active,is_active,start_date,end_date').in('code', codes),
   ]);
-  if (catalog.error || customer.error || decision.error || !customer.data || customer.data.deleted)
+  if (
+    catalog.error ||
+    customer.error ||
+    decision.error ||
+    ncms.error ||
+    !customer.data ||
+    customer.data.deleted
+  )
     throw new Error('Cadastro real do destinatário ou fatos fiscais indisponíveis.');
   facts.fiscalInputs = {
     products: Object.fromEntries(
       (catalog.data || []).map((row) => [
         row.id,
-        {
-          ...(row.fiscal || {}),
-          commercialUnit: row.fiscal?.commercialUnit || row.unit || 'UN',
-          taxableUnit: row.fiscal?.taxableUnit || row.unit || 'UN',
-        },
+        row.fiscal || {},
       ])
     ) as unknown as FiscalJsonValue,
     customer: {
@@ -64,13 +72,6 @@ export async function loadNormalSaleInputs(
     fiscalDefaults: (appSettings.fiscalDefaults || null) as FiscalJsonValue,
   };
   const fiscalInputs = facts.fiscalInputs as Record<string, FiscalJsonValue>;
-  const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
-  const codes = [...new Set(Object.values(selections).map((selected) => selected.ncm))];
-  if (!codes.length) throw new Error('Confirme os campos fiscais de todos os itens no modal.');
-  const ncms = await db
-    .from('ncms')
-    .select('code,active,is_active,start_date,end_date')
-    .in('code', codes);
   const date = facts.capturedAt.slice(0, 10);
   const products = obj(fiscalInputs.products);
   const invalidSelection = Object.entries(selections).some(([itemNumber, selection]) => {

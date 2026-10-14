@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Linking } from 'react-native';
-import { Calendar, Clock, ExternalLink, MapPin, Navigation } from 'lucide-react-native';
+import { Calendar, Clock, ExternalLink, MapPin, Navigation, Store } from 'lucide-react-native';
 import { SectionCard, SectionHeader } from './SectionCard';
 import { formatFullAddress, formatOrderDate, getLocationMapsUrl } from '../../../utils/orderUtils';
 
@@ -9,10 +9,18 @@ interface AddressSectionProps {
   customer: any;
   schedule: any;
   order: any;
+  isPickup?: boolean;
   dark?: boolean;
 }
 
-export function AddressSection({ shipping, customer, schedule, order, dark }: AddressSectionProps) {
+export function AddressSection({
+  shipping,
+  customer,
+  schedule,
+  order,
+  isPickup,
+  dark,
+}: AddressSectionProps) {
   const distance = shipping?.distance != null ? Number(shipping.distance).toFixed(1) : null;
   const duration =
     shipping?.durationMinutes != null ? Math.round(Number(shipping.durationMinutes)) : null;
@@ -32,6 +40,44 @@ export function AddressSection({ shipping, customer, schedule, order, dark }: Ad
       Linking.openURL(mapsUrl).catch(() => {});
     }
   };
+
+  if (isPickup) {
+    return (
+      <SectionCard dark={dark}>
+        <SectionHeader
+          dark={dark}
+          icon={<Store size={18} color="#9333ea" />}
+          title="RETIRADA NO BALCÃO / LOJA"
+        />
+        <View style={[styles.pickupBadge, dark && styles.pickupBadgeDark]}>
+          <Store size={15} color="#9333ea" />
+          <Text style={styles.pickupBadgeText}>RETIRADA PRESENCIAL NA LOJA</Text>
+        </View>
+
+        <Text style={[styles.pickupDesc, dark && styles.light]}>
+          O cliente optou por retirar os produtos presencialmente no depósito / loja física da Morante Móveis.
+        </Text>
+
+        <View style={styles.schedule}>
+          <View style={styles.inline}>
+            <Calendar size={14} color="#64748b" />
+            <Text style={styles.detail}>
+              Data da Retirada: {formatOrderDate(schedule?.date || order?.created_at)}
+            </Text>
+          </View>
+          <View style={styles.inline}>
+            <Clock size={14} color="#64748b" />
+            <Text style={styles.detail}>
+              Horário previsto:{' '}
+              {schedule?.startTime
+                ? `${schedule.startTime}${schedule.endTime ? ` - ${schedule.endTime}` : ''}`
+                : 'Horário comercial'}
+            </Text>
+          </View>
+        </View>
+      </SectionCard>
+    );
+  }
 
   return (
     <SectionCard dark={dark}>
@@ -73,7 +119,7 @@ export function AddressSection({ shipping, customer, schedule, order, dark }: Ad
         <View style={styles.inline}>
           <Calendar size={14} color="#64748b" />
           <Text style={styles.detail}>
-            Data: {formatOrderDate(schedule?.date || order?.created_at)}
+            Data da Entrega: {formatOrderDate(schedule?.date || order?.created_at)}
           </Text>
         </View>
         <View style={styles.inline}>
@@ -134,4 +180,32 @@ const styles = StyleSheet.create({
   observationBoxDark: { backgroundColor: '#450a0a', borderColor: '#991b1b' },
   observationTitle: { fontSize: 9, fontWeight: '900', color: '#dc2626', letterSpacing: 0.5 },
   observationText: { fontSize: 12, fontWeight: '700', color: '#7f1d1d', lineHeight: 17 },
+  pickupBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#f3e8ff',
+    borderColor: '#d8b4fe',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  pickupBadgeDark: {
+    backgroundColor: 'rgba(88, 28, 135, 0.3)',
+    borderColor: 'rgba(147, 51, 234, 0.4)',
+  },
+  pickupBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#9333ea',
+    letterSpacing: 0.5,
+  },
+  pickupDesc: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+    lineHeight: 18,
+  },
 });

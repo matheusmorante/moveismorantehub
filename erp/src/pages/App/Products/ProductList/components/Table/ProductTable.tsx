@@ -27,6 +27,7 @@ interface ProductTableProps {
   readonly onLaunchStock?: (product: Product) => void;
   readonly onDelete: (id: string) => void;
   readonly onRestore: (id: string) => void;
+  readonly onMoveToTrash?: (product: Product) => void;
   readonly onPermanentDelete: (id: string) => void;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
   readonly onDeactivateCatalog: (id: string) => void;
@@ -57,6 +58,7 @@ const ProductTable = ({
   onLaunchStock,
   onDelete,
   onRestore,
+  onMoveToTrash,
   onPermanentDelete,
   onToggleActive,
   onDeactivateCatalog,
@@ -321,6 +323,7 @@ const ProductTable = ({
                   onLaunchStock={onLaunchStock}
                   onDelete={(id) => onDelete(id || product.id || '')}
                   onRestore={() => onRestore(product.id || '')}
+                  onMoveToTrash={onMoveToTrash}
                   onPermanentDelete={() => onPermanentDelete(product.id || '')}
                   onToggleActive={onToggleActive}
                   onDeactivateCatalog={onDeactivateCatalog}
@@ -371,6 +374,7 @@ const ProductTable = ({
                 onLaunchStock={onLaunchStock}
                 onDelete={onDelete}
                 onRestore={onRestore}
+                onMoveToTrash={onMoveToTrash}
                 onPermanentDelete={onPermanentDelete}
                 onToggleActive={onToggleActive}
                 onDeactivateCatalog={onDeactivateCatalog}

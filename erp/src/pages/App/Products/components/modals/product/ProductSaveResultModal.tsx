@@ -369,7 +369,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                     }`}
                     aria-hidden="true"
                   />
-                  <span className="text-[11px]">Título do Catálogo</span>
+                  <span className="text-[11px]">Nome do Produto</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <i

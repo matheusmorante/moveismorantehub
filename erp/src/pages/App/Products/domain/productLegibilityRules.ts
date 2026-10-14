@@ -31,12 +31,12 @@ export function checkERPLegibility(data: Readonly<Partial<Product>>): ERPLegibil
 export function checkEcomLegibility(data: Readonly<Partial<Product>>): EcomLegibilityResult {
   const errors: string[] = [];
   const hasVars = Boolean(data.hasVariations);
-  const catalogTitle = data.title || data.marketplaceTitle;
+  const catalogTitle = (data.name || data.title || data.marketplaceTitle || '').trim();
   const catalogDescription = data.ecommerceDescription || data.description;
 
-  const hasValidTitle = Boolean(catalogTitle && catalogTitle.trim().length >= 2);
+  const hasValidTitle = Boolean(catalogTitle && catalogTitle.length >= 2);
   if (!hasValidTitle) {
-    errors.push('Título do Produto (E-commerce) deve ter pelo menos 2 caracteres.');
+    errors.push('Nome do Produto deve ter pelo menos 2 caracteres.');
   }
 
   const hasValidDesc = Boolean(catalogDescription && catalogDescription.trim().length >= 2);

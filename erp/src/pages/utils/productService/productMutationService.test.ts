@@ -1,20 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  bindTestArtifactContext,
+  clearTestArtifactContext,
+} from '../../../../../shared-utils/testArtifactContext';
+import type Product from '../../types/product.type';
+import {
+  HML_FISCAL_TEST_ORDER_MARKER,
+  TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
+} from '../hmlTestData';
+import { activateProduct, deactivateProduct } from './productDependencyCheck';
+import {
   bulkMoveToTrash,
   bulkRestoreProducts,
   saveProduct,
   updateProduct,
 } from './productMutationService';
-import { activateProduct, deactivateProduct } from './productDependencyCheck';
-import {
-  HML_FISCAL_TEST_ORDER_MARKER,
-  TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
-} from '../hmlTestData';
-import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../shared-utils/testArtifactContext';
-import type Product from '../../types/product.type';
 
 const mockDb = vi.hoisted(() => ({
   from: vi.fn(),
+  rpc: vi.fn(),
   productKind: 'normal',
   databaseProducts: [] as any[],
   productObservations: undefined as string | undefined,
@@ -25,7 +29,9 @@ const mockDb = vi.hoisted(() => ({
   persistedDrafts: [] as any[],
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: mockDb }));
-vi.mock('@/lib/queryClient', () => ({ queryClient: { invalidateQueries: mockDb.invalidateQueries } }));
+vi.mock('@/lib/queryClient', () => ({
+  queryClient: { invalidateQueries: mockDb.invalidateQueries },
+}));
 vi.mock('./productLocalCache', () => ({
   getLocalProducts: vi.fn(() => []),
   saveLocalProducts: vi.fn(),
@@ -33,7 +39,9 @@ vi.mock('./productLocalCache', () => ({
 }));
 vi.mock('./productPersistenceService', () => ({
   ensureUuidFormat: (product: any) => product.id || crypto.randomUUID(),
-  syncProductToSupabase: vi.fn(async (...args: any[]) => { mockDb.syncCalls.push(args); }),
+  syncProductToSupabase: vi.fn(async (...args: any[]) => {
+    mockDb.syncCalls.push(args);
+  }),
 }));
 vi.mock('./productDraftPersistence', () => ({
   persistProductDraft: vi.fn(async (product: any) => {
@@ -56,6 +64,31 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     mockDb.failProductUpdateId = null;
     mockDb.failUpdateTable = null;
     mockDb.persistedDrafts.length = 0;
+    mockDb.rpc.mockClear();
+    mockDb.rpc.mockImplementation(async (fn: string, args: any) => {
+      if (fn === 'move_product_to_trash') {
+        if (args?.p_product_id === mockDb.failProductUpdateId) {
+          return { data: { success: false, message: 'falha ao persistir produto' }, error: null };
+        }
+        return {
+          data: {
+            success: true,
+            message: 'Produto e variações movidos para a lixeira com sucesso.',
+          },
+          error: null,
+        };
+      }
+      if (fn === 'restore_product_from_trash') {
+        if (mockDb.failUpdateTable === 'product_variations') {
+          return { data: null, error: new Error('falha ao persistir product_variations') };
+        }
+        return {
+          data: { success: true, message: 'Produto e variações restaurados com sucesso.' },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    });
     mockDb.from.mockImplementation((table: string) => {
       let updateWasCalled = false;
       const chain: any = {
@@ -79,10 +112,7 @@ describe('productMutationService - Sincronização de active entre pai e variaç
         select: vi.fn(() => chain),
         single: vi.fn(async () => {
           const lastUpdate = updates[updates.length - 1];
-          if (
-            table === 'products' &&
-            lastUpdate?.filter?.val === mockDb.failProductUpdateId
-          ) {
+          if (table === 'products' && lastUpdate?.filter?.val === mockDb.failProductUpdateId) {
             return { data: null, error: new Error('falha ao persistir produto') };
           }
           return { data: { id: 'test' }, error: null };
@@ -97,9 +127,10 @@ describe('productMutationService - Sincronização de active entre pai e variaç
         then: (resolve: (val: any) => any) =>
           Promise.resolve({
             data: mockDb.databaseProducts,
-            error: updateWasCalled && mockDb.failUpdateTable === table
-              ? new Error(`falha ao persistir ${table}`)
-              : null,
+            error:
+              updateWasCalled && mockDb.failUpdateTable === table
+                ? new Error(`falha ao persistir ${table}`)
+                : null,
           }).then(resolve),
       };
       return chain;
@@ -130,10 +161,7 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     const failedId = 'c9f1bb8a-8e5a-48c5-ab8c-e065f3ea4079';
     mockDb.failProductUpdateId = failedId;
 
-    const result = await bulkMoveToTrash([
-      'b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078',
-      failedId,
-    ]);
+    const result = await bulkMoveToTrash(['b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078', failedId]);
 
     expect(result.successCount).toBe(1);
     expect(result.errorCount).toBe(1);
@@ -159,47 +187,35 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     expect(variationUpdate?.filter).toEqual({ col: 'product_id', val: uuid });
   });
 
-  it('bulkRestoreProducts persiste active = true tanto no pai quanto nas variações', async () => {
+  it('bulkRestoreProducts restaura o produto e suas variações via RPC e invalida queries', async () => {
     const uuids = ['b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078'];
     await bulkRestoreProducts(uuids);
 
-    const parentUpdate = updates.find((u) => u.table === 'products' && u.value.active === true);
-    expect(parentUpdate).toBeDefined();
-    expect(parentUpdate?.value.active).toBe(true);
-
-    const variationUpdate = updates.find((u) => u.table === 'product_variations');
-    expect(variationUpdate).toBeDefined();
-    expect(variationUpdate?.value).toEqual({ active: true });
-    expect(variationUpdate?.filter).toEqual({ col: 'product_id', vals: uuids });
-    expect(mockDb.invalidateQueries).toHaveBeenCalledTimes(1);
+    expect(mockDb.rpc).toHaveBeenCalledWith('restore_product_from_trash', {
+      p_product_id: uuids[0],
+    });
     expect(mockDb.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['products'] });
   });
 
-  it('propaga falha nas variações, invalida a lista e não confirma cache local', async () => {
-    const { saveLocalProducts } = await import('./productLocalCache');
+  it('propaga falha nas variações e rejeita a execução', async () => {
     mockDb.failUpdateTable = 'product_variations';
 
-    await expect(
-      bulkRestoreProducts(['b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078'])
-    ).rejects.toThrow('falha ao persistir product_variations');
-
-    expect(mockDb.invalidateQueries).toHaveBeenCalledOnce();
-    expect(saveLocalProducts).not.toHaveBeenCalled();
+    await expect(bulkRestoreProducts(['b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078'])).rejects.toThrow(
+      'falha ao persistir product_variations'
+    );
   });
 
-  it('bulkRestoreProducts restaura Salvado sem ativá-lo no ERP', async () => {
-    const uuid = 'b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078';
-    mockDb.databaseProducts = [{ id: uuid, product_kind: 'salvado' }];
-    await bulkRestoreProducts([uuid]);
+  it('bulkRestoreProducts chama restore_product_from_trash para cada produto do lote', async () => {
+    const uuids = ['b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078', 'c9f1bb8a-8e5a-48c5-ab8c-e065f3ea4079'];
+    await bulkRestoreProducts(uuids);
 
-    expect(
-      updates.some((update) => update.table === 'products' && update.value.active === true)
-    ).toBe(false);
-    expect(
-      updates.some(
-        (update) => update.table === 'product_variations' && update.value.active === true
-      )
-    ).toBe(false);
+    expect(mockDb.rpc).toHaveBeenCalledWith('restore_product_from_trash', {
+      p_product_id: uuids[0],
+    });
+    expect(mockDb.rpc).toHaveBeenCalledWith('restore_product_from_trash', {
+      p_product_id: uuids[1],
+    });
+    expect(mockDb.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['products'] });
   });
 
   it('saveProduct recusa produto de teste com status publicado antes de persistir', async () => {
@@ -228,20 +244,27 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     });
     bindTestArtifactContext({ runId, ownerId });
 
-    await saveProduct({
-      id: '550e8400-e29b-41d4-a716-446655440020',
-      name: 'Sofá de teste',
-      description: 'Sofá de teste',
-      code: '000000',
-      unitPrice: 2000,
-      stock: 1,
-      status: 'hidden',
-      isDraft: false,
-    } as Product, true, { isTestArtifact: true });
+    await saveProduct(
+      {
+        id: '550e8400-e29b-41d4-a716-446655440020',
+        name: 'Sofá de teste',
+        description: 'Sofá de teste',
+        code: '000000',
+        unitPrice: 2000,
+        stock: 1,
+        status: 'hidden',
+        isDraft: false,
+      } as Product,
+      true,
+      { isTestArtifact: true }
+    );
 
     expect(mockDb.syncCalls).toHaveLength(1);
-    expect(mockDb.syncCalls[0][0].technicalSpecs.testArtifact)
-      .toEqual({ is_test: true, runId, ownerId });
+    expect(mockDb.syncCalls[0][0].technicalSpecs.testArtifact).toEqual({
+      is_test: true,
+      runId,
+      ownerId,
+    });
     expect(mockDb.syncCalls[0][1]).toEqual({ insertOnly: true });
     clearTestArtifactContext();
   });
@@ -274,8 +297,11 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     await saveProduct(draft, false, { isTestArtifact: true });
 
     expect(mockDb.persistedDrafts).toHaveLength(1);
-    expect(mockDb.persistedDrafts[0].technicalSpecs.testArtifact)
-      .toEqual({ is_test: true, runId, ownerId });
+    expect(mockDb.persistedDrafts[0].technicalSpecs.testArtifact).toEqual({
+      is_test: true,
+      runId,
+      ownerId,
+    });
     expect(draft.technicalSpecs?.testArtifact).toEqual({ is_test: true, runId, ownerId });
     expect(draft.updatedAt).toBe('2026-10-11T16:00:00.000Z');
     expect(mockDb.syncCalls).toHaveLength(0);
@@ -296,15 +322,18 @@ describe('productMutationService - Sincronização de active entre pai e variaç
     });
     bindTestArtifactContext({ runId, ownerId });
 
-    await saveProduct({
-      id: '550e8400-e29b-41d4-a716-446655440021',
-      name: 'Produto comum',
-      code: 'COMUM-21',
-      unitPrice: 2000,
-      stock: 1,
-      status: 'hidden',
-      isDraft: false,
-    } as Product, true);
+    await saveProduct(
+      {
+        id: '550e8400-e29b-41d4-a716-446655440021',
+        name: 'Produto comum',
+        code: 'COMUM-21',
+        unitPrice: 2000,
+        stock: 1,
+        status: 'hidden',
+        isDraft: false,
+      } as Product,
+      true
+    );
 
     expect(mockDb.syncCalls[0][0].technicalSpecs).toBeUndefined();
     expect(mockDb.syncCalls[0][1]).toEqual({ insertOnly: false });

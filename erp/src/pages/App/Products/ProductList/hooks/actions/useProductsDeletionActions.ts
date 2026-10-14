@@ -1,11 +1,85 @@
 import { toast } from 'react-toastify';
+import type Product from '@/pages/types/product.type';
 import {
-  deactivateProduct,
-  deleteProduct,
-  physicalDeleteProduct,
   bulkMoveToTrash,
   bulkRestoreProducts,
+  deactivateProduct,
+  deleteProduct,
+  moveProductToTrash,
+  physicalDeleteProduct,
+  restoreProductFromTrash,
 } from '@/pages/utils/productService';
+
+/**
+ * Move produto pai e todas as variações para a lixeira
+ */
+export const executeMoveProductToTrash = async (
+  product: Product,
+  refresh: () => void
+): Promise<{ success: boolean; message: string }> => {
+  const toastId = toast.loading('Movendo produto para a lixeira...');
+  try {
+    const result = await moveProductToTrash(String(product.id));
+    if (result.success) {
+      refresh();
+      toast.update(toastId, {
+        render: result.message || 'Produto e variações movidos para a lixeira com sucesso!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3500,
+      });
+      return { success: true, message: result.message };
+    } else {
+      toast.update(toastId, {
+        render: result.message || 'Não foi possível mover o produto para a lixeira.',
+        type: 'error',
+        isLoading: false,
+        autoClose: 5000,
+      });
+      return { success: false, message: result.message };
+    }
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : 'Erro ao mover produto para a lixeira.';
+    toast.update(toastId, { render: message, type: 'error', isLoading: false, autoClose: 5000 });
+    return { success: false, message };
+  }
+};
+
+/**
+ * Restaura produto pai e todas as variações da lixeira
+ */
+export const executeRestoreProductFromTrash = async (
+  id: string,
+  refresh: () => void
+): Promise<{ success: boolean; message: string }> => {
+  const toastId = toast.loading('Restaurando produto da lixeira...');
+  try {
+    const result = await restoreProductFromTrash(id);
+    if (result.success) {
+      refresh();
+      toast.update(toastId, {
+        render: result.message || 'Produto e variações restaurados com sucesso!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000,
+      });
+      return { success: true, message: result.message };
+    } else {
+      toast.update(toastId, {
+        render: result.message || 'Não foi possível restaurar o produto.',
+        type: 'error',
+        isLoading: false,
+        autoClose: 5000,
+      });
+      return { success: false, message: result.message };
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro ao restaurar produto.';
+    toast.update(toastId, { render: message, type: 'error', isLoading: false, autoClose: 4000 });
+    return { success: false, message };
+  }
+};
 
 /**
  * Executa o descarte definitivo de rascunho de produto
@@ -128,7 +202,9 @@ export const executeBulkTrash = async (
     }
 
     if (result.errorCount > 0) {
-      result.errors.forEach((err) => toast.warning(err));
+      result.errors.forEach((err) => {
+        toast.warning(err);
+      });
     }
     setSelectedProducts([]);
   } catch (error: unknown) {

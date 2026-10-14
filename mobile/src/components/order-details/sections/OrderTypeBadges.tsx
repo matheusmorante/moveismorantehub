@@ -1,30 +1,54 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Package, Truck, Wrench } from 'lucide-react-native';
+import { Package, RotateCcw, Truck, Wrench } from 'lucide-react-native';
 import { MobileDrill } from '../../shared/MobileDrill';
 
 interface OrderTypeBadgesProps {
   assistance?: boolean;
   pickup?: boolean;
+  isReturn?: boolean;
   internal?: boolean;
   outside?: boolean;
 }
 
-export function OrderTypeBadges({ assistance, pickup, internal, outside }: OrderTypeBadgesProps) {
+export function OrderTypeBadges({
+  assistance,
+  pickup,
+  isReturn,
+  internal,
+  outside,
+}: OrderTypeBadgesProps) {
   return (
     <View style={styles.badges}>
       <View
-        style={[styles.badge, assistance ? styles.orange : pickup ? styles.purple : styles.green]}
+        style={[
+          styles.badge,
+          assistance
+            ? styles.orange
+            : isReturn
+              ? styles.amber
+              : pickup
+                ? styles.purple
+                : styles.green,
+        ]}
       >
         {assistance ? (
           <Wrench size={14} color="#fff" />
+        ) : isReturn ? (
+          <RotateCcw size={14} color="#fff" />
         ) : pickup ? (
           <Package size={14} color="#fff" />
         ) : (
           <Truck size={14} color="#fff" />
         )}
         <Text style={styles.badgeText}>
-          {assistance ? 'ASSISTÊNCIA' : pickup ? 'RETIRADA' : 'ENTREGA'}
+          {assistance
+            ? 'ASSISTÊNCIA'
+            : isReturn
+              ? 'DEVOLUÇÃO'
+              : pickup
+                ? 'RETIRADA'
+                : 'ENTREGA'}
         </Text>
       </View>
       {internal && (
@@ -56,6 +80,8 @@ const styles = StyleSheet.create({
   green: { backgroundColor: '#10b981' },
   purple: { backgroundColor: '#a855f7' },
   orange: { backgroundColor: '#f59e0b' },
+  amber: { backgroundColor: '#d97706' },
   red: { backgroundColor: '#ef4444' },
   badgeText: { fontSize: 10, fontWeight: '900', color: '#fff' },
+
 });

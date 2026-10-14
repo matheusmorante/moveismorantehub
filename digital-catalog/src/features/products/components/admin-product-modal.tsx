@@ -1209,6 +1209,12 @@ export function AdminProductModal({
 
       if (error) throw error;
 
+      // Publica também as variações no catálogo
+      await supabase
+        .from('product_variations')
+        .update({ status: 'published' })
+        .eq('product_id', savedId);
+
       // Atualizar o estado do produto atual para refletir que ele está publicado
       if (currentProduct) {
         setCurrentProduct({ ...currentProduct, status: 'published' });

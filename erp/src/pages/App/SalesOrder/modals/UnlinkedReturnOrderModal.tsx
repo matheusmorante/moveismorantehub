@@ -13,6 +13,8 @@ import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormM
 import ReturnItemsTable from '../ReturnItemsTable';
 import ReturnFormTabs, { ReturnFormTab } from '../ReturnFormTabs';
 import { canSearchCustomers } from '@/pages/utils/customerSearch';
+import { unlinkedReturnFormSchema } from '../../../../../../shared-utils/returnFormSchemas';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 
 type Props = { onClose: () => void; onSaveSuccess: (id?: string, order?: Order) => void };
 const EMPTY_SCHEDULING: Shipping['scheduling'] = {
@@ -61,6 +63,7 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
   const [activeTab, setActiveTab] = useState<ReturnFormTab>('items');
   const itemsSummary = calcItemsSummary(items);
   const total = itemsSummary.itemsTotalValue;
+  const form = useZodForm(unlinkedReturnFormSchema, { customer: { ...customer }, items, collectAtAddress });
 
   React.useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -71,10 +74,11 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
   }, []);
 
   const saveReturn = async () => {
-    if (!customer.fullName.trim()) return toast.warning('Informe o cliente da devolução.');
     const validItems = items.filter((item) => item.description.trim() || item.productId);
-    if (!validItems.length) return toast.warning('Adicione pelo menos um item devolvido.');
-    const populatedItems = validItems.map((item) => ({
+    const validatedValues = await form.validateAndRun({ customer: { ...customer }, items: validItems, collectAtAddress }, (data) => data,
+      (errors) => toast.warning(Object.values(flattenFormErrors(errors))[0]));
+    if (!validatedValues) return;
+    const populatedItems = (validatedValues.items as Item[]).map((item) => ({
       ...item,
       returnedQuantity: item.quantity,
       returnedUnitPrice: item.unitPrice,

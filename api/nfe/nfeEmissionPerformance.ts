@@ -1,6 +1,28 @@
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 
-type NfeEmissionPerformanceStage = 'normal_sale_pipeline' | 'sefaz_transmission';
+export type NfeEmissionPerformanceStage =
+  | 'normal_sale_pipeline'
+  | 'operator_authorization'
+  | 'idempotency_recovery'
+  | 'order_and_settings_fetch'
+  | 'inputs_fetch'
+  | 'ruleset_preflight'
+  | 'cert_extract'
+  | 'number_peek_rpc'
+  | 'xml_serialization'
+  | 'xml_unsigned_validation'
+  | 'xml_signing'
+  | 'xml_schema_validation'
+  | 'prepare_attempt_rpc'
+  | 'attempt_load'
+  | 'reconcile_cert_extract'
+  | 'pre_transmission_audit'
+  | 'start_transmission_rpc'
+  | 'sefaz_transmission'
+  | 'persist_result_rpc'
+  | 'release_attempt_rpc'
+  | 'total_backend';
+
 type PerformanceAttributes = Record<string, string | number | boolean | undefined>;
 
 const tracer = trace.getTracer('morante-hub', '1.0.0');
@@ -10,11 +32,19 @@ export async function withNfeEmissionStage<T>(
   operation: () => T | Promise<T>,
   attributes: PerformanceAttributes = {}
 ): Promise<T> {
+  const correlationId =
+    typeof attributes.emissionRequestId === 'string'
+      ? attributes.emissionRequestId
+      : typeof attributes.correlationId === 'string'
+        ? attributes.correlationId
+        : undefined;
+
   const name = `fiscal.nfe.${stage}`;
   const safeAttributes = {
     module: 'Fiscal',
     flow: 'outbound_nfe',
     stage,
+    ...(correlationId ? { correlation_id: correlationId } : {}),
     ...attributes,
   };
 
@@ -41,6 +71,7 @@ export async function withNfeEmissionStage<T>(
         JSON.stringify({
           event: 'fiscal.nfe.performance',
           stage,
+          ...(correlationId ? { correlation_id: correlationId } : {}),
           duration_ms: Number(durationMs.toFixed(2)),
           success: succeeded,
         })

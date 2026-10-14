@@ -87,7 +87,7 @@ export const validateOrderStatusTransition = (
     return {
       allowed: false,
       reason:
-        'Pedido entregue ou retirado teve circulação da mercadoria. Registre uma devolução para reverter a operação.',
+        'Pedido entregue ou retirado teve circulação da mercadoria. Registre uma devolução comercial para reverter a operação.',
     };
   }
 

@@ -1,0 +1,42 @@
+{
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "kind": "security",
+  "lints": [
+    {
+      "name": "rls_enabled_no_policy",
+      "level": "INFO",
+      "count": 20,
+      "relevantFindings": []
+    },
+    {
+      "name": "function_search_path_mutable",
+      "level": "WARN",
+      "count": 18,
+      "relevantFindings": []
+    },
+    {
+      "name": "extension_in_public",
+      "level": "WARN",
+      "count": 2,
+      "relevantFindings": []
+    },
+    {
+      "name": "anon_security_definer_function_executable",
+      "level": "WARN",
+      "count": 18,
+      "relevantFindings": []
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "level": "WARN",
+      "count": 58,
+      "relevantFindings": []
+    },
+    {
+      "name": "auth_leaked_password_protection",
+      "level": "WARN",
+      "count": 1,
+      "relevantFindings": []
+    }
+  ]
+}

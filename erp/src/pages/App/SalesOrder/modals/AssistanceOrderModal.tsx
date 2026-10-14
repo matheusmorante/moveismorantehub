@@ -4,7 +4,10 @@ import Order, { AssistanceItem } from '@/pages/types/order.type';
 import Item from '@/pages/types/items.type';
 import CustomerData from '@/pages/types/customerData.type';
 import { saveOrder, subscribeToOrders } from '@/pages/utils/orderHistoryService';
-import { validateAssistanceOrder } from '@/pages/utils/validations';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createAssistanceOrderFormSchema } from '../../../../../../shared-utils/orderDomainValidation';
+import { getSettings } from '@/pages/utils/settingsService';
+import type { z } from 'zod';
 
 // Sub-modals
 import ProductSearchModal from './ProductSearchModal';
@@ -302,6 +305,10 @@ const AssistanceOrderModal = ({
   };
 
   const autoSaveTimerRef = useRef<any>(null);
+  const form = useZodForm(createAssistanceOrderFormSchema(getSettings().requiredFields), {
+    status: 'draft', date: '', seller, assistanceDescription: description,
+    assistanceCost, assistanceServiceValue, items: extraItems,
+  });
 
   useEffect(() => {
     if (!initialDataFetched.current && !isEditing) return;
@@ -321,7 +328,7 @@ const AssistanceOrderModal = ({
       if (loading) return;
       const draftOrder = getOrderData(true);
       try {
-        const savedId = await saveOrder(draftOrder);
+        const savedId = await form.validateAndRun(draftOrder as unknown as z.input<ReturnType<typeof createAssistanceOrderFormSchema>>, (data) => saveOrder(data as unknown as Order));
         if (!currentOrderId && savedId) {
           setCurrentOrderId(savedId);
         }
@@ -350,13 +357,13 @@ const AssistanceOrderModal = ({
     setValidationErrors({});
 
     try {
-      const assistanceOrder = getOrderData(isDraft);
-
-      const errors = validateAssistanceOrder(assistanceOrder);
-      if (!isDraft && Object.keys(errors).length > 0) {
-        setValidationErrors(errors);
-        const firstError = Object.values(errors)[0] as string;
-        toast.warning(`Campos obrigatórios: ${firstError}`);
+      const assistanceOrder = await form.validateAndRun(getOrderData(isDraft) as unknown as z.input<ReturnType<typeof createAssistanceOrderFormSchema>>, (data) => data as unknown as Order,
+        (errors) => {
+          const messages = flattenFormErrors(errors);
+          setValidationErrors(messages);
+          toast.warning(`Campos obrigatórios: ${Object.values(messages)[0]}`);
+        });
+      if (!assistanceOrder) {
         setLoading(false);
         return;
       }

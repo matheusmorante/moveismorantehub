@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { catalogNameFormSchema } from '../../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'react-toastify';
@@ -141,7 +143,7 @@ export const ProductMaterialManagementModal: React.FC<ProductMaterialManagementM
         </div>
 
         <div className="p-8 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-6">
-          <form onSubmit={handleAdd} className="flex gap-2">
+          <ZodForm schema={catalogNameFormSchema} values={{ name: newName }} onSubmit={handleAdd} className="flex gap-2">
             <input
               type="text"
               value={newName}
@@ -156,7 +158,7 @@ export const ProductMaterialManagementModal: React.FC<ProductMaterialManagementM
             >
               {loading ? '...' : 'Adicionar'}
             </button>
-          </form>
+          </ZodForm>
 
           <div className="space-y-2">
             {fetching ? (

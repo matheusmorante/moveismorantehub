@@ -27,21 +27,39 @@ export const getPendingPaymentTotal = (payments: any[]) =>
 export function OrderPaymentSection({
   payments,
   fallbackMethod,
+  totalPaid,
+  amountRemaining,
+  totalOrderValue = 0,
   dark,
 }: {
   payments: any[];
   fallbackMethod?: string;
+  totalPaid?: number;
+  amountRemaining?: number;
+  totalOrderValue?: number;
   dark: boolean;
 }) {
   const rows = payments?.length
     ? payments
     : [{ method: fallbackMethod || 'Não informada', amount: 0, status: 'Pendente' }];
 
+  const calculatedPaid = (payments || []).reduce((acc, p) => {
+    const s = normalize(p.status || p.paymentStatus);
+    const isPaid = /pago|paid|recebido|concluido|aprovado/.test(s);
+    return isPaid ? acc + Number(p.amount || p.value || 0) : acc;
+  }, 0);
+
+  const finalPaid = totalPaid != null ? Number(totalPaid) : calculatedPaid;
+  const finalRemaining =
+    amountRemaining != null
+      ? Number(amountRemaining)
+      : Math.max(0, Number(totalOrderValue || 0) - finalPaid);
+
   return (
     <View style={[styles.card, dark && styles.cardDark]}>
       <View style={styles.header}>
         <CreditCard size={18} color="#2563eb" />
-        <Text style={[styles.title, dark && styles.light]}>PAGAMENTO</Text>
+        <Text style={[styles.title, dark && styles.light]}>PAGAMENTOS</Text>
       </View>
 
       {rows.map((payment, index) => {
@@ -73,6 +91,28 @@ export function OrderPaymentSection({
           </View>
         );
       })}
+
+      {/* Rodapé Financeiro de Pagamentos (idêntico ao ERP) */}
+      <View style={[styles.summaryFooter, dark && styles.summaryFooterDark]}>
+        <View style={styles.footerItem}>
+          <Text style={[styles.footerLabel, dark && styles.footerLabelDark]}>PAGO</Text>
+          <Text style={styles.paidValue}>R$ {money(finalPaid)}</Text>
+        </View>
+
+        <View style={[styles.footerDivider, dark && styles.footerDividerDark]} />
+
+        <View style={styles.footerItem}>
+          <Text style={[styles.footerLabel, dark && styles.footerLabelDark]}>EM ABERTO</Text>
+          <Text
+            style={[
+              styles.remainingValue,
+              finalRemaining > 0 ? styles.remainingPending : styles.remainingZero,
+            ]}
+          >
+            R$ {money(finalRemaining)}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -112,4 +152,52 @@ const styles = StyleSheet.create({
   pendingBadge: { color: '#92400e', backgroundColor: '#fde68a' },
   paidBadge: { color: '#14532d', backgroundColor: '#bbf7d0' },
   amount: { fontSize: 15, fontWeight: '900' },
+  summaryFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingTop: 10,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  summaryFooterDark: {
+    borderTopColor: '#334155',
+  },
+  footerItem: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  footerLabel: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#64748b',
+    letterSpacing: 0.5,
+  },
+  footerLabelDark: {
+    color: '#94a3b8',
+  },
+  paidValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#16a34a',
+  },
+  footerDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#e2e8f0',
+  },
+  footerDividerDark: {
+    backgroundColor: '#334155',
+  },
+  remainingValue: {
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  remainingPending: {
+    color: '#d97706',
+  },
+  remainingZero: {
+    color: '#64748b',
+  },
 });

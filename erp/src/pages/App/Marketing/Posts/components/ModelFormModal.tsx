@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { postModelFormSchema } from '../../../../../../../shared-utils/marketingFormSchemas';
 import React, { useEffect, useMemo, useState } from 'react';
 import { PostModelAsset, PostModelExtra, PostTemplate } from '../types/postTemplate';
 import { usePostEditor } from './Editor/usePostEditor';
@@ -259,7 +261,7 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
-      <form
+      <ZodForm schema={postModelFormSchema} values={{ name, prompt, format }}
         onSubmit={submit}
         className="max-h-[94vh] w-full max-w-6xl overflow-hidden rounded-xl border border-slate-700 bg-slate-900 text-white shadow-2xl flex flex-col"
       >
@@ -529,7 +531,7 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
             </div>
           </aside>
         </div>
-      </form>
+      </ZodForm>
 
       {/* Modal de Debug / Inspeção do Contexto da Geração */}
       {debugModalOpen && (

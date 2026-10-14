@@ -10,7 +10,9 @@ export function updateProductCatalogState(
       const variations = product.variations.map((variation: any) =>
         String(variation.id) === String(id) ? { ...variation, status } : variation
       );
-      return { ...product, status: variations.length === 1 ? status : product.status, variations };
+      const hasAnyPublished = variations.some((v: any) => v.status === 'published');
+      const parentStatus = hasAnyPublished ? 'published' : 'hidden';
+      return { ...product, status: parentStatus, variations };
     }
 
     if (String(product.id) === String(id)) {

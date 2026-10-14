@@ -28,6 +28,7 @@ export interface ProductRowActionsCellProps {
   readonly onEdit: (product: Product) => void;
   readonly onRestore: (id: string) => void;
   readonly onDelete: (id: string) => void;
+  readonly onMoveToTrash?: (product: Product) => void;
   readonly onPermanentDelete?: (id: string) => void;
   readonly onDuplicate?: (product: Product) => void;
   readonly onShowHistory?: (product: Product) => void;
@@ -52,6 +53,7 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
   onEdit,
   onRestore,
   onDelete,
+  onMoveToTrash,
   onPermanentDelete,
   onDuplicate,
   onLaunchStock,
@@ -96,6 +98,7 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
           onEdit={onEdit}
           onRestore={onRestore}
           onDelete={onDelete}
+          onMoveToTrash={onMoveToTrash}
           onPermanentDelete={onPermanentDelete}
           onDuplicate={onDuplicate}
           onLaunchStock={onLaunchStock}

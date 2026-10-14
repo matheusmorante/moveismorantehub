@@ -1,75 +1,75 @@
+# Dependencies
 node_modules/
-.env
-.env.local
-.vercel
-build/
+*/node_modules/
+**/node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Production & Build outputs
 dist/
+**/dist/
+build/
+**/build/
 .next/
-*.log
-.DS_Store
-.agent/
-.gemini/
-*.exe
-*.msi
+**/.next/
+out/
+**/out/
+output/
+**/output/
+*.tsbuildinfo
+next-env.d.ts
+
+# Testing & Coverage
+coverage/
+**/coverage/
+playwright-report/
+**/playwright-report/
+playwright-report-stock/
+**/playwright-report-stock/
+test-results/
+**/test-results/
+.playwright-cli/
+**/.playwright-cli/
+pet-runs/
+**/pet-runs/
+
+# Environment files & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.pfx
+*.p12
+
+# Cloud, Deployment & CI
+.vercel/
+**/.vercel/
+
+# Tooling & Cache
+.scannerwork/
+.maintenance/
+.serena/
+scratch/
+**/scratch/
+
+# Mobile & Desktop Binaries
 *.apk
-.expo/
-
-# Multimedia (Large files)
-*.mp4
-*.mov
-*.avi
-*.mkv
-*.wmv
-*.flv
-*.webm
+*.aab
 *.exe
-*.msi
-*.log
-*.tmp
-# temporarios
-*.tmp
-*.cache
+*.dmg
 
-# sistema
+# OS and Editor files
 .DS_Store
 Thumbs.db
-
-# Ignorar arquivos de saída de texto que podem ficar gigantes
-checklist_output.txt
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# WhatsApp Automation Sessions & Caches
-automation/.wwebjs_auth/
-automation/.wwebjs_cache/
-.wwebjs_auth/
-.wwebjs_cache/
-**/Code Cache/
-**/CodeCache/
-.env*
-!.env.example
-erp/.stryker-tmp/
-erp/reports/mutation/
-erp/coverage/
-.scannerwork/
-.env*.local
-
-# CALM local graph index and configuration
-.calm/
-
-# Security and Quality Reports
-gitleaks-git-report.json
-gitleaks-report.json
-trivy-report.json
-sbom.json
-knip-report.json
-erp/server/nfe/
-
-# Client certificate containers and private keys must stay outside Git.
-*.pfx
-*.p12
-*.key
-*private*.pem
-*encrypted-client*.pem
+.pnpm-debug.log*

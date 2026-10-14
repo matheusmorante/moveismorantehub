@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createProductVariationFormSchema } from '../../../../../../../shared-utils/productVariationValidation';
 import type { Product, Variation } from '@/pages/types/product.type';
 import {
   saveVariation,
@@ -19,7 +21,7 @@ import { sortAttributeValuesNaturally } from '@/pages/utils/attributeValueSortin
 import { useVariationPricing } from './useVariationPricing';
 import type { VariationTabId } from './variationForm.types';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
-import { getVariationRegistrationIssue, resolveVariationDimensions } from '../../domain/variationRegistrationRules';
+import { resolveVariationDimensions } from '../../domain/variationRegistrationRules';
 
 interface UseVariationFormOptions {
   isOpen: boolean;
@@ -55,8 +57,11 @@ export function useVariationForm({
   const [isManageAttributesOpen, setIsManageAttributesOpen] = useState(false);
 
   const [formData, setFormData] = useState<Variation | null>(null);
+  const schema = useMemo(() => createProductVariationFormSchema(parentProduct), [parentProduct]);
+  const { validateAndRun } = useZodForm(schema, formData ? { ...formData } : {
+    id: '', sku: '', name: '', stock: 0, unitPrice: 0, active: false, attributes: [],
+  });
   const [allParentImages, setAllParentImages] = useState<string[]>([]);
-  const [diferenciarTitulo, setDiferenciarTitulo] = useState<boolean>(false);
   const isDraft = isProductDraft(parentProduct);
   const isSingleVariation = variation
     ? (parentProduct.variations || []).length === 1
@@ -81,14 +86,14 @@ export function useVariationForm({
   } = useVariationPricing({ formData, setFormData: updateFormData, parentProduct });
 
   useEffect(() => {
-    if (formData && !diferenciarTitulo) {
-      if (formData.title !== formData.name) {
+    if (formData) {
+      if (formData.title !== formData.name || formData.marketplaceTitle !== formData.name) {
         setFormData((prev) =>
           prev ? { ...prev, title: prev.name, marketplaceTitle: prev.name } : null
         );
       }
     }
-  }, [formData?.name, diferenciarTitulo]);
+  }, [formData?.name]);
 
   // Sincroniza o nome do pai no início do nome da variação caso o produto pai mude de nome
   // mas preserva o sufixo manual definido pelo usuário.
@@ -253,10 +258,6 @@ export function useVariationForm({
           syncFreight: isSingleVariation || (variation.syncFreight ?? true),
           ...(isSingleVariation ? { images: allParentImages.length > 0 ? allParentImages : parentProduct.images || [] } : {}),
         });
-        setDiferenciarTitulo(
-          Boolean(variation.title && variation.title !== variation.name) ||
-            Boolean(variation.marketplaceTitle && variation.marketplaceTitle !== variation.name)
-        );
 
         const orig = Number(
           variation.syncUnitPrice ? parentProduct.unitPrice : variation.unitPrice || 0
@@ -413,20 +414,10 @@ export function useVariationForm({
         : {}),
       attributes: cleanAttributes,
       name: toTitleCase(variationName),
-      title: toTitleCase(!isSingleVariation && diferenciarTitulo ? formData.title || variationName : variationName),
-      marketplaceTitle: toTitleCase(
-        !isSingleVariation && diferenciarTitulo
-          ? formData.marketplaceTitle || formData.title || variationName
-          : variationName
-      ),
+      title: toTitleCase(variationName),
+      marketplaceTitle: toTitleCase(variationName),
     };
 
-    const issue = getVariationRegistrationIssue(parentProduct, finalVariation);
-    if (issue) {
-      toast.error(issue.message);
-      setActiveTab(issue.tab);
-      return;
-    }
     Object.assign(finalVariation, resolveVariationDimensions(parentProduct, finalVariation));
 
     if (finalVariation.syncDescription) {
@@ -447,29 +438,37 @@ export function useVariationForm({
       ? parentProduct.active !== false : formData.active;
     finalVariation.sku ||= generateVariationSku(parentProduct.code || '000000', parentProduct.variations || []);
 
-    setLoading(true);
-    try {
-      const variationToSave = {
-        ...finalVariation,
-        sku:
-          finalVariation.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-      };
-      if (onSave) {
-        if ((await onSave(variationToSave)) === false) return;
-      } else {
-        const productId = parentProduct.parentId || parentId || parentProduct.id || '';
-        await saveVariation(productId, variationToSave);
+    await validateAndRun(finalVariation, async (values) => {
+      setLoading(true);
+      try {
+        const variationToSave: Variation = {
+          ...finalVariation, ...values,
+          sku:
+            finalVariation.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+        };
+        if (onSave) {
+          if ((await onSave(variationToSave)) === false) return;
+        } else {
+          const productId = parentProduct.parentId || parentId || parentProduct.id || '';
+          await saveVariation(productId, variationToSave);
+        }
+        setFormData(variationToSave);
+        toast.success('Variação salva com sucesso!');
+        onSuccess?.();
+        onClose();
+      } catch (error) {
+        toast.error('Erro ao salvar a variação.');
+        console.error(error);
+      } finally {
+        setLoading(false);
       }
-      setFormData(variationToSave);
-      toast.success('Variação salva com sucesso!');
-      onSuccess?.();
-      onClose();
-    } catch (error) {
-      toast.error('Erro ao salvar a variação.');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+    }, (errors) => {
+      const flattened = flattenFormErrors(errors);
+      toast.error(Object.values(flattened)[0] || 'Confira os dados da variação.');
+      const tab = ['identificacao', 'tecnico', 'estoque', 'compostos'].find((value) => flattened[value]);
+      const hasComboError = Object.keys(flattened).some((field) => field.startsWith('comboItems'));
+      setActiveTab((tab || (hasComboError ? 'compostos' : 'estoque')) as VariationTabId);
+    });
   };
 
   return {
@@ -480,8 +479,6 @@ export function useVariationForm({
     formData,
     setFormData: updateFormData,
     allParentImages,
-    diferenciarTitulo,
-    setDiferenciarTitulo,
     dbAttributes,
     dbAttributeValues,
     isManageAttributesOpen,

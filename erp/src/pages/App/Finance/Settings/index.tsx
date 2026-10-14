@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { financeService } from '@/pages/services/financeService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { redeConfigFormSchema } from '../../../../../../shared-utils/accountFormSchemas';
+import type { z } from 'zod';
 import {
   CreditCard,
   ShieldCheck,
@@ -14,7 +17,7 @@ import {
 
 const FinanceSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
-  const [config, setConfig] = useState({
+  const [config, setConfig] = useState<z.input<typeof redeConfigFormSchema>>({
     pv: '',
     client_id: '',
     client_secret: '',
@@ -23,6 +26,7 @@ const FinanceSettings: React.FC = () => {
     anticipation_enabled: false,
   });
   const [transactions, setTransactions] = useState<any[]>([]);
+  const form = useZodForm(redeConfigFormSchema, config);
 
   useEffect(() => {
     loadData();
@@ -44,10 +48,9 @@ const FinanceSettings: React.FC = () => {
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (data: z.output<typeof redeConfigFormSchema>) => {
     try {
-      await financeService.updateRedeConfig(config);
+      await financeService.updateRedeConfig(data);
       toast.success('Configurações da Rede salvas com sucesso!');
     } catch (error: any) {
       toast.error('Erro ao salvar: ' + error.message);
@@ -94,7 +97,9 @@ const FinanceSettings: React.FC = () => {
               </div>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-6">
+            <form noValidate onSubmit={form.handleSubmit(handleSave, (errors) => {
+              toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira as configurações.');
+            })} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
@@ -114,7 +119,7 @@ const FinanceSettings: React.FC = () => {
                   </label>
                   <select
                     value={config.environment}
-                    onChange={(e) => setConfig({ ...config, environment: e.target.value })}
+                    onChange={(e) => setConfig({ ...config, environment: e.target.value as z.input<typeof redeConfigFormSchema>['environment'] })}
                     className="w-full h-11 bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl px-4 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
                   >
                     <option value="sandbox">Sandbox (Testes)</option>

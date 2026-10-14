@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { productReferenceFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
@@ -144,7 +146,7 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
               </div>
             </div>
 
-            <form
+            <ZodForm schema={productReferenceFormSchema} values={{ masterName: newMaster, referenceName: newReference }}
               onSubmit={handleAdd}
               className="flex flex-wrap gap-4 items-end bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm"
             >
@@ -187,7 +189,7 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
                   <option key={p.name} value={p.name} />
                 ))}
               </datalist>
-            </form>
+            </ZodForm>
           </div>
         </div>
 

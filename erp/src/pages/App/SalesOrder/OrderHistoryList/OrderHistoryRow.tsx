@@ -31,6 +31,7 @@ interface OrderHistoryRowProps {
   fiscalCancellationState?: OrderFiscalCancellationState;
   fiscalEstornoBadgeStatus?: OrderFiscalOperationBadgeStatus;
   fiscalEstornoDocumentId?: string;
+  fiscalEstornoDraftId?: string;
   fiscalEstornoEnvironment?: 1 | 2;
   fiscalDevolucaoBadgeStatus?: OrderFiscalOperationBadgeStatus;
   fiscalDevolucaoDocumentId?: string;
@@ -78,6 +79,7 @@ const OrderHistoryRow = ({
   fiscalCancellationState,
   fiscalEstornoBadgeStatus,
   fiscalEstornoDocumentId,
+  fiscalEstornoDraftId,
   fiscalEstornoEnvironment,
   fiscalDevolucaoBadgeStatus,
   fiscalDevolucaoDocumentId,
@@ -299,6 +301,7 @@ const OrderHistoryRow = ({
                   kind="estorno"
                   status={fiscalEstornoBadgeStatus}
                   documentId={fiscalEstornoDocumentId}
+                  draftId={fiscalEstornoDraftId}
                   environment={fiscalEstornoEnvironment}
                   onOpenDocument={onViewFiscalDocument}
                 />
@@ -384,15 +387,7 @@ const OrderHistoryRow = ({
           colSpan={visibleColumnCount}
           className="pointer-events-none absolute inset-0 z-10 border-0 p-0"
         >
-          <div className="absolute inset-0 bg-slate-950/25 flex items-center justify-center">
-            <span className="inline-flex max-w-[82%] items-center gap-1.5 truncate whitespace-nowrap rounded-md border-2 border-white bg-red-600 font-black uppercase tracking-[0.2em] text-white opacity-100 shadow-2xl drop-shadow-md px-3.5 py-1.5 text-xs">
-              <span className="truncate">
-                {order.orderType === 'return' && order.returnStockReversed
-                  ? 'Estornado'
-                  : 'Cancelado'}
-              </span>
-            </span>
-          </div>
+          <div data-testid="cancelled-order-row-overlay" className="absolute inset-0 bg-slate-950/25" />
         </td>
       )}
     </tr>

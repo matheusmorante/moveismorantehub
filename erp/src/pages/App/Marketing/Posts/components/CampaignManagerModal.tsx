@@ -1,5 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { PostCampaign } from '../types/postCreator';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { marketingCampaignFormSchema } from '../../../../../../../shared-utils/campaignFormSchemas';
+import { toast } from 'react-toastify';
+import type { z } from 'zod';
 
 type Props = {
   campaigns: PostCampaign[];
@@ -19,22 +23,22 @@ export function CampaignManagerModal({
   const [editing, setEditing] = useState<Partial<PostCampaign>>();
   const [busy, setBusy] = useState(false);
   const initialEdit = useRef(true);
-  const persist = async (closeAfterSave = false) => {
-    if (!editing?.name?.trim()) return;
+  const values = { ...editing, name: editing?.name || '' };
+  const form = useZodForm(marketingCampaignFormSchema, values);
+  const { validateAndRun } = form;
+  const persist = useCallback(async (data: z.output<typeof marketingCampaignFormSchema>, closeAfterSave = false) => {
     setBusy(true);
     onSavingChange(true);
     try {
-      await onSave(editing);
+      await onSave(data);
       if (closeAfterSave) setEditing(undefined);
     } finally {
       setBusy(false);
       onSavingChange(false);
     }
-  };
-  const save = async (event: React.FormEvent) => {
-    event.preventDefault();
-    await persist(true);
-  };
+  }, [onSave, onSavingChange]);
+  const persistRef = useRef(persist);
+  useEffect(() => { persistRef.current = persist; }, [persist]);
   useEffect(() => {
     if (!editing?.id) {
       initialEdit.current = true;
@@ -44,9 +48,10 @@ export function CampaignManagerModal({
       initialEdit.current = false;
       return;
     }
-    const timeout = window.setTimeout(() => void persist(), 700);
+    const snapshot = { ...editing, name: editing.name || '' };
+    const timeout = window.setTimeout(() => void validateAndRun(snapshot, (data) => persistRef.current(data)), 700);
     return () => window.clearTimeout(timeout);
-  }, [editing]);
+  }, [editing, validateAndRun]);
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 text-white shadow-2xl">
@@ -61,7 +66,9 @@ export function CampaignManagerModal({
         </header>
         <div className="max-h-[65vh] overflow-auto p-5">
           {editing ? (
-            <form onSubmit={(event) => void save(event)} className="space-y-3">
+            <form noValidate onSubmit={form.handleSubmit((data) => persist(data, true), (errors) => {
+              toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a campanha.');
+            })} className="space-y-3">
               <label className="block text-xs">
                 Nome
                 <input

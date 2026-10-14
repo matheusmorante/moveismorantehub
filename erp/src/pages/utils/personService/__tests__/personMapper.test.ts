@@ -3,6 +3,12 @@ import { mapToDB, mapFromDB } from '../personMapper';
 import type Person from '@/pages/types/person.type';
 
 describe('personMapper - Fiscal and Identification mapping', () => {
+  it('preserves the no-phone exception through persistence and reload', () => {
+    const row = mapToDB('customers', { fullName: 'Cliente sintético', noPhone: true, noAddress: true } as Person);
+    expect(row.address).toMatchObject({ noPhone: true, noAddress: true });
+    expect(mapFromDB({ ...row, id: 'customer', address: JSON.stringify(row.address) }).noPhone).toBe(true);
+    expect(mapFromDB({ ...row, id: 'customer', address: {} }).noPhone).toBe(false);
+  });
   describe('mapToDB', () => {
     it('persists ieIndicator to dedicated column dbObj.ie_indicator and NOT in address JSON', () => {
       const person: Person = {

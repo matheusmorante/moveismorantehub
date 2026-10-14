@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -49,5 +49,26 @@ describe('PasswordSetupPrompt', () => {
     expect(screen.getByRole('dialog')).not.toBeNull();
     expect(screen.getByLabelText('Nova senha')).not.toBeNull();
     expect(screen.getByLabelText('Confirmar senha')).not.toBeNull();
+  });
+
+  it('blocks invalid password submissions before creating the credential', async () => {
+    mockPasswordCredentialStatus('required');
+    const createPasswordCredential = vi.mocked(useAuth)().createPasswordCredential;
+    const view = render(<MemoryRouter><PasswordSetupPrompt /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: 'short' } });
+    fireEvent.change(screen.getByLabelText('Confirmar senha'), { target: { value: 'short' } });
+    fireEvent.submit(view.container.querySelector('form')!);
+    await waitFor(() => expect(screen.getByText('A senha deve ter pelo menos 8 caracteres.')).not.toBeNull());
+    expect(createPasswordCredential).not.toHaveBeenCalled();
+  });
+
+  it('uses validated credentials when the external submit button submits the form', async () => {
+    mockPasswordCredentialStatus('required');
+    const createPasswordCredential = vi.mocked(useAuth)().createPasswordCredential;
+    render(<MemoryRouter><PasswordSetupPrompt /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText('Confirmar senha'), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar senha' }));
+    await waitFor(() => expect(createPasswordCredential).toHaveBeenCalledWith('password123', 'password123'));
   });
 });

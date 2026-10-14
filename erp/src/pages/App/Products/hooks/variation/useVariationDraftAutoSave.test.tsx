@@ -23,6 +23,33 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('rascunho da variação', () => {
+  it('permite campos incompletos no rascunho sem exigir os dados de conclusão', async () => {
+    const { result, save } = renderDraft();
+    const incomplete = { ...initial, name: '', sku: '', attributes: [{ name: '', value: '' }], technicalValues: {} };
+    act(() => result.current.setVariation(incomplete));
+    await act(async () => { expect(await result.current.flush()).toBe(true); });
+    expect(save).toHaveBeenCalledWith(incomplete);
+  });
+
+  it.each([
+    ['preço negativo', { unitPrice: -1 }],
+    ['preço infinito', { unitPrice: Infinity }],
+    ['preço não numérico', { unitPrice: NaN }],
+    ['estoque negativo', { stock: -1 }],
+    ['custo negativo', { costPrice: -1 }],
+    ['quantidade de componente inválida', { comboItems: [{ productId: 'part', quantity: NaN, unitPrice: 1, stock: 0, description: '' }] }],
+  ])('bloqueia %s antes da gravação e permite corrigir o rascunho', async (_label, invalid) => {
+    const { result, save } = renderDraft();
+    act(() => result.current.setVariation({ ...initial, ...invalid }));
+    await act(async () => { expect(await result.current.flush()).toBe(false); });
+    expect(save).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('error');
+    act(() => result.current.setVariation({ ...initial, unitPrice: 1 }));
+    await act(async () => { expect(await result.current.flush()).toBe(true); });
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(result.current.status).toBe('saved');
+  });
+
   it('salva o objeto completo, incluindo campos aninhados e campos limpos, sem concluir', async () => {
     const { result, save, onChange } = renderDraft();
     const edited: Variation = {

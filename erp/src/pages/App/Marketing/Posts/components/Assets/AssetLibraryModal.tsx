@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { marketingAssetFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
 import React, { useState, useEffect, useMemo } from 'react';
 import { MarketingAsset, AssetCategory } from '../../types';
 import { assetService } from '../../services/assetService';
@@ -150,7 +152,7 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
         </div>
 
         {/* Adicionar Novo Asset Rápido */}
-        <form
+        <ZodForm schema={marketingAssetFormSchema} values={{ name: uploadName, url: uploadUrl }}
           onSubmit={handleAddCustomAsset}
           className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center gap-3"
         >
@@ -174,7 +176,7 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
           >
             Adicionar Asset
           </button>
-        </form>
+        </ZodForm>
       </div>
     </div>
   );

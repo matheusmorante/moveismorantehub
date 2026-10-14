@@ -4,6 +4,9 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
 import { translateAuthError } from '../../pages/utils/authErrors';
 import { signInWithEmailPassword, signInWithGoogle } from '@/services/authPasswordSetup';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { loginFormSchema } from '../../../../shared-utils/authFormSchemas';
+import type { z } from 'zod';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -11,6 +14,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const form = useZodForm(loginFormSchema, { email, password });
 
   const getAuthRedirectUrl = (path = '') => {
     const isLocalNetwork = /^192\.168\.100\.2(?::\d+)?$/.test(window.location.hostname);
@@ -26,12 +30,11 @@ const Login = () => {
     navigate('/reset-password', { state: { email: email.trim() } });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (data: z.output<typeof loginFormSchema>) => {
     setIsSubmitting(true);
 
     try {
-      const { error } = await signInWithEmailPassword(supabase, email, password);
+      const { error } = await signInWithEmailPassword(supabase, data.email, data.password);
 
       if (error) throw error;
 
@@ -63,7 +66,9 @@ const Login = () => {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form noValidate onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+            toast.warning(Object.values(flattenFormErrors(errors))[0]);
+          })} className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">
                 E-mail

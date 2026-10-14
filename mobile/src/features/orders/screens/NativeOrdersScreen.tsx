@@ -47,7 +47,10 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder 
             dark={isDarkMode}
             search={orders.searchTerm}
             onSearch={orders.setSearchTerm}
+            statusFilter={orders.statusFilter}
+            onSelectStatus={orders.setStatusFilter}
             onRefresh={() => orders.refresh()}
+            totalOrders={orders.totalItems}
           />
 
           {orders.paginatedOrders.length === 0 ? (
@@ -63,7 +66,12 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder 
                 dark={isDarkMode}
                 handlingOptions={orders.handlingOptions}
                 onDetails={() => onSelectOrder?.(order)}
+                onFilterByLinkedOrder={(codeOrId) => {
+                  orders.setSearchTerm(String(codeOrId));
+                  scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+                }}
               />
+
             ))
           )}
 

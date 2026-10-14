@@ -13,18 +13,11 @@ import {
   isTestProductCatalogPublicationBlocked,
   TEST_PRODUCT_CATALOG_PUBLICATION_ERROR,
 } from '../hmlTestData';
-import { isNonConventionalProduct } from '../productKindRules';
 import { ensureDefaultVariation } from '../productVariationDefaults';
 import {
-  activateProduct,
-  checkProductHasMoves,
-  checkProductIsUsed,
   checkProductLinkedToSales,
-  deactivateProduct,
-  deleteProduct,
-  moveToTrash,
-  physicalDeleteProduct,
-  restoreProduct,
+  moveProductToTrash,
+  restoreProductFromTrash,
 } from './productDependencyCheck';
 import { persistProductDraft } from './productDraftPersistence';
 import { isProductDraft } from './productDraftSnapshot';
@@ -337,52 +330,30 @@ export const bulkMoveToTrash = async (
   deactivatedIds: string[];
 }> => {
   try {
-    const idsWithOrders = new Set<string>();
-    const orderConflicts: string[] = [];
-
-    await Promise.all(
-      ids.map(async (id) => {
-        const linkedOrderId = await checkProductLinkedToSales(id);
-        if (linkedOrderId) {
-          idsWithOrders.add(id);
-          orderConflicts.push(`Produto ID ${id} possui pedido vinculado (Ex: #${linkedOrderId})`);
-        }
-      })
-    );
-
-    const idsToUpdate = ids.filter((id) => !idsWithOrders.has(id));
-
     const errors: string[] = [];
-    if (idsWithOrders.size > 0) {
-      errors.push(
-        `${idsWithOrders.size} produto(s) possuem pedidos de venda/assistência vinculados e não puderam ser movidos para a lixeira.`
-      );
-      orderConflicts.forEach((oc) => {
-        errors.push(oc);
-      });
+    const deactivatedIds: string[] = [];
+
+    for (const id of ids) {
+      try {
+        const res = await moveProductToTrash(id, { deferQueryInvalidation: true });
+        if (res.success) {
+          deactivatedIds.push(id);
+        } else {
+          errors.push(`Produto ID ${id}: ${res.message}`);
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Falha ao mover para a lixeira';
+        errors.push(`Produto ID ${id}: ${message}`);
+      }
     }
 
-    const updateResults = await Promise.allSettled(
-      idsToUpdate.map((id) => deactivateProduct(id, { deferQueryInvalidation: true }))
-    );
-    const deactivatedIds = idsToUpdate.filter(
-      (_, index) => updateResults[index]?.status === 'fulfilled'
-    );
-    updateResults.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        const reason =
-          result.reason instanceof Error ? result.reason.message : 'falha ao desativar';
-        errors.push(`Produto ID ${idsToUpdate[index]}: ${reason}`);
-      }
-    });
-
-    if (idsToUpdate.length > 0 && !options.deferQueryInvalidation) {
+    if (deactivatedIds.length > 0 && !options.deferQueryInvalidation) {
       invalidateProductQueries();
     }
 
     return {
       successCount: deactivatedIds.length,
-      errorCount: ids.length - deactivatedIds.length,
+      errorCount: errors.length,
       errors,
       deactivatedIds,
     };
@@ -393,80 +364,13 @@ export const bulkMoveToTrash = async (
 };
 
 export const bulkRestoreProducts = async (ids: string[]): Promise<void> => {
-  let remoteWriteStarted = false;
   try {
-    const products = getLocalProducts();
-    const validUuids = ids.filter((id) =>
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-    );
-    const localSalvadoIds = new Set(
-      products.filter(isNonConventionalProduct).map((product) => String(product.id))
-    );
-    let salvadoIds = localSalvadoIds;
-    if (validUuids.length > 0) {
-      const { data: rows, error } = await supabase
-        .from(TABLE_NAME)
-        .select('id, product_kind')
-        .in('id', validUuids);
-      if (error) throw error;
-      salvadoIds = new Set([
-        ...localSalvadoIds,
-        ...(rows || [])
-          .filter((row: any) => row.product_kind === 'salvado')
-          .map((row: any) => String(row.id)),
-      ]);
+    for (const id of ids) {
+      await restoreProductFromTrash(id, { deferQueryInvalidation: true });
     }
-    if (validUuids.length > 0) {
-      remoteWriteStarted = true;
-      const { error: restoreProductsError } = await supabase
-        .from(TABLE_NAME)
-        .update({ deleted: false, updated_at: new Date().toISOString() })
-        .in('id', validUuids);
-      if (restoreProductsError) throw restoreProductsError;
-
-      const normalUuids = validUuids.filter((id) => !salvadoIds.has(id));
-      if (normalUuids.length > 0) {
-        const { error: activateProductsError } = await supabase
-          .from(TABLE_NAME)
-          .update({ active: true })
-          .in('id', normalUuids);
-        if (activateProductsError) throw activateProductsError;
-
-        const { error: activateVariationsError } = await supabase
-          .from('product_variations')
-          .update({ active: true })
-          .in('product_id', normalUuids);
-        if (activateVariationsError) throw activateVariationsError;
-      }
-    }
-
-    ids.forEach((id) => {
-      const idx = products.findIndex((p) => String(p.id) === String(id));
-      if (idx !== -1) {
-        products[idx].deleted = false;
-        products[idx].active = salvadoIds.has(String(id)) ? false : true;
-        products[idx].updatedAt = new Date().toISOString();
-      }
-    });
-    saveLocalProducts(products);
-    notifySubscribers();
-
-    if (ids.length > 0) {
-      try {
-        await queryClient.invalidateQueries({ queryKey: ['products'] });
-      } catch (invalidationError) {
-        console.error('Falha ao reconciliar a lista após restaurar produtos:', invalidationError);
-      }
-    }
+    invalidateProductQueries();
   } catch (error) {
     console.error('Erro no bulkRestoreProducts:', error);
-    if (remoteWriteStarted) {
-      try {
-        await queryClient.invalidateQueries({ queryKey: ['products'] });
-      } catch (invalidationError) {
-        console.error('Falha ao reconciliar a lista após erro na restauração:', invalidationError);
-      }
-    }
     throw error;
   }
 };

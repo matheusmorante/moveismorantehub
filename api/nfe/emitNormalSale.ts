@@ -24,6 +24,7 @@ import {
   reconcileNormalSale,
   recoverNormalSale,
 } from './normal-sale/outboundAttempt';
+import { withNfeEmissionStage } from './nfeEmissionPerformance';
 import { obj } from './normal-sale/values';
 import { createNormalSaleRuleSet, loadNormalSaleInputs } from './normalSaleRuleSet';
 import { validateParanaIssuerIe } from './paranaIssuerIe';
@@ -76,7 +77,11 @@ export async function emitNormalSale(
   const facts = structuredClone(candidate);
   let preparationSubmitted = false;
   try {
-    await loadNormalSaleInputs(db, facts, appSettings);
+    await withNfeEmissionStage(
+      'inputs_fetch',
+      () => loadNormalSaleInputs(db, facts, appSettings),
+      { emissionRequestId: command.emissionRequestId }
+    );
     let rules = await createNormalSaleRuleSet(facts);
     const preflight = resolveFiscalDocument(facts, rules);
     if (preflight.status !== 'ready')
@@ -131,20 +136,29 @@ export async function emitNormalSale(
           ],
         }
       );
-    const certificate = extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || '');
+    const certificate = await withNfeEmissionStage(
+      'cert_extract',
+      () => extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || ''),
+      { emissionRequestId: command.emissionRequestId }
+    );
     const issuedAt = saoPauloEmissionTimestamp(facts.capturedAt);
     const code = createHash('sha256').update(command.emissionRequestId).digest('hex');
     const randomCode = String(Number.parseInt(code.slice(0, 10), 16) % 100000000).padStart(8, '0');
 
     // CAS retries happen before any external call. A losing preparation consumes no number or snapshot.
     for (let preparation = 0; preparation < 3; preparation++) {
-      const peek = await db.rpc('peek_nfe_outbound_number', {
-        p_issuer_cnpj: resolved.document.issuer.cnpj,
-        p_model: model,
-        p_environment: command.environment,
-        p_series: sequence.series,
-        p_minimum: minimum,
-      });
+      const peek = await withNfeEmissionStage(
+        'number_peek_rpc',
+        () =>
+          db.rpc('peek_nfe_outbound_number', {
+            p_issuer_cnpj: resolved.document.issuer.cnpj,
+            p_model: model,
+            p_environment: command.environment,
+            p_series: sequence.series,
+            p_minimum: minimum,
+          }),
+        { emissionRequestId: command.emissionRequestId }
+      );
       if (peek.error || !Number.isInteger(peek.data))
         return outboundFailure(
           503,
@@ -185,16 +199,35 @@ export async function emitNormalSale(
           number,
         },
       };
-      let xml = serializeFiscalDocument(facts, resolved.document, rules, {
-        accessKey,
-        series: Number(sequence.series),
-        number,
-        issuedAt,
-      });
+      let xml = await withNfeEmissionStage(
+        'xml_serialization',
+        () =>
+          serializeFiscalDocument(facts, resolved.document, rules, {
+            accessKey,
+            series: Number(sequence.series),
+            number,
+            issuedAt,
+          }),
+        { emissionRequestId: command.emissionRequestId }
+      );
       xml = appendResponsibleTechnician(xml, accessKey, tech);
-      await validateUnsignedNfeStructure(xml);
-      const signedXml = signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64);
-      await validateNfeAgainstOfficialSchema(signedXml);
+      await withNfeEmissionStage(
+        'xml_unsigned_validation',
+        () => validateUnsignedNfeStructure(xml),
+        { emissionRequestId: command.emissionRequestId }
+      );
+      const signedXml = await withNfeEmissionStage(
+        'xml_signing',
+        () => signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64),
+        { emissionRequestId: command.emissionRequestId }
+      );
+      if (command.previewOnly) {
+        await withNfeEmissionStage(
+          'xml_schema_validation',
+          () => validateNfeAgainstOfficialSchema(signedXml),
+          { emissionRequestId: command.emissionRequestId }
+        );
+      }
       await assertXmlFiscalSelections(snapshot, signedXml);
       const identity = {
         series: sequence.series,
@@ -244,15 +277,20 @@ export async function emitNormalSale(
         };
       const token = randomUUID();
       preparationSubmitted = true;
-      const saved = await db.rpc('prepare_nfe_outbound_attempt', {
-        p_snapshot: { ...snapshot, decisionTrace: resolved.document.decisions },
-        p_signed_xml: signedXml,
-        p_access_key: accessKey,
-        p_request_command: fiscalAttemptCommand(command),
-        p_attempt_token: token,
-        p_actor_id: actorId,
-        p_minimum_number: minimum,
-      });
+      const saved = await withNfeEmissionStage(
+        'prepare_attempt_rpc',
+        () =>
+          db.rpc('prepare_nfe_outbound_attempt', {
+            p_snapshot: { ...snapshot, decisionTrace: resolved.document.decisions },
+            p_signed_xml: signedXml,
+            p_access_key: accessKey,
+            p_request_command: fiscalAttemptCommand(command),
+            p_attempt_token: token,
+            p_actor_id: actorId,
+            p_minimum_number: minimum,
+          }),
+        { emissionRequestId: command.emissionRequestId }
+      );
       if (
         saved.error?.message.includes('FISCAL_SEQUENCE_CHANGED') &&
         command.requestedNumber === undefined
@@ -264,7 +302,9 @@ export async function emitNormalSale(
         // A lost RPC response can hide a committed preparation. Resolve the original intent before returning.
         const recovery = await recoverNormalSale(db, command);
         if (recovery) return recovery;
-        if (!saved.error?.code)
+        const reason =
+          saved.error?.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || 'FISCAL_PREPARATION_FAILED';
+        if (!saved.error?.code && (!reason || reason === 'FISCAL_PREPARATION_FAILED'))
           return outboundFailure(
             503,
             'FISCAL_PREPARATION_UNCONFIRMED',
@@ -277,15 +317,16 @@ export async function emitNormalSale(
               sefazContacted: false,
             }
           );
-        const reason =
-          saved.error?.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || 'FISCAL_PREPARATION_FAILED';
         return outboundFailure(
           reason === 'IDEMPOTENCY_KEY_REUSED' || reason === 'ALREADY_ACTIVE_FISCAL_ATTEMPT'
             ? 409
             : 503,
           reason,
-          'A preparação fiscal não foi concluída. Atualize os dados ou consulte a tentativa original.',
-          { numberReserved: false, sefazContacted: false }
+          reason === 'FISCAL_SOURCE_CHANGED'
+            ? 'Os dados do pedido, produtos ou cliente foram alterados durante a preparação. Atualize os dados fiscais e tente novamente.'
+            : saved.error?.message ||
+              'A preparação fiscal não foi concluída. Atualize os dados ou consulte a tentativa original.',
+          { numberReserved: false, sefazContacted: false, pending: false }
         );
       }
       preparationSubmitted = false;
@@ -294,7 +335,8 @@ export async function emitNormalSale(
         saved.data.documentId,
         true,
         command.productionConfirmed === true,
-        saved.data.created ? token : undefined
+        saved.data.created ? token : undefined,
+        certificate
       );
     }
     return outboundFailure(

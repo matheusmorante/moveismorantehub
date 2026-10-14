@@ -12,8 +12,8 @@ interface CancelReturnModalProps {
 const CancelReturnModal = ({ order, onCancel, onConfirm }: CancelReturnModalProps) => {
   const [secondsLeft, setSecondsLeft] = useState(5);
   const physicalReturnConfirmed = order.status === 'fulfilled' || order.returnStockProcessed === true;
-  const actionTitle = 'Cancelar esta devolução?';
-  const buttonLabel = 'Cancelar devolução';
+  const actionTitle = 'Cancelar esta devolução comercial?';
+  const buttonLabel = 'Cancelar devolução comercial';
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -39,7 +39,7 @@ const CancelReturnModal = ({ order, onCancel, onConfirm }: CancelReturnModalProp
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
       <button
         type="button"
-        aria-label="Fechar modal de cancelamento de devolução"
+        aria-label="Fechar modal de cancelamento de devolução comercial"
         className="fixed inset-0 bg-slate-950/55 transition-opacity"
         onClick={onCancel}
       />
@@ -60,13 +60,13 @@ const CancelReturnModal = ({ order, onCancel, onConfirm }: CancelReturnModalProp
           {actionTitle} (#{formatOrderCode(order)})
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          A ação se aplica somente a esta devolução agendada. Não altera a venda original, as outras
-          devoluções vinculadas nem o estoque.
+          A ação se aplica somente a esta devolução comercial agendada. Não altera a venda original, as outras
+          devoluções comerciais vinculadas nem o estoque.
         </p>
         <p className="mt-3 text-sm font-semibold leading-relaxed text-red-700 dark:text-red-300">
           {physicalReturnConfirmed
-            ? 'O retorno físico já foi confirmado. Preserve este registro e trate eventual documento fiscal na ação do próprio documento.'
-            : 'Esta devolução será marcada como CANCELADA. A confirmação física, quando ocorrer, é registrada em um fluxo separado.'}
+            ? 'O retorno físico já foi confirmado. Preserve este registro; eventual documento de devolução fiscal deve ser tratado diretamente no módulo fiscal.'
+            : 'Esta devolução comercial será marcada como CANCELADA. Eventual documento fiscal de devolução deve ser tratado separadamente no módulo fiscal.'}
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button

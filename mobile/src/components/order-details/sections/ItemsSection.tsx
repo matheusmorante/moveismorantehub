@@ -8,11 +8,29 @@ interface ItemsSectionProps {
   items: any[];
   handlingOptions?: any[];
   total?: number;
-  pendingTotal?: number;
+  itemsSummary?: any;
+  shippingValue?: number;
   dark?: boolean;
 }
 
-export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSectionProps) {
+export function ItemsSection({
+  items,
+  handlingOptions,
+  total,
+  itemsSummary,
+  shippingValue = 0,
+  dark,
+}: ItemsSectionProps) {
+  const calculatedItemsSubtotal = (items || []).reduce((acc: number, item: any) => {
+    const qty = Number(item.quantity || item.qty || 1);
+    const unitPrice = Number(item.unitPrice || item.price || item.total || 0);
+    return acc + unitPrice * qty;
+  }, 0);
+
+  const totalDiscount = Number(itemsSummary?.totalFixedDiscount || 0);
+  const subtotal = Number(itemsSummary?.itemsSubtotal) || calculatedItemsSubtotal;
+  const shipping = Number(shippingValue || 0);
+
   return (
     <>
       <SectionCard dark={dark}>
@@ -67,11 +85,39 @@ export function ItemsSection({ items, handlingOptions, total, dark }: ItemsSecti
         </View>
       </SectionCard>
 
-      <View style={[styles.totalCard, dark && styles.totalDark]}>
+      {/* Resumo Financeiro Completo (idêntico ao ERP) */}
+      <View style={[styles.financialCard, dark && styles.financialCardDark]}>
+        <View style={styles.summaryRow}>
+          <Text style={[styles.summaryLabel, dark && styles.summaryLabelDark]}>SUBTOTAL ITENS</Text>
+          <Text style={[styles.summaryValue, dark && styles.light]}>
+            R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
+        </View>
+
+        {totalDiscount > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={styles.discountLabel}>DESCONTO</Text>
+            <Text style={styles.discountValue}>
+              - R$ {totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
+          </View>
+        )}
+
+        {shipping > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, dark && styles.summaryLabelDark]}>FRETE / ENTREGA</Text>
+            <Text style={[styles.summaryValue, dark && styles.light]}>
+              R$ {shipping.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
+          </View>
+        )}
+
+        <View style={[styles.divider, dark && styles.dividerDark]} />
+
         <View style={styles.totalRow}>
           <View style={styles.inline}>
-            <DollarSign size={21} color="#16a34a" />
-            <Text style={[styles.totalTitle, dark && styles.light]}>VALOR TOTAL</Text>
+            <DollarSign size={20} color="#2563eb" />
+            <Text style={[styles.totalTitle, dark && styles.light]}>TOTAL DO PEDIDO</Text>
           </View>
           <Text style={styles.total}>
             R${' '}
@@ -109,18 +155,59 @@ const styles = StyleSheet.create({
   itemInfo: { flex: 1, gap: 4 },
   priceContainer: { alignItems: 'flex-end', justifyContent: 'center', gap: 1 },
   price: { fontSize: 13, fontWeight: '900', color: '#16a34a' },
-  totalCard: {
-    backgroundColor: '#f0fdf4',
-    padding: 17,
+  financialCard: {
+    backgroundColor: '#ffffff',
+    padding: 16,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#bbf7d0',
-    gap: 10,
+    borderColor: '#e2e8f0',
+    gap: 8,
   },
-  totalDark: { backgroundColor: '#064e3b', borderColor: '#047857' },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  totalTitle: { fontSize: 12, fontWeight: '900', color: '#065f46' },
-  total: { fontSize: 17, fontWeight: '900', color: '#16a34a' },
+  financialCardDark: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748b',
+    letterSpacing: 0.5,
+  },
+  summaryLabelDark: {
+    color: '#94a3b8',
+  },
+  summaryValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  discountLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#16a34a',
+    letterSpacing: 0.5,
+  },
+  discountValue: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#16a34a',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+    marginVertical: 4,
+  },
+  dividerDark: {
+    backgroundColor: '#334155',
+  },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 2 },
+  totalTitle: { fontSize: 13, fontWeight: '900', color: '#0f172a' },
+  total: { fontSize: 18, fontWeight: '900', color: '#2563eb' },
   originalPrice: {
     fontSize: 11,
     fontWeight: '700',

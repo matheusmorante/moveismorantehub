@@ -40,11 +40,6 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
 }) => {
   const { opportunities } = useProductOpportunities();
 
-  const [diferenciarTitulo] = React.useState<boolean>(
-    Boolean(formData.title && formData.title !== formData.name) ||
-      Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
-  );
-
   const selectableCategories = React.useMemo(
     () => filterProductSelectableCategories([...availableCategories]),
     [availableCategories]
@@ -113,10 +108,10 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     <div className="mx-auto grid w-full max-w-7xl min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Title Section (Agrupados na mesma linha em 2 colunas) */}
       <div className="md:col-span-2 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-        {/* Nome do Produto (ERP) */}
+        {/* Nome do Produto */}
         <div
           id="field-product-name"
-          className="flex min-w-0 flex-col gap-1.5 transition-all p-2 rounded-2xl"
+          className={`flex min-w-0 flex-col gap-1.5 transition-all p-2 rounded-2xl ${isService ? 'sm:col-span-2' : ''}`}
         >
           <div className="flex items-center h-6">
             <label
@@ -133,7 +128,8 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
               setFormData((prev) => ({
                 ...prev,
                 name: val,
-                ...(!diferenciarTitulo ? { title: val, marketplaceTitle: val } : {}),
+                title: val,
+                marketplaceTitle: val,
               }));
             }}
             onBlur={() => {
@@ -143,9 +139,8 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                   setFormData((prev) => ({
                     ...prev,
                     name: formatted,
-                    ...(!diferenciarTitulo
-                      ? { title: formatted, marketplaceTitle: formatted }
-                      : {}),
+                    title: formatted,
+                    marketplaceTitle: formatted,
                   }));
                 }
 
@@ -186,7 +181,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 ? 'border-red-500 text-red-600 focus:border-red-600'
                 : 'border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400'
             }`}
-            placeholder="Digite o nome interno do produto (ex: SOFA 3 LUG)..."
+            placeholder="Digite o nome do produto (ex: Sofá 3 Lugares)..."
           />
           {categorySuggestions.length > 0 && (
             <div
@@ -300,43 +295,6 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
             )}
           </div>
         )}
-        {/* Catalog / Ecommerce Title Section (Exibido apenas se diferenciarTitulo for true) */}
-        {diferenciarTitulo ? (
-          <div
-            id="field-marketplace-title"
-            className="flex min-w-0 flex-col gap-1.5 transition-all p-2 rounded-2xl animate-in slide-in-from-right-2 duration-200"
-          >
-            <label className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6">
-              <span>Título no Catálogo</span>
-            </label>
-            <input
-              value={formData.title || formData.marketplaceTitle || ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                setFormData((prev) => ({
-                  ...prev,
-                  title: val,
-                  marketplaceTitle: val,
-                }));
-              }}
-              onBlur={() => {
-                const currentVal = formData.title || formData.marketplaceTitle || '';
-                if (currentVal) {
-                  const formatted = toTitleCase(currentVal);
-                  if (formatted !== currentVal) {
-                    setFormData((prev) => ({
-                      ...prev,
-                      title: formatted,
-                      marketplaceTitle: formatted,
-                    }));
-                  }
-                }
-              }}
-              className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400 transition-all font-mono"
-              placeholder="Digite o título no catálogo..."
-            />
-          </div>
-        ) : null}
       </div>
 
       {!isService && (

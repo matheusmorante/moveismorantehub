@@ -24,7 +24,7 @@ export const mapToDB = (product: Partial<Product>) => {
     data.slug = normalizeSlug(`rascunho-${product.id || Date.now()}`);
   }
   if (product.description !== undefined) data.description = product.description;
-  const catalogTitle = product.marketplaceTitle ?? product.title;
+  const catalogTitle = product.marketplaceTitle ?? product.title ?? product.name;
   if (catalogTitle !== undefined) data.marketplace_title = catalogTitle;
   if (product.brand !== undefined) data.brand = product.brand;
   if (product.category !== undefined) data.category = product.category;

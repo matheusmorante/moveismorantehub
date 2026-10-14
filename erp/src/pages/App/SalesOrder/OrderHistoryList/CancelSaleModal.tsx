@@ -49,7 +49,7 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
   ].includes(preview.action);
   const title =
     preview.action === 'return'
-      ? 'Devolução necessária'
+      ? 'Devolução comercial necessária'
       : fiscalProcedureBlocked
         ? 'Cancelamento indisponível'
         : preview.action === 'batch'
@@ -62,8 +62,8 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
   const confirmationLabel =
     preview.action === 'return'
       ? preview.returnOrderId
-        ? 'Abrir devolução existente'
-        : 'Iniciar devolução'
+        ? 'Abrir devolução comercial existente'
+        : 'Iniciar devolução comercial'
       : 'Cancelar venda';
 
   useEffect(() => {
@@ -123,11 +123,11 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
               <>
                 <li>A venda e a NF-e original serão preservadas; este fluxo não cancela a venda.</li>
                 {preview.returnOrderId ? (
-                  <li>Será aberta a devolução vinculada existente para continuar o tratamento.</li>
+                  <li>Será aberta a devolução comercial vinculada existente para continuar o tratamento.</li>
                 ) : (
                   <li>
-                    Será aberto o cadastro de devolução para selecionar itens e quantidades; nenhuma
-                    devolução integral será criada automaticamente.
+                    Será aberto o cadastro de devolução comercial para selecionar itens e quantidades; nenhuma
+                    devolução comercial integral será criada automaticamente.
                   </li>
                 )}
               </>
@@ -146,13 +146,13 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
             {preview.action === 'cancel' && (
               <li>
                 A NF-e modelo {preview.model || ''} autorizada em{' '}
-                {fiscalEnvironmentLabel} será cancelada junto à SEFAZ.
+                {fiscalEnvironmentLabel} terá o cancelamento fiscal solicitado junto à SEFAZ.
               </li>
             )}
             {preview.action === 'estorno' && (
               <li>
                 A NF-e original de {fiscalEnvironmentLabel} permanecerá autorizada no histórico.
-                Será preparado um rascunho NFE (NF-e modelo 55, finalidade de ajuste 3) vinculado
+                Será preparado um rascunho NFE de estorno fiscal (NF-e modelo 55, finalidade de ajuste 3) vinculado
                 à original. A transmissão acontece depois da conferência específica de CFOP e
                 tributação.
               </li>
@@ -164,12 +164,12 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
                   {operation.action === 'cancel'
                     ? `cancelamento fiscal do modelo ${operation.model || ''} (${operation.environment === 1 ? 'Produção' : 'Homologação'})`
                     : operation.action === 'estorno'
-                      ? `rascunho de estorno para o modelo ${operation.model || ''}`
+                      ? `rascunho de estorno fiscal para o modelo ${operation.model || ''}`
                       : operation.reason || 'revisão fiscal necessária'}
                 </li>
               ))}
             {preview.action === 'none' && (
-              <li>Não há NF-e autorizada vinculada; o cancelamento será somente comercial.</li>
+              <li>Não há NF-e autorizada vinculada; o cancelamento será exclusivamente cancelamento comercial.</li>
             )}
           </ul>
         </div>
@@ -188,7 +188,7 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
         )}
         {['none', 'cancel', 'estorno'].includes(preview.action) && (
           <p className="mt-3 text-sm font-semibold leading-relaxed text-red-700 dark:text-red-300">
-            Esta ação é definitiva: uma venda cancelada não pode mais ser editada nem ter o status
+            Esta ação é definitiva: após o cancelamento comercial, a venda não pode mais ser editada nem ter o status
             alterado. Caso precise corrigir ou refazer a operação, duplique o pedido e trabalhe na
             nova venda.
           </p>
@@ -201,7 +201,7 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
               onChange={(event) => setProductionConfirmed(event.target.checked)}
               className="mt-0.5 accent-red-600"
             />
-            Confirmo a solicitação de cancelamento desta nota na SEFAZ de Produção.
+            Confirmo a solicitação de cancelamento fiscal desta nota na SEFAZ de Produção.
           </label>
         )}
         <div className="mt-6 flex justify-end gap-3">
@@ -237,7 +237,7 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
             {secondsLeft > 0 && preview.action !== 'return'
               ? 'Cancelar venda (' + secondsLeft + 's)'
               : secondsLeft > 0
-                ? 'Abrir devolução (' + secondsLeft + 's)'
+                ? 'Abrir devolução comercial (' + secondsLeft + 's)'
                 : confirmationLabel}
           </button>
         </div>

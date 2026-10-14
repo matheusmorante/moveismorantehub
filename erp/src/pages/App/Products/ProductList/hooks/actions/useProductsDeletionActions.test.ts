@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   bulkMoveToTrash: vi.fn(),
   bulkRestoreProducts: vi.fn(),
   deleteProduct: vi.fn(),
+  moveProductToTrash: vi.fn(),
+  restoreProductFromTrash: vi.fn(),
   toast: {
     loading: vi.fn(() => 'toast-1'),
     update: vi.fn(),
@@ -20,13 +22,17 @@ vi.mock('@/pages/utils/productService', () => ({
   bulkMoveToTrash: mocks.bulkMoveToTrash,
   bulkRestoreProducts: mocks.bulkRestoreProducts,
   deleteProduct: mocks.deleteProduct,
+  moveProductToTrash: mocks.moveProductToTrash,
+  restoreProductFromTrash: mocks.restoreProductFromTrash,
 }));
 vi.mock('react-toastify', () => ({ toast: mocks.toast }));
 
 import {
-  executeBulkRestore,
   executeBulkPermanentDelete,
+  executeBulkRestore,
   executeBulkTrash,
+  executeMoveProductToTrash,
+  executeRestoreProductFromTrash,
 } from './useProductsDeletionActions';
 
 afterEach(() => {
@@ -83,7 +89,12 @@ describe('useProductsDeletionActions query invalidation', () => {
     const setSelectedProducts = vi.fn();
     const setLoading = vi.fn();
 
-    await executeBulkPermanentDelete(['product-1', 'product-2'], refresh, setSelectedProducts, setLoading);
+    await executeBulkPermanentDelete(
+      ['product-1', 'product-2'],
+      refresh,
+      setSelectedProducts,
+      setLoading
+    );
 
     expect(mocks.deleteProduct).toHaveBeenNthCalledWith(1, 'product-1', {
       deferQueryInvalidation: true,
@@ -93,5 +104,90 @@ describe('useProductsDeletionActions query invalidation', () => {
     });
     expect(refresh).toHaveBeenCalledOnce();
     expect(setSelectedProducts).toHaveBeenCalledWith([]);
+  });
+
+  describe('executeMoveProductToTrash & executeRestoreProductFromTrash', () => {
+    it('move com sucesso, executa refresh e atualiza toast para success', async () => {
+      mocks.moveProductToTrash.mockResolvedValue({
+        success: true,
+        message: 'Produto e variações movidos para a lixeira com sucesso!',
+      });
+      const refresh = vi.fn();
+      const mockProduct: any = { id: 'prod-uuid-1', name: 'Mesa' };
+
+      const result = await executeMoveProductToTrash(mockProduct, refresh);
+
+      expect(mocks.moveProductToTrash).toHaveBeenCalledWith('prod-uuid-1');
+      expect(refresh).toHaveBeenCalledOnce();
+      expect(mocks.toast.update).toHaveBeenCalledWith(
+        'toast-1',
+        expect.objectContaining({
+          type: 'success',
+        })
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('trata erro de negócio ao mover para a lixeira, não executa refresh e atualiza toast para error', async () => {
+      mocks.moveProductToTrash.mockResolvedValue({
+        success: false,
+        message: 'Produto possui variações vinculadas a vendas',
+      });
+      const refresh = vi.fn();
+      const mockProduct: any = { id: 'prod-uuid-1', name: 'Mesa' };
+
+      const result = await executeMoveProductToTrash(mockProduct, refresh);
+
+      expect(mocks.moveProductToTrash).toHaveBeenCalledWith('prod-uuid-1');
+      expect(refresh).not.toHaveBeenCalled();
+      expect(mocks.toast.update).toHaveBeenCalledWith(
+        'toast-1',
+        expect.objectContaining({
+          type: 'error',
+          render: 'Produto possui variações vinculadas a vendas',
+        })
+      );
+      expect(result.success).toBe(false);
+    });
+
+    it('restaura com sucesso da lixeira, executa refresh e atualiza toast para success', async () => {
+      mocks.restoreProductFromTrash.mockResolvedValue({
+        success: true,
+        message: 'Produto e variações restaurados com sucesso!',
+      });
+      const refresh = vi.fn();
+
+      const result = await executeRestoreProductFromTrash('prod-uuid-1', refresh);
+
+      expect(mocks.restoreProductFromTrash).toHaveBeenCalledWith('prod-uuid-1');
+      expect(refresh).toHaveBeenCalledOnce();
+      expect(mocks.toast.update).toHaveBeenCalledWith(
+        'toast-1',
+        expect.objectContaining({
+          type: 'success',
+        })
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('trata falha ao restaurar produto da lixeira', async () => {
+      mocks.restoreProductFromTrash.mockResolvedValue({
+        success: false,
+        message: 'Produto não encontrado na lixeira',
+      });
+      const refresh = vi.fn();
+
+      const result = await executeRestoreProductFromTrash('prod-uuid-1', refresh);
+
+      expect(mocks.restoreProductFromTrash).toHaveBeenCalledWith('prod-uuid-1');
+      expect(refresh).not.toHaveBeenCalled();
+      expect(mocks.toast.update).toHaveBeenCalledWith(
+        'toast-1',
+        expect.objectContaining({
+          type: 'error',
+        })
+      );
+      expect(result.success).toBe(false);
+    });
   });
 });

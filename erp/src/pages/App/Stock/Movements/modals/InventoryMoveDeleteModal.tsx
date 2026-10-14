@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { inventoryReversalFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
 import React, { useState, useEffect } from 'react';
 import InventoryMove from '@/pages/types/inventoryMove.type';
 
@@ -72,7 +74,7 @@ export const InventoryMoveDeleteModal: React.FC<InventoryMoveDeleteModalProps> =
             : 'A movimentação receberá o status de estornada e não terá mais efeito no saldo do estoque. O registro permanecerá no histórico.'}
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-4">
+        <ZodForm schema={inventoryReversalFormSchema} values={{ reason }} onSubmit={handleSubmit} className="mt-4">
           <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5">
             Observação <span className="text-red-500">*</span>
           </label>
@@ -112,7 +114,7 @@ export const InventoryMoveDeleteModal: React.FC<InventoryMoveDeleteModalProps> =
               )}
             </button>
           </div>
-        </form>
+        </ZodForm>
       </div>
     </div>
   );

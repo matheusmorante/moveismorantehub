@@ -9,6 +9,12 @@ import {
 } from '../../../../../utils/variationService';
 import { toast } from 'react-toastify';
 import { normalizeSearchTerm } from '../../../../../utils/textUtils';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import {
+  createCharacteristicFormSchema,
+  resolveCharacteristicUnit,
+} from '../../../../Variations/domain/characteristicFormRules';
+import { normalizeAttributeDataType } from '../../../../../utils/attributeDataType';
 import {
   appendAttributeDraftValue,
   finalizeAttributeDraftValues,
@@ -35,6 +41,21 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
   const [currentValInput, setCurrentValInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [existingValInputs, setExistingValInputs] = useState<Record<string, string>>({});
+  const isChoiceType = newDataType === 'list' || newDataType === 'radio' || newDataType === 'multi_select';
+  const newAttribute = {
+    name: newAttrName,
+    active: true,
+    dataType: newDataType ?? 'radio',
+    unit: newUnit,
+    decimalPlaces: newDecimalPlaces,
+    options: isChoiceType
+      ? finalizeAttributeDraftValues(tempValues, currentValInput).map((value) => ({ id: '', value }))
+      : [],
+  };
+  const createForm = useZodForm(createCharacteristicFormSchema(variations), newAttribute);
+  const updateForm = useZodForm(createCharacteristicFormSchema(), newAttribute);
+  const showValidationErrors = (errors: Parameters<typeof flattenFormErrors>[0]) =>
+    toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira o atributo e seus valores.');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -67,42 +88,21 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
     }
   };
 
-  const handleSaveAttribute = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAttrName.trim()) {
-      toast.error('Preencha o nome do atributo!');
-      return;
-    }
-
-    const finalValues = finalizeAttributeDraftValues(tempValues, currentValInput);
-
-    const isChoiceType = newDataType === 'list' || newDataType === 'radio' || newDataType === 'multi_select';
-    if (isChoiceType && finalValues.length === 0) {
-      toast.error('Adicione pelo menos uma opção!');
-      return;
-    }
-
+  const handleSaveAttribute = createForm.handleSubmit(async (values) => {
     setIsSaving(true);
     try {
       await saveVariation({
-        name: newAttrName.trim(),
-        active: true,
-        dataType: newDataType,
-        unit:
-          newDataType === 'weight'
-            ? 'kg'
-            : newDataType === 'percentage'
-              ? '%'
-              : newDataType === 'measure'
-                ? newUnit
-                : '',
+        name: values.name,
+        active: values.active,
+        dataType: values.dataType,
+        unit: resolveCharacteristicUnit(values.dataType, values.unit),
         decimalPlaces:
-          newDataType === 'decimal'
-            ? newDecimalPlaces
-            : newDataType === 'weight'
+          values.dataType === 'decimal'
+            ? values.decimalPlaces
+            : values.dataType === 'weight'
               ? 1
               : undefined,
-        options: isChoiceType ? finalValues.map((val) => ({ id: '', value: val })) : [],
+        options: values.options,
       });
 
       toast.success('Atributo criado com sucesso!');
@@ -119,7 +119,19 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
     } finally {
       setIsSaving(false);
     }
-  };
+  }, showValidationErrors);
+
+  const saveExistingOptions = (attr: VariationType, options: VariationOption[]) =>
+    updateForm.validateAndRun({
+      ...attr,
+      dataType: normalizeAttributeDataType(attr.dataType),
+      unit: attr.unit ?? '',
+      decimalPlaces: attr.decimalPlaces ?? 2,
+      options,
+    }, async (values) => {
+      await updateVariation(attr.id!, { options: values.options });
+      return true;
+    }, showValidationErrors);
 
   const handleDeleteValue = async (attr: VariationType, opt: VariationOption) => {
     if (
@@ -129,7 +141,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
 
     try {
       const updatedOptions = attr.options.filter((o) => o.id !== opt.id);
-      await updateVariation(attr.id!, { options: updatedOptions });
+      if (!await saveExistingOptions(attr, updatedOptions)) return;
       toast.success('Valor removido com sucesso!');
       refresh();
     } catch (err: unknown) {
@@ -140,7 +152,6 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
 
   const handleAddValueToExisting = async (attr: VariationType) => {
     const valText = existingValInputs[attr.id!] || '';
-    if (!valText.trim()) return;
 
     if (attr.options.some((o) => o.value.toLowerCase() === valText.trim().toLowerCase())) {
       toast.error('Este valor já existe para este atributo!');
@@ -149,7 +160,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
 
     try {
       const updatedOptions = [...attr.options, { id: '', value: valText.trim() }];
-      await updateVariation(attr.id!, { options: updatedOptions });
+      if (!await saveExistingOptions(attr, updatedOptions)) return;
       toast.success('Valor adicionado com sucesso!');
       setExistingValInputs((prev) => ({ ...prev, [attr.id!]: '' }));
       refresh();
@@ -237,7 +248,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
                 </p>
               </div>
 
-              <form onSubmit={handleSaveAttribute} className="space-y-4">
+              <form noValidate onSubmit={handleSaveAttribute} className="space-y-4">
                 <div className="space-y-1.5">
                   <label
                     htmlFor="new-attr-name-input"

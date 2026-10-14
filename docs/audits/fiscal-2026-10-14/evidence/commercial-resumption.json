@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-14",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "scope": "authorized_commercial_lot_preflight",
+  "runId": "72ebb3b0-f280-4796-bd7a-2c72f207ae60",
+  "administrator": true,
+  "browserIdentityMatchesConfiguredOperator": true,
+  "testArtifactOperatorHttpStatus": 403,
+  "frontendPort": 5173,
+  "testMarkerVisuallyAvailable": false,
+  "previousRunCounts": { "people": 0, "products": 0, "orders": 0 },
+  "previousRunQueriesSucceeded": true,
+  "guardReadiness": true,
+  "operationalReadFiltersValid": true,
+  "operationalReadFilterLeaks": 0,
+  "commercialLotExecuted": false,
+  "commercialWrites": false,
+  "sefazTransmission": false,
+  "deployment": false,
+  "limitation": "API operator authorization still returns 403; restarting the existing local API process was denied by Windows. No claim of real commercial rollback or concurrency proof."
+}

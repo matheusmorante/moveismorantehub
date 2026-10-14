@@ -9,7 +9,7 @@
       "service": "NFeAutorizacao4",
       "policy": "native",
       "endpoint": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeAutorizacao4?wsdl",
-      "durationMs": 195,
+      "durationMs": 202,
       "protocol": null,
       "cipher": null,
       "authorized": true,
@@ -25,7 +25,7 @@
       "service": "NFeRetAutorizacao4",
       "policy": "native",
       "endpoint": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeRetAutorizacao4?wsdl",
-      "durationMs": 127,
+      "durationMs": 124,
       "protocol": null,
       "cipher": null,
       "authorized": true,
@@ -41,7 +41,7 @@
       "service": "NFeConsultaProtocolo4",
       "policy": "native",
       "endpoint": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeConsultaProtocolo4?wsdl",
-      "durationMs": 141,
+      "durationMs": 135,
       "protocol": null,
       "cipher": null,
       "authorized": true,
@@ -57,7 +57,7 @@
       "service": "NFeStatusServico4",
       "policy": "native",
       "endpoint": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeStatusServico4?wsdl",
-      "durationMs": 135,
+      "durationMs": 137,
       "protocol": null,
       "cipher": null,
       "authorized": true,
@@ -73,7 +73,7 @@
       "service": "NFeRecepcaoEvento4",
       "policy": "native",
       "endpoint": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeRecepcaoEvento4?wsdl",
-      "durationMs": 134,
+      "durationMs": 132,
       "protocol": null,
       "cipher": null,
       "authorized": true,
@@ -89,7 +89,7 @@
       "service": "NFeInutilizacao4",
       "policy": "native",
       "endpoint": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeInutilizacao4?wsdl",
-      "durationMs": 152,
+      "durationMs": 145,
       "protocol": null,
       "cipher": null,
       "authorized": true,
@@ -99,5 +99,6 @@
       "bytes": 2856,
       "success": true
     }
-  ]
+  ],
+  "stderr": "Retrieving project…\nDownloading `development` Environment Variables\n"
 }

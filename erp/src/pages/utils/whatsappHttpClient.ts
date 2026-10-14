@@ -2,7 +2,7 @@ import { getSettings } from '@/pages/utils/settingsService';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
 
-export const GRAPH_API_VERSION = 'v18.0';
+export const GRAPH_API_VERSION = 'v26.0';
 export const FACEBOOK_GRAPH_URL = 'https://graph.facebook.com';
 
 /**

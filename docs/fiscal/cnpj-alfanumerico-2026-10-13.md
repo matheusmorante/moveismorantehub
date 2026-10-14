@@ -31,10 +31,12 @@ Execuções focadas, com sobreposição entre rodadas; não somar as contagens c
 | API de cancelamento, identificadores, geração e envelope | 59 testes em quatro arquivos aprovados na rodada final, incluindo os dois formatos de emitente no cancelamento simulado. |
 | Orquestração, fronteiras e políticas afetadas | 164 testes em nove arquivos aprovados; SOAP e persistência simulados. |
 | Entrada da chave, módulos legados, serializer e responsável técnico | Respectivamente 7, 6, 9 e 3 testes aprovados. O teste legado que rejeitava qualquer letra foi atualizado: uma letra pode preservar ambos os DVs pelo cálculo oficial. |
-| DANFE alfanumérico | Dois testes Node de HTML/SVG aprovados. A suíte antiga em jsdom não iniciou por ausência de `canvas.node` no ambiente local. |
+| DANFE alfanumérico | 10 testes em dois arquivos aprovados após executar também a suíte de geração HTML/parser XML em Node, sem dependência desnecessária de jsdom. Inclui os dois testes alfanuméricos. |
 | Estáticos/build | TypeScript da API e build fiscal aprovados: 15 rotas carregadas, XSD/WASM resolvidos, 12/12 funções Vercel locais. ESLint dos arquivos alterados sem erros; Biome da API com seis avisos e uma informação preexistentes. |
 
-O TypeScript fiscal do ERP encontrou `TS2345` em `ReceiptPage/ShippingData.tsx:50`, numa alteração concorrente fora desta tarefa (`string | undefined` entregue a função que exige `string`). Não foi declarado aprovado nem corrigido por esta revisão. A regra de nome do destinatário em HML já implementada foi preservada, corrigindo apenas uma expectativa desatualizada de teste.
+Na continuação de 13/10, o `TS2345` de `ReceiptPage/ShippingData.tsx` foi corrigido reutilizando a data já normalizada pelo componente, inclusive para ausência de agendamento. TypeScript fiscal do ERP e ESLint dos dois arquivos alterados passaram. A dependência nativa `canvas.node` continua ausente; a suíte do DANFE não precisa dela, mas outros testes que realmente dependam de jsdom não foram reparados nem validados nesta etapa. A regra de nome do destinatário em HML já implementada foi preservada, corrigindo apenas uma expectativa desatualizada de teste.
+
+Também foram abertas amostras sintéticas locais de HTML dos modelos 55/65 no Chrome visível: CNPJ e chave alfanuméricos preservados; código de barras SVG visível no modelo 55. HTML e capturas estão em `output/playwright/danfe-alpha-55.{html,jpg}` e `danfe-alpha-65.{html,jpg}`. Sem protocolo real, itens comerciais ou transmissão; a amostra 65 não possui QR Code. Essa inspeção não comprova impressão, leitura por scanner, QR Code nem adequação integral de layout às NTs. [Continuação e limites da integração](integracao-comercial-controlada-2026-10-13.md).
 
 ## Migration e implantação
 

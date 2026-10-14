@@ -14,9 +14,11 @@ import {
   createCurrentUserPassword,
 } from '@/services/authPasswordSetup';
 import { shouldRunAuthSessionMaintenance } from '../../../shared-utils/authSessionPolicy';
+import { withTimeout } from '../../../shared-utils/withTimeout';
 import {
   bindTestArtifactContext,
   clearTestArtifactContext,
+  getTestArtifactContext,
   testArtifactIdentityForAuthenticatedUser,
 } from '../../../shared-utils/testArtifactContext';
 import { queryClient } from '@/lib/queryClient';
@@ -68,6 +70,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Shared bounded wait also protects commercial/fiscal preflight queries.
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -148,11 +152,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isMasterEmail = isMasterEmailCheck(userEmail);
       const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
 
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select(PROFILE_COLUMNS)
-        .eq('id', user.id)
-        .maybeSingle();
+      const { data: existingProfile } = await withTimeout(
+        supabase
+          .from('profiles')
+          .select(PROFILE_COLUMNS)
+          .eq('id', user.id)
+          .maybeSingle(),
+        6000,
+        { data: null, error: null } as any,
+        'profiles.select'
+      );
       let data: Profile | null = existingProfile;
 
       if (!data) {
@@ -168,11 +177,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             (isMasterEmail ? 'Matheus Morante' : 'Novo Usuário'),
         };
 
-        const { data: upsertedData } = await supabase
-          .from('profiles')
-          .upsert(newProfile)
-          .select(PROFILE_COLUMNS)
-          .maybeSingle();
+        const { data: upsertedData } = await withTimeout(
+          supabase
+            .from('profiles')
+            .upsert(newProfile)
+            .select(PROFILE_COLUMNS)
+            .maybeSingle(),
+          5000,
+          { data: null, error: null } as any,
+          'profiles.upsert'
+        );
 
         data = upsertedData || newProfile;
       }
@@ -185,13 +199,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Garante que o usuário logado via Google sincronize seu colaborador na tabela people (1 por e-mail)
       if (userEmail && syncEmployee) {
         try {
-          const { data: existingEmps } = await supabase
-            .from('people')
-            .select('id,email,full_name')
-            .eq('person_type', 'employees')
-            .eq('deleted', false)
-            .ilike('email', userEmail)
-            .limit(1);
+          const { data: existingEmps } = await withTimeout(
+            supabase
+              .from('people')
+              .select('id,email,full_name')
+              .eq('person_type', 'employees')
+              .eq('deleted', false)
+              .ilike('email', userEmail)
+              .limit(1),
+            4000,
+            { data: null, error: null } as any,
+            'people.select'
+          );
 
           const empName =
             googleName ||
@@ -312,6 +331,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('[Auth] Falha ao limpar cache de queries na troca de usuário:', e);
         }
       }
+      const previousTestContext = getTestArtifactContext();
       clearTestArtifactContext();
       if (newUser && profileResolvedUserIdRef.current !== newUser.id) {
         setProfile(null);
@@ -335,13 +355,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const configuredOperatorAuthorized =
             import.meta.env.DEV
             && isProfileAdministrator
-            && import.meta.env.VITE_TEST_ARTIFACT_RUN_ID
             ? await verifyConfiguredTestArtifactOperator(session?.access_token)
             : false;
+          const ownedTestContext = previousTestContext?.ownerId === newUser.id
+            ? previousTestContext : null;
           const testIdentity = testArtifactIdentityForAuthenticatedUser({
             isDevelopment: import.meta.env.DEV,
-            runId: import.meta.env.VITE_TEST_ARTIFACT_RUN_ID,
-            scenarioKey: import.meta.env.VITE_TEST_ARTIFACT_SCENARIO_KEY,
+            runId: import.meta.env.VITE_TEST_ARTIFACT_RUN_ID
+              || ownedTestContext?.runId
+              || (configuredOperatorAuthorized ? crypto.randomUUID() : undefined),
+            scenarioKey: import.meta.env.VITE_TEST_ARTIFACT_SCENARIO_KEY
+              || (!import.meta.env.VITE_TEST_ARTIFACT_RUN_ID
+                ? ownedTestContext?.scenarioKey : undefined),
             ownerId: newUser.id,
             isAdministrator: isProfileAdministrator,
             configuredOperatorAuthorized,
@@ -350,17 +375,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           else clearTestArtifactContext();
           if (runSessionMaintenance) {
             try {
-              await refreshPasswordCredentialStatus();
+              await withTimeout(
+                refreshPasswordCredentialStatus(),
+                4000,
+                false,
+                'refreshPasswordCredentialStatus'
+              );
             } catch (error) {
               console.error('[Auth] Não foi possível confirmar a credencial de senha:', error);
             }
           }
         } finally {
+          clearTimeout(failsafe);
           if (isInitialSessionSource) initialSessionUserId = sessionUserId;
           if (active) setLoading(false);
           handlingSession = false;
         }
       } else {
+        clearTimeout(failsafe);
         clearTestArtifactContext();
         try {
           queryClient.clear();
@@ -463,7 +495,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
       console.log('[Auth] State Change:', event);
-      clearTimeout(failsafe);
       // INITIAL_SESSION é a fonte de verdade da sessão restaurada. O bloqueio
       // `handlingSession` já impede processamento duplicado com getSession().
       handleSession(session, event);

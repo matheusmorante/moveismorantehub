@@ -32,6 +32,7 @@ export const mapToDB = (collectionName: string, person: Partial<Person>) => {
     p.address ||
     p.additionalContacts !== undefined ||
     p.noAddress !== undefined ||
+    p.noPhone !== undefined ||
     p.role !== undefined ||
     p.roles !== undefined
   ) {
@@ -51,6 +52,9 @@ export const mapToDB = (collectionName: string, person: Partial<Person>) => {
       }
       if (p.noAddress !== undefined) {
         addressVal.noAddress = p.noAddress;
+      }
+      if (p.noPhone !== undefined) {
+        addressVal.noPhone = p.noPhone;
       }
       if (p.role !== undefined) {
         addressVal.role = p.role;
@@ -118,6 +122,8 @@ export const mapFromDB = (data: any): Person => {
     ieIndicator: (data.ie_indicator as '1' | '2' | '9') || '9',
     email: data.email || '',
     phone: data.phone || '',
+    noPhone: typeof parsedAddress === 'object' && parsedAddress !== null
+      ? parsedAddress.noPhone === true : false,
     address: parsedAddress || {},
     fullAddress:
       typeof parsedAddress === 'object' && parsedAddress !== null

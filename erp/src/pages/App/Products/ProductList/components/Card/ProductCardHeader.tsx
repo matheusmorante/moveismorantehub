@@ -25,7 +25,9 @@ interface ProductCardHeaderProps {
   onEdit: (product: Product) => void;
   onLaunchStock?: (product: Product) => void;
   onDelete: (id: string) => void;
-  onPermanentDelete: (id: string) => void;
+  onRestore?: (id: string) => void;
+  onMoveToTrash?: (product: Product) => void;
+  onPermanentDelete?: (id: string) => void;
   onToggleActive: (id: string, currentStatus: boolean) => void;
   onDeactivateCatalog: (id: string) => void;
   onShowHistory?: (product: Product) => void;
@@ -53,6 +55,8 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
   onEdit,
   onLaunchStock,
   onDelete,
+  onRestore,
+  onMoveToTrash,
   onPermanentDelete,
   onToggleActive,
   onDeactivateCatalog,
@@ -181,6 +185,16 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
           >
             <i className="bi bi-eye" />
           </button>
+        ) : showTrash && !isLabelOnlyProfile && !isVariation ? (
+          <button
+            type="button"
+            onClick={() => onRestore?.(product.id || '')}
+            className="w-8 h-8 flex items-center justify-center rounded-xl text-emerald-600 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer"
+            title="Restaurar"
+            aria-label="Restaurar produto"
+          >
+            <i className="bi bi-arrow-counterclockwise text-sm font-bold" />
+          </button>
         ) : (
           !showTrash &&
           !isVariation && (
@@ -194,6 +208,7 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
               onShowHistory={onShowHistory}
               onLaunchStock={onLaunchStock}
               onDelete={onDelete}
+              onMoveToTrash={onMoveToTrash}
               onPermanentDelete={onPermanentDelete}
               onMoveToAnotherFamily={onMoveToAnotherFamily}
               onMergeWithAnotherVariation={onMergeWithAnotherVariation}

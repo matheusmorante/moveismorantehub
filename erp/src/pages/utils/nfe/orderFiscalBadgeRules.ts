@@ -40,6 +40,7 @@ export interface ReturnFiscalDocumentSummary extends FiscalDocumentStatusRow {
 }
 
 export interface FiscalOperationDraftStatusRow {
+  id?: string;
   original_document_id: string;
   operation_kind: 'estorno' | 'return';
   environment?: number | null;
@@ -60,6 +61,7 @@ export interface OrderFiscalBadgeStatuses {
   }>;
   estornoStatus?: OrderFiscalOperationBadgeStatus;
   estornoDocumentId?: string;
+  estornoDraftId?: string;
   estornoEnvironment?: 1 | 2;
   devolucaoStatus?: OrderFiscalOperationBadgeStatus;
   devolucaoDocumentId?: string;
@@ -80,7 +82,12 @@ const resolveFiscalOperationBadge = (
   documents: readonly FiscalDocumentStatusRow[],
   drafts: readonly FiscalOperationDraftStatusRow[],
   documentType: 'estorno' | 'return'
-): { status?: OrderFiscalOperationBadgeStatus; documentId?: string; environment?: 1 | 2 } => {
+): {
+  status?: OrderFiscalOperationBadgeStatus;
+  documentId?: string;
+  draftId?: string;
+  environment?: 1 | 2;
+} => {
   const operationDocuments = documents.filter((document) => document.document_type === documentType);
   const authorizedDocument = operationDocuments
     .filter(isAuthorizedFiscalDocument)
@@ -116,17 +123,18 @@ const resolveFiscalOperationBadge = (
 
   if (latestDraft) {
     const draftStatus = latestDraft.status.toLowerCase();
+    const draftId = latestDraft.id;
     if (draftStatus === 'rejected') {
-      return { status: 'rejected', environment: latestDraft.environment === 2 ? 2 : 1 };
+      return { status: 'rejected', draftId, environment: latestDraft.environment === 2 ? 2 : 1 };
     }
     if (draftStatus === 'transmitting' || draftStatus === 'unknown') {
-      return { status: 'pending', environment: latestDraft.environment === 2 ? 2 : 1 };
+      return { status: 'pending', draftId, environment: latestDraft.environment === 2 ? 2 : 1 };
     }
     if (draftStatus === 'draft' || draftStatus === 'ready') {
-      return { status: 'prepared', environment: latestDraft.environment === 2 ? 2 : 1 };
+      return { status: 'prepared', draftId, environment: latestDraft.environment === 2 ? 2 : 1 };
     }
     if (draftStatus === 'authorized') {
-      return { status: 'issued', environment: latestDraft.environment === 2 ? 2 : 1 };
+      return { status: 'issued', draftId, environment: latestDraft.environment === 2 ? 2 : 1 };
     }
   }
 
@@ -150,12 +158,16 @@ const resolveFiscalOperationBadge = (
 export const resolveOrderFiscalEstornoBadge = (
   documents: readonly FiscalDocumentStatusRow[],
   drafts: readonly FiscalOperationDraftStatusRow[] = []
-): Pick<OrderFiscalBadgeStatuses, 'estornoStatus' | 'estornoDocumentId' | 'estornoEnvironment'> => {
+): Pick<
+  OrderFiscalBadgeStatuses,
+  'estornoStatus' | 'estornoDocumentId' | 'estornoDraftId' | 'estornoEnvironment'
+> => {
   const badge = resolveFiscalOperationBadge(documents, drafts, 'estorno');
   if (!badge.status) return {};
   return {
     estornoStatus: badge.status,
     estornoDocumentId: badge.documentId,
+    estornoDraftId: badge.draftId,
     estornoEnvironment: badge.environment,
   };
 };

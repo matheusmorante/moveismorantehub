@@ -46,3 +46,9 @@ Não descreva mocks como prova de integração PostgreSQL. Não declare atomicid
 - Provisionamento remoto é uma operação separada do runner e exige autorização explícita para a escrita concreta, readiness e isolamento comprovados. Use serviços, schemas e validações dos formulários reais; não reintroduza presets estáticos de entidades E2E no código.
 - A prontidão comportamental, ownership, RLS/RPC, vínculos, exclusões operacionais e supressão de notificações continuam gates obrigatórios. Não contorne `TEST_ARTIFACT_UNAUTHORIZED` nem use flags ambientais no lugar de evidência.
 - Toda transmissão real à SEFAZ continua pela UI do ERP, exclusivamente em Homologação (`environment=2`/`tpAmb=2`) e com autorização explícita. Nunca transmitir por script, CLI, SQL ou HTTP direto.
+
+## Geração automatizada — orientação do usuário em 14/10/2026
+
+O usuário solicitou implementação de geração em lote pelo backend, **depois de auditar, corrigir e validar as regras de negócio compartilhadas pelos fluxos normais**. Para esse trabalho, a preparação automatizada dispensa interação manual nos formulários e deve usar as mesmas validações, autorização e persistência comercial. As orientações anteriores sobre preenchimento manual não impedem implementar esse gerador. O resolvedor fiscal existente permanece somente leitura; planejamento, geração e transmissão são etapas distintas.
+
+A implementação não autoriza popular o banco operacional. Antes da execução em massa, apresentar cenários, quantidades, relações, estoque/financeiro aplicáveis, riscos e retenção e obter autorização específica. Não criar estados fiscais autorizados, retroagir datas ou adulterar snapshots para simular elegibilidade. Preservar ownership, isolamento, limites de volume, idempotência, concorrência limitada, auditoria e ausência de transmissão automática na geração. Esta orientação prevalece sobre referências anteriores que proibiam qualquer preparação sintética no backend.

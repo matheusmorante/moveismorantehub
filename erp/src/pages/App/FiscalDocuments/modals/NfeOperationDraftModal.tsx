@@ -170,7 +170,7 @@ export default function NfeOperationDraftModal({
               disabled={
                 transmitting ||
                 savingReview ||
-                (isProduction && !productionConfirmed) ||
+                (isProduction && !productionConfirmed && (payload.draft.status === 'ready' || retryAllowed)) ||
                 ['draft', 'rejected', 'authorized'].includes(payload.draft.status)
               }
               className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black text-white disabled:opacity-40"

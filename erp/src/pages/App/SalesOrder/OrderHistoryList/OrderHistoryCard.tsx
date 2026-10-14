@@ -37,6 +37,7 @@ interface OrderHistoryCardProps {
   }>;
   readonly fiscalEstornoBadgeStatus?: OrderFiscalOperationBadgeStatus;
   readonly fiscalEstornoDocumentId?: string;
+  readonly fiscalEstornoDraftId?: string;
   readonly fiscalEstornoEnvironment?: 1 | 2;
   readonly fiscalDevolucaoBadgeStatus?: OrderFiscalOperationBadgeStatus;
   readonly fiscalDevolucaoDocumentId?: string;
@@ -83,6 +84,7 @@ const OrderHistoryCard = ({
   fiscalCancellationDocuments,
   fiscalEstornoBadgeStatus,
   fiscalEstornoDocumentId,
+  fiscalEstornoDraftId,
   fiscalEstornoEnvironment,
   fiscalDevolucaoBadgeStatus,
   fiscalDevolucaoDocumentId,
@@ -265,6 +267,7 @@ const OrderHistoryCard = ({
             kind="estorno"
             status={fiscalEstornoBadgeStatus}
             documentId={fiscalEstornoDocumentId}
+            draftId={fiscalEstornoDraftId}
             environment={fiscalEstornoEnvironment}
             onOpenDocument={onViewFiscalDocument}
           />

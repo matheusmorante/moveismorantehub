@@ -132,7 +132,7 @@ describe('transação comercial antes dos efeitos fiscais do cancelamento', () =
     expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
     expect(mocks.processFiscalEffects).not.toHaveBeenCalled();
     expect(setOrders).toHaveBeenCalledTimes(2);
-    expect(mocks.toast.error).toHaveBeenCalledWith('Erro ao atualizar status do pedido.');
+    expect(mocks.toast.error).toHaveBeenCalledWith('Erro no cancelamento comercial do pedido.');
   });
 
   it('retorna sucesso somente depois de concluir a transação comercial', async () => {
@@ -198,7 +198,7 @@ describe('transação comercial antes dos efeitos fiscais do cancelamento', () =
     expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
     expect(mocks.processFiscalEffects).toHaveBeenCalledTimes(2);
     expect(mocks.toast.warning).toHaveBeenCalledWith(
-      expect.stringContaining('o cancelamento não foi registrado')
+      expect.stringContaining('o cancelamento fiscal não foi registrado')
     );
   });
 });

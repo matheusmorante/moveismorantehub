@@ -10,6 +10,7 @@ export interface VariationDescriptionTabProps {
   readonly parentProduct: Product;
   readonly handleChange: <K extends keyof Variation>(field: K, value: Variation[K]) => void;
   readonly isSingleVariation?: boolean;
+  readonly showAiImprove?: boolean;
 }
 
 export const VariationDescriptionTab: React.FC<VariationDescriptionTabProps> = ({
@@ -18,6 +19,7 @@ export const VariationDescriptionTab: React.FC<VariationDescriptionTabProps> = (
   parentProduct,
   handleChange,
   isSingleVariation = false,
+  showAiImprove = false,
 }) => {
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
 
@@ -68,7 +70,7 @@ export const VariationDescriptionTab: React.FC<VariationDescriptionTabProps> = (
           Descrição da variação
         </h3>
         <div className="flex items-center gap-2">
-          {!isSynced && !isSingleVariation && (
+          {showAiImprove && !isSynced && !isSingleVariation && (
             <button
               type="button"
               onClick={handleImproveDescriptionWithAI}

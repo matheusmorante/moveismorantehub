@@ -1,0 +1,335 @@
+{
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "kind": "performance",
+  "lints": [
+    {
+      "name": "unindexed_foreign_keys",
+      "level": "INFO",
+      "count": 34,
+      "relevantFindings": [
+        {
+          "detail": "Table \\`public.products\\` has a foreign key \\`products_material_id_fkey\\` without a covering index. This can lead to suboptimal query performance.",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public",
+            "fkey_name": "products_material_id_fkey",
+            "fkey_columns": [
+              18
+            ]
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.products\\` has a foreign key \\`products_opportunity_id_fkey\\` without a covering index. This can lead to suboptimal query performance.",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public",
+            "fkey_name": "products_opportunity_id_fkey",
+            "fkey_columns": [
+              14
+            ]
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        }
+      ]
+    },
+    {
+      "name": "auth_rls_initplan",
+      "level": "WARN",
+      "count": 27,
+      "relevantFindings": [
+        {
+          "detail": "Table \\`public.product_variations\\` has a row level security policy \\`allow_select\\` that re-evaluates current_setting() or auth.<function>() for each row. This produces suboptimal query performance at scale. Resolve the issue by replacing \\`auth.<function>()\\` with \\`(select auth.<function>())\\`. See [docs](https://supabase.com/docs/guides/database/postgres/row-level-security#call-functions-with-select) for more info.",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has a row level security policy \\`allow_insert\\` that re-evaluates current_setting() or auth.<function>() for each row. This produces suboptimal query performance at scale. Resolve the issue by replacing \\`auth.<function>()\\` with \\`(select auth.<function>())\\`. See [docs](https://supabase.com/docs/guides/database/postgres/row-level-security#call-functions-with-select) for more info.",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has a row level security policy \\`allow_update\\` that re-evaluates current_setting() or auth.<function>() for each row. This produces suboptimal query performance at scale. Resolve the issue by replacing \\`auth.<function>()\\` with \\`(select auth.<function>())\\`. See [docs](https://supabase.com/docs/guides/database/postgres/row-level-security#call-functions-with-select) for more info.",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has a row level security policy \\`allow_delete\\` that re-evaluates current_setting() or auth.<function>() for each row. This produces suboptimal query performance at scale. Resolve the issue by replacing \\`auth.<function>()\\` with \\`(select auth.<function>())\\`. See [docs](https://supabase.com/docs/guides/database/postgres/row-level-security#call-functions-with-select) for more info.",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        }
+      ]
+    },
+    {
+      "name": "no_primary_key",
+      "level": "INFO",
+      "count": 1,
+      "relevantFindings": []
+    },
+    {
+      "name": "unused_index",
+      "level": "INFO",
+      "count": 20,
+      "relevantFindings": [
+        {
+          "detail": "Index \\`idx_products_catalog_search_name_trgm\\` on table \\`public.products\\` has not been used",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        }
+      ]
+    },
+    {
+      "name": "multiple_permissive_policies",
+      "level": "WARN",
+      "count": 246,
+      "relevantFindings": [
+        {
+          "detail": "Table \\`public.order_items\\` has multiple permissive policies for role \\`anon\\` for action \\`SELECT\\`. Policies include \\`{\"Permitir escrita de order_items\",\"Permitir leitura de order_items para anon e autenticado\"}\\`",
+          "metadata": {
+            "name": "order_items",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.order_payments\\` has multiple permissive policies for role \\`anon\\` for action \\`SELECT\\`. Policies include \\`{\"Permitir escrita de order_payments\",\"Permitir leitura de order_payments para anon e autenticado\"}\\`",
+          "metadata": {
+            "name": "order_payments",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has multiple permissive policies for role \\`anon\\` for action \\`SELECT\\`. Policies include \\`{allow_public_select,allow_public_select_variations,allow_select}\\`",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.products\\` has multiple permissive policies for role \\`anon\\` for action \\`SELECT\\`. Policies include \\`{\"Permitir leitura pública de produtos\",allow_public_select_products}\\`",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.order_items\\` has multiple permissive policies for role \\`authenticated\\` for action \\`SELECT\\`. Policies include \\`{\"Permitir escrita de order_items\",\"Permitir leitura de order_items para anon e autenticado\"}\\`",
+          "metadata": {
+            "name": "order_items",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.order_payments\\` has multiple permissive policies for role \\`authenticated\\` for action \\`SELECT\\`. Policies include \\`{\"Permitir escrita de order_payments\",\"Permitir leitura de order_payments para anon e autenticado\"}\\`",
+          "metadata": {
+            "name": "order_payments",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has multiple permissive policies for role \\`authenticated\\` for action \\`DELETE\\`. Policies include \\`{allow_all_product_variations,allow_delete}\\`",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has multiple permissive policies for role \\`authenticated\\` for action \\`INSERT\\`. Policies include \\`{allow_all_product_variations,allow_insert}\\`",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has multiple permissive policies for role \\`authenticated\\` for action \\`SELECT\\`. Policies include \\`{allow_all_product_variations,allow_public_select,allow_public_select_variations,allow_select}\\`",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has multiple permissive policies for role \\`authenticated\\` for action \\`UPDATE\\`. Policies include \\`{allow_all_product_variations,allow_update}\\`",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.products\\` has multiple permissive policies for role \\`authenticated\\` for action \\`DELETE\\`. Policies include \\`{\"Permitir gestão de produtos para autenticados\",allow_all_products}\\`",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.products\\` has multiple permissive policies for role \\`authenticated\\` for action \\`INSERT\\`. Policies include \\`{\"Permitir gestão de produtos para autenticados\",allow_all_products}\\`",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.products\\` has multiple permissive policies for role \\`authenticated\\` for action \\`SELECT\\`. Policies include \\`{\"Permitir gestão de produtos para autenticados\",\"Permitir leitura pública de produtos\",allow_all_products,allow_public_select_products}\\`",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.products\\` has multiple permissive policies for role \\`authenticated\\` for action \\`UPDATE\\`. Policies include \\`{\"Permitir gestão de produtos para autenticados\",allow_all_products}\\`",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has multiple permissive policies for role \\`authenticator\\` for action \\`SELECT\\`. Policies include \\`{allow_public_select,allow_public_select_variations,allow_select}\\`",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.products\\` has multiple permissive policies for role \\`authenticator\\` for action \\`SELECT\\`. Policies include \\`{\"Permitir leitura pública de produtos\",allow_public_select_products}\\`",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has multiple permissive policies for role \\`cli_login_postgres\\` for action \\`SELECT\\`. Policies include \\`{allow_public_select,allow_public_select_variations,allow_select}\\`",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.products\\` has multiple permissive policies for role \\`cli_login_postgres\\` for action \\`SELECT\\`. Policies include \\`{\"Permitir leitura pública de produtos\",allow_public_select_products}\\`",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has multiple permissive policies for role \\`dashboard_user\\` for action \\`SELECT\\`. Policies include \\`{allow_public_select,allow_public_select_variations,allow_select}\\`",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.products\\` has multiple permissive policies for role \\`dashboard_user\\` for action \\`SELECT\\`. Policies include \\`{\"Permitir leitura pública de produtos\",allow_public_select_products}\\`",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.product_variations\\` has multiple permissive policies for role \\`supabase_privileged_role\\` for action \\`SELECT\\`. Policies include \\`{allow_public_select,allow_public_select_variations,allow_select}\\`",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        },
+        {
+          "detail": "Table \\`public.products\\` has multiple permissive policies for role \\`supabase_privileged_role\\` for action \\`SELECT\\`. Policies include \\`{\"Permitir leitura pública de produtos\",allow_public_select_products}\\`",
+          "metadata": {
+            "name": "products",
+            "type": "table",
+            "schema": "public"
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        }
+      ]
+    },
+    {
+      "name": "duplicate_index",
+      "level": "WARN",
+      "count": 1,
+      "relevantFindings": [
+        {
+          "detail": "Table \\`public.product_variations\\` has identical indexes {idx_mobile_product_save_merged_variation,product_variations_merged_to_variation_id_idx}. Drop all except one of them",
+          "metadata": {
+            "name": "product_variations",
+            "type": "table",
+            "schema": "public",
+            "indexes": [
+              "idx_mobile_product_save_merged_variation",
+              "product_variations_merged_to_variation_id_idx"
+            ]
+          },
+          "observed_at": "2026-10-14T12:06:39.658Z"
+        }
+      ]
+    },
+    {
+      "name": "auth_db_connections_absolute",
+      "level": "INFO",
+      "count": 1,
+      "relevantFindings": []
+    }
+  ]
+}

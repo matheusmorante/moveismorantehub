@@ -45,12 +45,14 @@ interface TestHarnessProps {
   parent?: Product;
   initial?: Variation;
   isSingle?: boolean;
+  showAiImprove?: boolean;
 }
 
 const TestHarness: React.FC<TestHarnessProps> = ({
   parent = mockParent,
   initial = initialVariation,
   isSingle = false,
+  showAiImprove = false,
 }) => {
   const [formData, setFormData] = useState<Variation | null>(initial);
 
@@ -70,6 +72,7 @@ const TestHarness: React.FC<TestHarnessProps> = ({
         parentProduct={parent}
         handleChange={handleChange}
         isSingleVariation={isSingle}
+        showAiImprove={showAiImprove}
       />
     </>
   );
@@ -142,13 +145,29 @@ describe('VariationDescriptionTab - Herança e personalização de descrição',
     expect(textarea).toBeDisabled();
   });
 
-  it('permite aperfeiçoar descrição com IA quando estiver em modo personalizado', async () => {
+  it('não exibe o botão de aperfeiçoar com IA por padrão quando ocultado', () => {
+    render(
+      <TestHarness
+        initial={{
+          ...initialVariation,
+          syncDescription: false,
+          description: 'Texto simples',
+        }}
+      />
+    );
+
+    const aiButton = screen.queryByRole('button', { name: /aperfeiçoar com ia/i });
+    expect(aiButton).not.toBeInTheDocument();
+  });
+
+  it('permite aperfeiçoar descrição com IA quando showAiImprove estiver ativo', async () => {
     vi.mocked(aiService.improveProductDescription).mockResolvedValueOnce({
       improvedDescription: 'Descrição gerada com IA para a variação.',
     } as any);
 
     render(
       <TestHarness
+        showAiImprove={true}
         initial={{
           ...initialVariation,
           syncDescription: false,

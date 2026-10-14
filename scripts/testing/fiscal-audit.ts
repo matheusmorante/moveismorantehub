@@ -9,10 +9,12 @@ import { getCACertificates, type TLSSocket } from 'node:tls';
 import dotenv from 'dotenv';
 import forge from 'node-forge';
 import { createClient } from '@supabase/supabase-js';
-import { extractCertificateAndKey } from '../../api/nfe/nfeSigner';
+import { extractCertificateAndKey, signNfeXml } from '../../api/nfe/nfeSigner';
 import { createSefazHttpsAgent } from '../../api/nfe/sefazHttpsAgent';
 import { sendSoapToSefaz } from '../../api/nfe/sefazClient';
+import { validateNfeAgainstOfficialSchema, validateUnsignedNfeStructure } from '../../api/nfe/schemaValidator';
 import { icpBrasilRoots } from '../../api/nfe/icpBrasilRoots';
+import { performance } from 'node:perf_hooks';
 import { excludeTestOrders, NON_TEST_ARTIFACT_FILTER } from '../../shared-utils/testArtifactQueries';
 
 const root = path.resolve(__dirname, '../../..');
@@ -553,6 +555,212 @@ async function main() {
     console.log(JSON.stringify({mode,model,environment:2,cStat,success: mode === 'status' ? cStat === '107' : ['100','150','217','101','151','155'].includes(cStat || ''),
       reason:result.match(/<xMotivo>(.*?)<\/xMotivo>/)?.[1],responseBytes:result.length,protocolPresent:/<nProt>/.test(result)}));
     if (!cStat || (mode === 'status' && cStat !== '107')) process.exitCode = 1;
+  } else if (mode === 'perf') {
+    const timings: Record<string, number> = {};
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    const db = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
+
+    // 1. Certificate parsing
+    const pfx = process.env.NFE_CERTIFICATE_BASE64 || '';
+    const pass = process.env.NFE_CERTIFICATE_PASSWORD || '';
+    let t0 = performance.now();
+    const cert = extractCertificateAndKey(pfx, pass);
+    timings.cert_extract_cold_ms = Number((performance.now() - t0).toFixed(2));
+
+    t0 = performance.now();
+    extractCertificateAndKey(pfx, pass);
+    timings.cert_extract_warm_ms = Number((performance.now() - t0).toFixed(2));
+
+    // 2. Load sample XML from db
+    t0 = performance.now();
+    const { data: doc } = await db
+      .from('nfe_documents')
+      .select('xml_nfe, chave_acesso, numero_nfe, serie')
+      .eq('ambiente', 2)
+      .eq('modelo', '55')
+      .eq('status', 'homologada')
+      .not('xml_nfe', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    timings.db_fetch_sample_xml_ms = Number((performance.now() - t0).toFixed(2));
+
+    const sampleXml = doc?.xml_nfe || '';
+
+    // 3. Schema validation (cold & warm)
+    if (sampleXml) {
+      t0 = performance.now();
+      await validateNfeAgainstOfficialSchema(sampleXml);
+      timings.schema_validation_cold_ms = Number((performance.now() - t0).toFixed(2));
+
+      t0 = performance.now();
+      await validateNfeAgainstOfficialSchema(sampleXml);
+      timings.schema_validation_warm_ms = Number((performance.now() - t0).toFixed(2));
+
+      // 4. Unsigned structure validation & XML signing
+      const unsignedXml = sampleXml.replace(/<Signature[\s\S]*?<\/Signature>/, '');
+      t0 = performance.now();
+      await validateUnsignedNfeStructure(unsignedXml);
+      timings.xml_unsigned_validation_ms = Number((performance.now() - t0).toFixed(2));
+
+      t0 = performance.now();
+      signNfeXml(unsignedXml, cert.privateKeyPem, cert.certDerBase64);
+      timings.xml_signing_ms = Number((performance.now() - t0).toFixed(2));
+    }
+
+    // 5. Supabase typical queries in emission
+    t0 = performance.now();
+    await db.from('settings').select('data').eq('id', 'app').maybeSingle();
+    timings.db_settings_read_ms = Number((performance.now() - t0).toFixed(2));
+
+    t0 = performance.now();
+    await db.from('orders').select('id,order_type,status,deleted,order_data,version,updated_at').limit(1).maybeSingle();
+    timings.db_orders_read_ms = Number((performance.now() - t0).toFixed(2));
+
+    t0 = performance.now();
+    await db.from('ncms').select('code,active,is_active,start_date,end_date').in('code', ['94036000']);
+    timings.db_ncms_read_ms = Number((performance.now() - t0).toFixed(2));
+
+    t0 = performance.now();
+    await db.from('products').select('id,fiscal,unit').limit(5);
+    timings.db_products_read_ms = Number((performance.now() - t0).toFixed(2));
+
+    t0 = performance.now();
+    await db.rpc('test_artifact_policy_status');
+    timings.db_rpc_ping_ms = Number((performance.now() - t0).toFixed(2));
+
+    // 6. SEFAZ Status SOAP call (mTLS)
+    t0 = performance.now();
+    const statusPayload = '<consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>2</tpAmb><cUF>41</cUF><xServ>STATUS</xServ></consStatServ>';
+    const statusResult = await sendSoapToSefaz({
+      url: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeStatusServico4',
+      action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4/nfeStatusServicoNF',
+      xmlPayload: statusPayload,
+      serviceNamespace: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4',
+      certPem: cert.certPem,
+      privateKeyPem: cert.privateKeyPem,
+    });
+    timings.sefaz_status_soap_ms = Number((performance.now() - t0).toFixed(2));
+    const statusCStat = statusResult.match(/<cStat>(\d+)<\/cStat>/)?.[1];
+
+    // 7. SEFAZ Consultation SOAP call (mTLS) if key available
+    if (doc?.chave_acesso) {
+      t0 = performance.now();
+      const consultPayload = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>2</tpAmb><xServ>CONSULTAR</xServ><chNFe>${doc.chave_acesso}</chNFe></consSitNFe>`;
+      const consultResult = await sendSoapToSefaz({
+        url: 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeConsultaProtocolo4',
+        action: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF',
+        xmlPayload: consultPayload,
+        serviceNamespace: 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4',
+        certPem: cert.certPem,
+        privateKeyPem: cert.privateKeyPem,
+      });
+      timings.sefaz_consult_soap_ms = Number((performance.now() - t0).toFixed(2));
+    }
+
+    // 8. Inspect actual historical attempts duration from the database
+    const { data: recentAttempts55 } = await db
+      .from('nfe_outbound_attempts')
+      .select('id, model, environment, state, created_at, transmission_started_at, updated_at')
+      .eq('model', '55')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const { data: recentAttempts65 } = await db
+      .from('nfe_outbound_attempts')
+      .select('id, model, environment, state, created_at, transmission_started_at, updated_at')
+      .eq('model', '65')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const recentAttempts = [...(recentAttempts55 || []), ...(recentAttempts65 || [])];
+
+    const historical = (recentAttempts || []).map((att) => {
+      const created = Date.parse(att.created_at);
+      const started = att.transmission_started_at ? Date.parse(att.transmission_started_at) : null;
+      const updated = Date.parse(att.updated_at);
+      return {
+        model: att.model,
+        environment: att.environment,
+        state: att.state,
+        prep_to_transmit_ms: started ? started - created : null,
+        transmission_to_result_ms: started ? updated - started : null,
+        total_attempt_ms: updated - created,
+      };
+    });
+
+    console.log(JSON.stringify({
+      mode: 'perf',
+      success: true,
+      statusCStat,
+      timings,
+      historical,
+    }));
+  } else if (mode === 'keepalive') {
+    const pfx = process.env.NFE_CERTIFICATE_BASE64;
+    const pwd = process.env.NFE_CERTIFICATE_PASSWORD || '';
+    if (!pfx) throw new Error('PFX_UNAVAILABLE');
+    const cert = extractCertificateAndKey(pfx, pwd);
+    const https = require('node:https');
+    const { rootCertificates } = require('node:tls');
+    const { icpBrasilRoots } = require(path.join(root, 'api/nfe/icpBrasilRoots.ts'));
+    const trustedSefazAuthorities = [...new Set([...rootCertificates, ...icpBrasilRoots])];
+    const axios = require('axios');
+    const agent = new https.Agent({
+      cert: cert.certPem,
+      key: cert.privateKeyPem,
+      ca: trustedSefazAuthorities,
+      minVersion: 'TLSv1.2',
+      rejectUnauthorized: true,
+      keepAlive: true,
+      keepAliveMsecs: 15000,
+    });
+    const url = 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeStatusServico4';
+    const action = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4/nfeStatusServicoNF';
+    const payload = '<consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>2</tpAmb><cUF>41</cUF><xServ>STATUS</xServ></consStatServ>';
+    const soapEnvelope = `<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope"><soap12:Header/><soap12:Body><nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeStatusServico4">${payload}</nfeDadosMsg></soap12:Body></soap12:Envelope>`;
+
+    let t0 = performance.now();
+    const res1 = await axios.post(url, soapEnvelope, {
+      httpsAgent: agent,
+      headers: {
+        'Content-Type': `application/soap+xml; charset=utf-8; action="${action}"`,
+        'Content-Length': Buffer.byteLength(soapEnvelope, 'utf8'),
+        Accept: 'application/soap+xml, text/xml',
+      },
+      timeout: 25000,
+    });
+    const d1 = Number((performance.now() - t0).toFixed(2));
+
+    t0 = performance.now();
+    const res2 = await axios.post(url, soapEnvelope, {
+      httpsAgent: agent,
+      headers: {
+        'Content-Type': `application/soap+xml; charset=utf-8; action="${action}"`,
+        'Content-Length': Buffer.byteLength(soapEnvelope, 'utf8'),
+        Accept: 'application/soap+xml, text/xml',
+      },
+      timeout: 25000,
+    });
+    const d2 = Number((performance.now() - t0).toFixed(2));
+
+    const connHeader1 = res1.headers['connection'];
+    const connHeader2 = res2.headers['connection'];
+    const statusCStat = res2.data.match(/<cStat>(\d+)<\/cStat>/)?.[1];
+    agent.destroy();
+
+    console.log(JSON.stringify({
+      mode: 'keepalive',
+      success: true,
+      statusCStat,
+      request1_duration_ms: d1,
+      request2_duration_ms: d2,
+      saved_ms: Number((d1 - d2).toFixed(2)),
+      connection_header_1: connHeader1,
+      connection_header_2: connHeader2,
+      socket_reused: d2 < d1,
+    }));
   } else throw new Error('AUDIT_MODE_INVALID');
 }
 main().catch(error => { console.error(JSON.stringify({label,errorCode:error.code || 'AUDIT_FAILED',transportCode:error.cause?.code || null})); process.exitCode=1; });

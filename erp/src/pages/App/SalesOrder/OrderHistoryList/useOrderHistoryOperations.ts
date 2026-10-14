@@ -185,7 +185,7 @@ export const createOrderHistoryOperations = ({
         )
       );
       console.error('Erro ao atualizar status:', error);
-      toast.error('Erro ao atualizar status do pedido.');
+      toast.error(isCancelled ? 'Erro no cancelamento comercial do pedido.' : 'Erro ao atualizar status do pedido.');
       return false;
     }
 
@@ -202,34 +202,34 @@ export const createOrderHistoryOperations = ({
           const pending = outcomes.filter((item) => item.action === 'reconcile');
           if (failed.length || pending.length) {
             toast.warning(
-              `Pedido cancelado e estoque atualizado. ${failed.length} nota(s) com falha e ${pending.length} pendente(s) de confirmação. Consulte NF/NFH no card para resolver cada documento.`
+              `Cancelamento comercial concluído e estoque atualizado. ${failed.length} nota(s) com falha no cancelamento fiscal e ${pending.length} pendente(s) de confirmação. Consulte NF/NFH no card para resolver cada documento.`
             );
           } else {
-            toast.success('Pedido cancelado; tratamento fiscal de todas as notas autorizadas concluído.');
+            toast.success('Cancelamento comercial concluído; regularização fiscal de todas as notas autorizadas concluída.');
           }
         } else if (result.action === 'reconcile') {
           toast.warning(
             result.reconciliationState === 'authorized'
-              ? 'Pedido cancelado e estoque restituído. A consulta confirmou a NF autorizada; o cancelamento não foi registrado nem retransmitido.'
-              : 'Pedido cancelado e estoque restituído. O resultado fiscal ainda precisa ser verificado; nenhum novo evento foi enviado.'
+              ? 'Cancelamento comercial concluído e estoque restituído. A consulta confirmou a NF autorizada; o cancelamento fiscal não foi registrado nem retransmitido.'
+              : 'Cancelamento comercial concluído e estoque restituído. O resultado do cancelamento fiscal ainda precisa ser verificado; nenhum novo evento foi enviado.'
           );
         } else if (result.action === 'cancel' && result.reconciliationRequired) {
           toast.warning(
-            'A SEFAZ confirmou o cancelamento, mas a situação local precisa ser reconciliada.'
+            'A SEFAZ confirmou o cancelamento fiscal, mas a situação local precisa ser reconciliada.'
           );
         } else {
           toast.success(
             result.action === 'cancel'
-              ? 'Pedido cancelado; cancelamento fiscal confirmado pela SEFAZ.'
+              ? 'Cancelamento comercial concluído; cancelamento fiscal confirmado pela SEFAZ.'
               : result.action === 'estorno'
-                ? 'Pedido cancelado; estorno fiscal preparado para conferência.'
-                : 'Pedido cancelado sem documento fiscal autorizado.'
+                ? 'Cancelamento comercial concluído; estorno fiscal preparado para conferência.'
+                : 'Cancelamento comercial concluído sem documento fiscal autorizado.'
           );
         }
       } catch (error) {
-        console.error('Pedido cancelado; efeito fiscal pendente de reconciliação:', error);
+        console.error('Cancelamento comercial concluído; efeito fiscal pendente de reconciliação:', error);
         toast.error(
-          `Pedido cancelado e estoque revertido. Tratamento fiscal pendente: ${error instanceof Error ? error.message : 'tente novamente.'}`
+          `Cancelamento comercial concluído e estoque revertido. Falha no cancelamento fiscal: ${error instanceof Error ? error.message : 'regularização fiscal pendente.'}`
         );
       }
     }
@@ -261,11 +261,11 @@ export const createOrderHistoryOperations = ({
       if (result.action === 'reconcile') {
         toast.warning(
           result.reconciliationState === 'authorized'
-            ? 'Consulta confirmou a NF autorizada; o cancelamento não foi registrado. Clique novamente para iniciar outra tentativa, se ainda elegível.'
-            : 'A consulta não confirmou o resultado final. Nenhum novo evento foi enviado; consulte novamente antes de tentar cancelar.'
+            ? 'Consulta confirmou a NF autorizada; o cancelamento fiscal não foi registrado. Clique novamente para iniciar outra tentativa, se ainda elegível.'
+            : 'A consulta não confirmou o resultado final do cancelamento fiscal. Nenhum novo evento foi enviado; consulte novamente antes de tentar o cancelamento fiscal.'
         );
       } else if (result.action === 'cancel' && result.reconciliationRequired) {
-        toast.warning('Cancelamento confirmado pela SEFAZ; reconciliação local ainda necessária.');
+        toast.warning('Cancelamento fiscal confirmado pela SEFAZ; reconciliação local ainda necessária.');
       } else {
         toast.success(
           result.action === 'cancel'
@@ -277,7 +277,7 @@ export const createOrderHistoryOperations = ({
       }
     } catch (error) {
       toast.error(
-        `Tratamento fiscal pendente: ${error instanceof Error ? error.message : 'tente novamente.'}`
+        `Falha no cancelamento fiscal: ${error instanceof Error ? error.message : 'tente novamente.'}`
       );
     } finally {
       try {

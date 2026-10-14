@@ -18,17 +18,17 @@ export const OrderCancellationFailureNotice: React.FC<OrderCancellationFailureNo
 
   const presentation = {
     failed: {
-      label: 'Falha na tentativa de cancelamento',
+      label: 'Falha na tentativa de cancelamento fiscal',
       icon: 'bi-exclamation-circle',
       color: 'text-red-600',
     },
     pending: {
-      label: 'Cancelamento pendente de confirmação',
+      label: 'Cancelamento fiscal pendente de confirmação',
       icon: 'bi-clock-history',
       color: 'text-sky-700 dark:text-sky-300',
     },
     verify: {
-      label: 'Cancelamento pendente de confirmação',
+      label: 'Cancelamento fiscal pendente de confirmação',
       icon: 'bi-question-circle',
       color: 'text-amber-700 dark:text-amber-300',
     },

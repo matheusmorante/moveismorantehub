@@ -126,6 +126,55 @@ export function parseOrderDeliveryDate(order: Order): Date | null {
   return parseScheduleDate(dateValue);
 }
 
+export const parseScheduleTime = (order: Order): { hours: number; minutes: number } | null => {
+  const schedule = getOrderSchedule(order);
+  const source = order as any;
+  const rawEndTime =
+    schedule?.endTime ||
+    source.scheduled_end_time ||
+    source.scheduledEndTime ||
+    source.order_data?.scheduled_end_time;
+
+  if (typeof rawEndTime === 'string' && rawEndTime.trim()) {
+    const match = rawEndTime.trim().match(/^([0-9]{1,2}):([0-9]{2})/);
+    if (match) {
+      return { hours: Number(match[1]), minutes: Number(match[2]) };
+    }
+  }
+
+  const rawTime =
+    schedule?.time ||
+    source.scheduled_time ||
+    source.scheduledTime ||
+    source.order_data?.scheduled_time;
+
+  if (typeof rawTime === 'string' && rawTime.trim()) {
+    const rangeMatch = rawTime.trim().match(/[0-9]{1,2}:[0-9]{2}.*?([0-9]{1,2}):([0-9]{2})/);
+    if (rangeMatch) {
+      return { hours: Number(rangeMatch[1]), minutes: Number(rangeMatch[2]) };
+    }
+    const singleMatch = rawTime.trim().match(/^([0-9]{1,2}):([0-9]{2})/);
+    if (singleMatch) {
+      return { hours: Number(singleMatch[1]), minutes: Number(singleMatch[2]) };
+    }
+  }
+
+  const rawStartTime =
+    schedule?.startTime ||
+    source.scheduled_start_time ||
+    source.scheduledStartTime ||
+    source.order_data?.scheduled_start_time;
+
+  if (typeof rawStartTime === 'string' && rawStartTime.trim()) {
+    const match = rawStartTime.trim().match(/^([0-9]{1,2}):([0-9]{2})/);
+    if (match) {
+      return { hours: Number(match[1]), minutes: Number(match[2]) };
+    }
+  }
+
+  return null;
+};
+
 /** Calcula o prazo da coleta agendada ou a confirmação automática da venda. */
 export function getOrderFulfillmentCountdown(
   order: Order,
@@ -193,8 +242,15 @@ export function getOrderFulfillmentCountdown(
 
   if (diffDays < 0) return defaultResult;
 
+  const scheduledTime = parseScheduleTime(order);
   const deadline = new Date(deliveryDate);
-  deadline.setDate(deadline.getDate() + 1);
+  if (scheduledTime) {
+    deadline.setHours(scheduledTime.hours, scheduledTime.minutes, 0, 0);
+  } else {
+    deadline.setDate(deadline.getDate() + 1);
+    deadline.setHours(0, 0, 0, 0);
+  }
+
   const remainingMs = deadline.getTime() - now.getTime();
   const isExpired = remainingMs <= 0;
   const remainingMinutes = Math.max(1, Math.ceil(remainingMs / (60 * 1000)));

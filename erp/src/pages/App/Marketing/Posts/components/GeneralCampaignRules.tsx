@@ -1,4 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { campaignRulesFormSchema } from '../../../../../../../shared-utils/campaignFormSchemas';
+import { toast } from 'react-toastify';
+import type { z } from 'zod';
 
 type Props = {
   load: () => Promise<string>;
@@ -12,33 +16,39 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const initialValue = useRef(true);
+  const form = useZodForm(campaignRulesFormSchema, { content: value });
+  const { validateAndRun } = form;
 
-  const persist = async () => {
+  const persist = useCallback(async (data: z.output<typeof campaignRulesFormSchema>) => {
     if (!loaded) return;
     setSaving(true);
     onSavingChange(true);
     try {
-      await save(value);
+      await save(data.content);
     } finally {
       setSaving(false);
       onSavingChange(false);
     }
-  };
+  }, [loaded, save, onSavingChange]);
+  const persistRef = useRef(persist);
+  useEffect(() => { persistRef.current = persist; }, [persist]);
 
   useEffect(() => {
+    initialValue.current = true;
     void load().then((text) => {
       setValue(text);
       setLoaded(true);
     });
   }, [load]);
   useEffect(() => {
-    if (!loaded || initialValue.current) {
+    if (!loaded) return;
+    if (initialValue.current) {
       initialValue.current = false;
       return;
     }
-    const timeout = window.setTimeout(() => void persist(), 700);
+    const timeout = window.setTimeout(() => void validateAndRun({ content: value }, (data) => persistRef.current(data)), 700);
     return () => window.clearTimeout(timeout);
-  }, [value, loaded]);
+  }, [value, loaded, validateAndRun]);
 
   return (
     <section className="mt-5 rounded-xl border border-slate-800 bg-slate-900/70">
@@ -57,10 +67,10 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
       </button>
       {open && (
         <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void persist();
-          }}
+          noValidate
+          onSubmit={form.handleSubmit(persist, (errors) => {
+            toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira as regras da campanha.');
+          })}
           className="border-t border-slate-800 p-4 pt-3"
         >
           <textarea

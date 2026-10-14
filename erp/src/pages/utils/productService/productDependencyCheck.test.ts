@@ -138,12 +138,10 @@ describe('physicalDeleteVariation', () => {
 
   it('verifica ausência de vínculos e exclui produto sem referências via RPC', async () => {
     const productId = '66666666-6666-4666-8666-666666666666';
-    mockDb.rpc
-      .mockResolvedValueOnce({ data: true, error: null })
-      .mockResolvedValueOnce({
-        data: { success: true, code: 'product_deleted', message: 'Produto excluído com sucesso.' },
-        error: null,
-      });
+    mockDb.rpc.mockResolvedValueOnce({ data: true, error: null }).mockResolvedValueOnce({
+      data: { success: true, code: 'product_deleted', message: 'Produto excluído com sucesso.' },
+      error: null,
+    });
 
     await expect(checkProductIsUnreferenced(productId)).resolves.toBe(true);
     await expect(physicalDeleteProduct(productId)).resolves.toEqual({
@@ -156,5 +154,61 @@ describe('physicalDeleteVariation', () => {
     expect(mockDb.rpc).toHaveBeenNthCalledWith(2, 'delete_unreferenced_product', {
       p_product_id: productId,
     });
+  });
+
+  it('moveProductToTrash chama move_product_to_trash via RPC e retorna sucesso', async () => {
+    const productId = '77777777-7777-4777-8777-777777777777';
+    mockDb.rpc.mockResolvedValueOnce({
+      data: { success: true, code: 'moved_to_trash', message: 'Produto movido para a lixeira.' },
+      error: null,
+    });
+
+    const { moveProductToTrash } = await import('./productDependencyCheck');
+    const result = await moveProductToTrash(productId);
+
+    expect(mockDb.rpc).toHaveBeenCalledWith('move_product_to_trash', {
+      p_product_id: productId,
+    });
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Produto movido para a lixeira.');
+  });
+
+  it('moveProductToTrash retorna erro quando RPC acusa impedimento', async () => {
+    const productId = '88888888-8888-4888-8888-888888888888';
+    mockDb.rpc.mockResolvedValueOnce({
+      data: {
+        success: false,
+        code: 'product_in_use',
+        message: 'Produto possui vendas vinculadas',
+      },
+      error: null,
+    });
+
+    const { moveProductToTrash } = await import('./productDependencyCheck');
+    const result = await moveProductToTrash(productId);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Produto possui vendas vinculadas');
+  });
+
+  it('restoreProductFromTrash chama restore_product_from_trash via RPC e restaura com sucesso', async () => {
+    const productId = '99999999-9999-4999-8999-999999999999';
+    mockDb.rpc.mockResolvedValueOnce({
+      data: {
+        success: true,
+        code: 'restored_from_trash',
+        message: 'Produto restaurado da lixeira.',
+      },
+      error: null,
+    });
+
+    const { restoreProductFromTrash } = await import('./productDependencyCheck');
+    const result = await restoreProductFromTrash(productId);
+
+    expect(mockDb.rpc).toHaveBeenCalledWith('restore_product_from_trash', {
+      p_product_id: productId,
+    });
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Produto restaurado da lixeira.');
   });
 });

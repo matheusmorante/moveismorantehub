@@ -4,7 +4,11 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
-    "api/nfe/operations.ts": { "includeFiles": "../api/nfe/schemas/**", "maxDuration": 120 }
+    "api/nfe/operations.ts": {
+      "includeFiles": "../api/nfe/schemas/**",
+      "maxDuration": 120,
+      "regions": ["gru1"]
+    }
   },
   "rewrites": [
     { "source": "/api/nfe/emit", "destination": "/api/nfe/operations?operation=emit" },

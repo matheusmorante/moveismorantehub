@@ -19,7 +19,7 @@ describe('updateProductCatalogState', () => {
     const updated = updateProductCatalogState(products, 'variation-b', 'published');
     expect(updated[0].variations[0].status).toBe('hidden');
     expect(updated[0].variations[1].status).toBe('published');
-    expect(updated[0].status).toBe('hidden');
+    expect(updated[0].status).toBe('published');
   });
 
   it('sincroniza o status do pai quando ele possui uma única variação', () => {

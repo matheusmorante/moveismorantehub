@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ApiConfiguration } from '@/services/apiMonitoring/apiMonitoringTypes';
 import { ApiConfigService } from '@/services/apiMonitoring/apiConfigService';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { apiConfigFormSchema } from '../../../../../../shared-utils/apiConfigFormSchema';
 
 interface ApiConfigEditModalProps {
   config: ApiConfiguration;
@@ -19,14 +21,12 @@ export default function ApiConfigEditModal({
 }: ApiConfigEditModalProps) {
   const [formData, setFormData] = useState<ApiConfiguration>({ ...config });
   const [saving, setSaving] = useState(false);
-
-  if (!isOpen) return null;
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const form = useZodForm(apiConfigFormSchema, { ...formData });
+  const handleSave = form.handleSubmit(async (values) => {
+    const dataToSave: ApiConfiguration = { ...formData, ...values };
     setSaving(true);
     try {
-      const success = await ApiConfigService.saveConfiguration(formData);
+      const success = await ApiConfigService.saveConfiguration(dataToSave);
       if (success) {
         ApiUsageGuard.clearCache(formData.service_id);
         toast.success(`Configurações de ${formData.service_name} salvas com sucesso!`);
@@ -40,7 +40,9 @@ export default function ApiConfigEditModal({
     } finally {
       setSaving(false);
     }
-  };
+  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira os limites e custos.'));
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[9999999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -66,7 +68,7 @@ export default function ApiConfigEditModal({
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-4 pt-4">
+        <form noValidate onSubmit={handleSave} className="space-y-4 pt-4">
           {/* Status Ativo / Inativo */}
           <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800">
             <div>

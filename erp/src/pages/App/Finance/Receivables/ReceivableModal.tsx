@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { financeService } from '@/pages/services/financeService';
 import { AccountReceivable, FinancialCategory, PaymentStatus } from '../../../types/finance.type';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { receivableFormSchema, receivableSettlementFormSchema } from '../../../../../../shared-utils/financialFormSchemas';
+import type { FieldErrors } from 'react-hook-form';
+import type { z } from 'zod';
 
 interface ReceivableModalProps {
   onClose: () => void;
@@ -22,6 +26,16 @@ export default function ReceivableModal({ onClose, onSaved, receivable }: Receiv
     customer_name: receivable?.customer_name || '',
     notes: receivable?.notes || '',
   });
+  const form = useZodForm(receivableFormSchema, formData);
+  const settlementValues = {
+    id: receivable?.id || '', description: receivable?.description || '', amount: receivable?.amount ?? 0,
+    category_id: receivable?.category_id, date: new Date().toISOString().split('T')[0],
+    status: receivable?.status || ('pending' as PaymentStatus),
+  };
+  const settlementForm = useZodForm(receivableSettlementFormSchema, settlementValues);
+  const showValidationError = (errors: FieldErrors) => {
+    toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a conta a receber.');
+  };
 
   useEffect(() => {
     const fetchCats = async () => {
@@ -45,19 +59,14 @@ export default function ReceivableModal({ onClose, onSaved, receivable }: Receiv
     }));
   };
 
-  const handleSave = async () => {
-    if (!formData.description || formData.amount <= 0 || !formData.due_date) {
-      toast.error('Preencha descrição, valor e vencimento.');
-      return;
-    }
-
+  const handleSave = async (data: z.output<typeof receivableFormSchema>) => {
     setLoading(true);
     try {
       if (receivable?.id) {
-        await financeService.updateReceivable(receivable.id, formData);
+        await financeService.updateReceivable(receivable.id, data);
         toast.success('Conta a receber atualizada!');
       } else {
-        await financeService.createReceivable(formData);
+        await financeService.createReceivable(data);
         toast.success('Conta a receber cadastrada!');
       }
       onSaved();
@@ -69,24 +78,23 @@ export default function ReceivableModal({ onClose, onSaved, receivable }: Receiv
     }
   };
 
-  const handleReceive = async () => {
-    if (!receivable?.id) return;
+  const handleReceive = async (data: z.output<typeof receivableSettlementFormSchema>) => {
     setLoading(true);
     try {
-      await financeService.updateReceivable(receivable.id, {
+      await financeService.updateReceivable(data.id, {
         status: 'paid',
-        payment_date: new Date().toISOString().split('T')[0],
+        payment_date: data.date,
       });
 
       // Generate Transaction Record automaticaly
       await financeService.createTransaction({
         type: 'income',
-        amount: receivable.amount,
-        date: new Date().toISOString().split('T')[0],
-        description: `Recebimento: ${receivable.description}`,
+        amount: data.amount,
+        date: data.date,
+        description: `Recebimento: ${data.description}`,
         payment_method: 'Manual/Outros',
-        category_id: receivable.category_id,
-        receivable_id: receivable.id,
+        category_id: data.category_id,
+        receivable_id: data.id,
       });
 
       toast.success('Conta recebida com sucesso!');
@@ -224,7 +232,7 @@ export default function ReceivableModal({ onClose, onSaved, receivable }: Receiv
         <div className="p-6 xl:p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between gap-4">
           {receivable?.id && receivable.status !== 'paid' ? (
             <button
-              onClick={handleReceive}
+              onClick={() => void settlementForm.validateAndRun(settlementValues, handleReceive, showValidationError)}
               disabled={loading}
               className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-200 dark:shadow-none transition-all active:scale-95 flex items-center gap-2"
             >
@@ -243,7 +251,7 @@ export default function ReceivableModal({ onClose, onSaved, receivable }: Receiv
               Cancelar
             </button>
             <button
-              onClick={handleSave}
+              onClick={() => void form.validateAndRun(formData, handleSave, showValidationError)}
               disabled={loading}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >

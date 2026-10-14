@@ -61,25 +61,34 @@ export const normalizeProductForSave = (
     return typeof currentVal === 'number' ? currentVal : 0;
   };
 
-  return {
-    ...formData,
-    width: parseTech(['Largura'], formData.width),
-    height: parseTech(['Altura'], formData.height),
-    depth: parseTech(['Profundidade', 'Comprimento'], formData.depth),
-    weight: parseTech(['Peso'], formData.weight),
-    name: options.name || formData.name || 'Produto',
-    productKind: formData.productKind !== undefined ? getProductKind(formData) : undefined,
-    isDraft: options.isDraft,
-    active: forceInactive ? false : options.isCompletingDraft ? true : formData.active !== false,
-    status: options.catalogStatus,
-    variations: (formData.variations || []).map((variation) => ({
-      ...variation,
-      active: forceInactive ? false : options.isCompletingDraft ? true : variation.active,
-      status: options.isDraft
-        ? variation.status || 'draft'
-        : options.catalogStatus === 'published'
-          ? variation.status === 'draft' ? 'hidden' : variation.status || 'published'
-          : 'hidden',
-    })),
-  } as Product;
-};
+    const effectiveName = options.name || formData.name || 'Produto';
+    return {
+      ...formData,
+      width: parseTech(['Largura'], formData.width),
+      height: parseTech(['Altura'], formData.height),
+      depth: parseTech(['Profundidade', 'Comprimento'], formData.depth),
+      weight: parseTech(['Peso'], formData.weight),
+      name: effectiveName,
+      title: effectiveName,
+      marketplaceTitle: effectiveName,
+      productKind: formData.productKind !== undefined ? getProductKind(formData) : undefined,
+      isDraft: options.isDraft,
+      active: forceInactive ? false : options.isCompletingDraft ? true : formData.active !== false,
+      status: options.catalogStatus,
+      variations: (formData.variations || []).map((variation) => {
+        const varName = variation.name || effectiveName;
+        return {
+          ...variation,
+          name: varName,
+          title: varName,
+          marketplaceTitle: varName,
+          active: forceInactive ? false : options.isCompletingDraft ? true : variation.active,
+          status: options.isDraft
+            ? variation.status || 'draft'
+            : options.catalogStatus === 'published'
+              ? variation.status === 'draft' ? 'hidden' : variation.status || 'published'
+              : 'hidden',
+        };
+      }),
+    } as Product;
+  };

@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { catalogNameFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React from 'react';
 import {
   EnvironmentNode,
@@ -74,7 +76,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
         onClick={onClose}
         aria-label="Fechar modal"
       />
-      <form
+      <ZodForm schema={catalogNameFormSchema} values={{ name: nameInput }}
         onSubmit={onSave}
         className="relative bg-white dark:bg-slate-900 w-full max-w-lg max-h-[calc(100dvh-2rem)] rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800 dark:text-slate-200"
       >
@@ -330,7 +332,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
             </button>
           </div>
         </div>
-      </form>
+      </ZodForm>
     </div>
   );
 };

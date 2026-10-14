@@ -7,11 +7,11 @@ SELECT ok(
     SELECT 1
       FROM cron.job
      WHERE jobname = 'auto-fulfill-scheduled-orders'
-       AND schedule = '0 3 * * *'
+       AND schedule = '*/2 * * * *'
        AND active
        AND command = 'SELECT public.auto_fulfill_scheduled_orders();'
   ),
-  'the active Supabase Cron runs at midnight BRT'
+  'the active Supabase Cron runs every 2 minutes'
 );
 
 SELECT ok(

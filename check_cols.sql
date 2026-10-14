@@ -1,2 +1,0 @@
-SELECT column_name FROM information_schema.columns WHERE table_name = 'order_items' AND column_name LIKE '%product%';
-SELECT column_name FROM information_schema.columns WHERE table_name = 'order_items' AND column_name LIKE '%variation%';

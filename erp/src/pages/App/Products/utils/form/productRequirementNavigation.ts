@@ -12,12 +12,12 @@ export const PRODUCT_REQUIREMENT_FIELD_MAP: Record<
   string,
   { tab: ProductFormTabKey; fieldId: string }
 > = {
-  description: { tab: 'geral', fieldId: 'field-product-description' },
-  name: { tab: 'geral', fieldId: 'field-product-description' },
+  description: { tab: 'geral', fieldId: 'field-product-name' },
+  name: { tab: 'geral', fieldId: 'field-product-name' },
   code: { tab: 'geral', fieldId: 'field-product-code' },
   sku: { tab: 'geral', fieldId: 'field-product-code' },
-  marketplaceTitle: { tab: 'geral', fieldId: 'field-marketplace-title' },
-  title: { tab: 'geral', fieldId: 'field-marketplace-title' },
+  marketplaceTitle: { tab: 'geral', fieldId: 'field-product-name' },
+  title: { tab: 'geral', fieldId: 'field-product-name' },
   categories: { tab: 'geral', fieldId: 'field-product-categories' },
   productKind: { tab: 'geral', fieldId: 'field-product-kind' },
   origin: { tab: 'geral', fieldId: 'field-product-kind' },

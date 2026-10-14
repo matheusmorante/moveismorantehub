@@ -8,6 +8,7 @@ export type NfeEmissionPerformanceStage =
   | 'customer_resolution'
   | 'sequence_preview'
   | 'payload_prepare'
+  | 'backend_request'
   | 'ready_to_transmit'
   | 'sefaz_transmission';
 

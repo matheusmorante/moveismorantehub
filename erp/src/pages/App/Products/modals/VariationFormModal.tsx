@@ -66,7 +66,6 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
     formData,
     setFormData,
     allParentImages,
-    diferenciarTitulo,
     dbAttributes,
     dbAttributeValues,
     isManageAttributesOpen,
@@ -349,7 +348,6 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                   formData={formData}
                   setFormData={setFormData}
                   parentProduct={parentProduct}
-                  diferenciarTitulo={diferenciarTitulo}
                   dbAttributes={dbAttributes}
                   dbAttributeValues={dbAttributeValues}
                   setIsManageAttributesOpen={setIsManageAttributesOpen}

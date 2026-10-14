@@ -6,11 +6,13 @@ export default function ProductDescriptionTab({
   setFormData,
   onImprove,
   improving,
+  showImprove = false,
 }: {
   formData: Partial<Product>;
   setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
   onImprove?: () => void;
   improving?: boolean;
+  showImprove?: boolean;
 }) {
   return (
     <div className="max-w-4xl space-y-3">
@@ -21,7 +23,7 @@ export default function ProductDescriptionTab({
         <p className="text-xs font-semibold text-slate-400">
           Descreva o produto, seus diferenciais e informações importantes para o catálogo.
         </p>
-        {onImprove && (
+        {showImprove && onImprove && (
           <button
             type="button"
             onClick={onImprove}

@@ -1,9 +1,10 @@
-import React, { useRef, useState } from 'react';
+import type React from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Product from '@/pages/types/product.type';
 import DropdownPortal from '@/components/shared/DropdownPortal';
-import { LabelPrintType } from '@/pages/App/Products/components/modals/product/LabelPrintSelectionModal';
 import { useAuth } from '@/context/AuthContext';
+import type { LabelPrintType } from '@/pages/App/Products/components/modals/product/LabelPrintSelectionModal';
+import type Product from '@/pages/types/product.type';
 import {
   canPrintProductIdentificationLabels,
   isProductIdentificationLabelOnlyProfile,
@@ -13,7 +14,6 @@ import {
   getSelectedProductDisplayName,
   normalizeProductVariationName,
 } from '@/pages/utils/productVariationDefaults';
-import { checkProductIsUnreferenced } from '@/pages/utils/productService';
 import type { ActionProductLike } from '../ProductRowActionsCell';
 
 export interface ParentProductActionsProps {
@@ -26,6 +26,7 @@ export interface ParentProductActionsProps {
   readonly onEdit: (product: Product) => void;
   readonly onRestore: (id: string) => void;
   readonly onDelete: (id: string) => void;
+  readonly onMoveToTrash?: (product: Product) => void;
   readonly onPermanentDelete?: (id: string) => void;
   readonly onDuplicate?: (product: Product) => void;
   readonly onLaunchStock?: (product: Product) => void;
@@ -45,7 +46,8 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
   onEdit,
   onRestore,
   onDelete,
-  onPermanentDelete,
+  onMoveToTrash,
+  onPermanentDelete: _onPermanentDelete,
   onDuplicate,
   onOpenSalesModal,
   onOpenLabelModal,
@@ -53,8 +55,6 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
   onMergeWithAnotherVariation,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isCheckingUsage, setIsCheckingUsage] = useState(false);
-  const [isUnreferenced, setIsUnreferenced] = useState<boolean | null>(null);
   const menuAnchorRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -79,7 +79,9 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
     if (!singleVariation) return;
     const parentTitle = product.name || product.title || '';
     const varName =
-      singleVariation.displayName || (singleVariation as any).variation || singleVariation.description;
+      singleVariation.displayName ||
+      (singleVariation as any).variation ||
+      singleVariation.description;
     const variationName =
       getSelectedProductDisplayName(product, singleVariation) || varName || parentTitle;
     const fullName = variationName.toLowerCase().includes(parentTitle.toLowerCase())
@@ -146,23 +148,7 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              const nextOpen = !isMenuOpen;
-              setIsMenuOpen(nextOpen);
-              if (
-                nextOpen &&
-                !isDraft &&
-                canDeleteProducts &&
-                onPermanentDelete &&
-                isUnreferenced === null &&
-                !isCheckingUsage &&
-                product.id
-              ) {
-                setIsCheckingUsage(true);
-                checkProductIsUnreferenced(product.id)
-                  .then((result) => setIsUnreferenced(result))
-                  .catch(() => setIsUnreferenced(false))
-                  .finally(() => setIsCheckingUsage(false));
-              }
+              setIsMenuOpen((prev) => !prev);
             }}
             aria-label="Mais opções"
             aria-haspopup="menu"
@@ -367,40 +353,47 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
                   </div>
                 )}
 
-                {!isDraft && canDeleteProducts && onPermanentDelete && (
+                {!isDraft && canDeleteProducts && (
                   <div className="border-t border-slate-50 dark:border-slate-800/50 my-1">
                     <button
                       type="button"
                       role="menuitem"
-                      disabled={isCheckingUsage || isUnreferenced === false}
+                      disabled={product.can_trash !== true}
+                      aria-disabled={product.can_trash !== true}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (isCheckingUsage || isUnreferenced === false) return;
+                        if (product.can_trash !== true) return;
                         setIsMenuOpen(false);
-                        if (product.id) onPermanentDelete(product.id);
+                        if (onMoveToTrash) {
+                          onMoveToTrash(product);
+                        } else if (product.id) {
+                          onDelete(product.id);
+                        }
                       }}
                       className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-left group w-full ${
-                        isCheckingUsage || isUnreferenced === false
+                        product.can_trash !== true
                           ? 'opacity-40 cursor-not-allowed text-slate-400 dark:text-slate-600'
                           : 'hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 cursor-pointer'
                       }`}
                       title={
-                        isCheckingUsage
-                          ? 'Verificando vínculos...'
-                          : isUnreferenced === false
-                            ? 'Produto possui vínculos com pedidos ou movimentações de estoque e não pode ser excluído'
-                            : 'Excluir produto permanentemente'
+                        product.can_trash === undefined
+                          ? 'Verificando elegibilidade para a lixeira...'
+                          : product.can_trash === true
+                            ? 'Mover produto e variações para a lixeira'
+                            : product.trash_block_reason ||
+                              'Este produto não pode ser movido para a lixeira porque possui operações históricas vinculadas a uma ou mais variações.'
+                      }
+                      aria-label={
+                        product.can_trash === undefined
+                          ? 'Mover para lixeira: Verificando elegibilidade...'
+                          : product.can_trash === true
+                            ? 'Mover para lixeira (produto e todas as variações)'
+                            : `Mover para lixeira: ${product.trash_block_reason || 'Este produto não pode ser movido para a lixeira porque possui operações históricas vinculadas a uma ou mais variações.'}`
                       }
                     >
-                      <i
-                        className={
-                          isCheckingUsage
-                            ? 'bi bi-hourglass-split text-slate-400 animate-spin'
-                            : 'bi bi-trash3-fill text-red-500'
-                        }
-                      />
+                      <i className="bi bi-trash3-fill text-red-500" />
                       <span className="text-[10px] font-black uppercase tracking-widest font-bold">
-                        {isCheckingUsage ? 'Verificando...' : 'Excluir Produto'}
+                        Mover para lixeira
                       </span>
                     </button>
                   </div>
@@ -413,4 +406,3 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
     </div>
   );
 };
-

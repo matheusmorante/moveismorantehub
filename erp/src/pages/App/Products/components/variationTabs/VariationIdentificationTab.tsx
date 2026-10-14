@@ -24,7 +24,6 @@ interface VariationIdentificationTabProps {
   readonly formData: Variation;
   readonly setFormData: React.Dispatch<React.SetStateAction<Variation | null>>;
   readonly parentProduct: Product;
-  readonly diferenciarTitulo: boolean;
   readonly dbAttributes?: readonly DbAttributeItem[];
   readonly dbAttributeValues?: readonly DbAttributeValueItem[];
   readonly setIsManageAttributesOpen?: (open: boolean) => void;
@@ -38,14 +37,13 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
   formData,
   setFormData,
   parentProduct,
-  diferenciarTitulo,
   isSingleVariation = false,
 }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-350 min-w-0">
-      {/* Linha com Nome (ERP) e Título (Catálogo) */}
+      {/* Nome da Variação */}
       <div className="grid grid-cols-1 gap-4 min-w-0">
-        {/* Nome da Variação (ERP) */}
+        {/* Nome da Variação (ERP e Catálogo Digital) */}
         <div className="space-y-1.5 min-w-0">
           <label
             htmlFor="variation-name-suffix-input"
@@ -72,12 +70,12 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
               const newFullName = buildProductVariationName(parentPrefix, trimmedSuffix);
               setFormData((prev) => {
                 if (!prev) return null;
-                const next: Variation = { ...prev, name: newFullName };
-                if (!diferenciarTitulo) {
-                  next.title = newFullName;
-                  next.marketplaceTitle = newFullName;
-                }
-                return next;
+                return {
+                  ...prev,
+                  name: newFullName,
+                  title: newFullName,
+                  marketplaceTitle: newFullName,
+                };
               });
             };
 
@@ -105,44 +103,6 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
             );
           })()}
         </div>
-
-        {/* Título da Variação (Catálogo) */}
-        {diferenciarTitulo ? (
-          <div className="space-y-1.5 animate-in slide-in-from-right-2 duration-200 min-w-0">
-            <label
-              htmlFor="variation-catalog-title-input"
-              className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6"
-            >
-              <span>Título no Catálogo</span>
-            </label>
-            <input
-              id="variation-catalog-title-input"
-              type="text"
-              disabled={isSingleVariation}
-              placeholder="Título exibido no catálogo digital..."
-              value={formData.title || formData.marketplaceTitle || ''}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  title: e.target.value,
-                  marketplaceTitle: e.target.value,
-                })
-              }
-              onBlur={() => {
-                const current = formData.title || formData.marketplaceTitle || '';
-                if (current) {
-                  const formatted = toTitleCase(current);
-                  if (formatted !== current) {
-                    setFormData((prev) =>
-                      prev ? { ...prev, title: formatted, marketplaceTitle: formatted } : null
-                    );
-                  }
-                }
-              }}
-              className="w-full px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-blue-600 dark:focus:border-blue-400 transition-all font-mono disabled:cursor-not-allowed disabled:opacity-70"
-            />
-          </div>
-        ) : null}
       </div>
     </div>
   );

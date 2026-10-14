@@ -5,6 +5,8 @@ import { X, ShoppingBag } from 'lucide-react-native';
 import { OrderDetailsBody } from '../OrderDetailsBody';
 import { DeliveryPreparationScreen } from '../../features/orders/screens/DeliveryPreparationScreen';
 import { supabase } from '../../services/supabaseClient';
+import { formatOrderCode, formatOrderDate } from '../../utils/orderUtils';
+import { getOrderStatusLabel } from '../../features/orders/domain/orderStatusPresentation';
 
 interface Props {
   order: any;
@@ -88,6 +90,49 @@ export const OrderDetailsModal: React.FC<Props> = ({
 
   if (!order) return null;
 
+  const targetOrder = detailedOrder || order;
+  const orderData = targetOrder.order_data || targetOrder;
+  const orderCode = formatOrderCode(targetOrder);
+  const orderDate = targetOrder.created_at || targetOrder.date || orderData.createdAt || orderData.date;
+  const seller = targetOrder.seller || orderData.seller || orderData.sellerName || orderData.sellerData?.fullName;
+  const rawStatus = targetOrder.status || orderData.status || 'scheduled';
+  const statusLabel = getOrderStatusLabel(
+    { ...targetOrder, ...orderData, status: rawStatus },
+    rawStatus === 'fulfilled'
+      ? 'Atendido'
+      : rawStatus === 'scheduled'
+        ? 'Agendado'
+        : rawStatus
+  );
+
+  const isCancelled = rawStatus === 'cancelled';
+  const isFulfilled = ['fulfilled', 'completed', 'delivered'].includes(rawStatus);
+  const isDraft = rawStatus === 'draft';
+
+  const statusBg = isCancelled
+    ? (isDarkMode ? '#450a0a' : '#fee2e2')
+    : isFulfilled
+      ? (isDarkMode ? '#052e16' : '#dcfce7')
+      : isDraft
+        ? (isDarkMode ? '#1e293b' : '#f1f5f9')
+        : (isDarkMode ? '#451a03' : '#fef3c7');
+
+  const statusBorder = isCancelled
+    ? (isDarkMode ? '#991b1b' : '#fca5a5')
+    : isFulfilled
+      ? (isDarkMode ? '#166534' : '#86efac')
+      : isDraft
+        ? (isDarkMode ? '#334155' : '#cbd5e1')
+        : (isDarkMode ? '#92400e' : '#fcd34d');
+
+  const statusColor = isCancelled
+    ? '#dc2626'
+    : isFulfilled
+      ? '#16a34a'
+      : isDraft
+        ? '#64748b'
+        : '#d97706';
+
   return (
     <Modal
       visible={Boolean(order)}
@@ -114,23 +159,52 @@ export const OrderDetailsModal: React.FC<Props> = ({
           />
         ) : (
           <>
-            {/* Full-Screen Header */}
+            {/* Full-Screen Header com paridade de informações ao ERP */}
             <View style={[styles.headerRow, isDarkMode && styles.headerRowDark]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                 <View style={styles.iconCircle}>
                   <ShoppingBag size={20} color="#2563eb" />
                 </View>
-                <Text style={[styles.titleText, isDarkMode && styles.textDark]}>
-                  Detalhes do Pedido
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Text style={[styles.titleText, isDarkMode && styles.textDark]}>
+                      Detalhes do Pedido
+                    </Text>
+                    <View style={styles.codeBadge}>
+                      <Text style={styles.codeText}>#{orderCode}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.headerMetaRow}>
+                    {Boolean(orderDate) && (
+                      <Text style={[styles.metaText, isDarkMode && styles.metaTextDark]}>
+                        {formatOrderDate(orderDate)}
+                      </Text>
+                    )}
+                    {Boolean(seller) && (
+                      <Text style={[styles.metaText, isDarkMode && styles.metaTextDark]}>
+                        • Vendedor: <Text style={styles.sellerText}>{seller}</Text>
+                      </Text>
+                    )}
+                  </View>
+                </View>
               </View>
 
-              <TouchableOpacity
-                onPress={onClose}
-                style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}
-              >
-                <X size={20} color={isDarkMode ? '#f8fafc' : '#475569'} />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={[styles.statusBadge, { backgroundColor: statusBg, borderColor: statusBorder }]}>
+                  <Text style={[styles.statusBadgeText, { color: statusColor }]}>
+                    {statusLabel.toUpperCase()}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={onClose}
+                  style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={18} color={isDarkMode ? '#f8fafc' : '#475569'} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Full-Screen Body Content */}
@@ -199,5 +273,49 @@ const styles = StyleSheet.create({
   },
   closeBtnDark: {
     backgroundColor: '#1e293b',
+  },
+  codeBadge: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#dbeafe',
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  codeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#2563eb',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  headerMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    marginTop: 2,
+  },
+  metaText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  metaTextDark: {
+    color: '#94a3b8',
+  },
+  sellerText: {
+    fontWeight: '800',
+    color: '#3b82f6',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 });

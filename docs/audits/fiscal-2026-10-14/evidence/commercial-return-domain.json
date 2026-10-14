@@ -1,0 +1,106 @@
+{
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "schema": "public",
+  "approvedPreparedVersion": "20261014115321",
+  "appliedVersion": "20261014121114",
+  "appliedName": "enforce_commercial_return_domain",
+  "triggerEnabled": true,
+  "tests": [
+    {
+      "scenario": "partial return",
+      "actual": null,
+      "expected": null,
+      "passed": true
+    },
+    {
+      "scenario": "complete return",
+      "actual": null,
+      "expected": null,
+      "passed": true
+    },
+    {
+      "scenario": "empty",
+      "actual": "RETURN_ITEMS_REQUIRED",
+      "expected": "RETURN_ITEMS_REQUIRED",
+      "passed": true
+    },
+    {
+      "scenario": "missing index",
+      "actual": "RETURN_SOURCE_LINE_INVALID",
+      "expected": "RETURN_SOURCE_LINE_INVALID",
+      "passed": true
+    },
+    {
+      "scenario": "negative index",
+      "actual": "RETURN_SOURCE_LINE_INVALID",
+      "expected": "RETURN_SOURCE_LINE_INVALID",
+      "passed": true
+    },
+    {
+      "scenario": "fractional index",
+      "actual": "RETURN_SOURCE_LINE_INVALID",
+      "expected": "RETURN_SOURCE_LINE_INVALID",
+      "passed": true
+    },
+    {
+      "scenario": "foreign variation",
+      "actual": "RETURN_SOURCE_LINE_MISMATCH",
+      "expected": "RETURN_SOURCE_LINE_MISMATCH",
+      "passed": true
+    },
+    {
+      "scenario": "zero quantity",
+      "actual": "RETURN_QUANTITY_INVALID",
+      "expected": "RETURN_QUANTITY_INVALID",
+      "passed": true
+    },
+    {
+      "scenario": "negative quantity",
+      "actual": "RETURN_QUANTITY_INVALID",
+      "expected": "RETURN_QUANTITY_INVALID",
+      "passed": true
+    },
+    {
+      "scenario": "divergent physical quantity",
+      "actual": "RETURN_QUANTITY_MISMATCH",
+      "expected": "RETURN_QUANTITY_MISMATCH",
+      "passed": true
+    },
+    {
+      "scenario": "over capacity",
+      "actual": "RETURN_CAPACITY_EXCEEDED",
+      "expected": "RETURN_CAPACITY_EXCEEDED",
+      "passed": true
+    },
+    {
+      "scenario": "repeated same line",
+      "actual": "RETURN_CAPACITY_EXCEEDED",
+      "expected": "RETURN_CAPACITY_EXCEEDED",
+      "passed": true
+    },
+    {
+      "scenario": "identical sku lines retain independent capacity",
+      "actual": "RETURN_CAPACITY_EXCEEDED",
+      "expected": "RETURN_CAPACITY_EXCEEDED",
+      "passed": true
+    },
+    {
+      "scenario": "legacy allocated in source order",
+      "actual": "RETURN_CAPACITY_EXCEEDED",
+      "expected": "RETURN_CAPACITY_EXCEEDED",
+      "passed": true
+    },
+    {
+      "scenario": "cancelled return releases capacity",
+      "actual": null,
+      "expected": null,
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "businessWrites": false,
+  "sefazTransmission": false,
+  "limitations": [
+    "Pure function contracts and catalog checks; no fixture writes, trigger behavior, concurrency or rollback proof."
+  ]
+}

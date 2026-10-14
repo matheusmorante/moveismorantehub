@@ -43,7 +43,6 @@ const Harness = () => {
         formData={formData}
         setFormData={setFormData}
         parentProduct={parentProduct}
-        diferenciarTitulo={false}
         dbAttributes={[
           { id: 'attr-cor', name: 'Cor' },
           { id: 'attr-portas', name: 'Quantidade de portas' },
@@ -99,5 +98,12 @@ describe('VariationIdentificationTab - nome da variação com prefixo imutável 
     expect(badgeContainer?.className).toContain('max-w-full');
     expect(badgeContainer?.className).toContain('sm:max-w-[60%]');
     expect(badge.className).toContain('truncate');
+  });
+
+  it('não exibe campo de título no catálogo para a variação', () => {
+    render(<Harness />);
+
+    expect(screen.queryByLabelText('Título no Catálogo')).toBeNull();
+    expect(screen.queryByPlaceholderText('Título exibido no catálogo digital...')).toBeNull();
   });
 });

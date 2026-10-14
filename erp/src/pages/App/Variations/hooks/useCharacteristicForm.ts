@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import type VariationType from '../../../types/variation.type';
 import {
   getVariationErrorMessage,
@@ -11,6 +12,7 @@ import {
   isChoiceCharacteristicType,
   resolveCharacteristicUnit,
   validateCharacteristicSnapshot,
+  createCharacteristicFormSchema,
 } from '../domain/characteristicFormRules';
 import {
   CHARACTERISTIC_OPTIONS_PAGE_SIZE,
@@ -54,6 +56,11 @@ export const useCharacteristicForm = ({
   const savedRevisionRef = useRef(0);
   const requestedRevisionRef = useRef(0);
   const closingRef = useRef(false);
+  const schema = useMemo(
+    () => createCharacteristicFormSchema(allVariations, () => currentIdRef.current),
+    [allVariations],
+  );
+  const { validateAndRun } = useZodForm(schema, { ...formData });
 
   const cancelPendingFormSaveTimer = useCallback(() => {
     if (saveTimerRef.current) {
@@ -84,25 +91,23 @@ export const useCharacteristicForm = ({
       const request = saveQueueRef.current
         .catch(() => undefined)
         .then(async () => {
-          const validationError = getFormError(snapshot);
-          if (validationError) throw new Error(validationError);
-
-          const id = await saveVariation(
+          const id = await validateAndRun(snapshot, (values) => saveVariation(
             {
               id: currentIdRef.current,
-              name: snapshot.name.trim(),
-              options: isChoiceCharacteristicType(snapshot.dataType)
-                ? snapshot.options.map((option, index) => ({ ...option, sortOrder: index }))
+              name: values.name,
+              options: isChoiceCharacteristicType(values.dataType)
+                ? values.options.map((option, index) => ({ ...option, sortOrder: index }))
                 : [],
-              active: snapshot.active,
-              dataType: snapshot.dataType,
+              active: values.active,
+              dataType: values.dataType,
               decimalPlaces:
-                snapshot.dataType === 'decimal' ? snapshot.decimalPlaces : undefined,
+                values.dataType === 'decimal' ? values.decimalPlaces : undefined,
               isCustom: variation?.isCustom ?? true,
-              unit: resolveCharacteristicUnit(snapshot.dataType, snapshot.unit),
+              unit: resolveCharacteristicUnit(values.dataType, values.unit),
             },
             { invalidate: false }
-          );
+          ), (errors) => { throw new Error(Object.values(flattenFormErrors(errors))[0] || 'Confira a característica.'); });
+          if (id === false) throw new Error('Confira a característica.');
           currentIdRef.current = id;
           setSavedCharacteristicId(id);
           return id;
@@ -135,7 +140,7 @@ export const useCharacteristicForm = ({
         return { ok: false };
       }
     },
-    [getFormError, variation?.isCustom]
+    [validateAndRun, variation?.isCustom]
   );
 
   const persistImmediateSnapshot = useCallback(

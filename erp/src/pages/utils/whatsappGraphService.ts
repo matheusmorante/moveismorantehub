@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
 
-const GRAPH_API_VERSION = 'v18.0';
+const GRAPH_API_VERSION = 'v26.0';
 const FACEBOOK_GRAPH_URL = 'https://graph.facebook.com';
 
 export interface WhatsAppProduct {
@@ -126,30 +126,36 @@ export const whatsappGraphService = {
       return encodeURI(str);
     };
 
-    const sanitizedSingleImages = singleImageUrls.map(sanitizeUrl).filter(Boolean);
-    const mainImageUrl = sanitizedSingleImages.length > 0 ? sanitizedSingleImages[0] : fallbackUrl;
+    const sanitizedImages = singleImageUrls.map(sanitizeUrl).filter(Boolean);
+    const mainImageUrl = sanitizedImages.length > 0 ? sanitizedImages[0] : fallbackUrl;
     const additionalImageUrls =
-      sanitizedSingleImages.length > 1 ? sanitizedSingleImages.slice(1, 10) : [];
+      sanitizedImages.length > 1 ? sanitizedImages.slice(1, 10) : [];
+
+    const retailerId = String(product.code || product.sku || product.id);
+    const itemPrice = Number(rawPrice || 0);
 
     const batchRequest = {
+      item_type: 'PRODUCT_ITEM',
       requests: [
         {
           method: targetAction,
-          retailer_id: String(product.code || product.sku || product.id),
+          retailer_id: retailerId,
           data:
             targetAction === 'UPDATE'
               ? {
-                  name: cleanTitle,
+                  id: retailerId,
+                  title: cleanTitle,
                   description: cleanDescription,
-                  price: priceCents,
-                  currency: 'BRL',
+                  price: `${itemPrice.toFixed(2)} BRL`,
                   condition: product.condition === 'usado' ? 'used' : 'new',
-                  availability: 'in stock',
-                  image_url: mainImageUrl,
-                  additional_image_urls: additionalImageUrls,
+                  availability: isInactiveOrHidden ? 'out of stock' : 'in stock',
+                  image_link: mainImageUrl,
+                  additional_image_link: additionalImageUrls.join(',') || undefined,
                   brand: product.brand || 'Móveis Morante',
-                  url: `https://moveismorante.com.br/p/${product.id}`,
-                  category: product.groupName || 'Furniture',
+                  link:
+                    product.url ||
+                    `https://moveismorante.com.br/produto/${product.slug || product.id}`,
+                  product_type: product.groupName || product.group_name || 'Furniture',
                 }
               : undefined,
         },
@@ -158,7 +164,7 @@ export const whatsappGraphService = {
 
     try {
       const response = await fetch(
-        `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/batch`,
+        `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/items_batch`,
         {
           method: 'POST',
           headers: whatsappGraphService.getHeaders(),
@@ -207,7 +213,7 @@ export const whatsappGraphService = {
   },
 
   /**
-   * Sincroniza uma lista inteira de produtos em lotes via Batch Request da Meta Graph API
+   * Sincroniza uma lista inteira de produtos em lotes via Batch Request da Meta Graph API (items_batch)
    */
   syncBatchProductsToCatalog: async (
     productsList: any[],
@@ -218,10 +224,11 @@ export const whatsappGraphService = {
 
     if (!productsList || productsList.length === 0) return { success: true, count: 0 };
 
-    // A Meta limita batch a 50 itens por requisição
-    const BATCH_SIZE = 50;
+    // Limite de até 250 itens por requisição na Meta (limite máximo suportado: 300)
+    const BATCH_SIZE = 250;
     let syncedCount = 0;
     const total = productsList.length;
+    const handles: string[] = [];
 
     if (onProgress) onProgress(0, total);
 
@@ -235,7 +242,6 @@ export const whatsappGraphService = {
         const isInactiveOrHidden = isHidden || isDeleted;
         const retailerId = String(product.code || product.sku || product.id);
 
-        // Se estiver explicitamente oculto ou deletado na lixeira, remove do catálogo via DELETE
         if (isInactiveOrHidden) {
           return {
             method: 'DELETE',
@@ -290,14 +296,13 @@ Móveis Morante
 ____________________________________
 
 
-👁🗨 ESPECIFICAÇÕES:`;
+👁‍🗨 ESPECIFICAÇÕES:`;
 
         const cleanDescription = `${globalPrefix}\n\n${baseProdDesc}`;
         const rawPrice =
           product.unitPrice ?? product.unit_price ?? product.price ?? product.sales_price ?? 0;
-        const priceCents = Math.round(Number(rawPrice) * 100);
+        const itemPrice = Number(rawPrice);
 
-        // Processar todas as imagens do produto
         const allImageUrls: string[] = [];
         if (Array.isArray(product.images) && product.images.length > 0) {
           product.images.forEach((imgItem: any) => {
@@ -328,15 +333,10 @@ ____________________________________
           /https:\/\/.*?\.supabase\.co\/storage\/v1\/object\/public\/products\/(.*)/i;
         const R2_BASE_URL = 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev';
 
-        // Função helper para converter e sanitizar URLs exatamente como no Feed CSV
         const sanitizeUrl = (urlStr: string) => {
           if (!urlStr) return fallbackUrl;
-          let str = String(urlStr).trim();
+          let str = String(urlStr).trim().split('?')[0];
 
-          // Se houver query params desnecessários, limpa para manter o link direto da imagem
-          str = str.split('?')[0];
-
-          // Se for uma imagem legada do Supabase Storage, mapeia dinamicamente para o R2 da Cloudflare
           if (SUPABASE_STORAGE_PATTERN.test(str)) {
             const match = str.match(SUPABASE_STORAGE_PATTERN);
             if (match && match[1]) {
@@ -353,33 +353,38 @@ ____________________________________
 
         const sanitizedImages = allImageUrls.map(sanitizeUrl).filter(Boolean);
         const mainImageUrl = sanitizedImages.length > 0 ? sanitizedImages[0] : fallbackUrl;
-        const additionalImageUrls = sanitizedImages.length > 1 ? sanitizedImages.slice(1, 10) : []; // Meta suporta até 10 imagens adicionais
+        const additionalImageUrls = sanitizedImages.length > 1 ? sanitizedImages.slice(1, 10) : [];
 
         return {
           method: 'UPDATE',
           retailer_id: retailerId,
           data: {
-            name: cleanTitle,
+            id: retailerId,
+            title: cleanTitle,
             description: cleanDescription,
-            price: priceCents,
-            currency: 'BRL',
+            price: `${itemPrice.toFixed(2)} BRL`,
             condition: product.condition === 'usado' ? 'used' : 'new',
             availability: 'in stock',
-            image_url: mainImageUrl,
-            additional_image_urls: additionalImageUrls,
+            image_link: mainImageUrl,
+            additional_image_link: additionalImageUrls.join(',') || undefined,
             brand: product.brand || 'Móveis Morante',
-            url: `https://moveismorante.com.br/p/${product.id}`,
-            category: product.groupName || product.group_name || 'Furniture',
+            link:
+              product.url || `https://moveismorante.com.br/produto/${product.slug || product.id}`,
+            product_type: product.groupName || product.group_name || 'Furniture',
+            item_group_id: product.group_name || product.groupName || '',
           },
         };
       });
 
       const response = await fetch(
-        `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/batch`,
+        `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/items_batch`,
         {
           method: 'POST',
           headers: whatsappGraphService.getHeaders(),
-          body: JSON.stringify({ requests }),
+          body: JSON.stringify({
+            item_type: 'PRODUCT_ITEM',
+            requests,
+          }),
         }
       );
 
@@ -402,11 +407,32 @@ ____________________________________
         }
         throw new Error(msg || 'Erro no envio em lote da Meta API.');
       }
+
+      if (data.handles && Array.isArray(data.handles)) {
+        handles.push(...data.handles);
+      }
+
       syncedCount += chunk.length;
       if (onProgress) onProgress(syncedCount, total);
     }
 
-    return { success: true, count: syncedCount };
+    return { success: true, count: syncedCount, handles };
+  },
+
+  /**
+   * Consulta o status assíncrono de um lote enviado ao Meta Catalog
+   */
+  checkBatchStatus: async (handle: string) => {
+    const { whatsappConfig } = getSettings();
+    if (!whatsappConfig?.catalogId) throw new Error('Catalog ID não configurado.');
+
+    const response = await fetch(
+      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/check_batch_request_status?handle=${encodeURIComponent(handle)}`,
+      { headers: whatsappGraphService.getHeaders() }
+    );
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message || 'Erro ao consultar status do lote.');
+    return data;
   },
 
   /**
@@ -417,7 +443,7 @@ ____________________________________
     if (!whatsappConfig?.catalogId) throw new Error('Catalog ID não configurado.');
 
     const response = await fetch(
-      `https://graph.facebook.com/v18.0/${whatsappConfig.catalogId}/product_sets?fields=id,name,filter`,
+      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/product_sets?fields=id,name,filter`,
       { headers: whatsappGraphService.getHeaders() }
     );
     const data = await response.json();
@@ -429,10 +455,13 @@ ____________________________________
    * Deleta uma coleção (product set) da Meta pelo ID
    */
   deleteProductSet: async (productSetId: string): Promise<boolean> => {
-    const response = await fetch(`https://graph.facebook.com/v18.0/${productSetId}`, {
-      method: 'DELETE',
-      headers: whatsappGraphService.getHeaders(),
-    });
+    const response = await fetch(
+      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${productSetId}`,
+      {
+        method: 'DELETE',
+        headers: whatsappGraphService.getHeaders(),
+      }
+    );
     const data = await response.json();
     if (data.error) throw new Error(data.error.message || 'Erro ao deletar coleção.');
     return data.success === true;

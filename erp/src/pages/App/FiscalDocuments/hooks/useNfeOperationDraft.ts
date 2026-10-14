@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import {
+  fiscalOperationPreparationFormSchema,
+  createFiscalOperationReviewFormSchema,
+  createFiscalOperationTransmissionFormSchema,
+} from '../../../../../../shared-utils/fiscalOperationFormSchemas';
 import type {
   DraftPayload,
   ReviewData,
@@ -51,6 +57,36 @@ export function useNfeOperationDraft({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [retryAllowed, setRetryAllowed] = useState(false);
+
+  const preparationValues = {
+    kind,
+    originalDocumentId: sourceDocument?.id || '',
+    returnOrderId: kind === 'return' ? fixedReturnOrderId || returnOrderId || null : null,
+    environment: sourceDocument?.ambiente || 2,
+    reason: review?.reason || reason,
+    operationDidNotOccur,
+    goodsDidNotCirculate,
+  };
+  const preparationForm = useZodForm(fiscalOperationPreparationFormSchema, preparationValues);
+  const reviewValues = {
+    draftId,
+    reviewData: review ? { ...review } : {
+      nature_of_operation: '', reason: '', recipient_xml: '', totals_xml: '', transport_xml: '',
+      payment_xml: '', item_taxes_confirmed: false, totals_confirmed: false,
+      apportionment_review_confirmed: false, period_adjustment_text: '',
+    },
+    lines: reviewedLines.map((line) => ({ ...line })),
+  };
+  const reviewForm = useZodForm(
+    createFiscalOperationReviewFormSchema(payload?.draft.operation_kind || kind, payload?.lines.map((line) => line.id) || []),
+    reviewValues,
+  );
+  const transmissionValues = { draftId, productionConfirmed };
+  const transmissionForm = useZodForm(createFiscalOperationTransmissionFormSchema({
+    environment: payload?.draft.environment || sourceDocument?.ambiente || 2,
+    status: payload?.draft.status || '',
+    retryAllowed,
+  }), transmissionValues);
 
   useEffect(() => {
     if (mode) setKind(mode);
@@ -112,19 +148,14 @@ export function useNfeOperationDraft({
 
   const prepareDraft = async () => {
     if (!sourceDocument) return;
+    const validated = await preparationForm.validateAndRun(preparationValues, (data) => data,
+      (errors) => setError(Object.values(flattenFormErrors(errors))[0] || 'Preparação fiscal inválida.'));
+    if (!validated) return;
     setPreparing(true);
     setError('');
     setNotice('');
     try {
-      const created = await createFiscalOperationDraft({
-        kind,
-        originalDocumentId: sourceDocument.id,
-        returnOrderId: kind === 'return' ? fixedReturnOrderId || returnOrderId : null,
-        environment: sourceDocument.ambiente,
-        reason: review?.reason || reason,
-        operationDidNotOccur,
-        goodsDidNotCirculate,
-      });
+      const created = await createFiscalOperationDraft(validated);
       const loaded = await loadFiscalOperationDraft(created.draftId);
       applyDraft(loaded);
     } catch (cause) {
@@ -159,15 +190,14 @@ export function useNfeOperationDraft({
 
   const saveFiscalReview = async () => {
     if (!review || !draftId) return;
+    const validated = await reviewForm.validateAndRun(reviewValues, (data) => data,
+      (errors) => setError(Object.values(flattenFormErrors(errors))[0] || 'Revisão fiscal inválida.'));
+    if (!validated) return;
     setSavingReview(true);
     setError('');
     setNotice('');
     try {
-      const result = await saveFiscalOperationDraftReview({
-        draftId,
-        reviewData: review,
-        lines: reviewedLines,
-      });
+      const result = await saveFiscalOperationDraftReview(validated);
       setPayload((current) =>
         current ? { ...current, draft: { ...current.draft, status: result.status } } : current
       );
@@ -183,14 +213,14 @@ export function useNfeOperationDraft({
 
   const transmitOrReconcile = async () => {
     if (!draftId) return;
+    const validated = await transmissionForm.validateAndRun(transmissionValues, (data) => data,
+      (errors) => setError(Object.values(flattenFormErrors(errors))[0] || 'Operação fiscal inválida.'));
+    if (!validated) return;
     setTransmitting(true);
     setError('');
     setNotice('');
     try {
-      const result = await transmitFiscalOperationDraft({
-        draftId,
-        productionConfirmed,
-      });
+      const result = await transmitFiscalOperationDraft(validated);
       if (result.retryAllowed) {
         setRetryAllowed(true);
         setNotice(result.error || 'A consulta confirmou que a chave não está localizada.');
@@ -218,10 +248,7 @@ export function useNfeOperationDraft({
     }
   };
 
-  const canPrepare =
-    kind === 'return'
-      ? Boolean(fixedReturnOrderId || returnOrderId)
-      : operationDidNotOccur && goodsDidNotCirculate && reason.trim().length >= 15;
+  const canPrepare = fiscalOperationPreparationFormSchema.safeParse(preparationValues).success;
   return {
     kind,
     setKind,

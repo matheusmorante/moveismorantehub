@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { assemblyScheduleFormSchema } from '../../../../../shared-utils/operationsFormSchemas';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatToBRDate } from '../../utils/formatters';
@@ -144,7 +146,7 @@ const ShowroomAssemblyModal = ({ onClose }: ShowroomAssemblyModalProps) => {
 
         <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
           {/* Form Section */}
-          <form
+          <ZodForm schema={assemblyScheduleFormSchema} values={{ item, date, time }}
             onSubmit={handleSave}
             className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700/50"
           >
@@ -208,7 +210,7 @@ const ShowroomAssemblyModal = ({ onClose }: ShowroomAssemblyModalProps) => {
                 </button>
               )}
             </div>
-          </form>
+          </ZodForm>
 
           {/* List Section */}
           <div>

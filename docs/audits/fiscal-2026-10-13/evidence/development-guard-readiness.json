@@ -16,5 +16,6 @@
       "behavioralProofRequired": false,
       "rpcHttpStatus": 200
     }
-  ]
+  ],
+  "stderr": "Retrieving project…\nDownloading `development` Environment Variables\n"
 }

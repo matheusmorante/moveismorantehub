@@ -156,7 +156,7 @@ describe('preenchimento dos itens da NF-e', () => {
   async function requestXmlPreview(): Promise<void> {
     const button = screen.getByTestId('nfe-emit-button') as HTMLButtonElement;
     await waitFor(() => expect(button.disabled).toBe(false));
-    fireEvent.click(button);
+    await act(async () => { fireEvent.click(button); });
   }
 
   async function prepareNfeEmission(): Promise<void> {
@@ -828,7 +828,7 @@ describe('preenchimento dos itens da NF-e', () => {
     const emit = screen.getByTestId('nfe-emit-button');
     fireEvent.click(emit);
     fireEvent.click(emit);
-    expect(mocks.emit).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
     await act(async () =>
       resolveEmission({
         success: false,

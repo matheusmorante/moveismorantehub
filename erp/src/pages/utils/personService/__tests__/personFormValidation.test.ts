@@ -28,7 +28,7 @@ describe('personFormValidation com Zod schema', () => {
     expect(getPersonFormValidationError(validClient, 'customers')).toBeNull();
   });
 
-  it('aceita CPF com qualquer dígito verificador ou sequência repetida, mantendo o formato', () => {
+  it('rejeita CPF repetido, dígitos verificadores incorretos e letras', () => {
     const client: Partial<Person> = {
       fullName: 'Cliente com CPF inválido',
       personType: 'PF',
@@ -46,13 +46,13 @@ describe('personFormValidation com Zod schema', () => {
       },
     };
 
-    expect(getPersonFormValidationError(client, 'customers')).toBeNull();
+    expect(getPersonFormValidationError(client, 'customers')).toMatch(/repetidos/);
     expect(
       getPersonFormValidationError({ ...client, cpfCnpj: '343.445.635-34' }, 'customers')
-    ).toBeNull();
+    ).toMatch(/verificad/);
     expect(
       getPersonFormValidationError({ ...client, cpfCnpj: '343.445.635-3A' }, 'customers')
-    ).toBe('CPF inválido: informe 11 dígitos numéricos.');
+    ).toMatch(/contém letras/);
   });
 
   it('bloqueia CPF em cliente PJ e continua permitindo cadastro sem documento quando opcional', () => {
@@ -73,9 +73,7 @@ describe('personFormValidation com Zod schema', () => {
       },
     };
 
-    expect(getPersonFormValidationError(client, 'customers')).toBe(
-      'Tipo de documento incompatível: cliente PJ precisa de um CNPJ.'
-    );
+    expect(getPersonFormValidationError(client, 'customers')).toMatch(/Pessoa Jurídica.*CPF/);
     expect(getPersonFormValidationError({ ...client, cpfCnpj: '' }, 'customers')).toBeNull();
   });
 

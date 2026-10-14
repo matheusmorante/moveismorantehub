@@ -21,7 +21,8 @@ interface ProductCardProps {
   readonly onLaunchStock?: (product: Product) => void;
   readonly onDelete: (id: string) => void;
   readonly onRestore: (id: string) => void;
-  readonly onPermanentDelete: (id: string) => void;
+  readonly onMoveToTrash?: (product: Product) => void;
+  readonly onPermanentDelete?: (id: string) => void;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
   readonly onDeactivateCatalog: (id: string) => void;
   readonly onShowHistory?: (product: Product) => void;
@@ -44,8 +45,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onEdit,
   onLaunchStock,
   onDelete,
-  onPermanentDelete,
   onRestore,
+  onMoveToTrash,
+  onPermanentDelete,
   onToggleActive,
   onDeactivateCatalog,
   onShowHistory,
@@ -149,6 +151,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
         onEdit={onEdit}
         onLaunchStock={onLaunchStock}
         onDelete={onDelete}
+        onRestore={onRestore}
+        onMoveToTrash={onMoveToTrash}
         onPermanentDelete={onPermanentDelete}
         onToggleActive={onToggleActive}
         onDeactivateCatalog={onDeactivateCatalog}

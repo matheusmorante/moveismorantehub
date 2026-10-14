@@ -14,7 +14,8 @@ import {
 import { toast } from 'react-toastify';
 import { capitalizePerson } from '@/pages/utils/formatters';
 import { getSettings } from '@/pages/utils/settingsService';
-import { getPersonFormValidationError } from '@/pages/utils/personService/personFormValidation';
+import { createPersonFormSchema } from '@/pages/utils/personService/personFormValidation';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { getAddressByCep, getShippingRouteUrl } from '@/pages/utils/maps';
 import { UserRole } from '@/context/AuthContext';
 import { getPrimaryRole } from '@/pages/utils/accessRoles';
@@ -123,6 +124,7 @@ export const usePersonForm = ({
   const [loading, setLoading] = useState(false);
   const isTestArtifact = Boolean(readTestArtifactIdentity(formData));
   const [settings] = useState(getSettings());
+  const form = useZodForm(createPersonFormSchema(collectionName, settings.requiredFields), formData);
   const isInitialMount = useRef(true);
   const [isAddressOpen, setIsAddressOpen] = useState(!isEmployee);
 
@@ -386,15 +388,9 @@ export const usePersonForm = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const formValidationError = getPersonFormValidationError(
-      formData,
-      collectionName,
-      settings.requiredFields
-    );
-    if (formValidationError) {
-      toast.error(formValidationError);
-      return;
-    }
+    const validatedData = await form.validateAndRun(formData, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validatedData) return;
 
     if (isEmployee && formData.email && formData.email.trim() !== '') {
       const isEmailTaken = await isEmployeeEmailTaken(formData.email, person?.id);
@@ -439,7 +435,7 @@ export const usePersonForm = ({
 
     setLoading(true);
     try {
-      const dataToSave = capitalizePerson({ ...formData, isDraft: false } as Person);
+      const dataToSave = capitalizePerson({ ...validatedData, isDraft: false } as Person);
       if (dataToSave.position?.trim() === '') {
         dataToSave.position = null as any;
       }
@@ -484,6 +480,7 @@ export const usePersonForm = ({
     (formData.fullAddress?.street?.trim() ? getShippingRouteUrl(formData.fullAddress as any) : '');
 
   return {
+    form,
     formData,
     setFormData,
     isTestArtifact,

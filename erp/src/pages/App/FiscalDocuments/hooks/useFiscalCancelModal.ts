@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createFiscalCancellationFormSchema } from '../../../../../../shared-utils/fiscalOperationFormSchemas';
 import { formatToBRDate } from '@/pages/utils/formatters';
 import type {
   CancellationEligibility,
@@ -21,6 +23,13 @@ export function useFiscalCancelModal({
   const [cancelReason, setCancelReason] = useState('');
   const [isCanceling, setIsCanceling] = useState(false);
   const [productionCancelConfirmed, setProductionCancelConfirmed] = useState(false);
+  const formValues = { reason: cancelReason, productionConfirmed: productionCancelConfirmed };
+  const cancellationForm = useZodForm(createFiscalCancellationFormSchema({
+    isCancelEvent: true, environment: selectedDoc?.ambiente || 2,
+  }), formValues);
+  const estornoForm = useZodForm(createFiscalCancellationFormSchema({
+    isCancelEvent: false, environment: selectedDoc?.ambiente || 2,
+  }), formValues);
 
   const openCancel = (doc: NfeDocumentRecord, eligibility?: CancellationEligibility) => {
     if (!eligibility?.canProceed) {
@@ -49,20 +58,11 @@ export function useFiscalCancelModal({
 
     const isCancelEvent = eligibility.action === 'cancel';
 
-    if (
-      isCancelEvent &&
-      (!cancelReason ||
-        Array.from(cancelReason.trim()).length < 15 ||
-        Array.from(cancelReason.trim()).length > 255)
-    ) {
-      toast.error('A justificativa deve ter entre 15 e 255 caracteres.');
-      return;
-    }
-
-    if (isCancelEvent && selectedDoc.ambiente === 1 && !productionCancelConfirmed) {
-      toast.error('Confirme que deseja cancelar a nota no ambiente de Produção.');
-      return;
-    }
+    const validated = await (isCancelEvent ? cancellationForm : estornoForm).validateAndRun(
+      formValues, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0] || 'Cancelamento fiscal inválido.'),
+    );
+    if (!validated) return;
 
     setIsCanceling(true);
     let commercialCommitted = false;
@@ -70,9 +70,9 @@ export function useFiscalCancelModal({
     try {
       const result = await executeFiscalCancellation({
         document: selectedDoc,
-        reason: cancelReason,
+        reason: validated.reason,
         isCancelEvent,
-        productionConfirmed: productionCancelConfirmed,
+        productionConfirmed: validated.productionConfirmed,
       });
 
       commercialCommitted = result.commercialCommitted;

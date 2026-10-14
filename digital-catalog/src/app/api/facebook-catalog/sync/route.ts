@@ -1,65 +1,120 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
+import {
+  getMetaCatalogCredentials,
+  normalizeMetaImageUrl,
+  stripHtml,
+  formatDecimalPrice,
+  checkMetaBatchStatus,
+  MetaBatchRequest,
+} from '@/services/meta-catalog';
 
 export const dynamic = 'force-dynamic';
 
-/** Remove tags HTML e converte <br> em espaço para descrições enviadas ao Meta */
-function stripHtml(html: string): string {
-  if (!html) return '';
-  let text = html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p\s*>/gi, '\n')
-    .replace(/<\/div\s*>/gi, '\n')
-    .replace(/<\/li\s*>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
-  return text.trim();
+const META_GRAPH_VERSION = 'v26.0';
+
+/**
+ * GET: Consulta o status de um lote enviado (via ?handle=...) ou verifica a saúde da integração
+ */
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const handle = searchParams.get('handle');
+
+    const credentials = await getMetaCatalogCredentials();
+    if (!credentials) {
+      return NextResponse.json(
+        { error: 'Credenciais do Meta Catalog não configuradas.' },
+        { status: 400 }
+      );
+    }
+
+    if (handle) {
+      const statusData = await checkMetaBatchStatus(handle, credentials);
+      return NextResponse.json({
+        success: true,
+        handle,
+        status: statusData,
+      });
+    }
+
+    // Se nenhum handle foi fornecido, verifica a saúde do catálogo na Meta
+    const metaCheckUrl = `https://graph.facebook.com/${META_GRAPH_VERSION}/${credentials.catalogId}?fields=id,name,vertical,product_count`;
+    const res = await fetch(metaCheckUrl, {
+      headers: { Authorization: `Bearer ${credentials.accessToken}` },
+    });
+    const catalogInfo = await res.json();
+
+    if (!res.ok || catalogInfo.error) {
+      return NextResponse.json(
+        {
+          healthy: false,
+          error: catalogInfo.error?.message || 'Falha ao conectar ao catálogo da Meta.',
+          catalogId: credentials.catalogId,
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      healthy: true,
+      catalog: catalogInfo,
+      endpoint: `https://graph.facebook.com/${META_GRAPH_VERSION}/${credentials.catalogId}/items_batch`,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
 
+/**
+ * POST: Sincroniza todos os produtos publicados e ativos diretamente com a Meta Catalog API (items_batch)
+ */
 export async function POST(request: Request) {
   try {
-    // 1. Buscar credenciais e configurações de integração do Meta Catalog
-    const { data: catSettings, error: settingsError } = await supabase
-      .from('facebook_catalog_settings')
-      .select('global_description_prefix, column_mappings, meta_access_token, meta_catalog_id')
-      .eq('id', true)
-      .maybeSingle();
-
-    if (settingsError || !catSettings) {
+    // 1. Obter credenciais e configurações
+    const credentials = await getMetaCatalogCredentials();
+    if (!credentials) {
       return NextResponse.json(
-        { error: 'Configurações do catálogo Meta não encontradas no banco de dados.' },
+        { error: 'Access Token ou Catalog ID do Meta não configurados no sistema.' },
         { status: 400 }
       );
     }
 
-    const {
-      meta_access_token: rawToken,
-      meta_catalog_id: rawCatalogId,
-      global_description_prefix: globalDescPrefix,
-      column_mappings: columnMappings,
-    } = catSettings;
+    const { accessToken, catalogId } = credentials;
 
-    const token = rawToken ? String(rawToken).trim() : '';
-    const catalogId = rawCatalogId ? String(rawCatalogId).trim().replace(/\D/g, '') : '';
+    // Buscar configurações de descrição e mapeamentos
+    let globalDescPrefix = '';
+    let columnMappings: Record<string, string> = {
+      brand: 'Móveis Morante',
+      condition: 'new',
+      gender: 'unisex',
+      age_group: 'adult',
+    };
 
-    if (!token || !catalogId) {
-      return NextResponse.json(
-        { error: 'Access Token ou Catalog ID do Meta não configurados no painel.' },
-        { status: 400 }
-      );
+    try {
+      const { data: catSettings } = await supabase
+        .from('facebook_catalog_settings')
+        .select('global_description_prefix, column_mappings')
+        .eq('id', true)
+        .maybeSingle();
+
+      if (catSettings) {
+        if (catSettings.global_description_prefix) {
+          globalDescPrefix = catSettings.global_description_prefix;
+        }
+        if (catSettings.column_mappings) {
+          columnMappings = { ...columnMappings, ...catSettings.column_mappings };
+        }
+      }
+    } catch (dbErr) {
+      console.warn('[MetaCatalogSync] Erro ao carregar facebook_catalog_settings:', dbErr);
     }
 
-    // 2. Busca todos os itens próprios
-    // Otimizado: Traz apenas os campos essenciais para o Meta, reduzindo o Egress massivamente.
+    // 2. Buscar todos os produtos com campos completos (incluindo slug, stock, material, is_salvado)
     const { data: allProducts, error: productsError } = await supabase
       .from('products')
       .select(
-        'id, name, description, price, promo_price, status, deleted_at, deleted, is_draft, code, sku, category_id, product_categories(categories(name, type)), product_images(image_url, is_main), product_variations(id, name, sku, price, promo_price, image_url, attributes, status, active, use_parent_price, use_parent_promo_price, use_parent_name), opportunities(name)'
+        'id, name, slug, description, price, unit_price, promo_price, status, deleted_at, deleted, is_draft, is_salvado, material, stock, code, sku, category_id, product_categories(categories(name, type)), product_images(image_url, is_main), product_variations(id, name, sku, price, promo_price, image_url, attributes, status, active, stock, use_parent_price, use_parent_promo_price, use_parent_name), opportunities(name, observations)'
       );
 
     if (productsError || !allProducts) {
@@ -77,41 +132,50 @@ export async function POST(request: Request) {
       ? new URL(request.url).origin
       : appUrl.replace(/\/$/, '');
 
-    // 3. Montar o payload da Catalog API (items_batch)
-    // A API do Meta aceita até 5.000 requests por batch
-    const batchRequests: any[] = [];
-
+    // 3. Montar as requisições em lote para a Meta Catalog API (items_batch)
+    const batchRequests: MetaBatchRequest[] = [];
     const visibleProducts = allProducts.filter(
       (p: any) => p.status === 'published' && !p.deleted_at && !p.deleted && !p.is_draft
     );
 
-    for (const p of (allProducts as any[])) {
+    for (const p of allProducts as any[]) {
       const relationalVariations = p.product_variations || [];
       const hasRelationalVariations = relationalVariations.length > 0;
       const isParentVisible =
         p.status === 'published' && !p.deleted_at && !p.deleted && !p.is_draft;
       const visibleVariations = relationalVariations.filter(
-        (v: any) => v.status === 'published' && v.active !== false
+        (v: any) =>
+          v.active !== false &&
+          (v.status === 'published' ||
+            (!v.status && isParentVisible) ||
+            (isParentVisible && v.status !== 'hidden'))
       );
 
-      // Um produto com variações é publicado no Meta somente pelas variações.
-      // Tudo que deixou de ser público recebe DELETE explícito no items_batch.
+      // Tratamento de exclusões (itens deletados ou ocultados)
       if (hasRelationalVariations) {
+        // Se o produto pai tiver variações, remove o id pai do catálogo pois a venda ocorre por variações
         batchRequests.push({ method: 'DELETE', retailer_id: String(p.id) });
+
         for (const variation of relationalVariations) {
-          if (!isParentVisible || variation.status !== 'published' || variation.active === false) {
+          const isVarPublished =
+            variation.active !== false &&
+            (variation.status === 'published' ||
+              (!variation.status && isParentVisible) ||
+              (isParentVisible && variation.status !== 'hidden'));
+          if (!isVarPublished) {
             batchRequests.push({
               method: 'DELETE',
               retailer_id: String(variation.sku || variation.id),
             });
           }
         }
-        if (!isParentVisible || visibleVariations.length === 0) continue;
+        if (visibleVariations.length === 0) continue;
       } else if (!isParentVisible) {
         batchRequests.push({ method: 'DELETE', retailer_id: String(p.id) });
         continue;
       }
 
+      // Mapeamento de categorias e ambientes
       const parentCategories =
         p.product_categories
           ?.map((pc: any) => pc.categories)
@@ -119,128 +183,212 @@ export async function POST(request: Request) {
           .map((cat: any) => cat.name)
           .filter(Boolean) || [];
 
-      const googleCat = parentCategories.join(' > ') || 'Furniture';
-      // Ordena as imagens do produto de forma que a principal (is_main = true) fique em primeiro lugar
+      const environments =
+        p.product_categories
+          ?.map((pc: any) => pc.categories)
+          .filter((cat: any) => cat && cat.type === 'environment')
+          .map((cat: any) => cat.name)
+          .filter(Boolean) || [];
+
+      let productType = '';
+      if (environments.length > 0 && parentCategories.length > 0) {
+        productType = `${environments[0]} > ${parentCategories[0]}`;
+      } else if (parentCategories.length > 0) {
+        productType = parentCategories[0];
+      } else if (environments.length > 0) {
+        productType = environments[0];
+      } else {
+        productType = 'Furniture';
+      }
+
+      // Imagens principais e adicionais
       const sortedImages = [...(p.product_images || [])].sort(
         (a, b) => (b.is_main ? 1 : -1) - (a.is_main ? 1 : -1)
       );
-      const allImages = sortedImages.map((img: any) => img.image_url).filter(Boolean) || [];
+      const allImages = sortedImages.map((img: any) => img.image_url).filter(Boolean);
       const parentImage = allImages[0] || '';
-      const additionalImages = allImages.slice(1).join(',');
+      const additionalImages = allImages
+        .slice(1)
+        .map(normalizeMetaImageUrl)
+        .filter(Boolean)
+        .join(',');
+
+      const opp = Array.isArray(p.opportunities) ? p.opportunities[0] : p.opportunities;
+      const opportunityName = opp?.name ? String(opp.name).trim() : '';
 
       if (hasRelationalVariations) {
-        // Tratar as variantes como produtos individuais no Meta
-        for (const v of (visibleVariations as any[])) {
+        // Cada variação vira um item individual agrupado por item_group_id
+        for (const v of visibleVariations as any[]) {
           const isParentPrice = v.use_parent_price !== false;
           const isParentPromo = v.use_parent_promo_price !== false;
           const isParentDesc = v.use_parent_description !== false;
-          const isParentName = v.use_parent_name !== false;
+          const hasDistinctName = v.name && String(v.name).trim() !== String(p.name).trim();
+          const isParentName = v.use_parent_name !== false && !hasDistinctName;
 
-          const varPrice = isParentPrice ? p.price : v.price || p.price;
+          const varPrice = isParentPrice ? p.price || p.unit_price : v.price || p.price;
           const varPromo = isParentPromo ? p.promo_price : v.promo_price;
           const varDesc = isParentDesc ? p.description : v.description || p.description;
           let varName = isParentName ? p.name : v.name || p.name;
 
-          const color = v.attributes?.Cor || v.attributes?.cor || '';
-          const size = v.attributes?.Tamanho || v.attributes?.tamanho || '';
+          // Extração de cor e tamanho
+          let color = '';
+          let size = '';
+          if (Array.isArray(v.attributes)) {
+            const corAttr = v.attributes.find(
+              (a: any) =>
+                a &&
+                (a.name?.toLowerCase() === 'cor' ||
+                  a.key?.toLowerCase() === 'cor' ||
+                  a.attribute_name?.toLowerCase() === 'cor')
+            );
+            if (corAttr) color = String(corAttr.value || corAttr.option || '').trim();
 
-          // Adiciona cor e tamanho ao título da variante para individualizar no catálogo
+            const tamAttr = v.attributes.find(
+              (a: any) =>
+                a &&
+                (a.name?.toLowerCase() === 'tamanho' ||
+                  a.key?.toLowerCase() === 'tamanho' ||
+                  a.attribute_name?.toLowerCase() === 'tamanho')
+            );
+            if (tamAttr) size = String(tamAttr.value || tamAttr.option || '').trim();
+          } else if (v.attributes && typeof v.attributes === 'object') {
+            color = String(v.attributes.Cor || v.attributes.cor || '').trim();
+            size = String(v.attributes.Tamanho || v.attributes.tamanho || '').trim();
+          }
+
+          if (!color && /branco/i.test(varName)) {
+            color = 'Branco';
+          }
+
           const suffixParts: string[] = [];
-          if (color) suffixParts.push(String(color).trim());
-          if (size) suffixParts.push(String(size).trim());
+          if (color && !new RegExp(`\\b${color}\\b`, 'i').test(varName)) {
+            suffixParts.push(color);
+          }
+          if (size && !new RegExp(`\\b${size}\\b`, 'i').test(varName)) {
+            suffixParts.push(size);
+          }
           if (suffixParts.length > 0) {
             varName = `${varName} - ${suffixParts.join(' / ')}`;
           }
 
-          let descWithPrefix = globalDescPrefix
-            ? `${globalDescPrefix}\n${varDesc || ''}`.trim()
-            : varDesc || '';
-
-          if (p.opportunities && p.opportunities.observations) {
-            descWithPrefix =
-              `${descWithPrefix}\n\nAviso Importante (${p.opportunities.name}): ${p.opportunities.observations}`.trim();
+          // Descrição com prefixo global e observações de oportunidade
+          const descParts: string[] = [];
+          if (globalDescPrefix) descParts.push(globalDescPrefix);
+          if (opp?.observations) {
+            descParts.push(
+              `***Aviso Importante (${opportunityName || opp.name}): ${opp.observations}***`
+            );
           }
+          if (varDesc) descParts.push(varDesc);
+          const descWithPrefix = stripHtml(descParts.join('\n\n'));
 
-          descWithPrefix = stripHtml(descWithPrefix);
-
-          let varImageLink = parentImage;
+          let varImageLink = normalizeMetaImageUrl(parentImage);
           let varAdditionalImages = additionalImages;
 
           if (v.image_url) {
-            const varImagesList = v.image_url
+            const varImagesList = String(v.image_url)
               .split(',')
               .map((url: any) => url.trim())
               .filter(Boolean);
             if (varImagesList.length > 0) {
-              varImageLink = varImagesList[0];
-              varAdditionalImages = varImagesList.slice(1).join(',');
+              varImageLink = normalizeMetaImageUrl(varImagesList[0]);
+              varAdditionalImages = varImagesList
+                .slice(1)
+                .map(normalizeMetaImageUrl)
+                .filter(Boolean)
+                .join(',');
             }
           }
 
+          const regularVarPrice = Number(varPrice || 0);
+          const promoVarPrice = varPromo ? Number(varPromo) : 0;
+          const hasVarPromo = promoVarPrice > 0 && promoVarPrice < regularVarPrice;
+
+          const isStockAvailable =
+            v.stock === null || v.stock === undefined || Number(v.stock) > 0;
+          const quantityToSell =
+            v.stock !== null && v.stock !== undefined ? Math.max(0, Number(v.stock)) : 1;
+
+          const retailerId = String(v.sku || v.id);
+
           batchRequests.push({
-            method: 'UPDATE', // UPDATE atua como upsert por padrão (cria se não existir)
-            retailer_id: String(v.sku || v.id),
+            method: 'UPDATE',
+            retailer_id: retailerId,
             data: {
+              id: retailerId,
               title: varName,
               description: descWithPrefix,
               link: `${origin}/produto/${p.slug}?var=${v.id}`,
               image_link: varImageLink,
               additional_image_link: varAdditionalImages || undefined,
-              availability: v.stock > 0 ? 'in stock' : 'out of stock',
-              price: `${Number(varPrice).toFixed(2)} BRL`,
-              sale_price: varPromo ? `${Number(varPromo).toFixed(2)} BRL` : undefined,
+              availability: isStockAvailable ? 'in stock' : 'out of stock',
+              price: `${regularVarPrice.toFixed(2)} BRL`,
+              sale_price: hasVarPromo ? `${promoVarPrice.toFixed(2)} BRL` : undefined,
               brand: columnMappings.brand || 'Móveis Morante',
-              condition: columnMappings.condition || 'new',
+              condition: p.is_salvado ? 'refurbished' : 'new',
               color: color || undefined,
               gender: columnMappings.gender || 'unisex',
               material: p.material || undefined,
               size: size || undefined,
-              item_group_id: '', // Vazio para aparecerem como produtos individuais e separados no Meta
+              item_group_id: String(p.code || p.id || ''),
               identifier_exists: 'no',
-              quantity_to_sell_on_facebook: v.stock || 0,
-              product_type: googleCat,
+              quantity_to_sell_on_facebook: quantityToSell,
+              product_type: productType,
+              custom_label_0: productType,
+              custom_label_1: formatDecimalPrice(regularVarPrice),
+              custom_label_2: hasVarPromo ? formatDecimalPrice(promoVarPrice) : undefined,
+              custom_label_3: opportunityName || undefined,
             },
           });
         }
       } else {
-        // Produto simples (sem variantes)
-        let descWithPrefix = globalDescPrefix
-          ? `${globalDescPrefix}\n${p.description || ''}`.trim()
-          : p.description || '';
-
-        const opp = Array.isArray(p.opportunities) ? p.opportunities[0] : p.opportunities;
-        if (opp && opp.observations) {
-          descWithPrefix =
-            `${descWithPrefix}\n\nAviso Importante (${opp.name}): ${opp.observations}`.trim();
+        // Produto simples
+        const descParts: string[] = [];
+        if (globalDescPrefix) descParts.push(globalDescPrefix);
+        if (opp?.observations) {
+          descParts.push(
+            `***Aviso Importante (${opportunityName || opp.name}): ${opp.observations}***`
+          );
         }
+        if (p.description) descParts.push(p.description);
+        const descWithPrefix = stripHtml(descParts.join('\n\n'));
 
-        descWithPrefix = stripHtml(descWithPrefix);
+        const regularParentPrice = Number(p.price || p.unit_price || 0);
+        const promoParentPrice = p.promo_price ? Number(p.promo_price) : 0;
+        const hasParentPromo = promoParentPrice > 0 && promoParentPrice < regularParentPrice;
 
-        const priceFormatted = `${Number(p.price).toFixed(2)} BRL`;
-        const salePriceFormatted = p.promo_price
-          ? `${Number(p.promo_price).toFixed(2)} BRL`
-          : undefined;
+        const isStockAvailable =
+          p.stock === null || p.stock === undefined || Number(p.stock) > 0;
+        const quantityToSell =
+          p.stock !== null && p.stock !== undefined ? Math.max(0, Number(p.stock)) : 1;
+
+        const retailerId = String(p.code || p.id);
 
         batchRequests.push({
           method: 'UPDATE',
-          retailer_id: String(p.id),
+          retailer_id: retailerId,
           data: {
+            id: retailerId,
             title: p.name,
             description: descWithPrefix,
             link: `${origin}/produto/${p.slug}`,
-            image_link: parentImage,
+            image_link: normalizeMetaImageUrl(parentImage),
             additional_image_link: additionalImages || undefined,
-            availability: 'in stock',
-            price: priceFormatted,
-            sale_price: salePriceFormatted,
+            availability: isStockAvailable ? 'in stock' : 'out of stock',
+            price: `${regularParentPrice.toFixed(2)} BRL`,
+            sale_price: hasParentPromo ? `${promoParentPrice.toFixed(2)} BRL` : undefined,
             brand: columnMappings.brand || 'Móveis Morante',
-            condition: columnMappings.condition || 'new',
+            condition: p.is_salvado ? 'refurbished' : 'new',
             gender: columnMappings.gender || 'unisex',
             material: p.material || undefined,
             item_group_id: '',
             identifier_exists: 'no',
-            quantity_to_sell_on_facebook: 10,
-            product_type: googleCat,
+            quantity_to_sell_on_facebook: quantityToSell,
+            product_type: productType,
+            custom_label_0: productType,
+            custom_label_1: formatDecimalPrice(regularParentPrice),
+            custom_label_2: hasParentPromo ? formatDecimalPrice(promoParentPrice) : undefined,
+            custom_label_3: opportunityName || undefined,
           },
         });
       }
@@ -250,38 +398,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Nenhum produto publicado para sincronizar.' });
     }
 
-    // 4. Enviar em lote (batch) para a Catalog API do Meta
-    // Endpoint: POST https://graph.facebook.com/v26.0/{catalog_id}/items_batch
-    const metaApiUrl = `https://graph.facebook.com/v26.0/${catalogId}/items_batch`;
+    // 4. Enviar em lotes seguros de até 250 itens (limite Meta: 300 itens por lote)
+    const BATCH_SIZE = 250;
+    const handles: string[] = [];
+    const errors: any[] = [];
+    const metaApiUrl = `https://graph.facebook.com/${META_GRAPH_VERSION}/${catalogId}/items_batch`;
 
-    const formData = new URLSearchParams();
-    formData.append('item_type', 'PRODUCT_ITEM');
-    formData.append('requests', JSON.stringify(batchRequests));
+    for (let i = 0; i < batchRequests.length; i += BATCH_SIZE) {
+      const chunk = batchRequests.slice(i, i + BATCH_SIZE);
 
-    const response = await fetch(metaApiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData.toString(),
-    });
-
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      const metaErrorMsg = responseData?.error?.message || JSON.stringify(responseData);
-      return NextResponse.json(
-        {
-          error: `Erro do Meta: ${metaErrorMsg}`,
+      const response = await fetch(metaApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
         },
-        { status: response.status }
-      );
+        body: JSON.stringify({
+          item_type: 'PRODUCT_ITEM',
+          requests: chunk,
+        }),
+      });
+
+      const chunkData = await response.json();
+
+      if (!response.ok) {
+        console.error(`[MetaCatalogSync] Erro no chunk ${i / BATCH_SIZE + 1}:`, chunkData);
+        errors.push(chunkData.error || chunkData);
+      } else if (chunkData.handles && Array.isArray(chunkData.handles)) {
+        handles.push(...chunkData.handles);
+      }
     }
 
-    // 5. Atualizar os Conjuntos (Product Sets) correspondentes às Categorias ativas
+    // 5. Atualizar os Conjuntos (Product Sets) para categorias ativas
+    let setsCreated = 0;
     try {
-      // Coletar nomes exclusivos das categorias de produtos sincronizados
       const categoryNames = new Set<string>();
       for (const p of visibleProducts) {
         p.product_categories?.forEach((pc: any) => {
@@ -296,12 +446,9 @@ export async function POST(request: Request) {
       const activeCategories = Array.from(categoryNames);
 
       if (activeCategories.length > 0) {
-        // Buscar os conjuntos já existentes no Meta para não tentar duplicar
-        const getSetsUrl = `https://graph.facebook.com/v26.0/${catalogId}/product_sets`;
+        const getSetsUrl = `https://graph.facebook.com/${META_GRAPH_VERSION}/${catalogId}/product_sets`;
         const getSetsRes = await fetch(getSetsUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
         const getSetsData = await getSetsRes.json();
 
@@ -310,44 +457,49 @@ export async function POST(request: Request) {
             []
         );
 
-        // Para cada categoria ativa do nosso sistema que não tenha conjunto com o mesmo nome, cria o conjunto no Meta
         for (const catName of activeCategories) {
           const normalizedCat = catName.toLowerCase().trim();
           if (!existingSetNames.has(normalizedCat)) {
-            const createSetUrl = `https://graph.facebook.com/v26.0/${catalogId}/product_sets`;
-
-            // Filtro dinâmico: inclui no conjunto todo produto cujo product_type seja igual ou contenha o nome da categoria
+            const createSetUrl = `https://graph.facebook.com/${META_GRAPH_VERSION}/${catalogId}/product_sets`;
             const filterObj = {
               product_type: {
                 i_contains: catName,
               },
             };
 
-            await fetch(createSetUrl, {
+            const setRes = await fetch(createSetUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
+                Authorization: `Bearer ${accessToken}`,
               },
               body: JSON.stringify({
                 name: catName,
                 filter: JSON.stringify(filterObj),
               }),
             });
+
+            if (setRes.ok) {
+              setsCreated++;
+            }
           }
         }
       }
     } catch (setErr: any) {
-      console.warn('Erro ao tentar atualizar os conjuntos de categorias no Meta:', setErr);
-      // Não bloqueia a resposta, pois os produtos em si já foram atualizados com sucesso
+      console.warn('[MetaCatalogSync] Aviso ao sincronizar conjuntos:', setErr);
     }
 
     return NextResponse.json({
-      success: true,
-      message: `Produtos sincronizados (${batchRequests.length}) e conjuntos de categorias atualizados no Meta!`,
-      meta_response: responseData,
+      success: handles.length > 0,
+      total_items: batchRequests.length,
+      chunks_sent: Math.ceil(batchRequests.length / BATCH_SIZE),
+      handles,
+      errors: errors.length > 0 ? errors : undefined,
+      product_sets_created: setsCreated,
+      message: `Sincronização Meta Catalog enviada com sucesso! (${batchRequests.length} itens em ${handles.length} lote(s)).`,
     });
   } catch (err: any) {
+    console.error('[MetaCatalogSync] Erro fatal:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

@@ -82,8 +82,15 @@ export function useMobileOrders() {
         if (ordersResult.status === 'fulfilled') {
           setOrders(ordersResult.value.items);
           setTotalItems(ordersResult.value.total);
+          const orderCancelledMap = Object.fromEntries(
+            ordersResult.value.items.map((order) => [
+              order.id,
+              String(order.status || '').toLowerCase().includes('cancel'),
+            ])
+          );
           void fetchMobileOrderFiscalBadgeStatuses(
-            ordersResult.value.items.map((order) => order.id)
+            ordersResult.value.items.map((order) => order.id),
+            orderCancelledMap
           )
             .then((statuses) => {
               setOrders((current) =>
@@ -94,10 +101,15 @@ export function useMobileOrders() {
                     ...order,
                     fiscalBadgeStatus: itemStatus.production,
                     fiscalHmlBadgeStatus: itemStatus.homologation,
+                    fiscalEstornoBadgeStatus: itemStatus.estornoStatus,
+                    fiscalDevolucaoBadgeStatus: itemStatus.devolucaoStatus,
+                    fiscalDevolucaoCount: itemStatus.devolucaoCount,
+                    fiscalCancellationState: itemStatus.fiscalCancellationState,
                   };
                 })
               );
             })
+
             .catch(() => {
               console.error(
                 '[useMobileOrders] Não foi possível carregar o status fiscal dos pedidos.'

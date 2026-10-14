@@ -1,0 +1,17 @@
+{
+  "name": "development-operator-preflight",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "mode": "operator",
+      "projectRef": "hkoxhourxwlddgsfdgws",
+      "environment": 2,
+      "operatorEmailPresent": true,
+      "authenticated": true,
+      "authenticatedIdentityMatches": true,
+      "administratorCheckOk": true,
+      "isAdministrator": true
+    }
+  ]
+}

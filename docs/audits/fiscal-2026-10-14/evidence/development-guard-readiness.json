@@ -1,0 +1,21 @@
+{
+  "name": "development-guard-readiness",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "mode": "policy-status",
+      "projectMatches": true,
+      "vercelDevelopment": true,
+      "environmentOk": true,
+      "serviceCredentialPresent": true,
+      "rpcReachable": true,
+      "policyStatusValid": true,
+      "ready": true,
+      "policyVersion": "json-artifacts-v1",
+      "behavioralProofRequired": false,
+      "rpcHttpStatus": 200
+    }
+  ],
+  "stderr": "Retrieving project…\nDownloading `development` Environment Variables\n"
+}

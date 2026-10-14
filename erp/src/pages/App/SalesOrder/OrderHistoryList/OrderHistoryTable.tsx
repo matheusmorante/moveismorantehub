@@ -209,6 +209,8 @@ const OrderHistoryTable = ({
                   typeof badgeInfo === 'object' ? badgeInfo?.estornoStatus : undefined;
                 const estornoDocumentId =
                   typeof badgeInfo === 'object' ? badgeInfo?.estornoDocumentId : undefined;
+                const estornoDraftId =
+                  typeof badgeInfo === 'object' ? badgeInfo?.estornoDraftId : undefined;
                 const estornoEnvironment =
                   typeof badgeInfo === 'object' ? badgeInfo?.estornoEnvironment : undefined;
                 const devolucaoStatus =
@@ -232,6 +234,7 @@ const OrderHistoryTable = ({
                     fiscalCancellationState={fiscalCancellationState}
                     fiscalEstornoBadgeStatus={estornoStatus}
                     fiscalEstornoDocumentId={estornoDocumentId}
+                    fiscalEstornoDraftId={estornoDraftId}
                     fiscalEstornoEnvironment={estornoEnvironment}
                     fiscalDevolucaoBadgeStatus={devolucaoStatus}
                     fiscalDevolucaoDocumentId={devolucaoDocumentId}
@@ -290,6 +293,8 @@ const OrderHistoryTable = ({
                 typeof badgeInfo === 'object' ? badgeInfo?.estornoStatus : undefined;
               const estornoDocumentId =
                 typeof badgeInfo === 'object' ? badgeInfo?.estornoDocumentId : undefined;
+              const estornoDraftId =
+                typeof badgeInfo === 'object' ? badgeInfo?.estornoDraftId : undefined;
               const estornoEnvironment =
                 typeof badgeInfo === 'object' ? badgeInfo?.estornoEnvironment : undefined;
               const devolucaoStatus =
@@ -314,6 +319,7 @@ const OrderHistoryTable = ({
                   fiscalCancellationDocuments={fiscalCancellationDocuments}
                   fiscalEstornoBadgeStatus={estornoStatus}
                   fiscalEstornoDocumentId={estornoDocumentId}
+                  fiscalEstornoDraftId={estornoDraftId}
                   fiscalEstornoEnvironment={estornoEnvironment}
                   fiscalDevolucaoBadgeStatus={devolucaoStatus}
                   fiscalDevolucaoDocumentId={devolucaoDocumentId}

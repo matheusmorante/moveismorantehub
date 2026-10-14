@@ -1,0 +1,133 @@
+{
+  "name": "development-test-artifact-postgrest-readonly",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "mode": "artifact-reads",
+      "projectRef": "hkoxhourxwlddgsfdgws",
+      "environment": 2,
+      "operatorEmailPresent": true,
+      "authenticated": true,
+      "authenticatedIdentityMatches": true,
+      "administratorCheckOk": true,
+      "sourceFilterAppliedBeforeLimit": true,
+      "destinations": [
+        {
+          "name": "sales-report",
+          "rawCount": 709,
+          "filteredCount": 695,
+          "excludedCount": 14,
+          "markedCandidateCount": 14,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "stock-report",
+          "rawCount": 938,
+          "filteredCount": 919,
+          "excludedCount": 19,
+          "markedCandidateCount": 19,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "delivery-schedule",
+          "rawCount": 47,
+          "filteredCount": 42,
+          "excludedCount": 5,
+          "markedCandidateCount": 5,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "assembly-list",
+          "rawCount": 971,
+          "filteredCount": 952,
+          "excludedCount": 19,
+          "markedCandidateCount": 19,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "assembly-print",
+          "rawCount": 896,
+          "filteredCount": 883,
+          "excludedCount": 13,
+          "markedCandidateCount": 13,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "dashboard-period",
+          "rawCount": 82,
+          "filteredCount": 56,
+          "excludedCount": 26,
+          "markedCandidateCount": 26,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "dashboard-recent-and-map",
+          "rawCount": 877,
+          "filteredCount": 864,
+          "excludedCount": 13,
+          "markedCandidateCount": 13,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "name": "notification-order-read",
+          "rawCount": 1011,
+          "filteredCount": 984,
+          "excludedCount": 27,
+          "markedCandidateCount": 27,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        }
+      ],
+      "activeStatusProofs": [
+        {
+          "status": "scheduled",
+          "markedCandidateCount": 5,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        },
+        {
+          "status": "fulfilled",
+          "markedCandidateCount": 8,
+          "leakedTestCount": 0,
+          "behaviorExercised": true,
+          "queryValid": true,
+          "errorCode": null
+        }
+      ],
+      "activeStatesExercised": true,
+      "contradictoryTestCount": {
+        "count": 0,
+        "errorCode": null
+      },
+      "limitedRowsReturned": 50,
+      "limitedLeakCount": 0,
+      "queriesValid": true
+    }
+  ]
+}

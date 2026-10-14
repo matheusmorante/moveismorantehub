@@ -5,6 +5,7 @@ import { useVariationExitFlags } from './hooks/data/useVariationExitFlags';
 import Product, { ProductVisibilitySettings } from '../../../types/product.type';
 import type { ProductCategoryTree, ProductListFilters } from './types';
 import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { MoveProductToTrashModal } from './modals/MoveProductToTrashModal';
 
 interface ProductListProps {
   mode?: 'standard' | 'composition';
@@ -77,6 +78,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
       setItemsPerPage,
       handleDelete,
       handleRestore,
+      handleMoveToTrash,
       handlePermanentDelete,
       selectedProducts,
       toggleSelection,
@@ -89,6 +91,9 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
       deactivateCatalog,
       refresh,
     } = useProducts(listFilters);
+
+    const [trashModalProduct, setTrashModalProduct] = React.useState<Product | null>(null);
+    const [isTrashing, setIsTrashing] = React.useState(false);
 
     React.useEffect(() => {
       onTestDataAvailabilityChange?.(!loading && hasTestProducts);
@@ -193,6 +198,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
               await handleRestore(id);
               onRefresh?.();
             }}
+            onMoveToTrash={(product) => setTrashModalProduct(product)}
             onPermanentDelete={async (id) => {
               await handlePermanentDelete(id);
               onRefresh?.();
@@ -276,6 +282,26 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
             />
           </div>
         </div>
+
+        <MoveProductToTrashModal
+          isOpen={Boolean(trashModalProduct)}
+          product={trashModalProduct}
+          isLoading={isTrashing}
+          onClose={() => {
+            if (!isTrashing) setTrashModalProduct(null);
+          }}
+          onConfirm={async () => {
+            if (!trashModalProduct) return;
+            setIsTrashing(true);
+            try {
+              await handleMoveToTrash(trashModalProduct);
+              setTrashModalProduct(null);
+              onRefresh?.();
+            } finally {
+              setIsTrashing(false);
+            }
+          }}
+        />
       </div>
     );
   }

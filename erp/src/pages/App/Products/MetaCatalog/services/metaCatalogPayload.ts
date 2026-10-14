@@ -109,18 +109,24 @@ export function buildMetaCatalogItems(
     if (
       parent.deleted ||
       parent.deleted_at !== null ||
-      parent.status === 'hidden' ||
-      parent.active === false
+      parent.status === 'draft'
     ) {
       continue;
     }
 
+    const isParentPublished = parent.status === 'published';
     const parentVariations = variations.filter(
       (variation) =>
         variation.product_id === parent.id &&
         variation.status !== 'hidden' &&
+        variation.status !== 'draft' &&
         variation.active !== false
     );
+    const hasPublishedVars = parentVariations.some((v) => v.status === 'published');
+
+    if (!isParentPublished && !hasPublishedVars) {
+      continue;
+    }
     const parentTitle =
       parent.name ||
       parent.title ||

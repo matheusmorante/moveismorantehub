@@ -77,35 +77,56 @@ export function OrderDetailsBody({
       isAssemblyInternalType(String(item.handlingType || item.handling || ''), handlingOptions)
     );
 
+  const seller = data.seller || order.seller || data.sellerName || data.sellerData?.fullName;
+  const totalValue = getOrderTotalValue(order);
+  const itemsSummary = data.itemsSummary || order.items_summary || {};
+  const shippingValue = Number(shipping.value || data.shippingValue || order.shipping_value || 0);
+  const paymentsSummary = data.paymentsSummary || order.payments_summary || {};
+  const totalPaid =
+    paymentsSummary.totalAmountPaid != null ? Number(paymentsSummary.totalAmountPaid) : undefined;
+  const amountRemaining =
+    paymentsSummary.amountRemaining != null ? Number(paymentsSummary.amountRemaining) : undefined;
+
+  const isReturn =
+    String(order.order_type || data.orderType || '').toLowerCase() === 'return';
+
   return (
     <ScrollView
       style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }}
       contentContainerStyle={{ gap: 16, paddingBottom: 160 }}
     >
       <OrderTypeBadges
+        isReturn={isReturn}
         assistance={assistance}
         pickup={pickup}
         internal={internal}
         outside={outside}
       />
+
       <OrderObservationLabels observations={buildOrderObservations(order)} dark={isDarkMode} />
-      <CustomerSection customer={customer} dark={isDarkMode} />
+      <CustomerSection customer={customer} seller={seller} dark={isDarkMode} />
       <AddressSection
         shipping={shipping}
         customer={customer}
         schedule={schedule}
         order={order}
+        isPickup={pickup}
         dark={isDarkMode}
       />
       <ItemsSection
         items={items}
         handlingOptions={handlingOptions}
-        total={getOrderTotalValue(order)}
+        itemsSummary={itemsSummary}
+        shippingValue={shippingValue}
+        total={totalValue}
         dark={isDarkMode}
       />
       <OrderPaymentSection
         payments={payments}
         fallbackMethod={data.paymentMethod || data.payment_method}
+        totalPaid={totalPaid}
+        amountRemaining={amountRemaining}
+        totalOrderValue={totalValue}
         dark={isDarkMode}
       />
       <OrderDeliveryStartFooter

@@ -267,10 +267,22 @@ export async function fetchFiscalDocumentDetails(
     xml_protocolo: nullableString(result.document.xml_protocolo, 'xml_protocolo'),
   };
   const events = result.events.map(parseFiscalDocumentEvent);
+  const operationDrafts = Array.isArray(result.operationDrafts)
+    ? result.operationDrafts.map((d: any) => ({
+        id: String(d.id),
+        operation_kind: d.operation_kind === 'estorno' ? ('estorno' as const) : ('return' as const),
+        environment: Number(d.environment) === 2 ? (2 as const) : (1 as const),
+        status: String(d.status),
+        reason: typeof d.reason === 'string' ? d.reason : null,
+        created_at: String(d.created_at),
+        updated_at: typeof d.updated_at === 'string' ? d.updated_at : undefined,
+      }))
+    : undefined;
 
   return {
     document,
     events,
     parsedXml: parseFiscalXmlDetails(document.xml_nfe || ''),
+    operationDrafts,
   };
 }

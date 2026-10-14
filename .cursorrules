@@ -1,0 +1,19 @@
+# Regras Mandatórias para Agentes de IA — MoranteHub
+
+## 1. Módulo Fiscal (NF-e e NFC-e)
+- LEITURA OBRIGATÓRIA ANTES DE QUALQUER ALTERAÇÃO:
+  Consulte sempre `docs/fiscal/README.md`, `docs/fiscal/invariantes-arquiteturais.md` e os arquivos de histórico de correções (`docs/fiscal/historico-correcoes-*.md`). Nunca atue com base em documentações obsoletas.
+- DOCUMENTAÇÃO OBRIGATÓRIA DE TODA CORREÇÃO:
+  Toda correção de bug, ajuste em schemas, RPCs, endpoints (`api/nfe/`), interface (`nfe-modal/`) ou banco de dados DEVE ser imediatamente documentada em `docs/fiscal/historico-correcoes-YYYY-MM-DD.md` e referenciada em `docs/fiscal/README.md`.
+- INTEGRIDADE DE SNAPSHOTS:
+  Não injete atributos arbitrários no snapshot fiscal que causem divergência na RPC `prepare_nfe_outbound_attempt`.
+- TRANSAÇÕES E CONEXÕES:
+  Nunca mantenha transações abertas no PostgreSQL durante requisições de rede (SOAP/mTLS com SEFAZ). Respeite sempre `idle_in_transaction_session_timeout <= 60s`.
+
+## 2. Frontend e Interface
+- PROTEÇÃO CONTRA TRAVAMENTOS:
+  Toda chamada crítica (como em `AuthContext.tsx`) deve ter timeout explícito (`withTimeout`) e watchdog failsafe ativo para que o usuário nunca fique travado em telas de carregamento ou "Sincronizando Sessão...".
+- FEEDBACK VISUAL:
+  Sempre renderize banners de progresso com spinners durante operações assíncronas. Nunca feche modais silenciosamente após consultas da SEFAZ.
+- ACESSIBILIDADE WCAG AAA:
+  Toasts de aviso devem manter contraste estrito (> 9:1 com texto escuro sobre amarelo no tema claro).

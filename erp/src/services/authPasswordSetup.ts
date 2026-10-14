@@ -1,4 +1,5 @@
-export const PASSWORD_SETUP_MIN_LENGTH = 8;
+import { passwordSetupFormSchema } from '../../../shared-utils/authFormSchemas';
+export { PASSWORD_SETUP_MIN_LENGTH } from '../../../shared-utils/authFormSchemas';
 
 export type PasswordSetupClient = {
   auth: {
@@ -25,15 +26,8 @@ export type PasswordSetupClient = {
 };
 
 export const validatePasswordSetup = (password: string, confirmation: string) => {
-  if (password.length < PASSWORD_SETUP_MIN_LENGTH) {
-    return `A senha deve ter pelo menos ${PASSWORD_SETUP_MIN_LENGTH} caracteres.`;
-  }
-
-  if (password !== confirmation) {
-    return 'As senhas não coincidem.';
-  }
-
-  return null;
+  const result = passwordSetupFormSchema.safeParse({ password, confirmation });
+  return result.success ? null : result.error.issues[0].message;
 };
 
 export const checkCurrentUserHasPassword = async (client: PasswordSetupClient) => {

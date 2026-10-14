@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -579,5 +579,80 @@ describe('IssuedFiscalDocumentDetailsModal', () => {
     // Aba Eventos vazia
     fireEvent.click(screen.getByRole('tab', { name: 'Eventos' }));
     expect(screen.getByText('Nenhum evento registrado')).toBeTruthy();
+  });
+
+  it('renders estorno details modal with dedicated header and shows rejection reason in events tab', async () => {
+    const estornoDetails: FiscalDocumentDetails = {
+      document: {
+        id: 'estorno-doc-1',
+        numero_nfe: 644,
+        serie: '1',
+        chave_acesso: '41261012345678000195550010000006441000006441',
+        modelo: '55',
+        ambiente: 2,
+        status: 'pendente',
+        motivo_status: 'Nota Fiscal de Estorno (Modelo 55) preparada para regularização',
+        numero_protocolo: null,
+        created_at: '2026-10-14T02:05:09Z',
+        updated_at: '2026-10-14T02:05:09Z',
+        document_type: 'estorno',
+        xml_nfe: fiscalDetails.document.xml_nfe,
+        xml_protocolo: null,
+        valor_total: 849,
+      },
+      parsedXml: fiscalDetails.parsedXml,
+      events: [
+        {
+          id: 'event-1',
+          event_type: '110111',
+          status: 'rejected',
+          requested_at: '2026-10-14T02:05:09Z',
+          attempt_number: 1,
+          cstat: null,
+          xmotivo:
+            'Falha local antes do envio à SEFAZ: Prazo de cancelamento da NFC-e (30 minutos no Paraná) ultrapassado. Necessário emitir NF-e de estorno (Modelo 55).',
+          justification: 'Cancelamento solicitado pelo operador após cancelamento do pedido #5753.',
+          requested_by: null,
+          protocol_number: null,
+        },
+      ],
+      operationDrafts: [
+        {
+          id: 'draft-1',
+          operation_kind: 'estorno',
+          environment: 2,
+          status: 'draft',
+          reason: 'Pedido #5753 cancelado; operação não realizada.',
+          created_at: '2026-10-14T02:05:09Z',
+        },
+      ],
+    };
+
+    vi.mocked(fetchFiscalDocumentDetails).mockResolvedValueOnce(estornoDetails);
+
+    render(
+      <IssuedFiscalDocumentDetailsModal
+        documentId="estorno-doc-1"
+        orderNumber={5753}
+        onClose={vi.fn()}
+      />
+    );
+
+    await screen.findByText(/Detalhes da nota fiscal de estorno/);
+    expect(screen.getByText(/NF-e de Estorno.*nº 644 · Série 1/)).toBeTruthy();
+    expect(screen.getByText(/Pedido #5753/)).toBeTruthy();
+
+    // Navega para aba de Eventos
+    fireEvent.click(screen.getByRole('tab', { name: /Eventos/ }));
+    expect(screen.getByText('Cancelamento Fiscal Rejeitado / Bloqueado')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Falha local antes do envio à SEFAZ: Prazo de cancelamento da NFC-e (30 minutos no Paraná) ultrapassado. Necessário emitir NF-e de estorno (Modelo 55).'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText('Cancelamento solicitado pelo operador após cancelamento do pedido #5753.')
+    ).toBeTruthy();
+    expect(screen.getByText(/Orientação Fiscal:/)).toBeTruthy();
   });
 });

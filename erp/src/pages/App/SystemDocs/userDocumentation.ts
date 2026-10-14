@@ -90,7 +90,7 @@ export const userDocumentation: DocumentationSection[] = [
       'Guia para acompanhamento de vendas, auditoria de cancelamentos, conciliação e comissões de colaboradores.',
     rules: [
       'Acompanhe o desempenho de vendas utilizando o filtro de vendedores elegíveis e o relatório de comissões.',
-      'Pedidos agendados cancelados estornam automaticamente os movimentos de estoque e exibem carimbo CANCELADO em destaque.',
+      'Pedidos agendados cancelados estornam automaticamente os movimentos de estoque e exibem destaque visual escurecido na listagem.',
       'Utilize a Conciliação Comercial para associar produtos cadastrados a vendas que continham itens temporários para efeito de métricas analíticas.',
       'Pedidos agendados para entrega ou retirada passam automaticamente para atendido à meia-noite do dia seguinte à data agendada, com atualização transacional do estoque.',
     ],

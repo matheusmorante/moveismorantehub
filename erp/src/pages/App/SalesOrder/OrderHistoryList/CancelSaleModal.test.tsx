@@ -25,7 +25,7 @@ describe('modal de cancelamento da venda', () => {
       'Movimentações de saída vinculadas serão revertidas uma vez'
     );
     expect(screen.getByRole('dialog').textContent).toContain(
-      'A NF-e modelo 55 autorizada em Produção será cancelada junto à SEFAZ'
+      'A NF-e modelo 55 autorizada em Produção terá o cancelamento fiscal solicitado junto à SEFAZ'
     );
     expect(screen.getByRole('dialog').textContent).toContain('Cancelamento fiscal disponível');
 
@@ -37,7 +37,7 @@ describe('modal de cancelamento da venda', () => {
       .getAllByRole('button')
       .find((button) => button.textContent === 'Cancelar venda')!;
     const productionConfirmation = screen.getByRole('checkbox', {
-      name: /Confirmo a solicitação de cancelamento desta nota na SEFAZ de Produção/,
+      name: /Confirmo a solicitação de cancelamento fiscal desta nota na SEFAZ de Produção/,
     });
     expect(confirm.disabled).toBe(true);
     fireEvent.click(productionConfirmation);
@@ -59,7 +59,7 @@ describe('modal de cancelamento da venda', () => {
 
     const dialog = screen.getAllByRole('dialog').at(-1)!;
     expect(dialog.textContent).toContain('A NF-e original de Homologação permanecerá autorizada no histórico');
-    expect(dialog.textContent).toContain('rascunho NFE (NF-e modelo 55, finalidade de ajuste 3)');
+    expect(dialog.textContent).toContain('rascunho NFE de estorno fiscal (NF-e modelo 55, finalidade de ajuste 3)');
     expect(dialog.textContent).toContain('Estorno fiscal necessário');
     expect(dialog.textContent).toContain('conferência específica de CFOP e tributação');
     expect(dialog.textContent).not.toContain('exige revisão fiscal antes de qualquer procedimento');
@@ -83,9 +83,9 @@ describe('modal de cancelamento da venda', () => {
     );
 
     const dialog = screen.getByRole('dialog');
-    expect(dialog.textContent).toContain('Devolução necessária');
+    expect(dialog.textContent).toContain('Devolução comercial necessária');
     expect(dialog.textContent).toContain('A venda e a NF-e original serão preservadas');
-    expect(dialog.textContent).toContain('nenhuma devolução integral será criada automaticamente');
+    expect(dialog.textContent).toContain('nenhuma devolução comercial integral será criada automaticamente');
     expect(dialog.textContent).not.toContain('Pedido será cancelado');
   });
 

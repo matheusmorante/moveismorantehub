@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Service from '../../types/service.type';
 import { saveService } from '../../utils/serviceService';
 import { toast } from 'react-toastify';
 import CurrencyInput from '../../../components/CurrencyInput';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { serviceFormSchema } from '../../../../../shared-utils/serviceFormSchema';
 
 interface ServiceFormModalProps {
   isOpen: boolean;
@@ -10,18 +12,17 @@ interface ServiceFormModalProps {
   service?: Service | null;
 }
 
+const initialFormData: Partial<Service> = {
+  description: '',
+  unitPrice: 0,
+  costPrice: 0,
+  active: true,
+};
+
 const ServiceFormModal = ({ isOpen, onClose, service }: ServiceFormModalProps) => {
   const [loading, setLoading] = useState(false);
-  const isInitialMount = useRef(true);
-
-  const initialFormData: Partial<Service> = {
-    description: '',
-    unitPrice: 0,
-    costPrice: 0,
-    active: true,
-  };
-
   const [formData, setFormData] = useState<Partial<Service>>(initialFormData);
+  const form = useZodForm(serviceFormSchema, { ...formData, description: formData.description ?? '' });
 
   useEffect(() => {
     if (service) {
@@ -29,19 +30,12 @@ const ServiceFormModal = ({ isOpen, onClose, service }: ServiceFormModalProps) =
     } else {
       setFormData(initialFormData);
     }
-    isInitialMount.current = true;
   }, [service, isOpen]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.description) {
-      toast.error('A descrição é obrigatória.');
-      return;
-    }
-
+  const handleSubmit = form.handleSubmit(async (values) => {
     setLoading(true);
     try {
-      const dataToSave = { ...formData, isDraft: false } as Service;
+      const dataToSave = { ...formData, ...values, isDraft: false } as Service;
       await saveService(dataToSave);
       toast.success(service ? 'Serviço atualizado!' : 'Serviço criado com sucesso!');
       onClose();
@@ -51,7 +45,7 @@ const ServiceFormModal = ({ isOpen, onClose, service }: ServiceFormModalProps) =
     } finally {
       setLoading(false);
     }
-  };
+  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira os campos do serviço.'));
 
   if (!isOpen) return null;
 
@@ -79,7 +73,7 @@ const ServiceFormModal = ({ isOpen, onClose, service }: ServiceFormModalProps) =
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-8">
+        <form id="service-form" noValidate onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="md:col-span-2 flex flex-col gap-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
@@ -145,8 +139,8 @@ const ServiceFormModal = ({ isOpen, onClose, service }: ServiceFormModalProps) =
             Cancelar
           </button>
           <button
-            type="button"
-            onClick={handleSubmit}
+            type="submit"
+            form="service-form"
             disabled={loading}
             className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 flex items-center gap-2"
           >

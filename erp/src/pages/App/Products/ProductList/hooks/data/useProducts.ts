@@ -25,6 +25,8 @@ import {
   discardProductDraft,
   deactivateSingleProduct,
   deleteProductPermanently,
+  executeMoveProductToTrash,
+  executeRestoreProductFromTrash,
   executeBulkTrash,
   executeBulkRestore,
   executeBulkPermanentDelete,
@@ -221,12 +223,15 @@ export const useProducts = (filters?: ProductListFilters) => {
       toast.error('Seu perfil não permite reativar produtos.');
       return;
     }
-    try {
-      await activateProduct(id);
-      toast.success('Produto ativado com sucesso!');
-    } catch {
-      toast.error('Erro ao ativar produto.');
+    await executeRestoreProductFromTrash(id, refresh);
+  };
+
+  const handleMoveToTrash = async (product: Product) => {
+    if (!canDeleteProducts) {
+      toast.error('Seu perfil não permite mover produtos para a lixeira.');
+      return;
     }
+    await executeMoveProductToTrash(product, refresh);
   };
 
   const handlePermanentDelete = async (id: string) => {
@@ -403,6 +408,7 @@ export const useProducts = (filters?: ProductListFilters) => {
     canDeleteProducts,
     handleDelete,
     handleRestore,
+    handleMoveToTrash,
     handlePermanentDelete,
     selectedProducts,
     toggleSelection,

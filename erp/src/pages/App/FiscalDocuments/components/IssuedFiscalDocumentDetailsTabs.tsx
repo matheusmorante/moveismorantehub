@@ -110,7 +110,12 @@ export function IssuedFiscalDocumentDetailsTabPanel({
       {activeTab === 'items' && <IssuedFiscalDocumentItemsTab parsed={parsed} />}
       {activeTab === 'payment' && <IssuedFiscalDocumentPaymentTab parsed={parsed} />}
       {activeTab === 'transport' && <IssuedFiscalDocumentTransportTab parsed={parsed} />}
-      {activeTab === 'events' && <IssuedFiscalDocumentEventsTab events={details?.events} />}
+      {activeTab === 'events' && (
+        <IssuedFiscalDocumentEventsTab
+          events={details?.events}
+          operationDrafts={details?.operationDrafts}
+        />
+      )}
     </section>
   );
 }

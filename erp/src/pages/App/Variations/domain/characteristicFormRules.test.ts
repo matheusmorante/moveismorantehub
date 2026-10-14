@@ -4,6 +4,7 @@ import {
   getInitialCharacteristicFormData,
   resolveCharacteristicUnit,
   validateCharacteristicSnapshot,
+  createCharacteristicFormSchema,
 } from './characteristicFormRules';
 
 describe('characteristicFormRules', () => {
@@ -81,5 +82,37 @@ describe('characteristicFormRules', () => {
         options: [],
       })
     ).toBe('Medida • cm');
+  });
+
+  it('rejeita nome vazio, escolhas ausentes e opções vazias ou duplicadas no schema compartilhado', () => {
+    const schema = createCharacteristicFormSchema();
+    const base = { name: 'Cor', dataType: 'radio', unit: '', decimalPlaces: 2, active: true, options: [{ id: '', value: 'Azul' }] };
+    for (const invalid of [
+      { ...base, name: ' ' },
+      { ...base, options: [] },
+      { ...base, options: [{ id: '', value: ' ' }] },
+      { ...base, options: [{ id: '1', value: 'Azul' }, { id: '2', value: ' azul ' }] },
+    ]) expect(schema.safeParse(invalid).success).toBe(false);
+  });
+
+  it('preserva os contratos de decimal, medida e tipos legados', () => {
+    const schema = createCharacteristicFormSchema();
+    const base = { name: 'Altura', dataType: 'measure', unit: 'cm', decimalPlaces: 2, active: true, options: [] };
+    expect(schema.safeParse(base).success).toBe(true);
+    expect(schema.safeParse({ ...base, unit: 'invalid' }).success).toBe(false);
+    expect(schema.safeParse({ ...base, dataType: 'decimal', decimalPlaces: 4 }).success).toBe(false);
+    expect(schema.safeParse({ ...base, dataType: 'list', options: [] }).success).toBe(false);
+    expect(schema.safeParse({ ...base, dataType: 'number' }).success).toBe(true);
+  });
+
+  it('consulta o identificador atual no resolver para não bloquear o próprio autosave', () => {
+    const current = { id: undefined as string | undefined };
+    const schema = createCharacteristicFormSchema([
+      { id: 'saved', name: 'Cor', active: true, options: [] },
+    ], () => current.id);
+    const values = { name: 'Cor', dataType: 'text_short', active: true, options: [] };
+    expect(schema.safeParse(values).success).toBe(false);
+    current.id = 'saved';
+    expect(schema.safeParse(values).success).toBe(true);
   });
 });

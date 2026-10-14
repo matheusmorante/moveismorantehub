@@ -61,6 +61,29 @@ const parent: Product = {
 afterEach(cleanup);
 
 describe('edição explícita de variação', () => {
+  it.each([
+    ['unitPrice', NaN], ['unitPrice', -1], ['costPrice', -1], ['stock', -1],
+  ] as const)('bloqueia %s inválido no resolver antes de salvar a variação', async (field, value) => {
+    const complete: Variation = {
+      ...variation,
+      width: 80, height: 180, depth: 50, unitPrice: 120,
+      attributes: [{ name: 'Cor', value: 'Azul' }],
+      technicalValues: { Cor: 'Azul', Modelo: 'Padrão', Marca: 'Morante', 'Material da estrutura': 'Madeira' },
+    };
+    const completeParent: Product = {
+      ...parent, unitPrice: 120, categoryIds: ['categoria'], mainSupplierId: 'fornecedor',
+      variations: [complete, { ...complete, id: 'other', sku: 'other', attributes: [{ name: 'Cor', value: 'Verde' }] }],
+    };
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    const { result } = renderHook(() => useVariationForm({ isOpen: true, onClose, parentProduct: completeParent, variation: complete, onSave }));
+    act(() => result.current.handleChange(field, value));
+    await act(async () => { await result.current.handleSubmit({ preventDefault() {} } as React.FormEvent); });
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(result.current.activeTab).toBe('estoque');
+  });
+
   it('normaliza variação legada em rascunho para oculta', async () => {
     const { result } = renderHook(() =>
       useVariationForm({ isOpen: true, onClose: vi.fn(), parentProduct: parent, variation })

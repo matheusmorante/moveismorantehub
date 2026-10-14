@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { assemblyListFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
@@ -198,7 +200,7 @@ const AssemblyList = ({ onClose }: Props) => {
                 {editingAssembly ? 'Editar Montagem' : 'Nova Montagem'}
               </h3>
 
-              <form onSubmit={handleSave} className="space-y-6">
+              <ZodForm schema={assemblyListFormSchema} values={{ item, date, time, type, status }} onSubmit={handleSave} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block ml-1">
@@ -290,7 +292,7 @@ const AssemblyList = ({ onClose }: Props) => {
                     {editingAssembly ? 'Salvar Alterações' : 'Confirmar Agendamento'}
                   </button>
                 </div>
-              </form>
+              </ZodForm>
             </div>
           ) : (
             <div className="space-y-4">

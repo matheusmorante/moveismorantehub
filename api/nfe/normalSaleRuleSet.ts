@@ -48,8 +48,8 @@ export async function createNormalSaleRuleSet(
   if (environment !== 1 && environment !== 2) throw new Error('Ambiente fiscal inválido.');
   const inputs = obj(facts.fiscalInputs);
   const orderData = facts.order.data;
-  const savedCustomer = obj(orderData.customerData);
-  const catalogCustomer = obj(inputs.customer);
+  const savedCustomer = orderData.customerData ? obj(orderData.customerData) : {};
+  const catalogCustomer = inputs.customer ? obj(inputs.customer) : {};
   const customer = {
     ...catalogCustomer,
     fullName: savedCustomer.fullName ?? savedCustomer.name ?? catalogCustomer.fullName,

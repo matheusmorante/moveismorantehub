@@ -1,19 +1,49 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { RefreshCw, Search } from 'lucide-react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { RefreshCw, Search, X } from 'lucide-react-native';
 
 type Props = {
   dark: boolean;
   search: string;
   onSearch: (value: string) => void;
+  statusFilter?: string;
+  onSelectStatus?: (status: string) => void;
   onRefresh: () => void;
+  totalOrders?: number;
 };
 
-export function OrdersHeader({ dark, search, onSearch, onRefresh }: Props) {
+const STATUS_FILTERS = [
+  { id: 'all', label: 'Todos' },
+  { id: 'agendados', label: 'Agendados' },
+  { id: 'concluidos', label: 'Atendidos' },
+  { id: 'cancelados', label: 'Cancelados' },
+  { id: 'retiradas', label: 'Retiradas' },
+  { id: 'assistencias', label: 'Assistências' },
+  { id: 'devolucoes', label: 'Devoluções' },
+  { id: 'rascunhos', label: 'Rascunhos' },
+];
+
+
+export function OrdersHeader({
+  dark,
+  search,
+  onSearch,
+  statusFilter = 'all',
+  onSelectStatus,
+  onRefresh,
+  totalOrders,
+}: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.top}>
-        <Text style={[styles.title, dark && styles.light]}>Pedidos de Venda</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, dark && styles.light]}>Pedidos de Venda</Text>
+          {totalOrders !== undefined ? (
+            <View style={[styles.countBadge, dark && styles.countBadgeDark]}>
+              <Text style={styles.countText}>{totalOrders}</Text>
+            </View>
+          ) : null}
+        </View>
         <TouchableOpacity
           onPress={onRefresh}
           style={styles.refresh}
@@ -37,7 +67,49 @@ export function OrdersHeader({ dark, search, onSearch, onRefresh }: Props) {
             { outlineStyle: 'none', outlineWidth: 0 } as any,
           ]}
         />
+        {Boolean(search) && (
+          <TouchableOpacity
+            onPress={() => onSearch('')}
+            style={styles.clearBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <X size={15} color="#94a3b8" />
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Chips de filtro de status replicados do ERP */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filtersContainer}
+      >
+        {STATUS_FILTERS.map((item) => {
+          const isActive = statusFilter === item.id;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.7}
+              onPress={() => onSelectStatus?.(item.id)}
+              style={[
+                styles.chip,
+                dark && styles.chipDark,
+                isActive && styles.chipActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  dark && styles.chipTextDark,
+                  isActive && styles.chipTextActive,
+                ]}
+              >
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
@@ -53,10 +125,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 2,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 18,
     fontWeight: '900',
     color: '#0f172a',
+  },
+  countBadge: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#dbeafe',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  countBadgeDark: {
+    backgroundColor: 'rgba(30, 58, 138, 0.35)',
+    borderColor: 'rgba(30, 64, 175, 0.5)',
+  },
+  countText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#2563eb',
   },
   light: {
     color: '#f8fafc',
@@ -74,6 +168,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  clearBtn: {
+    padding: 4,
+  },
   input: {
     flex: 1,
     height: 42,
@@ -84,5 +181,39 @@ const styles = StyleSheet.create({
   darkCard: {
     backgroundColor: '#1e293b',
     borderColor: '#334155',
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  chipDark: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  chipActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#1d4ed8',
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  chipTextDark: {
+    color: '#94a3b8',
+  },
+  chipTextActive: {
+    color: '#ffffff',
   },
 });

@@ -1,0 +1,21 @@
+# Set default behaviour to automatically normalize line endings to LF on commit
+* text=auto eol=lf
+
+# Explicitly declare binary files so Git doesn't try to touch line endings
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.apk binary
+*.aab binary
+*.exe binary
+*.dmg binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pfx binary
+*.p12 binary

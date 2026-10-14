@@ -46,7 +46,8 @@ describe('OrderHistoryRow', () => {
     );
 
     const row = container.querySelector('tr');
-    expect(screen.getByText('Cancelado')).toBeTruthy();
+    expect(screen.queryByText('Cancelado')).toBeNull();
+    expect(container.querySelector('[data-testid="cancelled-order-row-overlay"]')).not.toBeNull();
     expect(row).not.toBeNull();
     expect([...row!.children].every((child) => ['TD', 'TH'].includes(child.tagName))).toBe(true);
   });

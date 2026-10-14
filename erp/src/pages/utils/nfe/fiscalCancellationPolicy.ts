@@ -34,7 +34,7 @@ export function getFiscalCancellationPolicy(
   if (input.goodsCirculated) {
     return {
       action: 'return',
-      reason: 'A mercadoria já circulou; use o fluxo de devolução.',
+      reason: 'A mercadoria já circulou; use o fluxo de devolução comercial.',
       deadline: null,
     };
   }

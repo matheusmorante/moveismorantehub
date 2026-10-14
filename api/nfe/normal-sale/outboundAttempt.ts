@@ -191,10 +191,15 @@ export async function transmitPreparedOutbound(
       { ...metadata(a), sefazContacted: false }
     );
   }
-  const started = await db.rpc('start_nfe_outbound_transmission', {
-    p_document_id: a.document_id,
-    p_attempt_token: token,
-  });
+  const started = await withNfeEmissionStage(
+    'start_transmission_rpc',
+    () =>
+      db.rpc('start_nfe_outbound_transmission', {
+        p_document_id: a.document_id,
+        p_attempt_token: token,
+      }),
+    { emissionRequestId: a.emission_request_id }
+  );
   if (started.error)
     return outboundFailure(
       503,
@@ -214,7 +219,7 @@ export async function transmitPreparedOutbound(
           certPem: certificate.certPem,
           privateKeyPem: certificate.privateKeyPem,
         }),
-      { model: a.model, environment: a.environment }
+      { model: a.model, environment: a.environment, emissionRequestId: a.emission_request_id }
     );
   } catch {
     let recorded = false;
@@ -246,15 +251,20 @@ export async function transmitPreparedOutbound(
       ? 'reconciling'
       : 'rejected';
   try {
-    await persist(
-      db,
-      a,
-      token,
-      state,
-      parsed.xMotivo || 'Resposta SEFAZ inconclusiva.',
-      response,
-      state === 'authorized' ? parsed.protocolNumber || null : null,
-      String(doc.xml_nfe)
+    await withNfeEmissionStage(
+      'persist_result_rpc',
+      () =>
+        persist(
+          db,
+          a,
+          token,
+          state,
+          parsed.xMotivo || 'Resposta SEFAZ inconclusiva.',
+          response,
+          state === 'authorized' ? parsed.protocolNumber || null : null,
+          String(doc.xml_nfe)
+        ),
+      { emissionRequestId: a.emission_request_id }
     );
   } catch {
     return outboundFailure(
@@ -295,11 +305,16 @@ export async function reconcileNormalSale(
   documentId: string,
   allowTransmission = false,
   productionConfirmed = false,
-  ownedToken?: string
+  ownedToken?: string,
+  preloadedCertificate?: ReturnType<typeof extractCertificateAndKey>
 ): Promise<OutboundResult> {
   let loaded: Awaited<ReturnType<typeof loadOutboundAttempt>>;
   try {
-    loaded = await loadOutboundAttempt(db, documentId);
+    loaded = await withNfeEmissionStage(
+      'attempt_load',
+      () => loadOutboundAttempt(db, documentId),
+      { documentId }
+    );
   } catch {
     return outboundFailure(
       503,
@@ -340,7 +355,13 @@ export async function reconcileNormalSale(
         'Certificado A1 indisponível para consultar ou transmitir.',
         { ...metadata(a), pending: a.state !== 'prepared' }
       );
-    const certificate = extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || '');
+    const certificate = preloadedCertificate
+      ? preloadedCertificate
+      : await withNfeEmissionStage(
+          'reconcile_cert_extract',
+          () => extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || ''),
+          { documentId }
+        );
     if (a.state === 'prepared' && allowTransmission)
       return await transmitPreparedOutbound(db, a, doc, token, certificate, productionConfirmed);
     const response = await sendSoapToSefaz({
@@ -417,10 +438,15 @@ export async function reconcileNormalSale(
     );
   } finally {
     try {
-      await db.rpc('release_nfe_outbound_attempt', {
-        p_document_id: documentId,
-        p_attempt_token: token,
-      });
+      await withNfeEmissionStage(
+        'release_attempt_rpc',
+        () =>
+          db.rpc('release_nfe_outbound_attempt', {
+            p_document_id: documentId,
+            p_attempt_token: token,
+          }),
+        { documentId }
+      );
     } catch {
       /* Lease expires in PostgreSQL. */
     }

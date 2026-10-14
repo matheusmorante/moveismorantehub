@@ -156,6 +156,92 @@ describe('cadastro de pedido com estoque atômico', () => {
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
+  it('preserva o snapshot fiscal ao cancelar pedido quando currentOrder tem updatedAt e ausência no WeakMap', async () => {
+    const originalOrderData = {
+      ...scheduledSale,
+      items: [{ productId: 'prod-fiscal', quantity: 2, fiscal: { cst: '102' } }],
+    };
+    mocks.from.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { order_data: originalOrderData },
+            error: null,
+          }),
+        }),
+      }),
+    });
+    mocks.rpc.mockResolvedValue({
+      data: { order_data: { ...originalOrderData, status: 'cancelled' } },
+      error: null,
+    });
+
+    await expect(
+      executeUpdateOrder(
+        'pedido-fiscal-1',
+        { status: 'cancelled' } as any,
+        {
+          ...scheduledSale,
+          id: 'pedido-fiscal-1',
+          updatedAt: '2026-10-14T01:30:00.000Z',
+        } as any
+      )
+    ).resolves.toBeUndefined();
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'create_order_with_inventory_transaction',
+      expect.objectContaining({
+        p_order_id: 'pedido-fiscal-1',
+        p_order_payload: expect.objectContaining({
+          status: 'cancelled',
+          order_data: expect.objectContaining({
+            status: 'cancelled',
+            items: originalOrderData.items,
+          }),
+        }),
+      })
+    );
+  });
+
+  it('usa fallback seguro para merged ao cancelar pedido se banco retornar order_data vazio sem lançar erro', async () => {
+    mocks.from.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: null,
+            error: null,
+          }),
+        }),
+      }),
+    });
+    mocks.rpc.mockResolvedValue({
+      data: { order_data: { ...scheduledSale, status: 'cancelled' } },
+      error: null,
+    });
+
+    await expect(
+      executeUpdateOrder(
+        'pedido-fallback-1',
+        { status: 'cancelled' } as any,
+        {
+          ...scheduledSale,
+          id: 'pedido-fallback-1',
+          updatedAt: '2026-10-14T01:30:00.000Z',
+        } as any
+      )
+    ).resolves.toBeUndefined();
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'create_order_with_inventory_transaction',
+      expect.objectContaining({
+        p_order_id: 'pedido-fallback-1',
+        p_order_payload: expect.objectContaining({
+          status: 'cancelled',
+        }),
+      })
+    );
+  });
+
   it('usa uma chave estável de idempotência quando a fixture a fornece', async () => {
     mocks.rpc.mockResolvedValue({
       data: { id: '550e8400-e29b-41d4-a716-446655440010', order_index: 123, order_data: scheduledSale },

@@ -11,9 +11,11 @@ interface OrderFiscalOperationBadgeProps {
   readonly kind: 'estorno' | 'devolucao';
   readonly status?: OrderFiscalOperationBadgeStatus;
   readonly documentId?: string;
+  readonly draftId?: string;
   readonly environment?: 1 | 2;
   readonly documents?: readonly ReturnFiscalDocumentSummary[];
   readonly onOpenDocument?: (documentId: string, environment: 1 | 2) => void;
+  readonly onOpenDraft?: (draftId: string) => void;
 }
 
 const statusLabel: Record<OrderFiscalOperationBadgeStatus, string> = {
@@ -55,7 +57,7 @@ const ReturnFiscalBadge: React.FC<
   if (uniqueDocuments.length === 0) return null;
 
   const count = uniqueDocuments.length;
-  const title = `NFD · ${count} ${count === 1 ? 'nota fiscal' : 'notas fiscais'} de devolução · ${statusLabel[status] || 'Situação incerta'}`;
+  const title = `NFD · ${count} ${count === 1 ? 'nota fiscal' : 'notas fiscais'} de devolução fiscal · ${statusLabel[status] || 'Situação incerta'}`;
   const presentation =
     status === 'issued'
       ? { color: 'border-emerald-700 bg-emerald-600 text-white', icon: 'bi-check', iconColor: 'bg-emerald-700 text-white' }
@@ -115,13 +117,13 @@ const ReturnFiscalBadge: React.FC<
             <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
               <div>
                 <h2 id="return-fiscal-documents-title" className="text-sm font-bold text-slate-900 dark:text-white">
-                  Notas fiscais de devolução · {count}
+                  Notas fiscais de devolução fiscal · {count}
                 </h2>
                 <p className="mt-0.5 text-[11px] text-slate-500">{statusLabel[status] || 'Situação incerta'}</p>
               </div>
               <button
                 type="button"
-                aria-label="Fechar detalhes das notas de devolução"
+                aria-label="Fechar detalhes das notas de devolução fiscal"
                 className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setIsOpen(false)}
               >
@@ -212,7 +214,7 @@ export const OrderFiscalOperationBadge: React.FC<OrderFiscalOperationBadgeProps>
     return <ReturnFiscalBadge status={props.status} documents={props.documents} onOpenDocument={props.onOpenDocument} />;
   }
 
-  const { status, documentId, environment = 1, onOpenDocument } = props;
+  const { status, documentId, draftId, environment = 1, onOpenDocument, onOpenDraft } = props;
   if (!status) return null;
 
   const failed = status === 'failed';
@@ -222,7 +224,7 @@ export const OrderFiscalOperationBadge: React.FC<OrderFiscalOperationBadgeProps>
   const pending = status === 'pending';
   const estornoWaiting = prepared || pending;
   const label = props.kind === 'estorno' ? 'NFE' : 'NFD';
-  const documentName = props.kind === 'estorno' ? 'de estorno' : 'de devolução';
+  const documentName = props.kind === 'estorno' ? 'de estorno fiscal' : 'de devolução fiscal';
   const environmentLabel = environment === 2 ? ' em homologação' : '';
   const title = failed
     ? `Nota fiscal ${documentName} com erro${environmentLabel}`
@@ -286,6 +288,28 @@ export const OrderFiscalOperationBadge: React.FC<OrderFiscalOperationBadgeProps>
   );
 
   if (!documentId) {
+    if (draftId) {
+      return (
+        <button
+          type="button"
+          title={`${title} · Abrir detalhes da nota fiscal de estorno fiscal`}
+          aria-label={`${title} · Abrir detalhes da nota fiscal de estorno fiscal`}
+          className={`${className} cursor-pointer hover:ring-2 hover:ring-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500`}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (onOpenDocument) {
+              onOpenDocument(draftId, environment);
+            } else if (onOpenDraft) {
+              onOpenDraft(draftId);
+            } else {
+              navigate(`/fiscal-documents?draftId=${encodeURIComponent(draftId)}`);
+            }
+          }}
+        >
+          {contents}
+        </button>
+      );
+    }
     return (
       <span title={title} aria-label={title} className={className}>
         {contents}

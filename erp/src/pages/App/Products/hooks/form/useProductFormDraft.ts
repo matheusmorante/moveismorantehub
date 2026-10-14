@@ -3,6 +3,8 @@ import Product from '../../../../types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
 import { getEnteredProductName, isDraftSaveEligible } from './rules/productDraftRules';
 import { readTestArtifactIdentity } from '../../../../../../../shared-utils/testArtifactPolicy';
+import { createProductFormSchema } from '../../../../../../../shared-utils/productDomainValidation';
+import { useZodForm } from '@/hooks/useZodForm';
 
 export { getEnteredProductName, isDraftSaveEligible };
 
@@ -18,6 +20,7 @@ export function useProductFormDraft(
   initialFormDataRef: React.MutableRefObject<string>
 ) {
   const [autoSaveStatus, setAutoSaveStatus] = useState<ProductDraftAutoSaveStatus>('idle');
+  const form = useZodForm(createProductFormSchema({ isStockistOnly: false, saveAsDraft: true }), formData);
   const isSavingDraftRef = useRef(false);
   const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
   const queuedDataRef = useRef<Partial<Product> | null>(null);
@@ -62,17 +65,18 @@ export function useProductFormDraft(
               id: nextData.id || savedDraftIdRef.current || undefined,
               updatedAt: savedVersionRef.current || nextData.updatedAt,
               name: draftTitle,
-              title: nextData.title || draftTitle,
+              title: draftTitle,
+              marketplaceTitle: draftTitle,
               isDraft: true,
               active: false,
               status: 'draft',
             } as Product;
 
-            const savedId = await saveProduct(
-              normalizedData,
-              false,
+            const savedId = await form.validateAndRun(normalizedData, (data) => saveProduct(
+              data as Product, false,
               readTestArtifactIdentity(nextData) ? { isTestArtifact: true } : {}
-            );
+            ));
+            if (!savedId) throw new Error('Confira os campos inválidos do rascunho do produto.');
             savedDraftIdRef.current = savedId;
             savedVersionRef.current = normalizedData.updatedAt;
             const savedSnapshot = { ...normalizedData, id: savedId };
@@ -83,7 +87,7 @@ export function useProductFormDraft(
               ...(prev.technicalSpecs === nextData.technicalSpecs
                 ? { technicalSpecs: normalizedData.technicalSpecs } : {}),
               ...(prev.name === nextData.name ? { name: draftTitle } : {}),
-              ...(prev.title === nextData.title ? { title: normalizedData.title } : {}),
+              ...(prev.title === nextData.title ? { title: draftTitle, marketplaceTitle: draftTitle } : {}),
               isDraft: true,
               active: false,
               status: 'draft',
@@ -109,7 +113,7 @@ export function useProductFormDraft(
       activeSavePromiseRef.current = completedSavePromise;
       return completedSavePromise;
     },
-    [setFormData, hasChanged, initialFormDataRef]
+    [setFormData, hasChanged, initialFormDataRef, form.validateAndRun]
   );
 
   return {

@@ -24,6 +24,10 @@ import { useOrderCodeGenerator } from './useOrderCodeGenerator';
 import { useOrderDistanceCalculator } from './useOrderDistanceCalculator';
 import { useOrderProductSelection } from './useOrderProductSelection';
 import { useOrderAutoSave } from './useOrderAutoSave';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createOrderDomainSchema } from '../../../../../../shared-utils/orderDomainValidation';
+import { getSettings } from '@/pages/utils/settingsService';
+import type { z } from 'zod';
 
 export { parseStorageDateToLocal };
 
@@ -55,6 +59,9 @@ export const useSalesOrderForm = (
   const [currentStep, setCurrentStep] = useState(1);
   const [testModeFields, setTestModeFields] = useState<Pick<Order, 'is_test' | 'testArtifact'>>({});
   const isTestMode = testModeFields.is_test === true;
+  const form = useZodForm(createOrderDomainSchema(getSettings().requiredFields), {
+    date: orderDate, seller, orderType, items, payments, shipping, customerData,
+  });
 
   // Estado React só é refletido após o próximo render. Esta trava síncrona
   // protege o intervalo entre o clique e a confirmação do insert no banco.
@@ -352,11 +359,10 @@ export const useSalesOrderForm = (
           latestState.current.currentOrderId && latestState.current.status !== 'draft'
             ? latestState.current.status
             : 'draft';
-        const orderData = getOrderData(savedStatus);
-        const validationErrors = validateOrder(orderData);
+        const orderData = await form.validateAndRun(getOrderData(savedStatus) as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, (data) => data as unknown as Order,
+          (validationErrors) => setErrors(flattenFormErrors(validationErrors)));
 
-        if (Object.keys(validationErrors).length > 0) {
-          setErrors(validationErrors);
+        if (!orderData) {
           toast.error('Existem campos obrigatórios não preenchidos.');
           return false;
         }
@@ -364,7 +370,7 @@ export const useSalesOrderForm = (
         setErrors({});
 
         try {
-          const savedId = await saveOrder(orderData);
+          const savedId = await saveOrder(orderData as Order);
           if (!latestState.current.currentOrderId && savedId) {
             setCurrentOrderId(savedId);
             latestState.current.currentOrderId = savedId;
@@ -390,7 +396,7 @@ export const useSalesOrderForm = (
         submissionInFlightRef.current = false;
       }
     },
-    [getOrderData, ensureOrderCode, cancelAutoSave, waitForActiveSave]
+    [getOrderData, ensureOrderCode, cancelAutoSave, waitForActiveSave, form.validateAndRun]
   );
 
   const handleCompleteOrder = useCallback(
@@ -415,11 +421,10 @@ export const useSalesOrderForm = (
         }
 
         const resolvedStatus = resolveCompletedOrderStatus(latestState.current);
-        const orderData = getOrderData(resolvedStatus);
-        const validationErrors = validateOrder(orderData);
+        const orderData = await form.validateAndRun(getOrderData(resolvedStatus) as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, (data) => data as unknown as Order,
+          (validationErrors) => setErrors(flattenFormErrors(validationErrors)));
 
-        if (Object.keys(validationErrors).length > 0) {
-          setErrors(validationErrors);
+        if (!orderData) {
           toast.error('Existem campos obrigatórios não preenchidos.');
           return false;
         }
@@ -427,7 +432,7 @@ export const useSalesOrderForm = (
         setErrors({});
 
         try {
-          const savedId = await saveOrder(orderData);
+          const savedId = await saveOrder(orderData as Order);
           // Atualizar currentOrderId IMEDIATAMENTE após o insert confirmado.
           // Isso garante que qualquer falha posterior (UI, notificação, etc.)
           // não cause duplicação: a próxima tentativa do usuário fará UPDATE.
@@ -440,7 +445,7 @@ export const useSalesOrderForm = (
 
           if (resolvedStatus === 'fulfilled') {
             toast.success(
-              `Pedido cadastrado. ${getFulfillmentLabels(orderData).successMessage} ✨`
+              `Pedido cadastrado. ${getFulfillmentLabels(orderData as Order).successMessage} ✨`
             );
           } else if (resolvedStatus === 'quoted') {
             toast.success('Orçamento cadastrado com sucesso!');
@@ -466,7 +471,7 @@ export const useSalesOrderForm = (
         submissionInFlightRef.current = false;
       }
     },
-    [getOrderData, ensureOrderCode, orderIndex, cancelAutoSave, waitForActiveSave]
+    [getOrderData, ensureOrderCode, orderIndex, cancelAutoSave, waitForActiveSave, form.validateAndRun]
   );
 
   const clearForm = useCallback(() => {

@@ -8,6 +8,8 @@ import { resolveVariationDimensions } from '../../domain/variationRegistrationRu
 import { normalizeProductForSave } from '@/pages/utils/productKindRules';
 import { isTestProduct } from '@/pages/utils/hmlTestData';
 import { validateProductFormSubmission } from './productFormValidation';
+import { createProductFormSchema } from './productFormValidation';
+import { useZodForm } from '@/hooks/useZodForm';
 
 interface SubmitProps {
   formData: Partial<Product>;
@@ -46,9 +48,13 @@ export const useProductFormSubmit = ({
   onClose,
   isTestArtifact = false,
 }: SubmitProps) => {
+  const finalForm = useZodForm(createProductFormSchema({ isStockistOnly, saveAsDraft: false }), formData);
+  const draftForm = useZodForm(createProductFormSchema({ isStockistOnly, saveAsDraft: true }), formData);
   const handleSubmit = useCallback(
     async (showResult = true, saveAsDraft = false): Promise<boolean> => {
       const actualSaveAsDraft = isRegisteredProduct ? false : saveAsDraft;
+      const validatedData = await (actualSaveAsDraft ? draftForm : finalForm)
+        .validateAndRun(formData, (data) => data);
 
       if (!actualSaveAsDraft) {
         const { errors, invalidVariation } = validateProductFormSubmission(formData, {
@@ -104,7 +110,8 @@ export const useProductFormSubmit = ({
         if (Object.keys(errors).length > 0) return false;
       }
 
-      const ecomVal = checkEcomLegibility(formData);
+      if (!validatedData) return false;
+      const ecomVal = checkEcomLegibility(validatedData as Partial<Product>);
       if (formData.status === 'published' && !ecomVal.isLegible) {
         toast.error('Despublique o Catálogo antes de remover ou alterar um campo obrigatório.');
         return false;
@@ -132,12 +139,12 @@ export const useProductFormSubmit = ({
         // Ao concluir um rascunho, o canal ERP inicia ativo para o produto e variações
         const isCompletingDraft = !actualSaveAsDraft && !isRegisteredProduct;
         const normalizedData = normalizeProductForSave({
-          ...formData,
+          ...validatedData,
           variations: actualSaveAsDraft ? formData.variations : formData.variations?.map((variation) => ({
             ...variation,
             ...resolveVariationDimensions(formData, variation),
           })),
-        }, {
+        } as Partial<Product>, {
           isDraft: actualSaveAsDraft,
           isCompletingDraft,
           catalogStatus: targetCatalogStatus,
@@ -211,6 +218,8 @@ export const useProductFormSubmit = ({
     },
     [
       formData,
+      draftForm.validateAndRun,
+      finalForm.validateAndRun,
       setFormData,
       draft,
       variations,

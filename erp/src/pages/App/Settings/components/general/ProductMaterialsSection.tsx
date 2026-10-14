@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { catalogNameFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
@@ -140,7 +142,7 @@ export default function ProductCatalogConfigSection() {
           </p>
         </div>
 
-        <form onSubmit={handleAddMaterial} className="flex gap-3 max-w-xl">
+        <ZodForm schema={catalogNameFormSchema} values={{ name: newMaterial }} onSubmit={handleAddMaterial} className="flex gap-3 max-w-xl">
           <input
             value={newMaterial}
             onChange={(e) => setNewMaterial(e.target.value)}
@@ -154,7 +156,7 @@ export default function ProductCatalogConfigSection() {
           >
             {loadingMaterial ? '...' : 'Adicionar'}
           </button>
-        </form>
+        </ZodForm>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {materials.length === 0 && !fetching && (
@@ -196,7 +198,7 @@ export default function ProductCatalogConfigSection() {
           </p>
         </div>
 
-        <form onSubmit={handleAddType} className="flex gap-3 max-w-xl">
+        <ZodForm schema={catalogNameFormSchema} values={{ name: newType }} onSubmit={handleAddType} className="flex gap-3 max-w-xl">
           <input
             value={newType}
             onChange={(e) => setNewType(e.target.value)}
@@ -210,7 +212,7 @@ export default function ProductCatalogConfigSection() {
           >
             {loadingType ? '...' : 'Adicionar'}
           </button>
-        </form>
+        </ZodForm>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {productTypes.length === 0 && !fetching && (

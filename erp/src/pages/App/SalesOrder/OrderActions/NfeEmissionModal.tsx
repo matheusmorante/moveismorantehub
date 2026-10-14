@@ -263,7 +263,30 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
           className="mx-3 mt-2 flex shrink-0 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200 sm:mx-6"
         >
           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current/30 border-t-current" />
-        <span>{preparationMessage}</span>
+          <span>{preparationMessage}</span>
+        </div>
+      )}
+
+      {isSubmitting && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="nfe-submitting-status-banner"
+          className="mx-3 mt-2 flex shrink-0 items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-xs font-semibold text-amber-900 shadow-sm dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 sm:mx-6"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-amber-600/30 border-t-amber-600 dark:border-amber-400/30 dark:border-t-amber-400" />
+            <div>
+              <p className="font-bold">
+                {emissionResult?.pending || isFiscalIssueModalOpen
+                  ? 'Consultando a SEFAZ…'
+                  : `Transmitindo ${isNfce ? 'NFC-e' : 'NF-e'} para a SEFAZ (${environment === 1 ? 'Produção' : 'Homologação'})…`}
+              </p>
+              <p className="text-[11px] font-normal text-amber-800/80 dark:text-amber-300/80">
+                Aguarde a resposta segura dos servidores da SEFAZ. Não feche a página durante o processamento.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -411,9 +434,11 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         isSubmitting={isSubmitting}
         isLoadingFiscalData={isLoadingFiscalData}
         fiscalPreparationError={fiscalPreparationError}
-        onReconcile={() => {
-          setIsFiscalIssueModalOpen(false);
-          void handleReconcile();
+        onReconcile={async () => {
+          const outcome = await handleReconcile();
+          if (outcome?.state === 'authorized') {
+            setIsFiscalIssueModalOpen(false);
+          }
         }}
         onAbandonHmlTlsAttempt={() => {
           setIsFiscalIssueModalOpen(false);

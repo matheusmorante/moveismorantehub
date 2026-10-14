@@ -71,7 +71,11 @@ export async function consultSefazStatus(
 
   const result = await response.json();
   const confirmedNotFound =
-    ['HML_CONFIRMED_NOT_FOUND', 'HML_NEW_EMISSION_REQUIRED'].includes(result.code) &&
+    [
+      'HML_CONFIRMED_NOT_FOUND',
+      'HML_NEW_EMISSION_REQUIRED',
+      'FISCAL_CONFIRMED_NOT_FOUND',
+    ].includes(result.code) &&
     result.state === 'not_found' &&
     result.pending === false;
 

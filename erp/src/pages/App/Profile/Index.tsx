@@ -2,7 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
-import { validatePasswordSetup } from '@/services/authPasswordSetup';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createPasswordChangeFormSchema, profileFormSchema } from '../../../../../shared-utils/accountFormSchemas';
+import type { FieldErrors } from 'react-hook-form';
+import type { z } from 'zod';
 import {
   getPasswordAuthErrorMessage,
   isCurrentPasswordRequired,
@@ -29,6 +32,15 @@ const Profile = () => {
   const [currentPasswordRequired, setCurrentPasswordRequired] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const profileForm = useZodForm(profileFormSchema, { fullName, position, phone, address, city, state: stateValue });
+  const passwordSchema = createPasswordChangeFormSchema({ code: passwordReauthRequired, currentPassword: currentPasswordRequired });
+  const passwordForm = useZodForm(passwordSchema, {
+    password: newPassword, confirmation: confirmPassword,
+    reauthenticationCode: passwordReauthCode, currentPassword,
+  });
+  const showValidationError = (errors: FieldErrors) => {
+    toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados informados.');
+  };
 
   // Sync state when profile loads
   useEffect(() => {
@@ -54,20 +66,19 @@ const Profile = () => {
     if (user) setEmail(user.email || '');
   }, [profile, user]);
 
-  const handleUpdateProfile = async (e: any) => {
-    e.preventDefault();
+  const handleUpdateProfile = async (data: z.output<typeof profileFormSchema>) => {
     setLoading(true);
     try {
       const now = new (window as any).Date().toISOString();
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: fullName,
-          position: position,
-          phone: phone,
-          address: address,
-          city: city,
-          state: stateValue,
+          full_name: data.fullName,
+          position: data.position,
+          phone: data.phone,
+          address: data.address,
+          city: data.city,
+          state: data.state,
           updated_at: now,
         })
         .eq('id', user?.id);
@@ -81,42 +92,14 @@ const Profile = () => {
     }
   };
 
-  const handleChangeEmail = async () => {
-    if (!email || email === user?.email) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ email });
-      if (error) throw error;
-      toast.info('Verifique seu novo e-mail para confirmar a alteração.');
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao alterar e-mail.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleChangePassword = async () => {
-    const validationError = validatePasswordSetup(newPassword, confirmPassword);
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
-    if (passwordReauthRequired && !passwordReauthCode.trim()) {
-      toast.error('Informe o código enviado para confirmar sua identidade.');
-      return;
-    }
-    if (currentPasswordRequired && !currentPassword) {
-      toast.error('Informe sua senha atual para continuar.');
-      return;
-    }
-
+  const handleChangePassword = async (data: z.output<typeof passwordSchema>) => {
     setLoading(true);
     try {
       const { error } = await updateAuthenticatedPassword(
         supabase,
-        newPassword,
-        passwordReauthRequired ? passwordReauthCode : undefined,
-        currentPasswordRequired ? currentPassword : undefined
+        data.password,
+        passwordReauthRequired ? data.reauthenticationCode : undefined,
+        currentPasswordRequired ? data.currentPassword : undefined
       );
       if (error && !passwordReauthRequired && isPasswordReauthenticationRequired(error)) {
         const { error: reauthError } = await requestPasswordChangeReauthentication(supabase);
@@ -307,7 +290,7 @@ const Profile = () => {
               </div>
             </div>
 
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <form noValidate onSubmit={profileForm.handleSubmit(handleUpdateProfile, showValidationError)} className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-4">
@@ -437,7 +420,7 @@ const Profile = () => {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <form noValidate onSubmit={passwordForm.handleSubmit(handleChangePassword, showValidationError)} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {currentPasswordRequired && (
                   <div className="space-y-2 md:col-span-2">
@@ -518,7 +501,7 @@ const Profile = () => {
                 )}
               </div>
               <button
-                onClick={handleChangePassword}
+                type="submit"
                 disabled={loading || !newPassword || !confirmPassword}
                 className="w-full mt-4 py-4 bg-slate-800 dark:bg-slate-700 hover:bg-black text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"
               >
@@ -530,7 +513,7 @@ const Profile = () => {
                   'Alterar senha'
                 )}
               </button>
-            </div>
+            </form>
           </div>
         </div>
       </div>

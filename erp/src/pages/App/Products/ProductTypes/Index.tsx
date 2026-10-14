@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { catalogNameFormSchema } from '../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import {
@@ -75,7 +77,7 @@ const ProductTypes = () => {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 p-8 shadow-premium-lg flex flex-col gap-8">
-        <form onSubmit={handleAdd} className="flex flex-col md:flex-row gap-4">
+        <ZodForm schema={catalogNameFormSchema} values={{ name: newName }} onSubmit={handleAdd} className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
             <i className="bi bi-plus-circle absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
             <input
@@ -98,7 +100,7 @@ const ProductTypes = () => {
             )}
             Adicionar Novo Tipo
           </button>
-        </form>
+        </ZodForm>
 
         <div className="space-y-3">
           <div className="flex items-center justify-between px-4">

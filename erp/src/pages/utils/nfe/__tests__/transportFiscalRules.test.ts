@@ -67,7 +67,7 @@ const makeFacts = (): FiscalSnapshotCandidate => ({
       }),
     },
     contributionDecision: {
-      scope: { model: '55', operation: 'normal_sale', issuerCrt: '1' },
+      scope: { models: ['55', '65'], operation: 'normal_sale', issuerCrt: '1' },
       pis: { cst: '99', base: 0, rate: 0, value: 0 },
       cofins: { cst: '99', base: 0, rate: 0, value: 0 },
       confirmedAt: '2026-09-01T00:00:00Z',

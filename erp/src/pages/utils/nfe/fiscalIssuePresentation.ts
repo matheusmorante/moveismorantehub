@@ -89,16 +89,28 @@ const SENSITIVE_VALUE =
   /\bBearer\s+[A-Za-z0-9._~+/=-]+|\b(?:token|senha|password|secret|api[_ -]?key)\s*[:=]\s*\S+/i;
 
 const REJECTION_COPY: Record<string, string> = {
+  '203': 'O emitente não está habilitado para emissão de NF-e na SEFAZ. Verifique o cadastro da Inscrição Estadual.',
+  '204': 'Esta nota já foi autorizada na SEFAZ com este mesmo número e chave de acesso.',
   '209': 'A inscrição estadual do emitente foi rejeitada. Confira o cadastro fiscal do emitente.',
+  '215': 'O arquivo XML da nota não atende ao padrão oficial exigido pela SEFAZ (falha de schema XML).',
+  '225': 'A estrutura do lote da NF-e foi rejeitada pela SEFAZ por falha no schema XML.',
+  '232': 'A Inscrição Estadual do destinatário não foi informada. Para cliente contribuinte de ICMS, a IE é obrigatória.',
+  '234': 'A Inscrição Estadual informada para o destinatário não confere com o cadastro da SEFAZ na UF de destino.',
   '244': 'A série da nota não foi aceita. Confira a série nas configurações fiscais.',
-  '383': 'O CSOSN informado não é permitido para este item nesta operação.',
+  '245': 'O CNPJ do emitente não está cadastrado ou ativo na SEFAZ.',
   '382': 'A combinação de CFOP e CST não é permitida para este item.',
+  '383': 'O CSOSN informado não é permitido para este item nesta operação.',
   '386': 'A combinação de CFOP e CSOSN não é permitida para este item.',
+  '502': 'Erro na formação da chave de acesso da NF-e.',
+  '539': 'O número da nota já foi utilizado em outra emissão com chave de acesso diferente.',
   '591': 'O CSOSN informado não é compatível com o regime fiscal do emitente.',
+  '600': 'O CSOSN informado não é permitido para esta operação com Não Contribuinte.',
+  '696': 'Operação interestadual com Não Contribuinte exige indicação de Consumidor Final (Sim).',
   '725': 'O CFOP informado não é aceito para esta NFC-e.',
   '777': 'A SEFAZ exige o NCM completo do produto.',
   '778': 'O NCM informado para um dos produtos não existe na tabela aceita pela SEFAZ.',
   '779': 'O NCM informado não é compatível com esta NFC-e.',
+  '805': 'A SEFAZ do estado de destino não permite destinatário como Contribuinte Isento de Inscrição Estadual.',
 };
 
 export const HML_INTERSTATE_MATRIX_NOT_APPROVED = 'HML_INTERSTATE_MATRIX_NOT_APPROVED';
@@ -349,9 +361,16 @@ export function getFiscalIssuePresentation(result: FiscalIssueResult): FiscalIss
     };
   }
 
-  if (result.hmlConfirmedNotFound || code === 'HML_CONFIRMED_NOT_FOUND' || cStat === '217') {
+  if (
+    result.hmlConfirmedNotFound ||
+    code === 'HML_CONFIRMED_NOT_FOUND' ||
+    code === 'FISCAL_CONFIRMED_NOT_FOUND' ||
+    cStat === '217'
+  ) {
     const backendAllowsSameDocument =
-      result.hmlConfirmedNotFound || code === 'HML_CONFIRMED_NOT_FOUND';
+      result.hmlConfirmedNotFound ||
+      code === 'HML_CONFIRMED_NOT_FOUND' ||
+      code === 'FISCAL_CONFIRMED_NOT_FOUND';
     return {
       tone: 'info',
       title: 'A nota não foi encontrada na SEFAZ',
@@ -399,6 +418,30 @@ export function getFiscalIssuePresentation(result: FiscalIssueResult): FiscalIss
         'Escolha outro número antes de emitir a nota.'
       ),
       nextStep: 'Informe o número indicado e confirme a nova tentativa.',
+      action: 'choose-number',
+    };
+  }
+
+  if (cStat === '204') {
+    return {
+      tone: 'attention',
+      title: 'Nota fiscal já autorizada na SEFAZ (Duplicidade)',
+      description:
+        'A SEFAZ informou que este mesmo número e chave de acesso já foram autorizados anteriormente (Rejeição 204). O documento já existe.',
+      nextStep:
+        'Consulte a SEFAZ para recuperar o protocolo de autorização e o XML válido sem gerar nova numeração.',
+      action: 'consult',
+    };
+  }
+
+  if (cStat === '539') {
+    return {
+      tone: 'attention',
+      title: 'Número já utilizado em outra nota (Rejeição 539)',
+      description:
+        'A SEFAZ informou que o número desta nota já foi utilizado em outra emissão com chave de acesso ou dados diferentes.',
+      nextStep:
+        'Avance a numeração da sequência fiscal para o próximo número livre e confirme a emissão.',
       action: 'choose-number',
     };
   }

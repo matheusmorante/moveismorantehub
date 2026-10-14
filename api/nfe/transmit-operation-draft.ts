@@ -308,7 +308,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .status(409)
         .json({ success: false, error: 'Conclua e salve a revisão fiscal antes de transmitir.' });
     }
-    if (!automaticReturnWorker && environment === 1 && req.body?.productionConfirmed !== true) {
+    // An uncertain stored attempt only consults its existing key below. A ready
+    // attempt (including retry after cStat 217) can transmit and needs consent.
+    if (!automaticReturnWorker && environment === 1 && draft.status === 'ready' && req.body?.productionConfirmed !== true) {
       return res.status(400).json({
         success: false,
         error: 'Confirme explicitamente a transmissão deste documento em Produção.',

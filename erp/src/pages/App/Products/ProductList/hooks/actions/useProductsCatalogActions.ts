@@ -196,18 +196,6 @@ export const persistCatalogStatus = async (
   }
 
   if (isVariation && variation) {
-    if (
-      parentProduct?.id &&
-      Array.isArray(parentProduct.variations) &&
-      parentProduct.variations.length === 1
-    ) {
-      const { error: parentStatusError } = await supabase
-        .from('products')
-        .update({ status: newStatus })
-        .eq('id', parentProduct.id);
-      if (parentStatusError) throw parentStatusError;
-    }
-
     const isVarIdUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       variation.id
     );
@@ -217,6 +205,33 @@ export const persistCatalogStatus = async (
         .update({ status: newStatus })
         .eq('id', variation.id);
       if (error) throw error;
+    }
+
+    if (parentProduct?.id) {
+      if (newStatus === 'published') {
+        // Publicar qualquer variação garante que o produto pai fique publicado e visível nos feeds
+        const { error: parentStatusError } = await supabase
+          .from('products')
+          .update({ status: 'published' })
+          .eq('id', parentProduct.id);
+        if (parentStatusError) throw parentStatusError;
+      } else {
+        // Se a variação foi ocultada, verifica se ainda existe alguma outra variação publicada
+        const { data: remainingVars } = await supabase
+          .from('product_variations')
+          .select('id')
+          .eq('product_id', parentProduct.id)
+          .neq('id', variation.id)
+          .eq('status', 'published');
+
+        if (!remainingVars || remainingVars.length === 0) {
+          const { error: parentStatusError } = await supabase
+            .from('products')
+            .update({ status: 'hidden' })
+            .eq('id', parentProduct.id);
+          if (parentStatusError) throw parentStatusError;
+        }
+      }
     }
     return;
   }

@@ -1,0 +1,71 @@
+{
+  "name": "fiscal-performance-benchmark",
+  "environment": "development",
+  "exitCode": 0,
+  "records": [
+    {
+      "mode": "perf",
+      "success": true,
+      "statusCStat": "107",
+      "timings": {
+        "cert_extract_cold_ms": 55.04,
+        "cert_extract_warm_ms": 23.26,
+        "db_fetch_sample_xml_ms": 1481.78,
+        "schema_validation_cold_ms": 86.13,
+        "schema_validation_warm_ms": 11.23,
+        "xml_unsigned_validation_ms": 0.59,
+        "xml_signing_ms": 25.72,
+        "db_settings_read_ms": 460.88,
+        "db_orders_read_ms": 118.31,
+        "db_ncms_read_ms": 116.19,
+        "db_products_read_ms": 148.36,
+        "db_rpc_ping_ms": 109.11,
+        "sefaz_status_soap_ms": 177.37,
+        "sefaz_consult_soap_ms": 1852.23
+      },
+      "historical": [
+        {
+          "model": "65",
+          "environment": 2,
+          "state": "authorized",
+          "prep_to_transmit_ms": 532,
+          "transmission_to_result_ms": 619,
+          "total_attempt_ms": 1151
+        },
+        {
+          "model": "65",
+          "environment": 2,
+          "state": "authorized",
+          "prep_to_transmit_ms": 377,
+          "transmission_to_result_ms": 447,
+          "total_attempt_ms": 824
+        },
+        {
+          "model": "65",
+          "environment": 2,
+          "state": "rejected",
+          "prep_to_transmit_ms": 441,
+          "transmission_to_result_ms": 340,
+          "total_attempt_ms": 781
+        },
+        {
+          "model": "65",
+          "environment": 2,
+          "state": "authorized",
+          "prep_to_transmit_ms": 1119,
+          "transmission_to_result_ms": 1136,
+          "total_attempt_ms": 2255
+        },
+        {
+          "model": "65",
+          "environment": 2,
+          "state": "authorized",
+          "prep_to_transmit_ms": 474,
+          "transmission_to_result_ms": 507,
+          "total_attempt_ms": 981
+        }
+      ]
+    }
+  ],
+  "stderr": "Retrieving project…\nDownloading `development` Environment Variables\n"
+}

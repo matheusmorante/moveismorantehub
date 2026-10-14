@@ -14,7 +14,10 @@ import { assertOwnedByTestContext, getTestArtifactContext, stampTestOrder } from
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
 import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
-import { getPersistedOrderDataSnapshot } from '../orderMapper';
+import {
+  getPersistedOrderDataSnapshot,
+  setPersistedOrderDataSnapshot,
+} from '../orderMapper';
 import type { OrderUpdateOptions } from './orderMutationTypes';
 
 const TABLE_NAME = 'orders';
@@ -44,7 +47,10 @@ export const executeUpdateOrder = async (
       Object.hasOwn(cleanUpdates, 'status') &&
       Object.keys(cleanUpdates).every((key) => key === 'status' || key === 'autoFulfillExempt');
     let persistedOrderDataSnapshot = currentOrder
-      ? getPersistedOrderDataSnapshot(currentOrder)
+      ? getPersistedOrderDataSnapshot(currentOrder) ||
+        ((currentOrder as any)?.order_data && typeof (currentOrder as any).order_data === 'object'
+          ? (currentOrder as any).order_data
+          : undefined)
       : undefined;
 
     if (currentOrder) {
@@ -141,8 +147,35 @@ export const executeUpdateOrder = async (
 
     const updatePayload = buildOrderPersistencePayload(merged);
     if (isStatusOnlyUpdate) {
+      if (!persistedOrderDataSnapshot && id && typeof supabase?.from === 'function') {
+        try {
+          const query = supabase.from(TABLE_NAME);
+          if (query && typeof query.select === 'function') {
+            const { data: currentDbOrder, error: fetchSnapshotError } = await query
+              .select('order_data')
+              .eq('id', id)
+              .maybeSingle();
+
+            if (
+              !fetchSnapshotError &&
+              currentDbOrder?.order_data &&
+              typeof currentDbOrder.order_data === 'object'
+            ) {
+              persistedOrderDataSnapshot = currentDbOrder.order_data as Record<string, unknown>;
+              if (currentOrder) {
+                setPersistedOrderDataSnapshot(currentOrder, persistedOrderDataSnapshot);
+              }
+            }
+          }
+        } catch {
+          // Fallback seguro se a consulta do banco falhar ou estiver em ambiente restrito
+        }
+      }
+
       const statusUpdateSnapshot =
-        persistedOrderDataSnapshot ?? (currentOrder && !currentOrder.updatedAt ? merged : undefined);
+        persistedOrderDataSnapshot ??
+        (currentOrder && !currentOrder.updatedAt ? merged : undefined) ??
+        merged;
       if (!statusUpdateSnapshot) {
         throw new Error(
           'Não foi possível preservar o snapshot original do pedido. Atualize a lista e tente novamente.'
@@ -158,8 +191,18 @@ export const executeUpdateOrder = async (
           : {}),
       };
     }
-    const orderItemsPayload = merged.items || [];
-    const orderPaymentsPayload = merged.payments || [];
+    const orderItemsPayload =
+      merged.items && merged.items.length > 0
+        ? merged.items
+        : ((updatePayload.order_data as any)?.items && Array.isArray((updatePayload.order_data as any).items)
+            ? (updatePayload.order_data as any).items
+            : []);
+    const orderPaymentsPayload =
+      merged.payments && merged.payments.length > 0
+        ? merged.payments
+        : ((updatePayload.order_data as any)?.payments && Array.isArray((updatePayload.order_data as any).payments)
+            ? (updatePayload.order_data as any).payments
+            : []);
 
     // 4. Pedido, saídas/entradas, estornos e saldo são uma única transação.
     // Sem fallback de escrita parcial quando a movimentação falha.

@@ -24,6 +24,7 @@ interface VariationTechnicalTabProps {
   readonly showDescription?: boolean;
   readonly requiredFieldsOnly?: boolean;
   readonly isSingleVariation?: boolean;
+  readonly showAiImprove?: boolean;
 }
 
 const normalizeSearchTerm = (value: string): string =>
@@ -40,6 +41,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   showDescription = false,
   requiredFieldsOnly = false,
   isSingleVariation = false,
+  showAiImprove = false,
 }) => {
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -561,7 +563,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                 Descrição da Variação
               </h4>
               <div className="flex items-center gap-2">
-                {!formData.syncDescription && (
+                {showAiImprove && !formData.syncDescription && (
                   <button
                     type="button"
                     onClick={handleImproveDescriptionWithAI}

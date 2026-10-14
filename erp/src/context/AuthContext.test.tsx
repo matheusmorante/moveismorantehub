@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => ({
   checkCurrentUserHasPassword: vi.fn(),
   createCurrentUserPassword: vi.fn(),
   verifyConfiguredTestArtifactOperator: vi.fn(),
+  getTestArtifactContext: vi.fn(),
+  bindTestArtifactContext: vi.fn(),
+  testArtifactIdentityForAuthenticatedUser: vi.fn((..._args: unknown[]) => null),
 }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
@@ -39,9 +42,11 @@ vi.mock('@/services/testArtifactOperator', () => ({
 vi.mock('@/lib/queryClient', () => ({ queryClient: { clear: vi.fn() } }));
 
 vi.mock('../../../shared-utils/testArtifactContext', () => ({
-  bindTestArtifactContext: vi.fn(),
+  bindTestArtifactContext: (...args: unknown[]) => mocks.bindTestArtifactContext(...args),
   clearTestArtifactContext: vi.fn(),
-  testArtifactIdentityForAuthenticatedUser: vi.fn(() => null),
+  getTestArtifactContext: () => mocks.getTestArtifactContext(),
+  testArtifactIdentityForAuthenticatedUser: (...args: unknown[]) =>
+    mocks.testArtifactIdentityForAuthenticatedUser(...args),
 }));
 
 import { AuthProvider, useAuth } from './AuthContext';
@@ -129,11 +134,19 @@ async function signInWhileProfileIsUnresolved() {
   });
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllEnvs();
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.authListener = null;
+  mocks.getTestArtifactContext.mockReturnValue(null);
+  mocks.verifyConfiguredTestArtifactOperator.mockResolvedValue(false);
+  vi.stubEnv('DEV', true);
+  vi.stubEnv('VITE_TEST_ARTIFACT_RUN_ID', undefined);
+  vi.stubEnv('VITE_TEST_ARTIFACT_SCENARIO_KEY', undefined);
   setUpSupabaseMocks();
 });
 
@@ -166,5 +179,73 @@ describe('AuthProvider profile resolution', () => {
     });
 
     await waitFor(() => expect(screen.getByTestId('auth-state').textContent).toBe('pending'));
+    expect(mocks.verifyConfiguredTestArtifactOperator).not.toHaveBeenCalled();
+  });
+
+  it('creates a test execution only after administrator and backend authorization, without an env runId', async () => {
+    mocks.verifyConfiguredTestArtifactOperator.mockResolvedValue(true);
+    await mountSignedOutProvider();
+    await signInWhileProfileIsUnresolved();
+    expect(mocks.verifyConfiguredTestArtifactOperator).not.toHaveBeenCalled();
+    await act(async () => resolveProfile({ data: adminProfile, error: null }));
+    await waitFor(() => expect(screen.getByTestId('auth-state').textContent).toBe('ready'));
+    expect(mocks.testArtifactIdentityForAuthenticatedUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
+        ownerId: operatorSession.user.id,
+        isAdministrator: true,
+        configuredOperatorAuthorized: true,
+      }),
+    );
+  });
+
+  it('preserves the existing execution belonging to the authenticated operator', async () => {
+    mocks.verifyConfiguredTestArtifactOperator.mockResolvedValue(true);
+    await mountSignedOutProvider();
+    const runId = '550e8400-e29b-41d4-a716-446655440000';
+    mocks.getTestArtifactContext.mockReturnValue({ runId, ownerId: operatorSession.user.id });
+    await signInWhileProfileIsUnresolved();
+    await act(async () => resolveProfile({ data: adminProfile, error: null }));
+    await waitFor(() => expect(screen.getByTestId('auth-state').textContent).toBe('ready'));
+    expect(mocks.testArtifactIdentityForAuthenticatedUser).toHaveBeenCalledWith(
+      expect.objectContaining({ runId, configuredOperatorAuthorized: true }),
+    );
+  });
+
+  it('never reuses another operators execution', async () => {
+    mocks.verifyConfiguredTestArtifactOperator.mockResolvedValue(true);
+    await mountSignedOutProvider();
+    const otherRunId = '550e8400-e29b-41d4-a716-446655440001';
+    mocks.getTestArtifactContext.mockReturnValue({ runId: otherRunId, ownerId: 'another-operator' });
+    await signInWhileProfileIsUnresolved();
+    await act(async () => resolveProfile({ data: adminProfile, error: null }));
+    await waitFor(() => expect(screen.getByTestId('auth-state').textContent).toBe('ready'));
+    expect(mocks.testArtifactIdentityForAuthenticatedUser)
+      .not.toHaveBeenLastCalledWith(expect.objectContaining({ runId: otherRunId }));
+  });
+
+  it('does not create or bind a test execution when backend authorization fails', async () => {
+    await mountSignedOutProvider();
+    await signInWhileProfileIsUnresolved();
+    await act(async () => resolveProfile({ data: adminProfile, error: null }));
+    await waitFor(() => expect(screen.getByTestId('auth-state').textContent).toBe('ready'));
+    expect(mocks.testArtifactIdentityForAuthenticatedUser).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: undefined, configuredOperatorAuthorized: false }),
+    );
+    expect(mocks.bindTestArtifactContext).not.toHaveBeenCalled();
+  });
+
+  it('keeps test context disabled in production even for an administrator', async () => {
+    vi.stubEnv('DEV', false);
+    mocks.verifyConfiguredTestArtifactOperator.mockResolvedValue(true);
+    await mountSignedOutProvider();
+    await signInWhileProfileIsUnresolved();
+    await act(async () => resolveProfile({ data: adminProfile, error: null }));
+    await waitFor(() => expect(screen.getByTestId('auth-state').textContent).toBe('ready'));
+    expect(mocks.verifyConfiguredTestArtifactOperator).not.toHaveBeenCalled();
+    expect(mocks.testArtifactIdentityForAuthenticatedUser).toHaveBeenCalledWith(
+      expect.objectContaining({ isDevelopment: false, configuredOperatorAuthorized: false }),
+    );
+    expect(mocks.bindTestArtifactContext).not.toHaveBeenCalled();
   });
 });

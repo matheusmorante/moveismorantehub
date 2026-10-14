@@ -14,17 +14,20 @@ const collectionOrder = (schedule: Record<string, unknown> = {}) =>
     shipping: { scheduling: { date: '2026-10-10', type: 'fixed', ...schedule } },
   }) as unknown as Order;
 
-const scheduledSale = (deliveryMethod: 'delivery' | 'pickup' = 'delivery') =>
+const scheduledSale = (
+  deliveryMethod: 'delivery' | 'pickup' = 'delivery',
+  schedule: Record<string, unknown> = {}
+) =>
   ({
     id: `sale-${deliveryMethod}`,
     orderType: 'sale',
     status: 'scheduled',
-    shipping: { deliveryMethod, scheduling: { date: '2026-10-10', type: 'fixed' } },
+    shipping: { deliveryMethod, scheduling: { date: '2026-10-10', type: 'fixed', ...schedule } },
   }) as unknown as Order;
 
 describe('prazo do Cron para entrega e retirada', () => {
   it.each(['delivery', 'pickup'] as const)(
-    'conta até a meia-noite seguinte para pedido de %s no dia agendado',
+    'conta até a meia-noite seguinte para pedido de %s no dia agendado quando não tem horário definido',
     (deliveryMethod) => {
       const order = scheduledSale(deliveryMethod);
       const now = new Date(2026, 9, 10, 23, 59);
@@ -37,6 +40,60 @@ describe('prazo do Cron para entrega e retirada', () => {
       });
     }
   );
+
+  it('conta até o endTime definido para entrega no dia agendado', () => {
+    const order = scheduledSale('delivery', { endTime: '18:00', startTime: '13:00' });
+    const now = new Date(2026, 9, 10, 17, 0);
+
+    expect(getOrderFulfillmentCountdown(order, undefined, now)).toMatchObject({
+      isPastDelivery: true,
+      isExpired: false,
+      countdownLabel: '1h',
+      deadline: new Date(2026, 9, 10, 18, 0),
+    });
+  });
+
+  it('indica atualização pendente assim que o endTime passa', () => {
+    const order = scheduledSale('delivery', { endTime: '18:00', startTime: '13:00' });
+    const now = new Date(2026, 9, 10, 18, 1);
+
+    expect(getOrderFulfillmentCountdown(order, undefined, now)).toMatchObject({
+      isPastDelivery: true,
+      isExpired: true,
+      countdownLabel: 'aguardando atualização',
+    });
+  });
+
+  it('extrai horário final de intervalo formatado como "13:30 às 18:00"', () => {
+    const order = scheduledSale('delivery', { time: '13:30 às 18:00' });
+    const now = new Date(2026, 9, 10, 17, 59);
+
+    expect(getOrderFulfillmentCountdown(order, undefined, now)).toMatchObject({
+      isPastDelivery: true,
+      isExpired: false,
+      countdownLabel: '1min',
+      deadline: new Date(2026, 9, 10, 18, 0),
+    });
+  });
+
+  it('respeita horário pontual de retirada agendada como 15:55', () => {
+    const order = scheduledSale('pickup', { time: '15:55', startTime: '15:55' });
+    const beforeNow = new Date(2026, 9, 10, 15, 50);
+    const afterNow = new Date(2026, 9, 10, 15, 56);
+
+    expect(getOrderFulfillmentCountdown(order, undefined, beforeNow)).toMatchObject({
+      isPastDelivery: true,
+      isExpired: false,
+      countdownLabel: '5min',
+      deadline: new Date(2026, 9, 10, 15, 55),
+    });
+
+    expect(getOrderFulfillmentCountdown(order, undefined, afterNow)).toMatchObject({
+      isPastDelivery: true,
+      isExpired: true,
+      countdownLabel: 'aguardando atualização',
+    });
+  });
 
   it('indica atualização pendente depois da meia-noite, sem gravar pelo navegador', () => {
     const order = scheduledSale();

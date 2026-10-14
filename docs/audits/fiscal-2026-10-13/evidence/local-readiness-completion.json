@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-13",
+  "scope": "Local readiness, read-only ERP inspection and commercial integration runbook",
+  "validation": {
+    "erpFiscalTypeScript": "passed after normalized shipping date fix",
+    "focusedEslint": "passed",
+    "danfeTests": { "files": 2, "passed": 10, "environment": "node" },
+    "documentationDiffCheck": "passed",
+    "obsoleteProductionGateMarkdownMatches": 0
+  },
+  "visualEvidence": {
+    "source": "Locally generated synthetic HTML; no real authorization protocol",
+    "models": ["55", "65"],
+    "alphanumericCnpjAndKeyVisible": true,
+    "model55BarcodeSvgVisible": true,
+    "model65QrCodePresent": false,
+    "artifacts": [
+      "output/playwright/danfe-alpha-55.html",
+      "output/playwright/danfe-alpha-55.jpg",
+      "output/playwright/danfe-alpha-65.html",
+      "output/playwright/danfe-alpha-65.jpg"
+    ],
+    "physicalPrintValidated": false,
+    "scannerValidated": false
+  },
+  "erpInterface": {
+    "existingAuthenticatedSessionReused": true,
+    "localFiscalListLoaded": true,
+    "homologationOnlyFilterVerified": true,
+    "circulationCancellationBlockVisible": true,
+    "pendingNfceVisible": true,
+    "consultationOrRetryInvoked": false,
+    "consultationLimit": "The UI consultation route can persist reconciliation; not executed under read-only authorization."
+  },
+  "remoteReadinessEvidence": "commercial-readiness-catalog.json",
+  "runbook": "../../../fiscal/integracao-comercial-controlada-2026-10-13.md",
+  "limitations": [
+    "No commercial artifacts provisioned or commercial transitions executed.",
+    "No real rollback or concurrency proof in this continuation.",
+    "Native canvas remains unavailable for unrelated jsdom-dependent suites.",
+    "No SEFAZ transmission, fiscal reconciliation write, new DDL or deployment.",
+    "Previously applied cancellation and alphanumeric migrations were preserved and not reapplied."
+  ]
+}

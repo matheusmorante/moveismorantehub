@@ -166,7 +166,17 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
               </button>
             </>
           )
-        ) : emissionResult?.pending ? null : (
+        ) : emissionResult?.pending ? (
+          <button
+            type="button"
+            onClick={onOpenFiscalIssue}
+            data-testid="nfe-consult-pending-footer-button"
+            className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-amber-500/20 flex items-center gap-2 cursor-pointer"
+          >
+            <i className="bi bi-clock-history" />
+            <span>Consultar situação na SEFAZ</span>
+          </button>
+        ) : (
           <button
             type="button"
             onClick={onPrintDanfe}

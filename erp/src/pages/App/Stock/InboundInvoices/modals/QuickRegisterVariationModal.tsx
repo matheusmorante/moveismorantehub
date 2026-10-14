@@ -1,3 +1,5 @@
+import { ZodForm } from '@/components/forms/ZodForm';
+import { quickRegisterSelectionFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
 import React, { useEffect, useState } from 'react';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
 import { toast } from 'react-toastify';
@@ -116,7 +118,7 @@ export function QuickRegisterVariationModal({
           </button>
         </header>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <ZodForm schema={quickRegisterSelectionFormSchema} values={{ mode, parentProductId: selectedParent?.id }} onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Seleção do Modo de Cadastro */}
           <div className="space-y-2">
             <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -197,7 +199,7 @@ export function QuickRegisterVariationModal({
               <span>Abrir Cadastramento</span>
             </button>
           </div>
-        </form>
+        </ZodForm>
       </div>
     </div>
   );

@@ -16,12 +16,15 @@ import {
 } from '../../../utils/nfe/invoiceLineSnapshot';
 import { formatOrderCode } from '../../../utils/orderCode';
 import { saveOrder } from '../../../utils/orderHistoryService';
-import { getReturnableQuantities, getReturnLineKey } from '../../../utils/returnQuantityRules';
+import { getReturnableQuantities, getReturnLineKey, type ReturnQuantityRecord } from '../../../utils/returnQuantityRules';
 import { supabase } from '../../../utils/supabaseConfig';
 import ReturnFormTabs, { type ReturnFormTab } from '../ReturnFormTabs';
 import ReturnCollectionSection from './ReturnCollectionSection';
 import ReturnItemsSelection from './ReturnItemsSelection';
 import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { createLinkedReturnFormSchema } from '../../../../../../shared-utils/returnFormSchemas';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 
 type Props = {
   readonly order: Order;
@@ -64,35 +67,30 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
   const [activeTab, setActiveTab] = useState<ReturnFormTab>('items');
   const [returnableQuantities, setReturnableQuantities] = useState<Record<string, number>>({});
   const [returnsLoaded, setReturnsLoaded] = useState(false);
+  const [returnDataError, setReturnDataError] = useState<string | null>(null);
   const [fiscalCapacityLines, setFiscalCapacityLines] = useState<AvailableInvoiceLine[]>([]);
   const [fiscalCapacityLoaded, setFiscalCapacityLoaded] = useState(false);
   const [fiscalCapacityError, setFiscalCapacityError] = useState<string | null>(null);
   const [hasAuthorizedInvoice, setHasAuthorizedInvoice] = useState(false);
   const [returnRequestId] = useState(() => crypto.randomUUID());
   const submittingRef = useRef(false);
+  const priorReturnsRef = useRef<ReturnQuantityRecord[]>([]);
+  const form = useZodForm(createLinkedReturnFormSchema(order.items, priorReturnsRef.current), { items: [], collectAtAddress: false });
 
   useEffect(() => {
     let active = true;
     const loadReturnData = async () => {
       if (!order.id) {
-        setReturnsLoaded(true);
-        setFiscalCapacityLoaded(true);
-        setReturnableQuantities(
-          Object.fromEntries(
-            (order.items || []).map((item, index) => [
-              getReturnLineKey(item, index),
-              Number(item.quantity || 0),
-            ])
-          )
-        );
-        return;
+        throw new Error('A devolução comercial exige uma venda original já cadastrada.');
       }
       setReturnsLoaded(false);
       setFiscalCapacityLoaded(false);
       setFiscalCapacityError(null);
+      setReturnDataError(null);
+      priorReturnsRef.current = [];
 
       // 1. Carrega devoluções comerciais anteriores (para controle de itens devolvíveis)
-      let priorReturns: Array<{ status?: string; items: Item[] }> = [];
+      let priorReturns: Array<{ status?: string; items: Item[] }>;
       try {
         const { data, error } = await supabase
           .from('orders')
@@ -101,8 +99,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
           .or(`linked_order_id.eq.${order.id},order_data->>linkedOrderId.eq.${order.id}`);
         if (!active) return;
         if (error) {
-          console.error('Erro ao consultar devoluções anteriores:', error);
-          toast.error('Não foi possível conferir o saldo já devolvido. Tente novamente.');
+          throw new Error('Não foi possível conferir o saldo já devolvido. Reabra a devolução comercial.', { cause: error });
         } else {
           priorReturns = (data || []).map((row: any) => ({
             status: row.status || row.order_data?.status,
@@ -110,14 +107,15 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
           }));
         }
       } catch (err) {
-        console.error('Erro ao consultar devoluções anteriores:', err);
+        throw new Error('Não foi possível conferir o saldo já devolvido. Reabra a devolução comercial.', { cause: err });
       }
 
       if (!active) return;
+      priorReturnsRef.current = priorReturns;
       const remaining = getReturnableQuantities(order.items || [], priorReturns);
 
       // 2. Localiza NF-e/NFC-e original efetivamente AUTORIZADA
-      const authorizedDoc = await findAuthorizedFiscalDocument(order.id);
+      const authorizedDoc = await findAuthorizedFiscalDocument(order.id, { throwOnError: true });
       if (!active) return;
 
       if (!authorizedDoc) {
@@ -188,7 +186,18 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       );
       setReturnsLoaded(true);
     };
-    void loadReturnData();
+    const showLoadError = (message: string) => {
+      if (!active) return;
+      active = false;
+      setReturnDataError(message);
+      setReturnsLoaded(true);
+      setFiscalCapacityLoaded(true);
+    };
+    void withTimeout(loadReturnData().then(() => true), 15_000, false, 'conferência da devolução comercial')
+      .then((completed) => {
+        if (!completed) showLoadError('A conferência dos saldos demorou mais que o esperado. Reabra a devolução comercial para tentar novamente.');
+      })
+      .catch((error: unknown) => showLoadError(error instanceof Error ? error.message : 'Não foi possível conferir a devolução comercial.'));
     return () => {
       active = false;
     };
@@ -239,6 +248,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
 
   const generateReturn = async () => {
     if (submittingRef.current) return;
+    if (returnDataError) return toast.error(returnDataError);
     if (!returnsLoaded || !fiscalCapacityLoaded)
       return toast.warning('Aguarde a conferência do saldo devolvível.');
     if (hasAuthorizedInvoice && fiscalCapacityError)
@@ -284,6 +294,10 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       });
       return selected;
     }, []);
+
+    const validatedValues = await form.validateAndRun({ items, collectAtAddress }, (data) => data,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validatedValues) return;
 
     const total = items.reduce(
       (sum, item) => sum + (item.returnedTotalValue ?? item.quantity * item.unitPrice),
@@ -429,7 +443,8 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
         </header>
         <div className="custom-scrollbar flex-1 space-y-6 overflow-y-auto p-6">
           <ReturnFormTabs activeTab={activeTab} onChange={setActiveTab} />
-          {fiscalCapacityLoaded && (
+          {returnDataError && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{returnDataError}</p>}
+          {fiscalCapacityLoaded && !returnDataError && (
             <aside
               role="status"
               aria-live="polite"
@@ -522,6 +537,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
               onClick={generateReturn}
               disabled={
                 submitting ||
+                Boolean(returnDataError) ||
                 !returnsLoaded ||
                 !fiscalCapacityLoaded ||
                 (hasAuthorizedInvoice && Boolean(fiscalCapacityError)) ||
@@ -530,7 +546,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
               }
               className="flex flex-1 items-center justify-center gap-3 rounded-2xl bg-amber-600 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-amber-500/20 transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
             >
-              {submitting || !returnsLoaded || !fiscalCapacityLoaded ? (
+              {returnDataError ? 'Conferência indisponível' : submitting || !returnsLoaded || !fiscalCapacityLoaded ? (
                 'Conferindo saldos...'
               ) : (
                 <>

@@ -1,55 +1,31 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import {
-  Calendar,
-  Clock,
-  Store,
-  Truck,
-  Wrench,
-  RotateCcw,
-  Megaphone,
-  CheckCircle2,
-  XCircle,
-} from 'lucide-react-native';
-import { MobileDrill } from '../../../components/shared/MobileDrill';
-import {
-  formatOrderCode,
-  formatOrderDate,
-  formatOrderTotal,
-  isCancelledOrder,
-} from '../../../utils/orderUtils';
-import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
+import { formatOrderCode, isCancelledOrder } from '../../../utils/orderUtils';
 import { getOrderStatusLabel } from '../domain/orderStatusPresentation';
+import { getOrderAssemblyFlags, isPaidTrafficOrder } from '../domain/orderAssemblyRules';
+import { getStatusConfig, resolveHeaderColors } from './card/orderCardTheme';
+import { OrderCardBadges } from './card/OrderCardBadges';
+import { OrderCardBody } from './card/OrderCardBody';
 
-type Props = {
+export interface MobileOrderCardProps {
   order: any;
   dark: boolean;
   handlingOptions: any[];
   onDetails: () => void;
-};
+  onFilterByLinkedOrder?: (orderIdOrCode: string) => void;
+}
 
-const getStatusConfig = (value: string) => {
-  const status = String(value || '').toLowerCase();
-  if (/draft|rascunh/.test(status)) {
-    return { bg: '#64748b', border: '#475569', icon: 'draft' };
-  }
-  if (/sched|agendad/.test(status)) {
-    return { bg: '#f59e0b', border: '#d97706', icon: 'scheduled' };
-  }
-  if (/fulfill|atendid|concluid|finaliz|entreg/.test(status)) {
-    return { bg: '#10b981', border: '#059669', icon: 'fulfilled' };
-  }
-  if (status.includes('cancel')) {
-    return { bg: '#f43f5e', border: '#e11d48', icon: 'cancelled' };
-  }
-  return { bg: '#64748b', border: '#475569', icon: 'draft' };
-};
-
-export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Props) {
-  const data = order.order_data || {};
+export const MobileOrderCard: React.FC<MobileOrderCardProps> = ({
+  order,
+  dark,
+  handlingOptions,
+  onDetails,
+  onFilterByLinkedOrder,
+}) => {
+  const data = order?.order_data || {};
   const shipping = data.shipping || {};
   const orderType = String(
-    order.orderType || order.order_type || data.orderType || 'sale'
+    order?.orderType || order?.order_type || data.orderType || 'sale'
   ).toLowerCase();
   const isAssistance = orderType === 'assistance';
   const isReturn = orderType === 'return';
@@ -58,164 +34,81 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
     String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase()
   );
 
-  // Normalização e detecção de montagens idêntica ao ERP
-  const normalize = (str: string) =>
-    (str || '')
-      .trim()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-  const allOptions = Array.isArray(handlingOptions) ? handlingOptions : [];
-  const getMatchingOption = (hLabel: string) => {
-    if (!hLabel) return null;
-    return allOptions.find((o) => {
-      const sLabel = normalize(o?.label);
-      return sLabel === hLabel || (sLabel && (hLabel.includes(sLabel) || sLabel.includes(hLabel)));
-    });
-  };
-
-  const isHandlingDepot = (item: any) => {
-    const hLabel = normalize(
-      typeof item === 'string' ? item : item?.handlingType || item?.handling
-    );
-    if (
-      !hLabel ||
-      hLabel.includes('sem montagem') ||
-      hLabel.includes('sem_montagem') ||
-      hLabel.includes('apenas entrega') ||
-      hLabel.includes('nao necessita')
-    )
-      return false;
-    const opt = getMatchingOption(hLabel);
-    if (opt?.includeInAssemblySchedule) return true;
-    if (
-      hLabel.includes('montagem no deposito') ||
-      hLabel.includes('montagem para retirada') ||
-      hLabel.includes('montagem no depósito') ||
-      hLabel.includes('deposito') ||
-      hLabel.includes('loja')
-    )
-      return true;
-    return false;
-  };
-
-  const isHandlingOutside = (item: any) => {
-    const hLabel = normalize(
-      typeof item === 'string' ? item : item?.handlingType || item?.handling
-    );
-    if (
-      !hLabel ||
-      hLabel.includes('sem montagem') ||
-      hLabel.includes('sem_montagem') ||
-      hLabel.includes('apenas entrega') ||
-      hLabel.includes('nao necessita')
-    )
-      return false;
-    const opt = getMatchingOption(hLabel);
-    if (opt?.isAssemblyOutside) return true;
-    if (
-      hLabel.includes('montagem na entrega') ||
-      hLabel.includes('montagem fora') ||
-      hLabel.includes('montagem no endereco') ||
-      hLabel.includes('montagem no local') ||
-      hLabel.includes('montador')
-    )
-      return true;
-    return false;
-  };
-
-  const allOrderItems = [
-    ...(data.items || order.items || []),
-    ...(data.assistanceItems || order.assistanceItems || []),
-  ];
-  const orderHandling = normalize(
-    data.handlingType ||
-      data.handling ||
-      data.deliveryType ||
-      shipping.handlingType ||
-      shipping.handling ||
-      order.handling ||
-      ''
-  );
-
-  const hasAssemblyOutside =
-    !isReturn && (isHandlingOutside(orderHandling) || allOrderItems.some(isHandlingOutside));
-  const hasAssemblyDepot =
-    !isReturn && (isHandlingDepot(orderHandling) || allOrderItems.some(isHandlingDepot));
+  const { hasAssemblyDepot, hasAssemblyOutside } = getOrderAssemblyFlags(order, handlingOptions);
+  const isPaidTraffic = isPaidTrafficOrder(order);
 
   const schedule = shipping.scheduling || data.schedule || {};
   const scheduleDate =
-    (isReturn && schedule.dateType === 'range' ? schedule.endDate : undefined) ||
     schedule.date ||
     schedule.startDate ||
-    order.scheduled_date ||
-    order.date;
-  const isDraft = /draft|rascunh/.test(String(order.status || data.status || '').toLowerCase());
+    order?.scheduled_date ||
+    order?.date;
+  const isDraft = /draft|rascunh/.test(String(order?.status || data.status || '').toLowerCase());
   const cancelled = isCancelledOrder(order);
-  const isStockChecked = Boolean(order.isStockChecked ?? data.isStockChecked);
-  const isRegisteredInBling = Boolean(order.isRegisteredInBling ?? data.isRegisteredInBling);
-  const fiscalBadgeStatus = order.fiscalBadgeStatus as
-    | 'not_issued'
-    | 'issued'
-    | 'cancelled'
-    | 'reversed'
-    | undefined;
-  const fiscalHmlBadgeStatus = order.fiscalHmlBadgeStatus as
-    | 'not_issued'
-    | 'issued'
-    | 'cancelled'
-    | 'reversed'
-    | undefined;
+  const isStockChecked = Boolean(
+    order?.is_stock_checked ?? order?.isStockChecked ?? data.isStockChecked ?? data.is_stock_checked
+  );
+  const isRegisteredInBling = Boolean(
+    order?.is_registered_in_bling ??
+      order?.isRegisteredInBling ??
+      data.isRegisteredInBling ??
+      data.is_registered_in_bling
+  );
+  const stockProcessed = Boolean(
+    isReturn
+      ? order?.returnStockProcessed ??
+        order?.return_stock_processed ??
+        data.returnStockProcessed ??
+        data.return_stock_processed ??
+        order?.stock_processed ??
+        data.stockProcessed
+      : order?.stock_processed ??
+        order?.stockProcessed ??
+        data.stockProcessed ??
+        data.stock_processed ??
+        data.inventoryProcessed
+  );
+  const stockReversed = Boolean(
+    isReturn
+      ? order?.returnStockReversed ??
+        order?.return_stock_reversed ??
+        data.returnStockReversed ??
+        data.return_stock_reversed ??
+        order?.stock_reversed ??
+        data.stockReversed
+      : order?.stock_reversed ??
+        order?.stockReversed ??
+        data.stockReversed ??
+        data.stock_reversed ??
+        data.inventoryReversed
+  );
+  const returnOrderId =
+    order?.return_order_id || order?.returnOrderId || data.returnOrderId || data.return_order_id;
+  const returnKind =
+    order?.return_kind || order?.returnKind || data.returnKind || data.return_kind;
+  const linkedOrderId =
+    order?.linked_order_id || order?.linkedOrderId || data.linkedOrderId || data.linked_order_id;
+  const linkedOrderCode =
+    order?.linked_order_code ||
+    order?.linkedOrderCode ||
+    data.linkedOrderCode ||
+    data.linked_order_code;
   const pendingScheduling = Boolean(
     shipping.scheduling?.pendingScheduling || data.schedule?.pendingScheduling
   );
 
-  // Tráfego pago
-  const mOrigin1 = (order.marketingOrigin || data.marketingOrigin || '').toLowerCase();
-  const mOrigin2 = (data.customerData?.marketingOrigin || '').toLowerCase();
-  const isPaidTraffic =
-    mOrigin1 === 'paid' ||
-    mOrigin1.includes('pago') ||
-    mOrigin1.includes('ads') ||
-    mOrigin1.includes('facebook') ||
-    mOrigin1.includes('insta') ||
-    mOrigin1.includes('trafego') ||
-    mOrigin1.includes('tráfego') ||
-    mOrigin1.includes('google') ||
-    mOrigin2 === 'paid' ||
-    mOrigin2.includes('pago') ||
-    mOrigin2.includes('ads') ||
-    mOrigin2.includes('facebook') ||
-    mOrigin2.includes('insta') ||
-    mOrigin2.includes('trafego') ||
-    mOrigin2.includes('tráfego') ||
-    mOrigin2.includes('google');
+  const { headerBg, headerBorder } = resolveHeaderColors({
+    dark,
+    cancelled,
+    isDraft,
+    isBudget,
+    isReturn,
+    isAssistance,
+    pickup,
+  });
 
-  // Cor de fundo e borda do cabeçalho do card (idênticas ao ERP: emerald-200 para entrega e purple-200 para retirada)
-  let headerBg = dark ? '#022c22' : '#a7f3d0'; // Emerald-200 no tom exato do ERP
-  let headerBorder = dark ? '#065f46' : '#6ee7b7';
-  if (cancelled) {
-    headerBg = dark ? '#450a0a' : '#fee2e2'; // Vermelho suave condizente com a moldura e fundo
-    headerBorder = dark ? '#7f1d1d' : '#fca5a5';
-  } else if (isDraft) {
-    headerBg = dark ? '#334155' : '#f1f5f9';
-    headerBorder = dark ? '#475569' : '#e2e8f0';
-  } else if (isBudget) {
-    headerBg = dark ? '#1e1b4b' : '#c7d2fe';
-    headerBorder = dark ? '#312e81' : '#a5b4fc';
-  } else if (isReturn) {
-    headerBg = dark ? '#451a03' : '#fde68a';
-    headerBorder = dark ? '#78350f' : '#fcd34d';
-  } else if (isAssistance) {
-    headerBg = dark ? '#431407' : '#fed7aa';
-    headerBorder = dark ? '#7c2d12' : '#fdba74';
-  } else if (pickup) {
-    headerBg = dark ? '#3b0764' : '#e9d5ff'; // Purple-200 no tom exato do ERP
-    headerBorder = dark ? '#581c87' : '#d8b4fe';
-  }
-
-  const statusConfig = getStatusConfig(order.status || data.status || 'Agendado');
-  const orderStatus = order.status || data.status || 'scheduled';
+  const orderStatus = order?.status || data.status || 'scheduled';
+  const statusConfig = getStatusConfig(orderStatus);
   const statusLabel = getOrderStatusLabel(
     { ...order, ...data, status: orderStatus },
     orderStatus === 'fulfilled'
@@ -239,18 +132,6 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
       {/* Overlay escuro / brilho baixo quando cancelado (idêntico ao ERP) */}
       {cancelled && <View pointerEvents="none" style={styles.cancelledOverlay} />}
 
-      {/* Carimbo de Cancelado inclinado (idêntico ao ERP) */}
-      {cancelled && (
-        <View style={styles.stampContainer}>
-          <View style={styles.stampBadge}>
-            <View style={styles.stampIconCircle}>
-              <Text style={styles.stampIconText}>✕</Text>
-            </View>
-            <Text style={styles.stampText}>CANCELADO</Text>
-          </View>
-        </View>
-      )}
-
       {/* Header com Faixa Colorida e Selos Alinhados (idêntico ao ERP) */}
       <View
         style={[
@@ -263,175 +144,56 @@ export function MobileOrderCard({ order, dark, handlingOptions, onDetails }: Pro
           <Text style={styles.codeText}>#{formatOrderCode(order)}</Text>
         </View>
 
-        {/* Lado Direito: Selos / Rótulos */}
-        <View style={styles.badgesContainer}>
-          {/* 1. Selo de Tipo de Pedido (Entrega / Retirada / Assistência / Devolução) */}
-          <View
-            style={[
-              styles.iconBadge,
-              isAssistance
-                ? styles.badgeOrange
-                : isReturn
-                  ? styles.badgeAmber
-                  : pickup
-                    ? styles.badgePurple
-                    : styles.badgeEmerald,
-            ]}
-          >
-            {isAssistance ? (
-              <Wrench size={11} color="#ffffff" />
-            ) : isReturn ? (
-              <RotateCcw size={11} color="#ffffff" />
-            ) : pickup ? (
-              <Store size={11} color="#ffffff" />
-            ) : (
-              <Truck size={11} color="#ffffff" />
-            )}
-          </View>
-
-          {/* 4. Selo de Tráfego Pago */}
-          {isPaidTraffic && !isReturn && (
-            <View style={[styles.iconBadge, styles.badgeOrange]}>
-              <Megaphone size={11} color="#ffffff" />
-            </View>
-          )}
-
-          {/* 5. Selo de Montagem Fora */}
-          {!cancelled && hasAssemblyOutside && (
-            <View style={[styles.iconBadge, styles.badgeRed]}>
-              <MobileDrill size={11} color="#ffffff" />
-            </View>
-          )}
-
-          {/* 6. Selo de Montagem Depósito */}
-          {!cancelled && hasAssemblyDepot && (
-            <View style={[styles.iconBadge, styles.badgeAmber]}>
-              <MobileDrill size={11} color="#ffffff" />
-            </View>
-          )}
-
-          {/* Selo de Nota Fiscal (Produção) */}
-          {fiscalBadgeStatus && (
-            <View
-              accessibilityLabel={`Nota fiscal ${
-                fiscalBadgeStatus === 'not_issued'
-                  ? 'não emitida'
-                  : fiscalBadgeStatus === 'issued'
-                    ? 'emitida'
-                    : fiscalBadgeStatus === 'cancelled'
-                      ? 'cancelada'
-                      : 'de devolução ou estorno'
-              }`}
-              style={[
-                styles.textBadge,
-                fiscalBadgeStatus === 'not_issued'
-                  ? styles.fiscalBadgeMuted
-                  : fiscalBadgeStatus === 'issued'
-                    ? styles.fiscalBadgeSuccess
-                    : fiscalBadgeStatus === 'cancelled'
-                      ? styles.fiscalBadgeCancelled
-                      : styles.fiscalBadgeReversed,
-              ]}
-            >
-              <Text style={styles.textBadgeLabel}>NF</Text>
-              {fiscalBadgeStatus === 'issued' && <CheckCircle2 size={10} color="#ffffff" />}
-            </View>
-          )}
-
-          {/* Selo de Nota Fiscal de Homologação (NFH) - só aparece se emitida/autorizada */}
-          {fiscalHmlBadgeStatus && fiscalHmlBadgeStatus !== 'not_issued' && (
-            <View
-              accessibilityLabel={`Nota fiscal de homologação ${
-                fiscalHmlBadgeStatus === 'issued'
-                  ? 'emitida'
-                  : fiscalHmlBadgeStatus === 'cancelled'
-                    ? 'cancelada'
-                    : 'de devolução ou estorno'
-              }`}
-              style={[
-                styles.textBadge,
-                fiscalHmlBadgeStatus === 'issued'
-                  ? styles.fiscalBadgeSuccess
-                  : fiscalHmlBadgeStatus === 'cancelled'
-                    ? styles.fiscalBadgeCancelled
-                    : styles.fiscalBadgeReversed,
-              ]}
-            >
-              <Text style={styles.textBadgeLabel}>NFH</Text>
-              {fiscalHmlBadgeStatus === 'issued' && <CheckCircle2 size={10} color="#ffffff" />}
-            </View>
-          )}
-
-          {pendingScheduling && (
-            <View style={[styles.textBadge, styles.badgeOrange]}>
-              <Clock size={10} color="#ffffff" />
-              <Text style={styles.textBadgeLabel}>PENDENTE</Text>
-            </View>
-          )}
-
-          {/* 8. Selo de Status (Quadrado 24x24 idêntico ao ERP) */}
-          <View
-            style={[
-              styles.iconBadge,
-              { backgroundColor: statusConfig.bg, borderColor: statusConfig.border },
-            ]}
-            accessibilityLabel={`Status: ${statusLabel}`}
-          >
-            {statusConfig.icon === 'fulfilled' ? (
-              <CheckCircle2 size={11} color="#ffffff" />
-            ) : statusConfig.icon === 'scheduled' ? (
-              <Calendar size={11} color="#ffffff" />
-            ) : statusConfig.icon === 'cancelled' ? (
-              <XCircle size={11} color="#ffffff" />
-            ) : (
-              <Clock size={11} color="#ffffff" />
-            )}
-          </View>
-        </View>
+        {/* Lado Direito: Selos / Rótulos Operacionais e Fiscais */}
+        <OrderCardBadges
+          orderType={orderType}
+          isAssistance={isAssistance}
+          isReturn={isReturn}
+          pickup={pickup}
+          isDraft={isDraft}
+          cancelled={cancelled}
+          isStockChecked={isStockChecked}
+          isRegisteredInBling={isRegisteredInBling}
+          stockProcessed={stockProcessed}
+          stockReversed={stockReversed}
+          returnOrderId={returnOrderId}
+          returnKind={returnKind}
+          isPaidTraffic={isPaidTraffic}
+          hasAssemblyOutside={hasAssemblyOutside}
+          hasAssemblyDepot={hasAssemblyDepot}
+          pendingScheduling={pendingScheduling}
+          fiscalBadgeStatus={order?.fiscalBadgeStatus}
+          fiscalHmlBadgeStatus={order?.fiscalHmlBadgeStatus}
+          fiscalEstornoStatus={order?.fiscalEstornoBadgeStatus}
+          fiscalDevolucaoStatus={order?.fiscalDevolucaoBadgeStatus}
+          fiscalDevolucaoCount={order?.fiscalDevolucaoCount}
+          statusConfig={statusConfig}
+          statusLabel={statusLabel}
+        />
       </View>
 
-      {/* Corpo do Card */}
-      <View style={styles.body}>
-        <Text style={[styles.customer, dark && styles.light]}>
-          {data.customerData?.fullName || order.customer_name || 'Cliente'}
-        </Text>
-        <View style={styles.dates}>
-          <View style={styles.column}>
-            <Text style={styles.label}>PEDIDO</Text>
-            <View style={styles.inline}>
-              <Calendar size={13} color="#64748b" />
-              <Text style={[styles.date, dark && styles.light]}>
-                {formatOrderDate(order.created_at)}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.column}>
-            <Text style={styles.label}>{isReturn ? 'COLETA' : pickup ? 'RETIRADA' : 'ENTREGA'}</Text>
-            <Text style={[styles.date, dark && styles.light]}>
-              {scheduleDate ? formatOrderDate(scheduleDate) : 'Não informada'}
-            </Text>
-          </View>
-        </View>
-        {!!schedule.startTime && (
-          <View style={styles.time}>
-            <Clock size={12} color="#2563eb" />
-            <Text style={styles.timeText}>
-              {schedule.startTime}
-              {schedule.endTime ? ` ÀS ${schedule.endTime}` : ''}
-            </Text>
-          </View>
-        )}
-        <View style={styles.footer}>
-          <View>
-            <Text style={styles.label}>TOTAL</Text>
-            <Text style={styles.total}>{formatOrderTotal(order)}</Text>
-          </View>
-        </View>
-        <OrderCardDeliveryFooter order={order} dark={dark} onPress={onDetails} />
-      </View>
+      {/* Corpo do Card: Cliente, Pedido Vinculado, Datas, Total e Footer */}
+      <OrderCardBody
+        order={order}
+        dark={dark}
+        isReturn={isReturn}
+        pickup={pickup}
+        pendingScheduling={pendingScheduling}
+        scheduleDate={scheduleDate}
+        scheduleEndDate={schedule.endDate}
+        scheduleDateType={schedule.dateType}
+        startTime={schedule.startTime}
+        endTime={schedule.endTime}
+        linkedOrderId={linkedOrderId}
+        linkedOrderCode={linkedOrderCode}
+        fiscalCancellationState={order?.fiscalCancellationState}
+        onFilterByLinkedOrder={onFilterByLinkedOrder}
+        onDetails={onDetails}
+      />
     </TouchableOpacity>
   );
-}
+};
+
 
 const styles = StyleSheet.create({
   card: {
@@ -466,55 +228,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
     borderRadius: 20,
   },
-  stampContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 20,
-    overflow: 'hidden',
-    pointerEvents: 'none',
-  },
-  stampBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#dc2626',
-    borderColor: '#ffffff',
-    borderWidth: 3,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 12,
-    transform: [{ rotate: '-12deg' }],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 8,
-    elevation: 10,
-    maxWidth: '85%',
-    justifyContent: 'center',
-  },
-  stampIconCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stampIconText: {
-    color: '#dc2626',
-    fontSize: 11,
-    fontWeight: '900',
-    lineHeight: 13,
-  },
-  stampText: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
   header: {
     minHeight: 42,
     paddingHorizontal: 12,
@@ -538,167 +251,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: '#475569',
-  },
-  badgesContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
-    marginLeft: 'auto',
-  },
-  iconBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    borderWidth: 1,
-  },
-  blingBadge: {
-    height: 24,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    borderWidth: 1,
-  },
-  blingText: {
-    color: '#ffffff',
-    fontSize: 8,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  textBadge: {
-    height: 24,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    borderWidth: 1,
-  },
-  textBadgeLabel: {
-    color: '#ffffff',
-    fontSize: 8,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  badgeSuccess: {
-    backgroundColor: '#059669',
-    borderColor: '#047857',
-  },
-  badgeMuted: {
-    backgroundColor: '#64748b',
-    borderColor: '#475569',
-  },
-  fiscalBadgeMuted: {
-    backgroundColor: '#94a3b8',
-    borderColor: '#64748b',
-  },
-  fiscalBadgeSuccess: {
-    backgroundColor: '#059669',
-    borderColor: '#047857',
-  },
-  fiscalBadgeCancelled: {
-    backgroundColor: '#f43f5e',
-    borderColor: '#e11d48',
-  },
-  fiscalBadgeReversed: {
-    backgroundColor: '#f97316',
-    borderColor: '#c2410c',
-  },
-  badgeEmerald: {
-    backgroundColor: '#059669',
-    borderColor: '#047857',
-  },
-  badgePurple: {
-    backgroundColor: '#9333ea',
-    borderColor: '#7e22ce',
-  },
-  badgeOrange: {
-    backgroundColor: '#ea580c',
-    borderColor: '#c2410c',
-  },
-  badgeAmber: {
-    backgroundColor: '#d97706',
-    borderColor: '#b45309',
-  },
-  badgeRed: {
-    backgroundColor: '#dc2626',
-    borderColor: '#b91c1c',
-  },
-  checkIndicator: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#065f46',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ffffff',
-  },
-  body: {
-    padding: 15,
-    gap: 11,
-  },
-  customer: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#0f172a',
-  },
-  light: {
-    color: '#f8fafc',
-  },
-  dates: {
-    flexDirection: 'row',
-  },
-  column: {
-    flex: 1,
-    gap: 4,
-  },
-  inline: {
-    flexDirection: 'row',
-    gap: 4,
-    alignItems: 'center',
-  },
-  label: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#94a3b8',
-  },
-  date: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  time: {
-    flexDirection: 'row',
-    gap: 5,
-    alignSelf: 'flex-start',
-    backgroundColor: '#eff6ff',
-    padding: 6,
-    borderRadius: 8,
-  },
-  timeText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#2563eb',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  total: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#2563eb',
   },
 });

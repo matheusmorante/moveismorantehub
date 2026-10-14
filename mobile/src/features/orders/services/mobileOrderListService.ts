@@ -26,33 +26,15 @@ const ORDER_LIST_VIEW_COLUMNS = [
   'item_handling',
 ].join(',');
 
-export interface MobileOrderListItem {
-  id: string;
-  order_number: string | null;
-  created_at: string | null;
-  status: string;
-  order_type: string;
-  customer_name: string;
-  total_value: number;
-  order_data: Record<string, unknown>;
-  fiscalBadgeStatus?: 'not_issued' | 'issued' | 'cancelled' | 'reversed';
-  fiscalHmlBadgeStatus?: 'not_issued' | 'issued' | 'cancelled' | 'reversed';
-  version?: number;
-}
+import {
+  MobileOrderListItem,
+  MobileFiscalBadgeStatuses,
+  FiscalBadgeStatus,
+  FiscalDocumentStatusRow,
+} from '../domain/types';
 
-type FiscalBadgeStatus = NonNullable<MobileOrderListItem['fiscalBadgeStatus']>;
+export type { MobileOrderListItem, MobileFiscalBadgeStatuses, FiscalBadgeStatus };
 
-export interface MobileFiscalBadgeStatuses {
-  production: FiscalBadgeStatus;
-  homologation?: FiscalBadgeStatus;
-}
-
-interface FiscalDocumentStatusRow {
-  order_id: string | null;
-  status: string;
-  document_type?: string | null;
-  ambiente?: number | null;
-}
 
 const resolveFiscalBadgeStatus = (
   documents: readonly FiscalDocumentStatusRow[]
@@ -79,7 +61,8 @@ const resolveFiscalBadgeStatus = (
 };
 
 export const resolveMobileFiscalBadgePair = (
-  documents: readonly FiscalDocumentStatusRow[]
+  documents: readonly FiscalDocumentStatusRow[],
+  isOrderCancelled: boolean = false
 ): MobileFiscalBadgeStatuses => {
   const prodDocs = documents.filter((doc) => doc.ambiente !== 2);
   const hmlDocs = documents.filter((doc) => doc.ambiente === 2);
@@ -87,14 +70,41 @@ export const resolveMobileFiscalBadgePair = (
   const production = resolveFiscalBadgeStatus(prodDocs);
   const homologation = resolveFiscalBadgeStatus(hmlDocs);
 
+  const isAuthorized = (doc: FiscalDocumentStatusRow) =>
+    doc.status === 'autorizada' || doc.status === 'homologada';
+
+  const hasAuthorizedEstorno = documents.some(
+    (doc) => doc.document_type === 'estorno' && isAuthorized(doc)
+  );
+  const returnDocs = documents.filter(
+    (doc) => doc.document_type === 'return' && isAuthorized(doc)
+  );
+
+  let fiscalCancellationState: OrderFiscalCancellationState | undefined;
+  if (isOrderCancelled) {
+    const outboundDocs = documents.filter((d) => (d.document_type || 'outbound') === 'outbound');
+    const hasCancelled = outboundDocs.some((d) => d.status === 'cancelada');
+    const hasAuthorized = outboundDocs.some(isAuthorized);
+    if (outboundDocs.some((d) => d.status === 'rejeitada' || d.status === 'erro')) {
+      fiscalCancellationState = 'failed';
+    } else if (hasAuthorized && !hasCancelled && !hasAuthorizedEstorno) {
+      fiscalCancellationState = 'pending';
+    }
+  }
+
   return {
     production,
     homologation: homologation !== 'not_issued' ? homologation : undefined,
+    estornoStatus: hasAuthorizedEstorno ? 'issued' : undefined,
+    devolucaoStatus: returnDocs.length > 0 ? 'issued' : undefined,
+    devolucaoCount: returnDocs.length,
+    fiscalCancellationState,
   };
 };
 
 export const fetchMobileOrderFiscalBadgeStatuses = async (
-  orderIds: readonly string[]
+  orderIds: readonly string[],
+  orderCancelledMap?: Record<string, boolean>
 ): Promise<Record<string, MobileFiscalBadgeStatuses>> => {
   const uniqueOrderIds = [...new Set(orderIds.filter(Boolean))];
   if (uniqueOrderIds.length === 0) return {};
@@ -116,10 +126,14 @@ export const fetchMobileOrderFiscalBadgeStatuses = async (
   return Object.fromEntries(
     uniqueOrderIds.map((orderId) => [
       orderId,
-      resolveMobileFiscalBadgePair(documentsByOrderId.get(orderId) || []),
+      resolveMobileFiscalBadgePair(
+        documentsByOrderId.get(orderId) || [],
+        orderCancelledMap ? Boolean(orderCancelledMap[orderId]) : false
+      ),
     ])
   );
 };
+
 
 interface OrderListRow {
   id: string;
@@ -171,6 +185,59 @@ const toListItem = (row: any): MobileOrderListItem => {
       0
   );
 
+  const isStockChecked = Boolean(
+    data.isStockChecked ?? data.is_stock_checked ?? row.is_stock_checked ?? row.isStockChecked
+  );
+  const isRegisteredInBling = Boolean(
+    data.isRegisteredInBling ??
+      data.is_registered_in_bling ??
+      row.is_registered_in_bling ??
+      row.isRegisteredInBling
+  );
+  const isReturnOrder = orderType === 'return';
+  const stockProcessed = isReturnOrder
+    ? Boolean(
+        data.returnStockProcessed ??
+          data.return_stock_processed ??
+          row.return_stock_processed ??
+          data.stockProcessed ??
+          data.stock_processed
+      )
+    : Boolean(
+        data.stockProcessed ??
+          data.stock_processed ??
+          data.inventoryProcessed ??
+          row.stock_processed ??
+          row.stockProcessed
+      );
+  const stockReversed = isReturnOrder
+    ? Boolean(
+        data.returnStockReversed ??
+          data.return_stock_reversed ??
+          row.return_stock_reversed ??
+          data.stockReversed ??
+          data.stock_reversed
+      )
+    : Boolean(
+        data.stockReversed ??
+          data.stock_reversed ??
+          data.inventoryReversed ??
+          row.stock_reversed ??
+          row.stockReversed
+      );
+  const returnOrderId =
+    data.returnOrderId || data.return_order_id || row.return_order_id || row.returnOrderId || null;
+  const returnKind =
+    data.returnKind || data.return_kind || row.return_kind || row.returnKind || null;
+  const linkedOrderId =
+    data.linkedOrderId || data.linked_order_id || row.linked_order_id || row.linkedOrderId || null;
+  const linkedOrderCode =
+    data.linkedOrderCode ||
+    data.linked_order_code ||
+    row.linked_order_code ||
+    row.linkedOrderCode ||
+    null;
+
   return {
     id: String(row.id),
     order_number: orderNumber,
@@ -179,6 +246,14 @@ const toListItem = (row: any): MobileOrderListItem => {
     order_type: orderType,
     customer_name: customerName,
     total_value: totalValue,
+    is_stock_checked: isStockChecked,
+    is_registered_in_bling: isRegisteredInBling,
+    stock_processed: stockProcessed,
+    stock_reversed: stockReversed,
+    return_order_id: returnOrderId,
+    return_kind: returnKind,
+    linked_order_id: linkedOrderId,
+    linked_order_code: linkedOrderCode,
     order_data: {
       ...data,
       id: String(row.id),
@@ -195,8 +270,17 @@ const toListItem = (row: any): MobileOrderListItem => {
       unattendedReason: data.unattendedReason || row.unattended_reason || '',
       marketingOrigin:
         data.marketingOrigin || data.customerData?.marketingOrigin || row.marketing_origin || '',
-      isStockChecked: Boolean(data.isStockChecked ?? row.is_stock_checked),
-      isRegisteredInBling: Boolean(data.isRegisteredInBling ?? row.is_registered_in_bling),
+      isStockChecked,
+      isRegisteredInBling,
+      stockProcessed,
+      stockReversed,
+      returnStockProcessed: isReturnOrder ? stockProcessed : undefined,
+      returnStockReversed: isReturnOrder ? stockReversed : undefined,
+
+      returnOrderId,
+      returnKind,
+      linkedOrderId,
+      linkedOrderCode,
       items: Array.isArray(data.items)
         ? data.items
         : Array.isArray(row.items)
@@ -245,8 +329,7 @@ export const fetchMobileOrdersPage = async ({
       .from('order_list_items')
       .select(ORDER_LIST_VIEW_COLUMNS, { count: 'exact' })
       .neq('order_type', 'budget')
-      .order('created_at', { ascending: false })
-      .range(firstRow, lastRow);
+      .order('created_at', { ascending: false });
 
     const term = search.trim().replace(/[,%()]/g, '');
     if (term) {
@@ -259,7 +342,14 @@ export const fetchMobileOrdersPage = async ({
       query = query.or(
         'status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%'
       );
+    if (status === 'cancelados') query = query.or('status.ilike.%cancelled%,status.ilike.%cancelad%');
     if (status === 'rascunhos') query = query.or('status.ilike.%draft%,status.ilike.%rascunh%');
+    if (status === 'retiradas')
+      query = query.or('delivery_method.ilike.%pickup%,delivery_method.ilike.%retirada%');
+    if (status === 'assistencias') query = query.eq('order_type', 'assistance');
+    if (status === 'devolucoes') query = query.eq('order_type', 'return');
+
+    query = query.range(firstRow, lastRow);
 
     const { data, count, error } = await query;
     if (!error && data) {
@@ -294,7 +384,15 @@ export const fetchMobileOrdersPage = async ({
     query = query.or(
       'status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%'
     );
+  if (status === 'cancelados') query = query.or('status.ilike.%cancelled%,status.ilike.%cancelad%');
   if (status === 'rascunhos') query = query.or('status.ilike.%draft%,status.ilike.%rascunh%');
+  if (status === 'retiradas')
+    query = query.or(
+      'order_data->shipping->>deliveryMethod.ilike.%pickup%,order_data->shipping->>deliveryMethod.ilike.%retirada%'
+    );
+  if (status === 'assistencias') query = query.eq('order_type', 'assistance');
+  if (status === 'devolucoes') query = query.eq('order_type', 'return');
+
 
   query = query.range(firstRow, lastRow);
 

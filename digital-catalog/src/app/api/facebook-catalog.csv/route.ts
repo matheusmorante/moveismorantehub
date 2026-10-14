@@ -57,16 +57,26 @@ function formatCsvValue(val: any): string {
   return str;
 }
 
+/**
+ * Formata valores numéricos para o padrão decimal com 2 dígitos após a vírgula (ex: "199,90"),
+ * sem símbolos de moeda (R$ ou BRL), conforme especificação para custom_labels da Meta.
+ */
+function formatDecimalPrice(val: any): string {
+  if (val === null || val === undefined || val === '') return '';
+  const num = Number(val);
+  if (isNaN(num)) return '';
+  return num.toFixed(2).replace('.', ',');
+}
+
 export async function GET(request: Request) {
   try {
-    // Buscar todos os produtos publicados, ativos e não deletados
+    // Buscar todos os produtos ativos e não deletados
     const { data: products, error } = await supabase
       .from('products')
       .select(
         '*, product_categories(categories(name, type)), product_images(*), product_variations(*), opportunities(*)'
       )
-      .is('deleted_at', null)
-      .eq('status', 'published');
+      .is('deleted_at', null);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -128,14 +138,53 @@ export async function GET(request: Request) {
       'quantity_to_sell_on_facebook',
       'product_type',
       'custom_label_0',
+      'custom_label_1',
+      'custom_label_2',
+      'custom_label_3',
     ];
 
     const rows: string[][] = [];
 
     for (const p of products || []) {
-      // Produtos publicados entram no feed mesmo quando marcados como inativos
-      // no ERP. Apenas ocultos, rascunhos ou removidos ficam fora do catálogo.
-      if (p.status !== 'published' || p.is_draft || p.deleted || p.deleted_at) {
+      // Ignora rascunhos ou removidos
+      if (p.is_draft || p.deleted || p.deleted_at) {
+        continue;
+      }
+
+      // Suporte a variações relacionais e variações no formato JSON
+      let variationsList: any[] = [];
+      const hasRelationalVariations = Boolean(
+        p.product_variations && p.product_variations.length > 0
+      );
+      const hasLegacyVariations = Boolean(
+        p.variations && (Array.isArray(p.variations) ? p.variations.length : true)
+      );
+
+      const isParentPublished = p.status === 'published';
+
+      if (hasRelationalVariations) {
+        variationsList = p.product_variations.filter(
+          (v: any) =>
+            v.status === 'published' ||
+            (!v.status && isParentPublished) ||
+            (isParentPublished && v.status !== 'hidden')
+        );
+      } else if (hasLegacyVariations) {
+        const rawVars = Array.isArray(p.variations)
+          ? p.variations
+          : typeof p.variations === 'string'
+            ? JSON.parse(p.variations || '[]')
+            : [];
+        variationsList = rawVars.filter(
+          (v: any) =>
+            v.status === 'published' ||
+            (!v.status && isParentPublished) ||
+            (isParentPublished && v.status !== 'hidden')
+        );
+      }
+
+      // Se nem o produto pai nem nenhuma variação estiver publicada, ignora
+      if (!isParentPublished && variationsList.length === 0) {
         continue;
       }
 
@@ -175,59 +224,67 @@ export async function GET(request: Request) {
         allImages.slice(1).join(',') ||
         (Array.isArray(p.images) ? p.images.slice(1).join(',') : '');
 
-      const priceFormatted = `${Number(p.price || p.unit_price || 0).toFixed(2)} BRL`;
-      const salePriceFormatted = p.promo_price ? `${Number(p.promo_price).toFixed(2)} BRL` : '';
-
-      // Suporte a variações relacionais e variações no formato JSON
-      let variationsList: any[] = [];
-      const hasRelationalVariations = Boolean(
-        p.product_variations && p.product_variations.length > 0
-      );
-      const hasLegacyVariations = Boolean(
-        p.variations && (Array.isArray(p.variations) ? p.variations.length : true)
-      );
-      if (hasRelationalVariations) {
-        variationsList = p.product_variations.filter(
-          (v: any) => (v.status === 'published' || !v.status) && v.active !== false
-        );
-      } else if (hasLegacyVariations) {
-        const rawVars = Array.isArray(p.variations)
-          ? p.variations
-          : typeof p.variations === 'string'
-            ? JSON.parse(p.variations || '[]')
-            : [];
-        variationsList = rawVars.filter((v: any) => v.status !== 'hidden' && v.active !== false);
-      }
+      const opp = Array.isArray(p.opportunities) ? p.opportunities[0] : p.opportunities;
+      const opportunityName = opp?.name ? String(opp.name).trim() : '';
 
       // Caso tenha variações ativas e publicadas
       if (variationsList.length > 0) {
         for (const v of variationsList) {
-          // Ignorar variações ocultas ou inativas
-          if (
-            (v.status && v.status !== 'published' && v.status === 'hidden') ||
-            v.active === false
-          ) {
+          // Ignorar variações explicitamente ocultas quando o pai estiver publicado
+          if (v.status === 'hidden') {
             continue;
           }
 
           const isParentPrice = v.use_parent_price !== false;
           const isParentPromo = v.use_parent_promo_price !== false;
           const isParentDesc = v.use_parent_description !== false;
-          const isParentName = v.use_parent_name !== false;
-
           const varPrice = isParentPrice ? p.price : v.price || p.price;
           const varPromo = isParentPromo ? p.promo_price : v.promo_price;
           const varDesc = isParentDesc ? p.description : v.description || p.description;
+          // Pegar cor e tamanho das propriedades de attributes se houver
+          let color = '';
+          let size = '';
+          if (Array.isArray(v.attributes)) {
+            const corAttr = v.attributes.find(
+              (a: any) =>
+                a &&
+                (a.name?.toLowerCase() === 'cor' ||
+                  a.key?.toLowerCase() === 'cor' ||
+                  a.attribute_name?.toLowerCase() === 'cor')
+            );
+            if (corAttr) color = String(corAttr.value || corAttr.option || '').trim();
+
+            const tamAttr = v.attributes.find(
+              (a: any) =>
+                a &&
+                (a.name?.toLowerCase() === 'tamanho' ||
+                  a.key?.toLowerCase() === 'tamanho' ||
+                  a.attribute_name?.toLowerCase() === 'tamanho')
+            );
+            if (tamAttr) size = String(tamAttr.value || tamAttr.option || '').trim();
+          } else if (v.attributes && typeof v.attributes === 'object') {
+            color = String(v.attributes.Cor || v.attributes.cor || '').trim();
+            size = String(v.attributes.Tamanho || v.attributes.tamanho || '').trim();
+          }
+
+          // Se a variação tem nome próprio diferenciado do pai, respeita o nome específico
+          const hasDistinctName = v.name && String(v.name).trim() !== String(p.name).trim();
+          const isParentName = v.use_parent_name !== false && !hasDistinctName;
           let varName = isParentName ? p.name : v.name || p.name;
 
-          // Pegar cor e tamanho das propriedades de attributes se houver
-          const color = v.attributes?.Cor || v.attributes?.cor || '';
-          const size = v.attributes?.Tamanho || v.attributes?.tamanho || '';
+          // Se a cor ainda não foi detectada pelos atributos, mas o nome contém a cor (ex: Branco)
+          if (!color && /branco/i.test(varName)) {
+            color = 'Branco';
+          }
 
-          // Adiciona cor e tamanho ao título da variante para individualizar no catálogo
+          // Adiciona cor e tamanho ao título da variante se ainda não constar
           const suffixParts: string[] = [];
-          if (color) suffixParts.push(String(color).trim());
-          if (size) suffixParts.push(String(size).trim());
+          if (color && !new RegExp(`\\b${color}\\b`, 'i').test(varName)) {
+            suffixParts.push(color);
+          }
+          if (size && !new RegExp(`\\b${size}\\b`, 'i').test(varName)) {
+            suffixParts.push(size);
+          }
           if (suffixParts.length > 0) {
             varName = `${varName} - ${suffixParts.join(' / ')}`;
           }
@@ -260,15 +317,19 @@ export async function GET(request: Request) {
           if (globalDescriptionPrefix) {
             descParts.push(globalDescriptionPrefix);
           }
-          if (p.opportunities && p.opportunities.observations) {
+          if (opp && opp.observations) {
             descParts.push(
-              `***Aviso Importante (${p.opportunities.name}): ${p.opportunities.observations}***`
+              `***Aviso Importante (${opportunityName || opp.name}): ${opp.observations}***`
             );
           }
           if (varDesc) {
             descParts.push(varDesc);
           }
           let descWithPrefix = stripHtml(descParts.join('\n\n'));
+
+          const regularVarPrice = Number(varPrice || 0);
+          const promoVarPrice = varPromo ? Number(varPromo) : 0;
+          const hasVarPromo = promoVarPrice > 0 && promoVarPrice < regularVarPrice;
 
           rows.push([
             v.sku || v.id, // id
@@ -279,36 +340,43 @@ export async function GET(request: Request) {
             varAdditionalImages, // additional_image_link
             'in stock', // availability
             descWithPrefix, // rich_text_description
-            `${Number(varPrice).toFixed(2)} BRL`, // price
-            varPromo ? `${Number(varPromo).toFixed(2)} BRL` : '', // sale_price
+            `${regularVarPrice.toFixed(2)} BRL`, // price
+            hasVarPromo ? `${promoVarPrice.toFixed(2)} BRL` : '', // sale_price
             columnMappings.brand || 'Móveis Morante', // brand
             p.is_salvado ? 'refurbished' : 'new', // condition (refurbished se for salvado, senão new)
             color, // color
             columnMappings.gender || 'unisex', // gender
             p.material || '', // material
             size, // size
-            '', // item_group_id
+            p.code || p.id || '', // item_group_id
             'no', // identifier_exists
             '1', // quantity_to_sell_on_facebook
             productType, // product_type
             productType, // custom_label_0 (ambiente > categoria)
+            formatDecimalPrice(regularVarPrice), // custom_label_1 (preço antigo / base)
+            hasVarPromo ? formatDecimalPrice(promoVarPrice) : '', // custom_label_2 (preço promocional)
+            opportunityName, // custom_label_3 (oportunidade do produto)
           ]);
         }
-      } else if (!hasRelationalVariations && !hasLegacyVariations) {
+      } else if (isParentPublished) {
         // Sem variações, insere apenas o produto pai
         const descParts: string[] = [];
         if (globalDescriptionPrefix) {
           descParts.push(globalDescriptionPrefix);
         }
-        if (p.opportunities && p.opportunities.observations) {
+        if (opp && opp.observations) {
           descParts.push(
-            `***Aviso Importante (${p.opportunities.name}): ${p.opportunities.observations}***`
+            `***Aviso Importante (${opportunityName || opp.name}): ${opp.observations}***`
           );
         }
         if (p.description) {
           descParts.push(p.description);
         }
         let descWithPrefix = stripHtml(descParts.join('\n\n'));
+
+        const regularParentPrice = Number(p.price || p.unit_price || 0);
+        const promoParentPrice = p.promo_price ? Number(p.promo_price) : 0;
+        const hasParentPromo = promoParentPrice > 0 && promoParentPrice < regularParentPrice;
 
         rows.push([
           p.id, // id
@@ -319,8 +387,8 @@ export async function GET(request: Request) {
           additionalImages.split(',').map(normalizeMetaImageUrl).filter(Boolean).join(','), // additional_image_link
           'in stock', // availability
           descWithPrefix, // rich_text_description
-          priceFormatted, // price
-          salePriceFormatted, // sale_price
+          `${regularParentPrice.toFixed(2)} BRL`, // price
+          hasParentPromo ? `${promoParentPrice.toFixed(2)} BRL` : '', // sale_price
           columnMappings.brand || 'Móveis Morante', // brand
           p.is_salvado ? 'refurbished' : 'new', // condition (refurbished se for salvado, senão new)
           '', // color
@@ -332,6 +400,9 @@ export async function GET(request: Request) {
           '1', // quantity_to_sell_on_facebook
           productType, // product_type
           productType, // custom_label_0 (ambiente > categoria)
+          formatDecimalPrice(regularParentPrice), // custom_label_1 (preço antigo / base)
+          hasParentPromo ? formatDecimalPrice(promoParentPrice) : '', // custom_label_2 (preço promocional)
+          opportunityName, // custom_label_3 (oportunidade do produto)
         ]);
       }
     }

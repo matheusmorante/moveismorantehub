@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Variation } from '@/pages/types/product.type';
 import type { ProductDraftAutoSaveStatus } from '../form/useProductFormDraft';
+import { useZodForm } from '@/hooks/useZodForm';
+import { productVariationDraftSchema } from '../../../../../../../shared-utils/productVariationValidation';
 
 interface Options {
   isOpen: boolean;
@@ -12,6 +14,9 @@ interface Options {
 
 export function useVariationDraftAutoSave({ isOpen, isDraft, variation, onChange, save }: Options) {
   const [status, setStatus] = useState<ProductDraftAutoSaveStatus>('idle');
+  const { validateAndRun } = useZodForm(productVariationDraftSchema, variation ? { ...variation } : {
+    id: '', sku: '', name: '', stock: 0, unitPrice: 0, active: false, attributes: [],
+  });
   const latest = useRef(variation);
   latest.current = variation;
   const saveRef = useRef(save);
@@ -37,7 +42,7 @@ export function useVariationDraftAutoSave({ isOpen, isDraft, variation, onChange
         while (queued.current) {
           const next = queued.current;
           queued.current = null;
-          if (!(await saveRef.current(next))) {
+          if (!(await validateAndRun(next, (values) => saveRef.current({ ...next, ...values })))) {
             setStatus('error');
             return false;
           }
@@ -53,7 +58,7 @@ export function useVariationDraftAutoSave({ isOpen, isDraft, variation, onChange
     })();
     active.current = promise.finally(() => { active.current = null; });
     return active.current;
-  }, []);
+  }, [validateAndRun]);
 
   useEffect(() => {
     if (!isOpen || !isDraft || !variation) {

@@ -4,6 +4,9 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
 import { translateAuthError } from '../../pages/utils/authErrors';
 import { signInWithGoogle } from '@/services/authPasswordSetup';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { signupFormSchema } from '../../../../shared-utils/authFormSchemas';
+import type { z } from 'zod';
 
 const Signup = () => {
   const [email, setEmail] = useState('');
@@ -13,6 +16,7 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const form = useZodForm(signupFormSchema, { email, password, confirmPassword, fullName });
 
   const getAuthRedirectUrl = (path = '') => {
     const isLocalNetwork = /^192\.168\.100\.2(?::\d+)?$/.test(window.location.hostname);
@@ -21,29 +25,17 @@ const Signup = () => {
       : `${window.location.origin}/${path}`;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (password !== confirmPassword) {
-      toast.warning('As senhas não coincidem!');
-      return;
-    }
-
-    if (password.length < 6) {
-      toast.warning('A senha deve ter pelo menos 6 caracteres.');
-      return;
-    }
-
+  const handleSubmit = async (data: z.output<typeof signupFormSchema>) => {
     setIsSubmitting(true);
 
     try {
       const { error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: data.email,
+        password: data.password,
         options: {
           emailRedirectTo: getAuthRedirectUrl('login'),
           data: {
-            full_name: fullName,
+            full_name: data.fullName,
             role: 'pending', // Default role
           },
         },
@@ -81,7 +73,9 @@ const Signup = () => {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form noValidate onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+            toast.warning(Object.values(flattenFormErrors(errors))[0]);
+          })} className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">
                 Nome Completo
