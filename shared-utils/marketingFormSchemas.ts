@@ -1,3 +1,4 @@
+import { imageFilesFormSchema } from './fileFormSchemas';
 import { z } from 'zod';
 import type { MarketingTemplate } from '../erp/src/pages/App/Marketing/Posts/types/template';
 
@@ -16,6 +17,10 @@ export const postElementModelFormSchema = z.object({
     ctx.addIssue({ code: 'custom', path: ['opportunityId'], message: 'Selecione a oportunidade.' });
   }
 });
+export const postElementModelEditorFormSchema = postElementModelFormSchema.safeExtend({
+  referenceFiles: z.array(z.object({ id: z.string().min(1), name: z.string(), fileUrl: z.string().min(1, 'Referência sem imagem.'), mimeType: z.string().startsWith('image/', 'Selecione um arquivo de imagem.') })),
+});
+export const postElementReferenceUploadFormSchema = imageFilesFormSchema;
 export const marketingLayerFormSchema = z.object({
   id: z.string().min(1), name: z.string(),
   type: z.enum(['PRODUCT_MAIN_IMAGE', 'ASSET', 'DYNAMIC_TEXT', 'DYNAMIC_PRICE', 'DYNAMIC_INSTALLMENT', 'VARIATION_GALLERY', 'HEADER_FOOTER_DECORATION']),

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { toast } from 'react-toastify';
-import { postElementModelFormSchema } from '../../../../../../../shared-utils/marketingFormSchemas';
+import { postElementModelEditorFormSchema, postElementReferenceUploadFormSchema } from '../../../../../../../shared-utils/marketingFormSchemas';
 import {
   defaultContentKind,
   ElementModel,
@@ -51,7 +51,10 @@ export function PostCreatorModelModal({
     value?.opportunityId || initialOpportunityId || ''
   );
   const [saving, setSaving] = useState(false);
-  const form = useZodForm(postElementModelFormSchema, { name, prompt, elementType, opportunityId });
+  const [formError, setFormError] = useState('');
+  const formValues = { name, prompt, elementType, opportunityId, referenceFiles: references.map((reference) => ({ ...reference })) };
+  const form = useZodForm(postElementModelEditorFormSchema, formValues);
+  const fileForm = useZodForm(postElementReferenceUploadFormSchema, { files: [] });
   const initialEdit = useRef(true);
   useEffect(() => {
     setName(value?.name || '');
@@ -75,18 +78,26 @@ export function PostCreatorModelModal({
     updatedAt: new Date().toISOString(),
   });
   const persist = async (closeAfterSave = false) => {
-    const validated = await form.validateAndRun({ name, prompt, elementType, opportunityId }, (data) => data,
-      closeAfterSave ? (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]) : undefined);
-    if (!validated) return;
+    return form.enqueueAndRun(formValues, async (validated) => {
+    setFormError('');
     setSaving(true);
     onSavingChange(true);
     try {
-      await onSave({ ...modelValue(), name: validated.name.trim(), prompt: validated.prompt, opportunityId: validated.elementType === 'BADGE' ? validated.opportunityId : null });
+      await onSave({ ...modelValue(), name: validated.name.trim(), prompt: validated.prompt, referenceFiles: validated.referenceFiles, opportunityId: validated.elementType === 'BADGE' ? validated.opportunityId : null });
       if (closeAfterSave) onClose();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível salvar o modelo.';
+      setFormError(message);
+      if (closeAfterSave) toast.error(message);
     } finally {
       setSaving(false);
       onSavingChange(false);
     }
+    }, (errors) => {
+      const message = Object.values(flattenFormErrors(errors))[0];
+      setFormError(message);
+      if (closeAfterSave) toast.error(message);
+    });
   };
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -103,8 +114,13 @@ export function PostCreatorModelModal({
   }, [name, prompt, references, opportunityId]);
   const addReferences = async (files: FileList | null) => {
     if (!files) return;
-    const added = await Promise.all(Array.from(files).map(fileToReference));
-    setReferences((items) => items.concat(added));
+    return fileForm.validateAndRun({ files: Array.from(files) }, async (values) => {
+      try {
+        const added = await Promise.all(values.files.map(fileToReference));
+        setReferences((items) => items.concat(added));
+        setFormError('');
+      } catch { setFormError('Não foi possível ler as imagens selecionadas.'); }
+    }, (errors) => setFormError(Object.values(flattenFormErrors(errors))[0]));
   };
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
@@ -125,6 +141,7 @@ export function PostCreatorModelModal({
           </button>
         </header>
         <div className="space-y-4 p-5">
+          {formError && <p role="alert" className="text-sm text-red-300">{formError}</p>}
           <label className="block text-xs font-semibold text-slate-300">
             Identificação / Nome
             <input

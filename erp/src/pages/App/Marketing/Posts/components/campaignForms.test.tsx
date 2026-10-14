@@ -12,6 +12,28 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 const advanceAutosave = () => act(async () => { await vi.advanceTimersByTimeAsync(700); });
 
 describe('campaign form resolvers', () => {
+  it('queues a new autosave while the previous write is pending and recovers after a save failure', async () => {
+    let finishFirst!: () => void;
+    const save = vi.fn().mockImplementationOnce(() => new Promise<void>((resolve) => { finishFirst = resolve; }))
+      .mockRejectedValueOnce(new Error('Falha simulada')).mockResolvedValue(undefined);
+    const load = vi.fn().mockResolvedValue('Original');
+    await act(async () => { render(<GeneralCampaignRules load={load} save={save} onSavingChange={vi.fn()} />); });
+    fireEvent.click(screen.getByRole('button', { name: /Regras gerais para campanhas/ }));
+    const input = screen.getByPlaceholderText('Descreva as regras globais de posicionamento...');
+    fireEvent.change(input, { target: { value: 'Primeira' } });
+    await advanceAutosave();
+    expect(save).toHaveBeenCalledWith('Primeira');
+    fireEvent.change(input, { target: { value: 'Segunda' } });
+    await advanceAutosave();
+    expect(save).toHaveBeenCalledTimes(1);
+    await act(async () => { finishFirst(); });
+    expect(save).toHaveBeenLastCalledWith('Segunda');
+    expect(screen.getByRole('alert').textContent).toBe('Falha simulada');
+    fireEvent.change(input, { target: { value: 'Última' } });
+    await advanceAutosave();
+    expect(save).toHaveBeenLastCalledWith('Última');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
   it('preserves saved campaigns during invalid autosave and reports manual submit errors', async () => {
     const save = vi.fn().mockResolvedValue(undefined);
     const onSavingChange = vi.fn();

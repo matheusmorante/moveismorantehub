@@ -1,3 +1,4 @@
+import { imageFilesFormSchema } from './fileFormSchemas';
 import { z } from 'zod';
 import { productSchema } from './storefrontProductValidation';
 
@@ -40,9 +41,7 @@ export const storefrontAttributeFormSchema = z.object({
 export const storefrontAttributeValueFormSchema = z.object({
   attributeId: z.string().min(1, 'Selecione o atributo.'), value: z.string().trim().min(1, 'Informe o valor.'),
 });
-export const storefrontImageUploadFormSchema = z.object({
-  files: z.array(z.custom<File>((value) => typeof value === 'object' && value !== null && 'type' in value && typeof value.type === 'string' && value.type.startsWith('image/'), 'Selecione um arquivo de imagem.')).min(1, 'Selecione uma imagem.'),
-});
+export const storefrontImageUploadFormSchema = imageFilesFormSchema;
 export const storefrontImageUrlFormSchema = z.object({
   url: z.string().trim().url('Informe um endereço de imagem válido.').refine((value) => /^https?:\/\//i.test(value), 'Use um endereço HTTP ou HTTPS.'),
 });

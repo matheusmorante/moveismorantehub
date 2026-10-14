@@ -25,6 +25,11 @@ export function getVariationDisplayName(
 ): string {
   if (!variation) return fallbackName || '';
 
+  const explicitName = variation.displayName || variation.name;
+  if (explicitName && explicitName.trim()) {
+    return toTitleCase(explicitName.trim());
+  }
+
   let variationName = '';
   const attrs = variation.attributes;
   if (attrs && Array.isArray(attrs)) {
@@ -37,7 +42,7 @@ export function getVariationDisplayName(
   }
 
   if (!variationName) {
-    variationName = variation.displayName || variation.name || fallbackName || '';
+    variationName = fallbackName || '';
   }
 
   return toTitleCase(variationName);

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 import { AppSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
 import { compressImage } from '@/pages/utils/imageUtils';
@@ -10,14 +12,15 @@ interface AIPromptsSectionProps {
 
 const AIPromptsSection = ({ settings, onChange }: AIPromptsSectionProps) => {
   const [isCompressing, setIsCompressing] = useState(false);
+  const uploadForm = useZodForm(imageFilesFormSchema, { files: [] });
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
+    return uploadForm.validateAndRun({ files: [file] }, async (values) => {
     setIsCompressing(true);
     try {
-      const base64 = await compressImage(file, { maxMB: 0.1, maxWidth: 512 });
+      const base64 = await compressImage(values.files[0], { maxMB: 0.1, maxWidth: 512 });
       onChange('aiPrompts.aiAvatar', base64);
       toast.success('Foto do assistente atualizada!');
     } catch (err) {
@@ -25,6 +28,7 @@ const AIPromptsSection = ({ settings, onChange }: AIPromptsSectionProps) => {
     } finally {
       setIsCompressing(false);
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   return (

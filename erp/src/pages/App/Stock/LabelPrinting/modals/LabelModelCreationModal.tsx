@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelCropFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
+import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 
 export interface LabelModelCreationModalProps {
   readonly isOpen: boolean;
@@ -34,6 +35,7 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const cropForm = useZodForm(labelCropFormSchema, { image: imageSrc || '', scale, crop });
+  const uploadForm = useZodForm(imageFilesFormSchema, { files: [] });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -61,16 +63,18 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
     setScaleInput(clamped);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const values = await uploadForm.validateValues({ files: [file] }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!values) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       const src = ev.target?.result as string;
       setImageSrc(src);
       setPreviewUrl(null);
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(values.files[0]);
   };
 
   // Crop dragging logic

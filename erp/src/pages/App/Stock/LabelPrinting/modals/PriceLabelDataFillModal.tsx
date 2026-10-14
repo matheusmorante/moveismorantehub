@@ -49,7 +49,7 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
   const [isSearchingProducts, setIsSearchingProducts] = useState(false);
   const formValues = { title, normalPrice, promoPrice, centsText, currencySymbol, installments };
   const form = useZodForm(labelDataFillFormSchema, formValues);
-  const { validateAndRun: validateSearch } = useZodForm(searchFormSchema, { search: productSearchTerm });
+  const { validateValues: validateSearch } = useZodForm(searchFormSchema, { search: productSearchTerm });
 
   useEffect(() => {
     if (!isOpen || dataFillTab !== 'search') return;
@@ -58,10 +58,14 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
     const timer = setTimeout(async () => {
       setIsSearchingProducts(true);
       try {
-        const results = await validateSearch({ search: productSearchTerm }, (values) => searchProductsForLabel(values.search));
+        const values = await validateSearch({ search: productSearchTerm });
+        if (!values || !isCurrent) return;
+        const results = await searchProductsForLabel(values.search);
         if (isCurrent) {
           setSearchResults(Array.isArray(results) ? results : []);
         }
+      } catch {
+        if (isCurrent) setSearchResults([]);
       } finally {
         if (isCurrent) setIsSearchingProducts(false);
       }

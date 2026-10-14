@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Purchase, { PurchaseItem } from '../../../../types/purchase.type';
 import Product from '../../../../types/product.type';
@@ -8,7 +8,7 @@ import { subscribeToPeople } from '@/pages/utils/personService';
 import { savePurchase, updatePurchase } from '../../../../utils/purchaseService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { purchaseDraftFormSchema, purchaseFormSchema } from '../../../../../../../shared-utils/purchaseFormSchemas';
+import { purchaseDraftFormSchema, purchaseFormSchema, purchaseAttachmentUploadFormSchema } from '../../../../../../../shared-utils/purchaseFormSchemas';
 import { formatCurrency } from '../../../../utils/formatters';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import { supabase } from '@/pages/utils/supabaseConfig';
@@ -50,10 +50,19 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
   const [ipiPercent, setIpiPercent] = useState(0);
   const [freightPercent, setFreightPercent] = useState(0);
   const [validationErrors, setValidationErrors] = useState({ supplier: false, items: false });
-  const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftId, setDraftIdState] = useState<string | null>(null);
+  const draftIdRef = useRef<string | null>(null);
+  const setDraftId = useCallback((id: string | null) => { draftIdRef.current = id; setDraftIdState(id); }, []);
+  const pendingDraftRef = useRef<Promise<unknown>>(Promise.resolve());
+  const actionRef = useRef(false);
+  const completedRef = useRef(false);
+  const closeRef = useRef<() => Promise<void>>(async () => {});
+  const [draftError, setDraftError] = useState('');
   const [isAutoSaving, setIsAutoSaving] = useState(false);
-  const { validateAndRun: validateDraft } = useZodForm(purchaseDraftFormSchema, { supplierId: selectedSupplierId, supplierName: '', date: purchaseDate, status: 'ordered', items: [], totalValue: 0 });
+  const { enqueueAndRun: validateDraft } = useZodForm(purchaseDraftFormSchema, { supplierId: selectedSupplierId, supplierName: '', date: purchaseDate, status: 'ordered', items: [], totalValue: 0 });
   const { validateAndRun: validatePurchase } = useZodForm(purchaseFormSchema, { supplierId: selectedSupplierId, supplierName: '', date: purchaseDate, status: 'ordered', items: [], totalValue: 0 });
+
+  const uploadForm = useZodForm(purchaseAttachmentUploadFormSchema, { existingCount: attachments.length, files: [] });
 
   // Campos legados mantidos como constantes
   const observation = '';
@@ -62,6 +71,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      completedRef.current = false;
       const unsubSuppliers = subscribeToPeople('suppliers', (data) => {
         setSuppliers(data.filter((p) => !p.deleted && p.type === 'suppliers'));
       });
@@ -97,7 +107,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
 
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
-          handleCancelOrClose();
+          void closeRef.current();
         }
       };
 
@@ -171,16 +181,12 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    if (attachments.length + files.length > 5) {
-      toast.error('Você pode anexar no máximo 5 arquivos (PDF ou imagem).');
-      return;
-    }
-
+    return uploadForm.validateAndRun({ existingCount: attachments.length, files: Array.from(files) }, async (values) => {
     setIsUploading(true);
     try {
       const uploadedUrls = [...attachments];
-      for (let i = 0; i < files.length; i++) {
-        let file = files[i];
+      for (let i = 0; i < values.files.length; i++) {
+        let file = values.files[i];
 
         if (file.type.startsWith('image/') && file.size > 2 * 1024 * 1024) {
           file = await compressImage(file);
@@ -213,6 +219,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
       setIsUploading(false);
       e.target.value = '';
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const handleRemoveAttachment = (idx: number) => {
@@ -242,8 +249,25 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
 
   const totalValue = processedItems.reduce((sum, item) => sum + (Number(item.totalCost) || 0), 0);
 
+  const persistDraft = useCallback((payload: Purchase, allowDuringAction = false) => validateDraft(payload, async (values) => {
+    if (completedRef.current || (actionRef.current && !allowDuringAction)) return false;
+    if (draftIdRef.current) {
+      await updatePurchase(draftIdRef.current, values as Purchase);
+    } else {
+      const savedId = await savePurchase(values as Purchase);
+      if (!savedId) throw new Error('Não foi possível salvar o rascunho da compra.');
+      setDraftId(savedId);
+    }
+    setDraftError('');
+    return true;
+  }, (errors) => setDraftError(Object.values(flattenFormErrors(errors))[0])), [validateDraft, setDraftId]);
+
   const handleCancelOrClose = async () => {
-    if (!activePurchase?.id && !draftId && items.length > 0) {
+    if (actionRef.current || completedRef.current) return;
+    actionRef.current = true;
+    try {
+    await pendingDraftRef.current;
+    if (!activePurchase?.id && items.length > 0) {
       try {
         const supplier = suppliers.find((s) => s.id === selectedSupplierId);
         const draftPurchase: Purchase = {
@@ -262,15 +286,20 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
           freightPercent,
         };
 
-        const saved = await validateDraft(draftPurchase, (data) => savePurchase(data as Purchase), (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+        const saved = await persistDraft(draftPurchase, true);
         if (!saved) return;
         toast.info('Pedido de compra salvo como rascunho!');
       } catch (err: unknown) {
         console.error('Erro ao salvar rascunho de compra:', err);
+        toast.error('Não foi possível salvar o rascunho da compra.');
+        return;
       }
     }
+    completedRef.current = true;
     onClose();
+    } finally { actionRef.current = false; }
   };
+  closeRef.current = handleCancelOrClose;
 
   useEffect(() => {
     if (!isOpen || activePurchase?.id || !items.length) return;
@@ -293,14 +322,12 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
           ipiPercent,
           freightPercent,
         };
-        if (draftId) {
-          await validateDraft(payload, (data) => updatePurchase(draftId, data as Purchase));
-        } else {
-          const savedId = await validateDraft(payload, (data) => savePurchase(data as Purchase));
-          if (savedId) setDraftId(savedId);
-        }
+        const write = persistDraft(payload);
+        pendingDraftRef.current = write.catch(() => undefined);
+        await write;
       } catch (error: unknown) {
         console.error('Erro ao salvar rascunho automático:', error);
+        setDraftError('Não foi possível salvar o rascunho da compra.');
       } finally {
         setIsAutoSaving(false);
       }
@@ -318,10 +345,11 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
     attachments,
     draftId,
     totalValue,
-    validateDraft,
+    persistDraft,
   ]);
 
   const handleSave = async (status: 'ordered' | 'fulfilled') => {
+    if (actionRef.current || completedRef.current) return;
     if (!selectedSupplierId || items.length === 0) {
       setValidationErrors({ supplier: !selectedSupplierId, items: items.length === 0 });
       toast.error(
@@ -336,8 +364,10 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
 
     const supplier = suppliers.find((s) => s.id === selectedSupplierId);
 
+    actionRef.current = true;
     setIsSaving(true);
     try {
+      await pendingDraftRef.current;
       const purchasePayload: Purchase = {
         supplierId: selectedSupplierId,
         supplierName: supplier?.fullName || activePurchase?.supplierName || 'Fornecedor',
@@ -356,18 +386,18 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
         freightPercent,
       };
 
-      const purchaseId = activePurchase?.id || draftId;
-      const validated = await validatePurchase(purchasePayload, (data) => data as Purchase,
-        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-      if (!validated) return;
+      const purchaseId = activePurchase?.id || draftIdRef.current;
+      await validatePurchase(purchasePayload, async (validated) => {
       const hasOnlyRegisteredProducts = processedItems.every((item) =>
         products.some((product) => String(product.id) === String(item.productId))
       );
       if (purchaseId) {
-        await updatePurchase(purchaseId, validated);
+        await updatePurchase(purchaseId, validated as Purchase);
         toast.success('Pedido de compra atualizado com sucesso!');
       } else {
-        const savedId = await savePurchase(validated);
+        const savedId = await savePurchase(validated as Purchase);
+        if (!savedId) throw new Error('Não foi possível salvar o pedido de compra.');
+        setDraftId(savedId);
         let message = savedId
           ? 'Pedido de compra confirmado!'
           : 'Não foi possível salvar o pedido de compra.';
@@ -376,12 +406,15 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
         }
         toast.success(message);
       }
+      completedRef.current = true;
       onClose();
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
     } catch (error: unknown) {
       console.error('Erro ao salvar compra:', error);
       const message = error instanceof Error ? error.message : 'Erro ao salvar o pedido de compra.';
       toast.error(message);
     } finally {
+      actionRef.current = false;
       setIsSaving(false);
     }
   };
@@ -549,7 +582,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
                 } mr-1.5 text-blue-500`}
                 aria-hidden="true"
               />
-              Rascunho: salvo automaticamente
+              {isAutoSaving ? 'Salvando rascunho…' : draftError || (draftId ? 'Rascunho salvo' : 'Aguardando dados para salvar o rascunho')}
             </p>
           )}
           <button

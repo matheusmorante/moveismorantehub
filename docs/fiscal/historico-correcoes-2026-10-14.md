@@ -564,3 +564,25 @@ Referências do checkout atual para as correções já descritas; a tabela resol
 | `erp/src/pages/utils/personService/personMapper.ts` | `erp/src/pages/utils/personService/personMapper.ts:3` |
 
 - **Complemento de integração da busca:** `shared-utils/lookupFormSchemas.ts:7` acrescenta o contrato de busca submetida; não altera a validação da chave de entrada. O catálogo consome o reexport da fonte compartilhada. Typecheck fiscal ERP passou após a fila de validação; ERP e catálogo compilaram. Typecheck completo do catálogo passou separadamente. A compilação não constitui prova de transmissão nem prontidão fiscal completa.
+
+### Continuação dos proprietários: consulta NCM e fila de autosave
+
+- **Problema/causa comprovada:** o painel de NCM validava sincronização, revisão e correlação, mas consultava filtros, destino e ativação na loja sem passar pelo resolver. O adaptador rejeitava autosaves novos durante um salvamento ativo; um teste com a primeira gravação pendente comprovou o descarte do segundo snapshot em campanhas/regras.
+- **Solução:** contratos explícitos para a consulta e para ativação; destino utiliza o contrato de busca. Os payloads parseados chegam às RPCs/serviço, com erros visíveis antes do efeito. `enqueueAndRun` aguarda a conclusão da submissão ativa e serializa snapshots; `validateValues` reutiliza a fila apenas para a validação, antes do I/O. A submissão comum conserva a rejeição síncrona de duplo clique. Não altera regras tributárias, snapshots assinados, permissões ou SQL.
+- **Arquivos/linhas:**
+- `shared-utils/ncmManagementFormSchemas.ts`: `3`, `8`
+- `erp/src/pages/App/Settings/components/fiscal/NcmManagementPanel.tsx`: `3`, `145`, `147`, `164`, `198`, `225`
+- `erp/src/hooks/useZodForm.ts`: `18`, `35`, `45`, `50`, `52`, `59`, `66`, `70`, `73`
+- `mobile/src/hooks/useZodForm.ts`: `18`, `35`, `45`, `50`, `52`, `59`, `66`, `70`, `73`
+- `digital-catalog/src/hooks/useZodForm.ts`: `18`, `35`, `45`, `50`, `52`, `59`, `66`, `70`, `73`
+- **Validação em andamento:** 18 casos em adaptador, campanhas, conferência de compra, modelo de elemento e consulta fiscal passaram (`scratch/rhf-autosave-owners-tests.log`). O teste específico do painel NCM está em execução e seu resultado será registrado nesta seção. Nenhum endpoint remoto foi chamado: Supabase e demais serviços são simulados nos testes.
+
+### Recebimento: contrato completo e fronteira de persistência
+
+- **Problema/causa:** o formulário validava somente fornecedor/itens/totais/chave/percentuais e depois remontava o payload a partir do estado externo. Custos não fiscais, datas e anexos escapavam do resolver. Autosave e finalização podiam trabalhar com identidades diferentes enquanto a criação do rascunho ainda aguardava resposta. A chave era validada apenas pelo formato, sem reutilizar o validador central.
+- **Solução:** contrato explícito cobre os campos persistidos e reutiliza `validateNfeAccessKey`, permitindo vazio em recibo sem NF e normalizando a entrada antes de verificar chave/modelo/DV. Rascunho e conclusão enviam os valores parseados; metadados e itens não são injetados em snapshots fiscais. Autosave fica na fila do adaptador; conclusão aguarda a escrita pendente, reutiliza a identidade recebida, impede duplo clique e bloqueia novos rascunhos depois de concluir. O backend conserva suas verificações transacionais e fiscais.
+- **Arquivos/linhas:**
+- `shared-utils/receiptFormSchemas.ts`: `11`, `15`
+- `erp/src/pages/App/Stock/Receipts/hooks/useReceiptForm.ts`: `49`, `50`, `51`, `170`, `266`, `271`, `294`, `302`, `314`, `318`, `333`, `373`, `399`, `403`, `404`, `443`, `455`, `459`, `477`, `480`, `490`
+- `erp/src/pages/App/Stock/Receipts/hooks/useReceiptForm.test.tsx`: `27`
+- **Prova em andamento:** teste do proprietário já confirmou espera do rascunho, mesma identidade e bloqueio de conclusão simultânea; falta fechar a prova de custos e chave normalizada. Somente serviços simulados, sem persistir recebimento, vínculo ou fato fiscal remoto.

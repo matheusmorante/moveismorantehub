@@ -7,6 +7,8 @@ import {
 } from '@/pages/utils/productImageLimits';
 import { uploadFile } from '@/pages/utils/storageService';
 import type Product from '../../../../types/product.type';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 
 export type FileInputSource =
   | React.ChangeEvent<HTMLInputElement>
@@ -21,6 +23,7 @@ export function useProductFormImages(
 ) {
   const [isDraggingPhoto, setIsDraggingPhoto] = useState(0);
   const [removingPhoto, setRemovingPhoto] = useState<string | null>(null);
+  const uploadForm = useZodForm(imageFilesFormSchema, { files: [] });
 
   const handleFileChange = async (e: FileInputSource) => {
     let files: File[] = [];
@@ -52,10 +55,11 @@ export function useProductFormImages(
       filesToProcess = files.slice(0, availableSlots);
     }
 
+    return uploadForm.validateAndRun({ files: filesToProcess }, async (values) => {
     setLoading(true);
     setIsDraggingPhoto(filesToProcess.length);
     try {
-      const uploadPromises = filesToProcess.map(async (file) => {
+      const uploadPromises = values.files.map(async (file) => {
         const fileExt = file.name.split('.').pop() || 'jpg';
         const baseName = `${crypto.randomUUID()}_${Date.now()}`;
 
@@ -111,6 +115,7 @@ export function useProductFormImages(
       setLoading(false);
       setIsDraggingPhoto(0);
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const removePhoto = (url: string) => {

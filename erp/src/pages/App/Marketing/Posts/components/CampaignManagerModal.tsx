@@ -22,16 +22,20 @@ export function CampaignManagerModal({
 }: Props) {
   const [editing, setEditing] = useState<Partial<PostCampaign>>();
   const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const initialEdit = useRef(true);
   const values = { ...editing, name: editing?.name || '' };
   const form = useZodForm(marketingCampaignFormSchema, values);
-  const { validateAndRun } = form;
+  const { enqueueAndRun } = form;
   const persist = useCallback(async (data: z.output<typeof marketingCampaignFormSchema>, closeAfterSave = false) => {
     setBusy(true);
     onSavingChange(true);
+    setSaveError('');
     try {
       await onSave(data);
       if (closeAfterSave) setEditing(undefined);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Não foi possível salvar a campanha.');
     } finally {
       setBusy(false);
       onSavingChange(false);
@@ -49,9 +53,9 @@ export function CampaignManagerModal({
       return;
     }
     const snapshot = { ...editing, name: editing.name || '' };
-    const timeout = window.setTimeout(() => void validateAndRun(snapshot, (data) => persistRef.current(data)), 700);
+    const timeout = window.setTimeout(() => void enqueueAndRun(snapshot, (data) => persistRef.current(data), (errors) => setSaveError(Object.values(flattenFormErrors(errors))[0])), 700);
     return () => window.clearTimeout(timeout);
-  }, [editing, validateAndRun]);
+  }, [editing, enqueueAndRun]);
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 text-white shadow-2xl">
@@ -65,10 +69,11 @@ export function CampaignManagerModal({
           <button onClick={onClose}>✕</button>
         </header>
         <div className="max-h-[65vh] overflow-auto p-5">
+          {saveError && <p role="alert" className="mb-3 text-sm text-red-300">{saveError}</p>}
           {editing ? (
             <form noValidate onSubmit={form.submit((data) => persist(data, true), (errors) => {
               toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a campanha.');
-            })} className="space-y-3">
+            }, true)} className="space-y-3">
               <label className="block text-xs">
                 Nome
                 <input

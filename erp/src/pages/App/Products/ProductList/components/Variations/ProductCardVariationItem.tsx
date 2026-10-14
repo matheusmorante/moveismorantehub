@@ -11,6 +11,7 @@ import {
   getSelectedProductDisplayName,
   normalizeVariationSku,
 } from '@/pages/utils/productVariationDefaults';
+import { toTitleCase } from '@/pages/utils/textUtils';
 import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productKindRules';
 import ProductImage from '@/components/ProductImage';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
@@ -68,7 +69,10 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
   const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(profile);
   const canPrintIdentificationLabel = canPrintProductIdentificationLabels(profile);
   const varMenuRef = useRef<HTMLButtonElement | null>(null);
-  const varName = getSelectedProductDisplayName(product, v) || `Variação #${index + 1}`;
+  const varName =
+    toTitleCase(v.displayName || v.name || '') ||
+    getSelectedProductDisplayName(product, v) ||
+    `Variação #${index + 1}`;
   const targetVarCatalogId = v.id || '';
 
   const effectiveUnitPrice =

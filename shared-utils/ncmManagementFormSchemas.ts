@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import { bulkNcmFormSchema } from './catalogFormSchemas';
+export const ncmCatalogQueryFormSchema = z.object({
+  search: z.string(), page: z.number().int().nonnegative(),
+  filter: z.enum(['all', 'vigentes', 'encerrados', 'alterados', 'com_produtos', 'revisar', 'futuros']),
+  storeFilter: z.enum(['active', 'inactive', 'all']),
+});
+export const ncmStoreActivationFormSchema = z.object({ code: bulkNcmFormSchema.shape.ncm, active: z.boolean() });
 
 export const ncmSyncFormSchema = z.object({ syncRunId: z.string().min(1, 'Prepare uma prévia antes de aplicar a sincronização.') });
 export const ncmProductReviewFormSchema = z.object({

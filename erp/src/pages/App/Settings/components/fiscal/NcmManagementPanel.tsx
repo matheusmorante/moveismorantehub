@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { ncmSyncFormSchema, ncmProductReviewFormSchema, ncmCorrelationFormSchema } from '../../../../../../../shared-utils/ncmManagementFormSchemas';
+import { ncmSyncFormSchema, ncmProductReviewFormSchema, ncmCorrelationFormSchema, ncmCatalogQueryFormSchema, ncmStoreActivationFormSchema } from '../../../../../../../shared-utils/ncmManagementFormSchemas';
 import { searchFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
@@ -141,11 +141,15 @@ export function NcmManagementPanel() {
   const syncForm = useZodForm(ncmSyncFormSchema, { syncRunId: preview?.sync_run_id || '' });
   const productReviewForm = useZodForm(ncmProductReviewFormSchema, { destinationCode: destination?.code || '', productIds: selectedProducts });
   const correlationForm = useZodForm(ncmCorrelationFormSchema, { sourceCode: selectedRow?.code || '', destinationCode: destination?.code || '', relationType: correlationType, version: correlationVersion });
-  const { validateAndRun: validateSearch } = useZodForm(searchFormSchema, { search: searchDraft });
+  const { validateValues: validateSearch } = useZodForm(searchFormSchema, { search: searchDraft });
+  const { validateValues: validateCatalog } = useZodForm(ncmCatalogQueryFormSchema, { search, page, filter, storeFilter });
+  const { validateValues: validateDestination } = useZodForm(searchFormSchema, { search: destinationQuery });
+  const activationForm = useZodForm(ncmStoreActivationFormSchema, { code: '', active: false });
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void validateSearch({ search: searchDraft }, (data) => {
+      void validateSearch({ search: searchDraft }).then((data) => {
+        if (!data) return;
         setPage(0);
         setSearch(data.search.trim());
       });
@@ -157,17 +161,19 @@ export function NcmManagementPanel() {
     setIsLoading(true);
     setErrorMessage('');
     try {
+      const values = await validateCatalog({ search, page, filter, storeFilter }, (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0]));
+      if (!values) return;
       const [
         { data: summaryData, error: summaryError },
         { data: catalogData, error: catalogError },
       ] = await Promise.all([
         supabase.rpc('get_ncm_catalog_summary'),
         supabase.rpc('list_ncm_catalog_for_admin', {
-          p_search: search,
-          p_store_filter: storeFilter,
-          p_filter: filter,
+          p_search: values.search,
+          p_store_filter: values.storeFilter,
+          p_filter: values.filter,
           p_limit: PAGE_SIZE,
-          p_offset: page * PAGE_SIZE,
+          p_offset: values.page * PAGE_SIZE,
         }),
       ]);
       const { data: storeSummaryData, error: storeSummaryError } = await supabase.rpc(
@@ -186,20 +192,22 @@ export function NcmManagementPanel() {
     } finally {
       setIsLoading(false);
     }
-  }, [filter, page, search, storeFilter]);
+  }, [filter, page, search, storeFilter, validateCatalog]);
 
   const toggleStoreActivation = async (row: NcmRow) => {
+    return activationForm.validateAndRun({ code: row.code, active: !row.is_active }, async (values) => {
     try {
       setErrorMessage('');
       const { error } = await supabase.rpc('set_ncm_store_activation', {
-        p_code: row.code,
-        p_is_active: !row.is_active,
+        p_code: values.code,
+        p_is_active: values.active,
       });
       if (error) throw error;
       await loadCatalog();
     } catch (error: any) {
       setErrorMessage(error?.message || 'Não foi possível alterar o uso deste NCM na loja.');
     }
+    }, (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0]));
   };
 
   useEffect(() => {
@@ -214,7 +222,9 @@ export function NcmManagementPanel() {
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       try {
-        const results = await ncmService.searchNcms(destinationQuery, 8);
+        const values = await validateDestination({ search: destinationQuery });
+        if (!values || cancelled) return;
+        const results = await ncmService.searchNcms(values.search, 8);
         if (!cancelled) setDestinationResults(results);
       } catch {
         if (!cancelled) setDestinationResults([]);
@@ -224,7 +234,7 @@ export function NcmManagementPanel() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [destinationQuery]);
+  }, [destinationQuery, validateDestination]);
 
   const loadDetails = async (row: NcmRow) => {
     setSelectedRow(row);

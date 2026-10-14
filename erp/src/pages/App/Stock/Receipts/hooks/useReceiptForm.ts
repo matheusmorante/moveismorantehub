@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { receiptDraftFormSchema, receiptFormSchema } from '../../../../../../../shared-utils/receiptFormSchemas';
@@ -43,7 +43,12 @@ export function useReceiptForm({
 }: UseReceiptFormParams) {
   // ── Estado principal ───────────────────────────────────────────────────────
   const [suppliers, setSuppliers] = useState<Person[]>([]);
-  const [draftId, setDraftId] = useState<string>('');
+  const [draftId, setDraftIdState] = useState<string>('');
+  const draftIdRef = useRef('');
+  const setDraftId = useCallback((id: string) => { draftIdRef.current = id; setDraftIdState(id); }, []);
+  const activeDraftWriteRef = useRef<Promise<unknown>>(Promise.resolve());
+  const finalizingRef = useRef(false);
+  const completedRef = useRef(false);
   const [receiptIndex, setReceiptIndex] = useState<number | undefined>(undefined);
   const [sourcePurchaseId, setSourcePurchaseId] = useState<string>('');
   const [supplierId, setSupplierId] = useState<string>('');
@@ -162,6 +167,7 @@ export function useReceiptForm({
   // ── Efeito de inicialização por tipo de origem ─────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
+    completedRef.current = false;
 
     if (initialReceipt) {
       setDraftId(copyReceipt ? '' : initialReceipt.id);
@@ -257,8 +263,12 @@ export function useReceiptForm({
     },
   });
   const totalValue = processedItems.reduce((sum, item) => sum + item.totalCost, 0);
-  const formValues = { supplierId, receiptDate, items: processedItems, totalValue, fiscalKey, ipiPercent, freightPercent };
-  const { validateAndRun: validateReceiptDraft } = useZodForm(receiptDraftFormSchema, formValues);
+  const formValues = { supplierId, receiptDate, items: processedItems, totalValue, fiscalKey, ipiPercent, freightPercent,
+    invoiceNumber, invoiceDate, attachments, observations, nonFiscalDiscountMode, nonFiscalDiscountValue,
+    nonFiscalFreightMode, nonFiscalFreightValue, nonFiscalOtherExpensesMode, nonFiscalOtherExpensesValue,
+    fiscalIpi, fiscalFreight, fiscalDiscount, fiscalOtherExpenses,
+  };
+  const { enqueueAndRun: validateReceiptDraft } = useZodForm(receiptDraftFormSchema, formValues);
   const { validateAndRun: validateReceipt } = useZodForm(receiptFormSchema, formValues);
 
   const baseValueForRateio = useMemo(
@@ -280,48 +290,52 @@ export function useReceiptForm({
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(async () => {
       try {
-        const validated = await validateReceiptDraft(formValues, (data) => data,
-          (errors) => toast.error(Object.values(flattenFormErrors(errors))[0], { toastId: 'receipt-draft-validation' }));
-        if (!validated) return;
-        const currentSupplier = suppliers.find((p) => p.id === supplierId);
+        const write = validateReceiptDraft(formValues, async (validated) => {
+        if (finalizingRef.current || completedRef.current) return;
+        const currentSupplier = suppliers.find((p) => p.id === validated.supplierId);
         const safeReceivedAt = (() => {
-          if (!receiptDate) return new Date().toISOString();
-          const d = new Date(receiptDate.includes('T') ? receiptDate : `${receiptDate}T12:00:00`);
+          if (!validated.receiptDate) return new Date().toISOString();
+          const d = new Date(validated.receiptDate.includes('T') ? validated.receiptDate : `${validated.receiptDate}T12:00:00`);
           return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
         })();
 
         const savedDraft = await saveGoodsReceiptDraft({
-          id: draftId || undefined,
+          id: draftIdRef.current || undefined,
           receiptIndex: receiptIndex || (copyReceipt ? undefined : initialReceipt?.receiptIndex),
           purchaseId: sourcePurchaseId || undefined,
-          supplierId,
+          supplierId: validated.supplierId,
           supplierName: currentSupplier?.fullName || 'Fornecedor',
           receivedAt: safeReceivedAt,
-          invoiceNumber,
-          invoiceDate,
-          items: processedItems,
-          totalValue,
-          observation: observations.join('\n'),
-          fiscalKey,
-          attachments,
-          ipiPercent,
-          freightPercent,
-          nonFiscalDiscountMode,
-          nonFiscalDiscountValue,
-          nonFiscalFreightMode,
-          nonFiscalFreightValue,
-          nonFiscalOtherExpensesMode,
-          nonFiscalOtherExpensesValue,
-          fiscalIpi,
-          fiscalFreight,
-          fiscalDiscount,
-          fiscalOtherExpenses,
+          invoiceNumber: validated.invoiceNumber,
+          invoiceDate: validated.invoiceDate,
+          items: validated.items,
+          totalValue: validated.totalValue,
+          observation: validated.observations.join('\n'),
+          fiscalKey: validated.fiscalKey,
+          attachments: validated.attachments,
+          ipiPercent: validated.ipiPercent,
+          freightPercent: validated.freightPercent,
+          nonFiscalDiscountMode: validated.nonFiscalDiscountMode,
+          nonFiscalDiscountValue: validated.nonFiscalDiscountValue,
+          nonFiscalFreightMode: validated.nonFiscalFreightMode,
+          nonFiscalFreightValue: validated.nonFiscalFreightValue,
+          nonFiscalOtherExpensesMode: validated.nonFiscalOtherExpensesMode,
+          nonFiscalOtherExpensesValue: validated.nonFiscalOtherExpensesValue,
+          fiscalIpi: validated.fiscalIpi,
+          fiscalFreight: validated.fiscalFreight,
+          fiscalDiscount: validated.fiscalDiscount,
+          fiscalOtherExpenses: validated.fiscalOtherExpenses,
         });
-        if (!draftId && savedDraft.id) setDraftId(savedDraft.id);
+        if (savedDraft.id) setDraftId(savedDraft.id);
         if (savedDraft.receiptIndex) setReceiptIndex(savedDraft.receiptIndex);
         setIsDraftSaved(true);
+        }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0], { toastId: 'receipt-draft-validation' }));
+        activeDraftWriteRef.current = write.catch(() => undefined);
+        await write;
       } catch (err: unknown) {
         console.error('Erro ao auto-salvar rascunho:', err);
+        setIsDraftSaved(false);
+        toast.error('Não foi possível salvar o rascunho do recebimento.', { toastId: 'receipt-draft-error' });
       }
     }, 500);
 
@@ -354,10 +368,12 @@ export function useReceiptForm({
     fiscalKey,
     attachments,
     observations,
+    validateReceiptDraft,
   ]);
 
   // ── Finalizar recebimento ──────────────────────────────────────────────────
   const handleFinalize = async () => {
+    if (finalizingRef.current || completedRef.current) return;
     const supplier = suppliers.find((person) => person.id === supplierId);
     if (!supplier) {
       toast.error('Selecione o fornecedor para continuar.');
@@ -383,17 +399,13 @@ export function useReceiptForm({
       );
       return;
     }
-    if (fiscalKey && fiscalKey.length !== 44) {
-      toast.error('A chave de acesso da nota fiscal deve conter exatamente 44 dígitos.');
-      return;
-    }
-
-    const validated = await validateReceipt(formValues, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
+    finalizingRef.current = true;
     setIsSaving(true);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     try {
-      const receiptId = draftId || crypto.randomUUID();
+      await activeDraftWriteRef.current;
+      await validateReceipt(formValues, async (validated) => {
+      const receiptId = draftIdRef.current || crypto.randomUUID();
 
       if (inboundItems) {
         await Promise.all(
@@ -426,8 +438,8 @@ export function useReceiptForm({
       }
 
       const safeReceivedAt = (() => {
-        if (!receiptDate) return new Date().toISOString();
-        const d = new Date(receiptDate.includes('T') ? receiptDate : `${receiptDate}T12:00:00`);
+        if (!validated.receiptDate) return new Date().toISOString();
+        const d = new Date(validated.receiptDate.includes('T') ? validated.receiptDate : `${validated.receiptDate}T12:00:00`);
         return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
       })();
 
@@ -435,28 +447,28 @@ export function useReceiptForm({
         id: receiptId,
         receiptIndex: receiptIndex || (copyReceipt ? undefined : initialReceipt?.receiptIndex),
         purchaseId: sourcePurchaseId || undefined,
-        supplierId,
+        supplierId: validated.supplierId,
         supplierName: supplier.fullName,
         receivedAt: safeReceivedAt,
-        invoiceNumber,
-        invoiceDate,
-        items: processedItems,
-        totalValue,
-        observation: observations.join('\n'),
-        fiscalKey,
-        attachments,
-        ipiPercent,
-        freightPercent,
-        nonFiscalDiscountMode,
-        nonFiscalDiscountValue,
-        nonFiscalFreightMode,
-        nonFiscalFreightValue,
-        nonFiscalOtherExpensesMode,
-        nonFiscalOtherExpensesValue,
-        fiscalIpi,
-        fiscalFreight,
-        fiscalDiscount,
-        fiscalOtherExpenses,
+        invoiceNumber: validated.invoiceNumber,
+        invoiceDate: validated.invoiceDate,
+        items: validated.items,
+        totalValue: validated.totalValue,
+        observation: validated.observations.join('\n'),
+        fiscalKey: validated.fiscalKey,
+        attachments: validated.attachments,
+        ipiPercent: validated.ipiPercent,
+        freightPercent: validated.freightPercent,
+        nonFiscalDiscountMode: validated.nonFiscalDiscountMode,
+        nonFiscalDiscountValue: validated.nonFiscalDiscountValue,
+        nonFiscalFreightMode: validated.nonFiscalFreightMode,
+        nonFiscalFreightValue: validated.nonFiscalFreightValue,
+        nonFiscalOtherExpensesMode: validated.nonFiscalOtherExpensesMode,
+        nonFiscalOtherExpensesValue: validated.nonFiscalOtherExpensesValue,
+        fiscalIpi: validated.fiscalIpi,
+        fiscalFreight: validated.fiscalFreight,
+        fiscalDiscount: validated.fiscalDiscount,
+        fiscalOtherExpenses: validated.fiscalOtherExpenses,
         status: 'received',
         isDraft: false,
       });
@@ -464,18 +476,21 @@ export function useReceiptForm({
       const isCompleteInvoiceReceipt =
         !inboundItems ||
         inboundItems.every((item) => item.quantity >= (item.expectedQuantity || item.quantity));
-      if (fiscalKey && fiscalKey.length === 44 && isCompleteInvoiceReceipt) {
-        await markInvoiceAsReceived(fiscalKey, receiptId);
+      if (validated.fiscalKey && isCompleteInvoiceReceipt) {
+        await markInvoiceAsReceived(validated.fiscalKey, receiptId);
       }
 
+      completedRef.current = true;
       toast.success('Recebimento de mercadorias confirmado com sucesso!');
       onClose();
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
     } catch (error: unknown) {
       console.error('Erro ao finalizar recebimento:', error);
       const message =
         error instanceof Error ? error.message : 'Não foi possível concluir o recebimento.';
       toast.error(message);
     } finally {
+      finalizingRef.current = false;
       setIsSaving(false);
     }
   };

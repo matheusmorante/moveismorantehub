@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { documentFilesFormSchema } from './fileFormSchemas';
 
 const purchaseItem = z.object({
   productId: z.string(), variationId: z.string().optional(), description: z.string(),
@@ -17,6 +18,9 @@ export const purchaseFormSchema = purchaseDraftFormSchema.extend({
   items: z.array(purchaseItem.extend({ productId: z.string().min(1), quantity: z.number().positive('Informe uma quantidade maior que zero.') })).min(1, 'Adicione pelo menos um item ao pedido.'),
 });
 const percentageText = z.string().refine((value) => !value || /^\d+(?:[.,]\d+)?$/.test(value.trim()), 'Informe uma porcentagem válida.');
+export const purchaseAttachmentUploadFormSchema = documentFilesFormSchema.extend({
+  existingCount: z.number().int().nonnegative(),
+}).refine((values) => values.existingCount + values.files.length <= 5, { path: ['files'], message: 'Você pode anexar no máximo 5 arquivos (PDF ou imagem).' });
 export const mobilePurchaseFormSchema = purchaseFormSchema.extend({
   supplierName: z.string().min(1, 'Selecione o fornecedor.'),
   date: z.iso.date('Informe uma data válida.'),

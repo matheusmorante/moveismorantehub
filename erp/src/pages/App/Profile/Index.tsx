@@ -6,6 +6,7 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createPasswordChangeFormSchema, profileFormSchema } from '../../../../../shared-utils/accountFormSchemas';
 import type { FieldErrors } from 'react-hook-form';
 import type { z } from 'zod';
+import { avatarUploadFormSchema } from '../../../../../shared-utils/fileFormSchemas';
 import {
   getPasswordAuthErrorMessage,
   isCurrentPasswordRequired,
@@ -32,6 +33,7 @@ const Profile = () => {
   const [currentPasswordRequired, setCurrentPasswordRequired] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarForm = useZodForm(avatarUploadFormSchema, { userId: user?.id || '', files: [] });
   const profileForm = useZodForm(profileFormSchema, { fullName, position, phone, address, city, state: stateValue });
   const passwordSchema = createPasswordChangeFormSchema({ code: passwordReauthRequired, currentPassword: currentPasswordRequired });
   const passwordForm = useZodForm(passwordSchema, {
@@ -141,16 +143,17 @@ const Profile = () => {
   };
 
   const uploadAvatar = async (event: any) => {
+    return avatarForm.validateAndRun({ userId: user?.id || '', files: Array.from(event.target.files || []) }, async (values) => {
     try {
       setUploading(true);
-      const files = event.target.files;
+      const files = values.files;
       if (!files || files.length === 0) {
         throw new (window as any).Error('Você deve selecionar uma imagem para upload.');
       }
 
       const file = files[0];
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id}.${fileExt}`;
+      const fileName = `${values.userId}.${fileExt}`;
       const filePath = `${fileName}`;
 
       // Upload to Supabase Storage
@@ -169,7 +172,7 @@ const Profile = () => {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
-        .eq('id', user?.id);
+        .eq('id', values.userId);
 
       if (updateError) throw updateError;
 
@@ -180,6 +183,7 @@ const Profile = () => {
     } finally {
       setUploading(false);
     }
+    }, showValidationError);
   };
 
   return (

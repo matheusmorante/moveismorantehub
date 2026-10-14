@@ -2,6 +2,8 @@ import React, { ChangeEvent, useState, useCallback } from 'react';
 import imageCompression from 'browser-image-compression';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { purchaseAttachmentUploadFormSchema } from '../../../../../../../shared-utils/purchaseFormSchemas';
 
 export interface ReceiptFiscalDocumentsSectionProps {
   readonly attachments: readonly string[];
@@ -57,22 +59,18 @@ export const ReceiptFiscalDocumentsSection: React.FC<ReceiptFiscalDocumentsSecti
   onAttachmentsChange,
 }) => {
   const [isUploading, setIsUploading] = useState(false);
+  const { validateAndRun } = useZodForm(purchaseAttachmentUploadFormSchema, { existingCount: attachments.length, files: [] });
 
   const upload = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
       const files = event.target.files;
       if (!files?.length) return;
 
-      if (attachments.length + files.length > MAX_FILES) {
-        toast.error(`Você pode anexar no máximo ${MAX_FILES} arquivos.`);
-        event.target.value = '';
-        return;
-      }
-
+      return validateAndRun({ existingCount: attachments.length, files: Array.from(files) }, async (values) => {
       setIsUploading(true);
       try {
         const uploaded = [...attachments];
-        for (const originalFile of Array.from(files)) {
+        for (const originalFile of values.files) {
           const file = await prepareFile(originalFile);
           const sanitizedName = originalFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
           const path = `receipts/${Date.now()}-${sanitizedName}`;
@@ -91,8 +89,9 @@ export const ReceiptFiscalDocumentsSection: React.FC<ReceiptFiscalDocumentsSecti
         setIsUploading(false);
         event.target.value = '';
       }
+      }, (errors) => { toast.error(Object.values(flattenFormErrors(errors))[0]); event.target.value = ''; });
     },
-    [attachments, onAttachmentsChange]
+    [attachments, onAttachmentsChange, validateAndRun]
   );
 
   const handleRemove = useCallback(

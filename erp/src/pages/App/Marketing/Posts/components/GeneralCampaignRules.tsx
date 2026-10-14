@@ -15,16 +15,20 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const initialValue = useRef(true);
   const form = useZodForm(campaignRulesFormSchema, { content: value });
-  const { validateAndRun } = form;
+  const { enqueueAndRun } = form;
 
   const persist = useCallback(async (data: z.output<typeof campaignRulesFormSchema>) => {
     if (!loaded) return;
     setSaving(true);
     onSavingChange(true);
+    setSaveError('');
     try {
       await save(data.content);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Não foi possível salvar as regras.');
     } finally {
       setSaving(false);
       onSavingChange(false);
@@ -38,7 +42,7 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
     void load().then((text) => {
       setValue(text);
       setLoaded(true);
-    });
+    }).catch(() => setSaveError('Não foi possível carregar as regras.'));
   }, [load]);
   useEffect(() => {
     if (!loaded) return;
@@ -46,12 +50,13 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
       initialValue.current = false;
       return;
     }
-    const timeout = window.setTimeout(() => void validateAndRun({ content: value }, (data) => persistRef.current(data)), 700);
+    const timeout = window.setTimeout(() => void enqueueAndRun({ content: value }, (data) => persistRef.current(data), (errors) => setSaveError(Object.values(flattenFormErrors(errors))[0])), 700);
     return () => window.clearTimeout(timeout);
-  }, [value, loaded, validateAndRun]);
+  }, [value, loaded, enqueueAndRun]);
 
   return (
     <section className="mt-5 rounded-xl border border-slate-800 bg-slate-900/70">
+      {saveError && <p role="alert" className="p-4 text-sm text-red-300">{saveError}</p>}
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
@@ -70,7 +75,7 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
           noValidate
           onSubmit={form.submit(persist, (errors) => {
             toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira as regras da campanha.');
-          })}
+          }, true)}
           className="border-t border-slate-800 p-4 pt-3"
         >
           <textarea

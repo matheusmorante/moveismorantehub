@@ -9,6 +9,8 @@ import {
 } from '@/pages/utils/productImageLimits';
 import { uploadFile } from '@/pages/utils/storageService';
 import type Product from '../../../../types/product.type';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 import { moveProductImage, replaceProductImage } from './images/productImageOrdering';
 import { SquareImageCropper } from './images/SquareImageCropper';
 
@@ -46,10 +48,13 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
   const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
   const [croppingIndex, setCroppingIndex] = useState<number | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
+  const replaceForm = useZodForm(imageFilesFormSchema, { files: [] });
   const maxPhotos = MAX_PARENT_PRODUCT_IMAGES;
   const currentCount = (formData.images || []).length;
 
   const handleReplacePhoto = async (index: number, file: File) => {
+    return replaceForm.validateAndRun({ files: [file] }, async ({ files: [selectedFile] }) => {
+    file = selectedFile;
     setReplacingIndex(index);
     try {
       const fileExt = file.name.split('.').pop() || 'jpg';
@@ -105,6 +110,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     } finally {
       setReplacingIndex(null);
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const handleCropPhoto = async (file: File) => {

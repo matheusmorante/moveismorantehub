@@ -7,6 +7,24 @@ import { useZodForm } from './useZodForm';
 afterEach(cleanup);
 describe('React Hook Form with the shared Zod resolver', () => {
   const schema = z.object({ name: z.string().trim().min(1), quantity: z.number().positive() });
+  it('queues autosave behind an active ordinary submission and continues after a rejected callback', async () => {
+    const { result } = renderHook(() => useZodForm(schema, { name: '', quantity: 0 }));
+    let finish!: () => void;
+    const save = vi.fn().mockRejectedValueOnce(new Error('Falha')).mockResolvedValueOnce('saved');
+    await act(async () => {
+      const active = result.current.validateAndRun({ name: 'Manual', quantity: 1 }, () => new Promise<void>((resolve) => { finish = resolve; }));
+      const first = result.current.enqueueAndRun({ name: 'First', quantity: 2 }, save);
+      const failure = expect(first).rejects.toThrow('Falha');
+      const last = result.current.enqueueAndRun({ name: 'Last', quantity: 3 }, save);
+      await waitFor(() => expect(finish).toBeTypeOf('function'));
+      expect(save).not.toHaveBeenCalled();
+      finish();
+      await active;
+      await failure;
+      expect(await last).toBe('saved');
+      expect(save.mock.calls.map(([values]) => values.name)).toEqual(['First', 'Last']);
+    });
+  });
   it('validates concurrent query snapshots in order without dropping the newest or stalling after invalid input', async () => {
     const asyncSchema = schema.refine(async () => { await Promise.resolve(); return true; });
     const { result } = renderHook(() => useZodForm(asyncSchema, { name: '', quantity: 0 }));

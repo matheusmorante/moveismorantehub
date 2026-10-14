@@ -211,3 +211,16 @@ O formulário móvel de composição tinha um componente inexistente e uma depen
 **Verificação final desta rodada:** 48 testes em 9 arquivos ERP passaram, mais 8 testes do boundary de busca/formulário após o ajuste do catálogo; os conjuntos têm sobreposições. Compilação ERP atualizada passou (`scratch/rhf-erp-build-completed-batch.log`); compilação e typecheck completo do catálogo passaram (`rhf-catalog-build-final.log`, `rhf-catalog-typecheck-final.log`); typecheck fiscal ERP passou (`rhf-fiscal-completed-tsc.log`). ESLint dos arquivos ERP alterados: zero erros e 23 avisos. TypeScript global ERP/móvel mantém diagnósticos legados; não está aprovado globalmente. Cobertura ponta a ponta de todas as telas e execução nativa móvel seguem pendentes, além da conferência dos demais proprietários marcados no inventário.
 
 O runner de proprietários móveis fica em `erp/tests/mobile-forms`, fora do `src` do ERP, pois simula superfícies RN de outro projeto/versão de React; não é código de produção. Nenhuma aplicação foi excluída de typecheck para fazer os testes passarem.
+
+### Continuação dos autosaves e proprietários restantes
+
+O adaptador oferece `enqueueAndRun` para autosave e mantém `validateAndRun` com proteção contra duplo clique. Campanhas/regras/modelos não descartam mais um snapshot novo durante uma gravação lenta; falhas de validação e serviço ficam visíveis. Referências de imagens do criador de elementos foram incorporadas ao contrato e o upload valida os arquivos antes de ler.
+
+O recebimento valida todos os custos, datas, anexos e observações persistidos, reutiliza a validação central da chave e envia os campos parseados. A conclusão aguarda a escrita pendente do rascunho, reutiliza sua identidade e impede conclusão duplicada/reescrita como rascunho após concluir. O pedido de compra recebeu a mesma proteção de identidade/concorrência, usa o estado atual ao fechar por Escape e valida arquivos PDF/imagem/limite de cinco antes do Storage.
+
+Arquivos/linhas da compra nesta continuação:
+- `shared-utils/purchaseFormSchemas.ts`: `20`
+- `erp/src/pages/App/Stock/Purchases/modals/PurchaseFormModal.tsx`: `11`, `54`, `55`, `56`, `57`, `59`, `65`, `110`, `184`, `252`, `253`, `254`, `255`, `266`, `267`, `269`, `289`, `300`, `302`, `325`, `326`, `348`, `352`, `367`, `370`, `389`, `390`, `417`
+- `erp/src/pages/App/Stock/Purchases/modals/PurchaseFormModal.test.tsx`: 
+
+Provas específicas em execução/registro: `scratch/rhf-autosave-owners-tests.log`, `rhf-ncm-owners-tests.log`, `rhf-purchase-receipt-tests.log`. Todos os serviços externos são simulados; não houve compra, recebimento, mensagem, Storage ou transmissão real. A conferência global continua aberta.
