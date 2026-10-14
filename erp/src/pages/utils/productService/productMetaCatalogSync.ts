@@ -25,7 +25,7 @@ const pendingSyncs = new Map<string, ReturnType<typeof setTimeout>>();
  */
 export async function syncAllProductsToMetaCatalog(
   onProgress?: (processed: number, total: number) => void
-): Promise<{ success: boolean; count: number; handles: string[] }> {
+): Promise<{ success: boolean; count: number; handles?: string[] }> {
   const { whatsappConfig } = getSettings();
   if (!whatsappConfig?.catalogId || !whatsappConfig?.accessToken) {
     throw new Error('Credenciais da Meta não configuradas no sistema (Configurações > WhatsApp/Meta).');
@@ -63,7 +63,7 @@ export async function syncProductToMetaCatalog(
       supabase
         .from('products')
         .select(
-          'id, name, title, description, whatsapp_description, status, active, deleted, deleted_at, opportunity_id, sales_price, unit_price, price, promo_price, stock, images, brand, group_name, sku, code, is_draft'
+          'id, name, description, status, active, deleted, deleted_at, opportunity_id, unit_price, price, promo_price, stock, images, brand, code, is_draft'
         )
         .eq('id', productId)
         .maybeSingle(),
@@ -99,7 +99,7 @@ export async function syncProductToMetaCatalog(
       // O ID pai de um produto que possui variações nunca é vendido avulso
       itemsToSend.push({
         id: product.id,
-        code: product.code || product.sku || product.id,
+        code: product.code || product.id,
         deleted: true,
         status: 'hidden',
       });
@@ -150,7 +150,7 @@ export async function syncProductToMetaCatalog(
       if (!isParentEligible) {
         itemsToSend.push({
           id: product.id,
-          code: product.code || product.sku || product.id,
+          code: product.code || product.id,
           deleted: true,
           status: 'hidden',
         });

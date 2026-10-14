@@ -114,7 +114,7 @@ export async function POST(request: Request) {
     const { data: allProducts, error: productsError } = await supabase
       .from('products')
       .select(
-        'id, name, slug, description, price, unit_price, promo_price, status, deleted_at, deleted, is_draft, is_salvado, material, stock, code, sku, category_id, product_categories(categories(name, type)), product_images(image_url, is_main), product_variations(id, name, sku, price, promo_price, image_url, attributes, status, active, stock, use_parent_price, use_parent_promo_price, use_parent_name), opportunities(name, observations)'
+        'id, name, slug, description, price, unit_price, promo_price, status, deleted_at, deleted, is_draft, is_salvado, material, stock, code, category_id, product_categories(categories(name, type)), product_images(image_url, is_main), product_variations(id, name, sku, price, promo_price, image_url, attributes, status, active, stock, use_parent_price, use_parent_promo_price, use_parent_name), opportunities(name, observations)'
       );
 
     if (productsError || !allProducts) {

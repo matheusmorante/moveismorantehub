@@ -182,7 +182,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
             )}
           </div>
         )}
-        <div className="p-0.5 sm:p-2 lg:p-4">
+        <div className={title || onCloseTrash ? 'p-0.5 sm:p-2 lg:p-4' : 'px-0.5 sm:px-1'}>
           <ProductTable
             products={paginatedProducts}
             readOnly={readOnly}

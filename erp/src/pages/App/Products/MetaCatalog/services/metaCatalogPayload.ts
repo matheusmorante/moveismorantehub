@@ -19,6 +19,7 @@ export interface MetaCatalogProductSource {
   group_name?: string | null;
   sku?: string | null;
   code?: string | null;
+  is_draft?: boolean | null;
 }
 
 export interface MetaCatalogVariationSource {
@@ -119,7 +120,8 @@ export function buildMetaCatalogItems(
       parent.deleted ||
       parent.deleted_at !== null ||
       parent.status === 'draft' ||
-      parent.active === false
+      parent.active === false ||
+      parent.is_draft
     ) {
       continue;
     }

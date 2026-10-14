@@ -224,7 +224,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 relative pb-16">
-      <div className="flex-1 flex flex-col min-w-0 p-0.5 sm:p-2 lg:p-6 xl:p-8">
+      <div className="flex-1 flex flex-col min-w-0 px-0.5 sm:px-2 lg:px-6 xl:px-8 pt-2 sm:pt-3 pb-6 xl:pb-8">
         <div className="flex flex-col gap-2 sm:gap-3 flex-1 min-h-0">
           {/* Header Actions Container */}
           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 sm:gap-4 px-0.5 sm:px-1">

@@ -94,4 +94,24 @@ describe('buildMetaCatalogItems', () => {
     expect(items[0].description).toContain('Descrição do sofá');
     expect(items[0].description).toContain('Detalhe adicional');
   });
+
+  it('ignora produtos com is_draft: true', () => {
+    const items = buildMetaCatalogItems(
+      [
+        {
+          id: 'product-draft',
+          name: 'Produto Rascunho',
+          status: 'published',
+          active: true,
+          deleted: false,
+          deleted_at: null,
+          is_draft: true,
+        },
+      ],
+      [],
+      []
+    );
+
+    expect(items).toHaveLength(0);
+  });
 });
