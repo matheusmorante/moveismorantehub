@@ -1,5 +1,7 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { variationTargetFormSchema } from '../../../../../shared-utils/catalogFormSchemas';
 import {
   ActivityIndicator,
   Alert,
@@ -43,6 +45,7 @@ export const MobileMergeVariationModal: React.FC<Props> = ({
   const [target, setTarget] = useState<MobileCanonicalVariation | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const form = useZodForm(variationTargetFormSchema, { sourceId, targetId: target?.id || '' });
 
   useEffect(() => {
     if (!visible || !variation) return;
@@ -86,9 +89,10 @@ export const MobileMergeVariationModal: React.FC<Props> = ({
 
   const handleMerge = async () => {
     if (!target || !sourceId || saving) return;
+    return form.validateAndRun({ sourceId, targetId: target.id }, async (values) => {
     try {
       setSaving(true);
-      const result = await mergeMobileVariationIntoCanonical(sourceId, target.id);
+      const result = await mergeMobileVariationIntoCanonical(values.sourceId, values.targetId);
       await onMerged();
       onClose();
       Alert.alert(
@@ -103,6 +107,7 @@ export const MobileMergeVariationModal: React.FC<Props> = ({
     } finally {
       setSaving(false);
     }
+    }, (errors) => Alert.alert('Revise o destino', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const sourceLabel = String(

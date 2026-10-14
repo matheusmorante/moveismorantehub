@@ -8,8 +8,11 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
+  Alert,
 } from 'react-native';
 import { X, Check } from 'lucide-react-native';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { transactionFiltersFormSchema } from '../../../../../shared-utils/financialFormSchemas';
 import {
   FinancialCategory,
   TransactionFilterOptions,
@@ -49,16 +52,17 @@ export const TransactionFilterModal: React.FC<Props> = ({
   );
   const [selectedAccount, setSelectedAccount] = useState<string>(currentFilters.accountId || '');
   const [searchQuery, setSearchQuery] = useState<string>(currentFilters.searchQuery || '');
+  const form = useZodForm(transactionFiltersFormSchema, { ...currentFilters, categoryId: selectedCatId, paymentMethod: selectedPayment, accountId: selectedAccount, searchQuery });
 
   const handleApply = () => {
-    onApplyFilters({
+    void form.validateAndRun({
       ...currentFilters,
       categoryId: selectedCatId || undefined,
       paymentMethod: selectedPayment || undefined,
       accountId: selectedAccount || undefined,
       searchQuery: searchQuery || undefined,
-    });
-    onClose();
+    }, (values) => { onApplyFilters(values); onClose(); },
+    (errors) => Alert.alert('Revise os filtros', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const handleClear = () => {
@@ -66,10 +70,8 @@ export const TransactionFilterModal: React.FC<Props> = ({
     setSelectedPayment('');
     setSelectedAccount('');
     setSearchQuery('');
-    onApplyFilters({
-      type: currentFilters.type,
-    });
-    onClose();
+    void form.validateAndRun({ type: currentFilters.type }, (values) => { onApplyFilters(values); onClose(); },
+      (errors) => Alert.alert('Revise os filtros', Object.values(flattenFormErrors(errors))[0]));
   };
 
   return (

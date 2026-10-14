@@ -1,4 +1,9 @@
 import { useRef, useCallback } from 'react';
+import { useZodForm } from '../../../../hooks/useZodForm';
+import { inventoryAuditDraftSchema } from '../../../../../../shared-utils/inventoryAuditFormSchemas';
+import { z } from 'zod';
+
+const mobileInventoryDraftSchema = inventoryAuditDraftSchema.omit({ date: true, updatedAt: true }).extend({ responsibleId: z.string().optional() });
 import { saveLocalInventoryDraft } from '../../../../services/sqlite/inventoryDrafts';
 import type { AuditItem, AuditDraftState } from '../types/inventoryWorkflow.types';
 
@@ -21,6 +26,7 @@ export const useInventoryPersistenceQueue = (
 ) => {
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const lastErrorRef = useRef<unknown>(null);
+  const { validateAndRun: validateDraft } = useZodForm(mobileInventoryDraftSchema, { id: '', code: '', name: '', hasStages: false, status: 'in_progress', items: [] });
 
   const persistToSQLite = useCallback(
     (itemsToPersist: AuditItem[], scopeOverride?: ScopeConfigSnapshot): Promise<void> => {
@@ -31,7 +37,7 @@ export const useInventoryPersistenceQueue = (
       const savedScope = scopeOverride || scopeConfig;
 
       const write = saveQueueRef.current.then(async () => {
-        await saveLocalInventoryDraft({
+        const saved = await validateDraft({
           id: auditId,
           code,
           scopeType: savedScope?.scopeType,
@@ -40,8 +46,9 @@ export const useInventoryPersistenceQueue = (
           responsibleId: savedScope?.responsibleId || userProfileId,
           hasStages: savedScope?.hasStages ?? false,
           status: 'in_progress',
-          items: itemsToPersist,
-        });
+          items: itemsToPersist.map((item) => ({ ...item })),
+        }, async (values) => { await saveLocalInventoryDraft(values); return true; });
+        if (!saved) throw new Error('Revise as quantidades e os dados do inventário local.');
       });
       saveQueueRef.current = write.then(
         () => {
@@ -54,7 +61,7 @@ export const useInventoryPersistenceQueue = (
       );
       return write;
     },
-    [draftRef, scopeConfig, userProfileId]
+    [draftRef, scopeConfig, userProfileId, validateDraft]
   );
 
   return {

@@ -110,7 +110,7 @@ export const LabelGridModelCanvasElement = ({
           {editingTextElement === el.id ? (
             <input
               autoFocus
-              value={el.text}
+              value={typeof el.text === 'string' || typeof el.text === 'number' ? el.text : ''}
               onChange={(e) => updateStyle('text', e.target.value)}
               onBlur={() => setEditingTextElement(null)}
               onKeyDown={(e) => {

@@ -1,5 +1,6 @@
+import { ACCESS_KEY_PATTERN, normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
 export const extractNfeAccessKey = (value: string): string | null => {
-  const digits = value.replace(/\D/g, '');
-  if (digits.length === 44) return digits;
-  return value.match(/(?:^|\D)(\d{44})(?:\D|$)/)?.[1] ?? null;
+  const key = normalizeFiscalIdentifier(value);
+  if (ACCESS_KEY_PATTERN.test(key)) return key;
+  return value.toUpperCase().match(/(?:^|[^A-Z0-9])([0-9]{6}[A-Z0-9]{12}[0-9]{26})(?:[^A-Z0-9]|$)/)?.[1] ?? null;
 };

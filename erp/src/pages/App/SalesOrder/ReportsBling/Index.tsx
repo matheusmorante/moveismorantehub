@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSalesReport, SaleItem } from './useSalesReport';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { reportDateRangeFormSchema } from '../../../../../../shared-utils/scheduleFormSchemas';
 
 const SalesOrderReportsBling = () => {
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ const SalesOrderReportsBling = () => {
     start: '2025-07-01',
     end: '2026-03-31',
   });
+  const form = useZodForm(reportDateRangeFormSchema, dateRange);
 
   useEffect(() => {
     const handleClickOutside = () => setOpenMenuId(null);
@@ -35,9 +38,10 @@ const SalesOrderReportsBling = () => {
   }, []);
 
   const handleCreateReport = async () => {
+    return form.validateAndRun(dateRange, async (values) => {
     setLoading(true);
     try {
-      const items = await fetchFromBling(dateRange.start, dateRange.end);
+      const items = await fetchFromBling(values.start, values.end);
 
       if (items.length === 0) {
         alert('Nenhum dado encontrado no Bling para este período.');
@@ -46,7 +50,7 @@ const SalesOrderReportsBling = () => {
       }
 
       const reportData = calculateABC(items, 'revenue', true);
-      const reportName = `Análise Bling ${format(new Date(dateRange.start), 'MM/yy')} - ${format(new Date(dateRange.end), 'MM/yy')}`;
+      const reportName = `Análise Bling ${format(new Date(values.start), 'MM/yy')} - ${format(new Date(values.end), 'MM/yy')}`;
 
       const newReport = await saveReport(reportName, 'bling', {}, reportData);
 
@@ -59,6 +63,7 @@ const SalesOrderReportsBling = () => {
     } finally {
       setLoading(false);
     }
+    }, (errors) => alert(Object.values(flattenFormErrors(errors))[0]));
   };
 
   return (

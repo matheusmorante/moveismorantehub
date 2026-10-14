@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Invoice, InvoiceDateFilter } from '../../types/stock.types';
 import * as stockService from '../../../../services/stockService';
 import { getDefaultInvoiceDateFilter } from '../utils/invoiceList';
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
+import { invoiceListFormSchema } from '../../../../../../shared-utils/listingFormSchemas';
 
 export const useInvoices = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -16,6 +18,7 @@ export const useInvoices = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [reloadVersion, setReloadVersion] = useState(0);
   const requestId = useRef(0);
+  const { validateAndRun: validateList } = useZodForm(invoiceListFormSchema, { page: page - 1, searchTerm, dateFilter });
 
   useEffect(() => {
     const currentRequest = ++requestId.current;
@@ -23,14 +26,11 @@ export const useInvoices = () => {
     setError(null);
 
     const timer = setTimeout(() => {
-      void stockService
-        .fetchInboundInvoicesPage({
-          page: page - 1,
-          searchTerm,
-          dateFilter,
-        })
+      void validateList({ page: page - 1, searchTerm, dateFilter }, (values) => values,
+        (errors) => { if (currentRequest === requestId.current) setError(Object.values(flattenFormErrors(errors))[0]); })
+        .then((values) => values ? stockService.fetchInboundInvoicesPage(values) : false)
         .then((result) => {
-          if (currentRequest !== requestId.current) return;
+          if (!result || currentRequest !== requestId.current) return;
           setInvoices(result.invoices);
           setTotalCount(result.totalCount);
           setTotalPages(result.totalPages);
@@ -49,7 +49,7 @@ export const useInvoices = () => {
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [page, searchTerm, dateFilter, reloadVersion]);
+  }, [page, searchTerm, dateFilter, reloadVersion, validateList]);
 
   const updateSearchTerm = useCallback((value: string) => {
     setPage(1);

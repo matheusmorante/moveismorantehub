@@ -11,3 +11,7 @@ export const inboundAccessKeyFormSchema = z.object({
   accessKey: z.string().transform(normalizeFiscalIdentifier)
     .refine((value) => validateNfeAccessKey(value).valid, 'Informe uma chave de acesso NF-e válida com 44 caracteres.'),
 });
+export const inboundXmlFileFormSchema = z.object({
+  uri: z.string().min(1, 'Selecione o arquivo XML.'), name: z.string().regex(/\.xml$/i, 'Selecione um arquivo XML.'),
+  mimeType: z.string().nullable().optional(), size: z.number().nonnegative().optional(),
+}).passthrough();

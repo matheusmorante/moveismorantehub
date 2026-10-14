@@ -12,6 +12,11 @@ import {
   View,
 } from 'react-native';
 import { Check, Edit2, Layers, Plus, Trash2, X } from 'lucide-react-native';
+import { z } from 'zod';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { catalogNameFormSchema } from '../../../../../shared-utils/catalogFormSchemas';
+
+const environmentFormSchema = catalogNameFormSchema.extend({ linkedIds: z.array(z.string().min(1)), id: z.string().optional() });
 import {
   fetchMobileCategories,
   fetchMobileEnvironments,
@@ -35,6 +40,7 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
   const [selected, setSelected] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
+  const form = useZodForm(environmentFormSchema, { name, linkedIds: selected, id: editingId });
 
   const load = async () => {
     setLoading(true);
@@ -58,14 +64,15 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
   };
 
   const save = async () => {
-    if (!name.trim()) return;
+    return form.validateAndRun({ name, linkedIds: selected, id: editingId }, async (values) => {
     try {
-      await saveMobileEnvironment(name, selected, editingId);
+      await saveMobileEnvironment(values.name, values.linkedIds, values.id);
       reset();
       await load();
     } catch (error: any) {
       Alert.alert('Não foi possível salvar', error?.message || 'Tente novamente.');
     }
+    }, (errors) => Alert.alert('Revise o ambiente', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const remove = (item: MobileEnvironment) =>

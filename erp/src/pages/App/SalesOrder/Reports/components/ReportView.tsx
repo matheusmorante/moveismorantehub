@@ -23,6 +23,9 @@ import { ABCResult, SaleItem } from '../utils/salesReportCalculations';
 import { fetchFromERP } from '../services/salesReportApiService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import ReportConfigModal from '../modals/ReportConfigModal';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { reportFiltersFormSchema } from '../modals/reportFormSchemas';
+import { toast } from 'react-toastify';
 import SupplierPerformanceView from './SupplierPerformanceView';
 
 const ReportView = () => {
@@ -70,6 +73,7 @@ const ReportView = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [minProfit, setMinProfit] = useState<number>(0);
   const [maxProfit, setMaxProfit] = useState<number>(0);
+  const { validateAndRun: validateFilters } = useZodForm(reportFiltersFormSchema, { suppliers: selectedSuppliers, minProfit, maxProfit, search: searchTerm });
 
   // Modal Config
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -399,7 +403,7 @@ const ReportView = () => {
       };
 
       if (newConfig.source === 'erp') {
-        items = await loadFromERP(config, {});
+        items = await fetchFromERP();
       } else {
         if (newConfig.csvData && newConfig.csvData.length > 0) {
           items = newConfig.csvData
@@ -526,13 +530,17 @@ const ReportView = () => {
 
       // Apenas salvar se houver mudança real no config
       if (JSON.stringify(newConfig) !== JSON.stringify(reportConfig)) {
-        await supabase.from('sales_order_reports').update({ config: newConfig }).eq('id', id);
-        setReportConfig(newConfig);
+        await validateFilters(newConfig.filters, async (values) => {
+          const validatedConfig = { ...newConfig, filters: values };
+          const { error } = await supabase.from('sales_order_reports').update({ config: validatedConfig }).eq('id', id);
+          if (error) throw error;
+          setReportConfig(validatedConfig);
+        }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])).catch(() => toast.error('Não foi possível salvar os filtros do relatório.'));
       }
     }, 1000);
 
     return () => clearTimeout(saveTimeout);
-  }, [selectedSuppliers, minProfit, maxProfit, searchTerm, id]);
+  }, [selectedSuppliers, minProfit, maxProfit, searchTerm, id, validateFilters]);
 
   useEffect(() => {
     if (rawResults.length > 0 && selectedSuppliers.length === 0 && !reportConfig?.filters) {

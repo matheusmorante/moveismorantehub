@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { labelDataFillFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
+import { searchFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
 import {
   searchProductsForLabel,
   PriceLabelCatalogProduct,
@@ -44,6 +47,9 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<PriceLabelCatalogProduct[]>([]);
   const [isSearchingProducts, setIsSearchingProducts] = useState(false);
+  const formValues = { title, normalPrice, promoPrice, centsText, currencySymbol, installments };
+  const form = useZodForm(labelDataFillFormSchema, formValues);
+  const { validateAndRun: validateSearch } = useZodForm(searchFormSchema, { search: productSearchTerm });
 
   useEffect(() => {
     if (!isOpen || dataFillTab !== 'search') return;
@@ -52,7 +58,7 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
     const timer = setTimeout(async () => {
       setIsSearchingProducts(true);
       try {
-        const results = await searchProductsForLabel(productSearchTerm);
+        const results = await validateSearch({ search: productSearchTerm }, (values) => searchProductsForLabel(values.search));
         if (isCurrent) {
           setSearchResults(Array.isArray(results) ? results : []);
         }
@@ -65,7 +71,7 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
       isCurrent = false;
       clearTimeout(timer);
     };
-  }, [isOpen, dataFillTab, productSearchTerm]);
+  }, [isOpen, dataFillTab, productSearchTerm, validateSearch]);
 
   if (!isOpen) return null;
 
@@ -322,10 +328,11 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
 
             <button
               type="button"
-              onClick={() => {
-                onClose();
-                toast.success('Campos atualizados na etiqueta!');
-              }}
+              onClick={() => form.validateAndRun(formValues, (values) => {
+                setTitle(values.title); setNormalPrice(values.normalPrice); setPromoPrice(values.promoPrice);
+                setCentsText(values.centsText); setCurrencySymbol(values.currencySymbol); setInstallments(values.installments);
+                onClose(); toast.success('Campos atualizados na etiqueta!');
+              }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]))}
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md mt-2 cursor-pointer"
             >
               Aplicar na Etiqueta

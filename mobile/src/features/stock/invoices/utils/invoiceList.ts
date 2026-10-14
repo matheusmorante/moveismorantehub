@@ -1,4 +1,5 @@
 import type { Invoice, InvoiceDateFilter } from '../../types/stock.types';
+import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
 
 export const getInvoiceMonthBounds = (month: string) => {
   const [year, monthNumber] = month.split('-').map(Number);
@@ -49,6 +50,10 @@ export const buildInboundInvoiceSearchFilter = (searchTerm: string): string | nu
   if (cleanNumber) {
     const numericPattern = `*${cleanNumber}*`;
     filters.push(`emitente_cnpj.ilike.${numericPattern}`, `chave_acesso.ilike.${numericPattern}`);
+  }
+  const fiscalIdentifier = normalizeFiscalIdentifier(term);
+  if (/[A-Z]/.test(fiscalIdentifier) && /^[A-Z0-9]+$/.test(fiscalIdentifier)) {
+    filters.push(`emitente_cnpj.ilike.*${fiscalIdentifier}*`, `chave_acesso.ilike.*${fiscalIdentifier}*`);
   }
 
   // numero_nfe is INTEGER in the database, so ilike on it makes the query fail.

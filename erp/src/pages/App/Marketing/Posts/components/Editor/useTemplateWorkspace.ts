@@ -10,6 +10,8 @@ import {
 import { compositionTemplate } from '../../services/compositionDefaults';
 import { templateService } from '../../services/templateService';
 import { nextTemplateTimestamp, scheduleTemplateSave } from '../../services/templateAutosave';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { marketingTemplateFormSchema, marketingTemplateFormValues } from '../../../../../../../../shared-utils/marketingFormSchemas';
 import { composeLayout } from '../../services/compositionLayoutEngine';
 
 export type TemplateFormat = PostLayoutFormat;
@@ -69,6 +71,7 @@ export function useTemplateWorkspace(campaign: MarketingCampaign | null, format:
   const [status, setStatus] = useState('Carregando template…');
   const [loading, setLoading] = useState(true);
   const current = useRef('');
+  const { validateAndRun: validateTemplate } = useZodForm(marketingTemplateFormSchema, marketingTemplateFormValues(compositionTemplate));
   useEffect(() => {
     let alive = true;
     setLoading(true);
@@ -116,14 +119,16 @@ export function useTemplateWorkspace(campaign: MarketingCampaign | null, format:
     if (!state?.dirty || loading) return;
     const version = state.value.id + ':' + state.value.updatedAt;
     current.current = version;
-    try {
-      scheduleTemplateSave(state.value, (message) => {
+    void validateTemplate(marketingTemplateFormValues(state.value), (values) => {
+      scheduleTemplateSave(values as MarketingTemplate, (message) => {
         if (current.current === version) setStatus(message);
       });
-    } catch {
-      setStatus('Não foi possível salvar neste navegador. Libere espaço antes de sair.');
-    }
-  }, [state, loading]);
+    }, (errors) => {
+      if (current.current === version) setStatus(Object.values(flattenFormErrors(errors))[0]);
+    }).catch(() => {
+      if (current.current === version) setStatus('Não foi possível salvar neste navegador. Libere espaço antes de sair.');
+    });
+  }, [state, loading, validateTemplate]);
   function change(update: (value: MarketingTemplate) => MarketingTemplate) {
     if (loading) return;
     setState((previous) => {

@@ -34,3 +34,6 @@ export const reportConfigFormSchema = z.object({
 
 // Persisted exclusions may include products outside the currently filtered view.
 export const itemExclusionFormSchema = z.object({ excludedItems: z.array(z.string()) });
+export const reportFiltersFormSchema = z.object({
+  suppliers: z.array(z.string()), minProfit: z.number(), maxProfit: z.number(), search: z.string(),
+});

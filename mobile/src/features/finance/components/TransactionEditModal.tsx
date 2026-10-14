@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   View,
@@ -9,8 +9,11 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { financialIntentEditFormSchema } from '../../../../../shared-utils/financialFormSchemas';
 import { X, Calendar, DollarSign, Tag, User, CreditCard, Layers } from 'lucide-react-native';
 import {
   ParsedFinancialIntent,
@@ -33,45 +36,51 @@ export const TransactionEditModal: React.FC<Props> = ({
   isDarkMode = false,
 }) => {
   const insets = useSafeAreaInsets();
-  if (!intent) return null;
-
-  const [description, setDescription] = useState(intent.description || '');
-  const [supplier, setSupplier] = useState(intent.supplier || intent.counterparty || '');
+  const [description, setDescription] = useState(intent?.description || '');
+  const [supplier, setSupplier] = useState(intent?.supplier || intent?.counterparty || '');
   const [totalAmount, setTotalAmount] = useState(
-    intent.totalAmount ? String(intent.totalAmount) : ''
+    intent?.totalAmount ? String(intent.totalAmount) : ''
   );
-  const [category, setCategory] = useState(intent.category || '');
-  const [paymentMethod, setPaymentMethod] = useState(intent.paymentMethod || 'Boleto');
-  const [dueDate, setDueDate] = useState(intent.dueDate || intent.date || '');
-  const [notes, setNotes] = useState(intent.notes || '');
+  const [category, setCategory] = useState(intent?.category || '');
+  const [paymentMethod, setPaymentMethod] = useState(intent?.paymentMethod || 'Boleto');
+  const [dueDate, setDueDate] = useState(intent?.dueDate || intent?.date || '');
+  const [notes, setNotes] = useState(intent?.notes || '');
 
   // Parcela list management
   const [installments, setInstallments] = useState<FinancialInstallment[]>(
-    intent.installmentList || []
+    intent?.installmentList || []
   );
+  const formValues = { description, supplier, totalAmount: parseFloat(totalAmount.replace(',', '.')) || intent?.totalAmount || 0, totalAmountInput: totalAmount, category, paymentMethod, dueDate, notes, installments };
+  const form = useZodForm(financialIntentEditFormSchema, formValues);
+  useEffect(() => {
+    if (!visible || !intent) return;
+    setDescription(intent.description || ''); setSupplier(intent.supplier || intent.counterparty || '');
+    setTotalAmount(intent.totalAmount ? String(intent.totalAmount) : ''); setCategory(intent.category || '');
+    setPaymentMethod(intent.paymentMethod || 'Boleto'); setDueDate(intent.dueDate || intent.date || '');
+    setNotes(intent.notes || ''); setInstallments(intent.installmentList || []);
+  }, [visible, intent]);
+  if (!intent) return null;
 
-  const handleSave = () => {
-    const numAmount = parseFloat(totalAmount.replace(',', '.')) || intent.totalAmount || 0;
-
+  const handleSave = () => form.validateAndRun(formValues, (values) => {
     const updated: ParsedFinancialIntent = {
       ...intent,
-      description,
-      supplier: supplier || intent.supplier,
-      counterparty: supplier || intent.counterparty,
-      totalAmount: numAmount,
-      category,
-      paymentMethod,
-      dueDate: dueDate || intent.dueDate,
-      date: dueDate || intent.date,
-      notes,
-      installmentList: installments.length > 0 ? installments : intent.installmentList,
+      description: values.description,
+      supplier: values.supplier || intent.supplier,
+      counterparty: values.supplier || intent.counterparty,
+      totalAmount: values.totalAmount,
+      category: values.category,
+      paymentMethod: values.paymentMethod,
+      dueDate: values.dueDate || intent.dueDate,
+      date: values.dueDate || intent.date,
+      notes: values.notes,
+      installmentList: values.installments.length > 0 ? values.installments : intent.installmentList,
       validationStatus: 'ready', // Once manually edited, user resolved any needs_input
       missingFields: [],
     };
 
     onSave(updated);
     onClose();
-  };
+  }, (errors) => Alert.alert('Revise a movimentação', Object.values(flattenFormErrors(errors))[0]));
 
   const handleUpdateInstallment = (
     index: number,
@@ -227,7 +236,7 @@ export const TransactionEditModal: React.FC<Props> = ({
                     />
                     <TextInput
                       style={[styles.instInput, isDarkMode && styles.instInputDark]}
-                      value={inst.dueDate}
+                      value={inst.dueDate || ''}
                       onChangeText={(v) => handleUpdateInstallment(idx, 'dueDate', v)}
                       placeholder="AAAA-MM-DD"
                     />

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { labelGridModelDraftFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
 import { getSettings, saveSettings, subscribeToSettings } from '../../../../utils/settingsService';
 import {
   deleteRemoteLabelLayout,
@@ -75,6 +77,7 @@ export const useLabelLayouts = ({
   const [config, setConfig] = useState<LabelConfig>(() =>
     createInitialLabelConfig(isProductContext)
   );
+  const modelForm = useZodForm(labelGridModelDraftFormSchema, { name: '', columns: 1, rows: 1, marginT: 0, marginB: 0, marginL: 0, marginR: 0, gapH: 0, gapV: 0, paperSize: 'A4', icon: '' });
   const configRef = useRef(config);
   configRef.current = config;
 
@@ -225,7 +228,8 @@ export const useLabelLayouts = ({
       name: `${model.name} (Cópia)`,
     };
 
-    const { data, error } = await insertRemoteLabelLayout(newModel);
+    return modelForm.validateAndRun(newModel, async (values) => {
+    const { data, error } = await insertRemoteLabelLayout(values);
 
     if (data && !error) {
       const saved = data;
@@ -234,12 +238,13 @@ export const useLabelLayouts = ({
       saveCustomLabelLayouts(updated);
       toast.success('Layout duplicado e salvo no banco!');
     } else {
-      const localModel: GridModel = { ...newModel, id: `custom_${Date.now()}` };
+      const localModel: GridModel = { ...values, id: `custom_${Date.now()}` };
       const updated = [...customLayouts, localModel];
       setCustomLayouts(updated);
       saveCustomLabelLayouts(updated);
       toast.success('Layout duplicado (Local)');
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const toggleDefaultLayout = (modelId: string, category: string) => {
@@ -320,7 +325,8 @@ export const useLabelLayouts = ({
       name: model.name,
     };
 
-    const { data, error } = await insertRemoteLabelLayout(newModel);
+    return modelForm.validateAndRun(newModel, async (values) => {
+    const { data, error } = await insertRemoteLabelLayout(values);
 
     if (data && !error) {
       const saved = data;
@@ -338,12 +344,13 @@ export const useLabelLayouts = ({
       toast.success(`Copiado com sucesso para ${catName}`);
     } else {
       console.error('Erro ao exportar layout:', error);
-      const localModel: GridModel = { ...newModel, id: `custom_${Date.now()}` };
+      const localModel: GridModel = { ...values, id: `custom_${Date.now()}` };
       const updated = [...customLayouts, localModel];
       setCustomLayouts(updated);
       saveCustomLabelLayouts(updated);
       toast.success('Copiado para outra categoria (Local)');
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const selectModelId = (modelId: string) => {

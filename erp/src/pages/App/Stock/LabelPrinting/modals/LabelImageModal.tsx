@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { storefrontImageUploadFormSchema } from '../../../../../../../shared-utils/storefrontProductFormSchemas';
 import {
   createLabelImage,
   deleteLabelImage,
@@ -24,6 +26,7 @@ export const LabelImageModal: React.FC<LabelImageModalProps> = ({
   const [images, setImages] = useState<readonly LabelImage[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const uploadForm = useZodForm(storefrontImageUploadFormSchema, { files: [] });
 
   const fetchImages = async () => {
     setLoading(true);
@@ -43,12 +46,16 @@ export const LabelImageModal: React.FC<LabelImageModalProps> = ({
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const validated = await uploadForm.validateAndRun({ files: [file] }, (values) => values,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    const selectedFile = validated.files[0];
 
     setUploading(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
-      const name = file.name.split('.')[0].toUpperCase();
+      const name = selectedFile.name.split('.')[0].toUpperCase();
 
       try {
         const image = await createLabelImage({
@@ -65,7 +72,7 @@ export const LabelImageModal: React.FC<LabelImageModalProps> = ({
         setUploading(false);
       }
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(selectedFile);
   };
 
   const handleDelete = async (e: React.MouseEvent, id: number) => {

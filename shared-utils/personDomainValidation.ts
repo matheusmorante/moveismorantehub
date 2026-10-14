@@ -29,6 +29,8 @@ export const createPersonFormSchema = (
     position: z.string().optional().nullable(),
     marketingOrigin: z.string().optional().nullable(),
     noAddress: z.boolean().optional(),
+    leadTime: z.preprocess((value) => value === '' || value === null ? 0 : typeof value === 'string' ? Number(value) : value,
+      z.number().nonnegative('Informe um prazo numérico maior ou igual a zero.')).optional(),
     fullAddress: z
       .object({
         cep: z.string().optional(),

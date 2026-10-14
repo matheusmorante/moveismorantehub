@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { deliveryRouteFormSchema, deliveryFinishFormSchema } from '../../../../../shared-utils/operationsFormSchemas';
 import { supabase } from '../../../services/supabaseClient';
 import { formatFullAddress, formatOrderCode } from '../../../utils/orderUtils';
 import { buildDeliveryChecklist } from '../utils/deliveryChecklist';
@@ -53,6 +55,8 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
   });
 
   const checklist = useMemo(() => buildDeliveryChecklist(order), [order]);
+  const routeForm = useZodForm(deliveryRouteFormSchema, { orderId: String(order.id || ''), checklist: checklist.map((item) => ({ ...item, checked: Boolean(checked[item.id]) })) });
+  const finishForm = useZodForm(deliveryFinishFormSchema, { orderId: String(order.id || ''), payments });
   const data = deliveryData;
   const customer = data.customerData || {};
   const fullAddress = formatFullAddress(data.shipping || {}, customer);
@@ -71,12 +75,13 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
   // 1. Iniciar Rota
   const handleStartRoute = async () => {
     if (saving) return;
+    return routeForm.validateAndRun({ orderId: String(order.id || ''), checklist: checklist.map((item) => ({ ...item, checked: Boolean(checked[item.id]) })) }, async (values) => {
     setSaving(true);
     const now = new Date().toISOString();
     const payload = {
       deliveryStatus: 'in_progress',
       deliveryStartedAt: now,
-      deliveryChecklist: checklist.map((item) => ({ ...item, checked: Boolean(checked[item.id]) })),
+      deliveryChecklist: values.checklist,
     };
     const updatedData = {
       ...data,
@@ -88,7 +93,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     setDeliveryData(updatedData);
 
     // Registra evento atômico na fila offline (tenta enviar em background)
-    await offlineSyncManager.recordEvent('DELIVERY_START_ROUTE', 'order', order.id, payload);
+    await offlineSyncManager.recordEvent('DELIVERY_START_ROUTE', 'order', values.orderId, payload);
 
     // Notifica Supabase imediatamente que o entregador iniciou a rota e está compartilhando localização
     if (userProfile?.id) {
@@ -103,6 +108,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
       'Em Rota',
       'A saída para entrega foi registrada. Sua localização agora está visível para a equipe.'
     );
+    }, (errors) => Alert.alert('Revise a entrega', Object.values(flattenFormErrors(errors))[0]));
   };
 
   // 2. Cheguei no Destino
@@ -140,12 +146,13 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
       );
       return;
     }
+    return finishForm.validateAndRun({ orderId: String(order.id || ''), payments }, async (values) => {
     setSaving(true);
     const now = new Date().toISOString();
-    const paidAmount = payments.reduce((total, payment) => total + Number(payment.amount || 0), 0);
+    const paidAmount = values.payments.reduce((total, payment) => total + Number(payment.amount || 0), 0);
     const totalValue = Number(data.paymentsSummary?.totalOrderValue || paidAmount);
     const payload = {
-      payments,
+      payments: values.payments,
       paymentsSummary: {
         ...data.paymentsSummary,
         totalOrderValue: totalValue,
@@ -168,7 +175,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     setDeliveryData(updatedData);
 
     // Registra evento atômico de finalização na fila offline
-    await offlineSyncManager.recordEvent('DELIVERY_FINISH', 'order', order.id, payload);
+    await offlineSyncManager.recordEvent('DELIVERY_FINISH', 'order', values.orderId, payload);
 
     // Encerra imediatamente o compartilhamento de localização da equipe
     if (userProfile?.id) {
@@ -179,6 +186,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     Alert.alert('🎉 Entrega Finalizada!', fulfillmentLabels.successMessage, [
       { text: 'OK', onPress: () => onBack(true) },
     ]);
+    }, (errors) => Alert.alert('Revise a entrega', Object.values(flattenFormErrors(errors))[0]));
   };
 
   // 4. Registrar Não Atendido

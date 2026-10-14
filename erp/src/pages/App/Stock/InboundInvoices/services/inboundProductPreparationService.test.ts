@@ -36,7 +36,7 @@ describe('SKU interno no cadastro rápido da nota', () => {
     expect(form.variations?.[0].sku).toBe('000123-01');
   });
 
-  it('gera o próximo SKU do pai existente sem alterar suas variações anteriores', async () => {
+  it('reutiliza o menor SKU disponível sem alterar as variações anteriores', async () => {
     const parent = {
       id: 'pai-teste',
       code: '000123',
@@ -54,7 +54,8 @@ describe('SKU interno no cadastro rápido da nota', () => {
     } as any as Product;
     const result = await prepareExistingParentNewVariation(parent, item);
     expect(result.variations?.[0]).toEqual(parent.variations?.[0]);
-    expect(result.variations?.[1].sku).toBe('000123-06');
+    expect(result.variations?.[1].sku).toBe('000123-01');
+    expect(result.variations?.[1].sku).not.toBe(parent.variations?.[0].sku);
     expect(parent.variations).toHaveLength(1);
     expect(result.variations?.some((variation) => variation.sku === item.productCode)).toBe(false);
   });

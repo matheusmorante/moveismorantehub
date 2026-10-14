@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inboundInvoiceMappingFormSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import { saveInboundInvoice } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
@@ -27,6 +29,7 @@ export function ManageInboundInvoiceMappingsModal({
   const [suppliers, setSuppliers] = useState<Person[]>([]);
   const [newSupplier, setNewSupplier] = useState(false);
   const [checkedMappingsKey, setCheckedMappingsKey] = useState<string | null>(null);
+  const mappingForm = useZodForm(inboundInvoiceMappingFormSchema, { items: [] });
   const mappingsKey = `${invoice?.supplierId || ''}:${invoice?.items?.map((item) => `${item.itemNumber}:${item.productCode}`).join('|') || ''}`;
 
   useEffect(() => {
@@ -122,14 +125,17 @@ export function ManageInboundInvoiceMappingsModal({
   const hasMatchedProducts = invoice.items.some((item) => Boolean(item.matchedProductId));
 
   const persistInvoice = async (nextInvoice: InboundInvoice, previousInvoice: InboundInvoice) => {
-    setInvoice(nextInvoice);
+    return mappingForm.validateAndRun({ ...nextInvoice, items: nextInvoice.items.map((item) => ({ ...item })) }, async (values) => {
+    const parsedInvoice = values as unknown as InboundInvoice;
+    setInvoice(parsedInvoice);
     try {
-      await saveInboundInvoice(nextInvoice);
+      await saveInboundInvoice(parsedInvoice);
       onSaveSuccess();
     } catch (error: any) {
       setInvoice(previousInvoice);
       toast.error(error.message || 'Não foi possível salvar a alteração do vínculo.');
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const setSupplier = (id: string) => {

@@ -45,7 +45,7 @@ const emptyForm = () => ({
   },
 });
 const formatDocument = (value: string, personType: string) => {
-  const digits = value.replace(/\D/g, '').slice(0, personType === 'PJ' ? 14 : 11);
+  const digits = (personType === 'PJ' ? value.toUpperCase().replace(/[^0-9A-Z]/g, '') : value.replace(/\D/g, '')).slice(0, personType === 'PJ' ? 14 : 11);
   if (personType === 'PJ') {
     return [
       digits.slice(0, 2),
@@ -167,7 +167,7 @@ export const SupplierFormModal: React.FC<Props> = ({
     const validated = await personForm.validateAndRun(form, (data) => data,
       (errors) => Alert.alert('Campo obrigatório', Object.values(flattenFormErrors(errors))[0]));
     if (!validated) return;
-    const name = form.fullName.trim();
+    const name = validated.fullName!.trim();
     if (!name) {
       Alert.alert(
         'Campo obrigatório',
@@ -181,11 +181,11 @@ export const SupplierFormModal: React.FC<Props> = ({
         ...validated,
         id: supplier?.id,
         fullName: name,
-        leadTime: Number(form.leadTime) || 0,
-        personType: form.personType,
+        leadTime: validated.leadTime || 0,
+        personType: validated.personType,
         type: 'suppliers',
-        active: form.active !== false,
-        fullAddress: form.fullAddress,
+        active: validated.active !== false,
+        fullAddress: validated.fullAddress,
         isDraft: false,
       });
       onClose();

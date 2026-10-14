@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { Plus, Tag, Trash2, X } from 'lucide-react-native';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { catalogNameFormSchema } from '../../../../../shared-utils/catalogFormSchemas';
 import {
   deleteMobileProductType,
   fetchMobileProductTypes,
@@ -30,6 +32,7 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
   const [types, setTypes] = useState<MobileProductType[]>([]);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const form = useZodForm(catalogNameFormSchema, { name });
 
   const load = async () => {
     setLoading(true);
@@ -47,14 +50,15 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
   }, [visible]);
 
   const add = async () => {
-    if (!name.trim()) return;
+    return form.validateAndRun({ name }, async (values) => {
     try {
-      await saveMobileProductType(name);
+      await saveMobileProductType(values.name);
       setName('');
       await load();
     } catch (error: any) {
       Alert.alert('Não foi possível salvar', error?.message || 'Tente novamente.');
     }
+    }, (errors) => Alert.alert('Revise o tipo', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const remove = (item: MobileProductType) =>

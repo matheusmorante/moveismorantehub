@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { labelAssetFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
 import labelMdf from '../../../../../assets/label_mdf.png';
 import logoMorante from '../../../../../assets/logo-morante.svg';
 import { CustomLabel, LabelConfig } from '../utils/LabelConstants';
@@ -50,6 +52,8 @@ export const useLabelModalsAndAssets = ({
   const [editingLabel, setEditingLabel] = useState<CustomLabel | null>(null);
   const [labelFormName, setLabelFormName] = useState('');
   const [labelFormImage, setLabelFormImage] = useState('');
+  const logoForm = useZodForm(labelAssetFormSchema, { name: newLogoName, image: newLogoImage });
+  const labelForm = useZodForm(labelAssetFormSchema, { name: labelFormName, image: labelFormImage });
 
   // Logos disponíveis
   const [availableLogos, setAvailableLogos] = useState<LabelLogoAsset[]>(() => {
@@ -66,16 +70,11 @@ export const useLabelModalsAndAssets = ({
     }
   }, [location.pathname]);
 
-  const handleConfirmNewLogo = () => {
-    if (!newLogoName.trim()) {
-      toast.error('Informe um nome para a imagem.');
-      return;
-    }
-
+  const handleConfirmNewLogo = async () => logoForm.validateAndRun({ name: newLogoName, image: newLogoImage }, (values) => {
     const newLogo = {
       id: `logo_${Date.now()}`,
-      image: newLogoImage,
-      name: newLogoName.trim(),
+      image: values.image,
+      name: values.name,
     };
 
     const updated = [...availableLogos, newLogo];
@@ -86,7 +85,7 @@ export const useLabelModalsAndAssets = ({
     setNewLogoName('');
     setNewLogoImage('');
     toast.success('Logotipo adicionado ao seu banco de imagens!');
-  };
+  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
 
   const handleDeleteAvailableLogo = (id: string) => {
     if (!window.confirm('Excluir este logotipo do seu banco de imagens?')) return;
@@ -132,16 +131,11 @@ export const useLabelModalsAndAssets = ({
     toast.success(`${logo.name} adicionado à fila.`);
   };
 
-  const handleSaveCustomLabel = () => {
-    if (!labelFormName.trim() || !labelFormImage) {
-      toast.error('Preencha o nome e selecione uma imagem.');
-      return;
-    }
-
+  const handleSaveCustomLabel = async () => labelForm.validateAndRun({ name: labelFormName, image: labelFormImage }, (values) => {
     const newLabel: CustomLabel = {
       id: editingLabel?.id || `label_${Date.now()}`,
-      name: labelFormName.trim().toUpperCase(),
-      image: labelFormImage,
+      name: values.name.toUpperCase(),
+      image: values.image,
       extraFields:
         editingLabel?.extraFields || config.extraFields
           ? JSON.parse(JSON.stringify(config.extraFields))
@@ -163,7 +157,7 @@ export const useLabelModalsAndAssets = ({
     setLabelFormName('');
     setLabelFormImage('');
     toast.success(editingLabel ? 'Rótulo atualizado!' : 'Rótulo criado com sucesso!');
-  };
+  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
 
   const handleDeleteCustomLabel = (id: string) => {
     if (!window.confirm('Excluir este rótulo permanentemente?')) return;

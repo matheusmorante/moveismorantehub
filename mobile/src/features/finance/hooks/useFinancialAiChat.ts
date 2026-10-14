@@ -1,4 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { textPromptFormSchema } from '../../../../../shared-utils/assistedFormSchemas';
+import { financialIntentDraftFormSchema, financialTransactionFormSchema } from '../../../../../shared-utils/financialFormSchemas';
 import { ScrollView, Alert } from 'react-native';
 import {
   FinancialCategory,
@@ -37,6 +40,9 @@ export function useFinancialAiChat({
   userName = 'Operador',
 }: UseFinancialAiChatProps) {
   const [inputText, setInputText] = useState('');
+  const inputForm = useZodForm(textPromptFormSchema, { text: inputText });
+  const intentForm = useZodForm(financialIntentDraftFormSchema, {});
+  const transactionForm = useZodForm(financialTransactionFormSchema, { description: '', amount: 0, type: 'expense', date: '', payment_method: '' });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingIntent, setPendingIntent] = useState<ParsedFinancialIntent | null>(null);
@@ -263,7 +269,7 @@ export function useFinancialAiChat({
   const handleSendMessage = async (textToSend?: string) => {
     const messageText = (textToSend || inputText).trim();
     if (!messageText || loading) return;
-
+    return inputForm.validateAndRun({ text: messageText }, async ({ text: messageText }) => {
     setInputText('');
     setLivePill(null);
     const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -330,6 +336,7 @@ export function useFinancialAiChat({
       setLoading(false);
       scrollToBottom();
     }
+    }, (errors) => Alert.alert('Revise a mensagem', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const resetInactivityTimer = () => {
@@ -494,12 +501,13 @@ export function useFinancialAiChat({
 
   const handleConfirmRegister = async () => {
     if (!pendingIntent || registering) return;
+    return intentForm.validateAndRun({ ...pendingIntent }, async (values) => {
 
     setRegistering(true);
     markActiveTimelineCard('SAVING');
 
     const draftIdKey = `${pendingIntent.supplier || pendingIntent.description}_${pendingIntent.totalAmount || pendingIntent.amount}_${pendingIntent.installmentList?.length || 1}`;
-    const res = await confirmFinancialDraft(pendingIntent, draftIdKey, userName);
+    const res = await confirmFinancialDraft(values as ParsedFinancialIntent, draftIdKey, userName);
 
     setRegistering(false);
 
@@ -512,16 +520,18 @@ export function useFinancialAiChat({
       markActiveTimelineCard('ERROR');
       Alert.alert('Erro ao Salvar', res.error || 'Nao foi possivel registrar a movimentacao.');
     }
+    }, (errors) => Alert.alert('Revise a movimentação', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const handleConfirmTimelineCard = async (cardId: string, intent: ParsedFinancialIntent) => {
     if (confirmingTimelineCardIdsRef.current.has(cardId)) return;
+    return intentForm.validateAndRun({ ...intent }, async (values) => {
 
     confirmingTimelineCardIdsRef.current.add(cardId);
     setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, 'SAVING'));
 
     try {
-      const res = await confirmFinancialDraft(intent, `agent-card_${cardId}`, userName);
+      const res = await confirmFinancialDraft(values as ParsedFinancialIntent, `agent-card_${cardId}`, userName);
 
       if (res.success) {
         setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, 'SAVED'));
@@ -534,6 +544,7 @@ export function useFinancialAiChat({
     } finally {
       confirmingTimelineCardIdsRef.current.delete(cardId);
     }
+    }, (errors) => Alert.alert('Revise a movimentação', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const handleSelectCandidate = (candidate: any) => {
@@ -565,19 +576,19 @@ export function useFinancialAiChat({
       }
 
       setRegistering(true);
-      await createFinancialTransaction({
-        type: draftToRegister.type,
+      const saved = await transactionForm.validateAndRun({
+        type: draftToRegister.type || 'expense',
         amount: amountValue,
-        description: draftToRegister.description,
-        category_name: draftToRegister.categoryName,
-        payment_method: draftToRegister.paymentMethod,
+        description: draftToRegister.description || '',
+        payment_method: draftToRegister.paymentMethod || '',
         date: draftToRegister.date || new Date().toISOString().split('T')[0],
-        purpose:
+      }, async (values) => { await createFinancialTransaction({ ...values, category_name: draftToRegister.categoryName, purpose:
           draftToRegister.businessPurpose && draftToRegister.businessPurpose !== 'UNKNOWN'
             ? draftToRegister.businessPurpose
             : null,
-      });
+      }); return true; }, (errors) => Alert.alert('Revise a movimentação', Object.values(flattenFormErrors(errors))[0]));
       setRegistering(false);
+      if (!saved) return;
       onTransactionRegistered();
       finishActiveTimelineCard('SAVED');
     } catch (err) {

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { copyLabelImageToClipboard, downloadLabelImage } from '../services/priceLabelExportService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { labelPartialConfigFormSchema, labelArtSnapshotSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
 import { PriceLabelArtRenderer } from '../components/PriceLabelArtRenderer';
 import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
 import { usePriceLabelState } from '../hooks/usePriceLabelState';
@@ -35,6 +37,8 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
   onArtConfigLoaded,
   initialProduct,
 }) => {
+  const { validateAndRun: validateConfig } = useZodForm(labelPartialConfigFormSchema, {});
+  const { validateAndRun: validateArtwork } = useZodForm(labelArtSnapshotSchema, {});
   const isStandaloneTemplate = window.location.pathname === '/templates/price-label';
   const [isDataFillModalOpen, setIsDataFillModalOpen] = useState(false);
   const rawArtworkSize = calculateLabelPhysicalSize(config);
@@ -550,7 +554,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     const operation = saveQueueRef.current
       .catch(() => undefined)
       .then(() =>
-        onSaveConfig(
+        validateConfig(
           buildPriceLabelAutoSaveConfig({
             artConfig: config.artConfig,
             snapshot,
@@ -572,8 +576,10 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             dePricePorGroupPos,
             dePricePorGroupRotation,
             dePricePorGroupGap,
-          })
-        )
+          }),
+          async (values) => { await onSaveConfig(values); return true; },
+          (errors) => { throw new Error(Object.values(flattenFormErrors(errors))[0]); }
+        ).then((saved) => { if (!saved) throw new Error('Não foi possível validar a etiqueta.'); })
       )
       .then(() => {
         if (latestRequestedSnapshotRef.current === serialized) setAutoSaveStatus('saved');
@@ -1348,14 +1354,14 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     },
   ];
 
-  const handleCopyImage = () => copyLabelImageToClipboard(previewRef.current);
+  const handleCopyImage = () => validateArtwork(getSnapshot(), () => copyLabelImageToClipboard(previewRef.current), (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
 
-  const handleDownloadPng = () => {
+  const handleDownloadPng = () => validateArtwork(getSnapshot(), () => {
     downloadLabelImage(
       previewRef.current,
       'etiqueta_preco_' + selectedOppId + '_' + Date.now() + '.png'
     );
-  };
+  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
 
   return (
     <div

@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { X, Calendar as CalendarIcon, Clock, Tag, FileText, Check } from 'lucide-react-native';
 import { createCalendarEvent, CalendarEvent } from '../../../services/scheduleEventsService';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { calendarEventFormSchema } from '../../../../../shared-utils/scheduleFormSchemas';
 
 interface Props {
   visible: boolean;
@@ -51,26 +53,20 @@ export const CreateEventModal: React.FC<Props> = ({
   const [selectedType, setSelectedType] = useState<CalendarEvent['type']>('REUNION');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const formValues = { title, date, timeOrPeriod, selectedType, notes };
+  const form = useZodForm(calendarEventFormSchema, formValues);
 
   const handleSave = async () => {
-    if (!title.trim()) {
-      Alert.alert('Campo Obrigatório', 'Informe o título do compromisso.');
-      return;
-    }
-    if (!date.trim()) {
-      Alert.alert('Campo Obrigatório', 'Informe a data do compromisso.');
-      return;
-    }
-
+    return form.validateAndRun(formValues, async (values) => {
     setSaving(true);
-    const typeObj = EVENT_TYPES.find((t) => t.id === selectedType);
+    const typeObj = EVENT_TYPES.find((t) => t.id === values.selectedType);
     const res = await createCalendarEvent({
-      title: title.trim(),
-      date: date.trim(),
-      time_or_period: timeOrPeriod,
-      type: selectedType,
+      title: values.title,
+      date: values.date,
+      time_or_period: values.timeOrPeriod,
+      type: values.selectedType,
       type_label: typeObj?.label || 'Evento',
-      notes: notes.trim() || null,
+      notes: values.notes || null,
     });
     setSaving(false);
 
@@ -83,6 +79,7 @@ export const CreateEventModal: React.FC<Props> = ({
     } else {
       Alert.alert('Erro', res.error || 'Não foi possível salvar o compromisso.');
     }
+    }, (errors) => Alert.alert('Revise o compromisso', Object.values(flattenFormErrors(errors))[0]));
   };
 
   return (

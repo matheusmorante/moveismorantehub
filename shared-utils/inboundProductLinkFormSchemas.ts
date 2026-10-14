@@ -35,3 +35,23 @@ export function createInboundProductLinkSchema(itemNumbers: readonly number[]) {
     productErpName: z.string().optional(),
   });
 }
+
+/** Only editable mapping fields are checked; original NF XML/metadata are preserved. */
+export const inboundInvoiceMappingFormSchema = z.object({
+  id: z.string().optional(), supplierId: identifier.optional(),
+  items: z.array(z.object({
+    itemNumber: z.number().int().positive(), matchedProductId: identifier.optional(), matchedVariationId: identifier.optional(),
+    linkedProductCode: z.string().optional(), productErpName: z.string().optional(),
+  }).passthrough()),
+}).passthrough();
+export const mobileInboundMappingsFormSchema = z.object({
+  invoiceId: identifier, supplierId: z.string(),
+  items: z.array(z.object({
+    itemNumber: z.number().int().positive(), productCode: z.string(), productDescription: z.string(),
+    matchedProductId: identifier.optional(), matchedVariationId: identifier.optional(),
+    linkMode: z.enum(['single', 'composition']).optional(), sellingPrice: z.number().nonnegative().optional(),
+    compositionLinks: z.array(z.object({
+      id: identifier, productId: identifier, variationId: identifier.optional(), quantityMultiplier: z.number().positive(),
+    }).passthrough()).optional(),
+  }).passthrough()),
+});

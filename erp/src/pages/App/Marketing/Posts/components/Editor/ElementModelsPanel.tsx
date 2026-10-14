@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { marketingElementSaveFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
+import { storefrontImageUploadFormSchema } from '../../../../../../../../shared-utils/storefrontProductFormSchemas';
 import { uploadFile } from '@/pages/utils/storageService';
 import { Layer, DynamicTextLayer } from '../../types';
 import {
@@ -27,6 +30,8 @@ export function ElementModelsPanel({
   const [models, setModels] = useState<ElementModel[]>([]),
     [busy, setBusy] = useState(false);
   const layer = layers.find((l) => l.id === selected);
+  const modelForm = useZodForm(marketingElementSaveFormSchema, { name: '', layer: { id: '', name: '', type: 'ASSET', x: 0, y: 0, width: 0, rotation: 0, zIndex: 0, opacity: 1, locked: false, visible: true } });
+  const uploadForm = useZodForm(storefrontImageUploadFormSchema, { files: [] });
   useEffect(() => {
     loadElementModels()
       .then(setModels)
@@ -36,12 +41,10 @@ export function ElementModelsPanel({
     if (!layer?.role) return;
     const name = window.prompt('Nome do modelo deste elemento:');
     if (!name?.trim()) return;
+    return modelForm.validateAndRun({ name, layer: { ...layer, opportunityId: layer.role === 'badge' ? opportunityId : undefined } }, async (values) => {
     setBusy(true);
     try {
-      const saved = await saveElementModel(name.trim(), {
-        ...layer,
-        opportunityId: layer.role === 'badge' ? opportunityId : undefined,
-      });
+      const saved = await saveElementModel(values.name, values.layer);
       setModels(await loadElementModels());
       onMessage(
         saved.persistedRemotely
@@ -53,6 +56,7 @@ export function ElementModelsPanel({
     } finally {
       setBusy(false);
     }
+    }, (errors) => onMessage(Object.values(flattenFormErrors(errors))[0]));
   }
   async function upload(file?: File) {
     if (!file || !layer) return;
@@ -60,9 +64,13 @@ export function ElementModelsPanel({
       onMessage('Use PNG, WebP ou JPEG.');
       return;
     }
+    const validated = await uploadForm.validateAndRun({ files: [file] }, (values) => values,
+      (errors) => onMessage(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
     setBusy(true);
     try {
-      const url = await uploadFile(file, `marketing/elements/${crypto.randomUUID()}-${file.name}`);
+      const selectedFile = validated.files[0];
+      const url = await uploadFile(selectedFile, `marketing/elements/${crypto.randomUUID()}-${selectedFile.name}`);
       onChange({
         ...layer,
         type: 'ASSET',

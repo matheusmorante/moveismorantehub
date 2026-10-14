@@ -20,6 +20,9 @@ import {
 } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase/client';
 import { ProductFilter } from '@/features/products/components/product-filter';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { storefrontFilterChangeFormSchema } from '../../../shared-utils/catalogFormSchemas';
+import { toast } from 'sonner';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -77,6 +80,7 @@ function HomeContent() {
   const opportunities = useMemo(() => catalogMeta?.opportunities || [], [catalogMeta?.opportunities]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const { validateAndRun: validateFilterChange } = useZodForm(storefrontFilterChangeFormSchema, {});
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   // Bloqueia scroll do body quando sidebar aberta
@@ -152,7 +156,7 @@ function HomeContent() {
   }, [searchParams, categories, opportunities]);
 
   const handleFilterChange = useCallback(
-    (newFilters: any) => {
+    (nextInput: any) => validateFilterChange(nextInput, (newFilters) => {
       const isProductSearch =
         typeof newFilters.search === 'string' && newFilters.search.trim().length > 0;
       const nextFilters = isProductSearch ? { ...newFilters, envs: [], cats: [] } : newFilters;
@@ -230,8 +234,8 @@ function HomeContent() {
       }));
 
       router.push(targetUrl, { scroll: false });
-    },
-    [searchParams, router, categories, opportunities]
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])),
+    [searchParams, router, categories, opportunities, validateFilterChange]
   );
 
   const clearFilters = useCallback(() => {

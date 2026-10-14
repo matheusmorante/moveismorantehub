@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
+import { z } from 'zod';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { catalogNameFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import {
   fetchEnvironments,
   fetchCategories,
@@ -44,6 +47,12 @@ export function useCategoriesAndEnvironments() {
   const [initialAttributeIds, setInitialAttributeIds] = useState<string[]>([]);
   const [isLoadingAttributes, setIsLoadingAttributes] = useState<boolean>(false);
   const [attributeLoadFailed, setAttributeLoadFailed] = useState<boolean>(false);
+  const categorySchema = catalogNameFormSchema.extend({
+    name: catalogNameFormSchema.shape.name.transform((value) => value.trim().toUpperCase()),
+    linkedIds: z.array(z.string().min(1)),
+    attributes: z.array(z.object({ id: z.string().min(1), name: z.string(), isRequired: z.boolean() }).passthrough()),
+  });
+  const { validateAndRun: validateCategory } = useZodForm(categorySchema, { name: nameInput, linkedIds: selectedLinks, attributes: selectedAttributes.map((attribute) => ({ ...attribute })) });
 
   const loadData = useCallback(async (silent: boolean = false) => {
     if (!silent) setLoading(true);
@@ -94,7 +103,8 @@ export function useCategoriesAndEnvironments() {
   const handleSave = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      const name = nameInput.trim().toUpperCase();
+      return validateCategory({ name: nameInput, linkedIds: selectedLinks, attributes: selectedAttributes.map((attribute) => ({ ...attribute })) }, async (values) => {
+      const name = values.name;
       if (!name) {
         toast.error('O nome não pode estar vazio.');
         return;
@@ -119,16 +129,16 @@ export function useCategoriesAndEnvironments() {
       try {
         if (editingNode?.id) {
           if (isEnv) {
-            await updateEnvironment(editingNode.id, name, selectedLinks);
+            await updateEnvironment(editingNode.id, name, values.linkedIds);
           } else {
-            await updateCategory(editingNode.id, name, selectedLinks, selectedAttributes);
+            await updateCategory(editingNode.id, name, values.linkedIds, values.attributes);
           }
           toast.success(isEnv ? 'Ambiente atualizado!' : 'Categoria atualizada!');
         } else {
           if (isEnv) {
-            await createEnvironment(name, selectedLinks);
+            await createEnvironment(name, values.linkedIds);
           } else {
-            await createCategory(name, selectedLinks, selectedAttributes, {
+            await createCategory(name, values.linkedIds, values.attributes, {
               meta_title: `${name} | Móveis Morante`,
             });
           }
@@ -142,6 +152,7 @@ export function useCategoriesAndEnvironments() {
       } finally {
         setIsSubmitting(false);
       }
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
     },
     [
       nameInput,
@@ -155,6 +166,7 @@ export function useCategoriesAndEnvironments() {
       attributeLoadFailed,
       closeForm,
       loadData,
+      validateCategory,
     ]
   );
 

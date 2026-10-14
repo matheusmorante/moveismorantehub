@@ -12,6 +12,11 @@ describe('extractNfeAccessKey', () => {
   it('extracts a standalone key embedded in a QR URL', () => {
     expect(extractNfeAccessKey(`https://sefaz.example/nfe?chNFe=${key}&version=2`)).toBe(key);
   });
+  it('preserves the alphanumeric CNPJ segment in barcode and QR payloads', () => {
+    const alphaKey = key.slice(0, 10) + 'A' + key.slice(11);
+    expect(extractNfeAccessKey(alphaKey.toLowerCase())).toBe(alphaKey);
+    expect(extractNfeAccessKey(`https://sefaz.example/nfe?chNFe=${alphaKey}&version=2`)).toBe(alphaKey);
+  });
 
   it('rejects payloads without exactly one standalone 44-digit key', () => {
     expect(extractNfeAccessKey('123456789')).toBeNull();

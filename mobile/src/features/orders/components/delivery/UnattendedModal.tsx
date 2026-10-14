@@ -10,13 +10,15 @@ import {
   Alert,
 } from 'react-native';
 import { X, AlertTriangle, Camera, Check } from 'lucide-react-native';
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
+import { unattendedDeliveryFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
 
 const UNATTENDED_REASONS = [
   'Cliente Ausente',
   'Ninguém Atendeu no Local',
   'Cliente Recusou Recebimento',
   'Outro Motivo',
-];
+] as const;
 
 interface Props {
   visible: boolean;
@@ -33,22 +35,21 @@ export const UnattendedModal: React.FC<Props> = ({
   isDarkMode,
   customerName,
 }) => {
-  const [selectedReason, setSelectedReason] = useState(UNATTENDED_REASONS[0]);
+  const [selectedReason, setSelectedReason] = useState<(typeof UNATTENDED_REASONS)[number]>(UNATTENDED_REASONS[0]);
   const [notes, setNotes] = useState('');
   const [proofUrls, setProofUrls] = useState<string[]>(['']);
   const [submitting, setSubmitting] = useState(false);
+  const form = useZodForm(unattendedDeliveryFormSchema, { reason: selectedReason, notes, proofUrls });
 
   const handleConfirm = async () => {
-    if (!selectedReason) {
-      Alert.alert('Atenção', 'Selecione o motivo do não atendimento.');
-      return;
-    }
+    return form.validateAndRun({ reason: selectedReason, notes, proofUrls }, async (values) => {
     setSubmitting(true);
     try {
-      await onConfirm(selectedReason, notes, proofUrls.filter(Boolean));
+      await onConfirm(values.reason, values.notes, values.proofUrls.filter(Boolean));
     } finally {
       setSubmitting(false);
     }
+    }, (errors) => Alert.alert('Revise o registro', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const updateProofUrl = (index: number, value: string) => {

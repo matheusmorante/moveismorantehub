@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createProductVariationFormSchema } from '../../../../../../../shared-utils/productVariationValidation';
 import type Person from '@/pages/types/person.type';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
@@ -83,6 +85,9 @@ export function useProductFormModal({
   });
   const latestFormDataRef = useRef(formData);
   latestFormDataRef.current = formData;
+  const { validateAndRun: validateSavedVariation } = useZodForm(createProductVariationFormSchema(formData), {
+    id: '', sku: '', name: '', stock: 0, unitPrice: 0, active: true, attributes: [],
+  });
   const isTestArtifact = Boolean(readTestArtifactIdentity(formData));
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -386,6 +391,10 @@ export function useProductFormModal({
 
   const handleSaveVariation = useCallback(
     async (updatedVar: Variation): Promise<boolean> => {
+      const validated = await validateSavedVariation({ ...updatedVar }, (values) => values,
+        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+      if (!validated) return false;
+      updatedVar = validated as Variation;
       const current = latestFormDataRef.current;
       const sku = updatedVar.sku?.trim().toLocaleUpperCase();
       const duplicateSku = (current.variations || []).some(
@@ -439,7 +448,7 @@ export function useProductFormModal({
         return false;
       }
     },
-    [autoSaveDraft, isDraftProduct, pendingNewVariationIdRef, setEditingVariationId]
+    [autoSaveDraft, isDraftProduct, pendingNewVariationIdRef, setEditingVariationId, validateSavedVariation]
   );
 
   const handleDeleteVariation = useCallback(

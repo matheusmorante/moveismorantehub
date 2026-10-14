@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { marketingImageSelectionFormSchema } from '../../../../../shared-utils/marketingFormSchemas';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { usePostEditor } from './components/Editor/usePostEditor';
 import { CampaignElementsPanel } from './components/CampaignElementsPanel';
@@ -43,6 +45,10 @@ export default function MarketingPostsManager() {
   const [viewing, setViewing] = useState<ElementModel>();
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [manualSelection, setManualSelection] = useState<ProductImageSelectionState | null>(null);
+  const selectionForm = useZodForm(marketingImageSelectionFormSchema, { productId: '', selection: {} });
+  const persistSelection = (productId: string, selection: ProductImageSelectionState, message: string) => selectionForm.validateAndRun({ productId, selection: { ...selection } }, (values) => {
+    setManualSelection(values.selection); saveProductImageSelection(values.productId, values.selection); toast.success(message);
+  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
 
   const loadGlobalRules = useCallback(() => postCreatorService.globalGuidelines(), []);
   const saveGlobalRules = useCallback(async (value: string) => {
@@ -145,9 +151,7 @@ export default function MarketingPostsManager() {
       ...manualSelection,
       primaryUrl: url,
     };
-    setManualSelection(next);
-    saveProductImageSelection(effectiveProductForPreview.id, next);
-    toast.success('Imagem principal selecionada e salva!');
+    void persistSelection(effectiveProductForPreview.id, next, 'Imagem principal selecionada e salva!');
   };
 
   const handleChangeOpenView = (url: string | null) => {
@@ -156,9 +160,7 @@ export default function MarketingPostsManager() {
       ...manualSelection,
       openViewUrl: url,
     };
-    setManualSelection(next);
-    saveProductImageSelection(effectiveProductForPreview.id, next);
-    toast.success(url ? 'Imagem secundária selecionada e salva!' : 'Imagem secundária removida.');
+    void persistSelection(effectiveProductForPreview.id, next, url ? 'Imagem secundária selecionada e salva!' : 'Imagem secundária removida.');
   };
 
   const handleChangeVariation = (varId: string, url: string) => {
@@ -170,9 +172,7 @@ export default function MarketingPostsManager() {
         [varId]: url,
       },
     };
-    setManualSelection(next);
-    saveProductImageSelection(effectiveProductForPreview.id, next);
-    toast.success('Foto da variação selecionada e salva!');
+    void persistSelection(effectiveProductForPreview.id, next, 'Foto da variação selecionada e salva!');
   };
 
   const handleResetOverrides = () => {

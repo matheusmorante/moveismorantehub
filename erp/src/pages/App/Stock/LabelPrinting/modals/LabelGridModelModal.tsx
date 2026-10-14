@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { labelGridModelFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
 import { LabelGridSheetPreview } from '../components/LabelGridSheetPreview';
 import { createGridModelFromEditorState } from '../services/labelGridModelFactory';
 import { LabelGridModelToolbar } from './label-grid-model-editor/LabelGridModelToolbar';
@@ -622,6 +625,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
   }, [isOpen, editingModel, currentType, currentCategory]);
 
   const [isSaving, setIsSaving] = React.useState(false);
+  const modelForm = useZodForm(labelGridModelFormSchema, { id: '', name: '', columns: 1, rows: 1, marginT: 0, marginB: 0, marginL: 0, marginR: 0, gapH: 0, gapV: 0, paperSize: 'A4', icon: '' });
 
   const handleSave = async () => {
     if (isSaving) return;
@@ -720,8 +724,10 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
         imageScale,
         customPreviewImage,
       });
-      await onSave(newModel);
-      onClose();
+      await modelForm.validateAndRun({ ...newModel }, async (values) => {
+        await onSave(values);
+        onClose();
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
     } finally {
       setIsSaving(false);
     }
@@ -1308,7 +1314,9 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
                           ),
                         ]
                           .filter((el) => !el.hidden)
-                          .map((el: LabelGridModelCanvasElementData) => (
+                          .map((element) => {
+                            const el = element as LabelGridModelCanvasElementData;
+                            return (
                             <LabelGridModelCanvasElement
                               key={el.id}
                               el={el}
@@ -1325,7 +1333,8 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
                               removeExtraField={removeExtraField}
                               handleMouseDownResize={handleMouseDownResize}
                             />
-                          ))}
+                            );
+                          })}
                       </div>
                     </div>
                   );

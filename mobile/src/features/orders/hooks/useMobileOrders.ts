@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { orderListFormSchema } from '../../../../../shared-utils/listingFormSchemas';
+import { Alert } from 'react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import {
@@ -18,9 +21,13 @@ export function useMobileOrders() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const { validateAndRun: validateList } = useZodForm(orderListFormSchema, { page: currentPage, search: searchTerm, status: statusFilter });
 
   const refresh = useCallback(
     async (pull = false, page = currentPage) => {
+      const values = await validateList({ page, search: searchTerm, status: statusFilter }, (values) => values,
+        (errors) => Alert.alert('Revise os filtros', Object.values(flattenFormErrors(errors))[0]));
+      if (!values) return;
       pull ? setRefreshing(true) : setLoading(true);
       try {
         // 1. Tenta carregar dados do cache de trabalho local primeiro para exibição imediata
@@ -71,10 +78,10 @@ export function useMobileOrders() {
         // 2. Busca remota dos pedidos e configurações de forma resiliente
         const [ordersResult, settingsResult] = await Promise.allSettled([
           fetchMobileOrdersPage({
-            page,
+            page: values.page,
             pageSize: ITEMS_PER_PAGE,
-            search: searchTerm,
-            status: statusFilter,
+            search: values.search,
+            status: values.status,
           }),
           supabase.from('settings').select('*').limit(1),
         ]);
@@ -134,7 +141,7 @@ export function useMobileOrders() {
         setRefreshing(false);
       }
     },
-    [currentPage, searchTerm, statusFilter]
+    [currentPage, searchTerm, statusFilter, validateList]
   );
 
   useEffect(() => {

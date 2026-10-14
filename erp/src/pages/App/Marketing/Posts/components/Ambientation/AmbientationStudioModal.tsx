@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { ambientationFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
 import { ambientationService } from '../../services/ambientationService';
 import { AmbientedImageRecord } from '../../types';
 import { generateRoom } from '../../services/compositionAi';
@@ -23,37 +25,43 @@ export const AmbientationStudioModal: React.FC<AmbientationStudioModalProps> = (
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const formValues = { productId, productName, originalImageUrl, prompt };
+  const form = useZodForm(ambientationFormSchema, formValues);
 
   if (!isOpen) return null;
 
   const handleGeneratePrompt = async () => {
-    const generated = await ambientationService.generateAmbientationPrompt(productName);
+    const generated = await form.validateAndRun(formValues, (values) => ambientationService.generateAmbientationPrompt(values.productName),
+      (errors) => window.alert(Object.values(flattenFormErrors(errors))[0]));
+    if (!generated) return;
     setPrompt(generated);
   };
 
   const handleSimulateAmbientation = async () => {
+    return form.validateAndRun(formValues, async (values) => {
     setIsGenerating(true);
     try {
       const resultUrl = await generateRoom(
-        originalImageUrl,
-        productName,
+        values.originalImageUrl,
+        values.productName,
         'vermelho e dourado',
-        prompt
+        values.prompt
       );
       setPreviewUrl(resultUrl);
       setIsGenerating(false);
 
       await ambientationService.saveAmbientedImage({
-        productId,
-        originalImageUrl,
+        productId: values.productId,
+        originalImageUrl: values.originalImageUrl,
         ambientedImageUrl: resultUrl,
-        promptUsed: prompt,
+        promptUsed: values.prompt,
       });
     } catch (error) {
       window.alert((error as Error).message);
     } finally {
       setIsGenerating(false);
     }
+    }, (errors) => window.alert(Object.values(flattenFormErrors(errors))[0]));
   };
 
   return (

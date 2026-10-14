@@ -10,6 +10,11 @@ import {
 } from './invoiceList';
 
 describe('invoice list helpers', () => {
+  it('preserves letters when searching fiscal identifiers', () => {
+    const filters = buildInboundInvoiceSearchFilter('12.ABC.345/0001-90');
+    expect(filters).toContain('emitente_cnpj.ilike.*12ABC345000190*');
+    expect(filters).toContain('chave_acesso.ilike.*12ABC345000190*');
+  });
   it('defaults to the ERP current month and previous-to-current range', () => {
     const filter = getDefaultInvoiceDateFilter(new Date(2026, 8, 23));
 

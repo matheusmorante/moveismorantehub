@@ -25,6 +25,8 @@ import type { DocumentPickerAsset } from 'expo-document-picker';
 import { InventoryScannerScreen } from '../../inventory/screens/InventoryScannerScreen';
 import { extractNfeAccessKey } from '../utils/accessKey';
 import * as stockService from '../../../../services/stockService';
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
+import { inboundAccessKeyFormSchema, inboundXmlFileFormSchema } from '../../../../../../shared-utils/lookupFormSchemas';
 
 interface Props {
   visible: boolean;
@@ -47,6 +49,8 @@ export const InvoiceImportModal: React.FC<Props> = ({
   const [showScanner, setShowScanner] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDirectSyncing, setIsDirectSyncing] = useState(false);
+  const keyForm = useZodForm(inboundAccessKeyFormSchema, { accessKey });
+  const fileForm = useZodForm(inboundXmlFileFormSchema, { uri: '', name: '' });
 
   const handlePickDocument = async () => {
     try {
@@ -57,7 +61,8 @@ export const InvoiceImportModal: React.FC<Props> = ({
         if (onUploadXml) {
           setIsLoading(true);
           try {
-            await onUploadXml(result.assets[0]);
+            await fileForm.validateAndRun({ ...result.assets[0] }, (values) => onUploadXml(values as DocumentPickerAsset),
+              (errors) => Alert.alert('Arquivo inválido', Object.values(flattenFormErrors(errors))[0]));
           } finally {
             setIsLoading(false);
           }
@@ -68,13 +73,14 @@ export const InvoiceImportModal: React.FC<Props> = ({
     }
   };
 
-  const isAccessKeyValid = accessKey.replace(/\D/g, '').length === 44;
+  const isAccessKeyValid = inboundAccessKeyFormSchema.safeParse({ accessKey }).success;
 
   const handleDirectSefazQuery = async () => {
     if (!isAccessKeyValid || isDirectSyncing || isLoading) return;
+    return keyForm.validateAndRun({ accessKey }, async (values) => {
     setIsDirectSyncing(true);
     try {
-      const res = await stockService.consultSefazByAccessKey(accessKey);
+      const res = await stockService.consultSefazByAccessKey(values.accessKey);
       const data = res?.data;
       if (data?.success) {
         Alert.alert(
@@ -106,6 +112,7 @@ export const InvoiceImportModal: React.FC<Props> = ({
     } finally {
       setIsDirectSyncing(false);
     }
+    }, (errors) => Alert.alert('Chave inválida', Object.values(flattenFormErrors(errors))[0]));
   };
   const handleScan = (value: string) => {
     const key = extractNfeAccessKey(value);
@@ -113,7 +120,7 @@ export const InvoiceImportModal: React.FC<Props> = ({
     if (!key) {
       Alert.alert(
         'Código não reconhecido',
-        'A leitura precisa conter os 44 dígitos da chave de acesso da NF-e.'
+        'A leitura precisa conter os 44 caracteres da chave de acesso da NF-e.'
       );
       return;
     }
@@ -166,6 +173,8 @@ export const InvoiceImportModal: React.FC<Props> = ({
                   </Text>
                 </View>
               </View>
+
+              {accessKey && !isAccessKeyValid ? <Text style={{ color: '#dc2626', marginTop: 8 }}>Informe uma chave NF-e válida de 44 caracteres, incluindo o dígito verificador.</Text> : null}
             )}
 
             <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
@@ -178,12 +187,13 @@ export const InvoiceImportModal: React.FC<Props> = ({
                   <TextInput
                     editable={!isLoading}
                     style={[styles.input, isDarkMode && styles.textDark]}
-                    placeholder="Digite os 44 dígitos..."
+                    placeholder="Digite os 44 caracteres..."
                     placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
-                    keyboardType="numeric"
+                    keyboardType="default"
+                    autoCapitalize="characters"
                     maxLength={44}
                     value={accessKey}
-                    onChangeText={(text) => setAccessKey(text.replace(/\D/g, ''))}
+                    onChangeText={(text) => setAccessKey(text.toUpperCase().replace(/[.\-/\s]/g, ''))}
                   />
                   <TouchableOpacity
                     style={styles.scanBtn}
@@ -242,7 +252,8 @@ export const InvoiceImportModal: React.FC<Props> = ({
                     !isAccessKeyValid && styles.portalBtnDisabled,
                   ]}
                   disabled={!isAccessKeyValid || isLoading}
-                  onPress={() => onConsultSefaz && onConsultSefaz(accessKey)}
+                  onPress={() => keyForm.validateAndRun({ accessKey }, (values) => onConsultSefaz?.(values.accessKey),
+                    (errors) => Alert.alert('Chave inválida', Object.values(flattenFormErrors(errors))[0]))}
                 >
                   <ExternalLink
                     size={15}

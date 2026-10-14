@@ -30,6 +30,8 @@ import {
 } from './useInboundInvoiceSuggestions';
 import { useInboundInvoiceQuickRegister } from './useInboundInvoiceQuickRegister';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createInboundProductPreparationSchema, createInboundProductLinkSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
 import {
   useInboundInvoiceClassification,
   type AiClassification,
@@ -144,6 +146,12 @@ export function useInboundInvoiceItemsReview({
 
   const [individualItem, setIndividualItem] = useState<InboundInvoiceItem | null>(null);
   const [individualMarkup, setIndividualMarkup] = useState('');
+  const itemNumbers = items.map((item) => item.itemNumber);
+  const individualForm = useZodForm(createInboundProductPreparationSchema(itemNumbers), {
+    itemNumber: individualItem?.itemNumber || 0, supplierId: supplierId || '', markup: individualMarkup,
+    finalCost: individualItem ? itemCostWithAdditionalCosts(individualItem) : 0, quantity: individualItem?.quantity || 0,
+  });
+  const selectionForm = useZodForm(createInboundProductLinkSchema(itemNumbers), { itemNumber: 0, productId: '' });
 
   const linkedCount = useMemo(
     () => items.filter((item) => Boolean(item.matchedProductId)).length,
@@ -222,12 +230,13 @@ export function useInboundInvoiceItemsReview({
     setIndividualMarkup('');
   };
 
-  const confirmIndividualCreation = () => {
+  const confirmIndividualCreation = async () => {
     if (!individualItem) return;
     const item = individualItem;
-    const markup = individualMarkup;
-    setIndividualItem(null);
-    void classifyAndStart(item, [], markup);
+    await individualForm.validateAndRun({ itemNumber: item.itemNumber, supplierId: supplierId || '', markup: individualMarkup, finalCost: itemCostWithAdditionalCosts(item), quantity: item.quantity }, async (values) => {
+      await classifyAndStart(item, [], values.markup === undefined ? undefined : String(values.markup));
+      setIndividualItem(null);
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const selectProduct = async (itemNumber: number, product: Product, variation?: Variation) => {
@@ -236,15 +245,15 @@ export function useInboundInvoiceItemsReview({
     const linkedProductCode = variation?.sku || product.code || '';
     const productErpName =
       variation?.name || variation?.title || product.name || product.title || '';
-
+    return selectionForm.validateAndRun({ itemNumber, productId: matchedProductId || '', variationId: matchedVariationId, supplierId, linkedProductCode, productErpName }, async (values) => {
     if (supplierId) {
       const item = items.find((i) => i.itemNumber === itemNumber);
       if (item) {
         try {
           await saveProductSupplierCode({
-            supplierId,
-            productId: matchedProductId as string,
-            productVariationId: matchedVariationId,
+            supplierId: values.supplierId!,
+            productId: values.productId,
+            productVariationId: values.variationId,
             supplierProductCode: item.productCode,
             supplierDescription: item.productDescription,
           });
@@ -254,13 +263,14 @@ export function useInboundInvoiceItemsReview({
       }
     }
 
-    onChange(itemNumber, {
-      matchedProductId,
-      matchedVariationId,
-      linkedProductCode,
-      productErpName,
+    onChange(values.itemNumber, {
+      matchedProductId: values.productId,
+      matchedVariationId: values.variationId,
+      linkedProductCode: values.linkedProductCode,
+      productErpName: values.productErpName,
     });
     toast.success(`Item vinculado a "${productErpName}"`);
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const acceptSuggestion = async (item: InboundInvoiceItem, suggestion: InboundSuggestion) => {

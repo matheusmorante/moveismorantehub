@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
+import { mobileInboundMappingsFormSchema } from '../../../../../../shared-utils/inboundProductLinkFormSchemas';
 import { Check, Link2, Plus, Search, Trash2, X } from 'lucide-react-native';
 import * as stockService from '../../../../services/stockService';
 import { SupplierFormModal } from '../../suppliers/SupplierFormModal';
@@ -85,6 +87,7 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({
   const [details, setDetails] = useState<any>(null);
   const [items, setItems] = useState<MappingItem[]>([]);
   const [supplierId, setSupplierId] = useState('');
+  const mappingForm = useZodForm(mobileInboundMappingsFormSchema, { invoiceId: '', supplierId, items });
   const [supplierSearch, setSupplierSearch] = useState('');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierSearchError, setSupplierSearchError] = useState('');
@@ -364,16 +367,17 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({
 
   const persist = async (nextItems: MappingItem[], nextSupplierId = supplierId) => {
     if (!details) return false;
+    const saved = await mappingForm.validateAndRun({ invoiceId: String(details.id), supplierId: nextSupplierId, items: nextItems }, async (values) => {
     setSaving(true);
     setErrorMessage('');
     try {
       await stockService.updateInboundInvoiceMappings(
-        details.id,
-        nextSupplierId || null,
-        nextItems
+        values.invoiceId,
+        values.supplierId || null,
+        values.items
       );
-      setItems(nextItems);
-      setSupplierId(nextSupplierId);
+      setItems(values.items);
+      setSupplierId(values.supplierId);
       onSaved();
       return true;
     } catch (error: any) {
@@ -382,6 +386,8 @@ export const InboundInvoiceMappingsModal: React.FC<Props> = ({
     } finally {
       setSaving(false);
     }
+    }, (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0]));
+    return saved || false;
   };
 
   const chooseSupplier = async (supplier: Supplier) => {

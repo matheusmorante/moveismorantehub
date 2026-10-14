@@ -8,6 +8,8 @@ import { composeWithAi } from '../../services/compositionAi';
 import { templateService } from '../../services/templateService';
 import { postProduct } from '../../services/postProduct';
 import { detectImageSubjectBounds } from '../../services/imageSubjectBounds';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { marketingTemplateFormSchema, marketingTemplateFormValues } from '../../../../../../../../shared-utils/marketingFormSchemas';
 
 const defaultPreviewProductKey = 'morante_post_creator_default_preview_product_id';
 
@@ -30,6 +32,7 @@ export function usePostEditor() {
     Array<{ id: string; name: string; slug?: string; image_url?: string }>
   >([]);
   const revision = useRef(0);
+  const templateForm = useZodForm(marketingTemplateFormSchema, marketingTemplateFormValues({ ...template, layers }));
   useEffect(() => {
     let alive = true;
     const timer = setTimeout(() => {
@@ -223,15 +226,9 @@ export function usePostEditor() {
       campaign?.name || 'Meu template'
     );
     if (!name?.trim()) return;
+    return templateForm.validateAndRun(marketingTemplateFormValues({ ...template, id: undefined, name, campaignId: campaign?.id, layers, isDefault: false }), async (values) => {
     try {
-      const saved = await templateService.save({
-        ...template,
-        id: undefined,
-        name: name.trim(),
-        campaignId: campaign?.id,
-        layers,
-        isDefault: false,
-      });
+      const saved = await templateService.save(values);
       setTemplate(saved);
       setMessage(
         saved.persistedRemotely
@@ -241,6 +238,7 @@ export function usePostEditor() {
     } catch (e) {
       setMessage((e as Error).message);
     }
+    }, (errors) => setMessage(Object.values(flattenFormErrors(errors))[0]));
   }
   function addAsset(asset: MarketingAsset) {
     const role =

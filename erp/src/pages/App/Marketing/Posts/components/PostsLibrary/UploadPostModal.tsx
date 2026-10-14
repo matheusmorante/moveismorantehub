@@ -3,6 +3,9 @@ import { toast } from 'react-toastify';
 import { PostCampaign } from '../../types/postCreator';
 import { ProductPostFormat, productPostFormatLabel } from '../../types/postSpecification';
 import { productPostsService } from '../../services/productPostsService';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { postUploadFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
+import { storefrontImageUploadFormSchema } from '../../../../../../../../shared-utils/storefrontProductFormSchemas';
 
 interface UploadPostModalProps {
   campaigns: PostCampaign[];
@@ -59,6 +62,8 @@ export function UploadPostModal({
   const [searching, setSearching] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadForm = useZodForm(postUploadFormSchema, { productId: form.productId, campaignId: form.campaignId, format: form.format || 'FEED_4_5', file: form.file as File, ratioValid: form.ratioValid });
+  const fileForm = useZodForm(storefrontImageUploadFormSchema, { files: [] });
 
   const step: StepKey = (() => {
     if (!preselectedProductId && !form.productId) return 'product';
@@ -86,6 +91,10 @@ export function UploadPostModal({
   );
 
   const handleFileChange = async (file: File) => {
+    const validated = await fileForm.validateAndRun({ files: [file] }, (values) => values,
+      (errors) => toast.warn(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    file = validated.files[0];
     const previewUrl = URL.createObjectURL(file);
     const validation = await productPostsService.validateImageRatio(file);
 
@@ -114,14 +123,14 @@ export function UploadPostModal({
   };
 
   const handleUpload = async () => {
-    if (!form.productId || !form.format || !form.file) return;
+    return uploadForm.validateAndRun({ productId: form.productId, campaignId: form.campaignId, format: form.format as ProductPostFormat, file: form.file as File, ratioValid: form.ratioValid }, async (values) => {
     setUploading(true);
     try {
       await productPostsService.uploadPost({
-        productId: form.productId,
-        file: form.file,
-        format: form.format as ProductPostFormat,
-        campaignId: form.campaignId || null,
+        productId: values.productId,
+        file: values.file,
+        format: values.format,
+        campaignId: values.campaignId || null,
       });
       toast.success('Post adicionado à Biblioteca!');
       onUploaded();
@@ -131,6 +140,7 @@ export function UploadPostModal({
     } finally {
       setUploading(false);
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   return (

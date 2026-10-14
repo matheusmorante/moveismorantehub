@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getNextInventoryCode } from '../../../../services/stockService';
 import { Alert } from 'react-native';
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
+import { inventoryAuditScopeSchema, inventoryAuditCompletionSchema } from '../../../../../../shared-utils/inventoryAuditFormSchemas';
 import type { ScopeConfiguration } from './useInventoryScopeBuilder';
 import type { InventorySession } from '../../types/stock.types';
 import type {
@@ -42,6 +44,8 @@ export const useInventoryAuditWorkflow = (
   const draftRef = useRef<AuditDraftState>({});
   const latestItemsRef = useRef<AuditItem[]>(items);
   const frozenSubmissionRef = useRef(false);
+  const scopeForm = useZodForm(inventoryAuditScopeSchema, { type: 'full', name: '', supplierId: '', responsibleId: '', itemsSnapshot: [] });
+  const completionForm = useZodForm(inventoryAuditCompletionSchema, { id: '', code: '', items: [], adjustments: [] });
 
   // Fila serializada para concorrência segura no SQLite
   const { persistToSQLite, flush } = useInventoryPersistenceQueue(
@@ -125,7 +129,7 @@ export const useInventoryAuditWorkflow = (
     };
   }, [initialSession, copiedItems, userProfile?.id]);
 
-  const handleConfirmScope = async (config: ScopeConfiguration) => {
+  const handleConfirmScope = async (input: ScopeConfiguration) => scopeForm.validateAndRun({ ...input, supplierId: input.supplierId || '', itemsSnapshot: input.itemsSnapshot.map((item) => ({ ...item })) }, async (config) => {
     frozenSubmissionRef.current = false;
     const initialItems: AuditItem[] = config.itemsSnapshot.map((snapshot) => ({
       id: createInventoryItemId(),
@@ -175,7 +179,7 @@ export const useInventoryAuditWorkflow = (
         'Não foi possível iniciar o inventário no armazenamento do aparelho.'
       );
     }
-  };
+  }, (errors) => Alert.alert('Revise o escopo', Object.values(flattenFormErrors(errors))[0]));
 
   const handleUpdateCount = useCallback(
     (itemId: string, newCount: number | null) => {
@@ -222,14 +226,14 @@ export const useInventoryAuditWorkflow = (
     setIsSaving(true);
     try {
       await flush();
-      await executeInventoryFinalization({
-        items: latestItemsRef.current,
-        itemsWithAdjustment,
+      await completionForm.validateAndRun({ id: draftRef.current.id || '', code: draftRef.current.code || '', items: latestItemsRef.current.map((item) => ({ ...item })), adjustments: itemsWithAdjustment.map((item) => ({ ...item, physicalCount: item.physicalCount! })) }, async (values) => executeInventoryFinalization({
+        items: values.items,
+        itemsWithAdjustment: values.adjustments,
         scopeConfig,
         draftRef,
         userProfile,
         onClose,
-      });
+      }), (errors) => Alert.alert('Revise a contagem', Object.values(flattenFormErrors(errors))[0]));
     } catch (error) {
       console.error('[Inventory] Falha ao preparar conclusão:', error);
       Alert.alert('Falha ao salvar', 'A contagem local ainda não foi gravada. Tente novamente.');

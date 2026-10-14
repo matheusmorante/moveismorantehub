@@ -100,7 +100,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   };
   const editDefinition = {
     name: editName, dataType: editDataType, unit: editDataType === 'measure' ? editUnit : '',
-    decimalPlaces: editDecimalPlaces, active: editActive, options: editOptions,
+    decimalPlaces: editDecimalPlaces, active: editActive, options: editOptions.map((option) => ({ ...option })),
   };
   const { validateAndRun: validateNewDefinition } = useZodForm(createCharacteristicFormSchema(allCharacteristics), newDefinition);
   const { validateAndRun: validateEditDefinition } = useZodForm(createCharacteristicFormSchema(allCharacteristics, editingId || undefined), editDefinition);

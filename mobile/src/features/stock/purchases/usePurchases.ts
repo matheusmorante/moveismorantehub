@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { purchaseListFormSchema } from '../../../../../shared-utils/listingFormSchemas';
 import { supabase } from '../../../services/supabaseClient';
 import {
   fetchMobilePurchases,
@@ -14,6 +16,7 @@ export const usePurchases = (filters: PurchaseFilters = {}) => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const { validateAndRun: validateList } = useZodForm(purchaseListFormSchema, { page, ...filters });
 
   const loadPurchases = useCallback(
     async (isRefresh = false, pageNum = 0) => {
@@ -29,7 +32,11 @@ export const usePurchases = (filters: PurchaseFilters = {}) => {
 
       try {
         setError(null);
-        const result = await fetchMobilePurchases(pageNum, filters);
+        const values = await validateList({ ...filters, page: pageNum }, (values) => values,
+          (errors) => setError(Object.values(flattenFormErrors(errors))[0]));
+        if (!values) return;
+        const { page: validatedPage, ...validatedFilters } = values;
+        const result = await fetchMobilePurchases(validatedPage, validatedFilters);
         setPurchases((previous) =>
           isRefresh || pageNum === 0 ? result.data : [...previous, ...result.data]
         );
@@ -45,7 +52,7 @@ export const usePurchases = (filters: PurchaseFilters = {}) => {
         setLoadingMore(false);
       }
     },
-    [filters.search, filters.supplierId]
+    [filters.search, filters.supplierId, validateList]
   );
 
   const loadMore = useCallback(() => {

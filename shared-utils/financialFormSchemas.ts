@@ -6,6 +6,24 @@ const financialFields = {
 };
 const financialDate = z.iso.date({ error: 'Informe uma data válida.' });
 const paymentStatus = z.enum(['pending', 'paid', 'cancelled', 'overdue']);
+const optionalIntentDate = z.union([z.literal(''), financialDate]).nullish();
+export const financialIntentDraftFormSchema = z.object({
+  intentType: z.enum(['SINGLE_TRANSACTION', 'RECURRING', 'PAYABLE_BILL', 'INSTALLMENT', 'MATCH_EXISTING', 'QUERY_OR_UPDATE']).optional(),
+  type: z.enum(['income', 'expense']).nullish(), description: z.string().nullish(),
+  amount: z.number().nonnegative().nullish(), totalAmount: z.number().nonnegative().nullish(),
+  installmentAmount: z.number().nonnegative().nullish(), installmentsCount: z.number().int().positive().nullish(),
+  date: optionalIntentDate, dueDate: optionalIntentDate,
+  supplier: z.string().nullish(), counterparty: z.string().nullish(), category: z.string().nullish(), categoryName: z.string().nullish(), categoryId: z.string().nullish(),
+  paymentMethod: z.string().nullish(), notes: z.string().nullish(),
+  installmentList: z.array(z.object({ number: z.number().int().positive(), amount: z.number().positive(), dueDate: optionalIntentDate })).nullish(),
+}).passthrough();
+export const financialIntentEditFormSchema = z.object({
+  description: financialFields.description, supplier: z.string(), totalAmount: financialFields.amount,
+  totalAmountInput: z.string().refine((value) => !value || /^\d+(?:[.,]\d+)?$/.test(value.trim()), 'Informe um valor válido.'),
+  category: z.string(), paymentMethod: z.string(), dueDate: z.union([z.literal(''), financialDate]), notes: z.string(),
+  installments: z.array(z.object({ number: z.number().int().positive(), amount: z.number().positive(), dueDate: optionalIntentDate })),
+});
+export const transactionFiltersFormSchema = z.object({ type: z.enum(['income', 'expense', 'all']).optional(), categoryId: z.string().optional(), paymentMethod: z.string().optional(), accountId: z.string().optional(), searchQuery: z.string().optional() }).passthrough();
 
 export const financialTransactionFormSchema = z.object({
   ...financialFields,

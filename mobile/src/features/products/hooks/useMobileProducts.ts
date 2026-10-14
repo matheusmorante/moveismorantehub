@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { productListFormSchema } from '../../../../../shared-utils/listingFormSchemas';
 import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import {
   canShowMobileTestProducts,
@@ -38,6 +40,7 @@ export function useMobileProducts(
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const { validateAndRun: validateList } = useZodForm(productListFormSchema, { page: currentPage, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated });
   const showTestProductsForCurrentRole = canShowMobileTestProducts(
     isAdministrator,
     showTestProducts
@@ -72,19 +75,22 @@ export function useMobileProducts(
       pull ? setRefreshing(true) : setLoading(true);
       setLoadError(null);
       try {
-        const { data, total } = await fetchMobileProductsPage(page, ITEMS_PER_PAGE, {
-          search: appliedSearchTerm,
-          statusFilter: resolveMobileProductStatusFilter(statusFilter, appliedSearchTerm),
+        const values = await validateList({ page, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated }, (values) => values,
+          (errors) => setLoadError(Object.values(flattenFormErrors(errors))[0]));
+        if (!values) return;
+        const { data, total } = await fetchMobileProductsPage(values.page, ITEMS_PER_PAGE, {
+          search: values.search,
+          statusFilter: resolveMobileProductStatusFilter(values.statusFilter, values.search),
           // O ERP suspende o filtro de ativo durante uma busca para permitir
           // localizar também itens desativados pelo nome/código/SKU.
           includeDeactivated:
-            showDeactivated || statusFilter === 'disabled' || Boolean(appliedSearchTerm),
+            values.includeDeactivated || values.statusFilter === 'disabled' || Boolean(values.search),
           // O ERP sempre inclui variações fundidas na lista para preservar o histórico.
           includeMerged: true,
-          category: categoryFilter || undefined,
-          catalogStatus: catalogStatusFilter,
-          itemType: mode,
-          generalType: mode === 'standard' ? generalTypeFilter : 'all',
+          category: values.category || undefined,
+          catalogStatus: values.catalogStatus,
+          itemType: values.itemType,
+          generalType: values.itemType === 'standard' ? values.generalType : 'all',
         });
         setProducts(data);
         setTotalItems(total);
@@ -106,6 +112,7 @@ export function useMobileProducts(
       showDeactivated,
       mode,
       enabled,
+      validateList,
     ]
   );
 

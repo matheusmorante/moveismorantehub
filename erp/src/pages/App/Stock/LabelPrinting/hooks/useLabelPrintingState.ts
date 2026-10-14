@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { storefrontImageUploadFormSchema } from '../../../../../../../shared-utils/storefrontProductFormSchemas';
 import type { GridModel } from '../types/LabelGridModelTypes';
 import type { LabelItemConfig } from '../types/LabelGridItem.types';
 import { publishPriceLabelTemplateUpdate } from '../services/priceLabelTemplateSync';
@@ -91,18 +93,23 @@ export const useLabelPrintingState = () => {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [modelToCopy, setModelToCopy] = useState<GridModel | null>(null);
+  const uploadForm = useZodForm(storefrontImageUploadFormSchema, { files: [] });
 
   // Upload de logo / imagem para fila
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const validated = await uploadForm.validateAndRun({ files: [file] }, (values) => values,
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!validated) return;
+    const selectedFile = validated.files[0];
 
     const reader = new FileReader();
     reader.onload = (event) => {
       const base64 = event.target?.result as string;
       if (selectedCategory === 'logos') {
         modalsAndAssets.setNewLogoImage(base64);
-        modalsAndAssets.setNewLogoName(file.name.split('.')[0].toUpperCase().substring(0, 30));
+        modalsAndAssets.setNewLogoName(selectedFile.name.split('.')[0].toUpperCase().substring(0, 30));
         modalsAndAssets.setIsNewLogoModalOpen(true);
       } else {
         modalsAndAssets.setSelectedImage(base64);
@@ -120,7 +127,7 @@ export const useLabelPrintingState = () => {
         toast.success('Imagem adicionada à fila.');
       }
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(selectedFile);
     e.target.value = '';
   };
 

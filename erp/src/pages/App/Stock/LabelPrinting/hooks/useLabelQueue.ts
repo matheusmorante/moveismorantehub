@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { labelPrintingFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
 import Product from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import type { LabelItemConfig, LogoItemConfig } from '../types/LabelGridItem.types';
@@ -33,12 +35,15 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
   };
 
   const [logoItems, setLogoItems] = useState<LogoItemConfig[]>([]);
+  const printingForm = useZodForm(labelPrintingFormSchema, { config: { ...config }, items: labelItems.map((item) => ({ ...item })), logos: logoItems.map((item) => ({ ...item })) });
 
   const handlePrintLabels = async () => {
-    if (selectedCategory === 'identificacao' && labelItems.length > 0) {
+    if (isPrinting) return;
+    return printingForm.validateAndRun({ config: { ...config }, items: labelItems.map((item) => ({ ...item })), logos: logoItems.map((item) => ({ ...item })) }, async (values) => {
+    if (selectedCategory === 'identificacao' && values.items.length > 0) {
       setIsPrinting(true);
       try {
-        const updatedItems = [...labelItems];
+        const updatedItems = [...values.items];
 
         // Itens que necessitam de geração de novos UUIDs (não é reimpressão já preenchida)
         const itemsNeedingLabels: Array<{ itemIndex: number; request: LabelBatchRequestItem }> = [];
@@ -89,6 +94,7 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
     } else {
       rawPrintLabels();
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const handleProductSelect = (product: Product, quantity: number = 1) => {

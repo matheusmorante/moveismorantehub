@@ -90,7 +90,7 @@ var findRegisteredSefazCceEvent = (xml, sequence) => {
   };
 };
 
-// erp/src/pages/utils/nfe/orderEditFiscalPolicy.ts
+// shared-utils/fiscalCorrectionPolicy.ts
 var ORDER_EDIT_CCE_DISABLED_REASON = "O ERP n\xE3o utiliza CC-e. Para alterar dados fiscais antes da circula\xE7\xE3o, use cancelamento ou estorno e emita uma nova nota.";
 
 // api/nfe/cce.ts

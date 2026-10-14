@@ -1,4 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { labelCropFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
 
 export interface LabelModelCreationModalProps {
   readonly isOpen: boolean;
@@ -30,6 +33,7 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
   );
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  const cropForm = useZodForm(labelCropFormSchema, { image: imageSrc || '', scale, crop });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -160,21 +164,21 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
     nativeImg.src = imageSrc;
   }, [imageSrc, crop, imgNaturalSize]);
 
-  const handleApply = () => {
+  const handleApply = async () => cropForm.validateAndRun({ image: imageSrc || previewUrl || '', scale, crop }, (values) => {
     if (!previewUrl && imageSrc) {
       generateCroppedImage();
       setTimeout(() => {
         if (canvasRef.current) {
           const dataUrl = canvasRef.current.toDataURL('image/png');
-          onApply(dataUrl, scale);
+          onApply(dataUrl, values.scale);
           onClose();
         }
       }, 100);
     } else if (previewUrl) {
-      onApply(previewUrl, scale);
+      onApply(previewUrl, values.scale);
       onClose();
     }
-  };
+  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
 
   if (!isOpen) return null;
 

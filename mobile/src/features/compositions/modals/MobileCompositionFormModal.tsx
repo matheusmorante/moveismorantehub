@@ -14,7 +14,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { Composition, CompositionVariationItem } from '../types/composition.type';
 import { saveComposition } from '../services/mobileCompositionService';
-import { MobileCompositionSearchModal } from './MobileCompositionSearchModal';
 import { z } from 'zod';
 import { useZodForm, flattenFormErrors } from '../../../hooks/useZodForm';
 

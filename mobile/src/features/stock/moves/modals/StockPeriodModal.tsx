@@ -1,5 +1,7 @@
 import React from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
+import { reportDateRangeFormSchema } from '../../../../../../shared-utils/scheduleFormSchemas';
 
 interface Props {
   visible: boolean;
@@ -28,17 +30,14 @@ export const StockPeriodModal: React.FC<Props> = ({
   onApplyCustomPeriod,
   onClose,
 }) => {
-  const handleApplyCustom = () => {
-    if (!customStartDate || !customEndDate) {
-      Alert.alert('Período inválido', 'Informe as datas de início e fim no formato AAAA-MM-DD.');
-      return;
-    }
+  const form = useZodForm(reportDateRangeFormSchema, { start: customStartDate, end: customEndDate });
+  const handleApplyCustom = () => form.validateAndRun({ start: customStartDate, end: customEndDate }, (values) => {
     onApplyCustomPeriod({
-      startDate: new Date(`${customStartDate}T00:00:00Z`).toISOString(),
-      endDate: new Date(`${customEndDate}T23:59:59Z`).toISOString(),
+      startDate: new Date(`${values.start}T00:00:00Z`).toISOString(),
+      endDate: new Date(`${values.end}T23:59:59Z`).toISOString(),
     });
     onClose();
-  };
+  }, (errors) => Alert.alert('Período inválido', Object.values(flattenFormErrors(errors))[0]));
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>

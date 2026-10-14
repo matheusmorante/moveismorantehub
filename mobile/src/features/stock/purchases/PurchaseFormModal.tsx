@@ -13,6 +13,9 @@ import {
   View,
 } from 'react-native';
 import { Plus, Trash2, X } from 'lucide-react-native';
+import { CurrencyInput } from '../../../components/shared/CurrencyInput';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { mobilePurchaseFormSchema } from '../../../../../shared-utils/purchaseFormSchemas';
 import {
   InventoryProductSearchModal,
   SearchableProduct,
@@ -64,6 +67,7 @@ export const PurchaseFormModal: React.FC<Props> = ({
   const [items, setItems] = useState<MobilePurchaseItem[]>([]);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const form = useZodForm(mobilePurchaseFormSchema, { supplierId, supplierName, date, observation, items: items.map((item) => ({ ...item })), totalValue: 0, status: 'ordered', ipiInput: ipiPercent, freightInput: freightPercent });
 
   const colors = {
     bg: isDarkMode ? '#0f172a' : '#f8fafc',
@@ -147,25 +151,19 @@ export const PurchaseFormModal: React.FC<Props> = ({
   };
 
   const handleSave = async () => {
-    if (!supplierId || !supplierName)
-      return Alert.alert('Fornecedor obrigatório', 'Selecione um fornecedor para continuar.');
-    if (!items.length)
-      return Alert.alert('Itens obrigatórios', 'Adicione ao menos um produto ou variação.');
-    if (items.some((item) => !item.productId || !item.description || Number(item.quantity) <= 0)) {
-      return Alert.alert('Itens inválidos', 'Revise produto, variação e quantidade dos itens.');
-    }
+    return form.validateAndRun({ supplierId, supplierName, date, observation, items: items.map((item) => ({ ...item })), totalValue: total, status: purchase?.status === 'fulfilled' ? 'fulfilled' : 'ordered', ipiInput: ipiPercent, freightInput: freightPercent }, async (values) => {
     setSaving(true);
     try {
       const payload: any = {
-        supplierId,
-        supplierName,
-        date: new Date(`${date}T12:00:00`).toISOString(),
-        observation,
-        ipiPercent: parseNumber(ipiPercent),
-        freightPercent: parseNumber(freightPercent),
-        items,
-        totalValue: total,
-        status: purchase?.status === 'fulfilled' ? 'fulfilled' : 'ordered',
+        supplierId: values.supplierId,
+        supplierName: values.supplierName,
+        date: new Date(`${values.date}T12:00:00`).toISOString(),
+        observation: values.observation,
+        ipiPercent: parseNumber(values.ipiInput),
+        freightPercent: parseNumber(values.freightInput),
+        items: values.items,
+        totalValue: values.totalValue,
+        status: values.status,
         stockProcessed: purchase?.stockProcessed || false,
         attachments: purchase?.attachments || [],
         invoiceNumber: purchase?.invoiceNumber,
@@ -182,6 +180,7 @@ export const PurchaseFormModal: React.FC<Props> = ({
     } finally {
       setSaving(false);
     }
+    }, (errors) => Alert.alert('Revise a compra', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const filteredSuppliers = suppliers

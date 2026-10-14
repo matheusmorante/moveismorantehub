@@ -1,5 +1,12 @@
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { z } from 'zod';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { variationFamilyFormSchema } from '../../../../../shared-utils/catalogFormSchemas';
+
+const moveVariationFormSchema = variationFamilyFormSchema.extend({
+  sourceParentId: z.string().min(1), ready: z.boolean().refine(Boolean, 'Aguarde a validação da combinação antes de mover a variação.'),
+}).refine((values) => values.familyId !== values.sourceParentId && values.attributes.length > 0, { path: ['familyId'], message: 'Selecione outra família e ao menos um atributo.' });
 import {
   ActivityIndicator,
   Alert,
@@ -81,6 +88,8 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
     () => attributes.filter((attribute) => attribute.name.trim() && attribute.value.trim()),
     [attributes]
   );
+  const formValues = { sourceId: variationId, familyId: targetFamilyId, sourceParentId, attributes: validAttributes.map((attribute) => ({ ...attribute })), ready: conflictState === 'clear' && countdown === 0 && !familiesLoading };
+  const form = useZodForm(moveVariationFormSchema, formValues);
   const suggestions = useMemo(() => {
     const term = normalize(familyQuery.trim());
     if (term.length < 2 || targetFamilyId) return [];
@@ -178,10 +187,11 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
   const handleMove = async () => {
     const targetFamily = families.find((family) => family.id === targetFamilyId);
     if (!targetFamily || !variationId || !sourceParentId || saving) return;
+    return form.validateAndRun(formValues, async (values) => {
     try {
       setSaving(true);
       const canonicalAttributes = await Promise.all(
-        validAttributes.map(async ({ name, value, showName }) => ({
+        values.attributes.map(async ({ name, value, showName }) => ({
           ...(await ensureMobileAttributeValue(name, value)),
           ...(showName === undefined ? {} : { showName }),
         }))
@@ -194,12 +204,12 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
       if (images.length === 0) images = getImageUrls(parentProduct?.images);
 
       const result = await moveMobileVariationToFamily(
-        variationId,
-        targetFamily.id,
+        values.sourceId,
+        values.familyId,
         canonicalAttributes,
         newName,
         images,
-        sourceParentId
+        values.sourceParentId
       );
       await onMoved();
       onClose();
@@ -217,6 +227,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
     } finally {
       setSaving(false);
     }
+    }, (errors) => Alert.alert('Revise a mudança', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const canConfirm =
