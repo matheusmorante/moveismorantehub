@@ -363,7 +363,7 @@ export async function GET(request: Request) {
             columnMappings.gender || 'unisex', // gender
             p.material || '', // material
             size, // size
-            p.code || p.id || '', // item_group_id
+            '', // item_group_id (sem grupos: cada variação é um produto individual)
             'no', // identifier_exists
             '1', // quantity_to_sell_on_facebook
             productType, // product_type

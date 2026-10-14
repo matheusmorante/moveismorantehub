@@ -412,7 +412,7 @@ ____________________________________
             link:
               product.url || `https://moveismorante.com.br/produto/${product.slug || product.id}`,
             product_type: productType,
-            item_group_id: product.group_name || product.groupName || '',
+            item_group_id: '',
             custom_label_0: productType,
             custom_label_1: formatDecimalPrice(currentPrice),
             custom_label_2: oldPriceFormatted,

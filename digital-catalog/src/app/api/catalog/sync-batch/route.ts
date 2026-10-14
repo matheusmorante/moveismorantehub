@@ -235,7 +235,7 @@ export async function POST(req: Request) {
             color: color || undefined,
             size: size || undefined,
             material: product.material || undefined,
-            item_group_id: String(product.code || product.id || ''),
+            item_group_id: '',
             quantity_to_sell_on_facebook: quantityToSell,
             product_type: productType,
             custom_label_0: productType,

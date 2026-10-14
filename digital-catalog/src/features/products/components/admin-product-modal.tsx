@@ -48,7 +48,9 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Database } from '@/types/database';
-import { productSchema } from '@/schemas/product.schema';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { parseStorefrontPrice, storefrontProductDraftFormSchema, storefrontProductFormSchema, storefrontVariationFormSchema, storefrontAttributeFormSchema, storefrontAttributeValueFormSchema, storefrontImageUploadFormSchema } from '@/shared-utils/storefrontProductFormSchemas';
+import type { z } from 'zod';
 import { cn } from '@/lib/utils';
 import { CategoriesManagerModal } from '@/features/categories/components/categories-manager-modal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -170,6 +172,15 @@ export function AdminProductModal({
   const [varDiscountPercent, setVarDiscountPercent] = useState('');
   const [varDiscountFixed, setVarDiscountFixed] = useState('');
 
+  const productSnapshot = { product: formData, variations: productVariations, variationsEnabled };
+  const draftForm = useZodForm(storefrontProductDraftFormSchema, productSnapshot);
+  const finalForm = useZodForm(storefrontProductFormSchema, productSnapshot);
+  const variationForm = useZodForm(storefrontVariationFormSchema, varFormState);
+  const attributeForm = useZodForm(storefrontAttributeFormSchema, { name: fastAttrName, values: fastAttrValues });
+  const attributeValueForm = useZodForm(storefrontAttributeValueFormSchema, { attributeId: '', value: '' });
+  const uploadForm = useZodForm(storefrontImageUploadFormSchema, { files: [] });
+  const showFormError = (errors: Parameters<typeof flattenFormErrors>[0]) => toast.error(Object.values(flattenFormErrors(errors))[0]);
+
   const getDefaultVariationName = (attributes: Record<string, string> = {}) => {
     const attributeValues = Object.values(attributes).filter((value): value is string =>
       Boolean(value?.trim())
@@ -177,22 +188,7 @@ export function AdminProductModal({
     return [formData.name?.trim(), ...attributeValues].filter(Boolean).join(' ') || 'Padrão';
   };
 
-  const parsePrice = (val: string): number => {
-    if (!val) return 0;
-    let cleaned = val.replace(/[^\d.,-]/g, '');
-
-    if (cleaned.includes(',')) {
-      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
-    } else {
-      if ((cleaned.match(/\./g) || []).length === 1 && /\.\d{1,2}$/.test(cleaned)) {
-        // Apenas um ponto seguido de 1 ou 2 casas decimais. Mantemos como decimal.
-      } else {
-        // Caso contrário, removemos todos os pontos (separadores de milhar)
-        cleaned = cleaned.replace(/\./g, '');
-      }
-    }
-    return parseFloat(cleaned) || 0;
-  };
+  const parsePrice = parseStorefrontPrice;
 
   // Atualizar descontos ao alterar preço original
   const handlePriceChange = (newPrice: string) => {
@@ -407,11 +403,6 @@ export function AdminProductModal({
   };
 
   const handleFastSaveAttribute = async () => {
-    if (!fastAttrName.trim()) {
-      toast.error('Preencha o nome do atributo!');
-      return;
-    }
-
     // Se houver algum valor pendente no input que não foi adicionado via Enter/Vírgula, adiciona agora
     let finalValues = [...fastAttrValues];
     const pendingVal = fastAttrValInput.trim().replace(/,/g, '');
@@ -421,17 +412,15 @@ export function AdminProductModal({
       }
     }
 
-    if (finalValues.length === 0) {
-      toast.error('Adicione pelo menos um valor!');
-      return;
-    }
-
+    const validated = await attributeForm.validateAndRun({ name: fastAttrName, values: finalValues }, (values) => values, showFormError);
+    if (!validated) return;
+    finalValues = validated.values;
     const toastId = toast.loading('Salvando atributo...');
     try {
       if (editingAttrId) {
         const { error: attrErr } = await supabase
           .from('attributes')
-          .update({ name: fastAttrName.trim() })
+          .update({ name: validated.name })
           .eq('id', editingAttrId);
 
         if (attrErr) throw attrErr;
@@ -455,7 +444,7 @@ export function AdminProductModal({
       } else {
         const { data: attr, error: attrErr } = await supabase
           .from('attributes')
-          .insert([{ name: fastAttrName.trim() }])
+          .insert([{ name: validated.name }])
           .select()
           .single();
 
@@ -472,7 +461,7 @@ export function AdminProductModal({
         await fetchDbAttributes();
 
         // Seleciona automaticamente o atributo recém-criado na variação atual
-        const attrName = fastAttrName.trim();
+        const attrName = validated.name;
         const firstVal = finalValues[0] || '';
         setVarFormState((prev) => ({
           ...prev,
@@ -563,10 +552,12 @@ export function AdminProductModal({
 
   const handleAddDbAttributeValueToExisting = async (attrId: string, valText: string) => {
     if (!valText.trim()) return;
+    const validated = await attributeValueForm.validateAndRun({ attributeId: attrId, value: valText }, (values) => values, showFormError);
+    if (!validated) return;
     try {
       const { error } = await supabase
         .from('attribute_values')
-        .insert([{ attribute_id: attrId, value: valText.trim() }]);
+        .insert([{ attribute_id: validated.attributeId, value: validated.value }]);
 
       if (error) throw error;
       toast.success('Valor adicionado com sucesso!');
@@ -689,12 +680,12 @@ export function AdminProductModal({
     return { width: values[0] || '', depth: values[1] || '', height: values[2] || '' };
   };
 
-  const formatMeasures = () => {
+  const formatMeasures = (product: typeof formData) => {
     const values = [
-      formData.width && `Largura: ${formData.width}`,
-      formData.depth &&
-        `${formData.depth_use_length ? 'Comprimento' : 'Profundidade'}: ${formData.depth}`,
-      formData.height && `Altura: ${formData.height}`,
+      product.width && `Largura: ${product.width}`,
+      product.depth &&
+        `${product.depth_use_length ? 'Comprimento' : 'Profundidade'}: ${product.depth}`,
+      product.height && `Altura: ${product.height}`,
     ].filter(Boolean);
     return values.join(' | ');
   };
@@ -910,7 +901,7 @@ export function AdminProductModal({
     setIsVarFormOpen(true);
   };
 
-  const handleSaveVarForm = (e: React.FormEvent) => {
+  const handleSaveVarForm = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -919,21 +910,23 @@ export function AdminProductModal({
       return;
     }
 
-    const updatedAttributes = { ...varFormState.attributes };
+    const validated = await variationForm.validateAndRun(varFormState, (values) => values, showFormError);
+    if (!validated) return;
+    const updatedAttributes = { ...validated.attributes };
     const generatedSku = generateAutoSku(updatedAttributes);
 
     const updatedVar: TempVariation = {
-      ...varFormState,
+      ...validated,
       id:
-        varFormState.id || (typeof window !== 'undefined' ? window.crypto.randomUUID() : undefined),
+        validated.id || (typeof window !== 'undefined' ? window.crypto.randomUUID() : undefined),
       sku: generatedSku,
-      stock: varFormState.stock || '999',
+      stock: validated.stock || '999',
     };
 
-    if (varFormState.use_parent_name !== false) {
+    if (validated.use_parent_name !== false) {
       updatedVar.name = getDefaultVariationName(updatedAttributes);
     } else {
-      updatedVar.name = varFormState.name || 'Padrão';
+      updatedVar.name = validated.name || 'Padrão';
     }
 
     if (editingVarIndex !== null) {
@@ -984,8 +977,9 @@ export function AdminProductModal({
     setProductVariations(updated);
   };
 
-  const saveProductData = async () => {
-    let baseSlug = formData.slug ? formData.slug.trim() : generateSlug(formData.name);
+  const saveProductData = async (values: z.output<typeof storefrontProductDraftFormSchema>) => {
+    const { product, variations, variationsEnabled } = values;
+    let baseSlug = product.slug ? product.slug.trim() : generateSlug(product.name);
     if (!baseSlug) baseSlug = 'produto';
 
     let finalSlug = baseSlug;
@@ -1010,23 +1004,23 @@ export function AdminProductModal({
       }
     }
 
-    if (finalSlug !== formData.slug) {
+    if (finalSlug !== product.slug) {
       setFormData((prev) => ({ ...prev, slug: finalSlug }));
     }
 
     const dataToSave = {
-      name: formData.name,
+      name: product.name,
       slug: finalSlug,
-      description: formData.description,
-      price: formData.price ? parsePrice(formData.price) : 0,
-      promo_price: formData.promo_price ? parsePrice(formData.promo_price) : null,
-      is_salvado: formData.is_salvado || false,
-      opportunity_id: formData.opportunity_id,
-      width: formData.width || null,
-      depth: formData.depth || null,
-      height: formData.height || null,
-      depth_use_length: formData.depth_use_length || false,
-      measures: formatMeasures() || null,
+      description: product.description,
+      price: product.price ? parsePrice(product.price) : 0,
+      promo_price: product.promo_price ? parsePrice(product.promo_price) : null,
+      is_salvado: product.is_salvado || false,
+      opportunity_id: product.opportunity_id,
+      width: product.width || null,
+      depth: product.depth || null,
+      height: product.height || null,
+      depth_use_length: product.depth_use_length || false,
+      measures: formatMeasures(product) || null,
       status: currentProduct?.status || 'draft',
     };
 
@@ -1046,9 +1040,9 @@ export function AdminProductModal({
     }
 
     // Sincronizar Imagens
-    if (formData.images.length > 0 && savedId) {
+    if (product.images.length > 0 && savedId) {
       await supabase.from('product_images').delete().eq('product_id', savedId);
-      const imageRecords = formData.images.map((url, index) => ({
+      const imageRecords = product.images.map((url, index) => ({
         product_id: savedId,
         image_url: url,
         is_main: index === 0,
@@ -1060,8 +1054,8 @@ export function AdminProductModal({
     // Sincronizar Categorias
     if (savedId) {
       await supabase.from('product_categories').delete().eq('product_id', savedId);
-      if (formData.category_ids.length > 0) {
-        const categoryRecords = formData.category_ids.map((categoryId) => ({
+      if (product.category_ids.length > 0) {
+        const categoryRecords = product.category_ids.map((categoryId) => ({
           product_id: savedId,
           category_id: categoryId,
         }));
@@ -1072,9 +1066,9 @@ export function AdminProductModal({
 
     // Sincronizar Variações
     if (savedId) {
-      if (variationsEnabled && productVariations.length > 0) {
+      if (variationsEnabled && variations.length > 0) {
         // 1. Apagar variações antigas que foram excluídas no frontend
-        const currentIds = productVariations.map((v) => v.id).filter(Boolean);
+        const currentIds = variations.map((v) => v.id).filter(Boolean);
         if (currentIds.length > 0) {
           // Deletar as que não estão no array
           const { error: delErr } = await supabase
@@ -1093,7 +1087,7 @@ export function AdminProductModal({
         }
 
         // 2. Inserir ou atualizar as variações atuais
-        const updatedVariations = productVariations.map((v) => {
+        const updatedVariations = variations.map((v) => {
           const isParentPrice = v.use_parent_price !== false;
           const isParentPromo = v.use_parent_promo_price !== false;
           const isParentDims = v.use_parent_dimensions !== false;
@@ -1101,12 +1095,12 @@ export function AdminProductModal({
 
           return {
             ...v,
-            price: isParentPrice ? formData.price : v.price,
-            promo_price: isParentPromo ? formData.promo_price : v.promo_price,
-            width: isParentDims ? formData.width : v.width,
-            depth: isParentDims ? formData.depth : v.depth,
-            height: isParentDims ? formData.height : v.height,
-            description: isParentDesc ? formData.description : v.description,
+            price: isParentPrice ? product.price : v.price,
+            promo_price: isParentPromo ? product.promo_price : v.promo_price,
+            width: isParentDims ? product.width : v.width,
+            depth: isParentDims ? product.depth : v.depth,
+            height: isParentDims ? product.height : v.height,
+            description: isParentDesc ? product.description : v.description,
           };
         });
         setProductVariations(updatedVariations);
@@ -1155,7 +1149,7 @@ export function AdminProductModal({
     if (!formData.name || isSaving) return;
     setIsAutoSaving(true);
     try {
-      await saveProductData();
+      await draftForm.validateAndRun(productSnapshot, saveProductData, showFormError);
     } catch (error) {
       console.error('Erro no auto-save:', error);
     } finally {
@@ -1166,32 +1160,7 @@ export function AdminProductModal({
   const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validar fotos obrigatórias nas variações se estiverem ativas
-    if (variationsEnabled && productVariations.length > 0) {
-      const missingImage = productVariations.some((v) => !v.image_url);
-      if (missingImage) {
-        toast.error(
-          'Obrigatoriedade: Vincule uma foto para cada uma das variações do produto antes de prosseguir.'
-        );
-        setStep(4);
-        return;
-      }
-    }
-
-    // Validar dados antes de prosseguir ou concluir
-    const validation = productSchema.safeParse({
-      ...formData,
-      price: parsePrice(formData.price) || 0,
-      promo_price: formData.promo_price ? parsePrice(formData.promo_price) : null,
-      category_ids: formData.category_ids,
-    });
-
-    if (!validation.success) {
-      const firstError = validation.error.issues[0].message;
-      toast.error(firstError);
-      return;
-    }
-
+    return finalForm.validateAndRun(productSnapshot, async (values) => {
     // Cancelar qualquer autosave pendente
     if (autoSaveTimeout.current) {
       clearTimeout(autoSaveTimeout.current);
@@ -1199,7 +1168,7 @@ export function AdminProductModal({
 
     setIsSaving(true);
     try {
-      const savedId = await saveProductData();
+      const savedId = await saveProductData(values);
       if (!savedId) throw new Error('Não foi possível salvar os dados do produto.');
 
       const { error } = await supabase
@@ -1245,11 +1214,14 @@ export function AdminProductModal({
     } finally {
       setIsSaving(false);
     }
+    }, showFormError);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    if (!e.target.files?.length) return;
+    const validated = await uploadForm.validateAndRun({ files: Array.from(e.target.files) }, (values) => values, showFormError);
+    if (!validated) return;
+    const files = validated.files;
 
     setIsSaving(true);
     const toastId = toast.loading('Otimizando imagens...');
@@ -1289,8 +1261,10 @@ export function AdminProductModal({
   };
 
   const handleReplaceImage = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    if (!e.target.files?.length) return;
+    const validated = await uploadForm.validateAndRun({ files: [e.target.files[0]] }, (values) => values, showFormError);
+    if (!validated) return;
+    const files = validated.files;
 
     setIsSaving(true);
     const toastId = toast.loading('Substituindo imagem...');
@@ -1334,6 +1308,8 @@ export function AdminProductModal({
       }
 
       if (filesToUpload.length === 0) return;
+      const validated = await uploadForm.validateAndRun({ files: filesToUpload }, (values) => values, showFormError);
+      if (!validated) return;
 
       // Evitar upload caso ultrapasse o limite
       if (formData.images.length + filesToUpload.length > 12) {
@@ -1346,8 +1322,8 @@ export function AdminProductModal({
 
       try {
         const newUrls: string[] = [];
-        for (let i = 0; i < filesToUpload.length; i++) {
-          const file = filesToUpload[i];
+        for (let i = 0; i < validated.files.length; i++) {
+          const file = validated.files[i];
           const optimizedBlob = await optimizeProductImage(file);
           const optimizedFile = new File([optimizedBlob], `pasted-${Date.now()}.jpg`, {
             type: 'image/jpeg',
@@ -1386,8 +1362,11 @@ export function AdminProductModal({
     setIsDraggingOver(false);
 
     // 1. Verificar se são arquivos locais arrastados
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
+    const incomingFiles = e.dataTransfer.files;
+    if (incomingFiles && incomingFiles.length > 0) {
+      const validated = await uploadForm.validateAndRun({ files: Array.from(incomingFiles) }, (values) => values, showFormError);
+      if (!validated) return;
+      const files = validated.files;
       setIsSaving(true);
       const toastId = toast.loading('Otimizando imagens soltas...');
       try {

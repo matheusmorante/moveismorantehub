@@ -11,7 +11,8 @@ export interface MetaCatalogProductSource {
   opportunity_id?: string | null;
   sales_price?: number | null;
   unit_price?: number | null;
-  price?: number | null;
+  price?: number | string | null;
+  promo_price?: number | string | null;
   stock?: number | null;
   images?: string[] | null;
   brand?: string | null;
@@ -32,8 +33,14 @@ export interface MetaCatalogVariationSource {
   code?: string | null;
   image_url?: string | null;
   sales_price?: number | null;
-  price?: number | null;
+  price?: number | string | null;
+  promo_price?: number | string | null;
   stock?: number | null;
+  attributes?: any;
+  use_parent_price?: boolean | null;
+  use_parent_promo_price?: boolean | null;
+  use_parent_name?: boolean | null;
+  use_parent_description?: boolean | null;
 }
 
 export interface MetaCatalogOpportunitySource {
@@ -48,6 +55,8 @@ export interface MetaCatalogItem {
   name: string;
   description: string;
   sales_price: number;
+  promo_price?: number | null;
+  opportunityName?: string | null;
   stock?: number | null;
   active: true;
   status: 'published';
@@ -109,7 +118,8 @@ export function buildMetaCatalogItems(
     if (
       parent.deleted ||
       parent.deleted_at !== null ||
-      parent.status === 'draft'
+      parent.status === 'draft' ||
+      parent.active === false
     ) {
       continue;
     }
@@ -147,7 +157,31 @@ export function buildMetaCatalogItems(
 
     if (parentVariations.length > 0) {
       for (const variation of parentVariations) {
-        const variationName = variation.name || variation.color || variation.size || 'Variação';
+        let color = variation.color || '';
+        let size = variation.size || '';
+        if (Array.isArray(variation.attributes)) {
+          const corAttr = variation.attributes.find(
+            (a: any) =>
+              a &&
+              (a.name?.toLowerCase() === 'cor' ||
+                a.key?.toLowerCase() === 'cor' ||
+                a.attribute_name?.toLowerCase() === 'cor')
+          );
+          if (corAttr) color = String(corAttr.value || corAttr.option || '').trim();
+          const tamAttr = variation.attributes.find(
+            (a: any) =>
+              a &&
+              (a.name?.toLowerCase() === 'tamanho' ||
+                a.key?.toLowerCase() === 'tamanho' ||
+                a.attribute_name?.toLowerCase() === 'tamanho')
+          );
+          if (tamAttr) size = String(tamAttr.value || tamAttr.option || '').trim();
+        } else if (variation.attributes && typeof variation.attributes === 'object') {
+          color = String(variation.attributes.Cor || variation.attributes.cor || '').trim();
+          size = String(variation.attributes.Tamanho || variation.attributes.tamanho || '').trim();
+        }
+
+        const variationName = variation.name || color || size || 'Variação';
         const variationTitle = `${parentTitle} - ${variationName}`;
 
         let variationImages: string[] = [];
@@ -165,18 +199,36 @@ export function buildMetaCatalogItems(
           variationImages = parent.images;
         }
 
+        const hasVarSpecificPrice = Boolean(variation.sales_price || variation.price);
+        const isParentPrice =
+          variation.use_parent_price === true ||
+          (!hasVarSpecificPrice && variation.use_parent_price !== false);
+        const rawVarPrice = isParentPrice
+          ? parent.sales_price || parent.unit_price || parent.price || 0
+          : variation.sales_price || variation.price || parent.sales_price || parent.price || 0;
+
+        const hasVarSpecificPromo = Boolean(variation.promo_price);
+        const isParentPromo =
+          variation.use_parent_promo_price === true ||
+          (!hasVarSpecificPromo && variation.use_parent_promo_price !== false);
+        const rawVarPromo = isParentPromo
+          ? parent.promo_price
+          : variation.promo_price || parent.promo_price;
+
+        let varPrice = Number(rawVarPrice || 0);
+        const varPromo = Number(rawVarPromo || 0);
+        if (varPrice <= 0 && varPromo > 0) {
+          varPrice = varPromo;
+        }
+
         allItems.push({
           id: variation.id,
           code: variation.sku || variation.code || variation.id,
           name: variationTitle,
           description: fullDescription,
-          sales_price:
-            variation.sales_price ||
-            variation.price ||
-            parent.sales_price ||
-            parent.unit_price ||
-            parent.price ||
-            0,
+          sales_price: varPrice,
+          promo_price: varPromo > 0 && varPromo < varPrice ? varPromo : undefined,
+          opportunityName: opportunity?.name || undefined,
           stock: variation.stock !== undefined ? variation.stock : parent.stock,
           active: true,
           status: 'published',
@@ -187,12 +239,22 @@ export function buildMetaCatalogItems(
         });
       }
     } else {
+      let parentPrice = Number(
+        parent.sales_price || parent.unit_price || parent.price || 0
+      );
+      const parentPromo = Number(parent.promo_price || 0);
+      if (parentPrice <= 0 && parentPromo > 0) {
+        parentPrice = parentPromo;
+      }
+
       allItems.push({
         id: parent.id,
         code: parent.code || parent.sku || parent.id,
         name: parentTitle,
         description: fullDescription,
-        sales_price: parent.sales_price || parent.unit_price || parent.price || 0,
+        sales_price: parentPrice,
+        promo_price: parentPromo > 0 && parentPromo < parentPrice ? parentPromo : undefined,
+        opportunityName: opportunity?.name || undefined,
         stock: parent.stock,
         active: true,
         status: 'published',

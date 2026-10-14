@@ -365,7 +365,7 @@ export async function POST(request: Request) {
               gender: columnMappings.gender || 'unisex',
               material: p.material || undefined,
               size: size || undefined,
-              item_group_id: String(p.code || p.id || ''),
+              item_group_id: '',
               identifier_exists: 'no',
               quantity_to_sell_on_facebook: quantityToSell,
               product_type: productType,
