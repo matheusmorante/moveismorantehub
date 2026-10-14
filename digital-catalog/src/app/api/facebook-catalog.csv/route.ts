@@ -213,7 +213,7 @@ export async function GET(request: Request) {
       } else if (environments.length > 0) {
         productType = environments[0];
       } else {
-        productType = 'Furniture';
+        productType = 'Móveis';
       }
 
       // Ordena as imagens do produto de forma que a principal (is_main = true) fique em primeiro lugar

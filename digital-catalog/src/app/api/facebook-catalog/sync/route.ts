@@ -216,7 +216,7 @@ export async function POST(request: Request) {
       } else if (environments.length > 0) {
         productType = environments[0];
       } else {
-        productType = 'Furniture';
+        productType = 'Móveis';
       }
 
       // Imagens principais e adicionais

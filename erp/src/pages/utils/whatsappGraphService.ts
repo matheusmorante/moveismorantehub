@@ -2,6 +2,7 @@ import { getSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
+import { resolveProductType } from '@/pages/App/Products/MetaCatalog/services/metaCatalogPayload';
 
 const GRAPH_API_VERSION = 'v26.0';
 const FACEBOOK_GRAPH_URL = 'https://graph.facebook.com';
@@ -145,7 +146,29 @@ export const whatsappGraphService = {
     const currentPrice = hasPromo ? promoPrice : itemPrice;
     const oldPriceFormatted = hasPromo ? formatDecimalPrice(itemPrice) : undefined;
     const oppName = product.opportunityName || product.opportunity_name || (product.opportunities?.name) || '';
-    const productType = product.groupName || product.group_name || 'Furniture';
+    const productType =
+      product.productType ||
+      (product.groupName && product.groupName !== 'Furniture' ? product.groupName : undefined) ||
+      (product.group_name && product.group_name !== 'Furniture' ? product.group_name : undefined) ||
+      resolveProductType(product);
+
+    const condition =
+      product.condition === 'used' || product.condition === 'usado'
+        ? 'used'
+        : product.is_salvado || product.condition === 'refurbished'
+          ? 'refurbished'
+          : 'new';
+
+    const productLink =
+      product.url ||
+      (product.slug
+        ? `https://moveismorante.com.br/produto/${product.slug}`
+        : `https://moveismorante.com.br/produto/${product.id}`);
+
+    const quantityToSell =
+      product.stock !== null && product.stock !== undefined
+        ? Math.max(0, Number(product.stock))
+        : 1;
 
     const batchRequest = {
       item_type: 'PRODUCT_ITEM',
@@ -161,19 +184,24 @@ export const whatsappGraphService = {
                   description: cleanDescription,
                   price: `${itemPrice.toFixed(2)} BRL`,
                   sale_price: hasPromo ? `${promoPrice.toFixed(2)} BRL` : undefined,
-                  condition: product.condition === 'usado' ? 'used' : 'new',
+                  condition,
                   availability: isInactiveOrHidden ? 'out of stock' : 'in stock',
                   image_link: mainImageUrl,
                   additional_image_link: additionalImageUrls.join(',') || undefined,
                   brand: product.brand || 'Móveis Morante',
-                  link:
-                    product.url ||
-                    `https://moveismorante.com.br/produto/${product.slug || product.id}`,
+                  link: productLink,
                   product_type: productType,
+                  item_group_id: '',
                   custom_label_0: productType,
                   custom_label_1: formatDecimalPrice(currentPrice),
                   custom_label_2: oldPriceFormatted,
                   custom_label_3: oppName || undefined,
+                  color: product.color || undefined,
+                  size: product.size || undefined,
+                  material: product.material || undefined,
+                  gender: 'unisex',
+                  identifier_exists: 'no',
+                  quantity_to_sell_on_facebook: quantityToSell,
                 }
               : undefined,
         },
@@ -333,7 +361,29 @@ ____________________________________
         const currentPrice = hasPromo ? promoPrice : itemPrice;
         const oldPriceFormatted = hasPromo ? formatDecimalPrice(itemPrice) : undefined;
         const oppName = product.opportunityName || product.opportunity_name || (product.opportunities?.name) || '';
-        const productType = product.groupName || product.group_name || 'Furniture';
+        const productType =
+          product.productType ||
+          (product.groupName && product.groupName !== 'Furniture' ? product.groupName : undefined) ||
+          (product.group_name && product.group_name !== 'Furniture' ? product.group_name : undefined) ||
+          resolveProductType(product);
+
+        const condition =
+          product.condition === 'used' || product.condition === 'usado'
+            ? 'used'
+            : product.is_salvado || product.condition === 'refurbished'
+              ? 'refurbished'
+              : 'new';
+
+        const productLink =
+          product.url ||
+          (product.slug
+            ? `https://moveismorante.com.br/produto/${product.slug}`
+            : `https://moveismorante.com.br/produto/${product.id}`);
+
+        const quantityToSell =
+          product.stock !== null && product.stock !== undefined
+            ? Math.max(0, Number(product.stock))
+            : 1;
 
         const allImageUrls: string[] = [];
         if (Array.isArray(product.images) && product.images.length > 0) {
@@ -404,19 +454,24 @@ ____________________________________
             description: cleanDescription,
             price: `${itemPrice.toFixed(2)} BRL`,
             sale_price: hasPromo ? `${promoPrice.toFixed(2)} BRL` : undefined,
-            condition: product.condition === 'usado' ? 'used' : 'new',
+            condition,
             availability: 'in stock',
             image_link: mainImageUrl,
             additional_image_link: additionalImageUrls.join(',') || undefined,
             brand: product.brand || 'Móveis Morante',
-            link:
-              product.url || `https://moveismorante.com.br/produto/${product.slug || product.id}`,
+            link: productLink,
             product_type: productType,
             item_group_id: '',
             custom_label_0: productType,
             custom_label_1: formatDecimalPrice(currentPrice),
             custom_label_2: oldPriceFormatted,
             custom_label_3: oppName || undefined,
+            color: product.color || undefined,
+            size: product.size || undefined,
+            material: product.material || undefined,
+            gender: 'unisex',
+            identifier_exists: 'no',
+            quantity_to_sell_on_facebook: quantityToSell,
           },
         };
       });

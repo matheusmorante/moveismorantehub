@@ -34,7 +34,7 @@ export const fetchMetaCatalogSyncSources = async (): Promise<MetaCatalogSyncSour
     supabase
       .from('products')
       .select(
-        'id, name, description, status, active, deleted, deleted_at, opportunity_id, unit_price, price, promo_price, stock, images, brand, code, is_draft'
+        'id, name, description, status, active, deleted, deleted_at, opportunity_id, unit_price, price, promo_price, stock, images, brand, code, is_draft, slug, is_salvado, material, condition, product_categories(categories(name, type))'
       ),
     supabase
       .from('product_variations')

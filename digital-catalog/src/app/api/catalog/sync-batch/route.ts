@@ -121,7 +121,7 @@ export async function POST(req: Request) {
     } else if (environments.length > 0) {
       productType = environments[0];
     } else {
-      productType = 'Furniture';
+      productType = 'Móveis';
     }
 
     const opp = Array.isArray(product.opportunities)

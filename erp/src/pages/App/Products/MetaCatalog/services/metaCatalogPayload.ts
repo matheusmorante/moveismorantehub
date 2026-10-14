@@ -20,6 +20,13 @@ export interface MetaCatalogProductSource {
   sku?: string | null;
   code?: string | null;
   is_draft?: boolean | null;
+  slug?: string | null;
+  is_salvado?: boolean | null;
+  material?: string | null;
+  condition?: string | null;
+  product_categories?: Array<{
+    categories?: { name?: string | null; type?: string | null } | null;
+  }> | null;
 }
 
 export interface MetaCatalogVariationSource {
@@ -65,6 +72,53 @@ export interface MetaCatalogItem {
   images: string[];
   brand: string;
   group_name?: string | null;
+  productType?: string;
+  condition?: string;
+  is_salvado?: boolean;
+  material?: string;
+  color?: string;
+  size?: string;
+  slug?: string;
+  url?: string;
+  isVariation?: boolean;
+  productId?: string;
+}
+
+export function resolveProductType(product: {
+  product_categories?: Array<{
+    categories?: { name?: string | null; type?: string | null } | null;
+  }> | null;
+  group_name?: string | null;
+  groupName?: string | null;
+}): string {
+  const parentCategories =
+    product.product_categories
+      ?.map((pc) => pc.categories)
+      .filter((cat) => cat && cat.type === 'category')
+      .map((cat) => cat?.name)
+      .filter(Boolean) || [];
+
+  const environments =
+    product.product_categories
+      ?.map((pc) => pc.categories)
+      .filter((cat) => cat && cat.type === 'environment')
+      .map((cat) => cat?.name)
+      .filter(Boolean) || [];
+
+  if (environments.length > 0 && parentCategories.length > 0) {
+    return `${environments[0]} > ${parentCategories[0]}`;
+  } else if (parentCategories.length > 0) {
+    return String(parentCategories[0]);
+  } else if (environments.length > 0) {
+    return String(environments[0]);
+  }
+
+  const group = product.groupName || product.group_name;
+  if (group && group !== 'Furniture') {
+    return group;
+  }
+
+  return 'Móveis';
 }
 
 const globalPrefix = `🚚📦 Entrega rápida (1 a 5 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete
@@ -156,6 +210,14 @@ export function buildMetaCatalogItems(
     if (baseDescription) descriptionParts.push(baseDescription);
 
     const fullDescription = descriptionParts.join('\n\n');
+    const productType = resolveProductType(parent);
+    const parentCondition =
+      parent.condition === 'usado' || parent.condition === 'used'
+        ? 'used'
+        : parent.is_salvado
+          ? 'refurbished'
+          : 'new';
+    const parentSlug = parent.slug || parent.id;
 
     if (parentVariations.length > 0) {
       for (const variation of parentVariations) {
@@ -225,6 +287,8 @@ export function buildMetaCatalogItems(
           varPrice = varPromo;
         }
 
+        const varLink = `https://moveismorante.com.br/produto/${parentSlug}?var=${variation.id}`;
+
         allItems.push({
           id: variation.id,
           code: variation.sku || variation.code || variation.id,
@@ -240,6 +304,16 @@ export function buildMetaCatalogItems(
           images: variationImages,
           brand: parent.brand || 'Móveis Morante',
           group_name: parent.group_name,
+          productType,
+          condition: parentCondition,
+          is_salvado: Boolean(parent.is_salvado),
+          material: parent.material || undefined,
+          color: color || undefined,
+          size: size || undefined,
+          slug: parentSlug,
+          url: varLink,
+          isVariation: true,
+          productId: parent.id,
         });
       }
     } else {
@@ -250,6 +324,8 @@ export function buildMetaCatalogItems(
       if (parentPrice <= 0 && parentPromo > 0) {
         parentPrice = parentPromo;
       }
+
+      const prodLink = `https://moveismorante.com.br/produto/${parentSlug}`;
 
       allItems.push({
         id: parent.id,
@@ -266,6 +342,13 @@ export function buildMetaCatalogItems(
         images: Array.isArray(parent.images) ? parent.images : [],
         brand: parent.brand || 'Móveis Morante',
         group_name: parent.group_name,
+        productType,
+        condition: parentCondition,
+        is_salvado: Boolean(parent.is_salvado),
+        material: parent.material || undefined,
+        slug: parentSlug,
+        url: prodLink,
+        isVariation: false,
       });
     }
   }

@@ -79,10 +79,61 @@ describe('whatsappGraphService - Meta Catalog items_batch sync', () => {
         price: '899.90 BRL',
         availability: 'in stock',
         brand: 'Móveis Morante',
+        product_type: 'Móveis',
+        custom_label_0: 'Móveis',
         custom_label_1: '899,90',
+        item_group_id: '',
+        condition: 'new',
       }),
     });
+    expect(calledBody.requests[0].data.product_type).not.toBe('Furniture');
+    expect(calledBody.requests[0].data.custom_label_0).not.toBe('Furniture');
     expect(calledBody.requests[0].data.custom_label_2).toBeUndefined();
+  });
+
+  it('envia a categoria real no product_type e custom_label_0, e condition refurbished para salvados', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ handles: ['handle-cat-123'] }),
+    } as any));
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const productWithCategory = [
+      {
+        id: 'prod-cat',
+        code: 'SKU-COZ-01',
+        name: 'Balcão de Cozinha 2 Portas',
+        sales_price: 450.0,
+        productType: 'Cozinha > Balcões',
+        is_salvado: true,
+        material: 'MDP',
+        color: 'Nogueira',
+        size: '80cm',
+        slug: 'balcao-cozinha-2-portas',
+        images: ['https://example.com/balcao.jpg'],
+        status: 'published',
+        active: true,
+      },
+    ];
+
+    const result = await whatsappGraphService.syncBatchProductsToCatalog(productWithCategory);
+    expect(result.success).toBe(true);
+
+    const calledBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(calledBody.requests[0].data).toMatchObject({
+      product_type: 'Cozinha > Balcões',
+      custom_label_0: 'Cozinha > Balcões',
+      condition: 'refurbished',
+      material: 'MDP',
+      color: 'Nogueira',
+      size: '80cm',
+      item_group_id: '',
+      link: 'https://moveismorante.com.br/produto/balcao-cozinha-2-portas',
+    });
+    expect(calledBody.requests[0].data.product_type).not.toBe('Furniture');
+    expect(calledBody.requests[0].data.custom_label_0).not.toBe('Furniture');
   });
 
   it('mapeia custom_label_1 com preco promocional e custom_label_2 com preco antigo quando houver promocao', async () => {

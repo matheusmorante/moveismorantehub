@@ -114,4 +114,78 @@ describe('buildMetaCatalogItems', () => {
 
     expect(items).toHaveLength(0);
   });
+
+  it('resolve a categoria real (Ambiente > Categoria) e atribui condition, material, slug e url aos itens', () => {
+    const product: MetaCatalogProductSource = {
+      id: 'prod-cat-1',
+      name: 'Armário Aéreo 3 Portas',
+      slug: 'armario-aereo-3-portas',
+      status: 'published',
+      active: true,
+      deleted: false,
+      deleted_at: null,
+      price: 599.9,
+      is_salvado: true,
+      material: 'MDF',
+      product_categories: [
+        { categories: { name: 'Cozinha', type: 'environment' } },
+        { categories: { name: 'Armários Aéreos', type: 'category' } },
+      ],
+      images: ['https://example.com/armario.jpg'],
+    };
+
+    const variations: MetaCatalogVariationSource[] = [
+      {
+        id: 'var-1',
+        product_id: 'prod-cat-1',
+        sku: 'ARM-01-BR',
+        name: 'Armário Aéreo - Branco',
+        status: 'published',
+        active: true,
+        attributes: [{ name: 'Cor', value: 'Branco' }, { name: 'Tamanho', value: '120cm' }],
+      },
+    ];
+
+    const items = buildMetaCatalogItems([product], variations, []);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      id: 'var-1',
+      code: 'ARM-01-BR',
+      name: 'Armário Aéreo - Branco',
+      productType: 'Cozinha > Armários Aéreos',
+      condition: 'refurbished',
+      is_salvado: true,
+      material: 'MDF',
+      color: 'Branco',
+      size: '120cm',
+      slug: 'armario-aereo-3-portas',
+      url: 'https://moveismorante.com.br/produto/armario-aereo-3-portas?var=var-1',
+    });
+  });
+
+  it('aplica fallback "Móveis" e nunca "Furniture" quando produto não tem categoria', () => {
+    const items = buildMetaCatalogItems(
+      [
+        {
+          id: 'prod-sem-cat',
+          name: 'Produto Sem Categoria',
+          slug: 'prod-sem-cat',
+          status: 'published',
+          active: true,
+          deleted: false,
+          deleted_at: null,
+          price: 100,
+        },
+      ],
+      [],
+      []
+    );
+
+    expect(items).toHaveLength(1);
+    expect(items[0].productType).toBe('Móveis');
+    expect(items[0].productType).not.toBe('Furniture');
+    expect(items[0].condition).toBe('new');
+    expect(items[0].url).toBe('https://moveismorante.com.br/produto/prod-sem-cat');
+  });
 });
