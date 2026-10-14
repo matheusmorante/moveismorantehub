@@ -140,7 +140,8 @@ export async function POST(req: Request) {
       for (const v of variations) {
         const isPublished =
           v.active !== false &&
-          (v.status === 'published' || (!v.status && product.status === 'published') || v.status !== 'hidden');
+          v.status !== 'hidden' &&
+          (v.status === 'published' || (!v.status && product.status === 'published'));
 
         if (!isPublished) {
           requests.push({
