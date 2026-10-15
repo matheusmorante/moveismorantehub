@@ -3,7 +3,9 @@ import { useAuth } from '@/context/AuthContext';
 import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/accessRoles';
 import Product from '../../../../../types/product.type';
 import { getProductKind, isNonConventionalProduct } from '../../../../../utils/productKindRules';
+import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
+import { StockOriginBadge } from '../Shared/StockOriginBadge';
 import type { CardVariationItem } from '../Variations/ProductCardVariationList';
 import { ProductCardActions } from './ProductCardActions';
 
@@ -94,11 +96,16 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
             <span>Variações ({(product as any).allVariations.length})</span>
           </button>
         )}
-        {product.code ? (
-          <span className="font-mono text-[9px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/80 dark:border-slate-700 font-bold">
-            {product.code}
-          </span>
-        ) : null}
+        {(() => {
+          const displaySku = singleVariation
+            ? normalizeVariationSku(singleVariation.sku || (singleVariation as any).code || product.sku || product.code) || product.code
+            : product.code || (product.sku ? normalizeVariationSku(product.sku) : '');
+          return displaySku ? (
+            <span className="font-mono text-[9px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/80 dark:border-slate-700 font-bold">
+              {displaySku}
+            </span>
+          ) : null;
+        })()}
       </div>
 
       {/* Canto Superior Direito: Todos os Selos + Botões de Ação */}
@@ -160,12 +167,14 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
           </span>
         )}
 
-        {/* 3. Selo de Oportunidade */}
-        {!isVariation && oppName && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800/60 select-none shadow-2xs">
-            <i className="bi bi-fire text-amber-600 dark:text-amber-400 text-[9px]" />
-            {oppName}
-          </span>
+        {/* 3. Selo de Origem do Estoque */}
+        {!isVariation && product.itemType !== 'service' && (
+          <StockOriginBadge
+            product={product}
+            singleVariation={singleVariation}
+            oppName={oppName}
+            size="xs"
+          />
         )}
 
         {/* 4. Selo de Tipo (Serviço) */}

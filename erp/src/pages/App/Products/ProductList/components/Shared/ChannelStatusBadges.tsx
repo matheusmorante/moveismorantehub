@@ -52,7 +52,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
   const isERPActive = !isDraft && !isNonConventional && active !== false;
   const isERPDisabled = disabled || isNonConventional || isDraft || !canToggleActive;
   const isCatalogDisabled =
-    disabled || (!canManageCatalog && !onToggleCatalog);
+    disabled || isDraft || (!canManageCatalog && !onToggleCatalog);
 
   const textSize = size === 'xs' ? 'text-[9px]' : 'text-[10px]';
   const py = size === 'xs' ? 'py-0.5' : 'py-1';
@@ -83,7 +83,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
 
   const handleCatalogClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (disabled) return;
+    if (disabled || isDraft) return;
     if (!canManageCatalog && !onToggleCatalog) {
       toast.warning('Seu perfil não possui permissão para gerenciar o catálogo.');
       return;
@@ -300,15 +300,17 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
           title={
             disabled
               ? undefined
-              : !canManageCatalog && !onToggleCatalog
-                ? 'Gerenciamento de catálogo indisponível'
-                : isCatalogPublished
-                  ? 'Clique para ocultar do Catálogo Digital'
-                  : 'Clique para publicar no Catálogo Digital'
+              : isDraft
+                ? 'Produtos em rascunho ficam ocultos e não podem ser publicados no Catálogo Digital.'
+                : !canManageCatalog && !onToggleCatalog
+                  ? 'Gerenciamento de catálogo indisponível'
+                  : isCatalogPublished
+                    ? 'Clique para ocultar do Catálogo Digital'
+                    : 'Clique para publicar no Catálogo Digital'
           }
           className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden active:scale-95 ${
-            disabled
-              ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-help bg-slate-200 dark:bg-slate-800 grayscale'
+            disabled || isDraft
+              ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-not-allowed bg-slate-200 dark:bg-slate-800 grayscale'
               : !canManageCatalog && !onToggleCatalog
                 ? 'border-slate-300 dark:border-slate-700 opacity-50 cursor-not-allowed bg-slate-200 dark:bg-slate-800 grayscale'
                 : isCatalogPublished
@@ -326,7 +328,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
           {/* Status Interativo Catálogo */}
           <span
             className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-              disabled || (!canManageCatalog && !onToggleCatalog)
+              disabled || isDraft || (!canManageCatalog && !onToggleCatalog)
                 ? 'bg-slate-200/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-500'
                 : isCatalogPublished
                   ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'

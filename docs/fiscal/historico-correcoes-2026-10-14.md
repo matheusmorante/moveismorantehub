@@ -637,3 +637,33 @@ Referências do checkout atual para as correções já descritas; a tabela resol
   - `ChannelStatusBadges.test.tsx`: 8 testes aprovados, incluindo testes específicos para produtos rascunho e salvados ocultos mantendo o botão clicável.
   - `catalogPublicationValidation.test.ts`: 6 testes aprovados, validando a rejeição com lista com marcadores de campos pendentes e mensagem de rascunho.
   - Suíte completa de `ProductList` (16 arquivos de teste, 78 testes) aprovada com 100% de sucesso.
+
+### Rótulo Canônico de Origem do Estoque e Bloqueio de Publicação para Rascunhos
+
+- **Problema e solicitação do usuário:**
+  1. Na listagem de produtos (tabela e cards), o rótulo anterior exibia apenas o nome da oportunidade de marketing (ex.: "Queima dos Salvados", "Últimas unidades") com ícone de fogo (`bi-fire`), omitindo a classificação de produtos convencionais e misturando conceito comercial/marketing com a origem real física do estoque.
+  2. A origem de estoque é essencial para o controle de triagem física, tributação e canais de venda (Convencional vs Salvados vs Usados).
+  3. Quando o produto é um rascunho (`isDraft === true`), o botão do catálogo (que exibe o status "Oculto") deve permanecer fisicamente desativado (`disabled`), pois rascunhos não podem sofrer tentativa de publicação enquanto o cadastro não for concluído.
+- **Solução implementada:**
+  1. Criado o componente especializado `StockOriginBadge` (`StockOriginBadge.tsx`) com função de resolução determinística `resolveStockOrigin`:
+     - **Sem ícones** em todos os selos de origem de estoque.
+     - **Convencional:** Container azul claro com borda e texto azul escuro (`bg-blue-100 text-blue-900 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-900/50`).
+     - **Salvados:** Container avermelhado quente (`bg-red-100 text-red-900 border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-900/50`).
+     - **Usados:** Container em tom âmbar/dourado (`bg-amber-100 text-amber-900 border-amber-200 dark:bg-amber-955/60 dark:text-amber-300 dark:border-amber-800/60`).
+  2. Integrado `StockOriginBadge` em `ProductRowDescriptionCell.tsx` (tabela de produtos) e `ProductCardHeader.tsx` (visualização em cards/grid), substituindo integralmente os antigos selos com ícone `bi-fire`.
+  3. Em `ChannelStatusBadges.tsx`, configurado para que quando `isDraft === true`, o botão de controle de catálogo ("Oculto") permaneça desabilitado (`disabled={true}`), com classe de cursor não permitido e tooltip explicativo, enquanto produtos finalizados permanecem ativos para exibir toasts explicativos de pendências caso ainda estejam ocultos.
+- **Arquivos modificados / criados:**
+  - `erp/src/pages/App/Products/ProductList/components/Shared/StockOriginBadge.tsx` (novo)
+  - `erp/src/pages/App/Products/ProductList/components/Shared/StockOriginBadge.test.tsx` (novo)
+  - `erp/src/pages/App/Products/ProductList/components/Table/ProductRowDescriptionCell.tsx`
+  - `erp/src/pages/App/Products/ProductList/components/Table/ProductRowDescriptionCell.test.tsx` (novo)
+  - `erp/src/pages/App/Products/ProductList/components/Card/ProductCardHeader.tsx`
+  - `erp/src/pages/App/Products/ProductList/components/Card/ProductCardHeader.test.tsx` (novo)
+  - `erp/src/pages/App/Products/ProductList/components/Shared/ChannelStatusBadges.tsx`
+  - `erp/src/pages/App/Products/ProductList/components/Shared/ChannelStatusBadges.test.tsx`
+- **Validação e testes:**
+  - `StockOriginBadge.test.tsx`: 8 testes aprovados cobrindo todas as origens, ausência de ícones e tamanhos.
+  - `ProductRowDescriptionCell.test.tsx`: 4 testes aprovados cobrindo renderização na tabela.
+  - `ProductCardHeader.test.tsx`: 3 testes aprovados cobrindo renderização nos cards.
+  - `ChannelStatusBadges.test.tsx`: 8 testes aprovados validando o bloqueio do botão oculto para rascunhos e interatividade para finalizados.
+  - Suíte completa do módulo `ProductList`: 19 arquivos de teste e 93 testes executados com 100% de aprovação.

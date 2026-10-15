@@ -234,7 +234,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
   });
 
   describe('Interatividade do Catálogo Digital para Rascunhos e Salvados Ocultos', () => {
-    it('mantém o botão de catálogo clicável mesmo quando o produto é um rascunho', () => {
+    it('desabilita o botão de catálogo Oculto quando o produto é um rascunho', () => {
       const handleToggleCatalog = vi.fn();
 
       render(
@@ -253,20 +253,21 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
       }) as HTMLButtonElement;
 
       expect(catalogButton).toBeDefined();
-      expect(catalogButton.disabled).toBe(false);
-      expect(catalogButton.className).not.toContain('cursor-not-allowed');
+      expect(catalogButton.disabled).toBe(true);
+      expect(catalogButton.className).toContain('cursor-not-allowed');
 
       fireEvent.click(catalogButton);
-      expect(handleToggleCatalog).toHaveBeenCalledTimes(1);
+      expect(handleToggleCatalog).not.toHaveBeenCalled();
     });
 
-    it('permite clicar no botão de catálogo Oculto de produto Salvado para disparar validação/toast', () => {
+    it('permite clicar no botão de catálogo Oculto de produto Salvado finalizado para disparar validação/toast', () => {
       const handleToggleCatalog = vi.fn();
 
       render(
         <ChannelStatusBadges
           active={false}
           catalogStatus="hidden"
+          isDraft={false}
           isSalvado={true}
           isNonConventional={true}
           isParent={false}

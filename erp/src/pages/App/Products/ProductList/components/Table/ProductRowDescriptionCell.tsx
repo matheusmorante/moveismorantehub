@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type Product from '@/pages/types/product.type';
 import ProductImage from '@/components/ProductImage';
+import { parseVariationImages } from '@/pages/utils/productService';
 import type { ProductListRow } from '../../types';
+import { StockOriginBadge } from '../Shared/StockOriginBadge';
 
 export interface ProductRowDescriptionCellProps {
   readonly product: Product & {
@@ -44,11 +46,29 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
     Boolean(product.isDraft) || Boolean(product.is_draft) || product.status === 'draft';
 
   const count = variationsCount ?? product.allVariations?.length ?? 0;
-  const parentImages = (product as any).parentImages as string[] | undefined;
+  const parentImages =
+    ((product as any).parentImages as string[] | undefined) ||
+    (Array.isArray(product.images) && product.images.length > 0 ? product.images : undefined) ||
+    parseVariationImages((product as any).image_url);
   const fallbackImage = parentImages && parentImages.length > 0 ? parentImages[0] : null;
-  const variationImage = singleVariation?.images?.[0];
-  const primaryImage = variationImage || product.images?.[0] || fallbackImage;
+
+  const variationImages =
+    singleVariation?.images && singleVariation.images.length > 0
+      ? singleVariation.images
+      : parseVariationImages((singleVariation as any)?.image_url);
+  const variationImage = variationImages?.[0];
+
+  const selfImages =
+    Array.isArray(product.images) && product.images.length > 0
+      ? product.images
+      : parseVariationImages((product as any).image_url);
+
+  const primaryImage = variationImage || selfImages?.[0] || fallbackImage;
   const hasImage = Boolean(!imageError && primaryImage);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [primaryImage]);
 
   return (
     <td key="description" className="px-3 py-3 text-left min-w-[520px]">
@@ -131,8 +151,8 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
                 </div>
               )}
 
-            {/* Linha 2 (abaixo do título): contagem de variações + oportunidade + fornecedores */}
-            {(product.isParent || oppName || supplierNames.length > 0) && (
+            {/* Linha 2 (abaixo do título): contagem de variações + origem do estoque + fornecedores */}
+            {(product.isParent || !isChildVariation || supplierNames.length > 0) && (
               <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                 {product.isParent && !singleVariation && count > 0 && (
                   <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 select-none">
@@ -141,10 +161,13 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
                   </span>
                 )}
 
-                {!isChildVariation && oppName && (
-                  <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-955/70 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider border border-amber-300 dark:border-amber-700/80">
-                    <i className="bi bi-fire text-amber-600 dark:text-amber-400" /> {oppName}
-                  </span>
+                {!isChildVariation && product.itemType !== 'service' && (
+                  <StockOriginBadge
+                    product={product}
+                    singleVariation={singleVariation}
+                    oppName={oppName}
+                    size="sm"
+                  />
                 )}
 
                 {!isChildVariation &&
