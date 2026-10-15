@@ -36,11 +36,11 @@ const ReturnItemsSelection = ({
         {order.items.map((item, index) => {
           const itemId = getReturnLineKey(item, index);
           const maxReturnable = returnableQuantities[itemId] || 0;
-          const selected = Boolean(quantities[itemId]);
+          const selected = quantities[itemId] !== undefined;
           const isUnregistered = !item.productId?.trim() || item.isTemporaryProduct;
           const activeUnitPrice =
             returnUnitPrices[itemId] !== undefined ? returnUnitPrices[itemId] : item.unitPrice;
-          const activeQty = selected ? quantities[itemId] || 0 : maxReturnable;
+          const activeQty = selected ? quantities[itemId] : maxReturnable;
           const itemTotal = activeQty * activeUnitPrice;
 
           return (
@@ -127,7 +127,7 @@ const ReturnItemsSelection = ({
                       <button
                         type="button"
                         onClick={() =>
-                          onQuantityChange(itemId, (quantities[itemId] || 1) - 1, maxReturnable)
+                          onQuantityChange(itemId, Math.max(1, (quantities[itemId] || 1) - 1), maxReturnable)
                         }
                         className="flex h-7 w-7 items-center justify-center rounded-xl text-slate-600 hover:bg-amber-100 dark:text-slate-300 dark:hover:bg-amber-900/30"
                       >
@@ -135,16 +135,18 @@ const ReturnItemsSelection = ({
                       </button>
                       <input
                         type="number"
-                        value={quantities[itemId] || 1}
+                        step="any"
+                        aria-label={`Quantidade a devolver de ${item.description}`}
+                        value={Number.isFinite(quantities[itemId]) ? quantities[itemId] : ''}
                         onChange={(event) =>
-                          onQuantityChange(itemId, parseInt(event.target.value) || 1, maxReturnable)
+                          onQuantityChange(itemId, event.target.valueAsNumber, maxReturnable)
                         }
                         className="w-10 bg-transparent text-center text-xs font-black outline-none"
                       />
                       <button
                         type="button"
                         onClick={() =>
-                          onQuantityChange(itemId, (quantities[itemId] || 1) + 1, maxReturnable)
+                          onQuantityChange(itemId, Math.min(maxReturnable, (quantities[itemId] || 1) + 1), maxReturnable)
                         }
                         className="flex h-7 w-7 items-center justify-center rounded-xl text-slate-600 hover:bg-amber-100 dark:text-slate-300 dark:hover:bg-amber-900/30"
                       >

@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { waitForAuthOperation } from '@/shared-utils/authOperationTimeout';
+
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -25,7 +27,7 @@ import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { loginFormSchema, passwordRecoveryEmailSchema, catalogPasswordRecoveryFormSchema } from '@/shared-utils/authFormSchemas';
-import { LogIn, KeyRound, Mail, Loader2, CheckCircle2, Send, ArrowLeft } from 'lucide-react';
+import { LogIn, KeyRound, Mail, Loader2, CheckCircle2, Send } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -68,106 +70,99 @@ export default function LoginPage() {
   const recoveryValues = { email: resetEmail, code: resetCode, password: newPassword, confirmation: confirmPassword };
   const recoveryForm = useZodForm(catalogPasswordRecoveryFormSchema, recoveryValues);
 
+  const authInFlight = useRef(false);
+  const runAuthOperation = async (operation: () => Promise<void>) => {
+    if (authInFlight.current) return;
+    authInFlight.current = true;
+    try { await operation(); } finally { authInFlight.current = false; }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validated = await loginForm.validateAndRun({ email, password }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    setLoading(true);
+    await runAuthOperation(async () => {
+      await loginForm.validateAndRun({ email, password }, async (validated) => {
+        setLoading(true);
 
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: validated.email,
-        password: validated.password,
-      });
+        try {
+          const { error } = await waitForAuthOperation(supabase.auth.signInWithPassword({
+            email: validated.email,
+            password: validated.password,
+          }), 'login do catálogo');
 
-      if (error) throw error;
+          if (error) throw new Error(error.message);
 
-      toast.success('Login realizado com sucesso!');
-      router.push('/');
-      router.refresh();
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao realizar login');
-    } finally {
-      setLoading(false);
-    }
+          toast.success('Login realizado com sucesso!');
+          router.push('/');
+          router.refresh();
+        } catch (error: unknown) {
+          toast.error(error instanceof Error ? error.message : 'Erro ao realizar login');
+        } finally {
+          setLoading(false);
+        }
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    });
   };
 
   // 1. Enviar código no e-mail para recuperação de senha esquecida
   const handleSendResetCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validated = await recoveryEmailForm.validateAndRun({ email: resetEmail }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    const trimmed = validated.email.toLowerCase();
+    await runAuthOperation(async () => {
+      await recoveryEmailForm.validateAndRun({ email: resetEmail }, async (validated) => {
+        const trimmed = validated.email.toLowerCase();
 
-    setSendingReset(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(trimmed);
-      if (error) throw error;
+        setSendingReset(true);
+        try {
+          const { error } = await waitForAuthOperation(supabase.auth.resetPasswordForEmail(trimmed), 'recuperação do catálogo');
+          if (error) throw new Error(error.message);
 
-      toast.success(
-        `Código de recuperação enviado para ${trimmed}! Verifique sua caixa de entrada.`
-      );
-      setResetStep(2);
-    } catch (error: any) {
-      console.error('Erro ao solicitar código:', error);
-      toast.error(error.message || 'Erro ao enviar código de recuperação.');
-    } finally {
-      setSendingReset(false);
-    }
+          toast.success(
+            `Código de recuperação enviado para ${trimmed}! Verifique sua caixa de entrada.`
+          );
+          setResetStep(2);
+        } catch (error: unknown) {
+          console.error('Erro ao solicitar código:', error);
+          toast.error(error instanceof Error ? error.message : 'Erro ao enviar código de recuperação.');
+        } finally {
+          setSendingReset(false);
+        }
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    });
   };
 
   // 2. Validar código OTP e redefinir senha esquecida
   const handleVerifyCodeAndResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validated = await recoveryForm.validateAndRun(recoveryValues, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    const code = resetCode.trim();
+    await runAuthOperation(async () => {
+      await recoveryForm.validateAndRun(recoveryValues, async (validated) => {
+        setVerifyingReset(true);
+        try {
+          const { error: otpError } = await waitForAuthOperation(supabase.auth.verifyOtp({
+            email: validated.email.toLowerCase(),
+            token: validated.code,
+            type: 'recovery',
+          }), 'verificação do código do catálogo');
 
-    if (!code) {
-      toast.error('Digite o código de 6 dígitos recebido por e-mail.');
-      return;
-    }
+          if (otpError) throw new Error(otpError.message);
 
-    if (newPassword.length < 6) {
-      toast.error('A nova senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
+          const { error: updateError } = await waitForAuthOperation(supabase.auth.updateUser({
+            password: validated.password,
+          }), 'atualização da senha do catálogo');
 
-    if (newPassword !== confirmPassword) {
-      toast.error('As senhas digitadas não coincidem.');
-      return;
-    }
+          if (updateError) throw new Error(updateError.message);
 
-    setVerifyingReset(true);
-    try {
-      const { error: otpError } = await supabase.auth.verifyOtp({
-        email: validated.email.toLowerCase(),
-        token: validated.code,
-        type: 'recovery',
-      });
-
-      if (otpError) throw otpError;
-
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: validated.password,
-      });
-
-      if (updateError) throw updateError;
-
-      toast.success('Senha redefinida com sucesso! Você já está conectado.');
-      setIsResetOpen(false);
-      setResetStep(1);
-      router.push('/');
-      router.refresh();
-    } catch (error: any) {
-      console.error('Erro ao validar código:', error);
-      toast.error(error.message || 'Código inválido ou expirado. Tente novamente.');
-    } finally {
-      setVerifyingReset(false);
-    }
+          toast.success('Senha redefinida com sucesso! Você já está conectado.');
+          setIsResetOpen(false);
+          setResetStep(1);
+          router.push('/');
+          router.refresh();
+        } catch (error: unknown) {
+          console.error('Erro ao validar código:', error);
+          toast.error(error instanceof Error ? error.message : 'Código inválido ou expirado. Tente novamente.');
+        } finally {
+          setVerifyingReset(false);
+        }
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    });
   };
 
   return (

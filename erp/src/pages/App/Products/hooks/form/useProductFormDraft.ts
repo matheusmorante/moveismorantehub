@@ -27,12 +27,17 @@ export function useProductFormDraft(
   const savedDraftIdRef = useRef<string | null>(null);
   const savedVersionRef = useRef<string | undefined>(formData.updatedAt);
   const wasOpenRef = useRef(isOpen);
+  const manualSaveBlocked = useRef(false);
 
   useEffect(() => {
     savedDraftIdRef.current = formData.id ? String(formData.id) : null;
     savedVersionRef.current = formData.updatedAt;
-    if (isOpen && !wasOpenRef.current) setAutoSaveStatus('idle');
+    if (isOpen && !wasOpenRef.current) {
+      manualSaveBlocked.current = false;
+      setAutoSaveStatus('idle');
+    }
     if (!isOpen) {
+      manualSaveBlocked.current = false;
       queuedDataRef.current = null;
       setAutoSaveStatus('idle');
     }
@@ -41,6 +46,7 @@ export function useProductFormDraft(
 
   const autoSaveDraft = useCallback(
     (data: Partial<Product>): Promise<boolean> => {
+      if (manualSaveBlocked.current) return Promise.resolve(false);
       if (!getEnteredProductName(data)) {
         setAutoSaveStatus('idle');
         return Promise.resolve(false);
@@ -117,8 +123,27 @@ export function useProductFormDraft(
     [setFormData, hasChanged, initialFormDataRef, validateProductDraft]
   );
 
+  const beginManualSave = useCallback(async () => {
+    manualSaveBlocked.current = true;
+    queuedDataRef.current = null;
+    if (activeSavePromiseRef.current) await activeSavePromiseRef.current;
+    return { id: savedDraftIdRef.current || undefined, updatedAt: savedVersionRef.current };
+  }, []);
+
+  const endManualSave = useCallback((savedProduct?: Product) => {
+    if (savedProduct) {
+      savedDraftIdRef.current = savedProduct.id || null;
+      savedVersionRef.current = savedProduct.updatedAt;
+      initialFormDataRef.current = JSON.stringify(savedProduct);
+      setAutoSaveStatus(savedProduct.isDraft ? 'saved' : 'idle');
+    }
+    manualSaveBlocked.current = Boolean(savedProduct && !savedProduct.isDraft);
+  }, [initialFormDataRef]);
+
   return {
     autoSaveStatus,
     autoSaveDraft,
+    beginManualSave,
+    endManualSave,
   };
 }

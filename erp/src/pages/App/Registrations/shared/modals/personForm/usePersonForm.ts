@@ -21,6 +21,7 @@ import { UserRole } from '@/context/AuthContext';
 import { getPrimaryRole } from '@/pages/utils/accessRoles';
 import { setTestArtifactMode } from '../../../../../../../../shared-utils/testArtifactContext';
 import { readTestArtifactIdentity } from '../../../../../../../../shared-utils/testArtifactPolicy';
+import { cepLookupFormSchema, emailLookupFormSchema } from '../../../../../../../../shared-utils/lookupFormSchemas';
 
 export const EMPLOYEE_ROLES: {
   value: UserRole;
@@ -125,6 +126,10 @@ export const usePersonForm = ({
   const isTestArtifact = Boolean(readTestArtifactIdentity(formData));
   const [settings] = useState(getSettings());
   const form = useZodForm(createPersonFormSchema(collectionName, settings.requiredFields), formData);
+  const emailLookupForm = useZodForm(emailLookupFormSchema, { email: '' });
+  const cepLookupForm = useZodForm(cepLookupFormSchema, { cep: '' });
+  const emailLookupRevision = useRef(0);
+  const cepLookupRevision = useRef(0);
   const isInitialMount = useRef(true);
   const [isAddressOpen, setIsAddressOpen] = useState(!isEmployee);
 
@@ -182,17 +187,22 @@ export const usePersonForm = ({
   };
 
   const handleEmployeeEmailBlur = async () => {
+    const revision = ++emailLookupRevision.current;
     if (!isEmployee || !formData.email?.trim()) return;
+    const values = await emailLookupForm.validateValues({ email: formData.email },
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (!values || revision !== emailLookupRevision.current) return;
 
     try {
-      const isTaken = await isEmployeeEmailTaken(formData.email, person?.id);
+      const isTaken = await isEmployeeEmailTaken(values.email, person?.id);
+      if (revision !== emailLookupRevision.current) return;
       if (isTaken) {
         toast.error('Este e-mail já está sendo utilizado por outro colaborador.');
         return;
       }
 
-      const profile = await getUserProfileByEmail(formData.email);
-      if (!profile) return;
+      const profile = await getUserProfileByEmail(values.email);
+      if (!profile || revision !== emailLookupRevision.current) return;
 
       const profileRoles =
         profile.roles && profile.roles.length > 0
@@ -201,7 +211,7 @@ export const usePersonForm = ({
             ? [profile.role]
             : ['seller'];
 
-      setFormData((current) => ({
+      setFormData((current) => current.email?.trim() !== values.email ? current : ({
         ...current,
         fullName: current.fullName || profile.full_name || profile.email,
         position: current.position || profile.position || '',
@@ -213,6 +223,7 @@ export const usePersonForm = ({
       toast.info('Dados e cargos da conta vinculados ao funcionário.');
     } catch (error) {
       console.error('Erro ao localizar conta pelo e-mail:', error);
+      if (revision === emailLookupRevision.current) toast.error('Não foi possível localizar a conta. Tente novamente.');
     }
   };
 
@@ -347,12 +358,15 @@ export const usePersonForm = ({
   }, [formData.fullName]);
 
   const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
-    const cepValue = e.target.value.replace(/\D/g, '');
-    if (cepValue.length === 8) {
+    const revision = ++cepLookupRevision.current;
+    if (!e.target.value.trim()) return;
+    const values = await cepLookupForm.validateValues({ cep: e.target.value },
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    if (values && revision === cepLookupRevision.current) {
       try {
-        const data = await getAddressByCep(cepValue);
-        if (data && !(data as any).error) {
-          setFormData((prev: Partial<Person>) => ({
+        const data = await getAddressByCep(values.cep);
+        if (data && !(data as any).error && revision === cepLookupRevision.current) {
+          setFormData((prev: Partial<Person>) => prev.fullAddress?.cep?.replace(/\D/g, '') !== values.cep ? prev : ({
             ...prev,
             fullAddress: {
               ...prev.fullAddress!,
@@ -363,8 +377,8 @@ export const usePersonForm = ({
             },
           }));
         }
-      } catch (error) {
-        /* ignore */
+      } catch {
+        if (revision === cepLookupRevision.current) toast.error('Não foi possível consultar o CEP. Tente novamente.');
       }
     }
   };
@@ -388,91 +402,90 @@ export const usePersonForm = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validatedData = await form.validateAndRun(formData, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validatedData) return;
+    return form.validateAndRun(formData, async (validatedData) => {
+      setLoading(true);
+      try {
 
-    if (isEmployee && formData.email && formData.email.trim() !== '') {
-      const isEmailTaken = await isEmployeeEmailTaken(formData.email, person?.id);
-      if (isEmailTaken) {
-        toast.error('Já existe outro colaborador cadastrado com este e-mail.');
-        return;
-      }
-    }
-
-    if (collectionName === 'suppliers' && formData.fullName && formData.fullName.trim() !== '') {
-      const isNameTaken = await isSupplierNameTaken(formData.fullName, person?.id);
-      if (isNameTaken) {
-        toast.error('Já existe um fornecedor cadastrado com este nome.');
-        return;
-      }
-    }
-
-    if (!person) {
-      const existing = await getPersonByIdentifiers(
-        {
-          cpfCnpj: formData.cpfCnpj || '',
-          email: formData.email || '',
-          phone: formData.phone || '',
-        },
-        collectionName
-      );
-
-      if (existing) {
-        if (collectionName === 'suppliers') {
-          toast.error('Este fornecedor já está cadastrado.');
-          return;
-        } else if (collectionName === 'customers') {
-          toast.warn(
-            'Aviso: Já existe um cliente cadastrado com este CPF/CNPJ, e-mail ou celular.'
-          );
-        } else if (collectionName === 'employees') {
-          toast.error('Este funcionário já está cadastrado.');
-          return;
-        }
-      }
-    }
-
-    setLoading(true);
-    try {
-      const dataToSave = capitalizePerson({ ...validatedData, isDraft: false } as Person);
-      if (dataToSave.position?.trim() === '') {
-        dataToSave.position = null as any;
-      }
-      if (isEmployee) {
-        if (!dataToSave.roles || dataToSave.roles.length === 0) {
-          dataToSave.roles = dataToSave.role ? [dataToSave.role] : ['seller'];
-        }
-        dataToSave.role = dataToSave.role || getPrimaryRole(dataToSave.roles);
-      }
-
-      const saveOptions = !person && collectionName === 'customers' && isTestArtifact
-        ? { isTestArtifact: true }
-        : undefined;
-      const savedPerson = saveOptions
-        ? await savePerson(formData.type || collectionName, dataToSave, saveOptions)
-        : await savePerson(formData.type || collectionName, dataToSave);
-
-      if (isEmployee) {
-        try {
-          const userProfile = await getUserProfileByIdOrEmail(person?.id, dataToSave.email);
-          if (userProfile) {
-            await saveEmployeeInProfile(userProfile, dataToSave, canManageAccessRoles);
+        if (isEmployee && validatedData.email && validatedData.email.trim() !== '') {
+          const isEmailTaken = await isEmployeeEmailTaken(validatedData.email, person?.id);
+          if (isEmailTaken) {
+            toast.error('Já existe outro colaborador cadastrado com este e-mail.');
+            return;
           }
-        } catch (profErr) {
-          console.warn('Aviso ao sincronizar profile do colaborador:', profErr);
         }
-      }
 
-      toast.success(person ? 'Atualizado com sucesso!' : 'Criado com sucesso!');
-      if (onSuccess) onSuccess(savedPerson);
-      onClose();
-    } catch (error) {
-      toast.error('Erro ao salvar.');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+        if (collectionName === 'suppliers' && validatedData.fullName && validatedData.fullName.trim() !== '') {
+          const isNameTaken = await isSupplierNameTaken(validatedData.fullName, person?.id);
+          if (isNameTaken) {
+            toast.error('Já existe um fornecedor cadastrado com este nome.');
+            return;
+          }
+        }
+
+        if (!person) {
+          const existing = await getPersonByIdentifiers(
+            {
+              cpfCnpj: validatedData.cpfCnpj || '',
+              email: validatedData.email || '',
+              phone: validatedData.phone || '',
+            },
+            collectionName
+          );
+
+          if (existing) {
+            if (collectionName === 'suppliers') {
+              toast.error('Este fornecedor já está cadastrado.');
+              return;
+            } else if (collectionName === 'customers') {
+              toast.warn(
+                'Aviso: Já existe um cliente cadastrado com este CPF/CNPJ, e-mail ou celular.'
+              );
+            } else if (collectionName === 'employees') {
+              toast.error('Este funcionário já está cadastrado.');
+              return;
+            }
+          }
+        }
+
+        const dataToSave = capitalizePerson({ ...validatedData, isDraft: false } as Person);
+        if (dataToSave.position?.trim() === '') {
+          dataToSave.position = null as any;
+        }
+        if (isEmployee) {
+          if (!dataToSave.roles || dataToSave.roles.length === 0) {
+            dataToSave.roles = dataToSave.role ? [dataToSave.role] : ['seller'];
+          }
+          dataToSave.role = dataToSave.role || getPrimaryRole(dataToSave.roles);
+        }
+
+        const saveOptions = !person && collectionName === 'customers' && isTestArtifact
+          ? { isTestArtifact: true }
+          : undefined;
+        const savedPerson = saveOptions
+          ? await savePerson(dataToSave.type || collectionName, dataToSave, saveOptions)
+          : await savePerson(dataToSave.type || collectionName, dataToSave);
+
+        if (isEmployee) {
+          try {
+            const userProfile = await getUserProfileByIdOrEmail(person?.id, dataToSave.email);
+            if (userProfile) {
+              await saveEmployeeInProfile(userProfile, dataToSave, canManageAccessRoles);
+            }
+          } catch (profErr) {
+            console.warn('Aviso ao sincronizar profile do colaborador:', profErr);
+          }
+        }
+
+        toast.success(person ? 'Atualizado com sucesso!' : 'Criado com sucesso!');
+        if (onSuccess) onSuccess(savedPerson);
+        onClose();
+      } catch (error) {
+        toast.error('Erro ao salvar.');
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const routeUrl =

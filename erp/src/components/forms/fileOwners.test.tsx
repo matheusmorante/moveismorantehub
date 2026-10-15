@@ -25,6 +25,15 @@ const invalid = () => new File(['text'], 'text.txt', { type: 'text/plain' });
 const select = (view: ReturnType<typeof render>, file: File) => fireEvent.change(view.container.querySelector('input[type=file]')!, { target: { files: [file] } });
 
 describe('file form owners', () => {
+  it('preserves invalid quantity edits for the printing resolver instead of silently coercing them', () => {
+    const update = vi.fn();
+    const view = render(<LabelQueue labelItems={[{ name: 'Mesa', price: '', quantity: 1 }]} setLabelItems={update} printingMode="simple" config={{}} />);
+    const quantity = view.getByLabelText('Quantidade de etiquetas');
+    fireEvent.change(quantity, { target: { value: '1.5' } });
+    expect(update).toHaveBeenLastCalledWith([expect.objectContaining({ quantity: 1.5 })]);
+    fireEvent.change(quantity, { target: { value: '' } });
+    expect(update.mock.lastCall?.[0][0].quantity).toBeNaN();
+  });
   it('validates the assistant avatar before compression or updating settings', async () => {
     const change = vi.fn();
     const settings = { aiPrompts: { aiAvatar: '', aiName: 'Assistente', productDescription: '', generalChat: '', taskDetection: '' } } as never;

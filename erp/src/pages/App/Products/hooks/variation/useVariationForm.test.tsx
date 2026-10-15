@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Product, Variation } from '@/pages/types/product.type';
 import { useVariationForm } from './useVariationForm';
@@ -112,11 +112,12 @@ describe('edição explícita de variação', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it('não conclui uma variação incompleta', async () => {
+  it('não conclui uma variação independente incompleta', async () => {
     const onSave = vi.fn();
     const onClose = vi.fn();
+    const independentParent = { ...parent, variations: [variation, { ...variation, id: 'other', sku: 'SKU-2', attributes: [{ name: 'Cor', value: 'Verde' }] }] };
     const { result } = renderHook(() =>
-      useVariationForm({ isOpen: true, onClose, parentProduct: parent, variation, onSave })
+      useVariationForm({ isOpen: true, onClose, parentProduct: independentParent, variation, onSave })
     );
 
     await act(async () => {
@@ -217,5 +218,34 @@ describe('edição explícita de variação', () => {
 
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('permite salvar os metadados da variação única sem concluir os campos herdados do pai em rascunho', async () => {
+    const onSave = vi.fn().mockResolvedValue(true); const onClose = vi.fn();
+    const { result } = renderHook(() => useVariationForm({ isOpen: true, onClose, parentProduct: parent, variation, onSave }));
+    await act(async () => { await result.current.handleSubmit({ preventDefault() {} } as React.FormEvent); });
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ status: 'hidden', active: false, width: 0, unitPrice: 0 }));
+    expect(onClose).toHaveBeenCalledTimes(1); expect(parent.status).toBe('draft');
+  });
+
+  it.each(['callback', 'service'] as const)('bloqueia chamadas concorrentes e permite retomar após falha via %s', async (target) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const complete: Variation = { ...variation, width: 80, height: 180, depth: 50, unitPrice: 120, attributes: [{ name: 'Cor', value: 'Azul' }], technicalValues: { Cor: 'Azul', Marca: 'Morante', Modelo: 'Padrão', 'Material da estrutura': 'Madeira' } };
+    const completeParent: Product = { ...parent, unitPrice: 120, categoryIds: ['categoria'], mainSupplierId: 'fornecedor', variations: [complete, { ...complete, id: 'other', sku: 'SKU-2', attributes: [{ name: 'Cor', value: 'Verde' }] }] };
+    let fail!: (error: Error) => void;
+    const callback = vi.fn().mockResolvedValue(true);
+    const operation = target === 'callback' ? callback : mocks.saveVariation;
+    operation.mockResolvedValue(true).mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+    const onClose = vi.fn();
+    const { result } = renderHook(() => useVariationForm({ isOpen: true, onClose, parentProduct: completeParent, variation: complete, onSave: target === 'callback' ? callback : undefined }));
+    let first!: Promise<void>;
+    await act(async () => { first = result.current.handleSubmit({ preventDefault() {} } as React.FormEvent); });
+    await waitFor(() => expect(operation).toHaveBeenCalledTimes(1));
+    await act(async () => { await result.current.handleSubmit({ preventDefault() {} } as React.FormEvent); });
+    expect(operation).toHaveBeenCalledTimes(1); expect(onClose).not.toHaveBeenCalled();
+    await act(async () => { fail(new Error('Falha simulada')); await first; });
+    expect(result.current.loading).toBe(false);
+    await act(async () => { await result.current.handleSubmit({ preventDefault() {} } as React.FormEvent); });
+    expect(operation).toHaveBeenCalledTimes(2); expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

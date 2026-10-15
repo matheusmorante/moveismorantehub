@@ -21,7 +21,7 @@ export const bulkAttributeFormSchema = z.object({
   value: z.string().trim().min(1, 'Informe o valor do atributo.'),
 });
 export const cartesianVariationFormSchema = z.object({
-  attributes: z.array(z.object({ name: z.string().trim().min(1), values: z.array(z.string().trim().min(1)).min(1), showName: z.boolean() })).min(1, 'Selecione pelo menos um atributo e um valor.'),
+  attributes: z.array(z.object({ name: z.string().trim().min(1, 'Selecione o atributo de cada linha.'), values: z.array(z.string().trim().min(1)).min(1, 'Selecione um valor de cada atributo.'), showName: z.boolean() })).min(1, 'Selecione pelo menos um atributo e um valor.'),
 });
 export const variationTargetFormSchema = z.object({
   sourceId: z.string().min(1, 'Variação de origem não encontrada.'),

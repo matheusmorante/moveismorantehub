@@ -4,6 +4,10 @@
 
 ## Referências atuais
 
+- [Inventário de formulários mobile e catálogo — 15/10](../forms/inventario-mobile-catalogo-2026-10-15.md): localização de campos, wrappers e proprietários; conferência individual pendente, sem comprovar prontidão global.
+
+- [Histórico de correções — 15/10](historico-correcoes-2026-10-15.md): formulários de produtos, pessoas, operações fiscais, devoluções e importação de NF-e; preservação da chave alfanumérica nos serviços de entrada; otimização de índices/triggers em variações de produto eliminando timeout de 8s (57014) no PostgreSQL. Validações locais e pendências registradas sem declarar prontidão fiscal global.
+
 - [Migração de todos os formulários para RHF + zodResolver — 14/10](../forms/migracao-rhf-zod-2026-10-14.md): escopo ERP, móvel e catálogo, contratos compartilhados, inventário e validação em andamento. Não equivale à conclusão global nem à prontidão fiscal ponta a ponta.
 
 - [Auditoria de domínio e gerador sintético — 14/10](auditoria-regras-gerador-sintetico-2026-10-14.md): pedido em etapas sequenciais, inventário de lacunas frontend/backend, correções em andamento e migration preparada. Gerador e população em massa ainda não habilitados.

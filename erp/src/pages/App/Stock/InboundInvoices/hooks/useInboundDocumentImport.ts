@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { inboundInvoiceFormSchema } from '../../../../../../../shared-utils/inboundInvoiceFormSchema';
+import { inboundXmlUploadFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
+import { inboundXmlFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
 import { normalizeFiscalIdentifier } from '../../../../../../../shared-utils/fiscalIdentifiers';
 import type { z } from 'zod';
 import {
@@ -21,7 +23,6 @@ import Person from '@/pages/types/person.type';
  */
 async function ensureSupplier(
   emitterName?: string,
-  emitterTradeName?: string,
   emitterCnpj?: string
 ): Promise<Person | null> {
   const cleanDoc = normalizeFiscalIdentifier(emitterCnpj);
@@ -61,6 +62,11 @@ export function useInboundDocumentImport({
   const [statusMessage, setStatusMessage] = useState('');
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const { validateAndRun } = useZodForm(inboundInvoiceFormSchema, {} as z.input<typeof inboundInvoiceFormSchema>);
+  const fileForm = useZodForm(inboundXmlUploadFormSchema, { file: undefined as unknown as File });
+  const xmlForm = useZodForm(inboundXmlFormSchema, { xml: '' });
+  const importInFlight = useRef(false);
+  const showValidationError = (errors: Parameters<typeof flattenFormErrors>[0]) =>
+    toast.error(Object.values(flattenFormErrors(errors))[0]);
 
   // Alerta de chave duplicada
   const [duplicateAlertOpen, setDuplicateAlertOpen] = useState(false);
@@ -73,105 +79,96 @@ export function useInboundDocumentImport({
    * Persiste a nota no banco de dados e aciona o callback de sucesso
    */
   const persistAndFinish = async (parsedInvoice: InboundInvoice) => {
-    const validated = await validateAndRun({ ...parsedInvoice, items: parsedInvoice.items.map((item) => ({ ...item })) }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    if (String(parsedInvoice.model || '').replace(/\D/g, '') === '65') {
-      throw new Error('NFC-e (modelo 65) não pode ser cadastrada como NF de Entrada.');
-    }
+    await validateAndRun({ ...parsedInvoice, items: parsedInvoice.items.map((item) => ({ ...item })) }, async (data) => {
+      const validated = data as InboundInvoice;
+      const cleanKey = validated.nfeKey;
 
-    const cleanKey = validated.nfeKey;
-    if (!cleanKey || cleanKey.length !== 44) {
-      throw new Error('A chave de acesso da nota fiscal deve conter exatamente 44 dígitos.');
-    }
-
-    // Verifica duplicidade no banco
-    setStatusMessage('Verificando notas existentes...');
-    const existing = await checkInboundInvoiceKeyExists(cleanKey);
-    if (existing) {
-      setDuplicateKey(cleanKey);
-      setDuplicateExistingInvoice(existing);
-      setDuplicateAlertOpen(true);
-      return;
-    }
-
-    // Localiza ou cadastra fornecedor
-    setStatusMessage('Identificando fornecedor...');
-    const supplier = await ensureSupplier(
-      parsedInvoice.emitterName,
-      parsedInvoice.emitterTradeName,
-      parsedInvoice.emitterCnpj
-    );
-    const supplierId = supplier?.id;
-
-    // Auto-match com vínculos anteriores do fornecedor
-    let itemsWithMatches = parsedInvoice.items || [];
-    if (supplierId && itemsWithMatches.length > 0) {
-      setStatusMessage('Consultando vínculos de produtos...');
-      try {
-        const mappings = await findProductSupplierCodes(
-          supplierId,
-          itemsWithMatches.map((i) => i.productCode)
-        );
-        if (mappings.size > 0) {
-          itemsWithMatches = await Promise.all(
-            itemsWithMatches.map(async (item) => {
-              const map = mappings.get((item.productCode || '').trim().toLocaleUpperCase('pt-BR'));
-              if (!map) return item;
-              const details = await resolveLinkedProductDetails(
-                map.productId,
-                map.productVariationId
-              );
-              return {
-                ...item,
-                matchedProductId: map.productId,
-                matchedVariationId: map.productVariationId,
-                linkedProductCode: details?.linkedProductCode,
-                productErpName: details?.productErpName || 'Produto vinculado',
-              };
-            })
-          );
-        }
-      } catch (mErr) {
-        console.warn('[useInboundDocumentImport] Erro ao recuperar histórico de vínculos:', mErr);
+      // Verifica duplicidade no banco
+      setStatusMessage('Verificando notas existentes...');
+      const existing = await checkInboundInvoiceKeyExists(cleanKey);
+      if (existing) {
+        setDuplicateKey(cleanKey);
+        setDuplicateExistingInvoice(existing);
+        setDuplicateAlertOpen(true);
+        return;
       }
-    }
 
-    const invoiceToSave: InboundInvoice = {
-      ...parsedInvoice,
-      nfeKey: cleanKey,
-      supplierId: supplierId || parsedInvoice.supplierId,
-      items: itemsWithMatches,
-    };
+      // Localiza um fornecedor já cadastrado.
+      setStatusMessage('Identificando fornecedor...');
+      const supplier = await ensureSupplier(
+        validated.emitterName,
+        validated.emitterCnpj
+      );
+      const supplierId = supplier?.id;
 
-    setStatusMessage('Salvando nota fiscal no sistema...');
-    const saved = await saveInboundInvoice(invoiceToSave);
-    toast.success(`NF-e #${saved.nfeNumber || ''} adicionada com sucesso!`);
-    onImportSuccess(saved);
-    onClose();
+      // Auto-match com vínculos anteriores do fornecedor
+      let itemsWithMatches = validated.items;
+      if (supplierId && itemsWithMatches.length > 0) {
+        setStatusMessage('Consultando vínculos de produtos...');
+        try {
+          const mappings = await findProductSupplierCodes(
+            supplierId,
+            itemsWithMatches.map((i) => i.productCode)
+          );
+          if (mappings.size > 0) {
+            itemsWithMatches = await Promise.all(
+              itemsWithMatches.map(async (item) => {
+                const map = mappings.get((item.productCode || '').trim().toLocaleUpperCase('pt-BR'));
+                if (!map) return item;
+                const details = await resolveLinkedProductDetails(
+                  map.productId,
+                  map.productVariationId
+                );
+                return {
+                  ...item,
+                  matchedProductId: map.productId,
+                  matchedVariationId: map.productVariationId,
+                  linkedProductCode: details?.linkedProductCode,
+                  productErpName: details?.productErpName || 'Produto vinculado',
+                };
+              })
+            );
+          }
+        } catch (mErr) {
+          console.warn('[useInboundDocumentImport] Erro ao recuperar histórico de vínculos:', mErr);
+        }
+      }
+
+      const invoiceToSave: InboundInvoice = {
+        ...validated,
+        nfeKey: cleanKey,
+        supplierId: supplierId || validated.supplierId,
+        items: itemsWithMatches,
+      };
+
+      setStatusMessage('Salvando nota fiscal no sistema...');
+      const saved = await saveInboundInvoice(invoiceToSave);
+      toast.success(`NF-e #${saved.nfeNumber || ''} adicionada com sucesso!`);
+      onImportSuccess(saved);
+      onClose();
+    }, showValidationError);
   };
 
   /**
    * Processa exclusivamente o XML oficial da NF-e.
    */
   const handleFile = async (selectedFile?: File) => {
-    if (!selectedFile || isLoading) return;
-
-    const isXml =
-      selectedFile.name.toLowerCase().endsWith('.xml') || selectedFile.type.includes('xml');
+    if (!selectedFile || importInFlight.current) return;
+    importInFlight.current = true;
     try {
       setIsLoading(true);
-
-      if (!isXml) throw new Error('Envie somente o arquivo XML oficial da NF-e.');
-
-      setStatusMessage('Lendo e interpretando arquivo XML...');
-      const xmlText = await selectedFile.text();
-      const parsed = parseInboundNfeXml(xmlText);
-      await persistAndFinish(parsed);
-    } catch (error: any) {
+      await fileForm.validateAndRun({ file: selectedFile }, async ({ file }) => {
+        setStatusMessage('Lendo e interpretando arquivo XML...');
+        const xmlText = await file.text();
+        await xmlForm.validateAndRun({ xml: xmlText }, async ({ xml }) => {
+          await persistAndFinish(parseInboundNfeXml(xml));
+        }, showValidationError);
+      }, showValidationError);
+    } catch (error: unknown) {
       console.error('[useInboundDocumentImport] Erro ao processar arquivo:', error);
-      toast.error(error.message || 'Falha ao processar o arquivo da nota fiscal.');
+      toast.error(error instanceof Error ? error.message : 'Falha ao processar o arquivo da nota fiscal.');
     } finally {
+      importInFlight.current = false;
       setIsLoading(false);
       setStatusMessage('');
     }
@@ -181,16 +178,19 @@ export function useInboundDocumentImport({
    * Processa o conteúdo XML da NF-e diretamente em memória (ex: obtido via SEFAZ consChNFe).
    */
   const handleXmlString = async (xmlText: string) => {
-    if (!xmlText || isLoading) return;
+    if (importInFlight.current) return;
+    importInFlight.current = true;
     try {
       setIsLoading(true);
-      setStatusMessage('Interpretando dados oficiais da SEFAZ...');
-      const parsed = parseInboundNfeXml(xmlText);
-      await persistAndFinish(parsed);
-    } catch (error: any) {
+      await xmlForm.validateAndRun({ xml: xmlText }, async ({ xml }) => {
+        setStatusMessage('Interpretando dados oficiais da SEFAZ...');
+        await persistAndFinish(parseInboundNfeXml(xml));
+      }, showValidationError);
+    } catch (error: unknown) {
       console.error('[useInboundDocumentImport] Erro ao processar XML direto:', error);
-      toast.error(error.message || 'Falha ao processar nota fiscal.');
+      toast.error(error instanceof Error ? error.message : 'Falha ao processar nota fiscal.');
     } finally {
+      importInFlight.current = false;
       setIsLoading(false);
       setStatusMessage('');
     }
@@ -220,6 +220,7 @@ export function useInboundDocumentImport({
     setDuplicateAlertOpen,
     duplicateKey,
     duplicateExistingInvoice,
+    isImportInFlight: () => importInFlight.current,
     handleFile,
     handleXmlString,
   };

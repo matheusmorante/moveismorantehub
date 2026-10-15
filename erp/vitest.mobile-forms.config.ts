@@ -1,6 +1,8 @@
 import path from 'node:path';
 export default {
   resolve: { alias: [
+    { find: /^expo-web-browser$/, replacement: path.resolve(__dirname, '../mobile/node_modules/expo-web-browser/build/WebBrowser.js') },
+    { find: /^react-native-svg$/, replacement: path.resolve(__dirname, '../mobile/node_modules/react-native-svg/lib/commonjs/index.js') },
     { find: /^expo-document-picker$/, replacement: path.resolve(__dirname, '../mobile/node_modules/expo-document-picker/build/index.js') },
     { find: /^react-native-safe-area-context$/, replacement: path.resolve(__dirname, '../mobile/node_modules/react-native-safe-area-context/lib/module/index.js') },
     { find: /^vitest$/, replacement: path.resolve(__dirname, './node_modules/vitest/dist/index.js') },
@@ -12,6 +14,6 @@ export default {
     { find: /^react\/jsx-dev-runtime$/, replacement: path.resolve(__dirname, './node_modules/react/jsx-dev-runtime.js') },
     { find: /^react-dom$/, replacement: path.resolve(__dirname, './node_modules/react-dom') },
   ] },
-  test: { include: ['tests/mobile-forms/owners.test.tsx'], environment: 'happy-dom', clearMocks: true },
+  test: { include: ['tests/mobile-forms/**/*.test.tsx'], environment: 'happy-dom', clearMocks: true, restoreMocks: true },
 };
 

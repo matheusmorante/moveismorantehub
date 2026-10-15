@@ -75,7 +75,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
   const [returnRequestId] = useState(() => crypto.randomUUID());
   const submittingRef = useRef(false);
   const priorReturnsRef = useRef<ReturnQuantityRecord[]>([]);
-  const form = useZodForm(createLinkedReturnFormSchema(order.items, priorReturnsRef.current), { items: [], collectAtAddress: false });
+  const form = useZodForm(createLinkedReturnFormSchema(order.items, priorReturnsRef.current), { items: [], collectAtAddress: false, scheduling, observations });
 
   useEffect(() => {
     let active = true;
@@ -223,7 +223,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
 
   const toggleItem = (id: string, max: number, defaultUnitPrice: number) => {
     setQuantities((current) => {
-      if (current[id]) {
+      if (current[id] !== undefined) {
         const next = { ...current };
         delete next[id];
         return next;
@@ -240,11 +240,11 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
     });
   };
 
-  const updateQuantity = (id: string, quantity: number, max: number) =>
-    setQuantities((current) => ({ ...current, [id]: Math.max(1, Math.min(quantity, max)) }));
+  const updateQuantity = (id: string, quantity: number) =>
+    setQuantities((current) => ({ ...current, [id]: quantity }));
 
   const updateUnitPrice = (id: string, unitPrice: number) =>
-    setReturnUnitPrices((current) => ({ ...current, [id]: Math.max(0, unitPrice) }));
+    setReturnUnitPrices((current) => ({ ...current, [id]: unitPrice }));
 
   const generateReturn = async () => {
     if (submittingRef.current) return;
@@ -273,7 +273,7 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       const originalOrderItemIndex = order.items.indexOf(item);
       const itemId = getReturnLineKey(item, originalOrderItemIndex);
       const quantity = quantities[itemId];
-      if (!quantity) return selected;
+      if (quantity === undefined) return selected;
 
       const returnedUnitPrice =
         returnUnitPrices[itemId] !== undefined ? returnUnitPrices[itemId] : item.unitPrice;
@@ -295,108 +295,108 @@ const ReturnOrderModal = ({ order, onClose, onSuccess }: Props) => {
       return selected;
     }, []);
 
-    const validatedValues = await form.validateAndRun({ items, collectAtAddress }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validatedValues) return;
+    await form.validateAndRun({ items, collectAtAddress,
+      scheduling: collectAtAddress ? scheduling : EMPTY_SCHEDULING, observations }, async (validatedValues) => {
+      const validatedItems = validatedValues.items as Item[];
+      const total = validatedItems.reduce(
+        (sum, item) => sum + (item.returnedTotalValue ?? item.quantity * item.unitPrice),
+        0
+      );
+      let fiscalAllocations: Order['fiscalReturnAllocations'] = [];
+      if (hasAuthorizedInvoice) {
+        try {
+          fiscalAllocations = allocateReturnQuantityAcrossInvoices(
+            validatedItems.map((item, returnItemIndex) => ({
+              returnItemIndex,
+              originalOrderItemIndex: Number(item.originalOrderItemIndex),
+              productId: item.productId,
+              code: item.code,
+              description: item.description,
+              quantity: Number(item.returnedQuantity || item.quantity),
+            })),
+            fiscalCapacityLines
+          );
+        } catch (error: any) {
+          return toast.error(
+            error.message || 'Não foi possível vincular todos os itens às NF-e autorizadas.'
+          );
+        }
+      }
+      const originalSoldTotal = validatedItems.reduce(
+        (sum, item) =>
+          sum +
+          (item.originalTotalValue ?? item.quantity * (item.originalUnitPrice ?? item.unitPrice)),
+        0
+      );
+      const isCompleteReturn = order.items.every(
+        (item, index) =>
+          (validatedItems.find((selected) => selected.originalOrderItemIndex === index)?.quantity || 0) >=
+          (returnableQuantities[getReturnLineKey(item, index)] || 0)
+      );
 
-    const total = items.reduce(
-      (sum, item) => sum + (item.returnedTotalValue ?? item.quantity * item.unitPrice),
-      0
-    );
-    let fiscalAllocations: Order['fiscalReturnAllocations'] = [];
-    if (hasAuthorizedInvoice) {
+      const returnOrder: Order = {
+        ...order,
+        id: undefined,
+        orderIndex: undefined,
+        orderNumber: undefined,
+        orderType: 'return',
+        status: validatedValues.collectAtAddress ? 'scheduled' : 'fulfilled',
+        returnMethod: validatedValues.collectAtAddress ? 'store_collection' : 'store_delivery',
+        returnStockProcessed: false,
+        date: new Date().toISOString(),
+        items: validatedItems,
+        linkedOrderId: order.id,
+        returnRequestId,
+        fiscalReturnAllocations: fiscalAllocations,
+        linkedOrderCode: formatOrderCode(order),
+        returnedTotalAmount: total,
+        originalSoldTotal: originalSoldTotal,
+        returnKind: isCompleteReturn ? 'complete' : 'partial',
+        observation: `Devolução vinculada ao pedido #${formatOrderCode(order)}. ${order.observation || ''}`,
+        collectionObservation: validatedValues.collectAtAddress ? validatedValues.observations.join('\n') : undefined,
+        itemsSummary: {
+          totalQuantity: validatedItems.reduce((sum, item) => sum + item.quantity, 0),
+          itemsSubtotal: total,
+          totalFixedDiscount: 0,
+          itemsTotalValue: total,
+          totalItemsCost: validatedItems.reduce((sum, item) => sum + item.quantity * (item.costPrice || 0), 0),
+        },
+        shipping: {
+          ...order.shipping,
+          deliveryMethod: validatedValues.collectAtAddress ? order.shipping.deliveryMethod : 'pickup',
+          scheduling: validatedValues.scheduling,
+        },
+        payments: [],
+        paymentsSummary: {
+          totalPaymentsFee: 0,
+          totalOrderValue: total,
+          totalPaid: 0,
+          totalAmountPaid: 0,
+          amountRemaining: total,
+        },
+      };
+
+      submittingRef.current = true;
+      setSubmitting(true);
       try {
-        fiscalAllocations = allocateReturnQuantityAcrossInvoices(
-          items.map((item, returnItemIndex) => ({
-            returnItemIndex,
-            originalOrderItemIndex: Number(item.originalOrderItemIndex),
-            productId: item.productId,
-            code: item.code,
-            description: item.description,
-            quantity: Number(item.returnedQuantity || item.quantity),
-          })),
-          fiscalCapacityLines
-        );
-      } catch (error: any) {
-        return toast.error(
-          error.message || 'Não foi possível vincular todos os itens às NF-e autorizadas.'
-        );
+        const id = await saveOrder(returnOrder);
+        toast.success('Pedido de devolução gerado com sucesso!');
+        if (
+          !validatedValues.collectAtAddress &&
+          hasAuthorizedInvoice &&
+          !isIdentifiedTestArtifact(returnOrder)
+        ) {
+          startAutomaticReturnFiscalTransmission(id);
+        }
+        onSuccess(id);
+      } catch (error: unknown) {
+        console.error('Erro ao gerar devolução:', error);
+        toast.error('Erro ao processar devolução.');
+      } finally {
+        submittingRef.current = false;
+        setSubmitting(false);
       }
-    }
-    const originalSoldTotal = items.reduce(
-      (sum, item) =>
-        sum +
-        (item.originalTotalValue ?? item.quantity * (item.originalUnitPrice ?? item.unitPrice)),
-      0
-    );
-    const isCompleteReturn = order.items.every(
-      (item, index) =>
-        (quantities[getReturnLineKey(item, index)] || 0) >=
-        (returnableQuantities[getReturnLineKey(item, index)] || 0)
-    );
-
-    const returnOrder: Order = {
-      ...order,
-      id: undefined,
-      orderIndex: undefined,
-      orderNumber: undefined,
-      orderType: 'return',
-      status: collectAtAddress ? 'scheduled' : 'fulfilled',
-      returnMethod: collectAtAddress ? 'store_collection' : 'store_delivery',
-      returnStockProcessed: false,
-      date: new Date().toISOString(),
-      items,
-      linkedOrderId: order.id,
-      returnRequestId,
-      fiscalReturnAllocations: fiscalAllocations,
-      linkedOrderCode: formatOrderCode(order),
-      returnedTotalAmount: total,
-      originalSoldTotal: originalSoldTotal,
-      returnKind: isCompleteReturn ? 'complete' : 'partial',
-      observation: `Devolução vinculada ao pedido #${formatOrderCode(order)}. ${order.observation || ''}`,
-      collectionObservation: collectAtAddress ? observations.join('\n') : undefined,
-      itemsSummary: {
-        totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
-        itemsSubtotal: total,
-        totalFixedDiscount: 0,
-        itemsTotalValue: total,
-        totalItemsCost: items.reduce((sum, item) => sum + item.quantity * (item.costPrice || 0), 0),
-      },
-      shipping: {
-        ...order.shipping,
-        deliveryMethod: collectAtAddress ? order.shipping.deliveryMethod : 'pickup',
-        scheduling: collectAtAddress ? scheduling : EMPTY_SCHEDULING,
-      },
-      payments: [],
-      paymentsSummary: {
-        totalPaymentsFee: 0,
-        totalOrderValue: total,
-        totalPaid: 0,
-        totalAmountPaid: 0,
-        amountRemaining: total,
-      },
-    };
-
-    submittingRef.current = true;
-    setSubmitting(true);
-    try {
-      const id = await saveOrder(returnOrder);
-      toast.success('Pedido de devolução gerado com sucesso!');
-      if (
-        !collectAtAddress &&
-        hasAuthorizedInvoice &&
-        !isIdentifiedTestArtifact(returnOrder)
-      ) {
-        startAutomaticReturnFiscalTransmission(id);
-      }
-      onSuccess(id);
-    } catch (error: unknown) {
-      console.error('Erro ao gerar devolução:', error);
-      toast.error('Erro ao processar devolução.');
-    } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
-    }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   return (

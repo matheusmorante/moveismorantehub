@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inboundXmlUploadFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 import { inboundXmlFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
 import { importInboundInvoiceXml } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
@@ -19,6 +20,11 @@ export const InboundXmlImportModal: React.FC<InboundXmlImportModalProps> = ({
   const [xmlText, setXmlText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const form = useZodForm(inboundXmlFormSchema, { xml: xmlText });
+  const fileForm = useZodForm(inboundXmlUploadFormSchema, { file: undefined as unknown as File });
+  const operationInFlight = useRef(false);
+  const readRevision = useRef(0);
+  const [isReading, setIsReading] = useState(false);
+  const busy = isLoading || isReading;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -36,40 +42,46 @@ export const InboundXmlImportModal: React.FC<InboundXmlImportModalProps> = ({
     }
   }, [isOpen]);
 
+  useEffect(() => { return () => { readRevision.current += 1; }; }, [isOpen]);
+
   if (!isOpen) return null;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        setXmlText(content);
-      }
-    };
-    reader.readAsText(file);
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    if (!file || operationInFlight.current) return;
+    operationInFlight.current = true;
+    const revision = ++readRevision.current;
+    setIsReading(true);
+    try {
+      await fileForm.validateAndRun({ file }, async ({ file: selected }) => {
+        const content = await selected.text();
+        if (readRevision.current === revision) setXmlText(content);
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    } catch (error: unknown) {
+      if (readRevision.current === revision) toast.error(error instanceof Error ? error.message : 'Não foi possível ler o XML.');
+    } finally {
+      operationInFlight.current = false;
+      setIsReading(false);
+      input.value = '';
+    }
   };
 
   const handleProcessImport = async () => {
-    const validated = await form.validateAndRun({ xml: xmlText }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-
-    setIsLoading(true);
+    if (operationInFlight.current) return;
+    operationInFlight.current = true;
     try {
-      const imported = await importInboundInvoiceXml(validated.xml);
-      toast.success(
-        `NF-e #${imported.nfeNumber} de ${imported.emitterName} importada com sucesso!`
-      );
-      onImportSuccess(imported);
-      onClose();
+      await form.validateAndRun({ xml: xmlText }, async (validated) => {
+        setIsLoading(true);
+        const imported = await importInboundInvoiceXml(validated.xml);
+        toast.success(`NF-e #${imported.nfeNumber} de ${imported.emitterName} importada com sucesso!`);
+        onImportSuccess(imported);
+        onClose();
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Erro ao importar XML da NF-e de entrada.';
-      toast.error(message);
+      toast.error(err instanceof Error ? err.message : 'Erro ao importar XML da NF-e de entrada.');
     } finally {
+      operationInFlight.current = false;
       setIsLoading(false);
     }
   };
@@ -122,11 +134,13 @@ export const InboundXmlImportModal: React.FC<InboundXmlImportModalProps> = ({
             accept=".xml,text/xml"
             className="hidden"
             onChange={handleFileChange}
+            disabled={busy}
           />
 
           <button
             type="button"
             aria-label="Selecionar arquivo XML de NF-e da máquina"
+            disabled={busy}
             onClick={() => fileInputRef.current?.click()}
             className="w-full flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 p-6 text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/30 transition-all dark:border-slate-800 dark:hover:border-emerald-500/50 dark:hover:bg-emerald-950/10"
           >
@@ -150,6 +164,7 @@ export const InboundXmlImportModal: React.FC<InboundXmlImportModalProps> = ({
               id="xml-paste-textarea"
               rows={6}
               aria-label="Conteúdo do XML da nota fiscal"
+              disabled={busy}
               value={xmlText}
               onChange={(e) => setXmlText(e.target.value)}
               placeholder="<nfeProc versao='4.00'>...</nfeProc>"
@@ -169,10 +184,10 @@ export const InboundXmlImportModal: React.FC<InboundXmlImportModalProps> = ({
           <button
             type="button"
             onClick={() => void handleProcessImport()}
-            disabled={isLoading || !xmlText.trim()}
+            disabled={busy || !xmlText.trim()}
             className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 disabled:opacity-50 transition-all cursor-pointer"
           >
-            {isLoading ? 'Importando...' : 'Processar e Salvar'}
+            {isReading ? 'Lendo XML...' : isLoading ? 'Importando...' : 'Processar e Salvar'}
           </button>
         </footer>
       </div>

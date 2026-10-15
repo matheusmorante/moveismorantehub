@@ -1,0 +1,2456 @@
+{
+  "totalProducts": 381,
+  "missingCategory": [
+    {
+      "id": "55f5e306-db2e-4085-9ab7-1e3652a70c27",
+      "name": "[HML NF TEST] P1 - Móvel tributação comum",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "801bfea0-2377-4379-9d85-e2688fd895c9",
+      "name": "[HML NF TEST] P2 - Móvel NCM diferente",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "d55a4cba-8b93-4c55-a4bb-bba0a32c462f",
+      "name": "[HML NF TEST] P3 - Forno micro-ondas",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "c62f36cf-5c38-45ac-9493-c8d82d34535c",
+      "name": "[HML NF TEST] P4 - Devolução por quantidade",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "39abf0b6-7fc9-4b2c-a0ea-dc1fd7b18970",
+      "name": "[HML NF TEST] P5 - Produto com variações",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "43022015-34a6-4d2e-8a99-0c159d2a07d0",
+      "name": "Armário Aéreo 1,20 3 Portas",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Armários Aéreos"
+      ]
+    },
+    {
+      "id": "374ba1f0-923b-4c52-ac53-46b968445248",
+      "name": "Armário Aéreo 1,20 3 Portas Darmovel",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Armários Aéreos"
+      ]
+    },
+    {
+      "id": "6e512bcc-c058-4684-8dfc-805d15f0d0c8",
+      "name": "Armário Aéreo 80cm 2 Portas 100% MDF Florença Móveis Sul",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Armários Aéreos"
+      ]
+    },
+    {
+      "id": "150bfb4b-27dc-45ae-a320-426f4970e7a6",
+      "name": "Armário Torre Quente 79cm para Fornos JK",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Armários para Fornos"
+      ]
+    },
+    {
+      "id": "38f4c990-515e-410a-8fca-e5c6c2e212e0",
+      "name": "Balcão de Cozinha 3 Portas com Tampo 1,20m Napoli Darmovel",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões com Tampo"
+      ]
+    },
+    {
+      "id": "a20d9403-82a0-40d0-9cdd-5ac5b3d9f352",
+      "name": "Balcão Fruteira Dulce 2 Cestos de Metal Darmovel",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões com Tampo"
+      ]
+    },
+    {
+      "id": "72ae1696-407d-426a-bba3-2f58059f96f8",
+      "name": "Balcão Fruteira Flora 1 Porta 1 Gaveta 2 Cestos Darmovel",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões com Fruteiras",
+        "Balcões com Tampo"
+      ]
+    },
+    {
+      "id": "09a9df2e-e5c1-49c0-ba55-a8b59e01f350",
+      "name": "Balcão Lucca Para Forno/Microondas Darmovel",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Armários para Fornos",
+        "Balcões com Tampo",
+        "Armários Multiuso"
+      ]
+    },
+    {
+      "id": "9d5b2f60-c0e4-4abe-96bd-6874a26259f6",
+      "name": "Balcão para Cooktop 2 Portas",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões para Cooktop",
+        "Balcões com Tampo"
+      ]
+    },
+    {
+      "id": "cc067873-fc84-411b-9dec-568691e245f3",
+      "name": "Balcão para Cooktop Pop 80cm",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões para Cooktop"
+      ]
+    },
+    {
+      "id": "a5c6dd78-f819-4f48-b0d4-381d74111e9a",
+      "name": "Balcao Para Forno e Cooktop Apolo Com 1 Gaveta",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões com Tampo",
+        "Balcões para Cooktop"
+      ]
+    },
+    {
+      "id": "bb75757c-19ce-44b1-8af5-705746fb1cb9",
+      "name": "Balcão para Pia de 1,20m Pop Darmovel",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões para Pia"
+      ]
+    },
+    {
+      "id": "1e66d8e5-b521-498e-bd98-99e82f90a6b6",
+      "name": "Balcão para Pia de 1,60m 3 Gavetas 1° Linha",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões para Pia"
+      ]
+    },
+    {
+      "id": "0dce5b6f-d093-466f-8ada-c8d005bccf39",
+      "name": "Balcão para Pia de 1,60m 3 Gavetas Darmovel",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões para Pia"
+      ]
+    },
+    {
+      "id": "087bb01e-812c-4040-b743-2aebc77f46e6",
+      "name": "BALCÃO PARA PIA JK 1º LINHA 3 GAVETAS",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões para Pia"
+      ]
+    },
+    {
+      "id": "f0d7392a-1dbd-4114-ab81-3b799f04f1f7",
+      "name": "Balcão Viena Multiuso com Gaveta e Porta",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões com Tampo",
+        "Balcões para Filtro de Àgua"
+      ]
+    },
+    {
+      "id": "4b0aaab1-c3df-4613-a60f-c24bd0499433",
+      "name": "Balcão Vitoria 42cm Darmovel",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões para Filtro de Àgua",
+        "Balcões com Tampo",
+        "Balcões para Filtro de Àgua",
+        "Balcões com Tampo"
+      ]
+    },
+    {
+      "id": "653d6394-d7a5-40ce-89a4-58cfed11ebb0",
+      "name": "Base Box de Solteiro para Colchão 88",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Camas/Bases Box"
+      ]
+    },
+    {
+      "id": "83c1bc0e-ec3b-4e52-b0c9-f84f6c943a90",
+      "name": "Base Box Queen 158",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Camas/Bases Box"
+      ]
+    },
+    {
+      "id": "317e24be-f90f-4107-8729-afabb5d1aa10",
+      "name": "Beliche Milão para Colchão 78 Solteiro Madeira Maciça JM",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Beliches"
+      ]
+    },
+    {
+      "id": "a27caaad-93fe-45a9-b750-7c7cfc8b5ad8",
+      "name": "Cabeceira 140 ADF Casal Milena Suede",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cabeceiras"
+      ]
+    },
+    {
+      "id": "575afc18-cc9a-468b-abe6-783d9d0a93a0",
+      "name": "Cabeceira 140 Casal ADF Letícia Veludo",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cabeceiras"
+      ]
+    },
+    {
+      "id": "385dda82-03fe-4078-a9f9-a3394727fbc4",
+      "name": "Cabeceira 140 Casal ADF Paris Veludo",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cabeceiras"
+      ]
+    },
+    {
+      "id": "e5f10dc8-89a5-48ac-8c77-6fea63112d66",
+      "name": "Cabeceira 160 Queen ADF Letícia",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "3a02df6a-66e2-40c9-9642-6b667128b3ce",
+      "name": "Cabeceira 160 Queen ADF Letícia Suede",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cabeceiras"
+      ]
+    },
+    {
+      "id": "c85fa4be-964c-46b7-ad3f-d0eba38ed4a3",
+      "name": "Cabeceira 160 Queen ADF Paris Veludo",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cabeceiras"
+      ]
+    },
+    {
+      "id": "fd45f9de-975e-4805-b48a-edf05ef4646c",
+      "name": "Cadeira para Escritório / Sala de Espera Super Reforçada",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cadeiras para Escritório"
+      ]
+    },
+    {
+      "id": "e057139c-dfc8-463e-b1ba-9870a6de8048",
+      "name": "Colchão Casal 138cm Espuma D28 Confort Liso Soft Gazin",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Colchões"
+      ]
+    },
+    {
+      "id": "fbb4b09b-098a-46f7-a447-2fe458209d1e",
+      "name": "Colchão Casal de Espuma Gazin D28",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Colchões"
+      ]
+    },
+    {
+      "id": "27b5a61f-e001-4a5a-b3a1-b312ea209934",
+      "name": "Colchão Casal Majestic de Mola Ensacada e Espuma Casal Formspuma",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Colchões"
+      ]
+    },
+    {
+      "id": "7e441973-5f88-4aae-b959-fface8558ab8",
+      "name": "Colchão de Espuma para Casal D20 SUPREME Gazin",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Colchões"
+      ]
+    },
+    {
+      "id": "563cfa39-8334-4611-80f7-26b56112268b",
+      "name": "Colchão de Espuma Supreme para Solteiro D20 Gazin",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Colchões"
+      ]
+    },
+    {
+      "id": "a7dc0700-d67d-4be5-889e-9f6703335c46",
+      "name": "Colchão Solteiro 88 Vennti Espuma com Mola Ensacada Formspuma",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Colchões"
+      ]
+    },
+    {
+      "id": "220f7ee0-120f-42e4-ac89-a803080854a8",
+      "name": "Colchão Solteiro de Espuma D65 Suporta até 120kg Formspuma",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Colchões"
+      ]
+    },
+    {
+      "id": "d1515942-aa91-43e8-8606-fac37af6135c",
+      "name": "Cômoda Sapateira Vênus 4 Gavetas 1 Porta Moval",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cômodas"
+      ]
+    },
+    {
+      "id": "b4dc0852-40c5-414f-ac66-4adf5f650795",
+      "name": "Cozinha Modulada 2,00m JK",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cozinhas Moduladas e Compactas"
+      ]
+    },
+    {
+      "id": "6cfb0413-a223-4585-9dab-c2024d26e93b",
+      "name": "Cozinha Modulada 2,39 m JK 3 Peças Branca",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cozinhas Moduladas e Compactas"
+      ]
+    },
+    {
+      "id": "4b8db5d2-5eff-44f7-a3ca-ff64aa6f9e71",
+      "name": "Cozinha Modulada 3 Peças 1,85m Darmovel",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cozinhas Moduladas e Compactas"
+      ]
+    },
+    {
+      "id": "48eb76af-d842-4b91-a40c-35e41c7e6a7b",
+      "name": "Guarda Roupa 1,60 m Turim 100% MDF 4 Portas 3 Gavetas Mopar",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "d2417fef-5ee1-453f-9e02-48e93a37681f",
+      "name": "Guarda Roupa Toquio 4 Portas 2 Gavetas Castro",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "274ef28d-65c3-4bca-a5c6-6dd78f10456f",
+      "name": "Guarda Roupa Viena 100% MDF 4 Portas 2 Gavetas Mopar",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "1627412e-4c7e-481a-b995-9808c3400361",
+      "name": "Paneleiro 45cm Pop para Cozinha",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Paneleiros"
+      ]
+    },
+    {
+      "id": "96953486-b51a-4081-a1c6-76dd0d5b3f23",
+      "name": "Penteadeira Camarim Bella com Espelho Moval",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Penteadeiras"
+      ]
+    },
+    {
+      "id": "ac45af8d-36d2-42d3-a89f-1fd00b02f33b",
+      "name": "Penteadeira Camarim Sonhos com Espelho Moval",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Penteadeiras"
+      ]
+    },
+    {
+      "id": "557307cf-133d-4f39-a0d9-26c197c3bbe1",
+      "name": "Pia de Granito Impermeabilizada com Valvula Movelipe",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Pias"
+      ]
+    },
+    {
+      "id": "1d987673-b9ae-47f4-8b28-ff051b0f9677",
+      "name": "Pia de Marmore Sintético 1,20m",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Pias"
+      ]
+    },
+    {
+      "id": "a924ecca-5ed7-4304-8b63-5e3d51b9027a",
+      "name": "Pia de Mármore Sintético 1,60m",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Pias"
+      ]
+    },
+    {
+      "id": "aea7f3a0-44dc-49e6-87aa-2b6c8ebe3340",
+      "name": "Pia Inox 1,20 com Válvula e Furo para Torneira Inoxsul Infinity",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Pias"
+      ]
+    },
+    {
+      "id": "b2d4bed1-b2af-4c96-b778-64ffbb6cfcf7",
+      "name": "Pia Inox 1,20 com Válvula Inoxsul Infinity",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Pias"
+      ]
+    },
+    {
+      "id": "99f71dca-b23f-44db-a8fc-d33381453f72",
+      "name": "Pia Inox 1,60m com Válvula Inoxsul",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Pias"
+      ]
+    },
+    {
+      "id": "72fb2073-436d-4082-b4b2-bae6b4ebafab",
+      "name": "Rack Turim 1,60 m para TV de até 65 Polegadas Bechara",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Racks"
+      ]
+    },
+    {
+      "id": "83d25c02-e951-4e55-9fe0-901bd6bfaef9",
+      "name": "Tampo para Balcão em MDP 15mm 1,20m",
+      "active": true,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Tampos"
+      ]
+    },
+    {
+      "id": "7684bd97-c434-450f-b21a-6800e8ed7440",
+      "name": "Armairo Multiuso Golden Demobile",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Armários Multiuso"
+      ]
+    },
+    {
+      "id": "b379df0a-99af-46b3-a9aa-7b2ea140324a",
+      "name": "Armário Aéreo 80cm 2 Portas Tela Sul",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Armários Aéreos"
+      ]
+    },
+    {
+      "id": "5b6938c7-92aa-46fc-b6d9-a1ce636983d4",
+      "name": "Armário Multiuso 2 Portas Florença Aramóveis",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Armários Multiuso"
+      ]
+    },
+    {
+      "id": "de1d1ab3-5cde-4e0d-991b-e324c1fd4eb3",
+      "name": "Armário Multiuso com Pés 2 Portas Slim Poquema",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Armários Multiuso"
+      ]
+    },
+    {
+      "id": "df6f6415-185a-41ad-ac6a-1e2124670793",
+      "name": "Armário Torre Paneleiro 2 portas Tela Sul",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Paneleiros"
+      ]
+    },
+    {
+      "id": "37e653c7-530a-47f0-8cd7-ce3d53e6c04f",
+      "name": "Balcão para Cooktop 5 Bocas 1 Porta com Tampo NT 3050",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões para Cooktop"
+      ]
+    },
+    {
+      "id": "7cde3b0c-ca66-4735-899f-50b68cec4d69",
+      "name": "Balcão para Cooktop 5 Bocas 1 Porta com Tampo NT 3050 QUEIMA DOS SALVADOS",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Balcões para Cooktop"
+      ]
+    },
+    {
+      "id": "71855ebb-bf72-4340-9e9e-3111de70af1a",
+      "name": "Base Box Baú Casal Preto JSW QUEIMA DOS SALVADOS",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Camas/Bases Box",
+        "Camas/Bases Box"
+      ]
+    },
+    {
+      "id": "4a8fc879-d509-4dd8-8709-5eb91e4b56b8",
+      "name": "BELICHE RUBIN ESPECIAL C/GRADE E ESCADA 1 Marfim",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "9dca9f63-57ef-4204-bb77-9bea261b79f1",
+      "name": "Berço Mini Cama Fantasia Qmovi",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "f29ea5ad-4c90-4ef5-9008-ea999329d4dd",
+      "name": "Cama Infantil Montessoriana Casal Em MDF Tony Mobikasa",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Camas/Bases Box"
+      ]
+    },
+    {
+      "id": "a524a537-6b9d-44ce-a95c-9e7438858a26",
+      "name": "Colxhap X",
+      "active": false,
+      "category_id": "3b616449-7d0c-40fc-9917-70a20836f3b8",
+      "primary_category_name": "Colchões",
+      "linked_category_names": []
+    },
+    {
+      "id": "849625c4-2015-4574-a28e-d61d6fd83786",
+      "name": "Cômoda 5 Gavetas 1 Porta com Vidro Aramóveis",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cômodas"
+      ]
+    },
+    {
+      "id": "4ab2308b-20f9-42f6-a025-901b4b649ced",
+      "name": "Cômoda Lara 8 Gavetas",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cômodas"
+      ]
+    },
+    {
+      "id": "fc1b3360-91f4-4b66-a85e-582bafcc408d",
+      "name": "Cozinha Compacta sem Tampo Dália New QUEIMA DOS SALVADOS",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cozinhas Moduladas e Compactas"
+      ]
+    },
+    {
+      "id": "11e8c6a5-1aea-4757-bbb5-272086e33d48",
+      "name": "Cristaleira Tiffany Com Espelho Pés Palitos",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cristaleiras"
+      ]
+    },
+    {
+      "id": "7c13e343-a15b-451f-9fbc-1f49bf22d864",
+      "name": "Escrivaninha 2 Gavetas NT 2010 Notável",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Mesas para Escritório"
+      ]
+    },
+    {
+      "id": "6b63baaa-2472-44e7-8d56-9a6cfcf80bc5",
+      "name": "Guarda Roupa 2,70m Ripado 6 Portas MDF Siena Bianchi",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "c6301350-a004-436d-af20-01d47a5d53b0",
+      "name": "Guarda Roupa 4 Portas Coimbra",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "07bcb313-6650-4bc5-9d60-6e513c08da31",
+      "name": "Guarda Roupa Americano Henn 2,62m 6 Portas",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "0d5ec9bf-db88-4e26-8198-7d4f2e13ef3a",
+      "name": "Guarda Roupa Bragança 100% MDF com Espelho",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "a889a36b-8aa5-4b28-9063-462d8c10dd63",
+      "name": "Guarda Roupa Casal 2,75m Ripado com Espelho Em MDF Vitoria",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "b8afe24e-9f26-4ab5-ac57-9dfb1fc58641",
+      "name": "Guarda Roupa Casal Ripado com Espelho Moema Demóbile",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "c4b13f75-9c37-45a2-b674-4a582b65948c",
+      "name": "Guarda Roupa Las Vegas 2,06 6 Portas 4 Gaveta",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "1ec6b9fb-60a2-49eb-b63b-71e99975aeda",
+      "name": "Guarda Roupa Siena 1,20 4 Portas 2 Gavetas",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "08112768-4ccf-4a95-b69b-b311498cc626",
+      "name": "Guarda Roupa Siena Faimec 1,20 4 Portas 2 Gavetas",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas",
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "631e81eb-acaa-4b00-8b93-a76dca51f6f4",
+      "name": "Guarda Roupa Solteiro com Pés 6 Portas 2 Gavetas Capri Poquema",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Guarda-Roupas"
+      ]
+    },
+    {
+      "id": "be61cfe3-c983-477a-8f18-c73f17d7eca5",
+      "name": "Hml Nfce65 Retirada 915a05d1",
+      "active": false,
+      "category_id": "df9d0105-e438-4569-97e3-3be34f83ec98",
+      "primary_category_name": "Armários Multiuso",
+      "linked_category_names": []
+    },
+    {
+      "id": "58ab9806-f4d5-4556-a47b-e564529c2b21",
+      "name": "Hml Teste Fiscal 127107 Guarda-Roupa",
+      "active": false,
+      "category_id": "1859e792-0790-4554-b269-e3b0b707896e",
+      "primary_category_name": "Guarda-Roupas",
+      "linked_category_names": []
+    },
+    {
+      "id": "3f279613-d469-4348-b433-5db0ff3852cd",
+      "name": "Jogo de Cozinha 2,29 m Compacto Catarina 9 Portas 1 Gaveta Queima dos Salvados",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cozinhas Moduladas e Compactas"
+      ]
+    },
+    {
+      "id": "afd21b58-8f80-4869-9997-8fae7a1aa5fc",
+      "name": "Jogo de Cozinha Modulado 4 Peças 2,00 m",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Cozinhas Moduladas e Compactas"
+      ]
+    },
+    {
+      "id": "30dee629-e6b1-4acb-8324-340b5738929c",
+      "name": "Pai A Teste Origem",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "0e76d2d7-0d9e-4081-ae5f-d1723de7700a",
+      "name": "Pai B Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "53006fe3-2d92-4ce0-9086-ef5c203694bd",
+      "name": "Pai B Teste Concorrencia",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "11055110-cd6f-489a-992d-105e3a0b52cc",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "770f6261-d450-471c-8796-6e8b2097f608",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "805de3cd-dec1-4a09-9125-7e6e7871cb81",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "7134349e-ce93-4b5a-8524-5fe2cc4213c4",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "68a55e17-14aa-45bb-b0d4-c0d573499799",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "99a0e10d-3153-4b11-b628-be57e1870f76",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "61499903-71e3-4200-b83f-1de1dc0171ea",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "9d233ca2-b5d4-4c75-9eae-fc5b31f0c3c4",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "a03203a8-2ead-44ba-bdf9-16d60853e7a8",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "56571bf0-f85e-45f6-8b81-fcac48a82c46",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "52302f03-1a30-4987-9f72-32e81e1f6d70",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "5011c57a-aefb-4fed-b0ee-b5c9425e61a8",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "4736143b-8eee-4f2c-8bfd-b1fada34776c",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "b1116f9c-08c3-4e5d-ac49-300eedd784aa",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "43bc80f5-9086-43f1-977b-d5c6d7694ede",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "41a1dd6a-d0b6-4815-a279-e181bb04274d",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "41259fb4-3f7f-45a7-880f-bd7bb183443e",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "b58f29fe-7658-4a3b-a29c-810d47f0f21e",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "408f118b-85b9-46f6-a534-3faee7315412",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "382c3c1e-b765-420e-878b-5b02a81eeb96",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "bdb9ef97-6baf-43bf-93e1-bf42a35c2656",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "c475ef1d-a28a-4640-933a-fddc2a5dd47e",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "3728770e-88ba-4403-8d43-97c4be5aaa9f",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "31cf6a2a-fb97-4713-96d1-dae88f237d4c",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "cc98571e-be50-4add-ad3e-fedee7e715f2",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "cf5859f7-3040-460e-9093-66e2e5754660",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "2bf22519-2706-4008-8772-5d59e2a4f024",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "d63be810-0481-45c7-bedc-a91d422fa5a8",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "d799eec0-1eda-4e66-8499-5d9c25790fc5",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "d93987ac-a4b8-4a9a-80ce-c00096474a87",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "dd3afc84-6bda-4c5e-b3e5-e3db794a9b90",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "dd44dcd3-af68-4c06-9aea-d67b08261133",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "1923f2cf-cca2-4856-912b-dce0c4699b32",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "13a929e7-f169-4114-9e9b-5e7f5c437d09",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "de493908-d36f-45fc-a208-bed997d9be35",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "0c5e682f-1a26-4cad-9d9b-5ee8645762b5",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "f6c4b662-0c96-4b14-a271-3176a3260ab3",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "0876c486-738a-45a1-a8b6-a3dc22ad9053",
+      "name": "Pai C Concorrencia Mesma Var",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "e5d49d08-2b5b-4995-99b8-07e360c9b424",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "65a1f977-e3ce-481f-9108-f987126acbb1",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "defb0bca-a297-4596-83ab-1c9c6ff92a7e",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "df27b648-5d7c-4690-bf24-3561d30285bb",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "6c8c3cdf-0100-4862-9165-6bc517c91c77",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "12c8a584-66ce-47b3-af0b-c9dd78aecbaa",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "e0fe8fb2-dbf9-4285-8f33-71ea0962613e",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "e168ae1a-7a59-4ae4-9d8b-2de1a9093fae",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "e43d78af-d46c-4036-978b-6dfcde6ed50c",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "e44a26b9-a4e8-45e4-86d6-a1617db2b05a",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "6c4c517f-3aa4-4d18-bc68-f60a51707039",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "949f1007-1712-45b5-a66c-5d7d3abd3bf4",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "cce1b2fb-3994-4360-817d-241c855bf375",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "307f8b13-9d2a-4698-80a2-a8a08890dc15",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "319d3573-bebc-44b5-9703-e9a066e82d62",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "44b0dbfb-7f1b-4d54-bfdb-8fc9ed46a415",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "f2c7b00f-617a-4c51-93bb-87dcc5548742",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "297f8a23-9f17-4bba-ba59-325237c55122",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "d301e582-8826-419c-80dd-8c8c96940d1e",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "b3e4bca7-831c-499a-8e16-5e73086f259e",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "ede82043-c49c-47a7-922f-82a4ec656043",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "09ea28f8-8a85-4668-ae38-f7f005404cfa",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "088a45c8-26f2-445b-acd9-d867a4ad1f6d",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "d857baf1-315f-4eff-8a06-91c316f838ef",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "a71be5f2-b782-4038-9be2-6fdf30bf3b4f",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "edd4bfa6-72fa-4d92-b51d-1f24a758b580",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "d9b1ec25-9d42-4f8c-a036-7138bf17186e",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "a68a4e49-7bba-41b2-b776-fc97cbf2ac93",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "5f08f935-5e25-4d35-ad7b-ae320c1facbe",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "d9e19b67-26ee-49d0-8cb0-b1cb9a3c7c0a",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "1d0dc56c-e100-4365-8426-b1e94ad2880c",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "9c71904d-91df-4c9d-8c39-b42fe0da0b0e",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "383ee4c8-b625-4070-bf67-5c2e2fc7934c",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "6f9aaa0f-6967-46ae-9959-6563781c99ce",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "18e57e28-50d1-4ef3-bfac-680b5d4451da",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "762ae27a-ce96-46f2-81a9-36c195f24b7e",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "3acfe6fb-5614-4772-84cd-c8a77b9207f2",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "ecb13d24-6130-4441-b0d2-72a117c2f94e",
+      "name": "Pai Origem Rollback",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "91b5869a-2393-42e2-82fd-c3baf384ab0d",
+      "name": "Penteadeira Camarim com Espelho LED 3 Gavetas 2 Portas Carisma",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Penteadeiras"
+      ]
+    },
+    {
+      "id": "d1aae894-b2ec-45d4-bd12-9085452a5cb0",
+      "name": "Produto Sintético — Ciclo Comercial 14/10",
+      "active": false,
+      "category_id": "93493e2a-03e1-4ed0-83f8-dd795eabda44",
+      "primary_category_name": "Estantes",
+      "linked_category_names": []
+    },
+    {
+      "id": "7cb32922-c9f0-4975-a1bb-3e97f3f14e5b",
+      "name": "Rascunho de Produto",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "bf786e0b-4564-4821-9205-e461d6631690",
+      "name": "Rascunho de Produto",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "62aea8c2-2a39-45da-9474-6febad0e2db6",
+      "name": "Sofá Cama 1,80 Vieiro Santorinif",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Sofás"
+      ]
+    },
+    {
+      "id": "408889e4-d80f-40c7-964f-06f504748470",
+      "name": "TEST_AUT_404f9307-7293-41ed-9b3f-cf46d41d0980",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "ee9a0790-1f4f-47a6-ba1c-e7e040f8621f",
+      "name": "TEST_AUT_813a3f9d-98f8-47a7-96e8-772d8c3c6310",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": []
+    },
+    {
+      "id": "7c45ec72-0601-46e7-b4f2-caa6d3ad7841",
+      "name": "Torre Quente Luciane 70cm 2 Nichos Para Forno",
+      "active": false,
+      "category_id": null,
+      "primary_category_name": null,
+      "linked_category_names": [
+        "Armários para Fornos"
+      ]
+    }
+  ],
+  "desyncedCategories": [
+    {
+      "id": "a524a537-6b9d-44ce-a95c-9e7438858a26",
+      "name": "Colxhap X",
+      "category_id": "3b616449-7d0c-40fc-9917-70a20836f3b8",
+      "primary_category_name": "Colchões",
+      "linked_category_ids": null
+    },
+    {
+      "id": "be61cfe3-c983-477a-8f18-c73f17d7eca5",
+      "name": "Hml Nfce65 Retirada 915a05d1",
+      "category_id": "df9d0105-e438-4569-97e3-3be34f83ec98",
+      "primary_category_name": "Armários Multiuso",
+      "linked_category_ids": null
+    },
+    {
+      "id": "58ab9806-f4d5-4556-a47b-e564529c2b21",
+      "name": "Hml Teste Fiscal 127107 Guarda-Roupa",
+      "category_id": "1859e792-0790-4554-b269-e3b0b707896e",
+      "primary_category_name": "Guarda-Roupas",
+      "linked_category_ids": null
+    },
+    {
+      "id": "d1aae894-b2ec-45d4-bd12-9085452a5cb0",
+      "name": "Produto Sintético — Ciclo Comercial 14/10",
+      "category_id": "93493e2a-03e1-4ed0-83f8-dd795eabda44",
+      "primary_category_name": "Estantes",
+      "linked_category_ids": null
+    }
+  ],
+  "mismatchedCategory": [
+    {
+      "id": "43022015-34a6-4d2e-8a99-0c159d2a07d0",
+      "name": "Armário Aéreo 1,20 3 Portas",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Armários Aéreos"
+      ],
+      "suggestedCategory": "Armários Aéreos",
+      "reason": "Name indicates Armários Aéreos"
+    },
+    {
+      "id": "374ba1f0-923b-4c52-ac53-46b968445248",
+      "name": "Armário Aéreo 1,20 3 Portas Darmovel",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Armários Aéreos"
+      ],
+      "suggestedCategory": "Armários Aéreos",
+      "reason": "Name indicates Armários Aéreos"
+    },
+    {
+      "id": "6e512bcc-c058-4684-8dfc-805d15f0d0c8",
+      "name": "Armário Aéreo 80cm 2 Portas 100% MDF Florença Móveis Sul",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Armários Aéreos"
+      ],
+      "suggestedCategory": "Armários Aéreos",
+      "reason": "Name indicates Armários Aéreos"
+    },
+    {
+      "id": "9d5b2f60-c0e4-4abe-96bd-6874a26259f6",
+      "name": "Balcão para Cooktop 2 Portas",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Balcões para Cooktop",
+        "Balcões com Tampo"
+      ],
+      "suggestedCategory": "Balcões para Cooktop",
+      "reason": "Name indicates Balcões para Cooktop"
+    },
+    {
+      "id": "cc067873-fc84-411b-9dec-568691e245f3",
+      "name": "Balcão para Cooktop Pop 80cm",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Balcões para Cooktop"
+      ],
+      "suggestedCategory": "Balcões para Cooktop",
+      "reason": "Name indicates Balcões para Cooktop"
+    },
+    {
+      "id": "bb75757c-19ce-44b1-8af5-705746fb1cb9",
+      "name": "Balcão para Pia de 1,20m Pop Darmovel",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Balcões para Pia"
+      ],
+      "suggestedCategory": "Balcões para Pia",
+      "reason": "Name indicates Balcões para Pia"
+    },
+    {
+      "id": "1e66d8e5-b521-498e-bd98-99e82f90a6b6",
+      "name": "Balcão para Pia de 1,60m 3 Gavetas 1° Linha",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Balcões para Pia"
+      ],
+      "suggestedCategory": "Balcões para Pia",
+      "reason": "Name indicates Balcões para Pia"
+    },
+    {
+      "id": "0dce5b6f-d093-466f-8ada-c8d005bccf39",
+      "name": "Balcão para Pia de 1,60m 3 Gavetas Darmovel",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Balcões para Pia"
+      ],
+      "suggestedCategory": "Balcões para Pia",
+      "reason": "Name indicates Balcões para Pia"
+    },
+    {
+      "id": "087bb01e-812c-4040-b743-2aebc77f46e6",
+      "name": "BALCÃO PARA PIA JK 1º LINHA 3 GAVETAS",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Balcões para Pia"
+      ],
+      "suggestedCategory": "Balcões para Pia",
+      "reason": "Name indicates Balcões para Pia"
+    },
+    {
+      "id": "f0d7392a-1dbd-4114-ab81-3b799f04f1f7",
+      "name": "Balcão Viena Multiuso com Gaveta e Porta",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Balcões com Tampo",
+        "Balcões para Filtro de Àgua"
+      ],
+      "suggestedCategory": "Armários Multiuso",
+      "reason": "Name indicates Armários Multiuso"
+    },
+    {
+      "id": "653d6394-d7a5-40ce-89a4-58cfed11ebb0",
+      "name": "Base Box de Solteiro para Colchão 88",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Camas/Bases Box"
+      ],
+      "suggestedCategory": "Colchões",
+      "reason": "Name indicates Colchões"
+    },
+    {
+      "id": "83c1bc0e-ec3b-4e52-b0c9-f84f6c943a90",
+      "name": "Base Box Queen 158",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Camas/Bases Box"
+      ],
+      "suggestedCategory": "Camas/Bases Box",
+      "reason": "Name indicates Camas/Bases Box"
+    },
+    {
+      "id": "317e24be-f90f-4107-8729-afabb5d1aa10",
+      "name": "Beliche Milão para Colchão 78 Solteiro Madeira Maciça JM",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Beliches"
+      ],
+      "suggestedCategory": "Colchões",
+      "reason": "Name indicates Colchões"
+    },
+    {
+      "id": "a27caaad-93fe-45a9-b750-7c7cfc8b5ad8",
+      "name": "Cabeceira 140 ADF Casal Milena Suede",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cabeceiras"
+      ],
+      "suggestedCategory": "Cabeceiras",
+      "reason": "Name indicates Cabeceiras"
+    },
+    {
+      "id": "575afc18-cc9a-468b-abe6-783d9d0a93a0",
+      "name": "Cabeceira 140 Casal ADF Letícia Veludo",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cabeceiras"
+      ],
+      "suggestedCategory": "Cabeceiras",
+      "reason": "Name indicates Cabeceiras"
+    },
+    {
+      "id": "385dda82-03fe-4078-a9f9-a3394727fbc4",
+      "name": "Cabeceira 140 Casal ADF Paris Veludo",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cabeceiras"
+      ],
+      "suggestedCategory": "Cabeceiras",
+      "reason": "Name indicates Cabeceiras"
+    },
+    {
+      "id": "e5f10dc8-89a5-48ac-8c77-6fea63112d66",
+      "name": "Cabeceira 160 Queen ADF Letícia",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [],
+      "suggestedCategory": "Cabeceiras",
+      "reason": "Name indicates Cabeceiras"
+    },
+    {
+      "id": "3a02df6a-66e2-40c9-9642-6b667128b3ce",
+      "name": "Cabeceira 160 Queen ADF Letícia Suede",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cabeceiras"
+      ],
+      "suggestedCategory": "Cabeceiras",
+      "reason": "Name indicates Cabeceiras"
+    },
+    {
+      "id": "c85fa4be-964c-46b7-ad3f-d0eba38ed4a3",
+      "name": "Cabeceira 160 Queen ADF Paris Veludo",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cabeceiras"
+      ],
+      "suggestedCategory": "Cabeceiras",
+      "reason": "Name indicates Cabeceiras"
+    },
+    {
+      "id": "fd45f9de-975e-4805-b48a-edf05ef4646c",
+      "name": "Cadeira para Escritório / Sala de Espera Super Reforçada",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cadeiras para Escritório"
+      ],
+      "suggestedCategory": "Cadeiras para Escritório",
+      "reason": "Name indicates Cadeiras para Escritório"
+    },
+    {
+      "id": "e057139c-dfc8-463e-b1ba-9870a6de8048",
+      "name": "Colchão Casal 138cm Espuma D28 Confort Liso Soft Gazin",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Colchões"
+      ],
+      "suggestedCategory": "Colchões",
+      "reason": "Name indicates Colchões"
+    },
+    {
+      "id": "fbb4b09b-098a-46f7-a447-2fe458209d1e",
+      "name": "Colchão Casal de Espuma Gazin D28",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Colchões"
+      ],
+      "suggestedCategory": "Colchões",
+      "reason": "Name indicates Colchões"
+    },
+    {
+      "id": "27b5a61f-e001-4a5a-b3a1-b312ea209934",
+      "name": "Colchão Casal Majestic de Mola Ensacada e Espuma Casal Formspuma",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Colchões"
+      ],
+      "suggestedCategory": "Colchões",
+      "reason": "Name indicates Colchões"
+    },
+    {
+      "id": "7e441973-5f88-4aae-b959-fface8558ab8",
+      "name": "Colchão de Espuma para Casal D20 SUPREME Gazin",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Colchões"
+      ],
+      "suggestedCategory": "Colchões",
+      "reason": "Name indicates Colchões"
+    },
+    {
+      "id": "563cfa39-8334-4611-80f7-26b56112268b",
+      "name": "Colchão de Espuma Supreme para Solteiro D20 Gazin",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Colchões"
+      ],
+      "suggestedCategory": "Colchões",
+      "reason": "Name indicates Colchões"
+    },
+    {
+      "id": "a7dc0700-d67d-4be5-889e-9f6703335c46",
+      "name": "Colchão Solteiro 88 Vennti Espuma com Mola Ensacada Formspuma",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Colchões"
+      ],
+      "suggestedCategory": "Colchões",
+      "reason": "Name indicates Colchões"
+    },
+    {
+      "id": "220f7ee0-120f-42e4-ac89-a803080854a8",
+      "name": "Colchão Solteiro de Espuma D65 Suporta até 120kg Formspuma",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Colchões"
+      ],
+      "suggestedCategory": "Colchões",
+      "reason": "Name indicates Colchões"
+    },
+    {
+      "id": "d1515942-aa91-43e8-8606-fac37af6135c",
+      "name": "Cômoda Sapateira Vênus 4 Gavetas 1 Porta Moval",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cômodas"
+      ],
+      "suggestedCategory": "Cômodas",
+      "reason": "Name indicates Cômodas"
+    },
+    {
+      "id": "b4dc0852-40c5-414f-ac66-4adf5f650795",
+      "name": "Cozinha Modulada 2,00m JK",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cozinhas Moduladas e Compactas"
+      ],
+      "suggestedCategory": "Cozinhas Moduladas e Compactas",
+      "reason": "Name indicates Cozinhas Moduladas e Compactas"
+    },
+    {
+      "id": "6cfb0413-a223-4585-9dab-c2024d26e93b",
+      "name": "Cozinha Modulada 2,39 m JK 3 Peças Branca",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cozinhas Moduladas e Compactas"
+      ],
+      "suggestedCategory": "Cozinhas Moduladas e Compactas",
+      "reason": "Name indicates Cozinhas Moduladas e Compactas"
+    },
+    {
+      "id": "4b8db5d2-5eff-44f7-a3ca-ff64aa6f9e71",
+      "name": "Cozinha Modulada 3 Peças 1,85m Darmovel",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cozinhas Moduladas e Compactas"
+      ],
+      "suggestedCategory": "Cozinhas Moduladas e Compactas",
+      "reason": "Name indicates Cozinhas Moduladas e Compactas"
+    },
+    {
+      "id": "d8452872-e245-480a-84a9-67f7c170909b",
+      "name": "Estante Multiuso Montreal",
+      "active": true,
+      "currentCategory": "Estantes",
+      "linkedCats": [
+        "Estantes"
+      ],
+      "suggestedCategory": "Armários Multiuso",
+      "reason": "Name indicates Armários Multiuso"
+    },
+    {
+      "id": "7c0912dc-f6fb-4f06-820d-24970ea4d195",
+      "name": "Estante Multiuso Open 56cm",
+      "active": true,
+      "currentCategory": "Estantes",
+      "linkedCats": [
+        "Armários Multiuso",
+        "Estantes"
+      ],
+      "suggestedCategory": "Armários Multiuso",
+      "reason": "Name indicates Armários Multiuso"
+    },
+    {
+      "id": "48eb76af-d842-4b91-a40c-35e41c7e6a7b",
+      "name": "Guarda Roupa 1,60 m Turim 100% MDF 4 Portas 3 Gavetas Mopar",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "d2417fef-5ee1-453f-9e02-48e93a37681f",
+      "name": "Guarda Roupa Toquio 4 Portas 2 Gavetas Castro",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "274ef28d-65c3-4bca-a5c6-6dd78f10456f",
+      "name": "Guarda Roupa Viena 100% MDF 4 Portas 2 Gavetas Mopar",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "71a1ff6d-0a8a-4329-95dd-5e97a9755698",
+      "name": "Mesa de Cabeceira Aroma 1 Gaveta Em MDF",
+      "active": true,
+      "currentCategory": "Mesas de Cabeceira",
+      "linkedCats": [
+        "Mesas de Cabeceira"
+      ],
+      "suggestedCategory": "Cabeceiras",
+      "reason": "Name indicates Cabeceiras"
+    },
+    {
+      "id": "4bd6ff65-2e26-4257-8ad5-b8a7bef3aadc",
+      "name": "Mesa de Cabeceira Aroma 2 Gavetas em Mdf",
+      "active": true,
+      "currentCategory": "Mesas de Cabeceira",
+      "linkedCats": [
+        "Mesas de Cabeceira"
+      ],
+      "suggestedCategory": "Cabeceiras",
+      "reason": "Name indicates Cabeceiras"
+    },
+    {
+      "id": "9cdfe9fa-714a-4370-8d7b-515455f8df65",
+      "name": "Mesa Robusta 1,60 com Vidro 6 Cadeiras Estofado Linho",
+      "active": true,
+      "currentCategory": "Conjunto Mesa e Cadeiras",
+      "linkedCats": [
+        "Conjunto Mesa e Cadeiras"
+      ],
+      "suggestedCategory": "Sofás",
+      "reason": "Name indicates Sofás"
+    },
+    {
+      "id": "1627412e-4c7e-481a-b995-9808c3400361",
+      "name": "Paneleiro 45cm Pop para Cozinha",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Paneleiros"
+      ],
+      "suggestedCategory": "Paneleiros",
+      "reason": "Name indicates Paneleiros"
+    },
+    {
+      "id": "72fb2073-436d-4082-b4b2-bae6b4ebafab",
+      "name": "Rack Turim 1,60 m para TV de até 65 Polegadas Bechara",
+      "active": true,
+      "currentCategory": null,
+      "linkedCats": [
+        "Racks"
+      ],
+      "suggestedCategory": "Racks",
+      "reason": "Name indicates Racks"
+    },
+    {
+      "id": "7684bd97-c434-450f-b21a-6800e8ed7440",
+      "name": "Armairo Multiuso Golden Demobile",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Armários Multiuso"
+      ],
+      "suggestedCategory": "Armários Multiuso",
+      "reason": "Name indicates Armários Multiuso"
+    },
+    {
+      "id": "b379df0a-99af-46b3-a9aa-7b2ea140324a",
+      "name": "Armário Aéreo 80cm 2 Portas Tela Sul",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Armários Aéreos"
+      ],
+      "suggestedCategory": "Armários Aéreos",
+      "reason": "Name indicates Armários Aéreos"
+    },
+    {
+      "id": "5b6938c7-92aa-46fc-b6d9-a1ce636983d4",
+      "name": "Armário Multiuso 2 Portas Florença Aramóveis",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Armários Multiuso"
+      ],
+      "suggestedCategory": "Armários Multiuso",
+      "reason": "Name indicates Armários Multiuso"
+    },
+    {
+      "id": "de1d1ab3-5cde-4e0d-991b-e324c1fd4eb3",
+      "name": "Armário Multiuso com Pés 2 Portas Slim Poquema",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Armários Multiuso"
+      ],
+      "suggestedCategory": "Armários Multiuso",
+      "reason": "Name indicates Armários Multiuso"
+    },
+    {
+      "id": "862f40a3-1084-4acc-bbd6-f2f9ecdf39b2",
+      "name": "Armario Multiuso Notavel Escritorio 56118 2pt Branco New",
+      "active": false,
+      "currentCategory": "Mesas para Escritório",
+      "linkedCats": [
+        "Mesas para Escritório"
+      ],
+      "suggestedCategory": "Armários Multiuso",
+      "reason": "Name indicates Armários Multiuso"
+    },
+    {
+      "id": "1e54cdb5-4909-4896-967b-775f4c127ecf",
+      "name": "Armario Multiuso Notavel Nt 4015 2pt Branco",
+      "active": false,
+      "currentCategory": "Aparadores Buffets",
+      "linkedCats": [
+        "Aparadores Buffets",
+        "Armários Multiuso"
+      ],
+      "suggestedCategory": "Armários Multiuso",
+      "reason": "Name indicates Armários Multiuso"
+    },
+    {
+      "id": "df6f6415-185a-41ad-ac6a-1e2124670793",
+      "name": "Armário Torre Paneleiro 2 portas Tela Sul",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Paneleiros"
+      ],
+      "suggestedCategory": "Paneleiros",
+      "reason": "Name indicates Paneleiros"
+    },
+    {
+      "id": "37e653c7-530a-47f0-8cd7-ce3d53e6c04f",
+      "name": "Balcão para Cooktop 5 Bocas 1 Porta com Tampo NT 3050",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Balcões para Cooktop"
+      ],
+      "suggestedCategory": "Balcões para Cooktop",
+      "reason": "Name indicates Balcões para Cooktop"
+    },
+    {
+      "id": "7cde3b0c-ca66-4735-899f-50b68cec4d69",
+      "name": "Balcão para Cooktop 5 Bocas 1 Porta com Tampo NT 3050 QUEIMA DOS SALVADOS",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Balcões para Cooktop"
+      ],
+      "suggestedCategory": "Balcões para Cooktop",
+      "reason": "Name indicates Balcões para Cooktop"
+    },
+    {
+      "id": "71855ebb-bf72-4340-9e9e-3111de70af1a",
+      "name": "Base Box Baú Casal Preto JSW QUEIMA DOS SALVADOS",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Camas/Bases Box",
+        "Camas/Bases Box"
+      ],
+      "suggestedCategory": "Camas/Bases Box",
+      "reason": "Name indicates Camas/Bases Box"
+    },
+    {
+      "id": "4a8fc879-d509-4dd8-8709-5eb91e4b56b8",
+      "name": "BELICHE RUBIN ESPECIAL C/GRADE E ESCADA 1 Marfim",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [],
+      "suggestedCategory": "Beliches",
+      "reason": "Name indicates Beliches"
+    },
+    {
+      "id": "9dca9f63-57ef-4204-bb77-9bea261b79f1",
+      "name": "Berço Mini Cama Fantasia Qmovi",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [],
+      "suggestedCategory": "Berços",
+      "reason": "Name indicates Berços"
+    },
+    {
+      "id": "738b26b2-b257-4ff0-a8c6-0aab14f60688",
+      "name": "Berço Minicama em MDF Liza Permobili QUEIMA DOS SALVADOS",
+      "active": false,
+      "currentCategory": "Camas/Bases Box",
+      "linkedCats": [
+        "Camas/Bases Box"
+      ],
+      "suggestedCategory": "Berços",
+      "reason": "Name indicates Berços"
+    },
+    {
+      "id": "65623d4c-0583-4f46-a2e2-03436c4a0d62",
+      "name": "Cama Casal Carioca Paula Sem Colchao",
+      "active": false,
+      "currentCategory": "Camas/Bases Box",
+      "linkedCats": [
+        "Camas/Bases Box"
+      ],
+      "suggestedCategory": "Colchões",
+      "reason": "Name indicates Colchões"
+    },
+    {
+      "id": "849625c4-2015-4574-a28e-d61d6fd83786",
+      "name": "Cômoda 5 Gavetas 1 Porta com Vidro Aramóveis",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cômodas"
+      ],
+      "suggestedCategory": "Cômodas",
+      "reason": "Name indicates Cômodas"
+    },
+    {
+      "id": "4ab2308b-20f9-42f6-a025-901b4b649ced",
+      "name": "Cômoda Lara 8 Gavetas",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cômodas"
+      ],
+      "suggestedCategory": "Cômodas",
+      "reason": "Name indicates Cômodas"
+    },
+    {
+      "id": "ccd24699-628e-4e03-b20c-a6c9f28d6ce6",
+      "name": "Conjunto de Mesa Mônaco 1,37 M com Vidro e 6 Poltronas",
+      "active": false,
+      "currentCategory": "Cadeiras para Cozinha/Sala de Jantar",
+      "linkedCats": [
+        "Cadeiras para Cozinha/Sala de Jantar"
+      ],
+      "suggestedCategory": "Poltronas",
+      "reason": "Name indicates Poltronas"
+    },
+    {
+      "id": "7af4ced8-8e7b-4398-b0c7-6cadd6a68d82",
+      "name": "Conjunto Mesa Vidro 2,10 M Ester Cimol com 8 Poltronas Grecia para Sala de Jantar",
+      "active": false,
+      "currentCategory": "Conjunto Mesa e Cadeiras",
+      "linkedCats": [
+        "Conjunto Mesa e Cadeiras"
+      ],
+      "suggestedCategory": "Poltronas",
+      "reason": "Name indicates Poltronas"
+    },
+    {
+      "id": "fc1b3360-91f4-4b66-a85e-582bafcc408d",
+      "name": "Cozinha Compacta sem Tampo Dália New QUEIMA DOS SALVADOS",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cozinhas Moduladas e Compactas"
+      ],
+      "suggestedCategory": "Cozinhas Moduladas e Compactas",
+      "reason": "Name indicates Cozinhas Moduladas e Compactas"
+    },
+    {
+      "id": "11e8c6a5-1aea-4757-bbb5-272086e33d48",
+      "name": "Cristaleira Tiffany Com Espelho Pés Palitos",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cristaleiras"
+      ],
+      "suggestedCategory": "Cristaleiras",
+      "reason": "Name indicates Cristaleiras"
+    },
+    {
+      "id": "7c13e343-a15b-451f-9fbc-1f49bf22d864",
+      "name": "Escrivaninha 2 Gavetas NT 2010 Notável",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Mesas para Escritório"
+      ],
+      "suggestedCategory": "Mesas para Escritório",
+      "reason": "Name indicates Mesas para Escritório"
+    },
+    {
+      "id": "c824ef6d-4e3c-4bb2-8f60-fa38da7d467c",
+      "name": "Estante Multiuso Open",
+      "active": false,
+      "currentCategory": "Estantes",
+      "linkedCats": [
+        "Estantes"
+      ],
+      "suggestedCategory": "Armários Multiuso",
+      "reason": "Name indicates Armários Multiuso"
+    },
+    {
+      "id": "6b63baaa-2472-44e7-8d56-9a6cfcf80bc5",
+      "name": "Guarda Roupa 2,70m Ripado 6 Portas MDF Siena Bianchi",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "c6301350-a004-436d-af20-01d47a5d53b0",
+      "name": "Guarda Roupa 4 Portas Coimbra",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "07bcb313-6650-4bc5-9d60-6e513c08da31",
+      "name": "Guarda Roupa Americano Henn 2,62m 6 Portas",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "0d5ec9bf-db88-4e26-8198-7d4f2e13ef3a",
+      "name": "Guarda Roupa Bragança 100% MDF com Espelho",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "a889a36b-8aa5-4b28-9063-462d8c10dd63",
+      "name": "Guarda Roupa Casal 2,75m Ripado com Espelho Em MDF Vitoria",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "b8afe24e-9f26-4ab5-ac57-9dfb1fc58641",
+      "name": "Guarda Roupa Casal Ripado com Espelho Moema Demóbile",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "c4b13f75-9c37-45a2-b674-4a582b65948c",
+      "name": "Guarda Roupa Las Vegas 2,06 6 Portas 4 Gaveta",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "1ec6b9fb-60a2-49eb-b63b-71e99975aeda",
+      "name": "Guarda Roupa Siena 1,20 4 Portas 2 Gavetas",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "08112768-4ccf-4a95-b69b-b311498cc626",
+      "name": "Guarda Roupa Siena Faimec 1,20 4 Portas 2 Gavetas",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas",
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "631e81eb-acaa-4b00-8b93-a76dca51f6f4",
+      "name": "Guarda Roupa Solteiro com Pés 6 Portas 2 Gavetas Capri Poquema",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Guarda-Roupas"
+      ],
+      "suggestedCategory": "Guarda-Roupas",
+      "reason": "Name indicates Guarda-Roupas"
+    },
+    {
+      "id": "3f279613-d469-4348-b433-5db0ff3852cd",
+      "name": "Jogo de Cozinha 2,29 m Compacto Catarina 9 Portas 1 Gaveta Queima dos Salvados",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cozinhas Moduladas e Compactas"
+      ],
+      "suggestedCategory": "Cozinhas Moduladas e Compactas",
+      "reason": "Name indicates Cozinhas Moduladas e Compactas"
+    },
+    {
+      "id": "afd21b58-8f80-4869-9997-8fae7a1aa5fc",
+      "name": "Jogo de Cozinha Modulado 4 Peças 2,00 m",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Cozinhas Moduladas e Compactas"
+      ],
+      "suggestedCategory": "Cozinhas Moduladas e Compactas",
+      "reason": "Name indicates Cozinhas Moduladas e Compactas"
+    },
+    {
+      "id": "60992dff-3d24-4a3b-a325-16b52e47f5c1",
+      "name": "Poltrona do Papai 80cm Noruega Berflex Estofados",
+      "active": false,
+      "currentCategory": "Poltronas",
+      "linkedCats": [
+        "Poltronas",
+        "Sofás"
+      ],
+      "suggestedCategory": "Sofás",
+      "reason": "Name indicates Sofás"
+    },
+    {
+      "id": "62aea8c2-2a39-45da-9474-6febad0e2db6",
+      "name": "Sofá Cama 1,80 Vieiro Santorinif",
+      "active": false,
+      "currentCategory": null,
+      "linkedCats": [
+        "Sofás"
+      ],
+      "suggestedCategory": "Sofás",
+      "reason": "Name indicates Sofás"
+    }
+  ]
+}

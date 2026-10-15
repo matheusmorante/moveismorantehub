@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import { productVariationDraftSchema } from './productVariationValidation';
+
+const productNumericFields = productVariationDraftSchema.pick({
+  unitPrice: true, promoPrice: true, costPrice: true, freightCost: true, ipiPercent: true,
+  finalPurchasePrice: true, stock: true, minStock: true, leadTime: true, avgMonthlySales: true,
+  width: true, height: true, depth: true, weight: true, pkgWidth: true, pkgHeight: true, pkgDepth: true,
+}).partial().shape;
 
 export interface ProductFormValidationOptions {
   isStockistOnly: boolean;
@@ -12,6 +19,8 @@ export interface ProductFormValidationOptions {
 export const createProductFormSchema = (options: ProductFormValidationOptions) => {
   return z
     .object({
+      ...productNumericFields,
+      initialStock: productVariationDraftSchema.shape.stock.optional(),
       name: z.string().optional().nullable(),
       title: z.string().optional().nullable(),
       marketplaceTitle: z.string().optional().nullable(),
@@ -32,7 +41,7 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
       isOwnProduction: z.boolean().optional().nullable(),
       mainSupplierId: z.string().optional().nullable(),
       supplierId: z.string().optional().nullable(),
-      variations: z.array(z.any()).optional().nullable(),
+      variations: z.array(productVariationDraftSchema.partial()).optional().nullable(),
     })
     .passthrough()
     .superRefine((data, ctx) => {

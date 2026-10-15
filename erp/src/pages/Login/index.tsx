@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
 import { translateAuthError } from '../../pages/utils/authErrors';
 import { signInWithEmailPassword, signInWithGoogle } from '@/services/authPasswordSetup';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { loginFormSchema } from '../../../../shared-utils/authFormSchemas';
+import { loginFormSchema, passwordRecoveryEmailSchema } from '../../../../shared-utils/authFormSchemas';
 import type { z } from 'zod';
 
 const Login = () => {
@@ -15,6 +16,14 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const form = useZodForm(loginFormSchema, { email, password });
+  const authInFlight = useRef(false);
+  const runAuthOperation = async (operation: () => Promise<unknown>) => {
+    if (authInFlight.current) return;
+    authInFlight.current = true;
+    setIsSubmitting(true);
+    try { await operation(); } finally { authInFlight.current = false; setIsSubmitting(false); }
+  };
+  const recoveryForm = useZodForm(passwordRecoveryEmailSchema, { email });
 
   const getAuthRedirectUrl = (path = '') => {
     const isLocalNetwork = /^192\.168\.100\.2(?::\d+)?$/.test(window.location.hostname);
@@ -23,27 +32,39 @@ const Login = () => {
       : `${window.location.origin}/${path}`;
   };
 
-  const handleForgotPassword = () => {
-    if (!email) {
-      return toast.warning('Por favor, informe seu e-mail primeiro.');
-    }
-    navigate('/reset-password', { state: { email: email.trim() } });
+  const handleForgotPassword = async () => {
+    await runAuthOperation(() => recoveryForm.validateAndRun({ email }, (data) => {
+      navigate('/reset-password', { state: { email: data.email } });
+    }, (errors) => toast.warning(Object.values(flattenFormErrors(errors))[0])));
   };
 
   const handleSubmit = async (data: z.output<typeof loginFormSchema>) => {
-    setIsSubmitting(true);
-
     try {
-      const { error } = await signInWithEmailPassword(supabase, data.email, data.password);
+      const { error } = await waitForAuthOperation(signInWithEmailPassword(supabase, data.email, data.password), 'erp:login');
 
-      if (error) throw error;
+      if (error) throw new Error(error.message);
 
       toast.success('Bem-vindo de volta! Sincronizando dados...');
       navigate('/', { replace: true });
-    } catch (error: any) {
-      toast.error(translateAuthError(error.message));
-      setIsSubmitting(false);
+    } catch (error) {
+      toast.error(translateAuthError(error instanceof Error ? error.message : 'Não foi possível autenticar agora.'));
     }
+  };
+
+  const handleGoogleLogin = async () => {
+    const isEmbedded = window.self !== window.top || !!(window as Window & { ReactNativeWebView?: unknown }).ReactNativeWebView;
+    if (isEmbedded) {
+      toast.info('No aplicativo móvel, utilize seu E-mail e Senha acima para entrar.');
+      return;
+    }
+    await runAuthOperation(async () => {
+      try {
+        const { error } = await waitForAuthOperation(signInWithGoogle(supabase, { redirectTo: getAuthRedirectUrl() }), 'erp:google');
+        if (error) throw new Error(error.message);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Não foi possível iniciar o acesso com Google.');
+      }
+    });
   };
 
   return (
@@ -66,9 +87,12 @@ const Login = () => {
             </p>
           </div>
 
-          <form noValidate onSubmit={form.submit(handleSubmit, (errors) => {
-            toast.warning(Object.values(flattenFormErrors(errors))[0]);
-          })} className="space-y-6">
+          <form noValidate onSubmit={async (event) => {
+            event.preventDefault();
+            await runAuthOperation(() => form.validateAndRun({ email, password }, handleSubmit, (errors) => {
+              toast.warning(Object.values(flattenFormErrors(errors))[0]);
+            }));
+          }} className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">
                 E-mail
@@ -150,21 +174,8 @@ const Login = () => {
 
           <button
             type="button"
-            onClick={async () => {
-              const isEmbedded = window.self !== window.top || !!(window as any).ReactNativeWebView;
-              if (isEmbedded) {
-                toast.info('No aplicativo móvel, utilize seu E-mail e Senha acima para entrar.');
-                return;
-              }
-              try {
-                const { error } = await signInWithGoogle(supabase, {
-                  redirectTo: getAuthRedirectUrl(),
-                });
-                if (error) throw error;
-              } catch (error: any) {
-                toast.error(error.message);
-              }
-            }}
+            onClick={handleGoogleLogin}
+            disabled={isSubmitting}
             className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 text-slate-700 dark:text-slate-200 font-black py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 group"
           >
             <svg className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">

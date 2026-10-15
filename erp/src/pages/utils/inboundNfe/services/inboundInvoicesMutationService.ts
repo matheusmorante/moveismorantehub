@@ -3,6 +3,7 @@ import { isValidUuid } from '../../uuidUtils';
 import { InboundInvoice } from '../types/inboundNfeTypes';
 import { getLocalInvoices, saveLocalInvoices, isSampleInvoice } from './inboundInvoicesCache';
 import { parseInboundNfeXml } from '../utils/inboundXmlParser';
+import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
 
 export const deleteInboundInvoice = async (invoiceIdOrKey: string): Promise<void> => {
   // A remoção é deliberadamente limitada ao cabeçalho da NF e aos seus itens
@@ -14,9 +15,7 @@ export const deleteInboundInvoice = async (invoiceIdOrKey: string): Promise<void
     if (isValidUuid(invoiceIdOrKey)) {
       ({ error } = await supabase.from('inbound_invoices').delete().eq('id', invoiceIdOrKey));
     } else {
-      const cleanKey = String(invoiceIdOrKey)
-        .replace(/^inbound_/, '')
-        .replace(/\D/g, '');
+      const cleanKey = normalizeFiscalIdentifier(String(invoiceIdOrKey).replace(/^inbound_/, ''));
       if (cleanKey.length === 44) {
         ({ error } = await supabase.from('inbound_invoices').delete().eq('chave_acesso', cleanKey));
       }
@@ -24,8 +23,9 @@ export const deleteInboundInvoice = async (invoiceIdOrKey: string): Promise<void
 
     if (error) throw new Error(error.message || 'Não foi possível remover a NF de entrada.');
 
+    const cleanKey = normalizeFiscalIdentifier(String(invoiceIdOrKey).replace(/^inbound_/, ''));
     const local = getLocalInvoices().filter(
-      (inv) => inv.id !== invoiceIdOrKey && inv.nfeKey !== invoiceIdOrKey && !isSampleInvoice(inv)
+      (inv) => inv.id !== invoiceIdOrKey && normalizeFiscalIdentifier(inv.nfeKey) !== cleanKey && !isSampleInvoice(inv)
     );
     saveLocalInvoices(local);
   } catch (err) {
@@ -36,12 +36,12 @@ export const deleteInboundInvoice = async (invoiceIdOrKey: string): Promise<void
 
 export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<InboundInvoice> => {
   if (isSampleInvoice(invoice)) return invoice;
-  const accessKey = (invoice.nfeKey || '').replace(/\D/g, '');
+  const accessKey = normalizeFiscalIdentifier(invoice.nfeKey);
   const validId = isValidUuid(invoice.id) ? invoice.id : crypto.randomUUID();
   const invoiceToSave: InboundInvoice = { ...invoice, id: validId, nfeKey: accessKey };
   const local = getLocalInvoices().filter((inv) => !isSampleInvoice(inv));
   const existingIndex = accessKey
-    ? local.findIndex((inv) => inv.nfeKey === accessKey)
+    ? local.findIndex((inv) => normalizeFiscalIdentifier(inv.nfeKey) === accessKey)
     : local.findIndex((inv) => inv.id === validId);
   if (existingIndex >= 0) {
     local[existingIndex] = invoiceToSave;
@@ -169,7 +169,7 @@ export const importInboundInvoiceXml = async (xmlString: string): Promise<Inboun
 
 export const markInvoiceAsReceived = async (nfeKey: string, receiptId: string): Promise<void> => {
   const local = getLocalInvoices();
-  const invoice = local.find((inv) => inv.nfeKey === nfeKey);
+  const invoice = local.find((inv) => normalizeFiscalIdentifier(inv.nfeKey) === normalizeFiscalIdentifier(nfeKey));
   if (invoice) {
     invoice.status = 'received';
     invoice.receiptId = receiptId;

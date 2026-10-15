@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type Order from '../../../types/order.type';
 import ReturnOrderModal from './ReturnOrderModal';
+import { toast } from 'react-toastify';
 
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
@@ -23,10 +24,11 @@ vi.mock('../../FiscalDocuments/services/automaticReturnFiscalEmissionService', (
 vi.mock('./ReturnItemsSelection', async () => {
   const React = await import('react');
   return {
-    default: ({ order, returnableQuantities, onToggle }: any) =>
+    default: ({ order, returnableQuantities, onToggle, onQuantityChange }: any) =>
       React.createElement(
         'div',
         null,
+        React.createElement('button', { type: 'button', onClick: () => onQuantityChange('line-0', Number.NaN, 1) }, 'Quantidade vazia'),
         order.items.map((item: any, index: number) => {
           const key = `line-${index}`;
           const max = returnableQuantities[key] || 0;
@@ -47,7 +49,7 @@ vi.mock('./ReturnItemsSelection', async () => {
 vi.mock('./ReturnCollectionSection', async () => {
   const React = await import('react');
   return {
-    default: ({ onCollectChange, onSchedulingChange }: any) =>
+    default: ({ onCollectChange, onSchedulingChange, onObservationsChange }: any) =>
       React.createElement(
         'div',
         null,
@@ -67,6 +69,16 @@ vi.mock('./ReturnCollectionSection', async () => {
             },
           },
           'Agendar coleta'
+        ),
+        React.createElement(
+          'button',
+          { type: 'button', onClick: () => { onCollectChange(true); onSchedulingChange('date', '2026-02-30'); } },
+          'Data inválida'
+        ),
+        React.createElement(
+          'button',
+          { type: 'button', onClick: () => onObservationsChange(['Conferir embalagem']) },
+          'Informar observação'
         )
       ),
   };
@@ -461,4 +473,63 @@ describe('cadastro e ações do pedido de devolução', () => {
       'Não foi possível confirmar o saldo da NF-e original autorizada'
     );
   });
+
+  it('valida os campos de coleta e grava o snapshot corrigido', async () => {
+    const error = vi.spyOn(toast, 'error').mockImplementation(() => 'test-toast');
+    setupSupabaseFrom([]);
+    render(<ReturnOrderModal order={order} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    await screen.findByRole('status');
+    fireEvent.click(screen.getByRole('button', { name: 'Cadeira' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Coleta da devolução' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Data inválida' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar pedido de devolução' }));
+    await waitFor(() => expect(error).toHaveBeenCalledWith('Informe uma data válida.'));
+    expect(mocks.saveOrder).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Agendar coleta' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Informar observação' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar pedido de devolução' }));
+    await waitFor(() => expect(mocks.saveOrder).toHaveBeenCalledTimes(1));
+    expect(mocks.saveOrder).toHaveBeenCalledWith(expect.objectContaining({ status: 'scheduled', collectionObservation: 'Conferir embalagem', shipping: expect.objectContaining({ scheduling: expect.objectContaining({ date: '2026-10-15', startTime: '10:00' }) }) }));
+    expect(mocks.autoTransmitReturnFiscal).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia cliques concorrentes até a gravação terminar e permite retomar após falha', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(toast, 'error').mockImplementation(() => 'test-toast');
+    let fail!: (error: Error) => void;
+    mocks.saveOrder.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+    setupSupabaseFrom([]);
+    const onSuccess = vi.fn();
+    render(<ReturnOrderModal order={order} onClose={vi.fn()} onSuccess={onSuccess} />);
+    await screen.findByRole('status');
+    fireEvent.click(screen.getByRole('button', { name: 'Cadeira' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Coleta da devolução' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cliente devolveu na loja' }));
+    const submit = screen.getByRole('button', { name: 'Gerar pedido de devolução' });
+    act(() => { fireEvent.click(submit); fireEvent.click(submit); });
+    await waitFor(() => expect(mocks.saveOrder).toHaveBeenCalledTimes(1));
+    expect(submit).toHaveProperty('disabled', true); expect(onSuccess).not.toHaveBeenCalled();
+    await act(async () => { fail(new Error('Simulada')); });
+    await waitFor(() => expect(submit).toHaveProperty('disabled', false));
+    fireEvent.click(submit);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+    expect(mocks.saveOrder).toHaveBeenCalledTimes(2);
+    expect(mocks.saveOrder.mock.calls[0][0].returnRequestId).toBe(mocks.saveOrder.mock.calls[1][0].returnRequestId);
+  });
+  it('não descarta uma linha selecionada com quantidade inválida ao devolver outra linha', async () => {
+    const error = vi.spyOn(toast, 'error').mockImplementation(() => 'test-toast');
+    setupSupabaseFrom([]);
+    const twoItems = { ...order, items: [order.items[0], { ...order.items[0], description: 'Mesa', productId: 'product-2' }] };
+    render(<ReturnOrderModal order={twoItems} onClose={vi.fn()} onSuccess={vi.fn()} />);
+    await screen.findByRole('status');
+    fireEvent.click(screen.getByRole('button', { name: 'Cadeira' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mesa' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Quantidade vazia' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Coleta da devolução' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cliente devolveu na loja' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar pedido de devolução' }));
+    await waitFor(() => expect(error).toHaveBeenCalled());
+    expect(mocks.saveOrder).not.toHaveBeenCalled();
+  });
+
 });

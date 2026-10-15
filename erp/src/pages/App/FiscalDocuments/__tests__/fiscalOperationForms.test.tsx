@@ -95,6 +95,53 @@ describe('Fiscal operation RHF submission paths', () => {
     });
   });
 
+  it('keeps preparation locked until creation and loading finish', async () => {
+    let finish!: (value: { draftId: string }) => void;
+    mocks.create.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const { result } = renderHook(() => useNfeOperationDraft({ sourceDocument: source, mode: 'return', returnOrderId: draftId, onAuthorized: vi.fn() }));
+    let first!: Promise<unknown>;
+    await act(async () => { first = result.current.prepareDraft(); });
+    await act(async () => { await result.current.prepareDraft(); });
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    await act(async () => { finish({ draftId }); await first; });
+    expect(mocks.load).toHaveBeenCalledTimes(1);
+    expect(result.current.payload?.draft.id).toBe(draftId);
+    expect(result.current.preparing).toBe(false);
+  });
+
+  it('does not transmit while a review save is pending and releases the operation on completion', async () => {
+    let finish!: (value: { status: string }) => void;
+    mocks.save.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const { result } = await loadedDraft('ready');
+    act(() => result.current.setProductionConfirmed(true));
+    let first!: Promise<unknown>;
+    await act(async () => { first = result.current.saveFiscalReview(); });
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+    await act(async () => { await result.current.transmitOrReconcile(); });
+    expect(mocks.transmit).not.toHaveBeenCalled();
+    await act(async () => { finish({ status: 'ready' }); await first; });
+    await act(async () => { await result.current.transmitOrReconcile(); });
+    expect(mocks.transmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks duplicate transmission and review until a pending result returns, without automatic resend', async () => {
+    let finish!: (value: { pending: boolean }) => void;
+    mocks.transmit.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const { result, onAuthorized } = await loadedDraft('ready');
+    act(() => result.current.setProductionConfirmed(true));
+    let first!: Promise<unknown>;
+    await act(async () => { first = result.current.transmitOrReconcile(); });
+    await waitFor(() => expect(mocks.transmit).toHaveBeenCalledTimes(1));
+    await act(async () => { await result.current.transmitOrReconcile(); await result.current.saveFiscalReview(); });
+    expect(mocks.transmit).toHaveBeenCalledTimes(1);
+    expect(mocks.save).not.toHaveBeenCalled();
+    await act(async () => { finish({ pending: true }); await first; });
+    expect(result.current.notice).toContain('pendente');
+    expect(result.current.retryAllowed).toBe(false);
+    expect(onAuthorized).not.toHaveBeenCalled();
+    expect(mocks.transmit).toHaveBeenCalledTimes(1);
+  });
+
   it('validates review XML, CFOP and complete item coverage before saving, preserving the supplied blocks', async () => {
     const { result } = await loadedDraft('draft');
     const originalLine = result.current.reviewedLines[0];
@@ -150,6 +197,30 @@ describe('Fiscal operation RHF submission paths', () => {
 
 describe('Fiscal cancellation RHF submission paths', () => {
   const document = { ...source, status: 'autorizada', created_at: '', updated_at: '' } as NfeDocumentRecord;
+  it('holds one lock across cancel and estorno while the service is pending and allows retry after failure', async () => {
+    let fail!: (reason: Error) => void;
+    mocks.cancel.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+    const onSuccess = vi.fn(async () => {});
+    const { result } = renderHook(() => useFiscalCancelModal({ onSuccess, onEstornoTrigger: vi.fn() }));
+    act(() => result.current.openCancel(document, { canProceed: true, action: 'cancel' }));
+    act(() => { result.current.setCancelReason('Operação não realizada.'); result.current.setProductionCancelConfirmed(true); });
+    let first!: Promise<unknown>;
+    await act(async () => { first = result.current.handleConfirmCancel({ canProceed: true, action: 'cancel' }); });
+    await waitFor(() => expect(mocks.cancel).toHaveBeenCalledTimes(1));
+    await act(async () => { await result.current.handleConfirmCancel({ canProceed: true, action: 'estorno' }); });
+    expect(mocks.cancel).toHaveBeenCalledTimes(1);
+    expect(mocks.cancel).toHaveBeenCalledWith(expect.objectContaining({ document, reason: 'Operação não realizada.', productionConfirmed: true }));
+    act(() => result.current.openCancel({ ...document, id: 'another-document' }, { canProceed: true, action: 'cancel' }));
+    expect(result.current.selectedDoc?.id).toBe(document.id);
+    await act(async () => { fail(new Error('Falha simulada')); await first; });
+    expect(mocks.toast.error).toHaveBeenCalledWith('Não foi possível concluir o cancelamento: Falha simulada');
+    expect(result.current.isCanceling).toBe(false);
+    expect(onSuccess).not.toHaveBeenCalled();
+    await act(async () => { await result.current.handleConfirmCancel({ canProceed: true, action: 'cancel' }); });
+    expect(mocks.cancel).toHaveBeenCalledTimes(2);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
   it.each([{ length: 14, valid: false }, { length: 15, valid: true }, { length: 255, valid: true }, { length: 256, valid: false }])(
     'counts $length Unicode characters for cancellation (valid=$valid)', async ({ length, valid }) => {
       const { result } = renderHook(() => useFiscalCancelModal({ onSuccess: vi.fn(async () => {}), onEstornoTrigger: vi.fn() }));

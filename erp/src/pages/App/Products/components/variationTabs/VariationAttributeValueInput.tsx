@@ -57,23 +57,21 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
 
   const handleRegisterNewValue = async () => {
     if (!attributeId || !trimmedValue || isSaving) return;
-    const validated = await form.validateAndRun({ name: attributeId, value: trimmedValue }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-
-    setIsSaving(true);
-    try {
-      const saved = await saveAttributeValue(validated.name, validated.value);
-      onChange(saved.value);
-      onValueRegistered?.(saved);
-      setIsOpenSuggestions(false);
-      toast.success(`Valor "${saved.value}" cadastrado com sucesso!`);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro ao cadastrar valor';
-      toast.error(message);
-    } finally {
-      setIsSaving(false);
-    }
+    await form.validateAndRun({ name: attributeId, value: trimmedValue }, async (validated) => {
+      setIsSaving(true);
+      try {
+        const saved = await saveAttributeValue(validated.name, validated.value);
+        onChange(saved.value);
+        onValueRegistered?.(saved);
+        setIsOpenSuggestions(false);
+        toast.success(`Valor "${saved.value}" cadastrado com sucesso!`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Erro ao cadastrar valor';
+        toast.error(message);
+      } finally {
+        setIsSaving(false);
+      }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

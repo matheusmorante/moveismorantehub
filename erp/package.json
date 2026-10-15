@@ -75,7 +75,8 @@
         "storybook": "storybook dev -p 6006",
         "build-storybook": "storybook build",
         "dev:serve": "vite",
-        "test:unit:mobile-forms": "vitest run --config vitest.mobile-forms.config.ts"
+        "test:unit:mobile-forms": "vitest run --config vitest.mobile-forms.config.ts",
+        "test:unit:catalog-forms": "vitest run --config vitest.catalog-forms.config.ts"
     },
     "browserslist": {
         "production": [

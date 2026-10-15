@@ -1,9 +1,10 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import React from 'react';
 import { VariationAttributeValueInput } from './VariationAttributeValueInput';
 import * as variationService from '@/pages/utils/variationService';
+import { toast } from 'react-toastify';
 
 // Mock do serviço de variações
 vi.mock('@/pages/utils/variationService', () => ({
@@ -131,5 +132,29 @@ describe('VariationAttributeValueInput', () => {
     expect(screen.queryByTestId('attribute-registered-check')).toBeNull();
     expect(screen.queryByTestId('attribute-unregistered-notice')).toBeNull();
     expect(screen.queryByTestId('attribute-register-button')).toBeNull();
+  });
+
+  it('valida a identidade do atributo antes de gravar', async () => {
+    render(<VariationAttributeValueInput attributeId="   " value="Azul" registeredValues={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('attribute-register-button'));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Selecione o atributo.'));
+    expect(variationService.saveAttributeValue).not.toHaveBeenCalled();
+  });
+
+  it('normaliza os dados e protege Enter/clique até concluir, permitindo retomar após erro', async () => {
+    let fail!: (error: Error) => void;
+    const operation = vi.mocked(variationService.saveAttributeValue);
+    operation.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+    operation.mockResolvedValue({ id: 'azul', attribute_id: 'attr-cor', value: 'Azul' });
+    const change = vi.fn();
+    render(<VariationAttributeValueInput attributeId=" attr-cor " value="  Azul  " registeredValues={[]} onChange={change} />);
+    const button = screen.getByTestId('attribute-register-button');
+    act(() => { fireEvent.click(button); fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' }); });
+    await waitFor(() => expect(operation).toHaveBeenCalledTimes(1)); expect(operation).toHaveBeenCalledWith('attr-cor', 'Azul');
+    expect(change).not.toHaveBeenCalled(); expect(button).toHaveProperty('disabled', true);
+    await act(async () => { fail(new Error('Falha simulada')); });
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Falha simulada'));
+    fireEvent.click(screen.getByTestId('attribute-register-button')); await waitFor(() => expect(change).toHaveBeenCalledWith('Azul'));
+    expect(operation).toHaveBeenCalledTimes(2);
   });
 });

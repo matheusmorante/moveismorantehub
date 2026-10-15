@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+export const inboundXmlUploadFormSchema = z.object({
+  file: z.custom<File>((file) => typeof File !== 'undefined' && file instanceof File &&
+    (file.name.toLowerCase().endsWith('.xml') || file.type.includes('xml')),
+  'Envie somente o arquivo XML oficial da NF-e.'),
+});
+
 export const imageFilesFormSchema = z.object({
   files: z.array(z.custom<File>((file) => typeof File !== 'undefined' && file instanceof File && file.type.startsWith('image/'), 'Selecione um arquivo de imagem.')).min(1, 'Selecione uma imagem.'),
 });

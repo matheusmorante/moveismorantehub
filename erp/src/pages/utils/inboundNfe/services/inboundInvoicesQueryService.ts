@@ -3,6 +3,7 @@ import { InboundInvoice, InboundInvoiceItem } from '../types/inboundNfeTypes';
 import { parseInboundNfeXml } from '../utils/inboundXmlParser';
 import { DateFilterConfig } from '../../../App/Stock/InboundInvoices/components/InboundInvoicesHeader';
 import { isValidUuid } from '../../uuidUtils';
+import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
 import {
   getMonthDateBounds,
   getCurrentYearMonthStr,
@@ -369,12 +370,12 @@ export const checkInboundInvoiceKeyExists = async (
   nfeKey: string,
   currentInvoiceId?: string
 ): Promise<InboundInvoice | null> => {
-  const cleanKey = (nfeKey || '').replace(/\D/g, '');
+  const cleanKey = normalizeFiscalIdentifier(nfeKey);
   if (cleanKey.length !== 44) return null;
 
   const local = getLocalInvoices().filter((inv) => !isSampleInvoice(inv));
   const localMatch = local.find(
-    (inv) => inv.nfeKey === cleanKey && (!currentInvoiceId || inv.id !== currentInvoiceId)
+    (inv) => normalizeFiscalIdentifier(inv.nfeKey) === cleanKey && (!currentInvoiceId || inv.id !== currentInvoiceId)
   );
   if (localMatch) return localMatch;
 

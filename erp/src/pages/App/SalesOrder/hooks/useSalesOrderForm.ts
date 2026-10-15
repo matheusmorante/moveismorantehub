@@ -25,9 +25,10 @@ import { useOrderDistanceCalculator } from './useOrderDistanceCalculator';
 import { useOrderProductSelection } from './useOrderProductSelection';
 import { useOrderAutoSave } from './useOrderAutoSave';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { createOrderDomainSchema } from '../../../../../../shared-utils/orderDomainValidation';
+import { createOrderDomainSchema, orderDraftFormSchema } from '../../../../../../shared-utils/orderDomainValidation';
 import { getSettings } from '@/pages/utils/settingsService';
 import type { z } from 'zod';
+import type { FieldErrors } from 'react-hook-form';
 
 export { parseStorageDateToLocal };
 
@@ -61,6 +62,9 @@ export const useSalesOrderForm = (
   const isTestMode = testModeFields.is_test === true;
   const { validateAndRun: validateOrderForm } = useZodForm(createOrderDomainSchema(getSettings().requiredFields), {
     date: orderDate, seller, orderType, items, payments, shipping, customerData,
+  });
+  const { validateAndRun: validateOrderDraft } = useZodForm(orderDraftFormSchema, {
+    status: 'draft', date: orderDate, seller, orderType, items, payments, shipping, customerData,
   });
 
   // Estado React só é refletido após o próximo render. Esta trava síncrona
@@ -161,7 +165,6 @@ export const useSalesOrderForm = (
   const {
     isSavingDraft,
     draftAutoSaveStatus,
-    autoSaveTimerRef,
     waitForActiveSave,
     cancelAutoSave,
   } = useOrderAutoSave(
@@ -186,16 +189,18 @@ export const useSalesOrderForm = (
     (order: Order) => {
       const migratedOrder = migrateOrderHandlings(order);
       const existingIndex = getOrderIndex(order);
-      const isExistingOrder = Boolean(order.id && existingIndex);
+      const isLoadedTestArtifact = Boolean(order.id && order.is_test === true);
+      const isExistingOrder = Boolean(order.id && (existingIndex || isLoadedTestArtifact));
       const loadedStatus = order.status || 'draft';
       // Rascunhos existentes continuam salvando alterações automaticamente.
       setIsDraftAutoSaveEnabled(!isExistingOrder || loadedStatus === 'draft');
 
-      if (order.id && existingIndex) {
-        setOrderIndex(existingIndex);
+      if (isExistingOrder) {
+        const loadedIndex = isLoadedTestArtifact ? null : existingIndex;
+        setOrderIndex(loadedIndex);
         setCurrentOrderId(order.id);
-        latestState.current.orderIndex = existingIndex;
-        latestState.current.orderNumber = existingIndex as any;
+        latestState.current.orderIndex = isLoadedTestArtifact ? undefined : existingIndex;
+        latestState.current.orderNumber = isLoadedTestArtifact ? undefined : existingIndex;
         latestState.current.currentOrderId = order.id;
       } else {
         setCurrentOrderId(undefined);
@@ -333,61 +338,58 @@ export const useSalesOrderForm = (
     prevDeliveryMethodRef.current = shipping.deliveryMethod;
   }, [shipping.deliveryMethod]);
 
+  const showOrderValidationErrors = useCallback((validationErrors: FieldErrors) => {
+    const fields = Object.fromEntries(Object.entries(flattenFormErrors(validationErrors)).map(([key, value]) => [
+      key.replace(/^items_(\d+)_/, 'item_$1_').replace(/^payments_(\d+)_/, 'payment_$1_'), value,
+    ]));
+    setErrors(fields);
+    toast.error(Object.values(fields)[0] || 'Confira os dados do pedido.');
+  }, []);
+
   const handleSaveOrder = useCallback(
     async (e?: React.MouseEvent) => {
-      if (e) e.preventDefault();
-
+      e?.preventDefault();
       if (submissionInFlightRef.current) return false;
       submissionInFlightRef.current = true;
       latestState.current.submissionInFlight = true;
-
       cancelAutoSave();
       latestState.current.isSaving = true;
       setIsSaving(true);
-
       try {
         await waitForActiveSave();
         cancelAutoSave();
-
-        if (!latestState.current.isTestMode) {
-          const currentIdx = await ensureOrderCode();
-          if (!currentIdx) return false;
-        }
-
-        const isBudgetOrder = latestState.current.orderType === 'budget';
-        const savedStatus =
-          latestState.current.currentOrderId && latestState.current.status !== 'draft'
-            ? latestState.current.status
-            : 'draft';
-        const orderData = await validateOrderForm(getOrderData(savedStatus) as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, (data) => data as unknown as Order,
-          (validationErrors) => setErrors(flattenFormErrors(validationErrors)));
-
-        if (!orderData) {
-          toast.error('Existem campos obrigatórios não preenchidos.');
-          return false;
-        }
-
-        setErrors({});
-
-        try {
-          const savedId = await saveOrder(orderData as Order);
-          if (!latestState.current.currentOrderId && savedId) {
-            setCurrentOrderId(savedId);
-            latestState.current.currentOrderId = savedId;
+        const savedStatus = latestState.current.currentOrderId && latestState.current.status !== 'draft' ? latestState.current.status : 'draft';
+        const snapshot = getOrderData(savedStatus);
+        const persistValidatedOrder = async (data: z.output<ReturnType<typeof createOrderDomainSchema>>) => {
+          const orderData = data as unknown as Order;
+          setErrors({});
+          if (orderData.is_test !== true) {
+            const currentIdx = await ensureOrderCode();
+            if (!currentIdx) return false;
+            orderData.orderIndex = currentIdx;
+            orderData.orderNumber = currentIdx;
           }
-          setStatus(savedStatus);
-          toast.success(
-            savedStatus === 'draft'
-              ? isBudgetOrder
-                ? 'Orçamento salvo com sucesso!'
-                : 'Pedido salvo como rascunho!'
-              : 'Alterações do pedido salvas!'
-          );
-          return savedId;
-        } catch (error: any) {
-          toast.error(error?.message || 'Erro ao salvar pedido.');
-          return false;
-        }
+          try {
+            const savedId = await saveOrder(orderData);
+            if (savedId) {
+              setCurrentOrderId(savedId);
+              latestState.current.currentOrderId = savedId;
+            }
+            setStatus(savedStatus);
+            latestState.current.status = savedStatus;
+            toast.success(savedStatus === 'draft'
+              ? orderData.orderType === 'budget' ? 'Orçamento salvo com sucesso!' : 'Pedido salvo como rascunho!'
+              : 'Alterações do pedido salvas!');
+            return savedId;
+          } catch (error: unknown) {
+            const message = (error as { message?: unknown } | null)?.message;
+            toast.error(typeof message === 'string' && message ? message : 'Não foi possível salvar o pedido.');
+            return false;
+          }
+        };
+        return savedStatus === 'draft'
+          ? await validateOrderDraft(snapshot as unknown as z.input<typeof orderDraftFormSchema>, persistValidatedOrder, showOrderValidationErrors)
+          : await validateOrderForm(snapshot as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, persistValidatedOrder, showOrderValidationErrors);
       } finally {
         cancelAutoSave();
         latestState.current.isSaving = false;
@@ -396,73 +398,57 @@ export const useSalesOrderForm = (
         submissionInFlightRef.current = false;
       }
     },
-    [getOrderData, ensureOrderCode, cancelAutoSave, waitForActiveSave, validateOrderForm]
+    [getOrderData, ensureOrderCode, cancelAutoSave, waitForActiveSave, validateOrderForm, validateOrderDraft, showOrderValidationErrors]
   );
 
   const handleCompleteOrder = useCallback(
     async (e?: React.MouseEvent) => {
-      if (e) e.preventDefault();
-
+      e?.preventDefault();
       if (submissionInFlightRef.current) return false;
       submissionInFlightRef.current = true;
       latestState.current.submissionInFlight = true;
-
       cancelAutoSave();
       latestState.current.isSaving = true;
       setIsSaving(true);
-
       try {
         await waitForActiveSave();
         cancelAutoSave();
-
-        if (!latestState.current.isTestMode) {
-          const currentIdx = await ensureOrderCode();
-          if (!currentIdx) return false;
-        }
-
-        const resolvedStatus = resolveCompletedOrderStatus(latestState.current);
-        const orderData = await validateOrderForm(getOrderData(resolvedStatus) as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, (data) => data as unknown as Order,
-          (validationErrors) => setErrors(flattenFormErrors(validationErrors)));
-
-        if (!orderData) {
-          toast.error('Existem campos obrigatórios não preenchidos.');
-          return false;
-        }
-
-        setErrors({});
-
-        try {
-          const savedId = await saveOrder(orderData as Order);
-          // Atualizar currentOrderId IMEDIATAMENTE após o insert confirmado.
-          // Isso garante que qualquer falha posterior (UI, notificação, etc.)
-          // não cause duplicação: a próxima tentativa do usuário fará UPDATE.
-          if (savedId) {
-            setCurrentOrderId(savedId);
-            latestState.current.currentOrderId = savedId;
+        const savedStatus = resolveCompletedOrderStatus(latestState.current);
+        const snapshot = getOrderData(savedStatus);
+        const persistValidatedOrder = async (data: z.output<ReturnType<typeof createOrderDomainSchema>>) => {
+          const orderData = data as unknown as Order;
+          setErrors({});
+          if (orderData.is_test !== true) {
+            const currentIdx = await ensureOrderCode();
+            if (!currentIdx) return false;
+            orderData.orderIndex = currentIdx;
+            orderData.orderNumber = currentIdx;
           }
-          setStatus(resolvedStatus);
-          latestState.current.status = resolvedStatus;
-
-          if (resolvedStatus === 'fulfilled') {
-            toast.success(
-              `Pedido cadastrado. ${getFulfillmentLabels(orderData as Order).successMessage} ✨`
-            );
-          } else if (resolvedStatus === 'quoted') {
-            toast.success('Orçamento cadastrado com sucesso!');
-          } else {
-            toast.success('Pedido CADASTRADO com sucesso!');
+          try {
+            const savedId = await saveOrder(orderData);
+            if (savedId) {
+              setCurrentOrderId(savedId);
+              latestState.current.currentOrderId = savedId;
+            }
+            setStatus(savedStatus);
+            latestState.current.status = savedStatus;
+            if (savedStatus === 'fulfilled') {
+              toast.success('Pedido cadastrado. ' + getFulfillmentLabels(orderData).successMessage + ' ✨');
+            } else if (savedStatus === 'quoted') {
+              toast.success('Orçamento cadastrado com sucesso!');
+            } else {
+              toast.success('Pedido CADASTRADO com sucesso!');
+            }
+            return { ...orderData, id: savedId, status: savedStatus };
+          } catch (error: unknown) {
+            const message = (error as { message?: unknown } | null)?.message;
+            toast.error(typeof message === 'string' && message ? message : 'Não foi possível salvar o pedido.');
+            return false;
           }
-          return {
-            ...orderData,
-            id: savedId,
-            status: resolvedStatus,
-            orderIndex: orderData.orderIndex || orderIndex || undefined,
-            orderNumber: orderData.orderIndex || orderIndex || undefined,
-          } as any;
-        } catch (error: any) {
-          toast.error(error?.message || 'Erro ao cadastrar pedido.');
-          return false;
-        }
+        };
+        return savedStatus === 'draft'
+          ? await validateOrderDraft(snapshot as unknown as z.input<typeof orderDraftFormSchema>, persistValidatedOrder, showOrderValidationErrors)
+          : await validateOrderForm(snapshot as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, persistValidatedOrder, showOrderValidationErrors);
       } finally {
         cancelAutoSave();
         latestState.current.isSaving = false;
@@ -471,7 +457,7 @@ export const useSalesOrderForm = (
         submissionInFlightRef.current = false;
       }
     },
-    [getOrderData, ensureOrderCode, orderIndex, cancelAutoSave, waitForActiveSave, validateOrderForm]
+    [getOrderData, ensureOrderCode, cancelAutoSave, waitForActiveSave, validateOrderForm, validateOrderDraft, showOrderValidationErrors]
   );
 
   const clearForm = useCallback(() => {

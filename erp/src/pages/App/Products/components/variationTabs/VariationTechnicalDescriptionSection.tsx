@@ -3,6 +3,8 @@ import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import { aiService } from '@/pages/utils/aiService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { productDescriptionAiFormSchema } from '../../../../../../../shared-utils/productAiFormSchemas';
 
 export interface VariationTechnicalDescriptionSectionProps {
   readonly formData: Variation & { readonly material?: string | null };
@@ -24,39 +26,41 @@ export const VariationTechnicalDescriptionSection: React.FC<
   parentNormalizedValues,
 }) => {
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
+  const descriptionForm = useZodForm(productDescriptionAiFormSchema, { title: '', currentDescription: '' });
 
   const handleImproveDescriptionWithAI = async () => {
     const title = (formData.name || parentProduct.name || parentProduct.description || '').trim();
-    setIsImprovingDescription(true);
     const mergedTechnicalValues = {
       ...parentNormalizedValues,
       ...(formData.technicalValues || {}),
     };
 
-    try {
-      const result = await aiService.improveProductDescription({
-        currentDescription: formData.description || '',
-        title,
-        material: formData.material || parentProduct.material,
-        brand: parentProduct.brand,
-        line: parentProduct.line,
-        width: formData.syncWidth ? parentProduct.width : formData.width,
-        height: formData.syncHeight ? parentProduct.height : formData.height,
-        depth: formData.syncDepth ? parentProduct.depth : formData.depth,
-        weight: formData.syncWeight ? parentProduct.weight : formData.weight,
-        technicalValues: mergedTechnicalValues,
-      });
-
-      handleChange('description', result.improvedDescription);
-      toast.success('Descrição da variação aperfeiçoada com sucesso! ✨');
-    } catch (error: unknown) {
-      console.error(error);
-      const msg =
-        error instanceof Error ? error.message : 'Erro ao aperfeiçoar descrição com IA.';
-      toast.error(msg);
-    } finally {
-      setIsImprovingDescription(false);
-    }
+    await descriptionForm.validateAndRun({
+      currentDescription: formData.description || '',
+      title,
+      material: formData.material || parentProduct.material,
+      brand: parentProduct.brand,
+      line: parentProduct.line,
+      width: formData.syncWidth ? parentProduct.width : formData.width,
+      height: formData.syncHeight ? parentProduct.height : formData.height,
+      depth: formData.syncDepth ? parentProduct.depth : formData.depth,
+      weight: formData.syncWeight ? parentProduct.weight : formData.weight,
+      technicalValues: mergedTechnicalValues,
+    }, async (values) => {
+      setIsImprovingDescription(true);
+      try {
+        const result = await aiService.improveProductDescription(values);
+        handleChange('description', result.improvedDescription);
+        toast.success('Descrição da variação aperfeiçoada com sucesso! ✨');
+      } catch (error: unknown) {
+        console.error(error);
+        const msg =
+          error instanceof Error ? error.message : 'Erro ao aperfeiçoar descrição com IA.';
+        toast.error(msg);
+      } finally {
+        setIsImprovingDescription(false);
+      }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   return (

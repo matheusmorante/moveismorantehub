@@ -71,8 +71,10 @@ const adminProfile = {
   full_name: 'Synthetic Operator',
 };
 
+let currentAuth: ReturnType<typeof useAuth>;
 function AuthStatus() {
-  const { isAdministrator, isPending, loading, user } = useAuth();
+  currentAuth = useAuth();
+  const { isAdministrator, isPending, loading, user } = currentAuth;
   const state = loading
     ? 'loading'
     : !user
@@ -136,6 +138,7 @@ async function signInWhileProfileIsUnresolved() {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllEnvs();
 });
 
@@ -151,6 +154,26 @@ beforeEach(() => {
 });
 
 describe('AuthProvider profile resolution', () => {
+  it('limita a espera de saída sem limpar a conta por uma resposta tardia', async () => {
+    await mountSignedOutProvider(); await signInWhileProfileIsUnresolved();
+    await act(async () => resolveProfile({ data: adminProfile, error: null }));
+    await waitFor(() => expect(screen.getByTestId('auth-state').textContent).toBe('ready'));
+    vi.useFakeTimers(); vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let finish!: (value: unknown) => void; mocks.signOut.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const outcome = currentAuth.logout().catch((error: Error) => error);
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_001); });
+    expect(await outcome).toEqual(expect.objectContaining({ message: expect.stringContaining('Confira o estado da sua conta') }));
+    await act(async () => { finish({ error: null }); }); expect(screen.getByTestId('auth-state').textContent).toBe('ready'); expect(mocks.signOut).toHaveBeenCalledTimes(1);
+  });
+  it('preserva a conta quando signOut devolve erro e permite saída confirmada depois', async () => {
+    await mountSignedOutProvider(); await signInWhileProfileIsUnresolved();
+    await act(async () => resolveProfile({ data: adminProfile, error: null }));
+    await waitFor(() => expect(screen.getByTestId('auth-state').textContent).toBe('ready'));
+    mocks.signOut.mockResolvedValueOnce({ error: { message: 'Saída recusada' } });
+    await act(async () => { await expect(currentAuth.logout()).rejects.toThrow('Saída recusada'); });
+    expect(screen.getByTestId('auth-state').textContent).toBe('ready');
+    await act(async () => { await currentAuth.logout(); }); expect(screen.getByTestId('auth-state').textContent).toBe('signed-out');
+  });
   it('keeps a new session loading until the administrator profile resolves', async () => {
     await mountSignedOutProvider();
 

@@ -16,7 +16,7 @@ export interface CartesianAttributeOption {
 export interface CartesianVariationModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onGenerate: (attributes: CartesianAttributeOption[]) => void;
+  readonly onGenerate: (attributes: CartesianAttributeOption[]) => void | Promise<void>;
   readonly isGenerating: boolean;
 }
 
@@ -85,12 +85,15 @@ export const CartesianVariationModal: React.FC<CartesianVariationModalProps> = (
   };
 
   const handleGenerate = async () => {
-    const validOptions = selectedOptions.filter((o) => o.name && o.values.length > 0);
-    const validated = await form.validateAndRun({ attributes: validOptions }, (data) => data,
-      (errors) => toast.warning(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    onGenerate(validated.attributes);
-    setSelectedOptions([]);
+    if (isGenerating) return;
+    try {
+      await form.validateAndRun({ attributes: selectedOptions }, async (values) => {
+        await onGenerate(values.attributes);
+        setSelectedOptions([]);
+      }, (errors) => toast.warning(Object.values(flattenFormErrors(errors))[0]));
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível gerar as combinações.');
+    }
   };
 
   return createPortal(
@@ -285,7 +288,7 @@ export const CartesianVariationModal: React.FC<CartesianVariationModalProps> = (
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={isGenerating || selectedOptions.length === 0}
+            disabled={isGenerating || form.formState.isSubmitting || selectedOptions.length === 0}
             className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {isGenerating ? (

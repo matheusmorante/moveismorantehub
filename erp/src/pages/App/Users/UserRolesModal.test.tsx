@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import UserRolesModal from './UserRolesModal';
 import type { AccessProfile } from './UserRolesModal';
@@ -31,5 +31,24 @@ describe('user role resolver', () => {
     await waitFor(() => expect(save).toHaveBeenLastCalledWith([]));
     expect(close).toHaveBeenCalledTimes(2);
     expect(view.container.querySelectorAll('option')).toHaveLength(3);
+  });
+
+  it('mantém o modal e sua seleção após falha, permitindo retomar sem rejeição solta', async () => {
+    const save = vi.fn().mockRejectedValueOnce(new Error('Não salvou')).mockResolvedValue(undefined); const close = vi.fn();
+    render(<UserRolesModal profile={profile} onClose={close} onSave={save} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar cargos' }));
+    await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Não salvou')); expect(close).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Remover seller' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar cargos' })); await waitFor(() => expect(close).toHaveBeenCalledTimes(1)); expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it('impede repetição, fechar e alteração da seleção durante a gravação', async () => {
+    let finish!: () => void; const save = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; })); const close = vi.fn();
+    const view = render(<UserRolesModal profile={profile} onClose={close} onSave={save} />);
+    act(() => { fireEvent.click(screen.getByRole('button', { name: 'Salvar cargos' })); fireEvent.click(screen.getByRole('button', { name: 'Salvar cargos' })); fireEvent.click(screen.getByRole('button', { name: 'Cancelar' })); });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1)); expect(close).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Remover seller' })).toHaveProperty('disabled', true);
+    fireEvent.click(view.container.firstElementChild!); expect(close).not.toHaveBeenCalled();
+    await act(async () => { finish(); }); await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
   });
 });

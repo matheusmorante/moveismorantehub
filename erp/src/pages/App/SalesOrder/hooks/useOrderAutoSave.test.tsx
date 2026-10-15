@@ -28,7 +28,7 @@ function renderAutoSave(isDraftAutoSaveEnabled = true) {
     },
   } as any;
   const getOrderData = vi.fn(
-    (status?: string) => ({ status, date: '2026-09-30', seller: '', items: latestStateRef.current.items }) as any
+    (status?: string) => ({ id: latestStateRef.current.currentOrderId, status, date: '2026-09-30', seller: '', items: latestStateRef.current.items }) as any
   );
   const setCurrentOrderId = vi.fn((id?: string) => {
     latestStateRef.current.currentOrderId = id;
@@ -151,6 +151,7 @@ describe('useOrderAutoSave', () => {
     expect(result.current.draftAutoSaveStatus).toBe('saved');
     expect(saveOrder).toHaveBeenCalledTimes(2);
     expect(vi.mocked(saveOrder).mock.calls[1][0].items).toMatchObject(latestChangedItems);
+    expect(vi.mocked(saveOrder).mock.calls[1][0].id).toBe('draft-123');
   });
 
   it('permite aguardar a persistência do autosave antes de concluir o cadastro', async () => {
@@ -196,5 +197,27 @@ describe('useOrderAutoSave', () => {
     expect(result.current.draftAutoSaveStatus).toBe('error');
     expect(saveOrder).toHaveBeenCalledTimes(1);
     consoleError.mockRestore();
+  });
+
+  it('não persiste números inválidos e sinaliza falha sem descartar o preenchimento', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result, rerender, setCurrentOrderId } = renderAutoSave();
+    rerender({ items: [{ ...changedItems[0], quantity: NaN }] });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(saveOrder).not.toHaveBeenCalled(); expect(setCurrentOrderId).not.toHaveBeenCalled(); expect(result.current.draftAutoSaveStatus).toBe('error');
+    consoleError.mockRestore();
+  });
+
+  it('entrega os valores parseados de um rascunho incompleto ao serviço', async () => {
+    vi.mocked(saveOrder).mockResolvedValue('draft-123'); const { rerender } = renderAutoSave();
+    rerender({ items: changedItems }); await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(saveOrder).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft', seller: '', orderType: 'sale', items: [expect.objectContaining({ unitDiscount: 0, discountType: 'fixed' })] }));
+  });
+
+  it('cancela o efeito agendado quando a submissão manual já assumiu a operação', async () => {
+    const { result, rerender, latestStateRef } = renderAutoSave(); rerender({ items: changedItems });
+    latestStateRef.current.submissionInFlight = true;
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(saveOrder).not.toHaveBeenCalled(); expect(result.current.draftAutoSaveStatus).toBe('idle');
   });
 });

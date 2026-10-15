@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { waitForAuthOperation } from '../../../shared-utils/authOperationTimeout';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -35,19 +36,6 @@ interface Props {
   onLoginSuccess: (session: any) => void;
 }
 
-const authSessionTimeout = <T,>(promise: Promise<T>) =>
-  Promise.race<T>([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(
-        () =>
-          reject(
-            new Error('O retorno do Google demorou demais. Feche o navegador e tente novamente.')
-          ),
-        30000
-      )
-    ),
-  ]);
 
 export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => {
   const { beginPasswordRecovery, endPasswordRecovery, handleLogout } = useAuth();
@@ -71,136 +59,145 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
   const recoveryCodeForm = useZodForm(passwordRecoveryCodeSchema, { email, code: recoveryCode });
   const passwordForm = useZodForm(passwordSetupFormSchema, { password: newPassword, confirmation: confirmNewPassword });
 
+  const authInFlight = useRef(false);
+  const runAuthOperation = async (operation: () => Promise<void>) => {
+    if (authInFlight.current) return;
+    authInFlight.current = true;
+    try { await operation(); } finally { authInFlight.current = false; }
+  };
+
   const startRecovery = () => {
+    if (authInFlight.current) return;
     setErrorMsg('');
     setRecoveryMessage(null);
     setRecoveryStage('email');
     beginPasswordRecovery();
   };
 
-  const sendRecoveryCode = async () => {
-    const validated = await recoveryEmailForm.validateAndRun({ email }, (data) => data,
-      (errors) => setRecoveryMessage({ tone: 'error', text: Object.values(flattenFormErrors(errors))[0] }));
-    if (!validated) return;
-
-    setRecoveryBusy(true);
-    setRecoveryMessage(null);
-    try {
-      const { error } = await requestPasswordRecoveryCode(supabase, validated.email);
-      if (error) {
+  const sendRecoveryCode = async () => runAuthOperation(async () => {
+    await recoveryEmailForm.validateAndRun({ email }, async (validated) => {
+      setRecoveryBusy(true);
+      setRecoveryMessage(null);
+      try {
+        const { error } = await waitForAuthOperation(requestPasswordRecoveryCode(supabase, validated.email), 'envio de código de recuperação');
+        if (error) {
+          setRecoveryMessage({
+            tone: 'error',
+            text: getPasswordAuthErrorMessage(error, 'recovery-send'),
+          });
+          return;
+        }
+        setRecoveryStage('code');
+        setRecoveryMessage({
+          tone: 'success',
+          text: 'Se a conta estiver cadastrada, enviaremos um código para esse e-mail.',
+        });
+      } catch (error: unknown) {
         setRecoveryMessage({
           tone: 'error',
-          text: getPasswordAuthErrorMessage(error, 'recovery-send'),
+          text: error instanceof Error ? error.message : 'Não foi possível enviar o código agora. Tente novamente mais tarde.',
         });
-        return;
+      } finally {
+        setRecoveryBusy(false);
       }
-      setRecoveryStage('code');
-      setRecoveryMessage({
-        tone: 'success',
-        text: 'Se a conta estiver cadastrada, enviaremos um código para esse e-mail.',
-      });
-    } catch {
-      setRecoveryMessage({
-        tone: 'error',
-        text: 'Não foi possível enviar o código agora. Tente novamente mais tarde.',
-      });
-    } finally {
-      setRecoveryBusy(false);
-    }
-  };
+    }, (errors) => setRecoveryMessage({ tone: 'error', text: Object.values(flattenFormErrors(errors))[0] }));
+  });
 
-  const verifyRecoveryCode = async () => {
-    const validated = await recoveryCodeForm.validateAndRun({ email, code: recoveryCode }, (data) => data,
-      (errors) => setRecoveryMessage({ tone: 'error', text: Object.values(flattenFormErrors(errors))[0] }));
-    if (!validated) return;
-    setRecoveryBusy(true);
-    setRecoveryMessage(null);
-    try {
-      const { error } = await verifyPasswordRecoveryCode(supabase, validated.email, validated.code);
-      if (error) {
+  const verifyRecoveryCode = async () => runAuthOperation(async () => {
+    await recoveryCodeForm.validateAndRun({ email, code: recoveryCode }, async (validated) => {
+      setRecoveryBusy(true);
+      setRecoveryMessage(null);
+      try {
+        const { error } = await waitForAuthOperation(verifyPasswordRecoveryCode(supabase, validated.email, validated.code), 'verificação do código de recuperação');
+        if (error) {
+          setRecoveryMessage({
+            tone: 'error',
+            text: getPasswordAuthErrorMessage(error, 'recovery-verify'),
+          });
+          return;
+        }
+        setRecoveryCode('');
+        setRecoveryStage('password');
+      } catch (error: unknown) {
+        setRecoveryMessage({ tone: 'error', text: error instanceof Error ? error.message : 'Não foi possível confirmar o código. Tente novamente.' });
+      } finally {
+        setRecoveryBusy(false);
+      }
+    }, (errors) => setRecoveryMessage({ tone: 'error', text: Object.values(flattenFormErrors(errors))[0] }));
+  });
+
+  const saveNewPassword = async () => runAuthOperation(async () => {
+    await passwordForm.validateAndRun({ password: newPassword, confirmation: confirmNewPassword }, async (validated) => {
+      setRecoveryBusy(true);
+      setRecoveryMessage(null);
+      try {
+        const { error } = await waitForAuthOperation(updateAuthenticatedPassword(supabase, validated.password), 'atualização da senha');
+        if (error) {
+          setRecoveryMessage({
+            tone: 'error',
+            text: getPasswordAuthErrorMessage(error, 'password-update'),
+          });
+          return;
+        }
+        await waitForAuthOperation(handleLogout(), 'encerramento da sessão de recuperação');
+        endPasswordRecovery();
+        Alert.alert('Senha atualizada', 'Agora você pode entrar com sua nova senha.');
+      } catch (error: unknown) {
         setRecoveryMessage({
           tone: 'error',
-          text: getPasswordAuthErrorMessage(error, 'recovery-verify'),
+          text: error instanceof Error ? error.message : 'Não foi possível atualizar a senha. Tente novamente.',
         });
-        return;
+      } finally {
+        setRecoveryBusy(false);
       }
-      setRecoveryCode('');
-      setRecoveryStage('password');
-    } catch {
-      setRecoveryMessage({ tone: 'error', text: 'Código inválido. Confira e tente novamente.' });
-    } finally {
-      setRecoveryBusy(false);
-    }
-  };
+    }, (errors) => setRecoveryMessage({ tone: 'error', text: Object.values(flattenFormErrors(errors))[0] }));
+  });
 
-  const saveNewPassword = async () => {
-    const validated = await passwordForm.validateAndRun({ password: newPassword, confirmation: confirmNewPassword }, (data) => data,
-      (errors) => setRecoveryMessage({ tone: 'error', text: Object.values(flattenFormErrors(errors))[0] }));
-    if (!validated) return;
-
+  const cancelRecovery = async () => runAuthOperation(async () => {
     setRecoveryBusy(true);
-    setRecoveryMessage(null);
     try {
-      const { error } = await updateAuthenticatedPassword(supabase, validated.password);
-      if (error) {
-        setRecoveryMessage({
-          tone: 'error',
-          text: getPasswordAuthErrorMessage(error, 'password-update'),
-        });
-        return;
-      }
-      await handleLogout();
+      if (recoveryStage === 'password') await waitForAuthOperation(handleLogout(), 'encerramento da sessão de recuperação');
       endPasswordRecovery();
-      Alert.alert('Senha atualizada', 'Agora você pode entrar com sua nova senha.');
-    } catch {
-      setRecoveryMessage({
-        tone: 'error',
-        text: 'Não foi possível atualizar a senha. Tente novamente.',
-      });
+      setRecoveryStage('idle');
+      setRecoveryCode('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setRecoveryMessage(null);
+    } catch (error: unknown) {
+      setRecoveryMessage({ tone: 'error', text: error instanceof Error ? error.message : 'Não foi possível encerrar a recuperação.' });
     } finally {
       setRecoveryBusy(false);
     }
-  };
+  });
 
-  const cancelRecovery = async () => {
-    if (recoveryStage === 'password') await handleLogout();
-    endPasswordRecovery();
-    setRecoveryStage('idle');
-    setRecoveryCode('');
-    setNewPassword('');
-    setConfirmNewPassword('');
-    setRecoveryMessage(null);
-  };
+  const handleEmailPasswordLogin = async () => runAuthOperation(async () => {
+    await loginForm.validateAndRun({ email, password }, async (validated) => {
+      try {
+        setLoading(true);
+        setErrorMsg('');
+        const { data, error } = await waitForAuthOperation(signInWithEmailPassword(supabase, validated.email, validated.password), 'login por e-mail');
+        if (error) throw error;
+        if (!data.session) throw new Error('Não foi possível iniciar sua sessão. Tente novamente.');
+        onLoginSuccess(data.session);
+      } catch (err: any) {
+        setErrorMsg(err?.message || 'Não foi possível entrar com e-mail e senha.');
+      } finally {
+        setLoading(false);
+      }
+    }, (errors) => setErrorMsg(Object.values(flattenFormErrors(errors))[0]));
+  });
 
-  const handleEmailPasswordLogin = async () => {
-    const validated = await loginForm.validateAndRun({ email, password }, (data) => data,
-      (errors) => setErrorMsg(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    try {
-      setLoading(true);
-      setErrorMsg('');
-      const { data, error } = await signInWithEmailPassword(supabase, validated.email, validated.password);
-      if (error) throw error;
-      if (!data.session) throw new Error('Não foi possível iniciar sua sessão. Tente novamente.');
-      onLoginSuccess(data.session);
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Não foi possível entrar com e-mail e senha.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async () => runAuthOperation(async () => {
     try {
       setLoading(true);
       setErrorMsg('');
       const redirectUrl = getGoogleAuthRedirectUrl();
       if (__DEV__) console.log('[GoogleLogin] redirectTo:', redirectUrl);
-      const { data, error } = await signInWithGoogle(supabase, {
+      const { data, error } = await waitForAuthOperation(signInWithGoogle(supabase, {
         redirectTo: redirectUrl,
         // On web Supabase must redirect the current tab so App can exchange the code.
         skipBrowserRedirect: Platform.OS !== 'web',
-      });
+      }), 'início do login Google');
 
       if (error) {
         setErrorMsg(error.message);
@@ -210,11 +207,11 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
       if (Platform.OS === 'web') return;
 
       if (data?.url) {
-        const result = await authSessionTimeout(
-          WebBrowser.openAuthSessionAsync(data.url, redirectUrl)
+        const result = await waitForAuthOperation(
+          WebBrowser.openAuthSessionAsync(data.url, redirectUrl), 'retorno do Google', 30_000
         );
         if (result.type === 'success' && result.url) {
-          const session = await completeGoogleSignIn(result.url);
+          const session = await waitForAuthOperation(completeGoogleSignIn(result.url), 'conclusão do login Google');
           if (!session) throw new Error('Não foi possível obter a sessão do Google.');
           onLoginSuccess(session);
         } else if (result.type === 'cancel' || result.type === 'dismiss') {
@@ -229,7 +226,7 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
     } finally {
       setLoading(false);
     }
-  };
+  });
 
   if (recoveryStage !== 'idle') {
     const recoveryTitle =

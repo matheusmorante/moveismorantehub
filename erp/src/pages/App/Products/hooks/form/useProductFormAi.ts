@@ -1,4 +1,11 @@
 import { useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import {
+  productCategorySuggestionFormSchema, productComboNameFormSchema, productChannelDescriptionFormSchema,
+  productMarketplaceTitleFormSchema, productFiscalSuggestionFormSchema, productDescriptionImprovementFormSchema,
+  productPriceSuggestionFormSchema,
+  productAiGeneratedTextSchema, productAiPriceResultsSchema,
+} from '../../../../../../../shared-utils/productAiFormSchemas';
 import type Product from '../../../../types/product.type';
 import { aiService } from '@/pages/utils/aiService';
 import { getSettings } from '@/pages/utils/settingsService';
@@ -41,222 +48,175 @@ export function useProductFormAi(
     null
   );
 
-  const handleGenerateCategory = async (isAutoTrigger = false) => {
-    const title = (formData.name || formData.title || formData.description || '').trim();
-    if (!title) {
-      if (!isAutoTrigger) toast.warning('Digite o nome ou título para sugerir categoria');
-      return;
-    }
-    setIsGeneratingCategory(true);
-    try {
-      const direct = matchCategoryByRules(title, availableCategories as any);
-      if (!direct) {
-        if (!isAutoTrigger) {
-          toast.warning('Não encontrei uma categoria com confiança. Selecione manualmente.');
-        }
-        return;
-      }
+  const categoryForm = useZodForm(productCategorySuggestionFormSchema, { title: '', categories: [] });
+  const comboForm = useZodForm(productComboNameFormSchema, { items: [] });
+  const channelForm = useZodForm(productChannelDescriptionFormSchema, { title: '', type: 'whatsapp' });
+  const titleForm = useZodForm(productMarketplaceTitleFormSchema, { description: '' });
+  const fiscalForm = useZodForm(productFiscalSuggestionFormSchema, { title: '', description: '', material: '', category: '', companyName: '', companyAddress: '', companyCnpj: '' });
+  const improvementForm = useZodForm(productDescriptionImprovementFormSchema, { title: '', currentDescription: '', categoryIds: [] });
+  const pricesForm = useZodForm(productPriceSuggestionFormSchema, { description: '', costPrice: 0 });
+  const showValidation = (errors: Parameters<typeof flattenFormErrors>[0]) =>
+    toast.warning(Object.values(flattenFormErrors(errors))[0]);
+  const showFailure = (error: unknown, fallback: string) => {
+    console.error(error);
+    if (!isQuotaExceeded(error)) toast.error(error instanceof Error ? error.message : fallback);
+  };
+  const readGeneratedText = (value: unknown) => {
+    const parsed = productAiGeneratedTextSchema.safeParse(value);
+    if (!parsed.success) throw new Error('A sugestão retornou um texto vazio ou inválido. Tente novamente.');
+    return parsed.data;
+  };
 
-      setFormData((prev: Partial<Product>) => {
-        if (prev.categoryIds?.includes(direct.id)) return prev;
-        return { ...prev, categoryIds: [...(prev.categoryIds || []), direct.id] };
-      });
-      if (!isAutoTrigger)
-        toast.success(`Categoria identificada: ${direct.name || direct.category}`);
-    } catch (error: unknown) {
-      console.error(error);
-    } finally {
-      setIsGeneratingCategory(false);
-    }
+  const handleGenerateCategory = async (isAutoTrigger = false) => {
+    await categoryForm.validateAndRun({
+      title: formData.name || formData.title || formData.description || '',
+      categories: availableCategories.map((category) => ({ ...category })),
+    }, async (values) => {
+      setIsGeneratingCategory(true);
+      try {
+        const direct = matchCategoryByRules(values.title, values.categories);
+        if (!direct) {
+          if (!isAutoTrigger) toast.warning('Não encontrei uma categoria com confiança. Selecione manualmente.');
+          return;
+        }
+        setFormData((prev) => prev.categoryIds?.includes(direct.id) ? prev : { ...prev, categoryIds: [...(prev.categoryIds || []), direct.id] });
+        if (!isAutoTrigger) toast.success(`Categoria identificada: ${direct.name || direct.category}`);
+      } catch (error: unknown) {
+        showFailure(error, 'Não foi possível sugerir uma categoria.');
+      } finally {
+        setIsGeneratingCategory(false);
+      }
+    }, (errors) => { if (!isAutoTrigger) showValidation(errors); });
   };
 
   const handleGenerateComboName = async () => {
-    if (!formData.comboItems?.length) return toast.warning('Adicione itens ao combo primeiro');
-    setIsGeneratingComboName(true);
-    try {
-      const items = formData.comboItems.map((i) => `${i.quantity}x ${i.description}`).join(', ');
-      const name = await aiService.generateComboName(items);
-      setFormData((prev: Partial<Product>) => ({ ...prev, description: name }));
-    } catch (error: unknown) {
-      console.error(error);
-    } finally {
-      setIsGeneratingComboName(false);
-    }
+    await comboForm.validateAndRun({ items: (formData.comboItems || []).map((item) => ({ description: item.description, quantity: item.quantity })) }, async (values) => {
+      setIsGeneratingComboName(true);
+      try {
+        const items = values.items.map((item) => `${item.quantity}x ${item.description}`).join(', ');
+        const result = await aiService.generateComboName(items);
+        const name = readGeneratedText(result?.name);
+        setFormData((prev) => ({ ...prev, description: name }));
+      } catch (error: unknown) {
+        showFailure(error, 'Não foi possível gerar o nome do combo.');
+      } finally {
+        setIsGeneratingComboName(false);
+      }
+    }, showValidation);
   };
 
   const handleGenerateAIDescription = async (type: 'whatsapp' | 'ecommerce') => {
-    if (!formData.description) return toast.warning('O produto precisa de um título');
-    setIsGeneratingDescription(true);
-    try {
-      const desc = await aiService.generateProductDescription({
-        title: formData.description,
-        material: formData.material,
-        dimensions: `${formData.width}x${formData.height}x${formData.depth}`,
-        brand: formData.brand,
-        line: formData.line,
-        type,
-      });
-      if (type === 'whatsapp')
-        setFormData((prev: Partial<Product>) => ({ ...prev, whatsappDescription: desc }));
-      else setFormData((prev: Partial<Product>) => ({ ...prev, ecommerceDescription: desc }));
-      toast.success('Descrição gerada com IA!');
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsGeneratingDescription(false);
-    }
+    await channelForm.validateAndRun({
+      title: formData.description || '', material: formData.material, width: formData.width,
+      height: formData.height, depth: formData.depth, brand: formData.brand, line: formData.line, type,
+    }, async (values) => {
+      setIsGeneratingDescription(true);
+      try {
+        const { width, height, depth, ...request } = values;
+        const dimensions = [width, height, depth].every((measure) => measure === undefined)
+          ? undefined : [width, height, depth].map((measure) => measure ?? '?').join('x');
+        const result = await aiService.generateProductDescription({ ...request, dimensions });
+        const description = readGeneratedText(result?.description);
+        setFormData((prev) => values.type === 'whatsapp'
+          ? { ...prev, whatsappDescription: description }
+          : { ...prev, ecommerceDescription: description });
+        toast.success('Descrição gerada com IA!');
+      } catch (error: unknown) {
+        showFailure(error, 'Não foi possível gerar a descrição.');
+      } finally {
+        setIsGeneratingDescription(false);
+      }
+    }, showValidation);
   };
 
   const handleGenerateMarketplaceTitle = async () => {
-    if (!formData.description) return toast.warning('O produto precisa de um título base');
-    setIsGeneratingTitle(true);
-    try {
-      const { title } = await aiService.generateMarketplaceTitle({
-        description: formData.description,
-        material: formData.material,
-      });
-      setFormData((prev: Partial<Product>) => ({ ...prev, title, marketplaceTitle: title }));
-      toast.success('Título para marketplace gerado!');
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsGeneratingTitle(false);
-    }
+    await titleForm.validateAndRun({ description: formData.description || '', material: formData.material }, async (values) => {
+      setIsGeneratingTitle(true);
+      try {
+        const result = await aiService.generateMarketplaceTitle(values);
+        const title = readGeneratedText(result?.title);
+        setFormData((prev) => ({ ...prev, title, marketplaceTitle: title }));
+        toast.success('Título para marketplace gerado!');
+      } catch (error: unknown) {
+        showFailure(error, 'Não foi possível gerar o título para marketplace.');
+      } finally {
+        setIsGeneratingTitle(false);
+      }
+    }, showValidation);
   };
 
   const handleAutoFillFiscalWithAI = async () => {
-    const title = (formData.name || formData.description || '').trim();
-    if (!title) {
-      return toast.warning('Informe o nome ou título do produto para preenchimento fiscal.');
-    }
-
-    setIsFillingFiscalWithAI(true);
-    try {
-      const settings = getSettings();
-      const catName =
-        availableCategories.find((c) => formData.categoryIds?.includes(c.id))?.name ||
-        formData.category ||
-        '';
-
-      const fiscalData = await aiService.generateFiscalData({
-        title,
-        description: formData.description || formData.ecommerceDescription || '',
-        material: formData.material || '',
-        category: catName,
-        companyName: settings.companyName || 'Móveis Morante',
-        companyAddress: settings.companyAddress || 'Curitiba - PR',
-        companyCnpj: settings.companyCnpj || '',
-      });
-
-      setFormData((prev: Partial<Product>) => ({
-        ...prev,
-        fiscal: {
-          ...(prev.fiscal || {}),
-          cest: fiscalData.cest,
-          cfop: fiscalData.cfop,
+    const settings = getSettings();
+    const categoryName = availableCategories.find((category) => formData.categoryIds?.includes(category.id))?.name || formData.category || '';
+    await fiscalForm.validateAndRun({
+      title: formData.name || formData.description || '',
+      description: formData.description || formData.ecommerceDescription || '', material: formData.material || '',
+      category: categoryName, companyName: settings.companyName || 'Móveis Morante',
+      companyAddress: settings.companyAddress || 'Curitiba - PR', companyCnpj: settings.companyCnpj || '',
+    }, async (values) => {
+      setIsFillingFiscalWithAI(true);
+      try {
+        const fiscalData = await aiService.generateFiscalData(values);
+        setFormData((prev) => ({ ...prev, fiscal: {
+          ...(prev.fiscal || {}), ncm: fiscalData.ncm, cest: fiscalData.cest, cfop: fiscalData.cfop,
           cst: prev.itemType === 'service' ? fiscalData.cst : prev.fiscal?.cst || '103',
-          icmsPercent: fiscalData.icmsPercent,
-          origem: fiscalData.origem,
-          pisCst: fiscalData.pisCst,
-          cofinsCst: fiscalData.cofinsCst,
-        },
-      }));
-
-      toast.success(
-        `Dados fiscais sugeridos pela IA. Revise CFOP ${fiscalData.cfop} antes de salvar.`
-      );
-    } catch (error: any) {
-      console.error(error);
-      if (!isQuotaExceeded(error)) {
-        toast.error(error?.message || 'Erro ao preencher dados fiscais com IA.');
+          icmsPercent: fiscalData.icmsPercent, origem: fiscalData.origem,
+          pisCst: fiscalData.pisCst, cofinsCst: fiscalData.cofinsCst,
+        } }));
+        toast.success(`Dados fiscais sugeridos pela IA. Revise CFOP ${fiscalData.cfop} antes de salvar.`);
+      } catch (error: unknown) {
+        showFailure(error, 'Erro ao preencher dados fiscais com IA.');
+      } finally {
+        setIsFillingFiscalWithAI(false);
       }
-    } finally {
-      setIsFillingFiscalWithAI(false);
-    }
+    }, showValidation);
   };
 
   const handleImproveDescriptionWithAI = async () => {
-    const nome = (formData.name || formData.description || '').trim();
-    const temMedida =
-      Number(formData.width) > 0 || Number(formData.height) > 0 || Number(formData.depth) > 0;
-    const temCategoria = formData.categoryIds && formData.categoryIds.length > 0;
-
-    if (!nome) {
-      return toast.warning('Preencha o nome do produto antes de aperfeiçoar a descrição.');
-    }
-    if (!temMedida) {
-      return toast.warning(
-        'Informe pelo menos uma medida (Altura, Largura ou Profundidade) antes de aperfeiçoar.'
-      );
-    }
-    if (!temCategoria) {
-      return toast.warning('Selecione pelo menos uma categoria antes de aperfeiçoar a descrição.');
-    }
-
-    setIsImprovingDescription(true);
-    try {
-      const result = await aiService.improveProductDescription({
-        currentDescription: formData.description || '',
-        title: formData.name || '',
-        material: formData.material,
-        brand: formData.brand,
-        line: formData.line,
-        width: formData.width,
-        height: formData.height,
-        depth: formData.depth,
-        weight: formData.weight,
-        technicalValues: formData.technicalValues,
-      });
-
-      setFormData((prev: Partial<Product>) => ({
-        ...prev,
-        description: result.improvedDescription,
-      }));
-      toast.success('Descrição aperfeiçoada com sucesso! ✨');
-    } catch (error: any) {
-      console.error(error);
-      if (!isQuotaExceeded(error)) {
-        toast.error(error?.message || 'Erro ao aperfeiçoar descrição com IA.');
+    await improvementForm.validateAndRun({
+      title: formData.name || formData.description || '', currentDescription: formData.description || '',
+      material: formData.material, brand: formData.brand, line: formData.line,
+      width: formData.width, height: formData.height, depth: formData.depth, weight: formData.weight,
+      technicalValues: formData.technicalValues, categoryIds: formData.categoryIds || [],
+    }, async (values) => {
+      setIsImprovingDescription(true);
+      try {
+        const { categoryIds: _categoryIds, ...request } = values;
+        const result = await aiService.improveProductDescription(request);
+        const description = readGeneratedText(result?.improvedDescription);
+        setFormData((prev) => ({ ...prev, description }));
+        toast.success('Descrição aperfeiçoada com sucesso! ✨');
+      } catch (error: unknown) {
+        showFailure(error, 'Erro ao aperfeiçoar descrição com IA.');
+      } finally {
+        setIsImprovingDescription(false);
       }
-    } finally {
-      setIsImprovingDescription(false);
-    }
+    }, showValidation);
   };
 
   const handleSuggestPrices = async () => {
-    if (!formData.description) return toast.warning('O produto precisa de um título');
-    if (!formData.finalPurchasePrice || formData.finalPurchasePrice <= 0)
-      return toast.warning('Preço de custo final é necessário para sugerir preços');
-
-    setIsSuggestingPrices(true);
-    try {
-      const suggestions = await aiService.suggestPrices({
-        description: formData.description,
-        costPrice: formData.finalPurchasePrice,
-        material: formData.material,
-      });
-
-      const processedSuggestions = { ...suggestions };
-      (Object.keys(processedSuggestions) as Array<keyof typeof processedSuggestions>).forEach(
-        (tier) => {
-          if (processedSuggestions[tier] && !processedSuggestions[tier].margin) {
-            const price = processedSuggestions[tier].price;
-            const cost = formData.finalPurchasePrice || 0;
-            if (cost > 0) {
-              processedSuggestions[tier].margin = Math.round((price / cost - 1) * 100);
-            }
+    await pricesForm.validateAndRun({ description: formData.description || '', costPrice: formData.finalPurchasePrice ?? 0, material: formData.material }, async (values) => {
+      setIsSuggestingPrices(true);
+      try {
+        const suggestions = await aiService.suggestPrices(values);
+        const parsed = productAiPriceResultsSchema.safeParse(suggestions);
+        if (!parsed.success) throw new Error('A sugestão não retornou preços válidos. Tente novamente.');
+        const processedSuggestions = parsed.data;
+        (Object.keys(processedSuggestions) as Array<keyof typeof processedSuggestions>).forEach((tier) => {
+          if (processedSuggestions[tier] && processedSuggestions[tier].margin === undefined) {
+            const margin = Math.round((processedSuggestions[tier].price / values.costPrice - 1) * 100);
+            if (!Number.isFinite(margin)) throw new Error('Não foi possível calcular uma margem válida para a sugestão.');
+            processedSuggestions[tier].margin = margin;
           }
-        }
-      );
-
-      setSuggestPricesResults(processedSuggestions);
-      toast.info('Sugestões de preço geradas!');
-    } catch (error) {
-      console.error(error);
-      toast.error('Erro ao sugerir preços');
-    } finally {
-      setIsSuggestingPrices(false);
-    }
+        });
+        setSuggestPricesResults(processedSuggestions);
+        toast.info('Sugestões de preço geradas!');
+      } catch (error: unknown) {
+        showFailure(error, 'Erro ao sugerir preços');
+      } finally {
+        setIsSuggestingPrices(false);
+      }
+    }, showValidation);
   };
 
   const isAiProcessing =

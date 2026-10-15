@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import {
   fiscalOperationPreparationFormSchema,
@@ -146,22 +146,29 @@ export function useNfeOperationDraft({
     };
   }, [sourceDocument, initialDraftId, applyDraft]);
 
+  const operationInFlight = useRef(false);
+
   const prepareDraft = async () => {
+    if (operationInFlight.current) return;
     if (!sourceDocument) return;
-    const validated = await preparationForm.validateAndRun(preparationValues, (data) => data,
-      (errors) => setError(Object.values(flattenFormErrors(errors))[0] || 'Preparação fiscal inválida.'));
-    if (!validated) return;
-    setPreparing(true);
-    setError('');
-    setNotice('');
+    operationInFlight.current = true;
     try {
-      const created = await createFiscalOperationDraft(validated);
-      const loaded = await loadFiscalOperationDraft(created.draftId);
-      applyDraft(loaded);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Não foi possível preparar o rascunho.');
+      return await preparationForm.validateAndRun(preparationValues, async (validated) => {
+        setPreparing(true);
+        setError('');
+        setNotice('');
+        try {
+          const created = await createFiscalOperationDraft(validated);
+          const loaded = await loadFiscalOperationDraft(created.draftId);
+          applyDraft(loaded);
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : 'Não foi possível preparar o rascunho.');
+        } finally {
+          setPreparing(false);
+        }
+      }, (errors) => setError(Object.values(flattenFormErrors(errors))[0] || 'Preparação fiscal inválida.'));
     } finally {
-      setPreparing(false);
+      operationInFlight.current = false;
     }
   };
 
@@ -189,62 +196,72 @@ export function useNfeOperationDraft({
   };
 
   const saveFiscalReview = async () => {
+    if (operationInFlight.current) return;
     if (!review || !draftId) return;
-    const validated = await reviewForm.validateAndRun(reviewValues, (data) => data,
-      (errors) => setError(Object.values(flattenFormErrors(errors))[0] || 'Revisão fiscal inválida.'));
-    if (!validated) return;
-    setSavingReview(true);
-    setError('');
-    setNotice('');
+    operationInFlight.current = true;
     try {
-      const result = await saveFiscalOperationDraftReview(validated);
-      setPayload((current) =>
-        current ? { ...current, draft: { ...current.draft, status: result.status } } : current
-      );
-      setNotice(
-        'Revisão fiscal registrada. O XML será gerado e validado novamente no servidor antes da transmissão.'
-      );
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Não foi possível salvar a revisão.');
+      return await reviewForm.validateAndRun(reviewValues, async (validated) => {
+        setSavingReview(true);
+        setError('');
+        setNotice('');
+        try {
+          const result = await saveFiscalOperationDraftReview(validated);
+          setPayload((current) =>
+            current ? { ...current, draft: { ...current.draft, status: result.status } } : current
+          );
+          setNotice(
+            'Revisão fiscal registrada. O XML será gerado e validado novamente no servidor antes da transmissão.'
+          );
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : 'Não foi possível salvar a revisão.');
+        } finally {
+          setSavingReview(false);
+        }
+      }, (errors) => setError(Object.values(flattenFormErrors(errors))[0] || 'Revisão fiscal inválida.'));
     } finally {
-      setSavingReview(false);
+      operationInFlight.current = false;
     }
   };
 
   const transmitOrReconcile = async () => {
+    if (operationInFlight.current) return;
     if (!draftId) return;
-    const validated = await transmissionForm.validateAndRun(transmissionValues, (data) => data,
-      (errors) => setError(Object.values(flattenFormErrors(errors))[0] || 'Operação fiscal inválida.'));
-    if (!validated) return;
-    setTransmitting(true);
-    setError('');
-    setNotice('');
+    operationInFlight.current = true;
     try {
-      const result = await transmitFiscalOperationDraft(validated);
-      if (result.retryAllowed) {
-        setRetryAllowed(true);
-        setNotice(result.error || 'A consulta confirmou que a chave não está localizada.');
-      } else if (result.pending) {
-        setRetryAllowed(false);
-        setNotice(result.error || 'Situação pendente. Consulte novamente; não retransmita.');
-      } else if (result.success) {
-        setNotice(
-          result.reconciliationRequired
-            ? result.error || 'Documento autorizado; a situação local precisa ser reconciliada.'
-            : `Documento autorizado pela SEFAZ. Protocolo ${result.protocolNumber}.`
-        );
-        if (!result.reconciliationRequired) onAuthorized();
-      } else {
-        setError(result.xMotivo || result.error || 'A SEFAZ não autorizou o documento.');
-      }
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'Falha de rede. Consulte a situação antes de tentar novamente.'
-      );
+      return await transmissionForm.validateAndRun(transmissionValues, async (validated) => {
+        setTransmitting(true);
+        setError('');
+        setNotice('');
+        try {
+          const result = await transmitFiscalOperationDraft(validated);
+          if (result.retryAllowed) {
+            setRetryAllowed(true);
+            setNotice(result.error || 'A consulta confirmou que a chave não está localizada.');
+          } else if (result.pending) {
+            setRetryAllowed(false);
+            setNotice(result.error || 'Situação pendente. Consulte novamente; não retransmita.');
+          } else if (result.success) {
+            setNotice(
+              result.reconciliationRequired
+                ? result.error || 'Documento autorizado; a situação local precisa ser reconciliada.'
+                : `Documento autorizado pela SEFAZ. Protocolo ${result.protocolNumber}.`
+            );
+            if (!result.reconciliationRequired) onAuthorized();
+          } else {
+            setError(result.xMotivo || result.error || 'A SEFAZ não autorizou o documento.');
+          }
+        } catch (cause) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : 'Falha de rede. Consulte a situação antes de tentar novamente.'
+          );
+        } finally {
+          setTransmitting(false);
+        }
+      }, (errors) => setError(Object.values(flattenFormErrors(errors))[0] || 'Operação fiscal inválida.'));
     } finally {
-      setTransmitting(false);
+      operationInFlight.current = false;
     }
   };
 

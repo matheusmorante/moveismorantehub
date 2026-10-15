@@ -38,16 +38,16 @@ export function InboundAccessKeyModal({
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
-    const validated = await form.validateAndRun({ accessKey }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    try {
-      await onSubmit(validated.accessKey);
-      setAccessKey('');
-    } catch (error: unknown) {
-      console.error('Erro ao consultar chave de acesso:', error);
-      toast.error('Não foi possível consultar a chave informada.');
-    }
+    if (isLoading) return;
+    await form.validateAndRun({ accessKey }, async (validated) => {
+      try {
+        await onSubmit(validated.accessKey);
+        setAccessKey('');
+      } catch (error: unknown) {
+        console.error('Erro ao consultar chave de acesso:', error);
+        toast.error('Não foi possível consultar a chave informada.');
+      }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -137,10 +137,10 @@ export function InboundAccessKeyModal({
           </button>
           <button
             type="submit"
-            disabled={isLoading || accessKey.length !== 44}
+            disabled={isLoading || form.formState.isSubmitting || accessKey.length !== 44}
             className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black uppercase text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md"
           >
-            {isLoading ? 'Consultando...' : 'Consultar distribuição'}
+            {(isLoading || form.formState.isSubmitting) ? 'Consultando...' : 'Consultar distribuição'}
           </button>
         </footer>
       </form>

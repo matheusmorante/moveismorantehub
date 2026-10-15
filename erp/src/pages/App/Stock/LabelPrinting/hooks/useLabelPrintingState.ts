@@ -99,14 +99,16 @@ export const useLabelPrintingState = () => {
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const validated = await uploadForm.validateAndRun({ files: [file] }, (values) => values,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    const selectedFile = validated.files[0];
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
+    const input = e.target;
+    try {
+    return await uploadForm.validateAndRun({ files: [file] }, async (values) => {
+      const selectedFile = values.files[0];
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+        reader.readAsDataURL(selectedFile);
+      });
       if (selectedCategory === 'logos') {
         modalsAndAssets.setNewLogoImage(base64);
         modalsAndAssets.setNewLogoName(selectedFile.name.split('.')[0].toUpperCase().substring(0, 30));
@@ -126,9 +128,12 @@ export const useLabelPrintingState = () => {
         }
         toast.success('Imagem adicionada à fila.');
       }
-    };
-    reader.readAsDataURL(selectedFile);
-    e.target.value = '';
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    } catch {
+      toast.error('Não foi possível ler a imagem.');
+    } finally {
+      input.value = '';
+    }
   };
 
   return {

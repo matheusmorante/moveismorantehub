@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { supabase } from '../utils/supabaseConfig';
@@ -29,6 +30,12 @@ const ResetPassword = () => {
   const emailForm = useZodForm(passwordRecoveryEmailSchema, { email });
   const codeForm = useZodForm(passwordRecoveryCodeSchema, { email, code });
   const passwordForm = useZodForm(passwordSetupFormSchema, { password, confirmation });
+  const recoveryInFlight = useRef(false);
+  const runRecoveryOperation = async (operation: () => Promise<unknown>) => {
+    if (recoveryInFlight.current) return;
+    recoveryInFlight.current = true;
+    try { await operation(); } finally { recoveryInFlight.current = false; }
+  };
   const showValidationError = (errors: FieldErrors) => {
     setMessage({ tone: 'error', text: Object.values(flattenFormErrors(errors))[0] || 'Confira os dados informados.' });
   };
@@ -37,7 +44,7 @@ const ResetPassword = () => {
     setIsSubmitting(true);
     setMessage(null);
     try {
-      const { error } = await requestPasswordRecoveryCode(supabase, data.email);
+      const { error } = await waitForAuthOperation(requestPasswordRecoveryCode(supabase, data.email), 'erp:solicitar-recuperacao');
       if (error) {
         setMessage({ tone: 'error', text: getPasswordAuthErrorMessage(error, 'recovery-send') });
         return;
@@ -47,10 +54,10 @@ const ResetPassword = () => {
         tone: 'success',
         text: 'Se a conta estiver cadastrada, enviaremos um código para esse e-mail.',
       });
-    } catch {
+    } catch (error) {
       setMessage({
         tone: 'error',
-        text: 'Não foi possível enviar o código agora. Tente novamente mais tarde.',
+        text: error instanceof Error ? error.message : 'Não foi possível enviar o código agora. Tente novamente mais tarde.',
       });
     } finally {
       setIsSubmitting(false);
@@ -61,15 +68,15 @@ const ResetPassword = () => {
     setIsSubmitting(true);
     setMessage(null);
     try {
-      const { error } = await verifyPasswordRecoveryCode(supabase, data.email, data.code);
+      const { error } = await waitForAuthOperation(verifyPasswordRecoveryCode(supabase, data.email, data.code), 'erp:verificar-recuperacao');
       if (error) {
         setMessage({ tone: 'error', text: getPasswordAuthErrorMessage(error, 'recovery-verify') });
         return;
       }
       setCode('');
       setStage('password');
-    } catch {
-      setMessage({ tone: 'error', text: 'Código inválido. Confira e tente novamente.' });
+    } catch (error) {
+      setMessage({ tone: 'error', text: error instanceof Error ? error.message : 'Código inválido. Confira e tente novamente.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -79,19 +86,20 @@ const ResetPassword = () => {
     setIsSubmitting(true);
     setMessage(null);
     try {
-      const { error } = await updateAuthenticatedPassword(supabase, data.password);
+      const { error } = await waitForAuthOperation(updateAuthenticatedPassword(supabase, data.password), 'erp:redefinir-senha');
       if (error) {
         setMessage({ tone: 'error', text: getPasswordAuthErrorMessage(error, 'password-update') });
         return;
       }
 
-      await supabase.auth.signOut();
+      const { error: signOutError } = await waitForAuthOperation(supabase.auth.signOut(), 'erp:sair-apos-recuperacao');
+      if (signOutError) throw new Error(signOutError.message);
       toast.success('Senha atualizada com sucesso. Entre com sua nova senha.');
       navigate('/login', { replace: true });
-    } catch {
+    } catch (error) {
       setMessage({
         tone: 'error',
-        text: 'Não foi possível atualizar a senha. Tente novamente.',
+        text: error instanceof Error ? error.message : 'Não foi possível atualizar a senha. Tente novamente.',
       });
     } finally {
       setIsSubmitting(false);
@@ -146,7 +154,10 @@ const ResetPassword = () => {
           {stage === 'email' && (
             <form
               noValidate
-              onSubmit={emailForm.submit(sendRecoveryCode, showValidationError)}
+              onSubmit={async (event) => {
+                event.preventDefault();
+                await runRecoveryOperation(() => emailForm.validateAndRun({ email }, sendRecoveryCode, showValidationError));
+              }}
               className="space-y-5"
             >
               <label className="block space-y-2">
@@ -174,7 +185,10 @@ const ResetPassword = () => {
           )}
 
           {stage === 'code' && (
-            <form noValidate onSubmit={codeForm.submit(verifyRecoveryCode, showValidationError)} className="space-y-4">
+            <form noValidate onSubmit={async (event) => {
+              event.preventDefault();
+              await runRecoveryOperation(() => codeForm.validateAndRun({ email, code }, verifyRecoveryCode, showValidationError));
+            }} className="space-y-4">
               <label className="block space-y-2">
                 <span className="text-xs font-black uppercase tracking-widest text-slate-400">
                   Código de recuperação
@@ -199,7 +213,7 @@ const ResetPassword = () => {
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={() => void emailForm.validateAndRun({ email }, sendRecoveryCode, showValidationError)}
+                onClick={() => void runRecoveryOperation(() => emailForm.validateAndRun({ email }, sendRecoveryCode, showValidationError))}
                 className="w-full py-3 text-sm font-bold text-blue-600 hover:text-blue-700 disabled:opacity-60"
               >
                 Reenviar código
@@ -208,7 +222,10 @@ const ResetPassword = () => {
           )}
 
           {stage === 'password' && (
-            <form noValidate onSubmit={passwordForm.submit(saveNewPassword, showValidationError)} className="space-y-4">
+            <form noValidate onSubmit={async (event) => {
+              event.preventDefault();
+              await runRecoveryOperation(() => passwordForm.validateAndRun({ password, confirmation }, saveNewPassword, showValidationError));
+            }} className="space-y-4">
               <label className="block space-y-2">
                 <span className="text-xs font-black uppercase tracking-widest text-slate-400">
                   Nova senha
@@ -247,7 +264,8 @@ const ResetPassword = () => {
 
           <button
             type="button"
-            onClick={() => navigate('/login', { replace: true })}
+            onClick={() => { if (!recoveryInFlight.current) navigate('/login', { replace: true }); }}
+            disabled={isSubmitting}
             className="w-full mt-5 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           >
             Voltar ao login

@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { createVariationImageSelectionFormSchema } from '../../../../../../../../shared-utils/productImageFormSchemas';
 
 export interface VariationParentImagesSelectModalProps {
   readonly isOpen: boolean;
@@ -7,7 +10,7 @@ export interface VariationParentImagesSelectModalProps {
   readonly parentImages: readonly string[];
   readonly selectedImages: readonly string[];
   readonly maxSelection: number;
-  readonly onConfirm: (selected: string[]) => void;
+  readonly onConfirm: (selected: string[]) => void | Promise<void>;
 }
 
 export const VariationParentImagesSelectModal: React.FC<VariationParentImagesSelectModalProps> = ({
@@ -19,6 +22,7 @@ export const VariationParentImagesSelectModal: React.FC<VariationParentImagesSel
   onConfirm,
 }) => {
   const [tempSelected, setTempSelected] = useState<string[]>([]);
+  const form = useZodForm(createVariationImageSelectionFormSchema(parentImages, maxSelection), { images: tempSelected });
 
   useEffect(() => {
     if (isOpen) {
@@ -58,9 +62,15 @@ export const VariationParentImagesSelectModal: React.FC<VariationParentImagesSel
     }
   };
 
-  const handleFinish = () => {
-    onConfirm(tempSelected);
-    onClose();
+  const handleFinish = async () => {
+    try {
+      await form.validateAndRun({ images: tempSelected }, async ({ images }) => {
+        await onConfirm(images);
+        onClose();
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível vincular as fotos.');
+    }
   };
 
   return createPortal(
@@ -210,6 +220,7 @@ export const VariationParentImagesSelectModal: React.FC<VariationParentImagesSel
           <button
             type="button"
             onClick={handleFinish}
+            disabled={form.formState.isSubmitting}
             className="px-6 py-2.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-105 active:scale-95 cursor-pointer"
           >
             Confirmar ({tempSelected.length})

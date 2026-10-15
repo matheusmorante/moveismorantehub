@@ -63,7 +63,7 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
   const [activeTab, setActiveTab] = useState<ReturnFormTab>('items');
   const itemsSummary = calcItemsSummary(items);
   const total = itemsSummary.itemsTotalValue;
-  const form = useZodForm(unlinkedReturnFormSchema, { customer: { ...customer }, items, collectAtAddress });
+  const form = useZodForm(unlinkedReturnFormSchema, { customer: { ...customer }, items, collectAtAddress, scheduling, observations });
 
   React.useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -75,60 +75,60 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
 
   const saveReturn = async () => {
     const validItems = items.filter((item) => item.description.trim() || item.productId);
-    const validatedValues = await form.validateAndRun({ customer: { ...customer }, items: validItems, collectAtAddress }, (data) => data,
-      (errors) => toast.warning(Object.values(flattenFormErrors(errors))[0]));
-    if (!validatedValues) return;
-    const populatedItems = (validatedValues.items as Item[]).map((item) => ({
-      ...item,
-      returnedQuantity: item.quantity,
-      returnedUnitPrice: item.unitPrice,
-      returnedTotalValue: item.quantity * item.unitPrice,
-      originalUnitPrice: item.unitPrice,
-      originalTotalValue: item.quantity * item.unitPrice,
-    }));
-    const summary = calcItemsSummary(populatedItems);
-    const order: Order = {
-      orderType: 'return',
-      returnMethod: collectAtAddress ? 'store_collection' : 'store_delivery',
-      status: 'scheduled',
-      customerData: customer,
-      items: populatedItems,
-      seller: '',
-      date: new Date().toISOString(),
-      returnedTotalAmount: summary.itemsTotalValue,
-      originalSoldTotal: summary.itemsTotalValue,
-      returnKind: 'complete',
-      observation: observations.join('\n'),
-      collectionObservation: collectAtAddress ? observations.join('\n') : undefined,
-      itemsSummary: summary,
-      payments: [],
-      paymentsSummary: {
-        totalPaymentsFee: 0,
-        totalOrderValue: summary.itemsTotalValue,
-        totalPaid: 0,
-        totalAmountPaid: 0,
-        amountRemaining: 0,
-      },
-      shipping: {
-        value: 0,
-        deliveryMethod: collectAtAddress ? 'delivery' : 'pickup',
-        orderType: 'Standard',
-        scheduling: collectAtAddress ? scheduling : { ...EMPTY_SCHEDULING, notInformed: true },
-      },
-      returnStockProcessed: false,
-    };
-    setSubmitting(true);
-    try {
-      const id = await saveOrder(order);
-      toast.success('Pedido de devolução gerado com sucesso!');
-      onSaveSuccess(id, { ...order, id });
-      onClose();
-    } catch (error) {
-      console.error('Erro ao salvar devolução:', error);
-      toast.error('Erro ao processar devolução.');
-    } finally {
-      setSubmitting(false);
-    }
+    await form.validateAndRun({ customer: { ...customer }, items: validItems, collectAtAddress,
+      scheduling: collectAtAddress ? scheduling : { ...EMPTY_SCHEDULING, notInformed: true }, observations }, async (validatedValues) => {
+      const populatedItems = (validatedValues.items as Item[]).map((item) => ({
+        ...item,
+        returnedQuantity: item.quantity,
+        returnedUnitPrice: item.unitPrice,
+        returnedTotalValue: item.quantity * item.unitPrice,
+        originalUnitPrice: item.unitPrice,
+        originalTotalValue: item.quantity * item.unitPrice,
+      }));
+      const summary = calcItemsSummary(populatedItems);
+      const order: Order = {
+        orderType: 'return',
+        returnMethod: validatedValues.collectAtAddress ? 'store_collection' : 'store_delivery',
+        status: 'scheduled',
+        customerData: validatedValues.customer as CustomerData,
+        items: populatedItems,
+        seller: '',
+        date: new Date().toISOString(),
+        returnedTotalAmount: summary.itemsTotalValue,
+        originalSoldTotal: summary.itemsTotalValue,
+        returnKind: 'complete',
+        observation: validatedValues.observations.join('\n'),
+        collectionObservation: validatedValues.collectAtAddress ? validatedValues.observations.join('\n') : undefined,
+        itemsSummary: summary,
+        payments: [],
+        paymentsSummary: {
+          totalPaymentsFee: 0,
+          totalOrderValue: summary.itemsTotalValue,
+          totalPaid: 0,
+          totalAmountPaid: 0,
+          amountRemaining: 0,
+        },
+        shipping: {
+          value: 0,
+          deliveryMethod: validatedValues.collectAtAddress ? 'delivery' : 'pickup',
+          orderType: 'Standard',
+          scheduling: validatedValues.scheduling,
+        },
+        returnStockProcessed: false,
+      };
+      setSubmitting(true);
+      try {
+        const id = await saveOrder(order);
+        toast.success('Pedido de devolução gerado com sucesso!');
+        onSaveSuccess(id, { ...order, id });
+        onClose();
+      } catch (error) {
+        console.error('Erro ao salvar devolução:', error);
+        toast.error('Erro ao processar devolução.');
+      } finally {
+        setSubmitting(false);
+      }
+    }, (errors) => toast.warning(Object.values(flattenFormErrors(errors))[0]));
   };
 
   return (

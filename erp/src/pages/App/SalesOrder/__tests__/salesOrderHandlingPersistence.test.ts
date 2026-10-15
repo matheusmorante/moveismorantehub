@@ -83,6 +83,10 @@ describe('Persistência de Manuseios em Pedidos de Venda', () => {
   it('conclui o cadastro do orçamento como quoted sem convertê-lo em venda', async () => {
     mockSaveOrder.mockReset().mockResolvedValue('orcamento-123');
     const { result } = renderHook(() => useSalesOrderForm(undefined, 'budget'));
+    act(() => {
+      result.current.actions.setSeller('Atendente');
+      result.current.actions.setItems([{ description: 'Mesa do orçamento', quantity: 1, unitPrice: 250 } as any]);
+    });
     let completedOrder: any;
 
     await act(async () => {

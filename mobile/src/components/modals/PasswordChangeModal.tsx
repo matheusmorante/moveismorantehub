@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -40,6 +41,7 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
   const [reauthRequired, setReauthRequired] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const operationInFlight = useRef(false);
   const formValues = { password, confirmation, currentPassword, reauthenticationCode: reauthCode };
   const form = useZodForm(createPasswordChangeFormSchema({ code: reauthRequired, currentPassword: currentPasswordRequired }), formValues);
 
@@ -56,7 +58,7 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
 
   const requestReauthCode = async (isResend = false) => {
     try {
-      const { error } = await requestPasswordChangeReauthentication(supabase);
+      const { error } = await waitForAuthOperation(requestPasswordChangeReauthentication(supabase), 'confirmação de identidade');
       if (error) {
         setMessage(getPasswordAuthErrorMessage(error, 'reauth-send'));
       } else {
@@ -68,56 +70,58 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
             : 'Enviamos um código para confirmar sua identidade.'
         );
       }
-    } catch {
-      setMessage('Não foi possível enviar o código agora. Tente novamente.');
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Não foi possível enviar o código agora. Tente novamente.');
     }
   };
 
-  const submitPassword = async () => {
-    const validated = await form.validateAndRun(formValues, (data) => data,
-      (errors) => setMessage(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    if (reauthRequired && !reauthCode.trim()) {
-      setMessage('Informe o código enviado para confirmar sua identidade.');
-      return;
-    }
-    if (currentPasswordRequired && !currentPassword) {
-      setMessage('Informe sua senha atual para continuar.');
-      return;
-    }
-
+  const resendReauthCode = async () => {
+    if (operationInFlight.current) return;
+    operationInFlight.current = true;
     setLoading(true);
-    setMessage('');
-    try {
-      const { error } = await updateAuthenticatedPassword(
-        supabase,
-        validated.password,
-        reauthRequired ? validated.reauthenticationCode : undefined,
-        currentPasswordRequired ? validated.currentPassword : undefined
-      );
-      if (error && !reauthRequired && isPasswordReauthenticationRequired(error)) {
-        await requestReauthCode();
-        return;
-      }
-      if (error && !currentPasswordRequired && isCurrentPasswordRequired(error)) {
-        setCurrentPasswordRequired(true);
-        setMessage('Informe sua senha atual para continuar.');
-        return;
-      }
-      if (error) {
-        setMessage(
-          getPasswordAuthErrorMessage(error, reauthRequired ? 'recovery-verify' : 'password-update')
-        );
-        return;
-      }
+    try { await requestReauthCode(true); }
+    finally { operationInFlight.current = false; setLoading(false); }
+  };
 
-      Alert.alert('Senha alterada', 'Sua nova senha já pode ser usada no próximo login.');
-      onClose();
-    } catch {
-      setMessage('Não foi possível atualizar a senha. Tente novamente.');
-    } finally {
-      setLoading(false);
-    }
+  const submitPassword = async () => {
+    if (operationInFlight.current) return;
+    operationInFlight.current = true;
+    try {
+      await form.validateAndRun(formValues, async (validated) => {
+        setLoading(true);
+        setMessage('');
+        try {
+          const { error } = await waitForAuthOperation(updateAuthenticatedPassword(
+            supabase,
+            validated.password,
+            reauthRequired ? validated.reauthenticationCode : undefined,
+            currentPasswordRequired ? validated.currentPassword : undefined
+          ), 'alteração da senha');
+          if (error && !reauthRequired && isPasswordReauthenticationRequired(error)) {
+            await requestReauthCode();
+            return;
+          }
+          if (error && !currentPasswordRequired && isCurrentPasswordRequired(error)) {
+            setCurrentPasswordRequired(true);
+            setMessage('Informe sua senha atual para continuar.');
+            return;
+          }
+          if (error) {
+            setMessage(
+              getPasswordAuthErrorMessage(error, reauthRequired ? 'recovery-verify' : 'password-update')
+            );
+            return;
+          }
+
+          Alert.alert('Senha alterada', 'Sua nova senha já pode ser usada no próximo login.');
+          onClose();
+        } catch (error: unknown) {
+          setMessage(error instanceof Error ? error.message : 'Não foi possível atualizar a senha. Tente novamente.');
+        } finally {
+          setLoading(false);
+        }
+      }, (errors) => setMessage(Object.values(flattenFormErrors(errors))[0]));
+    } finally { operationInFlight.current = false; }
   };
 
   return (
@@ -209,7 +213,7 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
                   <TouchableOpacity
                     accessibilityRole="button"
                     disabled={loading}
-                    onPress={() => void requestReauthCode(true)}
+                    onPress={() => void resendReauthCode()}
                     style={styles.resendButton}
                   >
                     <Text style={styles.resendText}>Reenviar código</Text>

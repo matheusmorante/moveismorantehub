@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { labelPrintingFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
+import { labelBlankQueueFormSchema, labelProductQueueFormSchema, labelPrintingFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
 import Product from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import type { LabelItemConfig, LogoItemConfig } from '../types/LabelGridItem.types';
@@ -35,6 +35,8 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
   };
 
   const [logoItems, setLogoItems] = useState<LogoItemConfig[]>([]);
+  const productQueueForm = useZodForm(labelProductQueueFormSchema, { product: { id: '' }, quantity: 1 });
+  const blankQueueForm = useZodForm(labelBlankQueueFormSchema, { quantity: 1 });
   const printingForm = useZodForm(labelPrintingFormSchema, { config: { ...config }, items: labelItems.map((item) => ({ ...item })), logos: logoItems.map((item) => ({ ...item })) });
 
   const handlePrintLabels = async () => {
@@ -79,25 +81,26 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
 
         setLabelItems(updatedItems);
 
-        setTimeout(() => {
-          rawPrintLabels();
-          setIsPrinting(false);
-        }, 800);
+        await new Promise<void>((resolve) => setTimeout(resolve, 800));
+        await rawPrintLabels();
       } catch (err: any) {
         console.error('[useLabelQueue] Erro ao imprimir etiquetas com identificador único:', err);
-        setIsPrinting(false);
         toast.error(
           err?.message ||
             'A impressão foi abortada devido a um erro na geração dos identificadores.'
         );
+      } finally {
+        setIsPrinting(false);
       }
     } else {
-      rawPrintLabels();
+      await rawPrintLabels();
     }
     }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
-  const handleProductSelect = (product: Product, quantity: number = 1) => {
+  const handleProductSelect = (selectedProduct: Product, selectedQuantity: number = 1) => productQueueForm.enqueueAndRun<boolean>({ product: { ...selectedProduct, id: selectedProduct.id || '' }, quantity: selectedQuantity }, (values) => {
+    const product = values.product as unknown as Product;
+    const quantity = values.quantity;
     const productTitle = (product as any).title || product.name || product.description || '';
     const variationName = (product as any).variation || (product as any).variationName;
     let fullName = productTitle;
@@ -152,7 +155,7 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
       sku: (product as any).sku || product.code || '',
       barcode: (product as any).barcode || (product as any).ean || '',
       code: product.code || '',
-      quantity: Math.max(1, quantity),
+      quantity,
       extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : [],
       opportunityId,
       productImages,
@@ -164,16 +167,17 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
       printingMode: 'advanced',
       instances:
         selectedCategory === 'identificacao'
-          ? Array.from({ length: Math.max(1, quantity) }).map(() => '000XXX')
+          ? Array.from({ length: quantity }).map(() => '000XXX')
           : [],
     };
 
     setLabelItems((prev: any) => [...prev, newItem]);
     toast.success(`${fullName} (${quantity} un) adicionado à lista.`);
-  };
+    return true;
+  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
 
-  const handleAddBlankLabel = (qty: number = 1) => {
-    const quantity = Math.max(1, qty);
+  const handleAddBlankLabel = (qty: number = 1) => blankQueueForm.enqueueAndRun({ quantity: qty }, (values) => {
+    const quantity = values.quantity;
     if (selectedCategory === 'logos') {
       const newItem: LogoItemConfig = {
         image: '',
@@ -204,7 +208,7 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
     if (selectedCategory !== 'precos') {
       toast.success(`Etiqueta em branco (${quantity} un) adicionada à fila.`);
     }
-  };
+  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
 
   const handleReorderItems = (draggedIdx: number, targetIdx: number) => {
     const isLogos = selectedCategory === 'logos';

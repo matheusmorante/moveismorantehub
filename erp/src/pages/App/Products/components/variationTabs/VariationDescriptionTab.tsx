@@ -3,6 +3,8 @@ import { useState } from 'react';
 import type { Product, Variation } from '@/pages/types/product.type';
 import { aiService } from '@/pages/utils/aiService';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { productDescriptionAiFormSchema } from '../../../../../../../shared-utils/productAiFormSchemas';
 
 export interface VariationDescriptionTabProps {
   readonly formData: Variation;
@@ -22,6 +24,7 @@ export const VariationDescriptionTab: React.FC<VariationDescriptionTabProps> = (
   showAiImprove = false,
 }) => {
   const [isImprovingDescription, setIsImprovingDescription] = useState(false);
+  const descriptionForm = useZodForm(productDescriptionAiFormSchema, { title: '', currentDescription: '' });
 
   const isSynced = isSingleVariation || formData.syncDescription !== false;
   const parentDescription = parentProduct.description || '';
@@ -44,23 +47,25 @@ export const VariationDescriptionTab: React.FC<VariationDescriptionTabProps> = (
 
   const handleImproveDescriptionWithAI = async () => {
     const title = (formData.name || parentProduct.name || parentProduct.description || '').trim();
-    setIsImprovingDescription(true);
-    try {
-      const result = await aiService.improveProductDescription({
-        currentDescription: formData.description || '',
-        title,
-        technicalValues: formData.technicalValues,
-        width: formData.syncWidth ? parentProduct.width : formData.width,
-        height: formData.syncHeight ? parentProduct.height : formData.height,
-        depth: formData.syncDepth ? parentProduct.depth : formData.depth,
-        weight: formData.syncWeight ? parentProduct.weight : formData.weight,
-      });
-      handleChange('description', result.improvedDescription);
-    } catch {
-      toast.error('Não foi possível aperfeiçoar a descrição.');
-    } finally {
-      setIsImprovingDescription(false);
-    }
+    await descriptionForm.validateAndRun({
+      currentDescription: formData.description || '',
+      title,
+      technicalValues: formData.technicalValues,
+      width: formData.syncWidth ? parentProduct.width : formData.width,
+      height: formData.syncHeight ? parentProduct.height : formData.height,
+      depth: formData.syncDepth ? parentProduct.depth : formData.depth,
+      weight: formData.syncWeight ? parentProduct.weight : formData.weight,
+    }, async (values) => {
+      setIsImprovingDescription(true);
+      try {
+        const result = await aiService.improveProductDescription(values);
+        handleChange('description', result.improvedDescription);
+      } catch {
+        toast.error('Não foi possível aperfeiçoar a descrição.');
+      } finally {
+        setIsImprovingDescription(false);
+      }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   return (

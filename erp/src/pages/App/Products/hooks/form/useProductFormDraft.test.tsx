@@ -16,6 +16,18 @@ afterEach(() => {
 });
 
 describe('useProductFormDraft em modo de artefato de teste', () => {
+  it('blocks invalid variation data before autosave and accepts a corrected incomplete draft', async () => {
+    const data: Partial<Product> = { name: 'Rascunho', variations: [{ unitPrice: -1 } as never] };
+    const { result } = renderHook(() => useProductFormDraft(data, vi.fn(), true, true, null, { current: true }, { current: '' }));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await act(async () => { expect(await result.current.autoSaveDraft(data)).toBe(false); });
+    expect(mocks.saveProduct).not.toHaveBeenCalled();
+    expect(result.current.autoSaveStatus).toBe('error');
+    mocks.saveProduct.mockResolvedValueOnce('same-draft');
+    await act(async () => { expect(await result.current.autoSaveDraft({ ...data, variations: [{ unitPrice: 0, name: '' } as never] })).toBe(true); });
+    expect(mocks.saveProduct).toHaveBeenCalledWith(expect.objectContaining({ variations: [{ unitPrice: 0, name: '' }], isDraft: true }), false, {});
+    expect(result.current.autoSaveStatus).toBe('saved');
+  });
   it('mantém o mesmo rascunho, versão e identificador de teste entre salvamentos', async () => {
     const metadata = {
       testArtifact: {

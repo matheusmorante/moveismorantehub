@@ -347,18 +347,27 @@ export const labelPartialConfigFormSchema = labelConfigFormSchema.partial();
 export const labelGridModelDraftFormSchema = labelGridModelFormSchema.extend({ id: z.string().optional() });
 export const labelAssetFormSchema = z.object({ name: z.string().trim().min(1, 'Informe o nome.'), image: z.string().min(1, 'Selecione uma imagem.') });
 export const labelDefaultLayoutFormSchema = z.object({ modelId: z.string().min(1, 'Selecione o modelo.'), category: z.string().min(1, 'Selecione a categoria.'), type: z.enum(['rect', 'round']) });
+const labelQuantity = z.number({ error: 'Informe uma quantidade inteira maior que zero.' }).int('Informe uma quantidade inteira maior que zero.').positive('Informe uma quantidade inteira maior que zero.');
+export const labelBlankQueueFormSchema = z.object({ quantity: labelQuantity });
+export const labelProductQueueFormSchema = labelBlankQueueFormSchema.extend({
+  product: z.object({
+    id: z.string().min(1, 'Produto sem identificação.'), name: z.string().optional(), description: z.string().optional(),
+    isVariation: z.boolean().optional(), parentId: z.string().optional(),
+    unitPrice: z.number().nonnegative('Informe um preço válido.').optional(),
+  }).passthrough(),
+}).refine((value) => !value.product.isVariation || Boolean(value.product.parentId), { path: ['product', 'parentId'], message: 'Variação sem identificação do produto.' });
 export const labelPrintSelectionFormSchema = z.object({
   labelType: z.enum(['identification', 'price']),
   products: z.array(z.object({
     id: z.string().min(1, 'Produto sem identificação.'), description: z.string(), code: z.string().optional(), sku: z.string().optional(),
-    unitPrice: z.number().optional(), images: z.array(z.string()).optional(), labelQty: z.number().int().positive('Informe uma quantidade inteira maior que zero.'),
+    unitPrice: z.number().optional(), images: z.array(z.string()).optional(), labelQty: labelQuantity,
   }).passthrough()).min(1, 'Selecione um produto.'),
 });
 export const labelCropFormSchema = z.object({ image: z.string().min(1, 'Selecione uma imagem.'), scale: z.number().min(0.1).max(5), crop: z.object({ x: z.number().nonnegative(), y: z.number().nonnegative(), w: z.number().min(20), h: z.number().min(20) }) });
 export const labelDataFillFormSchema = z.object({ title: z.string(), normalPrice: z.string(), promoPrice: z.string(), centsText: z.string(), currencySymbol: z.string(), installments: z.string() });
 const labelQueueItem = z.object({
   name: z.string().optional(), price: z.string().optional(), promoPrice: z.string().optional(), sku: z.string().optional(),
-  quantity: z.number().int().positive('Informe uma quantidade inteira maior que zero.'),
+  quantity: labelQuantity,
   image: z.string().optional(), scale: z.number().nonnegative().optional(), rotation: z.number().optional(),
   imageFit: z.enum(['contain', 'cover', 'fill']).optional(), extraFields: z.array(labelExtraFieldSchema).optional(),
   productId: z.string().optional(), variationId: z.string().optional(), instances: z.array(z.string()).optional(),

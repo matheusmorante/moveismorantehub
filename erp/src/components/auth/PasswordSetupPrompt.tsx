@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { passwordSetupFormSchema } from '../../../../shared-utils/authFormSchemas';
+import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
 import type { z } from 'zod';
 
 export const PasswordSetupPrompt = () => {
@@ -13,6 +14,12 @@ export const PasswordSetupPrompt = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const form = useZodForm(passwordSetupFormSchema, { password, confirmation });
+  const operationInFlight = useRef(false);
+  const runOperation = async (operation: () => Promise<unknown>) => {
+    if (operationInFlight.current) return;
+    operationInFlight.current = true;
+    try { await operation(); } finally { operationInFlight.current = false; }
+  };
 
   if (location.pathname === '/reset-password' || !user || passwordCredentialStatus !== 'required') {
     return null;
@@ -22,7 +29,7 @@ export const PasswordSetupPrompt = () => {
     setIsSubmitting(true);
     setMessage('');
     try {
-      await createPasswordCredential(data.password, data.confirmation);
+      await waitForAuthOperation(createPasswordCredential(data.password, data.confirmation), 'erp:criar-senha');
       setPassword('');
       setConfirmation('');
     } catch (error) {
@@ -30,6 +37,20 @@ export const PasswordSetupPrompt = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await runOperation(async () => {
+      setIsSubmitting(true);
+      setMessage('');
+      try {
+        await waitForAuthOperation(logout(), 'erp:sair-criacao-senha');
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Não foi possível sair da conta.');
+      } finally {
+        setIsSubmitting(false);
+      }
+    });
   };
 
   return (
@@ -56,9 +77,12 @@ export const PasswordSetupPrompt = () => {
           </p>
         )}
 
-        <form id="password-setup-form" noValidate className="mt-6 space-y-4" onSubmit={form.submit(handleSubmit, (errors) => {
-          setMessage(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados informados.');
-        })}>
+        <form id="password-setup-form" noValidate className="mt-6 space-y-4" onSubmit={async (event) => {
+          event.preventDefault();
+          await runOperation(() => form.validateAndRun({ password, confirmation }, handleSubmit, (errors) => {
+            setMessage(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados informados.');
+          }));
+        }}>
           <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
             Nova senha
             <input
@@ -102,7 +126,8 @@ export const PasswordSetupPrompt = () => {
           </button>
           <button
             className="w-full rounded-xl px-4 py-3 font-bold text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            onClick={() => void logout()}
+            onClick={handleLogout}
+            disabled={isSubmitting}
             type="button"
           >
             Sair da conta

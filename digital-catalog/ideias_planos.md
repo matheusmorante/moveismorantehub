@@ -56,3 +56,19 @@ Este documento serve para guardar ideias de melhorias futuras para o sistema da 
 
 
 - **Continuação RHF (14/10):** eliminadas cópias dos contratos Zod em favor de reexports de `../shared-utils`; Next passa a incluir a raiz compartilhada. Editor de produto e seus anexos/variações têm integração conferida; buscas desktop/móvel/sugestões agora possuem proprietário único com RHF. Build e typecheck do catálogo passaram. A conferência global dos formulários permanece no inventário central.
+
+## Meta integral de formulários — 15/10/2026
+
+Conferir todos os callbacks do catálogo com React Hook Form + zodResolver, schemas compartilhados explícitos, payload parseado e erros visíveis. O censo inicial localizou 31 arquivos candidatos (13 com integração localizada), incluindo campos filhos e wrappers; isso não representa conclusão. Inventário: `../docs/forms/inventario-mobile-catalogo-2026-10-15.md`. Antes de alterar código Next.js, consultar o guia pertinente de `node_modules/next/dist/docs/`, conforme AGENTS.md. Manter autenticação/permissões no backend e testes sem publicação ou alteração comercial remota.
+
+### Autenticação conferida — 15/10
+
+Login/recuperação/cadastro mantêm zodResolver ativo durante Auth/perfil e têm prazo local compartilhado sem retry automático. Sete testes das páginas com Supabase/router simulados passaram; TypeScript completo e lint dos arquivos passaram. Build Next passou antes do ajuste final de catch, conferido depois por testes/TypeScript/lint. Continuar pelos demais proprietários do inventário; ainda falta prova real de navegação e dos fluxos de conta/admin, sem declarar conclusão global.
+
+### Perfil conferido — 15/10
+
+Os seis caminhos de nome/e-mail/senha agora mantêm o resolver até terminar o serviço e compartilham proteção contra concorrência. Corrigida a ordem dos hooks na chegada/saída da sessão, uso dos valores parseados e erro de logout retornado pelo provedor. Dez testes do perfil passaram (17 com autenticação); TypeScript, lint da página e build Next finais também passaram. Auth/router/abas simulados, sem mudança real de conta. Continuar pelo inventário, incluindo navegação de usuário/admin e demais proprietários; três páginas do catálogo conferidas, sem percentual global inferido do censo.
+
+### Fronteira de formulário — 15/10
+
+ZodForm sem consumidor ativo localizado foi conferido: onValid obrigatório recebe valores parseados, espera pelo callback e apresenta falha. Três testes específicos passaram; o conjunto completo do catálogo soma 20, com TypeScript, lint da fronteira e build Next finais aprovados. Não contar a fronteira técnica como página operacional. Continuar com navegação de usuário/admin, buscas, categorias e produto, preservando proprietário dos campos filhos e as pendências do inventário central.

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { UserRole } from '@/context/AuthContext';
 import { roleLabel, SYSTEM_ROLES } from '@/pages/utils/accessRoles';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
@@ -25,11 +25,14 @@ const UserRolesModal = ({ profile, onClose, onSave }: UserRolesModalProps) => {
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
   const [saving, setSaving] = useState(false);
   const form = useZodForm(rolesFormSchema, { roles });
+  const savingInFlight = useRef(false);
+  const requestClose = () => { if (!savingInFlight.current) onClose(); };
 
   useEffect(() => {
     setRoles(profile.roles);
   }, [profile]);
   const addRole = () => {
+    if (savingInFlight.current) return;
     if (selectedRole) setRoles((items) => [...new Set([...items, selectedRole])]);
     setSelectedRole('');
   };
@@ -38,15 +41,29 @@ const UserRolesModal = ({ profile, onClose, onSave }: UserRolesModalProps) => {
     try {
       await onSave(data.roles);
       onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível salvar os cargos.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (savingInFlight.current) return;
+    savingInFlight.current = true;
+    try {
+      await form.validateAndRun({ roles }, save, (errors) => {
+        toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira os cargos.');
+      });
+    } finally {
+      savingInFlight.current = false;
     }
   };
 
   return (
     <div
       className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/60 p-4"
-      onClick={onClose}
+      onClick={requestClose}
     >
       <section
         className="w-full max-w-md rounded-2xl bg-white shadow-2xl dark:bg-slate-900"
@@ -62,7 +79,7 @@ const UserRolesModal = ({ profile, onClose, onSave }: UserRolesModalProps) => {
             </p>
             <p className="text-xs text-slate-400">{profile.email}</p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
+          <button onClick={requestClose} disabled={saving} aria-label="Fechar" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
             <i className="bi bi-x-lg" />
           </button>
         </header>
@@ -73,6 +90,7 @@ const UserRolesModal = ({ profile, onClose, onSave }: UserRolesModalProps) => {
           <div className="flex gap-2">
             <select
               value={selectedRole}
+              disabled={saving}
               onChange={(event) => setSelectedRole(event.target.value as UserRole | '')}
               className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 dark:bg-slate-800 dark:text-slate-100"
             >
@@ -86,7 +104,7 @@ const UserRolesModal = ({ profile, onClose, onSave }: UserRolesModalProps) => {
             <button
               type="button"
               onClick={addRole}
-              disabled={!selectedRole}
+              disabled={saving || !selectedRole}
               className="w-11 rounded-xl bg-blue-600 text-white disabled:opacity-40"
             >
               <i className="bi bi-plus-lg" />
@@ -101,7 +119,8 @@ const UserRolesModal = ({ profile, onClose, onSave }: UserRolesModalProps) => {
                 >
                   <span>{roleLabel(role)}</span>
                   <button
-                    onClick={() => setRoles((items) => items.filter((item) => item !== role))}
+                    onClick={() => { if (!savingInFlight.current) setRoles((items) => items.filter((item) => item !== role)); }}
+                    disabled={saving}
                     aria-label={`Remover ${roleLabel(role)}`}
                   >
                     <i className="bi bi-x-lg" />
@@ -122,15 +141,14 @@ const UserRolesModal = ({ profile, onClose, onSave }: UserRolesModalProps) => {
         </div>
         <footer className="flex justify-end gap-2 border-t border-slate-100 p-5 dark:border-slate-800">
           <button
-            onClick={onClose}
+            onClick={requestClose}
+            disabled={saving}
             className="rounded-xl px-4 py-2 text-sm font-bold text-slate-500"
           >
             Cancelar
           </button>
           <button
-            onClick={() => void form.validateAndRun({ roles }, save, (errors) => {
-              toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira os cargos.');
-            })}
+            onClick={handleSave}
             disabled={saving}
             className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-black text-white disabled:opacity-50"
           >

@@ -1,9 +1,12 @@
 // @vitest-environment happy-dom
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type Product from '@/pages/types/product.type';
 import { HML_FISCAL_TEST_ORDER_MARKER } from '@/pages/utils/hmlTestData';
 import { useProductFormSubmit } from './useProductFormSubmit';
+import { toast } from 'react-toastify';
+import { useRef, useState } from 'react';
+import { useProductFormDraft } from './useProductFormDraft';
 
 const mocks = vi.hoisted(() => ({ saveProduct: vi.fn(async (product: Product) => product.id) }));
 vi.mock('@/pages/utils/productService', () => mocks);
@@ -47,6 +50,79 @@ function renderSubmit(
 }
 
 describe('conclusão do pai respeita os requisitos de cada variação', () => {
+  it.each([false, true])('resumes autosave after manual draft save or service failure (failure=%s)', async (failure) => {
+    if (failure) mocks.saveProduct.mockRejectedValueOnce(new Error('Falha manual simulada'));
+    else mocks.saveProduct.mockImplementationOnce(async (product) => { product.updatedAt = 'manual-version'; return product.id; });
+    const { result } = renderHook(() => {
+      const [formData, setFormData] = useState<Partial<Product>>(complete);
+      const changed = useRef(true), initial = useRef('');
+      const draft = useProductFormDraft(formData, setFormData, true, true, null, changed, initial);
+      const submit = useProductFormSubmit({ formData, setFormData, product: null, isRegisteredProduct: false, setValidationErrors: vi.fn(), setActiveTab: vi.fn(), variations: {}, draft, setLoading: vi.fn(), setSaveResult: vi.fn(), hasChanged: changed, onClose: vi.fn() });
+      return { formData, draft, ...submit };
+    });
+    await act(async () => { expect(await result.current.handleSubmit(false, true)).toBe(!failure); });
+    await act(async () => { expect(await result.current.draft.autoSaveDraft({ ...result.current.formData, description: 'Nova alteração' })).toBe(true); });
+    expect(mocks.saveProduct).toHaveBeenCalledTimes(2);
+    expect(mocks.saveProduct).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'parent', isDraft: true, description: 'Nova alteração', ...(!failure ? { updatedAt: 'manual-version' } : {}) }), false, {});
+  });
+  it('waits for autosave identity, finalizes the same product and blocks a delayed draft rewrite', async () => {
+    let finishDraft!: () => void;
+    mocks.saveProduct.mockImplementationOnce(async (product) => {
+      await new Promise<void>((resolve) => { finishDraft = resolve; });
+      product.updatedAt = 'version-1';
+      return 'created-draft';
+    }).mockImplementationOnce(async (product) => { product.updatedAt = 'version-2'; return product.id; });
+    const { result } = renderHook(() => {
+      const [formData, setFormData] = useState<Partial<Product>>({ ...complete, id: undefined });
+      const changed = useRef(true), initial = useRef('');
+      const draft = useProductFormDraft(formData, setFormData, true, true, null, changed, initial);
+      const submit = useProductFormSubmit({ formData, setFormData, product: null, isRegisteredProduct: false, setValidationErrors: vi.fn(), setActiveTab: vi.fn(), variations: { setEditingVariationId: vi.fn() }, draft, setLoading: vi.fn(), setSaveResult: vi.fn(), hasChanged: changed, onClose: vi.fn() });
+      return { formData, setFormData, draft, ...submit };
+    });
+    let first!: Promise<boolean>, final!: Promise<boolean>;
+    await act(async () => { first = result.current.draft.autoSaveDraft(result.current.formData); });
+    await waitFor(() => expect(mocks.saveProduct).toHaveBeenCalledTimes(1));
+    act(() => result.current.setFormData((current) => ({ ...current, unitPrice: 175 })));
+    await act(async () => { final = result.current.handleSubmit(false, false); });
+    expect(mocks.saveProduct).toHaveBeenCalledTimes(1);
+    await act(async () => { expect(await result.current.draft.autoSaveDraft(result.current.formData)).toBe(false); });
+    await act(async () => { finishDraft(); await first; expect(await final).toBe(true); });
+    expect(mocks.saveProduct).toHaveBeenCalledTimes(2);
+    expect(mocks.saveProduct).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'created-draft', isDraft: false, unitPrice: 175, updatedAt: 'version-2' }));
+    expect(result.current.formData).toMatchObject({ id: 'created-draft', isDraft: false });
+    await act(async () => { expect(await result.current.draft.autoSaveDraft(result.current.formData)).toBe(false); });
+    expect(mocks.saveProduct).toHaveBeenCalledTimes(2);
+  });
+  it.each([false, true])('blocks invalid parent or variation numbers before saving (draft=%s)', async (draft) => {
+    for (const invalid of [
+      { unitPrice: -1 },
+      { costPrice: Number.POSITIVE_INFINITY },
+      { variations: [{ ...complete.variations![0], unitPrice: Number.NaN }] },
+      { variations: ['invalid-variation'] },
+      { variations: [null] },
+    ]) {
+      const { result, unmount } = renderSubmit({ ...complete, ...invalid } as Product);
+      await act(async () => { expect(await result.current.handleSubmit(false, draft)).toBe(false); });
+      expect(mocks.saveProduct).not.toHaveBeenCalled();
+      expect(vi.mocked(toast.error).mock.calls.length + vi.mocked(toast.warn).mock.calls.length).toBeGreaterThan(0);
+      unmount();
+    }
+  });
+
+  it('protects draft and final buttons with one lock and allows retry after a failed save', async () => {
+    let fail!: (reason: Error) => void;
+    mocks.saveProduct.mockImplementationOnce(() => new Promise<string>((_resolve, reject) => { fail = reject; }));
+    const { result } = renderSubmit(complete);
+    let first!: Promise<boolean>;
+    await act(async () => { first = result.current.handleSubmit(false, true); });
+    await waitFor(() => expect(mocks.saveProduct).toHaveBeenCalledTimes(1));
+    await act(async () => { expect(await result.current.handleSubmit(false, false)).toBe(false); });
+    expect(mocks.saveProduct).toHaveBeenCalledTimes(1);
+    await act(async () => { fail(new Error('Falha simulada')); expect(await first).toBe(false); });
+    await act(async () => { expect(await result.current.handleSubmit(false, false)).toBe(true); });
+    expect(mocks.saveProduct).toHaveBeenCalledTimes(2);
+  });
+
   it('reclama no produto pai (aba Características) e não abre a variação quando o produto tem apenas 1 variação', async () => {
     const { result, variations, setActiveTab } = renderSubmit({
       ...complete,

@@ -3,15 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Order from '@/pages/types/order.type';
 import { OrderHistoryListRef } from '../OrderHistoryList';
-import { canGenerateReturn } from '../../utils/returnPolicy';
-import { createSalesOrderDuplicate } from '../../utils/duplicateOrder';
-import { prepareOrderFiscalSnapshotForEmission } from '../../utils/nfeEmissionSnapshotService';
-import { fetchReturnFiscalEligibility } from '../FiscalDocuments/services/fiscalOperationDraftService';
-import type { NfeEmissionResult } from '../../utils/nfe/nfeService';
+import { canGenerateReturn } from '@/pages/utils/returnPolicy';
+import { createSalesOrderDuplicate } from '@/pages/utils/duplicateOrder';
+import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
+import { fetchReturnFiscalEligibility } from '../../FiscalDocuments/services/fiscalOperationDraftService';
+import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import type {
   ReturnFiscalEligibility,
   SourceDocument,
-} from '../FiscalDocuments/types/fiscalOperationDraft.types';
+} from '../../FiscalDocuments/types/fiscalOperationDraft.types';
 
 export interface UseSalesOrderModalsProps {
   orderListRef: React.RefObject<OrderHistoryListRef | null>;

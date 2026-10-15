@@ -15,6 +15,7 @@ import {
 } from '@/services/authPasswordSetup';
 import { shouldRunAuthSessionMaintenance } from '../../../shared-utils/authSessionPolicy';
 import { withTimeout } from '../../../shared-utils/withTimeout';
+import { waitForAuthOperation } from '../../../shared-utils/authOperationTimeout';
 import {
   bindTestArtifactContext,
   clearTestArtifactContext,
@@ -531,7 +532,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.warn('[Auth] Falha ao limpar cache de queries no logout:', e);
     }
-    await supabase.auth.signOut();
+    const { error } = await waitForAuthOperation(supabase.auth.signOut(), 'auth:sair');
+    if (error) throw new Error(error.message);
     clearTestArtifactContext();
     profileResolvedUserIdRef.current = null;
     setUser(null);

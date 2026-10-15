@@ -445,9 +445,9 @@ export function useVariationForm({
       setLoading(true);
       try {
         const variationToSave: Variation = {
-          ...finalVariation, ...values,
+          ...values,
           sku:
-            finalVariation.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+            values.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
         };
         if (onSave) {
           if ((await onSave(variationToSave)) === false) return;

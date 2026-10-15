@@ -1,5 +1,7 @@
 'use client';
 
+import { waitForAuthOperation } from '@/shared-utils/authOperationTimeout';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -42,44 +44,43 @@ export default function SignupPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validated = await form.validateAndRun(formData, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    setLoading(true);
+    await form.validateAndRun(formData, async (validated) => {
+      setLoading(true);
 
-    try {
-      // 1. Sign up user in Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: validated.email,
-        password: validated.password,
-      });
+      try {
+        // 1. Sign up user in Auth
+        const { data: authData, error: authError } = await waitForAuthOperation(supabase.auth.signUp({
+          email: validated.email,
+          password: validated.password,
+        }), 'cadastro do catálogo');
 
-      if (authError) throw authError;
+        if (authError) throw new Error(authError.message);
 
-      if (authData.user) {
-        // 2. Update profile in profiles table
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            first_name: validated.firstName,
-            last_name: validated.lastName,
-            phone: validated.phone,
-            address: validated.address,
-            complement: validated.complement,
-            zip_code: validated.zipCode,
-          })
-          .eq('id', authData.user.id);
+        if (authData.user) {
+          // 2. Update profile in profiles table
+          const { error: profileError } = await waitForAuthOperation(supabase
+            .from('profiles')
+            .update({
+              first_name: validated.firstName,
+              last_name: validated.lastName,
+              phone: validated.phone,
+              address: validated.address,
+              complement: validated.complement,
+              zip_code: validated.zipCode,
+            })
+            .eq('id', authData.user.id), 'perfil do cadastro do catálogo');
 
-        if (profileError) throw profileError;
+          if (profileError) throw new Error(profileError.message);
+        }
+
+        toast.success('Cadastro realizado! Verifique seu e-mail para confirmar.');
+        router.push('/auth/login');
+      } catch (error: unknown) {
+        toast.error(error instanceof Error ? error.message : 'Erro ao realizar cadastro');
+      } finally {
+        setLoading(false);
       }
-
-      toast.success('Cadastro realizado! Verifique seu e-mail para confirmar.');
-      router.push('/auth/login');
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao realizar cadastro');
-    } finally {
-      setLoading(false);
-    }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   return (

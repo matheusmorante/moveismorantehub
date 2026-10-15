@@ -16,7 +16,17 @@ export const saveVariation = async (productId: string, variation: any): Promise<
     if (index === -1) throw new Error('Produto pai não encontrado.');
 
     const parent = products[index];
-    const variations = parent.variations || [];
+    let variations = parent.variations || [];
+    if (variations.length === 0) {
+      const { data: dbVars } = await supabase
+        .from('product_variations')
+        .select('*')
+        .eq('product_id', productId);
+      if (dbVars && dbVars.length > 0) {
+        variations = dbVars;
+        parent.variations = dbVars;
+      }
+    }
     const rawVarId = variation.variationId || variation.id;
 
     // Desfaz IDs sintéticos legados (formato `productId_skuSuffix`) para extrair o UUID real.

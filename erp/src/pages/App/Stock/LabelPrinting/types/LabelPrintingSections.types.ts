@@ -27,7 +27,7 @@ export interface QueueSectionProps {
   setSelectedProductToAdd: (product: Product | null) => void;
   productAddQty: number;
   setProductAddQty: (quantity: number) => void;
-  handleProductSelect: (product: Product, quantity: number, skipModal?: boolean) => void;
+  handleProductSelect: (product: Product, quantity: number, skipModal?: boolean) => Promise<boolean>;
   labelItems: LabelItemConfig[];
   setLabelItems: Dispatch<SetStateAction<LabelItemConfig[]>>;
   logoItems: LogoItemConfig[];

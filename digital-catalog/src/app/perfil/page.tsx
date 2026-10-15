@@ -1,10 +1,11 @@
 'use client';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { accountNameFormSchema, accountEmailChangeFormSchema, catalogPasswordChangeFormSchema } from '@/shared-utils/accountFormSchemas';
+import { accountNameFormSchema, accountEmailChangeFormSchema, catalogPasswordReauthenticationFormSchema } from '@/shared-utils/accountFormSchemas';
 import { passwordRecoveryEmailSchema, passwordRecoveryCodeSchema, catalogPasswordRecoveryFormSchema } from '@/shared-utils/authFormSchemas';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useRef, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
+import { waitForAuthOperation } from '@/shared-utils/authOperationTimeout';
 import { useAuth } from '@/hooks/use-auth';
 import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,6 @@ import {
   KeyRound,
   ShieldCheck,
   CheckCircle2,
-  AlertTriangle,
   LogOut,
   Loader2,
   Send,
@@ -44,7 +44,9 @@ function ProfileContent() {
   const router = useRouter();
 
   // Form states - Name
-  const [fullName, setFullName] = useState('');
+  const [nameDraft, setNameDraft] = useState<{ userId: string; value: string } | null>(null);
+  const fullName = nameDraft && nameDraft.userId === user?.id ? nameDraft.value : user?.user_metadata?.full_name || '';
+  const setFullName = (value: string) => setNameDraft({ userId: user?.id || '', value });
   const [updatingName, setUpdatingName] = useState(false);
 
   // Form states - Email (Etapas 1 e 2)
@@ -69,11 +71,18 @@ function ProfileContent() {
   const [sendingPasswordCode, setSendingPasswordCode] = useState(false);
   const [verifyingPasswordCode, setVerifyingPasswordCode] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      setFullName(user.user_metadata?.full_name || '');
-    }
-  }, [user]);
+  const nameForm = useZodForm(accountNameFormSchema, { fullName });
+  const emailForm = useZodForm(accountEmailChangeFormSchema, { email: newEmail, confirmation: confirmEmail });
+  const emailCodeForm = useZodForm(passwordRecoveryCodeSchema, { email: newEmail, code: emailOtpCode });
+  const currentPasswordForm = useZodForm(catalogPasswordReauthenticationFormSchema, { email: user?.email || '', password: newPassword, confirmation: confirmPassword, currentPassword });
+  const passwordEmailForm = useZodForm(passwordRecoveryEmailSchema, { email: user?.email || '' });
+  const passwordCodeForm = useZodForm(catalogPasswordRecoveryFormSchema, { email: user?.email || '', code: passwordOtpCode, password: newPassword, confirmation: confirmPassword });
+  const accountInFlight = useRef(false);
+  const runAccountOperation = async (operation: () => Promise<unknown>) => {
+    if (accountInFlight.current) return;
+    accountInFlight.current = true;
+    try { await operation(); } finally { accountInFlight.current = false; }
+  };
 
   if (!authLoading && !user) {
     return (
@@ -114,243 +123,143 @@ function ProfileContent() {
       .toUpperCase()
       .substring(0, 2) || 'U';
 
-  // 1. Atualizar Nome Completo
-  const nameForm = useZodForm(accountNameFormSchema, { fullName });
-  const emailForm = useZodForm(accountEmailChangeFormSchema, { email: newEmail, confirmation: confirmEmail });
-  const emailCodeForm = useZodForm(passwordRecoveryCodeSchema, { email: newEmail, code: emailOtpCode });
-  const currentPasswordForm = useZodForm(catalogPasswordChangeFormSchema, { password: newPassword, confirmation: confirmPassword, currentPassword });
-  const passwordEmailForm = useZodForm(passwordRecoveryEmailSchema, { email: user?.email || '' });
-  const passwordCodeForm = useZodForm(catalogPasswordRecoveryFormSchema, { email: user?.email || '', code: passwordOtpCode, password: newPassword, confirmation: confirmPassword });
   const handleUpdateName = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validated = await nameForm.validateAndRun({ fullName }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    if (!validated.fullName) {
-      toast.error('O nome não pode estar vazio.');
-      return;
-    }
-
-    setUpdatingName(true);
-    try {
-      const { error } = await supabase.auth.updateUser({
-        data: { full_name: validated.fullName },
-      });
-
-      if (error) throw error;
-      toast.success('Nome atualizado com sucesso!');
-    } catch (error: any) {
-      console.error('Erro ao atualizar nome:', error);
-      toast.error(error.message || 'Erro ao atualizar o nome.');
-    } finally {
-      setUpdatingName(false);
-    }
+    await runAccountOperation(() => nameForm.validateAndRun({ fullName }, async (validated) => {
+      setUpdatingName(true);
+      try {
+        const { error } = await waitForAuthOperation(supabase.auth.updateUser({
+          data: { full_name: validated.fullName },
+        }), 'perfil:nome');
+        if (error) throw new Error(error.message);
+        toast.success('Nome atualizado com sucesso!');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Erro ao atualizar o nome.');
+      } finally {
+        setUpdatingName(false);
+      }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])));
   };
 
-  // 2. E-mail — Etapa 1: Enviar Código de Verificação para o Novo E-mail
   const handleRequestEmailChangeCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validated = await emailForm.validateAndRun({ email: newEmail, confirmation: confirmEmail }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    const trimmedEmail = validated.email;
-
-    if (!trimmedEmail) {
-      toast.error('Por favor, digite o novo e-mail.');
-      return;
-    }
-
-    if (trimmedEmail === user?.email) {
-      toast.error('O novo e-mail é idêntico ao e-mail atual.');
-      return;
-    }
-
-    if (trimmedEmail !== validated.confirmation) {
-      toast.error('Os e-mails digitados não coincidem.');
-      return;
-    }
-
-    setSendingEmailCode(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ email: trimmedEmail });
-      if (error) throw error;
-
-      toast.success(
-        `Código/link de confirmação enviado para ${trimmedEmail}! Insira o código recebido abaixo.`
-      );
-      setEmailStep(2);
-    } catch (error: any) {
-      console.error('Erro ao solicitar alteração de e-mail:', error);
-      toast.error(error.message || 'Erro ao enviar código de verificação.');
-    } finally {
-      setSendingEmailCode(false);
-    }
+    await runAccountOperation(() => emailForm.validateAndRun({ email: newEmail, confirmation: confirmEmail }, async (validated) => {
+      if (validated.email === user?.email?.trim().toLowerCase()) {
+        toast.error('O novo e-mail é idêntico ao e-mail atual.');
+        return;
+      }
+      setSendingEmailCode(true);
+      try {
+        const { error } = await waitForAuthOperation(supabase.auth.updateUser({ email: validated.email }), 'perfil:solicitar-email');
+        if (error) throw new Error(error.message);
+        toast.success('Código/link de confirmação enviado para ' + validated.email + '! Insira o código recebido abaixo.');
+        setEmailStep(2);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Erro ao enviar código de verificação.');
+      } finally {
+        setSendingEmailCode(false);
+      }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])));
   };
 
-  // 2. E-mail — Etapa 2: Confirmar Código OTP Digitado
   const handleVerifyEmailCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validated = await emailCodeForm.validateAndRun({ email: newEmail, code: emailOtpCode }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    const code = validated.code;
-
-    if (!code) {
-      toast.error('Por favor, informe o código de verificação enviado por e-mail.');
-      return;
-    }
-
-    setVerifyingEmailCode(true);
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: validated.email.toLowerCase(),
-        token: code,
-        type: 'email_change',
-      });
-
-      if (error) {
-        const altRes = await supabase.auth.verifyOtp({
-          email: validated.email.toLowerCase(),
-          token: code,
-          type: 'email',
-        });
-        if (altRes.error) throw error;
+    await runAccountOperation(() => emailCodeForm.validateAndRun({ email: newEmail, code: emailOtpCode }, async (validated) => {
+      setVerifyingEmailCode(true);
+      try {
+        const payload = { email: validated.email.toLowerCase(), token: validated.code };
+        const { error } = await waitForAuthOperation(supabase.auth.verifyOtp({ ...payload, type: 'email_change' }), 'perfil:verificar-email');
+        if (error) {
+          // Preserve the provider's existing alternative only after a confirmed response.
+          const alternative = await waitForAuthOperation(supabase.auth.verifyOtp({ ...payload, type: 'email' }), 'perfil:verificar-email-alternativo');
+          if (alternative.error) throw new Error(error.message);
+        }
+        toast.success('E-mail verificado e alterado com sucesso! Redirecionando para login...');
+        const result = await waitForAuthOperation(logout(), 'perfil:sair-apos-email');
+        if (result?.error) throw new Error(result.error.message);
+        router.push('/auth/login?email_updated=true');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Código inválido ou expirado. Tente novamente.');
+      } finally {
+        setVerifyingEmailCode(false);
       }
-
-      toast.success('E-mail verificado e alterado com sucesso! Redirecionando para login...');
-
-      await logout();
-      router.push('/auth/login?email_updated=true');
-    } catch (error: any) {
-      console.error('Erro ao verificar código de e-mail:', error);
-      toast.error(error.message || 'Código inválido ou expirado. Tente novamente.');
-    } finally {
-      setVerifyingEmailCode(false);
-    }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])));
   };
 
-  // 3. Alterar Senha — MODO PRINCIPAL: Digitar Senha Atual para Confirmar
   const handlePasswordUpdateWithCurrentPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validated = await currentPasswordForm.validateAndRun({ password: newPassword, confirmation: confirmPassword, currentPassword }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-
-    if (!currentPassword) {
-      toast.error('Por favor, digite a sua senha atual.');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      toast.error('A nova senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast.error('As senhas digitadas não coincidem.');
-      return;
-    }
-
-    setUpdatingPassword(true);
-    try {
-      // 1. Re-autentica com a senha atual para garantir segurança
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: user?.email || '',
-        password: validated.currentPassword,
-      });
-
-      if (authError) {
-        throw new Error('A senha atual digitada está incorreta.');
+    await runAccountOperation(() => currentPasswordForm.validateAndRun({ email: user?.email || '', password: newPassword, confirmation: confirmPassword, currentPassword }, async (validated) => {
+      setUpdatingPassword(true);
+      try {
+        const { error: authError } = await waitForAuthOperation(supabase.auth.signInWithPassword({
+          email: validated.email, password: validated.currentPassword,
+        }), 'perfil:confirmar-senha-atual');
+        if (authError) throw new Error('A senha atual digitada está incorreta.');
+        const { error: updateError } = await waitForAuthOperation(supabase.auth.updateUser({ password: validated.password }), 'perfil:alterar-senha');
+        if (updateError) throw new Error(updateError.message);
+        toast.success('Senha alterada com sucesso!');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Erro ao atualizar a senha.');
+      } finally {
+        setUpdatingPassword(false);
       }
-
-      // 2. Se a senha atual for válida, atualiza para a nova senha
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: validated.password,
-      });
-
-      if (updateError) throw updateError;
-
-      toast.success('Senha alterada com sucesso!');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (error: any) {
-      console.error('Erro ao alterar senha:', error);
-      toast.error(error.message || 'Erro ao atualizar a senha.');
-    } finally {
-      setUpdatingPassword(false);
-    }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])));
   };
 
-  // 3. Alterar Senha — MODO ALTERNATIVO (Esqueceu a senha atual estando logado): Código no E-mail
   const handleRequestPasswordCode = async () => {
-    const validated = await passwordEmailForm.validateAndRun({ email: user?.email || '' }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-
-    setSendingPasswordCode(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(validated.email);
-      if (error) throw error;
-
-      toast.success(`Código enviado para ${validated.email}! Insira o código e defina sua nova senha.`);
-    } catch (error: any) {
-      console.error('Erro ao enviar código de senha:', error);
-      toast.error(error.message || 'Erro ao enviar código.');
-    } finally {
-      setSendingPasswordCode(false);
-    }
+    await runAccountOperation(() => passwordEmailForm.validateAndRun({ email: user?.email || '' }, async (validated) => {
+      setPasswordMode('forgot_code');
+      setSendingPasswordCode(true);
+      try {
+        const { error } = await waitForAuthOperation(supabase.auth.resetPasswordForEmail(validated.email), 'perfil:solicitar-codigo-senha');
+        if (error) throw new Error(error.message);
+        toast.success('Código enviado para ' + validated.email + '! Insira o código e defina sua nova senha.');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Erro ao enviar código.');
+      } finally {
+        setSendingPasswordCode(false);
+      }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])));
   };
 
   const handleVerifyPasswordCodeAndSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validated = await passwordCodeForm.validateAndRun({ email: user?.email || '', code: passwordOtpCode, password: newPassword, confirmation: confirmPassword }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    const code = validated.code;
-
-    if (!code) {
-      toast.error('Digite o código de 6 dígitos recebido no e-mail.');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      toast.error('A nova senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast.error('As senhas digitadas não coincidem.');
-      return;
-    }
-
-    setVerifyingPasswordCode(true);
-    try {
-      const { error: otpError } = await supabase.auth.verifyOtp({
-        email: user?.email || '',
-        token: code,
-        type: 'recovery',
-      });
-
-      if (otpError) throw otpError;
-
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: validated.password,
-      });
-
-      if (updateError) throw updateError;
-
-      toast.success('Senha redefinida com sucesso via código de e-mail!');
-      setPasswordMode('with_current');
-      setPasswordOtpCode('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (error: any) {
-      console.error('Erro ao redefinir senha com código:', error);
-      toast.error(error.message || 'Código inválido ou expirado.');
-    } finally {
-      setVerifyingPasswordCode(false);
-    }
+    await runAccountOperation(() => passwordCodeForm.validateAndRun({ email: user?.email || '', code: passwordOtpCode, password: newPassword, confirmation: confirmPassword }, async (validated) => {
+      setVerifyingPasswordCode(true);
+      try {
+        const { error: otpError } = await waitForAuthOperation(supabase.auth.verifyOtp({
+          email: validated.email, token: validated.code, type: 'recovery',
+        }), 'perfil:verificar-codigo-senha');
+        if (otpError) throw new Error(otpError.message);
+        const { error: updateError } = await waitForAuthOperation(supabase.auth.updateUser({ password: validated.password }), 'perfil:redefinir-senha');
+        if (updateError) throw new Error(updateError.message);
+        toast.success('Senha redefinida com sucesso via código de e-mail!');
+        setPasswordMode('with_current');
+        setPasswordOtpCode('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Código inválido ou expirado.');
+      } finally {
+        setVerifyingPasswordCode(false);
+      }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])));
   };
 
   const handleLogoutAccount = async () => {
-    await logout();
-    toast.success('Você saiu da sua conta.');
-    router.push('/');
+    await runAccountOperation(async () => {
+      try {
+        const result = await waitForAuthOperation(logout(), 'perfil:sair');
+        if (result?.error) throw new Error(result.error.message);
+        toast.success('Você saiu da sua conta.');
+        router.push('/');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Não foi possível sair da conta.');
+      }
+    });
   };
 
   return (
@@ -645,7 +554,8 @@ function ProfileContent() {
                     <Button
                       type="button"
                       variant="ghost"
-                      onClick={() => setEmailStep(1)}
+                      onClick={() => { if (!accountInFlight.current) setEmailStep(1); }}
+                      disabled={verifyingEmailCode}
                       className="gap-2 text-muted-foreground hover:text-gray-900"
                     >
                       <RotateCcw className="h-4 w-4" />
@@ -711,10 +621,7 @@ function ProfileContent() {
                       <div className="pt-1">
                         <button
                           type="button"
-                          onClick={() => {
-                            setPasswordMode('forgot_code');
-                            handleRequestPasswordCode();
-                          }}
+                          onClick={handleRequestPasswordCode}
                           className="text-xs text-primary font-bold hover:underline"
                         >
                           Esqueceu a senha atual? Clique para enviar código ao e-mail.
@@ -780,9 +687,12 @@ function ProfileContent() {
                     <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-amber-900">
                       <Key className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                       <div className="space-y-1 text-xs sm:text-sm">
-                        <p className="font-bold">Código Enviado por E-mail:</p>
+                        <p className="font-bold flex items-center gap-2">
+                          {sendingPasswordCode && <Loader2 className="h-4 w-4 animate-spin" />}
+                          {sendingPasswordCode ? 'Enviando código...' : 'Recuperação por E-mail:'}
+                        </p>
                         <p className="leading-relaxed">
-                          Enviamos um código de segurança para <strong>{user?.email}</strong>.
+                          Confirme sua identidade com o código recebido em <strong>{user?.email}</strong>.
                           Digite o código e a nova senha abaixo.
                         </p>
                       </div>
@@ -845,7 +755,8 @@ function ProfileContent() {
                     <Button
                       type="button"
                       variant="ghost"
-                      onClick={() => setPasswordMode('with_current')}
+                      onClick={() => { if (!accountInFlight.current) setPasswordMode('with_current'); }}
+                      disabled={sendingPasswordCode || verifyingPasswordCode}
                       className="gap-2 text-muted-foreground hover:text-gray-900"
                     >
                       <RotateCcw className="h-4 w-4" />
@@ -856,7 +767,7 @@ function ProfileContent() {
                       type="submit"
                       size="lg"
                       className="rounded-xl font-bold h-12 px-8 bg-green-600 hover:bg-green-700 text-white gap-2"
-                      disabled={verifyingPasswordCode}
+                      disabled={sendingPasswordCode || verifyingPasswordCode}
                     >
                       {verifyingPasswordCode ? (
                         <>

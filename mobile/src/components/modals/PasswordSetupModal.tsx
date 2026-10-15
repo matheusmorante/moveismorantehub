@@ -1,5 +1,6 @@
+import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
 import { Lock } from 'lucide-react-native';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -29,25 +30,37 @@ export function PasswordSetupModal({ visible, status, email, onCreatePassword, o
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const form = useZodForm(passwordSetupFormSchema, { password, confirmation });
+  const operationInFlight = useRef(false);
 
   if (!visible || status !== 'required') return null;
 
   const handleCreatePassword = async () => {
-    const validated = await form.validateAndRun({ password, confirmation }, (data) => data,
-      (errors) => setMessage(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-
-    setIsSubmitting(true);
-    setMessage('');
+    if (operationInFlight.current) return;
+    operationInFlight.current = true;
     try {
-      await onCreatePassword(validated.password, validated.confirmation);
-      setPassword('');
-      setConfirmation('');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Não foi possível criar a senha.');
-    } finally {
-      setIsSubmitting(false);
-    }
+      await form.validateAndRun({ password, confirmation }, async (validated) => {
+        setIsSubmitting(true);
+        setMessage('');
+        try {
+          await waitForAuthOperation(onCreatePassword(validated.password, validated.confirmation), 'criação da senha');
+          setPassword('');
+          setConfirmation('');
+        } catch (error) {
+          setMessage(error instanceof Error ? error.message : 'Não foi possível criar a senha.');
+        } finally {
+          setIsSubmitting(false);
+        }
+      }, (errors) => setMessage(Object.values(flattenFormErrors(errors))[0]));
+    } finally { operationInFlight.current = false; }
+  };
+
+  const handleLogout = async () => {
+    if (operationInFlight.current) return;
+    operationInFlight.current = true;
+    setIsSubmitting(true);
+    try { await waitForAuthOperation(onLogout(), 'encerramento da sessão'); }
+    catch (error: unknown) { setMessage(error instanceof Error ? error.message : 'Não foi possível sair da conta.'); }
+    finally { operationInFlight.current = false; setIsSubmitting(false); }
   };
 
   return (
@@ -115,7 +128,7 @@ export function PasswordSetupModal({ visible, status, email, onCreatePassword, o
 
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={() => void onLogout()}
+            onPress={() => void handleLogout()}
             style={styles.secondaryButton}
           >
             <Text style={styles.secondaryButtonText}>Sair da conta</Text>

@@ -4,6 +4,7 @@ import { useAuth, UserRole } from '../../../context/AuthContext';
 import { getPrimaryRole, getProfileRoles, roleLabel } from '@/pages/utils/accessRoles';
 import UserRolesModal, { AccessProfile } from './UserRolesModal';
 import { toast } from 'react-toastify';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 type Profile = AccessProfile & { role: UserRole };
 
@@ -68,12 +69,16 @@ const UsersManagement = () => {
   const assigned = normalizedProfiles.filter((profile) => profile.roles.length > 0);
   const unassigned = normalizedProfiles.filter((profile) => profile.roles.length === 0);
   const saveRoles = async (roles: UserRole[]) => {
-    if (!isAdministrator || !selected) return;
+    if (!isAdministrator || !selected) throw new Error('Sua sessão não permite salvar os cargos desta conta.');
     const role = getPrimaryRole(roles);
-    const { error } = await supabase.from('profiles').update({ role, roles }).eq('id', selected.id);
+    const { error } = await withTimeout<{ error: { message: string } | null }>(
+      supabase.from('profiles').update({ role, roles }).eq('id', selected.id),
+      20_000,
+      { error: { message: 'Não foi possível confirmar a alteração no prazo esperado. Confira os cargos da conta antes de tentar novamente.' } },
+      'usuarios:salvar-cargos',
+    );
     if (error) {
-      toast.error('Não foi possível salvar os cargos.');
-      throw error;
+      throw new Error(error.message || 'Não foi possível salvar os cargos.');
     }
     setProfiles((items) =>
       items.map((item) => (item.id === selected.id ? { ...item, roles, role } : item))

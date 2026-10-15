@@ -120,9 +120,11 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
                 printingMode={printingMode}
                 config={config}
                 products={products}
-                onSelectProduct={(idx, product) => {
-                  setLabelItems((prev) => prev.filter((_, itemIdx) => itemIdx !== idx));
-                  handleProductSelect(product, 1);
+                onSelectProduct={async (idx, product) => {
+                  const replacedItem = labelItems[idx];
+                  if (await handleProductSelect(product, 1)) {
+                    setLabelItems((prev) => prev.filter((item) => item !== replacedItem));
+                  }
                 }}
                 selectedCategory={selectedCategory}
               />

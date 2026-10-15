@@ -395,63 +395,62 @@ export function useProductFormModal({
   }, [variations, setFormData]);
 
   const handleSaveVariation = useCallback(
-    async (updatedVar: Variation): Promise<boolean> => {
-      const validated = await validateSavedVariation({ ...updatedVar }, (values) => values,
-        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-      if (!validated) return false;
-      updatedVar = validated as Variation;
-      const current = latestFormDataRef.current;
-      const sku = updatedVar.sku?.trim().toLocaleUpperCase();
-      const duplicateSku = (current.variations || []).some(
-        (item) =>
-          Boolean(sku) &&
-          String(item.id) !== String(updatedVar.id) &&
-          item.sku?.trim().toLocaleUpperCase() === sku
-      );
-      if (duplicateSku) {
-        toast.error(`O SKU "${updatedVar.sku}" já está em uso em outra variação.`);
-        return false;
-      }
-
-      const next: Partial<Product> = {
-        ...current,
-        hasVariations: true,
-        variations: (current.variations || []).some(
-          (item) => String(item.id) === String(updatedVar.id)
-        )
-          ? current.variations?.map((item) =>
-              String(item.id) === String(updatedVar.id) ? updatedVar : item
-            )
-          : [...(current.variations || []), updatedVar],
-      };
-
-      if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
-      draftSaveTimerRef.current = null;
-
-      try {
-        if (isDraftProduct) {
-          if (!(await autoSaveDraft(next))) return false;
-          setFormData((previous) => ({
-            ...previous,
-            hasVariations: true,
-            variations: next.variations,
-          }));
-        } else {
-          const productId = String(current.parentId || current.id || '');
-          if (!productId)
-            throw new Error('O produto precisa estar salvo antes de cadastrar a variação.');
-          await saveVariation(productId, updatedVar);
-          latestFormDataRef.current = next;
-          setFormData(next);
+    async (updatedVariation: Variation): Promise<boolean> => {
+      return (await validateSavedVariation({ ...updatedVariation }, async (values) => {
+        const updatedVar = values as Variation;
+        const current = latestFormDataRef.current;
+        const sku = updatedVar.sku?.trim().toLocaleUpperCase();
+        const duplicateSku = (current.variations || []).some(
+          (item) =>
+            Boolean(sku) &&
+            String(item.id) !== String(updatedVar.id) &&
+            item.sku?.trim().toLocaleUpperCase() === sku
+        );
+        if (duplicateSku) {
+          toast.error(`O SKU "${updatedVar.sku}" já está em uso em outra variação.`);
+          return false;
         }
-        pendingNewVariationIdRef.current = null;
-        setEditingVariationId(null);
-        return true;
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Erro ao salvar a variação.');
-        console.error('[ProductForm] Falha ao salvar variação concluída:', error);
-        return false;
-      }
+
+        const next: Partial<Product> = {
+          ...current,
+          hasVariations: true,
+          variations: (current.variations || []).some(
+            (item) => String(item.id) === String(updatedVar.id)
+          )
+            ? current.variations?.map((item) =>
+                String(item.id) === String(updatedVar.id) ? updatedVar : item
+              )
+            : [...(current.variations || []), updatedVar],
+        };
+
+        if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+        draftSaveTimerRef.current = null;
+
+        try {
+          if (isDraftProduct) {
+            if (!(await autoSaveDraft(next))) return false;
+            setFormData((previous) => ({
+              ...previous,
+              hasVariations: true,
+              variations: next.variations,
+            }));
+          } else {
+            const productId = String(current.parentId || current.id || '');
+            if (!productId)
+              throw new Error('O produto precisa estar salvo antes de cadastrar a variação.');
+            await saveVariation(productId, updatedVar);
+            latestFormDataRef.current = next;
+            setFormData(next);
+          }
+          pendingNewVariationIdRef.current = null;
+          setEditingVariationId(null);
+          return true;
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : 'Erro ao salvar a variação.');
+          console.error('[ProductForm] Falha ao salvar variação concluída:', error);
+          return false;
+        }
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]))) === true;
     },
     [autoSaveDraft, isDraftProduct, pendingNewVariationIdRef, setEditingVariationId, validateSavedVariation]
   );

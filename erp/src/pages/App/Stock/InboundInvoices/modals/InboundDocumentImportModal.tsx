@@ -31,6 +31,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
   const [accessKey, setAccessKey] = useState('');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isDirectSyncing, setIsDirectSyncing] = useState(false);
+  const directInFlight = useRef(false);
   const form = useZodForm(inboundAccessKeyFormSchema, { accessKey });
   const {
     isLoading,
@@ -41,71 +42,82 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
     setDuplicateAlertOpen,
     duplicateKey,
     duplicateExistingInvoice,
+    isImportInFlight,
     handleFile,
     handleXmlString,
   } = useInboundDocumentImport({ isOpen, onClose, onImportSuccess, initialFile });
 
   if (!isOpen) return null;
 
-  const handleScan = (value: string) => {
+  const busy = isLoading || isDirectSyncing;
+  const importFile = async (file?: File) => {
+    if (directInFlight.current) return;
+    await handleFile(file);
+  };
+  const handleScan = async (value: string) => {
+    if (directInFlight.current || isImportInFlight()) return;
     const normalized = normalizeFiscalIdentifier(value);
     const candidate = normalized.length === 44 ? normalized : value.toUpperCase().match(/(?:^|[^A-Z0-9])([0-9]{6}[A-Z0-9]{12}[0-9]{26})(?:[^A-Z0-9]|$)/)?.[1];
-    const parsed = inboundAccessKeyFormSchema.safeParse({ accessKey: candidate || '' });
+    const parsed = await form.validateValues({ accessKey: candidate || '' }, (errors) => toast.warn(Object.values(flattenFormErrors(errors))[0]));
+    if (parsed) setAccessKey(parsed.accessKey);
     setIsScannerOpen(false);
-    if (parsed.success) setAccessKey(parsed.data.accessKey);
   };
 
   const handleDirectSefazQuery = async () => {
-    const validated = await form.validateAndRun({ accessKey }, (data) => data,
-      (errors) => toast.warn(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    const clean = validated.accessKey;
-
+    if (directInFlight.current || isImportInFlight()) return;
+    directInFlight.current = true;
     setIsDirectSyncing(true);
     try {
-      const res = await consultInvoiceByAccessKey(clean);
-      if (res.success && res.document?.kind === 'full' && res.document.xml) {
-        toast.success('XML oficial obtido diretamente do Web Service SEFAZ!');
-        await handleXmlString(res.document.xml);
-      } else if (res.success && res.document?.kind === 'summary') {
-        const isProduction = res.environment !== 'homologation';
-        const confirmed = window.confirm(
-          `A SEFAZ retornou apenas o resumo desta NF-e. Enviar Ciência da Emissão em ${isProduction ? 'Produção' : 'Homologação'} para tentar liberar o XML completo?\n\nA Ciência registra conhecimento da emissão. Ela não confirma a compra nem o recebimento da mercadoria.`
-        );
-        if (!confirmed) {
-          toast.info('Nenhuma manifestação foi enviada.');
-          return;
-        }
+      await form.validateAndRun({ accessKey }, async (validated) => {
+        const clean = validated.accessKey;
 
-        const manifestation = await sendInboundScienceOfEmission(clean, true);
-        if (!manifestation.success) {
-          toast.warn(
-            manifestation.error || 'Não foi possível confirmar a Ciência da Emissão. Não reenvie enquanto houver uma tentativa pendente.'
-          );
-          return;
-        }
+        try {
+          const res = await consultInvoiceByAccessKey(clean);
+          if (res.success && res.document?.kind === 'full' && res.document.xml) {
+            toast.success('XML oficial obtido diretamente do Web Service SEFAZ!');
+            await handleXmlString(res.document.xml);
+          } else if (res.success && res.document?.kind === 'summary') {
+            const isProduction = res.environment !== 'homologation';
+            const confirmed = window.confirm(
+              `A SEFAZ retornou apenas o resumo desta NF-e. Enviar Ciência da Emissão em ${isProduction ? 'Produção' : 'Homologação'} para tentar liberar o XML completo?\n\nA Ciência registra conhecimento da emissão. Ela não confirma a compra nem o recebimento da mercadoria.`
+            );
+            if (!confirmed) {
+              toast.info('Nenhuma manifestação foi enviada.');
+              return;
+            }
 
-        const refreshed = await consultInvoiceByAccessKey(clean, {
-          environment: res.environment || 'production',
-        });
-        if (refreshed.success && refreshed.document?.kind === 'full' && refreshed.document.xml) {
-          toast.success('Ciência registrada e XML oficial completo obtido.');
-          await handleXmlString(refreshed.document.xml);
-        } else {
-          toast.info(
-            'Ciência registrada. O XML completo ainda não foi disponibilizado; consulte a nota novamente mais tarde.'
-          );
+            const manifestation = await sendInboundScienceOfEmission(clean, true);
+            if (!manifestation.success) {
+              toast.warn(
+                manifestation.error || 'Não foi possível confirmar a Ciência da Emissão. Não reenvie enquanto houver uma tentativa pendente.'
+              );
+              return;
+            }
+
+            const refreshed = await consultInvoiceByAccessKey(clean, {
+              environment: res.environment || 'production',
+            });
+            if (refreshed.success && refreshed.document?.kind === 'full' && refreshed.document.xml) {
+              toast.success('Ciência registrada e XML oficial completo obtido.');
+              await handleXmlString(refreshed.document.xml);
+            } else {
+              toast.info(
+                'Ciência registrada. O XML completo ainda não foi disponibilizado; consulte a nota novamente mais tarde.'
+              );
+            }
+          } else if (res.success) {
+            toast.info(res.message || 'Dados da NF-e processados com sucesso no Ambiente Nacional.');
+          } else {
+            toast.error(
+              res.message || 'Documento não localizado no Ambiente Nacional para esta chave.'
+            );
+          }
+        } catch (err: unknown) {
+          toast.error(err instanceof Error ? err.message : 'Erro na consulta mTLS com a SEFAZ.');
         }
-      } else if (res.success) {
-        toast.info(res.message || 'Dados da NF-e processados com sucesso no Ambiente Nacional.');
-      } else {
-        toast.error(
-          res.message || 'Documento não localizado no Ambiente Nacional para esta chave.'
-        );
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Erro na consulta mTLS com a SEFAZ.');
+      }, (errors) => toast.warn(Object.values(flattenFormErrors(errors))[0]));
     } finally {
+      directInFlight.current = false;
       setIsDirectSyncing(false);
     }
   };
@@ -117,7 +129,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
         aria-modal="true"
         aria-labelledby="inbound-doc-modal-title"
         onKeyDown={(e) => {
-          if (e.key === 'Escape' && !isLoading) onClose();
+          if (e.key === 'Escape' && !busy) onClose();
         }}
         className="fixed inset-0 z-[1000002] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in"
       >
@@ -141,7 +153,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
             </div>
             <button
               type="button"
-              disabled={isLoading}
+              disabled={busy}
               onClick={onClose}
               aria-label="Fechar modal"
               className="rounded-xl p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
@@ -181,6 +193,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                 <div className="flex items-center gap-2">
                   <input
                     id="accessKey"
+                    disabled={busy}
                     type="text"
                     placeholder="Digite os 44 caracteres da chave de acesso..."
                     value={accessKey}
@@ -190,6 +203,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                   />
                   <button
                     type="button"
+                    disabled={busy}
                     onClick={() => setIsScannerOpen(true)}
                     aria-label="Escanear QR Code ou código de barras da chave NF-e"
                     title="Escanear chave da NF-e"
@@ -247,15 +261,15 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                 type="file"
                 accept={ACCEPTED_FILE_TYPES}
                 className="hidden"
-                onChange={(event) => void handleFile(event.target.files?.[0])}
+                onChange={(event) => void importFile(event.target.files?.[0])}
               />
               <button
                 type="button"
-                disabled={isLoading}
+                disabled={busy}
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={(e) => {
                   e.preventDefault();
-                  if (!isLoading) setIsDraggingFile(true);
+                  if (!busy) setIsDraggingFile(true);
                 }}
                 onDragLeave={() => setIsDraggingFile(false)}
                 onDrop={(e) => {
@@ -286,7 +300,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
           <footer className="flex justify-end border-t border-slate-100 dark:border-slate-800 p-4 px-6 bg-slate-50/50 dark:bg-slate-950/40">
             <button
               type="button"
-              disabled={isLoading}
+              disabled={busy}
               onClick={onClose}
               className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
             >
@@ -306,7 +320,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
       <QRScannerModal
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
-        onScan={handleScan}
+        onScan={(value) => { void handleScan(value); }}
         title="Escanear chave da NF-e"
         accessKeyMode
       />

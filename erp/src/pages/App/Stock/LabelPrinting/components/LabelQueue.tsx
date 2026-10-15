@@ -344,10 +344,10 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                   </button>
                   <input
                     type="number"
-                    value={item.quantity || 1}
+                    value={Number.isFinite(item.quantity) ? item.quantity : ''}
                     min={1}
                     onChange={(e) =>
-                      updateItem(idx, { quantity: Math.max(1, parseInt(e.target.value) || 1) })
+                      updateItem(idx, { quantity: e.target.value === '' ? Number.NaN : Number(e.target.value) })
                     }
                     aria-label="Quantidade de etiquetas"
                     className="w-10 shrink-0 appearance-none bg-transparent text-center text-sm font-black tabular-nums outline-none text-slate-700 dark:text-slate-200"

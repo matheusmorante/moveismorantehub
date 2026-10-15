@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import Product, { Variation } from '../../../../../types/product.type';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { bulkAttributeFormSchema } from '../../../../../../../../shared-utils/catalogFormSchemas';
+import { productConversionFormSchema } from '../../../../../../../../shared-utils/productVariationOperationFormSchemas';
 import { toast } from 'react-toastify';
+import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 
 export interface ProductConversionModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly formData: Partial<Product>;
-  readonly onConvert: (updatedData: Partial<Product>) => void;
+  readonly onConvert: (updatedData: Partial<Product>) => void | Promise<void>;
 }
 
 /**
@@ -22,7 +23,7 @@ export const ProductConversionModal: React.FC<ProductConversionModalProps> = ({
 }) => {
   const [attrName, setAttrName] = useState('Cor');
   const [attrValue, setAttrValue] = useState('Padrão');
-  const form = useZodForm(bulkAttributeFormSchema, { name: attrName, value: attrValue });
+  const form = useZodForm(productConversionFormSchema, { name: attrName, value: attrValue, product: { ...formData } });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -40,41 +41,46 @@ export const ProductConversionModal: React.FC<ProductConversionModalProps> = ({
   if (!isOpen) return null;
 
   const handleConvert = async () => {
-    const validated = await form.validateAndRun({ name: attrName, value: attrValue }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    const variationId =
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `var_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    try {
+      await form.validateAndRun({ name: attrName, value: attrValue, product: { ...formData } }, async (validated) => {
+        const product = validated.product as Partial<Product>;
+        const variationId =
+          typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `var_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
-    const newVariation: Variation = {
-      id: variationId,
-      name: `${attrName.trim().toUpperCase()}: ${attrValue.trim().toUpperCase()}`,
-      sku: formData.code || '',
-      stock: formData.stock || 0,
-      unitPrice: formData.unitPrice || 0,
-      costPrice: formData.costPrice || 0,
-      syncUnitPrice: true,
-      syncCostPrice: true,
-      syncDescription: true,
-      images: [],
-      active: true,
-      attributes: [{ name: validated.name, value: validated.value }],
-      comboItems: [],
-    };
+        const newVariation: Variation = {
+          id: variationId,
+          name: `${validated.name.toUpperCase()}: ${validated.value.toUpperCase()}`,
+          sku: product.code || '',
+          stock: product.stock ?? 0,
+          unitPrice: product.unitPrice ?? 0,
+          costPrice: product.costPrice ?? 0,
+          syncUnitPrice: true,
+          syncCostPrice: true,
+          syncDescription: true,
+          images: [],
+          active: !isProductDraft(product),
+          status: 'hidden',
+          attributes: [{ name: validated.name, value: validated.value }],
+          comboItems: [],
+        };
 
-    const updatedData: Partial<Product> = {
-      ...formData,
-      hasVariations: true,
-      variations: [newVariation],
-      // Limpa código e estoque do pai, que foram transferidos para a primeira variação
-      code: '',
-      stock: 0,
-    };
+        const updatedData: Partial<Product> = {
+          ...product,
+          hasVariations: true,
+          variations: [newVariation],
+          // Limpa código e estoque do pai, que foram transferidos para a primeira variação
+          code: '',
+          stock: 0,
+        };
 
-    onConvert(updatedData);
-    onClose();
+        await onConvert(updatedData);
+        onClose();
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível converter o produto.');
+    }
   };
 
   return (
@@ -159,7 +165,7 @@ export const ProductConversionModal: React.FC<ProductConversionModalProps> = ({
           <button
             type="button"
             onClick={handleConvert}
-            disabled={!attrName.trim() || !attrValue.trim()}
+            disabled={form.formState.isSubmitting || !attrName.trim() || !attrValue.trim()}
             className="flex-1 px-6 py-4 rounded-2xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             Confirmar Conversão

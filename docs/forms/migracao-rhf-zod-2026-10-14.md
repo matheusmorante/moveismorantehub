@@ -8,18 +8,34 @@ Reutilizar schemas Zod explícitos de domínio e regras puras existentes. Campos
 
 ## Inventário e conferência
 
+### Continuação — 15/10/2026
+
+No cadastro de produtos, o contrato compartilhado passou a reutilizar os números e campos de variação de `productVariationDraftSchema`. Foi removido o `z.any()` das variações; campos ausentes continuam permitidos no rascunho, mas números inválidos ou itens incompatíveis são rejeitados. Metadados são preservados. Submissão manual entrega o agregado parseado ao serviço, mantém o resolver ativo durante a gravação, compartilha uma trava entre rascunho/conclusão e aguarda identidade/versão do autosave. Ao concluir, uma chamada atrasada não transforma o cadastro de volta em rascunho. Histórico com causa, arquivos e evidências em [15/10](../fiscal/historico-correcoes-2026-10-15.md).
+
+Na fila de etiquetas, adicionar produto e adicionar em branco passam pelo resolver antes de montar a fila; quantidades inválidas/fracionárias não são convertidas silenciosamente em um. A seleção em lote executa cada entrada em fila e preserva os vínculos de variação. Substituição conserva a etiqueta original quando a validação falha. Impressão conserva a trava durante geração dos identificadores e preparação da prévia. Leitura de arquivo conserva a trava até terminar e apresenta erros. Campos editáveis permanecem no proprietário da impressão, com validação real antes do efeito.
+
+O cadastro de pessoas conserva o resolver durante duplicidade, persistência e sincronização de perfil; buscas de CEP/e-mail têm contratos próprios e ignoram respostas obsoletas. O cancelamento fiscal conserva uma trava comum durante execução, incluindo a intenção de abrir estorno, e mantém a confirmação por operação de Produção. Preparação, revisão e transmissão do rascunho fiscal também compartilham uma trava; cada resolver acompanha todo o serviço, preservando o resultado pendente e impedindo gravação de revisão durante transmissão. Os imports dos modais de pedido foram corrigidos após falha real da compilação, sem mudar a política fiscal/comercial.
+
+**Prova atual:** 103 testes em 16 arquivos passaram (`scratch/rhf-all-form-owners-2026-10-15.log`), com adaptador, produtos, variações, características, etiquetas, arquivos, recortes, pessoas e cancelamento. São testes locais com serviços/canvas/impressão simulados, sem gravar produtos, pessoas ou identificadores remotos ou transmitir notas. O único teste existente de `PersonFormModal` simula seu hook e cobre o marcador autorizado; os cinco novos testes de `usePersonForm` exercitam o proprietário real com serviços simulados. Lint dos arquivos desta continuação passou sem erros, com avisos de dependências/variáveis existentes registrados em `scratch/rhf-product-label-lint.log`, `rhf-person-cancel-lint.log` e `rhf-sales-order-imports-lint.log`. Typecheck fiscal passou (`scratch/rhf-person-cancel-fiscal-tsc.log`). Compilação completa ERP passou. O TypeScript global continua com diagnósticos fora dos arquivos alterados; a migração global permanece aberta. O censo do catálogo foi atualizado para 13 arquivos após conferir os subformulários e o novo proprietário de salvamento; isso é localização estática, não nova prova ponta a ponta do catálogo.
+
 O [inventário detalhado do ERP](../audits/fiscal-2026-10-14/form-migration-inventory.md) registra proprietários, modais, autosave, importações e filtros. Checkboxes continuam pendentes até conferir todos os caminhos de cada proprietário. O censo abaixo é somente uma localização de integrações no código, não prova de que todos os callbacks do arquivo estejam migrados.
+
+**Fechamento da rodada de 15/10:** compilação completa ERP passou (`scratch/rhf-erp-build-person-cancel-final.log`, startup fiscal/WASM/XSD incluídos). O TypeScript global continua reprovado por diagnósticos fora deste lote; o relatório `scratch/rhf-person-cancel-tsc.log` não contém diagnósticos dos proprietários/contratos alterados nesta continuação. Typecheck fiscal passou. Não houve deploy nem validação visual de todas as telas. Próximas conferências continuam nos itens pendentes do inventário, incluindo proprietários de importação, reconciliação e formulários móveis/catálogo que ainda não possuem prova individual.
 
 ## Integrações localizadas
 
 | Aplicação | Arquivos com integração localizada |
 |---|---|
-| erp | 122 |
+| erp | 126 |
 | mobile | 34 |
-| digital-catalog | 10 |
+| digital-catalog | 13 |
 
 ### erp
 
+- `erp/src/pages/App/Products/hooks/form/useProductFormAi.ts`
+- `erp/src/pages/App/Products/components/variationTabs/VariationDescriptionTab.tsx`
+- `erp/src/pages/App/Products/components/variationTabs/VariationTechnicalDescriptionSection.tsx`
+- `erp/src/pages/App/Products/components/modals/variations/VariationParentImagesSelectModal.tsx`
 - `erp/src/components/auth/PasswordSetupPrompt.tsx`
 - `erp/src/components/forms/ZodForm.tsx`
 - `erp/src/components/shared/AIChatAssistant.tsx`
@@ -181,7 +197,10 @@ O [inventário detalhado do ERP](../audits/fiscal-2026-10-14/form-migration-inve
 - `digital-catalog/src/components/layout/header/use-search.ts`
 - `digital-catalog/src/components/layout/user-nav.tsx`
 - `digital-catalog/src/features/categories/components/categories-manager-modal.tsx`
-- `digital-catalog/src/features/products/components/admin-product-modal.tsx`
+- `digital-catalog/src/features/products/components/admin-modal/dialogs/AttributeManagerModal.tsx`
+- `digital-catalog/src/features/products/components/admin-modal/dialogs/VariationFormModal.tsx`
+- `digital-catalog/src/features/products/components/admin-modal/hooks/useAdminProductSave.ts`
+- `digital-catalog/src/features/products/components/admin-modal/steps/Step1Photos.tsx`
 - `digital-catalog/src/hooks/useZodForm.ts`
 
 ## Evidências e limites
@@ -250,3 +269,77 @@ A indisponibilidade ganhou um contrato ERP que preserva os refinamentos existent
 O upload de elementos de marketing também mantém o resolver ativo durante o envio, sem liberar a trava após apenas parsear o arquivo. O schema preserva os formatos PNG/WebP/JPEG já permitidos. Os dois testes do proprietário bloqueiam GIF e envio concorrente, confirmando atualização da camada original.
 
 **Prova desta rodada:** 46 testes em 12 arquivos passaram (`scratch/rhf-upload-owner-final-tests.log`), incluindo cinco dos proprietários de arquivos, dois da indisponibilidade, dois do upload de selos, dois do upload de elementos, cinco do perfil e regressões de compra, recebimento, produtos e contratos de marketing/catálogo. O teste do avatar inválido não substitui prova de upload válido do perfil. Typecheck fiscal passou (`scratch/rhf-fiscal-upload-tsc.log`); lint dos arquivos desta rodada passou com zero erros e oito avisos, em `scratch/rhf-file-owner-lint.log` e `scratch/rhf-element-owner-lint.log`. Compilação completa ERP passou (`scratch/rhf-erp-build-upload-batch.log`) antes do último ajuste do upload de elementos, que passou pelos testes específicos. O TypeScript global continua com diagnósticos fora deste lote; os diagnósticos dos proprietários e contratos alterados são conferidos separadamente. Todos os serviços são simulados.
+
+### Devoluções e importação de NF-e — continuação de 15/10
+
+Conferidos os proprietários ReturnOrderModal, UnlinkedReturnOrderModal e useInboundDocumentImport. O resolver acompanha a montagem e a chamada de gravação, e os serviços recebem os valores parseados. Agendamento/observações pertencem ao formulário de devolução; o contrato permite agendamento ainda vazio, preservando a política comercial existente. A devolução vinculada mantém a conferência de saldo, alocações fiscais e identidade idempotente anteriores.
+
+ReturnItemsSelection preserva quantidade decimal e não converte campo vazio/zero em uma unidade. O proprietário rejeita uma linha selecionada inválida em vez de omiti-la e salvar apenas as demais. Os botões de quantidade preservam os limites anteriores. A divergência preexistente entre texto e status da devolução sem vínculo recebida na loja foi registrada no histórico fiscal para a auditoria de regra comercial.
+
+Importação usa schemas distintos de arquivo XML, conteúdo XML e nota de entrada, antes de ler, interpretar e consultar/gravar, respectivamente. Arquivo, texto e arquivo inicial compartilham uma trava síncrona; a chave normalizada pelo resolver é a mesma consultada e salva, preservando letras de CNPJ/chave alfanumérica. Não cria fornecedores, nem transmite ou recebe estoque nesta operação.
+
+**Validação:** 87 testes em 10 arquivos passaram (scratch/rhf-returns-import-regression.log), incluindo os proprietários, campo filho de quantidade, adapter RHF e regressões de saldo, política de devolução, parser XML, arquivos e recortes. Lint dos oito arquivos ERP desta rodada: zero erros, um aviso preexistente do efeito de importação (scratch/rhf-returns-import-lint.log). TypeScript global segue reprovado fora destes proprietários; não há diagnósticos dos arquivos alterados no relatório scratch/rhf-returns-import-tsc.log. Serviços são simulados; não constitui prova de navegador/nativo ou SEFAZ. Build ERP completo aprovado, incluindo startup fiscal/XSD (scratch/rhf-erp-build-returns-import.log); inventário global continua aberto.
+
+As três entradas alternativas de NF de entrada (InboundAccessKeyModal, InboundXmlImportModal e InboundDocumentImportModal) também foram conferidas: callbacks protegidos durante o serviço, arquivo validado antes de leitura, scanner com resolver real e proteção mútua entre consulta e arquivo. A confirmação de Ciência da Emissão e ambiente da reconsulta permanecem explícitos. Doze testes de componentes com serviços e hook de importação simulados comprovam esses caminhos; complementam os 12 testes do hook real com serviços simulados, sem afirmar integração remota completa.
+
+A busca até o serviço real encontrou perda de letras da chave nos módulos ativos de persistência/duplicidade. Eles agora reutilizam normalizeFiscalIdentifier em save/check/delete/markReceived, com cinco testes do gateway ativo; não altera o fallback offline existente nem recupera registros antigos truncados. A rodada consolidada passou em **106 testes / 13 arquivos** (scratch/rhf-returns-inbound-final-tests.log), com sobreposição aos 87 anteriores. Lint final: zero erros, um aviso preexistente. Build ERP completo aprovado após os ajustes de importação e persistência (scratch/rhf-erp-build-returns-inbound-final.log), incluindo startup fiscal/XSD; os últimos ajustes de fixture e scanner passaram também em 17 testes focados. TypeScript global continua reprovado fora deste lote, sem diagnósticos dos arquivos modificados no relatório final scratch/rhf-returns-inbound-final-tsc.log. A migração global permanece aberta.
+
+### Meta integral e avanço de variações/categorias — 15/10
+
+A meta ativa cobre todos os caminhos de formulário nas três aplicações. O inventário principal ERP tem **46 de 119 itens conferidos (38.7%), com 73 pendentes**. São itens de conferência/intenções, com proprietários e wrappers relacionados, não percentuais de código implementado ou de prontidão fiscal. O censo nativo inclui filhos e componentes sem submissão independente; mobile e catálogo ainda precisam de conferência individual. Um seletor composto só por botões foi descoberto e acrescentado ao denominador nesta rodada, por isso o total pode crescer durante a auditoria.
+
+O salvamento intermediário de variação passa pelo resolver até concluir, tanto no cadastro definitivo quanto no agregado de rascunho. Dois testes de concorrência falharam antes da correção e passaram depois. O editor da variação entrega somente valores parseados, preservando campos fiscais e metadados. Doze testes do editor + sete do proprietário pai cobrem validação, SKU, rascunho/cadastro, variação única e falha/retomada. A expectativa antiga de impedir salvar metadados da variação única com pai incompleto foi substituída por duas provas distintas: metadados da única variação preservam o rascunho do pai; variação independente incompleta continua bloqueada.
+
+O cadastro de categorias/ambientes já executava o resolver durante o serviço; oito testes conferiram criar/editar os dois tipos, nome parseado, vínculos/atributos, duplicidade e estados pendente/erro. O modal de seleção de fotos ganhou schema explícito e RHF, bloqueia identidades ausentes, indisponíveis, duplicadas e excesso de seleção; seleção vazia continua permitida. São sete testes do modal/contrato e dois de regressão do campo filho de fotos. As abas assistidas de variação permanecem pendentes, sem marcar o modal completo como concluído.
+
+**Verificação:** 68 testes em sete arquivos aprovados (scratch/rhf-variation-category-regression.log), mais nove testes de fotos em dois arquivos (scratch/rhf-variation-photo-selection.log). Serviços/callbacks simulados, sem cadastro remoto ou upload. Lint dos proprietários passou com zero erros e três avisos preexistentes; lint do seletor/fotos sem avisos. Build ERP completo aprovado (scratch/rhf-erp-build-variation-category.log), incluindo startup fiscal/XSD. TypeScript global segue reprovado fora dos arquivos desta rodada; não há diagnósticos destes proprietários/contratos/testes em scratch/rhf-variation-category-photo-tsc.log. Não representa encerramento da meta.
+
+### Intenções assistidas e atributos — continuação de 15/10
+
+Conferidos ManageAttributesModal e VariationAttributeValueInput. O cadastro inline conserva o resolver até gravar; create/update/delete de opções do modal já usavam o resolver e ganharam provas de payload, coleção mínima, falha e concorrência. A remoção integral sem campos é uma ação de confirmação, não um formulário novo.
+
+VariationDescriptionTab e VariationTechnicalDescriptionSection executam resolver antes de improveProductDescription, com schema compartilhado de título/descrição/medidas/peso e características dinâmicas escalares/listas. Não se exige conclusão do cadastro para uma sugestão; título ausente e números inválidos impedem a chamada. O indicador de processamento pertence ao callback válido: uma chamada concorrente recusada não libera o indicador da primeira. Campos de edição e herança permanecem no proprietário de variação.
+
+**Provas:** 52 testes em oito arquivos aprovados em scratch/rhf-variation-assisted-regression.log, incluindo dez dos dois proprietários de IA, seis do cadastro inline, seis de gerenciamento, regressões de herança/campos técnicos e dos proprietários de variação. O teste inline, restrito a DOM, usa happy-dom como os demais componentes deste lote; o ambiente jsdom não iniciou por falta do binário opcional de canvas no Windows. Não foi substituído nenhum teste de canvas ou de navegador. Lint do lote sem erros/avisos; TypeScript global reprova fora dos arquivos alterados (scratch/rhf-variation-assisted-tsc.log não contém diagnósticos destes proprietários/contrato/testes). Build ERP completo aprovado (scratch/rhf-erp-build-variation-assisted.log), incluindo startup fiscal/XSD. Serviços de IA e persistência simulados.
+
+O inventário principal ERP agora tem **50/122 itens conferidos (41.0%), 72 pendentes**. Foram acrescentados os dois proprietários assistidos conferidos e o hook de IA do produto ainda pendente, que não apareciam na lista principal. A métrica não mede a prontidão do sistema nem a cobertura global das três aplicações. A meta continua ativa.
+
+### Sugestões do produto, conversão e abrangência das três aplicações — 15/10
+
+useProductFormAi foi conferido nas sete intenções: categoria, combo, descrições WhatsApp/ecommerce, título, sugestão fiscal, aperfeiçoamento e preços. Cada uma tem schema explícito e resolver ativo durante o serviço; valores derivados usam dados parseados. Os requisitos existentes de medida/categoria e custo foram preservados. Corrigido o consumo dos retornos reais { name } / { description }, que antes eram atribuídos como objetos a campos textuais. Textos/preços inválidos ficam bloqueados sem substituir dados; margem zero informada é preservada. Não dispara classificação NCM ao abrir, mantém rascunho e conserva revisão fiscal antes de salvar.
+
+Conversão ganhou contrato de números herdados, preserva transferências de código/SKU/estoque e mantém a variação de rascunho inativa/oculta. Seleção cartesiana deixa de descartar linhas incompletas antes da validação; ambos aguardam callbacks e conservam estado após falha. O cartesiano não tem consumidor ativo encontrado e seus três testes cobrem apenas o componente, sem declarar fluxo operacional.
+
+**Provas:** 49 testes do proprietário de IA/abertura e dez dos modais de operações; consolidação final de 133 testes em 13 arquivos aprovada (scratch/rhf-product-ai-conversion-final-tests.log). Cinco testes dos modais falharam antes da correção (scratch/rhf-variation-operations-before.log). Todos os serviços/callbacks são simulados. Lint sem erros/avisos; TypeScript global reprova fora deste lote, sem diagnósticos dos arquivos alterados em scratch/rhf-product-ai-conversion-final-tsc.log. Build ERP completo aprovado (scratch/rhf-erp-build-product-ai-conversion-final.log), incluindo startup fiscal/XSD.
+
+O checkpoint de sugestões/conversão registrou **53/122 itens conferidos (43.4%), 69 pendentes**. Para preservar o escopo integral, foi criado o [inventário mobile/catálogo](inventario-mobile-catalogo-2026-10-15.md): 91 arquivos candidatos no mobile e 31 no catálogo, incluindo filhos/wrappers/hooks. As localizações de integração continuam em 34 e 13 arquivos, respectivamente; isso não comprova cobertura. Os novos itens seguem pendentes até mapear os callbacks e a prova específica. Nenhuma porcentagem global das três aplicações é inferida desses censos.
+
+### Autenticação mobile e catálogo — em conferência
+
+Os proprietários de login, recuperação, criação e troca de senha já possuem schemas compartilhados, mas encerravam o resolver antes do serviço. A continuação mantém o resolver ativo durante cada operação e uma trava comum entre intenções concorrentes da mesma tela. Políticas de senha existentes permanecem: login aceita senha de conta legada; mobile exige oito caracteres na criação/troca; catálogo mantém seis no cadastro/recuperação. Nenhuma chamada real de Auth, e-mail ou alteração de conta será feita para os testes. Conferidos os três componentes móveis e as duas páginas do catálogo no inventário individual. Os nove testes móveis de Auth, sete do catálogo e três do prazo compartilhado passaram. O conjunto móvel soma 16 com os sete proprietários anteriores; todas as chamadas são simuladas, sem criação/alteração de conta, e-mail ou login real. Logs: scratch/rhf-mobile-auth-final-tests.log, rhf-catalog-auth-final-tests.log, rhf-auth-timeout-tests.log.
+
+O limite compartilhado usa withTimeout e libera timers em sucesso/erro/prazo. A tela apresenta resultado não confirmado e não aplica sucesso tardio pelo callback; não há cancelamento do pedido no provedor nem retry automático. Os contexts de sessão permanecem responsáveis pelos eventos reais de Auth. Mobile e catálogo compartilham exatamente o helper via reexport no catálogo. Testes móveis/catálogo usam React do ERP com RN/router simulados; não substituem prova visual ou execução nativa. TypeScript completo do catálogo passou e o build Next passou (scratch/rhf-catalog-auth-build.log) antes do último ajuste de catch/erro, coberto por teste/TypeScript/lint posteriores. TypeScript móvel mantém erros de base fora dos componentes alterados, sem diagnóstico destes em scratch/rhf-mobile-auth-final-tsc.log. Lint dos componentes móveis/páginas do catálogo passou sem erros/avisos. As verificações de lint inicialmente rodadas fora de seu diretório ignoraram arquivos e não foram aceitas como prova; foram refeitas nas aplicações.
+
+### Perfil do catálogo — seis intenções conferidas
+
+Nome, solicitação/confirmação de novo e-mail, senha atual, pedido de recuperação e OTP/nova senha mantêm resolver real até a conclusão. Corrigido hook de formulário após retorno condicional de sessão, e-mail de contexto sem parse na reautenticação/recuperação e concorrência entre intenções. Logout verifica erro retornado pelo provedor; prazos não disparam alternativa OTP automaticamente. O rascunho de nome pertence ao ID da conta e as senhas mantêm o contrato existente. Dez testes do perfil passam após oito falhas comprovadas antes do ajuste; 17 testes totais do catálogo, TypeScript completo, lint da página e build Next finais aprovados (scratch/rhf-catalog-profile-*). Não há operação real de Auth ou prova de navegação nativa. O inventário individual agora registra três componentes móveis e três páginas do catálogo; Nesse checkpoint, o ERP principal registrava 53/122, 69 pendentes.
+
+### Autenticação ERP — quatro proprietários adicionais conferidos
+
+Login, cadastro, recuperação de senha e PasswordSetupPrompt mantêm RHF/zodResolver real durante seus efeitos. O botão de recuperação do login agora usa contrato de e-mail sem exigir senha. Os callbacks usam dados parseados; senhas preservam espaços, login conserva senhas legadas, cadastro exige seis e redefinição/criação exige oito caracteres. A trava comum de cada tela começa antes da validação e inclui OAuth/reenvio/saída quando aplicável. Serviços de Auth têm prazo local, erro visível e nenhuma repetição automática ou navegação/limpeza por sucesso tardio do callback.
+
+AuthContext ignorava erro retornado por signOut e limpava a conta local mesmo sem confirmação: agora limita a espera, verifica o resultado e só limpa a conta após sucesso confirmado. Os eventos reais de sessão continuam pertencendo ao contexto; o prazo não cancela o provedor. As ações de saída e OAuth não têm campos e não recebem schemas artificiais.
+
+Doze testes reproduziram falhas antes dos ajustes (scratch/rhf-erp-auth-before.log). Os testes finais somam 58 em oito arquivos, incluindo 35 dos quatro proprietários/contexto e 23 dos serviços/limite compartilhado (rhf-erp-auth-final-tests.log). São 14 testes novos sobre esses proprietários/contexto. Supabase, OAuth e navegação simulados, sem conta/e-mail real. TypeScript global ainda reprova fora deste lote, sem diagnósticos dos arquivos alterados (rhf-erp-auth-tsc.log). Lint dos cinco arquivos passou sem erros e com dois avisos existentes em AuthContext (dependência fetchProfile/fast refresh), preservados por estarem fora do ajuste.
+
+**Checkpoint após autenticação do ERP: 57/122 itens conferidos (46,7%), 65 pendentes.** Censo de entradas também vincula os quatro proprietários; isso não transforma os 258 arquivos em formulários independentes. Mobile permanece com três componentes e catálogo com três páginas conferidos no inventário individual, sem percentual global presumido.
+
+### Conferência posterior — cargos e fronteira do catálogo
+
+UserRolesModal e seu caller tratam falha/prazo sem fechar a edição ou aplicar sucesso tardio; bloqueiam repetição e fechamento enquanto a validação/gravação estiver pendente. Opções permitidas vêm de SYSTEM_ROLES; lista vazia mantém a remoção intencional de acesso. Seis testes do modal/caller e lint passaram (scratch/rhf-user-roles-tests.log, rhf-user-roles-lint.log); TypeScript global continua reprovando fora destes arquivos, sem diagnósticos do lote (rhf-user-roles-tsc.log). O build ERP final passou (rhf-erp-auth-roles-final-build.log), incluindo as mudanças de autenticação. Aviso de tamanho dos chunks permanece. O modal de cargos é legado: Router encaminha /users para AccessAndUsersPage/PersonFormModal; os testes não representam execução da gestão ativa de permissões ou prova das regras do backend.
+
+A fronteira ZodForm do catálogo também não tem consumidor ativo localizado. Seu contrato agora exige callback onValid com dados parseados, espera até sua conclusão e apresenta falhas; três testes específicos passaram. Com autenticação/perfil, são 20 testes do catálogo, TypeScript completo, lint da fronteira e build Next finais aprovados (scratch/rhf-catalog-profile-boundary-final-*, rhf-catalog-boundary-lint.log). Não contar a fronteira como uma quarta página operacional.
+
+**Estado atual: ERP principal 58/122 itens conferidos (47,5%), 64 pendentes.** O número inclui itens legados mapeados e conferidos, não significa 47,5% do código ou de todos os formulários das três aplicações. Mobile: três componentes conferidos; catálogo: três páginas e uma fronteira técnica. A conferência integral, os demais candidatos e as provas reais de navegação/dispositivo permanecem abertos.
+
+Consolidação final destes lotes: 64 testes do ERP em dez arquivos (scratch/rhf-erp-auth-roles-final-tests.log), 16 móveis em dois (rhf-mobile-auth-account-final-tests.log) e 20 do catálogo em três (rhf-catalog-profile-boundary-final-tests.log): 100 execuções aprovadas, incluindo regressões existentes, não 100 testes novos ou cobertura de todos os formulários. Builds finais ERP e catálogo aprovados; TypeScript completo do catálogo aprovado, enquanto ERP/mobile mantêm as pendências globais já delimitadas. Nenhum teste realizou operação real de Auth, permissões, negócio, e-mail ou SEFAZ.
