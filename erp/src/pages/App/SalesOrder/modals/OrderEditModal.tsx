@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import SalesOrderFormSection from '../SalesOrderFormSection';
-import { useSalesOrderForm, parseStorageDateToLocal } from '../useSalesOrderForm';
+import SalesOrderFormSection from '../components/SalesOrderFormSection';
+import { useSalesOrderForm, parseStorageDateToLocal } from '../hooks/useSalesOrderForm';
 import Order from '@/pages/types/order.type';
 import {
   updateOrder,
@@ -13,15 +13,15 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createOrderDomainSchema, orderReconciliationFormSchema } from '../../../../../../shared-utils/orderDomainValidation';
 import { getSettings } from '@/pages/utils/settingsService';
 import type { z } from 'zod';
-import OrderStatusTimeline from '../OrderStatusTimeline';
-import OrderStepper from '../OrderStepper';
+import OrderStatusTimeline from '../components/OrderStatusTimeline';
+import OrderStepper from '../components/OrderStepper';
 import SellerSearchModal from './SellerSearchModal';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
 import ItemMovementChangeConfirmModal, {
   getInventorySensitiveItemChanges,
 } from './ItemMovementChangeConfirmModal';
-import ProductReconciliationItems from '../ProductReconciliationItems';
+import ProductReconciliationItems from '../components/ProductReconciliationItems';
 import ConfirmModal from '@/components/shared/ConfirmModal';
 import {
   auditFiscalOrderEdit,

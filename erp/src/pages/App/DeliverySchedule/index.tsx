@@ -4,8 +4,8 @@ import { useDeliverySchedule, ScheduleFilter, OrderTypeFilter } from './useDeliv
 import OrderDetailsModal from './OrderDetailsModal';
 import ScheduleCardView from './ScheduleCardView/Index';
 import ShowroomAssemblyModal from './ShowroomAssemblyModal';
-import OrderEditModal from '../SalesOrder/OrderEditModal';
-import AssistanceOrderModal from '../SalesOrder/AssistanceOrderModal';
+import OrderEditModal from '../SalesOrder/modals/OrderEditModal';
+import AssistanceOrderModal from '../SalesOrder/modals/AssistanceOrderModal';
 
 const DeliverySchedule = () => {
   const navigate = useNavigate();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateVariationSku } from './productSku';
+import { generateVariationSku, normalizeVariationSku } from './productSku';
 
 describe('mobile generateVariationSku', () => {
   it('preenche -01 quando -01 foi removido e existem -02 e -03', () => {
@@ -35,5 +35,11 @@ describe('mobile generateVariationSku', () => {
   it('suporta passagem direta de índice numérico', () => {
     expect(generateVariationSku('654321', 0)).toBe('654321-01');
     expect(generateVariationSku('654321', 1)).toBe('654321-02');
+  });
+
+  it('normaliza SKU de variação corretamente', () => {
+    expect(normalizeVariationSku('  000312-01  ')).toBe('000312-01');
+    expect(normalizeVariationSku(null)).toBe('');
+    expect(normalizeVariationSku(undefined)).toBe('');
   });
 });

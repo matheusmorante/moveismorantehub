@@ -1,10 +1,10 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
-import { useSalesOrderForm } from '../useSalesOrderForm';
+import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
 import Order from '@/pages/types/order.type';
-import SalesOrderFormSection from '../SalesOrderFormSection';
-import OrderStepper from '../OrderStepper';
+import SalesOrderFormSection from '../components/SalesOrderFormSection';
+import OrderStepper from '../components/OrderStepper';
 import { toast } from 'react-toastify';
-import SellerSearchModal from '../SellerSearchModal';
+import SellerSearchModal from '../modals/SellerSearchModal';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';

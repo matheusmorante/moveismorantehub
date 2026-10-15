@@ -32,7 +32,7 @@ import AccessAndUsersPage from './pages/App/AccessAndUsers/Index';
 import PurchasesPage from './pages/App/Stock/Purchases/Index';
 import ReceiptsPage from './pages/App/Stock/Receipts/Index';
 import InboundInvoicesPage from './pages/App/Stock/InboundInvoices/Index';
-import OrderRouteMap from './pages/App/SalesOrder/OrderRouteMap';
+import OrderRouteMap from './pages/App/SalesOrder/components/OrderRouteMap';
 import ShippingLabelPage from './pages/ShippingLabelPage';
 import CustomerDesiresPage from './pages/App/Customers/CustomerDesiresPage';
 import WhatsAppMarketplace from './pages/App/Products/WhatsAppMarketplace';
@@ -58,8 +58,8 @@ const SalesOrderReportViewBling = lazy(
   () => import('./pages/App/SalesOrder/ReportsBling/ReportView')
 );
 import BlingStock from './pages/App/Stock/BlingStock/index';
-import NewSaleOrder from './pages/App/SalesOrder/NewSaleOrder';
-import OrderEditModal from './pages/App/SalesOrder/OrderEditModal';
+import NewSaleOrder from './pages/App/SalesOrder/pages/NewSaleOrder';
+import OrderEditModal from './pages/App/SalesOrder/modals/OrderEditModal';
 import FiscalDocumentsPage from './pages/App/FiscalDocuments';
 import { canPerform } from './pages/utils/permissionService';
 import { getProfileRoles } from './pages/utils/accessRoles';

@@ -52,7 +52,7 @@ vi.mock('@/pages/utils/orderHistoryService', () => ({
   fetchOrderById: vi.fn(),
 }));
 
-vi.mock('../SalesOrderFormSection', () => ({
+vi.mock('../components/SalesOrderFormSection', () => ({
   default: (props: any) => (
     <div
       data-testid="mock-sales-order-form-section"
@@ -65,7 +65,7 @@ vi.mock('../SalesOrderFormSection', () => ({
 
 vi.mock('@/context/AuthContext', () => ({ useAuth: mockUseAuth }));
 
-vi.mock('../useSalesOrderForm', () => ({
+vi.mock('../hooks/useSalesOrderForm', () => ({
   useSalesOrderForm: () => ({
     state: {
       currentStep: 1,

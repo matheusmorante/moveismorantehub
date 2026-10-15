@@ -54,3 +54,8 @@ export const generateVariationSku = (
     candidate++;
   }
 };
+
+export const normalizeVariationSku = (sku?: string | null): string => {
+  if (!sku) return '';
+  return String(sku).trim().toUpperCase();
+};

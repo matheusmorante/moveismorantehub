@@ -18,7 +18,7 @@ import { formatOrderCode } from '../../../utils/orderCode';
 import { saveOrder } from '../../../utils/orderHistoryService';
 import { getReturnableQuantities, getReturnLineKey, type ReturnQuantityRecord } from '../../../utils/returnQuantityRules';
 import { supabase } from '../../../utils/supabaseConfig';
-import ReturnFormTabs, { type ReturnFormTab } from '../ReturnFormTabs';
+import ReturnFormTabs, { type ReturnFormTab } from '../components/ReturnFormTabs';
 import ReturnCollectionSection from './ReturnCollectionSection';
 import ReturnItemsSelection from './ReturnItemsSelection';
 import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';

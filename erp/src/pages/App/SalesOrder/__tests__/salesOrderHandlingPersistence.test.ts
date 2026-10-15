@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
-import { useSalesOrderForm } from '../useSalesOrderForm';
+import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
 import Order from '@/pages/types/order.type';
 
 const { mockSaveOrder } = vi.hoisted(() => ({ mockSaveOrder: vi.fn() }));

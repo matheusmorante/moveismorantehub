@@ -1,10 +1,10 @@
 import React from 'react';
-import CustomerDataInputs from '../CustomerData';
+import CustomerDataInputs from '../components/CustomerData';
 import { PatternFormat as PatternFormatBase } from 'react-number-format';
 const PatternFormat = PatternFormatBase as any;
 
 import CustomerData from '../../../types/customerData.type';
-import AddressVerificationMap from '../AddressVerificationMap';
+import AddressVerificationMap from '../components/AddressVerificationMap';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
 import SmartInput from '../../../../components/SmartInput';
 

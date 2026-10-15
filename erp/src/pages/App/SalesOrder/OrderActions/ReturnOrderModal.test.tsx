@@ -71,7 +71,7 @@ vi.mock('./ReturnCollectionSection', async () => {
       ),
   };
 });
-vi.mock('../ReturnFormTabs', async () => {
+vi.mock('../components/ReturnFormTabs', async () => {
   const React = await import('react');
   return {
     default: ({ onChange }: any) =>

@@ -1,7 +1,7 @@
 import React from 'react';
 import Person from '@/pages/types/person.type';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
-import AddressVerificationMap from '@/pages/App/SalesOrder/AddressVerificationMap';
+import AddressVerificationMap from '@/pages/App/SalesOrder/components/AddressVerificationMap';
 
 interface PersonAddressSectionProps {
   formData: Partial<Person>;

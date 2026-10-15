@@ -22,7 +22,7 @@ import AssistanceDescriptionSection from '../AssistanceOrderModalComponents/Assi
 import AssistanceExtraItemsSection from '../AssistanceOrderModalComponents/AssistanceExtraItemsSection';
 import Agendamento from '../ShippingComponents/Agendamento';
 import AssistanceActions from '../AssistanceOrderModalComponents/AssistanceActions';
-import Seller from '../Seller';
+import Seller from '../components/Seller';
 
 interface AssistanceOrderModalProps {
   onClose: () => void;

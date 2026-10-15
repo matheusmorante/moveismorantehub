@@ -6,7 +6,7 @@ import PersonalInfos from './CustomerData';
 import FormHeader from './FormHeader';
 import FormFooter from './FormFooter';
 import SectionCard from '@/components/SectionCard';
-import { useSalesOrderForm } from '../useSalesOrderForm';
+import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
 import NoticeInput from '@/components/NoticeInput';
 
 import { getSettings } from '@/pages/utils/settingsService';

@@ -7,7 +7,7 @@ import DesktopNav from './components/layout/DesktopNav';
 import MobileNav from './components/layout/MobileNav';
 import GlobalAutoScroll from './components/shared/GlobalAutoScroll';
 import NotificationBell from './components/shared/NotificationBell';
-import AssistanceOrderModal from './pages/App/SalesOrder/AssistanceOrderModal';
+import AssistanceOrderModal from './pages/App/SalesOrder/modals/AssistanceOrderModal';
 import { crmIntelligenceService } from './pages/utils/crmIntelligenceService';
 import { redeConciliationService } from '@/pages/services/redeConciliationService';
 import FloatingActionsHub from './components/shared/FloatingActionsHub';

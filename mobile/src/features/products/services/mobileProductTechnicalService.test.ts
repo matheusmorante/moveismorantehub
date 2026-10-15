@@ -53,20 +53,24 @@ describe('mobileProductTechnicalService', () => {
     };
 
     const valuesQuery = {
-      select: vi.fn().mockResolvedValue({
-        data: [
-          { id: 'opt-firme', attribute_id: 'attr-1', value: 'Firme', sort_order: null },
-          { id: 'opt-macio', attribute_id: 'attr-1', value: 'Macio', sort_order: null },
-          { id: 'opt-medio', attribute_id: 'attr-1', value: 'Médio', sort_order: null },
-        ],
-        error: null,
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            { id: 'opt-firme', attribute_id: 'attr-1', value: 'Firme', sort_order: null },
+            { id: 'opt-macio', attribute_id: 'attr-1', value: 'Macio', sort_order: null },
+            { id: 'opt-medio', attribute_id: 'attr-1', value: 'Médio', sort_order: null },
+          ],
+          error: null,
+        }),
       }),
     };
 
     const categoryLinksQuery = {
-      select: vi.fn().mockResolvedValue({
-        data: [{ attribute_id: 'attr-1', category_id: 'cat-sofas' }],
-        error: null,
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({
+          data: [{ attribute_id: 'attr-1', category_id: 'cat-sofas' }],
+          error: null,
+        }),
       }),
     };
 
@@ -106,18 +110,22 @@ describe('mobileProductTechnicalService', () => {
     };
 
     const valuesQuery = {
-      select: vi.fn().mockResolvedValue({
-        data: [
-          { id: 'opt-2', attribute_id: 'attr-cor', value: 'Branco', sort_order: 2 },
-          { id: 'opt-1', attribute_id: 'attr-cor', value: 'Azul', sort_order: 1 },
-          { id: 'opt-0', attribute_id: 'attr-cor', value: 'Preto', sort_order: 0 },
-        ],
-        error: null,
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            { id: 'opt-2', attribute_id: 'attr-cor', value: 'Branco', sort_order: 2 },
+            { id: 'opt-1', attribute_id: 'attr-cor', value: 'Azul', sort_order: 1 },
+            { id: 'opt-0', attribute_id: 'attr-cor', value: 'Preto', sort_order: 0 },
+          ],
+          error: null,
+        }),
       }),
     };
 
     const categoryLinksQuery = {
-      select: vi.fn().mockResolvedValue({ data: [], error: null }),
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }),
     };
 
     supabaseMock.from.mockImplementation((table: string) => {

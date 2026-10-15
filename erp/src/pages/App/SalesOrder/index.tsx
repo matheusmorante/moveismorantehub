@@ -1,360 +1,68 @@
-import React, { useState, useRef } from 'react';
-import OrderHistoryList from './OrderHistoryList';
-import OrderEditModal from './OrderEditModal';
-import NewSaleOrder from './NewSaleOrder';
-import AssistanceOrderModal from './AssistanceOrderModal';
-import UnlinkedReturnOrderModal from './UnlinkedReturnOrderModal';
-import NewOrderDropdown from './NewOrderDropdown';
-import BudgetDropdown from './BudgetDropdown';
-import Order, { VisibilitySettings } from '../../types/order.type';
-import OrderFilters, { Filters } from './OrderFilters';
-import { OrderHistoryListRef } from './OrderHistoryList';
-import PostOrderActionsModal from './OrderActions/PostOrderActionsModal';
-import ReturnOrderModal from './OrderActions/ReturnOrderModal';
-import NfeEmissionModal from './OrderActions/NfeEmissionModal';
-import NfeEnvironmentChoiceModal from './OrderActions/nfe-modal/NfeEnvironmentChoiceModal';
-import OrderDetailsModal from '../DeliverySchedule/OrderDetailsModal';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { canGenerateReturn } from '../../utils/returnPolicy';
-import { createSalesOrderDuplicate } from '../../utils/duplicateOrder';
-import { toast } from 'react-toastify';
+import React, { useState, useRef, useEffect } from 'react';
+import OrderHistoryList, { OrderHistoryListRef } from './OrderHistoryList';
+import OrderFilters from './components/OrderFilters';
 import OrderCustomerSearchBar from './OrderHistoryList/OrderCustomerSearchBar';
 import ShowTestDataToggle from '@/components/shared/ShowTestDataToggle';
 import { useAuth } from '@/context/AuthContext';
 import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
 import { prefetchNfeNumberPreviews } from '@/pages/utils/nfe/nfeNumberPreviewPrefetch';
-import type { NfeEmissionResult } from '../../utils/nfe/nfeService';
-import { IssuedFiscalDocumentDetailsModal } from '../FiscalDocuments/modals/IssuedFiscalDocumentDetailsModal';
-import NfeOperationDraftModal from '../FiscalDocuments/modals/NfeOperationDraftModal';
-import { ReturnFiscalSourcePickerModal } from '../FiscalDocuments/modals/ReturnFiscalSourcePickerModal';
-import { fetchReturnFiscalEligibility } from '../FiscalDocuments/services/fiscalOperationDraftService';
-import { fetchOrderById } from '../../utils/orderHistoryService';
-import { prepareOrderFiscalSnapshotForEmission } from '../../utils/nfeEmissionSnapshotService';
-import type {
-  ReturnFiscalEligibility,
-  SourceDocument,
-} from '../FiscalDocuments/types/fiscalOperationDraft.types';
+import { useSalesOrderRoutingFilters } from './hooks/useSalesOrderRoutingFilters';
+import { useSalesOrderModals } from './hooks/useSalesOrderModals';
+import SalesOrderModalsContainer from './modals/SalesOrderModalsContainer';
+import { VisibilitySettings } from '../../types/order.type';
 
 const SalesOrder = () => {
-  const [orderModalType, setOrderModalType] = useState<
-    'sale' | 'assistance' | 'budget' | 'return' | null
-  >(null);
-  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [editingInitialStep, setEditingInitialStep] = useState<number | undefined>(undefined);
-  const [editingHighlightTemporary, setEditingHighlightTemporary] = useState<boolean>(false);
-  const [editingReconciliationMode, setEditingReconciliationMode] = useState<boolean>(false);
-  const [detailsOrder, setDetailsOrder] = useState<Order | null>(null);
-  const [postOrderDetails, setPostOrderDetails] = useState<Order | null>(null);
-  const [returningOrder, setReturningOrder] = useState<Order | null>(null);
-  const [nfeChoiceOrder, setNfeChoiceOrder] = useState<Order | null>(null);
-  const [chosenNfeEnvironment, setChosenNfeEnvironment] = useState<1 | 2>(1);
-  const [nfeModalOrder, setNfeModalOrder] = useState<Order | null>(null);
-  const [nfeEmissionOpenedAt, setNfeEmissionOpenedAt] = useState<number | undefined>();
-  const [nfeSnapshotPreparationOrderId, setNfeSnapshotPreparationOrderId] = useState<
-    string | null
-  >(null);
-  const nfeSnapshotPreparationInProgress = useRef(false);
-  const [issuedFiscalDocument, setIssuedFiscalDocument] = useState<{
-    result: NfeEmissionResult;
-    order: Order;
-  } | null>(null);
-  const [fiscalDocumentToView, setFiscalDocumentToView] = useState<{
-    documentId: string;
-    environment: 1 | 2;
-  } | null>(null);
-  const [returnFiscalEligibility, setReturnFiscalEligibility] =
-    useState<ReturnFiscalEligibility | null>(null);
-  const [returnFiscalSelection, setReturnFiscalSelection] = useState<{
-    source: SourceDocument;
-    draftId: string | null;
-    returnOrderId: string;
-    returnOrderIndex: number | null;
-  } | null>(null);
-  const [duplicatingOrder, setDuplicatingOrder] = useState<Order | null>(null);
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { profile, isAdministrator } = useAuth();
-  const canOperateFiscal = hasFiscalOperationRole(profile);
-  const isBudgetRoute = location.pathname === '/budgets';
-  const isAssistanceRoute = location.pathname === '/assistance-orders';
-  const isReturnRoute = location.pathname === '/returns';
-  const isSalesOrderRoute =
-    location.pathname === '/sales-order' ||
-    (!isBudgetRoute && !isAssistanceRoute && !isReturnRoute);
-  const showOrderFilters = !isReturnRoute && !isSalesOrderRoute;
-
-  React.useEffect(() => {
-    if (location.pathname !== '/sales-order' || !canOperateFiscal) return;
-    void prefetchNfeNumberPreviews();
-  }, [canOperateFiscal, location.pathname]);
-
-  const [filters, setFilters] = useState<Filters>({
-    dateRange: { start: '', end: '' },
-    dateType: 'personalizado' as
-      | 'personalizado'
-      | 'hoje'
-      | 'esse_mes'
-      | 'mes_passado'
-      | 'ultimo_semestre'
-      | 'esse_ano',
-    customerName: '',
-    productName: '',
-    status: '',
-    orderType: isBudgetRoute
-      ? 'budget'
-      : isAssistanceRoute
-        ? 'assistance'
-        : isReturnRoute
-          ? 'return'
-          : 'sale',
-    isBudgetView: isBudgetRoute,
-    isAssistanceView: isAssistanceRoute,
-    isReturnView: isReturnRoute,
-    seller: '',
-    valueRange: { min: 0, max: 1000000 },
-    sortBy: 'date' as any,
-    sortOrder: 'desc' as any,
-    multiSort: [{ key: 'date', order: 'desc' }] as { key: string; order: 'asc' | 'desc' }[],
-    searchId: '',
-  });
-  const [customerSearchInput, setCustomerSearchInput] = useState(filters.customerName);
-  const customerSearchBlurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearCustomerSearchBlurTimer = React.useCallback(() => {
-    if (customerSearchBlurTimer.current) {
-      clearTimeout(customerSearchBlurTimer.current);
-      customerSearchBlurTimer.current = null;
-    }
-  }, []);
-
-  React.useEffect(
-    () => () => {
-      clearCustomerSearchBlurTimer();
-    },
-    [clearCustomerSearchBlurTimer]
-  );
-
-  React.useEffect(() => {
-    clearCustomerSearchBlurTimer();
-    setCustomerSearchInput(filters.customerName || '');
-  }, [clearCustomerSearchBlurTimer, filters.customerName]);
-
-  const handleCustomerSearchBlur = (value: string) => {
-    const customerName = value.trim();
-    if (customerName.length > 0 && customerName.length < 3) {
-      setCustomerSearchInput(filters.customerName || '');
-      return;
-    }
-
-    clearCustomerSearchBlurTimer();
-    customerSearchBlurTimer.current = setTimeout(() => {
-      setFilters((previous) =>
-        (previous.customerName || '').trim() === customerName
-          ? previous
-          : { ...previous, customerName }
-      );
-      customerSearchBlurTimer.current = null;
-    }, 300);
-  };
-
-  // Sincronizar filtro quando a rota mudar
-  React.useEffect(() => {
-    setFilters((prev) => ({
-      ...prev,
-      orderType: isBudgetRoute
-        ? 'budget'
-        : isAssistanceRoute
-          ? 'assistance'
-          : isReturnRoute
-            ? 'return'
-            : 'sale',
-      isBudgetView: isBudgetRoute,
-      isAssistanceView: isAssistanceRoute,
-      isReturnView: isReturnRoute,
-    }));
-
-    const title = isBudgetRoute
-      ? 'Orçamentos'
-      : isAssistanceRoute
-        ? 'Assistências'
-        : isReturnRoute
-          ? 'Devoluções'
-          : 'Pedidos de Venda';
-    document.title = `${title} | Móveis Morante`;
-  }, [isBudgetRoute, isAssistanceRoute, isReturnRoute]);
-
-  React.useEffect(() => {
-    const saleOrderId = location.state?.saleOrderIdToOpen as string | undefined;
-    if (!saleOrderId) return;
-    setFilters((prev) => ({ ...prev, searchId: saleOrderId }));
-    setHighlightOrderId(saleOrderId);
-    navigate('/sales-order', { replace: true, state: null });
-  }, [location.state, navigate]);
-
-  React.useEffect(() => {
-    const queryParams = new URLSearchParams(window.location.search);
-    const typeParam = queryParams.get('type');
-    const newParam = queryParams.get('new');
-
-    if (typeParam === 'budget') {
-      setFilters((prev) => ({ ...prev, orderType: 'budget' }));
-      if (newParam === 'true') {
-        setOrderModalType('budget');
-      }
-    }
-  }, [window.location.search]);
-
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showTestOrders, setShowTestOrders] = useState(false);
-  // Legado de lixeira mantido apenas para compatibilidade interna; não há mais acesso na interface.
-  const [isTrashOpen, setIsTrashOpen] = useState(false);
-  const [isDraftsOpen, setIsDraftsOpen] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-
-  React.useEffect(() => {
-    if (!isAdministrator) setShowTestOrders(false);
-  }, [isAdministrator]);
   const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
   const orderListRef = useRef<OrderHistoryListRef>(null);
   const trashListRef = useRef<OrderHistoryListRef>(null);
   const draftsListRef = useRef<OrderHistoryListRef>(null);
-  const [visibilitySettings, setVisibilitySettings] = useState<VisibilitySettings>({
-    id: true,
-    orderDate: true,
-    deliveryDate: true,
-    customer: true,
-    totalValue: true,
-    status: true,
-    orderType: true,
-    labels: true,
 
-    actions: true,
+  const { profile, isAdministrator } = useAuth();
+  const canOperateFiscal = hasFiscalOperationRole(profile);
+
+  const modals = useSalesOrderModals({
+    orderListRef,
+    draftsListRef,
+    setHighlightOrderId,
   });
 
-  const toggleVisibility = (column: keyof VisibilitySettings) => {
-    setVisibilitySettings((prev) => ({ ...prev, [column]: !prev[column] }));
-  };
+  const routingFilters = useSalesOrderRoutingFilters({
+    setHighlightOrderId,
+    setOrderModalType: modals.setOrderModalType,
+    isAdministrator,
+  });
 
-  const handleSort = (key: string, order: 'asc' | 'desc', isMulti: boolean = false) => {
-    setFilters((prev) => {
-      let newMultiSort = [...prev.multiSort];
+  const {
+    isBudgetRoute,
+    isAssistanceRoute,
+    isReturnRoute,
+    isSalesOrderRoute,
+    showOrderFilters,
+    filters,
+    setFilters,
+    customerSearchInput,
+    setCustomerSearchInput,
+    clearCustomerSearchBlurTimer,
+    handleCustomerSearchBlur,
+    visibilitySettings,
+    toggleVisibility,
+    handleSort,
+    showTestOrders,
+    setShowTestOrders,
+    activeFilters,
+    trashFilters,
+    draftFilters,
+  } = routingFilters;
 
-      if (isMulti) {
-        // If column already in list, update its order
-        const existingIdx = newMultiSort.findIndex((s) => s.key === key);
-        if (existingIdx !== -1) {
-          newMultiSort[existingIdx] = { key, order };
-        } else {
-          newMultiSort.push({ key, order });
-        }
-      } else {
-        // Single sort: replace all with just this one
-        newMultiSort = [{ key, order }];
-      }
+  useEffect(() => {
+    if (!isSalesOrderRoute || !canOperateFiscal) return;
+    void prefetchNfeNumberPreviews();
+  }, [canOperateFiscal, isSalesOrderRoute]);
 
-      return {
-        ...prev,
-        sortBy: key as any,
-        sortOrder: order,
-        multiSort: newMultiSort,
-      };
-    });
-  };
-
-  const showTestOrdersForCurrentRole = isAdministrator && showTestOrders;
-  const activeFilters = React.useMemo(
-    () => ({
-      ...filters,
-      showTrash: false,
-      isDraft: false,
-      showTestOrders: showTestOrdersForCurrentRole,
-    }),
-    [filters, showTestOrdersForCurrentRole]
-  );
-  const trashFilters = React.useMemo(
-    () => ({
-      ...filters,
-      showTrash: true,
-      isDraft: false,
-      showTestOrders: showTestOrdersForCurrentRole,
-    }),
-    [filters, showTestOrdersForCurrentRole]
-  );
-  const draftFilters = React.useMemo(
-    () => ({
-      ...filters,
-      showTrash: false,
-      isDraft: true,
-      showTestOrders: showTestOrdersForCurrentRole,
-    }),
-    [filters, showTestOrdersForCurrentRole]
-  );
-
-  const handleOrderAction = (key: string, order: Order) => {
-    if (key === 'generateReturn') {
-      if (!canGenerateReturn(order)) return;
-      setReturningOrder(order);
-    } else if (key === 'duplicateOrder') {
-      const duplicated = {
-        ...createSalesOrderDuplicate(order),
-        date: new Date().toISOString(),
-      };
-      if (duplicated.orderType === 'assistance') {
-        setDuplicatingOrder({
-          ...duplicated,
-        });
-      } else {
-        sessionStorage.setItem('pdv_duplicate_order', JSON.stringify(duplicated));
-        navigate(`/sales-order/new?type=${duplicated.orderType || 'sale'}&duplicate=true`);
-      }
-    } else if (key === 'generateSaleFromBudget') {
-      const duplicated = {
-        ...createSalesOrderDuplicate(order),
-        orderType: 'sale' as const,
-        date: new Date().toISOString(),
-      };
-      sessionStorage.setItem('pdv_duplicate_order', JSON.stringify(duplicated));
-      navigate(`/sales-order/new?type=sale&duplicate=true`);
-    } else if (key === 'issueNfe' || key === 'ISSUE_NFE') {
-      setNfeChoiceOrder(order);
-    } else if (key === 'openReturnNfe' && order.orderType === 'return' && order.id) {
-      void fetchReturnFiscalEligibility(order.id)
-        .then((eligibility) => setReturnFiscalEligibility(eligibility))
-        .catch((cause) => {
-          setReturnFiscalEligibility({
-            eligible: false,
-            returnOrderId: order.id || '',
-            hasAuthorizedOriginal: false,
-            reason:
-              cause instanceof Error
-                ? cause.message
-                : 'Não foi possível verificar a elegibilidade fiscal da devolução.',
-            sources: [],
-          });
-        });
-    }
-  };
-
-  const handleDirectIssueNfe = async (order: Order, environment: 1 | 2 = 1) => {
-    if (nfeSnapshotPreparationInProgress.current) return;
-    nfeSnapshotPreparationInProgress.current = true;
-    setNfeSnapshotPreparationOrderId(order.id || 'pending');
-    try {
-      const preparedOrder = await prepareOrderFiscalSnapshotForEmission(order, environment);
-      setChosenNfeEnvironment(environment);
-      setNfeEmissionOpenedAt(performance.now());
-      setNfeModalOrder(preparedOrder);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível preparar os dados fiscais do pedido.'
-      );
-    } finally {
-      nfeSnapshotPreparationInProgress.current = false;
-      setNfeSnapshotPreparationOrderId(null);
-    }
-  };
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
+  const [isDraftsOpen, setIsDraftsOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className="flex min-h-screen transition-colors duration-300 relative pb-16">
@@ -402,13 +110,13 @@ const SalesOrder = () => {
               </div>
             )}
 
-            {/* Action Buttons Group (lá no final do lado direito) */}
+            {/* Action Buttons Group */}
             <div className="ml-auto flex items-center gap-2 shrink-0">
               {isAdministrator && (
                 <ShowTestDataToggle checked={showTestOrders} onChange={setShowTestOrders} />
               )}
 
-              {/* Visualizacao Dropdown */}
+              {/* Visualização Dropdown */}
               {!isReturnRoute && !isSalesOrderRoute && (
                 <div className="relative hidden lg:block">
                   <button
@@ -470,7 +178,7 @@ const SalesOrder = () => {
                 </div>
               )}
 
-              {/* Filtros: exibidos antes da criação e alinhados à direita em telas menores. */}
+              {/* Filtros: exibidos antes da criação e alinhados à direita em telas menores */}
               {showOrderFilters && (
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -486,10 +194,10 @@ const SalesOrder = () => {
                 </button>
               )}
 
-              {/* Main Create Button */}
+              {/* Botões de Criação Conforme Rota */}
               {isBudgetRoute && (
                 <button
-                  onClick={() => setOrderModalType('budget')}
+                  onClick={() => modals.setOrderModalType('budget')}
                   className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-blue-500/20 transition-all active:scale-95"
                 >
                   <i className="bi bi-plus-lg text-sm" />
@@ -498,7 +206,7 @@ const SalesOrder = () => {
               )}
               {isAssistanceRoute && (
                 <button
-                  onClick={() => setOrderModalType('assistance')}
+                  onClick={() => modals.setOrderModalType('assistance')}
                   className="flex items-center justify-center gap-1.5 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-orange-500/20 transition-all active:scale-95"
                 >
                   <i className="bi bi-tools text-sm" />
@@ -507,7 +215,7 @@ const SalesOrder = () => {
               )}
               {isReturnRoute && (
                 <button
-                  onClick={() => setOrderModalType('return')}
+                  onClick={() => modals.setOrderModalType('return')}
                   className="flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-amber-500/20 transition-all active:scale-95"
                 >
                   <i className="bi bi-arrow-return-left text-sm" />
@@ -516,7 +224,7 @@ const SalesOrder = () => {
               )}
               {!isBudgetRoute && !isAssistanceRoute && !isReturnRoute && (
                 <button
-                  onClick={() => setOrderModalType('sale')}
+                  onClick={() => modals.setOrderModalType('sale')}
                   className="flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-emerald-500/20 transition-all active:scale-95"
                 >
                   <i className="bi bi-plus-lg text-sm" />
@@ -555,14 +263,14 @@ const SalesOrder = () => {
               <div className="flex-1 min-w-0 flex flex-col">
                 <OrderHistoryList
                   onEdit={(order, initialStep, highlightTemporary, reconciliationMode) => {
-                    setEditingInitialStep(initialStep);
-                    setEditingHighlightTemporary(!!highlightTemporary);
-                    setEditingReconciliationMode(!!reconciliationMode);
-                    setEditingOrder(order);
+                    modals.setEditingInitialStep(initialStep);
+                    modals.setEditingHighlightTemporary(!!highlightTemporary);
+                    modals.setEditingReconciliationMode(!!reconciliationMode);
+                    modals.setEditingOrder(order);
                   }}
-                  onViewDetails={setDetailsOrder}
+                  onViewDetails={modals.setDetailsOrder}
                   onViewFiscalDocument={(documentId, environment) =>
-                    setFiscalDocumentToView({ documentId, environment })
+                    modals.setFiscalDocumentToView({ documentId, environment })
                   }
                   filters={activeFilters}
                   visibilitySettings={visibilitySettings}
@@ -576,9 +284,9 @@ const SalesOrder = () => {
                       ? undefined
                       : (name) => setFilters((prev) => ({ ...prev, customerName: name }))
                   }
-                  onAction={handleOrderAction}
-                  onIssueNfe={handleDirectIssueNfe}
-                  onShowPostSaleActions={setPostOrderDetails}
+                  onAction={modals.handleOrderAction}
+                  onIssueNfe={modals.handleDirectIssueNfe}
+                  onShowPostSaleActions={modals.setPostOrderDetails}
                 />
               </div>
             </div>
@@ -596,7 +304,6 @@ const SalesOrder = () => {
             className="bg-white dark:bg-slate-950 w-full h-full md:w-[95vw] md:h-[95vh] rounded-none md:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 md:border border-white/20 dark:border-slate-800/50"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
             <div className="px-8 md:px-10 py-6 md:py-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 transition-colors duration-300">
               <div className="flex items-center gap-5">
                 <div className="bg-red-600 p-3 rounded-2xl shadow-xl shadow-red-100 dark:shadow-red-900/20">
@@ -619,15 +326,14 @@ const SalesOrder = () => {
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="flex-1 overflow-y-auto p-4 md:p-10 bg-slate-50 dark:bg-slate-950">
               <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none overflow-visible md:overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors">
                 <OrderHistoryList
                   onEdit={(order, initialStep, highlightTemporary, reconciliationMode) => {
-                    setEditingInitialStep(initialStep);
-                    setEditingHighlightTemporary(!!highlightTemporary);
-                    setEditingReconciliationMode(!!reconciliationMode);
-                    setEditingOrder(order);
+                    modals.setEditingInitialStep(initialStep);
+                    modals.setEditingHighlightTemporary(!!highlightTemporary);
+                    modals.setEditingReconciliationMode(!!reconciliationMode);
+                    modals.setEditingOrder(order);
                   }}
                   filters={trashFilters}
                   visibilitySettings={visibilitySettings}
@@ -636,9 +342,9 @@ const SalesOrder = () => {
                   highlightOrderId={highlightOrderId}
                   ref={trashListRef}
                   onFilterByOrderId={(id) => setFilters((prev) => ({ ...prev, searchId: id }))}
-                  onAction={handleOrderAction}
+                  onAction={modals.handleOrderAction}
                   onViewFiscalDocument={(documentId, environment) =>
-                    setFiscalDocumentToView({ documentId, environment })
+                    modals.setFiscalDocumentToView({ documentId, environment })
                   }
                 />
               </div>
@@ -657,7 +363,6 @@ const SalesOrder = () => {
             className="bg-white dark:bg-slate-950 w-full h-full md:w-[95vw] md:h-[95vh] rounded-none md:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 md:border border-white/20 dark:border-slate-800/50"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
             <div className="px-8 md:px-10 py-6 md:py-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 transition-colors duration-300">
               <div className="flex items-center gap-5">
                 <div className="bg-amber-500 p-3 rounded-2xl shadow-xl shadow-amber-100 dark:shadow-amber-900/20">
@@ -680,16 +385,11 @@ const SalesOrder = () => {
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="flex-1 overflow-y-auto p-4 md:p-10 bg-slate-50 dark:bg-slate-950">
               <div className="bg-transparent md:bg-white dark:bg-transparent dark:md:bg-slate-900 rounded-none md:rounded-3xl shadow-none overflow-visible md:overflow-hidden md:border border-slate-100 dark:border-slate-800 transition-colors">
                 <OrderHistoryList
                   onEdit={(order) => {
-                    if (order.orderType === 'assistance') {
-                      setEditingOrder(order);
-                    } else {
-                      setEditingOrder(order);
-                    }
+                    modals.setEditingOrder(order);
                   }}
                   filters={draftFilters}
                   visibilitySettings={visibilitySettings}
@@ -698,9 +398,9 @@ const SalesOrder = () => {
                   highlightOrderId={highlightOrderId}
                   ref={draftsListRef}
                   onFilterByOrderId={(id) => setFilters((prev) => ({ ...prev, searchId: id }))}
-                  onAction={handleOrderAction}
+                  onAction={modals.handleOrderAction}
                   onViewFiscalDocument={(documentId, environment) =>
-                    setFiscalDocumentToView({ documentId, environment })
+                    modals.setFiscalDocumentToView({ documentId, environment })
                   }
                 />
               </div>
@@ -709,269 +409,13 @@ const SalesOrder = () => {
         </div>
       )}
 
-      {orderModalType && orderModalType !== 'assistance' && orderModalType !== 'return' && (
-        <NewSaleOrder
-          orderType={orderModalType}
-          onClose={() => {
-            setOrderModalType(null);
-            orderListRef.current?.refresh();
-            draftsListRef.current?.refresh();
-          }}
-          onSaveSuccess={(id, order) => {
-            setOrderModalType(null);
-            if (id) {
-              setHighlightOrderId(id);
-              orderListRef.current?.refresh();
-              draftsListRef.current?.refresh();
-              // Ao concluir/salvar o formulário, abre o modal de tarefas pós-venda se for venda (sale)
-              if (order && order.orderType === 'sale') {
-                setPostOrderDetails(order);
-              }
-              setTimeout(() => setHighlightOrderId(null), 5000);
-            }
-          }}
-        />
-      )}
-
-      {orderModalType === 'return' && (
-        <UnlinkedReturnOrderModal
-          onClose={() => {
-            setOrderModalType(null);
-            orderListRef.current?.refresh();
-            draftsListRef.current?.refresh();
-          }}
-          onSaveSuccess={(id) => {
-            if (id) {
-              setHighlightOrderId(id);
-              orderListRef.current?.refresh();
-              setTimeout(() => setHighlightOrderId(null), 5000);
-            }
-          }}
-        />
-      )}
-
-      {orderModalType === 'assistance' && (
-        <AssistanceOrderModal
-          onClose={() => {
-            setOrderModalType(null);
-            orderListRef.current?.refresh();
-            draftsListRef.current?.refresh();
-          }}
-          onSaveSuccess={(id, order) => {
-            if (id) {
-              setHighlightOrderId(id);
-              orderListRef.current?.refresh();
-              draftsListRef.current?.refresh();
-              if (order) setPostOrderDetails(order);
-              setTimeout(() => setHighlightOrderId(null), 5000);
-            }
-          }}
-        />
-      )}
-
-      {editingOrder && editingOrder.orderType !== 'assistance' && (
-        <OrderEditModal
-          order={editingOrder}
-          orderId={editingOrder.id}
-          initialStep={editingInitialStep}
-          highlightTemporaryItems={editingHighlightTemporary}
-          reconciliationMode={editingReconciliationMode}
-          onClose={() => {
-            setEditingOrder(null);
-            setEditingInitialStep(undefined);
-            setEditingHighlightTemporary(false);
-            setEditingReconciliationMode(false);
-            orderListRef.current?.refresh();
-            draftsListRef.current?.refresh();
-          }}
-          onSaveSuccess={(id, order) => {
-            setEditingOrder(null);
-            setEditingInitialStep(undefined);
-            setEditingHighlightTemporary(false);
-            setEditingReconciliationMode(false);
-            if (id) {
-              setHighlightOrderId(id);
-              orderListRef.current?.refresh();
-              draftsListRef.current?.refresh();
-              // Abre o modal de tarefas pós-venda se for venda
-              if (order && order.orderType === 'sale') {
-                setPostOrderDetails(order);
-              }
-              setTimeout(() => setHighlightOrderId(null), 5000);
-            }
-          }}
-        />
-      )}
-
-      {editingOrder && editingOrder.orderType === 'assistance' && (
-        <AssistanceOrderModal
-          order={editingOrder}
-          onClose={() => {
-            setEditingOrder(null);
-            orderListRef.current?.refresh();
-            draftsListRef.current?.refresh();
-          }}
-          onSaveSuccess={(id, order) => {
-            if (id) {
-              setHighlightOrderId(id);
-              orderListRef.current?.refresh();
-              draftsListRef.current?.refresh();
-              if (order) setPostOrderDetails(order);
-              setTimeout(() => setHighlightOrderId(null), 5000);
-            }
-          }}
-        />
-      )}
-
-      {duplicatingOrder && duplicatingOrder.orderType === 'assistance' && (
-        <AssistanceOrderModal
-          order={duplicatingOrder}
-          onClose={() => {
-            setDuplicatingOrder(null);
-            orderListRef.current?.refresh();
-            draftsListRef.current?.refresh();
-          }}
-          onSaveSuccess={(id, order) => {
-            if (id) {
-              setHighlightOrderId(id);
-              orderListRef.current?.refresh();
-              draftsListRef.current?.refresh();
-              if (order) setPostOrderDetails(order);
-              setTimeout(() => setHighlightOrderId(null), 5000);
-            }
-          }}
-        />
-      )}
-
-      {postOrderDetails && (
-        <PostOrderActionsModal
-          order={postOrderDetails}
-          onClose={() => setPostOrderDetails(null)}
-          onIssueNfe={(order) => setNfeChoiceOrder(order)}
-        />
-      )}
-
-      {detailsOrder && (
-        <OrderDetailsModal order={detailsOrder} isReadOnly onClose={() => setDetailsOrder(null)} />
-      )}
-
-      {returningOrder && (
-        <ReturnOrderModal
-          order={returningOrder}
-          onClose={() => setReturningOrder(null)}
-          onSuccess={(newId) => {
-            setReturningOrder(null);
-            orderListRef.current?.refresh();
-            void fetchOrderById(newId).then((savedReturn) => {
-              if (savedReturn) setPostOrderDetails(savedReturn);
-            });
-          }}
-        />
-      )}
-
-      {nfeChoiceOrder && (
-        <NfeEnvironmentChoiceModal
-          isOpen={Boolean(nfeChoiceOrder)}
-          order={nfeChoiceOrder}
-          onClose={() => setNfeChoiceOrder(null)}
-          onSelectEnvironment={(env, preparedOrder) => {
-            setNfeChoiceOrder(null);
-            setChosenNfeEnvironment(env);
-            setNfeEmissionOpenedAt(performance.now());
-            setNfeModalOrder(preparedOrder);
-          }}
-        />
-      )}
-
-      {nfeSnapshotPreparationOrderId && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed inset-0 z-[10000000] flex items-center justify-center bg-slate-900/40 p-4"
-        >
-          <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-5 text-sm font-semibold text-slate-700 shadow-2xl dark:bg-slate-900 dark:text-slate-200">
-            <i className="bi bi-arrow-repeat animate-spin text-xl text-blue-600" />
-            <span>Preparando os dados fiscais do pedido...</span>
-          </div>
-        </div>
-      )}
-
-      {nfeModalOrder && (
-        <NfeEmissionModal
-          isOpen={Boolean(nfeModalOrder)}
-          order={nfeModalOrder}
-          initialEnvironment={chosenNfeEnvironment}
-          emissionOpenedAt={nfeEmissionOpenedAt}
-          onClose={() => {
-            setNfeModalOrder(null);
-            setNfeEmissionOpenedAt(undefined);
-          }}
-          onSuccess={(result) => {
-            const emittedOrder = nfeModalOrder;
-            setNfeModalOrder(null);
-            setNfeEmissionOpenedAt(undefined);
-            const emittedOrderId = emittedOrder?.id || result.orderId;
-            if (emittedOrderId && result.documentId && result.environment) {
-              orderListRef.current?.markFiscalDocumentAuthorized(
-                emittedOrderId,
-                result.environment,
-                result.documentId
-              );
-            } else {
-              orderListRef.current?.refresh();
-            }
-            if (emittedOrder) setIssuedFiscalDocument({ result, order: emittedOrder });
-          }}
-        />
-      )}
-      {issuedFiscalDocument && (
-        <IssuedFiscalDocumentDetailsModal
-          emissionResult={issuedFiscalDocument.result}
-          order={issuedFiscalDocument.order}
-          onClose={() => setIssuedFiscalDocument(null)}
-        />
-      )}
-      {fiscalDocumentToView && (
-        <IssuedFiscalDocumentDetailsModal
-          documentId={fiscalDocumentToView.documentId}
-          initialEnvironment={fiscalDocumentToView.environment}
-          fullScreen={fiscalDocumentToView.environment === 1}
-          onClose={() => setFiscalDocumentToView(null)}
-        />
-      )}
-      {returnFiscalEligibility && !returnFiscalSelection && (
-        <ReturnFiscalSourcePickerModal
-          eligibility={returnFiscalEligibility}
-          onClose={() => setReturnFiscalEligibility(null)}
-          onSelect={(source, draftId) => {
-            setReturnFiscalSelection({
-              source,
-              draftId,
-              returnOrderId: returnFiscalEligibility.returnOrderId,
-              returnOrderIndex: returnFiscalEligibility.returnOrderIndex ?? null,
-            });
-            setReturnFiscalEligibility(null);
-          }}
-          onView={(documentId, environment) => {
-            setFiscalDocumentToView({ documentId, environment });
-            setReturnFiscalEligibility(null);
-          }}
-        />
-      )}
-      {returnFiscalSelection && (
-        <NfeOperationDraftModal
-          sourceDocument={returnFiscalSelection.source}
-          initialDraftId={returnFiscalSelection.draftId}
-          mode="return"
-          returnOrderId={returnFiscalSelection.returnOrderId}
-          returnOrderIndex={returnFiscalSelection.returnOrderIndex}
-          onClose={() => setReturnFiscalSelection(null)}
-          onAuthorized={() => {
-            setReturnFiscalSelection(null);
-            orderListRef.current?.refresh();
-          }}
-        />
-      )}
+      {/* Contêiner Modularizado dos Modais */}
+      <SalesOrderModalsContainer
+        modals={modals}
+        orderListRef={orderListRef}
+        draftsListRef={draftsListRef}
+        setHighlightOrderId={setHighlightOrderId}
+      />
     </div>
   );
 };
