@@ -86,4 +86,20 @@ describe('ProductFormTabsNavigation', () => {
       'text-red-500'
     );
   });
+
+  it('marca visualmente a aba de características quando há erro técnico ou de dimensões', () => {
+    render(
+      <ProductFormTabsNavigation
+        tabs={tabs}
+        formData={{ name: 'Mesa', categoryIds: ['category-1'] }}
+        activeTab="geral"
+        setActiveTab={vi.fn()}
+        validationErrors={{ technicalValues: true }}
+      />
+    );
+
+    expect(screen.getByRole('tab', { name: 'Características' }).className).toContain(
+      'text-red-500'
+    );
+  });
 });

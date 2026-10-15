@@ -43,8 +43,14 @@ export const productVariationDraftSchema = z.object({
 }).passthrough();
 
 /** Completion retains the existing dynamic characteristics and parent rules. */
-export const createProductVariationFormSchema = (parent: Partial<Product>) =>
+export const createProductVariationFormSchema = (parent: Partial<Product>, isSingleVariation = false) =>
   productVariationDraftSchema.superRefine((values, context) => {
+    if (isSingleVariation) {
+      // Quando é variação única, campos herdados do pai (preço, dimensões, características)
+      // são validados no formulário do produto pai, e não na variação onde esses campos estão desativados.
+      return;
+    }
     const issue = getVariationRegistrationIssue(parent, values as Variation);
     if (issue) context.addIssue({ code: 'custom', path: [issue.tab], message: issue.message });
   });
+

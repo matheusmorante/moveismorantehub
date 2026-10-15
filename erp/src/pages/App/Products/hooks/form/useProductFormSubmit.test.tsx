@@ -47,7 +47,7 @@ function renderSubmit(
 }
 
 describe('conclusão do pai respeita os requisitos de cada variação', () => {
-  it('bloqueia a conclusão quando uma variação não tem dimensão obrigatória', async () => {
+  it('reclama no produto pai (aba Características) e não abre a variação quando o produto tem apenas 1 variação', async () => {
     const { result, variations, setActiveTab } = renderSubmit({
       ...complete,
       height: 0,
@@ -55,7 +55,25 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     });
     await act(async () => { expect(await result.current.handleSubmit(false)).toBe(false); });
     expect(mocks.saveProduct).not.toHaveBeenCalled();
-    expect(variations.setEditingVariationId).toHaveBeenCalledWith('v1');
+    expect(variations.setEditingVariationId).not.toHaveBeenCalled();
+    expect(setActiveTab).toHaveBeenCalledWith('technical');
+  });
+  it('bloqueia a conclusão e abre a variação específica quando há mais de uma variação', async () => {
+    const var2 = {
+      ...complete.variations![0],
+      id: 'v2',
+      sku: '001-02',
+      height: 0,
+      syncHeight: false,
+      technicalValues: { Altura: '' },
+    };
+    const { result, variations, setActiveTab } = renderSubmit({
+      ...complete,
+      variations: [complete.variations![0], var2],
+    });
+    await act(async () => { expect(await result.current.handleSubmit(false)).toBe(false); });
+    expect(mocks.saveProduct).not.toHaveBeenCalled();
+    expect(variations.setEditingVariationId).toHaveBeenCalledWith('v2');
     expect(setActiveTab).toHaveBeenCalledWith('variacoes');
   });
   it('bloqueia uma variação sem preço próprio mesmo com outra variação válida', async () => {

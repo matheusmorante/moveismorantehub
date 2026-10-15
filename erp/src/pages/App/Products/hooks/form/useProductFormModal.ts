@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createProductVariationFormSchema } from '../../../../../../../shared-utils/productVariationValidation';
@@ -85,7 +85,12 @@ export function useProductFormModal({
   });
   const latestFormDataRef = useRef(formData);
   latestFormDataRef.current = formData;
-  const { validateAndRun: validateSavedVariation } = useZodForm(createProductVariationFormSchema(formData), {
+  const isSingleVariation = (formData.variations || []).length <= 1;
+  const variationSchema = useMemo(
+    () => createProductVariationFormSchema(formData, isSingleVariation),
+    [formData, isSingleVariation]
+  );
+  const { validateAndRun: validateSavedVariation } = useZodForm(variationSchema, {
     id: '', sku: '', name: '', stock: 0, unitPrice: 0, active: true, attributes: [],
   });
   const isTestArtifact = Boolean(readTestArtifactIdentity(formData));

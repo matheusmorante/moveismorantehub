@@ -33,7 +33,11 @@ export const ProductFormTabsNavigation: React.FC<ProductFormTabsNavigationProps>
           (tab.id === 'estoque' &&
             (validationErrors.unitPrice || validationErrors.mainSupplierId)) ||
           (tab.id === 'fiscal' && validationErrors.ncm) ||
-          (tab.id === 'variacoes' && validationErrors.variationsImages);
+          (tab.id === 'technical' && (validationErrors.technicalValues || validationErrors.dimensions)) ||
+          (tab.id === 'variacoes' &&
+            (validationErrors.variations ||
+              validationErrors.variationRegistration ||
+              validationErrors.variationsImages));
 
         const hasCategory = (formData.categoryIds || []).length > 0;
         const hasProductName = String(formData.name || '').trim().length >= 2;

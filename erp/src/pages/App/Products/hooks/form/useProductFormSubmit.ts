@@ -56,7 +56,7 @@ export const useProductFormSubmit = ({
       const validatedData = await (actualSaveAsDraft ? validateDraftProduct : validateFinalProduct)(formData, (data) => data);
 
       if (!actualSaveAsDraft) {
-        const { errors, invalidVariation } = validateProductFormSubmission(formData, {
+        const { errors, invalidVariation, singleVariationParentIssue } = validateProductFormSubmission(formData, {
           isStockistOnly,
           saveAsDraft: actualSaveAsDraft,
         });
@@ -74,11 +74,23 @@ export const useProductFormSubmit = ({
             setActiveTab('estoque');
           } else if (errors.ncm) {
             setActiveTab('fiscal');
+          } else if (singleVariationParentIssue) {
+            setActiveTab(singleVariationParentIssue.tab);
+          } else if (errors.dimensions || errors.technicalValues) {
+            setActiveTab('technical');
           } else if (errors.variations || errors.variationRegistration) {
             setActiveTab('variacoes');
           }
 
-          if (errors.unitPrice) {
+          if (singleVariationParentIssue) {
+            if (errors.unitPrice) {
+              toast.warn(
+                'Por favor, informe o Preço de Venda do produto na aba Estoque e Precificação.'
+              );
+            } else {
+              toast.error(singleVariationParentIssue.message);
+            }
+          } else if (errors.unitPrice) {
             toast.warn(
               'Por favor, informe o Preço de Venda do produto na aba Estoque e Precificação.'
             );
@@ -88,6 +100,8 @@ export const useProductFormSubmit = ({
             toast.error('Selecione uma oportunidade.');
           } else if (errors.ncm) {
             toast.error('Informe um NCM válido com 8 dígitos na aba Tributário / NF.');
+          } else if (errors.dimensions || errors.technicalValues) {
+            toast.error('Preencha os campos obrigatórios na aba Características.');
           } else if (errors.variations) {
             toast.error('Adicione pelo menos uma variação ao produto.');
           } else if (errors.mainSupplierId) {

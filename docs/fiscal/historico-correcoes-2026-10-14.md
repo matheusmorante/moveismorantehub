@@ -575,7 +575,7 @@ Referências do checkout atual para as correções já descritas; a tabela resol
 - `erp/src/hooks/useZodForm.ts`: `18`, `35`, `45`, `50`, `52`, `59`, `66`, `70`, `73`
 - `mobile/src/hooks/useZodForm.ts`: `18`, `35`, `45`, `50`, `52`, `59`, `66`, `70`, `73`
 - `digital-catalog/src/hooks/useZodForm.ts`: `18`, `35`, `45`, `50`, `52`, `59`, `66`, `70`, `73`
-- **Validação em andamento:** 18 casos em adaptador, campanhas, conferência de compra, modelo de elemento e consulta fiscal passaram (`scratch/rhf-autosave-owners-tests.log`). O teste específico do painel NCM está em execução e seu resultado será registrado nesta seção. Nenhum endpoint remoto foi chamado: Supabase e demais serviços são simulados nos testes.
+- **Validação:** 18 casos em adaptador, campanhas, conferência de compra, modelo de elemento e consulta fiscal passaram (`scratch/rhf-autosave-owners-tests.log`). Os três testes específicos do painel NCM passaram (`scratch/rhf-ncm-owners-tests.log`). Nenhum endpoint remoto foi chamado: Supabase e demais serviços são simulados nos testes.
 
 ### Recebimento: contrato completo e fronteira de persistência
 
@@ -585,4 +585,33 @@ Referências do checkout atual para as correções já descritas; a tabela resol
 - `shared-utils/receiptFormSchemas.ts`: `11`, `15`
 - `erp/src/pages/App/Stock/Receipts/hooks/useReceiptForm.ts`: `49`, `50`, `51`, `170`, `266`, `271`, `294`, `302`, `314`, `318`, `333`, `373`, `399`, `403`, `404`, `443`, `455`, `459`, `477`, `480`, `490`
 - `erp/src/pages/App/Stock/Receipts/hooks/useReceiptForm.test.tsx`: `27`
-- **Prova em andamento:** teste do proprietário já confirmou espera do rascunho, mesma identidade e bloqueio de conclusão simultânea; falta fechar a prova de custos e chave normalizada. Somente serviços simulados, sem persistir recebimento, vínculo ou fato fiscal remoto.
+- **Prova:** os três testes do proprietário passaram: espera do rascunho/mesma identidade/bloqueio simultâneo; bloqueio de custos negativos e chave normalizada enviada ao vínculo; recuperação depois de falha do rascunho. Somente serviços simulados, sem persistir recebimento, vínculo ou fato fiscal remoto. Reexecutados na rodada de 24 testes em seis arquivos (`scratch/rhf-file-owner-tests.log`).
+
+### Anexos de recebimento: validação antes do Storage
+
+- **Problema e causa comprovada:** `ReceiptFiscalDocumentsSection.upload` enviava os arquivos ao Storage antes da validação do formulário principal. O limite de anexos e a indicação `accept` do input não impediam um arquivo incompatível de chegar ao serviço.
+- **Solução:** a operação usa RHF + `zodResolver` com o contrato compartilhado de arquivos PDF/imagem e o total máximo de cinco, incluindo os anexos existentes. A validação exige objetos `File`, mantém o bloqueio de submissão até terminar o upload, utiliza os arquivos parseados e apresenta o erro antes de chamar compressão/Storage. Não altera XML, chave, fatos fiscais ou snapshots.
+- **Arquivos/linhas:** `shared-utils/fileFormSchemas.ts:3` e `:6`; `shared-utils/purchaseFormSchemas.ts:21`; `erp/src/pages/App/Stock/Receipts/components/ReceiptFiscalDocumentsSection.tsx:6`, `:62`, `:69`, `:73`, `:90`, `:94`; prova em `erp/src/components/forms/fileOwners.test.tsx:49`.
+- **Validação:** 24 testes em seis arquivos passaram (`scratch/rhf-file-owner-tests.log`); a rodada final passou em 46 testes em 12 arquivos (`scratch/rhf-upload-owner-final-tests.log`), com sobreposições. O teste do componente bloqueia texto e excesso de anexos sem chamadas ao Storage e confirma PDF válido preservando os anexos anteriores. Inclui regressões de recebimento e compra. Typecheck fiscal e compilação ERP passaram; lint focado sem erros. Serviços simulados; nenhum documento ou arquivo foi enviado ao ambiente operacional. A migração de todos os formulários e a prontidão fiscal ponta a ponta continuam em andamento.
+
+### Validação e Apontamento de Erros em Produto com Variação Única
+
+- **Problema e sintomas observados:** Em produtos com exatamente uma variação cadastrada (`variations.length === 1`), os campos da variação (preço, dimensões, características técnicas e NCM) herdam por padrão os valores do produto pai e ficam desativados na interface do modal de edição da variação. Ao tentar concluir/salvar o produto com algum desses campos pendentes ou vazios, o validador de submissão do produto disparava erro de variação (`errors.variationRegistration = true`), abrindo forçadamente o modal da variação na aba "Variações" (`variations.setEditingVariationId`), onde o operador não conseguia editar o campo bloqueado.
+- **Causa raiz técnica comprovada:** A função `validateProductFormSubmission` tratava indistintamente produtos com 1 ou múltiplas variações, marcando `errors.variationRegistration = true` para qualquer falha em `getVariationRegistrationIssue`. O hook `useProductFormSubmit` então direcionava a tela para a aba `'variacoes'` e acionava `variations.setEditingVariationId(invalidVariation.variation.id)`, mesmo nos casos em que a pendência pertencia ao formulário do produto pai.
+- **Solução implementada:**
+  1. No validador `productFormValidation.ts`, mapeamento explícito (`mapSingleVariationIssueToParent`) ativado quando `isSingleVariation = (variations.length === 1)`: erros de dimensões e características técnicas são convertidos em pendências do pai na aba `'technical'` (`errors.dimensions`, `errors.technicalValues`), erros de preço e fornecedor na aba `'estoque'` (`errors.unitPrice`, `errors.mainSupplierId`), e NCM na aba `'fiscal'`.
+  2. Em `useProductFormSubmit.ts`, quando há falha de variação única (`singleVariationParentIssue`), o modal da variação **não é aberto** (`setEditingVariationId` não é chamado). O fluxo direciona a navegação diretamente para a aba relevante do produto pai (`technical`, `estoque`, `fiscal`, etc.) com mensagem clara via toast e destaque visual nos campos do pai.
+  3. Para produtos com mais de uma variação (`variations.length > 1`), o comportamento existente de abrir o modal da variação específica na aba 'variacoes' foi 100% mantido e protegido por testes.
+  4. Adicionada compatibilidade em `createProductVariationFormSchema` (`isSingleVariation`), `useVariationForm.ts` e `useProductFormModal.ts`.
+  5. Em `ProductFormTabsNavigation.tsx`, a aba "Características" (`technical`) agora exibe o indicador visual de erro (borda vermelha e ícone de aviso) quando houver `validationErrors.technicalValues` ou `validationErrors.dimensions`.
+- **Arquivos modificados:**
+  - `shared-utils/productVariationValidation.ts`
+  - `erp/src/pages/App/Products/hooks/form/productFormValidation.ts`
+  - `erp/src/pages/App/Products/hooks/form/useProductFormSubmit.ts`
+  - `erp/src/pages/App/Products/components/form/ProductFormTabsNavigation.tsx`
+  - `erp/src/pages/App/Products/components/form/ProductFormTabsNavigation.test.tsx`
+  - `erp/src/pages/App/Products/hooks/variation/useVariationForm.ts`
+  - `erp/src/pages/App/Products/hooks/form/useProductFormModal.ts`
+  - `erp/src/pages/App/Products/hooks/form/useProductFormSubmit.test.tsx`
+- **Validação e testes:** Executados testes de unidade em `useProductFormSubmit.test.tsx` (12 testes passando) comprovando que produto com variação única não abre o modal da variação e direciona para a aba 'technical', enquanto produto com 2 ou mais variações abre o modal da variação 'v2'. Testes em `ProductFormTabsNavigation.test.tsx` (5 testes passando) e `ProductFiscalTab.test.tsx` (3 testes passando) com 100% de sucesso.
+

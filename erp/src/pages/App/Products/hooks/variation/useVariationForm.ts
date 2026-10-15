@@ -57,15 +57,18 @@ export function useVariationForm({
   const [isManageAttributesOpen, setIsManageAttributesOpen] = useState(false);
 
   const [formData, setFormData] = useState<Variation | null>(null);
-  const schema = useMemo(() => createProductVariationFormSchema(parentProduct), [parentProduct]);
-  const { validateAndRun } = useZodForm(schema, formData ? { ...formData } : {
-    id: '', sku: '', name: '', stock: 0, unitPrice: 0, active: false, attributes: [],
-  });
-  const [allParentImages, setAllParentImages] = useState<string[]>([]);
   const isDraft = isProductDraft(parentProduct);
   const isSingleVariation = variation
     ? (parentProduct.variations || []).length === 1
     : (parentProduct.variations || []).length === 0;
+  const schema = useMemo(
+    () => createProductVariationFormSchema(parentProduct, isSingleVariation),
+    [parentProduct, isSingleVariation]
+  );
+  const { validateAndRun } = useZodForm(schema, formData ? { ...formData } : {
+    id: '', sku: '', name: '', stock: 0, unitPrice: 0, active: false, attributes: [],
+  });
+  const [allParentImages, setAllParentImages] = useState<string[]>([]);
   const updateFormData = useCallback<React.Dispatch<React.SetStateAction<Variation | null>>>(
     (update) => setFormData(update),
     []
