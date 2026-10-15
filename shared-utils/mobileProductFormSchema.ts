@@ -53,6 +53,33 @@ export const createMobileProductFormSchema = (options: { draft: boolean; isStock
   if (!(parentPrice > 0 || variations.some((variation) => parseLocalizedNumber(variation.syncUnitPrice !== false ? parentPrice : variation.price ?? variation.unitPrice) > 0))) issue('estoque', 'Informe o preço de venda do produto.');
   if (options.isStockistOnly && data.itemType !== 'service' && !bulkNcmFormSchema.safeParse({ ncm: String(fiscal?.ncm || '') }).success) issue('fiscal', 'Informe um NCM válido com 8 dígitos na aba Tributário / NF.');
   const invalidVariation = variations.map((variation) => getMobileVariationRegistrationIssue(data, variation, variations)).find(Boolean);
-  if (invalidVariation) issue('variacoes', invalidVariation.message);
+  if (invalidVariation) {
+    if (variations.length <= 1) {
+      const msg = invalidVariation.message.toLowerCase();
+      if (
+        msg.includes('dimensões') ||
+        msg.includes('largura') ||
+        msg.includes('altura') ||
+        msg.includes('profundidade') ||
+        msg.includes('características') ||
+        invalidVariation.tab === 'tecnico'
+      ) {
+        issue('technical', invalidVariation.message);
+      } else if (
+        msg.includes('preço') ||
+        msg.includes('valor') ||
+        msg.includes('fornecedor') ||
+        invalidVariation.tab === 'estoque'
+      ) {
+        issue('estoque', invalidVariation.message);
+      } else if (msg.includes('ncm') || msg.includes('tribut')) {
+        issue('fiscal', invalidVariation.message);
+      } else {
+        issue('geral', invalidVariation.message);
+      }
+    } else {
+      issue('variacoes', invalidVariation.message);
+    }
+  }
   if (options.published && !isMobileEcommerceLegible(data)) issue('geral', 'Despublique o Catálogo antes de remover ou alterar um campo obrigatório.');
 });

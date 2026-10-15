@@ -127,9 +127,20 @@ export const mapToDB = (product: Partial<Product>) => {
 
   // Manter o campo measures sincronizado no Supabase se houver dimensões
   const measureParts: string[] = [];
-  if (product.height) measureParts.push(`Altura: ${product.height}cm`);
-  if (product.width) measureParts.push(`Largura: ${product.width}cm`);
-  if (product.depth) measureParts.push(`Profundidade: ${product.depth}cm`);
+  if (product.height) measureParts.push(`Altura total: ${product.height}cm`);
+  if (product.width) measureParts.push(`Largura total: ${product.width}cm`);
+  if (product.depth) {
+    const label =
+      product.depthUseLength || (product as any).depth_use_length
+        ? 'Comprimento total'
+        : 'Profundidade total';
+    measureParts.push(`${label}: ${product.depth}cm`);
+  }
+  const thickness =
+    product.technicalValues?.['Espessura do colchão'] ||
+    product.technicalValues?.['Espessura'] ||
+    (product as any).thickness;
+  if (thickness) measureParts.push(`Espessura: ${String(thickness).replace(/\s*cm$/i, '')}cm`);
   if (measureParts.length > 0) {
     data.measures = measureParts.join(' | ');
   }

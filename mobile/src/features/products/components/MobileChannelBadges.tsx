@@ -5,6 +5,7 @@ interface MobileChannelBadgesProps {
   dark: boolean;
   isParent?: boolean;
   disabled?: boolean;
+  disabledReason?: string;
   isSalvado?: boolean;
   isActive: boolean;
   isPublished: boolean;
@@ -20,6 +21,7 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   dark,
   isParent = false,
   disabled = false,
+  disabledReason,
   isSalvado = false,
   isActive,
   isPublished,
@@ -33,6 +35,13 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   const erpActive = isActive && !isDraft && !isSalvado;
 
   const handleToggleERP = () => {
+    if (disabled) {
+      Alert.alert(
+        'Variação Mesclada',
+        disabledReason || 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
+      );
+      return;
+    }
     if (isSalvado) {
       Alert.alert(
         'Origem do Estoque: Salvados',
@@ -40,7 +49,7 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       );
       return;
     }
-    if (isParent || disabled) return;
+    if (isParent) return;
     if (isDraft) {
       Alert.alert(
         'Produto em Rascunho',
@@ -52,6 +61,13 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   };
 
   const handleToggleCat = () => {
+    if (disabled) {
+      Alert.alert(
+        'Variação Mesclada',
+        disabledReason || 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
+      );
+      return;
+    }
     if (isDraft) {
       Alert.alert(
         'Produto em Rascunho',
@@ -70,12 +86,13 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       {!isSalvado && (
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={canToggleActive ? handleToggleERP : undefined}
-          disabled={!canToggleActive || isParent || disabled}
+          onPress={canToggleActive || disabled ? handleToggleERP : undefined}
+          disabled={(!canToggleActive && !disabled) || isParent}
           style={[
             styles.bipartiteBtn,
             erpActive ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
             dark && styles.darkBipartiteBorder,
+            disabled && styles.disabledBtn,
           ]}
         >
           <View style={[styles.bipartiteTag, styles.erpTag, dark && styles.darkErpTag]}>
@@ -108,12 +125,13 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       {showCatalog && onToggleCatalog && (
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={canToggleCatalog ? handleToggleCat : undefined}
-          disabled={!canToggleCatalog || disabled}
+          onPress={canToggleCatalog || disabled ? handleToggleCat : undefined}
+          disabled={!canToggleCatalog && !disabled}
           style={[
             styles.bipartiteBtn,
             isPublished && !isDraft ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
             dark && styles.darkBipartiteBorder,
+            disabled && styles.disabledBtn,
           ]}
         >
           <View style={[styles.bipartiteTag, styles.catTag, dark && styles.darkCatTag]}>
@@ -174,6 +192,9 @@ const styles = StyleSheet.create({
   },
   darkBipartiteBorder: {
     borderColor: '#334155',
+  },
+  disabledBtn: {
+    opacity: 0.6,
   },
   bipartiteTag: {
     paddingHorizontal: 7,

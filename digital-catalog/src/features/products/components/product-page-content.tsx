@@ -142,6 +142,49 @@ export default function ProductPageContent({
       ? activeVariation.height
       : product?.height;
 
+  // Extração de espessura (seja de atributos técnicos, variações ou campos diretos)
+  const extractThickness = useCallback((source: any) => {
+    if (!source) return null;
+    if (source.thickness) return source.thickness;
+    const tValues =
+      source.technical_specs?.technicalValues ||
+      source.technicalValues ||
+      source.technical_specs;
+    if (tValues && typeof tValues === 'object') {
+      for (const [key, val] of Object.entries(tValues)) {
+        const lower = key.toLowerCase().trim();
+        if (
+          lower === 'espessura do colchão' ||
+          lower === 'espessura do colchao' ||
+          lower === 'espessura'
+        ) {
+          if (val !== null && val !== undefined && val !== '') return val;
+        }
+      }
+    }
+    if (source.attributes && typeof source.attributes === 'object') {
+      for (const [key, val] of Object.entries(source.attributes)) {
+        const lower = key.toLowerCase().trim();
+        if (
+          lower === 'espessura do colchão' ||
+          lower === 'espessura do colchao' ||
+          lower === 'espessura'
+        ) {
+          if (val !== null && val !== undefined && val !== '') return val;
+        }
+      }
+    }
+    return null;
+  }, []);
+
+  const varThickness = extractThickness(activeVariation);
+  const prodThickness = extractThickness(product);
+  const rawThickness =
+    activeVariation && !isParentDims && varThickness ? varThickness : prodThickness;
+  const displayThickness = rawThickness
+    ? String(rawThickness).replace(/\s*cm$/i, '').trim()
+    : null;
+
   // Imagens
   const varImages = useMemo(() => {
     return activeVariation?.image_url ? activeVariation.image_url.split(',').filter(Boolean) : [];
@@ -198,13 +241,57 @@ export default function ProductPageContent({
     }
   }
   if (displayHeight) specsMap.altura = displayHeight;
+  if (displayThickness) specsMap.espessura = displayThickness;
 
-  const technicalSpecs =
-    specsMap && typeof specsMap === 'object'
-      ? technicalSpecifications
-          .map((specification) => [specification.name, specsMap[specification.slug]])
-          .filter(([, value]) => value)
-      : [];
+  const technicalSpecs = useMemo(() => {
+    // Especificações legadas com mapeamento explícito
+    if (technicalSpecifications && technicalSpecifications.length > 0 && specsMap) {
+      return technicalSpecifications
+        .map((specification) => [specification.name, specsMap[specification.slug]])
+        .filter(([, value]) => value);
+    }
+
+    // Extrair características de technicalValues (excluindo dimensões já exibidas acima)
+    const DIMENSION_KEYS = new Set([
+      'altura',
+      'altura total',
+      'largura',
+      'largura total',
+      'profundidade',
+      'profundidade total',
+      'comprimento',
+      'comprimento total',
+      'espessura',
+      'espessura do colchão',
+      'espessura do colchao',
+    ]);
+
+    const tValues =
+      activeVariation?.technical_specs?.technicalValues ||
+      activeVariation?.technicalValues ||
+      product?.technical_specs?.technicalValues ||
+      product?.technicalValues ||
+      {};
+
+    if (tValues && typeof tValues === 'object') {
+      return Object.entries(tValues)
+        .filter(([key, val]) => {
+          if (!val) return false;
+          if (DIMENSION_KEYS.has(key.toLowerCase().trim())) return false;
+          if (
+            ['draftproduct', 'variationdetails', 'testartifact', 'is_test', 'istest'].includes(
+              key.toLowerCase().trim()
+            )
+          ) {
+            return false;
+          }
+          return true;
+        })
+        .map(([key, val]) => [key, String(val)]);
+    }
+
+    return [];
+  }, [technicalSpecifications, specsMap, activeVariation, product]);
 
   const handleAddToCart = () => {
     addItem({
@@ -222,10 +309,12 @@ export default function ProductPageContent({
   const handleShareWhatsApp = () => {
     const shareUrl = window.location.href;
     const oppName = product.opportunities?.name || (product.is_salvado ? 'Salvados' : '');
-    const measuresText =
-      displayWidth || displayDepth || displayHeight
-        ? `${displayWidth || '?'}L x ${displayDepth || '?'}P x ${displayHeight || '?'}A`
-        : '';
+    const parts: string[] = [];
+    if (displayWidth) parts.push(`${displayWidth}L`);
+    if (displayDepth) parts.push(`${displayDepth}${product?.depth_use_length ? 'C' : 'P'}`);
+    if (displayHeight) parts.push(`${displayHeight}A`);
+    if (displayThickness) parts.push(`${displayThickness}E`);
+    const measuresText = parts.join(' x ');
     const text = getProductShareText(
       displayTitle,
       displayPrice,
@@ -411,7 +500,11 @@ export default function ProductPageContent({
             <div
               className={cn(
                 'space-y-3',
-                technicalSpecs.length > 0 || displayWidth || displayDepth || displayHeight
+                technicalSpecs.length > 0 ||
+                  displayWidth ||
+                  displayDepth ||
+                  displayHeight ||
+                  displayThickness
                   ? 'lg:col-span-7'
                   : 'lg:col-span-12'
               )}
@@ -430,6 +523,7 @@ export default function ProductPageContent({
               displayWidth={displayWidth}
               displayDepth={displayDepth}
               displayHeight={displayHeight}
+              displayThickness={displayThickness}
               product={product}
               technicalSpecs={technicalSpecs}
             />

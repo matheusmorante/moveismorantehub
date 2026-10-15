@@ -16,6 +16,12 @@ import {
   getMissingRequiredDimensions,
   TechnicalFieldDefinition,
   TechnicalValuesMap,
+  isDepthCharacteristic,
+  isLengthCharacteristic,
+  isHeightCharacteristic,
+  isWidthCharacteristic,
+  isThicknessCharacteristic,
+  getDimensionSortRank,
 } from '../technicalValuesService';
 
 describe('technicalValuesService', () => {
@@ -56,7 +62,10 @@ describe('technicalValuesService', () => {
     expect(
       getMissingRequiredDimensions({ Altura: '180', Largura: '80', Comprimento: '50' })
     ).toEqual([]);
-    expect(getMissingRequiredDimensions({ Altura: '180' })).toEqual(['Largura', 'Profundidade']);
+    expect(getMissingRequiredDimensions({ Altura: '180' })).toEqual([
+      'Largura total',
+      'Profundidade total',
+    ]);
   });
 
   it('exige valor somente nas especificações globais obrigatórias', () => {
@@ -299,6 +308,75 @@ describe('technicalValuesService', () => {
 
       const available = getAvailableAdditionalFields(fieldsWithReclinavel, []);
       expect(available.some((f) => f.name.toLowerCase().includes('reclinável'))).toBe(false);
+    });
+
+    it('para colchões, exclui Altura e exige Espessura do colchão', () => {
+      const catColchoes = '3b616449-7d0c-40fc-9917-70a20836f3b8';
+      const fieldsWithColchoes: TechnicalFieldDefinition[] = [
+        { id: 'alt', name: 'Altura', dataType: 'measure', isRequired: true, options: [] },
+        { id: 'larg', name: 'Largura', dataType: 'measure', isRequired: true, options: [] },
+        {
+          id: 'esp',
+          name: 'Espessura do colchão',
+          dataType: 'measure',
+          categoryIds: [catColchoes],
+          options: [],
+        },
+      ];
+
+      const applicable = getApplicableTechnicalFields(fieldsWithColchoes, [catColchoes], {}, []);
+      const names = applicable.map((f) => f.name);
+
+      expect(names).not.toContain('Altura');
+      expect(names).toContain('Espessura do colchão');
+      expect(names).toContain('Largura');
+
+      const espField = applicable.find((f) => f.name === 'Espessura do colchão');
+      expect(espField?.isRequired).toBe(true);
+
+      const missing = getMissingRequiredDimensions(
+        { Largura: '138', Profundidade: '188' },
+        undefined,
+        { isMattress: true }
+      );
+      expect(missing).toEqual(['Espessura do colchão']);
+
+      const ok = getMissingRequiredDimensions(
+        { Largura: '138', Profundidade: '188', 'Espessura do colchão': '25' },
+        undefined,
+        { isMattress: true }
+      );
+      expect(ok).toEqual([]);
+    });
+
+    it('identifica corretamente predicados de domínio para medidas e dimensões', () => {
+      expect(isDepthCharacteristic('Profundidade')).toBe(true);
+      expect(isDepthCharacteristic('Profundidade total')).toBe(true);
+      expect(isDepthCharacteristic('Comprimento')).toBe(false);
+
+      expect(isLengthCharacteristic('Comprimento')).toBe(true);
+      expect(isLengthCharacteristic('Comprimento total')).toBe(true);
+      expect(isLengthCharacteristic('Largura')).toBe(false);
+
+      expect(isHeightCharacteristic('Altura')).toBe(true);
+      expect(isHeightCharacteristic('Altura total')).toBe(true);
+      expect(isHeightCharacteristic('Profundidade')).toBe(false);
+
+      expect(isWidthCharacteristic('Largura')).toBe(true);
+      expect(isWidthCharacteristic('Largura total')).toBe(true);
+      expect(isWidthCharacteristic('Altura')).toBe(false);
+
+      expect(isThicknessCharacteristic('Espessura')).toBe(true);
+      expect(isThicknessCharacteristic('Espessura do colchão')).toBe(true);
+      expect(isThicknessCharacteristic('Altura')).toBe(false);
+
+      expect(getDimensionSortRank('Altura total')).toBe(1);
+      expect(getDimensionSortRank('Espessura')).toBe(2);
+      expect(getDimensionSortRank('Largura total')).toBe(3);
+      expect(getDimensionSortRank('Profundidade total')).toBe(4);
+      expect(getDimensionSortRank('Comprimento total')).toBe(5);
+      expect(getDimensionSortRank('Peso')).toBe(9);
+      expect(getDimensionSortRank('Campo Aleatório')).toBe(99);
     });
   });
 });

@@ -32,7 +32,7 @@ export function AttributeCard({ attribute, onEdit }: AttributeCardProps) {
             type="button"
             onClick={() => setMenuOpen((current) => !current)}
             className="w-9 h-9 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
-            aria-label={`Abrir ações do atributo ${attribute.name}`}
+            aria-label={`Abrir ações da característica ${attribute.name}`}
             aria-expanded={menuOpen}
           >
             <i className="bi bi-three-dots-vertical" aria-hidden="true" />
@@ -48,7 +48,7 @@ export function AttributeCard({ attribute, onEdit }: AttributeCardProps) {
                 className="w-full px-3 py-2 text-left rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <i className="bi bi-pencil mr-2" aria-hidden="true" />
-                Editar atributo
+                Editar característica
               </button>
             </div>
           )}

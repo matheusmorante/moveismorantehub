@@ -1,4 +1,9 @@
 import type { Variation } from '../types/product.type';
+
+// ============================================================================
+// 1. TYPES & INTERFACES
+// ============================================================================
+
 export interface TechnicalFieldDefinition {
   id: string;
   name: string; // Ex: "Cor", "Quantidade de portas"
@@ -39,10 +44,19 @@ export interface CharacteristicGroup<T extends { name: string }> {
   fields: T[];
 }
 
+export type TechnicalValuesMap = Record<string, any>;
+
+// ============================================================================
+// 2. CONSTANTS & TOPIC DEFINITIONS
+// ============================================================================
+
 export const REQUIRED_CHARACTERISTICS_TOPIC = 'Características principais';
 
-const CHARACTERISTIC_TOPICS: Array<{ title: string; matches: RegExp }> = [
-  { title: 'Dimensões e peso', matches: /\b(altura|largura|profundidade|comprimento|peso)\b/i },
+export const CHARACTERISTIC_TOPICS: ReadonlyArray<{ title: string; matches: RegExp }> = [
+  {
+    title: 'Medidas e peso',
+    matches: /\b(altura|largura|profundidade|comprimento|peso|espessura|assento)\b/i,
+  },
   { title: 'Tecido e revestimento', matches: /\b(tecido|revestimento|espuma|densidade|estofad)/i },
   {
     title: 'Estrutura',
@@ -55,6 +69,134 @@ const CHARACTERISTIC_TOPICS: Array<{ title: string; matches: RegExp }> = [
   { title: 'Acessórios', matches: /\b(p[eé]s?|puxador|rod[ií]zio|sapata)\b/i },
   { title: 'Materiais e acabamento', matches: /\b(material|acabamento|madeira|metal|vidro)\b/i },
 ];
+
+export const REQUIRED_DIMENSION_NAMES = [
+  'Altura total',
+  'Largura total',
+  'Profundidade total',
+  'Altura',
+  'Largura',
+  'Profundidade',
+] as const;
+
+export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Modelo', 'Marca'] as const;
+
+export const GLOBAL_REQUIRED_ATTRIBUTE_NAMES = [
+  ...REQUIRED_CHARACTERISTIC_NAMES,
+  ...REQUIRED_DIMENSION_NAMES,
+] as const;
+
+export const PRIMARY_CHARACTERISTIC_NAMES = [
+  ...GLOBAL_REQUIRED_ATTRIBUTE_NAMES,
+  'Comprimento total',
+  'Comprimento',
+] as const;
+
+export const MATTRESS_CATEGORY_ID = '3b616449-7d0c-40fc-9917-70a20836f3b8';
+
+/** Sequência canônica de exibição das medidas e pesos */
+export const DIMENSIONS_SORT_ORDER: Readonly<Record<string, number>> = {
+  'altura total': 1,
+  altura: 1,
+  espessura: 2,
+  'espessura do colchão': 2,
+  'largura total': 3,
+  largura: 3,
+  'profundidade total': 4,
+  profundidade: 4,
+  'comprimento total': 5,
+  comprimento: 5,
+  'profundidade fechado': 6,
+  'profundidade aberto': 7,
+  'altura do assento ao chão': 8,
+  'altura do chão até o assento': 8,
+  peso: 9,
+  'peso suportado': 10,
+};
+
+// ============================================================================
+// 3. DOMAIN PREDICATES & VALUE NORMALIZERS
+// ============================================================================
+
+export const normalizeCharacteristicName = (name: string): string =>
+  name.trim().toLocaleLowerCase('pt-BR');
+
+export const isDepthCharacteristic = (name: string): boolean => {
+  const norm = normalizeCharacteristicName(name);
+  return norm === 'profundidade' || norm === 'profundidade total';
+};
+
+export const isLengthCharacteristic = (name: string): boolean => {
+  const norm = normalizeCharacteristicName(name);
+  return norm === 'comprimento' || norm === 'comprimento total';
+};
+
+export const isHeightCharacteristic = (name: string): boolean => {
+  const norm = normalizeCharacteristicName(name);
+  return norm === 'altura' || norm === 'altura total';
+};
+
+export const isWidthCharacteristic = (name: string): boolean => {
+  const norm = normalizeCharacteristicName(name);
+  return norm === 'largura' || norm === 'largura total';
+};
+
+export const isThicknessCharacteristic = (name: string): boolean => {
+  const norm = normalizeCharacteristicName(name);
+  return norm === 'espessura' || norm === 'espessura do colchão';
+};
+
+export const isWeightCharacteristicName = (name: string): boolean =>
+  normalizeCharacteristicName(name) === 'peso';
+
+export const isExcludedCharacteristic = (name: string): boolean =>
+  /^reclin[aá]vel$/i.test(name.trim());
+
+export const isMattressCategory = (
+  categoryIds: readonly string[] = [],
+  allFields?: readonly TechnicalFieldDefinition[]
+): boolean => {
+  if (categoryIds.includes(MATTRESS_CATEGORY_ID)) return true;
+  if (allFields) {
+    const espessuraField = allFields.find(
+      (f) => normalizeCharacteristicName(f.name) === 'espessura do colchão'
+    );
+    if (espessuraField?.categoryIds?.some((cid) => categoryIds.includes(cid))) {
+      return true;
+    }
+  }
+  return false;
+};
+
+export const isRequiredCharacteristicName = (name: string): boolean => {
+  const normalized = normalizeCharacteristicName(name);
+  if (isLengthCharacteristic(name)) return true;
+  return GLOBAL_REQUIRED_ATTRIBUTE_NAMES.some(
+    (requiredName) => normalizeCharacteristicName(requiredName) === normalized
+  );
+};
+
+export const isPrimaryCharacteristicName = (name: string): boolean =>
+  PRIMARY_CHARACTERISTIC_NAMES.some(
+    (primaryName) => normalizeCharacteristicName(primaryName) === normalizeCharacteristicName(name)
+  );
+
+/**
+ * Retorna se um valor é semanticamente definido (não é undefined ou null).
+ * Preserva 0, false e strings vazias intencionais.
+ */
+export const isDefined = (val: any): boolean => {
+  return val !== undefined && val !== null;
+};
+
+// ============================================================================
+// 4. DIMENSION SORTING & TOPIC GROUPING
+// ============================================================================
+
+export const getDimensionSortRank = (name: string): number => {
+  const norm = normalizeCharacteristicName(name);
+  return DIMENSIONS_SORT_ORDER[norm] ?? 99;
+};
 
 /** Organiza características por tópicos de apresentação, sem alterar valores ou identificadores persistidos. */
 export const groupCharacteristicsByTopic = <
@@ -97,21 +239,8 @@ export const groupCharacteristicsByTopic = <
       const groupedFields = groups.get(topic.title);
       if (!groupedFields?.length) return [];
 
-      if (topic.title === 'Dimensões e peso') {
-        const orderMap: Record<string, number> = {
-          altura: 1,
-          largura: 2,
-          profundidade: 3,
-          comprimento: 4,
-          peso: 5,
-        };
-        groupedFields.sort((a, b) => {
-          const nameA = a.name.trim().toLowerCase();
-          const nameB = b.name.trim().toLowerCase();
-          const rankA = orderMap[nameA] ?? 99;
-          const rankB = orderMap[nameB] ?? 99;
-          return rankA - rankB;
-        });
+      if (topic.title === 'Medidas e peso' || topic.title === 'Dimensões e peso') {
+        groupedFields.sort((a, b) => getDimensionSortRank(a.name) - getDimensionSortRank(b.name));
       }
 
       return [{ title: topic.title, fields: groupedFields }];
@@ -125,39 +254,9 @@ export const groupTechnicalFields = <T extends { name: string; isCustom?: boolea
   fields: readonly T[]
 ): CharacteristicGroup<T>[] => groupCharacteristicsByTopic(fields);
 
-export type TechnicalValuesMap = Record<string, any>;
-
-export const REQUIRED_DIMENSION_NAMES = ['Altura', 'Largura', 'Profundidade'] as const;
-
-export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Modelo', 'Marca'] as const;
-
-export const GLOBAL_REQUIRED_ATTRIBUTE_NAMES = [
-  ...REQUIRED_CHARACTERISTIC_NAMES,
-  ...REQUIRED_DIMENSION_NAMES,
-] as const;
-
-export const PRIMARY_CHARACTERISTIC_NAMES = [
-  ...GLOBAL_REQUIRED_ATTRIBUTE_NAMES,
-  'Comprimento',
-] as const;
-
-const normalizeCharacteristicName = (name: string) => name.trim().toLocaleLowerCase('pt-BR');
-
-export const isWeightCharacteristicName = (name: string) =>
-  normalizeCharacteristicName(name) === 'peso';
-
-export const isRequiredCharacteristicName = (name: string) => {
-  const normalized = normalizeCharacteristicName(name);
-  if (normalized === 'comprimento') return true;
-  return GLOBAL_REQUIRED_ATTRIBUTE_NAMES.some(
-    (requiredName) => normalizeCharacteristicName(requiredName) === normalized
-  );
-};
-
-export const isPrimaryCharacteristicName = (name: string) =>
-  PRIMARY_CHARACTERISTIC_NAMES.some(
-    (primaryName) => normalizeCharacteristicName(primaryName) === normalizeCharacteristicName(name)
-  );
+// ============================================================================
+// 5. VALIDATION & MISSING FIELDS HELPERS
+// ============================================================================
 
 export const getMissingRequiredCharacteristics = (values: TechnicalValuesMap = {}): string[] => {
   const valuesByName = new Map<string, unknown>();
@@ -175,7 +274,8 @@ export const getMissingRequiredCharacteristics = (values: TechnicalValuesMap = {
 
 export const getMissingRequiredDimensions = (
   values: TechnicalValuesMap = {},
-  directDimensions?: { width?: number; height?: number; depth?: number }
+  directDimensions?: { width?: number; height?: number; depth?: number },
+  options?: { isMattress?: boolean }
 ): string[] => {
   const valuesByName = new Map<string, unknown>();
   Object.entries(values).forEach(([name, value]) => {
@@ -192,21 +292,51 @@ export const getMissingRequiredDimensions = (
   };
 
   const missing: string[] = [];
-  if (!isPositive(directDimensions?.height) && !isPositive(valuesByName.get('altura'))) {
-    missing.push('Altura');
+  if (!options?.isMattress) {
+    if (
+      !isPositive(directDimensions?.height) &&
+      !isPositive(valuesByName.get('altura total')) &&
+      !isPositive(valuesByName.get('altura'))
+    ) {
+      missing.push('Altura total');
+    }
+  } else {
+    // Para colchões, a altura não é solicitada; exige-se a espessura do colchão
+    if (
+      !isPositive(directDimensions?.height) &&
+      !isPositive(valuesByName.get('espessura do colchão')) &&
+      !isPositive(valuesByName.get('espessura'))
+    ) {
+      missing.push('Espessura do colchão');
+    }
   }
-  if (!isPositive(directDimensions?.width) && !isPositive(valuesByName.get('largura'))) {
-    missing.push('Largura');
+  if (
+    !isPositive(directDimensions?.width) &&
+    !isPositive(valuesByName.get('largura total')) &&
+    !isPositive(valuesByName.get('largura'))
+  ) {
+    missing.push('Largura total');
   }
   if (
     !isPositive(directDimensions?.depth) &&
+    !isPositive(valuesByName.get('profundidade total')) &&
     !isPositive(valuesByName.get('profundidade')) &&
+    !isPositive(valuesByName.get('comprimento total')) &&
     !isPositive(valuesByName.get('comprimento'))
   ) {
-    missing.push('Profundidade');
+    missing.push('Profundidade total');
   }
   return missing;
 };
+
+export const getMissingRequiredTechnicalFields = (
+  requiredFieldNames: readonly string[],
+  values: TechnicalValuesMap = {}
+): string[] => requiredFieldNames.filter((name) => !String(values[name] ?? '').trim());
+
+// ============================================================================
+// 6. VARIATION OVERRIDES & EFFECTIVE VALUE RESOLUTION
+// ============================================================================
 
 export const getEffectiveVariationTechnicalValues = (
   parentValues: TechnicalValuesMap = {},
@@ -234,25 +364,10 @@ export const getEffectiveVariationTechnicalValues = (
   };
 };
 
-export const getMissingRequiredTechnicalFields = (
-  requiredFieldNames: readonly string[],
-  values: TechnicalValuesMap = {}
-): string[] => requiredFieldNames.filter((name) => !String(values[name] ?? '').trim());
-
-/**
- * Retorna se um valor é semanticamente definido (não é undefined ou null).
- * Preserva 0, false e strings vazias intencionais.
- */
-export const isDefined = (val: any): boolean => {
-  return val !== undefined && val !== null;
-};
-
 /**
  * Resolve o valor efetivo de uma Especificação Técnica para uma variação.
- * Regra:
- * valor efetivo = override da variação ?? valor do produto pai
- *
- * Respeita estritamente valores como 0, false e "".
+ * Regra: valor efetivo = override da variação ?? valor do produto pai.
+ * Respeita estritamente valores falsy intencionais como 0, false e "".
  */
 export const getEffectiveTechnicalValue = (
   parentValues: TechnicalValuesMap = {},
@@ -347,7 +462,6 @@ export const areEffectiveValuesEqual = (
 
 /**
  * Valida se uma variação possui ao menos UMA informação técnica efetivamente diferente do pai.
- * Não basta possuir uma chave de override se o valor efetivo resultar idêntico ao do pai.
  */
 export const hasEffectiveDifferenceFromParent = (
   fields: TechnicalFieldDefinition[],
@@ -358,7 +472,6 @@ export const hasEffectiveDifferenceFromParent = (
     const parentVal = parentValues[field.name];
     const varVal = variationEffectiveValues[field.name];
 
-    // Se ambos são vazios/indefinidos, são iguais
     const normParent = String(parentVal ?? '')
       .trim()
       .toLowerCase();
@@ -372,6 +485,10 @@ export const hasEffectiveDifferenceFromParent = (
   }
   return false;
 };
+
+// ============================================================================
+// 7. VARIATION NAME COMPOSITION & VALUE FORMATTING
+// ============================================================================
 
 /**
  * Formata um valor de campo técnico para exibição no nome do produto/variação.
@@ -436,6 +553,45 @@ export const computeEffectiveVariationName = (
   return parts.join(' ').replace(/\s+/g, ' ').trim();
 };
 
+// ============================================================================
+// 8. APPLICABLE FIELDS & FORM SELECTION
+// ============================================================================
+
+/**
+ * Resolve a exclusividade mútua entre Profundidade (total) e Comprimento (total).
+ * Determina qual das duas características deve permanecer ativa no formulário.
+ */
+export const resolveActiveDepthOrLengthField = (
+  depthField: TechnicalFieldDefinition,
+  lengthField: TechnicalFieldDefinition,
+  technicalValues: TechnicalValuesMap,
+  manualSet: ReadonlySet<string>
+): string => {
+  const valDepth = String(technicalValues[depthField.name] ?? '').trim();
+  const valLength = String(technicalValues[lengthField.name] ?? '').trim();
+
+  if (manualSet.has(lengthField.name) && !manualSet.has(depthField.name)) {
+    return lengthField.name;
+  }
+  if (manualSet.has(depthField.name) && !manualSet.has(lengthField.name)) {
+    return depthField.name;
+  }
+  if (valLength && !valDepth) {
+    return lengthField.name;
+  }
+  if (valDepth && !valLength) {
+    return depthField.name;
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(technicalValues, lengthField.name) &&
+    !Object.prototype.hasOwnProperty.call(technicalValues, depthField.name)
+  ) {
+    return lengthField.name;
+  }
+
+  return depthField.name;
+};
+
 /**
  * Determina a lista de campos técnicos que devem ser exibidos no formulário do produto.
  *
@@ -447,32 +603,52 @@ export const computeEffectiveVariationName = (
  * 4. Por padrão, NENHUM campo que não pertença às categorias do produto entra automaticamente.
  */
 export const getApplicableTechnicalFields = (
-  allFields: readonly TechnicalFieldDefinition[],
+  allFields: readonly TechnicalFieldDefinition[] = [],
   productCategoryIds: readonly string[] = [],
   productTechnicalValues: TechnicalValuesMap = {},
   manuallyAddedFieldNames: readonly string[] = []
 ): TechnicalFieldDefinition[] => {
+  const safeFields = Array.isArray(allFields) ? allFields : [];
   const activeCategorySet = new Set(productCategoryIds);
   const manualSet = new Set(manuallyAddedFieldNames);
-  const isRequiredForProduct = (field: TechnicalFieldDefinition) =>
-    !isWeightCharacteristicName(field.name) &&
-    Boolean(
+  const isMattress = isMattressCategory(productCategoryIds, safeFields);
+
+  const isRequiredForProduct = (field: TechnicalFieldDefinition): boolean => {
+    if (isWeightCharacteristicName(field.name)) return false;
+    const normalizedName = normalizeCharacteristicName(field.name);
+
+    // Para colchões, a altura não é obrigatória nem solicitada; usa-se espessura do colchão
+    if (isMattress && isHeightCharacteristic(field.name)) {
+      return false;
+    }
+    if (isMattress && normalizedName === 'espessura do colchão') {
+      return true;
+    }
+    return Boolean(
       field.isRequired ||
         field.requiredCategoryIds?.some((categoryId) => activeCategorySet.has(categoryId))
     );
+  };
 
-  let applicable = allFields.filter((field) => {
-    if (/^reclin[aá]vel$/i.test(field.name.trim())) return false;
+  let applicable = safeFields.filter((field) => {
+    if (isExcludedCharacteristic(field.name)) return false;
+
     const hasExistingValue = Object.prototype.hasOwnProperty.call(
       productTechnicalValues,
       field.name
     );
+
+    // Se for colchão, "Altura / Altura total" não deve ser oferecida automaticamente (apenas Espessura do colchão)
+    if (isMattress && isHeightCharacteristic(field.name)) {
+      return hasExistingValue || manualSet.has(field.name);
+    }
 
     // Campos inativos deixam de ser oferecidos em novos produtos, mas continuam visíveis
     // quando já possuem um valor no cadastro em edição para preservar o dado existente.
     if (field.active === false) {
       return hasExistingValue || manualSet.has(field.name);
     }
+
     // Requisitos obrigatórios do sistema continuam visíveis, independentemente da categoria.
     if (isRequiredForProduct(field)) return true;
 
@@ -488,7 +664,7 @@ export const getApplicableTechnicalFields = (
 
     // Se o campo tem categorias vinculadas, inclui se coincide com qualquer categoria do produto
     if (field.categoryIds && field.categoryIds.length > 0) {
-      return field.categoryIds.some((catId) => activeCategorySet.has(catId));
+      return field.categoryIds.some((catId: string) => activeCategorySet.has(catId));
     }
 
     // Por padrão, se não possui categoria vinculada, NÃO entra automaticamente na lista
@@ -496,33 +672,19 @@ export const getApplicableTechnicalFields = (
   });
 
   // Exclusividade Profundidade vs Comprimento
-  const profundidade = applicable.find((f) => f.name.toLowerCase() === 'profundidade');
-  const comprimento = applicable.find((f) => f.name.toLowerCase() === 'comprimento');
+  const depthField = applicable.find((f) => isDepthCharacteristic(f.name));
+  const lengthField = applicable.find((f) => isLengthCharacteristic(f.name));
 
-  if (profundidade && comprimento) {
-    const valProf = String(productTechnicalValues[profundidade.name] ?? '').trim();
-    const valComp = String(productTechnicalValues[comprimento.name] ?? '').trim();
-
-    let activeName = profundidade.name;
-
-    if (manualSet.has(comprimento.name) && !manualSet.has(profundidade.name)) {
-      activeName = comprimento.name;
-    } else if (manualSet.has(profundidade.name) && !manualSet.has(comprimento.name)) {
-      activeName = profundidade.name;
-    } else if (valComp && !valProf) {
-      activeName = comprimento.name;
-    } else if (valProf && !valComp) {
-      activeName = profundidade.name;
-    } else if (
-      Object.prototype.hasOwnProperty.call(productTechnicalValues, comprimento.name) &&
-      !Object.prototype.hasOwnProperty.call(productTechnicalValues, profundidade.name)
-    ) {
-      activeName = comprimento.name;
-    }
+  if (depthField && lengthField) {
+    const activeName = resolveActiveDepthOrLengthField(
+      depthField,
+      lengthField,
+      productTechnicalValues,
+      manualSet
+    );
 
     applicable = applicable.filter((f) => {
-      const lower = f.name.toLowerCase();
-      if (lower === 'profundidade' || lower === 'comprimento') {
+      if (isDepthCharacteristic(f.name) || isLengthCharacteristic(f.name)) {
         return f.name === activeName;
       }
       return true;
@@ -544,14 +706,16 @@ export const getApplicableTechnicalFields = (
  * permitindo que sejam listadas no botão '+ Adicionar Especificação Técnica'.
  */
 export const getAvailableAdditionalFields = (
-  allFields: readonly TechnicalFieldDefinition[],
-  currentlyVisibleFields: readonly TechnicalFieldDefinition[]
+  allFields: readonly TechnicalFieldDefinition[] = [],
+  currentlyVisibleFields: readonly TechnicalFieldDefinition[] = []
 ): TechnicalFieldDefinition[] => {
-  const visibleNames = new Set(currentlyVisibleFields.map((f) => f.name.toLowerCase().trim()));
-  return allFields.filter(
+  const safeAll = Array.isArray(allFields) ? allFields : [];
+  const safeVisible = Array.isArray(currentlyVisibleFields) ? currentlyVisibleFields : [];
+  const visibleNames = new Set(safeVisible.map((f) => f.name.toLowerCase().trim()));
+  return safeAll.filter(
     (f) =>
       f.active !== false &&
       !visibleNames.has(f.name.toLowerCase().trim()) &&
-      !/^reclin[aá]vel$/i.test(f.name.trim())
+      !isExcludedCharacteristic(f.name)
   );
 };

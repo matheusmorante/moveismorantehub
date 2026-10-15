@@ -5,6 +5,7 @@ import { WEB_URL } from '../../../services/supabaseClient';
 import { toMobileVariationAttributes } from '../services/mobileProductVariationActionsService';
 import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
+import { MergedBadge } from './MergedBadge';
 
 interface MobileProductVariationCardProps {
   variation: any;
@@ -136,7 +137,13 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
                 ? `${v.sku}-${String(index + 1).padStart(2, '0')}`
                 : '-'}
           </Text>
-          {isMerged && <Text style={styles.mergedBadge}>Mesclado — somente histórico</Text>}
+          {isMerged && (
+            <MergedBadge
+              targetVariationId={v.merged_to_variation_id || v.mergedToVariationId}
+              dark={dark}
+              size="xs"
+            />
+          )}
 
           <View style={styles.priceStockRow}>
             {hasPromo && (
@@ -205,6 +212,11 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
           isPublished={isPublished && !isParentDraft}
           isDraft={isParentDraft}
           disabled={isMerged}
+          disabledReason={
+            isMerged
+              ? 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
+              : undefined
+          }
           showCatalog={showCatalogStatus}
           canToggleActive={Boolean(onToggleActive)}
           canToggleCatalog={canChangeCatalog}

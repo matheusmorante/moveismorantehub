@@ -6,6 +6,7 @@ import {
   getAvailableAdditionalFields,
   getApplicableTechnicalFields,
   groupTechnicalFields,
+  isMattressCategory,
 } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../../services/technicalFieldService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
@@ -92,12 +93,21 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
         setFormData((prev) => {
           const technicalValues = { ...(prev.technicalValues || {}) };
           let changed = false;
+          const isMattress = isMattressCategory(prev.categoryIds, mapped);
           mapped
-            .filter((field) => field.isRequired && field.active !== false)
+            .filter((field) => {
+              if (isMattress && normalizeTechnicalName(field.name) === 'altura') return false;
+              const isReq =
+                field.isRequired ||
+                (isMattress && normalizeTechnicalName(field.name) === 'espessura do colchão');
+              return isReq && field.active !== false;
+            })
             .forEach((field) => {
               if (!Object.prototype.hasOwnProperty.call(technicalValues, field.name)) {
                 const norm = normalizeTechnicalName(field.name);
                 if (norm === 'altura' && prev.height) {
+                  technicalValues[field.name] = prev.height;
+                } else if (norm === 'espessura do colchão' && prev.height) {
                   technicalValues[field.name] = prev.height;
                 } else if (norm === 'largura' && prev.width) {
                   technicalValues[field.name] = prev.width;
@@ -201,13 +211,18 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
 
       const norm = normalizeTechnicalName(fieldName);
       let dimensionChanged = false;
-      if (norm === 'altura') {
+      if (norm === 'altura' || norm === 'altura total') {
         next.height = parseNumericDimension(value);
         dimensionChanged = true;
-      } else if (norm === 'largura') {
+      } else if (norm === 'largura' || norm === 'largura total') {
         next.width = parseNumericDimension(value);
         dimensionChanged = true;
-      } else if (norm === 'profundidade' || norm === 'comprimento') {
+      } else if (
+        norm === 'profundidade' ||
+        norm === 'profundidade total' ||
+        norm === 'comprimento' ||
+        norm === 'comprimento total'
+      ) {
         next.depth = parseNumericDimension(value);
         dimensionChanged = true;
       }
@@ -238,15 +253,22 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   };
 
   const handleToggleDepthLength = (currentField: TechnicalFieldDefinition) => {
-    const isProfundidade = currentField.name.toLowerCase() === 'profundidade';
-    const newName = isProfundidade ? 'Comprimento' : 'Profundidade';
+    const isProfundidade = currentField.name.toLowerCase().includes('profundidade');
+    const isTotal = currentField.name.toLowerCase().includes('total');
+    const targetName = isProfundidade
+      ? (isTotal ? 'Comprimento total' : 'Comprimento')
+      : (isTotal ? 'Profundidade total' : 'Profundidade');
     const oldName = currentField.name;
 
-    const newFieldDef = allTechnicalFields.find(
-      (f) => f.name.toLowerCase() === newName.toLowerCase()
-    );
+    const newFieldDef =
+      allTechnicalFields.find((f) => f.name.toLowerCase() === targetName.toLowerCase()) ||
+      allTechnicalFields.find((f) =>
+        isProfundidade
+          ? f.name.toLowerCase().includes('comprimento')
+          : f.name.toLowerCase().includes('profundidade')
+      );
     if (!newFieldDef) {
-      console.warn(`Campo '${newName}' não encontrado no cadastro global de características.`);
+      console.warn(`Campo '${targetName}' não encontrado no cadastro global de características.`);
       return;
     }
     const actualNewName = newFieldDef.name;
@@ -386,10 +408,13 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                           field.name
                         )
                       ) {
-                        if (norm === 'altura' && formData.height) rawValue = formData.height;
-                        else if (norm === 'largura' && formData.width) rawValue = formData.width;
+                        if ((norm === 'altura' || norm === 'altura total') && formData.height) rawValue = formData.height;
+                        else if ((norm === 'largura' || norm === 'largura total') && formData.width) rawValue = formData.width;
                         else if (
-                          (norm === 'profundidade' || norm === 'comprimento') &&
+                          (norm === 'profundidade' ||
+                            norm === 'profundidade total' ||
+                            norm === 'comprimento' ||
+                            norm === 'comprimento total') &&
                           formData.depth
                         )
                           rawValue = formData.depth;
@@ -398,9 +423,12 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                         (formData.technicalValues?.[field.name] !== undefined &&
                           formData.technicalValues?.[field.name] !== null) ||
                         (/^marca$/i.test(field.name.trim()) && Boolean(formData.brand)) ||
-                        (norm === 'altura' && Boolean(formData.height)) ||
-                        (norm === 'largura' && Boolean(formData.width)) ||
-                        ((norm === 'profundidade' || norm === 'comprimento') &&
+                        ((norm === 'altura' || norm === 'altura total') && Boolean(formData.height)) ||
+                        ((norm === 'largura' || norm === 'largura total') && Boolean(formData.width)) ||
+                        ((norm === 'profundidade' ||
+                          norm === 'profundidade total' ||
+                          norm === 'comprimento' ||
+                          norm === 'comprimento total') &&
                           Boolean(formData.depth));
                       const hasSelectedValue =
                         rawValue !== undefined &&
@@ -455,11 +483,15 @@ const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                                   </button>
                                 </span>
                               )}
-                              {(normalizeTechnicalName(field.name) === 'profundidade' ||
-                                normalizeTechnicalName(field.name) === 'comprimento') && (
+                              {(normalizeTechnicalName(field.name).includes('profundidade') ||
+                                normalizeTechnicalName(field.name).includes('comprimento')) && (
                                 <button
                                   type="button"
-                                  title={`Alternar para ${normalizeTechnicalName(field.name) === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
+                                  title={`Alternar para ${
+                                    normalizeTechnicalName(field.name).includes('profundidade')
+                                      ? (normalizeTechnicalName(field.name).includes('total') ? 'Comprimento total' : 'Comprimento')
+                                      : (normalizeTechnicalName(field.name).includes('total') ? 'Profundidade total' : 'Profundidade')
+                                  }`}
                                   onClick={() => handleToggleDepthLength(field)}
                                   className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
                                 >

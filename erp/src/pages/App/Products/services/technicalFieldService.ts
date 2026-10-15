@@ -8,7 +8,22 @@ import {
 export type TechnicalFieldUnitPolicy = 'product-form' | 'variation-form';
 
 const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
-const MEASURE_CHARACTERISTIC_NAMES = new Set(['altura', 'largura', 'profundidade', 'comprimento']);
+const MEASURE_CHARACTERISTIC_NAMES = new Set([
+  'altura',
+  'altura total',
+  'largura',
+  'largura total',
+  'profundidade',
+  'profundidade total',
+  'comprimento',
+  'comprimento total',
+  'espessura',
+  'espessura do colchão',
+  'profundidade fechado',
+  'profundidade aberto',
+  'altura do assento ao chão',
+  'altura do chão até o assento',
+]);
 
 interface TechnicalAttributeRow {
   readonly id: string;

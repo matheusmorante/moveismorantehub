@@ -8,10 +8,11 @@ import { VariationFormModal } from './modals/VariationFormModal';
 
 interface VariationsProps {
   readonly focusAttributeName?: string;
+  readonly autoOpenAttributeName?: string;
   readonly onClose?: () => void;
 }
 
-const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
+const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: VariationsProps) => {
   const { variations, loading, error, refresh } = useVariations();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingAttribute, setEditingAttribute] = useState<VariationType | null>(null);
@@ -35,8 +36,17 @@ const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
   );
 
   useEffect(() => {
-    const targetName = normalizeSearchTerm(focusAttributeName ?? '');
+    const targetName = normalizeSearchTerm(autoOpenAttributeName ?? focusAttributeName ?? '');
     if (!targetName || loading || hasFocusedInitialAttribute.current) return;
+
+    const matchedAttribute = variations.find(
+      (attribute) => normalizeSearchTerm(attribute.name) === targetName
+    );
+
+    if (matchedAttribute) {
+      setEditingAttribute(matchedAttribute);
+      setFormOpen(true);
+    }
 
     const targetCard = Array.from(
       characteristicsListRef.current?.querySelectorAll<HTMLElement>('[data-attribute-name]') ?? []
@@ -46,7 +56,7 @@ const Variations = ({ focusAttributeName, onClose }: VariationsProps) => {
       targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
     hasFocusedInitialAttribute.current = true;
-  }, [focusAttributeName, loading, variations]);
+  }, [autoOpenAttributeName, focusAttributeName, loading, variations]);
 
   const openForm = (attribute: VariationType) => {
     setEditingAttribute(attribute);

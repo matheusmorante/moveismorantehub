@@ -35,6 +35,7 @@ import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
 import { ProductFormCompositionTab } from './ProductFormCompositionTab';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MergedBadge } from '../components/MergedBadge';
 
 type VariationTabId = 'identificacao' | 'tecnico' | 'descricao' | 'fotos' | 'compostos' | 'estoque';
 
@@ -114,6 +115,19 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
     }
 
     const variation = variations[index];
+    const isMerged = Boolean(
+      variation?.is_merged ||
+      variation?.isMerged ||
+      variation?.merged_to_variation_id ||
+      variation?.mergedToVariationId
+    );
+    if (isMerged) {
+      Alert.alert(
+        'Variação mesclada',
+        'Esta variação está mesclada em outra e não pode ser removida.'
+      );
+      return;
+    }
     if (formData.id && variation?.id) {
       try {
         const hasMoves = await checkMobileProductVariationHasMoves(formData.id, variation.id);
@@ -364,8 +378,22 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                     style={styles.varHeaderLeft}
                     accessibilityRole="button"
                   >
-                    <View style={[styles.skuBadge, dark && styles.darkSkuBadge]}>
-                      <Text style={[styles.varSku, dark && styles.lightText]}>{v.sku}</Text>
+                    <View style={styles.varSkuRow}>
+                      <View style={[styles.skuBadge, dark && styles.darkSkuBadge]}>
+                        <Text style={[styles.varSku, dark && styles.lightText]}>{v.sku}</Text>
+                      </View>
+                      {Boolean(
+                        v.is_merged ||
+                        v.isMerged ||
+                        v.merged_to_variation_id ||
+                        v.mergedToVariationId
+                      ) && (
+                        <MergedBadge
+                          targetVariationId={v.merged_to_variation_id || v.mergedToVariationId}
+                          dark={dark}
+                          size="xs"
+                        />
+                      )}
                     </View>
                     <Text style={styles.variationNameLabel}>NOME DA VARIAÇÃO</Text>
                     <Text style={[styles.varAttr, dark && styles.lightText]} numberOfLines={2}>
@@ -393,24 +421,37 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                     >
                       <Pencil size={16} color={dark ? '#cbd5e1' : '#64748b'} />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => void handleRemove(idx)}
-                      disabled={idx === 0}
-                      style={[
-                        styles.editVariationButton,
-                        dark && styles.darkEditVariationButton,
-                        idx === 0 && styles.removeVariationDisabled,
-                      ]}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        idx === 0
-                          ? 'A variação principal não pode ser removida'
-                          : `Remover variação ${v.name || v.sku}`
-                      }
-                    >
-                      <Trash2 size={16} color={idx === 0 ? '#94a3b8' : '#dc2626'} />
-                    </TouchableOpacity>
+                    {(() => {
+                      const isVariationMerged = Boolean(
+                        v.is_merged ||
+                        v.isMerged ||
+                        v.merged_to_variation_id ||
+                        v.mergedToVariationId
+                      );
+                      const isDeleteDisabled = idx === 0 || isVariationMerged;
+                      return (
+                        <TouchableOpacity
+                          onPress={() => void handleRemove(idx)}
+                          disabled={isDeleteDisabled}
+                          style={[
+                            styles.editVariationButton,
+                            dark && styles.darkEditVariationButton,
+                            isDeleteDisabled && styles.removeVariationDisabled,
+                          ]}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            idx === 0
+                              ? 'A variação principal não pode ser removida'
+                              : isVariationMerged
+                              ? 'Esta variação está mesclada e não pode ser removida'
+                              : `Remover variação ${v.name || v.sku}`
+                          }
+                        >
+                          <Trash2 size={16} color={isDeleteDisabled ? '#94a3b8' : '#dc2626'} />
+                        </TouchableOpacity>
+                      );
+                    })()}
                   </View>
                 </View>
 
@@ -1198,9 +1239,15 @@ const styles = StyleSheet.create({
   darkVariationThumbnail: { borderColor: '#334155', backgroundColor: '#0f172a' },
   variationImage: { width: '100%', height: '100%' },
   varHeaderLeft: { flex: 1 },
+  varSkuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 3,
+    flexWrap: 'wrap',
+  },
   skuBadge: {
     alignSelf: 'flex-start',
-    marginBottom: 3,
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 7,

@@ -543,7 +543,7 @@ export const ProductFormScreen: React.FC<Props> = ({
       const validated = await (isDraft ? draftForm : finalForm).validateAndRun(formData, (data) => data, (errors) => {
         const messages = flattenFormErrors(errors);
         const tab = Object.keys(messages)[0];
-        if (['geral', 'variacoes', 'estoque', 'fiscal'].includes(tab)) setActiveTab(tab as TabId);
+        if (['geral', 'variacoes', 'estoque', 'fiscal', 'technical', 'fotos', 'description'].includes(tab)) setActiveTab(tab as TabId);
         setNcmError(tab === 'fiscal');
         Alert.alert('Confira os campos', Object.values(messages)[0]);
       });

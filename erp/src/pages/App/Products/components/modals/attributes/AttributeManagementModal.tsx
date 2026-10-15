@@ -6,6 +6,7 @@ export interface AttributeManagementModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly focusAttributeName?: string;
+  readonly autoOpenAttributeName?: string;
 }
 
 /**
@@ -15,6 +16,7 @@ export const AttributeManagementModal: React.FC<AttributeManagementModalProps> =
   isOpen,
   onClose,
   focusAttributeName,
+  autoOpenAttributeName = focusAttributeName,
 }) => {
   useEffect(() => {
     if (!isOpen) return;
@@ -46,7 +48,11 @@ export const AttributeManagementModal: React.FC<AttributeManagementModalProps> =
       />
       <div className="relative h-full min-h-0 w-full bg-white shadow-2xl dark:bg-slate-900 flex flex-col overflow-hidden animate-in fade-in duration-300">
         <div className="min-h-0 flex-1 overflow-hidden">
-          <Variations focusAttributeName={focusAttributeName} onClose={onClose} />
+          <Variations
+            focusAttributeName={focusAttributeName}
+            autoOpenAttributeName={autoOpenAttributeName}
+            onClose={onClose}
+          />
         </div>
       </div>
     </div>,

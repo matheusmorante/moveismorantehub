@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import Product, { Variation } from '../../../../types/product.type';
-import { aiService } from '@/pages/utils/aiService';
-import { toast } from 'react-toastify';
+import type Product from '../../../../types/product.type';
+import type { Variation } from '../../../../types/product.type';
 import {
   TechnicalFieldDefinition,
   getAvailableAdditionalFields,
@@ -11,12 +10,15 @@ import {
   setVariationOverride,
   removeVariationOverride,
   groupTechnicalFields,
+  isDepthCharacteristic,
 } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
-import { TechnicalFieldInput } from '../tabs/technical/TechnicalFieldInput';
 import { AttributeManagementModal } from '../modals/attributes/AttributeManagementModal';
+import { VariationTechnicalFieldItem } from './VariationTechnicalFieldItem';
+import { VariationTechnicalSearchControl } from './VariationTechnicalSearchControl';
+import { VariationTechnicalDescriptionSection } from './VariationTechnicalDescriptionSection';
 
-interface VariationTechnicalTabProps {
+export interface VariationTechnicalTabProps {
   readonly formData: Variation & { readonly material?: string | null };
   readonly setFormData?: React.Dispatch<React.SetStateAction<Variation | null>>;
   readonly parentProduct: Product & { readonly attributes?: Variation['attributes'] };
@@ -25,6 +27,7 @@ interface VariationTechnicalTabProps {
   readonly requiredFieldsOnly?: boolean;
   readonly isSingleVariation?: boolean;
   readonly showAiImprove?: boolean;
+  readonly initialTechnicalFields?: TechnicalFieldDefinition[];
 }
 
 const normalizeSearchTerm = (value: string): string =>
@@ -42,11 +45,13 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   requiredFieldsOnly = false,
   isSingleVariation = false,
   showAiImprove = false,
+  initialTechnicalFields,
 }) => {
-  const [isImprovingDescription, setIsImprovingDescription] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAttributeModalOpen, setIsAttributeModalOpen] = useState(false);
-  const [allTechnicalFields, setAllTechnicalFields] = useState<TechnicalFieldDefinition[]>([]);
+  const [allTechnicalFields, setAllTechnicalFields] = useState<TechnicalFieldDefinition[]>(
+    initialTechnicalFields || []
+  );
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
   const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
@@ -64,12 +69,17 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   useEffect(() => {
     let isMounted = true;
 
+    // Se já foi fornecido inicialmente e não houve refresh forçado, usa o estado inicial
+    if (initialTechnicalFields && initialTechnicalFields.length > 0 && refreshKey === 0) {
+      return;
+    }
+
     const loadFields = async () => {
       setLoadingFields(true);
       try {
         const mapped = await fetchTechnicalFieldDefinitions('variation-form');
         if (!isMounted) return;
-        setAllTechnicalFields(mapped);
+        setAllTechnicalFields(mapped || []);
       } catch (err) {
         console.error('Erro ao carregar Características na variação:', err);
       } finally {
@@ -82,10 +92,9 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [refreshKey]);
+  }, [refreshKey, initialTechnicalFields]);
 
-  // Atributos definidos na própria variação (ex: Cor, Material, Tamanho vindos do cadastro de variação)
-  // Mapeados de forma normalizada para garantir match case-insensitive com o nome dos campos técnicos
+  // Atributos definidos na própria variação (ex: Cor, Material, Tamanho)
   const variationAttributeValues = useMemo(() => {
     const map: Record<string, any> = {};
     (formData?.attributes || []).forEach((attr) => {
@@ -117,20 +126,37 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   }, [parentNormalizedValues, variationAttributeValues, formData?.technicalValues]);
 
   // Todas as especificações técnicas ativas cadastradas aparecem na variação
-  const applicableFields = getApplicableTechnicalFields(
-    allTechnicalFields,
-    parentProduct.categoryIds || [],
-    combinedValues,
-    manualFieldNames
+  const applicableFields = useMemo(
+    () =>
+      getApplicableTechnicalFields(
+        allTechnicalFields,
+        parentProduct.categoryIds || [],
+        combinedValues,
+        manualFieldNames
+      ),
+    [allTechnicalFields, parentProduct.categoryIds, combinedValues, manualFieldNames]
   );
-  const visibleFields = requiredFieldsOnly
-    ? applicableFields.filter((field) => field.isRequired)
-    : applicableFields;
-  const requiredFields = visibleFields.filter((field) => field.isRequired);
-  const requiredFieldGroups = groupTechnicalFields(
-    requiredFields
+
+  const visibleFields = useMemo(
+    () => (requiredFieldsOnly ? applicableFields.filter((field) => field.isRequired) : applicableFields),
+    [applicableFields, requiredFieldsOnly]
   );
-  const optionalFields = visibleFields.filter((field) => !field.isRequired);
+
+  const requiredFields = useMemo(
+    () => visibleFields.filter((field) => field.isRequired),
+    [visibleFields]
+  );
+
+  const requiredFieldGroups = useMemo(
+    () => groupTechnicalFields(requiredFields),
+    [requiredFields]
+  );
+
+  const optionalFields = useMemo(
+    () => visibleFields.filter((field) => !field.isRequired),
+    [visibleFields]
+  );
+
   const isOptionalFieldSelected = (field: TechnicalFieldDefinition) => {
     const normalizedFieldName = field.name.trim().toLowerCase();
     const hasAttributeValue =
@@ -147,28 +173,46 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       hasSelectedParentValue
     );
   };
-  const selectedOptionalFields = optionalFields.filter(isOptionalFieldSelected);
-  const requiredFieldNames = new Set(
-    requiredFields.map((field) => normalizeSearchTerm(field.name))
+
+  const selectedOptionalFields = useMemo(
+    () => optionalFields.filter(isOptionalFieldSelected),
+    [optionalFields, variationAttributeValues, parentNormalizedValues, manualFieldNames, formData.technicalValues]
   );
-  const searchableOptionalFields = getAvailableAdditionalFields(allTechnicalFields, [
-    ...requiredFields,
-    ...selectedOptionalFields,
-  ]).filter((field) => !requiredFieldNames.has(normalizeSearchTerm(field.name)));
+
+  const requiredFieldNames = useMemo(
+    () => new Set(requiredFields.map((field) => normalizeSearchTerm(field.name))),
+    [requiredFields]
+  );
+
+  const searchableOptionalFields = useMemo(
+    () =>
+      getAvailableAdditionalFields(allTechnicalFields, [
+        ...requiredFields,
+        ...selectedOptionalFields,
+      ]).filter((field) => !requiredFieldNames.has(normalizeSearchTerm(field.name))),
+    [allTechnicalFields, requiredFields, selectedOptionalFields, requiredFieldNames]
+  );
+
   const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
   const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
-  const matchingOptionalFields =
-    !requiredFieldsOnly &&
-    normalizedSearchTerm.length >= 3 &&
-    normalizedSearchTerm === normalizedDebouncedSearchTerm
-      ? searchableOptionalFields
-          .filter((field) => normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm))
-          .slice(0, 3)
-      : [];
-  const fieldGroups = [
-    ...requiredFieldGroups,
-    ...groupTechnicalFields(selectedOptionalFields),
-  ];
+
+  const matchingOptionalFields = useMemo(() => {
+    if (
+      requiredFieldsOnly ||
+      normalizedSearchTerm.length < 3 ||
+      normalizedSearchTerm !== normalizedDebouncedSearchTerm
+    ) {
+      return [];
+    }
+    return searchableOptionalFields
+      .filter((field) => normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm))
+      .slice(0, 3);
+  }, [requiredFieldsOnly, normalizedSearchTerm, normalizedDebouncedSearchTerm, searchableOptionalFields]);
+
+  const fieldGroups = useMemo(
+    () => [...requiredFieldGroups, ...groupTechnicalFields(selectedOptionalFields)],
+    [requiredFieldGroups, selectedOptionalFields]
+  );
 
   const handleSetOverride = (fieldName: string, value: any) => {
     const currentOverrides = formData.technicalValues || {};
@@ -220,15 +264,22 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   };
 
   const handleToggleDepthLength = (currentField: TechnicalFieldDefinition) => {
-    const isProfundidade = currentField.name.toLowerCase() === 'profundidade';
-    const newName = isProfundidade ? 'Comprimento' : 'Profundidade';
+    const isProfundidade = isDepthCharacteristic(currentField.name);
+    const isTotal = currentField.name.toLowerCase().includes('total');
+    const targetName = isProfundidade
+      ? (isTotal ? 'Comprimento total' : 'Comprimento')
+      : (isTotal ? 'Profundidade total' : 'Profundidade');
     const oldName = currentField.name;
 
-    const newFieldDef = allTechnicalFields.find(
-      (f) => f.name.toLowerCase() === newName.toLowerCase()
-    );
+    const newFieldDef =
+      allTechnicalFields.find((f) => f.name.toLowerCase() === targetName.toLowerCase()) ||
+      allTechnicalFields.find((f) =>
+        isProfundidade
+          ? f.name.toLowerCase().includes('comprimento')
+          : f.name.toLowerCase().includes('profundidade')
+      );
     if (!newFieldDef) {
-      console.warn(`Campo '${newName}' não encontrado no cadastro global de características.`);
+      console.warn(`Campo '${targetName}' não encontrado no cadastro global de características.`);
       return;
     }
     const actualNewName = newFieldDef.name;
@@ -239,10 +290,28 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       oldName
     );
 
-    // Salva o novo valor na variação
-    handleSetOverride(actualNewName, currentValue || '');
-    // Remove o antigo
-    handleRemoveOverride(oldName);
+    // Atualiza technicalValues de forma atômica para evitar stale closure
+    const currentOverrides = formData.technicalValues || {};
+    let nextOverrides = setVariationOverride(currentOverrides, actualNewName, currentValue || '');
+    nextOverrides = removeVariationOverride(nextOverrides, oldName);
+    handleChange('technicalValues', nextOverrides);
+
+    // Atualiza attributes de forma atômica
+    let nextAttrs = [...(formData.attributes || [])];
+    const oldIdx = nextAttrs.findIndex(
+      (a) => a.name?.trim().toLowerCase() === oldName.trim().toLowerCase()
+    );
+    if (oldIdx >= 0) {
+      nextAttrs.splice(oldIdx, 1);
+    }
+    if (currentValue) {
+      nextAttrs.push({
+        name: actualNewName,
+        value: String(currentValue),
+        showName: true,
+      });
+    }
+    handleChange('attributes', nextAttrs);
 
     setManualFieldNames((prev) => {
       const filtered = prev.filter((n) => n !== oldName && n !== actualNewName);
@@ -250,100 +319,18 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     });
   };
 
-  const handleImproveDescriptionWithAI = async () => {
-    const title = (formData.name || parentProduct.name || parentProduct.description || '').trim();
-    setIsImprovingDescription(true);
-    const mergedTechnicalValues = {
-      ...parentNormalizedValues,
-      ...(formData.technicalValues || {}),
-    };
-
-    try {
-      const result = await aiService.improveProductDescription({
-        currentDescription: formData.description || '',
-        title,
-        material: formData.material || parentProduct.material,
-        brand: parentProduct.brand,
-        line: parentProduct.line,
-        width: formData.syncWidth ? parentProduct.width : formData.width,
-        height: formData.syncHeight ? parentProduct.height : formData.height,
-        depth: formData.syncDepth ? parentProduct.depth : formData.depth,
-        weight: formData.syncWeight ? parentProduct.weight : formData.weight,
-        technicalValues: mergedTechnicalValues,
-      });
-
-      handleChange('description', result.improvedDescription);
-      toast.success('Descrição da variação aperfeiçoada com sucesso! ✨');
-    } catch (error: unknown) {
-      console.error(error);
-      const msg = error instanceof Error ? error.message : 'Erro ao aperfeiçoar descrição com IA.';
-      toast.error(msg);
-    } finally {
-      setIsImprovingDescription(false);
-    }
-  };
-
-  const characteristicSearchControl = !requiredFieldsOnly ? (
-    <div className="w-full max-w-xl space-y-1.5">
-      <label
-        htmlFor="variation-technical-characteristic-search"
-        className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
-      >
-        Pesquisar característica
-      </label>
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
-        <i className="bi bi-search text-slate-400" aria-hidden="true" />
-        <input
-          id="variation-technical-characteristic-search"
-          type="search"
-          value={characteristicSearchTerm}
-          onChange={(event) => setCharacteristicSearchTerm(event.target.value)}
-          placeholder="Digite pelo menos 3 caracteres"
-          aria-describedby="variation-technical-characteristic-search-hint"
-          className="w-full bg-transparent text-xs text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
-        />
-      </div>
-      <p
-        id="variation-technical-characteristic-search-hint"
-        className="text-[10px] text-slate-400 dark:text-slate-500"
-        aria-live="polite"
-      >
-        {normalizedSearchTerm.length < 3
-          ? 'Digite pelo menos 3 caracteres para pesquisar.'
-          : normalizedSearchTerm !== normalizedDebouncedSearchTerm
-            ? 'Buscando características...'
-            : matchingOptionalFields.length === 0
-              ? 'Nenhuma característica encontrada.'
-              : 'Exibindo até 3 características correspondentes.'}
-      </p>
-      {matchingOptionalFields.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-          {matchingOptionalFields.map((field) => (
-            <button
-              key={field.id}
-              type="button"
-              onClick={() => handleAddManualField(field)}
-              aria-label={`Adicionar característica ${field.name}`}
-              className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left text-xs text-slate-700 transition-colors last:border-b-0 hover:bg-blue-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
-            >
-              <span className="truncate">
-                {field.name}
-                {field.unit ? ` (${field.unit})` : ''}
-              </span>
-              <span className="inline-flex shrink-0 items-center gap-1 font-bold text-blue-600 dark:text-blue-400">
-                <i className="bi bi-plus-circle" aria-hidden="true" />
-                Adicionar
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+  const searchControl = !requiredFieldsOnly ? (
+    <VariationTechnicalSearchControl
+      searchTerm={characteristicSearchTerm}
+      debouncedSearchTerm={debouncedCharacteristicSearchTerm}
+      matchingFields={matchingOptionalFields}
+      onSearchTermChange={setCharacteristicSearchTerm}
+      onAddField={handleAddManualField}
+    />
   ) : null;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-350">
-      {/* Características da Variação */}
       <div className="flex flex-col gap-4">
         {loadingFields ? (
           <div className="py-6 text-center text-slate-400 text-xs font-bold animate-pulse">
@@ -358,266 +345,52 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
           <div className="flex flex-col gap-6 pt-1">
             {fieldGroups.map((group, index) => (
               <React.Fragment key={group.title}>
-                {index === requiredFieldGroups.length && characteristicSearchControl}
+                {index === requiredFieldGroups.length && searchControl}
                 <section
                   aria-labelledby={`variation-technical-group-${group.title}`}
                   className="flex flex-col gap-3"
                 >
-                <h4
-                  id={`variation-technical-group-${group.title}`}
-                  className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
-                >
-                  {group.title}
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {group.fields.map((field) => {
-                    const fieldLower = field.name.trim().toLowerCase();
-                    const hasExplicitOverride = hasVariationOverride(
-                      formData.technicalValues,
-                      field.name
-                    );
-                    const hasAttributeValue =
-                      variationAttributeValues[field.name] !== undefined ||
-                      variationAttributeValues[fieldLower] !== undefined;
-                    const isOverridden = hasExplicitOverride || hasAttributeValue;
-
-                    const rawEffectiveVal = getEffectiveTechnicalValue(
-                      parentNormalizedValues,
-                      { ...variationAttributeValues, ...(formData.technicalValues || {}) },
-                      field.name
-                    );
-                    const effectiveVal =
-                      rawEffectiveVal !== undefined
-                        ? rawEffectiveVal
-                        : variationAttributeValues[fieldLower];
-                    const isManual = manualFieldNames.includes(field.name);
-                    // Campo está ativo se tem override explícito ou se o pai configurou sua aplicabilidade.
-                    const parentVal = parentNormalizedValues[field.name];
-                    const parentText = String(parentVal ?? '').trim();
-                    const parentIsZero =
-                      ['integer', 'number', 'decimal', 'measure'].includes(field.dataType) &&
-                      Number(parentText.replace(',', '.')) === 0;
-                    const hasMeaningfulParentValue =
-                      parentText !== '' &&
-                      parentText.toLocaleLowerCase('pt-BR') !== 'não se aplica' &&
-                      !parentIsZero;
-                    const isInheritedFromParent = !isOverridden && hasMeaningfulParentValue;
-                    const isAlwaysApplicable = field.isRequired;
-                    const normalizedEffectiveValue = String(effectiveVal ?? '')
-                      .trim()
-                      .toLocaleLowerCase('pt-BR');
-                    // O override vazio ainda representa uma escolha manual de
-                    // "Aplica-se"; não confundir ausência de valor com "Não se aplica".
-                    const isApplicable =
-                      isAlwaysApplicable ||
-                      (isOverridden
-                        ? normalizedEffectiveValue !== 'não se aplica'
-                        : Object.prototype.hasOwnProperty.call(parentNormalizedValues, field.name) &&
-                          normalizedEffectiveValue !== 'não se aplica');
-                    // O vínculo é a fonte da verdade: sem override a variação está
-                    // sincronizada e o status deve ser somente leitura. Ao dessincronizar,
-                    // handleSetOverride cria também um override vazio, quando necessário.
-                    const canEditApplicability = !isAlwaysApplicable && isOverridden;
-
-                    return (
-                      <div
+                  <h4
+                    id={`variation-technical-group-${group.title}`}
+                    className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
+                  >
+                    {group.title}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {group.fields.map((field) => (
+                      <VariationTechnicalFieldItem
                         key={field.id}
-                        className="flex flex-col gap-1.5 p-1 transition-all min-w-0"
-                      >
-                        <div className="flex items-center justify-between gap-2 min-w-0">
-                          <label
-                            className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 truncate min-w-0"
-                            title={field.name}
-                          >
-                            {field.name}
-                            {field.isRequired && isApplicable && (
-                              <span className="ml-1 text-red-500" aria-label="Obrigatório">
-                                *
-                              </span>
-                            )}
-                            {field.name.toLowerCase() === 'cor' && (
-                              <button
-                                type="button"
-                                title="Gerenciar cores"
-                                aria-label="Gerenciar cores"
-                                onClick={() => setIsAttributeModalOpen(true)}
-                                className="ml-1.5 inline-flex shrink-0 items-center rounded-lg px-1.5 py-0.5 text-[10px] font-black normal-case tracking-normal text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/40"
-                              >
-                                Gerenciar
-                              </button>
-                            )}
-                            {(field.name.toLowerCase() === 'profundidade' ||
-                              field.name.toLowerCase() === 'comprimento') && (
-                              <button
-                              type="button"
-                              disabled={isSingleVariation}
-                              title={`Alternar para ${field.name.toLowerCase() === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
-                              onClick={() => handleToggleDepthLength(field)}
-                                className="text-slate-400 hover:text-blue-600 transition-colors ml-1 disabled:opacity-50"
-                              >
-                                <i className="bi bi-arrow-left-right" />
-                              </button>
-                            )}
-                          </label>
-                          <div className="flex items-center gap-1 shrink-0">
-                            {!isAlwaysApplicable && (
-                              <button
-                                type="button"
-                                role="switch"
-                                aria-checked={isApplicable}
-                                onClick={() => {
-                                  // O status de aplicabilidade só é editável fora da sincronização.
-                                  // Alterá-lo não pode criar/remover o vínculo com o pai.
-                                  if (canEditApplicability) {
-                                    const valueToApply = isApplicable
-                                      ? 'Não se aplica'
-                                      : normalizedEffectiveValue === 'não se aplica'
-                                        ? ''
-                                        : (effectiveVal ?? '');
-                                    handleSetOverride(field.name, valueToApply);
-                                  }
-                                }}
-                                disabled={!canEditApplicability || isSingleVariation}
-                                className={`relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors ${canEditApplicability ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${isApplicable ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
-                                title={
-                                  isAlwaysApplicable
-                                    ? 'Esta característica é obrigatória'
-                                    : isOverridden
-                                      ? isApplicable
-                                        ? 'Aplica-se — clique para marcar Não se aplica'
-                                        : 'Não se aplica — clique para reativar'
-                                      : 'Sincronizado com o pai — dessincronize para alterar'
-                                }
-                              >
-                                <span
-                                  className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition ${isApplicable ? 'translate-x-3' : 'translate-x-0'}`}
-                                />
-                              </button>
-                            )}
-                            {/* Ícone sync: verde=sincronizado (corrente ligada), cinza=manual (corrente quebrada) */}
-                            <button
-                              type="button"
-                              disabled={isSingleVariation}
-                              onClick={() => {
-                                if (isOverridden) {
-                                  handleRemoveOverride(field.name);
-                                } else {
-                                  handleSetOverride(field.name, effectiveVal ?? '');
-                                }
-                              }}
-                              className={`p-1 rounded-lg flex items-center transition-all ${isSingleVariation ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
-                                isOverridden
-                                  ? 'text-slate-400 hover:text-slate-600'
-                                  : 'text-emerald-500 hover:text-emerald-600'
-                              }`}
-                              title={
-                                isOverridden
-                                  ? 'Manual — clique para sincronizar com o pai'
-                                  : 'Sincronizado com o pai — clique para personalizar'
-                              }
-                            >
-                              <i
-                                className={`bi ${isOverridden ? 'bi-link-45deg' : 'bi-link'} text-sm`}
-                              />
-                            </button>
-
-                            {isManual && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveManualField(field.name)}
-                                title={`Remover campo ${field.name}`}
-                                className="text-slate-400 hover:text-red-500 text-xs p-0.5"
-                              >
-                                <i className="bi bi-trash3" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        <TechnicalFieldInput
-                          field={field}
-                          value={
-                            effectiveVal !== undefined && effectiveVal !== null ? effectiveVal : ''
-                          }
-                          disabled={isSingleVariation || isInheritedFromParent}
-                          onChange={(selectedVal) => handleSetOverride(field.name, selectedVal)}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+                        field={field}
+                        parentNormalizedValues={parentNormalizedValues}
+                        variationAttributeValues={variationAttributeValues}
+                        formDataTechnicalValues={formData.technicalValues}
+                        isManual={manualFieldNames.includes(field.name)}
+                        isSingleVariation={isSingleVariation}
+                        onSetOverride={handleSetOverride}
+                        onRemoveOverride={handleRemoveOverride}
+                        onRemoveManualField={handleRemoveManualField}
+                        onToggleDepthLength={handleToggleDepthLength}
+                        onOpenAttributeModal={() => setIsAttributeModalOpen(true)}
+                      />
+                    ))}
+                  </div>
                 </section>
               </React.Fragment>
             ))}
-            {fieldGroups.length === requiredFieldGroups.length && characteristicSearchControl}
+            {fieldGroups.length === requiredFieldGroups.length && searchControl}
           </div>
         )}
       </div>
 
       {showDescription && (
-        <>
-          {/* Descrição */}
-          <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-950 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
-                Descrição da Variação
-              </h4>
-              <div className="flex items-center gap-2">
-                {showAiImprove && !formData.syncDescription && (
-                  <button
-                    type="button"
-                    onClick={handleImproveDescriptionWithAI}
-                    disabled={isImprovingDescription}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100/80 hover:bg-purple-200/80 dark:bg-purple-955/60 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/70 text-amber-600 dark:text-amber-400 font-black uppercase text-[9px] tracking-wider transition-all disabled:opacity-50 active:scale-95 shadow-sm"
-                  >
-                    {isImprovingDescription ? (
-                      <>
-                        <i className="bi bi-arrow-repeat animate-spin text-amber-500" />
-                        Aperfeiçoando...
-                      </>
-                    ) : (
-                      <>
-                        <i className="bi bi-stars text-amber-500 text-xs font-bold" />
-                        Aperfeiçoar com IA
-                      </>
-                    )}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  disabled={isSingleVariation}
-                  onClick={() => handleChange('syncDescription', !formData.syncDescription)}
-                  className={`p-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all disabled:cursor-not-allowed disabled:opacity-70 ${formData.syncDescription ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-955/30' : 'text-slate-400 bg-slate-100 dark:bg-slate-850'}`}
-                  title={
-                    formData.syncDescription
-                      ? 'Desvincular Descrição do Pai'
-                      : 'Sincronizar Descrição com o Pai'
-                  }
-                >
-                  <i
-                    className={`bi ${formData.syncDescription ? 'bi-link text-emerald-600' : 'bi-link-45deg text-slate-400'}`}
-                  ></i>
-                  <span className="text-[9px] font-black uppercase">
-                    {formData.syncDescription ? 'Sincronizado' : 'Manual'}
-                  </span>
-                </button>
-              </div>
-            </div>
-            {formData.syncDescription ? (
-              <div className="w-full mt-2 p-4 bg-slate-100 dark:bg-slate-900/50 rounded-2xl border border-slate-200/50 dark:border-slate-800 text-xs font-semibold text-slate-500 min-h-[80px]">
-                <span className="whitespace-pre-wrap">{parentProduct?.description || ''}</span>
-              </div>
-            ) : (
-              <textarea
-                rows={4}
-                value={formData.description || ''}
-                onChange={(e) => handleChange('description', e.target.value)}
-                placeholder="Descrição específica desta variação (se vazia, sincroniza com o pai no e-commerce)..."
-                className="w-full mt-2 p-4 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold focus:border-blue-600 dark:focus:border-blue-400 transition-all resize-none dark:text-slate-100"
-              />
-            )}
-          </div>
-        </>
+        <VariationTechnicalDescriptionSection
+          formData={formData}
+          parentProduct={parentProduct}
+          handleChange={handleChange}
+          isSingleVariation={isSingleVariation}
+          showAiImprove={showAiImprove}
+          parentNormalizedValues={parentNormalizedValues}
+        />
       )}
 
       <AttributeManagementModal

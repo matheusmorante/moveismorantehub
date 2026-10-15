@@ -33,6 +33,7 @@ export function useMobileProducts(
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'draft'>('all');
   const [showDeactivated, setShowDeactivated] = useState(true);
   const [showTestProducts, setShowTestProducts] = useState(false);
+  const [showMergedProducts, setShowMergedProducts] = useState(false);
   const [generalTypeFilter, setGeneralTypeFilter] = useState<'all' | 'product' | 'service'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [catalogStatusFilter, setCatalogStatusFilter] = useState<'all' | 'published' | 'hidden'>(
@@ -85,8 +86,8 @@ export function useMobileProducts(
           // localizar também itens desativados pelo nome/código/SKU.
           includeDeactivated:
             values.includeDeactivated || values.statusFilter === 'disabled' || Boolean(values.search),
-          // O ERP sempre inclui variações fundidas na lista para preservar o histórico.
-          includeMerged: true,
+          // Itens mesclados ficam ocultos por padrão, a menos que o usuário ative showMergedProducts
+          includeMerged: showMergedProducts,
           category: values.category || undefined,
           catalogStatus: values.catalogStatus,
           itemType: values.itemType,
@@ -110,6 +111,7 @@ export function useMobileProducts(
       catalogStatusFilter,
       generalTypeFilter,
       showDeactivated,
+      showMergedProducts,
       mode,
       enabled,
       validateList,
@@ -137,6 +139,7 @@ export function useMobileProducts(
     generalTypeFilter,
     showTestProducts,
     showDeactivated,
+    showMergedProducts,
     mode,
   ]);
 
@@ -425,6 +428,7 @@ export function useMobileProducts(
     generalTypeFilter,
     showTestProducts: showTestProductsForCurrentRole,
     hasTestProducts,
+    showMergedProducts,
     currentPage,
     totalItems,
     totalPages,
@@ -436,6 +440,8 @@ export function useMobileProducts(
     setCatalogStatusFilter,
     setGeneralTypeFilter,
     setShowTestProducts,
+    setShowMergedProducts,
+    onToggleMergedProducts: () => setShowMergedProducts((prev) => !prev),
     setCurrentPage,
     refresh: () => loadProducts(true),
     handleToggleCatalog,

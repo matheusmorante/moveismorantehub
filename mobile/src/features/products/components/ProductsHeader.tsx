@@ -3,6 +3,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  GitMerge,
   MoreVertical,
   PlusCircle,
   Search,
@@ -39,6 +40,8 @@ interface Props {
   canViewReconciliation?: boolean;
   showDeactivated: boolean;
   onToggleDeactivated: () => void;
+  showMergedProducts?: boolean;
+  onToggleMergedProducts?: () => void;
   categories: any[];
   statusFilter: 'all' | 'active' | 'disabled' | 'draft';
   categoryFilter: string;
@@ -72,6 +75,8 @@ export function ProductsHeader({
   canViewReconciliation = false,
   showDeactivated,
   onToggleDeactivated,
+  showMergedProducts = false,
+  onToggleMergedProducts,
   categories,
   statusFilter,
   categoryFilter,
@@ -295,6 +300,20 @@ export function ProductsHeader({
                   </Text>
                 </TouchableOpacity>
               )}
+              {mode !== 'categories' && onToggleMergedProducts && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    onToggleMergedProducts();
+                  }}
+                >
+                  <GitMerge size={18} color="#64748b" />
+                  <Text style={[styles.menuItemText, dark && styles.light]}>
+                    {showMergedProducts ? 'Ocultar Mesclados' : 'Mostrar Mesclados'}
+                  </Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -387,6 +406,19 @@ export function ProductsHeader({
                   {showTestProducts && <Check size={14} color="#ffffff" />}
                 </View>
                 <Text style={[styles.choiceText, dark && styles.light]}>Mostrar testes</Text>
+              </TouchableOpacity>
+            )}
+            {mode === 'standard' && onToggleMergedProducts && (
+              <TouchableOpacity
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: showMergedProducts }}
+                onPress={onToggleMergedProducts}
+                style={styles.testToggleRow}
+              >
+                <View style={[styles.testCheckbox, showMergedProducts && styles.testCheckboxChecked]}>
+                  {showMergedProducts && <Check size={14} color="#ffffff" />}
+                </View>
+                <Text style={[styles.choiceText, dark && styles.light]}>Mostrar mesclados</Text>
               </TouchableOpacity>
             )}
             <Text style={[styles.filterLabel, dark && styles.light]}>Catálogo digital</Text>

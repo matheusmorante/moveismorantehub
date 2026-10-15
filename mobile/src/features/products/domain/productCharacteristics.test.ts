@@ -14,6 +14,12 @@ import {
   isRequiredCharacteristicName,
   isWeightCharacteristicName,
   upsertProductCharacteristicAttribute,
+  isDepthCharacteristic,
+  isLengthCharacteristic,
+  isHeightCharacteristic,
+  isWidthCharacteristic,
+  isThicknessCharacteristic,
+  getDimensionSortRank,
 } from './productCharacteristics';
 
 describe('productCharacteristics', () => {
@@ -36,7 +42,10 @@ describe('productCharacteristics', () => {
     expect(
       getMissingRequiredDimensions({ Altura: '180', Largura: '80', Comprimento: '50' })
     ).toEqual([]);
-    expect(getMissingRequiredDimensions({ Altura: '180' })).toEqual(['Largura', 'Profundidade']);
+    expect(getMissingRequiredDimensions({ Altura: '180' })).toEqual([
+      'Largura total',
+      'Profundidade total',
+    ]);
   });
 
   it('mantém Peso opcional mesmo quando uma categoria ainda o marca como obrigatório', () => {
@@ -195,5 +204,35 @@ describe('productCharacteristics', () => {
       'Comprimento',
       'Peso',
     ]);
+  });
+
+  it('identifica corretamente predicados de domínio e ordenação de medidas', () => {
+    expect(isDepthCharacteristic('Profundidade')).toBe(true);
+    expect(isDepthCharacteristic('Profundidade total')).toBe(true);
+    expect(isDepthCharacteristic('Comprimento')).toBe(false);
+
+    expect(isLengthCharacteristic('Comprimento')).toBe(true);
+    expect(isLengthCharacteristic('Comprimento total')).toBe(true);
+    expect(isLengthCharacteristic('Largura')).toBe(false);
+
+    expect(isHeightCharacteristic('Altura')).toBe(true);
+    expect(isHeightCharacteristic('Altura total')).toBe(true);
+    expect(isHeightCharacteristic('Profundidade')).toBe(false);
+
+    expect(isWidthCharacteristic('Largura')).toBe(true);
+    expect(isWidthCharacteristic('Largura total')).toBe(true);
+    expect(isWidthCharacteristic('Altura')).toBe(false);
+
+    expect(isThicknessCharacteristic('Espessura')).toBe(true);
+    expect(isThicknessCharacteristic('Espessura do colchão')).toBe(true);
+    expect(isThicknessCharacteristic('Altura')).toBe(false);
+
+    expect(getDimensionSortRank('Altura total')).toBe(1);
+    expect(getDimensionSortRank('Espessura')).toBe(2);
+    expect(getDimensionSortRank('Largura total')).toBe(3);
+    expect(getDimensionSortRank('Profundidade total')).toBe(4);
+    expect(getDimensionSortRank('Comprimento total')).toBe(5);
+    expect(getDimensionSortRank('Peso')).toBe(9);
+    expect(getDimensionSortRank('Outro')).toBe(99);
   });
 });

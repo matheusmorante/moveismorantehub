@@ -166,13 +166,24 @@ export const fetchMobileProductsPage = async (
     }
 
     if (options?.summaryOnly) {
-      const summaries = (data || []).map((product: any) => {
-        const parentCode = product.code || product.sku || '000000';
-        let variations = (product.product_variations || [])
-          .filter(
-            (variation: any) => options.includeMerged === true || !variation.merged_to_variation_id
-          )
-          .map((variation: any) => ({
+      const summaries = (data || [])
+        .filter((product: any) => {
+          if (options?.includeMerged === true) return true;
+          const rawVars = product.product_variations || [];
+          const isMerged =
+            rawVars.length > 0 &&
+            rawVars.every((v: any) => Boolean(v.merged_to_variation_id || v.mergedToVariationId));
+          return !isMerged;
+        })
+        .map((product: any) => {
+          const parentCode = product.code || product.sku || '000000';
+          let variations = (product.product_variations || [])
+            .filter(
+              (variation: any) =>
+                options.includeMerged === true ||
+                (!variation.merged_to_variation_id && !variation.mergedToVariationId)
+            )
+            .map((variation: any) => ({
             sku: variation.sku,
             active: variation.active !== false,
           }));
@@ -241,8 +252,12 @@ export const fetchMobileProductsPage = async (
               : [];
 
       const storedVariations = p.product_variations || [];
+      const isParentMerged =
+        storedVariations.length > 0 &&
+        storedVariations.every((v: any) => Boolean(v.merged_to_variation_id || v.mergedToVariationId));
+
       let allVars: any[] = storedVariations
-        .filter((v: any) => options?.includeMerged === true || !v.merged_to_variation_id)
+        .filter((v: any) => options?.includeMerged === true || (!v.merged_to_variation_id && !v.mergedToVariationId))
         .map((v: any, vIdx: number) => {
           const varImages =
             Array.isArray(v.images) && v.images.length > 0
@@ -304,6 +319,8 @@ export const fetchMobileProductsPage = async (
             active: v.active !== false,
             images: varImages,
             attributes: v.attributes || {},
+            isMerged: Boolean(v.merged_to_variation_id || v.mergedToVariationId),
+            mergedToVariationId: v.merged_to_variation_id || v.mergedToVariationId || null,
           };
         });
 
@@ -426,6 +443,10 @@ export const fetchMobileProductsPage = async (
         ),
         itemType: restoredProduct.itemType || p.item_type || 'product',
         isDraft: Boolean(restoredProduct.isDraft || p.is_draft || p.status === 'draft'),
+        isMerged: isParentMerged,
+        hasAnyMergedVariation: storedVariations.some((v: any) =>
+          Boolean(v.merged_to_variation_id || v.mergedToVariationId)
+        ),
         mainSupplierId:
           restoredProduct.mainSupplierId || p.main_supplier_id || p.supplier_id || null,
         supplierId: restoredProduct.supplierId || p.supplier_id || p.main_supplier_id || null,
@@ -433,7 +454,12 @@ export const fetchMobileProductsPage = async (
       };
     });
 
-    return { data: formatted, total: count || 0 };
+    const filteredFormatted =
+      options?.includeMerged === true
+        ? formatted
+        : formatted.filter((prod: any) => !prod.isMerged);
+
+    return { data: filteredFormatted, total: count || 0 };
   } catch (err) {
     if (options?.throwOnError) throw err;
     console.error('[MobileProductService] Exceção ao buscar produtos:', err);

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import type VariationType from '../../../types/variation.type';
 import { CharacteristicOptionsSection } from '../components/CharacteristicOptionsSection';
 import type { CharacteristicFormData } from '../domain/characteristicFormRules';
@@ -60,8 +61,8 @@ export const VariationFormModal = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[1000040] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" aria-hidden="true" />
       <div
         role="dialog"
@@ -255,7 +256,8 @@ export const VariationFormModal = ({
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

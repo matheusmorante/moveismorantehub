@@ -26,6 +26,8 @@ import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductActionsMenu } from './MobileProductActionsMenu';
 import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
 import { MobileProductVariationList } from './MobileProductVariationList';
+import { StockOriginBadge } from './StockOriginBadge';
+import { MergedBadge } from './MergedBadge';
 
 const normalizeVariationNamePart = (value: string) =>
   value
@@ -182,6 +184,12 @@ export const MobileProductCard: React.FC<Props> = ({
   const isSingleVariationMerged = Boolean(
     singleVariation?.merged_to_variation_id || singleVariation?.mergedToVariationId
   );
+  const isParentMerged = Boolean(
+    product.isMerged ||
+      (variations.length > 0 &&
+        variations.every((v: any) => Boolean(v.merged_to_variation_id || v.mergedToVariationId)))
+  );
+  const isMerged = isSingleVariationMerged || isParentMerged;
   const isDraft = Boolean(product.isDraft || product.is_draft || product.status === 'draft');
   const cardActionAvailability = getMobileProductCardActionAvailability(product);
   const cardStatus = singleVariation?.status || product.status || 'hidden';
@@ -269,6 +277,16 @@ export const MobileProductCard: React.FC<Props> = ({
             <View style={styles.draftBadge}>
               <Text style={styles.draftBadgeText}>Rascunho</Text>
             </View>
+          )}
+
+          {isMerged && (
+            <MergedBadge
+              targetVariationId={
+                singleVariation?.merged_to_variation_id || singleVariation?.mergedToVariationId
+              }
+              dark={dark}
+              size="xs"
+            />
           )}
         </View>
 
@@ -364,6 +382,15 @@ export const MobileProductCard: React.FC<Props> = ({
           </Text>
 
           <View style={styles.tagsRow}>
+            {product.itemType !== 'service' && (
+              <StockOriginBadge
+                product={product}
+                singleVariation={singleVariation}
+                oppName={oppName}
+                dark={dark}
+                size="sm"
+              />
+            )}
             {product.itemType === 'composition' ? (
               <View
                 style={[styles.oppBadge, { backgroundColor: '#f3e8ff', borderColor: '#d8b4fe' }]}
@@ -378,20 +405,17 @@ export const MobileProductCard: React.FC<Props> = ({
                 <Text style={[styles.oppText, { color: '#b45309' }]}>Serviço</Text>
               </View>
             ) : null}
-            {oppBadgeInfo ? (
+            {oppBadgeInfo && !oppBadgeInfo.isSalvado ? (
               <View
                 style={[
                   styles.oppBadge,
                   dark && styles.darkOppBadge,
-                  oppBadgeInfo.isSalvado && (dark ? styles.darkSalvadoBadge : styles.salvadoBadge),
                 ]}
               >
-                <Flame size={10} color="#d97706" />
                 <Text
                   style={[
                     styles.oppText,
                     dark && styles.darkOppText,
-                    oppBadgeInfo.isSalvado && (dark ? styles.darkSalvadoText : styles.salvadoText),
                   ]}
                 >
                   {oppBadgeInfo.label}
@@ -450,7 +474,12 @@ export const MobileProductCard: React.FC<Props> = ({
           showCatalog={(!isParent || isSingleVariationCard) && showCatalogStatus}
           canToggleActive={canDelete}
           canToggleCatalog={canChangeCatalog}
-          disabled={isSingleVariationMerged}
+          disabled={isMerged}
+          disabledReason={
+            isMerged
+              ? 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
+              : undefined
+          }
           onToggleActive={() =>
             onToggleActive(
               singleVariation && !singleVariation.isVirtual ? singleVariation.id : product.id,
