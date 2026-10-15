@@ -66,7 +66,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const isParent = Boolean(product.isParent);
   const isVariation = product.isVariation || !!product.parentId;
   const singleVariation =
-    isParent && product.allVariations?.length === 1 ? product.allVariations[0] : undefined;
+    isParent && product.allVariations?.length === 1
+      ? product.allVariations[0]
+      : Array.isArray(product.variations) && product.variations.length === 1
+        ? (product.variations[0] as any)
+        : undefined;
   const isSingleVariationCard = Boolean(singleVariation);
   const isDraft = Boolean(
     product.isDraft ||
@@ -74,7 +78,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       (product as ProductListRow & { is_draft?: boolean }).is_draft
   );
   const isNonConventional = isNonConventionalProduct(product);
-  const canManageCatalog = !readOnly && !isDraft && (product.active !== false || isNonConventional);
+  const canManageCatalog = !readOnly;
 
   const { oppName, supplierNames } = useProductMetadata(product);
   const variationName = isVariation ? getVariationDisplayName(product) : '';

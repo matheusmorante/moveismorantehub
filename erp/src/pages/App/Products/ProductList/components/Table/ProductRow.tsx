@@ -94,7 +94,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
         .toLowerCase()
         .includes('salvado')
     );
-  const canManageCatalog = !isDraft && (product.active !== false || isSalvado);
+  const canManageCatalog = !readOnly;
   const isChildVar = Boolean(product.isVariation) || Boolean(product.parentId);
   const isDeactivated =
     (singleVariation

@@ -52,7 +52,10 @@ describe('Validação de Publicação no Catálogo Digital', () => {
 
     const result = validateCatalogPublication(incompleteProduct as Product);
     expect(result.isValid).toBe(false);
-    expect(result.errorMessage).toBeDefined();
+    expect(result.errorMessage).toContain('Não foi possível publicar no Catálogo Digital.');
+    expect(result.errorMessage).toContain('Campos obrigatórios pendentes:');
+    expect(result.errorMessage).toContain('• Pelo menos uma foto deve ser adicionada.');
+    expect(result.errorMessage).toContain('• Ative pelo menos uma dimensão física (altura, largura ou profundidade/comprimento)');
   });
 
   it('aprova publicação quando produto atende a todos os requisitos do catálogo', () => {

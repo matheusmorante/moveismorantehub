@@ -232,4 +232,58 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
       );
     });
   });
+
+  describe('Interatividade do Catálogo Digital para Rascunhos e Salvados Ocultos', () => {
+    it('mantém o botão de catálogo clicável mesmo quando o produto é um rascunho', () => {
+      const handleToggleCatalog = vi.fn();
+
+      render(
+        <ChannelStatusBadges
+          active={false}
+          catalogStatus="hidden"
+          isDraft={true}
+          isParent={false}
+          canManageCatalog={true}
+          onToggleCatalog={handleToggleCatalog}
+        />
+      );
+
+      const catalogButton = screen.getByRole('button', {
+        name: /Status Catálogo: Oculto/i,
+      }) as HTMLButtonElement;
+
+      expect(catalogButton).toBeDefined();
+      expect(catalogButton.disabled).toBe(false);
+      expect(catalogButton.className).not.toContain('cursor-not-allowed');
+
+      fireEvent.click(catalogButton);
+      expect(handleToggleCatalog).toHaveBeenCalledTimes(1);
+    });
+
+    it('permite clicar no botão de catálogo Oculto de produto Salvado para disparar validação/toast', () => {
+      const handleToggleCatalog = vi.fn();
+
+      render(
+        <ChannelStatusBadges
+          active={false}
+          catalogStatus="hidden"
+          isSalvado={true}
+          isNonConventional={true}
+          isParent={false}
+          canManageCatalog={true}
+          onToggleCatalog={handleToggleCatalog}
+        />
+      );
+
+      const catalogButton = screen.getByRole('button', {
+        name: /Status Catálogo: Oculto/i,
+      }) as HTMLButtonElement;
+
+      expect(catalogButton).toBeDefined();
+      expect(catalogButton.disabled).toBe(false);
+
+      fireEvent.click(catalogButton);
+      expect(handleToggleCatalog).toHaveBeenCalledTimes(1);
+    });
+  });
 });

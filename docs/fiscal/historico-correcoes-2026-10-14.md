@@ -613,5 +613,27 @@ Referências do checkout atual para as correções já descritas; a tabela resol
   - `erp/src/pages/App/Products/hooks/variation/useVariationForm.ts`
   - `erp/src/pages/App/Products/hooks/form/useProductFormModal.ts`
   - `erp/src/pages/App/Products/hooks/form/useProductFormSubmit.test.tsx`
-- **Validação e testes:** Executados testes de unidade em `useProductFormSubmit.test.tsx` (12 testes passando) comprovando que produto com variação única não abre o modal da variação e direciona para a aba 'technical', enquanto produto com 2 ou mais variações abre o modal da variação 'v2'. Testes em `ProductFormTabsNavigation.test.tsx` (5 testes passando) e `ProductFiscalTab.test.tsx` (3 testes passando) com 100% de sucesso.
+### Desbloqueio e Feedback Visual no Botão de Catálogo para Produtos Salvados e Rascunhos
 
+- **Problema e sintomas observados:** No produto guarda-roupa da origem Salvados (e produtos em rascunho), o botão de controle do Catálogo Digital na listagem de produtos aparecia com status "Oculto" e se encontrava desativado/bloqueado (`disabled={true}`, opacidade reduzida e cursor não permitido). Ao clicar, o navegador engolia o clique silenciosamente, sem nenhuma resposta da interface, impedindo o operador de entender por que o produto não podia ser publicado ou quais campos obrigatórios precisavam ser corrigidos.
+- **Causa raiz técnica comprovada:**
+  1. Em `ChannelStatusBadges.tsx`, a constante `isCatalogDisabled` continha a trava `isDraft`: `const isCatalogDisabled = disabled || isDraft || (!canManageCatalog && !onToggleCatalog);`. Além disso, a função interna `handleCatalogClick` continha um guard clause `if (isDraft) return;` que descartava a ação.
+  2. Em `ProductRow.tsx` e `ProductCard.tsx`, a permissão `canManageCatalog` estava condicionada a `!isDraft && (product.active !== false || isSalvado)`. Como produtos salvados iniciam com `active === false` ou podiam ser rascunhos, `canManageCatalog` ficava `false`, bloqueando o botão fisicamente.
+  3. No validador `useProductsCatalogActions.ts`, a validação de publicação não detalhava individualmente cada pendência do produto com formatação de lista com marcadores para o operador.
+- **Solução implementada:**
+  1. Em `ChannelStatusBadges.tsx`, removida a dependência de `isDraft` e de `active === false` da propriedade `disabled` do botão do Catálogo. O botão agora permanece sempre habilitado e interativo.
+  2. O clique no botão do Catálogo sempre delega para o handler `onToggleCatalog` / `deactivateCatalog`.
+  3. Em `useProductsCatalogActions.ts`, implementada validação estruturada com `checkEcomLegibility` que inspeciona todos os requisitos obrigatórios do catálogo (fotos, dimensões físicas L x A x P, preço unitário, categoria, nome e descrição). Caso haja inconsistências, monta mensagem formatada com marcadores (`•`) e aviso explícito de rascunho.
+  4. Em `useProducts.ts`, o toast é invocado com `{ style: { whiteSpace: 'pre-line' }, autoClose: 7000 }` para exibição confortável e multilinhas de todas as pendências.
+- **Arquivos modificados:**
+  - `erp/src/pages/App/Products/ProductList/components/Shared/ChannelStatusBadges.tsx`
+  - `erp/src/pages/App/Products/ProductList/components/Table/ProductRow.tsx`
+  - `erp/src/pages/App/Products/ProductList/components/Card/ProductCard.tsx`
+  - `erp/src/pages/App/Products/ProductList/hooks/actions/useProductsCatalogActions.ts`
+  - `erp/src/pages/App/Products/ProductList/hooks/data/useProducts.ts`
+  - `erp/src/pages/App/Products/ProductList/components/Shared/ChannelStatusBadges.test.tsx`
+  - `erp/src/pages/App/Products/ProductList/hooks/actions/catalogPublicationValidation.test.ts`
+- **Validação e testes:**
+  - `ChannelStatusBadges.test.tsx`: 8 testes aprovados, incluindo testes específicos para produtos rascunho e salvados ocultos mantendo o botão clicável.
+  - `catalogPublicationValidation.test.ts`: 6 testes aprovados, validando a rejeição com lista com marcadores de campos pendentes e mensagem de rascunho.
+  - Suíte completa de `ProductList` (16 arquivos de teste, 78 testes) aprovada com 100% de sucesso.

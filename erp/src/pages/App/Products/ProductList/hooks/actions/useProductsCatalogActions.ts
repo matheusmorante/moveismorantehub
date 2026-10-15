@@ -123,14 +123,8 @@ export const validateCatalogPublication = (
 
   const isDraft =
     Boolean(parentProduct?.isDraft) ||
+    Boolean((parentProduct as any)?.is_draft) ||
     parentProduct?.status === 'draft';
-  if (isDraft) {
-    return {
-      isValid: false,
-      errorMessage:
-        'Este produto é um rascunho. Termine o cadastramento para poder publicá-lo no Catálogo.',
-    };
-  }
 
   const varImages =
     variation?.images && variation.images.length > 0
@@ -141,13 +135,32 @@ export const validateCatalogPublication = (
 
   const effectiveProduct: Partial<Product> = {
     ...parentProduct,
+    name:
+      parentProduct?.name ||
+      parentProduct?.title ||
+      (parentProduct?.description ? parentProduct.description.split('\n')[0].trim() : undefined),
+    description:
+      parentProduct?.ecommerceDescription ||
+      parentProduct?.description,
     ...(isVariation && variation
       ? {
-          name: variation.name || parentProduct?.name || parentProduct?.description,
-          description: variation.description || parentProduct?.description,
-          unitPrice: variation.syncUnitPrice
-            ? parentProduct?.unitPrice
-            : (variation.unitPrice ?? parentProduct?.unitPrice),
+          name:
+            variation.name ||
+            parentProduct?.name ||
+            parentProduct?.title ||
+            (parentProduct?.description ? parentProduct.description.split('\n')[0].trim() : undefined),
+          description:
+            variation.description ||
+            parentProduct?.ecommerceDescription ||
+            parentProduct?.description,
+          ecommerceDescription:
+            variation.description ||
+            parentProduct?.ecommerceDescription ||
+            parentProduct?.description,
+          unitPrice:
+            variation.syncUnitPrice !== false
+              ? parentProduct?.unitPrice
+              : (variation.unitPrice ?? parentProduct?.unitPrice),
           images: varImages,
           width:
             variation.syncWidth !== false
@@ -167,10 +180,27 @@ export const validateCatalogPublication = (
 
   const ecomResult = checkEcomLegibility(effectiveProduct);
   if (!ecomResult.isLegible) {
+    const errorList = ecomResult.errors;
+    let message = '';
+    if (errorList.length === 1) {
+      message = `Não foi possível publicar no Catálogo Digital.\nCampo obrigatório pendente:\n• ${errorList[0]}`;
+    } else {
+      message = `Não foi possível publicar no Catálogo Digital.\nCampos obrigatórios pendentes:\n• ${errorList.join('\n• ')}`;
+    }
+    if (isDraft) {
+      message += '\n\nO produto é um rascunho. Conclua o cadastro do produto para salvá-lo como finalizado.';
+    }
+    return {
+      isValid: false,
+      errorMessage: message,
+    };
+  }
+
+  if (isDraft) {
     return {
       isValid: false,
       errorMessage:
-        ecomResult.errors[0] || 'Preencha todos os requisitos do Catálogo antes de publicar.',
+        'Não foi possível publicar no Catálogo Digital: o produto é um rascunho. Conclua o cadastro salvando-o como finalizado para poder publicá-lo.',
     };
   }
 

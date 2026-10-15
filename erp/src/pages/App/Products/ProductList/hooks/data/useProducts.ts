@@ -354,10 +354,14 @@ export const useProducts = (filters?: ProductListFilters) => {
       if (newStatus === 'published') {
         const validation = validateCatalogPublication(parentProduct, variation, isVariation);
         if (!validation.isValid) {
+          const toastOptions = {
+            style: { whiteSpace: 'pre-line' as const },
+            autoClose: 7000,
+          };
           if (validation.errorMessage?.includes('rascunho')) {
-            toast.warning(validation.errorMessage);
+            toast.warning(validation.errorMessage, toastOptions);
           } else {
-            toast.error(validation.errorMessage);
+            toast.error(validation.errorMessage, toastOptions);
           }
           return;
         }
