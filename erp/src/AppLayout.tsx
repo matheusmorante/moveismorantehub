@@ -116,6 +116,8 @@ export default function AppLayout() {
   const isTemplateEditor =
     location.pathname === '/templates/price-label' ||
     ['/templates/posts', '/marketing/posts', '/marketing'].includes(location.pathname);
+  const isProductsPage =
+    location.pathname === '/products' || location.pathname === '/products/compositions';
 
   return (
     <div className="flex flex-col bg-slate-50 dark:bg-slate-950 min-h-screen font-['Inter',_sans-serif] transition-colors duration-300">
@@ -362,7 +364,15 @@ export default function AppLayout() {
       )}
 
       <main
-        className={`flex-1 ${isTemplateEditor ? 'p-0' : isMobileAppView ? 'p-2' : 'p-3 sm:p-4 md:p-6 lg:p-6 xl:p-8'} overflow-x-clip`}
+        className={`flex-1 ${
+          isTemplateEditor
+            ? 'p-0'
+            : isMobileAppView
+              ? 'p-2'
+              : isProductsPage
+                ? 'px-3 sm:px-4 md:px-6 lg:px-6 xl:px-8 pt-0 pb-6 xl:pb-8'
+                : 'p-3 sm:p-4 md:p-6 lg:p-6 xl:p-8'
+        } overflow-x-clip`}
       >
         <Outlet />
       </main>
