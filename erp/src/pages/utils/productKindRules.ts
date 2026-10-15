@@ -1,5 +1,6 @@
 import type Product from '@/pages/types/product.type';
 import type { ProductKind } from '@/pages/types/product.type';
+import { MAX_VARIATION_IMAGES } from './productImageLimits';
 
 export const getProductKind = (
   value?: {
@@ -77,8 +78,17 @@ export const normalizeProductForSave = (
       status: options.catalogStatus,
       variations: (formData.variations || []).map((variation) => {
         const varName = variation.name || effectiveName;
+        const candidateImages =
+          variation.images && variation.images.length > 0
+            ? variation.images
+            : (formData.variations?.length === 1 && formData.images && formData.images.length > 0)
+              ? formData.images
+              : [];
+        const cappedImages = candidateImages.slice(0, MAX_VARIATION_IMAGES);
+
         return {
           ...variation,
+          images: cappedImages,
           name: varName,
           title: varName,
           marketplaceTitle: varName,

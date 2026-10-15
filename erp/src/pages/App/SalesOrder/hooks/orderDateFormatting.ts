@@ -9,9 +9,9 @@ export const getCurrentDatetimeLocal = (): string => {
 };
 
 export const formatToStorageDate = (datetimeLocalStr: string): string => {
-  if (!datetimeLocalStr) return new Date().toISOString();
+  if (!datetimeLocalStr) return '';
   const date = new Date(datetimeLocalStr);
-  return isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+  return isNaN(date.getTime()) ? '' : date.toISOString();
 };
 
 export const parseStorageDateToLocal = (dateStr: string): string => {

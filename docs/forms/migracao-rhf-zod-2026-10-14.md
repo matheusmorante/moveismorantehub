@@ -26,12 +26,29 @@ O [inventário detalhado do ERP](../audits/fiscal-2026-10-14/form-migration-inve
 
 | Aplicação | Arquivos com integração localizada |
 |---|---|
-| erp | 126 |
+| erp | 132 |
 | mobile | 34 |
 | digital-catalog | 13 |
 
 ### erp
 
+- `erp/src/pages/App/Products/Reconciliation/ProductReconciliation.tsx`
+- `erp/src/pages/App/Products/Reconciliation/components/useReconciliationSupplierSearch.ts`
+- `erp/src/pages/App/Products/Reconciliation/modals/useReconciliationSubmit.ts`
+
+- `erp/src/components/shared/AddressAutocompleteInput.tsx`
+- `erp/src/pages/App/Marketing/Posts/FixedAspectImageCropper.tsx`
+- `erp/src/pages/App/Marketing/Posts/OpportunitySealLibrary.tsx`
+- `erp/src/pages/App/Products/components/tabs/ProductEcommerceTab.tsx`
+- `erp/src/pages/App/Products/components/tabs/images/SquareImageCropper.tsx`
+- `erp/src/pages/App/Products/hooks/form/useProductFormImages.ts`
+- `erp/src/pages/App/SalesOrder/components/OrderRouteMap.tsx`
+- `erp/src/pages/App/Settings/components/ai/AIPromptsSection.tsx`
+- `erp/src/pages/App/Stock/LabelPrinting/components/LabelGridSheetPreview.tsx`
+- `erp/src/pages/App/Stock/LabelPrinting/components/LabelQueue.tsx`
+- `erp/src/pages/App/Stock/Receipts/components/ReceiptFiscalDocumentsSection.tsx`
+
+- `erp/src/pages/App/SalesOrder/hooks/useOrderDistanceCalculator.ts`
 - `erp/src/pages/App/Products/hooks/form/useProductFormAi.ts`
 - `erp/src/pages/App/Products/components/variationTabs/VariationDescriptionTab.tsx`
 - `erp/src/pages/App/Products/components/variationTabs/VariationTechnicalDescriptionSection.tsx`
@@ -340,6 +357,48 @@ UserRolesModal e seu caller tratam falha/prazo sem fechar a edição ou aplicar 
 
 A fronteira ZodForm do catálogo também não tem consumidor ativo localizado. Seu contrato agora exige callback onValid com dados parseados, espera até sua conclusão e apresenta falhas; três testes específicos passaram. Com autenticação/perfil, são 20 testes do catálogo, TypeScript completo, lint da fronteira e build Next finais aprovados (scratch/rhf-catalog-profile-boundary-final-*, rhf-catalog-boundary-lint.log). Não contar a fronteira como uma quarta página operacional.
 
-**Estado atual: ERP principal 58/122 itens conferidos (47,5%), 64 pendentes.** O número inclui itens legados mapeados e conferidos, não significa 47,5% do código ou de todos os formulários das três aplicações. Mobile: três componentes conferidos; catálogo: três páginas e uma fronteira técnica. A conferência integral, os demais candidatos e as provas reais de navegação/dispositivo permanecem abertos.
+**Checkpoint anterior de autenticação: ERP principal 58/122 itens conferidos (47,5%), 64 pendentes.** O número inclui itens legados mapeados e conferidos, não significa 47,5% do código ou de todos os formulários das três aplicações. Mobile: três componentes conferidos; catálogo: três páginas e uma fronteira técnica. A conferência integral, os demais candidatos e as provas reais de navegação/dispositivo permanecem abertos.
 
 Consolidação final destes lotes: 64 testes do ERP em dez arquivos (scratch/rhf-erp-auth-roles-final-tests.log), 16 móveis em dois (rhf-mobile-auth-account-final-tests.log) e 20 do catálogo em três (rhf-catalog-profile-boundary-final-tests.log): 100 execuções aprovadas, incluindo regressões existentes, não 100 testes novos ou cobertura de todos os formulários. Builds finais ERP e catálogo aprovados; TypeScript completo do catálogo aprovado, enquanto ERP/mobile mantêm as pendências globais já delimitadas. Nenhum teste realizou operação real de Auth, permissões, negócio, e-mail ou SEFAZ.
+
+### Pedidos: submissões, autosave, data e consulta de distância — 15/10
+
+Salvar rascunho manual reutiliza o mesmo contrato básico do autosave. Finalizar e salvar uma edição cadastrada preservam seus requisitos/status. O resolver fica ativo até código e persistência, recebe o snapshot antes da espera e entrega valores parseados; erros numéricos usam as chaves dos campos filhos. Artefatos de teste persistidos sem código comercial mantêm seu ID ao reabrir, e a conclusão não reinjeta um código comercial no retorno. Data apagada/inválida não vira horário atual: rascunho conserva o campo vazio inclusive na reabertura, enquanto a conclusão fica bloqueada. A conversão de datas preenchidas e a inicialização de pedido novo permanecem.
+
+A consulta de distância foi identificada como proprietário adicional, incluindo disparo automático pelo cliente e botão de logística. Reutiliza schema de endereço/rota, valida por RHF antes do serviço, envia endereço parseado e impede resposta antiga após consulta nova/endereço inválido/troca de pedido. Compartilha pedido idêntico pendente, inclui coordenadas/placeId na chave e não substitui frete por números/rota/preço inválidos. Prazo local de 15s libera feedback sem retry ou aplicação tardia; não cancela o provedor. Mapa independente e autocomplete continuam pendentes no censo.
+
+**Provas:** 45 testes em quatro arquivos (19 do formulário principal com cálculo real do hook, oito de autosave, 13 da consulta e cinco de manuseio), scratch/rhf-sales-order-distance-final-tests.log. Há falhas comprovadas antes das correções: rhf-sales-order-before.log, rhf-order-distance-before.log, rhf-order-context-before.log, rhf-order-date-before.log e rhf-order-draft-date-reopen-before.log. A fixture antiga de orçamento foi completada com produto/atendente; não se retirou validação para fazê-la passar. Lint dos três hooks/formatador sem erros/avisos e build ERP completo aprovado (rhf-sales-order-distance-final-lint.log, rhf-sales-order-distance-final-build.log), com aviso existente de chunks grandes. TypeScript global reprova fora do lote, sem diagnóstico dos arquivos alterados (rhf-sales-order-distance-final-tsc.log). Nada foi exercitado no provedor Maps, interface real, PostgreSQL transacional ou SEFAZ; serviços, código comercial e notificações são simulados. Nenhuma escrita comercial remota, alteração de SQL ou deploy. [Histórico fiscal e linhas alteradas](../fiscal/historico-correcoes-2026-10-15.md).
+
+**Checkpoint anterior do inventário principal: ERP 61/123 itens conferidos (49,6%), 62 pendentes.** O denominador passou de 122 para 123 ao explicitar a consulta de distância já existente; não é aumento de escopo nem percentual de todo o ERP. Permanecem a composição dos campos filhos, edição/assistência/ações de pedidos, outros proprietários do ERP e conferência integral de mobile/catálogo. Mobile conserva três componentes conferidos e catálogo três páginas mais uma fronteira técnica, sem percentual global presumido.
+
+### Endereços compartilhados e mapa de frete — 15/10
+
+Busca, escolha da sugestão e consulta da localização executam resolvers reais antes de seus efeitos, com schemas compartilhados explícitos e dados parseados. Não tornam o autocomplete obrigatório para preencher manualmente o endereço. Consulta e complemento têm prazo local de 15s e ignoram retornos obsoletos. O complemento não substitui uma edição posterior de rua, número, CEP ou coordenadas; a mescla funcional preserva os demais campos. Nova seleção e edição física limpam coordenadas, identidade e links da localização anterior. Pessoa, entrega, assistência, emitente e mapa compartilham essa regra; os campos continuam pertencendo ao formulário de cadastro.
+
+O mapa independente reutiliza o autocomplete nas duas entradas e valida o endereço antes de calcular. Solicitação idêntica pendente fica bloqueada; mudanças invalidam o cálculo anterior. Distância, duração, coordenadas, geometria e preço inválidos impedem resultado, e o valor exibido corresponde ao cálculo aprovado. Não houve alteração do provedor Maps nem das regras de transmissão fiscal.
+
+**Provas:** 73 testes em seis arquivos (15 do autocomplete, 12 do mapa, seis de pessoa, 19 do pedido, oito de autosave e 13 de distância), `scratch/rhf-address-freight-final-tests.log`. Há falhas anteriores comprovadas de contrato/concorrência (rhf-address-autocomplete-before.log, rhf-route-map-before.log, rhf-address-context-before.log); um seletor incorreto do teste foi corrigido sem retirar a validação. Build ERP completo aprovado (rhf-address-freight-final-build.log); lint do lote sem erros e cinco avisos existentes (rhf-address-freight-final-lint.log). TypeScript global reprova fora dos arquivos fonte/testes deste lote (rhf-address-freight-final-tsc.log). Serviços e MapLibre são simulados: não há prova visual de WebGL, requisição real Maps ou escrita remota. [Causas e linhas alteradas](../fiscal/historico-correcoes-2026-10-15.md).
+
+**Checkpoint após endereços/mapa: ERP 63/125 itens conferidos (50,4%), 62 pendentes.** Autocomplete e mapa, já presentes no censo, foram explicitados como proprietários de consulta. O denominador pode crescer ao conferir outros caminhos existentes; não mede a prontidão fiscal nem todos os formulários das três aplicações. A lista estática foi reconciliada com 129 arquivos ERP que contêm integração; importar biblioteca não comprova o efeito. Mobile permanece com três componentes e catálogo com três páginas e uma fronteira técnica conferidos. A meta integral permanece aberta.
+
+### Importação de pessoas — leitura, prévia e gravação conferidas
+
+Arquivo CSV/codificação e mapeamento/colunas recebem contratos compartilhados explícitos. O resolver antecede a leitura e a preparação da prévia; cada linha reutiliza o domínio de pessoa vigente, mostra seu erro e só linhas válidas escolhidas seguem à importação. Flags sem telefone/endereço e origem são reconhecidas no mapeamento, sem confundi-las com os campos de telefone/logradouro. CSV com aspas abertas é rejeitado. Nome/razão social precisa de uma coluna disponível.
+
+A submissão permanece no callback RHF durante a gravação e usa os valores parseados. Estados por bloco de 50 conservam registros confirmados; erro/prazo marca o bloco sem confirmação e o exclui de qualquer repetição na mesma sessão. Registros ainda não enviados podem seguir, mas remapear não apaga os estados depois da primeira tentativa. Uma importação parcial com registros sem confirmação permanece aberta para conferência. Leitura tem prazo de 15s e gravação 30s, sem retry nem aplicação tardia de sucesso. O prazo não cancela a gravação no provedor. Fechamento, reabertura, desmontagem ou troca do destino invalidam callbacks e próximos blocos da sessão antiga; não desfazem uma gravação já enviada.
+
+**Provas:** 16 testes do proprietário em rhf-person-import-final-tests.log; 89 testes conjuntos em sete arquivos em scratch/rhf-address-import-final-tests.log. Seis de sete casos iniciais falhavam antes da correção (rhf-person-import-before-corrected-fixtures.log); duas fixtures foram antes alinhadas ao label ANSI e aos matchers instalados, sem relaxar a regra. Lint do modal sem erros/avisos; build ERP aprovado (rhf-person-import-final-lint.log, rhf-person-import-final-build.log). TypeScript apontou três erros próprios de tipagem, corrigidos; a execução final mantém apenas diagnósticos fora dos arquivos deste lote (rhf-person-import-types-corrected.log). Serviços de persistência simulados; FileReader exercitado localmente, com simulação controlada nos casos de falha/prazo. Nenhum banco, Auth, dado comercial, SEFAZ ou deploy real. [Causas, arquivos e linhas](../fiscal/historico-correcoes-2026-10-15.md).
+
+**Checkpoint anterior: ERP principal 64/125 itens conferidos (51,2%), 61 pendentes.** A integração estática continua em 129 arquivos ERP, 34 móveis e 13 do catálogo, sem constituir prova de todos os efeitos. Mobile e catálogo mantêm os itens conferidos descritos no inventário individual e a conferência integral segue aberta.
+
+### Reconciliação de produtos — cinco itens e dois proprietários explicitados
+
+Os quatro modais mantêm RHF/resolver até terminar o callback e consomem valores parseados. Busca de fornecedor é compartilhada com o card; tem schema próprio, resposta validada, revisão, prazo e cleanup. O seletor de categoria recebe somente categorias e conserva a escolha durante a confirmação pendente. Atributos revalidam opções/tipos disponíveis e rejeitam frações em inteiro/valores booleanos inválidos. O card usa contrato compartilhado de correção parcial: campos ainda incompletos podem permanecer, enquanto os valores tipados fornecidos precisam ser válidos. Controles permanecem editáveis até persistir; salvar um snapshot não apaga edições posteriores.
+
+O proprietário valida filtros/página antes da consulta e o agregado de IDs/operação antes de alterar o lote. Debounce conserva outros filtros recentes, retornos antigos não substituem a lista e erro/prazo não aparece como ausência de pendências. replaceExisting chega ao serviço de fornecedor; IDs, NCM e valores são parseados. Callbacks retornam confirmação/falha/incerteza; erro mantém modal/seleção, prazo interrompe a espera sem reenvio nem sucesso tardio.
+
+Os serviços reutilizam os contratos estruturais, verificam leitura e cada gravação e restringem variações ao produto de origem. Contagem usa linhas confirmadas, erro interrompe os próximos registros, NCM conserva os demais campos fiscais e dados malformados são rejeitados. Consultas preservam metadados/zero de atributos e propagam falhas de configuração/fornecedor. Categoria continua usando múltiplas chamadas; esta validação não comprova transação, rollback, concorrência ou todas as regras contextuais no banco.
+
+**Provas:** 56 testes em seis arquivos (13 de mutação, seis de consulta, 12 de modais, dez do card, oito do proprietário e sete existentes de detecção), scratch/rhf-reconciliation-final-tests.log. Treze falhas de serviço, seis de consulta e uma de atributo inteiro inline foram comprovadas antes dos ajustes (rhf-reconciliation-service-before.log, rhf-reconciliation-query-before.log, rhf-reconciliation-inline-attribute-before.log). Lint das fontes sem erros/avisos e build ERP aprovado (rhf-reconciliation-verified-lint.log, rhf-reconciliation-verified-build.log). TypeScript global reprova fora dos arquivos deste lote (rhf-reconciliation-verified-tsc.log). RHF/resolver e proprietários são reais; HTTP/Supabase, CategoryAutocomplete e o controle filho de atributo são simulados nos testes conforme o caso. Não há navegação real nem escrita no banco. [Causas, arquivos e linhas](../fiscal/historico-correcoes-2026-10-15.md).
+
+**Estado atual: ERP principal 71/127 itens conferidos (55,9%), 56 pendentes.** Consulta/lote da página e consulta compartilhada de fornecedor foram acrescentados ao inventário principal para explicitar caminhos existentes. O censo registra também os filhos/wrappers, sem criar formulários proprietários para cada campo. São 132 localizações ERP, incluindo chamadas ao adaptador useReconciliationSubmit cuja cadeia RHF foi exercitada; mobile continua com 34 e catálogo 13 localizações, sem inferir conclusão pelas importações. A conferência integral das três aplicações permanece aberta.

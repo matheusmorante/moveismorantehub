@@ -1,14 +1,14 @@
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { toast } from 'react-toastify';
+import { useReconciliationSubmit } from './useReconciliationSubmit';
+import type { ReconciliationConfirmation } from '../../../../../../../shared-utils/reconciliationFormSchemas';
 import { catalogSelectionFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
-import React, { useState, useCallback } from 'react';
-import { supabase } from '../../../../utils/supabaseConfig';
-import Person from '../../../../types/person.type';
+import React, { useState } from 'react';
+import { SupplierSearchField } from '../components/SupplierSearchField';
+import { useReconciliationSupplierSearch } from '../components/useReconciliationSupplierSearch';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (supplierId: string, replaceExisting: boolean) => Promise<void>;
+  onConfirm: (supplierId: string, replaceExisting: boolean) => Promise<ReconciliationConfirmation>;
   selectedCount: number;
   isAllFilteredSelected: boolean;
   totalFilteredCount: number;
@@ -23,78 +23,21 @@ export const ApplySupplierModal: React.FC<Props> = ({
   totalFilteredCount,
 }) => {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
-  const [suppliers, setSuppliers] = useState<Person[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Busca fornecedores do Supabase com debounce embutido no hook do componente
-  const searchSuppliers = useCallback(async (term: string) => {
-    if (!term || term.trim().length < 2) {
-      setSuppliers([]);
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const safe = term.replace(/"/g, '');
-      const { data, error } = await supabase
-        .from('people')
-        .select('id, full_name, social_name, nickname, cpf_cnpj')
-        .or(`full_name.ilike."%${safe}%",social_name.ilike."%${safe}%"`)
-        .or('person_type.ilike.suppliers,person_type.ilike.supplier')
-        .eq('deleted', false)
-        .order('full_name')
-        .limit(20);
-
-      if (error) throw error;
-
-      const mapped: Person[] = (data || []).map((p: any) => ({
-        id: p.id,
-        fullName: p.full_name || '',
-        tradeName: p.social_name || p.nickname || '',
-        cpfCnpj: p.cpf_cnpj || '',
-      }));
-      setSuppliers(mapped);
-    } catch {
-      setSuppliers([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, []);
-
-  // Watcher de mudança de query — chamado pelo handleInputChange do hook interno
-  // Precisamos interceptar o onSelect e antes disso fazer a busca
-  const handleQueryChange = useCallback(
-    (term: string) => {
-      searchSuppliers(term);
-    },
-    [searchSuppliers]
+  const { suppliers, isSearching, searchError, handleQueryChange, clearSearch } = useReconciliationSupplierSearch(isOpen);
+  const { handleConfirm, isSubmitting, error, uncertain } = useReconciliationSubmit(
+    catalogSelectionFormSchema.refine(({ id }) => suppliers.some((supplier) => supplier.id === id), 'Selecione um fornecedor da busca atual.'),
+    { id: selectedSupplierId }, isOpen, (data) => onConfirm(data.id, false), onClose,
   );
-
-  const form = useZodForm(catalogSelectionFormSchema, { id: selectedSupplierId });
+  React.useEffect(() => { setSelectedSupplierId(''); }, [isOpen]);
+  const handleSelect = (id: string) => { if (id) clearSearch(); setSelectedSupplierId(id); };
   if (!isOpen) return null;
-
   const affectedCount = isAllFilteredSelected ? totalFilteredCount : selectedCount;
 
-  const handleConfirm = async () => {
-    const validated = await form.validateAndRun({ id: selectedSupplierId }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    setIsSubmitting(true);
-    try {
-      // replaceExisting = false fixo: sempre adiciona sem substituir fornecedores existentes
-      await onConfirm(validated.id, false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSelect = (id: string) => {
-    setSelectedSupplierId(id);
-    if (!id) setSuppliers([]);
-  };
-
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+    <div role="dialog" aria-modal="true" aria-label="Definir fornecedor em lote" className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
       <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-visible border border-slate-200 dark:border-slate-800 animate-slide-up">
+        {(error || searchError) && <p role="alert" className="px-6 pt-4 text-sm text-red-600">{error || searchError}</p>}
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -149,6 +92,7 @@ export const ApplySupplierModal: React.FC<Props> = ({
                           que faz a filtragem e exibe o dropdown.
                         */}
             <SupplierSearchField
+              disabled={isSubmitting || uncertain}
               suppliers={suppliers}
               selectedSupplierId={selectedSupplierId}
               onSelect={handleSelect}
@@ -172,8 +116,8 @@ export const ApplySupplierModal: React.FC<Props> = ({
             Cancelar
           </button>
           <button
-            onClick={handleConfirm}
-            disabled={!selectedSupplierId || isSubmitting}
+            type="button" onClick={() => void handleConfirm()}
+            disabled={!selectedSupplierId || isSubmitting || uncertain}
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs uppercase tracking-widest shadow-md transition-all disabled:opacity-50 active:scale-95"
           >
             {isSubmitting ? (
@@ -193,126 +137,3 @@ export const ApplySupplierModal: React.FC<Props> = ({
 };
 
 // ─── Componente interno: input com busca live e dropdown ─────────────────────
-
-interface SupplierSearchFieldProps {
-  suppliers: Person[];
-  selectedSupplierId: string;
-  onSelect: (id: string) => void;
-  onQueryChange: (term: string) => void;
-  isSearching: boolean;
-}
-
-const SupplierSearchField: React.FC<SupplierSearchFieldProps> = ({
-  suppliers,
-  selectedSupplierId,
-  onSelect,
-  onQueryChange,
-  isSearching,
-}) => {
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
-  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
-
-  const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setQuery(val);
-    onSelect(''); // limpa seleção ao digitar
-
-    if (debounceTimer) clearTimeout(debounceTimer);
-    const timer = setTimeout(() => {
-      onQueryChange(val);
-      setOpen(val.trim().length >= 2);
-    }, 350);
-    setDebounceTimer(timer);
-  };
-
-  const handleClear = () => {
-    setQuery('');
-    onSelect('');
-    setOpen(false);
-  };
-
-  const handleSelectItem = (supplier: Person) => {
-    setQuery(supplier.fullName);
-    onSelect(supplier.id!);
-    setOpen(false);
-  };
-
-  // Se tiver selecionado externamente, sincroniza o texto
-  React.useEffect(() => {
-    if (selectedSupplier && query !== selectedSupplier.fullName) {
-      setQuery(selectedSupplier.fullName);
-    }
-  }, [selectedSupplier]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <div className="relative">
-      <div className="relative">
-        <i className="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
-        <input
-          type="text"
-          autoComplete="off"
-          value={query}
-          onChange={handleChange}
-          onFocus={() => {
-            if (query.trim().length >= 2 && suppliers.length > 0) setOpen(true);
-          }}
-          onBlur={() => setTimeout(() => setOpen(false), 200)}
-          placeholder="Digite o nome do fornecedor..."
-          className="w-full h-11 pl-10 pr-9 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:font-normal placeholder:text-slate-400"
-        />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          {isSearching && (
-            <i className="bi bi-arrow-repeat animate-spin text-slate-400 text-sm"></i>
-          )}
-          {selectedSupplierId && !isSearching && (
-            <>
-              <i className="bi bi-check-circle-fill text-emerald-500 text-sm"></i>
-              <button
-                type="button"
-                onClick={handleClear}
-                className="text-slate-400 hover:text-red-500 transition-colors ml-1"
-              >
-                <i className="bi bi-x-lg text-xs"></i>
-              </button>
-            </>
-          )}
-          {!selectedSupplierId && !isSearching && (
-            <i className="bi bi-truck text-slate-400 text-sm"></i>
-          )}
-        </div>
-      </div>
-
-      {/* Dropdown de resultados */}
-      {open && (
-        <div className="absolute z-[99999] top-full left-0 right-0 mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/50">
-          {suppliers.length === 0 ? (
-            <div className="px-4 py-4 text-center text-xs font-bold text-slate-400">
-              {isSearching ? 'Buscando...' : 'Nenhum fornecedor encontrado.'}
-            </div>
-          ) : (
-            suppliers.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onMouseDown={() => handleSelectItem(s)}
-                className="w-full px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-slate-800 transition-all flex flex-col gap-0.5"
-              >
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                  {s.fullName}
-                </span>
-                {s.tradeName && s.tradeName !== s.fullName && (
-                  <span className="text-[10px] text-slate-400 truncate">
-                    Fantasia: {s.tradeName}
-                  </span>
-                )}
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-};

@@ -42,6 +42,12 @@ export function useOrderDistanceCalculator(
     }
   }, [sourceKey]);
   useEffect(() => () => { requestIdRef.current += 1; }, []);
+  const cancelPendingDistanceCalculation = useCallback(() => {
+    requestIdRef.current += 1;
+    requestedKeyRef.current = '';
+    lastCalculatedAddressRef.current = '';
+    setIsCalculatingDistance(false);
+  }, []);
 
   const handleAutoCalculateDistance = useCallback(
     async (customAddress?: unknown, options: { silentSuccess?: boolean } = {}) => {
@@ -101,5 +107,5 @@ export function useOrderDistanceCalculator(
     },
     [shipping.useCustomerAddress, shipping.deliveryAddress, customerData.fullAddress, setShipping, validateValues],
   );
-  return { isCalculatingDistance, lastCalculatedAddressRef, handleAutoCalculateDistance };
+  return { isCalculatingDistance, lastCalculatedAddressRef, handleAutoCalculateDistance, cancelPendingDistanceCalculation };
 }

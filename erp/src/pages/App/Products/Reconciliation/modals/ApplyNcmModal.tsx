@@ -1,36 +1,27 @@
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { toast } from 'react-toastify';
+import { useReconciliationSubmit } from './useReconciliationSubmit';
+import type { ReconciliationConfirmation } from '../../../../../../../shared-utils/reconciliationFormSchemas';
 import { bulkNcmFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState } from 'react';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (ncm: string) => Promise<void>;
+  onConfirm: (ncm: string) => Promise<ReconciliationConfirmation>;
   selectedCount: number;
 }
 
 export const ApplyNcmModal: React.FC<Props> = ({ isOpen, onClose, onConfirm, selectedCount }) => {
   const [ncm, setNcm] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useZodForm(bulkNcmFormSchema, { ncm });
+  const { handleConfirm, isSubmitting, error, uncertain } = useReconciliationSubmit(bulkNcmFormSchema, { ncm }, isOpen, (data) => onConfirm(data.ncm), onClose);
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setNcm('');
+  }, [isOpen]);
   if (!isOpen) return null;
 
-  const handleConfirm = async () => {
-    const validated = await form.validateAndRun({ ncm }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    setIsSubmitting(true);
-    try {
-      await onConfirm(validated.ncm);
-      onClose();
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div role="dialog" aria-modal="true" aria-label="Definir NCM em lote" className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 animate-slide-up overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -57,6 +48,7 @@ export const ApplyNcmModal: React.FC<Props> = ({ isOpen, onClose, onConfirm, sel
         </div>
 
         <div className="p-6 space-y-4">
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           <p className="text-xs text-slate-600 dark:text-slate-300">
             Informe o código NCM fiscal que será atribuído a todos os produtos selecionados:
           </p>
@@ -66,6 +58,7 @@ export const ApplyNcmModal: React.FC<Props> = ({ isOpen, onClose, onConfirm, sel
               Código NCM
             </label>
             <input
+                  disabled={isSubmitting || uncertain}
               type="text"
               value={ncm}
               onChange={(e) => setNcm(e.target.value)}
@@ -84,8 +77,8 @@ export const ApplyNcmModal: React.FC<Props> = ({ isOpen, onClose, onConfirm, sel
             Cancelar
           </button>
           <button
-            onClick={handleConfirm}
-            disabled={!ncm.trim() || isSubmitting}
+            type="button" onClick={() => void handleConfirm()}
+            disabled={!ncm.trim() || isSubmitting || uncertain}
             className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {isSubmitting ? (

@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import Product, { Variation } from '../../../types/product.type';
 import ManageAttributesModal from '../components/modals/attributes/ManageAttributesModal';
 import VariationPhotosTab from '../components/tabs/images/VariationPhotosTab';
+import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
 import { useVariationForm } from '../hooks/variation/useVariationForm';
 import type { VariationTabId } from '../hooks/variation/variationForm.types';
 import { VariationIdentificationTab } from '../components/variationTabs/VariationIdentificationTab';
@@ -360,13 +361,15 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
 
               {!isStockistOnly && activeTab === 'fotos' && (
                 <VariationPhotosTab
-                  images={isSingleVariation
-                    ? (allParentImages.length > 0 ? allParentImages : parentProduct.images || [])
-                    : formData.images || []}
+                  images={(
+                    formData.images && formData.images.length > 0
+                      ? formData.images
+                      : (allParentImages.length > 0 ? allParentImages : parentProduct?.images || [])
+                  ).slice(0, MAX_VARIATION_IMAGES)}
                   parentImages={allParentImages.length > 0 ? allParentImages : parentProduct?.images || []}
                   isSingleVariation={isSingleVariation}
                   onChangeImages={(newImages) =>
-                    setFormData((prev) => (prev ? { ...prev, images: newImages } : null))
+                    setFormData((prev) => (prev ? { ...prev, images: newImages.slice(0, MAX_VARIATION_IMAGES) } : null))
                   }
                 />
               )}

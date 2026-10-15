@@ -1,3 +1,4 @@
+import { mergeAddressSelection } from '../../../../../../../shared-utils/addressSelection';
 import React from 'react';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
 
@@ -58,13 +59,14 @@ export const CompanyFiscalDataSection: React.FC<CompanyFiscalDataSectionProps> =
           <AddressAutocompleteInput
             value={settings.companyLogradouro || ''}
             onChange={(val) => onChange('companyLogradouro', val)}
-            onSelectAddress={(data) => {
-              onChange('companyLogradouro', data.street);
-              if (data.number) onChange('companyNumero', data.number);
-              if (data.neighborhood) onChange('companyBairro', data.neighborhood);
-              if (data.city) onChange('companyXMun', data.city);
-              if (data.state) onChange('companyUF', data.state);
-              if (data.cep) onChange('companyCep', data.cep);
+            addressValue={{ street: settings.companyLogradouro || '', number: settings.companyNumero || '', neighborhood: settings.companyBairro || '', city: settings.companyXMun || '', state: settings.companyUF || '', cep: settings.companyCep || '' }}
+            onSelectAddress={(data, baseline) => {
+              const current = { street: settings.companyLogradouro || '', number: settings.companyNumero || '', neighborhood: settings.companyBairro || '', city: settings.companyXMun || '', state: settings.companyUF || '', cep: settings.companyCep || '' };
+              const next = mergeAddressSelection(current, data, baseline);
+              const paths = { street: 'companyLogradouro', number: 'companyNumero', neighborhood: 'companyBairro', city: 'companyXMun', state: 'companyUF', cep: 'companyCep' };
+              for (const field of Object.keys(paths) as Array<keyof typeof paths>) {
+                if (next[field] !== current[field]) onChange(paths[field], next[field]);
+              }
             }}
             cityHint={settings.companyXMun}
             stateHint={settings.companyUF || 'PR'}

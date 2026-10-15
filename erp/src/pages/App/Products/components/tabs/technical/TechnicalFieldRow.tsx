@@ -1,0 +1,147 @@
+import React from 'react';
+import type { Product } from '../../../../../types/product.type';
+import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
+import { TechnicalFieldInput } from './TechnicalFieldInput';
+import {
+  computeTechnicalFieldItemState,
+  normalizeTechnicalName,
+} from './technicalTabUtils';
+
+export interface TechnicalFieldRowProps {
+  readonly field: TechnicalFieldDefinition;
+  readonly formData: Partial<Product>;
+  readonly manualFieldNames: string[];
+  readonly validationErrors?: Record<string, boolean>;
+  readonly onValueChange: (fieldName: string, value: unknown) => void;
+  readonly onOpenAttributeModal: () => void;
+  readonly onToggleDepthLength: (field: TechnicalFieldDefinition) => void;
+  readonly onRemoveManualField: (fieldName: string) => void;
+}
+
+export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
+  field,
+  formData,
+  manualFieldNames,
+  validationErrors,
+  onValueChange,
+  onOpenAttributeModal,
+  onToggleDepthLength,
+  onRemoveManualField,
+}) => {
+  const {
+    rawValue,
+    isManual,
+    isNotApplicable,
+    isAlwaysApplicable,
+    isApplicable,
+    isFieldInvalid,
+    isColorField,
+    isDepthOrLengthField,
+  } = computeTechnicalFieldItemState(field, formData, manualFieldNames, validationErrors);
+
+  const normName = normalizeTechnicalName(field.name);
+  const toggleDepthLengthTooltip = normName.includes('profundidade')
+    ? normName.includes('total')
+      ? 'Alternar para Comprimento total'
+      : 'Alternar para Comprimento'
+    : normName.includes('total')
+      ? 'Alternar para Profundidade total'
+      : 'Alternar para Profundidade';
+
+  return (
+    <div
+      id={`technical-field-${field.name}`}
+      className="flex w-[280px] max-w-full flex-col gap-1.5 p-1 transition-all"
+    >
+      <div className="flex w-full items-center justify-between gap-2">
+        <label
+          className={`min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
+            isFieldInvalid
+              ? 'text-red-600 dark:text-red-400'
+              : isNotApplicable
+                ? 'text-slate-400 dark:text-slate-500'
+                : 'text-slate-600 dark:text-slate-300'
+          }`}
+        >
+          <span>
+            {field.name}
+            {field.unit ? ` (${field.unit})` : ''}
+          </span>
+          {isApplicable && (
+            <span className="text-red-500" aria-label="Obrigatório">
+              *
+            </span>
+          )}
+        </label>
+        <div className="flex items-center gap-1.5">
+          {isColorField && (
+            <span className="inline-flex shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
+              <button
+                type="button"
+                title="Gerenciar cores"
+                aria-label="Gerenciar cores"
+                onClick={onOpenAttributeModal}
+                className="inline-flex items-center rounded-md px-1.5 py-1 text-[9px] font-black normal-case tracking-normal text-blue-700 transition-colors hover:bg-white dark:text-blue-300 dark:hover:bg-blue-900/60"
+              >
+                Gerenciar
+              </button>
+            </span>
+          )}
+          {isDepthOrLengthField && (
+            <button
+              type="button"
+              title={toggleDepthLengthTooltip}
+              aria-label={toggleDepthLengthTooltip}
+              onClick={() => onToggleDepthLength(field)}
+              className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
+            >
+              <i className="bi bi-arrow-left-right" />
+            </button>
+          )}
+          {/* Campos opcionais começam desligados; valor vazio explícito significa que se aplica. */}
+          {!field.isRequired && !isManual && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isApplicable}
+              onClick={() => {
+                onValueChange(field.name, isApplicable ? 'Não se aplica' : '');
+              }}
+              className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                isApplicable ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-300 dark:bg-slate-700'
+              }`}
+              title="Se aplica?"
+            >
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                  isApplicable ? 'translate-x-3' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          )}
+
+          {isManual && (
+            <button
+              type="button"
+              onClick={() => onRemoveManualField(field.name)}
+              title={`Remover ${field.name}`}
+              aria-label={`Remover campo ${field.name}`}
+              className="text-slate-400 hover:text-red-500 p-0.5 text-xs transition-colors ml-1"
+            >
+              <i className="bi bi-trash3" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <TechnicalFieldInput
+        field={field}
+        value={rawValue !== undefined && rawValue !== null ? rawValue : ''}
+        isInvalid={isFieldInvalid}
+        disabled={!isAlwaysApplicable && (rawValue === 'Não se aplica' || rawValue === 'N/A')}
+        onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
+      />
+    </div>
+  );
+};

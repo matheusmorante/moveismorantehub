@@ -1,3 +1,4 @@
+import { reconciliationQueryFormSchema } from '../../../../../../../shared-utils/reconciliationFormSchemas';
 import { supabase } from '../../../../utils/supabaseConfig';
 import {
   ReconciliationProductItem,
@@ -12,49 +13,14 @@ import { isWeightCharacteristicName } from '@/pages/utils/technicalValuesService
  * Busca todos os atributos que foram configurados como obrigatórios por categoria
  */
 export async function fetchRequiredCategoryAttributes(): Promise<RequiredCategoryAttribute[]> {
-  try {
-    const { data, error } = await supabase
-      .from('category_attributes')
-      .select(`
-                category_id,
-                attribute_id,
-                is_required,
-                attributes (
-                    id,
-                    name,
-                    data_type,
-                    unit
-                )
-            `)
-      .eq('is_required', true);
-
-    if (error) {
-      console.warn('[Reconciliation] Aviso ao buscar category_attributes:', error);
-      return [];
-    }
-
-    return (data || [])
-      .filter((row: any) => {
-        const attribute = Array.isArray(row.attributes) ? row.attributes[0] : row.attributes;
-        return !isWeightCharacteristicName(attribute?.name || '');
-      })
-      .map((row: any) => ({
-      categoryId: row.category_id,
-      attributeId: row.attribute_id,
-      isRequired: Boolean(row.is_required),
-      attribute: row.attributes
-        ? {
-            id: row.attributes.id,
-            name: row.attributes.name,
-            data_type: row.attributes.data_type || 'list',
-            unit: row.attributes.unit || undefined,
-          }
-        : undefined,
-      }));
-  } catch (err) {
-    console.error('[Reconciliation] Erro ao carregar atributos obrigatórios:', err);
-    return [];
-  }
+  const { data, error } = await supabase.from('category_attributes').select('category_id, attribute_id, is_required, attributes (id, name, data_type, unit)').eq('is_required', true);
+  if (error) throw error;
+  return (data || []).flatMap((row: any) => {
+    const attribute = Array.isArray(row.attributes) ? row.attributes[0] : row.attributes;
+    if (isWeightCharacteristicName(attribute?.name || '')) return [];
+    return [{ categoryId: row.category_id, attributeId: row.attribute_id, isRequired: Boolean(row.is_required),
+      attribute: attribute ? { id: attribute.id, name: attribute.name, data_type: attribute.data_type || 'list', unit: attribute.unit || undefined } : undefined }];
+  });
 }
 
 /**
@@ -69,6 +35,8 @@ export async function fetchProductsForReconciliation(
   count: number;
   summary: ReconciliationSummary;
 }> {
+  const values = reconciliationQueryFormSchema.parse({ page, pageSize, filters });
+  page = values.page; pageSize = values.pageSize; filters = values.filters;
   const requiredCategoryAttrs = await fetchRequiredCategoryAttributes();
 
   let query = supabase.from('products').select(
@@ -156,11 +124,12 @@ export async function fetchProductsForReconciliation(
 
   const peopleMap = new Map<string, { fullName: string; tradeName?: string }>();
   if (supplierIds.size > 0) {
-    const { data: peopleData } = await supabase
+    const { data: peopleData, error: peopleError } = await supabase
       .from('people')
       .select('id, full_name, social_name, nickname')
       .in('id', Array.from(supplierIds));
 
+    if (peopleError) throw peopleError;
     if (peopleData) {
       peopleData.forEach((p: any) => {
         peopleMap.set(p.id, {
@@ -195,10 +164,11 @@ export async function fetchProductsForReconciliation(
           try {
             attrs = JSON.parse(attrs);
           } catch {
-            attrs = [];
+            throw new Error('Os atributos da variação ' + v.id + ' possuem JSON inválido. Revise o cadastro antes de editar.');
           }
         }
-        if (!Array.isArray(attrs)) attrs = [];
+        if (attrs == null) attrs = [];
+        if (!Array.isArray(attrs)) throw new Error('Os atributos da variação precisam de revisão antes de editar.');
 
         return {
           id: v.id,
@@ -208,8 +178,9 @@ export async function fetchProductsForReconciliation(
           useParentPrice: v.use_parent_price !== false,
           active: v.active !== false,
           attributes: attrs.map((a: any) => ({
+            ...a,
             name: a.name || a.attribute_name || a.key || '',
-            value: String(a.value || a.option || ''),
+            value: String(a.value ?? a.option ?? ''),
             showName: a.showName ?? true,
           })),
         };

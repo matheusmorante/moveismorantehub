@@ -7,6 +7,7 @@ import {
   generateVariationSku,
   parseVariationImages,
 } from '@/pages/utils/productService';
+import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
 import {
   buildProductVariationName,
   computeVariationName,
@@ -239,12 +240,20 @@ export function useVariationForm({
         isSingleVariation && Boolean(variation) && !isStockistOnly ? 'fotos' : 'identificacao'
       );
       if (variation) {
+        const existingImages = parseVariationImages((variation as any).image_url, variation.images);
+        const defaultImages = isSingleVariation
+          ? (allParentImages.length > 0 ? allParentImages : parentProduct.images || []).slice(0, MAX_VARIATION_IMAGES)
+          : [];
+        const resolvedImages = existingImages.length > 0
+          ? existingImages.slice(0, MAX_VARIATION_IMAGES)
+          : defaultImages;
+
         setFormData({
           ...variation,
           status: variation.status === 'draft' ? 'hidden' : variation.status || 'hidden',
           ...(isDraft ? { active: false } : {}),
           title: variation.title || variation.marketplaceTitle || '',
-          images: parseVariationImages((variation as any).image_url, variation.images),
+          images: resolvedImages,
           syncUnitPrice: isSingleVariation || (variation.syncUnitPrice ?? true),
           syncPromoPrice: isSingleVariation || (variation.syncPromoPrice ?? true),
           syncDescription: isSingleVariation || (variation.syncDescription ?? true),
@@ -259,7 +268,6 @@ export function useVariationForm({
           syncWeight: isSingleVariation || (variation.syncWeight ?? true),
           syncIpi: isSingleVariation || (variation.syncIpi ?? true),
           syncFreight: isSingleVariation || (variation.syncFreight ?? true),
-          ...(isSingleVariation ? { images: allParentImages.length > 0 ? allParentImages : parentProduct.images || [] } : {}),
         });
 
         const orig = Number(
@@ -279,6 +287,10 @@ export function useVariationForm({
         }
       } else {
         const parentCode = parentProduct.code || '000000';
+        const defaultImages = isSingleVariation
+          ? (allParentImages.length > 0 ? allParentImages : parentProduct.images || []).slice(0, MAX_VARIATION_IMAGES)
+          : [];
+
         setFormData({
           id: crypto.randomUUID(),
           sku: generateVariationSku(parentCode, parentProduct.variations || []),
@@ -291,7 +303,7 @@ export function useVariationForm({
           active: false,
           status: 'hidden',
           attributes: [],
-          images: isSingleVariation ? (allParentImages.length > 0 ? allParentImages : parentProduct.images || []) : [],
+          images: defaultImages,
           syncUnitPrice: true,
           syncDescription: true,
           syncCostPrice: true,
@@ -379,8 +391,17 @@ export function useVariationForm({
       }
     }
 
+    const resolvedVariationImages = (
+      formData.images && formData.images.length > 0
+        ? formData.images
+        : isSingleVariation
+          ? (allParentImages.length > 0 ? allParentImages : parentProduct.images || [])
+          : []
+    ).slice(0, MAX_VARIATION_IMAGES);
+
     const finalVariation: Variation = {
       ...formData,
+      images: resolvedVariationImages,
       ...(isSingleVariation
         ? {
             syncUnitPrice: true,
@@ -397,7 +418,7 @@ export function useVariationForm({
             syncWeight: true,
             syncIpi: true,
             syncFreight: true,
-            images: allParentImages.length > 0 ? allParentImages : parentProduct.images || [],
+            images: resolvedVariationImages,
             unitPrice: parentProduct.unitPrice || 0,
             promoPrice: parentProduct.promoPrice || 0,
             costPrice: parentProduct.costPrice || 0,

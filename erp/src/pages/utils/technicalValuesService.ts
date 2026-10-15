@@ -55,18 +55,21 @@ export const REQUIRED_CHARACTERISTICS_TOPIC = 'Características principais';
 export const CHARACTERISTIC_TOPICS: ReadonlyArray<{ title: string; matches: RegExp }> = [
   {
     title: 'Medidas e peso',
-    matches: /\b(altura|largura|profundidade|comprimento|peso|espessura|assento)\b/i,
+    matches:
+      /\b(altura|largura|profundidade|comprimento|espessura|assento)\b|\bpeso\b(?!.*(prateleira|gaveta))/i,
   },
+  { title: 'Estrutura', matches: /\b(estrutura|material da estrutura)\b/i },
+  { title: 'Portas', matches: /\b(portas?)\b/i },
+  { title: 'Gavetas', matches: /\b(gavetas?|corredi[çc]as?)\b/i },
+  { title: 'Prateleiras', matches: /\b(prateleiras?)\b/i },
+  { title: 'Pés', matches: /\b(p[eé]s?|rod[ií]zios?)\b/i },
   { title: 'Tecido e revestimento', matches: /\b(tecido|revestimento|espuma|densidade|estofad)/i },
   {
-    title: 'Estrutura',
-    matches: /\b(estrutura|material da estrutura|tipo de portas|quantidade de portas)\b/i,
-  },
-  {
     title: 'Funcionalidades',
-    matches: /\b(espelho|porta|gaveta|deslizamento|mecanismo|retr[aá]til|extens[íi]vel)\b/i,
+    matches:
+      /\b(espelhos?|deslizamento|mecanismo|retr[aá]til|extens[íi]vel|cabideiros?|calceiros?|maleiros?|usb|led)\b/i,
   },
-  { title: 'Acessórios', matches: /\b(p[eé]s?|puxador|rod[ií]zio|sapata)\b/i },
+  { title: 'Acessórios', matches: /\b(puxador(es)?)\b/i },
   { title: 'Materiais e acabamento', matches: /\b(material|acabamento|madeira|metal|vidro)\b/i },
 ];
 
@@ -112,6 +115,48 @@ export const DIMENSIONS_SORT_ORDER: Readonly<Record<string, number>> = {
   'altura do chão até o assento': 8,
   peso: 9,
   'peso suportado': 10,
+};
+
+/** Sequência canônica de exibição das portas */
+export const DOORS_SORT_ORDER: Readonly<Record<string, number>> = {
+  'quantidade de portas': 1,
+  'tipo de portas': 2,
+  'material das portas': 3,
+};
+
+/** Sequência canônica de exibição das gavetas */
+export const DRAWERS_SORT_ORDER: Readonly<Record<string, number>> = {
+  'quantidade de gavetas': 1,
+  'tipo/material da corrediça': 2,
+  'tipo de corrediça': 2,
+  'material da corrediça': 2,
+  corrediça: 2,
+  'material das gavetas': 3,
+  'gavetas com chave': 4,
+};
+
+/** Sequência canônica de exibição das prateleiras */
+export const SHELVES_SORT_ORDER: Readonly<Record<string, number>> = {
+  'quantidade de prateleiras': 1,
+  'material das prateleiras': 2,
+  'peso suportado por prateleira': 3,
+};
+
+/** Sequência canônica de exibição dos pés */
+export const FEET_SORT_ORDER: Readonly<Record<string, number>> = {
+  'possui pés': 1,
+  'quantidade de pés': 2,
+  'material dos pés': 3,
+  'pés reguláveis': 4,
+  rodízios: 5,
+};
+
+/** Sequência canônica de exibição dos acessórios */
+export const ACCESSORIES_SORT_ORDER: Readonly<Record<string, number>> = {
+  'tipo de puxador': 1,
+  'material dos puxadores': 2,
+  'material do puxador': 2,
+  'quantidade de puxadores': 3,
 };
 
 // ============================================================================
@@ -241,6 +286,41 @@ export const groupCharacteristicsByTopic = <
 
       if (topic.title === 'Medidas e peso' || topic.title === 'Dimensões e peso') {
         groupedFields.sort((a, b) => getDimensionSortRank(a.name) - getDimensionSortRank(b.name));
+      } else if (topic.title === 'Portas') {
+        groupedFields.sort((a, b) => {
+          const rankA = DOORS_SORT_ORDER[a.name.trim().toLowerCase()] ?? 99;
+          const rankB = DOORS_SORT_ORDER[b.name.trim().toLowerCase()] ?? 99;
+          if (rankA !== rankB) return rankA - rankB;
+          return a.name.localeCompare(b.name, 'pt-BR');
+        });
+      } else if (topic.title === 'Gavetas') {
+        groupedFields.sort((a, b) => {
+          const rankA = DRAWERS_SORT_ORDER[a.name.trim().toLowerCase()] ?? 99;
+          const rankB = DRAWERS_SORT_ORDER[b.name.trim().toLowerCase()] ?? 99;
+          if (rankA !== rankB) return rankA - rankB;
+          return a.name.localeCompare(b.name, 'pt-BR');
+        });
+      } else if (topic.title === 'Prateleiras') {
+        groupedFields.sort((a, b) => {
+          const rankA = SHELVES_SORT_ORDER[a.name.trim().toLowerCase()] ?? 99;
+          const rankB = SHELVES_SORT_ORDER[b.name.trim().toLowerCase()] ?? 99;
+          if (rankA !== rankB) return rankA - rankB;
+          return a.name.localeCompare(b.name, 'pt-BR');
+        });
+      } else if (topic.title === 'Pés') {
+        groupedFields.sort((a, b) => {
+          const rankA = FEET_SORT_ORDER[a.name.trim().toLowerCase()] ?? 99;
+          const rankB = FEET_SORT_ORDER[b.name.trim().toLowerCase()] ?? 99;
+          if (rankA !== rankB) return rankA - rankB;
+          return a.name.localeCompare(b.name, 'pt-BR');
+        });
+      } else if (topic.title === 'Acessórios') {
+        groupedFields.sort((a, b) => {
+          const rankA = ACCESSORIES_SORT_ORDER[a.name.trim().toLowerCase()] ?? 99;
+          const rankB = ACCESSORIES_SORT_ORDER[b.name.trim().toLowerCase()] ?? 99;
+          if (rankA !== rankB) return rankA - rankB;
+          return a.name.localeCompare(b.name, 'pt-BR');
+        });
       }
 
       return [{ title: topic.title, fields: groupedFields }];

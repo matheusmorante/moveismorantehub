@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ReconciliationFilterState, PendencyType } from '../types/reconciliation.types';
+import React, { useState, useEffect, useRef } from 'react';
+import { ReconciliationFilterState } from '../types/reconciliation.types';
 import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
 
 interface Props {
@@ -12,15 +12,17 @@ const INPUT_BASE =
 
 export const ReconciliationFiltersBar: React.FC<Props> = ({ filters, onChange }) => {
   const [searchTerm, setSearchTerm] = useState(filters.search || '');
+  const latest = useRef({ filters, onChange }); latest.current = { filters, onChange };
+  useEffect(() => { setSearchTerm(filters.search || ''); }, [filters.search]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (searchTerm !== (filters.search || '')) {
-        onChange({ ...filters, search: searchTerm || undefined });
+      if (searchTerm !== (latest.current.filters.search || '')) {
+        latest.current.onChange({ ...latest.current.filters, search: searchTerm || undefined });
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchTerm]);
 
   const hasActiveFilters = Boolean(
     (filters.pendencyType && filters.pendencyType !== 'all') ||
@@ -63,6 +65,7 @@ export const ReconciliationFiltersBar: React.FC<Props> = ({ filters, onChange })
             Categoria
           </label>
           <CategoryAutocomplete
+            filter="categories"
             selectedIds={filters.categoryId ? [filters.categoryId] : []}
             onSelect={(cat) => onChange({ ...filters, categoryId: cat.id })}
             onRemove={() => onChange({ ...filters, categoryId: undefined })}

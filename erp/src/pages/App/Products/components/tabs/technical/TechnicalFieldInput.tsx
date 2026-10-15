@@ -142,16 +142,17 @@ export const TechnicalFieldInput: React.FC<Props> = ({
       </select>
     );
   }
+  const fieldOptions = field.options || [];
   const usesSimpleChoiceDropdown =
-    field.options.length > 0 && field.options.length <= SIMPLE_CHOICE_DROPDOWN_LIMIT;
+    fieldOptions.length > 0 && fieldOptions.length <= SIMPLE_CHOICE_DROPDOWN_LIMIT;
 
   if (type === 'radio' || type === 'list') {
     if (usesSimpleChoiceDropdown) {
-      return <ChoiceDropdown options={field.options} value={value} disabled={disabled} onChange={onChange} />;
+      return <ChoiceDropdown options={fieldOptions} value={value} disabled={disabled} onChange={onChange} />;
     }
     return (
       <ChoiceSearch
-        options={field.options}
+        options={fieldOptions}
         value={value}
         disabled={disabled}
         multiple={false}

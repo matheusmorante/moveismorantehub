@@ -1,3 +1,4 @@
+import { mergeAddressSelection, changeAddressField } from '../../../../../../shared-utils/addressSelection';
 import React from 'react';
 import CustomerDataInputs from '../components/CustomerData';
 import { PatternFormat as PatternFormatBase } from 'react-number-format';
@@ -10,7 +11,7 @@ import SmartInput from '../../../../components/SmartInput';
 
 interface AssistanceCustomerSectionProps {
   customerData: CustomerData;
-  setCustomerData: (val: CustomerData) => void;
+  setCustomerData: React.Dispatch<React.SetStateAction<CustomerData>>;
   onOpenSearch?: () => void;
   errors: Record<string, string>;
   isLinked?: boolean;
@@ -23,14 +24,11 @@ const AssistanceCustomerSection = ({
   isLinked,
 }: AssistanceCustomerSectionProps) => {
   const updateCustomer = (field: string, value: any) => {
-    setCustomerData({ ...customerData, [field]: value });
+    setCustomerData((current) => ({ ...current, [field]: value }));
   };
 
   const updateAddress = (field: string, value: any) => {
-    setCustomerData({
-      ...customerData,
-      fullAddress: { ...customerData.fullAddress, [field]: value },
-    });
+    setCustomerData((current) => ({ ...current, fullAddress: changeAddressField(current.fullAddress, field, value) }));
   };
 
   return (
@@ -114,20 +112,11 @@ const AssistanceCustomerSection = ({
         <AddressAutocompleteInput
           value={customerData.fullAddress?.street || ''}
           onChange={(val) => updateAddress('street', val)}
-          onSelectAddress={(data) => {
-            setCustomerData({
-              ...customerData,
-              fullAddress: {
-                ...customerData.fullAddress,
-                street: data.street,
-                neighborhood: data.neighborhood || customerData.fullAddress?.neighborhood || '',
-                city: data.city || customerData.fullAddress?.city || '',
-                state: data.state || customerData.fullAddress?.state || 'PR',
-                cep: data.cep || customerData.fullAddress?.cep || '',
-                number: data.number || customerData.fullAddress?.number || '',
-                mapsUrl: customerData.fullAddress?.mapsUrl || '',
-              },
-            });
+          addressValue={customerData.fullAddress}
+          onSelectAddress={(data, baseline) => {
+            setCustomerData((current) => ({
+              ...current, fullAddress: mergeAddressSelection(current.fullAddress, data, baseline),
+            }));
           }}
           cityHint={customerData.fullAddress?.city}
           stateHint={customerData.fullAddress?.state || 'PR'}

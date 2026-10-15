@@ -1,3 +1,4 @@
+import { mergeAddressSelection, changeAddressField } from '../../../../../../shared-utils/addressSelection';
 import React from 'react';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
 import Shipping from '@/pages/types/Shipping.type';
@@ -117,10 +118,7 @@ const ShippingData = ({
   ) => {
     setShipping((prev) => ({
       ...prev,
-      deliveryAddress: {
-        ...prev.deliveryAddress!,
-        [field]: value,
-      },
+      deliveryAddress: changeAddressField(prev.deliveryAddress!, field, value),
     }));
   };
 
@@ -217,30 +215,11 @@ const ShippingData = ({
                     <AddressAutocompleteInput
                       value={shipping.deliveryAddress?.street || ''}
                       onChange={(val) => updateDeliveryAddress('street', val)}
-                      onSelectAddress={(data) => {
-                        const generatedMapsUrl =
-                          data.coords && data.coords[0] !== 0 && data.coords[1] !== 0
-                            ? `https://www.google.com/maps?q=${data.coords[1]},${data.coords[0]}`
-                            : '';
+                      addressValue={shipping.deliveryAddress}
+                      onSelectAddress={(data, baseline) => {
                         setShipping((prev) => ({
                           ...prev,
-                          deliveryAddress: {
-                            ...prev.deliveryAddress!,
-                            street: data.street,
-                            neighborhood:
-                              data.neighborhood || prev.deliveryAddress?.neighborhood || '',
-                            city: data.city || prev.deliveryAddress?.city || '',
-                            state: data.state || prev.deliveryAddress?.state || 'PR',
-                            cep: data.cep || prev.deliveryAddress?.cep || '',
-                            number: data.number || prev.deliveryAddress?.number || '',
-                            mapsUrl: prev.deliveryAddress?.mapsUrl || generatedMapsUrl,
-                            placeId: data.placeId || (prev.deliveryAddress as any)?.placeId || '',
-                            coords: data.coords || (prev.deliveryAddress as any)?.coords,
-                            formattedAddress:
-                              data.formattedAddress ||
-                              (prev.deliveryAddress as any)?.formattedAddress ||
-                              '',
-                          },
+                          deliveryAddress: mergeAddressSelection(prev.deliveryAddress || { street: '', number: '', neighborhood: '', city: '', state: 'PR', cep: '', complement: '', observation: '' }, data, baseline),
                         }));
                       }}
                       cityHint={shipping.deliveryAddress?.city}

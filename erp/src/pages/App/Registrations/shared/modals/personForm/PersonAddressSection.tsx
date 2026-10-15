@@ -1,3 +1,4 @@
+import { mergeAddressSelection } from '../../../../../../../../shared-utils/addressSelection';
 import React from 'react';
 import Person from '@/pages/types/person.type';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
@@ -95,27 +96,11 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
           <AddressAutocompleteInput
             value={formData.fullAddress?.street || ''}
             onChange={(val) => handleAddressChange('street', val)}
-            onSelectAddress={(data) => {
-              const generatedMapsUrl =
-                data.coords && data.coords[0] !== 0 && data.coords[1] !== 0
-                  ? `https://www.google.com/maps?q=${data.coords[1]},${data.coords[0]}`
-                  : '';
+            addressValue={formData.fullAddress}
+            onSelectAddress={(data, baseline) => {
               setFormData((prev: Partial<Person>) => ({
                 ...prev,
-                fullAddress: {
-                  ...prev.fullAddress!,
-                  street: data.street,
-                  number: data.number || prev.fullAddress?.number || '',
-                  neighborhood: data.neighborhood || prev.fullAddress?.neighborhood || '',
-                  city: data.city || prev.fullAddress?.city || '',
-                  state: data.state || prev.fullAddress?.state || 'PR',
-                  cep: data.cep || prev.fullAddress?.cep || '',
-                  mapsUrl: prev.fullAddress?.mapsUrl || generatedMapsUrl,
-                  placeId: data.placeId || (prev.fullAddress as any)?.placeId || '',
-                  coords: data.coords || (prev.fullAddress as any)?.coords,
-                  formattedAddress:
-                    data.formattedAddress || (prev.fullAddress as any)?.formattedAddress || '',
-                },
+                fullAddress: mergeAddressSelection(prev.fullAddress || { street: '', number: '', neighborhood: '', city: '', state: 'PR', cep: '', complement: '', observation: '' }, data, baseline),
               }));
             }}
             cityHint={formData.fullAddress?.city}

@@ -1,5 +1,6 @@
 import Product, { Variation } from '../types/product.type';
 import { toTitleCase } from './textUtils';
+import { MAX_VARIATION_IMAGES } from './productImageLimits';
 
 export interface IncompleteAttributeInfo {
   index: number;
@@ -338,7 +339,7 @@ export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): 
         active: product.active !== false,
         status: product.status || 'hidden',
         attributes: [],
-        images: [],
+        images: (product.images || []).slice(0, MAX_VARIATION_IMAGES),
         syncUnitPrice: true,
         syncPromoPrice: true,
         syncCostPrice: true,

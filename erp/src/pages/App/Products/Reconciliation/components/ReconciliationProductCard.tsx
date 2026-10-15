@@ -1,37 +1,16 @@
-import React, { useState, useMemo } from 'react';
-import { z } from 'zod';
+import React, { useState, useMemo, useRef } from 'react';
+import { createReconciliationProductFormSchema, createReconciliationAttributeChoiceSchema, type ReconciliationResult, type ReconciliationProductValues } from '../../../../../../../shared-utils/reconciliationFormSchemas';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { bulkNcmFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import {
   ReconciliationProductItem,
   ReconciliationVariationItem,
 } from '../types/reconciliation.types';
-import SupplierAutocomplete from '../../../../../components/SupplierAutocomplete';
+import { SupplierSearchField } from './SupplierSearchField';
+import { useReconciliationSupplierSearch } from './useReconciliationSupplierSearch';
 import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
 import { VariationAttributeValueInput } from '../../components/variationTabs/VariationAttributeValueInput';
 import { toast } from 'react-toastify';
-
-const reconciliationProductFormSchema = z.object({
-  productUpdates: z.object({
-    id: z.string().trim().min(1, 'Produto não identificado.'),
-    mainSupplierId: z.string().trim().min(1, 'Selecione o fornecedor.').optional(),
-    categoryId: z.string().trim().min(1, 'Selecione a categoria.').optional(),
-    ncm: bulkNcmFormSchema.shape.ncm.optional(),
-    price: z.number().nonnegative('O preço não pode ser negativo.').optional(),
-  }),
-  variationUpdates: z.array(z.object({
-    id: z.string().trim().min(1, 'Variação não identificada.'),
-    price: z.number().nonnegative('O preço da variação não pode ser negativo.').optional(),
-    attributes: z.array(z.object({
-      name: z.string().trim().min(1, 'Informe o nome do atributo.'),
-      value: z.string(), showName: z.boolean().optional(),
-    }).passthrough()).optional(),
-  })).superRefine((variations, context) => {
-    if (new Set(variations.map((variation) => variation.id)).size !== variations.length) {
-      context.addIssue({ code: 'custom', message: 'A lista contém uma variação repetida.' });
-    }
-  }),
-});
 
 interface Props {
   product: ReconciliationProductItem;
@@ -39,18 +18,9 @@ interface Props {
   onToggleSelect: (checked: boolean) => void;
   onSaveProduct: (
     productId: string,
-    productUpdates: {
-      mainSupplierId?: string;
-      categoryId?: string;
-      ncm?: string;
-      price?: number;
-    },
-    variationUpdates?: Array<{
-      id: string;
-      price?: number;
-      attributes?: Array<{ name: string; value: string; showName?: boolean }>;
-    }>
-  ) => Promise<boolean>;
+    productUpdates: ReconciliationProductValues['productUpdates'],
+    variationUpdates?: ReconciliationProductValues['variationUpdates']
+  ) => Promise<boolean | ReconciliationResult>;
 }
 
 export const ReconciliationProductCard: React.FC<Props> = ({
@@ -74,9 +44,11 @@ export const ReconciliationProductCard: React.FC<Props> = ({
   const [variations, setVariations] = useState<ReconciliationVariationItem[]>(
     product.variations || []
   );
+  const supplierSearch = useReconciliationSupplierSearch(true);
   const [isExpanded, setIsExpanded] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [uncertain, setUncertain] = useState(false);
   const formValues = {
     productUpdates: {
       id: product.id,
@@ -89,7 +61,8 @@ export const ReconciliationProductCard: React.FC<Props> = ({
       id: variation.id, price: variation.price, attributes: variation.attributes?.map((attribute) => ({ ...attribute })),
     })),
   };
-  const form = useZodForm(reconciliationProductFormSchema, formValues);
+  const form = useZodForm(createReconciliationProductFormSchema(product.pendencies.flatMap((pendency) => pendency.attributeName ? [{ name: pendency.attributeName, dataType: pendency.attributeDataType }] : [])), formValues);
+  const latestValuesKey = useRef(JSON.stringify(formValues)); latestValuesKey.current = JSON.stringify(formValues);
 
   // Rastreia se houve alterações
   const [hasChanges, setHasChanges] = useState(false);
@@ -118,12 +91,13 @@ export const ReconciliationProductCard: React.FC<Props> = ({
         const attr = (currentVar.attributes || []).find(
           (a) => a.name.toLowerCase().trim() === (p.attributeName || '').toLowerCase().trim()
         );
-        if (attr && attr.value && attr.value.trim()) return false;
+        if (attr && createReconciliationAttributeChoiceSchema([{ name: attr.name, dataType: p.attributeDataType }]).safeParse({ name: attr.name, value: attr.value }).success) return false;
       }
       return true;
     });
   }, [product.pendencies, variations]);
 
+  const editableParentPendencies = product.pendencies.filter((pendency) => pendency.level === 'parent');
   const totalActivePendencies = activeParentPendencies.length + activeVariationPendencies.length;
 
   // Manipulação de atributos da variação
@@ -172,15 +146,18 @@ export const ReconciliationProductCard: React.FC<Props> = ({
   };
 
   const handleSave = async () => {
+    if (uncertain) return;
+    const submittedKey = JSON.stringify(formValues);
     setSaveError('');
     await form.validateAndRun(formValues, async (validated) => {
       setIsSaving(true);
       try {
         const success = await onSaveProduct(validated.productUpdates.id, validated.productUpdates, validated.variationUpdates);
-        if (success) {
-          setHasChanges(false);
+        if (typeof success === 'object' && success.uncertain) setUncertain(true);
+        if (success === true || (typeof success === 'object' && success.success)) {
+          if (latestValuesKey.current === submittedKey) setHasChanges(false);
           toast.success(`Alterações salvas para "${product.name}"!`);
-        }
+        } else setSaveError(typeof success === 'object' && success.error || 'Não foi possível confirmar a gravação. Confira o produto antes de repetir.');
       } catch (cause) {
         setSaveError(cause instanceof Error ? cause.message : 'Não foi possível salvar as alterações.');
       } finally {
@@ -260,7 +237,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
             <button
               type="button"
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || uncertain}
               className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
             >
               {isSaving ? (
@@ -288,9 +265,9 @@ export const ReconciliationProductCard: React.FC<Props> = ({
 
       {/* ── Conteúdo Orientado a Pendências ─────────────────────────────── */}
       <div className="p-4 sm:p-5 space-y-4">
-        {saveError && <div role="alert" className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-800">{saveError}</div>}
+        {(saveError || supplierSearch.searchError) && <div role="alert" className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-800">{saveError || supplierSearch.searchError}</div>}
         {/* 1. SEÇÃO PRODUTO PAI (Exibida SOMENTE se houver pendência no pai) */}
-        {activeParentPendencies.length > 0 && (
+        {editableParentPendencies.length > 0 && (
           <div className="rounded-2xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/10 p-3 sm:p-4 space-y-3">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-amber-500"></span>
@@ -301,32 +278,27 @@ export const ReconciliationProductCard: React.FC<Props> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {/* Fornecedores */}
-              {activeParentPendencies.some((p) => p.type === 'supplier') && (
+              {editableParentPendencies.some((p) => p.type === 'supplier') && (
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-black uppercase text-amber-800 dark:text-amber-400 tracking-wider flex items-center gap-1">
                     <i className="bi bi-exclamation-circle"></i> Fornecedores
                   </label>
-                  <SupplierAutocomplete
-                    suppliers={[]}
-                    selectedSupplierId={supplierId}
-                    onSelect={(id) => {
-                      setSupplierId(id);
-                      setHasChanges(true);
-                    }}
-                    placeholder="Buscar fornecedor..."
-                    hideLabel={true}
-                    inputClassName="w-full h-10 px-3 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-purple-500/20"
+                  <SupplierSearchField
+                    suppliers={supplierSearch.suppliers} selectedSupplierId={supplierId} isSearching={supplierSearch.isSearching}
+                    disabled={isSaving || uncertain} onQueryChange={supplierSearch.handleQueryChange}
+                    onSelect={(id) => { if (id) supplierSearch.clearSearch(); setSupplierId(id); setHasChanges(true); }}
                   />
                 </div>
               )}
 
               {/* Categoria */}
-              {activeParentPendencies.some((p) => p.type === 'category') && (
+              {editableParentPendencies.some((p) => p.type === 'category') && (
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-black uppercase text-amber-800 dark:text-amber-400 tracking-wider flex items-center gap-1">
                     <i className="bi bi-exclamation-circle"></i> Categoria
                   </label>
                   <CategoryAutocomplete
+                        filter="categories"
                     selectedIds={categoryId ? [categoryId] : []}
                     onSelect={(cat) => {
                       setCategoryId(cat.id);
@@ -345,7 +317,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
               )}
 
               {/* NCM */}
-              {activeParentPendencies.some((p) => p.type === 'ncm') && (
+              {editableParentPendencies.some((p) => p.type === 'ncm') && (
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-black uppercase text-amber-800 dark:text-amber-400 tracking-wider flex items-center gap-1">
                     <i className="bi bi-exclamation-circle"></i> NCM
@@ -364,7 +336,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
               )}
 
               {/* Preço de Venda */}
-              {activeParentPendencies.some((p) => p.type === 'price') && (
+              {editableParentPendencies.some((p) => p.type === 'price') && (
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-black uppercase text-amber-800 dark:text-amber-400 tracking-wider flex items-center gap-1">
                     <i className="bi bi-exclamation-circle"></i> Preço de Venda
@@ -442,10 +414,10 @@ export const ReconciliationProductCard: React.FC<Props> = ({
 
             <div className="space-y-2">
               {variations.map((v, vIdx) => {
-                const varPendencies = activeVariationPendencies.filter(
-                  (p) => p.variationId === v.id
+                const varPendencies = product.pendencies.filter(
+                  (p) => p.level === 'variation' && p.variationId === v.id
                 );
-                const isVariationValid = varPendencies.length === 0;
+                const isVariationValid = !activeVariationPendencies.some((pendency) => pendency.variationId === v.id);
 
                 return (
                   <div
@@ -477,7 +449,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
                     </div>
 
                     {/* Apenas exibe inputs para campos pendentes da variação */}
-                    {!isVariationValid && (
+                    {varPendencies.length > 0 && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                         {varPendencies.map((pend) => {
                           if (

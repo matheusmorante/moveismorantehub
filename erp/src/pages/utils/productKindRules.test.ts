@@ -181,4 +181,64 @@ describe('tipo único Normal/Salvado para produtos e composições', () => {
     expect(dbData.product_kind).toBe('usado');
     expect(dbData.active).toBe(false);
   });
+
+  it('limita as fotos de cada variação a no máximo 15 e vincula as 15 primeiras do pai para variação única', () => {
+    const twentyImages = Array.from({ length: 20 }, (_, i) => `https://img.test/pic-${i + 1}.jpg`);
+    const productWithSingleVar: Partial<Product> = {
+      ...getInitialProductFormData(),
+      name: 'Mesa de Centro',
+      images: twentyImages,
+      variations: [
+        {
+          id: 'v1',
+          name: 'Mesa de Centro',
+          sku: '001-01',
+          images: [],
+          stock: 5,
+        } as any,
+      ],
+    };
+
+    const result = normalizeProductForSave(productWithSingleVar, {
+      isDraft: false,
+      isCompletingDraft: false,
+      catalogStatus: 'published',
+      name: 'Mesa de Centro',
+    });
+
+    expect(result.variations?.[0].images).toHaveLength(15);
+    expect(result.variations?.[0].images?.[0]).toBe('https://img.test/pic-1.jpg');
+    expect(result.variations?.[0].images?.[14]).toBe('https://img.test/pic-15.jpg');
+
+    // Com múltiplas variações e mais de 15 imagens, também limita a 15
+    const productWithMultiVar: Partial<Product> = {
+      ...productWithSingleVar,
+      variations: [
+        {
+          id: 'v1',
+          name: 'Mesa Branca',
+          sku: '001-01',
+          images: twentyImages,
+          stock: 5,
+        } as any,
+        {
+          id: 'v2',
+          name: 'Mesa Preta',
+          sku: '001-02',
+          images: twentyImages,
+          stock: 3,
+        } as any,
+      ],
+    };
+
+    const multiResult = normalizeProductForSave(productWithMultiVar, {
+      isDraft: false,
+      isCompletingDraft: false,
+      catalogStatus: 'published',
+      name: 'Mesa de Centro',
+    });
+
+    expect(multiResult.variations?.[0].images).toHaveLength(15);
+    expect(multiResult.variations?.[1].images).toHaveLength(15);
+  });
 });

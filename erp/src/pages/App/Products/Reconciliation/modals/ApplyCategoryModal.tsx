@@ -1,5 +1,5 @@
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { toast } from 'react-toastify';
+import { useReconciliationSubmit } from './useReconciliationSubmit';
+import type { ReconciliationConfirmation } from '../../../../../../../shared-utils/reconciliationFormSchemas';
 import { catalogSelectionFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState } from 'react';
 import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
@@ -7,7 +7,7 @@ import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (categoryId: string) => Promise<void>;
+  onConfirm: (categoryId: string) => Promise<ReconciliationConfirmation>;
   selectedCount: number;
 }
 
@@ -18,26 +18,16 @@ export const ApplyCategoryModal: React.FC<Props> = ({
   selectedCount,
 }) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
-  const [selectedCategoryName, setSelectedCategoryName] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useZodForm(catalogSelectionFormSchema, { id: selectedCategoryId });
+  const { handleConfirm, isSubmitting, error, uncertain } = useReconciliationSubmit(catalogSelectionFormSchema, { id: selectedCategoryId }, isOpen, (data) => onConfirm(data.id), onClose);
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setSelectedCategoryId('');
+  }, [isOpen]);
   if (!isOpen) return null;
 
-  const handleConfirm = async () => {
-    const validated = await form.validateAndRun({ id: selectedCategoryId }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    setIsSubmitting(true);
-    try {
-      await onConfirm(validated.id);
-      onClose();
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div role="dialog" aria-modal="true" aria-label="Definir categoria em lote" className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 animate-slide-up overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -64,23 +54,27 @@ export const ApplyCategoryModal: React.FC<Props> = ({
         </div>
 
         <div className="p-6 space-y-4">
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           <p className="text-xs text-slate-600 dark:text-slate-300">
             Selecione a categoria que será atribuída aos produtos selecionados:
           </p>
 
+          <fieldset disabled={isSubmitting || uncertain}>
           <CategoryAutocomplete
+            filter="categories"
             selectedIds={selectedCategoryId ? [selectedCategoryId] : []}
             onSelect={(cat) => {
+              if (isSubmitting || uncertain) return;
               setSelectedCategoryId(cat.id);
-              setSelectedCategoryName(cat.name);
             }}
             onRemove={() => {
+              if (isSubmitting || uncertain) return;
               setSelectedCategoryId('');
-              setSelectedCategoryName('');
             }}
             placeholder="Buscar categoria..."
             inputClassName="w-full h-11 px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold outline-none focus:ring-2 focus:ring-purple-500/20"
           />
+          </fieldset>
         </div>
 
         <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex justify-end gap-2.5">
@@ -92,8 +86,8 @@ export const ApplyCategoryModal: React.FC<Props> = ({
             Cancelar
           </button>
           <button
-            onClick={handleConfirm}
-            disabled={!selectedCategoryId || isSubmitting}
+            type="button" onClick={() => void handleConfirm()}
+            disabled={!selectedCategoryId || isSubmitting || uncertain}
             className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {isSubmitting ? (

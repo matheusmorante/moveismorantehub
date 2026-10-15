@@ -248,4 +248,54 @@ describe('edição explícita de variação', () => {
     await act(async () => { await result.current.handleSubmit({ preventDefault() {} } as React.FormEvent); });
     expect(operation).toHaveBeenCalledTimes(2); expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('vincula no máximo as 15 primeiras fotos do produto pai para variação única e preserva fotos reordenadas', async () => {
+    const singleVar: Variation = {
+      ...variation,
+      images: [],
+    };
+    const parentWithTwentyImages: Product = {
+      ...parent,
+      variations: [singleVar],
+      images: Array.from({ length: 20 }, (_, i) => `https://img.test/photo-${i + 1}.jpg`),
+    };
+    const onSave = vi.fn().mockResolvedValue(true);
+    const onClose = vi.fn();
+
+    const { result } = renderHook(() =>
+      useVariationForm({
+        isOpen: true,
+        onClose,
+        parentProduct: parentWithTwentyImages,
+        variation: singleVar, // Edição da variação única
+        onSave,
+      })
+    );
+
+    // Deve inicializar com no máximo 15 fotos
+    expect(result.current.formData.images).toHaveLength(15);
+    expect(result.current.formData.images?.[0]).toBe('https://img.test/photo-1.jpg');
+    expect(result.current.formData.images?.[14]).toBe('https://img.test/photo-15.jpg');
+
+    // Simula reordenação: inverte as duas primeiras fotos
+    act(() => {
+      const currentImages = [...(result.current.formData.images || [])];
+      const reordered = [currentImages[1], currentImages[0], ...currentImages.slice(2)];
+      result.current.setFormData((prev: any) => ({ ...prev, images: reordered }));
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit({ preventDefault() {} } as React.FormEvent);
+    });
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        images: expect.arrayContaining(['https://img.test/photo-2.jpg', 'https://img.test/photo-1.jpg']),
+      })
+    );
+    const savedVariation = onSave.mock.calls[0][0];
+    expect(savedVariation.images[0]).toBe('https://img.test/photo-2.jpg');
+    expect(savedVariation.images[1]).toBe('https://img.test/photo-1.jpg');
+    expect(savedVariation.images).toHaveLength(15);
+  });
 });

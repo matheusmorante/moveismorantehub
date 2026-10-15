@@ -3,14 +3,15 @@ import React from 'react';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type Order from '@/pages/types/order.type';
-const mocks = vi.hoisted(() => ({ save: vi.fn(), ensure: vi.fn(), generate: vi.fn(), error: vi.fn(), success: vi.fn() }));
+const mocks = vi.hoisted(() => ({ save: vi.fn(), ensure: vi.fn(), generate: vi.fn(), route: vi.fn(), error: vi.fn(), success: vi.fn(), warn: vi.fn() }));
 vi.mock('@/pages/utils/orderHistoryService', async () => ({
   saveOrder: mocks.save,
   ...await import('@/pages/utils/orderSchedulingStatus'),
 }));
 vi.mock('@/pages/utils/settingsService', () => ({ getSettings: () => ({ requiredFields: {} }) }));
-vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: mocks.success } }));
-vi.mock('./useOrderDistanceCalculator', () => ({ useOrderDistanceCalculator: () => ({ isCalculatingDistance: false, handleAutoCalculateDistance: vi.fn() }) }));
+vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: mocks.success, warn: mocks.warn } }));
+vi.mock('@/pages/utils/maps', () => ({ autoCalculateRouteDistance: mocks.route }));
+vi.mock('@/pages/utils/shippingPricing', () => ({ calculateFreightByDistance: (distance: number) => distance * 10 }));
 vi.mock('./useOrderProductSelection', () => ({ useOrderProductSelection: () => ({ handleSelectProduct: vi.fn(), handleItemChange: vi.fn() }) }));
 vi.mock('@/pages/utils/orderCode', () => ({ getOrderIndex: (order: any) => order?.orderIndex || null }));
 vi.mock('./useOrderCodeGenerator', () => ({ useOrderCodeGenerator: (_id: unknown, latest: any) => {
@@ -64,6 +65,25 @@ describe('proprietário do pedido, rascunho e finalização', () => {
     expect(saved).toMatchObject({ id: 'pedido-id', status: 'fulfilled', orderNumber: 1201 }); expect(result.current.state.status).toBe('fulfilled');
   });
 
+  it.each(['', 'data inválida'])('não inventa a data atual ao concluir com data vazia ou inválida: %s', async (date) => {
+    const { result } = renderHook(() => useSalesOrderForm()); act(() => { fill(result.current); result.current.actions.setOrderDate(date); });
+    await act(async () => { await result.current.actions.handleCompleteOrder(); });
+    expect(mocks.save).not.toHaveBeenCalled(); expect(mocks.ensure).not.toHaveBeenCalled(); expect(result.current.state.errors.order_date).toBeTruthy();
+  });
+
+  it('permite rascunho com data não preenchida sem trocar pelo horário atual', async () => {
+    const { result } = renderHook(() => useSalesOrderForm()); act(() => { result.current.actions.setOrderDate(''); });
+    await act(async () => { await result.current.actions.handleSaveOrder(); });
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft', date: '' }));
+  });
+
+  it('preserva a data vazia ao reabrir o rascunho e continua impedindo a conclusão', async () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => { result.current.actions.loadOrderForEditing({ ...valid(), id: 'rascunho-id', orderIndex: 1201, date: '' }); });
+    expect(result.current.state.orderDate).toBe('');
+    await act(async () => { await result.current.actions.handleCompleteOrder(); }); expect(mocks.save).not.toHaveBeenCalled();
+  });
+
   it('mantém o snapshot validado durante reserva lenta, sem misturar edições posteriores', async () => {
     let finish!: (code: number) => void; mocks.ensure.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     const { result } = renderHook(() => useSalesOrderForm()); act(() => { fill(result.current); });
@@ -89,8 +109,8 @@ describe('proprietário do pedido, rascunho e finalização', () => {
     expect(mocks.save).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'rascunho-id', status: 'fulfilled' }));
   });
 
-  it('preserva os campos e libera a ação após falha do serviço, sem reenvio automático', async () => {
-    mocks.save.mockRejectedValueOnce(new Error('Não salvou')); const { result } = renderHook(() => useSalesOrderForm()); act(() => { fill(result.current); });
+  it.each([new Error('Não salvou'), { message: 'Não salvou' }])('preserva os campos e libera a ação após falha do serviço, sem reenvio automático: %s', async (failure) => {
+    mocks.save.mockRejectedValueOnce(failure); const { result } = renderHook(() => useSalesOrderForm()); act(() => { fill(result.current); });
     await act(async () => { await result.current.actions.handleCompleteOrder(); });
     expect(mocks.error).toHaveBeenCalledWith('Não salvou'); expect(mocks.save).toHaveBeenCalledTimes(1); expect(result.current.state.observation).toBe('Observação preservada'); expect(result.current.state.isSaving).toBe(false);
     await act(async () => { await result.current.actions.handleCompleteOrder(); }); expect(mocks.save).toHaveBeenCalledTimes(2);
@@ -106,6 +126,14 @@ describe('proprietário do pedido, rascunho e finalização', () => {
   it('finaliza orçamento como quoted preservando a dispensa de pagamento', async () => {
     const { result } = renderHook(() => useSalesOrderForm('pickup', 'budget')); act(() => { fill(result.current); result.current.actions.setPayments([]); });
     await act(async () => { await result.current.actions.handleCompleteOrder(); }); expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ orderType: 'budget', status: 'quoted', payments: [] }));
+  });
+
+  it('mantém entrega com agendamento pendente como scheduled, sem convertê-la em retirada concluída', async () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => { fill(result.current); result.current.actions.setShipping({ ...valid().shipping, deliveryMethod: 'delivery', scheduling: { ...valid().shipping.scheduling, pendingScheduling: true } }); });
+    await act(async () => { await result.current.actions.handleCompleteOrder(); });
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ status: 'scheduled', shipping: expect.objectContaining({ deliveryMethod: 'delivery' }) }));
+    expect(result.current.state.status).toBe('scheduled');
   });
 
   it('reabre artefato de teste persistido sem código comercial e mantém sua identidade ao concluir', async () => {
@@ -124,5 +152,14 @@ describe('proprietário do pedido, rascunho e finalização', () => {
     let pending!: Promise<unknown>; await act(async () => { pending = result.current.actions.handleCompleteOrder(); }); expect(mocks.save).toHaveBeenCalledTimes(1);
     await act(async () => { finish('rascunho-id'); await pending; }); expect(mocks.save).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'rascunho-id', status: 'fulfilled' }));
     await act(async () => { await vi.advanceTimersByTimeAsync(6000); }); expect(mocks.save).toHaveBeenCalledTimes(2);
+  });
+
+  it('conserva o frete do pedido carregado quando o cálculo do pedido anterior termina depois', async () => {
+    let finish!: (value: unknown) => void; mocks.route.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const { result } = renderHook(() => useSalesOrderForm()); act(() => { fill(result.current); }); let pending!: Promise<void>;
+    await act(async () => { pending = result.current.actions.handleAutoCalculateDistance({ street: 'Rua A' }); });
+    act(() => { result.current.actions.loadOrderForEditing({ ...valid(), id: 'pedido-B', orderIndex: 1301, shipping: { ...valid().shipping, value: 50, distance: 5 } }); });
+    await act(async () => { finish({ distanceKm: 10, durationMinutes: 15, destinationCoords: [-49, -25], routeGeoJSON: null }); await pending; });
+    expect(result.current.state.shipping.value).toBe(50); expect(result.current.state.shipping.distance).toBe(5); expect(result.current.state.currentOrderId).toBe('pedido-B');
   });
 });

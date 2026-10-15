@@ -106,13 +106,54 @@ Estado geral e inventário de formulários: [migração RHF + zodResolver](../fo
 - **Problemas comprovados:** salvar manualmente um rascunho exigia cliente/atendente embora o autosave aceitasse dados incompletos; o código comercial era obtido antes da validação. Uma alteração feita durante essa espera podia entrar em outra versão do payload. Ao reabrir um artefato de teste sem código comercial, a condição `id && orderIndex` descartava seu ID. Erros estruturais dos itens usavam `items_0_*`, enquanto os campos filhos leem `item_0_*`.
 - **Causas e solução:** `useSalesOrderForm` usava o contrato final também no rascunho e encerrava o callback RHF antes da persistência. Agora escolhe o contrato de rascunho já compartilhado somente para `draft`, mantém a submissão inteira no callback, valida antes de obter o código e preserva o mesmo snapshot parseado durante a espera. Edição de pedido cadastrado conserva seu status e requisitos. A identidade existente de teste independe do código comercial; retorno de conclusão não reinjeta o código do formulário em artefato marcado. As chaves de erro são adaptadas aos campos filhos, com o motivo visível.
 - **Arquivos:** `erp/src/pages/App/SalesOrder/hooks/useSalesOrderForm.ts` (contratos e callbacks salvar/concluir; carregamento de teste), novo `useSalesOrderForm.test.tsx`, `useOrderAutoSave.test.tsx` e `__tests__/salesOrderHandlingPersistence.test.ts`. Linhas finais e verificação consolidada serão anexadas após o fechamento do lote.
-- **Evidência em andamento:** oito falhas iniciais em 22 testes (scratch/rhf-sales-order-before.log), incluindo duas expectativas antigas. Após a correção, os 12 testes novos do proprietário passaram; restou a fixture do orçamento legado, que tentava finalizar sem produto/atendente. A fixture foi corrigida para representar um orçamento válido, mantendo a expectativa `quoted`; a regra não foi relaxada. A rodada final está em validação. O autosave mantém seu callback real já existente e ganha provas de valores parseados, ID e bloqueio de números inválidos/ação manual. Nenhuma transmissão, gravação comercial remota, nova regra tributária ou alteração de snapshot fiscal/SQL.
+- **Evidência:** oito falhas iniciais em 22 testes (scratch/rhf-sales-order-before.log), seis nos casos novos e duas em testes existentes. Apenas a fixture do orçamento legado era inválida: tentava finalizar sem produto/atendente e foi corrigida para representar um orçamento válido, mantendo `quoted` sem relaxar a regra. O teste já existente do marcador passou ao corrigir o contrato de rascunho. A rodada final tem 45 testes aprovados em quatro arquivos: 19 do proprietário manual, oito de autosave, 13 de distância e cinco de manuseio. O autosave mantém seu callback real já existente e ganha provas de valores parseados, ID e bloqueio de números inválidos/ação manual. Nenhuma transmissão, gravação comercial remota, nova regra tributária ou alteração de snapshot fiscal/SQL.
 
 ## Consulta de distância no pedido: entrada validada e respostas obsoletas
 
 - **Causas comprovadas:** o cálculo acionado por botão ou mudança de cliente ainda chamava Maps sem RHF; coordenadas sem texto eram descartadas e o cache ignorava coordenadas/placeId. `!isNaN` aceitava distância infinita/negativa e um preço inválido podia substituir o frete. Uma tentativa inválida ou troca do endereço sem novo cálculo não invalidava a resposta anterior. A espera não tinha limite local.
-- **Solução em validação:** contrato compartilhado explícito de endereço/rota em `shared-utils/routeFormSchemas.ts`; `useOrderDistanceCalculator` executa o resolver antes do serviço e usa somente o endereço parseado. Validação é serializada, consultas atuais usam revisão e compartilham o pedido idêntico pendente; coordenadas/localização integram a chave. Resposta e preço inválidos não alteram dados. Prazo local de 15s libera a interface sem retry nem aplicação tardia do resultado. Mudança de endereço invalida a resposta anterior e conserva a consulta já iniciada para o endereço novo. Nenhum provedor real foi acessado.
-- **Prova em andamento:** oito falhas em 11 testes antes da correção (scratch/rhf-order-distance-before.log). Os 11 casos passaram após a primeira correção; foram adicionadas duas regressões para a troca do endereço pelos props do formulário. TypeScript/lint/testes finais estão em validação. Os arquivos e linhas finais serão consolidados abaixo.
+- **Solução:** contrato compartilhado explícito de endereço/rota em `shared-utils/routeFormSchemas.ts`; `useOrderDistanceCalculator` executa o resolver antes do serviço e usa somente o endereço parseado. Validação é serializada, consultas atuais usam revisão e compartilham o pedido idêntico pendente; coordenadas/localização integram a chave. Resposta e preço inválidos não alteram dados. Prazo local de 15s libera a interface sem retry nem aplicação tardia do resultado. Mudança de endereço invalida a resposta anterior e conserva a consulta já iniciada para o endereço novo. Nenhum provedor real foi acessado.
+- **Prova final:** oito falhas em 11 testes antes da correção (scratch/rhf-order-distance-before.log). Os 13 casos finais passaram, incluindo troca do endereço pelos props do formulário e consulta iniciada antes do render correspondente. Junto de pedido/autosave/manuseio: 45 testes aprovados em scratch/rhf-sales-order-distance-final-tests.log. Lint dos três hooks e do formatador sem erros/avisos (rhf-sales-order-distance-final-lint.log); build ERP completo aprovado (rhf-sales-order-distance-final-build.log), com aviso existente de chunks grandes. TypeScript global continua reprovando fora deste lote, sem diagnósticos de seus arquivos fonte (rhf-sales-order-distance-final-tsc.log). Serviços, código comercial e notificações são simulados; não há prova de Maps real, navegador, persistência/concorrência PostgreSQL ou transmissão fiscal. A rota independente do mapa e o autocomplete continuam pendentes no inventário.
+
+### Proteção do contexto e data do pedido
+
+- **Troca de pedido:** um teste integrado com o hook real reproduziu a aplicação do frete de uma consulta anterior sobre o pedido recém-carregado, mesmo quando os endereços tinham a mesma chave. `loadOrderForEditing` agora invalida explicitamente a aplicação pendente e o cache daquele contexto. O pedido remoto de Maps não é cancelado; sua resposta não altera o novo registro. Prova antes do ajuste em scratch/rhf-order-context-before.log.
+- **Data apagada ou inválida:** `formatToStorageDate` fabricava um timestamp atual antes do resolver, ocultando o campo vazio. Seus dois consumidores são a criação do snapshot e a prévia do próprio pedido. Agora retorna vazio para entrada ausente/inválida; a conclusão é bloqueada pela regra já existente e o rascunho continua incompleto. O carregamento mantém a data ausente em branco, evitando herdar a data anterior/atual ao reabrir um rascunho; a conversão de datas preenchidas e o valor inicial de novos pedidos permanecem. `buildOrderPersistencePayload` mantém a data no JSON de pedido, sem nova coluna/cast ou mudança de SQL. Três testes reproduziram o preenchimento artificial (rhf-order-date-before.log) e um adicional a reabertura (rhf-order-draft-date-reopen-before.log). Consolidação final: 45 testes aprovados, lint sem erros/avisos e build ERP aprovado, conforme os logs do lote. O TypeScript global reprova fora destes arquivos, sem diagnósticos dos arquivos alterados.
+
+### Localização do lote de pedidos e distância
+
+Intervalos do diff entre a base c9747395 e o checkout após a consolidação, incluindo o commit intermediário 910b64ca. São referências do conteúdo final deste lote; o índice anterior abaixo preserva as demais correções do dia.
+
+- `erp/src/pages/App/SalesOrder/hooks/useSalesOrderForm.ts`: 28, 31, 66–68, 118, 167 (remoção), 190, 193–194, 199–201, 203–204, 310, 320, 341–348, 351, 354 (remoção), 357 (remoção), 361–387, 389–392, 401, 406, 409 (remoção), 412 (remoção), 416–425, 427–446, 448–451, 460.
+- `erp/src/pages/App/SalesOrder/hooks/orderDateFormatting.ts`: 12, 14.
+- `erp/src/pages/App/SalesOrder/hooks/useSalesOrderForm.test.tsx`: 1–165.
+- `erp/src/pages/App/SalesOrder/hooks/useOrderAutoSave.test.tsx`: 31, 154, 201–222.
+- `erp/src/pages/App/SalesOrder/hooks/useOrderDistanceCalculator.ts`: 1, 3, 7–10, 12–20, 25, 28–29, 31–50, 53–64, 68–69, 71, 73–77, 79, 81–102, 104, 108, 110.
+- `erp/src/pages/App/SalesOrder/hooks/useOrderDistanceCalculator.test.tsx`: 1–92.
+- `erp/src/pages/App/SalesOrder/__tests__/salesOrderHandlingPersistence.test.ts`: 86–89.
+- `shared-utils/routeFormSchemas.ts`: 1–24.
+
+## Autocomplete compartilhado e mapa de frete: contratos e respostas concorrentes
+
+- **Problemas e causas comprovadas:** busca, seleção e complemento não executavam RHF antes dos serviços/callbacks; texto/contexto seguiam brutos. A seleção herdava coordenadas de outro endereço, e detalhes atrasados podiam substituir edição de número ou localização manual. O baseline era capturado somente após aguardar validação; na busca rápida do mapa o contexto usava o texto da consulta em vez da rua do formulário. Timers não eram encerrados na desmontagem e consultas sem retorno mantinham a busca pendente. O cálculo independente também não protegia respostas antigas nem validava rota/preço antes de mostrar o frete.
+- **Solução aplicada:** schemas de busca, opção disponível, endereço selecionado, localização e frete explícitos em shared-utils; RHF/resolver real antes dos efeitos, valores parseados e erro visível. Prazos locais de 15s, revisão de consulta e baseline capturado antes de qualquer espera; edições de campos físicos/mapas/coordenadas impedem complemento antigo. A mescla funcional comum aos cinco consumidores invalida localização antiga e conserva campos não relacionados. O mapa usa o autocomplete compartilhado, protege concorrência e só apresenta rota/preço válidos. Não há formulário de cadastro aninhado nem mudança de política fiscal.
+- **Verificação:** 73 testes em seis arquivos (scratch/rhf-address-freight-final-tests.log); antes da correção, 11/12 casos do autocomplete e dez casos do mapa falharam. Três regressões adicionais de concorrência foram comprovadas; um quarto caso tinha seletor de teste incorreto, que foi ajustado. Todos os 27 casos atuais de autocomplete/mapa passam, mais seis de pessoa e regressões do pedido/autosave/distância. Build ERP passou; lint sem erros e cinco avisos existentes. TypeScript global reprova fora do lote, sem diagnósticos dos arquivos fonte/testes listados. Não houve Maps real, renderização WebGL, escrita comercial, SQL, SEFAZ ou deploy.
+
+### Arquivos e linhas do lote de endereço/mapa
+
+Intervalos do checkout comparados à base 910b64ca; arquivos novos listam todo o conteúdo.
+
+- `shared-utils/routeFormSchemas.ts`: 18–19, 22–47
+- `shared-utils/addressSelection.ts`: 1–56
+- `erp/src/components/shared/AddressAutocompleteInput.tsx`: 1, 5–9, 11, 14, 16–20, 24–27, 30–37, 40–55, 58–59, 61–63, 65–69, 71–78, 80–88, 90–135, 137–153, 168, 194–198, 204, 211, 218–220
+- `erp/src/components/shared/AddressAutocompleteInput.test.tsx`: 1–104
+- `erp/src/pages/App/Registrations/shared/modals/personForm/PersonAddressSection.tsx`: 1, 99–100, 103
+- `erp/src/pages/App/Registrations/shared/modals/personForm/usePersonForm.ts`: 1, 347
+- `erp/src/pages/App/Registrations/shared/modals/personForm/usePersonForm.test.tsx`: 87–99
+- `erp/src/pages/App/SalesOrder/components/ShippingData.tsx`: 1, 121, 218–219, 222
+- `erp/src/pages/App/SalesOrder/AssistanceOrderModalComponents/AssistanceCustomerSection.tsx`: 1, 14, 27, 31, 115–119
+- `erp/src/pages/App/Settings/components/fiscal/CompanyFiscalDataSection.tsx`: 1, 62–69
+- `erp/src/pages/App/SalesOrder/components/OrderRouteMap.tsx`: 5, 9–12, 19–29, 32–41, 43–48, 50–62, 64–65, 174, 186–192, 197–199, 207, 211, 214, 219, 223, 226, 253–254, 273
+- `erp/src/pages/App/SalesOrder/components/OrderRouteMap.test.tsx`: 1–77
 
 ## Linhas verificadas no diff desta rodada
 
@@ -169,6 +210,136 @@ Intervalos adicionados/modificados no checkout desta revisão, incluindo reinden
 - `erp/src/pages/App/Products/hooks/form/useProductFormAi.ts`: 2–8, 51–69, 71–80, 82–87, 89, 93–105, 109–129, 133–145, 149–161, 163–170, 172, 176–192, 194, 198–209, 211–219
 - `erp/src/pages/App/Products/hooks/form/useProductFormAi.test.ts`: 1
 - `erp/src/pages/App/Products/hooks/form/useProductFormAi.owners.test.tsx`: 1–192 (arquivo novo)
-- `erp/src/pages/App/Products/components/modals/product/ProductConversionModal.tsx`: 4, 6, 12, 26, 44–83, 168
 - `erp/src/pages/App/Products/components/modals/variations/CartesianVariationModal.tsx`: 19, 88–96, 291
 - `erp/src/pages/App/Products/components/modals/variations/variationOperationForms.test.tsx`: 1–78 (arquivo novo)
+- `erp/src/pages/utils/technicalValuesService.ts`: 244–261
+- `supabase/migrations/20261015160000_add_feet_characteristics.sql`: 1–76 (arquivo novo)
+
+## Características de Pés no Catálogo (Possui pés, Quantidade de pés, Material dos pés)
+
+- **Demanda e regra de negócio:** Necessidade de padronizar as características relacionadas aos pés dos produtos do catálogo ("Possui pés", "Quantidade de pés" e "Material dos pés"), permitindo que produtos tenham essas informações de forma estruturada e categorizada.
+- **Implementação no banco de dados (`supabase`):**
+  1. Criação dos atributos `Possui pés` (tipo radio, opções: "Sim", "Não") e `Quantidade de pés` (tipo radio, opções de 0 a 12 pés e "Não possui") na tabela `public.attributes` e `public.attribute_values`.
+  2. Expansão das opções de `Material dos pés` para incluir "Sem pés / Sapata", "Não possui", "Não se aplica", "Madeira", "MDF", "Alumínio", além das opções pré-existentes.
+  3. Vinculação automática via `public.category_attributes` para todas as 36 categorias de móveis que aceitam pés (Guarda-Roupas, Cômodas, Balcões, Sofás, Camas/Bases, Racks, Mesas de Cabeceira, etc.).
+  4. Atualização compatível do acervo existente de produtos (71 produtos atualizados atomicamente no PostgreSQL com preservação de integridade contra artefatos de teste).
+- **Implementação no frontend ERP:**
+  - `erp/src/pages/utils/technicalValuesService.ts`: adicionada ordenação canônica específica no agrupador de `Acessórios`, mantendo a sequência lógica: `Possui pés` -> `Quantidade de pés` -> `Material dos pés` -> `Pés reguláveis` -> `Rodízios` -> `Tipo de puxador` -> `Material dos puxadores`.
+- **Validação:**
+  - Suíte de testes unitários executada com sucesso (`technicalValuesService.test.ts`, `useProductFormModal.variation.test.tsx`, `useVariationForm.test.tsx`).
+
+## Subtópicos Dedicados de Características (Portas, Gavetas, Prateleiras e Pés)
+
+- **Demanda e regra de negócio:** No módulo de características (gestão de atributos) e nas abas de especificações técnicas do produto e de suas variações (ERP e Mobile), atributos anteriormente misturados em tópicos genéricos como `Estrutura`, `Funcionalidades` ou `Acessórios` agora devem ser apresentados em subtópicos/tópicos dedicados para:
+  1. **Portas:** `Quantidade de portas`, `Tipo de portas`, `Material das portas`.
+  2. **Gavetas:** `Quantidade de gavetas`, `Tipo/material da corrediça`, `Material das gavetas`, `Gavetas com chave`.
+  3. **Prateleiras:** `Quantidade de prateleiras`, `Material das prateleiras`, `Peso suportado por prateleira`.
+  4. **Pés:** `Possui pés`, `Quantidade de pés`, `Material dos pés`, `Pés reguláveis`, `Rodízios`.
+- **Implementação técnica:**
+  1. `CHARACTERISTIC_TOPICS` em `erp/src/pages/utils/technicalValuesService.ts` e `mobile/src/features/products/domain/productCharacteristics.ts`:
+     - Criados tópicos dedicados `{ title: 'Portas', matches: /\b(portas?)\b/i }`.
+     - Criados tópicos dedicados `{ title: 'Gavetas', matches: /\b(gavetas?|corredi[çc]as?)\b/i }`.
+     - Criados tópicos dedicados `{ title: 'Prateleiras', matches: /\b(prateleiras?)\b/i }`.
+     - Criados tópicos dedicados `{ title: 'Pés', matches: /\b(p[eé]s?|rod[ií]zios?)\b/i }`.
+     - Ajustado regex de `Medidas e peso` com lookahead negativo `\bpeso\b(?!.*(prateleira|gaveta))` para garantir que pesos específicos como "Peso suportado por prateleira" sejam direcionados ao seu tópico próprio.
+     - Removidos termos de portas, gavetas e pés dos tópicos `Estrutura`, `Funcionalidades` e `Acessórios`.
+     - Removida qualquer menção a sapatas (no banco de dados, produtos sem pés receberam "Não possui" e a opção transitória "Sem pés / Sapata" foi excluída de `public.attribute_values`).
+  2. Mapas canônicos de ordenação:
+     - Definidos `DOORS_SORT_ORDER`, `DRAWERS_SORT_ORDER`, `SHELVES_SORT_ORDER`, `FEET_SORT_ORDER` e `ACCESSORIES_SORT_ORDER`.
+     - Implementada ordenação previsível nos agrupadores `groupCharacteristicsByTopic` (ERP) e `groupProductTechnicalFields` (Mobile).
+- **Arquivos modificados:**
+  - `erp/src/pages/utils/technicalValuesService.ts`: 55–74, 115–158, 288–335
+  - `erp/src/pages/utils/__tests__/technicalValuesService.test.ts`: 28–98
+  - `mobile/src/features/products/domain/productCharacteristics.ts`: 67–88, 111–154, 545–585
+- **Validação:**
+  - 22 testes unitários em `erp/src/pages/utils/__tests__/technicalValuesService.test.ts` aprovados com 100% de sucesso.
+  - Testes de renderização de abas de variação `VariationTechnicalTab.test.tsx` aprovados com 100% de sucesso.
+
+## Consolidação das Opções de Puxadores (`Tipo de puxador` e `Material dos puxadores`)
+
+- **Demanda e regra de negócio:** Simplificar e padronizar as opções de tipo de puxador no catálogo de produtos:
+  - Simplificar os nomes das opções para termos diretos e objetivos: `Alça`, `Perfilado`, `Cava`, `Passante` e `Concha`.
+  - Adicionar as opções `MDF` e `MDP` nas opções oficiais de `Material dos puxadores`.
+- **Implementação no banco de dados (`supabase`):**
+  - `public.attribute_values`: opções finais de `Tipo de puxador`: 1. `Alça`, 2. `Perfilado`, 3. `Cava`, 4. `Passante`, 5. `Concha`.
+  - Inseridos `MDF` (`sort_order = 1`) e `MDP` (`sort_order = 2`) para `Material dos puxadores`.
+  - Atualizados produtos existentes no catálogo que continham valores anteriores (ex: Guarda-Roupa Florida para `Alça`, Cozinha Dália para `Perfilado`).
+  - Migration salva: `supabase/migrations/20261015170000_update_puxadores_characteristics.sql`.
+
+## Auditoria e Preenchimento das Características de Puxadores com Base nas Descrições
+
+- **Demanda e regra de negócio:** Auditar todos os produtos do catálogo cuja descrição mencione ou explique puxadores. Povoar atomicamente as características técnicas do produto (`Tipo de puxador` e `Material dos puxadores`) estritamente com base no que está descrito textualmente. Se a descrição não explicar o tipo ou o material (ou apenas citar cor/tonalidade como "cor bronze", ou contagem numérica como "6 puxadores"), a respectiva característica não deve ser informada (permanecendo nula/vazia).
+- **Censo e classificação dos produtos:**
+  - Total de produtos com menção a puxadores no acervo do catálogo: **85 produtos**.
+  - **Produtos atualizados:** **78 produtos** (que explicam expressamente tipo e/ou material).
+    - `Tipo de puxador` identificado e preenchido em 12 produtos:
+      - `Passante`: 1 produto (ex.: Armário Aéreo 80cm Florença Móveis Sul - "puxadores tipo passante").
+      - `Perfilado`: 4 produtos (ex.: Balcão para Pia de 1,60m 1° Linha - "puxadores perfilados"; Cozinha Modulada JK - "puxadores perfilados"; Guarda Roupa Florence - "puxadores em perfil MDF"; Guarda Roupa Vitória - "puxadores em perfil de alumínio"; Jogo de Cozinha Modulado 4 Peças 2,00 m - "Puxador em perfil").
+      - `Cava`: 5 produtos (ex.: Balcão para Pia Florença - "puxador invisível, em mdf"; Cômoda Geórgia - "Gavetas com puxadores usinados"; Cômoda Texas 1,47m e Cômoda Texas 4G - "Puxadores usinados").
+      - `Alça`: 2 produtos (ex.: Torre Quente Luciane - "puxadores tipo aste em Alumínio Preto"; Guarda Roupa Florida - "Alça").
+    - `Material dos puxadores` identificado e preenchido em 73 produtos:
+      - `Plástico / ABS`: 34 produtos (plástico, ABS, PVC, polipropileno, VPS).
+      - `MDF`: 23 produtos (MDF, perfil MDF, MDF 18/25mm).
+      - `Alumínio / Metal`: 11 produtos (alumínio polido, alumínio, metal).
+      - `Madeira`: 2 produtos (madeira, madeira envelopada).
+      - `Madeira Maciça`: 1 produto (Cômoda Malta 4G 1P - "Puxadores em Madeira Maciça").
+  - **Produtos mantidos nulos/vazios (7 produtos):**
+    - Produtos cuja descrição menciona apenas cor/tonalidade ou contagem numérica, sem especificar tipo nem material:
+      1. *Guarda Roupa Americano Henn 2,62m 6 Portas* ("puxadores em tonalidade bronze").
+      2. *Guarda Roupa Casal Ripado 6 Portas com Pés Siena Faimec* ("6 Puxadores").
+      3. *Guarda Roupa Chile 3 Portas c/ Pés* ("puxadores na cor bronze").
+      4. *Guarda Roupa Infantil com Cômoda Q Encanto Slim 4970 Branco Acetinado* ("Puxadores metalizados dourados").
+      5. *Multiuso Jade para Lavandeira com Pés Branco* ("2 puxadores na cor bronze").
+      6. *Penteadeira Camarim Bella com Espelho Moval* ("Puxadores na Cor Bronze: Sim").
+      7. *Penteadeira Camarim Sonhos com Espelho Moval* ("puxadores modernos na cor bronze").
+- **Implementação no banco de dados (`supabase`):**
+  - Migration criada e executada: `supabase/migrations/20261015180000_audit_puxadores_from_descriptions.sql`.
+  - Operação atômica em PostgreSQL via `UPDATE ... FROM (VALUES ...) AS t(id, tipo, material)`.
+  - Proteção estrita preservada: `NOT public.test_artifact_is_test(to_jsonb(p)) AND COALESCE(public.test_artifact_row_data('products', to_jsonb(p))->>'is_test', 'false') != 'true'`.
+- **Validação:**
+  - Consulta de verificação pós-migration confirmou 80 produtos com especificações ativas de puxadores no banco de dados (`with_tipo = 12`, `with_material = 73`).
+  - Nenhum artefato de teste afetado e nenhuma divergência com os valores da descrição.
+
+## Importação de pessoas: leitura, mapeamento e gravação do lote
+
+- **Problemas e causas comprovadas:** arquivo/mapeamento eram processados sem resolver; a submissão validava o lote e terminava antes de gravar. O modal não atualizava estados por bloco, podendo repetir registros já confirmados após falha posterior, e callbacks/timer de fechamento podiam alcançar uma sessão reaberta. Flags de dispensa e origem não tinham reconhecimento automático e seus cabeçalhos podiam ocupar as colunas de telefone/logradouro.
+- **Solução:** contratos de CSV/codificação e colunas/prévia explícitos em shared-utils; leitura, mapeamento e persistência executam RHF + resolver antes dos efeitos. A prévia mantém erros por linha e a importação reaplica o domínio vigente apenas às linhas válidas escolhidas, entregando payload parseado. Gravação permanece no callback protegido, com trava comum, prazo, contexto e progresso por bloco. Estados confirmados/incertos não voltam à seleção; a sessão conserva a incerteza para conferência, sem fechar automaticamente após importar os registros restantes. Timer e FileReader são encerrados no ciclo de vida; uma resposta antiga não inicia os próximos blocos nem chama callbacks na sessão nova. Prazo local libera a interface sem cancelar nem repetir a gravação no provedor. Nome/colunas/opções são validados, aspas abertas rejeitadas e mapeamento evita confundir flags com endereço/telefone. Serviço, mapper, SQL e regras fiscais não foram alterados.
+- **Verificações:** 16 testes do proprietário aprovados (scratch/rhf-person-import-final-tests.log); 89 testes conjuntos em sete arquivos (rhf-address-import-final-tests.log). Seis de sete casos iniciais falhavam antes da correção, após alinhar duas fixtures sem relaxar validações (rhf-person-import-before-corrected-fixtures.log). Testes cobrem CSV inválido/aspas/codificação, colunas, regras por linha/seleção, concorrência, blocos confirmados/incertos, prazos, retorno tardio, troca de destino e fechamento/reabertura. Lint do modal sem erros/avisos e build ERP aprovado. Três erros próprios apontados pelo TypeScript foram corrigidos; relatório final rhf-person-import-types-corrected.log continua reprovado fora do lote, sem diagnósticos nos arquivos abaixo. Nenhuma persistência real, alteração de SQL, transmissão ou deploy.
+
+### Arquivos e linhas da importação de pessoas
+
+Intervalos do checkout comparados à base 910b64ca; arquivos novos listam todo o conteúdo.
+
+- `shared-utils/personImportFormSchemas.ts`: 1–27
+- `erp/src/pages/App/Registrations/shared/modals/PersonImportModal.tsx`: 7–8, 20, 23, 26–31, 40–43, 45, 49, 53–54, 60, 62–70, 73–81, 83, 125, 129–172, 175, 186, 188, 194–253, 257–260, 262–291, 293, 298, 308–309, 318, 339, 346, 355, 357, 365–368, 372–374, 390, 392, 403, 432–434, 448–449, 464, 468, 502, 504, 524, 551, 554–555, 561–562
+- `erp/src/pages/App/Registrations/shared/modals/PersonImportModal.test.tsx`: 1–115
+
+## Reconciliação de produtos: contratos, consultas e confirmação de gravações
+
+- **Sintomas e causas comprovadas:** serviços aceitavam entradas inválidas, contavam registros sem confirmação e ignoravam erros de leitura/gravação em NCM, categoria e atributos. Uma variação podia ser atualizada sem restringir seu produto. O proprietário descartava replaceExisting e os modais encerravam a validação antes do callback/fechavam após falha. Consultas ocultavam falhas de configuração/fornecedor, mapeavam incorretamente relações em lista, descartavam metadados/zero e tornavam JSON inválido uma lista vazia. Campos corretos sumiam antes de salvar, edições durante gravação eram marcadas como concluídas e o fornecedor inline não tinha opções para buscar. Valor inteiro fracionário também passava pelo card como string.
+- **Solução aplicada:** contratos explícitos comuns para seleção, lote por intenção, consulta/paginação, NCM e correção parcial de produto/variações. Modais compartilham ciclo RHF real até o callback, validam opções/tipos atuais e mostram falha/incerteza. O seletor de categoria também impede alteração durante a confirmação, inclusive por callback de sugestões. O proprietário valida todo o lote antes do serviço e a consulta antes de enviar filtros; conserva snapshot de seleção, revisões e prazos. replaceExisting é encaminhado. Card conserva campos editáveis até confirmar, mantém alterações posteriores e valida valores fornecidos conforme tipos disponíveis sem exigir conclusão dos demais campos. Busca de fornecedor e campo visual foram compartilhados entre card/modal. Cada resposta dos serviços é verificada, atualizações de variação incluem o produto de origem, NCM conserva o JSON fiscal e atributos conservam metadados/zero; dados malformados são rejeitados. Erro não é exibido como sucesso/conformidade.
+- **Limites:** categoria e demais operações compostas continuam com múltiplas chamadas; sem comprovar atomicidade, rollback ou concorrência remota. Validar formulário/estrutura não substitui autorização, integridade e demais regras contextuais no banco. Prazo limita a espera e não cancela a operação no provedor; não há retry automático ou aplicação de sucesso tardio à interface. Nenhuma tabela fiscal, regra tributária, SQL, dado comercial, SEFAZ ou deploy foi executado/alterado remotamente.
+- **Provas:** 56 testes em seis arquivos (scratch/rhf-reconciliation-final-tests.log): 13 de mutação, seis de consulta, 12 de modais, dez do card, oito do proprietário e sete existentes de detecção. Os relatórios anteriores comprovam 13 falhas de serviço, seis de consulta e uma de atributo inteiro inline. Houve ajuste de seletores de teste para localizar o diálogo/campo correto e o texto durante carregamento, sem retirar validações. Lint das fontes sem erros/avisos; build ERP completo aprovado (rhf-reconciliation-verified-lint.log, rhf-reconciliation-verified-build.log). TypeScript global reprova fora dos arquivos deste lote, sem diagnósticos de reconciliação (rhf-reconciliation-verified-tsc.log). RHF e schemas reais; HTTP/Supabase e certos filhos de campos simulados. Sem validação visual no navegador ou consulta/transação real no banco.
+
+### Arquivos e linhas da reconciliação
+
+Intervalos do checkout comparados à base 910b64ca; arquivos novos listam todo o conteúdo.
+
+- `erp/src/pages/App/Products/Reconciliation/ProductReconciliation.tsx`: 1–4, 54–59, 61–63, 65–74, 115–120, 122–136, 138–141, 246–248, 255–262
+- `erp/src/pages/App/Products/Reconciliation/components/ReconciliationFiltersBar.tsx`: 1–2, 15–16, 20–21, 25, 68
+- `erp/src/pages/App/Products/Reconciliation/components/ReconciliationProductCard.test.tsx`: 3–6, 12–20, 72–107
+- `erp/src/pages/App/Products/Reconciliation/components/ReconciliationProductCard.tsx`: 1–2, 9–10, 21–23, 47, 51, 64–65, 94, 100, 149–150, 156–158, 160, 240, 268, 270, 281, 286–289, 295, 301, 320, 339, 417–418, 420, 452
+- `erp/src/pages/App/Products/Reconciliation/modals/ApplyAttributeModal.tsx`: 1–3, 9, 38–42, 46, 73, 80, 108, 120, 152–153
+- `erp/src/pages/App/Products/Reconciliation/modals/ApplyCategoryModal.tsx`: 1–2, 10, 22–26, 30, 57, 62, 64, 67, 71, 77, 89–90
+- `erp/src/pages/App/Products/Reconciliation/modals/ApplyNcmModal.tsx`: 1–2, 9, 16–20, 24, 51, 61, 80–81
+- `erp/src/pages/App/Products/Reconciliation/modals/ApplySupplierModal.tsx`: 1–2, 4–6, 11, 27–30, 32–33, 38, 40, 95, 119–120
+- `erp/src/pages/App/Products/Reconciliation/services/reconciliationMutations.ts`: 2–16, 18–25, 28, 31–32, 34–42, 45–46, 48–55, 57–58, 61–62, 64–74, 76–77, 80, 82–91, 93–98, 100–105, 108
+- `erp/src/pages/App/Products/Reconciliation/services/reconciliationQueries.ts`: 1, 16–23, 38–39, 127, 132, 167, 170–171, 181, 183
+- `erp/src/pages/App/Products/Reconciliation/ProductReconciliation.test.tsx`: 1–73
+- `erp/src/pages/App/Products/Reconciliation/components/SupplierSearchField.tsx`: 1–122
+- `erp/src/pages/App/Products/Reconciliation/components/useReconciliationSupplierSearch.ts`: 1–44
+- `erp/src/pages/App/Products/Reconciliation/modals/reconciliationForms.test.tsx`: 1–97
+- `erp/src/pages/App/Products/Reconciliation/modals/useReconciliationSubmit.ts`: 1–45
+- `erp/src/pages/App/Products/Reconciliation/services/reconciliationMutations.test.ts`: 1–59
+- `erp/src/pages/App/Products/Reconciliation/services/reconciliationQueries.test.ts`: 1–37
+- `shared-utils/reconciliationFormSchemas.ts`: 1–63

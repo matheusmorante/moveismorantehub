@@ -1,4 +1,7 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { reconciliationQueryFormSchema, reconciliationBatchFormSchema, type ReconciliationBatchInput, type ReconciliationResult, type ReconciliationProductValues } from '../../../../../../shared-utils/reconciliationFormSchemas';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'react-toastify';
 import {
   ReconciliationProductItem,
@@ -48,23 +51,27 @@ export const ProductReconciliation: React.FC = () => {
   const [isNcmModalOpen, setIsNcmModalOpen] = useState(false);
   const [isAttributeModalOpen, setIsAttributeModalOpen] = useState(false);
 
+  const [queryError, setQueryError] = useState('');
+  const queryRevision = useRef(0);
+  const mounted = useRef(true);
+  const { validateValues: validateQuery } = useZodForm(reconciliationQueryFormSchema, { page, pageSize, filters });
+  const batchForm = useZodForm(reconciliationBatchFormSchema, { operation: 'ncm', productIds: [], ncm: '' });
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; queryRevision.current += 1; }; }, []);
   const loadData = useCallback(async () => {
-    setIsLoading(true);
+    const revision = ++queryRevision.current;
+    const current = () => mounted.current && revision === queryRevision.current;
+    setIsLoading(true); setQueryError('');
     try {
-      const {
-        data,
-        count,
-        summary: sum,
-      } = await fetchProductsForReconciliation(page, pageSize, filters);
-      setProducts(data);
-      setTotalCount(count);
-      setSummary(sum);
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao carregar conciliação de produtos.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [page, pageSize, filters]);
+      const values = await validateQuery({ page, pageSize, filters }, (errors) => { if (current()) setQueryError(Object.values(flattenFormErrors(errors))[0] || 'Confira os filtros.'); });
+      if (!values || !current()) return;
+      const result = await withTimeout(fetchProductsForReconciliation(values.page, values.pageSize, values.filters), 15_000, null, 'reconciliacao:consultar-produtos');
+      if (!current()) return;
+      if (!result) throw new Error('A consulta demorou demais. Tente atualizar os produtos.');
+      setProducts(result.data); setTotalCount(result.count); setSummary(result.summary);
+    } catch (cause) { if (current()) setQueryError(cause instanceof Error ? cause.message : 'Erro ao carregar conciliação de produtos.'); }
+    finally { if (current()) setIsLoading(false); }
+  }, [page, pageSize, filters, validateQuery]);
+  const reload = useRef(loadData); reload.current = loadData;
 
   useEffect(() => {
     setPage(1);
@@ -105,81 +112,33 @@ export const ProductReconciliation: React.FC = () => {
     setIsAllFilteredSelected(false);
   };
 
-  // Salvamento de produto individual
-  const handleSaveSingleProduct = async (
-    productId: string,
-    productUpdates: any,
-    variationUpdates?: any[]
-  ): Promise<boolean> => {
-    const result = await saveSingleProductReconciliation(productUpdates, variationUpdates);
-    if (result.success) {
-      await loadData();
-      return true;
-    }
-    toast.error(result.error || 'Erro ao salvar produto.');
-    return false;
+  const handleSaveSingleProduct = async (productId: string, productUpdates: ReconciliationProductValues['productUpdates'], variationUpdates?: ReconciliationProductValues['variationUpdates']): Promise<ReconciliationResult> => {
+    if (productId !== productUpdates.id) return { success: false, error: 'O produto da correção não corresponde ao selecionado.' };
+    const result = await withTimeout<ReconciliationResult>(saveSingleProductReconciliation(productUpdates, variationUpdates), 25_000,
+      { success: false, uncertain: true, error: 'Não foi possível confirmar a gravação. Confira o produto antes de repetir.' }, 'reconciliacao:salvar-produto');
+    if (mounted.current && result.success) void reload.current();
+    return result;
   };
-
-  // Lotes
-  const getTargetIds = (): string[] => {
-    return Array.from(selectedIds);
+  const applyBatch = async (input: ReconciliationBatchInput): Promise<ReconciliationResult> => {
+    const outcome = await batchForm.validateAndRun(input, async (values) => {
+      const pending = values.operation === 'supplier' ? applySupplierBatch(values.productIds, values.supplierId, values.replaceExisting)
+        : values.operation === 'category' ? applyCategoryBatch(values.productIds, values.categoryId)
+        : values.operation === 'ncm' ? applyNcmBatch(values.productIds, values.ncm)
+        : applyAttributeBatch(values.productIds, values.name, values.value);
+      const result = await withTimeout<ReconciliationResult>(pending, 25_000, { success: false, uncertain: true, error: 'Não foi possível confirmar o lote. Confira os produtos antes de repetir.' }, 'reconciliacao:aplicar-lote');
+      if (mounted.current && result.success) {
+        toast.success('Correção confirmada em ' + result.updated + ' registro(s).');
+        setSelectedIds((current) => new Set([...current].filter((id) => !values.productIds.includes(id))));
+        setIsAllFilteredSelected(false); void reload.current();
+      }
+      return result;
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a seleção de produtos.'));
+    return outcome || { success: false, error: 'Confira a seleção ou aguarde a operação em andamento.' };
   };
-
-  const handleApplySupplier = async (supplierId: string) => {
-    const ids = getTargetIds();
-    if (ids.length === 0) return;
-
-    const res = await applySupplierBatch(ids, supplierId);
-    if (res.success) {
-      toast.success(`Fornecedor atribuído a ${res.updated} produto(s)!`);
-      handleClearSelection();
-      loadData();
-    } else {
-      toast.error(res.error || 'Erro ao aplicar fornecedor.');
-    }
-  };
-
-  const handleApplyCategory = async (catId: string) => {
-    const ids = getTargetIds();
-    if (ids.length === 0) return;
-
-    const res = await applyCategoryBatch(ids, catId);
-    if (res.success) {
-      toast.success(`Categoria atribuída a ${res.updated} produto(s)!`);
-      handleClearSelection();
-      loadData();
-    } else {
-      toast.error(res.error || 'Erro ao aplicar categoria.');
-    }
-  };
-
-  const handleApplyNcm = async (ncmValue: string) => {
-    const ids = getTargetIds();
-    if (ids.length === 0) return;
-
-    const res = await applyNcmBatch(ids, ncmValue);
-    if (res.success) {
-      toast.success(`NCM atribuído a ${res.updated} produto(s)!`);
-      handleClearSelection();
-      loadData();
-    } else {
-      toast.error(res.error || 'Erro ao aplicar NCM.');
-    }
-  };
-
-  const handleApplyAttribute = async (attrName: string, attrValue: string) => {
-    const ids = getTargetIds();
-    if (ids.length === 0) return;
-
-    const res = await applyAttributeBatch(ids, attrName, attrValue);
-    if (res.success) {
-      toast.success(`Atributo "${attrName}" atribuído a ${res.updated} variação(ões)!`);
-      handleClearSelection();
-      loadData();
-    } else {
-      toast.error(res.error || 'Erro ao aplicar atributo.');
-    }
-  };
+  const handleApplySupplier = (supplierId: string, replaceExisting: boolean) => applyBatch({ operation: 'supplier', productIds: [...selectedIds], supplierId, replaceExisting });
+  const handleApplyCategory = (categoryId: string) => applyBatch({ operation: 'category', productIds: [...selectedIds], categoryId });
+  const handleApplyNcm = (ncm: string) => applyBatch({ operation: 'ncm', productIds: [...selectedIds], ncm });
+  const handleApplyAttribute = (name: string, value: string) => applyBatch({ operation: 'attribute', productIds: [...selectedIds], name, value });
 
   // Compatibilidade de atributos para lote
   const selectedProductsList = useMemo(() => {
@@ -284,24 +243,23 @@ export const ProductReconciliation: React.FC = () => {
         )}
 
         {/* Loading State */}
-        {isLoading ? (
+        {queryError && <p role="alert" className="mb-4 text-sm text-red-600">{queryError}</p>}
+        {isLoading && products.length > 0 && <p role="status" className="mb-4 text-sm text-slate-500">Atualizando pendências...</p>}
+        {isLoading && products.length === 0 ? (
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-12 text-center text-slate-400 font-bold text-sm">
             <i className="bi bi-arrow-repeat animate-spin text-3xl mb-3 block text-purple-600"></i>
             Carregando pendências do cadastro...
           </div>
         ) : products.length === 0 ? (
-          /* Empty State */
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-12 text-center">
-            <div className="w-16 h-16 rounded-3xl bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-4">
-              <i className="bi bi-check-circle-fill text-2xl"></i>
-            </div>
-            <h4 className="text-base font-black text-slate-800 dark:text-slate-100">
-              Nenhum produto com pendências encontrado!
-            </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto font-medium">
-              Seus produtos estão em conformidade com as regras obrigatórias de cadastro para os
-              filtros atuais.
-            </p>
+            {queryError ? <>
+              <h4 className="text-base font-black text-slate-800 dark:text-slate-100">A consulta não foi concluída.</h4>
+              <button type="button" onClick={() => void loadData()} className="mt-3 rounded-xl bg-purple-600 px-4 py-2 text-sm font-bold text-white">Atualizar consulta</button>
+            </> : <>
+              <div className="w-16 h-16 rounded-3xl bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-4"><i className="bi bi-check-circle-fill text-2xl" /></div>
+              <h4 className="text-base font-black text-slate-800 dark:text-slate-100">Nenhum produto com pendências encontrado!</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto font-medium">Seus produtos estão em conformidade com as regras obrigatórias de cadastro para os filtros atuais.</p>
+            </>}
           </div>
         ) : (
           /* Lista de Cards */

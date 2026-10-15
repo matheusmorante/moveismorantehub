@@ -115,7 +115,7 @@ export const useSalesOrderForm = (
     };
   });
 
-  const { isCalculatingDistance, handleAutoCalculateDistance } = useOrderDistanceCalculator(
+  const { isCalculatingDistance, handleAutoCalculateDistance, cancelPendingDistanceCalculation } = useOrderDistanceCalculator(
     shipping,
     customerData,
     setShipping
@@ -187,6 +187,7 @@ export const useSalesOrderForm = (
 
   const loadOrderForEditing = useCallback(
     (order: Order) => {
+      cancelPendingDistanceCalculation();
       const migratedOrder = migrateOrderHandlings(order);
       const existingIndex = getOrderIndex(order);
       const isLoadedTestArtifact = Boolean(order.id && order.is_test === true);
@@ -306,9 +307,7 @@ export const useSalesOrderForm = (
       setLinkedOrderId(order.linkedOrderId || '');
       setIsButtonsClicked(order.isButtonsClicked);
 
-      if (order.date) {
-        setOrderDate(parseStorageDateToLocal(order.date));
-      }
+      setOrderDate(order.date ? parseStorageDateToLocal(order.date) : '');
     },
     [
       setItems,
@@ -318,6 +317,7 @@ export const useSalesOrderForm = (
       setOrderIndex,
       setIsDraftAutoSaveEnabled,
       generateCodeForCopyOrNew,
+      cancelPendingDistanceCalculation,
     ]
   );
 

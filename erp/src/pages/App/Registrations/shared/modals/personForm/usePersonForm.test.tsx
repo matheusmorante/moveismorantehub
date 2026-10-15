@@ -84,6 +84,19 @@ describe('person form owner', () => {
     expect(result.current.formData.fullName).toBe('Alice');
   });
 
+  it('invalidates the previous location when manually editing the address and preserves unrelated fields', () => {
+    const { result } = setup();
+    act(() => result.current.setFormData((current) => ({ ...current, fullAddress: {
+      ...current.fullAddress!, street: 'Rua anterior', number: '10', complement: 'Fundos', observation: 'Interfone',
+      coords: [-49, -25] as [number, number], placeId: 'antigo', formattedAddress: 'Rua anterior, 10',
+      mapsUrl: 'https://maps.google.com/?q=antigo', googleMapsUrl: 'rota antiga', mapsLink: 'link antigo',
+    } })));
+    act(() => result.current.handleAddressChange('number', '99'));
+    expect(result.current.formData.fullAddress).toMatchObject({ number: '99', complement: 'Fundos', observation: 'Interfone',
+      placeId: '', formattedAddress: '', mapsUrl: '', googleMapsUrl: '', mapsLink: '' });
+    expect(result.current.formData.fullAddress?.coords).toBeUndefined();
+  });
+
   it('blocks invalid CEP and discards an obsolete address response', async () => {
     const { result } = setup();
     await act(async () => { await result.current.handleCepBlur(cepEvent('123')); });

@@ -1,3 +1,4 @@
+import { changeAddressField } from '../../../../../../../../shared-utils/addressSelection';
 import { useState, useEffect, useRef } from 'react';
 import Person from '@/pages/types/person.type';
 import {
@@ -343,7 +344,7 @@ export const usePersonForm = ({
       };
       return {
         ...prev,
-        fullAddress: { ...currentAddress, [field]: value },
+        fullAddress: changeAddressField(currentAddress, field, value),
       };
     });
   };

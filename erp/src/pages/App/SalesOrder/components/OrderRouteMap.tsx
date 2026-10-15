@@ -2,77 +2,67 @@ import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { getSettings } from '@/pages/utils/settingsService';
-import {
-  autoCalculateRouteDistance,
-  searchAddressSuggestions,
-  RouteResult,
-} from '@/pages/utils/maps';
+import { autoCalculateRouteDistance, type RouteResult } from '@/pages/utils/maps';
 import { formatCurrency } from '@/pages/utils/formatters';
-import DropdownPortal from '@/components/shared/DropdownPortal';
 import { AddressAutocompleteInput } from '@/components/shared/AddressAutocompleteInput';
 import { calculateFreightByDistance } from '@/pages/utils/shippingPricing';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { routeDistanceResultSchema, routeFreightFormSchema } from '../../../../../../shared-utils/routeFormSchemas';
+import { mergeAddressSelection, changeAddressField, type SelectedAddress, type AddressSelectionBaseline } from '../../../../../../shared-utils/addressSelection';
 
 const FreightCalculation = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
-
-  const [addressForm, setAddressForm] = useState({
-    street: '',
-    number: '',
-    neighborhood: '',
-    city: 'Colombo',
-    state: 'PR',
-    cep: '',
-    complement: '',
-    observation: '',
-  });
-
+  const [calculation, setCalculation] = useState<{ route: RouteResult; freight: number } | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [addressForm, setAddressForm] = useState({ street: '', number: '', neighborhood: '', city: 'Colombo', state: 'PR', cep: '', complement: '', observation: '' });
+  const routeResult = calculation?.route || null;
+  const form = useZodForm(routeFreightFormSchema, addressForm);
+  const latestValues = useRef(addressForm); latestValues.current = addressForm;
+  const revision = useRef(0);
+  const active = useRef<{ context: string; revision: number } | null>(null);
+  const mounted = useRef(true);
+  const context = JSON.stringify(addressForm);
+  const previousContext = useRef(context);
   const settings = getSettings();
   const origin: [number, number] = settings.storeOriginCoords;
-
-  const handleSearch = async (query: string) => {
-    if (query.length < 3) {
-      setSuggestions([]);
-      return;
-    }
-    const results = await searchAddressSuggestions(query);
-    setSuggestions(results);
-  };
-
-  const handleSelectSuggestion = (suggestion: any) => {
-    const addr = suggestion.address;
-    setAddressForm({
-      street: addr.road || addr.pedestrian || '',
-      number: addr.house_number || '',
-      neighborhood: addr.suburb || addr.neighbourhood || '',
-      city: addr.city || addr.town || addr.village || 'Colombo',
-      state: addr.state || 'PR',
-      cep: addr.postcode || '',
-      complement: '',
-      observation: '',
-    });
-    setSuggestions([]);
-  };
-
+  useEffect(() => {
+    if (previousContext.current === context) return;
+    previousContext.current = context; revision.current += 1; active.current = null;
+    setLoading(false); setCalculation(null); setError(null);
+  }, [context]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; revision.current += 1; };
+  }, []);
+  const applyAddress = (data: SelectedAddress, baseline?: AddressSelectionBaseline) => setAddressForm((current) => mergeAddressSelection(current, data, baseline));
   const calculateFreight = async () => {
-    setLoading(true);
-    setError(null);
+    const snapshot = latestValues.current;
+    const context = JSON.stringify(snapshot);
+    if (active.current?.context === context) return;
+    const requestRevision = ++revision.current;
+    active.current = { context, revision: requestRevision };
+    setLoading(true); setError(null); setCalculation(null);
     try {
-      const result = await autoCalculateRouteDistance(addressForm);
-      if (result) {
-        setRouteResult(result);
-      } else {
-        setError('Não foi possível calcular a rota para este endereço. Verifique os dados.');
-      }
-    } catch (err) {
-      setError('Erro ao processar cálculo. Tente novamente.');
+      const address = await form.validateValues(snapshot, (errors) => {
+        if (mounted.current && requestRevision === revision.current) setError(Object.values(flattenFormErrors(errors))[0] || 'Confira o endereço informado.');
+      });
+      if (!address || !mounted.current || requestRevision !== revision.current) return;
+      const response = await withTimeout(autoCalculateRouteDistance(address), 15_000, null, 'frete:calcular-rota');
+      if (!mounted.current || requestRevision !== revision.current) return;
+      const result = routeDistanceResultSchema.safeParse(response);
+      if (!result.success) { setError('Não foi possível obter uma rota válida. Confira o endereço ou tente novamente.'); return; }
+      const freight = calculateFreightByDistance(result.data.distanceKm);
+      if (!Number.isFinite(freight) || freight < 0) { setError('O cálculo retornou um frete inválido. Confira a configuração e tente novamente.'); return; }
+      setCalculation({ route: { ...result.data, routeGeoJSON: result.data.routeGeoJSON ?? null }, freight });
+    } catch {
+      if (mounted.current && requestRevision === revision.current) setError('Não foi possível calcular a rota. Confira o endereço ou tente novamente.');
     } finally {
-      setLoading(false);
+      if (active.current?.revision === requestRevision) active.current = null;
+      if (mounted.current && requestRevision === revision.current) setLoading(false);
     }
   };
 
@@ -181,7 +171,7 @@ const FreightCalculation = () => {
                   Valor Sugerido
                 </p>
                 <p className="text-lg font-black text-emerald-700 dark:text-emerald-300 tracking-tight">
-                  {formatCurrency(calculateFreightByDistance(routeResult.distanceKm))}
+                  {formatCurrency(calculation?.freight ?? 0)}
                 </p>
               </div>
             </div>
@@ -193,59 +183,20 @@ const FreightCalculation = () => {
         {/* Fixed Search Form */}
         <div className="p-6 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 z-20">
           <div className="max-w-4xl mx-auto space-y-6">
-            <div className="relative group" ref={searchContainerRef}>
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 group-focus-within:text-blue-500 transition-colors mb-2 block">
-                Digite o Endereço para Pesquisa Rápida
-              </label>
-              <div className="relative">
-                <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Ex: R. Cascavel, Colombo..."
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-3xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/20 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
-                  onChange={(e) => handleSearch(e.target.value)}
-                />
-                <DropdownPortal anchorRef={searchContainerRef} isOpen={suggestions.length > 0}>
-                  <div className="mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] shadow-2xl overflow-hidden animate-slide-up">
-                    {suggestions.map((s, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleSelectSuggestion(s)}
-                        className="w-full p-4 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center gap-4 border-b border-slate-50 dark:border-slate-800 last:border-0"
-                      >
-                        <div className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
-                          <i className="bi bi-geo-alt-fill text-slate-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-700 dark:text-slate-200 line-clamp-1">
-                            {s.display_name}
-                          </p>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            {s.address.suburb || s.address.city}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </DropdownPortal>
-              </div>
-            </div>
+            <AddressAutocompleteInput
+              value={searchText} addressValue={addressForm} onChange={setSearchText} onSelectAddress={applyAddress}
+              cityHint={addressForm.city} stateHint={addressForm.state}
+              label="Digite o Endereço para Pesquisa Rápida" placeholder="Ex: R. Cascavel, Colombo..."
+              className="relative group"
+              inputClassName="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-3xl text-sm font-bold outline-none focus:ring-4 focus:ring-blue-100"
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <AddressAutocompleteInput
                 value={addressForm.street}
-                onChange={(val) => setAddressForm({ ...addressForm, street: val })}
-                onSelectAddress={(data) => {
-                  setAddressForm((prev) => ({
-                    ...prev,
-                    street: data.street,
-                    number: data.number || prev.number,
-                    neighborhood: data.neighborhood || prev.neighborhood,
-                    city: data.city || prev.city,
-                    state: data.state || prev.state,
-                    cep: data.cep || prev.cep,
-                  }));
-                }}
+                onChange={(val) => setAddressForm((current) => changeAddressField(current, 'street', val))}
+                addressValue={addressForm}
+                onSelectAddress={applyAddress}
                 cityHint={addressForm.city}
                 stateHint={addressForm.state || 'PR'}
                 label="Rua"
@@ -253,24 +204,26 @@ const FreightCalculation = () => {
                 inputClassName="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-50 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100"
               />
               <div>
-                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
+                <label htmlFor="route-number" className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
                   Nº
                 </label>
                 <input
+                  id="route-number"
                   type="text"
                   value={addressForm.number}
-                  onChange={(e) => setAddressForm({ ...addressForm, number: e.target.value })}
+                  onChange={(e) => { const value = e.target.value; setAddressForm((current) => changeAddressField(current, 'number', value)); }}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-50 dark:border-slate-700 rounded-2xl text-xs font-bold"
                 />
               </div>
               <div>
-                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
+                <label htmlFor="route-neighborhood" className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
                   Bairro
                 </label>
                 <input
+                  id="route-neighborhood"
                   type="text"
                   value={addressForm.neighborhood}
-                  onChange={(e) => setAddressForm({ ...addressForm, neighborhood: e.target.value })}
+                  onChange={(e) => { const value = e.target.value; setAddressForm((current) => changeAddressField(current, 'neighborhood', value)); }}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-50 dark:border-slate-700 rounded-2xl text-xs font-bold"
                 />
               </div>
@@ -297,7 +250,8 @@ const FreightCalculation = () => {
               </div>
 
               <button
-                onClick={calculateFreight}
+                type="button"
+                onClick={() => void calculateFreight()}
                 disabled={loading || !addressForm.street}
                 className="w-full md:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 text-white rounded-3xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all flex items-center justify-center gap-3"
               >
@@ -316,7 +270,7 @@ const FreightCalculation = () => {
             </div>
 
             {error && (
-              <div className="p-4 bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 rounded-2xl animate-fade-in">
+              <div role="alert" className="p-4 bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 rounded-2xl animate-fade-in">
                 <p className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
                   <i className="bi bi-exclamation-circle-fill" /> {error}
                 </p>

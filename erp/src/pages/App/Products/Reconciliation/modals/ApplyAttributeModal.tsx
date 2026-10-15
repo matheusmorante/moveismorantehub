@@ -1,12 +1,12 @@
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { toast } from 'react-toastify';
-import { bulkAttributeFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
+import { useReconciliationSubmit } from './useReconciliationSubmit';
+import type { ReconciliationConfirmation } from '../../../../../../../shared-utils/reconciliationFormSchemas';
+import { createReconciliationAttributeChoiceSchema } from '../../../../../../../shared-utils/reconciliationFormSchemas';
 import React, { useState } from 'react';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (attrName: string, attrValue: string) => Promise<void>;
+  onConfirm: (attrName: string, attrValue: string) => Promise<ReconciliationConfirmation>;
   selectedCount: number;
   availableAttributes?: Array<{
     id: string;
@@ -25,7 +25,6 @@ export const ApplyAttributeModal: React.FC<Props> = ({
 }) => {
   const [attributeName, setAttributeName] = useState('');
   const [attributeValue, setAttributeValue] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const selectedAttribute = availableAttributes.find(
     (attribute) => attribute.name === attributeName
   );
@@ -36,23 +35,15 @@ export const ApplyAttributeModal: React.FC<Props> = ({
     onClose();
   };
 
-  const form = useZodForm(bulkAttributeFormSchema, { name: attributeName, value: attributeValue });
+  const { handleConfirm, isSubmitting, error, uncertain } = useReconciliationSubmit(createReconciliationAttributeChoiceSchema(availableAttributes), { name: attributeName, value: attributeValue }, isOpen, (data) => onConfirm(data.name, data.value), resetAndClose);
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setAttributeName(''); setAttributeValue('');
+  }, [isOpen]);
   if (!isOpen) return null;
 
-  const handleConfirm = async () => {
-    const validated = await form.validateAndRun({ name: attributeName, value: attributeValue }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    setIsSubmitting(true);
-    try {
-      await onConfirm(validated.name, validated.value);
-      resetAndClose();
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div role="dialog" aria-modal="true" aria-label="Definir atributo em lote" className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 animate-slide-up overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -79,12 +70,14 @@ export const ApplyAttributeModal: React.FC<Props> = ({
         </div>
 
         <div className="p-6 space-y-4">
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
               Nome do Atributo
             </label>
             {availableAttributes.length > 0 ? (
               <select
+                disabled={isSubmitting || uncertain}
                 value={attributeName}
                 onChange={(e) => {
                   setAttributeName(e.target.value);
@@ -112,6 +105,7 @@ export const ApplyAttributeModal: React.FC<Props> = ({
             </label>
             {selectedAttribute?.dataType === 'boolean' ? (
               <select
+                disabled={isSubmitting || uncertain}
                 value={attributeValue}
                 onChange={(e) => setAttributeValue(e.target.value)}
                 className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold outline-none focus:ring-2 focus:ring-purple-500/20"
@@ -123,6 +117,7 @@ export const ApplyAttributeModal: React.FC<Props> = ({
             ) : (
               <div className="relative">
                 <input
+                  disabled={isSubmitting || uncertain}
                   type={
                     selectedAttribute &&
                     ['integer', 'decimal', 'measure'].includes(selectedAttribute.dataType || '')
@@ -154,8 +149,8 @@ export const ApplyAttributeModal: React.FC<Props> = ({
             Cancelar
           </button>
           <button
-            onClick={handleConfirm}
-            disabled={!attributeName.trim() || !attributeValue.trim() || isSubmitting}
+            type="button" onClick={() => void handleConfirm()}
+            disabled={!attributeName.trim() || !attributeValue.trim() || isSubmitting || uncertain}
             className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider shadow-sm transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {isSubmitting ? (
