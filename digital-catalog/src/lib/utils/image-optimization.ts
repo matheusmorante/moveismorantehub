@@ -1,6 +1,6 @@
 /**
  * Otimiza uma imagem para ser 1:1 (quadrada) e reduz o tamanho do arquivo
- * para aproximadamente 300kb.
+ * exportando em formato WebP de alta eficiência (~100-200kb a 1080p).
  */
 export async function optimizeProductImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -16,7 +16,7 @@ export async function optimizeProductImage(file: File): Promise<Blob> {
         return;
       }
 
-      // Definir tamanho alvo (ex: 1080x1080 para boa qualidade e tamanho razoável)
+      // Definir tamanho alvo (1080x1080 para alta qualidade e tamanho ultra reduzido)
       const targetSize = 1080;
       canvas.width = targetSize;
       canvas.height = targetSize;
@@ -41,21 +41,21 @@ export async function optimizeProductImage(file: File): Promise<Blob> {
         sourceX,
         sourceY,
         sourceWidth,
-        sourceHeight, // Fonte
+        sourceHeight,
         0,
         0,
         targetSize,
-        targetSize // Destino
+        targetSize
       );
 
-      // Exportar como JPEG com compressão (qualidade 0.8 costuma chegar perto de 300kb para 1080p)
+      // Exportar como WebP com compressão de alta fidelidade
       canvas.toBlob(
         (blob) => {
           if (blob) resolve(blob);
           else reject(new Error('Erro ao gerar Blob da imagem'));
         },
-        'image/jpeg',
-        0.8
+        'image/webp',
+        0.85
       );
     };
 

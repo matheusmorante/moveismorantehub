@@ -2,6 +2,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useProductFormImages } from './useProductFormImages';
+import { uploadFile } from '@/pages/utils/storageService';
+import { compressImageToFile } from '@/pages/utils/imageUtils';
+import { toast } from 'react-toastify';
 
 vi.mock('@/pages/utils/imageUtils', () => ({
   compressImageToFile: vi.fn().mockImplementation((file) => Promise.resolve(file)),
@@ -23,6 +26,18 @@ vi.mock('react-toastify', () => ({
 describe('useProductFormImages', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('blocks invalid uploads before compression, Storage and form updates', async () => {
+    const setFormData = vi.fn();
+    const setLoading = vi.fn();
+    const { result } = renderHook(() => useProductFormImages({ images: [] }, setFormData, setLoading));
+    await act(async () => { await result.current.handleFileChange({ files: [new File(['x'], 'invalid.txt', { type: 'text/plain' })] }); });
+    expect(toast.error).toHaveBeenCalledWith('Selecione um arquivo de imagem.');
+    expect(compressImageToFile).not.toHaveBeenCalled();
+    expect(uploadFile).not.toHaveBeenCalled();
+    expect(setFormData).not.toHaveBeenCalled();
+    expect(setLoading).not.toHaveBeenCalled();
   });
 
   it('uploads images and adds them to formData', async () => {

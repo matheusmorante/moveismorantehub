@@ -55,7 +55,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
         ...filters,
         // Produtos desativados não devem ser ocultados da lista:
         includeDeactivated: filters?.activeOnly === true ? false : true,
-        includeMergedVariations: true,
+        includeMergedVariations: Boolean(filters?.includeMergedVariations),
         itemType: mode === 'composition' ? 'composition' : filters?.itemType,
         excludeItemType: mode === 'standard' && !filters?.itemType ? 'composition' : undefined,
       }),

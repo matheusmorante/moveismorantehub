@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { imageFilesFormSchema } from './fileFormSchemas';
 
 const requiredText = z.string().refine((value) => Boolean(value.trim()), 'Preencha este campo.');
 const date = z.iso.date('Informe uma data válida.');
@@ -49,6 +50,10 @@ export const stockUnavailabilityFormSchema = z.object({
 }).superRefine((value, ctx) => {
   if (value.quantity > value.availableStock) ctx.addIssue({ code: 'custom', path: ['quantity'], message: `Quantidade informada (${value.quantity}) é maior que o estoque atual (${value.availableStock}).` });
   if (value.treatment === 'Devolução ao fornecedor' && !value.supplierId) ctx.addIssue({ code: 'custom', path: ['supplierId'], message: 'Fornecedor é obrigatório para devolução.' });
+});
+export const erpStockUnavailabilityFormSchema = stockUnavailabilityFormSchema.safeExtend({
+  observation: z.string(), physicalLocation: z.string(),
+  photos: z.array(imageFilesFormSchema.shape.files.element),
 });
 export const unattendedDeliveryFormSchema = z.object({
   reason: z.enum(['Cliente Ausente', 'Ninguém Atendeu no Local', 'Cliente Recusou Recebimento', 'Outro Motivo']),

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { CatalogProductImage } from '@/components/ui/CatalogProductImage';
 import { Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -87,7 +87,7 @@ export function ProductVariantSelector({
                 title={comboLabel}
               >
                 {varImg ? (
-                  <Image src={varImg} alt={comboLabel} fill className="object-cover" />
+                  <CatalogProductImage src={varImg} alt={comboLabel} size="thumbnail" fill className="object-cover" />
                 ) : (
                   <span className="m-auto text-[10px] font-bold text-gray-500 text-center px-1 break-words capitalize">
                     {comboLabel}

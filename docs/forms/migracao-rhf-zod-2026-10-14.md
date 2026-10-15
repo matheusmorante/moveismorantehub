@@ -14,7 +14,7 @@ O [inventário detalhado do ERP](../audits/fiscal-2026-10-14/form-migration-inve
 
 | Aplicação | Arquivos com integração localizada |
 |---|---|
-| erp | 113 |
+| erp | 122 |
 | mobile | 34 |
 | digital-catalog | 10 |
 
@@ -221,6 +221,32 @@ O recebimento valida todos os custos, datas, anexos e observações persistidos,
 Arquivos/linhas da compra nesta continuação:
 - `shared-utils/purchaseFormSchemas.ts`: `20`
 - `erp/src/pages/App/Stock/Purchases/modals/PurchaseFormModal.tsx`: `11`, `54`, `55`, `56`, `57`, `59`, `65`, `110`, `184`, `252`, `253`, `254`, `255`, `266`, `267`, `269`, `289`, `300`, `302`, `325`, `326`, `348`, `352`, `367`, `370`, `389`, `390`, `417`
-- `erp/src/pages/App/Stock/Purchases/modals/PurchaseFormModal.test.tsx`: 
+- `erp/src/pages/App/Stock/Purchases/modals/PurchaseFormModal.test.tsx`: `1`
 
-Provas específicas em execução/registro: `scratch/rhf-autosave-owners-tests.log`, `rhf-ncm-owners-tests.log`, `rhf-purchase-receipt-tests.log`. Todos os serviços externos são simulados; não houve compra, recebimento, mensagem, Storage ou transmissão real. A conferência global continua aberta.
+Provas específicas concluídas: 18 testes em `scratch/rhf-autosave-owners-tests.log`, três em `rhf-ncm-owners-tests.log` e seis em `rhf-purchase-receipt-tests.log`. As rodadas têm sobreposições. Todos os serviços externos são simulados; não houve compra, recebimento, mensagem, Storage ou transmissão real. A conferência global continua aberta.
+
+### Recortes de imagem
+
+Os proprietários `erp/src/pages/App/Marketing/Posts/FixedAspectImageCropper.tsx` e `erp/src/pages/App/Products/components/tabs/images/SquareImageCropper.tsx` também usam RHF + zodResolver. O recorte valida dimensões finitas/positivas, posição, limites da seleção e margem de 0 a 35% já oferecida na interface. O processamento usa os valores parseados e a trava acompanha compressão e confirmação. O recorte de marketing valida o arquivo antes de criar uma URL local e descarta a leitura quando o arquivo muda ou o componente fecha. Falhas de contexto/canvas/imagem geram feedback.
+
+Cinco testes dos proprietários/contratos e regressões da galeria/geometria passaram: 18 testes em quatro arquivos, com sobreposição às rodadas anteriores (`scratch/rhf-image-crop-owner-tests.log`). Os testes simulam canvas/compressão; não afirmam qualidade visual do resultado no navegador. Compilação completa ERP após os recortes passou (`scratch/rhf-erp-build-image-crop.log`), incluindo o startup fiscal/XSD. Lint dos recortes e seu teste passou sem erros ou avisos (`scratch/rhf-image-crop-lint.log`). TypeScript global continua reprovado fora deste lote; não foram encontrados diagnósticos dos recortes/contratos no relatório `scratch/rhf-erp-image-crop-tsc.log`.
+
+### Uploads e indisponibilidade
+
+Mais sete entradas de integração localizadas no ERP:
+
+- `erp/src/pages/App/Marketing/Posts/OpportunitySealLibrary.tsx`
+- `erp/src/pages/App/Products/components/tabs/ProductEcommerceTab.tsx`
+- `erp/src/pages/App/Products/hooks/form/useProductFormImages.ts`
+- `erp/src/pages/App/Settings/components/ai/AIPromptsSection.tsx`
+- `erp/src/pages/App/Stock/LabelPrinting/components/LabelGridSheetPreview.tsx`
+- `erp/src/pages/App/Stock/LabelPrinting/components/LabelQueue.tsx`
+- `erp/src/pages/App/Stock/Receipts/components/ReceiptFiscalDocumentsSection.tsx`
+
+O contrato em `shared-utils/fileFormSchemas.ts` exige arquivos `File` de imagem ou PDF conforme a intenção. Avatar, assistente, imagens de produto/substituição, anexos de recebimento e leitura de imagens para etiquetas passam pelo resolver antes da operação. Seletores de imagem de etiquetas reutilizam o contrato; os demais campos da fila continuam no proprietário da impressão, cuja conferência permanece pendente no inventário.
+
+A indisponibilidade ganhou um contrato ERP que preserva os refinamentos existentes de quantidade/estoque/fornecedor e inclui fotos, observação e localização. Fotos inválidas são bloqueadas antes da prévia; o serviço recebe os campos parseados. O resolver permanece ativo durante a gravação para impedir dois salvamentos simultâneos.
+
+O upload de elementos de marketing também mantém o resolver ativo durante o envio, sem liberar a trava após apenas parsear o arquivo. O schema preserva os formatos PNG/WebP/JPEG já permitidos. Os dois testes do proprietário bloqueiam GIF e envio concorrente, confirmando atualização da camada original.
+
+**Prova desta rodada:** 46 testes em 12 arquivos passaram (`scratch/rhf-upload-owner-final-tests.log`), incluindo cinco dos proprietários de arquivos, dois da indisponibilidade, dois do upload de selos, dois do upload de elementos, cinco do perfil e regressões de compra, recebimento, produtos e contratos de marketing/catálogo. O teste do avatar inválido não substitui prova de upload válido do perfil. Typecheck fiscal passou (`scratch/rhf-fiscal-upload-tsc.log`); lint dos arquivos desta rodada passou com zero erros e oito avisos, em `scratch/rhf-file-owner-lint.log` e `scratch/rhf-element-owner-lint.log`. Compilação completa ERP passou (`scratch/rhf-erp-build-upload-batch.log`) antes do último ajuste do upload de elementos, que passou pelos testes específicos. O TypeScript global continua com diagnósticos fora deste lote; os diagnósticos dos proprietários e contratos alterados são conferidos separadamente. Todos os serviços são simulados.

@@ -195,7 +195,11 @@ const ProductTable = ({
 
       const embeddedVariation = (product as ProductListRow).allVariations?.[0];
       const variationRow = variationRowsByParent.get(product.id)?.[0];
-      const singleVariation = embeddedVariation ?? variationRow;
+      const fallbackVariation =
+        Array.isArray(product.variations) && product.variations.length === 1
+          ? (product.variations[0] as unknown as ProductListRow)
+          : undefined;
+      const singleVariation = embeddedVariation ?? variationRow ?? fallbackVariation;
       if (singleVariation) singleVariations.set(product.id, singleVariation);
     });
 

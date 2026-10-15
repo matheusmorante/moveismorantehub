@@ -6,6 +6,7 @@ import { getProductKind, isNonConventionalProduct } from '../../../../../utils/p
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import { StockOriginBadge } from '../Shared/StockOriginBadge';
+import { MergedBadge } from '../Shared/MergedBadge';
 import type { CardVariationItem } from '../Variations/ProductCardVariationList';
 import { ProductCardActions } from './ProductCardActions';
 
@@ -150,14 +151,22 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
             e.stopPropagation();
             onDeactivateCatalog(singleVariationId);
           }}
-          disabled={Boolean(singleVariation?.mergedToVariationId)}
+          disabled={Boolean(singleVariation?.mergedToVariationId) || Boolean((product as any).isMerged)}
           disabledReason={
-            singleVariation?.mergedToVariationId
+            singleVariation?.mergedToVariationId || (product as any).isMerged
               ? 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
               : undefined
           }
           size="xs"
         />
+
+        {/* Selo de Mesclado */}
+        {(Boolean(singleVariation?.mergedToVariationId) || Boolean((product as any).isMerged)) && (
+          <MergedBadge
+            targetVariationId={singleVariation?.mergedToVariationId}
+            size="xs"
+          />
+        )}
 
         {/* 2. Selo de Rascunho */}
         {isDraft && (

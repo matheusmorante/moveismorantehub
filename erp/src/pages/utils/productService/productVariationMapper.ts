@@ -116,6 +116,12 @@ export const mapDbVariations = (
         fiscal: syncFiscal ? data.fiscal : details.fiscal,
         attributes: attributesList,
         images: varImages,
+        image_url:
+          typeof v.image_url === 'string' && v.image_url.trim()
+            ? v.image_url.trim()
+            : varImages.length > 0
+              ? varImages.join(',')
+              : undefined,
         comboItems: Array.isArray(v.combo_items) ? v.combo_items : [],
         syncUnitPrice: v.use_parent_price !== false,
         syncPromoPrice: v.use_parent_promo_price !== false,

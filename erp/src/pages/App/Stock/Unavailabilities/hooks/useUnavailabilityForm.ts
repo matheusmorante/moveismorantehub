@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { stockUnavailabilityFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
+import { erpStockUnavailabilityFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
+import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 import type { Product, Variation } from '@/pages/types/product.type';
 import { createStockUnavailability } from '@/pages/utils/stockUnavailabilityService';
 import { fetchSuppliersForProduct } from '../services/unavailabilitySupplierService';
@@ -30,8 +31,14 @@ export function useUnavailabilityForm({ isOpen, onSuccess }: UseUnavailabilityFo
   const [suppliers, setSuppliers] = useState<UnavailabilitySupplier[]>([]);
   const [supplierId, setSupplierId] = useState<string>('');
   const [photos, setPhotos] = useState<File[]>([]);
-  const formValues = { productId: selectedProduct?.id || '', variationId: selectedVariation?.id || '', quantity: Number(quantity.replace(',', '.')), availableStock: selectedVariation?.stock || 0, supplierId, reason, treatment };
-  const form = useZodForm(stockUnavailabilityFormSchema, formValues);
+  const formValues = { productId: selectedProduct?.id || '', variationId: selectedVariation?.id || '', quantity: Number(quantity.replace(',', '.')), availableStock: selectedVariation?.stock || 0, supplierId, reason, treatment, physicalLocation, observation, photos };
+  const form = useZodForm(erpStockUnavailabilityFormSchema, formValues);
+  const photoForm = useZodForm(imageFilesFormSchema, { files: [] });
+  const selectPhotos = async (files: File[]) => {
+    if (!files.length) { setPhotos([]); return; }
+    await photoForm.validateAndRun({ files }, (values) => setPhotos(values.files),
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+  };
 
   // Carrega apenas os fornecedores vinculados ao produto selecionado
   useEffect(() => {
@@ -79,50 +86,20 @@ export function useUnavailabilityForm({ isOpen, onSuccess }: UseUnavailabilityFo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validated = await form.validateAndRun(formValues, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-
-    if (!selectedProduct) {
-      toast.error('Selecione um produto.');
-      return;
-    }
-
-    const qty = validated.quantity;
-    if (Number.isNaN(qty) || qty <= 0) {
-      toast.error('Informe uma quantidade válida maior que zero.');
-      return;
-    }
-
-    if (treatment === 'Devolução ao fornecedor' && !supplierId) {
-      toast.error('Fornecedor é obrigatório para devolução.');
-      return;
-    }
-
-    if (!selectedVariation) {
-      toast.error('Selecione uma variação do produto.');
-      return;
-    }
-
-    if (qty > (selectedVariation.stock || 0)) {
-      toast.error(
-        `Quantidade informada (${qty}) é maior que o estoque atual (${selectedVariation.stock || 0}).`
-      );
-      return;
-    }
-
+    if (!selectedProduct || !selectedVariation) { toast.error('Selecione um produto e uma variação.'); return; }
+    return form.validateAndRun(formValues, async (validated) => {
     setIsLoading(true);
     try {
       await createStockUnavailability({
         product: selectedProduct,
         variation: selectedVariation,
-        quantity: qty,
-        reason,
-        treatment,
-        physicalLocation,
-        observation,
-        supplierId: supplierId || null,
-        photos,
+        quantity: validated.quantity,
+        reason: validated.reason,
+        treatment: validated.treatment,
+        physicalLocation: validated.physicalLocation,
+        observation: validated.observation,
+        supplierId: validated.supplierId || null,
+        photos: validated.photos,
       });
 
       toast.success('Indisponibilidade registrada com sucesso!');
@@ -140,6 +117,7 @@ export function useUnavailabilityForm({ isOpen, onSuccess }: UseUnavailabilityFo
     } finally {
       setIsLoading(false);
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   return {
@@ -165,7 +143,7 @@ export function useUnavailabilityForm({ isOpen, onSuccess }: UseUnavailabilityFo
       setTreatment,
       setSupplierId,
       setObservation,
-      setPhotos,
+      setPhotos: selectPhotos,
       handleSubmit,
       resetForm,
     },

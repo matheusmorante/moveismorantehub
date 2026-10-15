@@ -4,6 +4,8 @@ import { uploadFile } from '@/pages/utils/storageService';
 import { toast } from 'react-toastify';
 import { createOpportunitySealImage, OpportunitySeal } from './opportunitySealImage';
 import OpportunitySealImageEditor from './OpportunitySealImageEditor';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { imageFilesFormSchema } from '../../../../../../shared-utils/fileFormSchemas';
 
 type Props = {
   className?: string;
@@ -17,6 +19,7 @@ export default function OpportunitySealLibrary({ className, open, onToggle, onSe
   const [loading, setLoading] = useState(true);
   const [editingOpportunity, setEditingOpportunity] = useState<OpportunitySeal | null>(null);
   const [uploading, setUploading] = useState(false);
+  const uploadForm = useZodForm(imageFilesFormSchema, { files: [] });
 
   const fetchOpportunities = () => {
     supabase
@@ -44,9 +47,10 @@ export default function OpportunitySealLibrary({ className, open, onToggle, onSe
   }, []);
 
   const handleUploadImage = async (opportunity: OpportunitySeal, file: File) => {
+    return uploadForm.validateAndRun({ files: [file] }, async (values) => {
     setUploading(true);
     try {
-      const url = await uploadFile(file, `marketing/seals/${opportunity.id}-${Date.now()}.png`);
+      const url = await uploadFile(values.files[0], `marketing/seals/${opportunity.id}-${Date.now()}.png`);
       const { error } = await supabase
         .from('opportunities')
         .update({ image_url: url })
@@ -68,6 +72,7 @@ export default function OpportunitySealLibrary({ className, open, onToggle, onSe
     } finally {
       setUploading(false);
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const handleRemoveImage = async (opportunity: OpportunitySeal) => {

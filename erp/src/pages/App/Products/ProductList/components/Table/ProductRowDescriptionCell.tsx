@@ -4,6 +4,7 @@ import ProductImage from '@/components/ProductImage';
 import { parseVariationImages } from '@/pages/utils/productService';
 import type { ProductListRow } from '../../types';
 import { StockOriginBadge } from '../Shared/StockOriginBadge';
+import { MergedBadge } from '../Shared/MergedBadge';
 
 export interface ProductRowDescriptionCellProps {
   readonly product: Product & {
@@ -184,6 +185,17 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
 
             {/* Selos de Triagem e Tipo */}
             <div className="flex items-center gap-2 mt-1">
+              {(Boolean((product as any).isMerged) ||
+                Boolean(singleVariation?.mergedToVariationId) ||
+                Boolean(product.mergedToVariationId)) && (
+                <MergedBadge
+                  targetVariationId={
+                    singleVariation?.mergedToVariationId || product.mergedToVariationId
+                  }
+                  size="xs"
+                />
+              )}
+
               {(singleVariation || isChildVariation) &&
                 exitedVariationIds?.has(
                   String(singleVariation?.variationId || singleVariation?.id || product.variationId)

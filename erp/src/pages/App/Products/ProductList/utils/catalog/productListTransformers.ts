@@ -61,6 +61,12 @@ export function flattenProductsForList(products: readonly Product[]): ProductLis
     const totalVariationsCount = hasJsonVariations ? variationsList.length : 1;
     const parentActive = hasJsonVariations ? activeVariationsCount > 0 : product.active !== false;
 
+    // Pai é considerado mesclado se todas as suas variações estiverem mescladas
+    const isParentMerged =
+      hasJsonVariations &&
+      variationsList.length > 0 &&
+      variationsList.every((v) => Boolean(v.mergedToVariationId || v.merged_to_variation_id));
+
     flattened.push({
       ...product,
       id: product.id || String(productIndex),
@@ -68,6 +74,7 @@ export function flattenProductsForList(products: readonly Product[]): ProductLis
       sku: parentSku,
       code: parentSku,
       isParent,
+      isMerged: isParentMerged || Boolean((product as any).mergedToVariationId),
       allVariations,
       activeVariationsCount,
       totalVariationsCount,
@@ -94,13 +101,16 @@ function buildVariationListRow(
       ? normalizeVariationSku(String(variation.sku).trim())
       : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
 
+  const mergedToVariationId =
+    variation.mergedToVariationId || variation.merged_to_variation_id || undefined;
+
   return {
     ...product,
     id: variation.id || `${product.id}-${index}`,
     rowId: `${product.id}:${variation.id || index}`,
     variationId: variation.id,
-    mergedToVariationId:
-      variation.mergedToVariationId || variation.merged_to_variation_id || undefined,
+    mergedToVariationId,
+    isMerged: Boolean(mergedToVariationId),
     productId: product.id,
     sku,
     code: sku,
@@ -143,6 +153,12 @@ function buildVariationListRow(
     active: variation.active !== false,
     status: variation.status || product.status,
     images: parseVariationImages(variation.image_url, variation.images),
+    image_url:
+      typeof variation.image_url === 'string' && variation.image_url.trim()
+        ? variation.image_url.trim()
+        : Array.isArray(variation.images) && variation.images.length > 0
+          ? variation.images.join(',')
+          : undefined,
     parentImages: product.images || [],
     isVariation: true,
     parentId: product.id,

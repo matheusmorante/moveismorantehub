@@ -117,3 +117,94 @@ describe('ProductCardHeader - Rótulo de Origem do Estoque', () => {
     expect(container.querySelector('.bi-fire')).toBeNull();
   });
 });
+
+describe('ProductCardHeader - Selo de Mesclado', () => {
+  const defaultProps = {
+    readOnly: false,
+    canDeleteProducts: true,
+    showCatalogControl: true,
+    isParent: false,
+    isVariation: false,
+    isDraft: false,
+    canManageCatalog: true,
+    hasParentVariations: false,
+    showVariations: false,
+    setShowVariations: vi.fn(),
+    showTrash: false,
+    onEdit: vi.fn(),
+    onDelete: vi.fn(),
+    onToggleActive: vi.fn(),
+    onDeactivateCatalog: vi.fn(),
+    onOpenSalesModal: vi.fn(),
+  };
+
+  const baseProduct: Product = {
+    id: 'prod-card-merged',
+    name: 'Guarda Roupa Paris',
+    description: 'Guarda Roupa Paris Casal',
+    productKind: 'normal',
+    active: true,
+    isDraft: false,
+    itemType: 'product',
+  };
+
+  it('não renderiza o selo Mesclado em produtos não mesclados', () => {
+    render(
+      <MemoryRouter>
+        <ProductCardHeader
+          {...defaultProps}
+          product={baseProduct}
+          oppName={undefined}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByTestId('merged-badge')).toBeNull();
+  });
+
+  it('renderiza o selo Mesclado quando o produto possui isMerged=true', () => {
+    const mergedProduct = {
+      ...baseProduct,
+      isMerged: true,
+    } as any;
+
+    render(
+      <MemoryRouter>
+        <ProductCardHeader
+          {...defaultProps}
+          product={mergedProduct}
+          oppName={undefined}
+        />
+      </MemoryRouter>
+    );
+
+    const badge = screen.getByTestId('merged-badge');
+    expect(badge).toBeDefined();
+    expect(badge.textContent).toContain('Mesclado');
+  });
+
+  it('renderiza o selo Mesclado quando a variação única possui mergedToVariationId', () => {
+    const variation = {
+      id: 'var-1',
+      product_id: 'prod-card-merged',
+      sku: '000312-01',
+      mergedToVariationId: 'target-var-id',
+      active: true,
+    } as any;
+
+    render(
+      <MemoryRouter>
+        <ProductCardHeader
+          {...defaultProps}
+          product={baseProduct}
+          singleVariation={variation}
+          oppName={undefined}
+        />
+      </MemoryRouter>
+    );
+
+    const badge = screen.getByTestId('merged-badge');
+    expect(badge).toBeDefined();
+    expect(badge.textContent).toContain('Mesclado');
+  });
+});

@@ -2,6 +2,9 @@ import React from 'react';
 import labelMdf from '../../../../../assets/label_mdf.png';
 import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
 import ProductSearchInput from './ProductSearchInput';
+import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 
 interface LabelQueueProps {
   labelItems: any[];
@@ -23,6 +26,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
   selectedCategory,
 }) => {
   const [dragOverIdx, setDragOverIdx] = React.useState<number | null>(null);
+  const imageForm = useZodForm(imageFilesFormSchema, { files: [] });
   const labelPhysicalSize = calculateLabelPhysicalSize(config || {});
   const isPriceQueue = selectedCategory === 'precos';
   const shouldShowThumbnail = (item: any) =>
@@ -32,6 +36,26 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
     const newItems = [...labelItems];
     newItems[idx] = { ...newItems[idx], ...updates };
     setLabelItems(newItems);
+  };
+
+  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>, index: number, blank = false) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      await imageForm.validateAndRun({ files: [file] }, async (values) => {
+        const image = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+          reader.readAsDataURL(values.files[0]);
+        });
+        setLabelItems((previous) => previous.map((item, idx) => idx === index
+          ? { ...item, image, ...(blank ? { isBlank: false, printingMode: 'simple' } : {}) } : item));
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    } catch {
+      toast.error('Não foi possível ler a imagem.');
+    }
   };
 
   const updateExtraField = (itemIdx: number, fieldId: string, value: string) => {
@@ -192,20 +216,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (ev) =>
-                                updateItem(idx, {
-                                  image: ev.target?.result as string,
-                                  isBlank: false,
-                                  printingMode: 'simple',
-                                });
-                              reader.readAsDataURL(file);
-                            }
-                            e.target.value = '';
-                          }}
+                          onChange={(event) => handleImageChange(event, idx, true)}
                         />
                       </label>
                     </div>
@@ -217,15 +228,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (ev) =>
-                                updateItem(idx, { image: ev.target?.result as string });
-                              reader.readAsDataURL(file);
-                            }
-                          }}
+                          onChange={(event) => handleImageChange(event, idx)}
                         />
                       </label>
                     </div>

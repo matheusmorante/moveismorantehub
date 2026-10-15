@@ -18,6 +18,7 @@ export const ProductImage: React.FC<ProductImageProps> = ({
   size = 'medium',
   fallbackSrc = defaultFallback,
   style,
+  onError,
   ...props
 }) => {
   const [currentSrc, setCurrentSrc] = useState<string>('');

@@ -63,10 +63,10 @@ export async function processSquareCropImage(
   );
 
   const blob = await new Promise<Blob | null>((resolve) =>
-    finalCanvas.toBlob(resolve, 'image/png', 1)
+    finalCanvas.toBlob(resolve, 'image/webp', 0.95)
   );
   if (!blob) throw new Error('Falha ao gerar imagem 1:1');
 
-  const file = new File([blob], `produto-quadrado-${Date.now()}.png`, { type: 'image/png' });
-  return compressImageToFile(file, { maxMB: 0.3, maxWidth: 1080 });
+  const file = new File([blob], `produto-quadrado-${Date.now()}.webp`, { type: 'image/webp' });
+  return compressImageToFile(file, { maxMB: 0.3, maxWidth: 1080, fileType: 'image/webp' });
 }

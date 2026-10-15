@@ -14,9 +14,9 @@ Todos os caminhos abaixo precisam de conferência individual. `Manual` significa
 | [ ] | `pages/Signup/index.tsx:24` | email, password, confirmPassword, fullName | handleSubmit | manual/HTML |
 | [ ] | `pages/ResetPassword/index.tsx:75` | email, code, password, confirmation | enviar código; verificar código; saveNewPassword | três intenções separadas |
 | [ ] | `components/auth/PasswordSetupPrompt.tsx:18` | password, confirmation | handleSubmit | manual |
-| [ ] | `pages/App/Profile/Index.tsx:57` | fullName, position, phone, address, city, stateValue | handleUpdateProfile | manual |
-| [ ] | `pages/App/Profile/Index.tsx:84` | email, currentPassword, reauthCode | handleChangeEmail / reautenticação | botão fora do form principal |
-| [ ] | `pages/App/Profile/Index.tsx:98` | newPassword, confirmPassword, currentPassword, passwordReauthCode | handleChangePassword / reautenticação | botão fora do form principal |
+| [x] | `pages/App/Profile/Index.tsx:57` | fullName, position, phone, address, city, stateValue | handleUpdateProfile | Perfil e senha RHF + resolver; email somente leitura, sem handler de alteração ativo; avatar inválido bloqueado antes do Storage. Cinco testes Index.test.tsx. |
+| [x] | `pages/App/Profile/Index.tsx:84` | email somente leitura | sem alteração de email ativa | Perfil e senha RHF + resolver; email somente leitura, sem handler de alteração ativo; avatar inválido bloqueado antes do Storage. Cinco testes Index.test.tsx. |
+| [x] | `pages/App/Profile/Index.tsx:98` | newPassword, confirmPassword, currentPassword, passwordReauthCode | handleChangePassword / reautenticação | Perfil e senha RHF + resolver; email somente leitura, sem handler de alteração ativo; avatar inválido bloqueado antes do Storage. Cinco testes Index.test.tsx. |
 | [ ] | `pages/App/Users/UserRolesModal.tsx:30` | roles, selectedRole | save | papéis permitidos/permissão |
 | [ ] | `pages/App/Registrations/shared/modals/personForm/usePersonForm.ts:388` | formData, collectionName, requiredFields | handleSubmit; pessoas em todos os cadastros | createPersonFormSchema; integração em andamento |
 | [ ] | `pages/App/Registrations/shared/modals/PersonImportModal.tsx:137` | file, encoding, mapping, selectedIndexes | processMappingToPreview → runImport | schema por linha, não apenas arquivo/mapping |
@@ -63,10 +63,10 @@ Todos os caminhos abaixo precisam de conferência individual. `Manual` significa
 | [ ] | `pages/App/Finance/Payables/PayableModal.tsx:52` | formData, expenseType, installmentsCount, recurringFrequency | handleSave; handlePay:135 | criar/editar/pagar são contratos distintos |
 | [ ] | `pages/App/Finance/Receivables/ReceivableModal.tsx:48` | formData | handleSave; handleReceive:72 | criar/editar/receber |
 | [ ] | `pages/App/Finance/Settings/index.tsx:47` | config | handleSave | configuração financeira |
-| [ ] | `pages/App/Stock/Purchases/modals/PurchaseFormModal.tsx:318` | supplierId, items, purchaseDate, impostos/frete, anexos | handleSave(ordered/fulfilled); autosave:294 | validar rascunho e final separadamente |
+| [x] | `pages/App/Stock/Purchases/modals/PurchaseFormModal.tsx:318` | supplierId, items, purchaseDate, impostos/frete, anexos | handleSave(ordered/fulfilled); autosave:294 | Rascunho/final/Escape e anexos validados; fila aguarda identidade e impede final duplo. Três testes do proprietário. |
 | [ ] | `pages/App/Stock/Purchases/modals/PurchaseStockEntryModal.tsx:43` | products, date, observation | handleSave | entrada de compra |
-| [ ] | `pages/App/Stock/Purchases/modals/PurchaseReceiptCheckModal.tsx:235` | scannedItems, invoicedQuantities, invoiceNumber/date, discrepancyNote | handleSave | conferência NF/compra |
-| [ ] | `pages/App/Stock/Receipts/hooks/useReceiptForm.ts:352` | supplierId, items/inboundItems, custos, receiptDate, fiscalKey, attachments | handleFinalize; draft autosave:285 | validação manual de vínculos/itens/chave |
+| [x] | `pages/App/Stock/Purchases/modals/PurchaseReceiptCheckModal.tsx:235` | scannedItems, invoicedQuantities, invoiceNumber/date, discrepancyNote | handleSave | Payload de conferência via resolver e valores parseados; quantidade negativa bloqueada no teste real remainingOwners.test.tsx. |
+| [x] | `pages/App/Stock/Receipts/hooks/useReceiptForm.ts:352` | supplierId, items/inboundItems, custos, receiptDate, fiscalKey, attachments | handleFinalize; draft autosave:285 | Contrato completo/valor parseado, chave normalizada e mesma identidade após autosave; três testes do hook. |
 | [ ] | `pages/App/Stock/Receipts/modals/ReceiptAIFillModal.tsx:178` | text | interpretar/aplicar entrada assistida | schema final no recebimento |
 | [ ] | `pages/App/Stock/Movements/modals/InventoryMoveEditModal.tsx:55` | type, quantity, date, observation | handleSave | edição de movimento |
 | [x] | `pages/App/Stock/Movements/modals/InventoryMoveDeleteModal.tsx:43` | reason | handleSubmit | justificativa de exclusão |
@@ -89,16 +89,16 @@ Todos os caminhos abaixo precisam de conferência individual. `Manual` significa
 | [ ] | `pages/App/Settings/index.tsx:61` | settings + path/value | handleChange → debounce/saveSettings | proprietário de todas as seções de configuração abaixo |
 | [x] | `pages/App/Settings/components/general/ProductMaterialsSection.tsx:44` | newMaterial/newType | handleAddMaterial; handleAddType:65 | duas submissões nativas independentes |
 | [ ] | `pages/App/Settings/components/fiscal/HmlCsosnSettings.tsx:32` | csosn | save | CSOSN restrito à homologação |
-| [ ] | `pages/App/Settings/components/fiscal/NcmManagementPanel.tsx:318` | preview, selectedProducts, destination, correlationType/version | applySync; applyProductReview:337; saveCorrelation:370 | três operações; busca separada |
+| [x] | `pages/App/Settings/components/fiscal/NcmManagementPanel.tsx:318` | preview, selectedProducts, destination, correlationType/version | applySync; applyProductReview:337; saveCorrelation:370 | Busca/catálogo/ativação e aplicação/revisão/correlação via contratos explícitos; três testes do painel e contratos existentes. |
 | [ ] | `pages/App/Settings/components/integrations/WhatsAppConfigSection.tsx:55` | settings/testPhone/template parameters | handleTestConnection; handleTestTemplateSend:99 | envio externo requer autorização prévia, só integrar validação |
 | [ ] | `pages/App/ApiUsage/components/ApiConfigEditModal.tsx:25` | formData | handleSave | configuração API |
-| [ ] | `pages/App/Marketing/Posts/components/CampaignManagerModal.tsx:34` | editing | save | campanha |
-| [ ] | `pages/App/Marketing/Posts/components/GeneralCampaignRules.tsx:59` | rules | onSubmit → saveGlobalRules | regras de campanha |
+| [x] | `pages/App/Marketing/Posts/components/CampaignManagerModal.tsx:34` | editing | save | RHF com enqueueAndRun e submit em fila; três testes de campanhas, incluindo gravação lenta/falha/recuperação. |
+| [x] | `pages/App/Marketing/Posts/components/GeneralCampaignRules.tsx:59` | rules | onSubmit → saveGlobalRules | RHF com enqueueAndRun e submit em fila; erros de serviço visíveis; campanha/regras cobertas em campaignForms.test.tsx. |
 | [x] | `pages/App/Marketing/Posts/components/ModelFormModal.tsx:248` | name,prompt,format,assets,extras | submit; generatePreview | modelo de post |
-| [ ] | `pages/App/Marketing/Posts/components/PostCreatorModelModal.tsx:85` | name,prompt,references,opportunityId | submit | outro modelo de criador |
+| [x] | `pages/App/Marketing/Posts/components/PostCreatorModelModal.tsx:85` | name,prompt,references,opportunityId | submit | RHF valida modelo, referências e arquivos; autosave em fila; testes de serviço inválido/retry em remainingOwners.test.tsx. |
 | [x] | `pages/App/Marketing/Posts/components/Assets/AssetLibraryModal.tsx:57` | uploadUrl, uploadName | handleAddCustomAsset | ativo por URL |
 | [ ] | `pages/App/Marketing/Posts/components/PostsLibrary/UploadPostModal.tsx:116` | form, file, produto/campanha | handleUpload | upload de post |
-| [ ] | `pages/App/Marketing/Posts/components/Editor/ElementModelsPanel.tsx:35` | name/layer props | save | modelo de elemento |
+| [x] | `pages/App/Marketing/Posts/components/Editor/ElementModelsPanel.tsx:35` | name/layer props; arquivo | save; upload | Salvar usa payload parseado; upload conserva PNG/WebP/JPEG e bloqueio até concluir; dois testes do upload e contratos de marketing. |
 | [ ] | `pages/App/Marketing/Posts/index.tsx:234` | campaign/global rules/model config | saveCampaign; autosave configuration | caminhos inline fora dos modais |
 | [ ] | `pages/App/Marketing/Posts/components/Ambientation/AmbientationStudioModal.tsx:29` | prompt | handleGeneratePrompt; handleSimulateAmbientation | geração assistida |
 | [ ] | `pages/App/Stock/LabelPrinting/modals/LabelGridModelModal.tsx:626` | model/layout/style/data | handleSave | editor composto |
@@ -124,7 +124,7 @@ Todos os caminhos abaixo precisam de conferência individual. `Manual` significa
 | [ ] | `pages/App/Products/hooks/form/useProductFormModal.ts:387` | variação atualizada | handleSaveVariation | gravação intermediária do agregado |
 | [ ] | `pages/App/Products/ProductList/modals/MoveVariationFamily/useMoveVariationFamily.ts:116` | família destino/conflitos | handleConfirm | responsável efetivo da mudança de família |
 | [ ] | `pages/App/Products/Categories/hooks/useCategoriesAndEnvironments.ts:94` | formData de categoria/ambiente | handleSave | responsável efetivo do CategoryEnvironmentModal |
-| [ ] | `pages/App/Stock/Unavailabilities/hooks/useUnavailabilityForm.ts:76` | item, quantidade, motivo, fotos | handleSubmit | responsável efetivo da indisponibilidade |
+| [x] | `pages/App/Stock/Unavailabilities/hooks/useUnavailabilityForm.ts:76` | item, quantidade, motivo, fotos | handleSubmit | Contrato ERP inclui fotos/observação/localização e mantém refinamentos de estoque/fornecedor; dois testes do hook. |
 | [ ] | `pages/App/Stock/Inventory/hooks/useInventoryAuditWorkflow.ts:201` | ScopeConfiguration | handleConfirmScope | início de auditoria |
 | [ ] | `pages/App/Stock/Inventory/hooks/useInventoryAuditWorkflow.ts:253` | AuditItem[]/physicalCount | saveDraft; handleFinalize:292 | contagem, gravação local/remota e fechamento |
 | [ ] | `pages/App/Stock/InboundInvoices/hooks/useInboundDocumentImport.ts:70` | parsedInvoice | persistAndFinish | destino comum das importações de NF |
@@ -191,15 +191,15 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Marketing/ChannelCatalog/components/ChannelCatalogHeader.tsx:46 | props/contexto | onSyncAllActive, onRefresh | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/Ambientation/AmbientationStudioModal.tsx:108 | prompt, isGenerating, previewUrl | handleGeneratePrompt, handleSimulateAmbientation | nenhum símbolo explícito neste arquivo |
 | [x] | pages/App/Marketing/Posts/components/Assets/AssetLibraryModal.tsx:104 | assets, search, selectedCategory, uploadUrl, uploadName | handleAddCustomAsset, handleDelete | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Marketing/Posts/components/CampaignManagerModal.tsx:67 | editing, busy | save | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/Marketing/Posts/components/CampaignManagerModal.tsx:67 | editing, busy | save | RHF com enqueueAndRun e submit em fila; três testes de campanhas, incluindo gravação lenta/falha/recuperação. |
 | [ ] | pages/App/Marketing/Posts/components/Campaigns/CampaignSelector.tsx:41 | campaigns, error | createCampaign | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Marketing/Posts/components/Editor/ElementModelsPanel.tsx:140 | models, busy | save | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/Marketing/Posts/components/Editor/ElementModelsPanel.tsx:140 | models, busy | save; upload | Conferência do proprietário acima: RHF + resolver; formato e concorrência comprovados. |
 | [ ] | pages/App/Marketing/Posts/components/Editor/ModelProductPicker.tsx:62 | open | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/Editor/ProductPostControls.tsx:30 | prompt | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/Editor/TemplateSelector.tsx:26 | templates | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Marketing/Posts/components/GeneralCampaignRules.tsx:66 | value, open, saving, loaded | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/Marketing/Posts/components/GeneralCampaignRules.tsx:66 | value, open, saving, loaded | onChange / callback inline; conferir proprietário | RHF com enqueueAndRun e submit em fila; erros de serviço visíveis; campanha/regras cobertas em campaignForms.test.tsx. |
 | [x] | pages/App/Marketing/Posts/components/ModelFormModal.tsx:289 | name, prompt, format, assets, extras, saving, previewImage, previewHash, previewStatus, previewBusy | submit | validateGenerationPreFlight |
-| [ ] | pages/App/Marketing/Posts/components/PostCreatorModelModal.tsx:124 | name, prompt, references, opportunityId, saving | submit | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/Marketing/Posts/components/PostCreatorModelModal.tsx:124 | name, prompt, references, opportunityId, saving | submit | RHF valida modelo, referências e arquivos; autosave em fila; testes de serviço inválido/retry em remainingOwners.test.tsx. |
 | [ ] | pages/App/Marketing/Posts/components/PostsLibrary/PostsLibraryPage.tsx:161 | posts, loading, uploadOpen, deletingId, filterProductId, filterProductName, filterCampaignId, filterFormat, productSearch, productSuggestions | handleSearchProducts, handleProductSearch, handleDelete, handleDownload | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Marketing/Posts/components/PostsLibrary/UploadPostModal.tsx:169 | form, productQuery, productResults, searching, uploading | handleSearchProduct, handleFileChange, handleUpload | validateImageRatio |
 | [ ] | pages/App/Marketing/Posts/components/PreviewProductPicker.tsx:45 | open | clear | nenhum símbolo explícito neste arquivo |
@@ -227,7 +227,7 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Products/components/ProductFilters.tsx:98 | availableCategories | resetFilters | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/components/tabs/fiscal/ProductFiscalTab.tsx:121 | isInfoModalOpen, pendingCsosn, isCsosnConfirmationOpen | confirmCsosnChange | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/components/tabs/fiscal/ProductNcmSelector.tsx:98 | searchQuery, isDropdownOpen, results, isLoadingNcms, currentCatalogEntry, hasCheckedCatalogEntry | onAcceptSuggestion, onRejectSuggestion | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Products/components/tabs/images/SquareImageCropper.tsx:276 | selection, imageSrc, loading, loadError, isApplying, paddingPercent | onCancel, resetToFull, finish | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/Products/components/tabs/images/SquareImageCropper.tsx:276 | selection, imageSrc, loading, loadError, isApplying, paddingPercent | onCancel, resetToFull, finish | RHF + resolver antes do canvas; geometria/margem parseadas e trava até compressão/confirmar; testes em imageCropOwners.test.tsx. |
 | [ ] | pages/App/Products/components/tabs/ProductDescriptionTab.tsx:38 | props/contexto | onImprove | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/components/tabs/ProductEcommerceTab.tsx:223 | draggedIndex, replacingIndex, croppingIndex, activeImageIndex | handleReplacePhoto, handleCropPhoto | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/components/tabs/ProductGeneralTab.tsx:124 | props/contexto | handleToggleCategory | hasValidationError |
@@ -262,7 +262,7 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Products/Reconciliation/modals/ApplyNcmModal.tsx:63 | ncm, isSubmitting | handleConfirm | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/Reconciliation/modals/ApplySupplierModal.tsx:249 | selectedSupplierId, suppliers, isSearching, isSubmitting, query, open, debounceTimer | handleQueryChange, handleConfirm, handleSelect, handleChange, handleClear, handleSelectItem | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Products/Reconciliation/ProductReconciliation.tsx:262 | products, isLoading, totalCount, page, filters, summary, selectedIds, isAllFilteredSelected, isSupplierModalOpen, isCategoryModalOpen | handleSelectAllOnPage, handleSelectProduct, handleClearSelection, handleSaveSingleProduct, handleApplySupplier, handleApplyCategory, handleApplyNcm, handleApplyAttribute | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Profile/Index.tsx:233 | loading, uploading, fullName, position, phone, address, city, stateValue, email, newPassword | handleUpdateProfile, handleChangeEmail, handleChangePassword, logout | validatePasswordSetup |
+| [x] | pages/App/Profile/Index.tsx:233 | loading, uploading, fullName, position, phone, address, city, stateValue, email, newPassword | handleUpdateProfile, handleChangeEmail, handleChangePassword, logout | Perfil e senha RHF + resolver; email somente leitura, sem handler de alteração ativo; avatar inválido bloqueado antes do Storage. Cinco testes Index.test.tsx. |
 | [ ] | pages/App/Registrations/shared/components/PersonCard.tsx:335 | isMenuOpen | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Registrations/shared/components/PersonFilters.tsx:54 | props/contexto | handleChange, resetFilters | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Registrations/shared/components/PersonList.tsx:297 | supplierProductCounts, confirmModal, customerOrderCounts | handleDelete, handlePermanentDelete, handleBulkTrash, handleBulkPermanentDelete, refresh, confirmModal.onConfirm | nenhum símbolo explícito neste arquivo |
@@ -323,7 +323,7 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Settings/components/fiscal/CompanyFiscalDataSection.tsx:32 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Settings/components/fiscal/FiscalSettingsSection.tsx:172 | mappingSource, mappingTarget, mappingError | addInverseMapping | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Settings/components/fiscal/HmlCsosnSettings.tsx:62 | csosn, saved, busy, error | save | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Settings/components/fiscal/NcmManagementPanel.tsx:607 | summary, storeSummary, rows, total, filter, storeFilter, searchDraft, search, page, isLoading | applySync, applyProductReview, confirmed, saveCorrelation, requestSyncPreview | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/Settings/components/fiscal/NcmManagementPanel.tsx:607 | summary, storeSummary, rows, total, filter, storeFilter, searchDraft, search, page, isLoading | applySync, applyProductReview, confirmed, saveCorrelation, requestSyncPreview | Busca/catálogo/ativação e aplicação/revisão/correlação via contratos explícitos; três testes do painel e contratos existentes. |
 | [ ] | pages/App/Settings/components/general/AutoScrollSection.tsx:32 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Settings/components/general/CardFlagSettings.tsx:75 | newFlag, addingRateFor, installments, rate | addFlag | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Settings/components/general/ChannelDescriptionsSection.tsx:104 | activeChannel | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
@@ -381,13 +381,13 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Stock/Purchases/components/PurchaseAttachmentsSection.tsx:43 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/Purchases/components/PurchaseSupplierFilter.tsx:61 | query, isOpen | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/Purchases/components/PurchaseTable.tsx:80 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Stock/Purchases/modals/PurchaseFormModal.tsx:467 | suppliers, products, selectedSupplierId, items, isSaving, attachments, isUploading, purchaseDate, ipiPercent, freightPercent | handleAddItem, handleRemoveItem, handleUpdateItem, handleFileUpload, handleRemoveAttachment, processedItems, handleCancelOrClose, savedId, handleSave | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Stock/Purchases/modals/PurchaseReceiptCheckModal.tsx:349 | scannedItems, invoicedQuantities, isScannerOpen, isSaving, products, invoiceNumber, invoiceDate, discrepancyNote | handleScan, handlePrint, handleSave | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/Stock/Purchases/modals/PurchaseFormModal.tsx:467 | suppliers, products, selectedSupplierId, items, isSaving, attachments, isUploading, purchaseDate, ipiPercent, freightPercent | handleAddItem, handleRemoveItem, handleUpdateItem, handleFileUpload, handleRemoveAttachment, processedItems, handleCancelOrClose, savedId, handleSave | Rascunho/final/Escape e anexos validados; fila aguarda identidade e impede final duplo. Três testes do proprietário. |
+| [x] | pages/App/Stock/Purchases/modals/PurchaseReceiptCheckModal.tsx:349 | scannedItems, invoicedQuantities, isScannerOpen, isSaving, products, invoiceNumber, invoiceDate, discrepancyNote | handleScan, handlePrint, handleSave | Payload de conferência via resolver e valores parseados; quantidade negativa bloqueada no teste real remainingOwners.test.tsx. |
 | [ ] | pages/App/Stock/Purchases/modals/PurchaseStockEntryModal.tsx:183 | products, date, observation, isSaving | handleSave | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/Purchases/modals/SupplierSearchModal.tsx:93 | search, suppliers, loading | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/Receipts/components/InboundCompositionManager.tsx:101 | props/contexto | handleAdd, handleRemove, handleUpdateQuantity | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/Receipts/components/InboundReceiptItemRow.tsx:137 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
-| [ ] | pages/App/Stock/Receipts/components/ReceiptFiscalDocumentsSection.tsx:129 | isUploading | handleRemove | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/Stock/Receipts/components/ReceiptFiscalDocumentsSection.tsx:129 | anexos/File[]; isUploading | upload → Storage; remoção local → owner | RHF valida PDF/imagem/total cinco antes de enviar; remoção apenas atualiza estado do recebimento; teste bloqueia arquivos e excesso e preserva anexos anteriores. |
 | [ ] | pages/App/Stock/Receipts/components/ReceiptFormHeader.tsx:67 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/Receipts/components/ReceiptPeriodSelector.tsx:31 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/Receipts/modals/InboundInvoiceReceiptPickerModal.tsx:207 | invoices, searchTerm, isCreateModalOpen, mappingInvoice, isLoading, loadError, dateFilter | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
@@ -405,6 +405,9 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/Signup/index.tsx:85 | email, password, confirmPassword, fullName, showPassword, isSubmitting | handleSubmit | useZodForm, signupFormSchema |
 
 ## Conferência desta continuação
+
+- Recortes: `pages/App/Marketing/Posts/FixedAspectImageCropper.tsx` valida arquivo antes de criar URL e parâmetros antes do canvas; `SquareImageCropper` valida seleção/margem/dimensões antes de processar. Cinco casos em `imageCropOwners.test.tsx` e regressões preservam geometria e bloqueio de duplo clique. Canvas e compressão simulados, sem provar o acabamento visual no navegador.
+- Uploads: cinco testes em `fileOwners.test.tsx` verificam arquivos reais, anexos, prévia/fila de etiquetas e foto do assistente; indisponibilidade e marketing têm testes dos proprietários. Leitura da imagem na fila está conferida; os demais campos da fila continuam pendentes na linha do proprietário de impressão.
 
 As linhas marcadas nesta rodada foram conferidas no callback que recebe os valores parseados (`ZodForm.onValid` ou `validateAndRun`). A prova comum do resolver e da entrega do payload está em `components/forms/ZodForm.test.tsx`; não equivale a executar cada tela no navegador. Contratos e efeitos específicos de marketing/etiquetas têm testes adicionais. Demais checkboxes permanecem pendentes.
 

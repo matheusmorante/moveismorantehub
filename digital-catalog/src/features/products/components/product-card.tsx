@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
+import { CatalogProductImage } from '@/components/ui/CatalogProductImage';
 import { ShoppingCart, Pencil, Flame } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 import { Button } from '@/components/ui/button';
@@ -143,9 +143,10 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
       <Link href={`/produto/${product.slug}`} className="block w-full min-w-0">
         <div className="relative aspect-[4/3] overflow-hidden bg-gray-50/30 p-3 sm:p-4">
           <div className="relative w-full h-full">
-            <Image
+            <CatalogProductImage
               src={product.image}
               alt={product.name}
+              size="medium"
               fill
               className="object-contain"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

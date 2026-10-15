@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { compressImageToFile } from '@/pages/utils/imageUtils';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { squareImageCropFormSchema } from '../../../../../../../../shared-utils/fileFormSchemas';
 import { buildImageFetchCandidates } from '@/pages/utils/imageFetchCandidates';
 import {
   createCenteredSquareSelection,
@@ -28,6 +30,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
   const [isApplying, setIsApplying] = useState<boolean>(false);
 
   const [paddingPercent, setPaddingPercent] = useState<number>(0);
+  const cropForm = useZodForm(squareImageCropFormSchema, { image: imageUrl, paddingPercent, displayWidth: 0, displayHeight: 0, sourceWidth: 0, sourceHeight: 0, selection: { x: 0, y: 0, size: 0 } });
 
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -140,7 +143,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
     const image = imageRef.current;
     const container = containerRef.current;
     if (!image || !container || !selection) return;
-
+    return cropForm.validateAndRun({ image: imageSrc, paddingPercent, selection, displayWidth: container.clientWidth, displayHeight: container.clientHeight, sourceWidth: image.naturalWidth || image.clientWidth, sourceHeight: image.naturalHeight || image.clientHeight }, async (values) => {
     setIsApplying(true);
     try {
       // 1. Criar um canvas temporário do palco quadrado 1080x1080 com o padding configurado
@@ -154,11 +157,11 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
       stageCtx.fillStyle = '#FFFFFF';
       stageCtx.fillRect(0, 0, 1080, 1080);
 
-      const naturalW = image.naturalWidth || image.clientWidth;
-      const naturalH = image.naturalHeight || image.clientHeight;
+      const naturalW = values.sourceWidth;
+      const naturalH = values.sourceHeight;
 
       // Desenhar a foto centralizada mantendo proporção dentro do padding da moldura
-      const innerAvailable = 1080 * (1 - (paddingPercent * 2) / 100);
+      const innerAvailable = 1080 * (1 - (values.paddingPercent * 2) / 100);
       const scale = Math.min(innerAvailable / naturalW, innerAvailable / naturalH);
       const drawW = naturalW * scale;
       const drawH = naturalH * scale;
@@ -177,15 +180,15 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
       finalCtx.fillStyle = '#FFFFFF';
       finalCtx.fillRect(0, 0, 1080, 1080);
 
-      const scaleSelectionX = 1080 / container.clientWidth;
-      const scaleSelectionY = 1080 / container.clientHeight;
+      const scaleSelectionX = 1080 / values.displayWidth;
+      const scaleSelectionY = 1080 / values.displayHeight;
 
       finalCtx.drawImage(
         stageCanvas,
-        selection.x * scaleSelectionX,
-        selection.y * scaleSelectionY,
-        selection.size * scaleSelectionX,
-        selection.size * scaleSelectionY,
+        values.selection.x * scaleSelectionX,
+        values.selection.y * scaleSelectionY,
+        values.selection.size * scaleSelectionX,
+        values.selection.size * scaleSelectionY,
         0,
         0,
         1080,
@@ -193,12 +196,14 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
       );
 
       const blob = await new Promise<Blob | null>((resolve) =>
-        finalCanvas.toBlob(resolve, 'image/png', 1)
+        finalCanvas.toBlob(resolve, 'image/webp', 0.95)
       );
       if (blob) {
-        const file = new File([blob], `produto-quadrado-${Date.now()}.png`, { type: 'image/png' });
-        const compressed = await compressImageToFile(file, { maxMB: 0.3, maxWidth: 1080 });
-        onConfirm(compressed);
+        const file = new File([blob], `produto-quadrado-${Date.now()}.webp`, { type: 'image/webp' });
+        const compressed = await compressImageToFile(file, { maxMB: 0.3, maxWidth: 1080, fileType: 'image/webp' });
+        await onConfirm(compressed);
+      } else {
+        throw new Error('Não foi possível gerar a imagem recortada.');
       }
     } catch (err: unknown) {
       console.error('Erro ao aplicar recorte/moldura:', err);
@@ -206,6 +211,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
     } finally {
       setIsApplying(false);
     }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const startResize = (event: React.PointerEvent<HTMLSpanElement>, corner: CropCorner) => {

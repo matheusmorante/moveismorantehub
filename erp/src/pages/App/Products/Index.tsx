@@ -9,6 +9,7 @@ import VariationFormModal from './modals/VariationFormModal';
 import PriceHistoryModal from './modals/PriceHistoryModal';
 import StockLaunchModal from '../Stock/modals/StockLaunchModal';
 import ShowTestDataToggle from '@/components/shared/ShowTestDataToggle';
+import ShowMergedProductsToggle from '@/components/shared/ShowMergedProductsToggle';
 import { loadProductCatalogStats } from './ProductList/services/productCatalogStatsService';
 import { resolveProductVariation } from './utils/resolveProductVariation';
 import ProductDetailsModal from './modals/ProductDetailsModal';
@@ -46,6 +47,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
   const [searchInput, setSearchInput] = React.useState('');
   const searchBlurTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showTestProducts, setShowTestProducts] = React.useState(false);
+  const [showMergedProducts, setShowMergedProducts] = React.useState(false);
   const [visibilitySettings, setVisibilitySettings] =
     React.useState<ProductVisibilitySettings>(defaultVisibility);
   const [isFormModalOpen, setIsFormModalOpen] = React.useState(false);
@@ -210,8 +212,9 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
       activeOnly: filters.activeOnly,
       isDraft: filters.isDraft,
       showTestProducts: showTestProductsForCurrentRole,
+      includeMergedVariations: showMergedProducts,
     }),
-    [filters, showTestProductsForCurrentRole]
+    [filters, showTestProductsForCurrentRole, showMergedProducts]
   );
   const currentTitle = filters.isDraft
     ? mode === 'composition'
@@ -253,6 +256,12 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                   compact
                 />
               )}
+
+              <ShowMergedProductsToggle
+                checked={showMergedProducts}
+                onChange={setShowMergedProducts}
+                compact
+              />
 
               {canManageProducts && (
               <div className="flex gap-2 ml-auto shrink-0 items-center" ref={menuRef}>

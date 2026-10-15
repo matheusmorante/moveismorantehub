@@ -50,6 +50,14 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
     onDeactivateCatalog,
   } = ctx;
 
+  const effectiveSingleVariation =
+    singleVariation ??
+    ((product as ProductListRow).allVariations?.length === 1
+      ? (product as ProductListRow).allVariations![0]
+      : Array.isArray(product.variations) && product.variations.length === 1
+        ? (product.variations[0] as any)
+        : undefined);
+
   if (!visibilitySettings[key as keyof ProductVisibilitySettings]) return null;
 
   switch (key) {
@@ -62,7 +70,10 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
         </td>
       );
 
-    case 'sku':
+    case 'sku': {
+      const rowSku = effectiveSingleVariation
+        ? normalizeVariationSku(effectiveSingleVariation.sku || effectiveSingleVariation.code || product.sku || product.code)
+        : normalizeVariationSku(product.sku || product.code);
       return (
         <td
           key="sku"
@@ -94,13 +105,17 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
               </span>
             )}
             <span className="font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg">
-              {normalizeVariationSku(product.sku || product.code) || '-'}
+              {rowSku || '-'}
             </span>
           </div>
         </td>
       );
+    }
 
-    case 'code':
+    case 'code': {
+      const rowCode = effectiveSingleVariation
+        ? normalizeVariationSku(effectiveSingleVariation.sku || effectiveSingleVariation.code) || product.code
+        : product.code;
       return (
         <td
           key="code"
@@ -132,11 +147,12 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
               </span>
             )}
             <span className="font-bold text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
-              {product.code || '-'}
+              {rowCode || '-'}
             </span>
           </div>
         </td>
       );
+    }
 
     case 'unitPrice': {
       const unitPrice = singleVariation?.unitPrice ?? product.unitPrice;
@@ -267,9 +283,9 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
               isDraft={isDraft}
               activeVariationsCount={singleVariation ? undefined : product.activeVariationsCount}
               totalVariationsCount={singleVariation ? undefined : product.totalVariationsCount}
-              disabled={Boolean(singleVariation?.mergedToVariationId)}
+              disabled={Boolean(singleVariation?.mergedToVariationId) || Boolean((product as any).isMerged)}
               disabledReason={
-                singleVariation?.mergedToVariationId
+                singleVariation?.mergedToVariationId || (product as any).isMerged
                   ? 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
                   : undefined
               }

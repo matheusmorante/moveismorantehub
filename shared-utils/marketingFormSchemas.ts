@@ -21,6 +21,10 @@ export const postElementModelEditorFormSchema = postElementModelFormSchema.safeE
   referenceFiles: z.array(z.object({ id: z.string().min(1), name: z.string(), fileUrl: z.string().min(1, 'Referência sem imagem.'), mimeType: z.string().startsWith('image/', 'Selecione um arquivo de imagem.') })),
 });
 export const postElementReferenceUploadFormSchema = imageFilesFormSchema;
+export const marketingElementImageUploadFormSchema = imageFilesFormSchema.refine(
+  (values) => values.files.every((file) => ['image/png', 'image/webp', 'image/jpeg'].includes(file.type)),
+  { path: ['files'], message: 'Use PNG, WebP ou JPEG.' },
+);
 export const marketingLayerFormSchema = z.object({
   id: z.string().min(1), name: z.string(),
   type: z.enum(['PRODUCT_MAIN_IMAGE', 'ASSET', 'DYNAMIC_TEXT', 'DYNAMIC_PRICE', 'DYNAMIC_INSTALLMENT', 'VARIATION_GALLERY', 'HEADER_FOOTER_DECORATION']),

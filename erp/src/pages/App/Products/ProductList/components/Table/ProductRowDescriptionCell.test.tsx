@@ -136,3 +136,92 @@ describe('ProductRowDescriptionCell - Rótulo de Origem do Estoque', () => {
     expect(screen.queryByTestId('stock-origin-badge')).toBeNull();
   });
 });
+
+describe('ProductRowDescriptionCell - Selo de Mesclado', () => {
+  const baseProduct: Product = {
+    id: 'prod-table-merged',
+    name: 'Guarda Roupa Paris',
+    description: 'Guarda Roupa Paris Casal',
+    productKind: 'normal',
+    active: true,
+    isDraft: false,
+    itemType: 'product',
+  };
+
+  it('não renderiza o selo Mesclado em produtos comuns', () => {
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <ProductRowDescriptionCell
+              product={baseProduct}
+              displayName="Guarda Roupa Paris"
+              isChildVar={false}
+              isChildVariation={false}
+              oppName={null}
+              supplierNames={[]}
+            />
+          </tr>
+        </tbody>
+      </table>
+    );
+
+    expect(screen.queryByTestId('merged-badge')).toBeNull();
+  });
+
+  it('renderiza o selo Mesclado quando o produto possui isMerged=true', () => {
+    const mergedProduct = {
+      ...baseProduct,
+      isMerged: true,
+    } as any;
+
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <ProductRowDescriptionCell
+              product={mergedProduct}
+              displayName="Guarda Roupa Paris"
+              isChildVar={false}
+              isChildVariation={false}
+              oppName={null}
+              supplierNames={[]}
+            />
+          </tr>
+        </tbody>
+      </table>
+    );
+
+    const badge = screen.getByTestId('merged-badge');
+    expect(badge).toBeDefined();
+    expect(badge.textContent).toContain('Mesclado');
+  });
+
+  it('renderiza o selo Mesclado quando a variação possui mergedToVariationId', () => {
+    const variationProduct = {
+      ...baseProduct,
+      mergedToVariationId: 'target-var-id',
+    } as any;
+
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <ProductRowDescriptionCell
+              product={variationProduct}
+              displayName="Variação 000312-01"
+              isChildVar={true}
+              isChildVariation={true}
+              oppName={null}
+              supplierNames={[]}
+            />
+          </tr>
+        </tbody>
+      </table>
+    );
+
+    const badge = screen.getByTestId('merged-badge');
+    expect(badge).toBeDefined();
+    expect(badge.textContent).toContain('Mesclado');
+  });
+});

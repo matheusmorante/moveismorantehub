@@ -153,6 +153,7 @@ export const useProducts = (filters?: ProductListFilters) => {
     filters?.status,
     filters?.isDraft,
     filters?.includeDeactivated,
+    filters?.includeMergedVariations,
     filters?.itemType,
     filters?.excludeItemType,
     filters?.showTrash,
@@ -176,11 +177,16 @@ export const useProducts = (filters?: ProductListFilters) => {
           return product;
         })
         .filter((product) => {
-          return (
-            filters?.includeMergedVariations === true ||
-            !product.isVariation ||
-            !product.mergedToVariationId
-          );
+          if (filters?.includeMergedVariations === true) {
+            return true;
+          }
+          if (product.isVariation) {
+            return !product.mergedToVariationId && !product.isMerged;
+          }
+          if (product.isParent) {
+            return !product.isMerged;
+          }
+          return !product.mergedToVariationId && !product.isMerged;
         })
         .filter((product) => Boolean(filters?.showTestProducts) || !isTestProduct(product)),
     [productsForCurrentQuery, filters?.includeMergedVariations, filters?.showTestProducts]

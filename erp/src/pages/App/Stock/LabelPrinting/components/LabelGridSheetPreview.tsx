@@ -1,4 +1,7 @@
 import React, { useRef } from 'react';
+import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 
 export interface LabelGridSheetPreviewLayout {
   paperWidth: number;
@@ -24,6 +27,7 @@ export const LabelGridSheetPreview: React.FC<LabelGridSheetPreviewProps> = ({
   onCustomPreviewImageChange,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageForm = useZodForm(imageFilesFormSchema, { files: [] });
   const aspect = layout.paperWidth / layout.paperHeight;
   const previewHeight = 1000;
   const previewWidth = previewHeight * aspect;
@@ -53,13 +57,22 @@ export const LabelGridSheetPreview: React.FC<LabelGridSheetPreviewProps> = ({
             ref={fileInputRef}
             className="hidden"
             accept="image/*"
-            onChange={(event) => {
+            onChange={async (event) => {
               const file = event.target.files?.[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onload = (result) =>
-                  onCustomPreviewImageChange(result.target?.result as string);
-                reader.readAsDataURL(file);
+              event.target.value = '';
+              if (!file) return;
+              try {
+                await imageForm.validateAndRun({ files: [file] }, async (values) => {
+                  const image = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+                    reader.readAsDataURL(values.files[0]);
+                  });
+                  onCustomPreviewImageChange(image);
+                }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+              } catch {
+                toast.error('Não foi possível ler a imagem.');
               }
             }}
           />

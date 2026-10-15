@@ -14,7 +14,9 @@ import {
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productKindRules';
 import ProductImage from '@/components/ProductImage';
+import { parseVariationImages } from '@/pages/utils/productService';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
+import { MergedBadge } from '../Shared/MergedBadge';
 import type { CardVariationItem } from './ProductCardVariationList';
 import { VariationItemActions } from './VariationItemActions';
 
@@ -91,9 +93,18 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
   );
   const displayPrice = hasPromo ? effectivePromoPrice : effectiveUnitPrice;
 
+  const variationImages =
+    v.images && v.images.length > 0
+      ? v.images
+      : parseVariationImages((v as any).image_url);
+  const parentImages =
+    product.images && product.images.length > 0
+      ? product.images
+      : parseVariationImages((product as any).image_url);
+
   const primaryImage =
-    (v.images && v.images.length > 0 && v.images[0]) ||
-    (product.images && product.images.length > 0 && product.images[0]);
+    (variationImages && variationImages.length > 0 && variationImages[0]) ||
+    (parentImages && parentImages.length > 0 && parentImages[0]);
   const isMenuOpen = activeVarMenuId === (v.id || String(index));
   const isUsageChecking = checkingUsageId === v.id;
   const isUsed = usageCache[v.id || ''] === true;
@@ -164,15 +175,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
               {normalizeVariationSku(v.sku || undefined)}
             </span>
             {v.mergedToVariationId && (
-              <span
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30 select-none shrink-0"
-                title="Esta variação foi mesclada e seu estoque transferido."
-              >
-                <i className="bi bi-bezier2 text-red-500 dark:text-red-400" />
-                Mesclado em
-                <i className="bi bi-arrow-right ml-0.5 text-red-400 dark:text-red-500" />
-                <MergedVariationSku variationId={v.mergedToVariationId} />
-              </span>
+              <MergedBadge targetVariationId={v.mergedToVariationId} size="xs" />
             )}
           </div>
         </div>
@@ -258,28 +261,4 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
       </div>
     </div>
   );
-};
-
-const MergedVariationSku: React.FC<{ variationId: string }> = ({ variationId }) => {
-  const [sku, setSku] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    supabase
-      .from('product_variations')
-      .select('sku')
-      .eq('id', variationId)
-      .single()
-      .then(({ data }) => {
-        if (active && data?.sku) {
-          setSku(data.sku);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [variationId]);
-
-  if (!sku) return <span className="font-bold">...</span>;
-  return <span className="font-bold text-[8px] tracking-widest">{normalizeVariationSku(sku)}</span>;
 };

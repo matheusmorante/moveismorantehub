@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/sheet';
 import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
-import Image from 'next/image';
+import { CatalogProductImage } from '@/components/ui/CatalogProductImage';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function CartDrawer({ children }: { children: React.ReactNode }) {
@@ -47,7 +47,7 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
                 {items.map((item) => (
                   <div key={item.id} className="flex gap-4">
                     <div className="relative h-20 w-20 rounded-md overflow-hidden border">
-                      <Image src={item.image} alt={item.name} fill className="object-cover" />
+                      <CatalogProductImage src={item.image} alt={item.name} size="thumbnail" fill className="object-cover" />
                     </div>
                     <div className="flex-1 flex flex-col justify-between">
                       <div>

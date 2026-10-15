@@ -15,7 +15,7 @@ export default function ProductDescriptionTab({
   showImprove?: boolean;
 }) {
   return (
-    <div className="max-w-4xl space-y-3">
+    <div className="w-full space-y-3">
       <h3 className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
         Descrição do produto
       </h3>

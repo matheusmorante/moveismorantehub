@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import Image from 'next/image';
+import { CatalogProductImage } from '@/components/ui/CatalogProductImage';
 import { ChevronLeft, ChevronRight, X, Flame } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -76,9 +76,10 @@ export function ProductGallery({
           aria-label="Ampliar imagem"
         >
           {activeImage && (
-            <Image
+            <CatalogProductImage
               src={activeImage}
               alt={displayTitle}
+              size="medium"
               fill
               className="object-contain p-4 md:p-8 transition-transform duration-500 group-hover/main:scale-105"
               priority
@@ -122,9 +123,10 @@ export function ProductGallery({
                       : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'
                   }`}
                 >
-                  <Image
+                  <CatalogProductImage
                     src={image}
                     alt={`${displayTitle} thumb ${index + 1}`}
+                    size="thumbnail"
                     fill
                     className="object-cover"
                   />
@@ -176,9 +178,10 @@ export function ProductGallery({
             onClick={(e) => e.stopPropagation()}
           >
             {displayImages[lightboxIndex] && (
-              <Image
+              <CatalogProductImage
                 src={displayImages[lightboxIndex]}
                 alt={`${displayTitle} full`}
+                size="original"
                 fill
                 className="object-contain"
               />

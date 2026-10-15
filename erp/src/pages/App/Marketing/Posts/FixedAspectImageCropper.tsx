@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { compressImageToFile } from '@/pages/utils/imageUtils';
+import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { imageFilesFormSchema, rectangularImageCropFormSchema } from '../../../../../../shared-utils/fileFormSchemas';
 
 type Props = {
   file: File;
@@ -20,12 +23,23 @@ export default function FixedAspectImageCropper({ file, kind, onCancel, onConfir
   const imageRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const target = kind === 'seal' ? { width: 800, height: 200 } : { width: 1080, height: 170 };
+  const { validateValues: validateImage } = useZodForm(imageFilesFormSchema, { files: [file] });
+  const cropForm = useZodForm(rectangularImageCropFormSchema, { files: [file], displayWidth: 0, displayHeight: 0, sourceWidth: 0, sourceHeight: 0, selection: { x: 0, y: 0, width: 0, height: 0 } });
 
   useEffect(() => {
-    const url = URL.createObjectURL(file);
-    setSource(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+    let active = true;
+    let url = '';
+    setSource('');
+    setSelection(null);
+    void validateImage({ files: [file] }, (errors) => {
+      if (active) toast.error(Object.values(flattenFormErrors(errors))[0]);
+    }).then((values) => {
+      if (!active || !values) return;
+      url = URL.createObjectURL(values.files[0]);
+      setSource(url);
+    }).catch(() => { if (active) toast.error('Não foi possível abrir a imagem.'); });
+    return () => { active = false; if (url) URL.revokeObjectURL(url); };
+  }, [file, validateImage]);
 
   const initializeSelection = () => {
     const image = imageRef.current;
@@ -91,31 +105,37 @@ export default function FixedAspectImageCropper({ file, kind, onCancel, onConfir
   const finishCrop = async () => {
     const image = imageRef.current;
     if (!image || !selection) return;
-    const scaleX = image.naturalWidth / image.clientWidth;
-    const scaleY = image.naturalHeight / image.clientHeight;
+    return cropForm.validateAndRun({ files: [file], selection, displayWidth: image.clientWidth, displayHeight: image.clientHeight, sourceWidth: image.naturalWidth, sourceHeight: image.naturalHeight }, async (values) => {
+    try {
+    const scaleX = values.sourceWidth / values.displayWidth;
+    const scaleY = values.sourceHeight / values.displayHeight;
     const canvas = document.createElement('canvas');
     canvas.width = target.width;
     canvas.height = target.height;
     const context = canvas.getContext('2d');
-    if (!context) return;
+    if (!context) throw new Error('Não foi possível obter o contexto do recorte.');
     context.drawImage(
       image,
-      selection.x * scaleX,
-      selection.y * scaleY,
-      selection.width * scaleX,
-      selection.height * scaleY,
+      values.selection.x * scaleX,
+      values.selection.y * scaleY,
+      values.selection.width * scaleX,
+      values.selection.height * scaleY,
       0,
       0,
       target.width,
       target.height
     );
     const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/png', 1)
+      canvas.toBlob(resolve, 'image/webp', 0.95)
     );
     if (blob) {
-      const cropped = new File([blob], `${kind}-${Date.now()}.png`, { type: 'image/png' });
-      onConfirm(await compressImageToFile(cropped, { maxMB: 2, maxWidth: 1080 }));
+      const cropped = new File([blob], `${kind}-${Date.now()}.webp`, { type: 'image/webp' });
+      await onConfirm(await compressImageToFile(cropped, { maxMB: 0.8, maxWidth: 1080, fileType: 'image/webp' }));
+    } else {
+      throw new Error('Não foi possível gerar a imagem recortada.');
     }
+    } catch { toast.error('Não foi possível aplicar o recorte. Tente novamente.'); }
+    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
   const beginResize = (event: React.PointerEvent<HTMLSpanElement>, corner: Corner) => {
@@ -210,7 +230,7 @@ export default function FixedAspectImageCropper({ file, kind, onCancel, onConfir
           <button
             type="button"
             onClick={finishCrop}
-            disabled={!selection}
+            disabled={!selection || cropForm.formState.isSubmitting}
             className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50"
           >
             Aplicar recorte

@@ -32,6 +32,7 @@ export interface ProductListRow extends Product {
   readonly rowId?: string;
   readonly variationId?: string;
   readonly mergedToVariationId?: string;
+  readonly isMerged?: boolean;
   readonly productId?: string;
   readonly displayName?: string;
   readonly attributes?: readonly ProductListVariationAttribute[];

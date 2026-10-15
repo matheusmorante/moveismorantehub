@@ -31,6 +31,12 @@ function submitPassword(view: ReturnType<typeof render>) {
 }
 
 describe('profile form resolver', () => {
+  it('blocks an invalid avatar before Storage or profile updates', async () => {
+    const view = render(<Profile />);
+    fireEvent.change(view.container.querySelector('input[type=file]')!, { target: { files: [new File(['text'], 'text.txt', { type: 'text/plain' })] } });
+    await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Selecione um arquivo de imagem.'));
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
   it('blocks a blank name and saves parsed values with custom positions', async () => {
     const view = render(<Profile />);
     fireEvent.change(screen.getByPlaceholderText('Seu nome'), { target: { value: '  ' } });
