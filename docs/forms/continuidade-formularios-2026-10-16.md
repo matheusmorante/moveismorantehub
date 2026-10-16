@@ -2,11 +2,13 @@
 
 ## Estado vigente
 
-Migração global em andamento. ERP: **110/131 itens conferidos ou encerrados (84,0%), 21 pendentes**. A contagem inclui retirada de CC-e e bibliotecas retidas sem consumidor; não são 110 formulários ativos migrados. Mobile e catálogo têm inventário próprio de arquivos candidatos, sem denominador global de proprietários comprovado.
+Migração global em andamento. ERP: **112/131 itens conferidos ou encerrados (85,5%), 19 pendentes**. A contagem inclui retirada de CC-e e bibliotecas retidas sem consumidor; não são 112 formulários ativos migrados. Mobile e catálogo têm inventário próprio de arquivos candidatos, sem denominador global de proprietários comprovado.
 
 **CC-e não é funcionalidade do MoranteHub**, inclusive tela dedicada de histórico. A política vinculante está em `AGENTS.md`, FISCAL-016 e no [registro fiscal](../fiscal/historico-correcoes-2026-10-16.md#política-de-produto--cc-e-ausente-do-sistema). Cancelamento/estorno continuam conforme elegibilidade vigente; critérios de circulação não foram alterados por inferência. Registros antigos de auditoria não autorizam reintroduzir interface ou emissão de CC-e.
 
 Continuação adicional: [CSOSN de homologação conferido](../fiscal/historico-correcoes-2026-10-16.md#csosn-de-homologação--proprietário-conferido), com32 testes e build final ERP em1m33s. A configuração permanece exclusiva de ambiente2/modelo55/CRT1.
+
+Continuação de Settings/WhatsApp: [registro atual](../fiscal/historico-correcoes-2026-10-16.md#whatsapp-nas-configurações--submissões-com-snapshot-parseado),69 testes locais, lint limpo e build ERP final em 1m48s aprovados. Nenhuma mensagem/configuração real alterada.
 
 ## Causas e correções desta continuação
 

@@ -4,6 +4,10 @@
 
 ## Referências atuais
 
+- [WhatsApp nas configurações — snapshot parseado16/10](historico-correcoes-2026-10-16.md#whatsapp-nas-configurações--submissões-com-snapshot-parseado): três intenções até recibo, valores atuais em serviço/headers, trava/prazo/contexto/erro.69 testes conjuntos com Settings e lint aprovados; build ERP final aprovado em 1m48s. Sem envio real.
+
+- [Configurações gerais — autosave confirmado pelo proprietário16/10](historico-correcoes-2026-10-16.md#configurações-gerais--autosave-confirmado-pelo-proprietário): fila/debounce, leitura confirmada, campos preservados e recibo real;37 testes/lint/build aprovados. WhatsApp foi conferido separadamente na referência acima.
+
 - [CSOSN de homologação — proprietário conferido16/10](historico-correcoes-2026-10-16.md#csosn-de-homologação--proprietário-conferido): resolver até recibo HML confirmado, prazo/trava/retry/erro;32 testes, lint e build ERP em 1m33s aprovados. ERP110/131 encerrados,21 pendentes.
 
 - [Continuidade final dos formulários16/10](../forms/continuidade-formularios-2026-10-16.md): ERP109/131 itens encerrados,22 pendentes;65 provas ERP,42 móveis e48 catálogo. Builds ERP/Next e TS catálogo aprovados; pendências de voz/live, uploads e demais proprietários preservadas. Inclui retirada definitiva da interface de CC-e por determinação do usuário.

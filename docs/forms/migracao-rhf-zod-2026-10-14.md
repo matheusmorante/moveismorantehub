@@ -1,5 +1,7 @@
 # Migração de todos os formulários — 14/10/2026
 
+Checkpoint atual16/10: **ERP112/131 itens encerrados (85,5%),19 pendentes**. Configurações gerais e WhatsApp conferidos separadamente: resolver até recibo, leitura por usuário, fila e rascunho protegido; Graph recebe valores parseados atuais com prazo/contexto/erro.69 testes/lint aprovados, build ERP final em 1m48s aprovado; TS304 diagnósticos globais fora do lote. Sem mensagem/configuração real, SQL ou transmissão. [Arquivos, causas e limites](../fiscal/historico-correcoes-2026-10-16.md#whatsapp-nas-configurações--submissões-com-snapshot-parseado). Não é conclusão global de mobile/catálogo.
+
 Checkpoint mais recente16/10: **ERP110/131 itens encerrados (84,0%),21 pendentes**. CSOSN de homologação conferido com resolver até recibo HML/valor, trava/prazo/retry/erro;32 provas, lint e build ERP em 1m33s aprovados. Settings agregado permanece pendente. [Causa, arquivos e prova fiscal](../fiscal/historico-correcoes-2026-10-16.md#csosn-de-homologação--proprietário-conferido).
 
 **Checkpoint vigente16/10:** ERP **109/131 itens encerrados (83,2%),22 pendentes**, incluindo bibliotecas sem consumidor retidas e CC-e retirada. Não é percentual global de formulários operacionais. Lote final:65 provas ERP,42 móveis e48 catálogo; builds ERP/Next aprovados. Catálogo TS/lint aprovados; ERP TS304 diagnósticos globais e mobile30 externos, sem TS global aprovado. Voz/live, upload, busca e demais proprietários continuam no inventário. [Arquivos, causas e limites desta continuação](continuidade-formularios-2026-10-16.md).

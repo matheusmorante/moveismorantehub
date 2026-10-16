@@ -109,6 +109,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
   const canViewProductCategories = canPerform('viewProductCategories', roles);
   const canViewProductCompositions = canPerform('viewProductCompositions', roles);
   const canViewProductReconciliation = canPerform('viewProductReconciliation', roles);
+  const canViewMetaCatalog = canPerform('viewMetaCatalog', roles);
   const canViewStockMovements = canPerform('viewStockMovements', roles);
   const canViewStockInventory = canPerform('viewStockInventory', roles);
   const canViewStockUnavailabilities = canPerform('viewStockUnavailabilities', roles);
@@ -131,6 +132,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
     canViewProductCategories,
     canViewProductCompositions,
     canViewProductReconciliation,
+    canViewMetaCatalog,
   ].some(Boolean);
   const canViewCustomers = canPerform('viewCustomers', roles);
   const canViewEmployees = canPerform('viewEmployees', roles);
@@ -234,17 +236,28 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 )}
               </>
             )}
-            {canViewProductReconciliation && (
+            {(canViewProductReconciliation || canViewMetaCatalog) && (
               <>
                 <DropdownSeparator />
                 <DropdownGroup title="Integração" />
-                <DropdownItem
-                  to="/products/reconciliation/suppliers"
-                  icon="bi-magic"
-                  title="Conciliação de fornecedores"
-                  description="Sincronizar base externa"
-                  onClick={() => setActiveMenu(null)}
-                />
+                {canViewProductReconciliation && (
+                  <DropdownItem
+                    to="/products/reconciliation/suppliers"
+                    icon="bi-magic"
+                    title="Conciliação de fornecedores"
+                    description="Sincronizar base externa"
+                    onClick={() => setActiveMenu(null)}
+                  />
+                )}
+                {canViewMetaCatalog && (
+                  <DropdownItem
+                    to="/products/meta-catalog"
+                    icon="bi-meta"
+                    title="Sincronizar Catálogo"
+                    description="Produtos e composições na Meta"
+                    onClick={() => setActiveMenu(null)}
+                  />
+                )}
               </>
             )}
           </div>

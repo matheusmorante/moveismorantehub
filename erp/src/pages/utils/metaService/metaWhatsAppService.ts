@@ -260,8 +260,8 @@ export const metaWhatsAppService = {
   /**
    * Lista todos os modelos de mensagem aprovados no WhatsApp Business Account (WABA)
    */
-  fetchMessageTemplates: async (): Promise<MetaMessageTemplate[]> => {
-    const { whatsappConfig } = getSettings();
+  fetchMessageTemplates: async (config?: { accessToken: string; wabaId: string }): Promise<MetaMessageTemplate[]> => {
+    const whatsappConfig = config || getSettings().whatsappConfig;
     if (!whatsappConfig?.wabaId) {
       throw new Error('WABA ID (WhatsApp Business Account ID) não configurado.');
     }
@@ -271,7 +271,7 @@ export const metaWhatsAppService = {
 
     const response = await fetch(
       `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.wabaId}/message_templates?fields=name,status,language,category,components`,
-      { headers: metaHttpClient.getHeaders() }
+      { headers: metaHttpClient.getHeaders(whatsappConfig) }
     );
 
     const data = await response.json();

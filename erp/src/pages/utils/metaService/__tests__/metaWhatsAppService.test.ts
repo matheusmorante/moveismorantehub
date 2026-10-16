@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { metaWhatsAppService } from '../metaWhatsAppService';
+import { metaHttpClient } from '../metaHttpClient';
 import { getSettings } from '@/pages/utils/settingsService';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
@@ -21,6 +22,25 @@ vi.mock('@/services/apiMonitoring/apiUsageTracker', () => ({
 }));
 
 describe('metaWhatsAppService', () => {
+  it('queries the supplied WABA and credentials instead of cached settings', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ json: async () => ({ data: [] }) } as Response);
+    await metaWhatsAppService.fetchMessageTemplates({ accessToken: 'current-token', wabaId: 'current-waba' });
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/current-waba/message_templates'), { headers: { Authorization: 'Bearer current-token', 'Content-Type': 'application/json' } });
+  });
+  it('sends a template with the supplied sender and credentials', async () => {
+    await metaWhatsAppService.sendTemplateMessage('41999998888', 'template', [], 'pt_BR', { accessToken: 'current-token', phoneNumberId: 'current-sender' });
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/current-sender/messages'), expect.objectContaining({ headers: { Authorization: 'Bearer current-token', 'Content-Type': 'application/json' } }));
+  });
+  it('requests the sender identity explicitly when testing the current connection', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ json: async () => ({ id: 'current-sender' }) } as Response);
+    expect(await metaHttpClient.testConnection({ accessToken: 'current-token', phoneNumberId: 'current-sender' })).toMatchObject({ id: 'current-sender' });
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/current-sender?fields=id,'), expect.objectContaining({ headers: { Authorization: 'Bearer current-token', 'Content-Type': 'application/json' } }));
+  });
+  it('marks a pre-send guard refusal as a confirmed failure that may be corrected', async () => {
+    vi.mocked(ApiUsageGuard.check).mockResolvedValueOnce({ allowed: false, reason: 'Limite de teste' } as any);
+    await expect(metaWhatsAppService.sendTemplateMessage('41999998888', 'template', [], 'pt_BR')).rejects.toMatchObject({ confirmedFailure: true });
+    expect(fetch).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getSettings).mockReturnValue({

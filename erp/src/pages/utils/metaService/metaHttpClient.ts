@@ -86,7 +86,7 @@ export const metaHttpClient = {
     }
 
     const response = await fetch(
-      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${targetConfig.phoneNumberId}?fields=verified_name,display_phone_number,quality_rating,code_verification_status,status,quality_score,messaging_limit_tier`,
+      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${targetConfig.phoneNumberId}?fields=id,verified_name,display_phone_number,quality_rating,code_verification_status,status,quality_score,messaging_limit_tier`,
       {
         headers: metaHttpClient.getHeaders(targetConfig),
       }

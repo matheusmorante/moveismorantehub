@@ -18,9 +18,10 @@ export const sendTemplateMessage = async (
   to: string,
   templateName: string,
   parameters: string[] = [],
-  languageCode?: string
+  languageCode?: string,
+  config?: { accessToken: string; phoneNumberId: string; templateLanguage?: string }
 ): Promise<MetaSendResponse> => {
-  const { whatsappConfig } = getSettings();
+  const whatsappConfig = config || getSettings().whatsappConfig;
   if (!whatsappConfig?.phoneNumberId) {
     throw new Error('Phone Number ID não configurado nas Configurações > WhatsApp API.');
   }
@@ -54,7 +55,7 @@ export const sendTemplateMessage = async (
 
   const guard = await ApiUsageGuard.check('meta_whatsapp');
   if (!guard.allowed) {
-    throw new Error(`[ApiUsageGuard] Disparo WhatsApp bloqueado: ${guard.reason}`);
+    throw Object.assign(new Error(`[ApiUsageGuard] Disparo WhatsApp bloqueado: ${guard.reason}`), { confirmedFailure: true });
   }
 
   const startTime = Date.now();
@@ -63,7 +64,7 @@ export const sendTemplateMessage = async (
     `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
     {
       method: 'POST',
-      headers: metaHttpClient.getHeaders(),
+      headers: metaHttpClient.getHeaders(whatsappConfig),
       body: JSON.stringify(payload),
     }
   );
@@ -83,7 +84,7 @@ export const sendTemplateMessage = async (
       `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
       {
         method: 'POST',
-        headers: metaHttpClient.getHeaders(),
+        headers: metaHttpClient.getHeaders(whatsappConfig),
         body: JSON.stringify(altPayload),
       }
     );
@@ -107,7 +108,7 @@ export const sendTemplateMessage = async (
       `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
       {
         method: 'POST',
-        headers: metaHttpClient.getHeaders(),
+        headers: metaHttpClient.getHeaders(whatsappConfig),
         body: JSON.stringify(altPayloadLang),
       }
     );
@@ -137,7 +138,7 @@ export const sendTemplateMessage = async (
       templateName,
       recipientPhone: to,
     });
-    throw new Error(parsedError);
+    throw Object.assign(new Error(parsedError), { confirmedFailure: true });
   }
 
   if (!data.messages || data.messages.length === 0 || !data.messages[0]?.id) {

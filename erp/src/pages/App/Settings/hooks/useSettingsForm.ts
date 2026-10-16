@@ -28,7 +28,7 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
   const [reloadCount, setReloadCount] = useState(0);
   const latest = useRef(settings), timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(new Map<string, unknown>());
-  const mounted = useRef(false), ready = useRef(false), revision = useRef(0);
+  const mounted = useRef(false), ready = useRef<object | null>(null), revision = useRef(0);
   const scope = useRef({ ownerId, generation: 0 });
   if (scope.current.ownerId !== ownerId) scope.current = { ownerId, generation: scope.current.generation + 1 };
   const uncertainOwners = useRef(new Set<string>());
@@ -39,7 +39,7 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
   const { validateAndRun } = useZodForm(AppSettingsFormSchema, settings as unknown as z.input<typeof AppSettingsFormSchema>);
 
   useEffect(() => {
-    mounted.current = true; ready.current = false;
+    mounted.current = true; ready.current = null;
     dirty.current.clear(); revision.current++;
     const generation = scope.current;
     setIsLoading(true); setIsSaving(false); setValidationError(null);
@@ -53,13 +53,13 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
     }, { onRemoteLoad: (result) => {
       if (!current()) return;
       const valid = AppSettingsFormSchema.safeParse(latest.current).success;
-      ready.current = result.confirmed && valid && Boolean(ownerId);
+      ready.current = result.confirmed && valid && ownerId ? generation : null;
       setIsLoading(false);
       if (!ready.current) setValidationError(result.message || 'As configurações ou a sessão não foram confirmadas. Carregue novamente.');
       else if (uncertainOwners.current.has(ownerId!)) setValidationError('Há uma gravação sem confirmação. Recarregue a página e confira antes de repetir.');
     } });
     return () => {
-      mounted.current = false; ready.current = false;
+      mounted.current = false; ready.current = null;
       if (timer.current) clearTimeout(timer.current);
       timer.current = null; unsubscribe();
     };
@@ -69,7 +69,7 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     const submittedScope = scope.current, submittedRevision = revision.current;
-    if (!mounted.current || !ready.current || !submittedScope.ownerId || !dirty.current.size) return Promise.resolve(false);
+    if (!mounted.current || ready.current !== submittedScope || !submittedScope.ownerId || !dirty.current.size) return Promise.resolve(false);
     if (uncertainOwners.current.has(submittedScope.ownerId)) {
       setValidationError('Há uma gravação sem confirmação. Recarregue a página e confira antes de repetir.');
       setIsSaving(false); return Promise.resolve(false);
@@ -113,7 +113,7 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
   }, [validateAndRun]);
   const flushRef = useRef(flush); flushRef.current = flush;
   const handleChange = useCallback((path: string, value: unknown) => {
-    if (!ready.current || !scope.current.ownerId || uncertainOwners.current.has(scope.current.ownerId)) return;
+    if (ready.current !== scope.current || !scope.current.ownerId || uncertainOwners.current.has(scope.current.ownerId)) return;
     try {
       latest.current = editPath(latest.current, path, value);
       dirty.current.set(path, value); revision.current++;
@@ -131,7 +131,7 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
   return { settings, handleChange, isSaving, isLoading, validationError, flush,
     uncertain: Boolean(ownerId && uncertainOwners.current.has(ownerId)),
     hasPendingEdits: dirty.current.size > 0,
-    blocked: isLoading || !ownerId || uncertainOwners.current.has(ownerId),
+    blocked: isLoading || ready.current !== scope.current || !ownerId || uncertainOwners.current.has(ownerId),
     reload: () => { if (!isSaving) setReloadCount((count) => count + 1); },
   };
 }

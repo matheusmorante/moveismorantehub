@@ -47,6 +47,13 @@ describe('settings autosave owner', () => {
     await act(async () => { await result.current.flush(); });
     expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ freightPerKm: 12 }), { confirm: true, isCurrent: expect.any(Function) });
   });
+  it('requires a fresh remote confirmation when switching operators', async () => {
+    const { result, rerender } = renderHook((owner) => useSettingsForm(owner, vi.fn()), { initialProps: 'first' });
+    expect(result.current.blocked).toBe(false); mocks.ready = false; rerender('second');
+    act(() => result.current.handleChange('companyName', 'Não salvar sem contexto novo'));
+    await act(async () => { await result.current.flush(); });
+    expect(result.current.blocked).toBe(true); expect(mocks.save).not.toHaveBeenCalled();
+  });
   it('validates the real snapshot before saving and preserves invalid draft for correction', async () => {
     const { result } = renderHook(() => useSettingsForm('operator', vi.fn()));
     act(() => result.current.handleChange('freightPerKm', Infinity));

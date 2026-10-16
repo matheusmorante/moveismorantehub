@@ -51,6 +51,12 @@ const menuItems: any[] = [
         iconColor: 'text-purple-500',
         label: 'Conciliação',
       },
+      {
+        to: '/products/meta-catalog',
+        icon: 'bi-meta',
+        iconColor: 'text-indigo-600',
+        label: 'Sincronizar Catálogo',
+      },
     ],
   },
   {
@@ -340,6 +346,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
     'viewProductCategories',
     'viewProductCompositions',
     'viewProductReconciliation',
+    'viewMetaCatalog',
   ].some((action) => canPerform(action, roles));
   const canViewPeople = [
     'viewCustomers',

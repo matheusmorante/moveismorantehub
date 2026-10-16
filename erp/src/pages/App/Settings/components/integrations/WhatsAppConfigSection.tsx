@@ -1,10 +1,12 @@
 /** @jsxImportSource react */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { AppSettings } from '@/pages/utils/settingsService';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { whatsappConnectionFormSchema, whatsappTemplatesQueryFormSchema, whatsappTemplateTestFormSchema } from '../../../../../../../shared-utils/messagingFormSchemas';
+import { whatsappConnectionFormSchema, whatsappTemplatesQueryFormSchema, whatsappTemplateTestCommandSchema } from '../../../../../../../shared-utils/messagingFormSchemas';
 
 interface WhatsAppConfigSectionProps {
   settings: AppSettings;
@@ -51,93 +53,78 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
   };
   const connectionForm = useZodForm(whatsappConnectionFormSchema, config);
   const queryForm = useZodForm(whatsappTemplatesQueryFormSchema, config);
-  const templateForm = useZodForm(whatsappTemplateTestFormSchema, {
-    phone: testPhone, template: config.templateNameOrderConfirmation || '', language: config.templateLanguage || 'pt_BR', variableCount: config.templateVariableCount ?? 7,
+  const templateForm = useZodForm(whatsappTemplateTestCommandSchema, {
+    phone: testPhone, template: config.templateNameOrderConfirmation || '', language: config.templateLanguage || 'pt_BR', variableCount: config.templateVariableCount ?? 7, config,
   });
-  const showFormError = (errors: Parameters<typeof flattenFormErrors>[0]) => toast.warning(Object.values(flattenFormErrors(errors))[0]);
-
-  const handleFieldChange = (field: string, value: any) => {
-    onChange(`whatsappConfig.${field}`, value);
+  const [operationError, setOperationError] = useState('');
+  const [working, setWorking] = useState(false);
+  const inFlight = useRef(false), active = useRef(true), completedSends = useRef(new Set<string>());
+  const { user } = useAuth();
+  const identity = [user?.id, config.accessToken, config.phoneNumberId, config.wabaId, config.templateNameOrderConfirmation, config.templateLanguage, config.templateVariableCount, testPhone];
+  const context = useRef({ identity });
+  if (context.current.identity.some((value, index) => value !== identity[index])) context.current = { identity };
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  useEffect(() => { setFetchedTemplates([]); }, [user?.id, config.wabaId, config.accessToken]);
+  const showFormError = (errors: Parameters<typeof flattenFormErrors>[0]) => {
+    const message = Object.values(flattenFormErrors(errors))[0]; setOperationError(message); toast.warning(message);
   };
-
-  const handleTestConnection = async () => {
-    return connectionForm.validateAndRun(config, async (values) => {
-    setIsTesting(true);
-    try {
-      const result = await whatsappGraphService.testConnection(values);
-      if (result?.code_verification_status === 'NOT_VERIFIED') {
-        const phone = result.display_phone_number ? ` (${result.display_phone_number})` : '';
-        toast.warning(
-          `Conexão estabelecida, mas o número${phone} está com status "NÃO VERIFICADO" (code_verification_status: NOT_VERIFIED) no WhatsApp Cloud API. A Meta não entregará mensagens até que a verificação por SMS ou ligação seja concluída no painel da Meta.`
-        );
-      } else {
-        toast.success('Conexão com WhatsApp API estabelecida com sucesso! ✅');
-      }
-    } catch (error: any) {
-      toast.error(`Falha na conexão: ${error.message}`);
-      console.error(error);
+  const handleFieldChange = (field: string, value: any) => { if (!inFlight.current) onChange('whatsappConfig.' + field, value); };
+  const run = async (kind: 'connection' | 'templates' | 'send', action: (current: () => boolean) => Promise<unknown>) => {
+    if (inFlight.current) return false;
+    if (!user?.id) { setOperationError('Aguarde a confirmação da sessão.'); return false; }
+    inFlight.current = true; setWorking(true); setOperationError('');
+    setIsTesting(kind === 'connection'); setIsLoadingTemplates(kind === 'templates'); setIsTestingTemplate(kind === 'send');
+    const submitted = context.current;
+    const current = () => active.current && context.current === submitted;
+    try { return await action(current); }
+    catch (error) {
+      if (current()) { const message = error instanceof Error ? error.message : 'Não foi possível confirmar a operação.'; setOperationError(message); toast.error(message); }
+      return false;
     } finally {
-      setIsTesting(false);
+      inFlight.current = false;
+      if (active.current) { setWorking(false); setIsTesting(false); setIsLoadingTemplates(false); setIsTestingTemplate(false); }
     }
-    }, showFormError);
   };
-
-  const handleFetchTemplates = async () => {
-    return queryForm.validateAndRun(config, async () => {
-    setIsLoadingTemplates(true);
-    try {
-      const list = await whatsappGraphService.fetchMessageTemplates();
-      setFetchedTemplates(list);
-      if (list.length === 0) {
-        toast.info('Nenhum modelo encontrado no WABA informado.');
-      } else {
-        toast.success(`${list.length} modelo(s) encontrado(s) na sua conta Meta! 🎉`);
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(
-        `Aviso: ${err.message}. Você pode configurar o nome e variáveis do modelo manualmente abaixo!`
-      );
-    } finally {
-      setIsLoadingTemplates(false);
+  const handleTestConnection = () => run('connection', async (current) => connectionForm.validateAndRun(config, async (values) => {
+    const result = await withTimeout(whatsappGraphService.testConnection(values), 20_000, null, 'Conexão WhatsApp');
+    if (!current()) return false;
+    if (!result || !result.id) throw new Error('A conexão não devolveu confirmação do telefone. Tente novamente.');
+    if (result.id !== values.phoneNumberId) throw new Error('A resposta pertence a outro telefone. Confira a configuração.');
+    if (result.code_verification_status === 'NOT_VERIFIED') toast.warning('Conexão confirmada; conclua a verificação do número no painel da Meta antes de enviar mensagens.');
+    else toast.success('Conexão com WhatsApp API estabelecida com sucesso! ✅');
+    return true;
+  }, (errors) => { if (current()) showFormError(errors); }));
+  const handleFetchTemplates = () => run('templates', async (current) => queryForm.validateAndRun(config, async (values) => {
+    const list = await withTimeout(whatsappGraphService.fetchMessageTemplates(values), 20_000, null, 'Modelos WhatsApp');
+    if (!current()) return false;
+    if (!Array.isArray(list)) throw new Error('A consulta dos modelos não foi confirmada. Tente novamente.');
+    setFetchedTemplates(list);
+    if (!list.length) toast.info('Nenhum modelo encontrado no WABA informado.');
+    else toast.success(list.length + ' modelo(s) encontrado(s) na sua conta Meta!');
+    return true;
+  }, (errors) => { if (current()) showFormError(errors); }));
+  const handleTestTemplateSend = () => run('send', async (current) => templateForm.validateAndRun({ phone: testPhone, template: config.templateNameOrderConfirmation || '', language: config.templateLanguage || 'pt_BR', variableCount: config.templateVariableCount ?? 7, config }, async (values) => {
+    const key = JSON.stringify([values.phone, values.template, values.language, values.variableCount, values.config.phoneNumberId]);
+    if (completedSends.current.has(key)) throw new Error('Este teste já foi enviado ou ficou sem confirmação. Confira as mensagens antes de repetir.');
+    const params = ['Cliente Teste', '26/08/2026', 'Manhã', 'Rua Cascavel, 306, Guaraituba - Colombo/PR', '1x Guarda Roupa Casal 6 Portas', '949,00', 'Pix'].slice(0, values.variableCount);
+    let result;
+    try { result = await withTimeout(whatsappGraphService.sendTemplateMessage(values.phone, values.template, params, values.language, values.config), 30_000, null, 'Teste de mensagem WhatsApp'); }
+    catch (error) {
+      if (!error || typeof error !== 'object' || !('confirmedFailure' in error) || error.confirmedFailure !== true) completedSends.current.add(key);
+      throw error;
     }
-    }, showFormError);
-  };
-
-  const handleTestTemplateSend = async () => {
-    return templateForm.validateAndRun({ phone: testPhone, template: config.templateNameOrderConfirmation || '', language: config.templateLanguage || 'pt_BR', variableCount: config.templateVariableCount ?? 7 }, async (values) => {
-    setIsTestingTemplate(true);
-    try {
-      const varCount = values.variableCount;
-      const mockParams = [
-        'Cliente Teste',
-        '26/08/2026',
-        'Manhã',
-        'Rua Cascavel, 306, Guaraituba - Colombo/PR',
-        '1x Guarda Roupa Casal 6 Portas',
-        '949,00',
-        'Pix',
-      ];
-      const finalParams = varCount === 0 ? [] : mockParams.slice(0, varCount);
-
-      await whatsappGraphService.sendTemplateMessage(
-        values.phone,
-        values.template,
-        finalParams,
-        values.language
-      );
-      toast.success('✅ Mensagem de teste enviada com sucesso! Verifique seu WhatsApp.');
-    } catch (err: any) {
-      console.error(err);
-      toast.error(`❌ ${err.message}`);
-    } finally {
-      setIsTestingTemplate(false);
-    }
-    }, showFormError);
-  };
+    completedSends.current.add(key);
+    if (!current()) return false;
+    if (!result?.messages?.[0]?.id) throw new Error('O envio não foi confirmado. Confira o WhatsApp antes de repetir.');
+    toast.success('Mensagem de teste confirmada pela Meta. Verifique seu WhatsApp.');
+    return true;
+  }, (errors) => { if (current()) showFormError(errors); }));
 
   return (
     <div className="flex flex-col gap-8">
+      {operationError && <p role="alert" className="text-sm text-red-700">{operationError}</p>}
+      {working && <p role="status"><i className="bi bi-arrow-repeat animate-spin inline-block mr-2" aria-hidden="true" />{isTestingTemplate ? 'Confirmando mensagem de teste...' : 'Consultando WhatsApp...'}</p>}
+      <fieldset disabled={working} className="min-w-0 flex flex-col gap-8">
       <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 p-6 rounded-2xl flex flex-col md:flex-row justify-between gap-4">
         <div className="flex gap-4">
           <i className="bi bi-exclamation-triangle-fill text-amber-500 text-xl"></i>
@@ -154,7 +141,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
         </div>
         <button
           onClick={handleTestConnection}
-          disabled={isTesting}
+          disabled={working}
           className="flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border-2 border-amber-200 dark:border-amber-800/50 rounded-xl text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-all shadow-sm disabled:opacity-50 min-w-[180px]"
         >
           {isTesting ? (
@@ -316,7 +303,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
               {config.wabaId && (
                 <button
                   type="button"
-                  disabled={isLoadingTemplates}
+                  disabled={working}
                   onClick={handleFetchTemplates}
                   className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 disabled:opacity-50"
                 >
@@ -466,7 +453,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
               />
               <button
                 type="button"
-                disabled={isTestingTemplate}
+                disabled={working}
                 onClick={handleTestTemplateSend}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shrink-0 transition-all shadow-md shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
               >
@@ -578,6 +565,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
           />
         </div>
       </div>
+      </fieldset>
     </div>
   );
 }
