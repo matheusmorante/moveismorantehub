@@ -573,7 +573,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
             rows={4}
             value={settings.channelBaseDescriptions?.whatsapp || ''}
             onChange={(e) => onChange('channelBaseDescriptions.whatsapp', e.target.value)}
-            placeholder={`🏠 *Móveis Morante*\n📍 R. Cascavel, 306 - Colombo - PR\n⌚ Seg-Sex: 8h às 18h | Sáb: 8h às 13h\n📞 (41) 99749-3547\n\n――――――――――――`}
+            placeholder={`🏠 *Móveis Morante*\n📍 R. Cascavel, 306 - Colombo - PR\n⌚ Seg-Sex: 9h às 18h | Sáb: 9h às 17h\n📞 (41) 99749-3547\n\n――――――――――――`}
             className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 text-xs font-mono leading-relaxed"
           />
         </div>

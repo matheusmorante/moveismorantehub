@@ -25,6 +25,10 @@ import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules
 import { isTestOrder } from '@/pages/utils/hmlTestData';
 import { shouldClearQueryListSnapshot } from '@/pages/utils/queryListSnapshot';
 import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { returnFulfillmentFormSchema, getReturnFulfillmentFormValues, ReturnFulfillmentUnconfirmedError, type ReturnFulfillmentValues } from '../../../../../../shared-utils/returnFormSchemas';
+import { confirmReturnOrderFulfillment } from '../../../utils/orderMutation/orderUpdateService';
 import {
   automaticallyTransmitReturnFiscalDocuments,
   getAutomaticReturnFiscalEmissionNotice,
@@ -56,6 +60,14 @@ export const useOrderHistory = (filters?: any) => {
   const [ordersSnapshotQueryKey, setOrdersSnapshotQueryKey] = useState<string | null>(null);
   const [totalDatabaseItems, setTotalDatabaseItems] = useState(0);
   const [pendingReturnFulfillment, setPendingReturnFulfillment] = useState<Order | null>(null);
+  const returnFulfillmentForm = useZodForm(returnFulfillmentFormSchema, getReturnFulfillmentFormValues(pendingReturnFulfillment ?? {}));
+  const pendingReturnOwner = useRef(pendingReturnFulfillment);
+  pendingReturnOwner.current = pendingReturnFulfillment;
+  const returnFulfillmentInFlight = useRef(false);
+  const [returnFulfillmentBusy, setReturnFulfillmentBusy] = useState(false);
+  const blockedReturnFulfillments = useRef(new Map<string, Error>());
+  const returnFulfillmentActive = useRef(true);
+  useEffect(() => { returnFulfillmentActive.current = true; return () => { returnFulfillmentActive.current = false; }; }, []);
   const [pendingReturnCancellation, setPendingReturnCancellation] = useState<Order | null>(null);
   const [fiscalBadgeStatusByOrderId, setFiscalBadgeStatusByOrderId] = useState<
     Partial<Record<string, OrderFiscalBadgeStatuses>>
@@ -230,7 +242,7 @@ export const useOrderHistory = (filters?: any) => {
       } catch (error: unknown) {
         console.error('Devolução concluída; emissão fiscal automática pendente:', error);
         toast.warning(
-          'A devolução foi concluída e a entrada de estoque foi registrada. A transmissão automática da NF-e precisa ser retomada na área fiscal.'
+          'O recebimento da devolução comercial foi confirmado. A emissão fiscal precisa ser conferida na área fiscal.'
         );
       } finally {
         void refresh();
@@ -263,6 +275,7 @@ export const useOrderHistory = (filters?: any) => {
   ) => {
     const currentOrder = ordersForCurrentQuery.find((order) => order.id === id);
     if (!currentOrder) return;
+    if (currentOrder.orderType === 'return' && currentOrder.status === 'fulfilled' && newStatus === 'fulfilled') return;
     if (currentOrder.status === 'draft') {
       toast.warning(
         'Pedidos em rascunho devem ter seu cadastro finalizado através do formulário para serem agendados.'
@@ -313,13 +326,44 @@ export const useOrderHistory = (filters?: any) => {
     }
   };
 
-  const confirmReturnFulfillment = async () => {
-    if (!pendingReturnFulfillment) return;
-    const order = pendingReturnFulfillment;
-    setPendingReturnFulfillment(null);
-    const committed = await operations.commitStatusUpdate(order, 'fulfilled');
-    if (!committed || !order.id || isIdentifiedTestArtifact(order)) return;
-    await handleAutomaticallyFulfilledOrder(order);
+  const confirmReturnFulfillment = async (input: ReturnFulfillmentValues, stillCurrent: () => boolean = () => true): Promise<boolean> => {
+    const order = pendingReturnOwner.current;
+    if (!order || returnFulfillmentInFlight.current) return false;
+    const blocked = blockedReturnFulfillments.current.get(order.id || '');
+    if (blocked) throw blocked;
+    returnFulfillmentInFlight.current = true;
+    setReturnFulfillmentBusy(true);
+    let accepting = true;
+    const isCurrent = () => accepting && returnFulfillmentActive.current && pendingReturnOwner.current === order && stillCurrent();
+    try {
+      return await returnFulfillmentForm.validateAndRun(input, async (values) => {
+        if (!isCurrent()) return false;
+        const latest = ordersForCurrentQuery.find((item) => item.id === values.orderId);
+        if (latest && (latest.status !== 'scheduled' || (order.updatedAt && latest.updatedAt !== order.updatedAt))) throw new Error('A devolução comercial mudou. Atualize o histórico antes de confirmar o recebimento.');
+        const receipt = await withTimeout(confirmReturnOrderFulfillment(values, order, isCurrent), 35000, null, 'devolucao:aguardar-confirmacao-comercial');
+        if (!receipt) throw new ReturnFulfillmentUnconfirmedError();
+        if (!isCurrent()) throw Object.assign(new Error('O recebimento foi confirmado em outro contexto. Atualize o histórico da devolução comercial.'), { requiresRefresh: true });
+        const confirmedOrder = { ...order, ...receipt.order_data, id: receipt.id, updatedAt: receipt.updated_at };
+        setOrders((previous) => previous.map((item) => item.id === receipt.id ? { ...item, ...receipt.order_data, id: receipt.id, updatedAt: receipt.updated_at } : item));
+        toast.success(values.returnMethod === 'store_collection' ? 'Coleta da devolução comercial confirmada.' : 'Recebimento da devolução comercial confirmado.');
+        if (!isIdentifiedTestArtifact(confirmedOrder)) void handleAutomaticallyFulfilledOrder(confirmedOrder);
+        pendingReturnOwner.current = null;
+        setPendingReturnFulfillment(null);
+        return true;
+      }, (errors) => { throw new Error(Object.values(flattenFormErrors(errors))[0] || 'Confira a confirmação da devolução comercial.'); });
+    } catch (error) {
+      const cause = error as { uncertain?: boolean; requiresRefresh?: boolean; code?: string };
+      const failure = error instanceof Error ? error : Object.assign(new Error(cause?.code === '42501'
+        ? 'Você não tem permissão para confirmar o recebimento desta devolução comercial.'
+        : 'Não foi possível confirmar o recebimento da devolução comercial. Confira os dados e tente novamente.'), { cause: error });
+      if (cause?.uncertain || cause?.requiresRefresh) {
+        blockedReturnFulfillments.current.set(order.id || '', failure);
+        if (returnFulfillmentActive.current && pendingReturnOwner.current !== order) toast.warning(cause.requiresRefresh
+          ? 'O recebimento de outra devolução comercial foi confirmado. Atualize o histórico e confira a emissão fiscal antes de repetir qualquer operação.'
+          : 'Não foi possível confirmar outra devolução comercial. Consulte o histórico antes de repetir.');
+      }
+      throw failure;
+    } finally { accepting = false; returnFulfillmentInFlight.current = false; if (returnFulfillmentActive.current) setReturnFulfillmentBusy(false); }
   };
 
   const confirmReturnCancellation = async () => {
@@ -447,8 +491,9 @@ export const useOrderHistory = (filters?: any) => {
     handleAction,
     handleStatusUpdate,
     pendingReturnFulfillment,
+    returnFulfillmentBusy,
     confirmReturnFulfillment,
-    cancelReturnFulfillment: () => setPendingReturnFulfillment(null),
+    cancelReturnFulfillment: () => { if (!returnFulfillmentInFlight.current) { pendingReturnOwner.current = null; setPendingReturnFulfillment(null); } },
     pendingReturnCancellation,
     confirmReturnCancellation,
     cancelReturnCancellation: () => setPendingReturnCancellation(null),

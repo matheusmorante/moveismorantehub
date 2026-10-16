@@ -86,15 +86,15 @@ export function drawInternalFooter(
 export function drawNumberedBadge(doc: jsPDF, x: number, y: number, num: string): void {
   // Anel externo amarelo ouro
   doc.setFillColor(COLOR_GOLD[0], COLOR_GOLD[1], COLOR_GOLD[2]);
-  doc.circle(x, y, 4, 'F');
+  doc.circle(x, y, 3.2, 'F');
   // Círculo interno azul escuro
   doc.setFillColor(COLOR_NAVY[0], COLOR_NAVY[1], COLOR_NAVY[2]);
-  doc.circle(x, y, 3.4, 'F');
+  doc.circle(x, y, 2.7, 'F');
   // Número em branco centralizado
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7.0);
   doc.setTextColor(255, 255, 255);
-  doc.text(num, x, y + 1.1, { align: 'center' });
+  doc.text(num, x, y + 0.9, { align: 'center' });
 }
 
 /**
@@ -111,54 +111,72 @@ export function drawSectionBlock(
 ): number {
   let yPos = currentY;
 
-  // Badge circular estilizado
-  drawNumberedBadge(doc, margin + 4, yPos + 3.2, num);
+  // Badge circular estilizado posicionado sem sobrepor o texto
+  drawNumberedBadge(doc, margin + 3.5, yPos + 2.5, num);
 
-  // Título do Tópico
+  // Título do Tópico (com quebra automática e margem à direita do badge)
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.0);
+  doc.setFontSize(7.8);
   doc.setTextColor(COLOR_NAVY[0], COLOR_NAVY[1], COLOR_NAVY[2]);
-  doc.text(title, margin + 10, yPos + 4.2);
+  const titleLines = doc.splitTextToSize(title, contentWidth - 12);
+  doc.text(titleLines, margin + 9.5, yPos + 3.2);
 
-  yPos += 7.0;
+  yPos += Math.max(6.2, titleLines.length * 3.3 + 2.2);
 
   paragraphs.forEach((p) => {
     if (p.isAlert) {
       // Bloco de destaque para situações de atenção (ex.: manuseio / salvados)
+      yPos += 1.5; // Respiro superior antes do box amarelo
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.2);
+      const subLines = p.subtitle ? doc.splitTextToSize(p.subtitle, contentWidth - 14) : [];
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      const alertLines = doc.splitTextToSize(p.text, contentWidth - 14);
+
+      const subtitleHeight = subLines.length > 0 ? subLines.length * 3.2 + 1.5 : 0;
+      const bodyHeight = alertLines.length * 2.85;
+      const paddingY = 3.2;
+      const alertHeight = paddingY * 2 + subtitleHeight + bodyHeight;
+
       doc.setFillColor(COLOR_AMBER_ALERT[0], COLOR_AMBER_ALERT[1], COLOR_AMBER_ALERT[2]);
       doc.setDrawColor(COLOR_GOLD[0], COLOR_GOLD[1], COLOR_GOLD[2]);
       doc.setLineWidth(0.4);
-      const alertLines = doc.splitTextToSize(p.text, contentWidth - 12);
-      const alertHeight = alertLines.length * 3.1 + (p.subtitle ? 5.8 : 3.2);
       doc.roundedRect(margin + 2, yPos, contentWidth - 4, alertHeight, 1.5, 1.5, 'FD');
 
-      let innerY = yPos + 3.2;
-      if (p.subtitle) {
+      let innerY = yPos + paddingY + 2.0;
+      if (subLines.length > 0) {
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.4);
+        doc.setFontSize(7.2);
         doc.setTextColor(COLOR_AMBER_DARK[0], COLOR_AMBER_DARK[1], COLOR_AMBER_DARK[2]);
-        doc.text(p.subtitle, margin + 5, innerY);
-        innerY += 3.5;
+        doc.text(subLines, margin + 6, innerY);
+        innerY += subtitleHeight;
       }
+
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.2);
+      doc.setFontSize(6.8);
       doc.setTextColor(COLOR_AMBER_DARK[0], COLOR_AMBER_DARK[1], COLOR_AMBER_DARK[2]);
-      doc.text(alertLines, margin + 5, innerY);
-      yPos += alertHeight + 2.0;
+      doc.text(alertLines, margin + 6, innerY);
+
+      yPos += alertHeight + 3.8; // Respiro inferior generoso para nunca sobrepor o parágrafo seguinte
     } else {
       if (p.subtitle) {
+        yPos += 1.8;
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
+        doc.setFontSize(7.3);
         doc.setTextColor(COLOR_DARK[0], COLOR_DARK[1], COLOR_DARK[2]);
-        doc.text(p.subtitle, margin + 4, yPos);
-        yPos += 3.3;
+        const subLines = doc.splitTextToSize(p.subtitle, contentWidth - 10);
+        doc.text(subLines, margin + 5, yPos);
+        yPos += subLines.length * 3.0 + 0.8;
       }
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.3);
+      doc.setFontSize(7.0);
       doc.setTextColor(COLOR_DARK[0], COLOR_DARK[1], COLOR_DARK[2]);
-      const lines = doc.splitTextToSize(p.text, contentWidth - 8);
-      doc.text(lines, margin + 4, yPos);
-      yPos += lines.length * 3.1 + 1.5;
+      const lines = doc.splitTextToSize(p.text, contentWidth - 10);
+      doc.text(lines, margin + 5, yPos);
+      yPos += lines.length * 2.85 + 1.8;
     }
   });
 

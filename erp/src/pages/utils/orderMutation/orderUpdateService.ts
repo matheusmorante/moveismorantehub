@@ -18,6 +18,9 @@ import {
   setPersistedOrderDataSnapshot,
 } from '../orderMapper';
 import type { OrderUpdateOptions } from './orderMutationTypes';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { returnFulfillmentFormSchema, getReturnFulfillmentFormValues, returnFulfillmentReceiptSchema, ReturnFulfillmentUnconfirmedError,
+  type ReturnFulfillmentValues, type ReturnFulfillmentReceipt } from '../../../../../shared-utils/returnFormSchemas';
 import {
   applyTestArtifactUpdateRules,
   assertValidMutationScheduling,
@@ -33,7 +36,8 @@ const resolveStatusOnlyOrderDataSnapshot = async (
   currentOrder: Order | undefined,
   merged: any,
   initialSnapshot: Record<string, unknown> | undefined,
-  cleanUpdates: Record<string, any>
+  cleanUpdates: Record<string, any>,
+  isCurrent?: () => boolean,
 ): Promise<Record<string, unknown>> => {
   let persistedSnapshot = initialSnapshot;
 
@@ -52,7 +56,7 @@ const resolveStatusOnlyOrderDataSnapshot = async (
           typeof currentDbOrder.order_data === 'object'
         ) {
           persistedSnapshot = currentDbOrder.order_data as Record<string, unknown>;
-          if (currentOrder) {
+          if (currentOrder && (!isCurrent || isCurrent())) {
             setPersistedOrderDataSnapshot(currentOrder, persistedSnapshot);
           }
         }
@@ -91,8 +95,13 @@ export const executeUpdateOrder = async (
   currentOrder?: Order,
   expectedUpdatedAt?: string,
   options: OrderUpdateOptions = {}
-): Promise<void> => {
+): Promise<void | ReturnFulfillmentReceipt> => {
+  const confirmation = options.returnFulfillment;
+  const assertCurrent = (committed = false) => {
+    if (confirmation && !confirmation.isCurrent()) throw Object.assign(new Error('O contexto da confirmação mudou. Atualize o histórico da devolução comercial.'), { requiresRefresh: committed });
+  };
   try {
+    assertCurrent();
     const { cleanUpdates, isStatusOnlyUpdate } = sanitizeOrderUpdateFields(orderToUpdate);
     let merged: any;
     let previousOrderData: any = currentOrder || null;
@@ -188,14 +197,15 @@ export const executeUpdateOrder = async (
       merged.customerData.id = customerId;
     }
 
-    const updatePayload = buildOrderPersistencePayload(merged);
+    const updatePayload: Record<string, unknown> = buildOrderPersistencePayload(merged);
     if (isStatusOnlyUpdate) {
       updatePayload.order_data = await resolveStatusOnlyOrderDataSnapshot(
         id,
         currentOrder,
         merged,
         persistedOrderDataSnapshot,
-        cleanUpdates
+        cleanUpdates,
+        confirmation?.isCurrent,
       );
     }
 
@@ -206,13 +216,30 @@ export const executeUpdateOrder = async (
       expectedUpdatedAt
     );
 
-    const { data: transaction, error: rpcError } = await supabase.rpc(rpcName, rpcArguments);
+    assertCurrent();
+    let response;
+    if (confirmation) {
+      try { response = await withTimeout(supabase.rpc(rpcName, rpcArguments), 30000, null, 'devolucao:confirmar-recebimento-comercial'); }
+      catch { throw new ReturnFulfillmentUnconfirmedError(); }
+      if (!response || response.status === 0) throw new ReturnFulfillmentUnconfirmedError();
+    } else response = await supabase.rpc(rpcName, rpcArguments);
+    const { data: transaction, error: rpcError } = response;
+    if (confirmation && rpcError && (!rpcError.code || rpcError.code.startsWith('08') || ['40003', 'PGRST116'].includes(rpcError.code))) throw new ReturnFulfillmentUnconfirmedError();
     if (rpcError?.message?.includes('ORDER_VERSION_CONFLICT')) {
       throw new Error(
-        'O pedido mudou durante a conferência fiscal. Reabra a edição para revisar os dados atuais.'
+        confirmation ? 'A devolução comercial mudou. Atualize o histórico antes de confirmar o recebimento.'
+          : 'O pedido mudou durante a conferência fiscal. Reabra a edição para revisar os dados atuais.'
       );
     }
     if (rpcError) throw rpcError;
+    let confirmedReturn: ReturnFulfillmentReceipt | undefined;
+    if (confirmation) {
+      const receipt = returnFulfillmentReceiptSchema.safeParse(transaction);
+      if (!receipt.success || receipt.data.id !== id || receipt.data.order_data.id !== id
+        || (receipt.data.order_data.returnMethod ?? 'store_collection') !== (currentOrder?.returnMethod ?? 'store_collection')) throw new ReturnFulfillmentUnconfirmedError();
+      confirmedReturn = receipt.data;
+      assertCurrent(true);
+    }
     merged = { ...merged, ...(transaction?.order_data || {}) };
 
     const oldStatus = previousStatus;
@@ -239,8 +266,16 @@ export const executeUpdateOrder = async (
           console.error('[OrderUpdate] Falha ao atualizar a lista de pedidos:', error)
         );
     }
+    return confirmedReturn;
   } catch (error) {
-    console.error('Erro ao atualizar o pedido: ', error);
+    if (!confirmation) console.error('Erro ao atualizar o pedido: ', error);
     throw error;
   }
+};
+
+export const confirmReturnOrderFulfillment = async (input: ReturnFulfillmentValues, order: Order, isCurrent: () => boolean): Promise<ReturnFulfillmentReceipt> => {
+  const values = returnFulfillmentFormSchema.parse(input);
+  const source = returnFulfillmentFormSchema.parse(getReturnFulfillmentFormValues(order, values.physicalConfirmed));
+  if (values.orderId !== source.orderId || values.returnMethod !== source.returnMethod || values.expectedUpdatedAt !== source.expectedUpdatedAt) throw new Error('A devolução comercial mudou. Reabra a confirmação.');
+  return returnFulfillmentReceiptSchema.parse(await executeUpdateOrder(values.orderId, { status: 'fulfilled' }, order, values.expectedUpdatedAt, { returnFulfillment: { isCurrent } }));
 };

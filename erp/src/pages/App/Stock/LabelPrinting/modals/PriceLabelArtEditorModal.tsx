@@ -825,6 +825,7 @@ const PriceLabelArtEditorSession: React.FC<PriceLabelArtEditorModalProps & {
       };
 
       const handleMouseMove = (moveEvt: MouseEvent | TouchEvent) => {
+        if (!active.current || closing.current || actionInFlight.current || !historyEditingAllowed.current) return;
         if (!dragRef.current.isDragging || !dragRef.current.layer) return;
         const curX = 'touches' in moveEvt ? moveEvt.touches[0].clientX : moveEvt.clientX;
         const curY = 'touches' in moveEvt ? moveEvt.touches[0].clientY : moveEvt.clientY;
@@ -1008,6 +1009,7 @@ const PriceLabelArtEditorSession: React.FC<PriceLabelArtEditorModalProps & {
       };
 
       const handleMouseMove = (moveEvt: MouseEvent | TouchEvent) => {
+        if (!active.current || closing.current || actionInFlight.current || !historyEditingAllowed.current) return;
         if (!resizeRef.current.isResizing || !resizeRef.current.layer) return;
         const curX = 'touches' in moveEvt ? moveEvt.touches[0].clientX : moveEvt.clientX;
         const curY = 'touches' in moveEvt ? moveEvt.touches[0].clientY : moveEvt.clientY;
@@ -1117,6 +1119,7 @@ const PriceLabelArtEditorSession: React.FC<PriceLabelArtEditorModalProps & {
       };
 
       const handleMouseMove = (moveEvt: MouseEvent | TouchEvent) => {
+        if (!active.current || closing.current || actionInFlight.current || !historyEditingAllowed.current) return;
         if (!rotateRef.current.isRotating || !rotateRef.current.layer) return;
         const curX = 'touches' in moveEvt ? moveEvt.touches[0].clientX : moveEvt.clientX;
 

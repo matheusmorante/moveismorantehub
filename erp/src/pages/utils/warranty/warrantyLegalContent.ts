@@ -16,7 +16,7 @@ export const DEFAULT_WARRANTY_COMPANY_INFO: WarrantyCompanyInfo = {
   telephoneCall: '(41) 99224-4631',
   address: 'R. Cascavel, 306 - Guaraituba, Colombo - PR, 83410-270',
   contactEmail: 'contato@moveismorante.com.br',
-  openingHours: 'Seg-Sex: 8h às 18h | Sáb: 8h às 13h',
+  openingHours: 'Seg-Sex: 9h às 18h | Sáb: 9h às 17h',
 };
 
 export const WARRANTY_COVER_BADGES: WarrantyCoverBadge[] = [

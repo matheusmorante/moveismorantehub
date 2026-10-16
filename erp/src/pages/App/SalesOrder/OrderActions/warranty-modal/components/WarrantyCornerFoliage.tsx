@@ -33,7 +33,7 @@ export const WarrantyBottomLeftWaveFoliage: React.FC = () => (
     <img
       src="/images/warranty/foliage-bottom-wave.png"
       alt=""
-      className="w-32 sm:w-44 h-auto object-contain pointer-events-none select-none drop-shadow-md"
+      className="w-36 sm:w-52 h-auto object-contain pointer-events-none select-none drop-shadow-md"
       loading="eager"
     />
   </div>

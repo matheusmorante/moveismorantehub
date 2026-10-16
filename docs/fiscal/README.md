@@ -4,6 +4,10 @@
 
 ## Referências atuais
 
+- [Recebimento da devolução comercial — confirmação em conferência — 16/10](historico-correcoes-2026-10-16.md#recebimento-da-devolução-comercial--confirmação-em-conferência): resolver até recibo comercial, sessão/prazos/bloqueio incerto e etapa fiscal posterior. Composição e regressões em validação; sem transmissão ou escrita comercial real.
+
+- [Arte de etiquetas — gestos já iniciados respeitam a trava — 16/10](historico-correcoes-2026-10-16.md#arte-de-etiquetas--interações-iniciadas-antes-da-trava): posição/tamanho/rotação conferem a guarda também nos listeners de window. 198 testes, lint sem erros e build aprovados; TypeScript global reprova fora do lote. Inventário ERP registra 98/129 (76,0%), sem conclusão global.
+
 - [Formulário de variações — composição em conferência — 16/10](historico-correcoes-2026-10-16.md#formulário-de-variações--composição-em-conferência): contratos de conclusão/rascunho, trava/contexto/prazos, feedback e abas reais; 99 testes em 11 arquivos, lint sem erros e build aprovados. TS global falha fora das fontes alteradas. Recorte/upload/propagação de imagem e resolver da busca compartilhada de componentes continuam pendentes. Inventário permanece 98/129.
 
 - [Mesclagem canônica — confirmação e busca conferidas — 16/10](historico-correcoes-2026-10-16.md#mesclagem-canônica--confirmação-e-busca-conferidas): resolver até vínculo/ocultação confirmados, busca literal protegida, identidade/contexto, falha parcial/incerta e bloqueio de repetição. 97 testes em seis arquivos, lint sem erros/avisos e build aprovados; TS global falha fora do lote. ERP 98/129 (76,0%), 31 pendentes; SQL remoto/histórico/RLS/concorrência não comprovados.

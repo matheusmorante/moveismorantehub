@@ -29,7 +29,7 @@ import { checkSkusUniquenessBatch, generateUniqueCode, TABLE_NAME } from './prod
 import { formatProductTextData } from './productValidation';
 import { triggerProductMetaCatalogSync } from './productMetaCatalogSync';
 
-const invalidateProductQueries = () => {
+export const invalidateProductQueries = () => {
   try {
     invalidateProductCatalogStatsCache();
     queryClient.invalidateQueries({ queryKey: ['products'] });

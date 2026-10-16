@@ -24,6 +24,13 @@ vi.mock('react-toastify', () => ({
   },
 }));
 
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({
+    isAdministrator: true,
+    isRealAdministrator: true,
+  }),
+}));
+
 describe('WarrantyTermModal Component — Móveis Morante (Modelo 2)', () => {
   const sampleOrder = {
     id: 'ord-modal-test-1',
@@ -100,6 +107,7 @@ describe('WarrantyTermModal Component — Móveis Morante (Modelo 2)', () => {
     expect(screen.getByTestId('warranty-digital-signature-stamp')).toBeDefined();
     expect(screen.getByText('Documento Assinado Digitalmente')).toBeDefined();
     expect(screen.getByText('ICP-Brasil / A1')).toBeDefined();
+    expect(screen.getByText('Validar')).toBeDefined();
     expect(screen.getAllByText(/44\.512\.248\/0001-07/).length).toBeGreaterThan(1);
 
     // Dados do pedido e cliente no documento
@@ -160,7 +168,7 @@ describe('WarrantyTermModal Component — Móveis Morante (Modelo 2)', () => {
     expect(screen.getByText('Canais Oficiais de Atendimento')).toBeDefined();
     expect(screen.getAllByText('(41) 99749-3547').length).toBeGreaterThan(0); // WhatsApp
     expect(screen.getByText('(41) 99224-4631')).toBeDefined(); // Telefone ligação
-    expect(screen.getByText(/Seg-Sex: 8h às 18h \| Sáb: 8h às 13h/i)).toBeDefined();
+    expect(screen.getByText(/Seg-Sex: 9h às 18h \| Sáb: 9h às 17h/i)).toBeDefined();
     expect(screen.getAllByText(/R. Cascavel, 306 - Guaraituba, Colombo - PR/i).length).toBeGreaterThan(0);
 
     // Identificação institucional redundante e campo de assinatura removidos do container final a pedido do usuário

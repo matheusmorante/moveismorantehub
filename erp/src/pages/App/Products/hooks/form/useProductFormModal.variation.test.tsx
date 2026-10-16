@@ -68,4 +68,31 @@ describe('proprietário que recebe a variação concluída', () => {
     await act(async () => { expect(await result.current.handleSaveVariation({ ...variation, unitPrice: 170 })).toBe(true); });
     expect(operation).toHaveBeenCalledTimes(2); expect(result.current.formData.variations?.[0].unitPrice).toBe(170);
   });
+  it('ao fechar modal de variação pendente no x, nunca deixa o produto sem variações', () => {
+    const parent = product(true);
+    const pendingId = 'pending-new-var';
+    let pendingRef: { current: string | null } | undefined;
+    const { result } = renderHook(() => {
+      const hook = useProductFormModal({ isOpen: true, onClose: vi.fn(), product: parent, initialData: parent });
+      pendingRef = hook.variations.pendingNewVariationIdRef;
+      return hook;
+    });
+
+    act(() => {
+      if (pendingRef) pendingRef.current = pendingId;
+      result.current.setFormData((prev) => ({
+        ...prev,
+        variations: [{ id: pendingId, name: 'Variação Pendente', sku: 'PEND-01', stock: 0, unitPrice: 100 }],
+      }));
+    });
+
+    act(() => {
+      result.current.handleCloseVariationModal();
+    });
+
+    expect(mocks.editing).toHaveBeenCalledWith(null);
+    expect(pendingRef?.current).toBeNull();
+    expect(result.current.formData.variations?.length).toBeGreaterThanOrEqual(1);
+    expect(result.current.formData.variations?.[0].id).not.toBe(pendingId);
+  });
 });

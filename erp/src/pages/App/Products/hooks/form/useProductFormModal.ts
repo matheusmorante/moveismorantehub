@@ -19,7 +19,8 @@ import {
   scrollToRequirementField,
 } from '../../utils/form/productRequirementNavigation';
 import { useProductJevClassification } from '../fiscal/useProductJevClassification';
-import { isDraftSaveEligible } from './rules/productDraftRules';
+import { isDraftSaveEligible, getEnteredProductName } from './rules/productDraftRules';
+import { ensureDefaultVariation } from '@/pages/utils/productVariationDefaults';
 import { useProductFormAi } from './useProductFormAi';
 import { useProductFormDraft } from './useProductFormDraft';
 import { useProductFormImages } from './useProductFormImages';
@@ -384,13 +385,29 @@ export function useProductFormModal({
   const handleCloseVariationModal = useCallback(() => {
     const pendingVariationId = variations.pendingNewVariationIdRef.current;
     if (pendingVariationId) {
-      setFormData((prev) => ({
-        ...prev,
-        variations: prev.variations?.filter(
+      setFormData((prev) => {
+        const remaining = (prev.variations || []).filter(
           (v) => v.id !== pendingVariationId && String(v.id) !== String(pendingVariationId)
-        ),
-      }));
+        );
+        const next = {
+          ...prev,
+          variations: remaining,
+        };
+        const ensured = remaining.length === 0 ? ensureDefaultVariation(next) : next;
+        latestFormDataRef.current = ensured;
+        return ensured;
+      });
       variations.pendingNewVariationIdRef.current = null;
+    } else {
+      setFormData((prev) => {
+        if (!prev.variations || prev.variations.length === 0) {
+          const ensured = ensureDefaultVariation(prev);
+          latestFormDataRef.current = ensured;
+          return ensured;
+        }
+        latestFormDataRef.current = prev;
+        return prev;
+      });
     }
     variations.setEditingVariationId(null);
   }, [variations, setFormData]);
@@ -429,12 +446,10 @@ export function useProductFormModal({
 
         try {
           if (isDraftProduct) {
-            if (!(await autoSaveDraft(next))) return false;
-            setFormData((previous) => ({
-              ...previous,
-              hasVariations: true,
-              variations: next.variations,
-            }));
+            const saved = await autoSaveDraft(next);
+            if (!saved && getEnteredProductName(next)) return false;
+            latestFormDataRef.current = next;
+            setFormData(next);
           } else {
             const productId = String(current.parentId || current.id || '');
             if (!productId)

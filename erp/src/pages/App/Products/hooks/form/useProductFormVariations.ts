@@ -41,7 +41,7 @@ export function useProductFormVariations(
       stock: 0,
       images: [],
       active: false,
-      status: 'hidden',
+      status: isProductDraft(formData) ? 'draft' : 'hidden',
       syncUnitPrice: true,
       syncPromoPrice: true,
       syncCostPrice: true,
@@ -129,7 +129,7 @@ export function useProductFormVariations(
         syncDescription: true,
         images: [],
         active: false,
-        status: 'hidden',
+        status: isProductDraft(formData) ? 'draft' : 'hidden',
         attributes: attributes.map((attr) => ({
           name: toTitleCase(attr.name),
           value: toTitleCase(String(combo[attr.name].value)),

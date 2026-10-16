@@ -6,15 +6,16 @@ import { isProductDraft } from '@/pages/utils/productService/productDraftSnapsho
 import { INITIAL_PRODUCT_FORM_DATA } from '../../utils/form/productFormInitialData';
 
 const ensureProductFormVariation = <T extends Partial<Product>>(product: T): T => {
-  if (!isProductDraft(product)) return ensureDefaultVariation(product);
   if (product.itemType === 'service') return product;
+  const withDefault = ensureDefaultVariation(product);
+  if (!isProductDraft(product)) return withDefault;
   return {
-    ...product,
+    ...withDefault,
     hasVariations: true,
-    variations: (product.variations || []).map((variation) => ({
+    variations: (withDefault.variations || []).map((variation) => ({
       ...variation,
       active: false,
-      status: 'hidden',
+      status: 'draft',
     })),
   };
 };

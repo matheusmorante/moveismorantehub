@@ -22,7 +22,7 @@ const ChannelDescriptionsSection: React.FC<Props> = ({ settings, onChange }) => 
       border: 'border-green-100 dark:border-green-900/30',
       bg: 'bg-green-50/40 dark:bg-green-900/5',
       hint: 'Use emojis, *negrito* e quebras de linha. Este texto aparecerá ANTES da descrição de cada produto no catálogo.',
-      placeholder: `🏠 *Móveis Morante*\n📍 R. Cascavel, 306 - Colombo - PR\n⌚ Seg-Sex: 8h às 18h | Sáb: 8h às 13h\n📞 (41) 99749-3547\n\n――――――――――――`,
+      placeholder: `🏠 *Móveis Morante*\n📍 R. Cascavel, 306 - Colombo - PR\n⌚ Seg-Sex: 9h às 18h | Sáb: 9h às 17h\n📞 (41) 99749-3547\n\n――――――――――――`,
     },
     {
       id: 'ecommerce' as const,

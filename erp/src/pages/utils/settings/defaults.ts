@@ -261,7 +261,7 @@ RESPOSTA NO FORMATO JSON:
   channelBaseDescriptions: {
     whatsapp: `🏠 *Móveis Morante*
 📍 R. Cascavel, 306 - Guaraituba, Colombo - PR
-⌚ Seg a Sex: 8h às 18h | Sáb: 8h às 13h
+⌚ Seg a Sex: 9h às 18h | Sáb: 9h às 17h
 📞 (41) 99749-3547
 
 ――――――――――――`,

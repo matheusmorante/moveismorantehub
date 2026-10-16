@@ -77,6 +77,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       handleAction,
       handleStatusUpdate,
       pendingReturnFulfillment,
+      returnFulfillmentBusy,
       confirmReturnFulfillment,
       cancelReturnFulfillment,
       pendingReturnCancellation,
@@ -250,6 +251,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         {pendingReturnFulfillment && (
           <ReturnFulfillmentConfirmModal
             order={pendingReturnFulfillment}
+            isBusy={returnFulfillmentBusy}
             onCancel={cancelReturnFulfillment}
             onConfirm={confirmReturnFulfillment}
           />

@@ -21,7 +21,14 @@ vi.mock('../services/priceLabelPersistenceService', () => ({
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 vi.mock('../hooks/usePriceLabelLayerSelection', () => ({ usePriceLabelLayerSelection: () => vi.fn() }));
 vi.mock('../components/PriceLabelArtRenderer', () => ({
-  PriceLabelArtRenderer: ({ data }: { data: Record<string, unknown> }) => <output aria-label="Arte renderizada">{JSON.stringify(data)}</output>,
+  PriceLabelArtRenderer: ({ data, startDragging, startResizing, startRotating }: { data: Record<string, unknown>;
+    startDragging: (layer: string, event: React.MouseEvent) => void; startResizing: (layer: string, event: React.MouseEvent) => void;
+    startRotating: (layer: string, event: React.MouseEvent) => void }) => <>
+    <output aria-label="Arte renderizada">{JSON.stringify(data)}</output>
+    <button onMouseDown={(event) => startDragging('title', event)}>Arrastar título</button>
+    <button onMouseDown={(event) => startResizing('title', event)}>Redimensionar título</button>
+    <button onMouseDown={(event) => startRotating('title', event)}>Girar título</button>
+  </>,
 }));
 vi.mock('../modals/price-label-editor/PriceLabelEditorHeader', () => ({
   PriceLabelEditorHeader: ({ onBackToErp }: { onBackToErp: () => void }) => <button onClick={onBackToErp}>Salvar arte e voltar</button>,
@@ -125,6 +132,17 @@ describe('ações da arte com resolver e proprietário reais', () => {
     view.rerender(<PriceLabelArtEditorModal {...view.props} config={{ ...view.props.config, layoutId: 'outro' }} />); await advance();
     expect(guard()).toBe(false); pending.resolve(); await advance(); expect(toast.success).not.toHaveBeenCalled();
     expect(view.props.onSaveConfig).not.toHaveBeenCalled();
+  });
+  it.each(['Arrastar título', 'Redimensionar título', 'Girar título'])('%s já iniciado respeita a trava de exportação', async (button) => {
+    await openActions(); const pending = deferred<void>(); vi.mocked(exportLabelImage).mockReturnValue(pending.promise);
+    fireEvent.mouseDown(screen.getByText(button), { clientX: 0, clientY: 0 });
+    fireEvent.click(screen.getByText('Baixar PNG')); await advance(); const before = preview();
+    fireEvent.mouseMove(window, { clientX: 50, clientY: 20 }); await advance();
+    expect(preview()).toEqual(before); expect(vi.mocked(exportLabelImage).mock.calls[0][2]()).toBe(true);
+    await act(async () => { pending.resolve(); }); await advance();
+    fireEvent.mouseMove(window, { clientX: 50, clientY: 20 }); await advance();
+    expect(preview()).not.toEqual(before);
+    fireEvent.mouseUp(window);
   });
   it('dígitos da prévia não alteram preços persistidos nem geram autosave ao concluir', async () => {
     const view = await openActions(); const before = preview(); fireEvent.click(screen.getByText('Testar valores')); await advance();

@@ -81,7 +81,7 @@ export async function generateAndSaveWarrantyTerm(
     telephoneCall: '(41) 99224-4631',
     address: settings.companyAddress || 'R. Cascavel, 306 - Guaraituba, Colombo - PR, 83410-270',
     contactEmail: 'contato@moveismorante.com.br',
-    openingHours: 'Segunda a Sexta: 08:00 às 18:00 | Sábado: 08:00 às 13:00',
+    openingHours: 'Seg-Sex: 9h às 18h | Sáb: 9h às 17h',
   };
 
   // 3. Geração determinística do PDF com jsPDF

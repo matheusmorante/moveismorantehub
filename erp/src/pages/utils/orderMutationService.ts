@@ -25,7 +25,7 @@ export const updateOrder = async (
   expectedUpdatedAt?: string,
   options?: OrderUpdateOptions
 ): Promise<void> => {
-  return executeUpdateOrder(id, orderToUpdate, currentOrder, expectedUpdatedAt, options);
+  await executeUpdateOrder(id, orderToUpdate, currentOrder, expectedUpdatedAt, options);
 };
 
 // Re-exports dos serviços especializados para consumo modular

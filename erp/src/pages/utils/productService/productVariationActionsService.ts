@@ -1,7 +1,8 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { MAX_VARIATION_IMAGES } from './productImageHelpers';
-import { LOCAL_STORAGE_KEY, getLocalProducts, notifySubscribers } from './productLocalCache';
-import { updateProduct } from './productMutationService';
+import { LOCAL_STORAGE_KEY, getLocalProducts, saveLocalProducts, notifySubscribers } from './productLocalCache';
+import { updateProduct, invalidateProductQueries } from './productMutationService';
+import { triggerProductMetaCatalogSync } from './productMetaCatalogSync';
 import { toTitleCase } from '../textUtils';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { variationFamilyCommandSchema, variationFamilyAckSchema, sameFamilyAttributes, toFamilyAttributes, VariationFamilyUnconfirmedError } from '../../../../../shared-utils/variationFamilyFormSchemas';
@@ -99,7 +100,70 @@ export const saveVariation = async (productId: string, variation: any): Promise<
       deduplicatedVariations.push(v);
     }
 
-    await updateProduct(productId, { variations: deduplicatedVariations });
+    parent.variations = deduplicatedVariations;
+    parent.updatedAt = new Date().toISOString();
+    products[index] = parent;
+    saveLocalProducts(products);
+    notifySubscribers();
+
+    if (isUuidPattern(productId) && isUuidPattern(variationToSave.id)) {
+      const effectiveImages =
+        deduplicatedVariations.length === 1
+          ? (parent.images ?? []).slice(0, MAX_VARIATION_IMAGES)
+          : variationToSave.images || [];
+
+      const attributesToSave = (cleanAttrs || [])
+        .filter((attr: any) => attr.name && attr.value)
+        .map((attr: any) => ({
+          name: attr.name,
+          value: attr.value,
+          showName: attr.showName ?? true,
+        }));
+
+      const varRecord = {
+        id: variationToSave.id,
+        product_id: productId,
+        name: variationToSave.name,
+        sku: variationToSave.sku,
+        price: variationToSave.syncUnitPrice !== false
+          ? (parent.unitPrice ? Number(parent.unitPrice) : 0)
+          : (variationToSave.unitPrice !== undefined && variationToSave.unitPrice !== null ? Number(variationToSave.unitPrice) : 0),
+        stock: variationToSave.stock ? parseInt(String(variationToSave.stock), 10) : 0,
+        image_url: effectiveImages.length > 0 ? effectiveImages.join(',') : null,
+        attributes: attributesToSave,
+        combo_items: Array.isArray(variationToSave.comboItems) ? variationToSave.comboItems : [],
+        promo_price:
+          variationToSave.syncPromoPrice !== false
+            ? (parent.promoPrice ? Number(parent.promoPrice) : null)
+            : (variationToSave.promoPrice !== undefined && variationToSave.promoPrice !== null ? Number(variationToSave.promoPrice) : null),
+        description: variationToSave.syncDescription !== false ? null : variationToSave.description || null,
+        width: variationToSave.width ? String(variationToSave.width) : null,
+        depth: variationToSave.depth ? String(variationToSave.depth) : null,
+        height: variationToSave.height ? String(variationToSave.height) : null,
+        use_parent_price: variationToSave.syncUnitPrice !== false,
+        use_parent_promo_price: variationToSave.syncPromoPrice !== false,
+        use_parent_dimensions: variationToSave.syncWidth !== false,
+        use_parent_description: variationToSave.syncDescription !== false,
+        use_parent_name: true,
+        status: variationToSave.status || parent.status || 'hidden',
+        active: variationToSave.active !== undefined ? Boolean(variationToSave.active) : parent.active !== false,
+      };
+
+      const { error: upsertErr } = await supabase
+        .from('product_variations')
+        .upsert(varRecord);
+      if (upsertErr) throw upsertErr;
+
+      await supabase
+        .from('products')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', productId);
+
+      invalidateProductQueries();
+      void triggerProductMetaCatalogSync(productId);
+    } else {
+      await updateProduct(productId, { variations: deduplicatedVariations }, { deferQueryInvalidation: true });
+    }
   } catch (error) {
     console.error('Erro ao salvar variação: ', error);
     throw error;

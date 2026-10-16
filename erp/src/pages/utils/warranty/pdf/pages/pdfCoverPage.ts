@@ -127,138 +127,150 @@ export function renderPdfCoverPage(context: PdfRenderContext): void {
   doc.setFillColor(COLOR_GOLD[0], COLOR_GOLD[1], COLOR_GOLD[2]);
   doc.roundedRect((pageWidth - 40) / 2, coverY, 40, 1.2, 0.6, 0.6, 'F');
 
-  // 6. Carimbo Oficial do Certificado Digital / Assinatura Digital ICP-Brasil
-  const stampW = 154;
-  const stampH = 27;
+  // 6. Carimbo Oficial do Certificado Digital / Assinatura Digital ICP-Brasil (Ampliado)
+  const stampW = 166;
+  const stampH = 34;
   const stampX = (pageWidth - stampW) / 2;
-  const stampY = 175;
+  const stampY = 172;
 
   doc.setFillColor(252, 253, 255);
   doc.setDrawColor(COLOR_NAVY[0], COLOR_NAVY[1], COLOR_NAVY[2]);
-  doc.setLineWidth(0.35);
-  doc.roundedRect(stampX, stampY, stampW, stampH, 2.0, 2.0, 'FD');
+  doc.setLineWidth(0.4);
+  doc.roundedRect(stampX, stampY, stampW, stampH, 2.5, 2.5, 'FD');
 
   doc.setDrawColor(COLOR_GOLD[0], COLOR_GOLD[1], COLOR_GOLD[2]);
-  doc.setLineWidth(0.2);
-  doc.roundedRect(stampX + 0.7, stampY + 0.7, stampW - 1.4, stampH - 1.4, 1.5, 1.5, 'D');
+  doc.setLineWidth(0.25);
+  doc.roundedRect(stampX + 0.8, stampY + 0.8, stampW - 1.6, stampH - 1.6, 2.0, 2.0, 'D');
 
   // Cabeçalho do Carimbo com Selo de Segurança
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(8.5);
   doc.setTextColor(COLOR_NAVY[0], COLOR_NAVY[1], COLOR_NAVY[2]);
-  doc.text('DOCUMENTO ASSINADO DIGITALMENTE', stampX + 4, stampY + 5.0);
+  doc.text('DOCUMENTO ASSINADO DIGITALMENTE', stampX + 5, stampY + 5.5);
 
   doc.setFillColor(COLOR_NAVY[0], COLOR_NAVY[1], COLOR_NAVY[2]);
-  doc.roundedRect(stampX + stampW - 28, stampY + 1.8, 24, 4.2, 1.0, 1.0, 'F');
+  doc.roundedRect(stampX + stampW - 32, stampY + 2.0, 28, 4.8, 1.2, 1.2, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.0);
+  doc.setFontSize(6.8);
   doc.setTextColor(COLOR_GOLD[0], COLOR_GOLD[1], COLOR_GOLD[2]);
-  doc.text('ICP-BRASIL / A1', stampX + stampW - 16, stampY + 4.8, { align: 'center' });
+  doc.text('ICP-BRASIL / A1', stampX + stampW - 18, stampY + 5.4, { align: 'center' });
 
   doc.setDrawColor(220, 226, 235);
   doc.setLineWidth(0.2);
-  doc.line(stampX + 2, stampY + 7.0, stampX + stampW - 2, stampY + 7.0);
+  doc.line(stampX + 2, stampY + 7.8, stampX + stampW - 2, stampY + 7.8);
 
-  // Bloco QR Code
-  const qrBoxX = stampX + 3.5;
-  const qrBoxY = stampY + 8.4;
-  const qrBoxSize = 14.0;
+  // Bloco QR Code (Ampliado e sempre nítido)
+  const qrBoxX = stampX + 4.5;
+  const qrBoxY = stampY + 9.5;
+  const qrBoxSize = 18.0;
   if (qrCodeDataUrl) {
     try {
       doc.addImage(qrCodeDataUrl, 'PNG', qrBoxX, qrBoxY, qrBoxSize, qrBoxSize);
     } catch {
       doc.setDrawColor(COLOR_BORDER[0], COLOR_BORDER[1], COLOR_BORDER[2]);
-      doc.roundedRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 1, 1, 'D');
+      doc.roundedRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 1.5, 1.5, 'D');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(COLOR_NAVY[0], COLOR_NAVY[1], COLOR_NAVY[2]);
+      doc.text('QR CODE', qrBoxX + qrBoxSize / 2, qrBoxY + qrBoxSize / 2 + 2, { align: 'center' });
     }
   } else {
     doc.setDrawColor(COLOR_BORDER[0], COLOR_BORDER[1], COLOR_BORDER[2]);
-    doc.roundedRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 1, 1, 'D');
+    doc.roundedRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 1.5, 1.5, 'D');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(COLOR_NAVY[0], COLOR_NAVY[1], COLOR_NAVY[2]);
+    doc.text('QR CODE', qrBoxX + qrBoxSize / 2, qrBoxY + qrBoxSize / 2 + 2, { align: 'center' });
   }
 
   // Detalhes da Certificação Digital
-  const textX = stampX + 21;
+  const textX = stampX + 26.5;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.2);
+  doc.setFontSize(8.2);
   doc.setTextColor(COLOR_NAVY[0], COLOR_NAVY[1], COLOR_NAVY[2]);
-  doc.text('MÓVEIS MORANTE COMÉRCIO DE MÓVEIS LTDA', textX, stampY + 11.5);
+  doc.text('MÓVEIS MORANTE COMÉRCIO DE MÓVEIS LTDA', textX, stampY + 12.8);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.0);
+  doc.setFontSize(6.8);
   doc.setTextColor(COLOR_MUTED[0], COLOR_MUTED[1], COLOR_MUTED[2]);
-  doc.text('CNPJ: 44.512.248/0001-07  •  Certificação: ICP-Brasil A1 • SHA-256', textX, stampY + 15.2);
+  doc.text('CNPJ: 44.512.248/0001-07  •  Certificação: ICP-Brasil A1 • SHA-256', textX, stampY + 16.8);
 
   doc.text(
     `Data da Assinatura: ${purchaseDate} às 14:30 (Horário de Brasília)  •  Pedido #${orderCode}`,
     textX,
-    stampY + 18.8
+    stampY + 20.8
   );
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(5.8);
+  doc.setFontSize(6.8);
   doc.setTextColor(COLOR_NAVY[0], COLOR_NAVY[1], COLOR_NAVY[2]);
-  doc.text(`Cód. Autenticidade: ${formattedValidationCode}`, textX, stampY + 22.4);
+  doc.text(`Cód. Autenticidade: ${formattedValidationCode}`, textX, stampY + 24.8);
 
   // Rodapé Jurídico do Carimbo
   doc.setDrawColor(220, 226, 235);
   doc.setLineWidth(0.15);
-  doc.line(stampX + 2, stampY + 23.6, stampX + stampW - 2, stampY + 23.6);
+  doc.line(stampX + 2, stampY + 26.8, stampX + stampW - 2, stampY + 26.8);
 
   doc.setFont('helvetica', 'italic');
-  doc.setFontSize(5.0);
+  doc.setFontSize(5.8);
   doc.setTextColor(COLOR_MUTED[0], COLOR_MUTED[1], COLOR_MUTED[2]);
   doc.text(
     'Conforme Medida Provisória nº 2.200-2/2001 — Validade jurídica assegurada em todo o território nacional',
-    stampX + 3.5,
-    stampY + 25.8
+    stampX + 4.5,
+    stampY + 30.5
   );
 
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(COLOR_NAVY[0], COLOR_NAVY[1], COLOR_NAVY[2]);
+  doc.text('VALIDADE EM TODO O BRASIL', stampX + stampW - 4.5, stampY + 30.5, { align: 'right' });
+
   // 7. Rodapé Curvado com Ondas Orgânicas Vetoriais Idênticas ao Preview (SVG)
-  // Camada 1: Onda Ouro Superior
+  // Camada 1: Onda Ouro Superior (maior e mais alta)
   doc.setFillColor(COLOR_GOLD[0], COLOR_GOLD[1], COLOR_GOLD[2]);
-  doc.moveTo(0, 270.75);
-  doc.curveTo(38.5, 283.0, 84.0, 260.25, 133.0, 274.25);
-  doc.curveTo(164.5, 283.0, 189.0, 274.25, 210.0, 265.5);
+  doc.moveTo(0, 255.0);
+  doc.curveTo(38.5, 274.6, 84.0, 238.2, 133.0, 260.6);
+  doc.curveTo(164.5, 274.6, 189.0, 260.6, 210.0, 246.6);
   doc.lineTo(210, pageHeight);
   doc.lineTo(0, pageHeight);
   doc.close();
   doc.fill();
 
-  // Camada 2: Onda Azul Noturno Inferior
+  // Camada 2: Onda Azul Noturno Inferior (maior e mais alta)
   doc.setFillColor(COLOR_NAVY[0], COLOR_NAVY[1], COLOR_NAVY[2]);
-  doc.moveTo(0, 275.125);
-  doc.curveTo(42.0, 285.625, 85.75, 264.625, 134.75, 277.75);
-  doc.curveTo(166.25, 285.625, 189.875, 277.75, 210.0, 269.875);
+  doc.moveTo(0, 262.0);
+  doc.curveTo(42.0, 278.8, 85.75, 245.2, 134.75, 266.2);
+  doc.curveTo(166.25, 278.8, 189.875, 266.2, 210.0, 253.6);
   doc.lineTo(210, pageHeight);
   doc.lineTo(0, pageHeight);
   doc.close();
   doc.fill();
 
   // 8. Folhagem botânica no canto inferior esquerdo sobreposta à onda (ancorada na base)
-  // Proporção 1:1 (480x480) -> 44x44mm posicionado no canto inferior esquerdo
-  const waveFoliageSize = 44;
-  const waveFoliageY = pageHeight - waveFoliageSize; // 297 - 44 = 253mm
+  // Proporção 1:1 ampliada proporcionalmente à onda
+  const waveFoliageSize = 54;
+  const waveFoliageY = pageHeight - waveFoliageSize; // 297 - 54 = 243mm
   try {
     doc.addImage(WARRANTY_FOLIAGE_BOTTOM_WAVE, 'PNG', 1.0, waveFoliageY, waveFoliageSize, waveFoliageSize);
   } catch (err) {
     console.warn('Falha ao inserir folhagem da onda no PDF:', err);
   }
 
-  // 9. Conteúdo Institucional Centralizado sobre a Onda
+  // 9. Conteúdo Institucional Centralizado sobre a Onda (com fontes ampliadas e destaque dourado)
   doc.setFillColor(COLOR_GOLD[0], COLOR_GOLD[1], COLOR_GOLD[2]);
-  doc.roundedRect((pageWidth - 22) / 2, 281, 22, 1.0, 0.5, 0.5, 'F');
+  doc.roundedRect((pageWidth - 32) / 2, 274.5, 32, 1.4, 0.7, 0.7, 'F');
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.4);
-  doc.text('MÓVEIS MORANTE COMÉRCIO DE MÓVEIS LTDA', pageWidth / 2, 286.2, { align: 'center' });
+  doc.setFontSize(11.0);
+  doc.text('MÓVEIS MORANTE COMÉRCIO DE MÓVEIS LTDA', pageWidth / 2, 282.0, { align: 'center' });
 
   doc.setTextColor(215, 225, 238);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.8);
+  doc.setFontSize(8.5);
   doc.text(
     `CNPJ: 44.512.248/0001-07  •  WhatsApp: ${companyInfo.phone}  •  Colombo - PR`,
     pageWidth / 2,
-    291.5,
+    288.5,
     { align: 'center' }
   );
 }

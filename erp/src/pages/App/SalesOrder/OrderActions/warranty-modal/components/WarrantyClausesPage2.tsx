@@ -84,7 +84,7 @@ export const WarrantyClausesPage2: React.FC<WarrantyClausesPage2Props> = ({
                     </span>
                     <span className="text-slate-500">Horário de Atendimento:</span>
                     <span className="font-semibold text-slate-800 text-[11px]">
-                      Seg-Sex: 8h às 18h | Sáb: 8h às 13h
+                      Seg-Sex: 9h às 18h | Sáb: 9h às 17h
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

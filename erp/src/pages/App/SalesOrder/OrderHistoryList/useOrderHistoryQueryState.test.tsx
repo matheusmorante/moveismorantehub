@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   fetchOrderFiscalBadgeStatuses: vi.fn(),
   subscribeToOrderChanges: vi.fn(),
   commitStatusUpdate: vi.fn(),
+  confirmReturnOrderFulfillment: vi.fn(),
   automaticallyTransmitReturnFiscalDocuments: vi.fn(),
   getAutomaticReturnFiscalEmissionNotice: vi.fn(),
 }));
@@ -44,8 +45,10 @@ vi.mock('./useOrderHistoryOperations', () => ({
     retryFiscalCancellation: vi.fn(),
   }),
 }));
+vi.mock('../../../utils/orderMutation/orderUpdateService', () => ({ confirmReturnOrderFulfillment: mocks.confirmReturnOrderFulfillment }));
 
 import { useOrderHistory } from './useOrderHistory';
+import { returnFulfillmentFormSchema, getReturnFulfillmentFormValues } from '../../../../../../shared-utils/returnFormSchemas';
 
 afterEach(() => {
   cleanup();
@@ -80,7 +83,7 @@ describe('useOrderHistory query state', () => {
     const collectionOrder = {
       id: 'return-order-collection',
       orderType: 'return',
-      returnMethod: 'store_collection',
+      returnMethod: 'store_collection' as const,
       status: 'scheduled',
       items: [],
     };
@@ -88,6 +91,7 @@ describe('useOrderHistory query state', () => {
     mocks.fetchOrderFiscalBadgeStatuses.mockResolvedValue({});
     mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
     mocks.commitStatusUpdate.mockResolvedValue(true);
+    mocks.confirmReturnOrderFulfillment.mockResolvedValue({ id: collectionOrder.id, status: 'fulfilled', order_type: 'return', updated_at: '2026-10-16T12:01:00.000Z', order_data: { ...collectionOrder, status: 'fulfilled', returnStockProcessed: true } });
     mocks.automaticallyTransmitReturnFiscalDocuments.mockResolvedValue({
       status: 'authorized',
       authorizedDocuments: 1,
@@ -106,10 +110,10 @@ describe('useOrderHistory query state', () => {
     expect(mocks.automaticallyTransmitReturnFiscalDocuments).not.toHaveBeenCalled();
 
     await act(async () => {
-      await result.current.confirmReturnFulfillment();
+      await result.current.confirmReturnFulfillment(returnFulfillmentFormSchema.parse(getReturnFulfillmentFormValues(collectionOrder, true)));
     });
 
-    expect(mocks.commitStatusUpdate).toHaveBeenCalledWith(collectionOrder, 'fulfilled');
+    expect(mocks.confirmReturnOrderFulfillment).toHaveBeenCalledWith(expect.objectContaining({ orderId: collectionOrder.id, physicalConfirmed: true }), collectionOrder, expect.any(Function));
     expect(mocks.automaticallyTransmitReturnFiscalDocuments).toHaveBeenCalledWith(
       collectionOrder.id
     );
@@ -119,7 +123,7 @@ describe('useOrderHistory query state', () => {
     const collectionOrder = {
       id: 'return-order-collection-failure',
       orderType: 'return',
-      returnMethod: 'store_collection',
+      returnMethod: 'store_collection' as const,
       status: 'scheduled',
       items: [],
     };
@@ -127,6 +131,7 @@ describe('useOrderHistory query state', () => {
     mocks.fetchOrderFiscalBadgeStatuses.mockResolvedValue({});
     mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
     mocks.commitStatusUpdate.mockResolvedValue(false);
+    mocks.confirmReturnOrderFulfillment.mockRejectedValue(new Error('Transação rejeitada'));
 
     const { result } = renderHook(() => useOrderHistory(), { wrapper: createWrapper() });
     await waitFor(() => expect(result.current.orders[0]?.id).toBe(collectionOrder.id));
@@ -135,7 +140,7 @@ describe('useOrderHistory query state', () => {
       await result.current.handleStatusUpdate(collectionOrder.id, 'fulfilled');
     });
     await act(async () => {
-      await result.current.confirmReturnFulfillment();
+      await expect(result.current.confirmReturnFulfillment(returnFulfillmentFormSchema.parse(getReturnFulfillmentFormValues(collectionOrder, true)))).rejects.toThrow('Transação rejeitada');
     });
 
     expect(mocks.automaticallyTransmitReturnFiscalDocuments).not.toHaveBeenCalled();

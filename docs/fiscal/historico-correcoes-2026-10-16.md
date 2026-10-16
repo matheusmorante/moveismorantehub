@@ -273,6 +273,24 @@ Validação final: **195 testes em 13 arquivos aprovados** (`scratch/rhf-art-act
 
 Proprietário agregado e filhos conferidos no escopo da migração de formulários: **ERP 94/129 (72,9%), 35 pendentes**, além de mobile/catálogo. Isso não declara conclusão global nem prontidão fiscal. `LabelModelCreationModal` permanece sem import/consumidor ativo localizado e não foi reativado ou marcado como conferido.
 
+## Arte de etiquetas — interações iniciadas antes da trava
+
+Problema e causa comprovados na continuação: o fieldset desabilitado impedia iniciar novos gestos, mas os listeners de `mousemove`/`touchmove` já registrados em `window` continuavam alterando posição, tamanho e rotação durante exportação/saída. Isso permitia mudar o rascunho após validar e iniciar uma operação.
+
+Correção em `erp/src/pages/App/Stock/LabelPrinting/modals/PriceLabelArtEditorModal.tsx:828,1012,1122`: cada listener verifica sessão ativa, saída, ação em andamento e permissão vigente de edição antes de alterar o estado. Em `erp/src/pages/App/Stock/LabelPrinting/__tests__/priceLabelDataFillParent.test.tsx:23–30,136–147`, o renderer simulado expõe os três inícios de gesto para acionar os handlers reais; três regressões iniciam o gesto, bloqueiam a exportação com Promise pendente, comprovam snapshot/guarda inalterados e verificam que o mesmo listener volta a editar após liberar a trava. Isso evita uma prova vazia por ausência de listener.
+
+Validação final: **198 testes em 13 arquivos aprovados** (`scratch/rhf-price-art-resume-final-tests.log`), incluindo 35 testes do proprietário, 23 da prévia, 11 da exportação e nove dos controles reais. **Build ERP aprovado em 2m25s** (`scratch/rhf-price-art-resume-final-build.log`); lint sem erros e 13 avisos de hooks/variáveis do editor (`scratch/rhf-price-art-resume-final-lint.log`). TypeScript global registra 300 diagnósticos, nenhum em LabelPrinting ou nos schemas envolvidos (`scratch/rhf-price-art-resume-final-tsc.log`). Diff-check aprovado. Não houve exportação real, gravação remota, SQL, Auth, SEFAZ ou deploy; canvas/clipboard/renderização visual e RLS não foram certificados. A leitura do inventário principal nesta continuação registrou **98/129 (76,0%), 31 pendentes**; os demais checkpoints possuem evidências próprias e mobile/catálogo têm inventário separado. Objetivo integral segue ativo.
+
+## Recebimento da devolução comercial — confirmação em conferência
+
+Problema comprovado: `ReturnFulfillmentConfirmModal` disparava um callback sem resolver nem await e o histórico limpava a confirmação antes do commit. O serviço genérico também aceitava ausência de erro da RPC sem conferir identidade/status do recibo. Isso podia fechar a confirmação e iniciar a etapa fiscal sem confirmação comercial suficiente.
+
+Correções locais em validação: `shared-utils/returnFormSchemas.ts` explicita intenção física, contexto agendado/método e recibo de identidade/status. O modal executa RHF/zodResolver reais, preserva o atraso de cinco segundos, bloqueia cliques/cancelamento durante a operação, mostra erros/progresso e invalida a abertura antiga. `useOrderHistory.ts` mantém a confirmação até o recibo comercial, executa seu resolver próprio, protege sessão/fila/prazos e bloqueia repetição de resultado incerto. A emissão fiscal automática existente é iniciada somente após confirmação comercial e não compõe o sucesso comercial nem provoca nova submissão física.
+
+O caminho específico de `orderUpdateService.ts` verifica contexto antes de enviar, limita a RPC a 30s e exige ID/status/tipo/método confirmados, antes de publicar notificações. `orderMutationTypes.ts` registra a guarda opcional desse caminho; `orderMutationService.ts` preserva o retorno void dos consumidores legados. O histórico espera no máximo 35s e o modal no máximo 40s; resultado incerto exige consultar o pedido, sem repetição automática. A guarda após as leituras impede iniciar a gravação quando o contexto/prazo já venceu.
+
+Evidência de contrato: somente leitura de `pg_proc/pg_get_functiondef` no projeto operacional `hkoxhourxwlddgsfdgws`, confirmado no vínculo local e URL configurada do ERP. A função `create_order_with_inventory_transaction(text,jsonb,jsonb,jsonb,boolean)` devolve JSON da transação com `order_data` persistido; o wrapper de versão local retorna esse mesmo resultado. Não foram executadas a função comercial, DDL, fixtures, notificações, transmissões SEFAZ ou deploy. A consulta de catálogo não comprova efeitos, concorrência, RLS ou atomicidade comportamental. Os arquivos/linhas e testes finais serão registrados após a composição real. Inventário permanece sem marcar este proprietário até essa validação.
+
 ## Rótulos fiscais — feedback visual de carregamento com faixa de luz (shimmer)
 
 ### 1. Problema identificado e sintomas observados

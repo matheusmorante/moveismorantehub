@@ -40,3 +40,28 @@ export const createLinkedReturnFormSchema = (sold: ReturnQuantityItem[], prior: 
     ctx.addIssue({ code: 'custom', path: ['items'], message: 'Os itens ou as quantidades da devolução comercial não correspondem ao saldo disponível. Reabra o formulário.' });
   }
 });
+
+export const returnFulfillmentFormSchema = z.object({
+  orderId: z.string().trim().min(1, 'Devolução comercial não identificada.'),
+  orderType: z.string().refine((value) => value === 'return', 'Selecione um pedido de devolução comercial.').transform(() => 'return' as const),
+  status: z.string().refine((value) => value === 'scheduled', 'Esta devolução comercial não está aguardando recebimento. Atualize o histórico.').transform(() => 'scheduled' as const),
+  returnMethod: z.enum(['store_delivery', 'store_collection']).nullish().transform((value) => value ?? 'store_collection'),
+  expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
+  physicalConfirmed: z.boolean().refine((value) => value, 'Confirme o recebimento físico da mercadoria.').transform(() => true as const),
+});
+export type ReturnFulfillmentValues = z.output<typeof returnFulfillmentFormSchema>;
+export const getReturnFulfillmentFormValues = (order: { id?: string; orderType?: string; status?: string; returnMethod?: 'store_delivery' | 'store_collection'; updatedAt?: string }, physicalConfirmed = false) => ({
+  orderId: order.id ?? '', orderType: order.orderType ?? '', status: order.status ?? '', returnMethod: order.returnMethod, expectedUpdatedAt: order.updatedAt, physicalConfirmed,
+});
+export const returnFulfillmentReceiptSchema = z.object({
+  id: z.string().min(1),
+  status: z.literal('fulfilled'), order_type: z.literal('return'), updated_at: z.iso.datetime({ offset: true }),
+  order_data: z.object({ id: z.string().min(1), orderType: z.literal('return'), status: z.literal('fulfilled'),
+    returnStockProcessed: z.boolean(), returnStockReversed: z.boolean().optional(),
+  }).passthrough(),
+}).passthrough();
+export type ReturnFulfillmentReceipt = z.output<typeof returnFulfillmentReceiptSchema>;
+export class ReturnFulfillmentUnconfirmedError extends Error {
+  readonly uncertain = true;
+  constructor() { super('Não foi possível confirmar o recebimento da devolução comercial. Consulte o pedido antes de repetir.'); }
+}

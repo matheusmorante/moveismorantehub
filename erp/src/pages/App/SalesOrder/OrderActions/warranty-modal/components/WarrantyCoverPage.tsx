@@ -113,7 +113,7 @@ export const WarrantyCoverPage: React.FC<WarrantyCoverPageProps> = ({
         {/* Onda Artística em Dupla Camada */}
         <div className="relative w-full">
           <svg
-            className="w-full h-28 sm:h-36 block text-[#032354]"
+            className="w-full h-44 sm:h-60 block text-[#032354]"
             viewBox="0 0 1200 240"
             preserveAspectRatio="none"
           >
@@ -139,12 +139,12 @@ export const WarrantyCoverPage: React.FC<WarrantyCoverPageProps> = ({
           </svg>
 
           {/* Conteúdo Central Sobreposto na Onda */}
-          <div className="absolute inset-x-0 bottom-4 sm:bottom-6 flex flex-col items-center justify-center text-center z-30 px-6">
-            <div className="h-1 w-12 sm:w-16 bg-[#feb004] rounded-full mb-2 shadow-sm" />
-            <p className="text-xs sm:text-sm text-white font-bold tracking-wider uppercase drop-shadow-sm">
+          <div className="absolute inset-x-0 bottom-6 sm:bottom-10 flex flex-col items-center justify-center text-center z-30 px-6">
+            <div className="h-1.5 w-16 sm:w-24 bg-[#feb004] rounded-full mb-2.5 shadow-sm" />
+            <p className="text-sm sm:text-lg md:text-xl text-white font-bold tracking-wider uppercase drop-shadow-md">
               Móveis Morante Comércio de Móveis Ltda
             </p>
-            <p className="text-[10px] sm:text-[11px] text-slate-300 font-normal tracking-wider uppercase mt-1">
+            <p className="text-xs sm:text-sm md:text-base text-slate-200 font-medium tracking-wider uppercase mt-1.5">
               CNPJ: 44.512.248/0001-07 • WhatsApp: (41) 99749-3547 • Colombo - PR
             </p>
           </div>

@@ -93,7 +93,7 @@ export function renderPdfClausesPage2(context: PdfRenderContext): void {
   // Grid com dados reais da loja Móveis Morante
   const callPhone = companyInfo.telephoneCall || '(41) 99224-4631';
   const whatsappPhone = companyInfo.phone || '(41) 99749-3547';
-  const hours = companyInfo.openingHours || 'Seg-Sex: 8h às 18h | Sáb: 8h às 13h';
+  const hours = companyInfo.openingHours || 'Seg-Sex: 9h às 18h | Sáb: 9h às 17h';
 
   // Linha 1: Telefones
   doc.setFont('helvetica', 'bold');
