@@ -7,7 +7,6 @@ import {
   fetchOrdersPage,
   fetchOrdersForClientFiltering,
   updateOrder,
-  undoReturn,
 } from '../../../utils/orderHistoryService';
 import { actionsMap, buttons } from '../OrderActions/orderActionsConfig';
 import { toast } from 'react-toastify';
@@ -27,8 +26,9 @@ import { shouldClearQueryListSnapshot } from '@/pages/utils/queryListSnapshot';
 import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
-import { returnFulfillmentFormSchema, getReturnFulfillmentFormValues, ReturnFulfillmentUnconfirmedError, type ReturnFulfillmentValues } from '../../../../../../shared-utils/returnFormSchemas';
-import { confirmReturnOrderFulfillment } from '../../../utils/orderMutation/orderUpdateService';
+import { returnFulfillmentFormSchema, getReturnFulfillmentFormValues, ReturnFulfillmentUnconfirmedError, type ReturnFulfillmentValues,
+  returnCancellationFormSchema, getReturnCancellationFormValues, ReturnCancellationUnconfirmedError, type ReturnCancellationValues } from '../../../../../../shared-utils/returnFormSchemas';
+import { confirmReturnOrderFulfillment, confirmReturnOrderCancellation } from '../../../utils/orderMutation/orderUpdateService';
 import {
   automaticallyTransmitReturnFiscalDocuments,
   getAutomaticReturnFiscalEmissionNotice,
@@ -63,12 +63,15 @@ export const useOrderHistory = (filters?: any) => {
   const returnFulfillmentForm = useZodForm(returnFulfillmentFormSchema, getReturnFulfillmentFormValues(pendingReturnFulfillment ?? {}));
   const pendingReturnOwner = useRef(pendingReturnFulfillment);
   pendingReturnOwner.current = pendingReturnFulfillment;
-  const returnFulfillmentInFlight = useRef(false);
-  const [returnFulfillmentBusy, setReturnFulfillmentBusy] = useState(false);
-  const blockedReturnFulfillments = useRef(new Map<string, Error>());
-  const returnFulfillmentActive = useRef(true);
-  useEffect(() => { returnFulfillmentActive.current = true; return () => { returnFulfillmentActive.current = false; }; }, []);
+  const returnTransitionInFlight = useRef(false);
+  const [returnTransitionBusy, setReturnTransitionBusy] = useState(false);
+  const blockedReturnTransitions = useRef(new Map<string, Error>());
+  const returnHistoryActive = useRef(true);
+  useEffect(() => { returnHistoryActive.current = true; return () => { returnHistoryActive.current = false; }; }, []);
   const [pendingReturnCancellation, setPendingReturnCancellation] = useState<Order | null>(null);
+  const returnCancellationForm = useZodForm(returnCancellationFormSchema, getReturnCancellationFormValues(pendingReturnCancellation ?? {}));
+  const pendingReturnCancellationOwner = useRef(pendingReturnCancellation);
+  pendingReturnCancellationOwner.current = pendingReturnCancellation;
   const [fiscalBadgeStatusByOrderId, setFiscalBadgeStatusByOrderId] = useState<
     Partial<Record<string, OrderFiscalBadgeStatuses>>
   >({});
@@ -288,6 +291,11 @@ export const useOrderHistory = (filters?: any) => {
       );
       return;
     }
+    if (currentOrder.orderType === 'return' && currentOrder.status === 'scheduled' && newStatus === 'cancelled') {
+      pendingReturnOwner.current = null; setPendingReturnFulfillment(null);
+      pendingReturnCancellationOwner.current = currentOrder; setPendingReturnCancellation(currentOrder);
+      return;
+    }
     if (newStatus === 'cancelled' && !canCancelOrderDirectly(currentOrder)) {
       toast.warning(
         'A mercadoria já saiu para entrega ou foi retirada. Registre uma devolução para reverter a operação.'
@@ -307,7 +315,8 @@ export const useOrderHistory = (filters?: any) => {
       currentOrder.status === 'scheduled' &&
       newStatus === 'fulfilled'
     ) {
-      setPendingReturnFulfillment(currentOrder);
+      pendingReturnCancellationOwner.current = null; setPendingReturnCancellation(null);
+      pendingReturnOwner.current = currentOrder; setPendingReturnFulfillment(currentOrder);
       return;
     }
     if (newStatus !== 'cancelled') {
@@ -328,13 +337,13 @@ export const useOrderHistory = (filters?: any) => {
 
   const confirmReturnFulfillment = async (input: ReturnFulfillmentValues, stillCurrent: () => boolean = () => true): Promise<boolean> => {
     const order = pendingReturnOwner.current;
-    if (!order || returnFulfillmentInFlight.current) return false;
-    const blocked = blockedReturnFulfillments.current.get(order.id || '');
+    if (!order || returnTransitionInFlight.current) return false;
+    const blocked = blockedReturnTransitions.current.get(order.id || '');
     if (blocked) throw blocked;
-    returnFulfillmentInFlight.current = true;
-    setReturnFulfillmentBusy(true);
+    returnTransitionInFlight.current = true;
+    setReturnTransitionBusy(true);
     let accepting = true;
-    const isCurrent = () => accepting && returnFulfillmentActive.current && pendingReturnOwner.current === order && stillCurrent();
+    const isCurrent = () => accepting && returnHistoryActive.current && pendingReturnOwner.current === order && stillCurrent();
     try {
       return await returnFulfillmentForm.validateAndRun(input, async (values) => {
         if (!isCurrent()) return false;
@@ -357,41 +366,49 @@ export const useOrderHistory = (filters?: any) => {
         ? 'Você não tem permissão para confirmar o recebimento desta devolução comercial.'
         : 'Não foi possível confirmar o recebimento da devolução comercial. Confira os dados e tente novamente.'), { cause: error });
       if (cause?.uncertain || cause?.requiresRefresh) {
-        blockedReturnFulfillments.current.set(order.id || '', failure);
-        if (returnFulfillmentActive.current && pendingReturnOwner.current !== order) toast.warning(cause.requiresRefresh
+        blockedReturnTransitions.current.set(order.id || '', failure);
+        if (returnHistoryActive.current && pendingReturnOwner.current !== order) toast.warning(cause.requiresRefresh
           ? 'O recebimento de outra devolução comercial foi confirmado. Atualize o histórico e confira a emissão fiscal antes de repetir qualquer operação.'
           : 'Não foi possível confirmar outra devolução comercial. Consulte o histórico antes de repetir.');
       }
       throw failure;
-    } finally { accepting = false; returnFulfillmentInFlight.current = false; if (returnFulfillmentActive.current) setReturnFulfillmentBusy(false); }
+    } finally { accepting = false; returnTransitionInFlight.current = false; if (returnHistoryActive.current) setReturnTransitionBusy(false); }
   };
 
-  const confirmReturnCancellation = async () => {
-    if (!pendingReturnCancellation) return;
-    const order = pendingReturnCancellation;
-    setPendingReturnCancellation(null);
+  const confirmReturnCancellation = async (input: ReturnCancellationValues, stillCurrent: () => boolean = () => true): Promise<boolean> => {
+    const order = pendingReturnCancellationOwner.current;
+    if (!order || returnTransitionInFlight.current) return false;
+    const blocked = blockedReturnTransitions.current.get(order.id || '');
+    if (blocked) throw blocked;
+    returnTransitionInFlight.current = true;
+    setReturnTransitionBusy(true);
+    let accepting = true;
+    const isCurrent = () => accepting && returnHistoryActive.current && pendingReturnCancellationOwner.current === order && stillCurrent();
     try {
-      await undoReturn(order);
-      const returnId = order.id;
-      setOrders((prev) =>
-        prev.map((item) => {
-          // Marca a devolução como cancelada (se estiver na lista)
-          if (item.id === returnId) {
-            return {
-              ...item,
-              status: 'cancelled',
-              returnStockProcessed: false,
-              returnStockReversed: false,
-            };
-          }
-          return item;
-        })
-      );
-      toast.success('Devolução cancelada com sucesso!');
-      refresh();
-    } catch (error: any) {
-      toast.error(`Erro ao processar devolução: ${error?.message || 'tente novamente'}`);
-    }
+      return await returnCancellationForm.validateAndRun(input, async (values) => {
+        if (!isCurrent()) return false;
+        const latest = ordersForCurrentQuery.find((item) => item.id === values.orderId);
+        if (latest && (latest.status !== 'scheduled' || latest.updatedAt !== values.expectedUpdatedAt)) throw new Error('A devolução comercial mudou. Atualize o histórico antes de confirmar o cancelamento.');
+        const receipt = await withTimeout(confirmReturnOrderCancellation(values, order, isCurrent), 35000, null, 'devolucao:aguardar-cancelamento-comercial');
+        if (!receipt) throw new ReturnCancellationUnconfirmedError();
+        if (!isCurrent()) throw Object.assign(new Error('O cancelamento foi confirmado em outro contexto. Atualize o histórico da devolução comercial.'), { requiresRefresh: true });
+        setOrders((previous) => previous.map((item) => item.id === receipt.id ? { ...item, ...receipt.order_data, id: receipt.id, updatedAt: receipt.updated_at } : item));
+        toast.success('Cancelamento da devolução comercial confirmado.');
+        pendingReturnCancellationOwner.current = null;
+        setPendingReturnCancellation(null);
+        return true;
+      }, (errors) => { throw new Error(Object.values(flattenFormErrors(errors))[0] || 'Confira o cancelamento da devolução comercial.'); });
+    } catch (error) {
+      const cause = error as { uncertain?: boolean; requiresRefresh?: boolean; code?: string };
+      const failure = error instanceof Error ? error : Object.assign(new Error(cause?.code === '42501'
+        ? 'Você não tem permissão para cancelar esta devolução comercial.'
+        : 'Não foi possível cancelar a devolução comercial. Confira os dados e tente novamente.'), { cause: error });
+      if (cause?.uncertain || cause?.requiresRefresh) {
+        blockedReturnTransitions.current.set(order.id || '', failure);
+        if (returnHistoryActive.current && pendingReturnCancellationOwner.current !== order) toast.warning('O resultado do cancelamento de outra devolução comercial precisa ser conferido. Consulte o histórico antes de repetir.');
+      }
+      throw failure;
+    } finally { accepting = false; returnTransitionInFlight.current = false; if (returnHistoryActive.current) setReturnTransitionBusy(false); }
   };
 
   const handleAction = async (actionKey: string, order: Order) => {
@@ -405,7 +422,8 @@ export const useOrderHistory = (filters?: any) => {
     }
 
     if (actionKey === 'undoReturn') {
-      setPendingReturnCancellation(order);
+      pendingReturnOwner.current = null; setPendingReturnFulfillment(null);
+      pendingReturnCancellationOwner.current = order; setPendingReturnCancellation(order);
       return;
     }
 
@@ -491,12 +509,13 @@ export const useOrderHistory = (filters?: any) => {
     handleAction,
     handleStatusUpdate,
     pendingReturnFulfillment,
-    returnFulfillmentBusy,
+    returnFulfillmentBusy: returnTransitionBusy,
     confirmReturnFulfillment,
-    cancelReturnFulfillment: () => { if (!returnFulfillmentInFlight.current) { pendingReturnOwner.current = null; setPendingReturnFulfillment(null); } },
+    cancelReturnFulfillment: () => { if (!returnTransitionInFlight.current) { pendingReturnOwner.current = null; setPendingReturnFulfillment(null); } },
     pendingReturnCancellation,
+    returnCancellationBusy: returnTransitionBusy,
     confirmReturnCancellation,
-    cancelReturnCancellation: () => setPendingReturnCancellation(null),
+    cancelReturnCancellation: () => { if (!returnTransitionInFlight.current) { pendingReturnCancellationOwner.current = null; setPendingReturnCancellation(null); } },
     selectedOrders,
     toggleSelection,
     selectAll,

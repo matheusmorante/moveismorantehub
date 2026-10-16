@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   subscribeToOrderChanges: vi.fn(),
   commitStatusUpdate: vi.fn(),
   confirmReturnOrderFulfillment: vi.fn(),
+  confirmReturnOrderCancellation: vi.fn(),
   automaticallyTransmitReturnFiscalDocuments: vi.fn(),
   getAutomaticReturnFiscalEmissionNotice: vi.fn(),
 }));
@@ -45,7 +46,7 @@ vi.mock('./useOrderHistoryOperations', () => ({
     retryFiscalCancellation: vi.fn(),
   }),
 }));
-vi.mock('../../../utils/orderMutation/orderUpdateService', () => ({ confirmReturnOrderFulfillment: mocks.confirmReturnOrderFulfillment }));
+vi.mock('../../../utils/orderMutation/orderUpdateService', () => ({ confirmReturnOrderFulfillment: mocks.confirmReturnOrderFulfillment, confirmReturnOrderCancellation: mocks.confirmReturnOrderCancellation }));
 
 import { useOrderHistory } from './useOrderHistory';
 import { returnFulfillmentFormSchema, getReturnFulfillmentFormValues } from '../../../../../../shared-utils/returnFormSchemas';
@@ -82,6 +83,7 @@ describe('useOrderHistory query state', () => {
   it('transmite a NFD só depois de confirmar a coleta e concluir a transação comercial', async () => {
     const collectionOrder = {
       id: 'return-order-collection',
+      updatedAt: '2026-10-16T12:00:00.000Z',
       orderType: 'return',
       returnMethod: 'store_collection' as const,
       status: 'scheduled',
@@ -122,6 +124,7 @@ describe('useOrderHistory query state', () => {
   it('não transmite NFD se a transação de confirmação física falhar', async () => {
     const collectionOrder = {
       id: 'return-order-collection-failure',
+      updatedAt: '2026-10-16T12:00:00.000Z',
       orderType: 'return',
       returnMethod: 'store_collection' as const,
       status: 'scheduled',

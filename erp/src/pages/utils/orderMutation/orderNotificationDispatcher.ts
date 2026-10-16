@@ -112,10 +112,13 @@ export const dispatchOrderUpdateNotifications = (
   }
 
   if (newStatus === 'cancelled') {
+    const isReturn = merged.orderType === 'return';
     void dispatchAppNotification({
       orderId: String(orderId),
-      title: `Venda cancelada - ${customerName}`,
-      message: `O pedido #${formatOrderCode(merged)} foi cancelado e a saída de estoque será estornada.`,
+      title: `${isReturn ? 'Devolução comercial cancelada' : 'Cancelamento comercial da venda'} - ${customerName}`,
+      message: isReturn
+        ? `A devolução comercial #${formatOrderCode(merged)} foi cancelada. A venda original e o estoque foram preservados.`
+        : `O cancelamento comercial do pedido #${formatOrderCode(merged)} foi confirmado.`,
       type: 'order_edited',
       scheduleText: schedText,
       orderData: merged,

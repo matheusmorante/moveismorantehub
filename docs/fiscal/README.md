@@ -4,7 +4,11 @@
 
 ## Referências atuais
 
-- [Recebimento da devolução comercial — confirmação em conferência — 16/10](historico-correcoes-2026-10-16.md#recebimento-da-devolução-comercial--confirmação-em-conferência): resolver até recibo comercial, sessão/prazos/bloqueio incerto e etapa fiscal posterior. Composição e regressões em validação; sem transmissão ou escrita comercial real.
+- [Produto da nota de entrada — preparação em conferência — 16/10](historico-correcoes-2026-10-16.md#produto-da-nota-de-entrada--preparação-em-conferência): falha de fechamento antecipado reproduzida; resolver acompanha a preparação, com contexto/prazo/erro e campos parseados. Testes em andamento; inventário permanece 100/130.
+
+- [Cancelamento da devolução comercial — confirmação conferida — 16/10](historico-correcoes-2026-10-16.md#cancelamento-da-devolução-comercial--confirmação-conferida): contrato próprio, versão/snapshot, resolver até recibo, trava comum com recebimento, prazos/falhas e notificação correta. 156 testes, lint e build aprovados; TS global falha fora do lote. ERP 100/130 (76,9%), 30 pendentes; sem operação comercial remota ou transmissão fiscal.
+
+- [Recebimento da devolução comercial — confirmação conferida — 16/10](historico-correcoes-2026-10-16.md#recebimento-da-devolução-comercial--confirmação-conferida): versão obrigatória, snapshot preservado e recibo comercial antes da etapa fiscal; sessão/prazos e bloqueio incerto. 110 testes, lint e build aprovados; TS global falha fora do lote. ERP 99/130 (76,2%); proprietário ativo de cancelamento comercial acrescentado ao inventário. Sem escrita comercial real ou transmissão.
 
 - [Arte de etiquetas — gestos já iniciados respeitam a trava — 16/10](historico-correcoes-2026-10-16.md#arte-de-etiquetas--interações-iniciadas-antes-da-trava): posição/tamanho/rotação conferem a guarda também nos listeners de window. 198 testes, lint sem erros e build aprovados; TypeScript global reprova fora do lote. Inventário ERP registra 98/129 (76,0%), sem conclusão global.
 

@@ -74,11 +74,15 @@ export function useInboundInvoiceItemsReview({
   const [acceptingSuggestion, setAcceptingSuggestion] = useState<number | null>(null);
   const [removingLink, setRemovingLink] = useState<number | null>(null);
   const removalInProgress = useRef(false);
+  const [individualBusy, setIndividualBusy] = useState(false);
+  const [individualError, setIndividualError] = useState('');
+  const individualInFlight = useRef(false), individualActive = useRef(true);
+  useEffect(() => { individualActive.current = true; return () => { individualActive.current = false; }; }, []);
 
   useEffect(() => {
-    onProcessingSuggestionsChange?.(acceptingSuggestion !== null || removingLink !== null);
+    onProcessingSuggestionsChange?.(acceptingSuggestion !== null || removingLink !== null || individualBusy);
     return () => onProcessingSuggestionsChange?.(false);
-  }, [acceptingSuggestion, removingLink, onProcessingSuggestionsChange]);
+  }, [acceptingSuggestion, removingLink, individualBusy, onProcessingSuggestionsChange]);
 
   // Auto-enriquece itens que possuem matchedProductId mas ainda estão sem código ou com nome genérico
   useEffect(() => {
@@ -146,6 +150,7 @@ export function useInboundInvoiceItemsReview({
 
   const [individualItem, setIndividualItem] = useState<InboundInvoiceItem | null>(null);
   const [individualMarkup, setIndividualMarkup] = useState('');
+  const individualContext = useRef({ individualItem, supplierId, individualMarkup }); individualContext.current = { individualItem, supplierId, individualMarkup };
   const itemNumbers = items.map((item) => item.itemNumber);
   const individualForm = useZodForm(createInboundProductPreparationSchema(itemNumbers), {
     itemNumber: individualItem?.itemNumber || 0, supplierId: supplierId || '', markup: individualMarkup,
@@ -194,6 +199,8 @@ export function useInboundInvoiceItemsReview({
   };
 
   const {
+    preparationError,
+    clearPreparationError,
     creationQueue,
     isSuggestingName,
     startCreation,
@@ -224,19 +231,29 @@ export function useInboundInvoiceItemsReview({
   });
 
   const requestIndividualCreation = (item: InboundInvoiceItem) => {
+    if (individualInFlight.current) return;
     if (!supplierId)
       return toast.info('Vincule o fornecedor para identificar ou cadastrar os produtos.');
     setIndividualItem(item);
     setIndividualMarkup('');
+    setIndividualError('');
+    clearPreparationError();
   };
 
   const confirmIndividualCreation = async () => {
-    if (!individualItem) return;
+    if (!individualItem || individualInFlight.current || !individualActive.current) return;
     const item = individualItem;
-    await individualForm.validateAndRun({ itemNumber: item.itemNumber, supplierId: supplierId || '', markup: individualMarkup, finalCost: itemCostWithAdditionalCosts(item), quantity: item.quantity }, async (values) => {
-      await classifyAndStart(item, [], values.markup === undefined ? undefined : String(values.markup));
-      setIndividualItem(null);
-    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    individualInFlight.current = true; setIndividualBusy(true); setIndividualError('');
+    const isCurrent = () => individualActive.current && individualContext.current.individualItem === item
+      && individualContext.current.supplierId === supplierId && individualContext.current.individualMarkup === individualMarkup;
+    try {
+      await individualForm.validateAndRun({ itemNumber: item.itemNumber, supplierId: supplierId || '', markup: individualMarkup, finalCost: itemCostWithAdditionalCosts(item), quantity: item.quantity }, async (values) => {
+        if (!isCurrent()) return false;
+        const confirmed = await classifyAndStart(item, [], values.markup === undefined ? undefined : String(values.markup), isCurrent);
+        if (confirmed && isCurrent()) setIndividualItem(null);
+        return confirmed;
+      }, (errors) => { if (isCurrent()) setIndividualError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados do produto.'); });
+    } finally { individualInFlight.current = false; if (individualActive.current) setIndividualBusy(false); }
   };
 
   const selectProduct = async (itemNumber: number, product: Product, variation?: Variation) => {
@@ -310,6 +327,9 @@ export function useInboundInvoiceItemsReview({
     requestIndividualCreation,
     // Estado individual
     individualItem,
+    individualBusy,
+    individualError: individualError || preparationError,
+    cancelIndividualCreation: () => { if (!individualInFlight.current) setIndividualItem(null); },
     setIndividualItem,
     individualMarkup,
     setIndividualMarkup,

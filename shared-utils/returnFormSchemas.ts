@@ -46,12 +46,12 @@ export const returnFulfillmentFormSchema = z.object({
   orderType: z.string().refine((value) => value === 'return', 'Selecione um pedido de devolução comercial.').transform(() => 'return' as const),
   status: z.string().refine((value) => value === 'scheduled', 'Esta devolução comercial não está aguardando recebimento. Atualize o histórico.').transform(() => 'scheduled' as const),
   returnMethod: z.enum(['store_delivery', 'store_collection']).nullish().transform((value) => value ?? 'store_collection'),
-  expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
+  expectedUpdatedAt: z.iso.datetime({ offset: true, error: 'Atualize o histórico para conferir a versão desta devolução comercial.' }),
   physicalConfirmed: z.boolean().refine((value) => value, 'Confirme o recebimento físico da mercadoria.').transform(() => true as const),
 });
 export type ReturnFulfillmentValues = z.output<typeof returnFulfillmentFormSchema>;
 export const getReturnFulfillmentFormValues = (order: { id?: string; orderType?: string; status?: string; returnMethod?: 'store_delivery' | 'store_collection'; updatedAt?: string }, physicalConfirmed = false) => ({
-  orderId: order.id ?? '', orderType: order.orderType ?? '', status: order.status ?? '', returnMethod: order.returnMethod, expectedUpdatedAt: order.updatedAt, physicalConfirmed,
+  orderId: order.id ?? '', orderType: order.orderType ?? '', status: order.status ?? '', returnMethod: order.returnMethod, expectedUpdatedAt: order.updatedAt ?? '', physicalConfirmed,
 });
 export const returnFulfillmentReceiptSchema = z.object({
   id: z.string().min(1),
@@ -64,4 +64,27 @@ export type ReturnFulfillmentReceipt = z.output<typeof returnFulfillmentReceiptS
 export class ReturnFulfillmentUnconfirmedError extends Error {
   readonly uncertain = true;
   constructor() { super('Não foi possível confirmar o recebimento da devolução comercial. Consulte o pedido antes de repetir.'); }
+}
+
+export const returnCancellationFormSchema = returnFulfillmentFormSchema.omit({ physicalConfirmed: true }).extend({
+  returnStockProcessed: z.boolean().optional().refine((value) => !value, 'O retorno físico já foi confirmado. Preserve a devolução comercial.').transform(() => false as const),
+  returnStockReversed: z.boolean().optional().refine((value) => !value, 'Esta devolução comercial já possui reversão de estoque. Atualize o histórico.').transform(() => false as const),
+  cancellationConfirmed: z.boolean().refine((value) => value, 'Confirme o cancelamento desta devolução comercial.').transform(() => true as const),
+});
+export type ReturnCancellationValues = z.output<typeof returnCancellationFormSchema>;
+export const getReturnCancellationFormValues = (order: Parameters<typeof getReturnFulfillmentFormValues>[0] & { returnStockProcessed?: boolean; returnStockReversed?: boolean }, cancellationConfirmed = false) => {
+  const { physicalConfirmed: _physical, ...context } = getReturnFulfillmentFormValues(order);
+  return { ...context, returnStockProcessed: order.returnStockProcessed, returnStockReversed: order.returnStockReversed, cancellationConfirmed };
+};
+export const returnCancellationReceiptSchema = returnFulfillmentReceiptSchema.extend({
+  status: z.literal('cancelled'),
+  order_data: returnFulfillmentReceiptSchema.shape.order_data.extend({
+    status: z.literal('cancelled'), returnStockProcessed: z.literal(false),
+    returnStockReversed: z.literal(false).optional().transform(() => false as const),
+  }),
+});
+export type ReturnCancellationReceipt = z.output<typeof returnCancellationReceiptSchema>;
+export class ReturnCancellationUnconfirmedError extends Error {
+  readonly uncertain = true;
+  constructor() { super('Não foi possível confirmar o cancelamento da devolução comercial. Consulte o pedido antes de repetir.'); }
 }

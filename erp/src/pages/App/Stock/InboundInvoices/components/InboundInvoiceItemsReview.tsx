@@ -76,14 +76,16 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
       <InboundIndividualProductModal
         item={review.individualItem}
         markup={review.individualMarkup}
+        isBusy={review.individualBusy}
+        error={review.individualError}
         onMarkupChange={review.setIndividualMarkup}
-        onClose={() => review.setIndividualItem(null)}
+        onClose={review.cancelIndividualCreation}
         onConfirm={review.confirmIndividualCreation}
       />
 
       <InboundClassificationModals
-        isPreparingProduct={review.isPreparingProduct}
-        isClassifying={review.isClassifying}
+        isPreparingProduct={review.isPreparingProduct && !review.individualBusy}
+        isClassifying={review.isClassifying && !review.individualBusy}
         classifyingItem={review.classifyingItem}
         aiClassification={review.aiClassification}
         effectiveMarkup={review.effectiveMarkup}

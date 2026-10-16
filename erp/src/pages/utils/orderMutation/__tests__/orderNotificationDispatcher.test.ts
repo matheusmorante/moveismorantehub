@@ -60,3 +60,23 @@ describe('notificações de orçamento', () => {
     expect(mocks.dispatchAppNotification).not.toHaveBeenCalled();
   });
 });
+
+describe('notificação de cancelamento comercial', () => {
+  beforeEach(() => {
+    vi.clearAllMocks(); mocks.dispatchAppNotification.mockResolvedValue(undefined);
+    mocks.detectOrderChangedAreas.mockReturnValue([]);
+  });
+  it('identifica a devolução comercial e não alega cancelamento da venda ou reversão de estoque', () => {
+    const previous = { orderType: 'return', status: 'scheduled', orderIndex: 123, customerData: { fullName: 'Cliente' } };
+    dispatchOrderUpdateNotifications('return-1', previous, { ...previous, status: 'cancelled' } as any, 'scheduled', 'cancelled');
+    expect(mocks.dispatchAppNotification).toHaveBeenCalledOnce();
+    expect(mocks.dispatchAppNotification).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'return-1',
+      title: 'Devolução comercial cancelada - Cliente', message: 'A devolução comercial #123 foi cancelada. A venda original e o estoque foram preservados.' }));
+  });
+  it('identifica o cancelamento comercial da venda sem prometer efeito de estoque não conferido', () => {
+    const previous = { orderType: 'sale', status: 'scheduled', orderIndex: 123, customerData: { fullName: 'Cliente' } };
+    dispatchOrderUpdateNotifications('sale-1', previous, { ...previous, status: 'cancelled' } as any, 'scheduled', 'cancelled');
+    expect(mocks.dispatchAppNotification).toHaveBeenCalledWith(expect.objectContaining({ title: 'Cancelamento comercial da venda - Cliente',
+      message: 'O cancelamento comercial do pedido #123 foi confirmado.' }));
+  });
+});

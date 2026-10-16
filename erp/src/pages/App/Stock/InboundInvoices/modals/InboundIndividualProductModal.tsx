@@ -9,6 +9,8 @@ interface InboundIndividualProductModalProps {
   onMarkupChange: (markup: string) => void;
   onClose: () => void;
   onConfirm: () => void;
+  isBusy?: boolean;
+  error?: string;
 }
 
 export const InboundIndividualProductModal: React.FC<InboundIndividualProductModalProps> = ({
@@ -17,6 +19,8 @@ export const InboundIndividualProductModal: React.FC<InboundIndividualProductMod
   onMarkupChange,
   onClose,
   onConfirm,
+  isBusy = false,
+  error = '',
 }) => {
   if (!item) return null;
 
@@ -29,7 +33,7 @@ export const InboundIndividualProductModal: React.FC<InboundIndividualProductMod
 
   return (
     <div className="fixed inset-0 z-[1000005] flex items-center justify-center bg-slate-950/60 p-4">
-      <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+      <section role="dialog" aria-modal="true" aria-label="Cadastrar produto da nota de entrada" aria-busy={isBusy} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
         <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
           Cadastrar produto
         </h3>
@@ -47,6 +51,7 @@ export const InboundIndividualProductModal: React.FC<InboundIndividualProductMod
             min="0"
             step="0.01"
             value={markup}
+            disabled={isBusy}
             onChange={(event) => onMarkupChange(event.target.value)}
             className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
           />
@@ -55,10 +60,13 @@ export const InboundIndividualProductModal: React.FC<InboundIndividualProductMod
           Custo final unitário: <b>{formatCurrency(finalCost)}</b> · Preço estimado:{' '}
           <b>{estimatedPrice}</b>
         </p>
+        {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-200">{error}</p>}
+        {isBusy && <p role="status" className="mt-3 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300"><i aria-hidden="true" className="bi bi-arrow-repeat animate-spin" />Preparando o cadastro do produto…</p>}
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
+            disabled={isBusy}
             className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
           >
             Cancelar
@@ -66,6 +74,7 @@ export const InboundIndividualProductModal: React.FC<InboundIndividualProductMod
           <button
             type="button"
             onClick={onConfirm}
+            disabled={isBusy}
             className="rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-black text-white hover:bg-emerald-700 cursor-pointer"
           >
             Abrir cadastro

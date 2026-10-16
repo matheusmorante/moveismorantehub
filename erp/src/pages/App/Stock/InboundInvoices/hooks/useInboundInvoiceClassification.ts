@@ -21,6 +21,9 @@ export function useInboundInvoiceClassification(supplierId?: string) {
   const [isClassifying, setIsClassifying] = useState(false);
   const [aiClassification, setAiClassification] = useState<AiClassification | null>(null);
   const [classifyingItem, setClassifyingItem] = useState<InboundInvoiceItem | null>(null);
+  const active = useRef(true);
+  const request = useRef(0);
+  useEffect(() => { active.current = true; return () => { active.current = false; request.current += 1; }; }, []);
   const supplierProductsCacheRef = useRef<{
     supplierId: string;
     products: SupplierProductSummary[];
@@ -32,20 +35,24 @@ export function useInboundInvoiceClassification(supplierId?: string) {
     }
   }, [supplierId]);
 
-  const getSupplierProducts = async (): Promise<SupplierProductSummary[]> => {
-    if (!supplierId) return [];
-    if (supplierProductsCacheRef.current?.supplierId === supplierId)
+  const getSupplierProducts = async (targetSupplierId: string | undefined, stillCurrent: () => boolean): Promise<SupplierProductSummary[]> => {
+    if (!targetSupplierId) return [];
+    if (supplierProductsCacheRef.current?.supplierId === targetSupplierId)
       return supplierProductsCacheRef.current.products;
-    const products = await fetchSupplierProductsForContext(supplierId);
-    supplierProductsCacheRef.current = { supplierId, products };
+    const products = await fetchSupplierProductsForContext(targetSupplierId);
+    if (!stillCurrent()) throw new Error('O contexto da nota mudou. Reabra a preparação do produto.');
+    supplierProductsCacheRef.current = { supplierId: targetSupplierId, products };
     return products;
   };
 
-  const classifyWithAI = async (item: InboundInvoiceItem): Promise<AiClassification | null> => {
+  const classifyWithAI = async (item: InboundInvoiceItem, stillCurrent: () => boolean = () => true, targetSupplierId = supplierId): Promise<AiClassification | null> => {
+    if (!active.current || !stillCurrent()) return null;
+    const token = ++request.current;
     setIsClassifying(true);
     setClassifyingItem(item);
     try {
-      const supplierProducts = await getSupplierProducts();
+      const supplierProducts = await getSupplierProducts(targetSupplierId, () => active.current && token === request.current && stillCurrent());
+      if (!active.current || token !== request.current || !stillCurrent()) throw new Error('O contexto da nota mudou. Reabra a preparação do produto.');
       if (!supplierProducts.length) {
         return null;
       }
@@ -55,13 +62,16 @@ export function useInboundInvoiceClassification(supplierId?: string) {
         itemProductCode: item.productCode || undefined,
         supplierContextSummary: contextSummary,
       });
+      if (!active.current || token !== request.current || !stillCurrent()) throw new Error('O contexto da nota mudou. Reabra a preparação do produto.');
       return classification as AiClassification;
     } finally {
-      setIsClassifying(false);
+      if (active.current && token === request.current) setIsClassifying(false);
     }
   };
 
   const resetClassification = () => {
+    request.current += 1;
+    setIsClassifying(false);
     setAiClassification(null);
     setClassifyingItem(null);
   };

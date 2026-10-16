@@ -20,7 +20,8 @@ import {
 import type { OrderUpdateOptions } from './orderMutationTypes';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { returnFulfillmentFormSchema, getReturnFulfillmentFormValues, returnFulfillmentReceiptSchema, ReturnFulfillmentUnconfirmedError,
-  type ReturnFulfillmentValues, type ReturnFulfillmentReceipt } from '../../../../../shared-utils/returnFormSchemas';
+  returnCancellationFormSchema, getReturnCancellationFormValues, returnCancellationReceiptSchema, ReturnCancellationUnconfirmedError,
+  type ReturnCancellationValues, type ReturnCancellationReceipt, type ReturnFulfillmentValues, type ReturnFulfillmentReceipt } from '../../../../../shared-utils/returnFormSchemas';
 import {
   applyTestArtifactUpdateRules,
   assertValidMutationScheduling,
@@ -38,6 +39,7 @@ const resolveStatusOnlyOrderDataSnapshot = async (
   initialSnapshot: Record<string, unknown> | undefined,
   cleanUpdates: Record<string, any>,
   isCurrent?: () => boolean,
+  validateSnapshot?: (snapshot: Record<string, unknown>) => void,
 ): Promise<Record<string, unknown>> => {
   let persistedSnapshot = initialSnapshot;
 
@@ -66,6 +68,10 @@ const resolveStatusOnlyOrderDataSnapshot = async (
     }
   }
 
+  if (isCurrent && !persistedSnapshot) {
+    throw new Error('Não foi possível conferir o registro original da devolução comercial. Atualize o histórico antes de confirmar o recebimento.');
+  }
+
   const statusUpdateSnapshot =
     persistedSnapshot ??
     (currentOrder && !currentOrder.updatedAt ? merged : undefined) ??
@@ -76,6 +82,8 @@ const resolveStatusOnlyOrderDataSnapshot = async (
       'Não foi possível preservar o snapshot original do pedido. Atualize a lista e tente novamente.'
     );
   }
+
+  validateSnapshot?.(statusUpdateSnapshot);
 
   return {
     ...statusUpdateSnapshot,
@@ -95,13 +103,25 @@ export const executeUpdateOrder = async (
   currentOrder?: Order,
   expectedUpdatedAt?: string,
   options: OrderUpdateOptions = {}
-): Promise<void | ReturnFulfillmentReceipt> => {
-  const confirmation = options.returnFulfillment;
+): Promise<void | ReturnFulfillmentReceipt | ReturnCancellationReceipt> => {
+  const cancellation = Boolean(options.returnCancellation);
+  const confirmation = options.returnFulfillment ?? options.returnCancellation;
+  const unconfirmed = () => cancellation ? new ReturnCancellationUnconfirmedError() : new ReturnFulfillmentUnconfirmedError();
   const assertCurrent = (committed = false) => {
     if (confirmation && !confirmation.isCurrent()) throw Object.assign(new Error('O contexto da confirmação mudou. Atualize o histórico da devolução comercial.'), { requiresRefresh: committed });
   };
   try {
     assertCurrent();
+    if (confirmation) {
+      const source = cancellation
+        ? returnCancellationFormSchema.parse(getReturnCancellationFormValues(currentOrder ?? {}, true))
+        : returnFulfillmentFormSchema.parse(getReturnFulfillmentFormValues(currentOrder ?? {}, true));
+      if (id !== source.orderId || expectedUpdatedAt !== source.expectedUpdatedAt || options.metadataOnly
+        || (options.returnCancellation && options.returnFulfillment)
+        || orderToUpdate.status !== (cancellation ? 'cancelled' : 'fulfilled') || Object.keys(orderToUpdate).some((key) => key !== 'status')) {
+        throw new Error('A devolução comercial mudou. Reabra a confirmação.');
+      }
+    }
     const { cleanUpdates, isStatusOnlyUpdate } = sanitizeOrderUpdateFields(orderToUpdate);
     let merged: any;
     let previousOrderData: any = currentOrder || null;
@@ -206,6 +226,13 @@ export const executeUpdateOrder = async (
         persistedOrderDataSnapshot,
         cleanUpdates,
         confirmation?.isCurrent,
+        confirmation ? (snapshot) => {
+          const original = { ...currentOrder, ...snapshot, updatedAt: currentOrder?.updatedAt };
+          const parsed = cancellation ? returnCancellationFormSchema.safeParse(getReturnCancellationFormValues(original, true))
+            : returnFulfillmentFormSchema.safeParse(getReturnFulfillmentFormValues(original, true));
+          if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'Confira o registro original da devolução comercial.');
+          if (parsed.data.orderId !== id || parsed.data.returnMethod !== (currentOrder?.returnMethod ?? 'store_collection')) throw new Error('A devolução comercial mudou. Reabra a confirmação.');
+        } : undefined,
       );
     }
 
@@ -219,24 +246,24 @@ export const executeUpdateOrder = async (
     assertCurrent();
     let response;
     if (confirmation) {
-      try { response = await withTimeout(supabase.rpc(rpcName, rpcArguments), 30000, null, 'devolucao:confirmar-recebimento-comercial'); }
-      catch { throw new ReturnFulfillmentUnconfirmedError(); }
-      if (!response || response.status === 0) throw new ReturnFulfillmentUnconfirmedError();
+      try { response = await withTimeout(supabase.rpc(rpcName, rpcArguments), 30000, null, cancellation ? 'devolucao:confirmar-cancelamento-comercial' : 'devolucao:confirmar-recebimento-comercial'); }
+      catch { throw unconfirmed(); }
+      if (!response || response.status === 0) throw unconfirmed();
     } else response = await supabase.rpc(rpcName, rpcArguments);
     const { data: transaction, error: rpcError } = response;
-    if (confirmation && rpcError && (!rpcError.code || rpcError.code.startsWith('08') || ['40003', 'PGRST116'].includes(rpcError.code))) throw new ReturnFulfillmentUnconfirmedError();
+    if (confirmation && rpcError && (!rpcError.code || rpcError.code.startsWith('08') || ['40003', 'PGRST116'].includes(rpcError.code))) throw unconfirmed();
     if (rpcError?.message?.includes('ORDER_VERSION_CONFLICT')) {
       throw new Error(
-        confirmation ? 'A devolução comercial mudou. Atualize o histórico antes de confirmar o recebimento.'
+        confirmation ? 'A devolução comercial mudou. Atualize o histórico antes de confirmar a operação.'
           : 'O pedido mudou durante a conferência fiscal. Reabra a edição para revisar os dados atuais.'
       );
     }
     if (rpcError) throw rpcError;
-    let confirmedReturn: ReturnFulfillmentReceipt | undefined;
+    let confirmedReturn: ReturnFulfillmentReceipt | ReturnCancellationReceipt | undefined;
     if (confirmation) {
-      const receipt = returnFulfillmentReceiptSchema.safeParse(transaction);
+      const receipt = (cancellation ? returnCancellationReceiptSchema : returnFulfillmentReceiptSchema).safeParse(transaction);
       if (!receipt.success || receipt.data.id !== id || receipt.data.order_data.id !== id
-        || (receipt.data.order_data.returnMethod ?? 'store_collection') !== (currentOrder?.returnMethod ?? 'store_collection')) throw new ReturnFulfillmentUnconfirmedError();
+        || (receipt.data.order_data.returnMethod ?? 'store_collection') !== (currentOrder?.returnMethod ?? 'store_collection')) throw unconfirmed();
       confirmedReturn = receipt.data;
       assertCurrent(true);
     }
@@ -249,7 +276,11 @@ export const executeUpdateOrder = async (
       !isIdentifiedTestArtifact(previousOrderData) &&
       !isIdentifiedTestArtifact(merged)
     ) {
-      dispatchOrderUpdateNotifications(id, previousOrderData, merged, oldStatus, newStatus);
+      try { dispatchOrderUpdateNotifications(id, previousOrderData, merged, oldStatus, newStatus); }
+      catch (error) {
+        if (!confirmation) throw error;
+        console.error('[OrderUpdate] A operação comercial foi confirmada, mas houve falha na notificação.', error);
+      }
     }
 
     if (!options.metadataOnly && !isStatusOnlyUpdate && !merged.is_test) {
@@ -278,4 +309,11 @@ export const confirmReturnOrderFulfillment = async (input: ReturnFulfillmentValu
   const source = returnFulfillmentFormSchema.parse(getReturnFulfillmentFormValues(order, values.physicalConfirmed));
   if (values.orderId !== source.orderId || values.returnMethod !== source.returnMethod || values.expectedUpdatedAt !== source.expectedUpdatedAt) throw new Error('A devolução comercial mudou. Reabra a confirmação.');
   return returnFulfillmentReceiptSchema.parse(await executeUpdateOrder(values.orderId, { status: 'fulfilled' }, order, values.expectedUpdatedAt, { returnFulfillment: { isCurrent } }));
+};
+
+export const confirmReturnOrderCancellation = async (input: ReturnCancellationValues, order: Order, isCurrent: () => boolean): Promise<ReturnCancellationReceipt> => {
+  const values = returnCancellationFormSchema.parse(input);
+  const source = returnCancellationFormSchema.parse(getReturnCancellationFormValues(order, values.cancellationConfirmed));
+  if (values.orderId !== source.orderId || values.returnMethod !== source.returnMethod || values.expectedUpdatedAt !== source.expectedUpdatedAt) throw new Error('A devolução comercial mudou. Reabra a confirmação.');
+  return returnCancellationReceiptSchema.parse(await executeUpdateOrder(values.orderId, { status: 'cancelled' }, order, values.expectedUpdatedAt, { returnCancellation: { isCurrent } }));
 };

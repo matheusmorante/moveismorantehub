@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { inboundInvoiceFormSchema } from './inboundInvoiceFormSchema';
 
 const identifier = z.string().trim().min(1, 'Selecione um cadastro válido.');
 const markup = z.string().transform((value) => value.trim() ? Number(value.replace(',', '.')) : undefined)
@@ -24,6 +25,21 @@ export function createInboundFamilyVariationSchema(itemNumbers: readonly number[
     productId: identifier, normalizedParentName: z.string(),
   });
 }
+
+export function createInboundProductPreparationCommandSchema(itemNumbers: readonly number[]) {
+  return createInboundProductPreparationSchema(itemNumbers).safeExtend({
+    item: inboundInvoiceFormSchema.shape.items.element.extend({
+      productDescription: z.string().trim().min(1, 'Informe a descrição do item da nota.'),
+      productCode: z.string().trim(), unit: z.string().trim(), cest: z.string().optional(),
+    }).nullable().refine((value) => value !== null, 'Selecione o item da nota.').transform((value) => value!),
+  }).superRefine((value, ctx) => {
+    if (value.item.itemNumber !== value.itemNumber || value.item.quantity !== value.quantity) {
+      ctx.addIssue({ code: 'custom', path: ['item'], message: 'O item da nota mudou. Reabra a preparação.' });
+    }
+  });
+}
+export type InboundProductPreparationCommand = z.output<ReturnType<typeof createInboundProductPreparationCommandSchema>>;
+export const inboundProductTitleSchema = z.object({ title: z.string().trim().min(1, 'A preparação não retornou um nome válido para o produto.') });
 
 export function createInboundProductLinkSchema(itemNumbers: readonly number[]) {
   return z.object({
