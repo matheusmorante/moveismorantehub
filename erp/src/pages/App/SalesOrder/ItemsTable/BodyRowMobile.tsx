@@ -11,6 +11,8 @@ import ProductAutocomplete from '../../../../components/ProductAutocomplete';
 import ServiceAutocomplete from './ServiceAutocomplete';
 import TemporaryProductWarning from './TemporaryProductWarning';
 import { BodyRowPricing } from './useBodyRowPricing';
+import { getSettings, AppSettings } from '@/pages/utils/settingsService';
+import { isGenericHandlingLabel } from '@/pages/utils/handlingMigration';
 
 const STOCK_ORIGIN_PRODUCT_KINDS = {
   '': ['normal', 'salvado', 'usado'],
@@ -23,6 +25,7 @@ export interface BodyRowViewProps {
   item: Item;
   idx: number;
   deliveryMethod: 'delivery' | 'pickup';
+  settings?: AppSettings;
   isBudget?: boolean;
   isReturn?: boolean;
   hideHandling?: boolean;
@@ -53,6 +56,7 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
   item,
   idx,
   deliveryMethod,
+  settings: propSettings,
   isBudget,
   isReturn,
   shouldHideHandling,
@@ -75,6 +79,7 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
   stockOriginError,
   serviceProductLink,
 }) => {
+  const settings = propSettings || getSettings();
   const {
     tempUnitPrice,
     setTempUnitPrice,
@@ -276,18 +281,47 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
                 Manuseio <span className="text-red-500">*</span>
               </label>
               <select
+                aria-label="Manuseio"
                 className={`w-full bg-slate-50/70 dark:bg-slate-800/40 border px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
                   handlingError
                     ? 'border-red-500 focus:border-red-500'
                     : 'border-slate-200 dark:border-slate-700 focus:border-blue-500'
                 }`}
                 value={item.handlingType || ''}
-                onChange={(e) => onChange(idx, 'handlingType', e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val || item.handlingType === val) return;
+                  onChange(idx, 'handlingType', val);
+                }}
               >
-                <option value="">Selecione</option>
-                <option value="montagem">Montagem</option>
-                <option value="entrega">Entrega sem montagem</option>
-                <option value="sem_manuseio">Sem manuseio</option>
+                <option value="" disabled className="dark:bg-slate-900">
+                  Manuseio...
+                </option>
+                {(() => {
+                  const options =
+                    deliveryMethod === 'pickup'
+                      ? settings.pickupHandlingOptions || []
+                      : settings.deliveryHandlingOptions || [];
+                  const isSelectedInOptions =
+                    item.handlingType && options.some((o) => o.label === item.handlingType);
+
+                  return (
+                    <>
+                      {options.map((opt) => (
+                        <option key={opt.label} value={opt.label} className="dark:bg-slate-900">
+                          {opt.label}
+                        </option>
+                      ))}
+                      {item.handlingType &&
+                        !isSelectedInOptions &&
+                        !isGenericHandlingLabel(item.handlingType) && (
+                          <option value={item.handlingType} className="italic text-slate-400">
+                            {item.handlingType} (Atual)
+                          </option>
+                        )}
+                    </>
+                  );
+                })()}
               </select>
               {handlingError && (
                 <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type Purchase from '@/pages/types/purchase.type';
 import type Product from '@/pages/types/product.type';
 import { subscribeToProducts } from '@/pages/utils/productService';
@@ -6,7 +6,8 @@ import { saveInventoryMove } from '@/pages/utils/inventoryService';
 import { updatePurchase } from '@/pages/utils/purchaseService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { purchaseStockEntryFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
+import { purchaseInventoryEntryFormSchema } from '../../../../../../../shared-utils/inventoryMoveSchemas';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 
 interface PurchaseStockEntryModalProps {
   readonly purchase: Purchase | null;
@@ -14,87 +15,108 @@ interface PurchaseStockEntryModalProps {
   readonly onClose: () => void;
 }
 
-export function PurchaseStockEntryModal({
-  purchase,
-  isOpen,
-  onClose,
-}: PurchaseStockEntryModalProps) {
+export function PurchaseStockEntryModal(props: PurchaseStockEntryModalProps) {
+  return props.isOpen && props.purchase ? <PurchaseStockEntryEditor {...props} purchase={props.purchase}
+    key={JSON.stringify([props.purchase.id, props.purchase.items])} /> : null;
+}
+
+function PurchaseStockEntryEditor({ purchase, onClose }: PurchaseStockEntryModalProps & { purchase: Purchase }) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [date, setDate] = useState('');
-  const [observation, setObservation] = useState('');
+  const [productsLoaded, setProductsLoaded] = useState(false);
+  const [date, setDate] = useState(() => purchase.date?.slice(0, 10) || new Date().toLocaleDateString('en-CA'));
+  const [observation, setObservation] = useState(() =>
+    `Pedido de Compra #${purchase.id?.slice(-4)}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''}${purchase.observation ? ` | ${purchase.observation}` : ''}`);
   const [isSaving, setIsSaving] = useState(false);
-  const form = useZodForm(purchaseStockEntryFormSchema, { date, observation });
+  const [error, setError] = useState('');
+  const [completed, setCompleted] = useState(0);
+  const [blocked, setBlocked] = useState(false);
+  const locked = useRef(false), replayBlocked = useRef(false), mounted = useRef(false);
+  const latest = useRef(purchase); latest.current = purchase;
+  const catalog = useRef({ products, loaded: productsLoaded }); catalog.current = { products, loaded: productsLoaded };
+  const close = () => { if (!locked.current) onClose(); };
+  const values = { date, observation, purchaseId: purchase.id || '', status: purchase.status,
+    stockProcessed: !!purchase.stockProcessed, items: purchase.items };
+  const form = useZodForm(purchaseInventoryEntryFormSchema, values);
 
   useEffect(() => {
-    if (!isOpen) return;
+    mounted.current = true;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !locked.current) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+    return () => { mounted.current = false; window.removeEventListener('keydown', handleKeyDown); };
+  }, [onClose]);
 
   useEffect(() => {
-    if (!isOpen || !purchase) return;
-    setDate(purchase.date?.slice(0, 10) || new Date().toISOString().slice(0, 10));
-    setObservation(
-      `Pedido de Compra #${purchase.id?.slice(-4)}${purchase.invoiceNumber ? ` | NF: ${purchase.invoiceNumber}` : ''}${purchase.observation ? ` | ${purchase.observation}` : ''}`
-    );
-    return subscribeToProducts((data) => setProducts(data.filter((product) => !product.deleted)));
-  }, [isOpen, purchase]);
+    let active = true;
+    const unsubscribe = subscribeToProducts((data) => {
+      if (active) { setProducts(data.filter((product) => !product.deleted)); setProductsLoaded(true); }
+    });
+    return () => { active = false; unsubscribe(); };
+  }, []);
 
   const handleSave = async () => {
-    const validated = await form.validateAndRun({ date, observation }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    if (!purchase || !observation.trim()) {
-      toast.error('Informe a observação da movimentação.');
-      return;
-    }
-    const missingProduct = purchase.items.find(
-      (item) => !products.some((product) => product.id === item.productId)
-    );
-    if (missingProduct) {
-      toast.error(`Produto não encontrado: ${missingProduct.description}.`);
-      return;
-    }
-    setIsSaving(true);
+    if (locked.current || replayBlocked.current) return;
+    locked.current = true; setIsSaving(true); setError(''); setCompleted(0);
+    let confirmed = 0;
     try {
-      for (const item of purchase.items) {
-        const product = products.find((current) => current.id === item.productId);
-        if (!product) continue;
-        const variation = product.variations?.find((current) => current.id === item.variationId);
-        await saveInventoryMove(
-          {
+      await form.validateAndRun(values, async (data) => {
+        if (!mounted.current) return;
+        if (!catalog.current.loaded) { setError('O catálogo ainda não foi carregado. Aguarde ou reabra o formulário.'); return; }
+        const missing = data.items.find((item) => !catalog.current.products.some((product) => product.id === item.productId
+          && (!item.variationId || product.variations?.some((variation) => variation.id === item.variationId))));
+        if (missing) { setError(`Produto ou variação não encontrado: ${missing.description}.`); return; }
+        const movementDate = new Date(`${data.date}T12:00:00`).toISOString();
+        for (const item of data.items) {
+          if (!mounted.current) return;
+          if (latest.current.status === 'cancelled' || latest.current.stockProcessed) throw new Error('O pedido mudou.');
+          const product = catalog.current.products.find((current) => current.id === item.productId);
+          if (!product) throw new Error('O produto não está mais disponível no catálogo.');
+          const variation = product.variations?.find((current) => current.id === item.variationId);
+          if (item.variationId && !variation) throw new Error('A variação não está mais disponível no catálogo.');
+          const result = await withTimeout(saveInventoryMove({
             productId: item.productId,
             variationId: item.variationId,
             productDescription: item.description,
             type: 'entry',
             quantity: item.quantity,
-            date: new Date(`${date}T12:00:00`).toISOString(),
+            date: movementDate,
             label: `Entrada a partir do Pedido #${purchase.purchaseNumber || purchase.id?.slice(-4)}`,
-            observation: validated.observation,
+            observation: data.observation,
             unitCost: item.unitCost,
-            relatedEntityId: purchase.id,
+            relatedEntityId: data.purchaseId,
             relatedEntityType: 'purchase_order',
-          },
-          variation ? Number(variation.stock || 0) : Number(product.stock || 0)
-        );
-      }
-      if (purchase.id) {
-        await updatePurchase(purchase.id, { stockProcessed: true });
-      }
-      toast.success('Movimentações de entrada registradas com sucesso!');
-      onClose();
-    } catch (error: unknown) {
-      console.error('Erro ao registrar movimentações:', error);
-      toast.error('Não foi possível registrar as movimentações.');
+          }, variation ? Number(variation.stock || 0) : Number(product.stock || 0))
+            .then((saved) => ({ saved })), 30_000, null, 'estoque:compra:movimento');
+          if (!mounted.current) return;
+          if (!result?.saved?.id) throw { uncertain: true };
+          confirmed += 1; setCompleted(confirmed);
+        }
+        if (!mounted.current) return;
+        const result = await withTimeout(updatePurchase(data.purchaseId, { stockProcessed: true }).then(() => true),
+          30_000, false, 'estoque:compra:conclusao');
+        if (!mounted.current) return;
+        if (!result) throw { uncertain: true };
+        toast.success('Movimentações de entrada registradas com sucesso!'); onClose();
+      }, (errors) => {
+        if (!mounted.current) return;
+        const [path, message] = Object.entries(flattenFormErrors(errors))[0] || [];
+        setError(path?.startsWith('items_') ? `Confira os itens do pedido. ${message}` : message || 'Confira os dados da entrada.');
+      });
+    } catch (cause) {
+      if (!mounted.current) return;
+      const details = cause as { uncertain?: boolean; persistedMoveId?: string };
+      if (confirmed || details?.uncertain || cause instanceof TypeError) {
+        replayBlocked.current = true; setBlocked(true);
+        const pending = details?.persistedMoveId ? ' Um movimento foi gravado com saldo pendente.'
+          : details?.uncertain || cause instanceof TypeError ? ' O resultado da última operação não foi confirmado.' : '';
+        setError(`${confirmed} de ${purchase.items.length} movimentos concluídos.${pending} Consulte os movimentos e o pedido antes de repetir.`);
+      } else setError('Não foi possível registrar as entradas. Confira os dados e as permissões.');
     } finally {
-      setIsSaving(false);
+      locked.current = false;
+      if (mounted.current) setIsSaving(false);
     }
   };
-
-  if (!isOpen || !purchase) return null;
 
   return (
     <div
@@ -107,7 +129,7 @@ export function PurchaseStockEntryModal({
         type="button"
         aria-label="Fechar"
         className="absolute inset-0 bg-slate-900/60 cursor-default"
-        onClick={onClose}
+        onClick={close}
       />
       <div className="relative flex h-full w-full flex-col overflow-hidden rounded-none border-0 bg-white shadow-2xl dark:bg-slate-900 xl:h-auto xl:max-h-[90vh] xl:max-w-2xl xl:rounded-[2rem] xl:border xl:border-slate-100 xl:dark:border-slate-800">
         <header className="flex shrink-0 items-center justify-between bg-emerald-600 p-6 text-white">
@@ -121,7 +143,7 @@ export function PurchaseStockEntryModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label="Fechar"
             className="rounded-xl p-2 hover:bg-white/10 transition-colors"
           >
@@ -129,6 +151,8 @@ export function PurchaseStockEntryModal({
           </button>
         </header>
         <div className="flex-1 space-y-5 overflow-y-auto p-6">
+          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+          {isSaving && <p role="status" className="text-sm animate-pulse">Validando e gravando entradas: {completed} de {purchase.items.length} movimentos concluídos…</p>}
           <div className="grid grid-cols-3 gap-3">
             <button
               type="button"
@@ -169,9 +193,9 @@ export function PurchaseStockEntryModal({
                 </tr>
               </thead>
               <tbody>
-                {purchase.items.map((item) => (
+                {purchase.items.map((item, index) => (
                   <tr
-                    key={`${item.productId}-${item.variationId || ''}`}
+                    key={`${item.productId}-${item.variationId || ''}-${index}`}
                     className="border-t border-slate-100 dark:border-slate-800"
                   >
                     <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-100">
@@ -188,6 +212,7 @@ export function PurchaseStockEntryModal({
               Data
               <input
                 type="date"
+                disabled={isSaving || blocked}
                 value={date}
                 onChange={(event) => setDate(event.target.value)}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-700 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-colors"
@@ -196,6 +221,7 @@ export function PurchaseStockEntryModal({
             <label className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 sm:col-span-2">
               Observação
               <textarea
+                disabled={isSaving || blocked}
                 value={observation}
                 onChange={(event) => setObservation(event.target.value)}
                 rows={2}
@@ -205,7 +231,7 @@ export function PurchaseStockEntryModal({
           </div>
           <button
             type="button"
-            disabled={isSaving}
+            disabled={isSaving || blocked}
             onClick={handleSave}
             className="w-full rounded-2xl bg-emerald-600 py-4 text-xs font-black uppercase tracking-widest text-white transition-colors hover:bg-emerald-700 disabled:opacity-60 shadow-md"
           >

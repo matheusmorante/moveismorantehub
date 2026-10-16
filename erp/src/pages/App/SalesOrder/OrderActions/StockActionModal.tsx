@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Order from '../../../types/order.type';
 import { saveInventoryMove } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { inventoryReversalFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
+import { orderInventoryActionFormSchema } from '../../../../../../shared-utils/inventoryMoveSchemas';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import { formatOrderCode } from '@/pages/utils/orderCode';
 import { isStockEligibleSaleItem } from '@/pages/utils/saleInventoryRules';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface Props {
   readonly isOpen: boolean;
@@ -14,23 +16,33 @@ interface Props {
   readonly type: 'withdrawal' | 'entry'; // withdrawal = lancar saida, entry = estornar (volta pro estoque)
 }
 
-const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
+const StockActionModal = (props: Props) => {
+  if (!props.isOpen) return null;
+  const items = (props.order.items || []).filter(isStockEligibleSaleItem).map((item) => ({
+    productId: item.productId, variationId: item.variationId || undefined,
+    productDescription: item.description, quantity: item.quantity, unitPrice: item.unitPrice,
+  }));
+  return <StockActionEditor key={JSON.stringify([props.order.id, props.type, items])} {...props} items={items} />;
+};
+function StockActionEditor({ onClose, order, type, items }: Props & {
+  items: { productId: string; variationId?: string; productDescription: string; quantity: number; unitPrice?: number }[];
+}) {
+  useBodyScrollLock(true);
   const [observation, setObservation] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const form = useZodForm(inventoryReversalFormSchema, { reason: observation });
-
+  const [error, setError] = useState('');
+  const [uncertain, setUncertain] = useState(false);
+  const [completed, setCompleted] = useState(0);
+  const locked = useRef(false), blocked = useRef(false), mounted = useRef(false);
+  const values = { reason: observation, orderId: order.id || '', type, items };
+  const form = useZodForm(orderInventoryActionFormSchema, values);
+  const close = () => { if (!locked.current) onClose(); };
   useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
+    mounted.current = true;
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !locked.current) onClose(); };
+    window.addEventListener('keydown', escape);
+    return () => { mounted.current = false; window.removeEventListener('keydown', escape); };
+  }, [onClose]);
 
   const title =
     type === 'withdrawal' ? 'Lançar Saída de Estoque' : 'Estornar Lançamento de Estoque';
@@ -40,60 +52,55 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
     type === 'withdrawal' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700';
 
   const handleConfirm = async () => {
-    const validated = await form.validateAndRun({ reason: observation }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-
-    const catalogItems = order.items.filter(isStockEligibleSaleItem);
-    if (catalogItems.length === 0) {
-      toast.error('Não há itens vinculados ao catálogo para movimentar no estoque.');
-      return;
-    }
-
-    setIsSaving(true);
+    if (locked.current || blocked.current) return;
+    locked.current = true; setIsSaving(true); setError(''); setCompleted(0);
+    let confirmed = 0;
     try {
-      // Record a move for each item in the order
-      const moves = catalogItems.map((item) => ({
-        productId: item.productId!,
-        variationId: item.variationId,
-        productDescription: item.description,
-        type: type,
-        quantity: item.quantity,
-        date: new Date().toISOString(),
-        label:
-          type === 'withdrawal'
-            ? `Saída - Pedido #${formatOrderCode(order)}`
-            : `Estorno - Pedido #${formatOrderCode(order)}`,
-        observation: validated.reason,
-        unitPrice: item.unitPrice,
-        relatedEntityId: order.id,
-        relatedEntityType: 'sales_order' as const,
-      }));
-
-      // Execute moves
-      for (const move of moves) {
-        await saveInventoryMove(move, 0);
-      }
-
-      toast.success(
-        `${type === 'withdrawal' ? 'Saída lançada' : 'Estorno realizado'} com sucesso!`
-      );
-      onClose();
-    } catch (error: unknown) {
-      console.error('Erro ao processar estoque:', error);
-      toast.error('Erro ao processar movimentação de estoque.');
+      await form.validateAndRun(values, async (data) => {
+        const date = new Date().toISOString();
+        for (const item of data.items) {
+          if (!mounted.current) return;
+          const move = { ...item, type: data.type, date,
+            label: data.type === 'withdrawal' ? `Saída - Pedido #${formatOrderCode(order)}` : `Estorno - Pedido #${formatOrderCode(order)}`,
+            observation: data.reason, relatedEntityId: data.orderId, relatedEntityType: 'sales_order' as const,
+          };
+          const response = await withTimeout(saveInventoryMove(move, 0).then((saved) => ({ saved })), 30_000, null, 'estoque:pedido');
+          if (!mounted.current) return;
+          if (!response?.saved?.id) throw { uncertain: true };
+          confirmed += 1; setCompleted(confirmed);
+        }
+        if (!mounted.current) return;
+        toast.success(`${data.type === 'withdrawal' ? 'Saída lançada' : 'Estorno realizado'} com sucesso!`);
+        onClose();
+      }, (errors) => {
+        if (!mounted.current) return;
+        const [field, detail] = Object.entries(flattenFormErrors(errors))[0] || ['', 'Confira a movimentação.'];
+        const itemIndex = /^items_(\d+)_/.exec(field)?.[1];
+        const message = itemIndex === undefined ? detail : `Item ${Number(itemIndex) + 1}: ${detail} Revise os itens do pedido.`;
+        setError(message); toast.error(message);
+      });
+    } catch (cause) {
+      if (!mounted.current) return;
+      const details = cause as { uncertain?: boolean; persistedMoveId?: string };
+      const unknown = details?.uncertain || cause instanceof TypeError;
+      const unresolved = confirmed > 0 || unknown;
+      if (unresolved) { blocked.current = true; setUncertain(true); }
+      setError(unresolved
+        ? `${confirmed} de ${items.length} movimentos concluídos. ${details?.persistedMoveId ? 'Outro movimento foi gravado com saldo pendente.' : unknown ? 'O resultado do próximo movimento não foi confirmado.' : 'O lote foi interrompido antes de concluir os movimentos restantes.'} Consulte os movimentos e os saldos antes de repetir.`
+        : 'Não foi possível gravar a movimentação. Confira os dados e as permissões.');
     } finally {
-      setIsSaving(false);
+      locked.current = false;
+      if (mounted.current) setIsSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 overscroll-contain overflow-y-auto">
       <button
         type="button"
         aria-label="Fechar modal de movimentação de estoque"
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
+        onClick={close}
       />
       <div
         role="dialog"
@@ -119,7 +126,7 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
           <button
             type="button"
             aria-label="Fechar"
-            onClick={onClose}
+            onClick={close}
             className="p-2 hover:bg-white/10 rounded-full transition-colors"
           >
             <i className="bi bi-x-lg text-xl" />
@@ -127,6 +134,8 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
         </div>
 
         <div className="p-8 flex flex-col gap-6">
+          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+          {isSaving && <p role="status" className="text-sm animate-pulse">Gravando movimentos: {completed} de {items.length} concluídos…</p>}
           <div className="flex flex-col gap-2">
             <label
               htmlFor="stock-action-reason"
@@ -138,6 +147,7 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
             <textarea
               id="stock-action-reason"
               autoFocus
+              disabled={isSaving || uncertain}
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
               placeholder="Descreva o motivo desta ação..."
@@ -157,7 +167,7 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
         <div className="p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex justify-end gap-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all"
           >
             Cancelar
@@ -165,7 +175,7 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={isSaving}
+            disabled={isSaving || uncertain}
             className={`px-8 py-3 ${color} text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-200 dark:shadow-none`}
           >
             {isSaving && (
@@ -177,6 +187,6 @@ const StockActionModal = ({ isOpen, onClose, order, type }: Props) => {
       </div>
     </div>
   );
-};
+}
 
 export default StockActionModal;

@@ -4,7 +4,6 @@ import { toast } from 'react-toastify';
 import type {
   AuditItem,
   InventoryAuditSession,
-  InventorySnapshotItem,
 } from '../types/inventoryAudit.types';
 import type { ScopeConfiguration } from '../types/inventoryScope.types';
 import { getEmployeeDisplayName } from '../utils/employeeDisplayName';
@@ -14,6 +13,7 @@ import { finalizeWebInventory } from '../services/finalizeWebInventory';
 import { getInventorySubmission } from '../services/inventoryOutbox';
 import { ensureOfflineInventoryCatalogSynced } from '../services/offlineInventoryCatalog';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import {
   inventoryAuditCompletionSchema,
   inventoryAuditDraftSchema,
@@ -27,8 +27,7 @@ const rejectInvalidSnapshot = (errors: Parameters<typeof flattenFormErrors>[0]) 
 export const useInventoryAuditWorkflow = (
   isOpen: boolean,
   onClose: () => void,
-  editingSession?: InventoryAuditSession | null,
-  copiedItems?: readonly InventorySnapshotItem[] | null
+  editingSession?: InventoryAuditSession | null
 ) => {
   const { allProducts, suppliers, employees, getSupplierNames, catalogSyncedAt } =
     useInventoryAuditData(isOpen);
@@ -39,6 +38,8 @@ export const useInventoryAuditWorkflow = (
   // Operation State
   const [items, setItemsState] = useState<AuditItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [operationError, setOperationError] = useState('');
+  const [isRestoring, setIsRestoring] = useState(true);
   const [scopeConfig, setScopeConfig] = useState<{
     name: string;
     responsibleId: string;
@@ -56,6 +57,28 @@ export const useInventoryAuditWorkflow = (
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const writeErrorRef = useRef<unknown>(null);
   const initializedSessionRef = useRef<string | null>(null);
+  const ownerKey = JSON.stringify([isOpen, editingSession?.id || 'new']);
+  const owner = useRef({ key: ownerKey, open: isOpen, draftUncertain: false, finalized: false });
+  if (owner.current.key !== ownerKey) owner.current = { key: ownerKey, open: isOpen, draftUncertain: false, finalized: false };
+  const renderOwner = owner.current;
+  const readyOwner = useRef<typeof owner.current | null>(null);
+  const restoreInputs = useRef({ editingSession, allProducts, getSupplierNames });
+  restoreInputs.current = { editingSession, allProducts, getSupplierNames };
+  const mounted = useRef(false);
+  const operation = useRef<typeof owner.current | null>(null);
+  const uncertainCompletion = useRef<typeof owner.current | null>(null);
+  const isCurrent = (captured: typeof owner.current) => mounted.current && captured.open && captured === owner.current;
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => { setIsSaving(false); setOperationError(''); }, [ownerKey]);
+  const beginOperation = () => {
+    if (!isCurrent(renderOwner) || readyOwner.current !== renderOwner || renderOwner.draftUncertain || operation.current === owner.current) return null;
+    operation.current = owner.current; setIsSaving(true); setOperationError(''); return owner.current;
+  };
+  const finishOperation = (captured: typeof owner.current) => {
+    if (operation.current !== captured) return;
+    operation.current = null;
+    if (isCurrent(captured)) setIsSaving(false);
+  };
   const { validateAndRun: validateDraft } = useZodForm(inventoryAuditDraftSchema, {
     id: '', code: '', date: '', name: '', responsibleId: '', hasStages: false,
     status: 'in_progress', items: [], updatedAt: '',
@@ -93,20 +116,24 @@ export const useInventoryAuditWorkflow = (
   const persistItems = useCallback((nextItems: AuditItem[]) => {
     const snapshot = getDraftSnapshot(nextItems);
     if (!snapshot) return;
+    const captured = owner.current;
     const write = writeQueueRef.current.then(async () => {
       const result = await validateDraft(snapshot, async (values) => {
-        await saveWebInventoryDraft(values);
+        if (captured.draftUncertain) throw new Error('A gravação anterior do rascunho não foi confirmada.');
+        const confirmed = await withTimeout(saveWebInventoryDraft(values).then(() => true), 15_000, false, 'inventario:rascunho');
+        if (!confirmed) { captured.draftUncertain = true; throw new Error('Não foi possível confirmar o rascunho neste navegador.'); }
         return true;
       }, rejectInvalidSnapshot);
       if (!result) throw new Error('Não foi possível validar a contagem local.');
     });
     writeQueueRef.current = write.then(
       () => {
-        writeErrorRef.current = null;
+        if (captured === owner.current) writeErrorRef.current = null;
       },
       (error) => {
+        if (captured !== owner.current || !mounted.current) return;
         writeErrorRef.current = error;
-        console.error('Falha ao salvar contagem local:', error);
+        setOperationError('Não foi possível confirmar a contagem neste navegador. Confira o rascunho antes de sair.');
         toast.error('Não foi possível salvar a contagem neste navegador.');
       }
     );
@@ -114,6 +141,9 @@ export const useInventoryAuditWorkflow = (
 
   const setItems: React.Dispatch<React.SetStateAction<AuditItem[]>> = useCallback(
     (nextValue) => {
+      if (!mounted.current || !renderOwner.open || renderOwner !== owner.current || readyOwner.current !== renderOwner) return;
+      if (renderOwner.draftUncertain) { toast.error('A gravação anterior não foi confirmada. Confira o rascunho e reabra o inventário.'); return; }
+      if (operation.current === owner.current) return;
       if (frozenSubmissionRef.current) {
         toast.error('Esta conclusão já foi salva. Retome o envio sem alterar a contagem.');
         return;
@@ -123,11 +153,12 @@ export const useInventoryAuditWorkflow = (
       setItemsState(next);
       persistItems(next);
     },
-    [persistItems]
+    [persistItems, renderOwner]
   );
 
   const flushLocalWrites = useCallback(async () => {
-    await writeQueueRef.current;
+    const completed = await withTimeout(writeQueueRef.current.then(() => true), 20_000, false, 'inventario:fila');
+    if (!completed) throw new Error('A gravação local ainda não foi confirmada.');
     if (writeErrorRef.current) throw writeErrorRef.current;
   }, []);
 
@@ -135,17 +166,26 @@ export const useInventoryAuditWorkflow = (
   useEffect(() => {
     if (!isOpen) {
       initializedSessionRef.current = null;
+      readyOwner.current = null; setIsRestoring(false);
       return;
     }
     const sessionKey = editingSession?.id || 'new';
     if (initializedSessionRef.current === sessionKey) return;
     let cancelled = false;
+    readyOwner.current = null; setIsRestoring(true);
+    writeErrorRef.current = null;
     const restore = async () => {
+      const { editingSession, allProducts, getSupplierNames } = restoreInputs.current;
       if (editingSession) {
-        const local = await getWebInventoryDraft(editingSession.id);
+        const restored = await withTimeout(getWebInventoryDraft(editingSession.id).then((draft) => ({ draft })), 15_000, null, 'inventario:restaurar');
         if (cancelled) return;
+        if (!restored) throw new Error('Não foi possível consultar o rascunho salvo.');
+        const local = restored.draft;
         if (local) {
-          frozenSubmissionRef.current = Boolean(await getInventorySubmission(local.id));
+          const submission = await withTimeout(getInventorySubmission(local.id).then((pending) => ({ pending })), 15_000, null, 'inventario:submissao-salva');
+          if (cancelled) return;
+          if (!submission) throw new Error('Não foi possível conferir a submissão salva.');
+          frozenSubmissionRef.current = Boolean(submission.pending);
           draftRef.current = {
             id: local.id,
             code: local.code,
@@ -167,9 +207,9 @@ export const useInventoryAuditWorkflow = (
           setScopeConfig(config);
           setView('operation');
           initializedSessionRef.current = sessionKey;
+          readyOwner.current = renderOwner; setIsRestoring(false);
           return;
         }
-        if (!allProducts.length || !suppliers.length) return;
         const restoredItems = editingSession.items.map((source) => {
           const product = allProducts.find((item) => String(item.id) === String(source.productId));
           return {
@@ -219,21 +259,30 @@ export const useInventoryAuditWorkflow = (
         setView('scope');
       }
       initializedSessionRef.current = sessionKey;
+      readyOwner.current = renderOwner; setIsRestoring(false);
     };
     void restore().catch((error) => {
-      console.error('Falha ao restaurar inventário local:', error);
+      if (cancelled) return;
+      setOperationError(error instanceof Error ? error.message : 'Não foi possível recuperar a contagem salva neste navegador.');
+      setIsRestoring(false);
       toast.error('Não foi possível recuperar a contagem salva neste navegador.');
     });
     return () => {
       cancelled = true;
     };
-  }, [isOpen, editingSession, allProducts, suppliers, copiedItems, getSupplierNames, persistItems]);
+  }, [isOpen, ownerKey, renderOwner, editingSession?.id, persistItems]);
 
-  const handleConfirmScope = (nextConfig: ScopeConfiguration) => validateScope({
+  const handleConfirmScope = async (nextConfig: ScopeConfiguration) => {
+    const captured = beginOperation();
+    if (!captured) return false;
+    try {
+      return await validateScope({
     ...nextConfig, supplierId: nextConfig.supplierId ?? '', itemsSnapshot: nextConfig.itemsSnapshot.map((item) => ({ ...item })),
   }, async (config) => {
+    if (!isCurrent(captured)) return false;
     frozenSubmissionRef.current = false;
-    await ensureOfflineInventoryCatalogSynced();
+    await withTimeout(ensureOfflineInventoryCatalogSynced(), 15_000, null, 'inventario:catalogo');
+    if (!isCurrent(captured)) return false;
     const initialItems = config.itemsSnapshot.map((snapshot) => ({
       id: createItemId(),
       key: `${snapshot.productId}-${snapshot.variationId || 'main'}`,
@@ -260,13 +309,14 @@ export const useInventoryAuditWorkflow = (
       responsibleId: config.responsibleId,
       responsibleName: responsible ? getEmployeeDisplayName(responsible) : undefined,
     };
-    const auditId = crypto.randomUUID();
-    let code: string;
+    const auditId = draftRef.current.id || crypto.randomUUID();
+    let code = draftRef.current.code || '';
     try {
-      code = await getNextInventoryCode();
+      if (!code) code = await withTimeout(getNextInventoryCode(), 10_000, '', 'inventario:codigo');
     } catch {
       code = `LOCAL-${auditId.slice(0, 8)}`;
     }
+    if (!isCurrent(captured)) return false;
     if (!code) code = `LOCAL-${auditId.slice(0, 8)}`;
     draftRef.current = { id: auditId, code, date: new Date().toISOString() };
     scannedLabelsRef.current.clear();
@@ -275,35 +325,48 @@ export const useInventoryAuditWorkflow = (
     latestItemsRef.current = initialItems;
     setItemsState(initialItems);
     persistItems(initialItems);
-    try {
-      await flushLocalWrites();
-      setView('operation');
+    await flushLocalWrites();
+    if (!isCurrent(captured)) return false;
+    setView('operation'); return true;
+  }, (errors) => {
+    if (!isCurrent(captured)) return;
+    const message = Object.values(flattenFormErrors(errors))[0] || 'Confira o escopo do inventário.';
+    setOperationError(message); toast.error(message);
+  });
     } catch {
-      toast.error('Não foi possível iniciar o inventário: armazenamento local indisponível.');
-    }
-  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira o escopo do inventário.'));
+      if (isCurrent(captured)) {
+        setOperationError('Não foi possível iniciar o inventário: armazenamento local indisponível.');
+        toast.error('Não foi possível iniciar o inventário: armazenamento local indisponível.');
+      }
+      return false;
+    } finally { finishOperation(captured); }
+  };
 
-  const saveDraft = useCallback(
-    async (closeAfterSave = false) => {
-      setIsSaving(true);
+  const saveDraft = async (closeAfterSave = false) => {
+      const captured = beginOperation();
+      if (!captured) return false;
       try {
         await flushLocalWrites();
+        if (!isCurrent(captured)) return false;
         const snapshot = getDraftSnapshot(latestItemsRef.current);
-        if (snapshot && !await validateDraft(snapshot, () => true, rejectInvalidSnapshot)) return false;
-        if (closeAfterSave) onClose();
-        return true;
-      } catch (error: unknown) {
-        console.error('Erro ao salvar rascunho da contagem:', error);
+        if (!snapshot) throw new Error('Rascunho não identificado.');
+        return await validateDraft(snapshot, () => {
+          if (!isCurrent(captured)) return false;
+          if (closeAfterSave) onClose();
+          return true;
+        }, rejectInvalidSnapshot);
+      } catch {
+        if (!isCurrent(captured)) return false;
+        setOperationError('Não foi possível salvar o rascunho do inventário.');
         toast.error('Não foi possível salvar o rascunho do inventário.');
         return false;
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [flushLocalWrites, getDraftSnapshot, onClose, validateDraft]
-  );
+      } finally { finishOperation(captured); }
+  };
 
   const incrementScannedItem = async (itemId: string, labelId?: string): Promise<number | null> => {
+    if (!isCurrent(renderOwner) || readyOwner.current !== renderOwner || renderOwner.draftUncertain) return null;
+    if (operation.current === owner.current) return null;
+    const captured = owner.current;
     if (frozenSubmissionRef.current) {
       toast.error('Esta conclusão já foi salva. Retome o envio sem alterar a contagem.');
       return null;
@@ -321,22 +384,30 @@ export const useInventoryAuditWorkflow = (
       )
     );
     await flushLocalWrites();
-    return count;
+    return isCurrent(captured) ? count : null;
   };
 
   const handleFinalize = async (
     itemsWithAdjustment: Array<AuditItem & { reconciledExpected: number; difference: number }>
   ) => {
-    if (!scopeConfig) return;
-
-    setIsSaving(true);
+    if (!isCurrent(renderOwner) || readyOwner.current !== renderOwner || renderOwner.finalized) return false;
+    if (!scopeConfig || uncertainCompletion.current === owner.current) {
+      setOperationError('Confira a submissão salva e reabra o inventário antes de tentar concluir.'); return false;
+    }
+    const captured = beginOperation();
+    if (!captured) return false;
+    const previouslyFrozen = frozenSubmissionRef.current;
+    frozenSubmissionRef.current = true;
+    let attempted = false, timedOut = false, succeeded = false;
     try {
       await flushLocalWrites();
-      await validateCompletion({
+      if (!isCurrent(captured)) return false;
+      return await validateCompletion({
         id: draftRef.current.id || '', code: draftRef.current.code || '',
         items: latestItemsRef.current.map((item) => ({ ...item })),
         adjustments: itemsWithAdjustment.map((item) => ({ ...item, physicalCount: item.physicalCount! })),
       }, async (values) => {
+      if (!isCurrent(captured)) return false;
       const auditId = values.id;
       const code = values.code;
       const responsible = employees.find(
@@ -374,25 +445,39 @@ export const useInventoryAuditWorkflow = (
           })
         ),
       };
-      await finalizeWebInventory(auditId, code, auditObservation, values.adjustments);
+      attempted = true;
+      const confirmed = await withTimeout(finalizeWebInventory(auditId, code, auditObservation, values.adjustments).then(() => true),
+        30_000, false, 'inventario:concluir');
+      if (!isCurrent(captured)) return false;
+      if (!confirmed) { timedOut = true; throw new Error('Conclusão sem confirmação.'); }
+      succeeded = true;
+      captured.finalized = true;
 
       toast.success(
         `Inventário #${code} finalizado! ${values.items.length} produto(s) contados e ${values.adjustments.length} ajuste(s) lançados no estoque. ✨`
       );
       onClose();
-      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira as contagens do inventário.'));
-    } catch (error: unknown) {
-      console.error('Erro ao salvar inventário:', error);
-      const pending =
-        draftRef.current.id &&
-        (await getInventorySubmission(draftRef.current.id).catch(() => null));
-      toast.error(
-        pending
+      return true;
+      }, (errors) => {
+        if (!isCurrent(captured)) return;
+        const message = Object.values(flattenFormErrors(errors))[0] || 'Confira as contagens do inventário.';
+        setOperationError(message); toast.error(message);
+      });
+    } catch {
+      if (!isCurrent(captured)) return false;
+      const lookup = attempted && draftRef.current.id ? await withTimeout(getInventorySubmission(draftRef.current.id)
+        .then((pending) => ({ pending })).catch(() => null), 5_000, null, 'inventario:conferir-submissao') : { pending: null };
+      if (!isCurrent(captured)) return false;
+      frozenSubmissionRef.current = previouslyFrozen || timedOut || !lookup || Boolean(lookup.pending);
+      if (timedOut || !lookup) uncertainCompletion.current = captured;
+      const message = timedOut || !lookup ? 'A conclusão não foi confirmada. Confira a submissão salva e reabra o inventário antes de repetir.'
+        : lookup.pending
           ? 'Submissão salva neste navegador. Retome o inventário para tentar enviar novamente.'
-          : 'Erro ao processar as movimentações de inventário.'
-      );
+          : 'Erro ao processar as movimentações de inventário.';
+      setOperationError(message); toast.error(message); return false;
     } finally {
-      setIsSaving(false);
+      if (isCurrent(captured) && !attempted && !succeeded) frozenSubmissionRef.current = previouslyFrozen;
+      finishOperation(captured);
     }
   };
 
@@ -410,6 +495,9 @@ export const useInventoryAuditWorkflow = (
     scopeConfig,
     draftRef,
     isSaving,
+    operationError,
+    isRestoring,
+    isReady: readyOwner.current === renderOwner,
     hasChanges,
     handleConfirmScope,
     handleFinalize,

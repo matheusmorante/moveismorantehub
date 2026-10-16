@@ -113,7 +113,7 @@ export const buildCustomerOrderMessage = (order: Order) => {
   const date =
     sched?.dateType === 'range' && sched?.endDate
       ? `de ${formatDate(sched.date)} até ${formatDate(sched.endDate)}`
-      : formatDate(order.shipping.scheduling.date);
+      : formatDate(sched?.date);
 
   let time = 'Não informado';
   if (sched) {
@@ -124,8 +124,9 @@ export const buildCustomerOrderMessage = (order: Order) => {
     else if (sched.time) time = sched.time;
   }
   const customer = order.customerData;
-
-  const message = settings.whatsappTemplates?.orderConfirmation || '';
+  const defaultTemplate =
+    '*Olá {{customerName}}, seu pedido foi confirmado!* 📦\n\n*Vendedor:* {{seller}}\n\n*Anote aí, a sua entrega está agendada para:* \n{{deliveryDate}} | {{deliveryTime}}\n\n*Endereço:* \n{{address}}\n\n*Itens:* \n{{items}}\n\n*Valor Total:* R$ {{totalValue}}\n\n*Pagamento:* \n{{payments}}';
+  const message = settings.whatsappTemplates?.orderConfirmation || defaultTemplate;
 
   let itemsBlock = stringifyItemsWithValues(order.items || []);
   if (order.shipping?.value && order.shipping.value > 0) {

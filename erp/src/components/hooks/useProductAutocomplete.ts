@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import Product, { ProductKind } from '../../pages/types/product.type';
-import { getProductKind, isNonConventionalProduct } from '../../pages/utils/productKindRules';
+import { getProductKind } from '../../pages/utils/productKindRules';
+import { useZodForm, flattenFormErrors } from '@/hooks/useZodForm';
+import { productAutocompleteFormSchema } from '../../../../shared-utils/productAutocompleteFormSchema';
+import { withTimeout } from '../../../../shared-utils/withTimeout';
 import {
   fetchAllProductSearchResults,
   getVariationDisplayName,
@@ -18,6 +21,7 @@ interface UseProductAutocompleteProps {
   localProducts?: Product[];
   onChange?: (value: string) => void;
   excludeCombos?: boolean;
+  disabled?: boolean;
 }
 
 export function useProductAutocomplete({
@@ -30,21 +34,30 @@ export function useProductAutocomplete({
   localProducts,
   onChange,
   excludeCombos = false,
+  disabled = false,
 }: UseProductAutocompleteProps) {
-  const [query, setQuery] = useState(value);
+  const [query, changeQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const generation = useRef(0), renderedGeneration = generation.current;
+  const context = JSON.stringify([query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds, disabled]);
+  const latest = useRef({ context, localProducts }); latest.current = { context, localProducts };
+  const { validateValues } = useZodForm(productAutocompleteFormSchema, { query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds });
+  const setQuery = (next: string) => {
+    generation.current += 1; changeQuery(next); setSuggestions([]); setSearchError(''); setIsLoading(next.trim().length >= 3 && !disabled);
+  };
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setQuery(value);
+    generation.current += 1; changeQuery(value); setSuggestions([]); setSearchError('');
   }, [value]);
 
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    const handleProductUpdated = () => setRefreshKey((k) => k + 1);
+    const handleProductUpdated = () => { generation.current += 1; setSuggestions([]); setRefreshKey((k) => k + 1); };
     if (typeof window !== 'undefined') {
       window.addEventListener('product-updated', handleProductUpdated);
       return () => window.removeEventListener('product-updated', handleProductUpdated);
@@ -63,10 +76,11 @@ export function useProductAutocomplete({
 
   useEffect(() => {
     let active = true;
+    setSuggestions([]); setSearchError('');
+    setIsLoading(!disabled && query.trim().length >= 3);
 
     const fetchSuggestions = async () => {
-      const trimmed = query.trim();
-      if (trimmed.length < 3) {
+      if (disabled || query.trim().length < 3) {
         if (active) {
           setSuggestions([]);
           setIsLoading(false);
@@ -76,14 +90,21 @@ export function useProductAutocomplete({
 
       if (active) setIsLoading(true);
       try {
+        const values = await validateValues({ query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds }, (errors) => {
+          if (active) setSearchError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da busca.');
+        });
+        if (!values || !active) return;
+        const { query: trimmed, supplierId: parsedSupplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds } = values;
         const words = trimmed.split(/\s+/).filter((w) => w.length > 0);
-        const productsData = localProducts?.length
+        const productsData = localProducts !== undefined
           ? localProducts
-          : await fetchAllProductSearchResults(
+          : await withTimeout(fetchAllProductSearchResults(
               trimmed,
-              supplierId || undefined,
+              parsedSupplierId,
               includeDeactivated
-            );
+            ), 10000, null, 'autocomplete:produtos');
+        if (!active) return;
+        if (!Array.isArray(productsData)) throw new Error('A busca de produtos não foi confirmada. Consulte novamente.');
         const items: SuggestionItem[] = [];
         const searchNormWords = words.map(normalizeProductSearch);
 
@@ -105,12 +126,11 @@ export function useProductAutocomplete({
             p.supplierId ||
             (p as any).main_supplier_id ||
             (p as any).supplier_id;
-          if (supplierId && !supplierIds.includes(supplierId) && prodSupplierId !== supplierId) {
+          if (parsedSupplierId && !supplierIds.includes(parsedSupplierId) && prodSupplierId !== parsedSupplierId) {
             return;
           }
 
           const variations = p.variations || [];
-          const isNonConventional = isNonConventionalProduct(p);
           const parentIsSelectable = allowedProductKinds
             ? isSalvado || p.active !== false
             : includeDeactivated || p.active !== false;
@@ -159,8 +179,8 @@ export function useProductAutocomplete({
         if (active) {
           setSuggestions(items.slice(0, 15));
         }
-      } catch (error) {
-        if (active) console.error('Erro ao buscar sugestoes:', error);
+      } catch {
+        if (active) setSearchError('Não foi possível buscar produtos. Consulte novamente.');
       } finally {
         if (active) {
           setIsLoading(false);
@@ -183,6 +203,8 @@ export function useProductAutocomplete({
     allowedProductKinds,
     localProducts,
     refreshKey,
+    disabled,
+    validateValues,
   ]);
 
   const handleQueryChange = (val: string) => {
@@ -200,5 +222,8 @@ export function useProductAutocomplete({
     showSuggestions,
     setShowSuggestions,
     wrapperRef,
+    searchError,
+    retrySearch: () => { generation.current += 1; setSuggestions([]); setIsLoading(true); setRefreshKey((value) => value + 1); },
+    isCurrentSuggestion: (item: SuggestionItem) => !disabled && renderedGeneration === generation.current && latest.current.context === context && latest.current.localProducts === localProducts && !isLoading && !searchError && suggestions.includes(item),
   };
 }

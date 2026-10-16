@@ -220,8 +220,9 @@ export const LabelGridModelToolbar: React.FC<LabelGridModelToolbarProps> = ({
           <input
             disabled={state.isInactive}
             type="number"
-            value={Math.round(state.activeSize)}
-            onChange={(event) => handlers.onUpdateStyle('size', parseInt(event.target.value) || 1)}
+            aria-label="Tamanho da fonte selecionada"
+            value={state.activeSize}
+            onChange={(event) => handlers.onUpdateStyle('size', Number(event.target.value))}
             className="w-9 bg-transparent border-none text-[11px] font-black text-center outline-none cursor-pointer"
           />
         </div>
@@ -235,7 +236,7 @@ export const LabelGridModelToolbar: React.FC<LabelGridModelToolbarProps> = ({
                 type="number"
                 value={state.priceFontSizes.tens || 0}
                 onChange={(event) =>
-                  handlers.onPriceFontSizeChange('tens', parseInt(event.target.value) || 0)
+                  handlers.onPriceFontSizeChange('tens', Number(event.target.value))
                 }
                 className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600"
               />
@@ -246,7 +247,7 @@ export const LabelGridModelToolbar: React.FC<LabelGridModelToolbarProps> = ({
                 type="number"
                 value={state.priceFontSizes.hundreds || 0}
                 onChange={(event) =>
-                  handlers.onPriceFontSizeChange('hundreds', parseInt(event.target.value) || 0)
+                  handlers.onPriceFontSizeChange('hundreds', Number(event.target.value))
                 }
                 className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600"
               />
@@ -257,7 +258,7 @@ export const LabelGridModelToolbar: React.FC<LabelGridModelToolbarProps> = ({
                 type="number"
                 value={state.priceFontSizes.thousands || 0}
                 onChange={(event) =>
-                  handlers.onPriceFontSizeChange('thousands', parseInt(event.target.value) || 0)
+                  handlers.onPriceFontSizeChange('thousands', Number(event.target.value))
                 }
                 className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600"
               />
@@ -268,7 +269,7 @@ export const LabelGridModelToolbar: React.FC<LabelGridModelToolbarProps> = ({
                 type="number"
                 value={state.priceFontSizes.tenThousands || 0}
                 onChange={(event) =>
-                  handlers.onPriceFontSizeChange('tenThousands', parseInt(event.target.value) || 0)
+                  handlers.onPriceFontSizeChange('tenThousands', Number(event.target.value))
                 }
                 className="w-8 bg-transparent border-none text-[10px] font-black text-center outline-none text-slate-600"
               />

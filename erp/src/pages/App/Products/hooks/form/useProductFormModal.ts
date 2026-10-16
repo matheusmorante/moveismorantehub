@@ -29,6 +29,7 @@ import { useProductFormPricing } from './useProductFormPricing';
 import { useProductFormSubmit } from './useProductFormSubmit';
 import { useProductFormSync } from './useProductFormSync';
 import { useProductFormVariations } from './useProductFormVariations';
+import { replaceProductImageGlobally } from '../../components/tabs/images/productImageOrdering';
 
 export interface UseProductFormModalProps {
   readonly isOpen: boolean;
@@ -455,6 +456,18 @@ export function useProductFormModal({
     [autoSaveDraft, isDraftProduct, pendingNewVariationIdRef, setEditingVariationId, validateSavedVariation]
   );
 
+  const handleReplaceImageGlobal = useCallback(
+    (oldUrl: string, newUrl: string) => {
+      setFormData((prev) => {
+        const next = replaceProductImageGlobally(prev, oldUrl, newUrl);
+        latestFormDataRef.current = next;
+        return next;
+      });
+      scheduleDraftAutoSave();
+    },
+    [scheduleDraftAutoSave]
+  );
+
   const handleDeleteVariation = useCallback(
     async (variationId: string) => {
       const current = latestFormDataRef.current;
@@ -571,6 +584,7 @@ export function useProductFormModal({
     handleCategorySelect,
     handleCloseVariationModal,
     handleSaveVariation,
+    handleReplaceImageGlobal,
     handleConvertProduct,
     handleNextStep,
     isLastStep,

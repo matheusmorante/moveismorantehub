@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { labelPreviewDigitFormSchema } from '../../../../../../../shared-utils/labelArtworkFormSchemas';
 
 export interface PriceLabelTestValuesModalProps {
   isOpen: boolean;
@@ -29,8 +31,11 @@ export interface PriceLabelTestValuesModalProps {
   setTestNormalD3: (val: number) => void;
 }
 
-export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps> = ({
-  isOpen,
+export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps> = (props) => (
+  props.isOpen ? <PriceLabelTestValuesForm {...props} /> : null
+);
+
+const PriceLabelTestValuesForm: React.FC<PriceLabelTestValuesModalProps> = ({
   onClose,
   testDezenaD1,
   setTestDezenaD1,
@@ -57,10 +62,39 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
   testNormalD3,
   setTestNormalD3,
 }) => {
-  if (!isOpen) return null;
+  const { enqueueAndRun } = useZodForm(labelPreviewDigitFormSchema, { field: 'testDezenaD1', digit: testDezenaD1 });
+  const [error, setError] = useState('');
+  const active = useRef(true);
+  const closed = useRef(false);
+  const titleId = useId();
+  const errorId = useId();
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const isCurrent = () => active.current && !closed.current;
+  const close = () => { if (!isCurrent()) return; closed.current = true; onClose(); };
+  const setters = {
+    testDezenaD1: setTestDezenaD1, testDezenaD2: setTestDezenaD2,
+    testCentenaD1: setTestCentenaD1, testCentenaD2: setTestCentenaD2, testCentenaD3: setTestCentenaD3,
+    testMilharD1: setTestMilharD1, testMilharD2: setTestMilharD2, testMilharD3: setTestMilharD3, testMilharD4: setTestMilharD4,
+    testNormalD1: setTestNormalD1, testNormalD2: setTestNormalD2, testNormalD3: setTestNormalD3,
+  };
+  const changeDigit = (field: keyof typeof setters, digit: number) => {
+    if (!isCurrent()) return;
+    void enqueueAndRun({ field, digit }, (values) => {
+      if (!isCurrent()) return false;
+      setters[values.field](values.digit);
+      setError('');
+      return true;
+    }, (errors) => {
+      if (isCurrent()) setError(Object.values(flattenFormErrors(errors))[0] ?? 'Use um dígito entre 0 e 9.');
+    }).catch(() => { if (isCurrent()) setError('Não foi possível aplicar o dígito da prévia.'); });
+  };
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}
       style={{ zIndex: 10000 }}
       className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
     >
@@ -72,7 +106,7 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
               <i className="bi bi-sliders" />
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+              <h3 id={titleId} className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
                 Simulador / Teste de Numeração
               </h3>
               <p className="text-xs text-slate-500 font-bold">
@@ -82,13 +116,15 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
+            aria-label="Fechar teste de numeração"
             className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white flex items-center justify-center cursor-pointer transition"
           >
             <i className="bi bi-x-lg text-sm" />
           </button>
         </div>
 
+        {error && <p id={errorId} role="alert" className="mb-4 text-sm text-red-700 dark:text-red-300">{error}</p>}
         {/* Conteúdo com Sliders */}
         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-1">
           {/* SEÇÃO 1: PREÇO PRINCIPAL */}
@@ -119,7 +155,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testDezenaD1}
-                    onChange={(e) => setTestDezenaD1(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testDezenaD1', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Dezena: 1º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-purple-600 cursor-pointer"
                   />
                 </div>
@@ -132,7 +172,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testDezenaD2}
-                    onChange={(e) => setTestDezenaD2(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testDezenaD2', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Dezena: 2º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-purple-600 cursor-pointer"
                   />
                 </div>
@@ -161,7 +205,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testCentenaD1}
-                    onChange={(e) => setTestCentenaD1(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testCentenaD1', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Centena: 1º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-purple-600 cursor-pointer"
                   />
                 </div>
@@ -174,7 +222,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testCentenaD2}
-                    onChange={(e) => setTestCentenaD2(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testCentenaD2', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Centena: 2º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-purple-600 cursor-pointer"
                   />
                 </div>
@@ -187,7 +239,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testCentenaD3}
-                    onChange={(e) => setTestCentenaD3(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testCentenaD3', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Centena: 3º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-purple-600 cursor-pointer"
                   />
                 </div>
@@ -214,7 +270,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testMilharD1}
-                    onChange={(e) => setTestMilharD1(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testMilharD1', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Milhar: 1º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-purple-600 cursor-pointer"
                   />
                 </div>
@@ -225,7 +285,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testMilharD2}
-                    onChange={(e) => setTestMilharD2(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testMilharD2', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Milhar: 2º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-purple-600 cursor-pointer"
                   />
                 </div>
@@ -236,7 +300,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testMilharD3}
-                    onChange={(e) => setTestMilharD3(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testMilharD3', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Milhar: 3º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-purple-600 cursor-pointer"
                   />
                 </div>
@@ -247,7 +315,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testMilharD4}
-                    onChange={(e) => setTestMilharD4(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testMilharD4', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Milhar: 4º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-purple-600 cursor-pointer"
                   />
                 </div>
@@ -283,7 +355,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testNormalD1}
-                    onChange={(e) => setTestNormalD1(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testNormalD1', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Preço anterior: 1º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-emerald-600 cursor-pointer"
                   />
                 </div>
@@ -296,7 +372,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testNormalD2}
-                    onChange={(e) => setTestNormalD2(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testNormalD2', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Preço anterior: 2º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-emerald-600 cursor-pointer"
                   />
                 </div>
@@ -309,7 +389,11 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
                     min="0"
                     max="9"
                     value={testNormalD3}
-                    onChange={(e) => setTestNormalD3(Number(e.target.value))}
+                    onChange={(e) => changeDigit('testNormalD3', e.currentTarget.valueAsNumber)}
+                    step="1"
+                    aria-label="Preço anterior: 3º dígito"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? errorId : undefined}
                     className="w-full accent-emerald-600 cursor-pointer"
                   />
                 </div>
@@ -325,7 +409,7 @@ export const PriceLabelTestValuesModal: React.FC<PriceLabelTestValuesModalProps>
           </span>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 text-xs font-black uppercase tracking-wider rounded-xl cursor-pointer shadow-md active:scale-95 transition-all"
           >
             Concluir Teste

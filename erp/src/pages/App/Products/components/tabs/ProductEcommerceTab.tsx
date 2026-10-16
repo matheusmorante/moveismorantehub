@@ -11,8 +11,9 @@ import { uploadFile } from '@/pages/utils/storageService';
 import type Product from '../../../../types/product.type';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
-import { moveProductImage, replaceProductImage } from './images/productImageOrdering';
+import { moveProductImage, replaceProductImage, replaceProductImageGlobally } from './images/productImageOrdering';
 import { SquareImageCropper } from './images/SquareImageCropper';
+import { uploadOptimizedProductImage } from './images/productImageUpload';
 
 interface ProductEcommerceTabProps {
   readonly formData: Partial<Product>;
@@ -52,64 +53,31 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
   const maxPhotos = MAX_PARENT_PRODUCT_IMAGES;
   const currentCount = (formData.images || []).length;
 
-  const handleReplacePhoto = async (index: number, file: File) => {
+  const handleReplacePhoto = async (
+    index: number,
+    file: File,
+    options?: { silentToast?: boolean }
+  ) => {
     return replaceForm.validateAndRun({ files: [file] }, async ({ files: [selectedFile] }) => {
-    file = selectedFile;
-    setReplacingIndex(index);
-    try {
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const randomId =
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}_${Math.random().toString(36).substring(2)}`;
-      const baseName = `${randomId}`;
+      file = selectedFile;
+      setReplacingIndex(index);
+      try {
+        const oldUrl = (formData.images || [])[index];
+        const newUrl = await uploadOptimizedProductImage(file);
 
-      // Original
-      const originalPath = `products/${baseName}.${fileExt}`;
-
-      // Medium
-      const mediumFile = await compressImageToFile(file, {
-        maxMB: 0.5,
-        maxWidth: 1000,
-        fileType: 'image/webp',
-        initialQuality: 0.85,
-      });
-      const mediumPath = `products/${baseName}_medium.webp`;
-
-      // Thumb
-      const thumbFile = await compressImageToFile(file, {
-        maxMB: 0.05,
-        maxWidth: 200,
-        fileType: 'image/webp',
-        initialQuality: 0.75,
-      });
-      const thumbPath = `products/${baseName}_thumb.webp`;
-
-      const [originalUrl] = await Promise.all([
-        uploadFile(file, originalPath),
-        uploadFile(mediumFile, mediumPath).catch((err) => {
-          console.warn('Falha no upload da versão medium, fallback para original:', err);
-          return originalPath;
-        }),
-        uploadFile(thumbFile, thumbPath).catch((err) => {
-          console.warn('Falha no upload da versão thumbnail, fallback para original:', err);
-          return originalPath;
-        }),
-      ]);
-      const newUrl = originalUrl;
-
-      const updatedImages = replaceProductImage(formData.images || [], index, newUrl);
-      setFormData((prev) => ({ ...prev, images: updatedImages }));
-      onImagesSaved?.();
-      toast.success('Foto substituída com sucesso!');
-      return true;
-    } catch (error: unknown) {
-      console.error('Erro ao substituir foto:', error);
-      toast.error('Erro ao substituir a imagem.');
-      return false;
-    } finally {
-      setReplacingIndex(null);
-    }
+        setFormData((prev) => replaceProductImageGlobally(prev, oldUrl, newUrl, index));
+        onImagesSaved?.();
+        if (!options?.silentToast) {
+          toast.success('Foto substituída com sucesso!');
+        }
+        return true;
+      } catch (error: unknown) {
+        console.error('Erro ao substituir foto:', error);
+        toast.error('Erro ao substituir a imagem.');
+        return false;
+      } finally {
+        setReplacingIndex(null);
+      }
     }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 
@@ -117,7 +85,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
     if (croppingIndex === null) return;
     const index = croppingIndex;
     setCroppingIndex(null);
-    if (await handleReplacePhoto(index, file)) {
+    if (await handleReplacePhoto(index, file, { silentToast: true })) {
       toast.success('Foto recortada em 1:1 e atualizada!');
     }
   };

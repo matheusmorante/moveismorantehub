@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { financeService } from '@/pages/services/financeService';
 import { AccountPayable, FinancialCategory, PaymentStatus } from '../../../types/finance.type';
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { payableExpenseFormSchema, payableSettlementFormSchema } from '../../../../../../shared-utils/financialFormSchemas';
+import { useZodForm } from '@/hooks/useZodForm';
+import { payableExpenseFormSchema, payableSettlementFormSchema, financialToday, buildPayableInstallments } from '../../../../../../shared-utils/financialFormSchemas';
 import type { FieldErrors } from 'react-hook-form';
 import type { z } from 'zod';
+import { useFinancialOperation } from '../useFinancialOperation';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 interface PayableModalProps {
   onClose: () => void;
@@ -13,14 +15,21 @@ interface PayableModalProps {
   payable?: AccountPayable | null;
 }
 
-export default function PayableModal({ onClose, onSaved, payable }: PayableModalProps) {
-  const [loading, setLoading] = useState(false);
+export default function PayableModal(props: PayableModalProps) {
+  return <PayableModalForm key={props.payable?.id || 'new'} {...props} />;
+}
+function PayableModalForm({ onClose, onSaved, payable }: PayableModalProps) {
+  const operation = useFinancialOperation();
+  const loading = operation.busy;
+  const [categoryError, setCategoryError] = useState('');
+  const [requestId] = useState(() => crypto.randomUUID());
+  const close = () => { if (!operation.isBusy()) onClose(); };
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
 
   const [formData, setFormData] = useState({
     description: payable?.description || '',
     amount: payable?.amount || 0,
-    due_date: payable?.due_date || new Date().toISOString().split('T')[0],
+    due_date: payable?.due_date || financialToday(),
     status: payable?.status || ('pending' as PaymentStatus),
     category_id: payable?.category_id || '',
     supplier_name: payable?.supplier_name || '',
@@ -29,29 +38,25 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
 
   const [expenseType, setExpenseType] = useState<'single' | 'installments' | 'recurring'>('single');
   const [installmentsCount, setInstallmentsCount] = useState(2);
-  const [recurringFrequency, setRecurringFrequency] = useState<'monthly' | 'yearly'>('monthly');
+  const recurringFrequency = 'monthly' as const;
   const values = { payable: formData, expenseType, installmentsCount, recurringFrequency, isEditing: !!payable?.id };
   const form = useZodForm(payableExpenseFormSchema, values);
   const settlementValues = {
     id: payable?.id || '', description: payable?.description || '', amount: payable?.amount ?? 0,
-    category_id: payable?.category_id, date: new Date().toISOString().split('T')[0],
+    category_id: payable?.category_id, date: financialToday(),
     status: payable?.status || ('pending' as PaymentStatus),
   };
   const settlementForm = useZodForm(payableSettlementFormSchema, settlementValues);
-  const showValidationError = (errors: FieldErrors) => {
-    toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a conta a pagar.');
-  };
-
+  const showValidationError = (errors: FieldErrors) => { if (operation.current()) toast.error(operation.invalid(errors)); };
   useEffect(() => {
-    const fetchCats = async () => {
-      try {
-        const cats = await financeService.getCategories('expense');
-        setCategories(cats || []);
-      } catch (error) {
-        console.error('Erro ao buscar categorias', error);
-      }
-    };
-    fetchCats();
+    let active = true;
+    void withTimeout(financeService.getCategories('expense'), 15_000, null, 'financeiro:categorias')
+      .then((cats) => {
+        if (!active) return;
+        if (cats) setCategories(cats);
+        else setCategoryError('As categorias não responderam. Feche e reabra para consultar novamente.');
+      }).catch(() => { if (active) setCategoryError('Não foi possível carregar as categorias. Feche e reabra para consultar novamente.'); });
+    return () => { active = false; };
   }, []);
 
   const handleChange = (
@@ -65,111 +70,29 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
   };
 
   const handleSave = async (input: z.output<typeof payableExpenseFormSchema>) => {
-    const { payable: formData, expenseType, installmentsCount, recurringFrequency } = input;
-    setLoading(true);
-    try {
-      if (payable?.id) {
-        // Edição de uma conta existente (sempre altera só ela)
-        await financeService.updatePayable(payable.id, formData);
-        toast.success('Conta a pagar atualizada!');
-      } else {
-        // Criação
-        const startDate = new Date(formData.due_date);
-
-        if (expenseType === 'single') {
-          await financeService.createPayable(formData);
-          toast.success('Conta a pagar cadastrada!');
-        } else if (expenseType === 'installments') {
-          const payables = [];
-          const amountPerInstallment = formData.amount / installmentsCount;
-
-          for (let i = 0; i < installmentsCount; i++) {
-            const dueDate = new Date(startDate);
-            dueDate.setMonth(dueDate.getMonth() + i);
-
-            payables.push({
-              ...formData,
-              description: `${formData.description} (Parc. ${i + 1}/${installmentsCount})`,
-              amount: amountPerInstallment,
-              due_date: dueDate.toISOString().split('T')[0],
-            });
-          }
-          await financeService.bulkCreatePayables(payables);
-          toast.success(`${installmentsCount} parcelas cadastradas com sucesso!`);
-        } else if (expenseType === 'recurring') {
-          // Cadastra a Recorrente
-          const dueDayParam = startDate.getDate() + 1; // +1 devido ao timezone local se a data for meia noite
-          await financeService.createRecurringExpense({
-            description: formData.description,
-            amount: formData.amount,
-            category_id: formData.category_id,
-            frequency: recurringFrequency,
-            due_day: dueDayParam > 31 ? 31 : dueDayParam,
-            start_date: formData.due_date,
-            active: true,
-          });
-
-          // Lança automaticamente os primeiros 12 meses no contas a pagar para previsão de fluxo de caixa
-          const preGenerated = [];
-          for (let i = 0; i < 12; i++) {
-            const dueDate = new Date(startDate);
-            if (recurringFrequency === 'monthly') {
-              dueDate.setMonth(dueDate.getMonth() + i);
-            } else {
-              dueDate.setFullYear(dueDate.getFullYear() + i);
-            }
-
-            preGenerated.push({
-              ...formData,
-              description: `${formData.description} (Auto)`,
-              due_date: dueDate.toISOString().split('T')[0],
-            });
-          }
-          await financeService.bulkCreatePayables(preGenerated);
-          toast.success('Despesa fixa ativada e previsão para 12 meses gerada!');
-        }
-      }
-      onSaved();
-    } catch (error) {
-      console.error(error);
-      toast.error('Erro ao salvar conta a pagar.');
-    } finally {
-      setLoading(false);
-    }
+    if (!operation.current()) return;
+    const { payable: data, expenseType, recurringFrequency } = input;
+    if (payable?.id) await operation.wait(financeService.updatePayable(payable.id, data));
+    else if (expenseType === 'single') await operation.wait(financeService.createPayable(data));
+    else if (expenseType === 'installments') await operation.wait(financeService.bulkCreatePayables(buildPayableInstallments(input)));
+    else await operation.wait(financeService.createRecurringPayableExpense({ request_id: requestId, payable: data, frequency: recurringFrequency }));
+    if (!operation.current()) return;
+    toast.success(expenseType === 'recurring' && !payable?.id
+      ? 'Despesa fixa ativada e previsão de 12 ocorrências gerada!' : 'Conta a pagar salva!');
+    onSaved();
   };
 
-  const handlePay = async (data: z.output<typeof payableSettlementFormSchema>) => {
-    setLoading(true);
-    try {
-      await financeService.updatePayable(data.id, {
-        status: 'paid',
-        payment_date: data.date,
-      });
-
-      // Generate Transaction Record automaticaly
-      await financeService.createTransaction({
-        type: 'expense',
-        amount: data.amount,
-        date: data.date,
-        description: `Pagamento: ${data.description}`,
-        payment_method: 'Manual', // Can be improved to select method
-        category_id: data.category_id,
-        payable_id: data.id,
-      });
-
-      toast.success('Conta baixada com sucesso!');
-      onSaved();
-    } catch (error) {
-      console.error(error);
-      toast.error('Erro ao baixar conta a pagar.');
-    } finally {
-      setLoading(false);
-    }
+  const handlePay = async (account: z.output<typeof payableSettlementFormSchema>) => {
+    if (!operation.current()) return;
+    await operation.wait(financeService.settleAccount({ kind: 'payable', account }));
+    if (!operation.current()) return;
+    toast.success('Conta baixada com sucesso!');
+    onSaved();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={close}></div>
 
       <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
         {/* Header */}
@@ -188,15 +111,18 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={close}
             className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 transition-colors"
           >
             <i className="bi bi-x-lg"></i>
           </button>
         </div>
 
+        {operation.error && <p role="alert" className="p-4 text-red-700">{operation.error}</p>}
+        {categoryError && <p role="alert" className="p-4 text-red-700">{categoryError}</p>}
+        {loading && <p role="status" className="p-4 animate-pulse">Validando e salvando a conta…</p>}
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 xl:p-8 space-y-6">
+        <fieldset disabled={operation.blocked} className="flex-1 overflow-y-auto p-6 xl:p-8 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
@@ -424,14 +350,14 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
               ></textarea>
             </div>
           </div>
-        </div>
+        </fieldset>
 
         {/* Footer */}
         <div className="p-6 xl:p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between gap-4">
-          {payable?.id && payable.status !== 'paid' ? (
+          {payable?.id && (payable.status === 'pending' || payable.status === 'overdue') ? (
             <button
-              onClick={() => void settlementForm.validateAndRun(settlementValues, handlePay, showValidationError)}
-              disabled={loading}
+              onClick={() => void operation.run(() => settlementForm.validateAndRun(settlementValues, handlePay, showValidationError))}
+              disabled={operation.blocked}
               className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-200 dark:shadow-none transition-all active:scale-95 flex items-center gap-2"
             >
               <i className="bi bi-check2-all text-lg"></i>
@@ -443,14 +369,14 @@ export default function PayableModal({ onClose, onSaved, payable }: PayableModal
 
           <div className="flex gap-4">
             <button
-              onClick={onClose}
+              onClick={close}
               className="flex-1 px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs text-slate-500 hover:bg-slate-100 transition-colors"
             >
               Cancelar
             </button>
             <button
-              onClick={() => void form.validateAndRun(values, handleSave, showValidationError)}
-              disabled={loading}
+              onClick={() => void operation.run(() => form.validateAndRun(values, handleSave, showValidationError))}
+              disabled={operation.blocked}
               className="flex-1 bg-rose-600 hover:bg-rose-700 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-rose-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (

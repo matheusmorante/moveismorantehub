@@ -14,15 +14,13 @@ export const AttributeConflictResolver: React.FC<AttributeConflictResolverProps>
   onAddAttribute,
   onUpdateAttribute,
 }) => {
-  if (!hasConflict) return null;
-
   return (
-    <div className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900/60 dark:bg-red-950/30">
-      <p className="text-xs font-bold text-red-800 dark:text-red-200">
-        Já existe uma variação neste produto pai com esta mesma combinação de atributos.
+    <div className={`rounded-2xl border p-4 ${hasConflict ? 'border-red-200 bg-red-50 dark:border-red-900/60 dark:bg-red-950/30' : 'border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950'}`}>
+      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+        {hasConflict ? 'Já existe uma variação neste produto pai com esta mesma combinação de atributos.' : 'Atributos da variação'}
       </p>
       <p className="mt-1 text-xs text-red-700 dark:text-red-300">
-        Escolha um novo atributo ou valor antes de continuar.
+        {hasConflict ? 'Escolha um novo atributo ou valor antes de continuar.' : 'Informe ao menos um atributo completo para identificar a variação no novo produto pai.'}
       </p>
       <div className="mt-3 space-y-2">
         {attributes.length === 0 ? (
@@ -35,15 +33,17 @@ export const AttributeConflictResolver: React.FC<AttributeConflictResolverProps>
           </button>
         ) : (
           attributes.map((attribute, index) => (
-            <div className="grid grid-cols-2 gap-2" key={`${attribute.name}-${index}`}>
+            <div className="grid grid-cols-2 gap-2" key={index}>
               <input
                 value={attribute.name}
+                aria-label={`Nome do atributo ${index + 1}`}
                 onChange={(event) => onUpdateAttribute(index, 'name', event.target.value)}
                 placeholder="Atributo (Ex: Cor)"
                 className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs dark:border-red-900 dark:bg-slate-900 focus:outline-none focus:border-red-400"
               />
               <input
                 value={attribute.value}
+                aria-label={`Valor do atributo ${index + 1}`}
                 onChange={(event) => onUpdateAttribute(index, 'value', event.target.value)}
                 placeholder="Valor (Ex: Azul)"
                 className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs dark:border-red-900 dark:bg-slate-900 focus:outline-none focus:border-red-400"

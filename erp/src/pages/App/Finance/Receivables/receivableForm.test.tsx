@@ -4,13 +4,13 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ReceivableModal from './ReceivableModal';
 import type { AccountReceivable } from '../../../types/finance.type';
-const mocks = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), transaction: vi.fn(), error: vi.fn() }));
+const mocks = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), transaction: vi.fn(), settle: vi.fn(), error: vi.fn() }));
 vi.mock('@/pages/services/financeService', () => ({ financeService: {
-  getCategories: async () => [], createReceivable: mocks.create, updateReceivable: mocks.update, createTransaction: mocks.transaction,
+  getCategories: async () => [], createReceivable: mocks.create, updateReceivable: mocks.update, createTransaction: mocks.transaction, settleAccount: mocks.settle,
 } }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn() } }));
 afterEach(cleanup);
-beforeEach(() => { vi.clearAllMocks(); mocks.create.mockResolvedValue({}); mocks.update.mockResolvedValue({}); mocks.transaction.mockResolvedValue({}); });
+beforeEach(() => { vi.clearAllMocks(); mocks.create.mockResolvedValue({}); mocks.update.mockResolvedValue({}); mocks.transaction.mockResolvedValue({}); mocks.settle.mockResolvedValue({}); });
 function renderReceivable(receivable?: AccountReceivable) {
   return render(<ReceivableModal receivable={receivable} onClose={vi.fn()} onSaved={vi.fn()} />);
 }
@@ -31,12 +31,14 @@ describe('receivable resolver actions', () => {
     await waitFor(() => expect(mocks.error).toHaveBeenCalled());
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.settle).not.toHaveBeenCalled();
   });
   it('settles the persisted account independently from unsaved amount changes', async () => {
     const view = renderReceivable({ id: 'receivable-1', description: 'Service', amount: 20, due_date: '2026-10-14', status: 'pending' });
     fireEvent.change(view.container.querySelector('input[name="amount"]')!, { target: { value: '999' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar Recebimento' }));
-    await waitFor(() => expect(mocks.transaction).toHaveBeenCalledWith(expect.objectContaining({ amount: 20, description: 'Recebimento: Service', type: 'income', receivable_id: 'receivable-1' })));
-    expect(mocks.update).toHaveBeenCalledWith('receivable-1', expect.objectContaining({ status: 'paid' }));
+    await waitFor(() => expect(mocks.settle).toHaveBeenCalledWith({ kind: 'receivable', account: expect.objectContaining({ amount: 20, description: 'Service', id: 'receivable-1' }) }));
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 });

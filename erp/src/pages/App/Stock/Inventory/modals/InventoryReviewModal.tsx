@@ -1,6 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { AuditItem } from '../types/inventoryAudit.types';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { inventoryAuditReviewFormSchema, inventoryAuditReviewQuerySchema } from '../../../../../../../shared-utils/inventoryAuditFormSchemas';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+
+type ReviewedItem = AuditItem & { reconciledExpected: number; difference: number };
+type InventoryMove = {
+  product_id: string; variation_id: string | null; type: string;
+  quantity: number | string | null; observation: string | null; status: string | null;
+};
+class InvalidInventorySource extends Error {}
 
 interface InventoryReviewModalProps {
   readonly items: AuditItem[];
@@ -9,10 +19,14 @@ interface InventoryReviewModalProps {
   readonly onCancel: () => void;
   readonly onConfirm: (
     itemsWithAdjustment: Array<AuditItem & { reconciledExpected: number; difference: number }>
-  ) => void;
+  ) => void | boolean | Promise<void | boolean>;
 }
 
-export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
+export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = (props) => (
+  <InventoryReviewEditor key={JSON.stringify([props.startDate, props.items])} {...props} />
+);
+
+const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
   items,
   startDate,
   onCancel,
@@ -20,46 +34,39 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [reconcileError, setReconcileError] = useState(false);
-  const [reconciledItems, setReconciledItems] = useState<
-    Array<AuditItem & { reconciledExpected: number; difference: number }>
-  >([]);
+  const [reconciledItems, setReconciledItems] = useState<ReviewedItem[]>([]);
   const [uncountedCount, setUncountedCount] = useState(0);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [error, setError] = useState('');
+  const [sourceInvalid, setSourceInvalid] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  const mounted = useRef(false), locked = useRef(false), replayBlocked = useRef(false);
+  const [queryValues] = useState(() => ({ items: items.map((item) => ({ ...item })), startDate }));
+  const queryForm = useZodForm(inventoryAuditReviewQuerySchema, queryValues);
+  const { validateValues: validateQuery } = queryForm;
+  const form = useZodForm(inventoryAuditReviewFormSchema, {
+    items: reconciledItems.filter((item) => item.physicalCount !== null).map((item) => ({ ...item, physicalCount: item.physicalCount! })),
+  });
 
   useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !locked.current) onCancel(); };
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, [onCancel]);
+
+  useEffect(() => {
+    let active = true;
+    let querying = true;
+    const current = () => active && querying;
     const reconcile = async () => {
       setReconcileError(false);
-      try {
-        if (typeof navigator !== 'undefined' && navigator.onLine === false)
-          throw new Error('Inventário revisado offline');
-        const moves: Array<{
-          product_id: string;
-          variation_id: string | null;
-          type: string;
-          quantity: number | null;
-          observation: string | null;
-          status: string | null;
-        }> = [];
-        const productIds = [...new Set(items.map((item) => item.productId).filter(Boolean))];
-        for (let offset = 0; offset < productIds.length; offset += 50) {
-          const chunk = productIds.slice(offset, offset + 50);
-          for (let from = 0; ; from += 200) {
-            const { data, error } = await supabase
-              .from('inventory_moves')
-              .select('product_id, variation_id, type, quantity, observation, status')
-              .in('product_id', chunk)
-              .gte('date', startDate)
-              .order('date', { ascending: true })
-              .range(from, from + 199);
-            if (error) throw error;
-            moves.push(...(data || []));
-            if (!data || data.length < 200) break;
-          }
-        }
-        let uncounted = 0;
-
-        const reconciled = items.map((item) => {
+      const applyMoves = (source: AuditItem[], moves: InventoryMove[]) => {
+        const reconciled = source.map((item) => {
           if (item.physicalCount === null) {
-            uncounted++;
             return { ...item, reconciledExpected: item.systemStock, difference: 0 };
           }
 
@@ -94,12 +101,14 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
 
           let delta = 0;
           for (const m of validMoves) {
-            if (m.type === 'entry') delta += Number(m.quantity || 0);
-            else if (m.type === 'exit') delta -= Number(m.quantity || 0);
+            if (m.type === 'entry') delta += Number(m.quantity);
+            else if (m.type === 'exit') delta -= Number(m.quantity);
           }
 
           const reconciledExpected = item.systemStock + delta;
           const difference = item.physicalCount - reconciledExpected;
+          if (!Number.isFinite(reconciledExpected) || !Number.isFinite(difference))
+            throw new InvalidInventorySource('Os saldos do inventário são inválidos. Revise a contagem antes de concluir.');
 
           return {
             ...item,
@@ -108,35 +117,122 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
           };
         });
 
-        setUncountedCount(uncounted);
+        if (!active) return;
+        setUncountedCount(source.filter((item) => item.physicalCount === null).length);
         setReconciledItems(reconciled);
-      } catch (error) {
-        if (typeof navigator === 'undefined' || navigator.onLine !== false)
-          console.error('Error reconciling inventory:', error);
-        setReconcileError(true);
-        setReconciledItems(
-          items.map((item) => ({
-            ...item,
-            reconciledExpected: Number(item.systemStock || 0),
-            difference:
-              item.physicalCount === null ? 0 : item.physicalCount - Number(item.systemStock || 0),
-          }))
-        );
-        setUncountedCount(items.filter((item) => item.physicalCount === null).length);
+      };
+      try {
+        const parsed = await validateQuery(queryValues, (errors) => {
+          if (!active) return;
+          setSourceInvalid(true);
+          setError(`Revise os dados do inventário: ${Object.values(flattenFormErrors(errors))[0] || 'dados inválidos.'}`);
+        });
+        if (!active || parsed === false) return;
+        try {
+          if (typeof navigator !== 'undefined' && navigator.onLine === false)
+            throw new Error('Inventário revisado offline');
+          const loadMoves = async () => {
+            const moves: InventoryMove[] = [];
+            const productIds = [...new Set(parsed.items.map((item) => item.productId).filter(Boolean))];
+            for (let offset = 0; offset < productIds.length; offset += 50) {
+              const chunk = productIds.slice(offset, offset + 50);
+              for (let from = 0; ; from += 200) {
+                if (!current()) return null;
+                const { data, error: queryError } = await supabase
+                  .from('inventory_moves')
+                  .select('product_id, variation_id, type, quantity, observation, status')
+                  .in('product_id', chunk)
+                  .gte('date', parsed.startDate)
+                  .order('date', { ascending: true })
+                  .range(from, from + 199);
+                if (!current()) return null;
+                if (queryError) throw queryError;
+                if (data !== null && (!Array.isArray(data) || data.some((move) =>
+                  typeof move?.product_id !== 'string' || !move.product_id ||
+                  (move.variation_id !== null && typeof move.variation_id !== 'string') ||
+                  typeof move.type !== 'string' ||
+                  !['number', 'string'].includes(typeof move.quantity) ||
+                  (typeof move.quantity === 'string' && !move.quantity.trim()) ||
+                  !Number.isFinite(Number(move.quantity))
+                ))) throw new InvalidInventorySource('As movimentações retornaram saldos inválidos. Confira o estoque antes de concluir.');
+                moves.push(...(data || []));
+                if (!data || data.length < 200) break;
+              }
+            }
+            return moves;
+          };
+          const result = await withTimeout(loadMoves().then((moves) => ({ moves })),
+            15_000, null, 'inventario:reconciliar');
+          querying = false;
+          if (!active) return;
+          if (result === null) throw new Error('Tempo de consulta esgotado');
+          if (result.moves) applyMoves(parsed.items, result.moves);
+        } catch (cause) {
+          querying = false;
+          if (!active) return;
+          if (cause instanceof InvalidInventorySource) throw cause;
+          setReconcileError(true);
+          applyMoves(parsed.items, []);
+        }
+      } catch (cause) {
+        if (!active) return;
+        setSourceInvalid(true);
+        setError(cause instanceof InvalidInventorySource ? cause.message : 'Não foi possível validar os dados do inventário.');
       } finally {
-        setLoading(false);
+        querying = false;
+        if (active) setLoading(false);
       }
     };
 
     void reconcile();
-  }, [items, startDate]);
+    return () => { active = false; querying = false; };
+  }, [queryValues, validateQuery]);
+
+  const close = () => { if (!locked.current) onCancel(); };
+  const handleConfirm = async () => {
+    if (!mounted.current || locked.current || loading || sourceInvalid || replayBlocked.current) return;
+    locked.current = true;
+    setIsConfirming(true); setError('');
+    try {
+      await form.validateAndRun({
+        items: reconciledItems.filter((item) => item.physicalCount !== null).map((item) => ({ ...item, physicalCount: item.physicalCount! })),
+      }, async (parsed) => {
+        if (!mounted.current) return false;
+        const result = await withTimeout(Promise.resolve(onConfirm(parsed.items)).then((value) => ({ value })),
+          60_000, null, 'inventario:confirmar');
+        if (!mounted.current) return false;
+        if (result === null) {
+          replayBlocked.current = true; setBlocked(true);
+          setError('A conclusão não foi confirmada no prazo. Confira o inventário antes de tentar novamente.');
+          return false;
+        }
+        if (result.value === false) {
+          setError('Não foi possível concluir o inventário. Confira os dados e tente novamente.');
+          return false;
+        }
+        replayBlocked.current = true; setBlocked(true);
+        return true;
+      }, (errors) => {
+        if (mounted.current) setError(Object.values(flattenFormErrors(errors))[0] || 'Confira as contagens do inventário.');
+      });
+    } catch (cause) {
+      if (!mounted.current) return;
+      if ((cause as { uncertain?: boolean })?.uncertain || cause instanceof TypeError) {
+        replayBlocked.current = true; setBlocked(true);
+        setError('A conclusão não foi confirmada. Confira o inventário antes de tentar novamente.');
+      } else setError('Não foi possível concluir o inventário. Confira os dados e tente novamente.');
+    } finally {
+      locked.current = false;
+      if (mounted.current) setIsConfirming(false);
+    }
+  };
 
   const itemsToAdjust = reconciledItems.filter(
     (item) => item.physicalCount !== null && item.difference !== 0
   );
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+    <div role="dialog" aria-modal="true" aria-label="Revisão do Inventário" aria-busy={loading || isConfirming} className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-3xl flex flex-col max-h-full overflow-hidden animate-slide-up">
         <header className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
           <div>
@@ -148,7 +244,10 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
             </p>
           </div>
           <button
-            onClick={onCancel}
+            type="button"
+            aria-label="Fechar revisão"
+            disabled={isConfirming}
+            onClick={close}
             className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           >
             <i className="bi bi-x-lg"></i>
@@ -156,6 +255,8 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-900">
+          {error && <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-4 text-sm font-bold text-rose-700">{error}</p>}
+          {isConfirming && <p role="status" className="mb-4 flex items-center gap-2 text-sm font-bold text-emerald-700"><i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" />Validando e concluindo o inventário...</p>}
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -261,15 +362,17 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = ({
 
         <footer className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between">
           <button
-            onClick={onCancel}
-            disabled={loading}
+            type="button"
+            onClick={close}
+            disabled={loading || isConfirming}
             className="px-6 py-2.5 font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
           >
             Voltar para contagem
           </button>
           <button
-            onClick={() => onConfirm(reconciledItems.filter((item) => item.physicalCount !== null))}
-            disabled={loading || reconciledItems.every((item) => item.physicalCount === null)}
+            type="button"
+            onClick={() => void handleConfirm()}
+            disabled={loading || isConfirming || sourceInvalid || blocked || reconciledItems.every((item) => item.physicalCount === null)}
             title={
               reconciledItems.every((item) => item.physicalCount === null)
                 ? 'Conte pelo menos um item para confirmar o inventário.'

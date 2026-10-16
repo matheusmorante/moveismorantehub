@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { describe, it, expect, vi } from 'vitest';
 import Order from '@/pages/types/order.type';
 import { buildSalesOrderHtml, buildReceiptHtml } from '@/pages/utils/printing/printHtmlBuilder';

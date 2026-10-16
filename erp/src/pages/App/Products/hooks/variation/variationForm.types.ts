@@ -5,3 +5,8 @@ export type VariationTabId =
   | 'tecnico'
   | 'descricao'
   | 'compostos';
+
+export interface VariationFormOperationGuard {
+  pending: symbol | null;
+  error: string;
+}

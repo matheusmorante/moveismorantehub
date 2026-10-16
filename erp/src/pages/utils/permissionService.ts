@@ -22,6 +22,8 @@ export type PermissionAction =
   | 'deletePeople'
   | 'manageAccess'
   | 'manageSettings'
+  | 'viewCustomerSupport'
+  | 'viewCustomerCommercialInfo'
   | string;
 
 /**

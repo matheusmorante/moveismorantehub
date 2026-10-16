@@ -1,127 +1,100 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { variationTargetFormSchema } from '../../../../../../../../shared-utils/catalogFormSchemas';
-import { supabase } from '@/pages/utils/supabaseConfig';
+import { variationMergeCommandSchema, variationMergeSearchSchema, variationMergeAckSchema, VariationMergeUnconfirmedError,
+  type VariationMergeOperationGuard } from '../../../../../../../../shared-utils/variationMergeFormSchemas';
+import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import { mergeVariationIntoCanonical } from '@/pages/utils/productService';
+import { searchCanonicalVariations } from '@/pages/utils/productService/productVariationMergeQueries';
 import type { VariationOption, MergeVariationModalProps } from '../MergeVariationModal';
 
-export const useMergeVariation = (
-  variation: MergeVariationModalProps['variation'],
-  onMerged: () => void,
-  onClose: () => void
-) => {
-  const [query, setQuery] = useState('');
-  const [options, setOptions] = useState<readonly VariationOption[]>([]);
-  const [target, setTarget] = useState<VariationOption | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const sourceId = String(variation?.variationId || variation?.id || '');
-  const { validateAndRun } = useZodForm(variationTargetFormSchema, { sourceId, targetId: target?.id || '' });
-
-  useEffect(() => {
-    if (variation) {
-      setQuery('');
-      setOptions([]);
-      setTarget(null);
-      setSaving(false);
-    }
-  }, [variation]);
+export const useMergeVariation = (variation: MergeVariationModalProps['variation'], onMerged: () => void, onClose: () => void, operationGuard?: VariationMergeOperationGuard) => {
+  const [query, changeQuery] = useState(''), [options, setOptions] = useState<readonly VariationOption[]>([]), [target, chooseTarget] = useState<VariationOption | null>(null);
+  const [saving, setSaving] = useState(false), [error, setError] = useState(operationGuard?.error || '');
+  const [searchLoading, setSearchLoading] = useState(false), [searchError, setSearchError] = useState(''), [searchRevision, setSearchRevision] = useState(0);
+  const active = useRef(false), lock = useRef(false), completed = useRef(false), revision = useRef(0), renderRevision = revision.current;
+  const token = useRef(Symbol('merge-variation')), ownGuard = useRef<VariationMergeOperationGuard>({ active: null, error: '' });
+  const guard = operationGuard ?? ownGuard.current, sourceId = String(variation?.variationId || variation?.id || '').trim().toLowerCase();
+  const isOpen = Boolean(variation), sourceParentId = variation?.parentId?.trim().toLowerCase() || undefined, supplierId = variation?.supplierId?.trim().toLowerCase() || undefined;
+  const { validateAndRun } = useZodForm(variationMergeCommandSchema, { sourceId, targetId: target?.id || '', sourceParentId, supplierId });
+  const { validateValues } = useZodForm(variationMergeSearchSchema, { sourceId, query, supplierId });
+  const blocked = Boolean(guard.error) || completed.current;
 
   useEffect(() => {
-    if (!variation) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !saving) {
-        setQuery('');
-        setOptions([]);
-        setTarget(null);
-        setSaving(false);
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [variation, saving, onClose]);
+    const currentToken = token.current; active.current = isOpen;
+    if (guard.active && guard.active !== currentToken) { guard.error ||= new VariationMergeUnconfirmedError().message; setError(guard.error); }
+    return () => { active.current = false; if (!completed.current && guard.active === currentToken) guard.error ||= new VariationMergeUnconfirmedError().message; };
+  }, [isOpen, sourceId, guard]);
 
   useEffect(() => {
-    if (!variation || query.trim().length < 2 || target) {
-      setOptions([]);
-      return;
-    }
-    let active = true;
-    const term = query.trim().replace(/"/g, '""');
+    let current = true, accepting = true;
+    setOptions([]); setSearchError('');
+    if (!isOpen || query.trim().length < 2 || target || blocked || saving) { setSearchLoading(false); return; }
+    setSearchLoading(true);
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const values = await validateValues({ sourceId, query, supplierId }, (errors) => {
+            if (current) setSearchError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da busca.');
+          });
+          if (!values || !current) return;
+          const result = await withTimeout(searchCanonicalVariations(values, () => current && accepting), 11000, null, 'mesclar-variacao:busca-formulario');
+          if (!current) return;
+          if (!result) throw new Error('A busca de variações excedeu o prazo. Consulte novamente.');
+          setOptions(result);
+        } catch (failure) { if (current) setSearchError(failure instanceof Error ? failure.message : 'Não foi possível buscar variações.'); }
+        finally { accepting = false; if (current) setSearchLoading(false); }
+      })();
+    }, 250);
+    return () => { current = false; accepting = false; clearTimeout(timer); };
+  }, [isOpen, sourceId, query, target, supplierId, searchRevision, blocked, saving, validateValues]);
 
-    let dbQuery = supabase
-      .from('product_variations')
-      .select('id, name, sku, product:products!inner(name, description, supplier_id)')
-      .neq('id', sourceId)
-      .is('merged_to_variation_id', null)
-      .or(`name.ilike."%${term}%",sku.ilike."%${term}%"`);
-
-    if (variation.supplierId) {
-      dbQuery = dbQuery.eq('products.supplier_id', variation.supplierId);
-    }
-
-    dbQuery.limit(12).then(({ data, error }) => {
-      if (!active) return;
-      if (error) {
-        toast.error('Não foi possível buscar variações.');
-        return;
-      }
-      setOptions((data || []) as unknown as readonly VariationOption[]);
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [variation, query, target, sourceId]);
-
-  const confirm = useCallback(async () => {
-    if (!target || !sourceId || saving) return;
-    const validated = await validateAndRun({ sourceId, targetId: target.id }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
+  const handleCancel = useCallback(() => { if (active.current && !lock.current) onClose(); }, [onClose]);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') handleCancel(); };
+    document.addEventListener('keydown', handleKeyDown); return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleCancel]);
+  const editable = () => active.current && !lock.current && !guard.error && !completed.current;
+  const setQuery = (value: string) => {
+    if (!editable()) return;
+    revision.current += 1; changeQuery(value); chooseTarget(null); setOptions([]); setSearchLoading(value.trim().length >= 2); setSearchError(''); setError('');
+  };
+  const setTarget = (value: VariationOption) => {
+    if (!editable() || renderRevision !== revision.current || searchLoading || searchError) return;
+    const selected = options.find((option) => option.id === value.id);
+    if (!selected) return;
+    revision.current += 1; chooseTarget(selected); changeQuery(selected.name); setOptions([]); setError('');
+  };
+  const confirm = async () => {
+    if (!editable() || !target || guard.active || renderRevision !== revision.current || searchLoading || searchError) return false;
+    lock.current = true; setSaving(true); setError('');
+    let accepting = true;
+    const stillCurrent = () => active.current && accepting && !guard.error && renderRevision === revision.current;
     try {
-      setSaving(true);
-      const result = await mergeVariationIntoCanonical(validated.sourceId, validated.targetId);
-      toast.success(
-        `Variação mesclada. ${result.transferredSupplierIds.length} fornecedor(es) exclusivo(s) foram incorporados ao canônico.`
-      );
-      onMerged();
-      setQuery('');
-      setOptions([]);
-      setTarget(null);
-      setSaving(false);
-      onClose();
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Não foi possível mesclar as variações.';
-      toast.error(message);
+      return await validateAndRun({ sourceId, targetId: target.id, sourceParentId, supplierId }, async (values) => {
+        if (!stillCurrent()) return false;
+        guard.active = token.current;
+        const result = await withTimeout(mergeVariationIntoCanonical(values.sourceId, values.targetId,
+          { sourceParentId: values.sourceParentId, supplierId: values.supplierId }, stillCurrent), 60000, null, 'mesclar-variacao:confirmar-formulario');
+        const ack = variationMergeAckSchema.safeParse(result);
+        if (!ack.success) throw new VariationMergeUnconfirmedError();
+        if (!stillCurrent()) return false;
+        completed.current = true; guard.active = null;
+        toast.success(`Variação mesclada. ${ack.data.transferredSupplierIds.length} fornecedor(es) exclusivo(s) foram incorporados ao canônico.`);
+        try { onMerged(); onClose(); } catch { setError('Mesclagem confirmada, mas a tela não foi atualizada. Recarregue a página.'); }
+        return true;
+      }, (errors) => { if (active.current) setError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da mesclagem.'); });
+    } catch (failure) {
+      const message = failure instanceof Error ? failure.message : 'Não foi possível mesclar as variações.';
+      if ((failure as { uncertain?: boolean })?.uncertain) guard.error = message;
+      if (active.current) { setError(message); toast.error(message); } return false;
     } finally {
-      setSaving(false);
+      accepting = false; lock.current = false;
+      if (guard.active === token.current) guard.active = null;
+      if (active.current) setSaving(false);
     }
-  }, [target, sourceId, saving, onMerged, onClose, validateAndRun]);
-
-  const handleCancel = useCallback(() => {
-    setQuery('');
-    setOptions([]);
-    setTarget(null);
-    setSaving(false);
-    onClose();
-  }, [onClose]);
-
-  return {
-    query,
-    setQuery,
-    options,
-    setOptions,
-    target,
-    setTarget,
-    saving,
-    sourceId,
-    confirm,
-    handleCancel,
+  };
+  return { query, setQuery, options, target, setTarget, saving, sourceId, confirm, handleCancel, searchLoading, searchError, error, blocked,
+    retrySearch: () => { if (editable()) { revision.current += 1; setOptions([]); setSearchLoading(true); setSearchRevision((value) => value + 1); } },
   };
 };

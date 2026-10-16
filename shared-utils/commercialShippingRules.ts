@@ -1,8 +1,12 @@
 import type CustomerData from '../erp/src/pages/types/customerData.type';
 import type Shipping from '../erp/src/pages/types/Shipping.type';
 import type { CommercialRequiredFields } from './commercialDomainTypes';
+import {
+  validateShippingScheduling,
+  type ValidationErrors,
+} from './commercialSchedulingRules';
 
-export type ValidationErrors = Record<string, string>;
+export * from './commercialSchedulingRules';
 
 export const validateCustomerData = (
   customer: CustomerData,
@@ -43,19 +47,10 @@ export const validateShipping = (
   const errors: ValidationErrors = {};
   if (!shipping) return { shipping: 'Dados de entrega ausentes.' };
 
-  const scheduling = shipping.scheduling;
-  if (!scheduling && !isBudget) {
-    errors['shipping_scheduling'] = 'Agendamento é obrigatório.';
-  } else if (scheduling) {
-    const isDelivery = shipping.deliveryMethod === 'delivery';
-    const isOptionalPickup = !isDelivery && scheduling.notInformed;
-    const isPending = scheduling.pendingScheduling;
-
-    if (!isOptionalPickup && !isBudget && !isPending) {
-      if (!scheduling.date) errors['shipping_date'] = 'Data é obrigatória.';
-      if (!scheduling.startTime) errors['shipping_time'] = 'Horário/Período é obrigatório.';
-    }
-  }
+  Object.assign(
+    errors,
+    validateShippingScheduling(shipping.scheduling, shipping.deliveryMethod, isBudget)
+  );
 
   const noAddressRequired =
     shipping.noAddress || (shipping.useCustomerAddress !== false && customer?.noAddress);

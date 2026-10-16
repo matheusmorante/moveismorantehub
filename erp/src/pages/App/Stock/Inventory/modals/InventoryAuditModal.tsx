@@ -21,7 +21,10 @@ interface InventoryAuditModalProps {
   readonly editingSession?: InventoryAuditSession | null;
 }
 
-export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
+export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = (props) => props.isOpen
+  ? <InventoryAuditEditor {...props} key={JSON.stringify([props.editingSession?.id || 'new', props.copiedItems])} /> : null;
+
+const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
   isOpen,
   onClose,
   copiedItems,
@@ -43,13 +46,18 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
     catalogSyncedAt,
     saveDraft,
     hasChanges,
-  } = useInventoryAuditWorkflow(isOpen, onClose, editingSession, copiedItems);
+    isSaving,
+    operationError,
+    isRestoring,
+    isReady,
+  } = useInventoryAuditWorkflow(isOpen, onClose, editingSession);
 
   const [showExitWarning, setShowExitWarning] = useState(false);
 
   if (!isOpen) return null;
 
   const handleRequestClose = () => {
+    if (isSaving) return;
     if (hasChanges) {
       setShowExitWarning(true);
     } else {
@@ -124,13 +132,20 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
       <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-fade-in" />
 
       <div className="relative h-full w-full bg-white dark:bg-slate-900 overflow-hidden animate-slide-up flex flex-col">
-        {view === 'scope' && (
+        {!isReady && <div className="p-6 space-y-4">
+          {isRestoring ? <p role="status" className="animate-pulse">Carregando o inventário salvo neste navegador…</p>
+            : <p role="alert">{operationError || 'Não foi possível recuperar este inventário.'}</p>}
+          <button type="button" onClick={onClose}>Fechar</button>
+        </div>}
+        {isReady && view === 'scope' && (
           <InventoryScopeModal
             allProducts={allProducts}
             suppliers={suppliers}
             employees={employees}
             catalogSyncedAt={catalogSyncedAt}
+            copiedItems={copiedItems}
             onCancel={() => {
+              if (isSaving) return;
               if (items.length > 0) setView('operation');
               else onClose();
             }}
@@ -138,8 +153,10 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
           />
         )}
 
-        {view === 'operation' && scopeConfig && (
-          <>
+        {isReady && view === 'operation' && scopeConfig && (
+          <fieldset disabled={isSaving} className="contents">
+            {operationError && <p role="alert" className="p-4 text-sm text-red-700">{operationError}</p>}
+            {isSaving && <p role="status" className="p-4 text-sm animate-pulse">Validando e salvando o inventário…</p>}
             <InventoryOperationScreen
               items={items}
               hasStages={scopeConfig.hasStages}
@@ -161,18 +178,18 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
               onIncrementScannedItem={incrementScannedItem}
               onAddManualItem={handleAddBlankItem}
               onUpdateItemProduct={handleUpdateItemProduct}
-              onReview={() => setView('review')}
+              onReview={() => { if (!isSaving) setView('review'); }}
               onClose={handleRequestClose}
             />
-          </>
+          </fieldset>
         )}
 
-        {view === 'review' && scopeConfig && (
+        {isReady && view === 'review' && scopeConfig && (
           <InventoryReviewModal
             items={items}
             hasStages={scopeConfig.hasStages}
             startDate={draftRef.current.date!}
-            onCancel={() => setView('operation')}
+            onCancel={() => { if (!isSaving) setView('operation'); }}
             onConfirm={handleFinalize}
           />
         )}
@@ -182,7 +199,7 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
         <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => setShowExitWarning(false)}
+            onClick={() => { if (!isSaving) setShowExitWarning(false); }}
           />
           <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm p-6 text-center animate-in fade-in zoom-in-95 duration-200">
             <i className="bi bi-file-earmark-text text-amber-500 text-4xl mb-4 block" />
@@ -194,6 +211,7 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
             </p>
             <div className="flex flex-col gap-2">
               <button
+                disabled={isSaving}
                 onClick={async () => {
                   setShowExitWarning(false);
                   await saveDraft(true);
@@ -203,6 +221,7 @@ export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = ({
                 Fechar e continuar depois
               </button>
               <button
+                disabled={isSaving}
                 onClick={() => setShowExitWarning(false)}
                 className="w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold transition-colors mt-2"
               >

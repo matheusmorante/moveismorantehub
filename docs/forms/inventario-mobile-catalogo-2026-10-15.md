@@ -4,6 +4,8 @@ Censo de localização por AST de TS/TSX: controles de entrada/formulário, inte
 
 Os testes móveis e do catálogo já existentes continuam válidos em seu escopo; este inventário ainda precisa ligar cada prova aos caminhos atuais. Não declarar 0% de implementação com base em checkboxes pendentes. A conferência ERP permanece no inventário separado de auditoria.
 
+Conferência de compatibilidade do inventário em 15/10: seis regressões de finalização/conflitos mobile passaram com parser por extensão (`scratch/rhf-inventory-mobile-parser-corrected.log`), sem conferir os formulários mobile. O runner legado força TSX em arquivos `.ts` com generics; o runner temporário está em `scratch/vitest-mobile-inventory.config.mjs`. O teste `inventoryScanRules.test.ts` reproduziu uma falha preexistente: `MH:L:000XXX|SKU-1`, identificador de prévia, vira identidade física `qr:...` quando deveria ser descartado. Os arquivos estavam idênticos ao baseline `94097f55`; falha pendente no próximo lote de inventário mobile. Nenhuma dependência ou serviço de produto mobile foi alterado nesta conferência.
+
 ## mobile
 
 91 arquivos candidatos localizados; inclui filhos e wrappers, não apenas proprietários.

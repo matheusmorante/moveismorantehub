@@ -2,6 +2,7 @@
 
 import { supabase } from '../../pages/utils/supabaseConfig';
 import { ApiConfiguration, ApiServiceId } from './apiMonitoringTypes';
+import { apiConfigurationWriteSchema } from '../../../../shared-utils/apiConfigFormSchema';
 
 const CONFIG_CACHE_KEY = 'morante_api_configurations_v1';
 
@@ -195,26 +196,24 @@ export const DEFAULT_API_CONFIGURATIONS: Record<ApiServiceId, ApiConfiguration> 
 export class ApiConfigService {
   private static memoryCache: Record<string, ApiConfiguration> | null = null;
 
+  private static cachedConfigurations(): Record<string, ApiConfiguration> {
+    if (this.memoryCache) return this.memoryCache;
+    try {
+      const stored = JSON.parse(localStorage.getItem(CONFIG_CACHE_KEY) || 'null');
+      if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+        return { ...DEFAULT_API_CONFIGURATIONS, ...stored };
+      }
+    } catch { /* Fall back to the installed defaults when browser storage is unavailable. */ }
+    return { ...DEFAULT_API_CONFIGURATIONS };
+  }
+
   /**
    * Retorna todas as configurações de API (da memória, localStorage ou Supabase)
    */
   public static async getAllConfigurations(): Promise<Record<string, ApiConfiguration>> {
     if (this.memoryCache) return this.memoryCache;
 
-    // Tentar localStorage primeiro para resposta síncrona/imediata
-    try {
-      const raw = localStorage.getItem(CONFIG_CACHE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        this.memoryCache = { ...DEFAULT_API_CONFIGURATIONS, ...parsed };
-      }
-    } catch {
-      /* no-op: intencionalmente silencioso */
-    }
-
-    if (!this.memoryCache) {
-      this.memoryCache = { ...DEFAULT_API_CONFIGURATIONS };
-    }
+    this.memoryCache = this.cachedConfigurations();
 
     // Buscar do Supabase em segundo plano ou na inicialização
     try {
@@ -229,7 +228,7 @@ export class ApiConfigService {
             service_name: item.service_name,
             metric: item.metric || 'requests',
             billing_unit: item.billing_unit || 'req',
-            monthly_limit: Number(item.monthly_limit) || 10000,
+            monthly_limit: item.monthly_limit == null ? 10000 : Number(item.monthly_limit),
             warning_threshold: Number(item.warning_threshold) || 70,
             critical_threshold: Number(item.critical_threshold) || 90,
             hard_limit: Number(item.hard_limit) || 95,
@@ -291,46 +290,42 @@ export class ApiConfigService {
     config: ApiConfiguration,
     updatedBy?: string
   ): Promise<boolean> {
-    const configs = await this.getAllConfigurations();
-    const payload: ApiConfiguration = {
-      ...config,
+    const values = apiConfigurationWriteSchema.parse(config);
+    const payload = {
+      ...values,
       updated_at: new Date().toISOString(),
       updated_by: updatedBy || 'admin',
     };
-
-    configs[config.service_id] = payload;
-    this.memoryCache = configs;
-    localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(configs));
-
-    try {
-      const { error } = await supabase.from('api_configurations').upsert({
-        service_id: payload.service_id,
-        provider: payload.provider,
-        service_name: payload.service_name,
-        metric: payload.metric,
-        billing_unit: payload.billing_unit,
-        monthly_limit: payload.monthly_limit,
-        warning_threshold: payload.warning_threshold,
-        critical_threshold: payload.critical_threshold,
-        hard_limit: payload.hard_limit,
-        block_on_hard_limit: payload.block_on_hard_limit,
-        criticality: payload.criticality,
-        price_per_unit: payload.price_per_unit,
-        free_allowance: payload.free_allowance,
-        currency: payload.currency,
-        circuit_breaker_max_per_minute: payload.circuit_breaker_max_per_minute,
-        enabled: payload.enabled,
-        updated_at: payload.updated_at,
-        updated_by: payload.updated_by,
-      });
-
-      if (error) {
-        console.warn('Aviso ao sincronizar api_configurations no banco:', error.message);
-      }
-      return true;
-    } catch (e) {
-      console.error('Erro ao salvar api_configuration:', e);
-      return false;
+    const { data, error, status } = await supabase.from('api_configurations').upsert({
+      service_id: payload.service_id,
+      provider: payload.provider,
+      service_name: payload.service_name,
+      metric: payload.metric,
+      billing_unit: payload.billing_unit,
+      monthly_limit: payload.monthly_limit,
+      warning_threshold: payload.warning_threshold,
+      critical_threshold: payload.critical_threshold,
+      hard_limit: payload.hard_limit,
+      block_on_hard_limit: payload.block_on_hard_limit,
+      criticality: payload.criticality,
+      price_per_unit: payload.price_per_unit,
+      free_allowance: payload.free_allowance,
+      currency: payload.currency,
+      circuit_breaker_max_per_minute: payload.circuit_breaker_max_per_minute,
+      enabled: payload.enabled,
+      updated_at: payload.updated_at,
+      updated_by: payload.updated_by,
+    }).select('service_id').single();
+    if (error) {
+      if (status === 0 || !error.code || error.code === 'PGRST116' || error.code === '40003' || error.code.startsWith('08')) throw { uncertain: true };
+      throw error;
     }
+    if (data?.service_id !== payload.service_id) throw { uncertain: true };
+    // Publish the cache only after the persisted identity is acknowledged.
+    const configs = { ...this.cachedConfigurations(), [payload.service_id]: payload };
+    this.memoryCache = configs;
+    try { localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(configs)); }
+    catch { /* The server confirmed the write; storage failure must not invite replay. */ }
+    return true;
   }
 }

@@ -80,16 +80,23 @@ export function useOrderDistanceCalculator(
         if (requestId !== requestIdRef.current) return;
         const parsed = routeDistanceResultSchema.safeParse(result);
         if (!parsed.success) {
-          const limited = /quota|limit|over_query_limit|over_daily_limit|bloquead|cota/i.test(lookup.reason.current);
-          toast.warn(limited
-            ? 'Não foi possível calcular automaticamente. Consulte a distância manualmente e informe a distância e o valor do frete na aba Logística.'
-            : 'Não foi possível calcular a rota automaticamente. Confira o endereço ou informe a distância manualmente na aba Logística.');
+          const reason = lookup.reason.current;
+          const isQuota = /quota|limit|over_query_limit|over_daily_limit|resource_exhausted|bloquead|cota/i.test(reason);
+          const isNotFound = /não encontrou|zero_results|not_found|recusou/i.test(reason);
+
+          if (isQuota) {
+            toast.warn('Cota do Google Maps esgotada. Informe a distância manualmente.');
+          } else if (isNotFound) {
+            toast.warn('Endereço não localizado no mapa. Informe a distância manualmente.');
+          } else {
+            toast.warn('Não foi possível calcular a rota. Informe a distância manualmente.');
+          }
           return;
         }
         const route = parsed.data;
         const freight = calculateFreightByDistance(route.distanceKm);
         if (!Number.isFinite(freight) || freight < 0) {
-          toast.warn('O cálculo retornou um frete inválido. Confira a configuração ou informe o valor manualmente na aba Logística.');
+          toast.warn('Cálculo de frete inválido. Informe o valor manualmente.');
           return;
         }
         lastCalculatedAddressRef.current = addressKey;
@@ -99,7 +106,9 @@ export function useOrderDistanceCalculator(
         }));
         if (!options.silentSuccess) toast.success('Distância calculada: ' + route.distanceKm.toFixed(1) + ' km (Frete: R$ ' + freight.toFixed(2) + ')');
       } catch {
-        if (requestId === requestIdRef.current) toast.warn('Não foi possível calcular a rota automaticamente. Consulte a distância manualmente e informe a distância e o valor do frete na aba Logística.');
+        if (requestId === requestIdRef.current) {
+          toast.warn('Não foi possível calcular a rota. Informe a distância manualmente.');
+        }
       } finally {
         if (lookup && lookupRef.current === lookup) lookupRef.current = null;
         if (requestId === requestIdRef.current) setIsCalculatingDistance(false);

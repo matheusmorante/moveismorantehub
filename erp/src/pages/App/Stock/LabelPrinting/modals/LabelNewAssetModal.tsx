@@ -6,7 +6,9 @@ interface LabelNewAssetModalProps {
   newLogoImage: string;
   newLogoName: string;
   setNewLogoName: (name: string) => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<boolean>;
+  isSaving?: boolean;
+  error?: string;
 }
 
 export const LabelNewAssetModal: React.FC<LabelNewAssetModalProps> = ({
@@ -16,8 +18,11 @@ export const LabelNewAssetModal: React.FC<LabelNewAssetModalProps> = ({
   newLogoName,
   setNewLogoName,
   onConfirm,
+  isSaving = false,
+  error = '',
 }) => {
   if (!isOpen) return null;
+  const close = () => { if (!isSaving) onClose(); };
 
   return (
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
@@ -26,10 +31,10 @@ export const LabelNewAssetModal: React.FC<LabelNewAssetModalProps> = ({
         tabIndex={0}
         aria-label="Cancelar criação de novo ativo"
         className="absolute inset-0 bg-slate-950/80 backdrop-blur-md animate-fade-in"
-        onClick={onClose}
+        onClick={close}
         onKeyDown={(e) => {
           if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
-            onClose();
+            close();
           }
         }}
       />
@@ -49,6 +54,8 @@ export const LabelNewAssetModal: React.FC<LabelNewAssetModalProps> = ({
         </div>
 
         <div className="space-y-6">
+          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+          {isSaving && <p role="status" className="text-sm animate-pulse">Validando e gravando o logotipo…</p>}
           <div className="aspect-square w-full rounded-[2rem] bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 overflow-hidden p-4 group">
             <img
               src={newLogoImage || ''}
@@ -67,6 +74,7 @@ export const LabelNewAssetModal: React.FC<LabelNewAssetModalProps> = ({
             <input
               id="new-asset-name-input"
               type="text"
+              disabled={isSaving}
               value={newLogoName}
               onChange={(e) => setNewLogoName(e.target.value.toUpperCase())}
               placeholder="EX: LOGO MORANTE PRINCIPAL"
@@ -77,7 +85,8 @@ export const LabelNewAssetModal: React.FC<LabelNewAssetModalProps> = ({
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
+              disabled={isSaving}
               className="flex-1 px-6 py-4 border border-slate-100 dark:border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all font-bold cursor-pointer"
             >
               Cancelar
@@ -85,6 +94,7 @@ export const LabelNewAssetModal: React.FC<LabelNewAssetModalProps> = ({
             <button
               type="button"
               onClick={onConfirm}
+              disabled={isSaving}
               className="flex-[1.5] px-6 py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 hover:scale-[1.02] active:scale-95 transition-all text-center cursor-pointer"
             >
               Salvar na Biblioteca

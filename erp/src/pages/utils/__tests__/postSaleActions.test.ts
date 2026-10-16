@@ -8,12 +8,14 @@ describe('[MÓDULO 1 - Etapa 1.3] Ações Pós-Venda (PostOrderActionsModal & Re
     it('contém exatamente as ações de pós-venda autorizadas', () => {
       expect(POST_SALE_ACTION_KEYS.has('printShippingOrder')).toBe(true);
       expect(POST_SALE_ACTION_KEYS.has('printReceipt')).toBe(true);
+      expect(POST_SALE_ACTION_KEYS.has('printWarrantyTerm')).toBe(true);
       expect(POST_SALE_ACTION_KEYS.has('sendShippingOrder')).toBe(true);
       expect(POST_SALE_ACTION_KEYS.has('sendCustomerOrder')).toBe(true);
       expect(POST_SALE_ACTION_KEYS.has('sendGroupInvite')).toBe(true);
       expect(POST_SALE_ACTION_KEYS.has('sendCustomerReviews')).toBe(true);
       expect(POST_SALE_ACTION_KEYS.has('issueNfe')).toBe(true);
-      expect(POST_SALE_ACTION_KEYS.size).toBe(7);
+      expect(POST_SALE_ACTION_KEYS.has('sendCustomerOrderDirectApi')).toBe(true);
+      expect(POST_SALE_ACTION_KEYS.size).toBe(9);
     });
   });
 

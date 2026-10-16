@@ -38,6 +38,7 @@ describe('labelGridModelPersistence', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(saveCustomLabelLayouts).mockReturnValue(true);
   });
 
   describe('isIdenticalGridModel', () => {
@@ -49,6 +50,14 @@ describe('labelGridModelPersistence', () => {
     it('retorna false quando qualquer campo geométrico difere', () => {
       const modified = { ...baseModel, columns: 3 };
       expect(isIdenticalGridModel(baseModel, modified)).toBe(false);
+    });
+
+    it('não confunde design, metadata ou dimensão personalizada diferentes com duplicados', () => {
+      const first = { ...baseModel, paperSize: 'Custom', paperWidth: 100.5, paperHeight: 200, artConfig: { globalSnapshot: { title: 'A', metadata: { a: 0, b: false } } } };
+      expect(isIdenticalGridModel(first, { ...first, paperWidth: 101 })).toBe(false);
+      expect(isIdenticalGridModel(first, { ...first, artConfig: { globalSnapshot: { title: 'B' } } })).toBe(false);
+      expect(isIdenticalGridModel(first, { ...first, nameFontSize: 0 })).toBe(false);
+      expect(isIdenticalGridModel(first, { ...first, id: 'other', name: 'Other', artConfig: { globalSnapshot: { metadata: { b: false, a: 0 }, title: 'A' } } })).toBe(true);
     });
   });
 
@@ -129,9 +138,54 @@ describe('labelGridModelPersistence', () => {
 
       expect(result.savedToDb).toBe(false);
       expect(result.resultError).toBeDefined();
-      expect(String(result.finalModel.id)).toMatch(/^custom_\d+/);
+      expect(String(result.finalModel.id)).toMatch(/^custom_/);
       expect(result.updatedLayouts).toContainEqual(result.finalModel);
       expect(saveCustomLabelLayouts).toHaveBeenCalledWith(result.updatedLayouts);
+    });
+
+    it('recusa fallback local não confirmado e não converte resultado incerto em cópia local', async () => {
+      const request = { newModel: baseModel, editingGridModel: null, customLayouts: [], selectedCategory: 'identificacao' as const };
+      vi.mocked(insertRemoteLabelLayout).mockResolvedValueOnce({ data: null, error: { code: '42501' } });
+      vi.mocked(saveCustomLabelLayouts).mockReturnValueOnce(false);
+      await expect(saveGridModelWithFallback(request)).rejects.toThrow('neste computador');
+      vi.mocked(saveCustomLabelLayouts).mockClear();
+      for (const response of [{ data: null, error: { uncertain: true } }, { data: null, error: null }]) {
+        vi.mocked(insertRemoteLabelLayout).mockResolvedValueOnce(response);
+        await expect(saveGridModelWithFallback(request)).rejects.toMatchObject({ uncertain: true });
+      }
+      vi.mocked(insertRemoteLabelLayout).mockRejectedValueOnce(new TypeError('network'));
+      await expect(saveGridModelWithFallback(request)).rejects.toMatchObject({ uncertain: true });
+      expect(saveCustomLabelLayouts).not.toHaveBeenCalled();
+    });
+
+    it('valida o modelo antes de rede/Storage e salva edições locais sem tocar a rede', async () => {
+      await expect(saveGridModelWithFallback({ newModel: { ...baseModel, rows: 0 }, editingGridModel: null, customLayouts: [] })).rejects.toThrow();
+      expect(insertRemoteLabelLayout).not.toHaveBeenCalled(); expect(saveCustomLabelLayouts).not.toHaveBeenCalled();
+      const local = { ...baseModel, id: 'custom_existing', nameFontSize: 0, imageScale: 0, nameBold: false };
+      const result = await saveGridModelWithFallback({ newModel: local, editingGridModel: local, customLayouts: [local] });
+      expect(result.finalModel).toMatchObject(local); expect(result.savedToDb).toBe(false);
+      expect(insertRemoteLabelLayout).not.toHaveBeenCalled(); expect(updateRemoteLabelLayout).not.toHaveBeenCalled();
+    });
+
+    it('não trata falha do cache como falha da gravação remota confirmada', async () => {
+      const remote = { ...baseModel, id: 'confirmed-remote' };
+      vi.mocked(insertRemoteLabelLayout).mockResolvedValueOnce({ data: remote, error: null });
+      vi.mocked(saveCustomLabelLayouts).mockReturnValueOnce(false);
+      const result = await saveGridModelWithFallback({ newModel: baseModel, editingGridModel: null, customLayouts: [] });
+      expect(result.savedToDb).toBe(true); expect(result.finalModel).toEqual(remote);
+    });
+
+    it('preserva remoto e edição local como override após UPDATE rejeitado', async () => {
+      const remote = { ...baseModel, id: 'remote_source' }, edited = { ...remote, name: 'Edição local', nameFontSize: 0 };
+      vi.mocked(updateRemoteLabelLayout).mockResolvedValueOnce({ data: null, error: { code: '42501' } });
+      const result = await saveGridModelWithFallback({ newModel: edited, editingGridModel: remote, customLayouts: [remote] });
+      expect(result.finalModel).toMatchObject({ name: 'Edição local', nameFontSize: 0, baseModelId: remote.id });
+      expect(result.finalModel.id).toMatch(/^custom_/); expect(result.savedToDb).toBe(false);
+      expect(result.updatedLayouts).toEqual([remote, result.finalModel]);
+      vi.mocked(updateRemoteLabelLayout).mockClear();
+      const again = await saveGridModelWithFallback({ newModel: { ...result.finalModel, name: 'Segunda edição' }, editingGridModel: result.finalModel, customLayouts: result.updatedLayouts });
+      expect(again.finalModel.id).toBe(result.finalModel.id); expect(again.finalModel.baseModelId).toBe(remote.id);
+      expect(updateRemoteLabelLayout).not.toHaveBeenCalled();
     });
   });
 });

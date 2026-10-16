@@ -65,6 +65,7 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
       </div>
       <input
         type="text"
+        aria-label="Nome do modelo"
         value={state.name}
         onChange={(event) => handlers.onNameChange(event.target.value)}
         placeholder={state.generatedName}
@@ -78,6 +79,7 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
     <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Papel</p>
       <select
+        aria-label="Papel do modelo"
         value={state.paperSize}
         onChange={(event) => handlers.onPaperSizeChange(event.target.value)}
         className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl p-4 text-sm font-black outline-none"
@@ -92,6 +94,7 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
         <div className="grid grid-cols-2 gap-3 animate-in slide-in-from-top-2">
           <input
             type="number"
+            aria-label="Largura do papel personalizado"
             step="0.1"
             placeholder="L"
             value={state.customWidth}
@@ -102,6 +105,7 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
           />
           <input
             type="number"
+            aria-label="Altura do papel personalizado"
             step="0.1"
             placeholder="H"
             value={state.customHeight}
@@ -125,8 +129,9 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
           </label>
           <input
             type="number"
+            aria-label="Colunas da grade"
             value={state.columns}
-            onChange={(event) => handlers.onColumnsChange(parseInt(event.target.value) || 1)}
+            onChange={(event) => handlers.onColumnsChange(Number(event.target.value))}
             className="w-full bg-slate-100 rounded-xl p-3 text-center font-black"
           />
         </div>
@@ -136,8 +141,9 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
           </label>
           <input
             type="number"
+            aria-label="Linhas da grade"
             value={state.rows}
-            onChange={(event) => handlers.onRowsChange(parseInt(event.target.value) || 1)}
+            onChange={(event) => handlers.onRowsChange(Number(event.target.value))}
             className="w-full bg-slate-100 rounded-xl p-3 text-center font-black"
           />
         </div>

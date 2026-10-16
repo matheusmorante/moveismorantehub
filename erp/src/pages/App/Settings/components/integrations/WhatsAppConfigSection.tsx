@@ -64,8 +64,15 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
     return connectionForm.validateAndRun(config, async (values) => {
     setIsTesting(true);
     try {
-      await whatsappGraphService.testConnection(values);
-      toast.success('Conexão com WhatsApp API estabelecida com sucesso! ✅');
+      const result = await whatsappGraphService.testConnection(values);
+      if (result?.code_verification_status === 'NOT_VERIFIED') {
+        const phone = result.display_phone_number ? ` (${result.display_phone_number})` : '';
+        toast.warning(
+          `Conexão estabelecida, mas o número${phone} está com status "NÃO VERIFICADO" (code_verification_status: NOT_VERIFIED) no WhatsApp Cloud API. A Meta não entregará mensagens até que a verificação por SMS ou ligação seja concluída no painel da Meta.`
+        );
+      } else {
+        toast.success('Conexão com WhatsApp API estabelecida com sucesso! ✅');
+      }
     } catch (error: any) {
       toast.error(`Falha na conexão: ${error.message}`);
       console.error(error);

@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { storefrontImageUploadFormSchema } from '../../../../../../../shared-utils/storefrontProductFormSchemas';
+import { labelLocalImageUploadFormSchema } from '../../../../../../../shared-utils/labelImageFormSchemas';
+import { readImageFile } from '../../../../../../../shared-utils/readImageFile';
 import type { GridModel } from '../types/LabelGridModelTypes';
 import type { LabelItemConfig } from '../types/LabelGridItem.types';
 import { publishPriceLabelTemplateUpdate } from '../services/priceLabelTemplateSync';
@@ -93,29 +94,36 @@ export const useLabelPrintingState = () => {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [modelToCopy, setModelToCopy] = useState<GridModel | null>(null);
-  const uploadForm = useZodForm(storefrontImageUploadFormSchema, { files: [] });
+  const uploadForm = useZodForm(labelLocalImageUploadFormSchema, { files: [], category: selectedCategory });
+  const [imageUploading, setImageUploading] = useState(false), [imageUploadError, setImageUploadError] = useState('');
+  const activeImageRead = useRef<AbortController | null>(null), uploadMounted = useRef(false);
+  const uploadOwnerKey = JSON.stringify([location.pathname, selectedCategory, modalsAndAssets.isAssetManagerModalOpen]);
+  const uploadOwner = useRef(uploadOwnerKey); uploadOwner.current = uploadOwnerKey;
+  useEffect(() => { uploadMounted.current = true; return () => { uploadMounted.current = false; activeImageRead.current?.abort(); }; }, []);
+  useEffect(() => { setImageUploadError(''); return () => activeImageRead.current?.abort(); }, [uploadOwnerKey]);
 
   // Upload de logo / imagem para fila
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || activeImageRead.current || modalsAndAssets.assetsSaving) return;
     const input = e.target;
+    const controller = new AbortController(); activeImageRead.current = controller;
+    setImageUploading(true); setImageUploadError('');
+    const current = () => uploadMounted.current && !controller.signal.aborted && uploadOwner.current === uploadOwnerKey;
+    const fail = (message: string) => { if (current()) { setImageUploadError(message); toast.error(message); } };
     try {
-    return await uploadForm.validateAndRun({ files: [file] }, async (values) => {
+    return await uploadForm.validateAndRun({ files: [file], category: selectedCategory }, async (values) => {
+      if (!current()) return;
       const selectedFile = values.files[0];
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
-        reader.readAsDataURL(selectedFile);
-      });
-      if (selectedCategory === 'logos') {
+      const base64 = await readImageFile(selectedFile, controller.signal);
+      if (!current()) return;
+      if (values.category === 'logos') {
         modalsAndAssets.setNewLogoImage(base64);
         modalsAndAssets.setNewLogoName(selectedFile.name.split('.')[0].toUpperCase().substring(0, 30));
         modalsAndAssets.setIsNewLogoModalOpen(true);
       } else {
         modalsAndAssets.setSelectedImage(base64);
-        if (selectedCategory === 'precos') {
+        if (values.category === 'precos') {
           const newItem: LabelItemConfig = {
             name: '',
             price: '',
@@ -128,11 +136,12 @@ export const useLabelPrintingState = () => {
         }
         toast.success('Imagem adicionada à fila.');
       }
-    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    } catch {
-      toast.error('Não foi possível ler a imagem.');
+    }, (errors) => fail(Object.values(flattenFormErrors(errors))[0] || 'Confira a imagem.'));
+    } catch (cause) {
+      fail(cause instanceof Error ? cause.message : 'Não foi possível ler a imagem.');
     } finally {
       input.value = '';
+      if (activeImageRead.current === controller) { activeImageRead.current = null; if (uploadMounted.current) setImageUploading(false); }
     }
   };
 
@@ -161,9 +170,16 @@ export const useLabelPrintingState = () => {
     selectModelId: layouts.selectModelId,
     handleTypeChange: layouts.handleTypeChange,
     handleDuplicateLayout: layouts.handleDuplicateLayout,
+    handleSaveGridModel: layouts.handleSaveGridModel,
     toggleDefaultLayout: layouts.toggleDefaultLayout,
     handleDeleteLayout: layouts.handleDeleteLayout,
     confirmDeleteLayout: layouts.confirmDeleteLayout,
+    layoutsBusy: layouts.layoutsBusy,
+    layoutsLoading: layouts.layoutsLoading,
+    layoutsQueryError: layouts.layoutsQueryError,
+    layoutPreferenceError: layouts.layoutPreferenceError,
+    layoutsError: layouts.layoutsError,
+    layoutsBlocked: layouts.layoutsBlocked,
     handleCopyToCategory: layouts.handleCopyToCategory,
     applyPresetWithConfig: layouts.applyPresetWithConfig,
     modelToDelete: layouts.modelToDelete,
@@ -232,6 +248,10 @@ export const useLabelPrintingState = () => {
     availableLogos: modalsAndAssets.availableLogos,
     setAvailableLogos: modalsAndAssets.setAvailableLogos,
     handleConfirmNewLogo: modalsAndAssets.handleConfirmNewLogo,
+    assetsSaving: modalsAndAssets.assetsSaving,
+    assetError: modalsAndAssets.assetError,
+    imageUploading,
+    imageUploadError,
     handleDeleteAvailableLogo: modalsAndAssets.handleDeleteAvailableLogo,
     handleAddLogoToQueue: modalsAndAssets.handleAddLogoToQueue,
     handleSaveCustomLabel: modalsAndAssets.handleSaveCustomLabel,

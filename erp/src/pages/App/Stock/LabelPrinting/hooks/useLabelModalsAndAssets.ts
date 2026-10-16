@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { labelAssetFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
+import { labelAssetFormSchema, customLabelAssetFormSchema, labelAssetQueueFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
+import { catalogSelectionFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import labelMdf from '../../../../../assets/label_mdf.png';
 import logoMorante from '../../../../../assets/logo-morante.svg';
 import { CustomLabel, LabelConfig } from '../utils/LabelConstants';
@@ -53,7 +54,28 @@ export const useLabelModalsAndAssets = ({
   const [labelFormName, setLabelFormName] = useState('');
   const [labelFormImage, setLabelFormImage] = useState('');
   const logoForm = useZodForm(labelAssetFormSchema, { name: newLogoName, image: newLogoImage });
-  const labelForm = useZodForm(labelAssetFormSchema, { name: labelFormName, image: labelFormImage });
+  const labelForm = useZodForm(customLabelAssetFormSchema, { name: labelFormName, image: labelFormImage, extraFields: [] });
+  const selectionForm = useZodForm(catalogSelectionFormSchema, { id: '' });
+  const queueForm = useZodForm(labelAssetQueueFormSchema, { category: 'logos', item: { name: '', image: '', quantity: 1 } });
+  const [assetsSaving, setAssetsSaving] = useState(false);
+  const [assetError, setAssetError] = useState('');
+  const locked = useRef(false), mounted = useRef(false);
+  const ownerKey = JSON.stringify([location.pathname, selectedCategory, isNewLogoModalOpen, isLabelModalOpen, isAssetManagerModalOpen, editingLabel?.id]);
+  const owner = useRef({ key: ownerKey, revision: 0 });
+  if (owner.current.key !== ownerKey) owner.current = { key: ownerKey, revision: owner.current.revision + 1 };
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => { setAssetError(''); }, [ownerKey]);
+
+  const runOwned = async (task: (current: () => boolean, fail: (message: string) => void) => Promise<boolean | false>): Promise<boolean> => {
+    if (locked.current) return false;
+    locked.current = true; setAssetsSaving(true); setAssetError('');
+    const revision = owner.current.revision;
+    const current = () => mounted.current && revision === owner.current.revision;
+    const fail = (message: string) => { if (current()) { setAssetError(message); toast.error(message); } };
+    try { return await task(current, fail) === true; }
+    catch (error) { fail(error instanceof Error ? error.message : 'Não foi possível concluir a alteração.'); return false; }
+    finally { locked.current = false; if (mounted.current) setAssetsSaving(false); }
+  };
 
   // Logos disponíveis
   const [availableLogos, setAvailableLogos] = useState<LabelLogoAsset[]>(() => {
@@ -70,76 +92,75 @@ export const useLabelModalsAndAssets = ({
     }
   }, [location.pathname]);
 
-  const handleConfirmNewLogo = async () => logoForm.validateAndRun({ name: newLogoName, image: newLogoImage }, (values) => {
+  const handleConfirmNewLogo = async () => {
+    if (!isNewLogoModalOpen) return false;
+    return runOwned((current, fail) => logoForm.validateAndRun({ name: newLogoName, image: newLogoImage }, (values) => {
+    if (!current()) return false;
     const newLogo = {
-      id: `logo_${Date.now()}`,
+      id: `logo_${crypto.randomUUID()}`,
       image: values.image,
       name: values.name,
     };
 
     const updated = [...availableLogos, newLogo];
+    if (saveAvailableLabelLogos(updated) !== true) throw new Error('Não foi possível gravar o logotipo neste dispositivo. Libere espaço e tente novamente.');
     setAvailableLogos(updated);
-    saveAvailableLabelLogos(updated);
 
     setIsNewLogoModalOpen(false);
     setNewLogoName('');
     setNewLogoImage('');
     toast.success('Logotipo adicionado ao seu banco de imagens!');
-  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-
-  const handleDeleteAvailableLogo = (id: string) => {
-    if (!window.confirm('Excluir este logotipo do seu banco de imagens?')) return;
-    const updated = availableLogos.filter((l) => l.id !== id);
-    setAvailableLogos(updated);
-    saveAvailableLabelLogos(updated);
-    toast.info('Imagem removida do banco.');
+    return true;
+    }, (errors) => fail(Object.values(flattenFormErrors(errors))[0] || 'Confira o nome e a imagem.')));
   };
 
-  const handleAddLogoToQueue = (logo: Pick<LabelLogoAsset, 'image' | 'name'>) => {
-    if (selectedCategory === 'logos') {
-      const newItem: LogoItemConfig = {
+  const handleDeleteAvailableLogo = async (id: string) => {
+    if (locked.current) return false;
+    return runOwned((current, fail) => selectionForm.validateAndRun({ id }, (values) => {
+      if (!current()) return false;
+      if (!availableLogos.some((logo) => logo.id === values.id)) throw new Error('Logotipo não encontrado. Reabra a biblioteca.');
+      if (['logo_mdf_std', 'logo_morante_std'].includes(values.id)) throw new Error('Este logotipo padrão permanece disponível. Remova apenas imagens que você adicionou.');
+      if (!window.confirm('Excluir este logotipo do seu banco de imagens?') || !current()) return false;
+      const updated = availableLogos.filter((logo) => logo.id !== values.id);
+      if (saveAvailableLabelLogos(updated) !== true) throw new Error('Não foi possível gravar a remoção neste dispositivo.');
+      setAvailableLogos(updated); toast.info('Imagem removida do banco.'); return true;
+    }, (errors) => fail(Object.values(flattenFormErrors(errors))[0] || 'Selecione um logotipo.')));
+  };
+
+  const handleAddLogoToQueue = async (logo: Pick<LabelLogoAsset, 'image' | 'name'>) => runOwned(async (current, fail) => {
+    if (!selectedCategory) throw new Error('Selecione uma categoria de etiquetas.');
+    const newItem = {
         image: logo.image,
         quantity: 1,
-        imageFit: config.imageFit || 'contain',
-        scale: config.imageScale || 1,
+        imageFit: config.imageFit || (selectedCategory === 'logos' ? 'contain' : 'cover'),
+        scale: config.imageScale ?? 1,
         rotation: 0,
         name: logo.name,
         price: '',
         promoPrice: '',
         sku: '',
-        extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : [],
+        extraFields: [...(config.extraFields ?? [])],
+        ...(selectedCategory !== 'logos' ? { showName: false, isLogoOnly: true } : {}),
       };
-      onAddLogoItem(newItem);
-    } else {
-      const newItem: LabelItemConfig = {
-        image: logo.image,
-        quantity: 1,
-        imageFit: config.imageFit || 'cover',
-        scale: config.imageScale || 1,
-        rotation: 0,
-        name: logo.name,
-        price: '',
-        promoPrice: '',
-        sku: '',
-        extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : [],
-        showName: false,
-        isLogoOnly: true,
-      };
-      onAddLabelItem(newItem);
-    }
-    setIsAssetManagerModalOpen(false);
-    toast.success(`${logo.name} adicionado à fila.`);
-  };
+    return queueForm.validateAndRun({ category: selectedCategory, item: newItem }, (values) => {
+      if (!current()) return false;
+      if (values.category === 'logos') onAddLogoItem(values.item as LogoItemConfig);
+      else onAddLabelItem(values.item as LabelItemConfig);
+      setIsAssetManagerModalOpen(false); toast.success(`${values.item.name} adicionado à fila.`); return true;
+    }, (errors) => fail(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da etiqueta.'));
+  });
 
-  const handleSaveCustomLabel = async () => labelForm.validateAndRun({ name: labelFormName, image: labelFormImage }, (values) => {
+  const handleSaveCustomLabel = async () => {
+    if (!isLabelModalOpen) return false;
+    return runOwned((current, fail) => labelForm.validateAndRun({ name: labelFormName, image: labelFormImage,
+      extraFields: [...(editingLabel?.extraFields ?? config.extraFields ?? [])] }, (values) => {
+    if (!current()) return false;
+    if (editingLabel && !customLabels.some((label) => label.id === editingLabel.id)) throw new Error('Rótulo não encontrado. Reabra a biblioteca.');
     const newLabel: CustomLabel = {
-      id: editingLabel?.id || `label_${Date.now()}`,
+      id: editingLabel?.id || `label_${crypto.randomUUID()}`,
       name: values.name.toUpperCase(),
       image: values.image,
-      extraFields:
-        editingLabel?.extraFields || config.extraFields
-          ? JSON.parse(JSON.stringify(config.extraFields))
-          : [],
+      extraFields: values.extraFields,
     };
 
     let updated: CustomLabel[];
@@ -149,25 +170,33 @@ export const useLabelModalsAndAssets = ({
       updated = [...customLabels, newLabel];
     }
 
+    if (saveCustomLabels(updated) !== true) throw new Error('Não foi possível gravar o rótulo neste dispositivo. Libere espaço e tente novamente.');
     setCustomLabels(updated);
-    saveCustomLabels(updated);
 
     setIsLabelModalOpen(false);
     setEditingLabel(null);
     setLabelFormName('');
     setLabelFormImage('');
     toast.success(editingLabel ? 'Rótulo atualizado!' : 'Rótulo criado com sucesso!');
-  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    return true;
+    }, (errors) => fail(Object.values(flattenFormErrors(errors))[0] || 'Confira os campos do rótulo.')));
+  };
 
-  const handleDeleteCustomLabel = (id: string) => {
-    if (!window.confirm('Excluir este rótulo permanentemente?')) return;
-    const updated = customLabels.filter((l) => l.id !== id);
-    setCustomLabels(updated);
-    saveCustomLabels(updated);
-    toast.info('Rótulo removido.');
+  const handleDeleteCustomLabel = async (id: string) => {
+    if (locked.current) return false;
+    return runOwned((current, fail) => selectionForm.validateAndRun({ id }, (values) => {
+      if (!current()) return false;
+      if (!customLabels.some((label) => label.id === values.id)) throw new Error('Rótulo não encontrado. Reabra a biblioteca.');
+      if (!window.confirm('Excluir este rótulo permanentemente?') || !current()) return false;
+      const updated = customLabels.filter((label) => label.id !== values.id);
+      if (saveCustomLabels(updated) !== true) throw new Error('Não foi possível gravar a remoção neste dispositivo.');
+      setCustomLabels(updated); toast.info('Rótulo removido.'); return true;
+    }, (errors) => fail(Object.values(flattenFormErrors(errors))[0] || 'Selecione um rótulo.')));
   };
 
   return {
+    assetsSaving,
+    assetError,
     layoutModalOpen,
     setLayoutModalOpen,
     gridModalOpen,

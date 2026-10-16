@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { labelGridModelDraftFormSchema, labelDefaultLayoutFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
+import { labelLayoutDefaultFormSchema, labelLayoutDuplicateFormSchema, labelLayoutCopyFormSchema, labelLayoutDeleteFormSchema, labelLayoutPreferenceFormSchema, LabelLayoutUnconfirmedError } from '../../../../../../../shared-utils/labelLayoutFormSchemas';
+import { findIdenticalGridModel, saveGridModelWithFallback } from '../services/labelGridModelPersistence';
 import { getSettings, saveSettings, subscribeToSettings } from '../../../../utils/settingsService';
 import {
   deleteRemoteLabelLayout,
   fetchRemoteLabelLayouts,
-  insertRemoteLabelLayout,
 } from '../services/labelLayoutService';
 import {
   applyPresetToConfig,
@@ -46,7 +46,7 @@ export const useLabelLayouts = ({
 }: UseLabelLayoutsProps) => {
   const [currentModel, setCurrentModel] = useState<GridModel | null>(null);
   const [editingGridModel, setEditingGridModel] = useState<GridModel | null>(null);
-  const [customLayouts, setCustomLayouts] = useState<GridModel[]>([]);
+  const [customLayouts, setCustomLayouts] = useState<GridModel[]>(() => getCustomLabelLayouts() ?? []);
   const [savedArtConfigs, setSavedArtConfigs] = useState<
     Record<string, NonNullable<LabelConfig['artConfig']>>
   >({});
@@ -64,10 +64,13 @@ export const useLabelLayouts = ({
   const [defaultLayoutIds, setDefaultLayoutIds] = useState<Record<string, string>>(
     getSettings().defaultLabelLayoutIds || {}
   );
+  const defaultIdsRef = useRef(defaultLayoutIds);
+  defaultIdsRef.current = defaultLayoutIds;
 
   useEffect(() => {
     const unsubscribe = subscribeToSettings((settings) => {
       if (settings.defaultLabelLayoutIds) {
+        defaultIdsRef.current = settings.defaultLabelLayoutIds;
         setDefaultLayoutIds(settings.defaultLabelLayoutIds);
       }
     });
@@ -77,9 +80,22 @@ export const useLabelLayouts = ({
   const [config, setConfig] = useState<LabelConfig>(() =>
     createInitialLabelConfig(isProductContext)
   );
-  const modelForm = useZodForm(labelGridModelDraftFormSchema, { name: '', columns: 1, rows: 1, marginT: 0, marginB: 0, marginL: 0, marginR: 0, gapH: 0, gapV: 0, paperSize: 'A4', icon: '' });
+  const duplicateForm = useZodForm(labelLayoutDuplicateFormSchema, { model: { ...DEFAULT_LAYOUT_MODELS[0] } });
+  const copyForm = useZodForm(labelLayoutCopyFormSchema, { model: { ...DEFAULT_LAYOUT_MODELS[0] }, category: 'logos' });
+  const deleteForm = useZodForm(labelLayoutDeleteFormSchema, { id: '' });
+  const { enqueueAndRun: persistPreferences } = useZodForm(labelLayoutPreferenceFormSchema, { roundId: lastSelectedRoundModelId, rectId: lastSelectedRectModelId });
+  const [layoutPreferenceError, setLayoutPreferenceError] = useState('');
+  const [layoutsLoading, setLayoutsLoading] = useState(true), [layoutsQueryError, setLayoutsQueryError] = useState('');
+  const [layoutsBusy, setLayoutsBusy] = useState(false), [layoutsError, setLayoutsError] = useState(''), [layoutsBlocked, setLayoutsBlocked] = useState(false);
+  const mutationLock = useRef(false), replayBlocked = useRef(false), mounted = useRef(false), mutationRevision = useRef(0);
+  const layoutsRef = useRef(customLayouts), hiddenIdsRef = useRef(hiddenDefaultIds);
+  layoutsRef.current = customLayouts; hiddenIdsRef.current = hiddenDefaultIds;
+  const categoryOwner = useRef({ category: selectedCategory, revision: 0 });
+  if (categoryOwner.current.category !== selectedCategory) categoryOwner.current = { category: selectedCategory, revision: categoryOwner.current.revision + 1 };
+  useEffect(() => { const revision = mutationRevision; mounted.current = true; return () => { mounted.current = false; revision.current++; }; }, []);
+  useEffect(() => { if (!replayBlocked.current) setLayoutsError(''); }, [selectedCategory]);
   const configRef = useRef(config);
-  const defaultForm = useZodForm(labelDefaultLayoutFormSchema, { modelId: '', category: '', type: 'rect' });
+  const defaultForm = useZodForm(labelLayoutDefaultFormSchema, { modelId: '', category: 'identificacao', type: 'rect' });
   configRef.current = config;
 
   const prevCategoryRef = useRef<CategoryType | null>(null);
@@ -102,17 +118,27 @@ export const useLabelLayouts = ({
 
   // Sincroniza layouts customizados com o serviço remoto e o cache local.
   useEffect(() => {
+    let active = true; const revision = mutationRevision.current;
     const fetchCustomLayouts = async () => {
-      const { data } = await fetchRemoteLabelLayouts();
-      if (data && data.length > 0) {
-        setCustomLayouts(data);
-        saveCustomLabelLayouts(data);
-      } else {
-        const saved = getCustomLabelLayouts();
-        if (saved) setCustomLayouts(saved);
-      }
+      try {
+        const { data, error } = await fetchRemoteLabelLayouts();
+        if (!active || revision !== mutationRevision.current) return;
+        const saved = getCustomLabelLayouts() ?? layoutsRef.current;
+        const layouts = data && !error
+          ? [...data, ...saved.filter((model) => model.id.startsWith('custom_') && !data.some((remote) => remote.id === model.id))]
+          : saved;
+        layoutsRef.current = layouts; setCustomLayouts(layouts);
+        if (error) setLayoutsQueryError('Não foi possível consultar os modelos na nuvem. A lista local foi preservada; recarregue para tentar novamente.');
+        if (data && !error) saveCustomLabelLayouts(layouts);
+      } catch {
+        if (active && revision === mutationRevision.current) {
+          const saved = getCustomLabelLayouts() ?? layoutsRef.current; layoutsRef.current = saved; setCustomLayouts(saved);
+          setLayoutsQueryError('Não foi possível consultar os modelos na nuvem. A lista local foi preservada; recarregue para tentar novamente.');
+        }
+      } finally { if (active) setLayoutsLoading(false); }
     };
-    fetchCustomLayouts();
+    void fetchCustomLayouts();
+    return () => { active = false; };
   }, []);
 
   // Sincroniza artConfig salvo com o config atual
@@ -222,139 +248,108 @@ export const useLabelLayouts = ({
     }
   }, [catFromUrl, selectedCategory, config.type, defaultLayoutIds, layoutModels, selectLayout]);
 
-  const handleDuplicateLayout = async (model: GridModel) => {
-    const newModel = {
-      ...model,
-      id: undefined,
-      name: `${model.name} (Cópia)`,
-    };
-
-    return modelForm.validateAndRun(newModel, async (values) => {
-    const { data, error } = await insertRemoteLabelLayout(values);
-
-    if (data && !error) {
-      const saved = data;
-      const updated = [...customLayouts, saved];
-      setCustomLayouts(updated);
-      saveCustomLabelLayouts(updated);
-      toast.success('Layout duplicado e salvo no banco!');
-    } else {
-      const localModel: GridModel = { ...values, id: `custom_${Date.now()}` };
-      const updated = [...customLayouts, localModel];
-      setCustomLayouts(updated);
-      saveCustomLabelLayouts(updated);
-      toast.success('Layout duplicado (Local)');
-    }
-    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+  const report = (message: string) => { if (mounted.current) { setLayoutsError(message); toast.error(message); } };
+  const invalid = (current: () => boolean, errors: Parameters<typeof flattenFormErrors>[0]) => { if (current()) report(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados do modelo.'); };
+  const runMutation = async (task: (current: () => boolean) => Promise<boolean | false>, stillCurrent: () => boolean = () => true): Promise<boolean> => {
+    if (!mounted.current || mutationLock.current || replayBlocked.current) return false;
+    mutationLock.current = true; setLayoutsBusy(true); setLayoutsError('');
+    const revision = categoryOwner.current.revision;
+    const current = () => mounted.current && revision === categoryOwner.current.revision && stillCurrent();
+    try { return await task(current) === true && current(); }
+    catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Não foi possível alterar o modelo. Confira os dados e as permissões.';
+      if ((cause as { uncertain?: boolean; requiresRefresh?: boolean })?.uncertain || (cause as { requiresRefresh?: boolean })?.requiresRefresh) {
+        replayBlocked.current = true;
+        if (mounted.current) { setLayoutsBlocked(true); setLayoutsError(message); }
+        if (current()) toast.error(message);
+      } else if (current()) report(message);
+      return false;
+    } finally { mutationLock.current = false; if (mounted.current) setLayoutsBusy(false); }
   };
+  const createCopy = async (model: GridModel, category: CategoryType | undefined, name: string, current: () => boolean) => {
+    if (!current()) return false;
+    const result = await saveGridModelWithFallback({ newModel: { ...model, id: '', baseModelId: undefined, name, category },
+      editingGridModel: null, customLayouts: layoutsRef.current, isCurrent: current, getCurrentLayouts: () => layoutsRef.current });
+    if (!current()) return false;
+    mutationRevision.current++;
+    const updated = [...layoutsRef.current.filter((entry) => entry.id !== result.finalModel.id), result.finalModel];
+    layoutsRef.current = updated; setCustomLayouts(updated);
+    saveCustomLabelLayouts(updated);
+    toast.success(result.savedToDb ? 'Cópia salva no banco.' : 'Cópia salva neste computador.');
+    return true;
+  };
+  const handleDuplicateLayout = (model: GridModel): Promise<boolean> => runMutation((current) => duplicateForm.validateAndRun({ model: { ...model } },
+    async (values) => createCopy(values.model, values.model.category, `${values.model.name} (Cópia)`, current), (errors) => invalid(current, errors)));
 
-  const toggleDefaultLayout = (modelId: string, category: string) => {
-    const model = [...DEFAULT_LAYOUT_MODELS, ...customLayouts].find((m) => m.id === modelId);
-    if (!model) return;
+  // The editor owns the RHF form and passes its parsed, frozen snapshot here.
+  const handleSaveGridModel = (newModel: GridModel, stillCurrent?: () => boolean): Promise<boolean> => runMutation(async (current) => {
+    if (!current()) return false;
+    const editing = editingGridModel;
+    if (editing?.category && selectedCategory && editing.category !== selectedCategory) throw new Error('O modelo pertence a outra categoria. Feche o editor e selecione o modelo novamente.');
+    const system = editing && DEFAULT_LAYOUT_MODELS.some((model) => model.id === editing.id);
+    const targetId = system ? layoutsRef.current.find((model) => model.baseModelId === editing.id)?.id ?? null : editing?.id ?? null;
+    const identical = findIdenticalGridModel(layoutsRef.current, newModel, targetId, editing?.id);
+    if (identical) throw new Error(`Este modelo já existe como "${identical.name}". Selecione-o ou altere o design.`);
+    const result = await saveGridModelWithFallback({ newModel, editingGridModel: editing, customLayouts: layoutsRef.current,
+      selectedCategory, isCurrent: current, getCurrentLayouts: () => layoutsRef.current });
+    if (!current()) return false;
+    mutationRevision.current++;
+    const baseId = result.finalModel.baseModelId;
+    const updated = [...layoutsRef.current.filter((model) => model.id !== result.finalModel.id && !(baseId && model.baseModelId === baseId)), result.finalModel];
+    layoutsRef.current = updated; setCustomLayouts(updated); saveCustomLabelLayouts(updated);
+    if (editing?.id === configRef.current.layoutId || configRef.current.layoutId === result.finalModel.id) selectLayout(result.finalModel);
+    toast.success(result.savedToDb ? 'Modelo salvo no banco.' : 'Modelo salvo neste computador.');
+    return true;
+  }, stillCurrent);
 
+  const toggleDefaultLayout = (modelId: string, category: string): Promise<boolean> => runMutation((current) => {
+    const model = [...DEFAULT_LAYOUT_MODELS, ...layoutsRef.current].find((entry) => entry.id === modelId.trim());
+    if (!model) throw new Error('O modelo não está mais disponível. Recarregue a lista.');
     return defaultForm.validateAndRun({ modelId, category, type: model.type || 'rect' }, async (values) => {
-    const key = `${values.category}_${values.type}`;
-    const newDefaults = { ...defaultLayoutIds, [key]: values.modelId };
+      if (!current()) return false;
+      if (model.category !== values.category) throw new Error('O modelo não pertence à categoria selecionada.');
+      const newDefaults = { ...defaultIdsRef.current, [`${values.category}_${values.type}`]: values.modelId };
+      const result = await saveSettings({ ...getSettings(), defaultLabelLayoutIds: newDefaults }, { confirm: true, isCurrent: current });
+      if (!result?.confirmed || !current()) throw Object.assign(new Error('O padrão foi confirmado em outro contexto. Recarregue antes de alterar os modelos.'), { requiresRefresh: true });
+      defaultIdsRef.current = newDefaults;
+      setDefaultLayoutIds(newDefaults);
+      if (!result.cached) report('O padrão foi salvo na nuvem; o cache local não pôde ser atualizado.');
+      toast.info('Modelo padrão salvo na nuvem.'); return true;
+    }, (errors) => invalid(current, errors));
+  });
 
-    // Persist to Supabase app settings
-    const currentSettings = getSettings();
-    await saveSettings({
-      ...currentSettings,
-      defaultLabelLayoutIds: newDefaults,
-    })
-      .then(() => {
-        setDefaultLayoutIds(newDefaults);
-        toast.info(
-          `Modelo definido como padrão para ${model.type === 'round' ? 'etiquetas redondas' : 'etiquetas retangulares'} (Salvo na nuvem).`
-        );
-      })
-      .catch((err) => {
-        console.error('Erro ao salvar modelo padrão', err);
-        toast.error('Erro ao salvar modelo padrão na nuvem.');
-      });
-    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-  };
-
-  const handleDeleteLayout = async (modelId: string) => {
-    const isSystemDefault = DEFAULT_LAYOUT_MODELS.some((m) => m.id === modelId);
-    const isLocalOnly = String(modelId).startsWith('custom_');
-
-    if (isSystemDefault) {
-      if (!hiddenDefaultIds.includes(modelId)) {
-        const updated = [...hiddenDefaultIds, modelId];
-        setHiddenDefaultIds(updated);
-        saveHiddenDefaultLayoutIds(updated);
-      }
-    } else {
-      const updatedCustom = customLayouts.filter((m) => m.id !== modelId);
-      setCustomLayouts(updatedCustom);
-      saveCustomLabelLayouts(updatedCustom);
-
-      if (!isLocalOnly) {
-        try {
-          const dbId = /^\d+$/.test(modelId) ? Number(modelId) : modelId;
-          await deleteRemoteLabelLayout(dbId);
-        } catch (e) {
-          console.error('Erro na requisição de deleção:', e);
-        }
-      }
+  const handleDeleteLayout = (modelId: string, stillCurrent?: () => boolean): Promise<boolean> => runMutation((current) => deleteForm.validateAndRun({ id: modelId }, async ({ id }) => {
+    if (!current()) return false;
+    const system = DEFAULT_LAYOUT_MODELS.some((model) => model.id === id);
+    if (!system && !layoutsRef.current.some((model) => model.id === id)) throw new Error('O modelo não está mais disponível. Recarregue a lista.');
+    const hidden = system ? [...new Set([...hiddenIdsRef.current, id])] : hiddenIdsRef.current;
+    const local = id.startsWith('custom_');
+    if (!system && !local) {
+      let result;
+      try { result = await deleteRemoteLabelLayout(id); } catch { throw new LabelLayoutUnconfirmedError(); }
+      if (!result) throw new LabelLayoutUnconfirmedError();
+      if (result.error) throw result.error;
     }
-
-    if (config.layoutId === modelId) {
-      const allModels = [
-        ...DEFAULT_LAYOUT_MODELS,
-        ...customLayouts.filter((m) => m.id !== modelId),
-      ];
-      const available = allModels.filter(
-        (m) =>
-          m.id !== modelId && !hiddenDefaultIds.includes(m.id) && m.category === selectedCategory
-      );
-      if (available.length > 0) selectLayout(available[0]);
+    if (!current()) return false;
+    const updated = system ? layoutsRef.current : layoutsRef.current.filter((model) => model.id !== id);
+    const saved = system ? saveHiddenDefaultLayoutIds(hidden) : saveCustomLabelLayouts(updated);
+    if (saved !== true && (system || local)) throw new Error('Não foi possível confirmar a alteração neste computador.');
+    mutationRevision.current++;
+    layoutsRef.current = updated; setCustomLayouts(updated);
+    hiddenIdsRef.current = hidden; setHiddenDefaultIds(hidden);
+    if (saved !== true) report('Modelo excluído na nuvem; o cache local não pôde ser atualizado. Recarregue a página.');
+    if (configRef.current.layoutId === id) {
+      const available = [...DEFAULT_LAYOUT_MODELS, ...updated].find((model) => model.id !== id && !hidden.includes(model.id) && model.category === selectedCategory && (model.type ?? 'rect') === configRef.current.type);
+      if (available) selectLayout(available);
+      else { setCurrentModel(null); setConfig((previous) => ({ ...previous, layoutId: undefined })); }
     }
-  };
+    toast.success(system ? 'Modelo ocultado neste computador.' : 'Modelo excluído.'); return true;
+  }, (errors) => invalid(current, errors)), stillCurrent);
 
-  const confirmDeleteLayout = async () => {
-    if (!modelToDelete) return;
-    await handleDeleteLayout(modelToDelete);
-    toast.success('Modelo excluído ou ocultado com sucesso.');
-    setModelToDelete(null);
-  };
+  const confirmDeleteLayout = (stillCurrent?: () => boolean): Promise<boolean> => handleDeleteLayout(modelToDelete ?? '', stillCurrent);
 
-  const handleCopyToCategory = async (model: GridModel, targetCat: CategoryType) => {
-    const newModel = {
-      ...model,
-      id: undefined,
-      category: targetCat,
-      name: model.name,
-    };
-
-    return modelForm.validateAndRun(newModel, async (values) => {
-    const { data, error } = await insertRemoteLabelLayout(values);
-
-    if (data && !error) {
-      const saved = data;
-      const updated = [...customLayouts, saved];
-      setCustomLayouts(updated);
-      saveCustomLabelLayouts(updated);
-      const catName =
-        targetCat === 'identificacao'
-          ? 'Identificação'
-          : targetCat === 'precos'
-            ? 'Preços'
-            : targetCat === 'logos'
-              ? 'Logos'
-              : 'Posts';
-      toast.success(`Copiado com sucesso para ${catName}`);
-    } else {
-      console.error('Erro ao exportar layout:', error);
-      const localModel: GridModel = { ...values, id: `custom_${Date.now()}` };
-      const updated = [...customLayouts, localModel];
-      setCustomLayouts(updated);
-      saveCustomLabelLayouts(updated);
-      toast.success('Copiado para outra categoria (Local)');
-    }
-    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-  };
+  const handleCopyToCategory = (model: GridModel, category: CategoryType, stillCurrent?: () => boolean): Promise<boolean> => runMutation((current) => copyForm.validateAndRun({ model: { ...model }, category },
+    async (values) => createCopy(values.model, values.category, values.model.name, current), (errors) => invalid(current, errors)), stillCurrent);
 
   const selectModelId = (modelId: string) => {
     const allModels = [...DEFAULT_LAYOUT_MODELS, ...customLayouts];
@@ -398,12 +393,15 @@ export const useLabelLayouts = ({
   };
 
   useEffect(() => {
-    saveLastSelectedRoundModelId(lastSelectedRoundModelId);
-  }, [lastSelectedRoundModelId]);
-
-  useEffect(() => {
-    saveLastSelectedRectModelId(lastSelectedRectModelId);
-  }, [lastSelectedRectModelId]);
+    let active = true;
+    const fail = () => { if (active && mounted.current) setLayoutPreferenceError('Não foi possível salvar a seleção de modelos neste computador.'); };
+    void persistPreferences({ roundId: lastSelectedRoundModelId, rectId: lastSelectedRectModelId }, (values) => {
+      if (!active || !mounted.current) return;
+      if (saveLastSelectedRoundModelId(values.roundId) !== true || saveLastSelectedRectModelId(values.rectId) !== true) fail();
+      else setLayoutPreferenceError('');
+    }, fail).catch(fail);
+    return () => { active = false; };
+  }, [lastSelectedRoundModelId, lastSelectedRectModelId, persistPreferences]);
 
   return {
     config,
@@ -424,6 +422,7 @@ export const useLabelLayouts = ({
     selectModelId,
     handleTypeChange,
     handleDuplicateLayout,
+    handleSaveGridModel,
     toggleDefaultLayout,
     handleDeleteLayout,
     confirmDeleteLayout,
@@ -431,5 +430,11 @@ export const useLabelLayouts = ({
     applyPresetWithConfig,
     modelToDelete,
     setModelToDelete,
+    layoutsBusy,
+    layoutsLoading,
+    layoutsQueryError,
+    layoutPreferenceError,
+    layoutsError,
+    layoutsBlocked,
   };
 };

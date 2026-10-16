@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import FinanceSettings from './index';
 const mocks = vi.hoisted(() => ({ getConfig: vi.fn(), save: vi.fn(), error: vi.fn() }));
@@ -35,5 +35,19 @@ describe('Rede configuration resolver', () => {
     fireEvent.submit(view.container.querySelector('form')!);
     await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Selecione um ambiente válido.'));
     expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it('uses only editable fields and preserves the exact secret', async () => {
+    mocks.getConfig.mockResolvedValue({ ...blankConfig, id: 'config-id', created_at: 'old', pv: ' 123 ', client_id: ' client ', client_secret: ' secret ', active: true });
+    const view = await renderConfig();
+    fireEvent.submit(view.container.querySelector('form')!);
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledWith({ ...blankConfig, pv: '123', client_id: 'client', client_secret: ' secret ', active: true }));
+  });
+  it('shows a load failure and blocks saving unknown config, without displaying provider secrets', async () => {
+    mocks.getConfig.mockRejectedValue(new Error('credential-detail-must-remain-private'));
+    const view = await renderConfig();
+    expect(screen.getByRole('alert').textContent).toContain('Não foi possível carregar');
+    await act(async () => { fireEvent.submit(view.container.querySelector('form')!); });
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(view.container.textContent).not.toContain('credential-detail-must-remain-private');
   });
 });

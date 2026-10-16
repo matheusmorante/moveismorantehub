@@ -10,7 +10,8 @@ import { usePriceLabelHistory } from './usePriceLabelHistory';
 export function usePriceLabelState(
   initialProduct: PriceLabelArtEditorModalProps['initialProduct'],
   config: PriceLabelArtEditorModalProps['config'],
-  isOpen: boolean
+  isOpen: boolean,
+  canEditHistory: () => boolean = () => true,
 ) {
   const [magnitudeTemplates, setMagnitudeTemplates] = useState<{
     tens?: any;
@@ -741,6 +742,7 @@ export function usePriceLabelState(
     canUndo,
     canRedo,
   } = usePriceLabelHistory<ReturnType<typeof getSnapshot>>({
+    canEdit: canEditHistory,
     isOpen,
     getSnapshot,
     applySnapshot,

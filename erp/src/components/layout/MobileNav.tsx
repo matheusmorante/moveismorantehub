@@ -368,6 +368,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
   const canViewLogistics = ['viewDeliverySchedule', 'viewAssemblyList'].some((action) =>
     canPerform(action, roles)
   );
+  const canViewCustomerSupport = canPerform('viewCustomerSupport', roles);
   const visibleMenuItems = menuItems.filter((item) => {
     switch (item.key) {
       case 'products':
@@ -433,6 +434,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
       '/products/meta-catalog': 'viewMetaCatalog',
       '/marketing/channel-catalog': 'viewChannelCatalog',
       '/registrations/whatsapp-marketplace': 'viewWhatsAppMarketplace',
+      '/atendimento': 'viewCustomerSupport',
     };
 
     if (path === '/estoque/etiquetas' && to.includes('category=logos')) {
@@ -483,22 +485,33 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
           </button>
         </div>
 
-        {/* Atalho: Dashboard & Documentação */}
-        <div className="grid grid-cols-2 gap-2 px-4 pt-4">
-          <button
-            onClick={() => handleLink('/')}
-            className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black text-xs shadow-md hover:from-blue-700 hover:to-blue-600 transition-all active:scale-95"
-          >
-            <i className="bi bi-grid-fill text-base"></i>
-            Dashboard
-          </button>
-          <button
-            onClick={() => handleLink('/system-docs')}
-            className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-black text-xs shadow-sm hover:bg-indigo-100 transition-all active:scale-95"
-          >
-            <i className="bi bi-book-half text-base text-indigo-500"></i>
-            Documentação
-          </button>
+        {/* Atalho: Dashboard, Atendimento & Documentação */}
+        <div className="flex flex-col gap-2 px-4 pt-4">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => handleLink('/')}
+              className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black text-xs shadow-md hover:from-blue-700 hover:to-blue-600 transition-all active:scale-95"
+            >
+              <i className="bi bi-grid-fill text-base"></i>
+              Dashboard
+            </button>
+            <button
+              onClick={() => handleLink('/system-docs')}
+              className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-black text-xs shadow-sm hover:bg-indigo-100 transition-all active:scale-95"
+            >
+              <i className="bi bi-book-half text-base text-indigo-500"></i>
+              Documentação
+            </button>
+          </div>
+          {canViewCustomerSupport && (
+            <button
+              onClick={() => handleLink('/atendimento')}
+              className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-emerald-500 text-white font-black text-xs shadow-md hover:bg-emerald-600 transition-all active:scale-95"
+            >
+              <i className="bi bi-chat-dots-fill text-base"></i>
+              Central de Atendimento
+            </button>
+          )}
         </div>
 
         {/* Seções de Menu */}

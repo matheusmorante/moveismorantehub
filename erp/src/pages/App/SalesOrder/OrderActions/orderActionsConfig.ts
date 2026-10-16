@@ -1,28 +1,28 @@
-import Order, { OrderAction, IsButtonsClicked } from '../../../types/order.type';
+import Order, { OrderAction } from '../../../types/order.type';
 import { toast } from 'react-toastify';
-import { formatOrderCode } from '../../../utils/orderCode';
-import { stringifyFullAddressWithObservation } from '../../../utils/formatters';
-
 import {
-  shippingOrderWhatsappUrl,
-  customerOrderWhatsappUrl,
   customerReviewsWhatsappUrl,
-  assistanceCustomerWhatsappUrl,
-  assistanceOrderDetailsWhatsappUrl,
   assistanceServiceOrderWhatsappUrl,
   sendDirectShippingMessage,
   sendDirectCustomerMessage,
   sendDirectAssistanceMessage,
   sendDirectAssistanceOrderDetailsMessage,
-  budgetWhatsappUrl,
   sendDirectBudgetMessage,
   sendDirectGroupInviteMessage,
   sendDirectReturnOSCustomerMessage,
   sendDirectReturnOSTeamMessage,
+  sendDirectCustomerOrderViaMetaApi,
 } from '../../../utils/whatsapp';
-import { getSettings } from '../../../utils/settingsService';
 import { printSalesOrder, printReceipt } from '../../../utils/printing/printService';
+import { printAssistanceServiceOrder } from './printers/printAssistanceOs';
+import { printReturnServiceOrder } from './printers/printReturnOs';
 
+export { buttons, type OrderButton } from './orderButtonsConfig';
+
+/**
+ * Mapa central de roteamento e despacho de ações pós-pedido.
+ * Cada ação é delegada para o seu respectivo módulo de negócio de alta coesão.
+ */
 export const actionsMap: Record<OrderAction, (order: Order) => void> = {
   PRINT_RECEIPT: (order) => {
     printReceipt(order);
@@ -31,13 +31,26 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     printSalesOrder(order);
   },
   PRINT_WARRANTY_TERM: (order) => {
-    console.log('Gerando Termo de Garantia para o pedido:', order.id);
+    void (async () => {
+      try {
+        const { generateAndSaveWarrantyTerm, printWarrantyTermDocument } = await import(
+          '@/pages/utils/warranty/warrantyTermService'
+        );
+        const { generatedPdf } = await generateAndSaveWarrantyTerm(order);
+        printWarrantyTermDocument(generatedPdf.pdfUrl);
+      } catch (err: any) {
+        toast.error(err.message || 'Erro ao gerar Termo de Garantia.');
+      }
+    })();
   },
   SEND_SHIPPING_ORDER: (order) => {
     sendDirectShippingMessage(order);
   },
   SEND_CUSTOMER_ORDER: (order) => {
     sendDirectCustomerMessage(order);
+  },
+  SEND_CUSTOMER_ORDER_DIRECT_API: (order) => {
+    void sendDirectCustomerOrderViaMetaApi(order);
   },
   SEND_ASSISTANCE_CUSTOMER: (order) => {
     sendDirectAssistanceMessage(order);
@@ -82,532 +95,24 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
     sendDirectGroupInviteMessage(order);
   },
   PRINT_ASSISTANCE_OS: (order) => {
-    sessionStorage.setItem('order', JSON.stringify(order));
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const settings = getSettings();
-    const allHandlingOptions = [
-      ...(settings.deliveryHandlingOptions || []),
-      ...(settings.pickupHandlingOptions || []),
-    ];
-
-    const assistanceItemsHtml = (order.assistanceItems || [])
-      .map(
-        (item) => `
-            <tr>
-                <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: 700;">${item.description}${item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700;">${item.quantity}</td>
-            </tr>
-        `
-      )
-      .join('');
-
-    const extraItemsHtml = (order.items || [])
-      .map((item) => {
-        const opt = allHandlingOptions.find((o) => o.label === (item.handlingType || '').trim());
-        const bgColor = opt?.color ? `${opt.color}20` : 'transparent';
-        const textColor = opt?.color || '#64748b';
-
-        return `
-                <tr>
-                    <td style="padding: 12px; border-bottom: 1px solid #eee; font-weight: 700;">${item.description}${item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}</td>
-                    <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700; background-color: ${bgColor}; color: ${textColor}; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 10px;">${item.handlingType || '-'}</td>
-                    <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700;">${item.quantity}</td>
-                    <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: 700;">R$ ${item.unitPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                </tr>
-            `;
-      })
-      .join('');
-
-    printWindow.document.write(`
-            <html>
-                <head>
-                    <title>ORDEM DE SERVIÇO - ${formatOrderCode(order)}</title>
-                    <style>
-                        body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.5; }
-                        .ticket { max-width: 800px; margin: 0 auto; border: 2px solid #eee; padding: 30px; border-radius: 20px; }
-                        table { width: 100%; border-collapse: collapse; margin-block: 20px; }
-                        th { text-align: left; font-size: 10px; font-weight: 900; text-transform: uppercase; background: #f8fafc; padding: 12px; color: #475569; border-bottom: 2px solid #e2e8f0; }
-                        .info-box { background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; }
-                        .label { font-size: 9px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
-                        .value { font-size: 13px; font-weight: 800; color: #1e293b; }
-                    </style>
-                </head>
-                <body>
-                    <div class="ticket">
-                        <div class="header" style="background: #ea580c; color: white; padding: 30px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; margin-bottom: 25px;">
-                            <div style="display: flex; gap: 20px; align-items: center;">
-                                <img src="/lizandro.png" style="width: 90px; height: 90px; border-radius: 15px; border: 3px solid rgba(255,255,255,0.3);" />
-                                <div>
-                                    <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px;">Ordem de Serviço</h1>
-                                    <div style="color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 800;">ASSISTÊNCIA #${formatOrderCode(order)}</div>
-                                </div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; opacity: 0.8;">Data Emissão</div>
-                                <div style="font-size: 15px; font-weight: 900;">${new Date(order.date).toLocaleDateString('pt-BR')}</div>
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                            <div class="info-box">
-                                <div class="label">Cliente</div>
-                                <div class="value">${order.customerData?.fullName || 'Não informado'}</div>
-                                <div style="font-size: 12px; font-weight: 600; color: #ea580c; margin-top: 2px;">${order.customerData?.phone || 'Sem telefone'}</div>
-                            </div>
-                            <div class="info-box">
-                                <div class="label">Vendedor / Atendente</div>
-                                <div class="value">${order.seller || 'Não informado'}</div>
-                            </div>
-                        </div>
-
-                        <div class="info-box" style="margin-bottom: 20px;">
-                            <div class="label">Endereço de Assistência</div>
-                            <div class="value">
-                                ${
-                                  order.customerData?.fullAddress
-                                    ? `
-                                    ${order.customerData.fullAddress.street}, ${order.customerData.fullAddress.number}
-                                    ${order.customerData.fullAddress.complement ? ` - ${order.customerData.fullAddress.complement}` : ''}<br>
-                                    ${order.customerData.fullAddress.neighborhood} - ${order.customerData.fullAddress.city}/${order.customerData.fullAddress.state || ''}<br>
-                                    CEP: ${order.customerData.fullAddress.cep || ''}
-                                    ${order.customerData.fullAddress.observation ? `<br><div style="margin-top: 5px; font-size: 11px; color: #64748b;"><strong>Obs:</strong> ${order.customerData.fullAddress.observation}</div>` : ''}
-                                `
-                                    : 'Endereço não informado'
-                                }
-                            </div>
-                        </div>
-                        
-                        <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #fed7aa; background: #fff7ed; border-radius: 12px;">
-                            <div class="label" style="color: #c2410c;">Agendamento Técnico</div>
-                            <div style="display: flex; gap: 30px; align-items: center;">
-                                <div>
-                                    <span style="font-size: 10px; font-weight: 700; color: #9a3412;">Data:</span> 
-                                    <span style="font-size: 15px; font-weight: 900; color: #7c2d12;">
-                                        ${
-                                          order.shipping?.scheduling?.dateType === 'range' &&
-                                          order.shipping?.scheduling?.endDate
-                                            ? `${new Date(order.shipping.scheduling.date).toLocaleDateString('pt-BR')} até ${new Date(order.shipping.scheduling.endDate).toLocaleDateString('pt-BR')}`
-                                            : order.shipping?.scheduling?.date
-                                              ? new Date(
-                                                  order.shipping.scheduling.date
-                                                ).toLocaleDateString('pt-BR')
-                                              : 'A combinar'
-                                        }
-                                    </span>
-                                </div>
-                                <div>
-                                    <span style="font-size: 10px; font-weight: 700; color: #9a3412;">Horário:</span> 
-                                    <span style="font-size: 15px; font-weight: 900; color: #7c2d12;">
-                                        ${
-                                          order.shipping?.scheduling?.type === 'range' &&
-                                          order.shipping?.scheduling?.startTime &&
-                                          order.shipping?.scheduling?.endTime
-                                            ? `${order.shipping.scheduling.startTime} às ${order.shipping.scheduling.endTime}`
-                                            : order.shipping?.scheduling?.startTime ||
-                                              order.shipping?.scheduling?.time ||
-                                              'A combinar'
-                                        }
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-bottom: 25px; padding: 20px; border: 2px solid #e2e8f0; border-radius: 15px; background: #fff;">
-                            <div class="label">Descrição do Problema / Solicitação</div>
-                            <div style="font-size: 14px; color: #334155; font-weight: 500; white-space: pre-wrap;">${order.assistanceDescription || 'Nenhuma descrição informada.'}</div>
-                        </div>
-
-                        ${
-                          order.assistanceItems?.length
-                            ? `
-                            <h3 style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: #1e293b; border-left: 4px solid #ea580c; padding-left: 10px; margin-bottom: 10px;">Itens para Assistência</h3>
-                            <table>
-                                <thead><tr><th style="width: 80%;">Produto</th><th style="text-align: center;">Qtd</th></tr></thead>
-                                <tbody>${assistanceItemsHtml}</tbody>
-                            </table>
-                        `
-                            : ''
-                        }
-
-                        ${
-                          order.items?.length
-                            ? `
-                            <h3 style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: #1e293b; border-left: 4px solid #ea580c; padding-left: 10px; margin-top: 20px; margin-bottom: 10px;">Peças e Materiais Extras</h3>
-                            <table>
-                                <thead><tr><th style="width: 50%;">Item</th><th style="text-align: center;">Manuseio</th><th style="text-align: center;">Qtd</th><th style="text-align: right;">Preço</th></tr></thead>
-                                <tbody>${extraItemsHtml}</tbody>
-                            </table>
-                        `
-                            : ''
-                        }
-
-                        <div style="margin-top: 30px; border-top: 2px dashed #e2e8f0; padding-top: 20px; text-align: right;">
-                            <span style="font-size: 12px; font-weight: 900; text-transform: uppercase; color: #64748b; margin-right: 10px;">Total do Serviço:</span>
-                            <span style="font-size: 24px; font-weight: 900; color: #ea580c;">R$ ${(order.assistanceServiceValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                    </div>
-                    <script>window.onload = function() { window.print(); window.close(); };</script>
-                </body>
-            </html>
-        `);
-    printWindow.document.close();
+    printAssistanceServiceOrder(order);
   },
   GENERATE_RETURN: (order) => {
-    // Handled by onAction prop in SalesOrder/Index.tsx
     console.log('Iniciando fluxo de devolução para o pedido:', order.id);
   },
   PRINT_RETURN_OS: (order) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const formatCurrency = (value: unknown) =>
-      Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-    const isCollection =
-      order.returnMethod === 'store_collection' ||
-      (order.returnMethod == null && order.status === 'scheduled');
-    const returnDocumentTitle = isCollection
-      ? 'OS DE COLETA (DEVOLUÇÃO)'
-      : 'COMPROVANTE DE DEVOLUÇÃO';
-    const collectionDate = order.shipping?.scheduling?.date
-      ? new Date(`${order.shipping.scheduling.date}T12:00:00`).toLocaleDateString('pt-BR')
-      : 'A definir';
-    const originalOrderCode = order.linkedOrderCode || 'N/A';
-    const returnTotal = (order.items || []).reduce(
-      (total, item) => total + Number(item.quantity || 0) * Number(item.unitPrice || 0),
-      0
-    );
-    const scheduling = order.shipping?.scheduling;
-    const isTimeRange = scheduling?.type === 'range';
-    const collectionTime = isTimeRange
-      ? `${scheduling?.startTime || ''}${scheduling?.endTime ? ` às ${scheduling.endTime}` : ''}`.trim() ||
-        scheduling?.time ||
-        'A definir'
-      : scheduling?.startTime || scheduling?.time || 'A definir';
-    const collectionAddress =
-      stringifyFullAddressWithObservation(
-        order.shipping?.deliveryAddress || order.customerData?.fullAddress
-      ) || 'Endereço não informado';
-    const distance = order.shipping?.distance ? `${order.shipping.distance} km` : 'Não informada';
-    const estimatedTime = order.shipping?.durationMinutes
-      ? `${order.shipping.durationMinutes} min`
-      : 'Não informado';
-
-    const itemsHtml = (order.items || [])
-      .map(
-        (item) => `
-            <tr>
-                <td style="padding: 12px; border-bottom: 1px solid #eee;">
-                    <div style="font-weight: 900; font-size: 12px; text-transform: uppercase;">${item.description}${item.observation?.trim() ? ` - ${item.observation.trim()}` : ''}</div>
-                </td>
-                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; font-weight: 700;">${item.quantity}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: 700;">R$ ${formatCurrency(Number(item.quantity || 0) * Number(item.unitPrice || 0))}</td>
-            </tr>
-        `
-      )
-      .join('');
-
-    printWindow.document.write(`
-            <html>
-                <head>
-                    <title>${returnDocumentTitle} - ${formatOrderCode(order)}</title>
-                    <style>
-                        body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.5; }
-                        .ticket { max-width: 800px; margin: 0 auto; border: 2px solid #eee; padding: 30px; border-radius: 20px; }
-                        table { width: 100%; border-collapse: collapse; margin-block: 20px; }
-                        th { text-align: left; font-size: 10px; font-weight: 900; text-transform: uppercase; background: #fdfaf1; padding: 12px; color: #92400e; }
-                        .footer { margin-top: 40px; padding-top: 20px; border-top: 2px dashed #eee; font-size: 11px; color: #666; text-align: center; }
-                    </style>
-                </head>
-                <body>
-                    <div class="ticket">
-                        <div class="header" style="background: #d97706; color: white; padding: 30px; border-radius: 15px; display: flex; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; margin-bottom: 30px;">
-                            <div style="display: flex; gap: 20px; align-items: center;">
-                                <div style="width: 256px; height: 256px; flex: 0 0 256px; display: flex; align-items: center; justify-content: center; border-radius: 24px; background: white; padding: 12px; box-sizing: border-box;">
-                                    <img src="/images/logo-morante.svg" style="width: 100%; height: 100%; object-fit: contain; border-radius: 18px;" />
-                                </div>
-                                <div>
-                                    <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px;">${isCollection ? 'OS de Coleta (Devolução)' : 'Comprovante de Devolução'}</h1>
-                                    <div style="color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 800;">PEDIDO: #${formatOrderCode(order)}</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        ${isCollection ? `<div style="margin-bottom: 30px; padding: 18px; border: 1px solid #fed7aa; background: #fff7ed; border-radius: 12px;">
-                            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #9a3412; margin-bottom: 12px;">Agendamento da Coleta</div>
-                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 24px;">
-                                <div><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">Data</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${collectionDate}</div></div>
-                                <div><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">${isTimeRange ? 'Período' : 'Horário fixo'}</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${collectionTime}</div></div>
-                                <div><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">Distância estimada</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${distance}</div></div>
-                                <div><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">Tempo estimado</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${estimatedTime}</div></div>
-                                <div style="grid-column: 1 / -1;"><div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #b45309;">Endereço da coleta</div><div style="font-size: 14px; font-weight: 800; color: #7c2d12;">${collectionAddress}</div></div>
-                            </div>
-                        </div>` : `<div style="margin-bottom: 30px; padding: 18px; border: 1px solid #a7f3d0; background: #ecfdf5; border-radius: 12px; font-weight: 800;">Retorno recebido na loja. Este documento registra o pedido de devolução.</div>`}
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
-                            <div style="padding: 15px; background: #fffcf0; border-radius: 12px;">
-                                <div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #92400e; margin-bottom: 5px;">Dados do Cliente</div>
-                                <div style="font-size: 14px; font-weight: 900;">${order.customerData?.fullName}</div>
-                                <div style="font-size: 12px; font-weight: 600; color: #b45309;">${order.customerData?.phone}</div>
-                            </div>
-                            <div style="padding: 15px; background: #fffcf0; border-radius: 12px; text-align: right;">
-                                <div style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #92400e; margin-bottom: 5px;">Pedido Original</div>
-                                <div style="font-size: 14px; font-weight: 900;">#${originalOrderCode}</div>
-                                <div style="font-size: 12px; font-weight: 600; color: #b45309;">Vendedor: ${order.seller || 'Não informado'}</div>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-bottom: 30px;">
-                            <h3 style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: #1e293b; border-left: 4px solid #d97706; padding-left: 10px; margin-bottom: 15px;">Itens Devolvidos</h3>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Descrição do Produto</th>
-                                        <th style="text-align: center;">Qtd</th>
-                                        <th style="text-align: right;">Valor</th>
-                                    </tr>
-                                </thead>
-                                <tbody>${itemsHtml}</tbody>
-                                <tfoot>
-                                    <tr>
-                                        <td colspan="2" style="padding: 15px; text-align: right; font-weight: 900; font-size: 14px; text-transform: uppercase; color: #78350f;">Total da Devolução:</td>
-                                        <td style="padding: 15px; text-align: right; font-weight: 900; font-size: 18px; color: #d97706;">R$ ${formatCurrency(returnTotal)}</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        ${
-                          order.observation
-                            ? `
-                            <div style="margin-top: 20px; padding: 20px; border-radius: 12px; background: #fffbeb; border: 1px solid #fef3c7;">
-                                <strong style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #92400e; display: block; margin-bottom: 8px;">Observações da Devolução:</strong>
-                                <div style="font-size: 12px; color: #92400e; font-weight: 500;">${order.observation}</div>
-                            </div>
-                        `
-                            : ''
-                        }
-                        <div class="footer">
-                            <strong>MÓVEIS MORANTE</strong> - Ordem de serviço gerada em ${new Date().toLocaleString('pt-BR')}
-                        </div>
-                    </div>
-                    <script>window.onload = function() { window.print(); window.close(); };</script>
-                </body>
-            </html>
-        `);
-    printWindow.document.close();
+    printReturnServiceOrder(order);
   },
   UNDO_RETURN: async (order) => {
-    // This is complex and might need a refresh of the list,
-    // so we'll likely handle the logic in the component or passing a callback
     console.log('Cancelando devolução para o pedido:', order.id);
   },
   DUPLICATE_ORDER: (order) => {
-    // Handled by onAction prop in SalesOrder/Index.tsx
     console.log('Iniciando fluxo de duplicação para o pedido:', order.id);
   },
   GENERATE_SALE_FROM_BUDGET: (order) => {
-    // Handled by onAction prop in SalesOrder/Index.tsx
     console.log('Gerando venda a partir de orçamento:', order.id);
   },
   ISSUE_NFE: (order) => {
-    // Handled by onAction prop in SalesOrder/Index.tsx
     console.log('Abrindo modal de emissão fiscal para o pedido:', order.id);
   },
 };
-
-export interface OrderButton {
-  key: keyof IsButtonsClicked;
-  icon: string;
-  action: OrderAction;
-  label: string | ((order: Order) => string);
-  color: string;
-  tooltip: string;
-  // Optional: which orderTypes this button applies to. If absent = all types.
-  orderTypes?: string[];
-}
-
-export const buttons: OrderButton[] = [
-  {
-    key: 'printShippingOrder',
-    icon: 'bi-printer-fill',
-    action: 'PRINT_SHIPPING_ORDER',
-    label: 'Imprimir Pedido',
-    color: 'text-blue-600 hover:bg-blue-50',
-    tooltip: 'Imprimir Pedido de Venda',
-    orderTypes: ['sale'], // Não aparece para assistência
-  },
-  {
-    key: 'printReceipt',
-    icon: 'bi-receipt',
-    action: 'PRINT_RECEIPT',
-    label: 'Imprimir Recibo',
-    color: 'text-slate-600 hover:bg-slate-50',
-    tooltip: 'Gerar Recibo do Cliente',
-    orderTypes: ['sale'], // Não aparece para assistência
-  },
-  {
-    key: 'issueNfe',
-    icon: 'bi-file-earmark-text-fill',
-    action: 'ISSUE_NFE',
-    label: 'Emitir nota fiscal de saída',
-    color: 'text-indigo-600 hover:bg-indigo-50',
-    tooltip: 'Emitir NF-e para entrega ou NFC-e para retirada, conforme a operação',
-    orderTypes: ['sale', 'showroom'],
-  },
-  {
-    key: 'sendShippingOrder',
-    icon: 'bi-truck',
-    action: 'SEND_SHIPPING_ORDER',
-    label: (order) =>
-      order.shipping?.deliveryMethod === 'pickup'
-        ? 'Enviar Retirada para a equipe'
-        : 'Enviar Entrega para a equipe',
-    color: 'text-orange-500 hover:bg-orange-50',
-    tooltip: 'Enviar detalhes da entrega via WhatsApp',
-    orderTypes: ['sale'], // Não aparece para assistência
-  },
-  {
-    key: 'sendCustomerOrder',
-    icon: 'bi-whatsapp',
-    action: 'SEND_CUSTOMER_ORDER',
-    label: (order) =>
-      order.shipping?.deliveryMethod === 'pickup'
-        ? 'Enviar retirada para o cliente'
-        : 'Enviar entrega para o cliente',
-    color: 'text-green-600 hover:bg-green-50',
-    tooltip: 'Enviar confirmação do pedido para o cliente',
-    orderTypes: ['sale'],
-  },
-  {
-    key: 'sendCustomerOrderDetails', // details message
-    icon: 'bi-whatsapp',
-    action: 'SEND_ASSISTANCE_ORDER_DETAILS',
-    label: 'Enviar assistência para o cliente',
-    color: 'text-green-600 hover:bg-green-50',
-    tooltip: 'Enviar detalhes completos do pedido de assistência ao cliente',
-    orderTypes: ['assistance'],
-  },
-  {
-    key: 'sendCustomerReviews',
-    icon: 'bi-star-fill',
-    action: 'SEND_CUSTOMER_REVIEWS',
-    label: 'Enviar pedido de avaliação',
-    color: 'text-yellow-500 hover:bg-yellow-50',
-    tooltip: 'Enviar pedido de avaliação da loja no Google Maps',
-    orderTypes: ['sale'],
-  },
-  {
-    key: 'generateReturn',
-    icon: 'bi-arrow-return-left',
-    action: 'GENERATE_RETURN',
-    label: 'Gerar Pedido de Devolução',
-    color: 'text-amber-600 hover:bg-amber-50',
-    tooltip: 'Criar uma devolução baseada neste pedido',
-    orderTypes: ['sale', 'showroom'],
-  },
-  {
-    key: 'undoReturn',
-    icon: 'bi-arrow-counterclockwise',
-    action: 'UNDO_RETURN',
-    label: 'Cancelar Devolução',
-    color: 'text-red-600 hover:bg-red-50',
-    tooltip: 'Cancela somente esta devolução antes da confirmação do retorno físico',
-    orderTypes: ['return'],
-  },
-  {
-    key: 'printReturnOS',
-    icon: 'bi-printer-fill',
-    action: 'PRINT_RETURN_OS',
-    label: (order) =>
-      order.returnMethod === 'store_collection'
-        ? 'Imprimir OS de Coleta da Devolução'
-        : 'Imprimir Comprovante de Devolução',
-    color: 'text-amber-700 hover:bg-amber-50',
-    tooltip: 'Imprimir documento do pedido de devolução',
-    orderTypes: ['return'],
-  },
-  {
-    key: 'sendReturnOSCustomer',
-    icon: 'bi-whatsapp',
-    action: 'SEND_RETURN_OS_CUSTOMER',
-    label: 'Enviar pedido de devolução ao cliente',
-    color: 'text-green-600 hover:bg-green-50',
-    tooltip: 'Enviar o pedido de devolução ao cliente pelo WhatsApp',
-    orderTypes: ['return'],
-  },
-  {
-    key: 'sendReturnOSTeam',
-    icon: 'bi-send-fill',
-    action: 'SEND_RETURN_OS_TEAM',
-    label: 'Enviar dados da coleta da devolução para equipe',
-    color: 'text-blue-600 hover:bg-blue-50',
-    tooltip: 'Enviar os dados da coleta agendada à equipe pelo WhatsApp',
-    orderTypes: ['return'],
-  },
-  {
-    key: 'sendAssistanceOS',
-    icon: 'bi-send-fill',
-    action: 'SEND_ASSISTANCE_OS',
-    label: 'Enviar OS para a equipe',
-    color: 'text-blue-600 hover:bg-blue-50',
-    tooltip: 'Enviar Ordem de Serviço de assistência para o grupo da equipe',
-    orderTypes: ['assistance'],
-  },
-  {
-    key: 'printAssistanceOS',
-    icon: 'bi-printer-fill',
-    action: 'PRINT_ASSISTANCE_OS',
-    label: 'Imprimir OS',
-    color: 'text-slate-600 hover:bg-slate-50',
-    tooltip: 'Imprimir Ordem de Serviço (PDF)',
-    orderTypes: ['assistance'],
-  },
-  {
-    key: 'printBudget',
-    icon: 'bi-printer-fill',
-    action: 'PRINT_BUDGET',
-    label: 'Imprimir Orçamento',
-    color: 'text-indigo-600 hover:bg-indigo-50',
-    tooltip: 'Imprimir Proposta Comercial (Orçamento)',
-    orderTypes: ['budget'],
-  },
-  {
-    key: 'sendBudget',
-    icon: 'bi-whatsapp',
-    action: 'SEND_BUDGET',
-    label: 'Enviar orçamento para o cliente',
-    color: 'text-green-600 hover:bg-green-50',
-    tooltip: 'Enviar orçamento para o cliente via WhatsApp',
-    orderTypes: ['budget'],
-  },
-  {
-    key: 'sendGroupInvite',
-    icon: 'bi-people-fill',
-    action: 'SEND_GROUP_INVITE',
-    label: 'Enviar Convite VIP',
-    color: 'text-indigo-600 hover:bg-indigo-50',
-    tooltip: 'Enviar convite do grupo VIP para o WhatsApp do cliente',
-    orderTypes: ['sale'],
-  },
-  {
-    key: 'duplicateOrder',
-    icon: 'bi-files',
-    action: 'DUPLICATE_ORDER',
-    label: 'Duplicar Pedido',
-    color: 'text-emerald-600 hover:bg-emerald-50',
-    tooltip: 'Criar uma cópia deste pedido',
-    orderTypes: ['sale', 'showroom', 'assistance', 'budget'],
-  },
-  {
-    key: 'generateSaleFromBudget',
-    icon: 'bi-cart-check-fill',
-    action: 'GENERATE_SALE_FROM_BUDGET',
-    label: 'Gerar Pedido de Venda',
-    color: 'text-emerald-600 hover:bg-emerald-50',
-    tooltip: 'Criar um novo pedido de venda a partir deste orçamento',
-    orderTypes: ['budget'],
-  },
-];

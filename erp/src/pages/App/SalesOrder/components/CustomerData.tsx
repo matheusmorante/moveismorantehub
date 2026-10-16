@@ -1,16 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import DropdownPortal from '@/components/shared/DropdownPortal';
-import { getRecentPeople, searchPeople } from '@/pages/utils/personService';
+import React from 'react';
 import CustomerData from '@/pages/types/customerData.type';
-import Person from '@/pages/types/person.type';
 import { ValidationErrors } from '@/pages/utils/validations';
-import { toTitleCase } from '@/pages/utils/formatters';
-import {
-  canSearchCustomers,
-  getCustomerSearchQuery,
-  matchesCustomerSearch,
-} from '@/pages/utils/customerSearch';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
+import { useCustomerSelection } from './customer/useCustomerSelection';
+import CustomerSearchDropdown from './customer/CustomerSearchDropdown';
 
 interface Props {
   customerData: CustomerData;
@@ -22,184 +15,41 @@ interface Props {
   isBudget?: boolean;
 }
 
-const EMPTY_ADDRESS = {
-  cep: '',
-  street: '',
-  number: '',
-  complement: '',
-  neighborhood: '',
-  city: '',
-  observation: '',
-};
-const FINAL_CONSUMER_NAME = 'Consumidor Final';
-
-const CustomerDataInputs = ({
+const CustomerDataInputs: React.FC<Props> = ({
   customerData,
   setCustomerData,
   errors,
   marketingOrigin,
   setMarketingOrigin,
-}: Props) => {
-  const [customers, setCustomers] = useState<Person[]>([]);
-  const [searchTerm, setSearchTerm] = useState(customerData.fullName || '');
-  const [isOpen, setIsOpen] = useState(false);
-  const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
-  const [editingPerson, setEditingPerson] = useState<Person | null>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const previousCustomerRef = useRef<{
-    customerData: CustomerData;
-    searchTerm: string;
-  } | null>(null);
-  const isFinalConsumer =
-    !customerData.id &&
-    customerData.fullName.trim().toLowerCase() === FINAL_CONSUMER_NAME.toLowerCase();
+}) => {
+  const {
+    wrapperRef,
+    searchTerm,
+    isOpen,
+    setIsOpen,
+    isNewCustomerOpen,
+    setIsNewCustomerOpen,
+    editingPerson,
+    setEditingPerson,
+    isFinalConsumer,
+    isCustomerSelected,
+    filteredCustomers,
+    selectCustomer,
+    clearCustomer,
+    toggleFinalConsumer,
+    handleEditCustomer,
+    handleSearchInputChange,
+    handleSearchInputKeyDown,
+    handleNewCustomerSuccess,
+    handleEditCustomerSuccess,
+  } = useCustomerSelection({
+    customerData,
+    setCustomerData,
+    marketingOrigin,
+    setMarketingOrigin,
+  });
+
   const hasError = !isFinalConsumer && Boolean(errors.customer_fullName || errors.customer_phone);
-
-  // Load recent on mount
-  useEffect(() => {
-    getRecentPeople('customers', 20).then((data) => {
-      setCustomers(data.filter((customer) => customer.active && !customer.deleted));
-    });
-  }, []);
-
-  // Debounced search on typing
-  useEffect(() => {
-    if (!searchTerm.trim() || searchTerm.trim().length < 2) return;
-
-    const delay = setTimeout(async () => {
-      try {
-        const found = await searchPeople(searchTerm, 'customers', 20);
-        setCustomers((prev) => {
-          const combined = [...prev, ...found.filter((c) => c.active && !c.deleted)];
-          return Array.from(new Map(combined.map((p) => [p.id, p])).values());
-        });
-      } catch (e) {
-        console.error('Erro ao pesquisar clientes no input:', e);
-      }
-    }, 300);
-
-    return () => clearTimeout(delay);
-  }, [searchTerm]);
-  useEffect(() => {
-    if (!isOpen) setSearchTerm(customerData.fullName || '');
-  }, [customerData.fullName, isOpen]);
-
-  useEffect(() => {
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node))
-        setIsOpen(false);
-    };
-    document.addEventListener('mousedown', closeOnOutsideClick);
-    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
-  }, []);
-
-  const selectedPerson = useMemo(() => {
-    if (!customerData.id) return null;
-    return customers.find((c) => c.id === customerData.id) || null;
-  }, [customers, customerData.id]);
-
-  const filteredCustomers = useMemo(() => {
-    if (!canSearchCustomers(searchTerm)) return [];
-    const query = getCustomerSearchQuery(searchTerm);
-    return customers.filter((customer) =>
-      matchesCustomerSearch(query, {
-        name: customer.fullName || customer.tradeName,
-        phone: customer.phone,
-      })
-    );
-  }, [customers, searchTerm]);
-
-  const clearCustomer = () => {
-    setCustomerData({
-      id: undefined,
-      fullName: '',
-      phone: '',
-      noPhone: false,
-      noAddress: false,
-      fullAddress: EMPTY_ADDRESS,
-      additionalContacts: [],
-    });
-    setSearchTerm('');
-    setIsOpen(false);
-  };
-
-  const toggleFinalConsumer = () => {
-    if (isFinalConsumer) {
-      const previous = previousCustomerRef.current;
-      previousCustomerRef.current = null;
-      setCustomerData(
-        previous?.customerData || {
-          fullName: '',
-          phone: '',
-          noPhone: false,
-          noAddress: false,
-          fullAddress: EMPTY_ADDRESS,
-          additionalContacts: [],
-        }
-      );
-      setSearchTerm(previous?.searchTerm || '');
-      setIsOpen(false);
-      return;
-    }
-
-    previousCustomerRef.current = { customerData, searchTerm };
-    setCustomerData({
-      fullName: FINAL_CONSUMER_NAME,
-      phone: '',
-      noPhone: true,
-      noAddress: true,
-      fullAddress: { ...EMPTY_ADDRESS },
-      additionalContacts: [],
-    });
-    setSearchTerm(FINAL_CONSUMER_NAME);
-    setIsOpen(false);
-  };
-
-  const selectCustomer = (customer: Person) => {
-    const formattedName = toTitleCase(customer.fullName || customer.tradeName || '');
-    const legacyNoAddress = Boolean(
-      (customer.fullAddress as unknown as { noAddress?: boolean } | undefined)?.noAddress
-    );
-    setCustomerData({
-      id: customer.id,
-      fullName: formattedName,
-      phone: customer.phone || '',
-      noPhone: customer.noPhone || false,
-      noAddress: customer.noAddress || legacyNoAddress,
-      fullAddress: customer.fullAddress || EMPTY_ADDRESS,
-      additionalContacts: customer.additionalContacts || [],
-    });
-    setSearchTerm(formattedName);
-    if (customer.marketingOrigin) setMarketingOrigin?.(customer.marketingOrigin);
-    setIsOpen(false);
-  };
-
-  const handleEditCustomer = () => {
-    setIsOpen(false);
-    if (selectedPerson) {
-      setEditingPerson(selectedPerson);
-    } else if (customerData.id || customerData.fullName) {
-      const fallbackPerson: Partial<Person> = {
-        id: customerData.id,
-        fullName: customerData.fullName,
-        phone: customerData.phone,
-        noPhone: customerData.noPhone,
-        noAddress: customerData.noAddress,
-        fullAddress: customerData.fullAddress || EMPTY_ADDRESS,
-        additionalContacts: customerData.additionalContacts || [],
-        marketingOrigin: ((customerData as CustomerData & { marketingOrigin?: string })
-          .marketingOrigin ||
-          marketingOrigin ||
-          '') as Person['marketingOrigin'],
-        type: 'customers',
-      };
-      setEditingPerson(fallbackPerson as Person);
-    }
-  };
-
-  const isCustomerSelected = Boolean(
-    (customerData.id || customerData.fullName) && searchTerm.trim()
-  );
 
   return (
     <div ref={wrapperRef} className="relative w-full">
@@ -254,23 +104,9 @@ const CustomerDataInputs = ({
           type="text"
           disabled={isFinalConsumer}
           value={searchTerm}
-          onKeyDown={(e) => {
-            if ((e.key === 'Backspace' || e.key === 'Delete') && Boolean(customerData.id)) {
-              e.preventDefault();
-              clearCustomer();
-            }
-          }}
-          onChange={(event) => {
-            const value = event.target.value;
-            if (customerData.id && value !== searchTerm) {
-              clearCustomer();
-              return;
-            }
-            setSearchTerm(value);
-            setIsOpen(canSearchCustomers(value));
-            if (!value) clearCustomer();
-          }}
-          onFocus={() => setIsOpen(canSearchCustomers(searchTerm))}
+          onKeyDown={handleSearchInputKeyDown}
+          onChange={(e) => handleSearchInputChange(e.target.value)}
+          onFocus={() => setIsOpen(Boolean(searchTerm.trim().length >= 2))}
           placeholder="Busque pelo nome ou telefone..."
           className={`w-full border-b-2 bg-transparent py-3 pr-20 text-sm outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-700 ${
             isFinalConsumer
@@ -317,50 +153,18 @@ const CustomerDataInputs = ({
         </p>
       )}
 
-      <DropdownPortal anchorRef={wrapperRef} isOpen={isOpen}>
-        <div className="mt-1 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-          {filteredCustomers.length === 0 ? (
-            <p className="p-4 text-center text-sm text-slate-400">Nenhum cliente encontrado.</p>
-          ) : (
-            filteredCustomers.map((customer) => (
-              <button
-                key={customer.id}
-                type="button"
-                onClick={() => selectCustomer(customer)}
-                className="flex w-full items-center gap-4 border-b border-slate-100 px-3 py-2.5 text-left transition-colors last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
-              >
-                <strong className="min-w-0 flex-1 truncate text-sm text-slate-800 dark:text-slate-200">
-                  {toTitleCase(customer.fullName || customer.tradeName)}
-                </strong>
-                {customer.phone && (
-                  <small className="shrink-0 text-xs text-slate-400">{customer.phone}</small>
-                )}
-                {customer.fullAddress?.street && (
-                  <small className="min-w-0 max-w-[40%] truncate text-xs text-slate-400">
-                    {toTitleCase(customer.fullAddress.street)}
-                    {customer.fullAddress.number ? `, ${customer.fullAddress.number}` : ''}
-                  </small>
-                )}
-                {customerData.id === customer.id && (
-                  <i className="bi bi-check-lg shrink-0 text-blue-600" />
-                )}
-              </button>
-            ))
-          )}
-        </div>
-      </DropdownPortal>
+      <CustomerSearchDropdown
+        anchorRef={wrapperRef}
+        isOpen={isOpen}
+        filteredCustomers={filteredCustomers}
+        selectedCustomerId={customerData.id}
+        onSelectCustomer={selectCustomer}
+      />
 
       <PersonFormModal
         isOpen={isNewCustomerOpen}
         onClose={() => setIsNewCustomerOpen(false)}
-        onSuccess={(customer) => {
-          setCustomers((current) => [
-            ...current.filter((item) => item.id !== customer.id),
-            customer,
-          ]);
-          selectCustomer(customer);
-          setIsNewCustomerOpen(false);
-        }}
+        onSuccess={handleNewCustomerSuccess}
         collectionName="customers"
         title="Cliente"
       />
@@ -369,14 +173,7 @@ const CustomerDataInputs = ({
         isOpen={Boolean(editingPerson)}
         onClose={() => setEditingPerson(null)}
         person={editingPerson}
-        onSuccess={(customer) => {
-          setCustomers((current) => [
-            ...current.filter((item) => item.id !== customer.id),
-            customer,
-          ]);
-          selectCustomer(customer);
-          setEditingPerson(null);
-        }}
+        onSuccess={handleEditCustomerSuccess}
         collectionName="customers"
         title="Editar Cliente"
       />

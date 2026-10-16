@@ -163,3 +163,262 @@ describe('proprietário do pedido, rascunho e finalização', () => {
     expect(result.current.state.shipping.value).toBe(50); expect(result.current.state.shipping.distance).toBe(5); expect(result.current.state.currentOrderId).toBe('pedido-B');
   });
 });
+
+describe('vinculação de cliente e toggle de usar mesmo endereço (useCustomerAddress)', () => {
+  const customerWithAddress = {
+    id: 'cliente-com-endereco',
+    fullName: 'Carlos Eduardo',
+    phone: '41999998888',
+    noPhone: false,
+    noAddress: false,
+    fullAddress: {
+      street: 'Rua Marechal Deodoro',
+      number: '500',
+      neighborhood: 'Centro',
+      city: 'Curitiba',
+      cep: '80010-010',
+      complement: '',
+      observation: '',
+    },
+  };
+
+  const customerWithoutAddress = {
+    id: 'cliente-sem-endereco',
+    fullName: 'Ana Beatriz',
+    phone: '41988887777',
+    noPhone: false,
+    noAddress: true,
+    fullAddress: {
+      street: '',
+      number: '',
+      neighborhood: '',
+      city: '',
+      cep: '',
+      complement: '',
+      observation: '',
+    },
+  };
+
+  it('liga automaticamente useCustomerAddress quando vincula cliente com endereço preenchido', () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => {
+      result.current.actions.setCustomerData(customerWithAddress);
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(true);
+  });
+
+  it('desliga automaticamente useCustomerAddress quando vincula cliente com endereço "Não informar" (noAddress: true)', () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => {
+      result.current.actions.setCustomerData(customerWithoutAddress);
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(false);
+  });
+
+  it('desliga automaticamente useCustomerAddress quando cliente tem flag legada fullAddress.noAddress: true', () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => {
+      result.current.actions.setCustomerData({
+        ...customerWithoutAddress,
+        noAddress: false,
+        fullAddress: {
+          ...customerWithoutAddress.fullAddress,
+          noAddress: true,
+        } as any,
+      });
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(false);
+  });
+
+  it('desliga automaticamente useCustomerAddress quando cliente não tem noAddress marcado mas todos os campos de endereço estão vazios', () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => {
+      result.current.actions.setCustomerData({
+        id: 'cliente-vazio',
+        fullName: 'Cliente Vazio',
+        phone: '41911112222',
+        noPhone: false,
+        noAddress: false,
+        fullAddress: {
+          street: '',
+          number: '',
+          neighborhood: '',
+          city: '',
+          cep: '',
+          complement: '',
+          observation: '',
+        },
+      });
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(false);
+  });
+
+  it('desliga automaticamente ao vincular Consumidor Final', () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => {
+      result.current.actions.setCustomerData(customerWithAddress);
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(true);
+
+    act(() => {
+      result.current.actions.setCustomerData({
+        fullName: 'Consumidor Final',
+        phone: '',
+        noPhone: true,
+        noAddress: true,
+        fullAddress: {
+          street: '',
+          number: '',
+          neighborhood: '',
+          city: '',
+          cep: '',
+          complement: '',
+          observation: '',
+        },
+      });
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(false);
+  });
+
+  it('alterna automaticamente entre clientes com e sem endereço', () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+
+    // 1. Vincula cliente com endereço -> Liga
+    act(() => {
+      result.current.actions.setCustomerData(customerWithAddress);
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(true);
+
+    // 2. Troca para cliente sem endereço -> Desliga
+    act(() => {
+      result.current.actions.setCustomerData(customerWithoutAddress);
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(false);
+
+    // 3. Volta para cliente com endereço -> Liga novamente
+    act(() => {
+      result.current.actions.setCustomerData(customerWithAddress);
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(true);
+  });
+
+  it('permite desligar manualmente e preserva o estado ao preencher outros campos da venda', () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+
+    // Vincula cliente com endereço
+    act(() => {
+      result.current.actions.setCustomerData(customerWithAddress);
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(true);
+
+    // Operador desliga manualmente o toggle
+    act(() => {
+      result.current.actions.setShipping((prev) => ({
+        ...prev,
+        useCustomerAddress: false,
+      }));
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(false);
+
+    // Operador preenche outros dados da venda
+    act(() => {
+      result.current.actions.setSeller('Vendedor Teste');
+      result.current.actions.setObservation('Entrega em outro local');
+      result.current.actions.setPayments([{ method: 'Pix', amount: 100, status: 'Pago' }]);
+    });
+
+    // O toggle manual do operador deve continuar desligado
+    expect(result.current.state.shipping.useCustomerAddress).toBe(false);
+  });
+
+  it('permite ligar manualmente mesmo com cliente sem endereço e preserva', () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+
+    // Vincula cliente sem endereço
+    act(() => {
+      result.current.actions.setCustomerData(customerWithoutAddress);
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(false);
+
+    // Operador liga manualmente o toggle
+    act(() => {
+      result.current.actions.setShipping((prev) => ({
+        ...prev,
+        useCustomerAddress: true,
+      }));
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(true);
+
+    // Operador atualiza vendedor
+    act(() => {
+      result.current.actions.setSeller('Outro Vendedor');
+    });
+
+    // O toggle manual do operador deve continuar ligado
+    expect(result.current.state.shipping.useCustomerAddress).toBe(true);
+  });
+
+  it('atualiza useCustomerAddress quando o cadastro do cliente vinculado é editado no modal', () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+
+    // Vincula cliente com endereço
+    act(() => {
+      result.current.actions.setCustomerData(customerWithAddress);
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(true);
+
+    // Cliente é editado via modal para marcar "Não Informar"
+    act(() => {
+      result.current.actions.setCustomerData((prev) => ({
+        ...prev,
+        noAddress: true,
+      }));
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(false);
+
+    // Cliente é editado novamente para desmarcar "Não Informar" e preencher endereço
+    act(() => {
+      result.current.actions.setCustomerData((prev) => ({
+        ...prev,
+        noAddress: false,
+        fullAddress: {
+          ...prev.fullAddress,
+          street: 'Avenida Sete de Setembro',
+          city: 'Curitiba',
+        },
+      }));
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(true);
+  });
+
+  it('preserva preferência explícita salva ao carregar pedido existente', () => {
+    const { result } = renderHook(() => useSalesOrderForm());
+
+    // Carrega pedido com useCustomerAddress explicitamente false
+    act(() => {
+      result.current.actions.loadOrderForEditing({
+        ...valid(),
+        customerData: customerWithAddress,
+        shipping: {
+          ...valid().shipping,
+          useCustomerAddress: false,
+        },
+      });
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(false);
+
+    // Carrega pedido com useCustomerAddress explicitamente true
+    act(() => {
+      result.current.actions.loadOrderForEditing({
+        ...valid(),
+        customerData: customerWithoutAddress,
+        shipping: {
+          ...valid().shipping,
+          useCustomerAddress: true,
+        },
+      });
+    });
+    expect(result.current.state.shipping.useCustomerAddress).toBe(true);
+  });
+});
+

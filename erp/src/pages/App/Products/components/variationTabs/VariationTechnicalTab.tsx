@@ -17,6 +17,7 @@ import { AttributeManagementModal } from '../modals/attributes/AttributeManageme
 import { VariationTechnicalFieldItem } from './VariationTechnicalFieldItem';
 import { VariationTechnicalSearchControl } from './VariationTechnicalSearchControl';
 import { VariationTechnicalDescriptionSection } from './VariationTechnicalDescriptionSection';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 
 export interface VariationTechnicalTabProps {
   readonly formData: Variation & { readonly material?: string | null };
@@ -54,6 +55,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   );
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
+  const [fieldsError, setFieldsError] = useState('');
   const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
   const [debouncedCharacteristicSearchTerm, setDebouncedCharacteristicSearchTerm] = useState('');
 
@@ -76,12 +78,14 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
     const loadFields = async () => {
       setLoadingFields(true);
+      setFieldsError('');
       try {
-        const mapped = await fetchTechnicalFieldDefinitions('variation-form');
+        const mapped = await withTimeout(fetchTechnicalFieldDefinitions('variation-form', { forceRefresh: refreshKey > 0 }), 15000, null, 'variacao:caracteristicas');
         if (!isMounted) return;
-        setAllTechnicalFields(mapped || []);
-      } catch (err) {
-        console.error('Erro ao carregar Características na variação:', err);
+        if (!mapped) throw new Error('Consulta de características não confirmada.');
+        setAllTechnicalFields(mapped);
+      } catch {
+        if (isMounted) setFieldsError('Não foi possível carregar as características. Consulte novamente.');
       } finally {
         if (isMounted) setLoadingFields(false);
       }
@@ -297,7 +301,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     handleChange('technicalValues', nextOverrides);
 
     // Atualiza attributes de forma atômica
-    let nextAttrs = [...(formData.attributes || [])];
+    const nextAttrs = [...(formData.attributes || [])];
     const oldIdx = nextAttrs.findIndex(
       (a) => a.name?.trim().toLowerCase() === oldName.trim().toLowerCase()
     );
@@ -331,13 +335,14 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-350">
+      {fieldsError && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{fieldsError} <button type="button" onClick={() => setRefreshKey((value) => value + 1)} disabled={loadingFields}>Consultar características novamente</button></p>}
       <div className="flex flex-col gap-4">
         {loadingFields ? (
-          <div className="py-6 text-center text-slate-400 text-xs font-bold animate-pulse">
+          <div role="status" className="py-6 text-center text-slate-400 text-xs font-bold animate-pulse">
             <i className="bi bi-arrow-clockwise animate-spin mr-2" />
             Carregando especificações técnicas...
           </div>
-        ) : requiredFieldsOnly && visibleFields.length === 0 ? (
+        ) : requiredFieldsOnly && visibleFields.length === 0 && !fieldsError ? (
           <div className="py-6 text-center text-slate-400 text-xs italic bg-white dark:bg-slate-900/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
             Nenhuma característica cadastrada.
           </div>

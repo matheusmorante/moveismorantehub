@@ -5,6 +5,7 @@ interface UsePriceLabelHistoryParams<TSnapshot> {
   getSnapshot: () => TSnapshot;
   applySnapshot: (snapshot: TSnapshot) => void;
   isApplyingHistoryRef: { current: boolean };
+  canEdit?: () => boolean;
 }
 
 export function usePriceLabelHistory<TSnapshot>({
@@ -12,11 +13,14 @@ export function usePriceLabelHistory<TSnapshot>({
   getSnapshot,
   applySnapshot,
   isApplyingHistoryRef,
+  canEdit = () => true,
 }: UsePriceLabelHistoryParams<TSnapshot>) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const undoStackRef = useRef<TSnapshot[]>([]);
   const redoStackRef = useRef<TSnapshot[]>([]);
+  const currentActions = useRef({ canEdit, applySnapshot });
+  currentActions.current = { canEdit, applySnapshot };
 
   // Registra o snapshot inicial e acompanha mudanças do editor para a pilha de Desfazer/Refazer
   useEffect(() => {
@@ -57,6 +61,7 @@ export function usePriceLabelHistory<TSnapshot>({
   }, [isOpen, getSnapshot]);
 
   const handleUndo = useCallback(() => {
+    if (!currentActions.current.canEdit()) return;
     const stack = undoStackRef.current;
     if (stack.length <= 1) return;
 
@@ -65,7 +70,7 @@ export function usePriceLabelHistory<TSnapshot>({
     redoStackRef.current.push(current);
 
     const previous = stack[stack.length - 1]!;
-    applySnapshot(previous);
+    currentActions.current.applySnapshot(previous);
 
     setCanUndo(stack.length > 1);
     setCanRedo(true);
@@ -76,6 +81,7 @@ export function usePriceLabelHistory<TSnapshot>({
   }, []);
 
   const handleRedo = useCallback(() => {
+    if (!currentActions.current.canEdit()) return;
     const redoStack = redoStackRef.current;
     if (redoStack.length === 0) return;
 
@@ -83,7 +89,7 @@ export function usePriceLabelHistory<TSnapshot>({
     const next = redoStack.pop()!;
     undoStackRef.current.push(next);
 
-    applySnapshot(next);
+    currentActions.current.applySnapshot(next);
 
     setCanUndo(undoStackRef.current.length > 1);
     setCanRedo(redoStack.length > 0);

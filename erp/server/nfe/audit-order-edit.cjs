@@ -1922,8 +1922,8 @@ var buildOrderPersistencePayload = (order) => {
   const totalAmount = order.paymentsSummary?.totalOrderValue ?? order.total_amount ?? 0;
   const orderType = order.orderType || "sale";
   const scheduledDate = order.shipping?.scheduling?.date || order.scheduledDate || null;
-  const scheduledStartTime = order.shipping?.scheduling?.startTime || null;
-  const scheduledEndTime = order.shipping?.scheduling?.endTime || null;
+  const scheduledStartTime = order.shipping?.scheduling?.startTime || (order.shipping?.scheduling?.type === "fixed" ? order.shipping?.scheduling?.time : null) || null;
+  const scheduledEndTime = order.shipping?.scheduling?.type === "fixed" ? null : order.shipping?.scheduling?.endTime || null;
   const deliveryMethod = order.shipping?.deliveryMethod || null;
   const deliveryStatus = order.deliveryStatus || null;
   const marketingOrigin = order.marketingOrigin || order.customerData?.marketingOrigin || null;

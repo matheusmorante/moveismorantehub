@@ -75,7 +75,7 @@ export const InventoryAuditContextMenu: React.FC<Props> = ({
             onClose();
             onCopy(targetItems);
             toast.info(
-              'Novo inventário criado a partir da cópia. Confira os saldos atuais antes de salvar.'
+              'Itens selecionados para um novo inventário. Confira o escopo e os saldos atuais antes de iniciar.'
             );
           }}
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer"

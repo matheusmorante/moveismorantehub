@@ -3,6 +3,7 @@ import type Order from '@/pages/types/order.type';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
 import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface NfeEnvironmentChoiceModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
   onClose,
   onSelectEnvironment,
 }) => {
+  useBodyScrollLock(isOpen);
   const [fiscalStatuses, setFiscalStatuses] = React.useState<OrderFiscalBadgeStatuses | null>(null);
   const [isPreparingSnapshot, setIsPreparingSnapshot] = React.useState(false);
   const [snapshotError, setSnapshotError] = React.useState<string | null>(null);
@@ -121,7 +123,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
     : snapshotError;
 
   return (
-    <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 overscroll-contain overflow-y-auto">
       {/* Backdrop */}
       <button
         type="button"

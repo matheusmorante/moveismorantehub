@@ -1,4 +1,6 @@
 import ProductAutocomplete from '@/components/ProductAutocomplete';
+import { useRef } from 'react';
+import type { StockUnavailabilityOperationGuard } from '../../../../../../../shared-utils/stockUnavailabilityFormSchemas';
 import { useUnavailabilityForm } from '../hooks/useUnavailabilityForm';
 import {
   UNAVAILABILITY_REASONS,
@@ -11,13 +13,15 @@ export default function UnavailabilityFormModal({
   onClose,
   onSuccess,
 }: UnavailabilityFormModalProps) {
-  const { state, actions } = useUnavailabilityForm({ isOpen, onSuccess });
+  const operationGuard = useRef<StockUnavailabilityOperationGuard>({ active: null, error: '' });
+  return isOpen ? <UnavailabilityFormSession isOpen onClose={onClose} onSuccess={onSuccess} operationGuard={operationGuard.current} /> : null;
+}
 
-  if (!isOpen) return null;
+function UnavailabilityFormSession({ isOpen, onClose, onSuccess, operationGuard }: UnavailabilityFormModalProps & { operationGuard: StockUnavailabilityOperationGuard }) {
+  const { state, actions } = useUnavailabilityForm({ isOpen, onSuccess, operationGuard });
 
   const handleClose = () => {
-    actions.resetForm();
-    onClose();
+    if (actions.resetForm()) onClose();
   };
 
   return (
@@ -29,7 +33,7 @@ export default function UnavailabilityFormModal({
         onClick={handleClose}
       />
 
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative z-10 animate-scale-in">
+      <div role="dialog" aria-modal="true" aria-label="Registrar indisponibilidade" className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative z-10 animate-scale-in">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center sticky top-0 bg-white dark:bg-slate-900 z-20">
           <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
             Registrar Indisponibilidade
@@ -45,6 +49,11 @@ export default function UnavailabilityFormModal({
         </div>
 
         <form noValidate onSubmit={actions.handleSubmit} className="p-6 space-y-5">
+          {state.formError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{state.formError}</p>}
+          {state.isLoading && <p role="status" className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800"><i aria-hidden="true" className="bi bi-arrow-repeat animate-spin mr-2" />Registrando indisponibilidade e confirmando anexos...</p>}
+          {state.supplierLoading && <p role="status" className="text-sm text-blue-800">Consultando fornecedores vinculados...</p>}
+          {state.supplierError && <p role="alert" className="text-sm text-red-800">{state.supplierError} <button type="button" disabled={state.isLoading} onClick={actions.retrySuppliers}>Consultar fornecedores novamente</button></p>}
+          <fieldset disabled={state.isLoading || state.operationBlocked} className="contents">
           {/* Seleção do Produto e Variação */}
           <div>
             <span className="block text-sm font-semibold mb-1">
@@ -166,7 +175,7 @@ export default function UnavailabilityFormModal({
                   </option>
                 ))}
               </select>
-              {state.selectedVariation && state.suppliers.length === 0 && (
+              {state.selectedVariation && !state.supplierLoading && !state.supplierError && state.suppliers.length === 0 && (
                 <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                   Nenhum fornecedor vinculado a este produto.
                 </p>
@@ -210,6 +219,7 @@ export default function UnavailabilityFormModal({
             />
           </div>
 
+          </fieldset>
           {/* Ações do Rodapé */}
           <div className="pt-2 flex justify-end gap-2">
             <button
@@ -222,7 +232,7 @@ export default function UnavailabilityFormModal({
             </button>
             <button
               type="submit"
-              disabled={state.isLoading || !state.selectedProduct || !state.selectedVariation}
+              disabled={state.isLoading || state.operationBlocked || !state.selectedProduct || !state.selectedVariation}
               className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {state.isLoading ? 'Registrando...' : 'Registrar'}

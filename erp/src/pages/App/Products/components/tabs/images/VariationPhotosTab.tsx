@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
+import { toast } from 'react-toastify';
 import VariationParentImagesSelectModal from '../../modals/variations/VariationParentImagesSelectModal';
 import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
 import ProductImage from '@/components/ProductImage';
-import { moveProductImage } from './productImageOrdering';
+import { moveProductImage, replaceImageUrlAcrossList } from './productImageOrdering';
+import { SquareImageCropper } from './SquareImageCropper';
+import { uploadOptimizedProductImage } from './productImageUpload';
 
 interface VariationPhotosTabProps {
   readonly images: readonly string[];
   readonly parentImages: readonly string[];
   readonly isSingleVariation?: boolean;
   readonly onChangeImages: (images: string[]) => void;
+  readonly onReplaceImageGlobal?: (oldUrl: string, newUrl: string) => void | Promise<void>;
 }
 
 export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
@@ -16,14 +20,36 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
   parentImages,
   isSingleVariation = false,
   onChangeImages,
+  onReplaceImageGlobal,
 }) => {
   const [isSelectModalOpen, setIsSelectModalOpen] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
+  const [croppingIndex, setCroppingIndex] = useState<number | null>(null);
 
   const handleRemoveImage = (indexToRemove: number) => {
     const next = images.filter((_, idx) => idx !== indexToRemove);
     onChangeImages(next);
+  };
+
+  const handleCropPhoto = async (file: File) => {
+    if (croppingIndex === null) return;
+    const index = croppingIndex;
+    const oldUrl = images[index];
+    try {
+      const newUrl = await uploadOptimizedProductImage(file);
+      if (onReplaceImageGlobal) {
+        await onReplaceImageGlobal(oldUrl, newUrl);
+      } else {
+        const next = replaceImageUrlAcrossList(images, oldUrl, newUrl);
+        onChangeImages(next);
+      }
+      setCroppingIndex(null);
+      toast.success('Foto recortada em 1:1 e atualizada!');
+    } catch (error) {
+      console.error('Erro ao recortar imagem da variação:', error);
+      toast.error('Erro ao processar e salvar o recorte da imagem.');
+    }
   };
 
   return (
@@ -129,24 +155,46 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
                 </div>
               )}
 
-              {/* Botão Remover/Desvincular */}
-              <button
-                type="button"
-                aria-label={`Desvincular foto ${index + 1}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setActiveImageIndex(null);
-                  handleRemoveImage(index);
-                }}
-                className={`absolute top-2 right-2 z-10 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md transition-all hover:scale-110 cursor-pointer ${
-                  activeImageIndex === index
-                    ? 'opacity-100 pointer-events-auto visible'
-                    : 'opacity-0 pointer-events-none invisible group-hover:opacity-100 group-hover:pointer-events-auto group-hover:visible'
-                }`}
-                title="Desvincular foto"
-              >
-                <i className="bi bi-trash text-xs" aria-hidden="true" />
-              </button>
+              {/* Botões de Ação (Recortar e Desvincular) */}
+              <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
+                {/* Botão Recortar 1:1 */}
+                <button
+                  type="button"
+                  aria-label={`Recortar foto ${index + 1}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveImageIndex(null);
+                    setCroppingIndex(index);
+                  }}
+                  className={`w-7 h-7 bg-purple-600 hover:bg-purple-700 text-white rounded-full flex items-center justify-center shadow-md transition-all hover:scale-110 cursor-pointer ${
+                    activeImageIndex === index
+                      ? 'opacity-100 pointer-events-auto visible'
+                      : 'opacity-0 pointer-events-none invisible group-hover:opacity-100 group-hover:pointer-events-auto group-hover:visible'
+                  }`}
+                  title="Recortar foto em 1:1"
+                >
+                  <i className="bi bi-crop text-xs" aria-hidden="true" />
+                </button>
+
+                {/* Botão Remover/Desvincular */}
+                <button
+                  type="button"
+                  aria-label={`Desvincular foto ${index + 1}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveImageIndex(null);
+                    handleRemoveImage(index);
+                  }}
+                  className={`w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md transition-all hover:scale-110 cursor-pointer ${
+                    activeImageIndex === index
+                      ? 'opacity-100 pointer-events-auto visible'
+                      : 'opacity-0 pointer-events-none invisible group-hover:opacity-100 group-hover:pointer-events-auto group-hover:visible'
+                  }`}
+                  title="Desvincular foto"
+                >
+                  <i className="bi bi-trash text-xs" aria-hidden="true" />
+                </button>
+              </div>
 
               {/* Dica de arrasto em hover */}
               <div
@@ -173,6 +221,15 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
         maxSelection={MAX_VARIATION_IMAGES}
         onConfirm={(selected) => onChangeImages(selected.slice(0, MAX_VARIATION_IMAGES))}
       />
+
+      {/* Modal de Recorte 1:1 */}
+      {croppingIndex !== null && images[croppingIndex] && (
+        <SquareImageCropper
+          imageUrl={images[croppingIndex]}
+          onCancel={() => setCroppingIndex(null)}
+          onConfirm={handleCropPhoto}
+        />
+      )}
     </div>
   );
 };

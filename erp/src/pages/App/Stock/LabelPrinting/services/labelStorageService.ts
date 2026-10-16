@@ -26,12 +26,22 @@ const readJson = (key: string): unknown => {
   }
 };
 
-const writeJson = (key: string, value: unknown): void => {
+const writeStoredValue = (key: string, serialize: () => string): boolean => {
   try {
-    getStorage()?.setItem(key, JSON.stringify(value));
+    const storage = getStorage();
+    if (!storage) throw new Error('Armazenamento local indisponível.');
+    const serialized = serialize();
+    storage.setItem(key, serialized);
+    if (storage.getItem(key) !== serialized) throw new Error('A gravação local não foi confirmada.');
+    return true;
   } catch (error) {
     console.warn(`Não foi possível salvar ${key} no armazenamento local:`, error);
+    return false;
   }
+};
+const writeJson = (key: string, value: unknown): boolean => writeStoredValue(key, () => JSON.stringify(value));
+const readString = (key: string, fallback: string): string => {
+  try { return getStorage()?.getItem(key) || fallback; } catch { return fallback; }
 };
 
 const isGridModel = (value: unknown): value is GridModel => {
@@ -69,8 +79,8 @@ export const getCustomLabelLayouts = (): GridModel[] | null => {
   return Array.isArray(value) && value.every(isGridModel) ? value : null;
 };
 
-export const saveCustomLabelLayouts = (layouts: readonly GridModel[]): void => {
-  writeJson(STORAGE_KEYS.customLayouts, layouts);
+export const saveCustomLabelLayouts = (layouts: readonly GridModel[]): boolean => {
+  return writeJson(STORAGE_KEYS.customLayouts, layouts);
 };
 
 export const getHiddenDefaultLayoutIds = (): string[] => {
@@ -80,31 +90,27 @@ export const getHiddenDefaultLayoutIds = (): string[] => {
     : [];
 };
 
-export const saveHiddenDefaultLayoutIds = (ids: readonly string[]): void => {
-  writeJson(STORAGE_KEYS.hiddenDefaultLayoutIds, ids);
+export const saveHiddenDefaultLayoutIds = (ids: readonly string[]): boolean => {
+  return writeJson(STORAGE_KEYS.hiddenDefaultLayoutIds, ids);
 };
 
 export const getLastSelectedRoundModelId = (): string =>
-  getStorage()?.getItem(STORAGE_KEYS.lastSelectedRoundModelId) || 'round-small';
+  readString(STORAGE_KEYS.lastSelectedRoundModelId, 'round-small');
 
-export const saveLastSelectedRoundModelId = (id: string): void => {
-  getStorage()?.setItem(STORAGE_KEYS.lastSelectedRoundModelId, id);
-};
+export const saveLastSelectedRoundModelId = (id: string): boolean => writeStoredValue(STORAGE_KEYS.lastSelectedRoundModelId, () => id);
 
 export const getLastSelectedRectModelId = (): string =>
-  getStorage()?.getItem(STORAGE_KEYS.lastSelectedRectModelId) || 'labels-image-compact';
+  readString(STORAGE_KEYS.lastSelectedRectModelId, 'labels-image-compact');
 
-export const saveLastSelectedRectModelId = (id: string): void => {
-  getStorage()?.setItem(STORAGE_KEYS.lastSelectedRectModelId, id);
-};
+export const saveLastSelectedRectModelId = (id: string): boolean => writeStoredValue(STORAGE_KEYS.lastSelectedRectModelId, () => id);
 
 export const getCustomLabels = (): CustomLabel[] => {
   const value = readJson(STORAGE_KEYS.customLabels);
   return Array.isArray(value) ? value.filter(isCustomLabel) : [];
 };
 
-export const saveCustomLabels = (labels: readonly CustomLabel[]): void => {
-  writeJson(STORAGE_KEYS.customLabels, labels);
+export const saveCustomLabels = (labels: readonly CustomLabel[]): boolean => {
+  return writeJson(STORAGE_KEYS.customLabels, labels);
 };
 
 export const getAvailableLabelLogos = (
@@ -120,6 +126,6 @@ export const getAvailableLabelLogos = (
   return combined;
 };
 
-export const saveAvailableLabelLogos = (logos: readonly LabelLogoAsset[]): void => {
-  writeJson(STORAGE_KEYS.availableLogos, logos);
+export const saveAvailableLabelLogos = (logos: readonly LabelLogoAsset[]): boolean => {
+  return writeJson(STORAGE_KEYS.availableLogos, logos);
 };

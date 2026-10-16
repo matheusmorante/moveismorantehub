@@ -6,6 +6,8 @@ import { sortAttributeValuesNaturally } from './attributeValueSorting';
 import { queryClient } from '@/lib/queryClient';
 import { isWeightCharacteristicName } from './technicalValuesService';
 import { normalizeAttributeDataType } from './attributeDataType';
+import { variationFamilyAttributeSchema, VariationFamilyUnconfirmedError } from '../../../../shared-utils/variationFamilyFormSchemas';
+import { withTimeout } from '../../../../shared-utils/withTimeout';
 
 export { normalizeAttributeDataType };
 
@@ -58,42 +60,65 @@ const capitalize = (str: string): string => {
 /** Garante um valor canônico para um atributo global sem criar atributos duplicados. */
 export const ensureAttributeValue = async (
   attributeName: string,
-  value: string
+  value: string,
+  stillCurrent: () => boolean = () => true,
 ): Promise<{ name: string; value: string }> => {
-  const normalizedName = capitalize(attributeName);
-  const normalizedValue = capitalize(value);
-  const { data: attributes, error: attributeError } = await supabase
+  const input = variationFamilyAttributeSchema.parse({ name: attributeName, value });
+  const normalizedName = capitalize(input.name), normalizedValue = capitalize(input.value);
+  const literal = (text: string) => `^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`;
+  const check = () => { if (!stillCurrent()) throw new Error('A mudança de família perdeu o contexto.'); };
+  const wait = async <T,>(promise: PromiseLike<T>, write = false): Promise<T> => {
+    check();
+    const result = await withTimeout(promise, 10000, null, 'mover-variacao:atributo');
+    if (!result) throw write ? new VariationFamilyUnconfirmedError('O cadastro do atributo não foi confirmado. Consulte os atributos antes de repetir.') : new Error('A consulta do atributo excedeu o prazo.');
+    check(); return result;
+  };
+  const { data: attributes, error: attributeError } = await wait(supabase
     .from('attributes')
     .select('id,name')
-    .ilike('name', normalizedName)
-    .limit(1);
+    .filter('name', 'imatch', literal(normalizedName))
+    .limit(1));
   if (attributeError) throw attributeError;
+  if (!Array.isArray(attributes)) throw new Error('Não foi possível confirmar a consulta do atributo.');
 
   let attribute = attributes?.[0];
   if (!attribute) {
-    const { data, error } = await supabase
+    let response;
+    try { response = await wait(supabase
       .from('attributes')
       .insert({ name: normalizedName, active: true })
       .select('id,name')
-      .single();
-    if (error) throw error;
-    attribute = data;
+      .single(), true); } catch (error) { throw error instanceof VariationFamilyUnconfirmedError ? error : new VariationFamilyUnconfirmedError(); }
+    if (response.error) {
+      if (!response.error.code || response.status === 0 || response.status >= 500) throw new VariationFamilyUnconfirmedError();
+      throw response.error;
+    }
+    attribute = response.data;
   }
-
-  const { data: values, error: valueError } = await supabase
+  if (!attribute?.id || typeof attribute.name !== 'string' || attribute.name.trim().toLocaleLowerCase('pt-BR') !== normalizedName.toLocaleLowerCase('pt-BR')) throw new VariationFamilyUnconfirmedError('O cadastro do atributo não foi confirmado. Consulte os atributos antes de repetir.');
+  const { data: values, error: valueError } = await wait(supabase
     .from('attribute_values')
     .select('value')
     .eq('attribute_id', attribute.id)
-    .ilike('value', normalizedValue)
-    .limit(1);
+    .filter('value', 'imatch', literal(normalizedValue))
+    .limit(1));
   if (valueError) throw valueError;
+  if (!Array.isArray(values)) throw new Error('Não foi possível confirmar a consulta do valor do atributo.');
+  let storedValue = values[0]?.value;
   if (!values?.length) {
-    const { error } = await supabase
+    let response;
+    try { response = await wait(supabase
       .from('attribute_values')
-      .insert({ attribute_id: attribute.id, value: normalizedValue });
-    if (error) throw error;
+      .insert({ attribute_id: attribute.id, value: normalizedValue }).select('value').single(), true);
+    } catch (error) { throw error instanceof VariationFamilyUnconfirmedError ? error : new VariationFamilyUnconfirmedError(); }
+    if (response.error) {
+      if (!response.error.code || response.status === 0 || response.status >= 500) throw new VariationFamilyUnconfirmedError();
+      throw response.error;
+    }
+    storedValue = response.data?.value;
   }
-  return { name: attribute.name, value: values?.[0]?.value || normalizedValue };
+  if (typeof storedValue !== 'string' || storedValue.trim().toLocaleLowerCase('pt-BR') !== normalizedValue.toLocaleLowerCase('pt-BR')) throw new VariationFamilyUnconfirmedError('O valor do atributo não foi confirmado. Consulte os atributos antes de repetir.');
+  return variationFamilyAttributeSchema.parse({ name: attribute.name, value: storedValue });
 };
 
 /**

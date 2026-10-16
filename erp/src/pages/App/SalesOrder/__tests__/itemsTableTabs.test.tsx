@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
@@ -23,12 +23,16 @@ vi.mock('@/hooks/useWindowSize', () => ({
   useWindowSize: () => ({ width: 1000, height: 800 }), // Modo card (< 1280px)
 }));
 
-vi.mock('@/pages/utils/settingsService', () => ({
-  getSettings: () => ({
+vi.mock('@/pages/utils/settingsService', () => {
+  const settings = {
     deliveryHandlingOptions: [{ label: 'Entrega Padrão' }, { label: 'Montagem no Local' }],
     pickupHandlingOptions: [{ label: 'Retirada na Loja' }],
-  }),
-}));
+  };
+  return {
+    getSettings: () => settings,
+    useSettings: () => settings,
+  };
+});
 
 vi.mock('../ItemsTable/ServiceAutocomplete', () => ({
   default: () => <input aria-label="Buscar serviço" />,

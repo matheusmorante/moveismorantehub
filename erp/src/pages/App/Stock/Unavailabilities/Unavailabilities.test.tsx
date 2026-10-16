@@ -149,7 +149,7 @@ describe('UnavailabilityFormModal', () => {
       target: { value: 'Devolução ao fornecedor' },
     });
     fireEvent.submit(screen.getByRole('button', { name: 'Registrar' }).closest('form')!);
-    expect(toast.error).toHaveBeenCalledWith('Fornecedor é obrigatório para devolução.');
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Fornecedor é obrigatório para devolução.'));
     expect(createStockUnavailability).not.toHaveBeenCalled();
   });
 
@@ -158,7 +158,7 @@ describe('UnavailabilityFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Selecionar variação' }));
     fireEvent.change(screen.getByLabelText('Quantidade *'), { target: { value: '0' } });
     fireEvent.submit(screen.getByRole('button', { name: 'Registrar' }).closest('form')!);
-    expect(toast.error).toHaveBeenCalledWith('Informe uma quantidade válida maior que zero.');
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Informe uma quantidade válida maior que zero.'));
     expect(createStockUnavailability).not.toHaveBeenCalled();
   });
 
@@ -168,9 +168,9 @@ describe('UnavailabilityFormModal', () => {
     fireEvent.change(screen.getByLabelText('Tratativa *'), { target: { value: 'Descarte/perda' } });
     fireEvent.change(screen.getByLabelText('Quantidade *'), { target: { value: '15' } });
     fireEvent.submit(screen.getByRole('button', { name: 'Registrar' }).closest('form')!);
-    expect(toast.error).toHaveBeenCalledWith(
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(
       'Quantidade informada (15) é maior que o estoque atual (10).'
-    );
+    ));
     expect(createStockUnavailability).not.toHaveBeenCalled();
   });
 
@@ -184,7 +184,7 @@ describe('UnavailabilityFormModal', () => {
 
     await waitFor(() =>
       expect(createStockUnavailability).toHaveBeenCalledWith(
-        expect.objectContaining({ quantity: 2.5 })
+        expect.objectContaining({ quantity: 2.5 }), expect.any(Function)
       )
     );
   });

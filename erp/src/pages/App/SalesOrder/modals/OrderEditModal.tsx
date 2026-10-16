@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import SalesOrderFormSection from '../components/SalesOrderFormSection';
-import { useSalesOrderForm, parseStorageDateToLocal } from '../hooks/useSalesOrderForm';
+import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
 import Order from '@/pages/types/order.type';
 import {
   updateOrder,
@@ -10,14 +10,15 @@ import {
 } from '@/pages/utils/orderHistoryService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { createOrderDomainSchema, orderReconciliationFormSchema } from '../../../../../../shared-utils/orderDomainValidation';
+import {
+  createOrderDomainSchema,
+  orderReconciliationFormSchema,
+} from '../../../../../../shared-utils/orderDomainValidation';
 import { getSettings } from '@/pages/utils/settingsService';
 import type { z } from 'zod';
 import OrderStatusTimeline from '../components/OrderStatusTimeline';
-import OrderStepper from '../components/OrderStepper';
 import SellerSearchModal from './SellerSearchModal';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
-import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
 import ItemMovementChangeConfirmModal, {
   getInventorySensitiveItemChanges,
 } from './ItemMovementChangeConfirmModal';
@@ -31,6 +32,12 @@ import {
   type FiscalOrderEditAudit,
 } from '@/pages/utils/nfe/orderEditFiscalService';
 import OrderEditFiscalContinuation from './OrderEditFiscalContinuation';
+import {
+  applyImportedOrderDataToForm,
+  buildImportedClientDraft,
+} from './orderEditJsonHelpers';
+import { OrderEditModalHeader } from './OrderEditModalHeader';
+import { FiscalOrderEditConfirmDialog } from './FiscalOrderEditConfirmDialog';
 
 interface OrderEditModalProps {
   order?: Order;
@@ -66,10 +73,13 @@ const OrderEditModal = ({
     if (propOnClose) propOnClose();
     else navigate('/sales-order');
   }, [propOnClose, navigate]);
-  const onSaveSuccess = useCallback((savedId?: string, savedOrder?: Order) => {
-    if (propOnSaveSuccess) propOnSaveSuccess(savedId, savedOrder);
-    else navigate('/sales-order');
-  }, [propOnSaveSuccess, navigate]);
+  const onSaveSuccess = useCallback(
+    (savedId?: string, savedOrder?: Order) => {
+      if (propOnSaveSuccess) propOnSaveSuccess(savedId, savedOrder);
+      else navigate('/sales-order');
+    },
+    [propOnSaveSuccess, navigate]
+  );
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -80,12 +90,16 @@ const OrderEditModal = ({
   }, []);
 
   const form = useSalesOrderForm();
-  const editSchema = reconciliationMode ? orderReconciliationFormSchema : createOrderDomainSchema(getSettings().requiredFields);
-  const { validateAndRun: validateEditedOrder } = useZodForm(editSchema, form.state.currentOrder as unknown as z.input<typeof editSchema>);
-  const [view, setView] = useState<'form' | 'timeline'>('form');
+  const editSchema = reconciliationMode
+    ? orderReconciliationFormSchema
+    : createOrderDomainSchema(getSettings().requiredFields);
+  const { validateAndRun: validateEditedOrder } = useZodForm(
+    editSchema,
+    form.state.currentOrder as unknown as z.input<typeof editSchema>
+  );
+  const [view] = useState<'form' | 'timeline'>('form');
   const [isSellerSearchOpen, setIsSellerSearchOpen] = useState(false);
   const [isSellerRegistrationOpen, setIsSellerRegistrationOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
   const sellerRef = React.useRef<HTMLButtonElement>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -101,7 +115,9 @@ const OrderEditModal = ({
   } | null>(null);
   const [isFiscalEditConfirmationOpen, setIsFiscalEditConfirmationOpen] = useState(false);
   const [isConfirmingFiscalEdit, setIsConfirmingFiscalEdit] = useState(false);
-  const [pendingFiscalReplacements, setPendingFiscalReplacements] = useState<FiscalOrderEditReplacement[]>([]);
+  const [pendingFiscalReplacements, setPendingFiscalReplacements] = useState<
+    FiscalOrderEditReplacement[]
+  >([]);
   const [fiscalContinuationOrder, setFiscalContinuationOrder] = useState<Order | null>(null);
 
   useEffect(() => {
@@ -115,7 +131,12 @@ const OrderEditModal = ({
         }
       })
       .catch((error) => {
-        if (isCurrent) toast.error(error instanceof Error ? error.message : 'Não foi possível conferir a pendência fiscal.');
+        if (isCurrent)
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível conferir a pendência fiscal.'
+          );
       });
     return () => {
       isCurrent = false;
@@ -124,67 +145,7 @@ const OrderEditModal = ({
 
   const applyOrderData = useCallback(
     (orderData: any) => {
-      const migrated = migrateOrderHandlings(orderData);
-      if (migrated.seller) {
-        form.actions.setSeller(migrated.seller);
-      }
-      if (migrated.customerData) {
-        form.actions.setCustomerData(migrated.customerData);
-      }
-      if (migrated.observation) {
-        form.actions.setObservation(migrated.observation);
-      }
-      if (migrated.date) {
-        form.actions.setOrderDate(parseStorageDateToLocal(migrated.date));
-      }
-      if (migrated.shipping) {
-        form.actions.setShipping((prev: any) => ({
-          ...prev,
-          ...migrated.shipping,
-          deliveryMethod: migrated.shipping.deliveryMethod || prev.deliveryMethod,
-          orderType: migrated.shipping.orderType || prev.orderType,
-          value: typeof migrated.shipping.value === 'number' ? migrated.shipping.value : prev.value,
-          scheduling: migrated.shipping.scheduling
-            ? {
-                notInformed: !!migrated.shipping.scheduling.notInformed,
-                dateType: migrated.shipping.scheduling.dateType || 'fixed',
-                date: migrated.shipping.scheduling.date || '',
-                endDate: migrated.shipping.scheduling.endDate || '',
-                type: migrated.shipping.scheduling.type || 'fixed',
-                time: migrated.shipping.scheduling.time || '',
-                startTime: migrated.shipping.scheduling.startTime || '',
-                endTime: migrated.shipping.scheduling.endTime || '',
-              }
-            : prev.scheduling,
-        }));
-      }
-      if (migrated.items && Array.isArray(migrated.items)) {
-        const mappedItems = migrated.items.map((item: any) => ({
-          ...item,
-          orderItemId: item.orderItemId || crypto.randomUUID(),
-          linkedProductOrderItemId: item.linkedProductOrderItemId || undefined,
-          productId: item.productId || undefined,
-          variationId: item.variationId || undefined,
-          code: item.code || '',
-          description: item.description || '',
-          unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
-          quantity: typeof item.quantity === 'number' ? item.quantity : 1,
-          costPrice: typeof item.costPrice === 'number' ? item.costPrice : 0,
-          condition: item.condition || 'novo',
-          handlingType: item.handlingType || '',
-          observation: item.observation || '',
-        }));
-        form.actions.setItems(mappedItems);
-      }
-      if (migrated.payments && Array.isArray(migrated.payments)) {
-        const mappedPayments = migrated.payments.map((pay: any) => ({
-          ...pay,
-          method: pay.method || '',
-          amount: typeof pay.amount === 'number' ? pay.amount : 0,
-          status: pay.status || '',
-        }));
-        form.actions.setPayments(mappedPayments);
-      }
+      applyImportedOrderDataToForm(orderData, form.actions);
     },
     [form.actions]
   );
@@ -198,34 +159,8 @@ const OrderEditModal = ({
         }
 
         if (jsonData.client) {
-          const clientData = jsonData.client;
-          const personObj: any = {
-            personType: clientData.personType || 'PF',
-            fullName: clientData.fullName || '',
-            cpfCnpj: clientData.cpfCnpj || '',
-            phone: clientData.phone || '',
-            email: clientData.email || '',
-            noPhone: clientData.noPhone !== undefined ? !!clientData.noPhone : false,
-            marketingOrigin: clientData.marketingOrigin || 'organic',
-            fullAddress: {
-              cep: clientData.fullAddress?.cep || '',
-              street: clientData.fullAddress?.street || '',
-              number: clientData.fullAddress?.number || '',
-              neighborhood: clientData.fullAddress?.neighborhood || '',
-              city: clientData.fullAddress?.city || '',
-              state: clientData.fullAddress?.state || '',
-              complement: clientData.fullAddress?.complement || '',
-              observation: clientData.fullAddress?.observation || '',
-            },
-            noAddress: clientData.noAddress !== undefined ? !!clientData.noAddress : false,
-          };
-
-          setPendingCustomerData(personObj);
-          if (jsonData.order) {
-            setPendingOrderData(jsonData.order);
-          } else {
-            setPendingOrderData(null);
-          }
+          setPendingCustomerData(buildImportedClientDraft(jsonData.client));
+          setPendingOrderData(jsonData.order ? jsonData.order : null);
           setIsCustomerRegistrationOpen(true);
           toast.info('Cliente identificado no JSON. Confirme o cadastro do cliente primeiro.');
         } else if (jsonData.order) {
@@ -241,16 +176,6 @@ const OrderEditModal = ({
     },
     [applyOrderData]
   );
-
-  React.useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const handleScroll = () => {
-      setIsScrolled(el.scrollTop > 50);
-    };
-    el.addEventListener('scroll', handleScroll);
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, []);
 
   useEffect(() => {
     if (id && !order) {
@@ -273,7 +198,6 @@ const OrderEditModal = ({
     if (effectiveOrder && effectiveOrder.id && loadedOrderIdRef.current !== effectiveOrder.id) {
       loadedOrderIdRef.current = effectiveOrder.id;
       form.actions.loadOrderForEditing(effectiveOrder);
-      // Navegar para o step inicial solicitado (ex: step 2 = Itens)
       if (initialStep && initialStep > 1) {
         form.actions.jumpToStep(initialStep);
       }
@@ -282,39 +206,44 @@ const OrderEditModal = ({
 
   const persistUpdate = useCallback(
     async (updatedOrder: Order, expectedUpdatedAt?: string): Promise<string | false> => {
-      const orderId = effectiveOrder?.id;
-      if (!orderId) return false;
+      const targetOrderId = effectiveOrder?.id;
+      if (!targetOrderId) return false;
       try {
-        await updateOrder(orderId, updatedOrder, effectiveOrder, expectedUpdatedAt);
+        await updateOrder(targetOrderId, updatedOrder, effectiveOrder, expectedUpdatedAt);
         toast.success('Edição salva com sucesso!');
-        onSaveSuccess(orderId, updatedOrder);
+        onSaveSuccess(targetOrderId, updatedOrder);
         onClose();
-        return orderId;
+        return targetOrderId;
       } catch (error) {
         console.error('Erro ao atualizar pedido:', error);
         toast.error('Falha ao atualizar pedido.');
         return false;
       }
     },
-    [form.actions, form.state.currentOrder, effectiveOrder, onSaveSuccess, onClose]
+    [effectiveOrder, onSaveSuccess, onClose]
   );
 
   const saveWithFiscalAudit = useCallback(
     async (updatedOrder: Order): Promise<string | false> => {
-      const orderId = effectiveOrder?.id;
-      if (!orderId) return false;
-      const validated = await validateEditedOrder(updatedOrder as unknown as z.input<typeof editSchema>, (data) => data as unknown as Order,
-        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+      const targetOrderId = effectiveOrder?.id;
+      if (!targetOrderId) return false;
+      const validated = await validateEditedOrder(
+        updatedOrder as unknown as z.input<typeof editSchema>,
+        (data) => data as unknown as Order,
+        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])
+      );
       if (!validated) return false;
       try {
-        const audit = await auditFiscalOrderEdit(orderId, validated);
+        const audit = await auditFiscalOrderEdit(targetOrderId, validated);
         if (audit.status === 'blocked') {
           toast.error(audit.error || 'A edição fiscal exige revisão antes de salvar.');
           return false;
         }
         if (audit.status === 'confirmation_required') {
           if (!audit.orderUpdatedAt || !audit.documents.length) {
-            toast.error('A conferência fiscal retornou incompleta; o pedido permanece sem alteração.');
+            toast.error(
+              'A conferência fiscal retornou incompleta; o pedido permanece sem alteração.'
+            );
             return false;
           }
           setPendingFiscalEdit({ requestId: crypto.randomUUID(), order: validated, audit });
@@ -322,7 +251,9 @@ const OrderEditModal = ({
           return false;
         }
         if (!audit.orderUpdatedAt) {
-          toast.error('Não foi possível fixar a versão atual do pedido; nenhuma alteração foi salva.');
+          toast.error(
+            'Não foi possível fixar a versão atual do pedido; nenhuma alteração foi salva.'
+          );
           return false;
         }
         return persistUpdate(validated, audit.orderUpdatedAt);
@@ -369,13 +300,34 @@ const OrderEditModal = ({
       if (!effectiveOrder) return false;
       const firstHandling =
         (form.state.items || []).find((i: any) => i.handlingType?.trim())?.handlingType || '';
-      const currentShipping = form.state.shipping || {};
+      const currentShipping = form.state.shipping || ({} as any);
+      let resolvedScheduling = currentShipping.scheduling;
+      const sessionDateMode = form.state.schedulingSessionRef?.current?.dateMode;
+      if (
+        resolvedScheduling &&
+        !resolvedScheduling.pendingScheduling &&
+        !resolvedScheduling.notInformed &&
+        !resolvedScheduling.immediatePickup &&
+        (sessionDateMode === 'today' || sessionDateMode === 'tomorrow')
+      ) {
+        const { getSaoPauloDayInfo } = await import(
+          '../../../../../../shared-utils/commercialOrderRules'
+        );
+        const dayInfo = getSaoPauloDayInfo(sessionDateMode === 'today' ? 0 : 1);
+        resolvedScheduling = {
+          ...resolvedScheduling,
+          date: dayInfo.isoDate,
+          endDate: '',
+          dateType: 'fixed',
+        };
+      }
       const updatedOrder = {
         ...form.state.currentOrder,
         id: effectiveOrder.id,
         items: form.state.items,
         shipping: {
           ...currentShipping,
+          scheduling: resolvedScheduling,
           orderType: firstHandling || currentShipping.orderType || '',
         },
         isButtonsClicked:
@@ -387,7 +339,18 @@ const OrderEditModal = ({
       const validationErrors = form.actions.validateOrder(updatedOrder);
       if (Object.keys(validationErrors).length > 0) {
         form.actions.setErrors(validationErrors);
-        toast.error('Existem campos obrigatórios não preenchidos.');
+        const shippingError = validationErrors.shipping_date || validationErrors.shipping_time;
+        const firstKey = Object.keys(validationErrors)[0];
+        if (form.state.currentStep === 4 && shippingError) {
+          toast.error(shippingError);
+          return false;
+        }
+        if (firstKey?.startsWith('shipping_') || firstKey?.startsWith('deliveryAddress_')) {
+          form.actions.jumpToStep(4);
+        }
+        toast.error(
+          Object.values(validationErrors)[0] || 'Existem campos obrigatórios não preenchidos.'
+        );
         return false;
       }
       const needsConfirmation =
@@ -399,7 +362,16 @@ const OrderEditModal = ({
       }
       return saveWithFiscalAudit(updatedOrder);
     },
-    [effectiveOrder, form.actions, form.state.currentOrder, saveWithFiscalAudit]
+    [
+      effectiveOrder,
+      form.actions,
+      form.state.currentOrder,
+      form.state.currentStep,
+      form.state.items,
+      form.state.schedulingSessionRef,
+      form.state.shipping,
+      saveWithFiscalAudit,
+    ]
   );
 
   const handleSaveReconciliation = useCallback(async () => {
@@ -434,8 +406,6 @@ const OrderEditModal = ({
     [form.actions, onSaveSuccess, onClose, form.state.currentOrder, effectiveOrder]
   );
 
-  const isPageRoute = !propOnClose;
-
   if (isLoadingOrder || !effectiveOrder) {
     return (
       <div className="w-full min-h-[60vh] flex flex-col items-center justify-center gap-4">
@@ -452,43 +422,13 @@ const OrderEditModal = ({
       className="bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex shrink-0 flex-row items-center justify-between gap-3 border-b border-slate-100 bg-white/80 px-2 py-2 backdrop-blur-md transition-colors duration-300 dark:border-slate-800 dark:bg-slate-900/80 sm:gap-6 sm:px-4 sm:py-2.5 lg:px-6">
-        {/* Esquerda: Identificação */}
-        <div className="flex min-w-0 items-center shrink-0">
-          <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md shadow-blue-500/20 sm:h-10 sm:w-10 sm:rounded-xl">
-              <i className="bi bi-pencil-square text-xs sm:text-base" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="truncate text-xs font-black tracking-tight text-slate-800 dark:text-slate-100 sm:text-base">
-                {reconciliationMode ? 'Conciliação Comercial' : 'Editar Pedido'}
-              </h2>
-            </div>
-          </div>
-        </div>
-
-        {/* Centro: Stepper de Etapas */}
-        {!reconciliationMode && (
-          <div className="flex flex-1 min-w-0 justify-center px-1 sm:px-3 2xl:max-w-4xl mx-auto">
-            <OrderStepper
-              currentStep={form.state.currentStep}
-              jumpToStep={form.actions.jumpToStep}
-              errors={form.state.errors}
-            />
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-500 dark:bg-slate-800 dark:hover:bg-rose-950/30 sm:h-9 sm:w-9 sm:rounded-xl"
-          title="Fechar"
-          aria-label="Fechar pedido"
-        >
-          <i className="bi bi-x-lg text-xs" />
-        </button>
-      </div>
-
+      <OrderEditModalHeader
+        reconciliationMode={reconciliationMode}
+        currentStep={form.state.currentStep}
+        jumpToStep={form.actions.jumpToStep}
+        errors={form.state.errors}
+        onClose={onClose}
+      />
 
       {/* Seller Search Modal */}
       {isSellerSearchOpen && (
@@ -606,79 +546,30 @@ const OrderEditModal = ({
         type="info"
       />
       {isFiscalEditConfirmationOpen && pendingFiscalEdit && (
-        <div
-          className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="fiscal-order-edit-title"
-        >
-          <section className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <div className="border-b border-amber-100 bg-amber-50 px-6 py-5 dark:border-amber-900/50 dark:bg-amber-950/30">
-              <h3 id="fiscal-order-edit-title" className="text-lg font-black text-slate-900 dark:text-white">
-                Alterações na nota fiscal
-              </h3>
-              <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
-                As alterações abaixo divergem de documento(s) autorizado(s). Para continuar, o ERP
-                registrará a proposta e abrirá as etapas de reversão e nova emissão. O pedido e o
-                estoque serão atualizados juntos após a confirmação da reversão fiscal.
-              </p>
-              {pendingFiscalEdit.audit.documents.some((document) => document.environment === 1) && (
-                <p className="mt-2 text-sm font-semibold text-rose-700 dark:text-rose-300">
-                  Esta substituição envolve documento em Produção. Cada transmissão será confirmada na etapa fiscal correspondente.
-                </p>
-              )}
-            </div>
-            <div className="max-h-[52vh] overflow-y-auto px-6 py-4">
-              {pendingFiscalEdit.audit.documents.map((document) => (
-                <div key={document.id} className="mb-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-                  <h4 className="mb-2 text-sm font-bold text-slate-800 dark:text-slate-100">
-                    {document.model === '65' ? 'NFC-e' : 'NF-e'} · {document.environment === 2 ? 'Homologação' : 'Produção'}
-                  </h4>
-                  <p className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    Procedimento: {document.action === 'cancel' ? 'cancelamento' : 'estorno, com revisão fiscal antes da transmissão'}.
-                  </p>
-                  <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                    {document.changes.map((change, index) => (
-                      <li key={`${change.field}-${index}`}>
-                        <strong>{change.field}</strong>: autorizado “{String(change.expected)}”; edição “{String(change.actual)}”
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4 dark:border-slate-800">
-              <button
-                type="button"
-                disabled={isConfirmingFiscalEdit}
-                onClick={() => {
-                  setIsFiscalEditConfirmationOpen(false);
-                  setPendingFiscalEdit(null);
-                }}
-                className="rounded-xl bg-slate-100 px-4 py-3 text-xs font-bold text-slate-700 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-200"
-              >
-                Voltar à edição
-              </button>
-              <button
-                type="button"
-                disabled={isConfirmingFiscalEdit}
-                onClick={() => void confirmFiscalOrderEdit()}
-                className="rounded-xl bg-rose-600 px-4 py-3 text-xs font-bold text-white disabled:cursor-wait disabled:opacity-60"
-              >
-                {isConfirmingFiscalEdit ? 'Confirmando substituição…' : 'Confirmar substituição fiscal'}
-              </button>
-            </div>
-          </section>
-        </div>
+        <FiscalOrderEditConfirmDialog
+          audit={pendingFiscalEdit.audit}
+          isConfirmingFiscalEdit={isConfirmingFiscalEdit}
+          onCancel={() => {
+            setIsFiscalEditConfirmationOpen(false);
+            setPendingFiscalEdit(null);
+          }}
+          onConfirm={() => void confirmFiscalOrderEdit()}
+        />
       )}
     </div>
   );
 
   if (fiscalContinuationOrder) {
-    return <OrderEditFiscalContinuation order={fiscalContinuationOrder} replacements={pendingFiscalReplacements} onClose={(currentOrder) => {
-      onSaveSuccess(currentOrder.id, currentOrder);
-      onClose();
-    }} />;
+    return (
+      <OrderEditFiscalContinuation
+        order={fiscalContinuationOrder}
+        replacements={pendingFiscalReplacements}
+        onClose={(currentOrder) => {
+          onSaveSuccess(currentOrder.id, currentOrder);
+          onClose();
+        }}
+      />
+    );
   }
 
   return (

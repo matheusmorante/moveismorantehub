@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { searchProductsForLabel, extractProductName } from '../services/priceLabelCatalogService';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { searchProductsForLabel, searchProductsForLabelResult, extractProductName } from '../services/priceLabelCatalogService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import * as productLocalCache from '@/pages/utils/productService/productLocalCache';
 
@@ -16,7 +16,9 @@ vi.mock('@/pages/utils/productService/productLocalCache', () => ({
 describe('priceLabelCatalogService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(productLocalCache.getLocalProducts).mockReset().mockReturnValue([]);
   });
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
   describe('extractProductName', () => {
     it('normaliza o nome em caixa alta e remove quebras de linha', () => {
@@ -134,6 +136,128 @@ describe('priceLabelCatalogService', () => {
       expect(results).toHaveLength(1);
       expect(results[0].id).toBe('10');
       expect(results[0].name).toBe('POLTRONA BEGE ATUALIZADA');
+    });
+  });
+
+  describe('resultado explícito e fronteira da consulta', () => {
+    const queryWith = (response: Promise<unknown>) => {
+      const query = {
+        select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(), or: vi.fn().mockReturnThis(),
+        then: response.then.bind(response),
+      };
+      vi.mocked(supabase.from).mockReturnValue(query as never);
+      return query;
+    };
+
+    it('valida a consulta antes de ler cache ou chamar o transporte', async () => {
+      const result = await searchProductsForLabelResult(null as unknown as string);
+      expect(result.data).toEqual([]); expect(result.error).toBeInstanceOf(Error);
+      expect(productLocalCache.getLocalProducts).not.toHaveBeenCalled(); expect(supabase.from).not.toHaveBeenCalled();
+    });
+
+    it('mantém busca vazia em recentes e usa o texto parseado sem arredondar preços', async () => {
+      vi.mocked(productLocalCache.getLocalProducts).mockReturnValue([
+        { id: 'local', name: 'Sofá', unitPrice: 0, price: 999, promoPrice: 0, promo_price: 55 },
+      ] as never);
+      const query = queryWith(Promise.resolve({ data: [
+        { id: 7, name: 'Sofá fracionário', price: '12.35', promo_price: '0' },
+      ], error: null }));
+      const result = await searchProductsForLabelResult('  ');
+      expect(result.error).toBeNull(); expect(query.or).not.toHaveBeenCalled();
+      expect(query.eq).toHaveBeenCalledWith('deleted', false); expect(query.limit).toHaveBeenCalledWith(40);
+      expect(result.data).toEqual([
+        expect.objectContaining({ id: 'local', unit_price: 0, promo_price: 0 }),
+        expect.objectContaining({ id: '7', unit_price: 12.35, promo_price: 0 }),
+      ]);
+    });
+
+    it('descarta excluídos locais/remotos e não restaura cópia local de exclusão remota', async () => {
+      vi.mocked(productLocalCache.getLocalProducts).mockReturnValue([
+        { id: 'local-deleted', name: 'Excluído local', unitPrice: 10, deleted: true },
+        { id: 'remote-deleted', name: 'Cache desatualizado', unitPrice: 20 },
+        { id: 'kept', name: 'Preservado', unitPrice: 0 },
+      ] as never);
+      queryWith(Promise.resolve({ data: [
+        { id: 'remote-deleted', name: 'Excluído remoto', price: 30, deleted: true },
+        { id: 'another-deleted', name: 'Outro excluído', price: 40, deleted: true },
+      ], error: null }));
+      expect((await searchProductsForLabelResult('')).data.map((product) => product.id)).toEqual(['kept']);
+    });
+
+    it('rejeita IDs inválidos e preços inválidos preservando registros válidos', async () => {
+      queryWith(Promise.resolve({ data: [
+        ...[null, undefined, false, {}, [], '', ' ', 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1].map((id) => ({ id, name: 'Inválido', price: 1 })),
+        ...[-1, Infinity, NaN, ''].map((price, index) => ({ id: `bad-price-${index}`, name: 'Inválido', price })),
+        { id: ' valid ', name: 'Válido', price: 0.125, product_images: [{ image_url: 'image.jpg' }, null, { image_url: 12 }] },
+      ], error: null }));
+      const result = await searchProductsForLabelResult('');
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.data).toEqual([expect.objectContaining({ id: 'valid', unit_price: 0.125, images: ['image.jpg'] })]);
+      expect(result.data.some((product) => ['null', 'undefined'].includes(product.id))).toBe(false);
+    });
+
+    it('expõe Supabase.error mesmo com data e conserva o cache válido', async () => {
+      vi.mocked(productLocalCache.getLocalProducts).mockReturnValue([{ id: 'local', name: 'Produto local', unitPrice: 12.5 }] as never);
+      queryWith(Promise.resolve({ data: [{ id: 'remote', name: 'Não confirmado', price: 1 }], error: { code: '42501', message: 'permission denied' } }));
+      const result = await searchProductsForLabelResult('produto');
+      expect(result.error?.message).toContain('nuvem'); expect(result.data.map((product) => product.id)).toEqual(['local']);
+    });
+
+    it('preserva busca local pela segunda linha da descrição e acentos', async () => {
+      vi.mocked(productLocalCache.getLocalProducts).mockReturnValue([{ id: 'local', name: 'Colchão\n138x188', unitPrice: 10 }] as never);
+      queryWith(Promise.resolve({ data: [], error: null }));
+      expect((await searchProductsForLabelResult('  138x188  ')).data[0].name).toBe('COLCHÃO');
+    });
+
+    it('consulta remota ainda funciona quando o cache lança erro', async () => {
+      vi.mocked(productLocalCache.getLocalProducts).mockImplementation(() => { throw new DOMException('Storage', 'SecurityError'); });
+      queryWith(Promise.resolve({ data: [{ id: 'remote', name: 'Atual', price: 10 }], error: null }));
+      const result = await searchProductsForLabelResult('');
+      expect(result.data[0].id).toBe('remote'); expect(result.error?.message).toContain('computador');
+    });
+
+    it('libera consulta em 15s, preserva cache e ignora resultado tardio', async () => {
+      vi.useFakeTimers(); vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      vi.mocked(productLocalCache.getLocalProducts).mockReturnValue([{ id: 'local', name: 'Local', unitPrice: 0 }] as never);
+      let finish!: (value: unknown) => void; queryWith(new Promise((resolve) => { finish = resolve; }));
+      const pending = searchProductsForLabelResult(''); await vi.advanceTimersByTimeAsync(15_000);
+      const result = await pending; expect(result.data.map((product) => product.id)).toEqual(['local']); expect(result.error).toBeInstanceOf(Error);
+      finish({ data: [{ id: 'late', name: 'Atrasado', price: 10 }], error: null }); await Promise.resolve();
+      expect(result.data.map((product) => product.id)).toEqual(['local']); expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('mantém aspas, barras, vírgulas e curingas literais dentro de cinco filtros', async () => {
+      const query = queryWith(Promise.resolve({ data: [], error: null }));
+      await searchProductsForLabelResult('Sofá (A,B) "50%_\\z"');
+      const filters = query.or.mock.calls[0][0] as string;
+      const parts = filters.match(/(?:[^,"]|"(?:\\.|[^"\\])*")+/g)!;
+      expect(parts).toHaveLength(5);
+      expect(parts.every((part) => /^(name|description|code)\.(imatch|ilike)\."(?:\\.|[^"\\])*"$/.test(part))).toBe(true);
+      const like = JSON.parse(parts[2].slice('name.ilike.'.length));
+      expect(like).toBe('%sofa (a,b) "50\\%\\_\\\\z"%');
+      const regex = JSON.parse(parts[0].slice('name.imatch.'.length));
+      expect(new RegExp(regex).test('Sofá (A,B) "50%_\\z"'.toLowerCase())).toBe(true);
+    });
+
+    it('trata resposta sem lista como falha sem descartar o catálogo local', async () => {
+      vi.mocked(productLocalCache.getLocalProducts).mockReturnValue([{ id: 'local', name: 'Local', unitPrice: 0 }] as never);
+      queryWith(Promise.resolve({ data: { id: 'wrong' }, error: null }));
+      const result = await searchProductsForLabelResult('');
+      expect(result.error).toBeInstanceOf(Error); expect(result.data.map((product) => product.id)).toEqual(['local']);
+    });
+
+    it('não transforma asterisco literal em alias de curinga do PostgREST', async () => {
+      const query = queryWith(Promise.resolve({ data: [], error: null }));
+      await searchProductsForLabelResult('x*3');
+      const filters = query.or.mock.calls[0][0] as string;
+      const parts = filters.match(/(?:[^,"]|"(?:\\.|[^"\\])*")+/g)!;
+      expect(parts).toHaveLength(3); expect(filters).not.toContain('.ilike.');
+      for (const part of parts) {
+        const pattern = JSON.parse(part.slice(part.indexOf('.imatch.') + '.imatch.'.length));
+        expect(new RegExp(pattern).test('x*3')).toBe(true);
+        expect(new RegExp(pattern).test('x123')).toBe(false);
+      }
     });
   });
 });

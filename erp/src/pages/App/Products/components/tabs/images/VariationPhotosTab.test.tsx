@@ -1,10 +1,36 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import VariationPhotosTab from './VariationPhotosTab';
+import { uploadOptimizedProductImage } from './productImageUpload';
+
+vi.mock('./SquareImageCropper', () => ({
+  SquareImageCropper: ({ imageUrl, onCancel, onConfirm }: any) => (
+    <div role="dialog" data-testid="mock-cropper">
+      <span>Cropping: {imageUrl}</span>
+      <button onClick={onCancel}>Cancelar</button>
+      <button
+        onClick={() =>
+          onConfirm(new File(['dummy'], 'cropped.webp', { type: 'image/webp' }))
+        }
+      >
+        Concluir e Salvar
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock('./productImageUpload', () => ({
+  uploadOptimizedProductImage: vi.fn(),
+}));
 
 describe('VariationPhotosTab buttons clickability and Drag and Drop', () => {
   afterEach(() => cleanup());
+  beforeEach(() => {
+    vi.mocked(uploadOptimizedProductImage).mockResolvedValue(
+      'https://r2.test.com/photo-1-cropped.webp'
+    );
+  });
 
   it('hides unlink button with pointer-events-none by default and makes it clickable on click', () => {
     const onChangeImages = vi.fn();
@@ -101,17 +127,71 @@ describe('VariationPhotosTab buttons clickability and Drag and Drop', () => {
     ]);
   });
 
-  it('exibe botão para Vincular Fotos e contador de no máximo 15 fotos', () => {
+  it('exibe botão de recorte 1:1 e executa fluxo de recorte global com onReplaceImageGlobal', async () => {
+    const onReplaceImageGlobal = vi.fn();
+    const onChangeImages = vi.fn();
     render(
       <VariationPhotosTab
-        images={['https://r2.test.com/photo-1.jpg']}
+        images={['https://r2.test.com/photo-1.jpg', 'https://r2.test.com/photo-2.jpg']}
         parentImages={['https://r2.test.com/photo-1.jpg', 'https://r2.test.com/photo-2.jpg']}
-        isSingleVariation={true}
-        onChangeImages={vi.fn()}
+        isSingleVariation={false}
+        onChangeImages={onChangeImages}
+        onReplaceImageGlobal={onReplaceImageGlobal}
       />
     );
 
-    expect(screen.getByText('Vincular Fotos')).toBeDefined();
-    expect(screen.getByText('1 de 15 foto(s) vinculada(s)')).toBeDefined();
+    const cropBtn = screen.getByLabelText('Recortar foto 1');
+    expect(cropBtn).toBeDefined();
+    expect(cropBtn.getAttribute('title')).toBe('Recortar foto em 1:1');
+    expect(cropBtn.className).toContain('bg-purple-600');
+
+    // Clica no botão de recorte
+    fireEvent.click(cropBtn);
+
+    // O cropper deve abrir para a foto 1
+    const cropper = await screen.findByRole('dialog');
+    expect(cropper).toBeDefined();
+    expect(screen.getByText('Cropping: https://r2.test.com/photo-1.jpg')).toBeDefined();
+
+    // Confirma o recorte
+    const confirmBtn = screen.getByText('Concluir e Salvar');
+    fireEvent.click(confirmBtn);
+
+    // Deve chamar onReplaceImageGlobal com a URL antiga e a nova
+    await vi.waitFor(() => {
+      expect(onReplaceImageGlobal).toHaveBeenCalledWith(
+        'https://r2.test.com/photo-1.jpg',
+        'https://r2.test.com/photo-1-cropped.webp'
+      );
+    });
+
+    // Modal deve ser fechado
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('faz fallback para onChangeImages se onReplaceImageGlobal não for fornecido', async () => {
+    const onChangeImages = vi.fn();
+    render(
+      <VariationPhotosTab
+        images={['https://r2.test.com/photo-1.jpg', 'https://r2.test.com/photo-2.jpg']}
+        parentImages={['https://r2.test.com/photo-1.jpg', 'https://r2.test.com/photo-2.jpg']}
+        isSingleVariation={false}
+        onChangeImages={onChangeImages}
+      />
+    );
+
+    const cropBtn = screen.getByLabelText('Recortar foto 2');
+    fireEvent.click(cropBtn);
+
+    const confirmBtn = await screen.findByText('Concluir e Salvar');
+    fireEvent.click(confirmBtn);
+
+    await vi.waitFor(() => {
+      expect(onChangeImages).toHaveBeenCalledWith([
+        'https://r2.test.com/photo-1.jpg',
+        'https://r2.test.com/photo-1-cropped.webp',
+      ]);
+    });
   });
 });
+

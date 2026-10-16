@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { createProductVariationFormSchema } from '../../../../../../../shared-utils/productVariationValidation';
+import { createProductVariationSubmissionSchema } from '../../../../../../../shared-utils/productVariationValidation';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import type { Product, Variation } from '@/pages/types/product.type';
 import {
   saveVariation,
@@ -20,9 +21,15 @@ import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { sortAttributeValuesNaturally } from '@/pages/utils/attributeValueSorting';
 import { useVariationPricing } from './useVariationPricing';
-import type { VariationTabId } from './variationForm.types';
+import type { VariationTabId, VariationFormOperationGuard } from './variationForm.types';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 import { resolveVariationDimensions } from '../../domain/variationRegistrationRules';
+import {
+  replaceImageUrlAcrossList,
+  replaceProductImageGlobally,
+} from '../../components/tabs/images/productImageOrdering';
+import { getLocalProducts } from '@/pages/utils/productService/productLocalCache';
+import { updateProduct } from '@/pages/utils/productService/productMutationService';
 
 interface UseVariationFormOptions {
   isOpen: boolean;
@@ -33,6 +40,8 @@ interface UseVariationFormOptions {
   onSuccess?: () => void;
   onSave?: (updatedVariation: Variation) => void | boolean | Promise<void | boolean>;
   isStockistOnly?: boolean;
+  onReplaceImageGlobal?: (oldUrl: string, newUrl: string) => void | Promise<void>;
+  operationGuard?: VariationFormOperationGuard;
 }
 
 export function useVariationForm({
@@ -44,8 +53,26 @@ export function useVariationForm({
   onSuccess,
   onSave,
   isStockistOnly = false,
+  onReplaceImageGlobal,
+  operationGuard,
 }: UseVariationFormOptions) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [referenceErrors, setReferenceErrors] = useState({ attributes: '', images: '' });
+  const [referenceLoading, setReferenceLoading] = useState({ attributes: false, images: false });
+  const [imageQueryRevision, setImageQueryRevision] = useState(0);
+  const identity = JSON.stringify([parentProduct.parentId || parentId || parentProduct.id, variation?.id || 'new']);
+  const session = useMemo(() => ({ active: isOpen, lock: false, completed: false, token: Symbol(identity) }), [isOpen, identity]);
+  const ownGuards = useRef(new Map<string, VariationFormOperationGuard>());
+  if (!ownGuards.current.has(identity)) ownGuards.current.set(identity, { pending: null, error: '' });
+  const guard = operationGuard ?? ownGuards.current.get(identity)!;
+  const uncertainMessage = 'O salvamento pode ter sido gravado, mas não foi confirmado. Confira a variação e recarregue antes de repetir.';
+  useEffect(() => {
+    session.active = isOpen;
+    if (guard.pending && guard.pending !== session.token) guard.error ||= uncertainMessage;
+    setError(guard.error); setLoading(false);
+    return () => { session.active = false; if (guard.pending === session.token && !session.completed) guard.error ||= uncertainMessage; };
+  }, [session, guard, isOpen]);
   const [activeTab, setActiveTab] = useState<VariationTabId>('identificacao');
 
   const [dbAttributes, setDbAttributes] = useState<{ id: string; name: string }[]>([
@@ -63,18 +90,18 @@ export function useVariationForm({
     ? (parentProduct.variations || []).length === 1
     : (parentProduct.variations || []).length === 0;
   const schema = useMemo(
-    () => createProductVariationFormSchema(parentProduct, isSingleVariation),
+    () => createProductVariationSubmissionSchema(parentProduct, isSingleVariation),
     [parentProduct, isSingleVariation]
   );
-  const { validateAndRun } = useZodForm(schema, formData ? { ...formData } : {
+  const { validateAndRun } = useZodForm(schema, { variation: formData ? { ...formData } : {
     id: '', sku: '', name: '', stock: 0, unitPrice: 0, active: false, attributes: [],
-  });
+  }, discountPercent: '', discountFixed: '' });
   const [allParentImages, setAllParentImages] = useState<string[]>([]);
   const updateFormData = useCallback<React.Dispatch<React.SetStateAction<Variation | null>>>(
-    (update) => setFormData(update),
-    []
+    (update) => { if (session.active && !session.lock && !session.completed && !guard.error) setFormData(update); },
+    [session, guard]
   );
-  const handleClose = () => onClose();
+  const handleClose = useCallback(() => { if (session.active && !session.lock) onClose(); }, [session, onClose]);
 
   const {
     varDiscountPercent,
@@ -195,43 +222,59 @@ export function useVariationForm({
     return toTitleCase(parentTitle);
   };
 
-  const fetchDbAttributes = async () => {
+  const fetchDbAttributes = useCallback(async () => {
+    if (!session.active || session.lock) return;
+    setReferenceLoading((previous) => ({ ...previous, attributes: true }));
+    setReferenceErrors((previous) => ({ ...previous, attributes: '' }));
     try {
-      const [attrRes, valRes] = await Promise.all([
+      const result = await withTimeout(Promise.all([
         supabase.from('attributes').select('*').order('name'),
         supabase.from('attribute_values').select('*').order('value'),
-      ]);
-      setDbAttributes((attrRes.data || []) as { id: string; name: string }[]);
+      ]), 10000, null, 'variacao:atributos');
+      if (!session.active) return;
+      if (!result || result.some((response) => response.error || !Array.isArray(response.data))) throw new Error('Não foi possível carregar os atributos. Consulte novamente.');
+      const [attrRes, valRes] = result;
+      setDbAttributes(attrRes.data as { id: string; name: string }[]);
       setDbAttributeValues(
         sortAttributeValuesNaturally(
           (valRes.data || []) as { id: string; attribute_id: string; value: string }[]
         )
       );
-    } catch (err) {
-      console.error('Erro ao buscar atributos globais:', err);
+    } catch {
+      if (session.active) setReferenceErrors((previous) => ({ ...previous, attributes: 'Não foi possível carregar os atributos. Consulte novamente.' }));
+    } finally {
+      if (session.active) setReferenceLoading((previous) => ({ ...previous, attributes: false }));
     }
-  };
+  }, [session]);
 
   useEffect(() => {
+    let accepting = true;
     if (isOpen) {
       setAllParentImages([]);
+      setReferenceLoading((previous) => ({ ...previous, images: true }));
+      setReferenceErrors((previous) => ({ ...previous, images: '' }));
       const realParentId = parentProduct?.parentId || parentId || parentProduct?.id;
       if (realParentId) {
-        supabase
+        void withTimeout(supabase
           .from('product_images')
           .select('image_url')
           .eq('product_id', realParentId)
-          .order('created_at', { ascending: true })
-          .then(({ data }) => {
-            const databaseImages = (data || []).map((i) => i.image_url).filter(Boolean);
+          .order('created_at', { ascending: true }), 10000, null, 'variacao:fotos-pai')
+          .then((response) => {
+            if (!session.active || !accepting) return;
+            if (!response || response.error || !Array.isArray(response.data)) throw new Error('Fotos não confirmadas.');
+            const databaseImages = response.data.map((i) => i.image_url).filter(Boolean);
             const formImages = (parentProduct?.images || []).filter(Boolean);
             setAllParentImages(Array.from(new Set([...databaseImages, ...formImages])));
-          });
-      } else if (parentProduct?.images?.length) {
-        setAllParentImages(parentProduct.images);
+          }).catch(() => { if (session.active && accepting) setReferenceErrors((previous) => ({ ...previous, images: 'Não foi possível carregar as fotos do produto pai. Consulte novamente.' })); })
+          .finally(() => { if (session.active && accepting) setReferenceLoading((previous) => ({ ...previous, images: false })); });
+      } else {
+        setAllParentImages(parentProduct.images || []);
+        setReferenceLoading((previous) => ({ ...previous, images: false }));
       }
     }
-  }, [isOpen, parentProduct, parentId]);
+    return () => { accepting = false; };
+  }, [isOpen, session, parentProduct.parentId, parentProduct.id, parentProduct.images, parentId, imageQueryRevision]);
 
   useEffect(() => {
     if (isOpen) {
@@ -331,7 +374,7 @@ export function useVariationForm({
     // A inicialização deve ocorrer apenas ao abrir ou trocar a variação (pelo ID).
     // Alterar o pai durante a edição é tratado pelos efeitos de sincronização acima,
     // sem apagar os atributos que já foram informados.
-  }, [variation?.id, isOpen, isStockistOnly, isDraft]);
+  }, [identity, isOpen, isStockistOnly, isDraft]);
 
   const handleChange = <K extends keyof Variation>(field: K, value: Variation[K]) => {
     updateFormData((prev) => (prev ? { ...prev, [field]: value } : null));
@@ -360,15 +403,14 @@ export function useVariationForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData || loading) return;
+    if (!formData || !session.active || session.lock || session.completed || guard.error) return;
 
     const cleanAttributes = (Array.isArray(formData.attributes) ? formData.attributes : [])
       .map((attr) => ({
         ...attr,
         name: toTitleCase(attr.name),
         value: toTitleCase(attr.value),
-      }))
-      .filter((attr) => attr.name.trim() && attr.value.trim());
+      }));
     const parentPrefix = (parentProduct.name || parentProduct.description || '').trim();
     const nameAttributes = getVariationNameAttributes(
       cleanAttributes
@@ -462,42 +504,112 @@ export function useVariationForm({
       ? parentProduct.active !== false : formData.active;
     finalVariation.sku ||= generateVariationSku(parentProduct.code || '000000', parentProduct.variations || []);
 
-    await validateAndRun(finalVariation, async (values) => {
-      setLoading(true);
-      try {
-        const variationToSave: Variation = {
-          ...values,
-          sku:
-            values.sku || 'VAR-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-        };
-        if (onSave) {
-          if ((await onSave(variationToSave)) === false) return;
-        } else {
-          const productId = parentProduct.parentId || parentId || parentProduct.id || '';
-          await saveVariation(productId, variationToSave);
+    session.lock = true; setLoading(true); setError('');
+    let accepting = true;
+    const stillCurrent = () => session.active && accepting && !guard.error;
+    try {
+      await validateAndRun({ variation: finalVariation, discountPercent: varDiscountPercent, discountFixed: varDiscountFixed }, async (values) => {
+        if (!stillCurrent()) return;
+        guard.pending = session.token;
+        const variationToSave: Variation = values.variation;
+        const result = await withTimeout(Promise.resolve().then(async () => {
+          if (!stillCurrent()) return { cancelled: true, value: false };
+          const value = onSave ? await onSave(variationToSave)
+            : await saveVariation(parentProduct.parentId || parentId || parentProduct.id || '', variationToSave);
+          return { cancelled: false, value };
+        }), 60000, null, 'variacao:salvar-formulario');
+        if (!result) {
+          guard.error = uncertainMessage;
+          throw new Error(uncertainMessage);
         }
+        if (!stillCurrent() || result.cancelled) return;
+        if (result.value === false) { setError('A variação não foi salva. Confira os dados e tente novamente.'); return; }
+        session.completed = true; guard.pending = null;
         setFormData(variationToSave);
         toast.success('Variação salva com sucesso!');
-        onSuccess?.();
-        onClose();
-      } catch (error) {
-        toast.error('Erro ao salvar a variação.');
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    }, (errors) => {
+        try { onSuccess?.(); onClose(); }
+        catch { setError('Variação salva, mas a tela não foi atualizada. Recarregue a página.'); }
+      }, (errors) => {
+      if (!session.active) return;
       const flattened = flattenFormErrors(errors);
-      toast.error(Object.values(flattened)[0] || 'Confira os dados da variação.');
-      const tab = ['identificacao', 'tecnico', 'estoque', 'compostos'].find((value) => flattened[value]);
-      const hasComboError = Object.keys(flattened).some((field) => field.startsWith('comboItems'));
-      setActiveTab((tab || (hasComboError ? 'compostos' : 'estoque')) as VariationTabId);
-    });
+      const message = Object.values(flattened)[0] || 'Confira os dados da variação.';
+      setError(message); toast.error(message);
+      const fields = Object.keys(flattened).map((field) => field.replace(/^variation_/, ''));
+      const tab = ['identificacao', 'tecnico', 'estoque', 'compostos'].find((value) => fields.includes(value));
+      const hasComboError = fields.some((field) => field.startsWith('comboItems'));
+      const hasAttributeError = fields.some((field) => field.startsWith('attributes'));
+      setActiveTab((tab || (hasComboError ? 'compostos' : hasAttributeError ? 'identificacao' : 'estoque')) as VariationTabId);
+      });
+    } catch (failure) {
+      const reason = failure as { uncertain?: boolean; code?: string; status?: number; message?: string };
+      if (reason?.uncertain || reason?.code?.startsWith('08') || (reason?.status ?? 0) >= 500 || /failed to fetch|network|timeout|tempo.*esgot/i.test(reason?.message || '')) guard.error = uncertainMessage;
+      if (session.active) { const message = guard.error || 'Erro ao salvar a variação.'; setError(message); toast.error(message); }
+    } finally {
+      accepting = false; session.lock = false;
+      if (guard.pending === session.token) guard.pending = null;
+      if (session.active) setLoading(false);
+    }
   };
+
+  const handleReplaceImageGlobal = useCallback(
+    async (oldUrl: string, newUrl: string) => {
+      if (!session.active || session.lock || session.completed || guard.error) throw new Error('O contexto da variação mudou. Reabra as fotos antes de substituir a imagem.');
+      // 1. Atualiza formData da variação se ela tiver a imagem
+      setFormData((prev) => {
+        if (!prev) return prev;
+        const currentImages =
+          prev.images && prev.images.length > 0
+            ? prev.images
+            : (allParentImages.length > 0 ? allParentImages : parentProduct?.images || []).slice(
+                0,
+                MAX_VARIATION_IMAGES
+              );
+        const updated = replaceImageUrlAcrossList(currentImages, oldUrl, newUrl);
+        return {
+          ...prev,
+          images: updated,
+        };
+      });
+
+      // 2. Atualiza allParentImages da variação
+      setAllParentImages((prev) => replaceImageUrlAcrossList(prev, oldUrl, newUrl));
+
+      // 3. Propaga globalmente para o form pai (ex.: ProductFormModal) se fornecido
+      if (onReplaceImageGlobal) {
+        await onReplaceImageGlobal(oldUrl, newUrl);
+      } else {
+        // Fallback para edição standalone fora de ProductFormModal (ex.: Products/Index.tsx)
+        const realParentId = parentProduct?.parentId || parentId || parentProduct?.id;
+        if (realParentId) {
+          try {
+            const localProducts = getLocalProducts();
+            const parent = localProducts.find(
+              (p) => String(p.id).toLowerCase() === String(realParentId).toLowerCase()
+            );
+            if (parent) {
+              const updatedParent = replaceProductImageGlobally(parent, oldUrl, newUrl);
+              await updateProduct(realParentId, {
+                images: updatedParent.images,
+                variations: updatedParent.variations,
+              });
+            }
+          } catch (err) {
+            console.warn('[VariationForm] Falha ao sincronizar substituição global no produto pai:', err);
+          }
+        }
+      }
+    },
+    [allParentImages, parentProduct, parentId, onReplaceImageGlobal, session, guard]
+  );
 
   return {
     handleClose,
     loading,
+    error,
+    blocked: Boolean(guard.error) || session.completed,
+    referenceErrors,
+    referenceLoading,
+    retryReferences: () => { if (session.active && !session.lock) { void fetchDbAttributes(); setImageQueryRevision((value) => value + 1); } },
     activeTab,
     setActiveTab,
     formData,
@@ -521,5 +633,6 @@ export function useVariationForm({
     handleChange,
     updateCost,
     handleSubmit,
+    handleReplaceImageGlobal,
   };
 }

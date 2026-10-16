@@ -1,7 +1,6 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Purchase from '../types/purchase.type';
 import { cancelInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
-import { getSettings } from '@/pages/utils/settingsService';
 
 const TABLE_NAME = 'purchases';
 
@@ -213,12 +212,14 @@ export const savePurchase = async (purchase: Purchase): Promise<string | undefin
 
 export const updatePurchase = async (id: string, updates: Partial<Purchase>): Promise<void> => {
   try {
-    const { data: existing } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from(TABLE_NAME)
       .select('*, purchase_items(*)')
       .eq('id', id)
       .single();
+    if (lookupError) throw lookupError;
     if (!existing) throw new Error('Pedido não encontrado');
+    if (updates.stockProcessed === true && existing.status === 'cancelled') throw new Error('Este pedido de compra está cancelado.');
 
     const currentPurchase = mapFromDB(existing);
     const merged: Purchase = { ...currentPurchase, ...updates };
@@ -254,9 +255,17 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
       merged.stockProcessed = false;
     }
 
-    const { error } = await supabase.from(TABLE_NAME).update(dbUpdates).eq('id', id);
-
-    if (error) throw error;
+    const update = supabase.from(TABLE_NAME).update(dbUpdates).eq('id', id);
+    if (updates.stockProcessed === true) {
+      const { data, error } = await update.or('status.neq.cancelled,status.is.null').select('id, stockProcessed');
+      if (error) throw error;
+      if (!Array.isArray(data) || data.length !== 1 || data[0]?.id !== id || data[0]?.stockProcessed !== true) {
+        throw new Error('A conclusão da entrada não foi confirmada. Consulte o pedido antes de repetir.');
+      }
+    } else {
+      const { error } = await update;
+      if (error) throw error;
+    }
 
     if (updates.items !== undefined) {
       await syncPurchaseItems(id, updates.items);

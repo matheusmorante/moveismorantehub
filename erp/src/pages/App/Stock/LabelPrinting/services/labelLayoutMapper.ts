@@ -3,8 +3,8 @@ import type { GridModel, GridModelDraft } from '../types/LabelGridModelTypes';
 export const mapModelToDb = (model: GridModelDraft) => ({
   name: model.name,
   category: model.category,
-  columns: Math.round(model.columns || 1),
-  rows: Math.round(model.rows || 1),
+  columns: Math.round(model.columns ?? 1),
+  rows: Math.round(model.rows ?? 1),
   margin_t: Number(model.marginT ?? 10),
   margin_b: Number(model.marginB ?? 10),
   margin_l: Number(model.marginL ?? 10),
@@ -16,50 +16,50 @@ export const mapModelToDb = (model: GridModelDraft) => ({
   paper_height: Number(model.paperHeight ?? 297),
   icon: model.icon,
   type: model.type || 'rect',
-  name_font_size: Math.round(model.nameFontSize || 7),
+  name_font_size: model.nameFontSize ?? 7,
   name_color: model.nameColor || '#1e293b',
-  price_font_size: Math.round(model.priceFontSize || 11),
+  price_font_size: model.priceFontSize ?? 11,
   price_color: model.priceColor || '#1e293b',
-  promo_font_size: Math.round(model.promoFontSize || 9),
+  promo_font_size: model.promoFontSize ?? 9,
   promo_color: model.promoColor || '#16a34a',
-  name_pos_x: Math.round(model.namePosX ?? 50),
-  name_pos_y: Math.round(model.namePosY ?? 30),
-  price_pos_x: Math.round(model.pricePosX ?? 50),
-  price_pos_y: Math.round(model.pricePosY ?? 60),
-  promo_pos_x: Math.round(model.promoPosX ?? 50),
-  promo_pos_y: Math.round(model.promoPosY ?? 75),
-  barcode_pos_x: Math.round(model.barcodePosX ?? 50),
-  barcode_pos_y: Math.round(model.barcodePosY ?? 90),
+  name_pos_x: model.namePosX ?? 50,
+  name_pos_y: model.namePosY ?? 30,
+  price_pos_x: model.pricePosX ?? 50,
+  price_pos_y: model.pricePosY ?? 60,
+  promo_pos_x: model.promoPosX ?? 50,
+  promo_pos_y: model.promoPosY ?? 75,
+  barcode_pos_x: model.barcodePosX ?? 50,
+  barcode_pos_y: model.barcodePosY ?? 90,
   de_price_por_group_pos_x: Number(model.dePricePorGroupPos?.x ?? 0),
   de_price_por_group_pos_y: Number(model.dePricePorGroupPos?.y ?? 0),
   de_price_por_group_rotation: Number(model.dePricePorGroupRotation ?? 0),
   de_price_por_group_gap: Number(model.dePricePorGroupGap ?? 10),
-  art_config: model.artConfig || null,
+  art_config: model.artConfig ?? {},
   price_font_size_tens:
     model.priceFontSizeTens !== undefined && model.priceFontSizeTens !== null
-      ? Math.round(model.priceFontSizeTens)
+      ? model.priceFontSizeTens
       : null,
   price_font_size_hundreds:
     model.priceFontSizeHundreds !== undefined && model.priceFontSizeHundreds !== null
-      ? Math.round(model.priceFontSizeHundreds)
+      ? model.priceFontSizeHundreds
       : null,
   price_font_size_thousands:
     model.priceFontSizeThousands !== undefined && model.priceFontSizeThousands !== null
-      ? Math.round(model.priceFontSizeThousands)
+      ? model.priceFontSizeThousands
       : null,
   price_font_size_ten_thousands:
     model.priceFontSizeTenThousands !== undefined && model.priceFontSizeTenThousands !== null
-      ? Math.round(model.priceFontSizeTenThousands)
+      ? model.priceFontSizeTenThousands
       : null,
   promo_price_color: model.promoPriceColor,
   old_price_color: model.oldPriceColor,
-  promo_price_font_size: Math.round(model.promoPriceFontSize || 24),
-  name_width: Math.round(model.nameWidth ?? 80),
-  name_height: Math.round(model.nameHeight ?? 20),
-  price_width: Math.round(model.priceWidth ?? 80),
-  price_height: Math.round(model.priceHeight ?? 30),
-  promo_width: Math.round(model.promoWidth ?? 80),
-  promo_height: Math.round(model.promoHeight ?? 40),
+  promo_price_font_size: model.promoPriceFontSize ?? 24,
+  name_width: model.nameWidth ?? 80,
+  name_height: model.nameHeight ?? 20,
+  price_width: model.priceWidth ?? 80,
+  price_height: model.priceHeight ?? 30,
+  promo_width: model.promoWidth ?? 80,
+  promo_height: model.promoHeight ?? 40,
   name_bold: model.nameBold,
   name_align: model.nameAlign,
   name_valign: model.nameVAlign,
@@ -75,7 +75,7 @@ export const mapModelToDb = (model: GridModelDraft) => ({
   old_price_bold: model.oldPriceBold !== undefined ? model.oldPriceBold : null,
   old_price_font_size:
     model.oldPriceFontSize !== undefined && model.oldPriceFontSize !== null
-      ? Math.round(model.oldPriceFontSize)
+      ? model.oldPriceFontSize
       : null,
   old_price_align: model.oldPriceAlign,
   old_price_valign: model.oldPriceVAlign,
@@ -88,19 +88,19 @@ export const mapModelToDb = (model: GridModelDraft) => ({
   price_decimals_font_size: model.priceDecimalsFontSize ?? null,
   price_symbol_pos_x:
     model.priceSymbolPosX !== undefined && model.priceSymbolPosX !== null
-      ? Math.round(model.priceSymbolPosX)
+      ? model.priceSymbolPosX
       : null,
   price_symbol_pos_y:
     model.priceSymbolPosY !== undefined && model.priceSymbolPosY !== null
-      ? Math.round(model.priceSymbolPosY)
+      ? model.priceSymbolPosY
       : null,
   price_decimals_pos_x:
     model.priceDecimalsPosX !== undefined && model.priceDecimalsPosX !== null
-      ? Math.round(model.priceDecimalsPosX)
+      ? model.priceDecimalsPosX
       : null,
   price_decimals_pos_y:
     model.priceDecimalsPosY !== undefined && model.priceDecimalsPosY !== null
-      ? Math.round(model.priceDecimalsPosY)
+      ? model.priceDecimalsPosY
       : null,
   price_symbol_color: model.priceSymbolColor,
   price_decimals_color: model.priceDecimalsColor,
@@ -108,31 +108,31 @@ export const mapModelToDb = (model: GridModelDraft) => ({
   price_decimals_bold: model.priceDecimalsBold,
   old_price_pos_x:
     model.oldPricePosX !== undefined && model.oldPricePosX !== null
-      ? Math.round(model.oldPricePosX)
+      ? model.oldPricePosX
       : null,
   old_price_pos_y:
     model.oldPricePosY !== undefined && model.oldPricePosY !== null
-      ? Math.round(model.oldPricePosY)
+      ? model.oldPricePosY
       : null,
   old_price_width:
     model.oldPriceWidth !== undefined && model.oldPriceWidth !== null
-      ? Math.round(model.oldPriceWidth)
+      ? model.oldPriceWidth
       : null,
   old_price_height:
     model.oldPriceHeight !== undefined && model.oldPriceHeight !== null
-      ? Math.round(model.oldPriceHeight)
+      ? model.oldPriceHeight
       : null,
   promo_name_pos_x:
     model.promoNamePosX !== undefined && model.promoNamePosX !== null
-      ? Math.round(model.promoNamePosX)
+      ? model.promoNamePosX
       : null,
   promo_name_pos_y:
     model.promoNamePosY !== undefined && model.promoNamePosY !== null
-      ? Math.round(model.promoNamePosY)
+      ? model.promoNamePosY
       : null,
   promo_name_font_size:
     model.promoNameFontSize !== undefined && model.promoNameFontSize !== null
-      ? Math.round(model.promoNameFontSize)
+      ? model.promoNameFontSize
       : null,
   promo_name_align: model.promoNameAlign,
   promo_name_valign: model.promoNameVAlign,
@@ -140,46 +140,46 @@ export const mapModelToDb = (model: GridModelDraft) => ({
   promo_name_bold: model.promoNameBold,
   promo_name_width:
     model.promoNameWidth !== undefined && model.promoNameWidth !== null
-      ? Math.round(model.promoNameWidth)
+      ? model.promoNameWidth
       : null,
   promo_name_height:
     model.promoNameHeight !== undefined && model.promoNameHeight !== null
-      ? Math.round(model.promoNameHeight)
+      ? model.promoNameHeight
       : null,
   promo_name_bg_color: model.promoNameBgColor,
   promo_barcode_pos_x:
     model.promoBarcodePosX !== undefined && model.promoBarcodePosX !== null
-      ? Math.round(model.promoBarcodePosX)
+      ? model.promoBarcodePosX
       : null,
   promo_barcode_pos_y:
     model.promoBarcodePosY !== undefined && model.promoBarcodePosY !== null
-      ? Math.round(model.promoBarcodePosY)
+      ? model.promoBarcodePosY
       : null,
   promo_price_symbol_pos_x:
     model.promoPriceSymbolPosX !== undefined && model.promoPriceSymbolPosX !== null
-      ? Math.round(model.promoPriceSymbolPosX)
+      ? model.promoPriceSymbolPosX
       : null,
   promo_price_symbol_pos_y:
     model.promoPriceSymbolPosY !== undefined && model.promoPriceSymbolPosY !== null
-      ? Math.round(model.promoPriceSymbolPosY)
+      ? model.promoPriceSymbolPosY
       : null,
   promo_price_symbol_font_size:
     model.promoPriceSymbolFontSize !== undefined && model.promoPriceSymbolFontSize !== null
-      ? Math.round(model.promoPriceSymbolFontSize)
+      ? model.promoPriceSymbolFontSize
       : null,
   promo_price_symbol_color: model.promoPriceSymbolColor,
   promo_price_symbol_bold: model.promoPriceSymbolBold,
   promo_price_decimals_pos_x:
     model.promoPriceDecimalsPosX !== undefined && model.promoPriceDecimalsPosX !== null
-      ? Math.round(model.promoPriceDecimalsPosX)
+      ? model.promoPriceDecimalsPosX
       : null,
   promo_price_decimals_pos_y:
     model.promoPriceDecimalsPosY !== undefined && model.promoPriceDecimalsPosY !== null
-      ? Math.round(model.promoPriceDecimalsPosY)
+      ? model.promoPriceDecimalsPosY
       : null,
   promo_price_decimals_font_size:
     model.promoPriceDecimalsFontSize !== undefined && model.promoPriceDecimalsFontSize !== null
-      ? Math.round(model.promoPriceDecimalsFontSize)
+      ? model.promoPriceDecimalsFontSize
       : null,
   promo_price_decimals_color: model.promoPriceDecimalsColor,
   promo_price_decimals_bold: model.promoPriceDecimalsBold,
@@ -187,16 +187,32 @@ export const mapModelToDb = (model: GridModelDraft) => ({
   extra_fields: model.extraFields || [],
   extra_fields_promo: model.extraFieldsPromo || [],
   image_fit: model.imageFit || 'contain',
-  safety_margin: model.imageScale || 1,
+  safety_margin: model.imageScale ?? 1,
   preview_image: model.previewImage || null,
   base_model_id: model.baseModelId || null,
 });
 
-type LabelLayoutDatabaseRow = ReturnType<typeof mapModelToDb> & {
+type LabelLayoutDatabasePayload = ReturnType<typeof mapModelToDb>;
+type LabelLayoutDatabaseRow = Omit<{
+  [Key in keyof LabelLayoutDatabasePayload]: LabelLayoutDatabasePayload[Key] | null;
+}, 'price_font_size_tens' | 'price_font_size_ten_thousands'> & {
   id: string | number;
+  price_font_size_tens: number | string | null;
+  price_font_size_ten_thousands: number | string | null;
 };
 
-export const mapDbToModel = (m: LabelLayoutDatabaseRow): GridModel => ({
+// Two legacy SQL font columns are TEXT; empty and non-finite values are not
+// optional numbers and must not silently become zero or disappear.
+const optionalTextNumber = (value: number | string | null | undefined): number | undefined => {
+  if (value === null || value === undefined) return undefined;
+  if ((typeof value === 'string' && !value.trim()) || !Number.isFinite(Number(value))) {
+    throw new Error('O modelo contém um tamanho de fonte inválido.');
+  }
+  return Number(value);
+};
+
+export const mapDbToModel = (m: LabelLayoutDatabaseRow): GridModel => {
+  const model = {
   id: String(m.id),
   name: m.name,
   columns: m.columns,
@@ -212,7 +228,7 @@ export const mapDbToModel = (m: LabelLayoutDatabaseRow): GridModel => ({
   paperHeight: m.paper_height,
   category: m.category,
   icon: m.icon,
-  type: m.type || 'rect',
+  type: m.type === undefined ? 'rect' : m.type,
   nameFontSize: m.name_font_size,
   nameColor: m.name_color,
   nameBold: m.name_bold,
@@ -223,10 +239,10 @@ export const mapDbToModel = (m: LabelLayoutDatabaseRow): GridModel => ({
   priceBold: m.price_bold,
   priceAlign: m.price_align,
   priceVAlign: m.price_valign,
-  priceFontSizeTens: m.price_font_size_tens,
+  priceFontSizeTens: optionalTextNumber(m.price_font_size_tens),
   priceFontSizeHundreds: m.price_font_size_hundreds,
   priceFontSizeThousands: m.price_font_size_thousands,
-  priceFontSizeTenThousands: m.price_font_size_ten_thousands,
+  priceFontSizeTenThousands: optionalTextNumber(m.price_font_size_ten_thousands),
   namePosX: m.name_pos_x,
   namePosY: m.name_pos_y,
   nameWidth: m.name_width,
@@ -243,7 +259,7 @@ export const mapDbToModel = (m: LabelLayoutDatabaseRow): GridModel => ({
   },
   dePricePorGroupRotation: Number(m.de_price_por_group_rotation ?? 0),
   dePricePorGroupGap: Number(m.de_price_por_group_gap ?? 10),
-  artConfig: m.art_config || undefined,
+  artConfig: m.art_config,
   promoPriceFontSize: m.promo_price_font_size,
   promoPriceColor: m.promo_price_color,
   promoPriceBold: m.promo_price_bold,
@@ -304,11 +320,17 @@ export const mapDbToModel = (m: LabelLayoutDatabaseRow): GridModel => ({
   nameBgColor: m.name_bg_color,
   priceBgColor: m.price_bg_color,
   promoBgColor: m.promo_bg_color,
-  extraFields: m.extra_fields || [],
-  extraFieldsPromo: m.extra_fields_promo || [],
+  extraFields: m.extra_fields === undefined ? [] : m.extra_fields,
+  extraFieldsPromo: m.extra_fields_promo === undefined ? [] : m.extra_fields_promo,
   fontFamily: m.font_family,
-  imageFit: m.image_fit || 'contain',
-  imageScale: m.safety_margin || 1,
-  previewImage: m.preview_image || null,
-  baseModelId: m.base_model_id || null,
-}) as GridModel;
+  imageFit: m.image_fit === undefined ? 'contain' : m.image_fit,
+  imageScale: m.safety_margin === undefined ? 1 : m.safety_margin,
+  previewImage: m.preview_image,
+  baseModelId: m.base_model_id,
+  };
+  // Strip SQL NULL only at the model boundary: JSON fields retain nested nulls,
+  // zero and false, while the nullable preview has its explicit domain meaning.
+  return Object.fromEntries(Object.entries(model).filter(([key, value]) =>
+    value !== undefined && (value !== null || key === 'previewImage'),
+  )) as unknown as GridModel;
+};

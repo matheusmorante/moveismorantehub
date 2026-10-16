@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import type { VariationMergeOperationGuard } from '../../../../../../../shared-utils/variationMergeFormSchemas';
 import { useMergeVariation } from './MergeVariation/useMergeVariation';
 
 export interface VariationOption {
@@ -24,23 +25,31 @@ export interface MergeVariationModalProps {
   readonly onMerged: () => void;
 }
 
-export const MergeVariationModal: React.FC<MergeVariationModalProps> = ({
+export const MergeVariationModal: React.FC<MergeVariationModalProps> = (props) => {
+  const guards = useRef(new Map<string, VariationMergeOperationGuard>());
+  const sourceId = String(props.variation?.variationId || props.variation?.id || '').trim().toLowerCase();
+  if (!guards.current.has(sourceId)) guards.current.set(sourceId, { active: null, error: '' });
+  return props.variation ? <MergeVariationSession key={JSON.stringify([sourceId, props.variation.parentId, props.variation.supplierId])} {...props} operationGuard={guards.current.get(sourceId)!} /> : null;
+};
+
+const MergeVariationSession: React.FC<MergeVariationModalProps & { operationGuard: VariationMergeOperationGuard }> = ({
   variation,
   onClose,
   onMerged,
+  operationGuard,
 }) => {
   const {
     query,
     setQuery,
     options,
-    setOptions,
     target,
     setTarget,
     saving,
     sourceId,
     confirm,
     handleCancel,
-  } = useMergeVariation(variation, onMerged, onClose);
+    searchLoading, searchError, error, blocked, retrySearch,
+  } = useMergeVariation(variation, onMerged, onClose, operationGuard);
 
   if (!variation) return null;
   const sourceLabel = variation.name || variation.sku || sourceId;
@@ -74,7 +83,8 @@ export const MergeVariationModal: React.FC<MergeVariationModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCancel}
+            disabled={saving}
             className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
             aria-label="Fechar"
           >
@@ -83,6 +93,10 @@ export const MergeVariationModal: React.FC<MergeVariationModalProps> = ({
         </div>
 
         <div className="space-y-4 p-6">
+          {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+          {searchError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{searchError} <button type="button" onClick={retrySearch} disabled={saving || blocked}>Buscar novamente</button></p>}
+          {(searchLoading || saving) && <p role="status" className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800"><i aria-hidden="true" className="bi bi-arrow-repeat animate-spin mr-2" />{saving ? 'Mesclando e confirmando o vínculo e a ocultação...' : 'Buscando variações canônicas...'}</p>}
+          <fieldset disabled={saving || blocked} className="contents">
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
             <i className="bi bi-shield-check mr-2 text-amber-600" />
             Movimentações, recebimentos, quantidades, custos e fornecedor histórico não serão
@@ -90,16 +104,16 @@ export const MergeVariationModal: React.FC<MergeVariationModalProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+            <label htmlFor="merge-variation-target" className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
               Variação canônica de destino
             </label>
             <div className="relative mt-2">
               <input
                 autoFocus
+                id="merge-variation-target"
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
-                  setTarget(null);
                 }}
                 placeholder="Pesquise por nome ou SKU..."
                 className={`w-full border-b-2 px-2 py-2.5 text-sm bg-transparent focus:outline-none transition-colors pr-10 ${
@@ -113,7 +127,7 @@ export const MergeVariationModal: React.FC<MergeVariationModalProps> = ({
               )}
             </div>
 
-            {!target && query.trim().length >= 2 && (
+            {!target && !searchLoading && !searchError && query.trim().length >= 2 && (
               <div className="mt-2 max-h-56 overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800 shadow-lg">
                 {options.map((option) => (
                   <button
@@ -121,8 +135,6 @@ export const MergeVariationModal: React.FC<MergeVariationModalProps> = ({
                     key={option.id}
                     onClick={() => {
                       setTarget(option);
-                      setQuery(option.name);
-                      setOptions([]);
                     }}
                     className="flex w-full flex-col p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   >
@@ -143,6 +155,7 @@ export const MergeVariationModal: React.FC<MergeVariationModalProps> = ({
               </div>
             )}
           </div>
+          </fieldset>
         </div>
 
         <div className="flex justify-end gap-3 border-t border-slate-100 p-6 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
@@ -156,7 +169,7 @@ export const MergeVariationModal: React.FC<MergeVariationModalProps> = ({
           </button>
           <button
             type="button"
-            disabled={!target || saving}
+            disabled={!target || saving || blocked || searchLoading || Boolean(searchError)}
             onClick={confirm}
             className="rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white disabled:opacity-40 transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
           >

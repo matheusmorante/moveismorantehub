@@ -8,13 +8,9 @@ import { calcPaymentsSummary, calcItemsSummary } from '@/pages/utils/calculation
 import { toast } from 'react-toastify';
 import { getTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
 import { testArtifactMetadata } from '../../../../../../shared-utils/testArtifactPolicy';
-import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
-import { saveOrder, resolveCompletedOrderStatus } from '@/pages/utils/orderHistoryService';
 import { validateBase, validateOrder, ValidationErrors } from '@/pages/utils/validations';
 import Shipping from '@/pages/types/Shipping.type';
 import CustomerData from '@/pages/types/customerData.type';
-import { migrateOrderHandlings } from '@/pages/utils/handlingMigration';
-import { getOrderIndex } from '@/pages/utils/orderCode';
 import {
   getCurrentDatetimeLocal,
   formatToStorageDate,
@@ -24,11 +20,13 @@ import { useOrderCodeGenerator } from './useOrderCodeGenerator';
 import { useOrderDistanceCalculator } from './useOrderDistanceCalculator';
 import { useOrderProductSelection } from './useOrderProductSelection';
 import { useOrderAutoSave } from './useOrderAutoSave';
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { createOrderDomainSchema, orderDraftFormSchema } from '../../../../../../shared-utils/orderDomainValidation';
-import { getSettings } from '@/pages/utils/settingsService';
-import type { z } from 'zod';
-import type { FieldErrors } from 'react-hook-form';
+import {
+  computeCustomerAutoUseCustomerAddress,
+  detectCustomerLinkingChange,
+} from './customerAddressRules';
+import { buildSalesOrderSnapshot, prepareOrderForFormEditing } from './orderFormSnapshot';
+import { useOrderFormSubmission } from './useOrderFormSubmission';
+import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
 
 export { parseStorageDateToLocal };
 
@@ -60,17 +58,7 @@ export const useSalesOrderForm = (
   const [currentStep, setCurrentStep] = useState(1);
   const [testModeFields, setTestModeFields] = useState<Pick<Order, 'is_test' | 'testArtifact'>>({});
   const isTestMode = testModeFields.is_test === true;
-  const { validateAndRun: validateOrderForm } = useZodForm(createOrderDomainSchema(getSettings().requiredFields), {
-    date: orderDate, seller, orderType, items, payments, shipping, customerData,
-  });
-  const { validateAndRun: validateOrderDraft } = useZodForm(orderDraftFormSchema, {
-    status: 'draft', date: orderDate, seller, orderType, items, payments, shipping, customerData,
-  });
-
-  // Estado React só é refletido após o próximo render. Esta trava síncrona
-  // protege o intervalo entre o clique e a confirmação do insert no banco.
-  const submissionInFlightRef = useRef(false);
-
+  const schedulingSessionRef = useRef<SchedulingSessionMemory | null>(null);
   const prevDeliveryMethodRef = useRef(shipping.deliveryMethod);
 
   const itemsSummary = calcItemsSummary(items);
@@ -115,84 +103,79 @@ export const useSalesOrderForm = (
     };
   });
 
-  const { isCalculatingDistance, handleAutoCalculateDistance, cancelPendingDistanceCalculation } = useOrderDistanceCalculator(
-    shipping,
-    customerData,
-    setShipping
-  );
+  const { isCalculatingDistance, handleAutoCalculateDistance, cancelPendingDistanceCalculation } =
+    useOrderDistanceCalculator(shipping, customerData, setShipping);
 
   const { handleSelectProduct, handleItemChange } = useOrderProductSelection(items, setItems);
 
   const getOrderData = useCallback(
-    (newStatus?: Order['status']): Order => {
-      const s = latestState.current;
-      const currentItemsSummary = calcItemsSummary(s.items);
-      const firstHandling =
-        (s.items || []).find((i: any) => i.handlingType?.trim())?.handlingType || '';
-      const isTestArtifact = s.isTestMode === true;
-
-      return {
-        id: s.currentOrderId,
-        orderIndex: isTestArtifact ? undefined : orderIndex || s.orderIndex || undefined,
-        orderNumber: isTestArtifact ? undefined : orderIndex || s.orderIndex || undefined,
-        orderType: s.orderType,
-        status: newStatus || s.status,
-        items: s.items,
-        itemsSummary: currentItemsSummary,
-        shipping: {
-          ...s.shipping,
-          orderType: firstHandling || s.shipping?.orderType || '',
-        },
-        payments: s.payments,
-        paymentsSummary: s.paymentsSummary,
-        customerData: s.customerData,
-        observation: s.observation,
-        seller: s.seller,
-        sellerId: s.sellerId,
-        marketingOrigin: s.marketingOrigin,
-        date: formatToStorageDate(s.orderDate),
-        assistanceItems: s.assistanceItems,
-        assistanceServiceValue: s.assistanceServiceValue,
-        assistanceCost: s.assistanceCost,
-        linkedOrderId: s.linkedOrderId || undefined,
-        isButtonsClicked: s.isButtonsClicked,
-        ...s.testModeFields,
-      };
-    },
+    (newStatus?: Order['status']): Order =>
+      buildSalesOrderSnapshot(
+        latestState.current,
+        orderIndex,
+        schedulingSessionRef.current,
+        newStatus
+      ),
     [orderIndex]
   );
 
-  const {
-    isSavingDraft,
-    draftAutoSaveStatus,
-    waitForActiveSave,
-    cancelAutoSave,
-  } = useOrderAutoSave(
-    items,
-    shipping,
-    payments,
-    customerData,
-    observation,
-    seller,
-    marketingOrigin,
+  const { isSavingDraft, draftAutoSaveStatus, waitForActiveSave, cancelAutoSave } =
+    useOrderAutoSave(
+      items,
+      shipping,
+      payments,
+      customerData,
+      observation,
+      seller,
+      marketingOrigin,
+      orderDate,
+      status,
+      orderIndex,
+      getOrderData,
+      setCurrentOrderId,
+      latestState,
+      isDraftAutoSaveEnabled,
+      testModeFields
+    );
+
+  const { handleSaveOrder, handleCompleteOrder } = useOrderFormSubmission({
     orderDate,
-    status,
-    orderIndex,
-    getOrderData,
-    setCurrentOrderId,
+    seller,
+    orderType,
+    items,
+    payments,
+    shipping,
+    customerData,
     latestState,
-    isDraftAutoSaveEnabled,
-    testModeFields
-  );
+    getOrderData,
+    ensureOrderCode,
+    cancelAutoSave,
+    waitForActiveSave,
+    setIsSaving,
+    setCurrentOrderId,
+    setStatus,
+    setErrors,
+    setCurrentStep,
+  });
 
   const loadOrderForEditing = useCallback(
     (order: Order) => {
       cancelPendingDistanceCalculation();
-      const migratedOrder = migrateOrderHandlings(order);
-      const existingIndex = getOrderIndex(order);
-      const isLoadedTestArtifact = Boolean(order.id && order.is_test === true);
-      const isExistingOrder = Boolean(order.id && (existingIndex || isLoadedTestArtifact));
-      const loadedStatus = order.status || 'draft';
+      schedulingSessionRef.current = null;
+
+      const {
+        existingIndex,
+        isLoadedTestArtifact,
+        isExistingOrder,
+        loadedStatus,
+        normalizedItems,
+        normalizedShipping,
+        normalizedPayments,
+        normalizedCustomerData,
+        loadedTestFields,
+        formattedDate,
+      } = prepareOrderForFormEditing(order);
+
       // Rascunhos existentes continuam salvando alterações automaticamente.
       setIsDraftAutoSaveEnabled(!isExistingOrder || loadedStatus === 'draft');
 
@@ -211,93 +194,16 @@ export const useSalesOrderForm = (
         generateCodeForCopyOrNew();
       }
 
-      setItems(
-        (migratedOrder.items || []).map((item) => ({
-          ...item,
-          orderItemId: item.orderItemId || crypto.randomUUID(),
-        }))
-      );
-      const defaultScheduling = {
-        date: '',
-        endDate: '',
-        dateType: 'fixed' as const,
-        time: '',
-        startTime: '',
-        endTime: '',
-        type: 'range' as const,
-        notInformed: false,
-      };
-
-      const defaultShipping: Shipping = {
-        value: 0,
-        deliveryMethod: 'delivery',
-        orderType: '',
-        scheduling: defaultScheduling,
-        autoCalculateValue: true,
-        useCustomerAddress: true,
-        deliveryAddress: {
-          cep: '',
-          street: '',
-          number: '',
-          complement: '',
-          observation: '',
-          neighborhood: '',
-          city: '',
-          state: 'PR',
-        },
-      };
-
-      if (migratedOrder.shipping) {
-        setShipping({
-          ...defaultShipping,
-          ...migratedOrder.shipping,
-          scheduling: {
-            ...defaultScheduling,
-            ...(migratedOrder.shipping.scheduling || {}),
-          },
-          deliveryAddress: {
-            ...defaultShipping.deliveryAddress!,
-            ...(migratedOrder.shipping.deliveryAddress || {}),
-            state: migratedOrder.shipping.deliveryAddress?.state || 'PR',
-          },
-        });
-      } else {
-        setShipping(defaultShipping);
-      }
-      setPayments(Array.isArray(order.payments) ? order.payments : []);
-      if (order.customerData) {
-        setCustomerData({
-          ...order.customerData,
-          noAddress:
-            order.customerData.noAddress || !!(order.customerData.fullAddress as any)?.noAddress,
-        });
-      } else {
-        setCustomerData({
-          fullName: '',
-          phone: '',
-          noPhone: false,
-          noAddress: false,
-          fullAddress: {
-            cep: '',
-            street: '',
-            number: '',
-            complement: '',
-            observation: '',
-            neighborhood: '',
-            city: '',
-          },
-          additionalContacts: [],
-        });
-      }
+      setItems(normalizedItems);
+      setShipping(normalizedShipping);
+      setPayments(normalizedPayments);
+      setCustomerData(normalizedCustomerData);
       setObservation(order.observation || '');
       setSeller((order as any).seller || '');
       setSellerId((order as any).sellerId || undefined);
       setMarketingOrigin(order.marketingOrigin || 'organic');
       setStatus(loadedStatus);
       setOrderType(order.orderType || 'sale');
-      const loadedTestFields = order.id
-        ? { is_test: order.is_test, testArtifact: order.testArtifact }
-        : {};
       setTestModeFields(loadedTestFields);
       latestState.current.testModeFields = loadedTestFields;
       latestState.current.isTestMode = loadedTestFields.is_test === true;
@@ -306,8 +212,7 @@ export const useSalesOrderForm = (
       setAssistanceCost(order.assistanceCost || 0);
       setLinkedOrderId(order.linkedOrderId || '');
       setIsButtonsClicked(order.isButtonsClicked);
-
-      setOrderDate(order.date ? parseStorageDateToLocal(order.date) : '');
+      setOrderDate(formattedDate);
     },
     [
       setItems,
@@ -321,9 +226,7 @@ export const useSalesOrderForm = (
     ]
   );
 
-  // Sincronizar o manuseio operacional (shipping.orderType) a partir dos itens selecionados,
-  // garantindo que as escolhas individuais de manuseio de cada item persistam intactas
-  // e que o manuseio principal do pedido reflita fielmente o que o usuário selecionou.
+  // Sincronizar o manuseio operacional (shipping.orderType) a partir dos itens selecionados
   useEffect(() => {
     const firstHandling = items.find((i) => i.handlingType?.trim())?.handlingType || '';
     if (firstHandling && firstHandling !== shipping.orderType) {
@@ -337,128 +240,6 @@ export const useSalesOrderForm = (
   useEffect(() => {
     prevDeliveryMethodRef.current = shipping.deliveryMethod;
   }, [shipping.deliveryMethod]);
-
-  const showOrderValidationErrors = useCallback((validationErrors: FieldErrors) => {
-    const fields = Object.fromEntries(Object.entries(flattenFormErrors(validationErrors)).map(([key, value]) => [
-      key.replace(/^items_(\d+)_/, 'item_$1_').replace(/^payments_(\d+)_/, 'payment_$1_'), value,
-    ]));
-    setErrors(fields);
-    toast.error(Object.values(fields)[0] || 'Confira os dados do pedido.');
-  }, []);
-
-  const handleSaveOrder = useCallback(
-    async (e?: React.MouseEvent) => {
-      e?.preventDefault();
-      if (submissionInFlightRef.current) return false;
-      submissionInFlightRef.current = true;
-      latestState.current.submissionInFlight = true;
-      cancelAutoSave();
-      latestState.current.isSaving = true;
-      setIsSaving(true);
-      try {
-        await waitForActiveSave();
-        cancelAutoSave();
-        const savedStatus = latestState.current.currentOrderId && latestState.current.status !== 'draft' ? latestState.current.status : 'draft';
-        const snapshot = getOrderData(savedStatus);
-        const persistValidatedOrder = async (data: z.output<ReturnType<typeof createOrderDomainSchema>>) => {
-          const orderData = data as unknown as Order;
-          setErrors({});
-          if (orderData.is_test !== true) {
-            const currentIdx = await ensureOrderCode();
-            if (!currentIdx) return false;
-            orderData.orderIndex = currentIdx;
-            orderData.orderNumber = currentIdx;
-          }
-          try {
-            const savedId = await saveOrder(orderData);
-            if (savedId) {
-              setCurrentOrderId(savedId);
-              latestState.current.currentOrderId = savedId;
-            }
-            setStatus(savedStatus);
-            latestState.current.status = savedStatus;
-            toast.success(savedStatus === 'draft'
-              ? orderData.orderType === 'budget' ? 'Orçamento salvo com sucesso!' : 'Pedido salvo como rascunho!'
-              : 'Alterações do pedido salvas!');
-            return savedId;
-          } catch (error: unknown) {
-            const message = (error as { message?: unknown } | null)?.message;
-            toast.error(typeof message === 'string' && message ? message : 'Não foi possível salvar o pedido.');
-            return false;
-          }
-        };
-        return savedStatus === 'draft'
-          ? await validateOrderDraft(snapshot as unknown as z.input<typeof orderDraftFormSchema>, persistValidatedOrder, showOrderValidationErrors)
-          : await validateOrderForm(snapshot as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, persistValidatedOrder, showOrderValidationErrors);
-      } finally {
-        cancelAutoSave();
-        latestState.current.isSaving = false;
-        latestState.current.submissionInFlight = false;
-        setIsSaving(false);
-        submissionInFlightRef.current = false;
-      }
-    },
-    [getOrderData, ensureOrderCode, cancelAutoSave, waitForActiveSave, validateOrderForm, validateOrderDraft, showOrderValidationErrors]
-  );
-
-  const handleCompleteOrder = useCallback(
-    async (e?: React.MouseEvent) => {
-      e?.preventDefault();
-      if (submissionInFlightRef.current) return false;
-      submissionInFlightRef.current = true;
-      latestState.current.submissionInFlight = true;
-      cancelAutoSave();
-      latestState.current.isSaving = true;
-      setIsSaving(true);
-      try {
-        await waitForActiveSave();
-        cancelAutoSave();
-        const savedStatus = resolveCompletedOrderStatus(latestState.current);
-        const snapshot = getOrderData(savedStatus);
-        const persistValidatedOrder = async (data: z.output<ReturnType<typeof createOrderDomainSchema>>) => {
-          const orderData = data as unknown as Order;
-          setErrors({});
-          if (orderData.is_test !== true) {
-            const currentIdx = await ensureOrderCode();
-            if (!currentIdx) return false;
-            orderData.orderIndex = currentIdx;
-            orderData.orderNumber = currentIdx;
-          }
-          try {
-            const savedId = await saveOrder(orderData);
-            if (savedId) {
-              setCurrentOrderId(savedId);
-              latestState.current.currentOrderId = savedId;
-            }
-            setStatus(savedStatus);
-            latestState.current.status = savedStatus;
-            if (savedStatus === 'fulfilled') {
-              toast.success('Pedido cadastrado. ' + getFulfillmentLabels(orderData).successMessage + ' ✨');
-            } else if (savedStatus === 'quoted') {
-              toast.success('Orçamento cadastrado com sucesso!');
-            } else {
-              toast.success('Pedido CADASTRADO com sucesso!');
-            }
-            return { ...orderData, id: savedId, status: savedStatus };
-          } catch (error: unknown) {
-            const message = (error as { message?: unknown } | null)?.message;
-            toast.error(typeof message === 'string' && message ? message : 'Não foi possível salvar o pedido.');
-            return false;
-          }
-        };
-        return savedStatus === 'draft'
-          ? await validateOrderDraft(snapshot as unknown as z.input<typeof orderDraftFormSchema>, persistValidatedOrder, showOrderValidationErrors)
-          : await validateOrderForm(snapshot as unknown as z.input<ReturnType<typeof createOrderDomainSchema>>, persistValidatedOrder, showOrderValidationErrors);
-      } finally {
-        cancelAutoSave();
-        latestState.current.isSaving = false;
-        latestState.current.submissionInFlight = false;
-        setIsSaving(false);
-        submissionInFlightRef.current = false;
-      }
-    },
-    [getOrderData, ensureOrderCode, cancelAutoSave, waitForActiveSave, validateOrderForm, validateOrderDraft, showOrderValidationErrors]
-  );
 
   const clearForm = useCallback(() => {
     if (window.confirm('Deseja limpar o formulário para um novo pedido?')) {
@@ -549,6 +330,7 @@ export const useSalesOrderForm = (
       orderDate,
       currentStep,
       isTestMode,
+      schedulingSessionRef,
     }),
     [
       items,
@@ -585,8 +367,6 @@ export const useSalesOrderForm = (
       toast.error('O modo de teste exige operador autorizado nesta execução.');
       return;
     }
-    // Atualiza a referência síncrona para que salvar imediatamente após o clique
-    // não perca o marcador antes do próximo render.
     latestState.current.isTestMode = enabled;
     const fields: Pick<Order, 'is_test' | 'testArtifact'> =
       enabled && identity
@@ -615,19 +395,30 @@ export const useSalesOrderForm = (
       setPayments,
       setCustomerData: (val: React.SetStateAction<CustomerData>) => {
         const nextCustomer = typeof val === 'function' ? val(customerData) : val;
-        const addressChanged =
-          JSON.stringify(nextCustomer.fullAddress || {}) !==
-          JSON.stringify(customerData.fullAddress || {});
-        const customerChanged = nextCustomer.id !== customerData.id;
+        const { isCustomerLinked, isLinkingCustomer, addressChanged, customerChanged } =
+          detectCustomerLinkingChange({
+            nextCustomer,
+            currentCustomer: customerData,
+          });
         setCustomerData(nextCustomer);
+
+        let nextUseCustomerAddress = shipping.useCustomerAddress;
+        if (isLinkingCustomer && isCustomerLinked) {
+          nextUseCustomerAddress = computeCustomerAutoUseCustomerAddress(nextCustomer);
+          setShipping((prev) => ({
+            ...prev,
+            useCustomerAddress: nextUseCustomerAddress,
+          }));
+        }
+
         const address = nextCustomer.fullAddress;
         const hasLocation = Boolean(
           (address?.street?.trim() && address?.city?.trim()) ||
-          address?.mapsUrl?.trim() ||
-          address?.googleMapsUrl?.trim() ||
-          address?.mapsLink?.trim() ||
-          (Array.isArray(address?.coords) && address.coords.length === 2) ||
-          address?.placeId?.trim()
+            address?.mapsUrl?.trim() ||
+            address?.googleMapsUrl?.trim() ||
+            address?.mapsLink?.trim() ||
+            (Array.isArray(address?.coords) && address.coords.length === 2) ||
+            address?.placeId?.trim()
         );
         const routeAddress = hasLocation ? address : null;
         if (
@@ -635,7 +426,7 @@ export const useSalesOrderForm = (
           nextCustomer.id &&
           routeAddress &&
           shipping.deliveryMethod === 'delivery' &&
-          shipping.useCustomerAddress !== false
+          nextUseCustomerAddress !== false
         ) {
           void handleAutoCalculateDistance(routeAddress, { silentSuccess: true });
         }

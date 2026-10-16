@@ -7,6 +7,7 @@ import { getNonStockOrigin } from '@/pages/utils/saleInventoryRules';
 import { useBodyRowPricing } from './useBodyRowPricing';
 import { BodyRowMobile } from './BodyRowMobile';
 import { BodyRowDesktop } from './BodyRowDesktop';
+import { useSettings, getSettings } from '@/pages/utils/settingsService';
 
 interface Props {
   item: Item;
@@ -122,6 +123,10 @@ const BodyRow: React.FC<Props> = ({
     });
   };
 
+  const settings =
+    (typeof useSettings === 'function' ? useSettings() : undefined) ??
+    (typeof getSettings === 'function' ? getSettings() : ({} as any));
+
   const pricing = useBodyRowPricing({
     item,
     idx,
@@ -133,6 +138,7 @@ const BodyRow: React.FC<Props> = ({
     item,
     idx,
     deliveryMethod,
+    settings,
     isBudget,
     isReturn,
     hideHandling,

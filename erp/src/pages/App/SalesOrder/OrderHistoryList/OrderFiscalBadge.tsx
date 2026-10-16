@@ -113,15 +113,16 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
     const title = loading ? 'Atualizando status fiscal do pedido' : presentation.title;
     const contents = (
       <>
-        {presentation.label}
-        {loading ? (
+        {loading && (
           <span
             aria-hidden="true"
-            className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white bg-blue-600 text-white dark:border-slate-900"
+            className="order-fiscal-badge-shimmer-container"
           >
-            <i className="bi bi-arrow-repeat animate-spin text-[9px]" />
+            <span className="order-fiscal-badge-shimmer-beam" />
           </span>
-        ) : presentation.icon ? (
+        )}
+        <span className="relative z-10">{presentation.label}</span>
+        {presentation.icon ? (
           <span
             aria-hidden="true"
             className={`absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white dark:border-slate-900 ${presentation.iconBadgeClassName}`}

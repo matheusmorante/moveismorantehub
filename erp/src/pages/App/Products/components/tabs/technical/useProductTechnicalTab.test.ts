@@ -104,4 +104,66 @@ describe('useProductTechnicalTab', () => {
     expect(result.current.manualFieldNames).not.toContain('Material da estrutura');
     expect(currentProduct.technicalValues?.['Material da estrutura']).toBeUndefined();
   });
+
+  it('mantém características preenchidas ou selecionadas sempre visíveis mesmo alterando a pesquisa', async () => {
+    let currentProduct: Partial<Product> = {
+      technicalValues: {
+        'Material da estrutura': 'MDF',
+      },
+    };
+    const setFormData = vi.fn((updater) => {
+      currentProduct = typeof updater === 'function' ? updater(currentProduct) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useProductTechnicalTab({
+        formData: currentProduct,
+        setFormData,
+      })
+    );
+
+    // Espera carregar definições
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Sem busca: campo preenchido está presente em fieldGroups
+    const allFieldNamesBeforeSearch = result.current.fieldGroups.flatMap((g) =>
+      g.fields.map((f) => f.name)
+    );
+    expect(allFieldNamesBeforeSearch).toContain('Material da estrutura');
+
+    // Digita pesquisa por outro termo que não tem a ver com estrutura (ex: 'Comprimento')
+    act(() => {
+      result.current.setCharacteristicSearchTerm('Comprimento');
+    });
+
+    // O campo preenchido "Material da estrutura" DEVE CONTINUAR VISÍVEL
+    const allFieldNamesDuringSearch = result.current.fieldGroups.flatMap((g) =>
+      g.fields.map((f) => f.name)
+    );
+    expect(allFieldNamesDuringSearch).toContain('Material da estrutura');
+    expect(allFieldNamesDuringSearch).toContain('Comprimento');
+
+    // Altera a pesquisa para outro termo (ex: 'inexistente')
+    act(() => {
+      result.current.setCharacteristicSearchTerm('inexistente');
+    });
+
+    const allFieldNamesDuringOtherSearch = result.current.fieldGroups.flatMap((g) =>
+      g.fields.map((f) => f.name)
+    );
+    // Campo preenchido CONTINUA visível!
+    expect(allFieldNamesDuringOtherSearch).toContain('Material da estrutura');
+
+    // Limpa a pesquisa
+    act(() => {
+      result.current.setCharacteristicSearchTerm('');
+    });
+
+    const allFieldNamesAfterClear = result.current.fieldGroups.flatMap((g) =>
+      g.fields.map((f) => f.name)
+    );
+    expect(allFieldNamesAfterClear).toContain('Material da estrutura');
+  });
 });

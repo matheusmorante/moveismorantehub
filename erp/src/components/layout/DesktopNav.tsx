@@ -158,6 +158,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
   const canViewDeliverySchedule = canPerform('viewDeliverySchedule', roles);
   const canViewAssemblyList = canPerform('viewAssemblyList', roles);
   const canViewLogistics = canViewDeliverySchedule || canViewAssemblyList;
+  const canViewCustomerSupport = canPerform('viewCustomerSupport', roles);
   const toggle = (key: MenuKey) => setActiveMenu(activeMenu === key ? null : key);
 
   return (
@@ -166,6 +167,14 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
         <i className="bi bi-grid-fill"></i>
         Dashboard
       </Link>
+
+      {/* Central de Atendimento */}
+      {canViewCustomerSupport && (
+        <Link to="/atendimento" className={navLinkClass}>
+          <i className="bi bi-chat-dots-fill text-emerald-500"></i>
+          Central de Atendimento
+        </Link>
+      )}
 
       {/* Produtos do Bling e Importação */}
       {canViewProductMenu && (

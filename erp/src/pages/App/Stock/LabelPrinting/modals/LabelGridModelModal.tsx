@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { labelGridModelFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
+import { labelGridModelSaveFormSchema } from '../../../../../../../shared-utils/labelLayoutFormSchemas';
 import { LabelGridSheetPreview } from '../components/LabelGridSheetPreview';
 import { createGridModelFromEditorState } from '../services/labelGridModelFactory';
 import { LabelGridModelToolbar } from './label-grid-model-editor/LabelGridModelToolbar';
@@ -21,7 +21,10 @@ export type { GridModel } from '../types/LabelGridModelTypes';
 interface LabelGridModelModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (model: GridModel) => void;
+  onSave: (model: GridModel, stillCurrent?: () => boolean) => Promise<boolean>;
+  isPersisting?: boolean;
+  error?: string;
+  blocked?: boolean;
   editingModel?: GridModel | null;
   currentCategory?: 'identificacao' | 'precos' | 'logos' | 'posts' | null;
   currentType?: 'round' | 'rect';
@@ -36,7 +39,7 @@ const PAPER_OPTIONS = [
   { id: 'Custom', name: 'Tamanho Personalizado', w: 0, h: 0 },
 ];
 
-const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
+const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
   isOpen,
   onClose,
   onSave,
@@ -44,6 +47,9 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
   currentCategory,
   currentType,
   previewImage,
+  isPersisting = false,
+  error = '',
+  blocked = false,
 }) => {
   const [name, setName] = useState('');
   const [paperSize, setPaperSize] = useState('A4');
@@ -440,6 +446,8 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
         setName(editingModel.name || '');
         setLayoutType(editingModel.type || 'rect');
         setPaperSize(editingModel.paperSize);
+        if (editingModel.paperWidth !== undefined) setCustomWidth(editingModel.paperWidth);
+        if (editingModel.paperHeight !== undefined) setCustomHeight(editingModel.paperHeight);
         setColumns(editingModel.columns);
         setRows(editingModel.rows);
         setMarginT(editingModel.marginT);
@@ -478,19 +486,19 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
         if (editingModel.oldPriceVAlign !== undefined)
           setOldPriceVAlign(editingModel.oldPriceVAlign);
         if (editingModel.nameWidth !== undefined) setNameWidth(editingModel.nameWidth);
-        if (editingModel.nameHeight) setNameHeight(editingModel.nameHeight);
-        if (editingModel.priceWidth) setPriceWidth(editingModel.priceWidth);
-        if (editingModel.priceHeight) setPriceHeight(editingModel.priceHeight);
-        if (editingModel.promoWidth) setPromoWidth(editingModel.promoWidth);
-        if (editingModel.promoHeight) setPromoHeight(editingModel.promoHeight);
-        if (editingModel.priceFontSizeTens) setPriceFontSizeTens(editingModel.priceFontSizeTens);
-        if (editingModel.priceFontSizeHundreds)
+        if (editingModel.nameHeight !== undefined) setNameHeight(editingModel.nameHeight);
+        if (editingModel.priceWidth !== undefined) setPriceWidth(editingModel.priceWidth);
+        if (editingModel.priceHeight !== undefined) setPriceHeight(editingModel.priceHeight);
+        if (editingModel.promoWidth !== undefined) setPromoWidth(editingModel.promoWidth);
+        if (editingModel.promoHeight !== undefined) setPromoHeight(editingModel.promoHeight);
+        if (editingModel.priceFontSizeTens !== undefined) setPriceFontSizeTens(editingModel.priceFontSizeTens);
+        if (editingModel.priceFontSizeHundreds !== undefined)
           setPriceFontSizeHundreds(editingModel.priceFontSizeHundreds);
-        if (editingModel.priceFontSizeThousands)
+        if (editingModel.priceFontSizeThousands !== undefined)
           setPriceFontSizeThousands(editingModel.priceFontSizeThousands);
-        if (editingModel.priceFontSizeTenThousands)
+        if (editingModel.priceFontSizeTenThousands !== undefined)
           setPriceFontSizeTenThousands(editingModel.priceFontSizeTenThousands);
-        if (editingModel.promoFontSize) setPromoFontSize(editingModel.promoFontSize);
+        if (editingModel.promoFontSize !== undefined) setPromoFontSize(editingModel.promoFontSize);
         if (editingModel.promoColor) setPromoColor(editingModel.promoColor);
         if (editingModel.bg_color) setBgColor(editingModel.bg_color);
         if (editingModel.nameBgColor) setNameBgColor(editingModel.nameBgColor);
@@ -503,7 +511,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
         setBarcodePos({ x: editingModel.barcodePosX ?? 50, y: editingModel.barcodePosY ?? 90 });
 
         setPriceFormat(editingModel.priceFormat || 'split');
-        if (editingModel.priceSymbolFontSize)
+        if (editingModel.priceSymbolFontSize !== undefined)
           setPriceSymbolFontSize(editingModel.priceSymbolFontSize);
         if (editingModel.priceSymbolColor) setPriceSymbolColor(editingModel.priceSymbolColor);
         if (editingModel.priceSymbolBold !== undefined)
@@ -513,7 +521,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
           y: editingModel.priceSymbolPosY ?? 55,
         });
 
-        if (editingModel.priceDecimalsFontSize)
+        if (editingModel.priceDecimalsFontSize !== undefined)
           setPriceDecimalsFontSize(editingModel.priceDecimalsFontSize);
         if (editingModel.priceDecimalsColor) setPriceDecimalsColor(editingModel.priceDecimalsColor);
         if (editingModel.priceDecimalsBold !== undefined)
@@ -528,19 +536,19 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
           x: editingModel.promoNamePosX ?? 50,
           y: editingModel.promoNamePosY ?? 25,
         });
-        if (editingModel.promoNameFontSize) setPromoNameFontSize(editingModel.promoNameFontSize);
+        if (editingModel.promoNameFontSize !== undefined) setPromoNameFontSize(editingModel.promoNameFontSize);
         if (editingModel.promoNameAlign) setPromoNameAlign(editingModel.promoNameAlign);
         if (editingModel.promoNameVAlign) setPromoNameVAlign(editingModel.promoNameVAlign);
         if (editingModel.promoNameColor) setPromoNameColor(editingModel.promoNameColor);
         if (editingModel.promoNameBold !== undefined) setPromoNameBold(editingModel.promoNameBold);
-        if (editingModel.promoNameWidth) setPromoNameWidth(editingModel.promoNameWidth);
-        if (editingModel.promoNameHeight) setPromoNameHeight(editingModel.promoNameHeight);
+        if (editingModel.promoNameWidth !== undefined) setPromoNameWidth(editingModel.promoNameWidth);
+        if (editingModel.promoNameHeight !== undefined) setPromoNameHeight(editingModel.promoNameHeight);
         if (editingModel.promoNameBgColor) setPromoNameBgColor(editingModel.promoNameBgColor);
 
         setOldPricePos({ x: editingModel.oldPricePosX ?? 50, y: editingModel.oldPricePosY ?? 60 });
-        if (editingModel.oldPriceWidth) setOldPriceWidth(editingModel.oldPriceWidth);
-        if (editingModel.oldPriceHeight) setOldPriceHeight(editingModel.oldPriceHeight);
-        if (editingModel.oldPriceFontSize) setOldPriceFontSize(editingModel.oldPriceFontSize);
+        if (editingModel.oldPriceWidth !== undefined) setOldPriceWidth(editingModel.oldPriceWidth);
+        if (editingModel.oldPriceHeight !== undefined) setOldPriceHeight(editingModel.oldPriceHeight);
+        if (editingModel.oldPriceFontSize !== undefined) setOldPriceFontSize(editingModel.oldPriceFontSize);
         if (editingModel.oldPriceColor) setOldPriceColor(editingModel.oldPriceColor);
         if (editingModel.oldPriceBold !== undefined) setOldPriceBold(editingModel.oldPriceBold);
         if (editingModel.oldPriceAlign) setOldPriceAlign(editingModel.oldPriceAlign);
@@ -565,7 +573,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
             x: editingModel.promoPriceSymbolPosX,
             y: editingModel.promoPriceSymbolPosY ?? 70,
           });
-        if (editingModel.promoPriceSymbolFontSize)
+        if (editingModel.promoPriceSymbolFontSize !== undefined)
           setPromoPriceSymbolFontSize(editingModel.promoPriceSymbolFontSize);
         if (editingModel.promoPriceSymbolColor)
           setPromoPriceSymbolColor(editingModel.promoPriceSymbolColor);
@@ -577,7 +585,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
             x: editingModel.promoPriceDecimalsPosX,
             y: editingModel.promoPriceDecimalsPosY ?? 70,
           });
-        if (editingModel.promoPriceDecimalsFontSize)
+        if (editingModel.promoPriceDecimalsFontSize !== undefined)
           setPromoPriceDecimalsFontSize(editingModel.promoPriceDecimalsFontSize);
         if (editingModel.promoPriceDecimalsColor)
           setPromoPriceDecimalsColor(editingModel.promoPriceDecimalsColor);
@@ -625,11 +633,17 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
   }, [isOpen, editingModel, currentType, currentCategory]);
 
   const [isSaving, setIsSaving] = React.useState(false);
-  const modelForm = useZodForm(labelGridModelFormSchema, { id: '', name: '', columns: 1, rows: 1, marginT: 0, marginB: 0, marginL: 0, marginR: 0, gapH: 0, gapV: 0, paperSize: 'A4', icon: '' });
+  const [saveError, setSaveError] = React.useState(''), [saveBlocked, setSaveBlocked] = React.useState(false);
+  const saveLocked = React.useRef(false), mounted = React.useRef(false), closed = React.useRef(false);
+  React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const busy = isSaving || isPersisting;
+  const current = () => mounted.current && !closed.current;
+  const close = () => { if (current() && !saveLocked.current && !isPersisting) { closed.current = true; onClose(); } };
+  const modelForm = useZodForm(labelGridModelSaveFormSchema, { id: '', name: '', columns: 1, rows: 1, marginT: 0, marginB: 0, marginL: 0, marginR: 0, gapH: 0, gapV: 0, paperSize: 'A4', icon: '' });
 
   const handleSave = async () => {
-    if (isSaving) return;
-    setIsSaving(true);
+    if (!current() || saveLocked.current || isPersisting || saveBlocked || blocked) return;
+    saveLocked.current = true; setIsSaving(true); setSaveError('');
     try {
       const newModel = createGridModelFromEditorState({
         editingModel,
@@ -725,11 +739,23 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
         customPreviewImage,
       });
       await modelForm.validateAndRun({ ...newModel }, async (values) => {
-        await onSave(values);
-        onClose();
-      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+        if (!current()) return;
+        const confirmed = await onSave(values, current);
+        if (!current()) return;
+        if (confirmed === true) { closed.current = true; onClose(); }
+        else setSaveError('A gravação do modelo não foi confirmada. Confira os dados antes de repetir.');
+      }, (errors) => {
+        const message = Object.values(flattenFormErrors(errors))[0] || 'Confira o modelo.';
+        if (current()) { setSaveError(message); toast.error(message); }
+      });
+    } catch (cause) {
+      if (current()) {
+        const message = cause instanceof Error ? cause.message : 'Não foi possível salvar o modelo.';
+        setSaveError(message); toast.error(message);
+        if ((cause as { uncertain?: boolean })?.uncertain) setSaveBlocked(true);
+      }
     } finally {
-      setIsSaving(false);
+      saveLocked.current = false; if (mounted.current) setIsSaving(false);
     }
   };
 
@@ -1066,9 +1092,10 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
+      aria-busy={busy}
       aria-labelledby="label-grid-modal-title"
       onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
+        if (e.key === 'Escape') close();
       }}
       className="fixed inset-0 z-[500] flex items-center justify-center p-4"
     >
@@ -1077,12 +1104,19 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
       <button
         type="button"
         className="absolute inset-0 bg-slate-950/80 backdrop-blur-md transition-all duration-500 border-0 cursor-default"
-        onClick={onClose}
+        onClick={close}
+        disabled={busy}
         aria-label="Fechar editor de grade de etiqueta"
       />
-      <div
-        className={`relative bg-white dark:bg-slate-900 w-full ${isDesignMode ? 'max-w-7xl' : 'max-w-5xl'} h-[95vh] rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in zoom-in duration-500`}
+      <fieldset
+        disabled={busy}
+        onMouseDownCapture={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); } }}
+        onPointerDownCapture={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); } }}
+        onKeyDownCapture={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); } }}
+        className={`relative m-0 min-w-0 p-0 bg-white dark:bg-slate-900 w-full ${isDesignMode ? 'max-w-7xl' : 'max-w-5xl'} h-[95vh] rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in zoom-in duration-500`}
       >
+        {(error || saveError) && <p role="alert" className="px-8 pt-4 text-sm text-red-600">{error || saveError}</p>}
+        {busy && <p role="status" className="flex items-center gap-2 px-8 pt-4 text-sm text-blue-600"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Salvando modelo…</p>}
         {/* Header Principal */}
         <div className="px-12 py-8 border-b border-slate-50 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-5">
@@ -1115,7 +1149,7 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
             {!isDesignMode && (
               <button
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={busy || saveBlocked || blocked}
                 className={`px-8 py-4 ${isSaving ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest shadow-xl shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2`}
               >
                 {isSaving ? 'Salvando...' : 'Salvar Modelo'}
@@ -1386,6 +1420,8 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
                 Prévia do modelo em folha inteira
               </p>
               <LabelGridSheetPreview
+                disabled={busy}
+                ownerKey={JSON.stringify([isOpen, currentCategory, editingModel?.id ?? 'new'])}
                 layout={{
                   paperWidth: paperSize === 'Custom' ? customWidth : selectedPaper.w,
                   paperHeight: paperSize === 'Custom' ? customHeight : selectedPaper.h,
@@ -1404,9 +1440,12 @@ const LabelGridModelModal: React.FC<LabelGridModelModalProps> = ({
             </div>
           </div>
         )}
-      </div>
+      </fieldset>
     </div>
   );
 };
+
+const LabelGridModelModal: React.FC<LabelGridModelModalProps> = (props) => props.isOpen
+  ? <LabelGridModelDialog key={JSON.stringify([props.currentCategory, props.currentType, props.editingModel?.id ?? 'new'])} {...props} /> : null;
 
 export default LabelGridModelModal;

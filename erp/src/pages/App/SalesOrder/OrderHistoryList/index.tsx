@@ -8,6 +8,13 @@ import ReturnFulfillmentConfirmModal from './ReturnFulfillmentConfirmModal';
 import CancelReturnModal from './CancelReturnModal';
 import OrderPagination from './OrderPagination';
 import OrderCustomerSearchBar from './OrderCustomerSearchBar';
+import {
+  OrderHistoryEmptyPageNotice,
+  OrderHistoryEmptyView,
+  OrderHistoryErrorView,
+  OrderHistoryLoadingView,
+} from './OrderHistoryStateViews';
+import { useOrderHistoryConfirmations } from './useOrderHistoryConfirmations';
 
 type OrderHistoryListProps = {
   onEdit: (
@@ -58,20 +65,6 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
     },
     ref
   ) => {
-    const [confirmModal, setConfirmModal] = React.useState<{
-      isOpen: boolean;
-      title: string;
-      message: string;
-      onConfirm: () => void;
-      type: 'danger' | 'warning' | 'info';
-    }>({
-      isOpen: false,
-      title: '',
-      message: '',
-      onConfirm: () => {},
-      type: 'info',
-    });
-
     const {
       orders,
       fiscalBadgeStatusByOrderId,
@@ -106,6 +99,21 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       setCurrentPage,
     } = useOrderHistory(filters);
 
+    const {
+      confirmModal,
+      closeConfirmModal,
+      handleDelete,
+      handlePermanentDelete,
+      handleBulkTrash,
+      handleBulkPermanentDelete,
+    } = useOrderHistoryConfirmations({
+      onDelete,
+      onPermanentDelete,
+      onBulkTrash,
+      onBulkPermanentDelete,
+      selectedOrdersCount: selectedOrders.length,
+    });
+
     // Auto-scroll para o início da lista ao mudar de página
     React.useEffect(() => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -114,48 +122,6 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         el.scrollTo({ top: 0, behavior: 'smooth' });
       });
     }, [currentPage]);
-
-    // Handlers para confirmação modal
-    const handleDelete = (id: string) => {
-      setConfirmModal({
-        isOpen: true,
-        title: 'Excluir rascunho?',
-        message: 'Esta ação não pode ser desfeita. O rascunho será removido permanentemente.',
-        onConfirm: () => onDelete(id),
-        type: 'danger',
-      });
-    };
-
-    const handlePermanentDelete = (id: string) => {
-      setConfirmModal({
-        isOpen: true,
-        title: 'Excluir Permanentemente?',
-        message:
-          'Esta ação não pode ser desfeita. Todos os dados deste pedido serão removidos definitivamente.',
-        onConfirm: () => onPermanentDelete(id),
-        type: 'danger',
-      });
-    };
-
-    const handleBulkTrash = () => {
-      setConfirmModal({
-        isOpen: true,
-        title: 'Mover selecionados para Lixeira?',
-        message: `Você está prestes a mover ${selectedOrders.length} pedido(s) para a lixeira.`,
-        onConfirm: () => onBulkTrash(),
-        type: 'warning',
-      });
-    };
-
-    const handleBulkPermanentDelete = () => {
-      setConfirmModal({
-        isOpen: true,
-        title: 'Excluir Permanentemente?',
-        message: `Você está prestes a excluir DEFINITIVAMENTE ${selectedOrders.length} pedido(s). Esta ação não pode ser desfeita.`,
-        onConfirm: () => onBulkPermanentDelete(),
-        type: 'danger',
-      });
-    };
 
     useImperativeHandle(ref, () => ({
       refresh,
@@ -196,55 +162,21 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
 
     const renderContent = () => {
       if (loading && orders.length === 0) {
-        return (
-          <div className="flex flex-col items-center justify-center py-20 gap-6">
-            <div className="w-12 h-12 border-4 border-blue-100 dark:border-blue-900 border-t-blue-600 dark:border-t-blue-500 rounded-full animate-spin"></div>
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-slate-400 dark:text-slate-600 font-bold tracking-widest uppercase text-xs">
-                Carregando pedidos da nuvem...
-              </p>
-              {showTroubleshoot && (
-                <p className="text-[10px] text-blue-500 font-bold uppercase tracking-tight opacity-75">
-                  Demorando muito? Verifique a conexão ou o Console (F12)
-                </p>
-              )}
-            </div>
-          </div>
-        );
+        return <OrderHistoryLoadingView showTroubleshoot={showTroubleshoot} />;
       }
 
       if (error && orders.length === 0) {
-        return (
-          <div role="alert" className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-            <p className="font-bold text-red-600">Não foi possível carregar os pedidos.</p>
-            <button onClick={() => void refresh()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white">
-              Tentar novamente
-            </button>
-          </div>
-        );
+        return <OrderHistoryErrorView onRetry={() => void refresh()} />;
       }
 
       if (orders.length === 0 && !(!filters?.showTestOrders && totalItems > 0)) {
-        return (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <div className="w-20 h-20 bg-slate-50 dark:bg-slate-950 rounded-full flex items-center justify-center">
-              <i
-                className={`bi ${filters?.showTrash ? 'bi-trash3' : 'bi-search'} text-3xl text-slate-200 dark:text-slate-800`}
-              ></i>
-            </div>
-            <p className="text-slate-400 dark:text-slate-600 font-bold tracking-widest uppercase text-xs">
-              {filters?.showTrash ? 'A lixeira está vazia' : 'Nenhum pedido encontrado'}
-            </p>
-          </div>
-        );
+        return <OrderHistoryEmptyView isTrash={Boolean(filters?.showTrash)} />;
       }
 
       return (
         <div className="flex flex-col gap-4 flex-1">
           {orders.length === 0 ? (
-            <div className="rounded-2xl border border-slate-100 bg-white px-4 py-10 text-center text-xs font-bold text-slate-400 dark:border-slate-800 dark:bg-slate-900">
-              Nenhum pedido para exibir nesta página. Use a paginação para continuar.
-            </div>
+            <OrderHistoryEmptyPageNotice />
           ) : (
             <OrderHistoryTable
               orders={orders}
@@ -333,7 +265,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
 
         <ConfirmModal
           isOpen={confirmModal.isOpen}
-          onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+          onClose={closeConfirmModal}
           onConfirm={confirmModal.onConfirm}
           title={confirmModal.title}
           message={confirmModal.message}

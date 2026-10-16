@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { copyLabelImageToClipboard, downloadLabelImage } from '../services/priceLabelExportService';
+import { exportLabelImage } from '../services/priceLabelExportService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { labelPartialConfigFormSchema, labelArtSnapshotSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
+import { labelPartialConfigFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
+import { labelArtConfigSchema, labelArtLayoutSelectionSchema, labelArtworkTitleFormSchema, labelArtworkExportFormSchema } from '../../../../../../../shared-utils/labelArtworkFormSchemas';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { PriceLabelArtRenderer } from '../components/PriceLabelArtRenderer';
 import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
 import { usePriceLabelState } from '../hooks/usePriceLabelState';
@@ -16,8 +18,8 @@ import { PriceLabelTestValuesModal } from './PriceLabelTestValuesModal';
 import { PriceLabelColorPickerPopup } from './price-label-editor/PriceLabelColorPickerPopup';
 import { PriceLabelSelectedElementToolbar } from './price-label-editor/PriceLabelSelectedElementToolbar';
 import {
-  fetchPriceLabelArtConfig,
-  fetchOpportunities,
+  fetchPriceLabelArtConfigResult,
+  fetchOpportunitiesResult,
 } from '../services/priceLabelPersistenceService';
 import { buildPriceLabelAutoSaveConfig } from '../services/priceLabelAutoSaveConfig';
 
@@ -29,18 +31,66 @@ import { PriceLabelEditorHeader } from './price-label-editor/PriceLabelEditorHea
 import { PriceLabelEditorFooter } from './price-label-editor/PriceLabelEditorFooter';
 import { PriceLabelMenuBar } from './price-label-editor/PriceLabelMenuBar';
 
-export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> = ({
+interface ArtworkSaveGuard { active: symbol | null; error: Error | null }
+export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> = (props) => {
+  const guards = useRef(new Map<string, ArtworkSaveGuard>());
+  const [isDataFillModalOpen, setIsDataFillModalOpen] = useState(false);
+  const ownerKey = JSON.stringify([props.config.layoutId || 'preco_2x5_restored', props.config.category || 'precos']);
+  if (!guards.current.has(ownerKey)) guards.current.set(ownerKey, { active: null, error: null });
+  useEffect(() => { if (!props.isOpen) setIsDataFillModalOpen(false); }, [props.isOpen]);
+  return props.isOpen ? <PriceLabelArtEditorSession key={ownerKey} {...props} saveGuard={guards.current.get(ownerKey)!}
+    isDataFillModalOpen={isDataFillModalOpen} setIsDataFillModalOpen={setIsDataFillModalOpen} /> : null;
+};
+
+const PriceLabelArtEditorSession: React.FC<PriceLabelArtEditorModalProps & {
+  saveGuard: ArtworkSaveGuard; isDataFillModalOpen: boolean; setIsDataFillModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}> = ({
   isOpen,
   onClose,
   config,
   onSaveConfig,
   onArtConfigLoaded,
   initialProduct,
+  saveGuard,
+  isDataFillModalOpen,
+  setIsDataFillModalOpen,
 }) => {
   const { validateAndRun: validateConfig } = useZodForm(labelPartialConfigFormSchema, {});
-  const { validateAndRun: validateArtwork } = useZodForm(labelArtSnapshotSchema, {});
+  const { validateAndRun: validateExport } = useZodForm(labelArtworkExportFormSchema, { layoutId: String(config.layoutId || 'preco_2x5_restored'), action: 'download', snapshot: {} });
+  const { validateAndRun: validateTitle } = useZodForm(labelArtworkTitleFormSchema, { title: '' });
+  const { validateValues: validateArtQuery } = useZodForm(labelArtLayoutSelectionSchema, { layoutId: String(config.layoutId || 'preco_2x5_restored') });
+  const { validateValues: validateOpportunityQuery } = useZodForm(labelArtLayoutSelectionSchema, { layoutId: String(config.layoutId || 'preco_2x5_restored') });
   const isStandaloneTemplate = window.location.pathname === '/templates/price-label';
-  const [isDataFillModalOpen, setIsDataFillModalOpen] = useState(false);
+  const active = useRef(true);
+  const sessionId = useRef(Symbol('price-artwork'));
+  const loadedArtConfig = useRef(config.artConfig);
+  const confirmedSnapshot = useRef('');
+  const saveFailure = useRef<Error | null>(saveGuard.error);
+  const [saveError, setSaveError] = useState(saveGuard.error?.message || '');
+  const [artQueryError, setArtQueryError] = useState('');
+  const [opportunityQueryError, setOpportunityQueryError] = useState('');
+  const [queryRevision, setQueryRevision] = useState(0);
+  const [opportunityQueryRevision, setOpportunityQueryRevision] = useState(0);
+  const [isClosing, setIsClosing] = useState(false);
+  const closing = useRef(false);
+  const actionInFlight = useRef(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const historyEditingAllowed = useRef(false);
+  const opportunitySelectionRevision = useRef(0);
+  const initialOpportunityId = initialProduct?.opportunities ? String(initialProduct.opportunities.id || initialProduct.opportunities.slug || 'salvado') : '';
+  useEffect(() => {
+    const currentSessionId = sessionId.current;
+    active.current = true;
+    if (saveGuard.active && saveGuard.active !== sessionId.current) {
+      saveGuard.error = Object.assign(new Error('Há um salvamento de outra abertura sem confirmação. Recarregue a página antes de continuar.'), { requiresRefresh: true });
+      saveFailure.current = saveGuard.error; setSaveError(saveGuard.error.message);
+    }
+    return () => {
+      active.current = false;
+      if (saveGuard.active === currentSessionId) saveGuard.error = Object.assign(new Error('O editor mudou durante uma gravação. Recarregue a página antes de continuar.'), { requiresRefresh: true });
+    };
+  }, [saveGuard]);
   const rawArtworkSize = calculateLabelPhysicalSize(config);
   const artworkSizeMm =
     rawArtworkSize && rawArtworkSize.widthMm >= rawArtworkSize.heightMm
@@ -256,7 +306,11 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     handleRedo,
     canUndo,
     canRedo,
-  } = usePriceLabelState(initialProduct, config, isOpen);
+  } = usePriceLabelState(initialProduct, config, isOpen, () => active.current && !closing.current && !actionInFlight.current && historyEditingAllowed.current);
+  const latestSnapshot = useRef(getSnapshot);
+  latestSnapshot.current = getSnapshot;
+  historyEditingAllowed.current = !isArtConfigLoading && !artQueryError && !saveGuard.error && !actionBusy;
+  const initialArtworkQuery = useRef({ artConfig: config.artConfig, selectedOppId, applySnapshot, onArtConfigLoaded });
   const [colorHistory, setColorHistory] = useState<string[]>([
     '#000000',
     '#1e3a8a',
@@ -345,12 +399,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     setTestNormalD2,
     testNormalD3,
     setTestNormalD3,
-  } = usePriceLabelTestValues({
-    promoPrice,
-    normalPrice,
-    setPromoPrice,
-    setNormalPrice,
-  });
+  } = usePriceLabelTestValues();
 
   const isInitializedRef = useRef(false);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -427,16 +476,25 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
       return;
     }
     let cancelled = false;
-    let revealTimer: ReturnType<typeof setTimeout> | undefined;
     setIsArtConfigLoading(true);
+    setArtQueryError('');
 
     const loadArtConfigFromSupabase = async () => {
-      const layoutId = String(config?.layoutId || 'preco_2x5_restored');
-      const dbArtConfig = (await fetchPriceLabelArtConfig(layoutId)) || config?.artConfig;
-      if (cancelled) return;
+      try {
+      const query = await validateArtQuery({ layoutId: String(config.layoutId || 'preco_2x5_restored') }, (errors) => {
+        throw new Error(Object.values(flattenFormErrors(errors))[0]);
+      });
+      if (!query || cancelled) return;
+      const result = await withTimeout(fetchPriceLabelArtConfigResult(query.layoutId), 16000,
+        { data: null, error: new Error('A consulta da arte excedeu o prazo. Tente consultar novamente.') }, 'etiquetas:consultar-arte-editor');
+      if (cancelled || !active.current) return;
+      if (result.error) throw result.error;
+      const fallback = initialArtworkQuery.current.artConfig;
+      const dbArtConfig = result.data ?? (fallback ? labelArtConfigSchema.parse(fallback) : undefined);
+      loadedArtConfig.current = dbArtConfig;
 
       if (dbArtConfig) {
-        onArtConfigLoaded?.(dbArtConfig);
+        initialArtworkQuery.current.onArtConfigLoaded?.(dbArtConfig, () => !cancelled && active.current);
         if (dbArtConfig.oppColorsMap && typeof dbArtConfig.oppColorsMap === 'object') {
           setOppColorsMap(dbArtConfig.oppColorsMap);
         }
@@ -453,62 +511,68 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
             string,
             any
           >;
-          applySnapshot(globalLayout, isInitializedRef.current);
+          initialArtworkQuery.current.applySnapshot(globalLayout, isInitializedRef.current);
         } else {
           const initialBg =
-            selectedOppId === 'none'
+            initialArtworkQuery.current.selectedOppId === 'none'
               ? '#ffffff'
-              : selectedOppId === 'salvado'
+              : initialArtworkQuery.current.selectedOppId === 'salvado'
                 ? '#ff7900'
                 : '#ffffff';
           setBgColor(initialBg);
         }
       } else {
         const initialBg =
-          selectedOppId === 'none'
+          initialArtworkQuery.current.selectedOppId === 'none'
             ? '#ffffff'
-            : selectedOppId === 'salvado'
+            : initialArtworkQuery.current.selectedOppId === 'salvado'
               ? '#ff7900'
               : '#ffffff';
         setBgColor(initialBg);
       }
 
-      setTimeout(() => {
-        if (!cancelled) isInitializedRef.current = true;
-      }, 100);
-      revealTimer = setTimeout(() => {
-        if (!cancelled) setIsArtConfigLoading(false);
-      }, 0);
+      isInitializedRef.current = true;
+      confirmedSnapshot.current = '';
+      lastQueuedSnapshotRef.current = '';
+      latestRequestedSnapshotRef.current = '';
+      } catch (error) {
+        if (!cancelled && active.current) setArtQueryError(error instanceof Error ? error.message : 'Não foi possível consultar a arte. Tente novamente.');
+      } finally {
+        if (!cancelled && active.current) setIsArtConfigLoading(false);
+      }
     };
 
     loadArtConfigFromSupabase();
     return () => {
       cancelled = true;
-      if (revealTimer) clearTimeout(revealTimer);
     };
-  }, [isOpen, config?.layoutId]);
+  }, [isOpen, config.layoutId, queryRevision, validateArtQuery, lastQueuedSnapshotRef, latestRequestedSnapshotRef,
+    setBgColor, setIsArtConfigLoading, setOppColorsMap]);
 
   // Carrega oportunidades cadastradas no Supabase
   useEffect(() => {
     if (!isOpen) return;
+    let cancelled = false;
+    const selectionRevision = opportunitySelectionRevision.current;
+    setOpportunityQueryError('');
 
     async function fetchOpps() {
       try {
-        const data = await fetchOpportunities();
-        if (data && data.length > 0) {
+        const query = await validateOpportunityQuery({ layoutId: String(config.layoutId || 'preco_2x5_restored') });
+        if (!query || cancelled) return;
+        const { data, error } = await withTimeout(fetchOpportunitiesResult(), 16000,
+          { data: [], error: new Error('A consulta das oportunidades excedeu o prazo. Tente novamente.') }, 'etiquetas:consultar-oportunidades-editor');
+        if (cancelled || !active.current) return;
+        if (error) throw error;
           setDbOpportunities(data);
-          if (initialProduct?.opportunities) {
-            const opp = initialProduct.opportunities;
-            const oppKey = opp.id || opp.slug || 'salvado';
-            setSelectedOppId(oppKey);
-          }
-        }
+          if (initialOpportunityId && opportunitySelectionRevision.current === selectionRevision) setSelectedOppId(initialOpportunityId);
       } catch (err) {
-        console.error('Erro ao carregar oportunidades:', err);
+        if (!cancelled && active.current) setOpportunityQueryError(err instanceof Error ? err.message : 'Não foi possível consultar as oportunidades.');
       }
     }
     fetchOpps();
-  }, [isOpen, initialProduct]);
+    return () => { cancelled = true; };
+  }, [isOpen, config.layoutId, initialOpportunityId, opportunityQueryRevision, validateOpportunityQuery, setDbOpportunities, setSelectedOppId]);
 
   // LISTA DE OPÇÕES DO SELETOR DE ETIQUETA
   const allOppOptions = useMemo(() => {
@@ -545,56 +609,68 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     );
   }, [selectedOppId, oppColorsMap, defaultBgColor]);
 
-  const queueAutoSave = (snapshot: Record<string, any>, serialized: string) => {
-    const previousSnapshot = lastQueuedSnapshotRef.current;
+  const queueAutoSave = useCallback((snapshot: Record<string, any>, serialized: string, force = false) => {
+    if (!active.current) return Promise.resolve();
+    if (saveGuard.error || saveFailure.current) return Promise.reject(saveGuard.error || saveFailure.current);
+    if (!force && serialized === lastQueuedSnapshotRef.current) return saveQueueRef.current;
+    // Freeze this intent before waiting for an older write.
+    const intent = structuredClone(buildPriceLabelAutoSaveConfig({
+      artConfig: loadedArtConfig.current, snapshot, oppColorsMap, selectedOppId, title, normalPrice, promoPrice,
+      showPromoPrice, priceColor, showTitle, scaleTens, scaleHundreds, scaleThousands, scaleTenThousands,
+      titlePos, titleWidth, promoPricePos, dePricePorGroupPos, dePricePorGroupRotation, dePricePorGroupGap,
+    }));
     lastQueuedSnapshotRef.current = serialized;
     latestRequestedSnapshotRef.current = serialized;
     setAutoSaveStatus('saving');
 
     const operation = saveQueueRef.current
       .catch(() => undefined)
-      .then(() =>
-        validateConfig(
-          buildPriceLabelAutoSaveConfig({
-            artConfig: config.artConfig,
-            snapshot,
-            oppColorsMap,
-            selectedOppId,
-            title,
-            normalPrice,
-            promoPrice,
-            showPromoPrice,
-            priceColor,
-            showTitle,
-            scaleTens,
-            scaleHundreds,
-            scaleThousands,
-            scaleTenThousands,
-            titlePos,
-            titleWidth,
-            promoPricePos,
-            dePricePorGroupPos,
-            dePricePorGroupRotation,
-            dePricePorGroupGap,
-          }),
-          async (values) => { await onSaveConfig(values); return true; },
+      .then(async () => {
+        if (!active.current) return;
+        if (saveGuard.error || saveFailure.current) throw saveGuard.error || saveFailure.current;
+        if (saveGuard.active && saveGuard.active !== sessionId.current) throw Object.assign(new Error('Há uma gravação anterior sem confirmação. Recarregue antes de continuar.'), { requiresRefresh: true });
+        saveGuard.active = sessionId.current;
+        try {
+        const saved = await validateConfig(intent,
+          async (values) => {
+            if (!active.current) return false;
+            let acceptingConfirmation = true;
+            let confirmed: boolean;
+            try {
+              confirmed = await withTimeout(Promise.resolve(onSaveConfig(values, () => active.current && acceptingConfirmation && !saveGuard.error)), 45000,
+                false, 'etiquetas:confirmar-arte-editor');
+            } finally { acceptingConfirmation = false; }
+            if (confirmed !== true) throw Object.assign(new Error('A gravação da arte não foi confirmada. Recarregue a página antes de continuar.'), { uncertain: true });
+            if (!active.current || saveGuard.error) throw saveGuard.error || Object.assign(new Error('O editor mudou durante uma gravação. Recarregue antes de continuar.'), { requiresRefresh: true });
+            loadedArtConfig.current = values.artConfig;
+            return true;
+          },
           (errors) => { throw new Error(Object.values(flattenFormErrors(errors))[0]); }
-        ).then((saved) => { if (!saved) throw new Error('Não foi possível validar a etiqueta.'); })
-      )
-      .then(() => {
-        if (latestRequestedSnapshotRef.current === serialized) setAutoSaveStatus('saved');
+        );
+        if (saved !== true) throw new Error('Não foi possível validar a etiqueta.');
+        confirmedSnapshot.current = serialized;
+        if (active.current && latestRequestedSnapshotRef.current === serialized) {
+          setSaveError(''); setAutoSaveStatus('saved');
+        }
+        } finally { if (saveGuard.active === sessionId.current) saveGuard.active = null; }
       })
       .catch((error) => {
-        if (lastQueuedSnapshotRef.current === serialized)
-          lastQueuedSnapshotRef.current = previousSnapshot;
-        setAutoSaveStatus('error');
-        console.error('Erro no salvamento automático da etiqueta:', error);
-        throw error;
+        const failure = error instanceof Error ? error : Object.assign(new Error('Não foi possível salvar a arte. Tente novamente.'), { cause: error });
+        if ((error as { uncertain?: boolean; requiresRefresh?: boolean })?.uncertain || (error as { requiresRefresh?: boolean })?.requiresRefresh) saveGuard.error = failure;
+        if (active.current) {
+          saveFailure.current = failure;
+          lastQueuedSnapshotRef.current = confirmedSnapshot.current;
+          setSaveError(failure.message); setAutoSaveStatus('error');
+        }
+        throw failure;
       });
 
     saveQueueRef.current = operation;
     return operation;
-  };
+  }, [saveGuard, validateConfig, onSaveConfig, oppColorsMap, selectedOppId, title, normalPrice, promoPrice, showPromoPrice,
+    priceColor, showTitle, scaleTens, scaleHundreds, scaleThousands, scaleTenThousands, titlePos, titleWidth,
+    promoPricePos, dePricePorGroupPos, dePricePorGroupRotation, dePricePorGroupGap,
+    lastQueuedSnapshotRef, latestRequestedSnapshotRef, saveQueueRef, setAutoSaveStatus]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -603,13 +679,14 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
       setAutoSaveStatus('saved');
       return;
     }
-    if (isArtConfigLoading) return;
+    if (isArtConfigLoading || artQueryError || saveGuard.error || saveFailure.current || isClosing) return;
 
     const snapshot = getSnapshot();
     const serialized = JSON.stringify(snapshot);
     if (!lastQueuedSnapshotRef.current) {
       lastQueuedSnapshotRef.current = serialized;
       latestRequestedSnapshotRef.current = serialized;
+      confirmedSnapshot.current = serialized;
       return;
     }
     if (serialized === lastQueuedSnapshotRef.current) return;
@@ -618,20 +695,41 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
       queueAutoSave(snapshot, serialized).catch(() => undefined);
     }, 500);
     return () => clearTimeout(timer);
-  }, [isOpen, isArtConfigLoading, getSnapshot]);
+  }, [isOpen, isArtConfigLoading, artQueryError, saveGuard, isClosing, getSnapshot, queueAutoSave,
+    lastQueuedSnapshotRef, latestRequestedSnapshotRef, setAutoSaveStatus]);
 
   const handleBackToErp = async () => {
+    if (closing.current || actionInFlight.current || isArtConfigLoading || artQueryError || saveGuard.error) return;
+    closing.current = true; setIsClosing(true);
     const snapshot = getSnapshot();
     const serialized = JSON.stringify(snapshot);
     try {
+      if (saveFailure.current) throw saveFailure.current;
       if (serialized !== lastQueuedSnapshotRef.current || autoSaveStatus === 'saving') {
         if (serialized !== lastQueuedSnapshotRef.current) queueAutoSave(snapshot, serialized);
-        await saveQueueRef.current;
+        const drained = await withTimeout(saveQueueRef.current.then(() => true), 45000, false, 'etiquetas:aguardar-saida-editor');
+        if (!drained) throw Object.assign(new Error('A confirmação das alterações excedeu o prazo. Recarregue a página antes de continuar.'), { uncertain: true });
       }
-      onClose();
-    } catch {
+      if (active.current) onClose();
+    } catch (error) {
+      if ((error as { uncertain?: boolean })?.uncertain) {
+        saveGuard.error = error as Error;
+        saveFailure.current = error as Error;
+        if (active.current) { setSaveError((error as Error).message); setAutoSaveStatus('error'); }
+      }
       toast.error('A alteração ainda não foi salva. Tente voltar novamente.');
+    } finally {
+      closing.current = false;
+      if (active.current) setIsClosing(false);
     }
+  };
+
+  const retrySave = async () => {
+    if (saveGuard.error || isArtConfigLoading || artQueryError || closing.current || actionInFlight.current) return;
+    saveFailure.current = null; setSaveError('');
+    lastQueuedSnapshotRef.current = confirmedSnapshot.current;
+    const snapshot = getSnapshot();
+    try { await queueAutoSave(snapshot, JSON.stringify(snapshot), true); } catch { /* Visible owner error is set by the queue. */ }
   };
 
   const keyboardPositionSetters = useMemo(
@@ -660,10 +758,8 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
   );
 
   usePriceLabelEditorKeyboardShortcuts({
-    isOpen,
+    isOpen: isOpen && !isArtConfigLoading && !artQueryError && !saveGuard.error && !isClosing && !actionBusy,
     selectedElement,
-    onUndo: handleUndo,
-    onRedo: handleRedo,
     positionSetters: keyboardPositionSetters,
   });
 
@@ -1066,6 +1162,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
 
   // A visão muda somente o contexto e as cores específicas da oportunidade.
   const handleSelectOpportunityContext = (newOppId: string) => {
+    opportunitySelectionRevision.current += 1;
     setSelectedOppId(newOppId);
   };
 
@@ -1354,19 +1451,56 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
     },
   ];
 
-  const handleCopyImage = () => validateArtwork(getSnapshot(), () => copyLabelImageToClipboard(previewRef.current), (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+  const runArtworkAction = async (operation: () => Promise<unknown>) => {
+    if (!active.current || actionInFlight.current || closing.current || isArtConfigLoading || artQueryError || saveGuard.error) return;
+    actionInFlight.current = true; setActionBusy(true); setActionError('');
+    try { await operation(); }
+    catch (error) { if (active.current) setActionError(error instanceof Error ? error.message : 'Não foi possível concluir a ação da arte.'); }
+    finally { actionInFlight.current = false; if (active.current) setActionBusy(false); }
+  };
+  const invalidArtworkAction = (errors: Parameters<typeof flattenFormErrors>[0]) => {
+    if (active.current) setActionError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da arte.');
+  };
+  const handleExport = (action: 'copy' | 'download') => runArtworkAction(async () => {
+    if (isTestValuesModalOpen) throw new Error('Conclua o teste de numeração antes de exportar a arte.');
+    const snapshot = structuredClone(getSnapshot());
+    const serialized = JSON.stringify(snapshot);
+    await validateExport({ layoutId: String(config.layoutId || 'preco_2x5_restored'), action, snapshot }, async (values) => {
+      const stillCurrent = () => active.current && JSON.stringify(latestSnapshot.current()) === serialized;
+      if (!stillCurrent()) throw new Error('A arte mudou durante a exportação. Tente novamente.');
+      await exportLabelImage(previewRef.current, values, stillCurrent);
+      if (stillCurrent()) toast.success(values.action === 'copy'
+        ? 'Imagem da etiqueta copiada para a área de transferência!' : 'Download da imagem PNG iniciado!');
+      return true;
+    }, invalidArtworkAction);
+  });
+  const handleRenameTitle = () => runArtworkAction(async () => {
+    const newTitle = window.prompt('Nome / Título da Arte:', title);
+    if (newTitle === null) return;
+    await validateTitle({ title: newTitle }, (values) => {
+      if (!active.current) return false;
+      setSelectedElement('title'); setSelectedElements(new Set(['title']));
+      setTitle(values.title);
+      toast.success('Título da arte atualizado!');
+      return true;
+    }, invalidArtworkAction);
+  });
 
-  const handleDownloadPng = () => validateArtwork(getSnapshot(), () => {
-    downloadLabelImage(
-      previewRef.current,
-      'etiqueta_preco_' + selectedOppId + '_' + Date.now() + '.png'
-    );
-  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-
+  const editingDisabled = isArtConfigLoading || Boolean(artQueryError || saveGuard.error) || isClosing || actionBusy;
+  const stopDisabledEditing = (event: React.SyntheticEvent) => { if (editingDisabled) { event.preventDefault(); event.stopPropagation(); } };
   return (
     <div
       className={`fixed inset-0 z-50 flex flex-col animate-fade-in overflow-hidden w-screen h-screen ${isStandaloneTemplate ? 'bg-white dark:bg-slate-950' : 'bg-slate-900/90 backdrop-blur-md'}`}
     >
+      {(artQueryError || saveError || opportunityQueryError || actionError) && <div role="alert" className="shrink-0 bg-red-50 p-3 text-sm text-red-800">
+        {actionError && <p>{actionError}</p>}
+        {artQueryError && <p>{artQueryError} <button type="button" onClick={() => setQueryRevision((value) => value + 1)}>Consultar arte novamente</button></p>}
+        {saveError && <p>{saveError} {!saveGuard.error && <button type="button" onClick={() => void retrySave()}>Tentar salvar novamente</button>}</p>}
+        {opportunityQueryError && <p>{opportunityQueryError} <button type="button" onClick={() => setOpportunityQueryRevision((value) => value + 1)}>Consultar oportunidades novamente</button></p>}
+      </div>}
+      {isArtConfigLoading && <div role="status" className="shrink-0 bg-blue-50 p-3 text-sm text-blue-800"><i aria-hidden="true" className="bi bi-arrow-repeat animate-spin mr-2" />Consultando a arte da etiqueta...</div>}
+      {actionBusy && <div role="status" className="shrink-0 bg-blue-50 p-3 text-sm text-blue-800"><i aria-hidden="true" className="bi bi-arrow-repeat animate-spin mr-2" />Preparando a ação da arte...</div>}
+      <fieldset disabled={editingDisabled} className="contents" onClickCapture={stopDisabledEditing} onPointerDownCapture={stopDisabledEditing} onMouseDownCapture={stopDisabledEditing} onKeyDownCapture={stopDisabledEditing}>
       <PriceLabelEditorHeader
         canUndo={canUndo}
         canRedo={canRedo}
@@ -1376,17 +1510,9 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
       />
 
       <PriceLabelMenuBar
-        onDownloadPng={handleDownloadPng}
-        onCopyImage={handleCopyImage}
-        onRenameTitle={() => {
-          setSelectedElement('title');
-          setSelectedElements(new Set(['title']));
-          const newTitle = window.prompt('Nome / Título da Arte:', title);
-          if (newTitle !== null && newTitle.trim()) {
-            setTitle(newTitle.trim().toUpperCase());
-            toast.success('Título da arte atualizado!');
-          }
-        }}
+        onDownloadPng={() => void handleExport('download')}
+        onCopyImage={() => void handleExport('copy')}
+        onRenameTitle={() => void handleRenameTitle()}
         onOpenLayersModal={() => setIsLayersModalOpen(true)}
         showSafetyMargin={showSafetyMargin}
         onToggleSafetyMargin={() => setShowSafetyMargin(!showSafetyMargin)}
@@ -1703,25 +1829,26 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
       {/* Modal de Preenchimento de Dados da Etiqueta */}
       <PriceLabelDataFillModal
         isOpen={isDataFillModalOpen}
+        ownerKey={JSON.stringify([config.layoutId, selectedOppId, selectedMagnitude])}
         onClose={() => setIsDataFillModalOpen(false)}
-        onApplyProductTitle={(prodName) => {
+        onApplyProductTitle={(prodName, stillCurrent) => {
+          if (stillCurrent && !stillCurrent()) return false;
           setTitle(prodName);
           setShowTitle(true);
-          setIsDataFillModalOpen(false);
-          toast.success(`Nome "${prodName}" aplicado na etiqueta!`);
+          return true;
+        }}
+        onApplyData={(values, stillCurrent) => {
+          if (stillCurrent && !stillCurrent()) return false;
+          setTitle(values.title); setNormalPrice(values.normalPrice); setPromoPrice(values.promoPrice);
+          setCentsText(values.centsText); setCurrencySymbol(values.currencySymbol); setInstallments(values.installments);
+          return true;
         }}
         title={title}
-        setTitle={setTitle}
         normalPrice={normalPrice}
-        setNormalPrice={setNormalPrice}
         promoPrice={promoPrice}
-        setPromoPrice={setPromoPrice}
         centsText={centsText}
-        setCentsText={setCentsText}
         currencySymbol={currencySymbol}
-        setCurrencySymbol={setCurrencySymbol}
         installments={installments}
-        setInstallments={setInstallments}
       />
 
       <PriceLabelEditorFooter autoSaveStatus={autoSaveStatus} />
@@ -1755,6 +1882,7 @@ export const PriceLabelArtEditorModal: React.FC<PriceLabelArtEditorModalProps> =
         testNormalD3={testNormalD3}
         setTestNormalD3={setTestNormalD3}
       />
+      </fieldset>
     </div>
   );
 };

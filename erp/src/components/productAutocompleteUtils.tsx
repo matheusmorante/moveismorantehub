@@ -27,9 +27,10 @@ export const fetchAllProductSearchResults = async (
     activeOnly: includeDeactivated ? undefined : true,
     isDraft: false,
     supplierId,
-  });
+  }, { throwOnError: true });
 
-  return result.data || [];
+  if (!result || !Array.isArray(result.data)) throw new Error('A busca de produtos não foi confirmada.');
+  return result.data;
 };
 
 export const normalizeProductSearch = (value: string) =>

@@ -12,8 +12,8 @@ export interface PriceLabelArtEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   config: LabelConfig;
-  onSaveConfig: (updatedConfig: Partial<LabelConfig>) => void | Promise<void>;
-  onArtConfigLoaded?: (artConfig: Record<string, any>) => void;
+  onSaveConfig: (updatedConfig: Partial<LabelConfig>, stillCurrent?: () => boolean) => boolean | Promise<boolean>;
+  onArtConfigLoaded?: (artConfig: NonNullable<LabelConfig['artConfig']>, stillCurrent?: () => boolean) => void;
   initialProduct?: {
     name?: string;
     price?: string;

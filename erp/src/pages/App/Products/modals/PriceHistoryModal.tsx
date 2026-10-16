@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { inventoryBatchEditFormSchema } from '../../../../../../shared-utils/catalogFormSchemas';
+import { inventoryBatchEditCommandFormSchema, priceHistoryQueryFormSchema } from '../../../../../../shared-utils/catalogFormSchemas';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import CurrencyInput from '@/components/CurrencyInput';
 import { formatCurrency, formatDateTime } from '@/pages/utils/formatters';
 import Product from '@/pages/types/product.type';
 import { updateInventoryMove } from '@/pages/utils/inventoryService';
@@ -18,9 +20,11 @@ interface PriceHistoryModalProps {
   readonly onClose: () => void;
 }
 
-export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
+export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = (props) => props.isOpen
+  ? <PriceHistoryEditor {...props} key={props.product ? props.product.id || 'unidentified' : 'all'} /> : null;
+
+const PriceHistoryEditor: React.FC<PriceHistoryModalProps> = ({
   product,
-  isOpen,
   onClose,
 }) => {
   const [activeTab, setActiveTab] = useState<'prices' | 'batches'>('prices');
@@ -30,51 +34,94 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCost, setEditCost] = useState<number>(0);
   const [editQty, setEditQty] = useState<number>(0);
-  const form = useZodForm(inventoryBatchEditFormSchema, { quantity: editQty, unitCost: editCost });
+  const [editingEntry, setEditingEntry] = useState<InventoryMoveEntry | null>(null);
+  const scopeId = product ? product.id || '' : undefined;
+  const form = useZodForm(inventoryBatchEditCommandFormSchema, { quantity: editQty, unitCost: editCost, moveId: '', productId: '', previousQuantity: 0, previousUnitCost: 0 });
+  const { validateValues: validateQuery } = useZodForm(priceHistoryQueryFormSchema, { productId: scopeId, tab: activeTab });
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [queryError, setQueryError] = useState('');
+  const [uncertain, setUncertain] = useState(false);
+  const mounted = useRef(false), locked = useRef(false), replayBlocked = useRef(false), request = useRef(0);
+  const close = () => { if (!locked.current) onClose(); };
 
   useEffect(() => {
-    if (!isOpen) return;
+    mounted.current = true;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !locked.current) {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+    return () => { mounted.current = false; window.removeEventListener('keydown', handleKeyDown); };
+  }, [onClose]);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    const revision = ++request.current;
+    setLoading(true); setQueryError('');
+    const current = () => mounted.current && revision === request.current;
     try {
-      if (activeTab === 'prices') {
-        const prices = await loadPriceHistory(product?.id);
-        setPriceHistory(prices);
+      const values = await validateQuery({ productId: scopeId, tab: activeTab }, (errors) => {
+        if (current()) setQueryError(Object.values(flattenFormErrors(errors))[0] || 'Confira a consulta do histórico.');
+      });
+      if (!values || !current()) return false;
+      if (values.tab === 'prices') {
+        const result = await withTimeout(loadPriceHistory(values.productId).then((rows) => ({ rows })), 15_000, null, 'historico:precos');
+        if (!current()) return false;
+        if (!result) throw new Error('Consulta sem confirmação.');
+        setPriceHistory(result.rows);
       } else {
-        const batches = await loadBatchHistory(product?.id);
-        setBatchHistory(batches);
+        const result = await withTimeout(loadBatchHistory(values.productId).then((rows) => ({ rows })), 15_000, null, 'historico:lotes');
+        if (!current()) return false;
+        if (!result) throw new Error('Consulta sem confirmação.');
+        setBatchHistory(result.rows);
       }
-    } catch (err: unknown) {
-      console.error('[PriceHistoryModal] Erro ao buscar históricos:', err);
-      toast.error('Erro ao carregar dados do histórico.');
+      return true;
+    } catch {
+      if (current()) setQueryError('Não foi possível consultar o histórico. Tente carregar novamente.');
+      return false;
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
-  }, [activeTab, product?.id]);
+  }, [activeTab, scopeId, validateQuery]);
 
   useEffect(() => {
-    if (!isOpen) return;
     void fetchData();
-  }, [isOpen, fetchData]);
+  }, [fetchData]);
 
-  if (!isOpen) return null;
+  const handleSave = async () => {
+    if (locked.current || replayBlocked.current || !editingEntry) return;
+    locked.current = true; setIsSaving(true); setError('');
+    try {
+      await form.validateAndRun({ quantity: editQty, unitCost: editCost, moveId: editingId || '', productId: editingEntry.product_id,
+        previousQuantity: Number(editingEntry.quantity), previousUnitCost: Number(editingEntry.unit_cost ?? 0) }, async (values) => {
+        if (!mounted.current) return;
+        const result = await withTimeout(updateInventoryMove(values.moveId, { quantity: values.quantity, unitCost: values.unitCost },
+          { productId: values.productId, quantity: values.previousQuantity, unitCost: values.previousUnitCost }).then((move) => ({ move })),
+          30_000, null, 'historico:editar-lote');
+        if (!mounted.current) return;
+        if (!result?.move?.id) throw { uncertain: true };
+        setEditingId(null); setEditingEntry(null);
+        toast.success('Lote atualizado com sucesso!');
+        if (!await fetchData() && mounted.current) setError('O lote foi atualizado, mas o histórico não pôde ser recarregado.');
+      }, (errors) => { if (mounted.current) setError(Object.values(flattenFormErrors(errors))[0] || 'Confira os valores do lote.'); });
+    } catch (cause) {
+      if (!mounted.current) return;
+      const details = cause as { uncertain?: boolean; persistedMoveId?: string };
+      if (details?.uncertain || cause instanceof TypeError) {
+        replayBlocked.current = true; setUncertain(true);
+        setError(details?.persistedMoveId ? 'A alteração foi gravada, mas o saldo não foi confirmado. Consulte o estoque antes de repetir.'
+          : 'A alteração não foi confirmada. Consulte o histórico antes de repetir.');
+      } else setError(cause instanceof Error ? cause.message : 'Não foi possível alterar o lote. Confira os dados e as permissões.');
+    } finally { locked.current = false; if (mounted.current) setIsSaving(false); }
+  };
 
   const currentListCount = (activeTab === 'prices' ? priceHistory : batchHistory).length;
 
   return (
     <div
       className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
-      onClick={onClose}
+      onClick={close}
     >
       <div
         role="dialog"
@@ -104,7 +151,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
             </div>
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               aria-label="Fechar modal"
               className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 rounded-xl transition-all border border-slate-100 dark:border-slate-700 cursor-pointer"
             >
@@ -122,7 +169,8 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
               type="button"
               role="tab"
               aria-selected={activeTab === 'prices'}
-              onClick={() => setActiveTab('prices')}
+              disabled={isSaving}
+              onClick={() => { if (!locked.current) { setActiveTab('prices'); setEditingId(null); setEditingEntry(null); if (!replayBlocked.current) setError(''); } }}
               className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${
                 activeTab === 'prices'
                   ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
@@ -136,7 +184,8 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
               type="button"
               role="tab"
               aria-selected={activeTab === 'batches'}
-              onClick={() => setActiveTab('batches')}
+              disabled={isSaving}
+              onClick={() => { if (!locked.current) setActiveTab('batches'); }}
               className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${
                 activeTab === 'batches'
                   ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
@@ -151,6 +200,11 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900">
+          {error && <p role="alert" className="m-4 text-sm text-red-700">{error}</p>}
+          {isSaving && <p role="status" className="m-4 text-sm animate-pulse">Validando e atualizando o lote…</p>}
+          {queryError && <div role="alert" className="m-4 text-sm text-red-700">{queryError}
+            <button type="button" disabled={isSaving} onClick={() => { void fetchData(); }} className="ml-2 underline">Carregar novamente</button>
+          </div>}
           {loading ? (
             <div className="flex flex-col items-center justify-center py-24 gap-4">
               <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -158,7 +212,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                 Carregando histórico...
               </p>
             </div>
-          ) : currentListCount === 0 ? (
+          ) : currentListCount === 0 && !queryError ? (
             <div className="flex flex-col items-center justify-center py-24 gap-4 opacity-30">
               <i
                 className={`bi ${activeTab === 'prices' ? 'bi-journal-x' : 'bi-box-seam'} text-5xl text-slate-400`}
@@ -307,6 +361,7 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                           {editingId === entry.id ? (
                             <input
                               type="number"
+                              disabled={isSaving || uncertain}
                               aria-label="Editar quantidade"
                               value={editQty}
                               onChange={(e) => setEditQty(Number(e.target.value))}
@@ -330,6 +385,9 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                             <div className="flex items-center justify-end gap-1">
                               <span className="text-[10px] font-black text-slate-400">R$</span>
                               <CurrencyInput
+                                id="batch-edit-cost"
+                                label="Editar custo"
+                                disabled={isSaving || uncertain}
                                 value={editCost}
                                 onChangeValue={(val) => setEditCost(val)}
                                 showBadge={false}
@@ -360,30 +418,8 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                                 <>
                                   <button
                                     type="button"
-                                    onClick={async () => {
-                                      const validated = await form.validateAndRun({ quantity: editQty, unitCost: editCost }, (data) => data,
-                                        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-                                      if (!validated) return;
-                                      setIsSaving(true);
-                                      try {
-                                        await updateInventoryMove(entry.id, {
-                                          quantity: validated.quantity,
-                                          unitCost: validated.unitCost,
-                                        });
-                                        toast.success('Lote atualizado com sucesso!');
-                                        setEditingId(null);
-                                        await fetchData();
-                                      } catch (err: unknown) {
-                                        console.error(
-                                          '[PriceHistoryModal] Erro ao atualizar lote:',
-                                          err
-                                        );
-                                        toast.error('Erro ao atualizar lote.');
-                                      } finally {
-                                        setIsSaving(false);
-                                      }
-                                    }}
-                                    disabled={isSaving}
+                                    onClick={handleSave}
+                                    disabled={isSaving || uncertain}
                                     className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-100 dark:shadow-none cursor-pointer"
                                     title="Confirmar"
                                   >
@@ -395,7 +431,8 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => setEditingId(null)}
+                                    disabled={isSaving}
+                                    onClick={() => { if (!locked.current) { setEditingId(null); setEditingEntry(null); if (!replayBlocked.current) setError(''); } }}
                                     className="p-2 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-lg hover:bg-slate-200 cursor-pointer"
                                     title="Cancelar"
                                   >
@@ -405,10 +442,13 @@ export const PriceHistoryModal: React.FC<PriceHistoryModalProps> = ({
                               ) : (
                                 <button
                                   type="button"
+                                  disabled={isSaving || uncertain || loading || !!queryError}
                                   onClick={() => {
+                                    if (locked.current || replayBlocked.current) return;
                                     setEditingId(entry.id);
-                                    setEditCost(entry.unit_cost || 0);
-                                    setEditQty(entry.quantity);
+                                    setEditingEntry({ ...entry }); setError('');
+                                    setEditCost(Number(entry.unit_cost ?? 0));
+                                    setEditQty(Number(entry.quantity));
                                   }}
                                   className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all cursor-pointer"
                                   title="Editar Lote"

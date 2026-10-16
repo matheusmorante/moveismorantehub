@@ -2,7 +2,7 @@ import React from 'react';
 import Order from '@/pages/types/order.type';
 import { OrderHistoryListRef } from '../OrderHistoryList';
 import { SalesOrderModalsManager } from '../hooks/useSalesOrderModals';
-import NewSaleOrder from '../pages/NewSaleOrder';
+import NewSaleOrder from '../pages/NewSaleOrder.tsx';
 import UnlinkedReturnOrderModal from './UnlinkedReturnOrderModal';
 import AssistanceOrderModal from './AssistanceOrderModal';
 import OrderEditModal from './OrderEditModal';

@@ -42,8 +42,8 @@ export const VariationCompositionItemsTab: React.FC<VariationCompositionItemsTab
         productId: product.id,
         variationId: variation?.id,
         description: variation ? variation.name : product.name,
-        unitPrice: variation?.unitPrice || product.unitPrice || 0,
-        stock: variation?.stock || product.stock || 0,
+        unitPrice: variation?.unitPrice ?? product.unitPrice ?? 0,
+        stock: variation?.stock ?? product.stock ?? 0,
       };
       return { ...prev, comboItems: currentItems };
     });

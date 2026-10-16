@@ -1,72 +1,18 @@
-import { changeAddressField } from '../../../../../../../../shared-utils/addressSelection';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Person from '@/pages/types/person.type';
-import {
-  savePerson,
-  getPersonByIdentifiers,
-  isEmployeeEmailTaken,
-  isSupplierNameTaken,
-} from '@/pages/utils/personService';
-import {
-  getUserProfileByEmail,
-  getUserProfileByIdOrEmail,
-  saveEmployeeInProfile,
-} from '@/pages/utils/employeeProfileService';
-import { toast } from 'react-toastify';
-import { capitalizePerson } from '@/pages/utils/formatters';
 import { getSettings } from '@/pages/utils/settingsService';
 import { createPersonFormSchema } from '@/pages/utils/personService/personFormValidation';
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { getAddressByCep, getShippingRouteUrl } from '@/pages/utils/maps';
-import { UserRole } from '@/context/AuthContext';
-import { getPrimaryRole } from '@/pages/utils/accessRoles';
+import { useZodForm } from '@/hooks/useZodForm';
 import { setTestArtifactMode } from '../../../../../../../../shared-utils/testArtifactContext';
 import { readTestArtifactIdentity } from '../../../../../../../../shared-utils/testArtifactPolicy';
-import { cepLookupFormSchema, emailLookupFormSchema } from '../../../../../../../../shared-utils/lookupFormSchemas';
 
-export const EMPLOYEE_ROLES: {
-  value: UserRole;
-  label: string;
-  description: string;
-  icon: string;
-}[] = [
-  {
-    value: 'administrator',
-    label: 'Administrador',
-    description: 'Acesso total a todas as áreas do sistema',
-    icon: 'bi-shield-shaded',
-  },
-  {
-    value: 'manager',
-    label: 'Gestor',
-    description: 'Gestão operacional, estoque e relatórios',
-    icon: 'bi-briefcase-fill',
-  },
-  {
-    value: 'stockist',
-    label: 'Estoquista',
-    description: 'Controle, contagens e movimentações de estoque',
-    icon: 'bi-boxes',
-  },
-  {
-    value: 'seller',
-    label: 'Vendedor',
-    description: 'Vendas, pedidos e clientes',
-    icon: 'bi-tag-fill',
-  },
-  {
-    value: 'deliverer',
-    label: 'Entregador / Montador',
-    description: 'Rotas de entrega e montagens',
-    icon: 'bi-truck',
-  },
-  {
-    value: 'pending',
-    label: 'Sem Acesso',
-    description: 'Acesso bloqueado temporariamente',
-    icon: 'bi-slash-circle',
-  },
-];
+import { createInitialPersonState } from './personFormState';
+import { usePersonAddress } from './usePersonAddress';
+import { usePersonContacts } from './usePersonContacts';
+import { useEmployeeRoles, EMPLOYEE_ROLES } from './useEmployeeRoles';
+import { usePersonSubmit } from './usePersonSubmit';
+
+export { EMPLOYEE_ROLES };
 
 export interface UsePersonFormProps {
   isOpen: boolean;
@@ -91,417 +37,78 @@ export const usePersonForm = ({
 }: UsePersonFormProps) => {
   const isEmployee = collectionName === 'employees';
 
-  const [formData, setFormData] = useState<Partial<Person>>({
-    personType: 'PF',
-    fullName: '',
-    socialName: '',
-    cpfCnpj: '',
-    email: '',
-    phone: '',
-    noPhone: false,
-    active: true,
-    type: collectionName as any,
-    fullAddress: {
-      cep: '',
-      street: '',
-      number: '',
-      neighborhood: '',
-      city: '',
-      state: 'PR',
-      housingType: '',
-      complement: '',
-      mapsUrl: '',
-      observation: '',
-    },
-    noAddress: false,
-    marketingOrigin: '',
-    position: '',
-    role: 'seller',
-    roles: ['seller'],
-    additionalContacts: [],
-    observations: '',
-    stockOrigins: collectionName === 'suppliers' ? ['normal'] : undefined,
+  const [formData, setFormData] = useState<Partial<Person>>(() =>
+    createInitialPersonState(collectionName, person, title)
+  );
+
+  const [settings] = useState(getSettings());
+  const form = useZodForm(
+    createPersonFormSchema(collectionName, settings.requiredFields),
+    formData
+  );
+
+  const isTestArtifact = Boolean(readTestArtifactIdentity(formData));
+
+  // Reset/sync form state when modal opens or person changes
+  useEffect(() => {
+    setFormData(createInitialPersonState(collectionName, person, title));
+  }, [person, isOpen, collectionName, title]);
+
+  // Sub-hook: Address handling & CEP lookup
+  const {
+    isAddressOpen,
+    setIsAddressOpen,
+    handleAddressChange,
+    handleCepBlur,
+    routeUrl,
+  } = usePersonAddress({
+    formData,
+    setFormData,
+    isEmployee,
+    person,
   });
 
-  const [loading, setLoading] = useState(false);
-  const isTestArtifact = Boolean(readTestArtifactIdentity(formData));
-  const [settings] = useState(getSettings());
-  const form = useZodForm(createPersonFormSchema(collectionName, settings.requiredFields), formData);
-  const emailLookupForm = useZodForm(emailLookupFormSchema, { email: '' });
-  const cepLookupForm = useZodForm(cepLookupFormSchema, { cep: '' });
-  const emailLookupRevision = useRef(0);
-  const cepLookupRevision = useRef(0);
-  const isInitialMount = useRef(true);
-  const [isAddressOpen, setIsAddressOpen] = useState(!isEmployee);
+  // Sub-hook: Additional contacts list management
+  const {
+    addAdditionalContact,
+    removeAdditionalContact,
+    updateAdditionalContact,
+  } = usePersonContacts({
+    formData,
+    setFormData,
+  });
 
-  const toggleEmployeeRole = (roleValue: UserRole) => {
-    const currentRoles =
-      formData.roles && formData.roles.length > 0
-        ? [...formData.roles]
-        : formData.role
-          ? [formData.role]
-          : ['seller'];
+  // Sub-hook: Employee role management and email blur sync
+  const { toggleEmployeeRole, handleEmployeeEmailBlur } = useEmployeeRoles({
+    formData,
+    setFormData,
+    isEmployee,
+    person,
+  });
 
-    let nextRoles: UserRole[];
+  // Sub-hook: Submission pipeline using Strategy Pattern
+  const { loading, handleSubmit } = usePersonSubmit({
+    form,
+    formData,
+    collectionName,
+    person,
+    isTestArtifact,
+    canManageAccessRoles,
+    onSuccess,
+    onClose,
+  });
 
-    if (roleValue === 'pending') {
-      nextRoles = ['pending'];
-    } else {
-      const withoutPending = currentRoles.filter((r) => r !== 'pending');
-      if (withoutPending.includes(roleValue)) {
-        nextRoles = withoutPending.filter((r) => r !== roleValue) as UserRole[];
-        if (nextRoles.length === 0) {
-          nextRoles = ['pending'];
-        }
-      } else {
-        nextRoles = [...withoutPending, roleValue] as UserRole[];
-      }
-    }
-
-    const defaultRoleNames: Record<UserRole, string> = {
-      administrator: 'Administrador',
-      manager: 'Gestor',
-      stockist: 'Estoquista',
-      seller: 'Vendedor',
-      deliverer: 'Entregador / Montador',
-      accountant: 'Contador',
-      pending: 'Sem Acesso',
-    };
-
-    const primaryRole = getPrimaryRole(nextRoles);
-
-    setFormData((prev) => ({
-      ...prev,
-      roles: nextRoles,
-      role: primaryRole,
-      position:
-        !prev.position ||
-        prev.position.trim() === '' ||
-        EMPLOYEE_ROLES.some((er) => er.label === prev.position) ||
-        prev.position.includes('/')
-          ? nextRoles
-              .filter((r) => r !== 'pending')
-              .map((r) => defaultRoleNames[r])
-              .join(' / ') || defaultRoleNames[primaryRole]
-          : prev.position,
-    }));
+  const setIsTestArtifact = (enabled: boolean) => {
+    if (!canMarkTestArtifact || person || collectionName !== 'customers') return;
+    setFormData((prev) => setTestArtifactMode(prev, 'fullAddress', enabled));
   };
-
-  const handleEmployeeEmailBlur = async () => {
-    const revision = ++emailLookupRevision.current;
-    if (!isEmployee || !formData.email?.trim()) return;
-    const values = await emailLookupForm.validateValues({ email: formData.email },
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!values || revision !== emailLookupRevision.current) return;
-
-    try {
-      const isTaken = await isEmployeeEmailTaken(values.email, person?.id);
-      if (revision !== emailLookupRevision.current) return;
-      if (isTaken) {
-        toast.error('Este e-mail já está sendo utilizado por outro colaborador.');
-        return;
-      }
-
-      const profile = await getUserProfileByEmail(values.email);
-      if (!profile || revision !== emailLookupRevision.current) return;
-
-      const profileRoles =
-        profile.roles && profile.roles.length > 0
-          ? profile.roles
-          : profile.role
-            ? [profile.role]
-            : ['seller'];
-
-      setFormData((current) => current.email?.trim() !== values.email ? current : ({
-        ...current,
-        fullName: current.fullName || profile.full_name || profile.email,
-        position: current.position || profile.position || '',
-        role:
-          current.role || (profile.role as UserRole) || getPrimaryRole(profileRoles as UserRole[]),
-        roles:
-          current.roles && current.roles.length > 0 ? current.roles : (profileRoles as UserRole[]),
-      }));
-      toast.info('Dados e cargos da conta vinculados ao funcionário.');
-    } catch (error) {
-      console.error('Erro ao localizar conta pelo e-mail:', error);
-      if (revision === emailLookupRevision.current) toast.error('Não foi possível localizar a conta. Tente novamente.');
-    }
-  };
-
-  useEffect(() => {
-    if (person) {
-      const initialRoles =
-        person.roles && person.roles.length > 0
-          ? person.roles
-          : person.role
-            ? [person.role]
-            : ['seller'];
-
-      setFormData({
-        ...person,
-        role: person.role || getPrimaryRole(initialRoles as UserRole[]),
-        roles: initialRoles as UserRole[],
-        personType: person.personType || 'PF',
-        fullAddress: {
-          ...person.fullAddress,
-          cep: person.fullAddress?.cep || '',
-          street: person.fullAddress?.street || '',
-          number: person.fullAddress?.number || '',
-          neighborhood: person.fullAddress?.neighborhood || '',
-          city: person.fullAddress?.city || '',
-          state: person.fullAddress?.state || 'PR',
-          housingType: (person.fullAddress as any)?.housingType || '',
-          complement: person.fullAddress?.complement || '',
-          mapsUrl:
-            person.fullAddress?.mapsUrl ||
-            (person.fullAddress as any)?.googleMapsUrl ||
-            (person.fullAddress as any)?.mapsLink ||
-            '',
-          observation: person.fullAddress?.observation || '',
-        },
-        additionalContacts: person.additionalContacts || [],
-        observations: person.observations || '',
-      });
-      if (isEmployee && person.email) {
-        getUserProfileByEmail(person.email)
-          .then((prof) => {
-            if (prof?.roles && prof.roles.length > 0) {
-              setFormData((prev) => ({
-                ...prev,
-                roles: (prof.roles || prev.roles) as UserRole[],
-                role: prof.role || getPrimaryRole(prof.roles || []) || prev.role,
-              }));
-            } else if (prof?.role) {
-              setFormData((prev) => ({
-                ...prev,
-                role: prof.role || prev.role,
-                roles: [prof.role as UserRole].filter(Boolean),
-              }));
-            }
-          })
-          .catch(() => {});
-      }
-      if (isEmployee) {
-        const hasAddressData = !!(
-          person.fullAddress?.street ||
-          person.fullAddress?.cep ||
-          person.fullAddress?.city
-        );
-        setIsAddressOpen(hasAddressData);
-      } else {
-        setIsAddressOpen(true);
-      }
-    } else {
-      setIsAddressOpen(!isEmployee);
-      setFormData({
-        personType: 'PF',
-        fullName: '',
-        socialName: '',
-        cpfCnpj: '',
-        email: '',
-        phone: '',
-        noPhone: false,
-        active: true,
-        type: collectionName as any,
-        role: 'seller',
-        roles: ['seller'],
-        fullAddress: {
-          cep: '',
-          street: '',
-          number: '',
-          neighborhood: '',
-          city: '',
-          state: 'PR',
-          housingType: '',
-          complement: '',
-          mapsUrl: '',
-          observation: '',
-        },
-        noAddress: false,
-        marketingOrigin: '',
-        position: title === 'Vendedor' ? 'Vendedor' : '',
-        additionalContacts: [],
-        observations: '',
-        stockOrigins: collectionName === 'suppliers' ? ['normal'] : undefined,
-      });
-    }
-    isInitialMount.current = true;
-  }, [person, isOpen]);
-
-  const handleAddressChange = (field: string, value: string) => {
-    setFormData((prev: Partial<Person>) => {
-      const currentAddress = prev.fullAddress || {
-        cep: '',
-        street: '',
-        number: '',
-        neighborhood: '',
-        city: '',
-        state: 'PR',
-        housingType: '',
-        complement: '',
-        mapsUrl: '',
-        observation: '',
-      };
-      return {
-        ...prev,
-        fullAddress: changeAddressField(currentAddress, field, value),
-      };
-    });
-  };
-
-  // Auto-enable noAddress for "Consumidor Final" in registration
-  useEffect(() => {
-    if (!formData.fullName) return;
-    const isFinalConsumer = formData.fullName.toLowerCase().trim() === 'consumidor final';
-    if (isFinalConsumer && !formData.noAddress) {
-      setFormData((prev) => ({ ...prev, noAddress: true }));
-    }
-  }, [formData.fullName]);
-
-  const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
-    const revision = ++cepLookupRevision.current;
-    if (!e.target.value.trim()) return;
-    const values = await cepLookupForm.validateValues({ cep: e.target.value },
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (values && revision === cepLookupRevision.current) {
-      try {
-        const data = await getAddressByCep(values.cep);
-        if (data && !(data as any).error && revision === cepLookupRevision.current) {
-          setFormData((prev: Partial<Person>) => prev.fullAddress?.cep?.replace(/\D/g, '') !== values.cep ? prev : ({
-            ...prev,
-            fullAddress: {
-              ...prev.fullAddress!,
-              street: data.street || prev.fullAddress?.street || '',
-              neighborhood: data.neighborhood || prev.fullAddress?.neighborhood || '',
-              city: data.city || prev.fullAddress?.city || '',
-              state: (data.state || prev.fullAddress?.state || 'PR').toUpperCase(),
-            },
-          }));
-        }
-      } catch {
-        if (revision === cepLookupRevision.current) toast.error('Não foi possível consultar o CEP. Tente novamente.');
-      }
-    }
-  };
-
-  const addAdditionalContact = () => {
-    const current = formData.additionalContacts || [];
-    setFormData({ ...formData, additionalContacts: [...current, { name: '', phone: '' }] });
-  };
-
-  const removeAdditionalContact = (index: number) => {
-    const current = formData.additionalContacts || [];
-    setFormData({ ...formData, additionalContacts: current.filter((_, i) => i !== index) });
-  };
-
-  const updateAdditionalContact = (index: number, field: 'name' | 'phone', value: string) => {
-    const current = formData.additionalContacts || [];
-    const updated = current.map((c, i) => (i === index ? { ...c, [field]: value } : c));
-    setFormData({ ...formData, additionalContacts: updated });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    return form.validateAndRun(formData, async (validatedData) => {
-      setLoading(true);
-      try {
-
-        if (isEmployee && validatedData.email && validatedData.email.trim() !== '') {
-          const isEmailTaken = await isEmployeeEmailTaken(validatedData.email, person?.id);
-          if (isEmailTaken) {
-            toast.error('Já existe outro colaborador cadastrado com este e-mail.');
-            return;
-          }
-        }
-
-        if (collectionName === 'suppliers' && validatedData.fullName && validatedData.fullName.trim() !== '') {
-          const isNameTaken = await isSupplierNameTaken(validatedData.fullName, person?.id);
-          if (isNameTaken) {
-            toast.error('Já existe um fornecedor cadastrado com este nome.');
-            return;
-          }
-        }
-
-        if (!person) {
-          const existing = await getPersonByIdentifiers(
-            {
-              cpfCnpj: validatedData.cpfCnpj || '',
-              email: validatedData.email || '',
-              phone: validatedData.phone || '',
-            },
-            collectionName
-          );
-
-          if (existing) {
-            if (collectionName === 'suppliers') {
-              toast.error('Este fornecedor já está cadastrado.');
-              return;
-            } else if (collectionName === 'customers') {
-              toast.warn(
-                'Aviso: Já existe um cliente cadastrado com este CPF/CNPJ, e-mail ou celular.'
-              );
-            } else if (collectionName === 'employees') {
-              toast.error('Este funcionário já está cadastrado.');
-              return;
-            }
-          }
-        }
-
-        const dataToSave = capitalizePerson({ ...validatedData, isDraft: false } as Person);
-        if (dataToSave.position?.trim() === '') {
-          dataToSave.position = null as any;
-        }
-        if (isEmployee) {
-          if (!dataToSave.roles || dataToSave.roles.length === 0) {
-            dataToSave.roles = dataToSave.role ? [dataToSave.role] : ['seller'];
-          }
-          dataToSave.role = dataToSave.role || getPrimaryRole(dataToSave.roles);
-        }
-
-        const saveOptions = !person && collectionName === 'customers' && isTestArtifact
-          ? { isTestArtifact: true }
-          : undefined;
-        const savedPerson = saveOptions
-          ? await savePerson(dataToSave.type || collectionName, dataToSave, saveOptions)
-          : await savePerson(dataToSave.type || collectionName, dataToSave);
-
-        if (isEmployee) {
-          try {
-            const userProfile = await getUserProfileByIdOrEmail(person?.id, dataToSave.email);
-            if (userProfile) {
-              await saveEmployeeInProfile(userProfile, dataToSave, canManageAccessRoles);
-            }
-          } catch (profErr) {
-            console.warn('Aviso ao sincronizar profile do colaborador:', profErr);
-          }
-        }
-
-        toast.success(person ? 'Atualizado com sucesso!' : 'Criado com sucesso!');
-        if (onSuccess) onSuccess(savedPerson);
-        onClose();
-      } catch (error) {
-        toast.error('Erro ao salvar.');
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-  };
-
-  const routeUrl =
-    formData.fullAddress?.mapsUrl ||
-    (formData.fullAddress?.street?.trim() ? getShippingRouteUrl(formData.fullAddress as any) : '');
 
   return {
     form,
     formData,
     setFormData,
     isTestArtifact,
-    setIsTestArtifact: (enabled: boolean) => {
-      if (!canMarkTestArtifact || person || collectionName !== 'customers') return;
-      setFormData((prev) => setTestArtifactMode(prev, 'fullAddress', enabled));
-    },
+    setIsTestArtifact,
     canMarkTestArtifact: canMarkTestArtifact && !person && collectionName === 'customers',
     loading,
     settings,

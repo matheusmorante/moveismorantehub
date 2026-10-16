@@ -107,6 +107,7 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
             stateHint={formData.fullAddress?.state || 'PR'}
             label="Logradouro"
             required={collectionName === 'customers'}
+            routeUrl={routeUrl}
             className="md:col-span-3 flex flex-col gap-2 relative group/field"
           />
           <div className="flex flex-col gap-2">

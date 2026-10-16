@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { financeService } from '@/pages/services/financeService';
 import { AccountReceivable, FinancialCategory, PaymentStatus } from '../../../types/finance.type';
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { receivableFormSchema, receivableSettlementFormSchema } from '../../../../../../shared-utils/financialFormSchemas';
+import { useZodForm } from '@/hooks/useZodForm';
+import { receivableFormSchema, receivableSettlementFormSchema, financialToday } from '../../../../../../shared-utils/financialFormSchemas';
 import type { FieldErrors } from 'react-hook-form';
 import type { z } from 'zod';
+import { useFinancialOperation } from '../useFinancialOperation';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 interface ReceivableModalProps {
   onClose: () => void;
@@ -13,14 +15,20 @@ interface ReceivableModalProps {
   receivable?: AccountReceivable | null;
 }
 
-export default function ReceivableModal({ onClose, onSaved, receivable }: ReceivableModalProps) {
-  const [loading, setLoading] = useState(false);
+export default function ReceivableModal(props: ReceivableModalProps) {
+  return <ReceivableModalForm key={props.receivable?.id || 'new'} {...props} />;
+}
+function ReceivableModalForm({ onClose, onSaved, receivable }: ReceivableModalProps) {
+  const operation = useFinancialOperation();
+  const loading = operation.busy;
+  const [categoryError, setCategoryError] = useState('');
+  const close = () => { if (!operation.isBusy()) onClose(); };
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
 
   const [formData, setFormData] = useState({
     description: receivable?.description || '',
     amount: receivable?.amount || 0,
-    due_date: receivable?.due_date || new Date().toISOString().split('T')[0],
+    due_date: receivable?.due_date || financialToday(),
     status: receivable?.status || ('pending' as PaymentStatus),
     category_id: receivable?.category_id || '',
     customer_name: receivable?.customer_name || '',
@@ -29,24 +37,20 @@ export default function ReceivableModal({ onClose, onSaved, receivable }: Receiv
   const form = useZodForm(receivableFormSchema, formData);
   const settlementValues = {
     id: receivable?.id || '', description: receivable?.description || '', amount: receivable?.amount ?? 0,
-    category_id: receivable?.category_id, date: new Date().toISOString().split('T')[0],
+    category_id: receivable?.category_id, date: financialToday(),
     status: receivable?.status || ('pending' as PaymentStatus),
   };
   const settlementForm = useZodForm(receivableSettlementFormSchema, settlementValues);
-  const showValidationError = (errors: FieldErrors) => {
-    toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a conta a receber.');
-  };
-
+  const showValidationError = (errors: FieldErrors) => { if (operation.current()) toast.error(operation.invalid(errors)); };
   useEffect(() => {
-    const fetchCats = async () => {
-      try {
-        const cats = await financeService.getCategories('income');
-        setCategories(cats || []);
-      } catch (error) {
-        console.error('Erro ao buscar categorias', error);
-      }
-    };
-    fetchCats();
+    let active = true;
+    void withTimeout(financeService.getCategories('income'), 15_000, null, 'financeiro:categorias')
+      .then((cats) => {
+        if (!active) return;
+        if (cats) setCategories(cats);
+        else setCategoryError('As categorias não responderam. Feche e reabra para consultar novamente.');
+      }).catch(() => { if (active) setCategoryError('Não foi possível carregar as categorias. Feche e reabra para consultar novamente.'); });
+    return () => { active = false; };
   }, []);
 
   const handleChange = (
@@ -60,56 +64,25 @@ export default function ReceivableModal({ onClose, onSaved, receivable }: Receiv
   };
 
   const handleSave = async (data: z.output<typeof receivableFormSchema>) => {
-    setLoading(true);
-    try {
-      if (receivable?.id) {
-        await financeService.updateReceivable(receivable.id, data);
-        toast.success('Conta a receber atualizada!');
-      } else {
-        await financeService.createReceivable(data);
-        toast.success('Conta a receber cadastrada!');
-      }
-      onSaved();
-    } catch (error) {
-      console.error(error);
-      toast.error('Erro ao salvar conta a receber.');
-    } finally {
-      setLoading(false);
-    }
+    if (!operation.current()) return;
+    await operation.wait(receivable?.id
+      ? financeService.updateReceivable(receivable.id, data) : financeService.createReceivable(data));
+    if (!operation.current()) return;
+    toast.success('Conta a receber salva!');
+    onSaved();
   };
 
-  const handleReceive = async (data: z.output<typeof receivableSettlementFormSchema>) => {
-    setLoading(true);
-    try {
-      await financeService.updateReceivable(data.id, {
-        status: 'paid',
-        payment_date: data.date,
-      });
-
-      // Generate Transaction Record automaticaly
-      await financeService.createTransaction({
-        type: 'income',
-        amount: data.amount,
-        date: data.date,
-        description: `Recebimento: ${data.description}`,
-        payment_method: 'Manual/Outros',
-        category_id: data.category_id,
-        receivable_id: data.id,
-      });
-
-      toast.success('Conta recebida com sucesso!');
-      onSaved();
-    } catch (error) {
-      console.error(error);
-      toast.error('Erro ao receber conta.');
-    } finally {
-      setLoading(false);
-    }
+  const handleReceive = async (account: z.output<typeof receivableSettlementFormSchema>) => {
+    if (!operation.current()) return;
+    await operation.wait(financeService.settleAccount({ kind: 'receivable', account }));
+    if (!operation.current()) return;
+    toast.success('Conta recebida com sucesso!');
+    onSaved();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={close}></div>
 
       <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col max-h-[90vh] overflow-hidden animate-slide-up">
         {/* Header */}
@@ -128,15 +101,18 @@ export default function ReceivableModal({ onClose, onSaved, receivable }: Receiv
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={close}
             className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 transition-colors"
           >
             <i className="bi bi-x-lg"></i>
           </button>
         </div>
 
+        {operation.error && <p role="alert" className="p-4 text-red-700">{operation.error}</p>}
+        {categoryError && <p role="alert" className="p-4 text-red-700">{categoryError}</p>}
+        {loading && <p role="status" className="p-4 animate-pulse">Validando e salvando a conta…</p>}
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 xl:p-8 space-y-6">
+        <fieldset disabled={operation.blocked} className="flex-1 overflow-y-auto p-6 xl:p-8 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2 md:col-span-2">
               <label className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -226,14 +202,14 @@ export default function ReceivableModal({ onClose, onSaved, receivable }: Receiv
               ></textarea>
             </div>
           </div>
-        </div>
+        </fieldset>
 
         {/* Footer */}
         <div className="p-6 xl:p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between gap-4">
-          {receivable?.id && receivable.status !== 'paid' ? (
+          {receivable?.id && (receivable.status === 'pending' || receivable.status === 'overdue') ? (
             <button
-              onClick={() => void settlementForm.validateAndRun(settlementValues, handleReceive, showValidationError)}
-              disabled={loading}
+              onClick={() => void operation.run(() => settlementForm.validateAndRun(settlementValues, handleReceive, showValidationError))}
+              disabled={operation.blocked}
               className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-200 dark:shadow-none transition-all active:scale-95 flex items-center gap-2"
             >
               <i className="bi bi-arrow-down-circle text-lg"></i>
@@ -245,14 +221,14 @@ export default function ReceivableModal({ onClose, onSaved, receivable }: Receiv
 
           <div className="flex gap-4">
             <button
-              onClick={onClose}
+              onClick={close}
               className="flex-1 px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs text-slate-500 hover:bg-slate-100 transition-colors"
             >
               Cancelar
             </button>
             <button
-              onClick={() => void form.validateAndRun(formData, handleSave, showValidationError)}
-              disabled={loading}
+              onClick={() => void operation.run(() => form.validateAndRun(formData, handleSave, showValidationError))}
+              disabled={operation.blocked}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-emerald-200 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (

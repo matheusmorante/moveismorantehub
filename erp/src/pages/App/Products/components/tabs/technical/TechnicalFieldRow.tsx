@@ -31,9 +31,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   const {
     rawValue,
     isManual,
-    isNotApplicable,
-    isAlwaysApplicable,
-    isApplicable,
     isFieldInvalid,
     isColorField,
     isDepthOrLengthField,
@@ -58,16 +55,14 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
           className={`min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
             isFieldInvalid
               ? 'text-red-600 dark:text-red-400'
-              : isNotApplicable
-                ? 'text-slate-400 dark:text-slate-500'
-                : 'text-slate-600 dark:text-slate-300'
+              : 'text-slate-600 dark:text-slate-300'
           }`}
         >
           <span>
             {field.name}
             {field.unit ? ` (${field.unit})` : ''}
           </span>
-          {isApplicable && (
+          {field.isRequired && (
             <span className="text-red-500" aria-label="Obrigatório">
               *
             </span>
@@ -98,28 +93,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               <i className="bi bi-arrow-left-right" />
             </button>
           )}
-          {/* Campos opcionais começam desligados; valor vazio explícito significa que se aplica. */}
-          {!field.isRequired && !isManual && (
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isApplicable}
-              onClick={() => {
-                onValueChange(field.name, isApplicable ? 'Não se aplica' : '');
-              }}
-              className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                isApplicable ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-300 dark:bg-slate-700'
-              }`}
-              title="Se aplica?"
-            >
-              <span
-                aria-hidden="true"
-                className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                  isApplicable ? 'translate-x-3' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          )}
 
           {isManual && (
             <button
@@ -137,9 +110,16 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
 
       <TechnicalFieldInput
         field={field}
-        value={rawValue !== undefined && rawValue !== null ? rawValue : ''}
+        value={
+          rawValue !== undefined &&
+          rawValue !== null &&
+          rawValue !== 'Não se aplica' &&
+          rawValue !== 'N/A'
+            ? rawValue
+            : ''
+        }
         isInvalid={isFieldInvalid}
-        disabled={!isAlwaysApplicable && (rawValue === 'Não se aplica' || rawValue === 'N/A')}
+        disabled={false}
         onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
       />
     </div>

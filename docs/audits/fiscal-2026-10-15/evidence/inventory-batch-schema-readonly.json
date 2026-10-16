@@ -1,0 +1,171 @@
+{
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "checkedAt": "2026-10-15",
+  "operation": "read-only schema and function definitions; no commercial rows or Auth writes",
+  "functions": [
+    {
+      "nspname": "public",
+      "proname": "assert_test_product_variation",
+      "definition": "CREATE OR REPLACE FUNCTION public.assert_test_product_variation(p_product_id text, p_variation_id text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nDECLARE v_parent text; v_uuid uuid;\nBEGIN\n  IF nullif(p_variation_id,'') IS NULL THEN RETURN; END IF;\n  IF p_variation_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN\n    v_uuid := p_variation_id::uuid;\n  ELSE\n    RETURN;\n  END IF;\n  SELECT v.product_id::text INTO v_parent\n  FROM public.product_variations v WHERE v.id = v_uuid;\n  IF NOT FOUND OR v_parent IS DISTINCT FROM p_product_id THEN\n    RAISE EXCEPTION 'TEST_ARTIFACT_VARIATION_PRODUCT_MISMATCH';\n  END IF;\nEND; $function$\n"
+    },
+    {
+      "nspname": "public",
+      "proname": "is_administrator",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_administrator()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  SELECT EXISTS (\n    SELECT 1\n    FROM public.profiles\n    WHERE id = auth.uid()\n      AND (\n        role = 'administrator'\n        OR 'administrator' = ANY(coalesce(roles, ARRAY[]::text[]))\n      )\n  );\n$function$\n"
+    },
+    {
+      "nspname": "public",
+      "proname": "sync_single_variation_parent_data",
+      "definition": "CREATE OR REPLACE FUNCTION public.sync_single_variation_parent_data(p_product_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n  v_product public.products%ROWTYPE;\n  v_image_urls text;\n  v_variation_id uuid;\n  v_details jsonb;\n  v_has_detail boolean;\nBEGIN\n  SELECT * INTO v_product FROM public.products WHERE id = p_product_id;\n  IF NOT FOUND OR COALESCE(v_product.item_type, 'product') <> 'product' THEN RETURN; END IF;\n  IF (SELECT count(*) FROM public.product_variations WHERE product_id = p_product_id) <> 1 THEN RETURN; END IF;\n\n  SELECT COALESCE(\n    NULLIF(string_agg(pi.image_url, ',' ORDER BY pi.is_main DESC, pi.created_at), ''),\n    NULLIF((SELECT string_agg(parent_image.image_url, ',' ORDER BY parent_image.ordinality)\n            FROM jsonb_array_elements_text(COALESCE(v_product.images, '[]'::jsonb))\n                 WITH ORDINALITY AS parent_image(image_url, ordinality)), '')\n  ) INTO v_image_urls\n  FROM public.product_images pi WHERE pi.product_id = p_product_id;\n\n  UPDATE public.product_variations\n     SET image_url = v_image_urls,\n         name = COALESCE(NULLIF(v_product.name, ''), v_product.description, name),\n         price = COALESCE(v_product.unit_price, v_product.price, 0),\n         promo_price = v_product.promo_price,\n         cost_price = COALESCE(v_product.cost_price, 0),\n         description = v_product.description,\n         width = v_product.width::text,\n         depth = v_product.depth::text,\n         height = v_product.height::text,\n         use_parent_price = true,\n         use_parent_promo_price = true,\n         use_parent_dimensions = true,\n         use_parent_description = true,\n         use_parent_name = true\n   WHERE product_id = p_product_id;\n\n  SELECT id INTO v_variation_id\n    FROM public.product_variations WHERE product_id = p_product_id;\n  SELECT EXISTS (\n    SELECT 1\n      FROM jsonb_array_elements(\n        CASE WHEN jsonb_typeof(v_product.technical_specs->'variationDetails') = 'array'\n             THEN v_product.technical_specs->'variationDetails' ELSE '[]'::jsonb END\n      ) AS details(detail)\n     WHERE detail->>'id' = v_variation_id::text\n  ) INTO v_has_detail;\n  SELECT COALESCE(jsonb_agg(\n    CASE WHEN detail->>'id' = v_variation_id::text THEN detail || jsonb_build_object(\n      'syncWithParent', true, 'syncUnitPrice', true, 'syncPromoPrice', true,\n      'syncCostPrice', true, 'syncCondition', true, 'syncDescription', true,\n      'syncDimensions', true, 'syncFiscal', true, 'syncWidth', true,\n      'syncHeight', true, 'syncDepth', true, 'syncWeight', true,\n      'syncIpi', true, 'syncFreight', true\n    ) ELSE detail END ORDER BY ordinality\n  ), '[]'::jsonb) INTO v_details\n  FROM jsonb_array_elements(\n    CASE WHEN jsonb_typeof(v_product.technical_specs->'variationDetails') = 'array'\n         THEN v_product.technical_specs->'variationDetails' ELSE '[]'::jsonb END\n  ) WITH ORDINALITY AS details(detail, ordinality);\n  IF NOT v_has_detail THEN\n    v_details := v_details || jsonb_build_array(jsonb_build_object(\n      'id', v_variation_id, 'syncWithParent', true, 'syncUnitPrice', true,\n      'syncPromoPrice', true, 'syncCostPrice', true, 'syncCondition', true,\n      'syncDescription', true, 'syncDimensions', true, 'syncFiscal', true,\n      'syncWidth', true, 'syncHeight', true, 'syncDepth', true,\n      'syncWeight', true, 'syncIpi', true, 'syncFreight', true\n    ));\n  END IF;\n  UPDATE public.products\n     SET technical_specs = jsonb_set(COALESCE(technical_specs, '{}'::jsonb),\n                                     '{variationDetails}', v_details, true)\n   WHERE id = p_product_id;\nEND;\n$function$\n"
+    }
+  ],
+  "columns": [
+    {
+      "table_name": "inventory_moves",
+      "column_name": "id",
+      "data_type": "uuid",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "inventory_moves",
+      "column_name": "product_id",
+      "data_type": "text",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "inventory_moves",
+      "column_name": "variation_id",
+      "data_type": "text",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "inventory_moves",
+      "column_name": "quantity",
+      "data_type": "numeric",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "inventory_moves",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "inventory_moves",
+      "column_name": "date",
+      "data_type": "timestamp with time zone",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "inventory_moves",
+      "column_name": "unit_cost",
+      "data_type": "numeric",
+      "numeric_precision": 10,
+      "numeric_scale": 2
+    },
+    {
+      "table_name": "inventory_moves",
+      "column_name": "observation",
+      "data_type": "text",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "inventory_moves",
+      "column_name": "status",
+      "data_type": "text",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "product_variations",
+      "column_name": "id",
+      "data_type": "uuid",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "product_variations",
+      "column_name": "product_id",
+      "data_type": "uuid",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "product_variations",
+      "column_name": "stock",
+      "data_type": "integer",
+      "numeric_precision": 32,
+      "numeric_scale": 0
+    },
+    {
+      "table_name": "product_variations",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "product_variations",
+      "column_name": "status",
+      "data_type": "character varying",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "product_variations",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "id",
+      "data_type": "uuid",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "status",
+      "data_type": "text",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "technical_specs",
+      "data_type": "jsonb",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "stock",
+      "data_type": "numeric",
+      "numeric_precision": null,
+      "numeric_scale": null
+    },
+    {
+      "table_name": "products",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "numeric_precision": null,
+      "numeric_scale": null
+    }
+  ]
+}

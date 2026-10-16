@@ -4,9 +4,11 @@ import { financeService } from '@/pages/services/financeService';
 import { FinancialTransaction, FinancialCategory } from '../../../types/finance.type';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import CurrencyInput from '../../../../components/CurrencyInput';
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { financialTransactionFormSchema } from '../../../../../../shared-utils/financialFormSchemas';
+import { useZodForm } from '@/hooks/useZodForm';
+import { financialTransactionFormSchema, financialToday } from '../../../../../../shared-utils/financialFormSchemas';
 import type { z } from 'zod';
+import { useFinancialOperation } from '../useFinancialOperation';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -29,11 +31,13 @@ export default function Transactions() {
   // Modal Nova Transação Manual
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
-  const [saving, setSaving] = useState(false);
+  const operation = useFinancialOperation();
+  const saving = operation.busy;
+  const closeModal = () => { if (!operation.isBusy()) setIsModalOpen(false); };
   const [formData, setFormData] = useState({
     type: 'expense' as 'income' | 'expense',
     amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: financialToday(),
     description: '',
     payment_method: 'Manual',
     category_id: '',
@@ -46,8 +50,9 @@ export default function Transactions() {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await financeService.getTransactions();
-      if (currentRequestId === requestId.current) setTransactions(data || []);
+      const data = await withTimeout(financeService.getTransactions(), 15_000, null, 'financeiro:movimentacoes');
+      if (!data) throw new Error('Prazo de consulta excedido.');
+      if (currentRequestId === requestId.current) setTransactions(data);
     } catch {
       if (currentRequestId === requestId.current) {
         setLoadError('Não foi possível carregar as movimentações. Tente novamente.');
@@ -57,10 +62,11 @@ export default function Transactions() {
     }
 
     try {
-      const cats = await financeService.getCategories();
-      if (currentRequestId === requestId.current) setCategories(cats || []);
-    } catch (error) {
-      console.error('Erro ao buscar categorias financeiras:', error);
+      const cats = await withTimeout(financeService.getCategories(), 15_000, null, 'financeiro:categorias');
+      if (!cats) throw new Error('Prazo de consulta excedido.');
+      if (currentRequestId === requestId.current) setCategories(cats);
+    } catch {
+      if (currentRequestId === requestId.current) setLoadError('Não foi possível carregar as categorias. Tente novamente.');
     }
   }, []);
 
@@ -72,27 +78,13 @@ export default function Transactions() {
   }, [fetchTransactions]);
 
   const handleSaveTransaction = async (data: z.output<typeof financialTransactionFormSchema>) => {
-    setSaving(true);
-    try {
-      await financeService.createTransaction(data);
-      toast.success('Movimentação registrada!');
-      setIsModalOpen(false);
-      setFormData({
-        type: 'expense',
-        amount: 0,
-        date: new Date().toISOString().split('T')[0],
-        description: '',
-        payment_method: 'Manual',
-        category_id: '',
-        notes: '',
-      });
-      void fetchTransactions();
-    } catch (error) {
-      console.error(error);
-      toast.error('Erro ao salvar transação.');
-    } finally {
-      setSaving(false);
-    }
+    if (!operation.current()) return;
+    await operation.wait(financeService.createTransaction(data));
+    if (!operation.current()) return;
+    toast.success('Movimentação registrada!');
+    setIsModalOpen(false);
+    setFormData({ type: 'expense', amount: 0, date: financialToday(), description: '', payment_method: 'Manual', category_id: '', notes: '' });
+    void fetchTransactions();
   };
 
   const filtered = transactions.filter((t) => {
@@ -114,6 +106,7 @@ export default function Transactions() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+      {!isModalOpen && operation.error && <p role="alert" className="p-4 text-red-700">{operation.error}</p>}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto overflow-x-hidden p-4 md:p-10">
         <div className="flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-6">
           <div className="flex items-start xl:items-center gap-4 xl:gap-6">
@@ -133,6 +126,7 @@ export default function Transactions() {
           <div className="flex gap-4">
             <button
               onClick={() => setIsModalOpen(true)}
+              disabled={operation.blocked}
               className="flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto"
             >
               <i className="bi bi-plus-lg text-sm xl:text-base" />
@@ -342,21 +336,23 @@ export default function Transactions() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            onClick={() => setIsModalOpen(false)}
+            onClick={closeModal}
           ></div>
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col animate-slide-up">
+          <div role="dialog" aria-modal="true" aria-labelledby="financial-transaction-title" className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col animate-slide-up">
             <div className="p-6 xl:p-8 border-b border-slate-50 dark:border-slate-800">
-              <h2 className="text-xl font-black text-slate-800 dark:text-slate-100">
+              {operation.error && <p role="alert" className="p-4 text-red-700">{operation.error}</p>}
+              {saving && <p role="status" className="p-4 animate-pulse">Validando e registrando a movimentação…</p>}
+              <h2 id="financial-transaction-title" className="text-xl font-black text-slate-800 dark:text-slate-100">
                 Lançamento Direto no Caixa
               </h2>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                 Sem vínculo com Contas a Pagar/Receber
               </p>
             </div>
-            <div className="p-6 xl:p-8 space-y-4">
+            <fieldset disabled={operation.blocked} className="p-6 xl:p-8 space-y-4">
               <div className="flex gap-4 mb-4">
                 <button
-                  onClick={() => setFormData({ ...formData, type: 'income' })}
+                  onClick={() => setFormData({ ...formData, type: 'income', category_id: '' })}
                   className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                     formData.type === 'income'
                       ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-none'
@@ -366,7 +362,7 @@ export default function Transactions() {
                   Entrada
                 </button>
                 <button
-                  onClick={() => setFormData({ ...formData, type: 'expense' })}
+                  onClick={() => setFormData({ ...formData, type: 'expense', category_id: '' })}
                   className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                     formData.type === 'expense'
                       ? 'bg-rose-500 text-white shadow-lg shadow-rose-200 dark:shadow-none'
@@ -414,19 +410,19 @@ export default function Transactions() {
                     </option>
                   ))}
               </select>
-            </div>
+            </fieldset>
             <div className="p-6 xl:p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex gap-4">
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeModal}
                 className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors text-xs uppercase tracking-widest"
               >
                 Cancelar
               </button>
               <button
-                onClick={() => void form.validateAndRun(formData, handleSaveTransaction, (errors) => {
-                  toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a movimentação.');
-                })}
-                disabled={saving}
+                onClick={() => void operation.run(() => form.validateAndRun(formData, handleSaveTransaction, (errors) => {
+                  if (operation.current()) toast.error(operation.invalid(errors));
+                }))}
+                disabled={operation.blocked}
                 className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl transition-colors disabled:opacity-50 text-xs uppercase tracking-widest shadow-lg shadow-blue-200 dark:shadow-none flex justify-center items-center gap-2"
               >
                 {saving ? (

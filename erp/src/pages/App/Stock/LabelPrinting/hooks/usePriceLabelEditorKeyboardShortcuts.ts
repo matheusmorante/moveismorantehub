@@ -9,16 +9,12 @@ type PositionSetter = Dispatch<SetStateAction<Position>>;
 interface UsePriceLabelEditorKeyboardShortcutsParams {
   isOpen: boolean;
   selectedElement: PriceLabelLayerKey;
-  onUndo: () => void;
-  onRedo: () => void;
   positionSetters: Record<MovableLayerKey, PositionSetter>;
 }
 
 export function usePriceLabelEditorKeyboardShortcuts({
   isOpen,
   selectedElement,
-  onUndo,
-  onRedo,
   positionSetters,
 }: UsePriceLabelEditorKeyboardShortcutsParams) {
   useEffect(() => {
@@ -27,21 +23,6 @@ export function usePriceLabelEditorKeyboardShortcuts({
     const handleKeyDown = (e: KeyboardEvent) => {
       const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       const isInput = targetTag === 'input' || targetTag === 'textarea';
-
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        if (isInput) return;
-        e.preventDefault();
-        if (e.shiftKey) onRedo();
-        else onUndo();
-        return;
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-        if (isInput) return;
-        e.preventDefault();
-        onRedo();
-        return;
-      }
 
       if (!selectedElement || selectedElement === 'background') return;
       if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
@@ -57,5 +38,5 @@ export function usePriceLabelEditorKeyboardShortcuts({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, selectedElement, onUndo, onRedo, positionSetters]);
+  }, [isOpen, selectedElement, positionSetters]);
 }

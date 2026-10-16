@@ -1,22 +1,13 @@
 import type { z } from 'zod';
-import { ZodForm } from '@/components/forms/ZodForm';
 import { assemblyListFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { toast } from 'react-toastify';
 import { Drill } from '@/components/shared/DrillIcon';
 import { getLocalISODate } from '@/pages/utils/formatters';
-
-interface Assembly {
-  id: string;
-  item: string;
-  date: string;
-  time: string;
-  type: 'delivery' | 'showroom';
-  status: 'pending' | 'completed';
-  order_id?: number | null;
-  created_at: string;
-}
+import { Assembly } from './assemblyTypes';
+import { AssemblyFormCard } from './AssemblyFormCard';
+import { AssemblyGroupsView } from './AssemblyGroupsView';
 
 interface Props {
   onClose: () => void;
@@ -44,7 +35,6 @@ const AssemblyList = ({ onClose }: Props) => {
         .order('date', { ascending: true });
 
       if (error) {
-        // Tabela pode não existir ainda (404)
         if (
           error.code === '42P01' ||
           error.message?.includes('does not exist') ||
@@ -67,11 +57,20 @@ const AssemblyList = ({ onClose }: Props) => {
   };
 
   useEffect(() => {
-    fetchAssemblies();
+    void fetchAssemblies();
   }, []);
 
-  const handleSave = async (values: z.output<typeof assemblyListFormSchema>) => {
+  const resetForm = () => {
+    setEditingAssembly(null);
+    setItem('');
+    setDate(getLocalISODate(new Date()));
+    setTime('08:00');
+    setType('delivery');
+    setStatus('pending');
+    setShowForm(false);
+  };
 
+  const handleSave = async (values: z.output<typeof assemblyListFormSchema>) => {
     const payload = values;
 
     let error;
@@ -91,7 +90,7 @@ const AssemblyList = ({ onClose }: Props) => {
     } else {
       toast.success(editingAssembly ? 'Montagem atualizada' : 'Montagem agendada');
       resetForm();
-      fetchAssemblies();
+      void fetchAssemblies();
     }
   };
 
@@ -104,7 +103,7 @@ const AssemblyList = ({ onClose }: Props) => {
       toast.error('Erro ao excluir montagem');
     } else {
       toast.success('Montagem excluída');
-      fetchAssemblies();
+      void fetchAssemblies();
     }
   };
 
@@ -118,18 +117,8 @@ const AssemblyList = ({ onClose }: Props) => {
     if (error) {
       toast.error('Erro ao atualizar status');
     } else {
-      fetchAssemblies();
+      void fetchAssemblies();
     }
-  };
-
-  const resetForm = () => {
-    setEditingAssembly(null);
-    setItem('');
-    setDate(getLocalISODate(new Date()));
-    setTime('08:00');
-    setType('delivery');
-    setStatus('pending');
-    setShowForm(false);
   };
 
   const startEdit = (as: Assembly) => {
@@ -187,234 +176,30 @@ const AssemblyList = ({ onClose }: Props) => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 dark:bg-slate-950/50 custom-scrollbar">
           {showForm ? (
-            <div className="max-w-2xl mx-auto bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm p-8 animate-slide-up">
-              <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-3">
-                <i
-                  className={`bi ${editingAssembly ? 'bi-pencil' : 'bi-plus-circle'} text-indigo-500`}
-                />
-                {editingAssembly ? 'Editar Montagem' : 'Nova Montagem'}
-              </h3>
-
-              <ZodForm schema={assemblyListFormSchema} values={{ item, date, time, type, status }} onValid={handleSave} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block ml-1">
-                      Produto / Item <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      required
-                      value={item}
-                      onChange={(e) => setItem(e.target.value)}
-                      placeholder="Ex: Guarda-roupa 6 portas, Cozinha Modulada..."
-                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 px-5 py-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500 dark:focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block ml-1">
-                      Data de Prazo <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      required
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 px-5 py-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500 dark:focus:border-indigo-500 outline-none transition-all"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block ml-1">
-                      Horário (Opcional)
-                    </label>
-                    <input
-                      type="time"
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 px-5 py-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500 dark:focus:border-indigo-500 outline-none transition-all"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block ml-1">
-                      Tipo de Local <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                      <button
-                        type="button"
-                        onClick={() => setType('delivery')}
-                        className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${type === 'delivery' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
-                      >
-                        Entrega (Casa)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setType('showroom')}
-                        className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${type === 'showroom' ? 'bg-white dark:bg-slate-700 text-red-600 shadow-sm' : 'text-slate-400'}`}
-                      >
-                        Mostruário
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block ml-1">
-                      Situação Inicial
-                    </label>
-                    <select
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value as any)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 px-5 py-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500 dark:focus:border-indigo-500 outline-none transition-all appearance-none"
-                    >
-                      <option value="pending">Pendente</option>
-                      <option value="completed">Concluída</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="pt-6 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-2xl transition-all active:scale-95"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-[2] py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-indigo-100 dark:shadow-indigo-900/20 transition-all active:scale-95"
-                  >
-                    {editingAssembly ? 'Salvar Alterações' : 'Confirmar Agendamento'}
-                  </button>
-                </div>
-              </ZodForm>
-            </div>
+            <AssemblyFormCard
+              editingAssembly={editingAssembly}
+              item={item}
+              setItem={setItem}
+              date={date}
+              setDate={setDate}
+              time={time}
+              setTime={setTime}
+              type={type}
+              setType={setType}
+              status={status}
+              setStatus={setStatus}
+              onSave={handleSave}
+              onCancel={resetForm}
+            />
           ) : (
             <div className="space-y-4">
-              {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-                  <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4" />
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                    Carregando montagens...
-                  </p>
-                </div>
-              ) : assemblies.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed border-slate-100 dark:border-slate-800 text-center">
-                  <div className="bg-slate-50 dark:bg-slate-800 p-8 rounded-full mb-6">
-                    <i className="bi bi-calendar-check text-5xl text-slate-200 dark:text-slate-700" />
-                  </div>
-                  <h4 className="text-lg font-black text-slate-800 dark:text-slate-100 mb-2">
-                    Nenhuma montagem agendada
-                  </h4>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest max-w-xs mx-auto leading-relaxed">
-                    Clique no botão "Nova Montagem" para começar a gerenciar sua equipe.
-                  </p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-6">
-                  {Object.entries(
-                    assemblies.reduce(
-                      (acc, as) => {
-                        const d = new Date(as.date + 'T00:00:00');
-                        const today = new Date();
-                        let key = d.toLocaleDateString('pt-BR');
-                        if (
-                          d.getDate() === today.getDate() &&
-                          d.getMonth() === today.getMonth() &&
-                          d.getFullYear() === today.getFullYear()
-                        ) {
-                          key = 'PARA HOJE';
-                        }
-                        if (!acc[key]) acc[key] = [];
-                        acc[key].push(as);
-                        return acc;
-                      },
-                      {} as Record<string, Assembly[]>
-                    )
-                  ).map(([dateLabel, groupAssemblies]) => (
-                    <div key={dateLabel} className="mb-2 animate-fade-in">
-                      <div className="flex items-center gap-2 mb-3 px-2 border-b border-slate-100 dark:border-slate-800 pb-2">
-                        <i className="bi bi-calendar3 text-indigo-600 dark:text-indigo-400" />
-                        <h3 className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest flex-1">
-                          {dateLabel}
-                        </h3>
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                          {groupAssemblies.length}{' '}
-                          {groupAssemblies.length === 1 ? 'montagem' : 'montagens'}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {groupAssemblies.map((as) => (
-                          <div
-                            key={as.id}
-                            className={`group relative p-4 rounded-xl border transition-all shadow-sm hover:shadow-md ${
-                              as.type === 'delivery'
-                                ? 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-900/60'
-                                : 'bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-900/60'
-                            } ${as.status === 'completed' ? 'opacity-60 grayscale' : ''}`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm leading-snug text-slate-900 dark:text-slate-100 font-extrabold line-clamp-2">
-                                  {as.item}
-                                </p>
-                                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                  <span
-                                    className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                                      as.type === 'delivery'
-                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                                    }`}
-                                  >
-                                    {as.type === 'delivery'
-                                      ? 'MONTAGEM FORA'
-                                      : 'MONTAGEM NO DEPÓSITO'}
-                                  </span>
-                                  {as.time && (
-                                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                      <i className="bi bi-clock mr-1" /> {as.time}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <i className="bi bi-chevron-right text-slate-400 dark:text-slate-500 text-lg mt-1" />
-                            </div>
-
-                            {/* Ações (Hover) */}
-                            <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-1 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
-                              <button
-                                onClick={() => toggleStatus(as)}
-                                title={
-                                  as.status === 'completed'
-                                    ? 'Marcar como pendente'
-                                    : 'Marcar como concluída'
-                                }
-                                className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
-                              >
-                                <i
-                                  className={`bi ${as.status === 'completed' ? 'bi-arrow-counterclockwise' : 'bi-check2-all'}`}
-                                />
-                              </button>
-                              <button
-                                onClick={() => startEdit(as)}
-                                className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400"
-                              >
-                                <i className="bi bi-pencil" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(as.id)}
-                                className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-red-600 dark:text-red-400"
-                              >
-                                <i className="bi bi-trash" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <AssemblyGroupsView
+                loading={loading}
+                assemblies={assemblies}
+                onToggleStatus={(as) => void toggleStatus(as)}
+                onStartEdit={startEdit}
+                onDelete={(id) => void handleDelete(id)}
+              />
             </div>
           )}
         </div>

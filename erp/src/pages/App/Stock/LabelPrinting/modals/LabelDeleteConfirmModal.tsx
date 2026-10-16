@@ -1,36 +1,68 @@
 import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_LAYOUT_MODELS } from '../utils/LabelConstants';
 
 interface LabelDeleteConfirmModalProps {
   isOpen: boolean;
   modelToDelete: string | null;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: (stillCurrent?: () => boolean) => Promise<boolean>;
+  isSaving?: boolean;
+  error?: string;
+  blocked?: boolean;
 }
 
-export const LabelDeleteConfirmModal: React.FC<LabelDeleteConfirmModalProps> = ({
-  isOpen,
+const LabelDeleteConfirmDialog: React.FC<LabelDeleteConfirmModalProps & { modelToDelete: string }> = ({
   modelToDelete,
   onClose,
   onConfirm,
+  isSaving = false,
+  error = '',
+  blocked = false,
 }) => {
-  if (!isOpen || !modelToDelete) return null;
+  const [pending, setPending] = useState(false);
+  const [localError, setLocalError] = useState('');
+  const mounted = useRef(false), locked = useRef(false), closed = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const busy = pending || isSaving;
+  const close = () => {
+    if (!mounted.current || locked.current || isSaving || closed.current) return;
+    closed.current = true;
+    onClose();
+  };
+  const confirm = async () => {
+    if (locked.current || isSaving || blocked || closed.current) return;
+    locked.current = true; setPending(true); setLocalError('');
+    try {
+      const confirmed = await onConfirm(() => mounted.current);
+      if (!mounted.current || closed.current) return;
+      if (confirmed === true) { closed.current = true; onClose(); }
+      else setLocalError('A alteração do modelo não foi confirmada. Confira os dados e tente novamente.');
+    } catch (cause) {
+      if (mounted.current) setLocalError(cause instanceof Error ? cause.message : 'Não foi possível excluir o modelo.');
+    } finally {
+      locked.current = false;
+      if (mounted.current) setPending(false);
+    }
+  };
 
   const isSystemDefault = DEFAULT_LAYOUT_MODELS.some((m) => m.id === modelToDelete);
 
   return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
-      <div
-        role="button"
-        tabIndex={0}
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Confirmar exclusão do modelo"
+      aria-busy={busy}
+      onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}
+      className="fixed inset-0 z-[3000] flex items-center justify-center p-4"
+    >
+      <button
+        type="button"
         aria-label="Cancelar exclusão"
         className="absolute inset-0 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300"
-        onClick={onClose}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
-            onClose();
-          }
-        }}
+        onClick={close}
+        disabled={busy}
       />
       <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in zoom-in slide-in-from-bottom-4 duration-300">
         <div className="px-10 py-10 text-center">
@@ -47,17 +79,22 @@ export const LabelDeleteConfirmModal: React.FC<LabelDeleteConfirmModalProps> = (
           </p>
         </div>
 
+        {(error || localError) && <p role="alert" className="px-10 pb-5 text-sm text-red-600">{error || localError}</p>}
+        {busy && <p role="status" className="flex items-center gap-2 px-10 pb-5 text-sm text-blue-600"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />{isSystemDefault ? 'Ocultando modelo…' : 'Excluindo modelo…'}</p>}
+
         <div className="flex border-t border-slate-50 dark:border-slate-800">
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
+            disabled={busy}
             className="flex-1 p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
             Cancelar
           </button>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={() => { void confirm(); }}
+            disabled={busy || blocked}
             className="flex-1 p-6 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors border-l border-slate-50 dark:border-slate-800"
           >
             Sim, Excluir
@@ -66,6 +103,11 @@ export const LabelDeleteConfirmModal: React.FC<LabelDeleteConfirmModalProps> = (
       </div>
     </div>
   );
+};
+
+export const LabelDeleteConfirmModal: React.FC<LabelDeleteConfirmModalProps> = (props) => {
+  if (!props.isOpen || !props.modelToDelete) return null;
+  return <LabelDeleteConfirmDialog key={props.modelToDelete} {...props} modelToDelete={props.modelToDelete} />;
 };
 
 export default LabelDeleteConfirmModal;

@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import type { CategoryType } from '../hooks/useLabelCategory';
 import type { GridModel } from '../types/LabelGridModelTypes';
@@ -15,11 +16,13 @@ interface LabelModelManagerModalProps {
   selectLayout: (model: GridModel) => void;
   setEditingGridModel: (model: GridModel | null) => void;
   setGridModalOpen: (open: boolean) => void;
-  handleDeleteLayout: (id: string) => Promise<void> | void;
+  handleDeleteLayout: (id: string, stillCurrent?: () => boolean) => Promise<boolean>;
+  isSaving?: boolean;
+  error?: string;
+  blocked?: boolean;
 }
 
-export const LabelModelManagerModal: React.FC<LabelModelManagerModalProps> = ({
-  isOpen,
+const LabelModelManagerDialog: React.FC<LabelModelManagerModalProps> = ({
   onClose,
   selectedCategory,
   layoutModels,
@@ -29,11 +32,28 @@ export const LabelModelManagerModal: React.FC<LabelModelManagerModalProps> = ({
   setEditingGridModel,
   setGridModalOpen,
   handleDeleteLayout,
+  isSaving = false,
+  error = '',
+  blocked = false,
 }) => {
-  if (!isOpen) return null;
+  const mounted = useRef(false), locked = useRef(false);
+  const [pending, setPending] = useState(false), [localError, setLocalError] = useState('');
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const busy = pending || isSaving;
+  const close = () => { if (!locked.current && !isSaving) onClose(); };
+  const remove = async (model: GridModel) => {
+    if (locked.current || isSaving || blocked) return;
+    locked.current = true; setPending(true); setLocalError('');
+    try {
+      if (!window.confirm(`Excluir modelo "${model.name}"?`)) return;
+      const confirmed = await handleDeleteLayout(model.id, () => mounted.current);
+      if (mounted.current && !confirmed) setLocalError('A exclusão não foi confirmada. Confira o modelo.');
+    } catch (cause) { if (mounted.current) setLocalError(cause instanceof Error ? cause.message : 'Não foi possível excluir o modelo.'); }
+    finally { locked.current = false; if (mounted.current) setPending(false); }
+  };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+    <div role="dialog" aria-modal="true" aria-label="Gerenciador de modelos" onKeyDown={(event) => { if (event.key === 'Escape') close(); }} className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 bg-slate-950/70 backdrop-blur-md animate-fade-in">
       <div className="bg-white dark:bg-slate-950 w-full h-full md:w-[95vw] md:h-[92vh] rounded-none md:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up border-0 md:border border-white/20 dark:border-slate-800/50">
         {/* Header do Modal */}
         <div className="px-6 py-5 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0">
@@ -64,6 +84,7 @@ export const LabelModelManagerModal: React.FC<LabelModelManagerModalProps> = ({
           <div className="flex items-center gap-3">
             <button
               type="button"
+              disabled={busy}
               onClick={() => {
                 setEditingGridModel(null);
                 setGridModalOpen(true);
@@ -75,7 +96,9 @@ export const LabelModelManagerModal: React.FC<LabelModelManagerModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
+              disabled={busy}
+              aria-label="Fechar gerenciador de modelos"
               className="w-10 h-10 rounded-2xl bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 flex items-center justify-center transition-colors cursor-pointer"
             >
               <i className="bi bi-x-lg text-base" />
@@ -83,6 +106,8 @@ export const LabelModelManagerModal: React.FC<LabelModelManagerModalProps> = ({
           </div>
         </div>
 
+        {(error || localError) && <p role="alert" className="px-6 pt-3 text-sm text-red-600">{error || localError}</p>}
+        {busy && <p role="status" className="flex items-center gap-2 px-6 pt-3 text-sm text-blue-600"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Atualizando modelos…</p>}
         {/* Conteúdo / Lista de Modelos em Grid */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50/50 dark:bg-slate-900/30">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -150,10 +175,11 @@ export const LabelModelManagerModal: React.FC<LabelModelManagerModalProps> = ({
                   <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button
                       type="button"
+                      disabled={busy}
                       onClick={() => {
                         selectLayout(model);
                         setGridModalOpen(false);
-                        onClose();
+                        close();
                         toast.success(`Modelo "${model.name}" selecionado!`);
                       }}
                       className={`flex-1 py-2.5 px-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
@@ -168,6 +194,7 @@ export const LabelModelManagerModal: React.FC<LabelModelManagerModalProps> = ({
 
                     <button
                       type="button"
+                      disabled={busy}
                       onClick={() => {
                         setEditingGridModel(model);
                         setGridModalOpen(true);
@@ -181,11 +208,8 @@ export const LabelModelManagerModal: React.FC<LabelModelManagerModalProps> = ({
                     {isCustom && (
                       <button
                         type="button"
-                        onClick={async () => {
-                          if (window.confirm(`Excluir modelo "${model.name}"?`)) {
-                            await handleDeleteLayout(model.id);
-                          }
-                        }}
+                        disabled={busy || blocked}
+                        onClick={() => void remove(model)}
                         className="p-2.5 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 text-red-600 rounded-2xl transition-colors cursor-pointer"
                         title="Excluir Modelo"
                       >
@@ -202,5 +226,8 @@ export const LabelModelManagerModal: React.FC<LabelModelManagerModalProps> = ({
     </div>
   );
 };
+
+export const LabelModelManagerModal: React.FC<LabelModelManagerModalProps> = (props) => props.isOpen
+  ? <LabelModelManagerDialog key={props.selectedCategory ?? 'none'} {...props} /> : null;
 
 export default LabelModelManagerModal;

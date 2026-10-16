@@ -1,20 +1,7 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
-interface UsePriceLabelTestValuesOptions {
-  promoPrice: string;
-  normalPrice: string;
-  setPromoPrice: (value: string) => void;
-  setNormalPrice: (value: string) => void;
-}
-
-export const usePriceLabelTestValues = ({
-  promoPrice,
-  normalPrice,
-  setPromoPrice,
-  setNormalPrice,
-}: UsePriceLabelTestValuesOptions) => {
+export const usePriceLabelTestValues = () => {
   const [isTestValuesModalOpen, setIsTestValuesModalOpen] = useState(false);
-  const testValuesBackupRef = useRef<{ promoPrice: string; normalPrice: string } | null>(null);
 
   const [testDezenaD1, setTestDezenaD1] = useState(3);
   const [testDezenaD2, setTestDezenaD2] = useState(9);
@@ -30,15 +17,10 @@ export const usePriceLabelTestValues = ({
   const [testNormalD3, setTestNormalD3] = useState(9);
 
   const openTestValuesModal = () => {
-    testValuesBackupRef.current = { promoPrice, normalPrice };
     setIsTestValuesModalOpen(true);
   };
 
   const closeTestValuesModal = () => {
-    if (testValuesBackupRef.current) {
-      setPromoPrice(testValuesBackupRef.current.promoPrice);
-      setNormalPrice(testValuesBackupRef.current.normalPrice);
-    }
     setIsTestValuesModalOpen(false);
   };
 

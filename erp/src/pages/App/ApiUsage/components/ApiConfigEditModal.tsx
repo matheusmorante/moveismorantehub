@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { FormEventHandler } from 'react';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import { ApiConfiguration } from '@/services/apiMonitoring/apiMonitoringTypes';
 import { ApiConfigService } from '@/services/apiMonitoring/apiConfigService';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
@@ -13,40 +15,56 @@ interface ApiConfigEditModalProps {
   onSaved: () => void;
 }
 
-export default function ApiConfigEditModal({
-  config,
-  isOpen,
-  onClose,
-  onSaved,
-}: ApiConfigEditModalProps) {
-  const [formData, setFormData] = useState<ApiConfiguration>({ ...config });
+export default function ApiConfigEditModal(props: ApiConfigEditModalProps) {
+  return props.isOpen ? <ApiConfigEditor key={props.config.service_id} {...props} /> : null;
+}
+function ApiConfigEditor({ config, onClose, onSaved }: ApiConfigEditModalProps) {
+  const [formData, setFormData] = useState(() => ({
+    monthly_limit: config.monthly_limit, free_allowance: config.free_allowance,
+    warning_threshold: config.warning_threshold, critical_threshold: config.critical_threshold,
+    hard_limit: config.hard_limit, price_per_unit: config.price_per_unit, currency: config.currency,
+    circuit_breaker_max_per_minute: config.circuit_breaker_max_per_minute,
+    enabled: config.enabled, block_on_hard_limit: config.block_on_hard_limit,
+  }));
   const [saving, setSaving] = useState(false);
-  const form = useZodForm(apiConfigFormSchema, { ...formData });
-  const handleSave = form.submit(async (values) => {
-    const dataToSave: ApiConfiguration = { ...formData, ...values };
-    setSaving(true);
-    try {
-      const success = await ApiConfigService.saveConfiguration(dataToSave);
-      if (success) {
-        ApiUsageGuard.clearCache(formData.service_id);
-        toast.success(`Configurações de ${formData.service_name} salvas com sucesso!`);
-        onSaved();
-        onClose();
-      } else {
-        toast.error('Erro ao salvar configuração.');
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao salvar.');
-    } finally {
-      setSaving(false);
-    }
-  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira os limites e custos.'));
-
-  if (!isOpen) return null;
+  const [error, setError] = useState('');
+  const [uncertain, setUncertain] = useState(false);
+  const locked = useRef(false), unconfirmed = useRef(false), mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const form = useZodForm(apiConfigFormSchema, formData);
+  const close = () => { if (!locked.current) onClose(); };
+  const markUnconfirmed = () => {
+    unconfirmed.current = true; setUncertain(true);
+    setError('Não foi possível confirmar a gravação. Consulte a configuração antes de repetir.');
+  };
+  const handleSave: FormEventHandler<HTMLFormElement> = (event) => {
+    event.preventDefault();
+    if (locked.current || unconfirmed.current) return;
+    locked.current = true; setSaving(true); setError('');
+    void form.validateAndRun(formData, async (values) => {
+      if (!mounted.current) return;
+      const result = await withTimeout(ApiConfigService.saveConfiguration({ ...config, ...values })
+        .then((success) => ({ success })), 30_000, null, 'api:configuracao');
+      if (!mounted.current) return;
+      if (!result) { markUnconfirmed(); return; }
+      if (!result.success) { setError('Não foi possível salvar a configuração.'); return; }
+      ApiUsageGuard.clearCache(config.service_id);
+      toast.success(`Configurações de ${config.service_name} salvas com sucesso!`);
+      onSaved(); onClose();
+    }, (errors) => {
+      if (!mounted.current) return;
+      const message = Object.values(flattenFormErrors(errors))[0] || 'Confira os limites e custos.';
+      setError(message); toast.error(message);
+    }).catch((cause) => {
+      if (!mounted.current) return;
+      if (cause instanceof TypeError || cause?.uncertain || cause?.code === '') markUnconfirmed();
+      else setError('Não foi possível salvar a configuração. Confira os dados e as permissões.');
+    }).finally(() => { locked.current = false; if (mounted.current) setSaving(false); });
+  };
 
   return (
     <div className="fixed inset-0 z-[9999999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-reveal">
+      <div role="dialog" aria-modal="true" aria-labelledby="api-config-title" className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-reveal">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3">
@@ -54,21 +72,25 @@ export default function ApiConfigEditModal({
               <i className="bi bi-sliders2 text-lg" />
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-slate-100">
-                {formData.service_name}
+              <h3 id="api-config-title" className="text-base font-black text-slate-900 dark:text-slate-100">
+                {config.service_name}
               </h3>
               <p className="text-xs font-bold text-slate-400">Configurações de Limites e Custos</p>
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={close}
+            aria-label="Fechar configuração"
             className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <i className="bi bi-x-lg text-sm" />
           </button>
         </div>
 
+        {error && <p role="alert" className="py-3 text-red-700">{error}</p>}
+        {saving && <p role="status" className="py-3 animate-pulse">Validando e salvando a configuração…</p>}
         <form noValidate onSubmit={handleSave} className="space-y-4 pt-4">
+          <fieldset disabled={saving || uncertain} className="contents">
           {/* Status Ativo / Inativo */}
           <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800">
             <div>
@@ -91,7 +113,7 @@ export default function ApiConfigEditModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-black uppercase text-slate-500 mb-1">
-                Limite Mensal ({formData.billing_unit})
+                Limite Mensal ({config.billing_unit})
               </label>
               <input
                 type="number"
@@ -183,7 +205,7 @@ export default function ApiConfigEditModal({
             <input
               type="checkbox"
               checked={formData.block_on_hard_limit}
-              disabled={formData.criticality === 'CRITICAL'}
+              disabled={config.criticality === 'CRITICAL'}
               onChange={(e) => setFormData({ ...formData, block_on_hard_limit: e.target.checked })}
               className="w-5 h-5 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
             />
@@ -230,7 +252,7 @@ export default function ApiConfigEditModal({
             </label>
             <input
               type="number"
-              min={10}
+              min={1}
               value={formData.circuit_breaker_max_per_minute}
               onChange={(e) =>
                 setFormData({ ...formData, circuit_breaker_max_per_minute: Number(e.target.value) })
@@ -243,18 +265,19 @@ export default function ApiConfigEditModal({
             </p>
           </div>
 
+          </fieldset>
           {/* Botões */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || uncertain}
               className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition-all flex items-center gap-2"
             >
               {saving ? (

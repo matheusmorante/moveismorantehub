@@ -251,8 +251,12 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
   // O snapshot só completa pedidos antigos que ainda não foram migrados.
   const legacyShipping = rawLegacy.shipping || {};
   const legacyScheduling = legacyShipping.scheduling || {};
-  const normalizedStartTime = row.scheduled_start_time || '';
-  const normalizedEndTime = row.scheduled_end_time || '';
+  const normalizedStartTime = row.scheduled_start_time
+    ? String(row.scheduled_start_time).trim().slice(0, 5)
+    : '';
+  const normalizedEndTime = row.scheduled_end_time
+    ? String(row.scheduled_end_time).trim().slice(0, 5)
+    : '';
   const hasScheduledTime = Boolean(
     normalizedStartTime ||
       normalizedEndTime ||
@@ -260,6 +264,8 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
       legacyScheduling.time ||
       legacyScheduling.endTime
   );
+  const resolvedEndDate = legacyScheduling.endDate || '';
+  const resolvedEndTime = normalizedEndTime || legacyScheduling.endTime || '';
   const shipping = {
     ...legacyShipping,
     deliveryMethod: row.delivery_method || legacyShipping.deliveryMethod || 'delivery',
@@ -268,9 +274,11 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
     scheduling: {
       ...legacyScheduling,
       date: row.scheduled_date || legacyScheduling.date || '',
+      endDate: resolvedEndDate,
+      dateType: legacyScheduling.dateType || (resolvedEndDate ? 'range' : 'fixed'),
       startTime: normalizedStartTime || legacyScheduling.startTime || legacyScheduling.time || '',
-      endTime: normalizedEndTime || legacyScheduling.endTime || '',
-      type: legacyScheduling.type || 'range',
+      endTime: resolvedEndTime,
+      type: legacyScheduling.type || (resolvedEndTime ? 'range' : 'fixed'),
       // Um horário registrado não pode ser exibido como “não informado”.
       notInformed: hasScheduledTime ? false : (legacyScheduling.notInformed ?? false),
     },

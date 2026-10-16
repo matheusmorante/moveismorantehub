@@ -161,7 +161,8 @@ export type OrderAction =
   | 'SEND_RETURN_OS_TEAM'
   | 'DUPLICATE_ORDER'
   | 'GENERATE_SALE_FROM_BUDGET'
-  | 'ISSUE_NFE';
+  | 'ISSUE_NFE'
+  | 'SEND_CUSTOMER_ORDER_DIRECT_API';
 
 /** @deprecated Use OrderAction instead */
 export type PdvAction = OrderAction;
@@ -172,6 +173,7 @@ export type IsButtonsClicked = {
   printWarrantyTerm?: boolean;
   sendShippingOrder?: boolean;
   sendCustomerOrder?: boolean;
+  sendCustomerOrderDirectApi?: boolean;
   sendCustomerReviews?: boolean;
   printShippingLabel?: boolean;
   printProductLabel?: boolean;

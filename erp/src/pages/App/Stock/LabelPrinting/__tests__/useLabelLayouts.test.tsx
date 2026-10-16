@@ -8,6 +8,7 @@ import {
   insertRemoteLabelLayout,
 } from '../services/labelLayoutService';
 import { DEFAULT_LAYOUT_MODELS } from '../utils/LabelConstants';
+import { saveCustomLabelLayouts, saveHiddenDefaultLayoutIds } from '../services/labelStorageService';
 
 vi.mock('../services/labelLayoutService', () => ({
   deleteRemoteLabelLayout: vi.fn(),
@@ -22,8 +23,8 @@ vi.mock('../services/labelStorageService', () => ({
   getLastSelectedRoundModelId: () => 'round-small',
   saveCustomLabelLayouts: vi.fn(),
   saveHiddenDefaultLayoutIds: vi.fn(),
-  saveLastSelectedRectModelId: vi.fn(),
-  saveLastSelectedRoundModelId: vi.fn(),
+  saveLastSelectedRectModelId: vi.fn(() => true),
+  saveLastSelectedRoundModelId: vi.fn(() => true),
 }));
 
 vi.mock('../services/priceLabelTemplateSync', () => ({
@@ -39,6 +40,8 @@ vi.mock('../../../../utils/settingsService', () => ({
 describe('useLabelLayouts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(saveCustomLabelLayouts).mockReturnValue(true);
+    vi.mocked(saveHiddenDefaultLayoutIds).mockReturnValue(true);
     vi.mocked(fetchRemoteLabelLayouts).mockResolvedValue({ data: [], error: null });
   });
 
@@ -162,18 +165,15 @@ describe('useLabelLayouts', () => {
 
   it('permite exclusão de layout remoto customizado e chama deleteRemoteLabelLayout', async () => {
     vi.mocked(deleteRemoteLabelLayout).mockResolvedValue({ error: null });
-
-    const { result } = renderHook(() => useLabelLayouts({ selectedCategory: 'identificacao' }));
-
     const remoteLayout = {
       ...DEFAULT_LAYOUT_MODELS[0],
       id: 'db_layout_999',
       name: 'Remoto 999',
     };
 
-    act(() => {
-      result.current.setCustomLayouts([remoteLayout]);
-    });
+    vi.mocked(fetchRemoteLabelLayouts).mockResolvedValueOnce({ data: [remoteLayout], error: null });
+    const { result } = renderHook(() => useLabelLayouts({ selectedCategory: 'identificacao' }));
+    await waitFor(() => expect(result.current.customLayouts).toContainEqual(remoteLayout));
 
     await act(async () => {
       await result.current.handleDeleteLayout('db_layout_999');
@@ -243,7 +243,7 @@ describe('useLabelLayouts', () => {
       (m) => m.name === `${mockModel.name} (Cópia)`
     );
     expect(createdLocal).toBeDefined();
-    expect(String(createdLocal?.id)).toMatch(/^custom_\d+/);
+    expect(String(createdLocal?.id)).toMatch(/^custom_[0-9a-f-]{36}$/);
   });
 
   it('ignora e não persiste configurações padrão quando o modelo solicitado for inexistente', async () => {
@@ -251,7 +251,7 @@ describe('useLabelLayouts', () => {
     const { result } = renderHook(() => useLabelLayouts({ selectedCategory: 'identificacao' }));
 
     act(() => {
-      result.current.toggleDefaultLayout('modelo_completamente_inexistente', 'identificacao');
+      void result.current.toggleDefaultLayout('modelo_completamente_inexistente', 'identificacao');
     });
 
     expect(saveSettings).not.toHaveBeenCalled();
@@ -261,11 +261,11 @@ describe('useLabelLayouts', () => {
     const { saveSettings } = await import('../../../../utils/settingsService');
     const { result } = renderHook(() => useLabelLayouts({ selectedCategory: 'identificacao' }));
     const model = DEFAULT_LAYOUT_MODELS[0];
-    vi.mocked(saveSettings).mockResolvedValue(undefined);
+    vi.mocked(saveSettings).mockResolvedValue({ confirmed: true, cached: true });
     await act(async () => { await result.current.toggleDefaultLayout(model.id, ''); });
     expect(saveSettings).not.toHaveBeenCalled();
     await act(async () => { await result.current.toggleDefaultLayout(model.id, 'identificacao'); });
-    expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ defaultLabelLayoutIds: { [`identificacao_${model.type || 'rect'}`]: model.id } }));
+    expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ defaultLabelLayoutIds: { [`identificacao_${model.type || 'rect'}`]: model.id } }), expect.objectContaining({ confirm: true }));
   });
 
   it('sincroniza artConfig do layout selecionado quando disponível em savedArtConfigs', async () => {

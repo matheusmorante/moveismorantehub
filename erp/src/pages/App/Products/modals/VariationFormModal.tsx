@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
 import Product, { Variation } from '../../../types/product.type';
@@ -6,7 +6,7 @@ import ManageAttributesModal from '../components/modals/attributes/ManageAttribu
 import VariationPhotosTab from '../components/tabs/images/VariationPhotosTab';
 import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
 import { useVariationForm } from '../hooks/variation/useVariationForm';
-import type { VariationTabId } from '../hooks/variation/variationForm.types';
+import type { VariationTabId, VariationFormOperationGuard } from '../hooks/variation/variationForm.types';
 import { VariationIdentificationTab } from '../components/variationTabs/VariationIdentificationTab';
 import { VariationPricingTab } from '../components/variationTabs/VariationPricingTab';
 import { VariationTechnicalTab } from '../components/variationTabs/VariationTechnicalTab';
@@ -26,6 +26,7 @@ interface VariationFormModalProps {
   readonly canMarkTestArtifact?: boolean;
   readonly isTestArtifact?: boolean;
   readonly onTestArtifactChange?: (enabled: boolean) => void;
+  readonly onReplaceImageGlobal?: (oldUrl: string, newUrl: string) => void | Promise<void>;
 }
 
 interface TabDefinition {
@@ -52,6 +53,13 @@ const getFormTabs = (isComposition: boolean, isStockistOnly: boolean): readonly 
 };
 
 export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => {
+  const guards = useRef(new Map<string, VariationFormOperationGuard>());
+  const identity = JSON.stringify([props.parentProduct.parentId || props.parentId || props.parentProduct.id, props.variation?.id || 'new']);
+  if (!guards.current.has(identity)) guards.current.set(identity, { pending: null, error: '' });
+  return props.isOpen ? <VariationFormSession key={identity} {...props} operationGuard={guards.current.get(identity)!} /> : null;
+};
+
+const VariationFormSession: React.FC<VariationFormModalProps & { operationGuard: VariationFormOperationGuard }> = (props) => {
   const { isOpen, parentProduct, variation } = props;
   const { profile } = useAuth();
   const isStockistOnly = isStockistOnlyProfile(profile);
@@ -62,6 +70,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
 
   const {
     loading,
+    error, blocked, referenceErrors, referenceLoading, retryReferences,
     activeTab,
     setActiveTab,
     formData,
@@ -86,6 +95,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
     updateCost,
     handleSubmit,
     handleClose,
+    handleReplaceImageGlobal,
   } = useVariationForm({ ...props, isStockistOnly });
 
   useEffect(() => {
@@ -132,6 +142,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
         aria-label="Fechar modal"
         className="fixed inset-0 bg-slate-900/75 backdrop-blur-md cursor-default"
         onClick={handleClose}
+        disabled={loading}
       />
 
       <div
@@ -163,6 +174,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
             <button
               type="button"
               onClick={handleClose}
+              disabled={loading}
               aria-label="Fechar"
               className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all cursor-pointer"
             >
@@ -320,6 +332,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                   role="tab"
                   aria-selected={activeTab === tab.id}
                   onClick={() => setActiveTab(tab.id)}
+                  disabled={loading || blocked}
                   className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border-b-2 transition-all shrink-0 whitespace-nowrap ${isInheritedDataTab ? 'opacity-50' : ''} ${
                     activeTab === tab.id
                       ? 'border-blue-600 text-blue-600 cursor-pointer'
@@ -336,11 +349,15 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
 
         {/* Corpo do Formulário */}
         <div className="relative flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 sm:gap-6 custom-scrollbar min-h-0">
+          {loading && <p role="status" className="flex items-center gap-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-800"><i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" />Salvando e aguardando a confirmação da variação...</p>}
+          {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+          {(referenceLoading.attributes || referenceLoading.images) && <p role="status" className="text-sm text-slate-600">Carregando atributos e fotos do produto pai...</p>}
+          {(referenceErrors.attributes || referenceErrors.images) && <div role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{[referenceErrors.attributes, referenceErrors.images].filter(Boolean).join(' ')} <button type="button" onClick={retryReferences} disabled={loading || referenceLoading.attributes || referenceLoading.images}>Consultar novamente</button></div>}
           <div
             className={showInheritedDataNotice ? 'pointer-events-none select-none opacity-30 grayscale' : ''}
           >
             <fieldset
-              disabled={showInheritedDataNotice}
+              disabled={showInheritedDataNotice || loading || blocked}
               aria-hidden={showInheritedDataNotice}
               className="m-0 min-w-0 border-0 p-0"
             >
@@ -371,6 +388,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
                   onChangeImages={(newImages) =>
                     setFormData((prev) => (prev ? { ...prev, images: newImages.slice(0, MAX_VARIATION_IMAGES) } : null))
                   }
+                  onReplaceImageGlobal={handleReplaceImageGlobal}
                 />
               )}
 
@@ -448,6 +466,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
           <button
             type="button"
             onClick={handleClose}
+            disabled={loading}
             className="px-5 sm:px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer min-h-[44px]"
           >
             Cancelar
@@ -455,7 +474,7 @@ export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => 
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || blocked}
             className="px-6 sm:px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
           >
             {loading ? 'Salvando...' : variation ? 'Salvar Alterações' : 'Cadastrar'}

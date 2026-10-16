@@ -1,0 +1,181 @@
+{
+  "project": "hkoxhourxwlddgsfdgws",
+  "branch": "primary",
+  "schema": "public",
+  "executedAt": "2026-10-15 19:43:06 UTC",
+  "authorization": "User explicitly authorized this migration and the 15 catalog/pure-function checks",
+  "sourceMigration": "20261015185418_complete_financial_form_commands.sql",
+  "sourceSHA256": "ff4c0f2f424027ddfdd6b0cb5b603d9459615ddcb83826d60a869d9f1eca0331",
+  "remoteHistory": [
+    {
+      "version": "20261015194122",
+      "name": "complete_financial_form_commands"
+    }
+  ],
+  "migrationSuccess": true,
+  "catalog": [
+    {
+      "test": "01_result_nature_columns",
+      "passed": true
+    },
+    {
+      "test": "02_purpose_column",
+      "passed": true
+    },
+    {
+      "test": "03_recurring_rls",
+      "passed": true
+    },
+    {
+      "test": "04_series_fk",
+      "passed": true
+    },
+    {
+      "test": "05_series_index",
+      "passed": true
+    },
+    {
+      "test": "06_two_invoker_commands",
+      "passed": true
+    },
+    {
+      "test": "07_command_timeouts",
+      "passed": true
+    },
+    {
+      "test": "08_command_search_path",
+      "passed": true
+    },
+    {
+      "test": "09_no_anon_command_access",
+      "passed": true
+    },
+    {
+      "test": "10_authenticated_command_access",
+      "passed": true
+    },
+    {
+      "test": "11_unique_transaction_intent",
+      "passed": true
+    },
+    {
+      "test": "12_no_anon_rede_access",
+      "passed": true
+    },
+    {
+      "test": "13_rede_admin_policy",
+      "passed": true
+    },
+    {
+      "test": "14_classification_fallback",
+      "passed": true
+    },
+    {
+      "test": "15_civil_month_clamping",
+      "passed": true
+    }
+  ],
+  "advisors": {
+    "security": {
+      "categories": 6,
+      "totalFindings": 119,
+      "relevant": []
+    },
+    "performance": {
+      "categories": 7,
+      "totalFindings": 333,
+      "relevant": [
+        {
+          "name": "unindexed_foreign_keys",
+          "level": "INFO",
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys",
+          "findings": [
+            {
+              "detail": "Table \\`public.accounts_payable\\` has a foreign key \\`accounts_payable_category_id_fkey\\` without a covering index. This can lead to suboptimal query performance.",
+              "metadata": {
+                "name": "accounts_payable",
+                "type": "table",
+                "schema": "public",
+                "fkey_name": "accounts_payable_category_id_fkey",
+                "fkey_columns": [
+                  6
+                ]
+              },
+              "observed_at": "2026-10-15T19:41:54.811Z"
+            }
+          ]
+        },
+        {
+          "name": "unused_index",
+          "level": "INFO",
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index",
+          "findings": [
+            {
+              "detail": "Index \\`recurring_expenses_category_id_idx\\` on table \\`public.recurring_expenses\\` has not been used",
+              "metadata": {
+                "name": "recurring_expenses",
+                "type": "table",
+                "schema": "public"
+              },
+              "observed_at": "2026-10-15T19:41:54.811Z"
+            },
+            {
+              "detail": "Index \\`recurring_expenses_created_by_idx\\` on table \\`public.recurring_expenses\\` has not been used",
+              "metadata": {
+                "name": "recurring_expenses",
+                "type": "table",
+                "schema": "public"
+              },
+              "observed_at": "2026-10-15T19:41:54.811Z"
+            },
+            {
+              "detail": "Index \\`accounts_payable_recurring_expense_id_idx\\` on table \\`public.accounts_payable\\` has not been used",
+              "metadata": {
+                "name": "accounts_payable",
+                "type": "table",
+                "schema": "public"
+              },
+              "observed_at": "2026-10-15T19:41:54.811Z"
+            }
+          ]
+        },
+        {
+          "name": "multiple_permissive_policies",
+          "level": "WARN",
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0006_multiple_permissive_policies",
+          "findings": [
+            {
+              "detail": "Table \\`public.accounts_receivable\\` has multiple permissive policies for role \\`authenticated\\` for action \\`INSERT\\`. Policies include \\`{\"Escrita permissiva accounts_receivable\",accounts_receivable_authenticated_access}\\`",
+              "metadata": {
+                "name": "accounts_receivable",
+                "type": "table",
+                "schema": "public"
+              },
+              "observed_at": "2026-10-15T19:41:54.811Z"
+            },
+            {
+              "detail": "Table \\`public.accounts_receivable\\` has multiple permissive policies for role \\`authenticated\\` for action \\`SELECT\\`. Policies include \\`{\"Leitura permissiva accounts_receivable\",accounts_receivable_authenticated_access}\\`",
+              "metadata": {
+                "name": "accounts_receivable",
+                "type": "table",
+                "schema": "public"
+              },
+              "observed_at": "2026-10-15T19:41:54.811Z"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "commercialWrites": false,
+  "authChanges": false,
+  "deployment": false,
+  "fiscalTransmission": false,
+  "fixtureRunId": null,
+  "limitations": [
+    "No business fixtures; these checks do not prove concurrent settlement, rollback, replay or actual operator RLS.",
+    "No install into an empty database tested.",
+    "Local migration filename aligned to the MCP-assigned remote version without changing the approved SQL/hash."
+  ],
+  "localMigration": "20261015194122_complete_financial_form_commands.sql"
+}

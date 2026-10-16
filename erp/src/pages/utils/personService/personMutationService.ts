@@ -7,7 +7,9 @@ import {
   getTestArtifactContext,
   stampTestArtifact,
 } from '../../../../../shared-utils/testArtifactContext';
-import { readTestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
+import {
+  isIdentifiedTestArtifact,
+} from '../../../../../shared-utils/testArtifactPolicy';
 import { getRecipientTaxIdValidationMessage } from '../../../../../shared-utils/recipientTaxId';
 
 
@@ -155,18 +157,22 @@ export const updatePerson = async (
         .eq('id', id)
         .maybeSingle();
       if (readError) throw readError;
-      if (!currentPerson) throw new Error('O cadastro não existe para esta execução de teste.');
-      const currentPersonForOwnership = {
-        ...currentPerson,
-        address: parseAddressJson(currentPerson.address),
-      };
-      assertOwnedByTestContext(currentPersonForOwnership);
-      if (readTestArtifactIdentity(currentPersonForOwnership)) {
-        const addressForUpdate = {
-          ...dbPerson,
-          address: dbPerson.address ?? parseAddressJson(currentPerson.full_address ?? currentPerson.address),
+      if (currentPerson) {
+        const currentPersonForOwnership = {
+          ...currentPerson,
+          address: parseAddressJson(currentPerson.address),
+          full_address: parseAddressJson(currentPerson.full_address),
         };
-        Object.assign(dbPerson, stampPersonAddress(addressForUpdate, true));
+        if (isIdentifiedTestArtifact(currentPersonForOwnership)) {
+          assertOwnedByTestContext(currentPersonForOwnership);
+          const addressForUpdate = {
+            ...dbPerson,
+            address:
+              dbPerson.address ??
+              parseAddressJson(currentPerson.full_address ?? currentPerson.address),
+          };
+          Object.assign(dbPerson, stampPersonAddress(addressForUpdate, true));
+        }
       }
     }
     const { data, error } = await supabase.from(TABLE_NAME).update(dbPerson).eq('id', id).select();

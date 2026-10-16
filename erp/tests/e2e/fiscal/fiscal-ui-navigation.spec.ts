@@ -175,7 +175,7 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
 
     const postOrderDialog = page.locator('[role="dialog"][aria-labelledby="post-order-title"]');
     await expect(postOrderDialog).toBeVisible({ timeout: 10000 });
-    const issueButton = postOrderDialog.getByRole('button', { name: /Emitir nota fiscal de saída/i });
+    const issueButton = postOrderDialog.getByRole('button', { name: /Emissão de NF de saída|Emitir nota fiscal de saída/i });
     await expect(issueButton).toBeEnabled({ timeout: 10000 });
     await issueButton.click();
 

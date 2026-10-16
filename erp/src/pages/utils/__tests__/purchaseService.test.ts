@@ -256,6 +256,34 @@ describe('Suíte Unitária e de Integração: purchaseService (Pedidos de Compra
         'Pedido não encontrado'
       );
     });
+
+    it('confirma identidade/flag e preserva compras legadas com status SQL nulo', async () => {
+      const id = 'd9b2d6a1-0001-4000-8000-000000000001';
+      mockSingle.mockResolvedValue({ data: { id, status: null, items: [] }, error: null });
+      const select = vi.fn().mockResolvedValue({ data: [{ id, stockProcessed: true }], error: null });
+      const or = vi.fn().mockReturnValue({ select });
+      mockUpdate.mockReturnValue({ eq: vi.fn().mockReturnValue({ or }) });
+      await updatePurchase(id, { stockProcessed: true });
+      expect(or).toHaveBeenCalledWith('status.neq.cancelled,status.is.null');
+      expect(select).toHaveBeenCalledWith('id, stockProcessed');
+    });
+
+    it('não considera confirmada uma conclusão vazia ou com identidade/flag divergente', async () => {
+      const id = 'd9b2d6a1-0001-4000-8000-000000000001';
+      mockSingle.mockResolvedValue({ data: { id, status: 'ordered', items: [] }, error: null });
+      for (const data of [null, [], [{ id: 'other', stockProcessed: true }], [{ id, stockProcessed: false }]]) {
+        mockUpdate.mockReturnValue({ eq: vi.fn().mockReturnValue({ or: vi.fn().mockReturnValue({ select: vi.fn().mockResolvedValue({ data, error: null }) }) }) });
+        await expect(updatePurchase(id, { stockProcessed: true })).rejects.toThrow('não foi confirmada');
+      }
+    });
+
+    it('interrompe antes da gravação se a consulta falhar ou a compra estiver cancelada', async () => {
+      mockSingle.mockResolvedValueOnce({ data: { id: 'p' }, error: { code: '42501' } });
+      await expect(updatePurchase('p', { stockProcessed: true })).rejects.toMatchObject({ code: '42501' });
+      mockSingle.mockResolvedValueOnce({ data: { id: 'p', status: 'cancelled' }, error: null });
+      await expect(updatePurchase('p', { stockProcessed: true })).rejects.toThrow('cancelado');
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
   });
 
   describe('3. Cancelamento Seguro de Pedido de Compra (cancelPurchase)', () => {

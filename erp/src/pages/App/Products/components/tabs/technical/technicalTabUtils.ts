@@ -104,14 +104,18 @@ export const computeTechnicalFieldItemState = (
       Boolean(formData.depth));
 
   const hasSelectedValue =
-    rawValue !== undefined && rawValue !== null && String(rawValue).trim() !== '';
+    rawValue !== undefined &&
+    rawValue !== null &&
+    String(rawValue).trim() !== '' &&
+    String(rawValue).trim().toLowerCase() !== 'não se aplica' &&
+    String(rawValue).trim().toLowerCase() !== 'n/a';
 
   const isManual = manualFieldNames.includes(field.name);
-  const isNotApplicable = rawValue === 'Não se aplica';
+  const isNotApplicable = rawValue === 'Não se aplica' || rawValue === 'N/A';
   const isAlwaysApplicable = Boolean(field.isRequired);
-  const isApplicable = isAlwaysApplicable || (hasConfiguredValue && !isNotApplicable);
+  const isApplicable = isAlwaysApplicable || hasSelectedValue;
   const isFieldInvalid = Boolean(
-    isApplicable && !hasSelectedValue && validationErrors?.technicalValues
+    field.isRequired && !hasSelectedValue && validationErrors?.technicalValues
   );
   const isColorField = norm === 'cor';
   const isDepthOrLengthField = norm.includes('profundidade') || norm.includes('comprimento');
@@ -130,21 +134,80 @@ export const computeTechnicalFieldItemState = (
   };
 };
 
+export const hasCharacteristicValue = (
+  field: TechnicalFieldDefinition,
+  formData: Partial<Product>
+): boolean => {
+  const norm = normalizeTechnicalName(field.name);
+
+  if (/^marca$/i.test(field.name.trim()) && Boolean(formData.brand?.trim())) {
+    return true;
+  }
+  if (
+    (norm === 'altura' || norm === 'altura total') &&
+    formData.height !== undefined &&
+    formData.height !== null &&
+    formData.height > 0
+  ) {
+    return true;
+  }
+  if (
+    (norm === 'largura' || norm === 'largura total') &&
+    formData.width !== undefined &&
+    formData.width !== null &&
+    formData.width > 0
+  ) {
+    return true;
+  }
+  if (
+    (norm === 'profundidade' ||
+      norm === 'profundidade total' ||
+      norm === 'comprimento' ||
+      norm === 'comprimento total') &&
+    formData.depth !== undefined &&
+    formData.depth !== null &&
+    formData.depth > 0
+  ) {
+    return true;
+  }
+
+  const rawVal = formData.technicalValues?.[field.name];
+  if (rawVal === undefined || rawVal === null) {
+    return false;
+  }
+
+  if (typeof rawVal === 'string') {
+    const trimmed = rawVal.trim();
+    if (!trimmed) return false;
+    const lower = trimmed.toLowerCase();
+    if (lower === 'não se aplica' || lower === 'nao se aplica' || lower === 'n/a') {
+      return false;
+    }
+    return true;
+  }
+
+  if (typeof rawVal === 'number') {
+    return !Number.isNaN(rawVal);
+  }
+
+  if (typeof rawVal === 'boolean') {
+    return true;
+  }
+
+  if (Array.isArray(rawVal)) {
+    return rawVal.length > 0;
+  }
+
+  return Boolean(rawVal);
+};
+
 export const isOptionalFieldSelected = (
   field: TechnicalFieldDefinition,
   formData: Partial<Product>,
   manualFieldNames: string[]
 ): boolean => {
-  const hasConfiguredValue = Object.prototype.hasOwnProperty.call(
-    formData.technicalValues || {},
-    field.name
-  );
-  const normalizedValue = normalizeTechnicalName(
-    String(formData.technicalValues?.[field.name] ?? '')
-  );
   return (
     manualFieldNames.includes(field.name) ||
-    (hasConfiguredValue && !['não se aplica', 'n/a'].includes(normalizedValue)) ||
-    (/^marca$/i.test(field.name.trim()) && Boolean(formData.brand?.trim()))
+    hasCharacteristicValue(field, formData)
   );
 };

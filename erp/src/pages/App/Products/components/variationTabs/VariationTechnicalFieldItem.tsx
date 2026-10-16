@@ -107,9 +107,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
     isOverridden,
     effectiveVal,
     isInheritedFromParent,
-    isApplicable,
-    canEditApplicability,
-    normalizedEffectiveValue,
   } = resolveVariationFieldState(
     field,
     parentNormalizedValues,
@@ -129,16 +126,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
       ? 'Profundidade total'
       : 'Profundidade';
 
-  const handleApplicabilityToggle = () => {
-    if (!canEditApplicability || isSingleVariation) return;
-    const valueToApply = isApplicable
-      ? 'Não se aplica'
-      : normalizedEffectiveValue === 'não se aplica'
-        ? ''
-        : (effectiveVal ?? '');
-    onSetOverride(field.name, valueToApply);
-  };
-
   const handleSyncToggle = () => {
     if (isSingleVariation) return;
     if (isOverridden) {
@@ -156,7 +143,7 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
           title={field.name}
         >
           {field.name}
-          {field.isRequired && isApplicable && (
+          {field.isRequired && (
             <span className="ml-1 text-red-500" aria-label="Obrigatório">
               *
             </span>
@@ -186,30 +173,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
         </label>
 
         <div className="flex items-center gap-1 shrink-0">
-          {!field.isRequired && (
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isApplicable}
-              onClick={handleApplicabilityToggle}
-              disabled={!canEditApplicability || isSingleVariation}
-              className={`relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors ${canEditApplicability ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${isApplicable ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
-              title={
-                field.isRequired
-                  ? 'Esta característica é obrigatória'
-                  : isOverridden
-                    ? isApplicable
-                      ? 'Aplica-se — clique para marcar Não se aplica'
-                      : 'Não se aplica — clique para reativar'
-                    : 'Sincronizado com o pai — dessincronize para alterar'
-              }
-            >
-              <span
-                className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition ${isApplicable ? 'translate-x-3' : 'translate-x-0'}`}
-              />
-            </button>
-          )}
-
           {/* Ícone sync: verde=sincronizado (corrente ligada), cinza=manual (corrente quebrada) */}
           <button
             type="button"
@@ -246,7 +209,14 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
 
       <TechnicalFieldInput
         field={field}
-        value={effectiveVal !== undefined && effectiveVal !== null ? effectiveVal : ''}
+        value={
+          effectiveVal !== undefined &&
+          effectiveVal !== null &&
+          effectiveVal !== 'Não se aplica' &&
+          effectiveVal !== 'N/A'
+            ? effectiveVal
+            : ''
+        }
         disabled={isSingleVariation || isInheritedFromParent}
         onChange={(selectedVal) => onSetOverride(field.name, selectedVal)}
       />

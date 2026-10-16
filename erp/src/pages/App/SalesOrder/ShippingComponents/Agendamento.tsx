@@ -1,6 +1,35 @@
-import React from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import Shipping from '../../../types/Shipping.type';
 import { ValidationErrors } from '../../../utils/validations';
+import {
+  AFTERNOON_SHIFT,
+  MORNING_SHIFT,
+  extractScheduleTimes,
+  getSaoPauloDayInfo,
+  normalizeScheduleDate,
+} from '../../../../../../shared-utils/commercialOrderRules';
+import {
+  DateScheduleMode,
+  SchedulingSessionMemory,
+  TimeScheduleMode,
+  buildSchedulingSignature,
+  createEmptySchedulingSessionMemory,
+  deriveSchedulingSessionMemory,
+  resolveEffectiveDateMode,
+  resolveEffectiveTimeMode,
+  resolveSummaryDateText,
+  resolveSummaryTimeText,
+} from './agendamento/agendamentoSessionMemory';
+import { ScheduledDateCardsSection } from './agendamento/ScheduledDateCardsSection';
+import { ScheduledTimeCardsSection } from './agendamento/ScheduledTimeCardsSection';
+
+export {
+  createEmptySchedulingSessionMemory,
+  deriveSchedulingSessionMemory,
+  type DateScheduleMode,
+  type SchedulingSessionMemory,
+  type TimeScheduleMode,
+};
 
 interface AgendamentoProps {
   scheduling: Shipping['scheduling'];
@@ -10,6 +39,7 @@ interface AgendamentoProps {
   hideSchedulingShortcuts?: boolean;
   hideNotice?: boolean;
   title?: string;
+  sessionMemoryRef?: React.MutableRefObject<SchedulingSessionMemory | null>;
 }
 
 const Agendamento = ({
@@ -20,43 +50,231 @@ const Agendamento = ({
   hideSchedulingShortcuts,
   hideNotice,
   title,
+  sessionMemoryRef,
 }: AgendamentoProps) => {
+  const fallbackMemoryRef = useRef<SchedulingSessionMemory | null>(null);
+  const activeMemoryRef = sessionMemoryRef || fallbackMemoryRef;
+  const baseId = useId();
+
+  if (!activeMemoryRef.current || !activeMemoryRef.current.initialized) {
+    activeMemoryRef.current = deriveSchedulingSessionMemory(scheduling);
+  }
+
+  const [, setRenderTick] = useState(0);
+  const forceRender = () => setRenderTick((prev) => prev + 1);
+
+  const currentSignature = buildSchedulingSignature(scheduling);
+
+  useEffect(() => {
+    const mem = activeMemoryRef.current;
+    if (!mem) return;
+
+    if (mem.lastHydratedSignature !== currentSignature) {
+      const hasExternalData = Boolean(
+        normalizeScheduleDate(scheduling?.date) ||
+          normalizeScheduleDate(scheduling?.endDate) ||
+          extractScheduleTimes(scheduling || {}).startTime ||
+          extractScheduleTimes(scheduling || {}).endTime
+      );
+      if (hasExternalData && mem.dateMode === null && mem.timeMode === null) {
+        activeMemoryRef.current = deriveSchedulingSessionMemory(scheduling);
+        forceRender();
+      } else {
+        mem.lastHydratedSignature = currentSignature;
+      }
+    }
+  }, [currentSignature, scheduling, activeMemoryRef]);
+
   if (!scheduling) return null;
+
+  const memory = activeMemoryRef.current!;
   const isImmediatePickup = Boolean(isPickup && scheduling.immediatePickup);
   const isPendingScheduling = Boolean(scheduling.pendingScheduling && !isImmediatePickup);
   const isScheduleReadOnly = isPendingScheduling || isImmediatePickup;
-  const hasError = !isScheduleReadOnly && (errors['shipping_date'] || errors['shipping_time']);
-  const onScheduleChange = (key: keyof Shipping['scheduling'], value: string | Date | boolean) => {
+  const dateError = !isScheduleReadOnly ? errors['shipping_date'] : undefined;
+  const timeError = !isScheduleReadOnly ? errors['shipping_time'] : undefined;
+
+  const updateScheduleField = (
+    key: keyof Shipping['scheduling'],
+    value: string | Date | boolean
+  ) => {
     if (key !== 'immediatePickup') onChangeScheduling('immediatePickup', false);
     onChangeScheduling(key, value);
   };
 
+  const effectiveDateMode = resolveEffectiveDateMode(memory, scheduling, dateError);
+  const effectiveTimeMode = resolveEffectiveTimeMode(memory, scheduling);
+
+  const handleSelectDateMode = (mode: NonNullable<DateScheduleMode>) => {
+    if (isScheduleReadOnly) return;
+    memory.dateMode = mode;
+
+    if (mode === 'today') {
+      updateScheduleField('dateType', 'fixed');
+      updateScheduleField('date', getSaoPauloDayInfo(0).isoDate);
+      updateScheduleField('endDate', '');
+    } else if (mode === 'tomorrow') {
+      updateScheduleField('dateType', 'fixed');
+      updateScheduleField('date', getSaoPauloDayInfo(1).isoDate);
+      updateScheduleField('endDate', '');
+    } else if (mode === 'custom_date') {
+      updateScheduleField('dateType', 'fixed');
+      updateScheduleField('date', memory.customDate);
+      updateScheduleField('endDate', '');
+    } else if (mode === 'custom_date_range') {
+      updateScheduleField('dateType', 'range');
+      updateScheduleField('date', memory.customRangeStartDate);
+      updateScheduleField('endDate', memory.customRangeEndDate);
+    }
+
+    forceRender();
+  };
+
+  const handleCustomDateChange = (value: string) => {
+    memory.dateMode = 'custom_date';
+    memory.customDate = value;
+    updateScheduleField('dateType', 'fixed');
+    updateScheduleField('date', value);
+    updateScheduleField('endDate', '');
+    forceRender();
+  };
+
+  const handleCustomDateRangeChange = (field: 'date' | 'endDate', value: string) => {
+    memory.dateMode = 'custom_date_range';
+    if (field === 'date') {
+      memory.customRangeStartDate = value;
+    } else {
+      memory.customRangeEndDate = value;
+    }
+    updateScheduleField('dateType', 'range');
+    updateScheduleField(field, value);
+    forceRender();
+  };
+
+  const handleSelectTimeMode = (mode: NonNullable<TimeScheduleMode>) => {
+    if (isScheduleReadOnly) return;
+    memory.timeMode = mode;
+
+    if (mode === 'morning') {
+      updateScheduleField('type', 'range');
+      updateScheduleField('startTime', MORNING_SHIFT.startTime);
+      updateScheduleField('endTime', MORNING_SHIFT.endTime);
+    } else if (mode === 'afternoon') {
+      updateScheduleField('type', 'range');
+      updateScheduleField('startTime', AFTERNOON_SHIFT.startTime);
+      updateScheduleField('endTime', AFTERNOON_SHIFT.endTime);
+    } else if (mode === 'custom_time') {
+      updateScheduleField('type', 'fixed');
+      updateScheduleField('startTime', memory.customTime);
+      updateScheduleField('endTime', '');
+    } else if (mode === 'custom_time_range') {
+      updateScheduleField('type', 'range');
+      updateScheduleField('startTime', memory.customRangeStartTime);
+      updateScheduleField('endTime', memory.customRangeEndTime);
+    }
+
+    forceRender();
+  };
+
+  const handleCustomTimeChange = (value: string) => {
+    memory.timeMode = 'custom_time';
+    memory.customTime = value;
+    updateScheduleField('type', 'fixed');
+    updateScheduleField('startTime', value);
+    updateScheduleField('endTime', '');
+    forceRender();
+  };
+
+  const handleCustomTimeRangeChange = (field: 'startTime' | 'endTime', value: string) => {
+    memory.timeMode = 'custom_time_range';
+    if (field === 'startTime') {
+      memory.customRangeStartTime = value;
+    } else {
+      memory.customRangeEndTime = value;
+    }
+    updateScheduleField('type', 'range');
+    updateScheduleField(field, value);
+    forceRender();
+  };
+
   const handleImmediatePickupToggle = () => {
     if (scheduling.immediatePickup) {
+      memory.dateMode = null;
+      memory.timeMode = null;
       onChangeScheduling('immediatePickup', false);
       onChangeScheduling('date', '');
       onChangeScheduling('endDate', '');
       onChangeScheduling('startTime', '');
       onChangeScheduling('endTime', '');
+      forceRender();
       return;
     }
 
+    const nowInfo = getSaoPauloDayInfo(0);
     const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    const hours = String(now.getHours()).padStart(2, '0');
-    const mins = String(now.getMinutes()).padStart(2, '0');
-    const time = `${hours}:${mins}`;
+    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    memory.dateMode = 'today';
+    memory.timeMode = 'custom_time';
+    memory.customTime = time;
 
     onChangeScheduling('pendingScheduling', false);
     onChangeScheduling('immediatePickup', true);
     onChangeScheduling('notInformed', false);
-    onChangeScheduling('date', date);
+    onChangeScheduling('date', nowInfo.isoDate);
     onChangeScheduling('endDate', '');
     onChangeScheduling('dateType', 'fixed');
     onChangeScheduling('type', 'fixed');
     onChangeScheduling('startTime', time);
     onChangeScheduling('endTime', '');
+    forceRender();
   };
+
+  const customDateValue =
+    effectiveDateMode === 'custom_date'
+      ? normalizeScheduleDate(scheduling.date) || memory.customDate
+      : memory.customDate;
+
+  const customRangeStartDateValue =
+    effectiveDateMode === 'custom_date_range'
+      ? normalizeScheduleDate(scheduling.date) || memory.customRangeStartDate
+      : memory.customRangeStartDate;
+
+  const customRangeEndDateValue =
+    effectiveDateMode === 'custom_date_range'
+      ? normalizeScheduleDate(scheduling.endDate) || memory.customRangeEndDate
+      : memory.customRangeEndDate;
+
+  const { startTime: currentStartTime, endTime: currentEndTime } = extractScheduleTimes(scheduling);
+
+  const customTimeValue =
+    effectiveTimeMode === 'custom_time'
+      ? currentStartTime || memory.customTime
+      : memory.customTime;
+
+  const customRangeStartTimeValue =
+    effectiveTimeMode === 'custom_time_range'
+      ? currentStartTime || memory.customRangeStartTime
+      : memory.customRangeStartTime;
+
+  const customRangeEndTimeValue =
+    effectiveTimeMode === 'custom_time_range'
+      ? currentEndTime || memory.customRangeEndTime
+      : memory.customRangeEndTime;
+
+  const summaryDateText = resolveSummaryDateText(
+    effectiveDateMode,
+    customDateValue,
+    customRangeStartDateValue,
+    customRangeEndDateValue
+  );
+
+  const summaryTimeText = resolveSummaryTimeText(
+    effectiveTimeMode,
+    customTimeValue,
+    customRangeStartTimeValue,
+    customRangeEndTimeValue
+  );
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
@@ -89,10 +307,15 @@ const Agendamento = ({
                   onChangeScheduling('immediatePickup', false);
                   onChangeScheduling('pendingScheduling', isPending);
                   if (isPending) {
+                    memory.dateMode = null;
+                    memory.timeMode = null;
                     onChangeScheduling('date', '');
+                    onChangeScheduling('endDate', '');
                     onChangeScheduling('startTime', '');
+                    onChangeScheduling('endTime', '');
                     onChangeScheduling('notInformed', false);
                   }
+                  forceRender();
                 }}
                 className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
                   isPendingScheduling
@@ -101,7 +324,9 @@ const Agendamento = ({
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${isPendingScheduling ? 'translate-x-6' : 'translate-x-1'}`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                    isPendingScheduling ? 'translate-x-6' : 'translate-x-1'
+                  }`}
                 />
               </button>
             </div>
@@ -124,7 +349,9 @@ const Agendamento = ({
                   }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${scheduling.immediatePickup ? 'translate-x-6' : 'translate-x-1'}`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                      scheduling.immediatePickup ? 'translate-x-6' : 'translate-x-1'
+                    }`}
                   />
                 </button>
               </div>
@@ -133,11 +360,9 @@ const Agendamento = ({
         )}
       </div>
 
-      <div
-        className={`w-full transition-opacity ${isScheduleReadOnly ? 'opacity-90' : hasError ? 'text-red-500' : ''}`}
-      >
-        {isPendingScheduling && (
-          <div className="flex items-center gap-4 py-4 px-4 bg-orange-50/50 dark:bg-orange-900/10 border border-dashed border-orange-200 dark:border-orange-800 rounded-2xl mb-6 animate-fade-in">
+      <div className={`w-full transition-opacity ${isScheduleReadOnly ? 'opacity-90' : ''}`}>
+        {isPendingScheduling ? (
+          <div className="flex items-center gap-4 py-4 px-4 bg-orange-50/50 dark:bg-orange-900/10 border border-dashed border-orange-200 dark:border-orange-800 rounded-2xl animate-fade-in">
             <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0">
               <i className="bi bi-clock-history text-xl" />
             </div>
@@ -150,108 +375,71 @@ const Agendamento = ({
               </p>
             </div>
           </div>
-        )}
-
-        {!scheduling.notInformed || hideNotice ? (
+        ) : !scheduling.notInformed || hideNotice ? (
           <div
-            className={`flex flex-col gap-6 w-full transition-all duration-300 ${isScheduleReadOnly ? 'opacity-40 grayscale-[0.5] pointer-events-none' : ''}`}
+            className={`flex flex-col gap-6 w-full transition-all duration-300 ${
+              isScheduleReadOnly ? 'opacity-40 grayscale-[0.5] pointer-events-none' : ''
+            }`}
           >
-            {/* Section 1: DATE */}
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
-                <div className="w-full sm:w-auto min-w-[140px]">
-                  <select
-                    disabled={isScheduleReadOnly}
-                    className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-600 dark:text-slate-300 transition-all"
-                    value={scheduling.dateType || 'fixed'}
-                    onChange={(e) => onScheduleChange('dateType', e.target.value as any)}
+            <ScheduledDateCardsSection
+              baseId={baseId}
+              isScheduleReadOnly={isScheduleReadOnly}
+              effectiveDateMode={effectiveDateMode}
+              dateError={dateError}
+              customDateValue={customDateValue}
+              customRangeStartDateValue={customRangeStartDateValue}
+              customRangeEndDateValue={customRangeEndDateValue}
+              onSelectDateMode={handleSelectDateMode}
+              onCustomDateChange={handleCustomDateChange}
+              onCustomDateRangeChange={handleCustomDateRangeChange}
+            />
+
+            <ScheduledTimeCardsSection
+              baseId={baseId}
+              isScheduleReadOnly={isScheduleReadOnly}
+              effectiveTimeMode={effectiveTimeMode}
+              timeError={timeError}
+              customTimeValue={customTimeValue}
+              customRangeStartTimeValue={customRangeStartTimeValue}
+              customRangeEndTimeValue={customRangeEndTimeValue}
+              onSelectTimeMode={handleSelectTimeMode}
+              onCustomTimeChange={handleCustomTimeChange}
+              onCustomTimeRangeChange={handleCustomTimeRangeChange}
+            />
+
+            <div
+              data-testid="scheduling-summary"
+              className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 px-4 py-3.5 flex flex-col gap-1.5"
+            >
+              <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                Resumo da programação
+              </span>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-6 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-slate-500 dark:text-slate-400">Data:</span>
+                  <span
+                    data-testid="scheduling-summary-date"
+                    className={`font-bold ${
+                      summaryDateText === 'Não definido'
+                        ? 'text-slate-400 dark:text-slate-500'
+                        : 'text-slate-800 dark:text-slate-100'
+                    }`}
                   >
-                    <option value="fixed" className="dark:bg-slate-900">
-                      Data Fixa
-                    </option>
-                    <option value="range" className="dark:bg-slate-900">
-                      Período de Data
-                    </option>
-                  </select>
+                    {summaryDateText}
+                  </span>
                 </div>
-
-                <div className="flex-1 flex flex-row items-center gap-3 relative group w-full">
-                  <div className="flex-1 relative">
-                    <input
-                      type="date"
-                      disabled={isScheduleReadOnly}
-                      className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_date'] && !isScheduleReadOnly ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
-                      value={scheduling.date || ''}
-                      onChange={(e) => onScheduleChange('date', e.target.value)}
-                    />
-                  </div>
-
-                  {scheduling.dateType === 'range' && (
-                    <>
-                      <span className="text-[10px] font-black uppercase text-slate-300 dark:text-slate-500 tracking-widest shrink-0 px-1">
-                        Até
-                      </span>
-                      <div className="flex-1 relative">
-                        <input
-                          type="date"
-                          disabled={isScheduleReadOnly}
-                          className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_date'] && !isScheduleReadOnly ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
-                          value={scheduling.endDate || ''}
-                          onChange={(e) => onScheduleChange('endDate', e.target.value)}
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Section 2: TIME */}
-            <div className="flex flex-col gap-3 py-4 border-t border-slate-100 dark:border-slate-800/50">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full py-2">
-                <div className="w-full sm:w-auto min-w-[140px]">
-                  <select
-                    disabled={isScheduleReadOnly}
-                    className="w-full bg-transparent border-0 border-b border-slate-200 dark:border-slate-800 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-600 dark:text-slate-300 transition-all"
-                    value={scheduling.type || 'fixed'}
-                    onChange={(e) => onScheduleChange('type', e.target.value as any)}
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-slate-500 dark:text-slate-400">Horário:</span>
+                  <span
+                    data-testid="scheduling-summary-time"
+                    className={`font-bold ${
+                      summaryTimeText === 'Não definido'
+                        ? 'text-slate-400 dark:text-slate-500'
+                        : 'text-slate-800 dark:text-slate-100'
+                    }`}
                   >
-                    <option value="fixed" className="dark:bg-slate-900">
-                      Horário Fixo
-                    </option>
-                    <option value="range" className="dark:bg-slate-900">
-                      Período de Horário
-                    </option>
-                  </select>
-                </div>
-
-                <div className="flex-1 flex flex-row items-center gap-3 relative group w-full">
-                  <div className="flex-1 relative group/time">
-                    <input
-                      type="time"
-                      disabled={isScheduleReadOnly}
-                      className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_time'] && !isScheduleReadOnly ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
-                      value={scheduling.startTime || ''}
-                      onChange={(e) => onScheduleChange('startTime', e.target.value)}
-                    />
-                  </div>
-
-                  {scheduling.type === 'range' && (
-                    <>
-                      <span className="text-[10px] font-black uppercase text-slate-300 dark:text-slate-500 tracking-widest shrink-0 px-1">
-                        Até
-                      </span>
-                      <div className="flex-1 relative group/time">
-                        <input
-                          type="time"
-                          disabled={isScheduleReadOnly}
-                          className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors dark:text-slate-300 ${errors['shipping_time'] && !isScheduleReadOnly ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'}`}
-                          value={scheduling.endTime || ''}
-                          onChange={(e) => onScheduleChange('endTime', e.target.value)}
-                        />
-                      </div>
-                    </>
-                  )}
+                    {summaryTimeText}
+                  </span>
                 </div>
               </div>
             </div>

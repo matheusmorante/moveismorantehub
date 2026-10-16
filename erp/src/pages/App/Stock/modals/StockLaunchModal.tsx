@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PackageMinus, PackagePlus, Scale } from 'lucide-react';
 import Product, { Variation } from '../../../types/product.type';
 import { saveInventoryMove, subscribeToInventoryMoves } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { inventoryMoveFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
+import { stockLaunchFormSchema } from '../../../../../../shared-utils/inventoryMoveSchemas';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import InventoryMove from '../../../types/inventoryMove.type';
 import { calculateInventoryTimelineBalance } from '@/pages/utils/inventoryTimelineBalance';
 
@@ -25,42 +26,34 @@ interface VariationDisplayNameLike extends Partial<Variation> {
 /**
  * Modal rápido para lançamento manual de entrada, saída ou ajuste de inventário de produtos e variações.
  */
-export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
-  isOpen,
-  onClose,
-  targetProduct,
-  targetVariation,
-  currentStock: propCurrentStock,
-}) => {
+export const StockLaunchModal: React.FC<StockLaunchModalProps> = (props) => props.isOpen && props.targetProduct
+  ? <StockLaunchEditor key={JSON.stringify([props.targetProduct.id, props.targetVariation?.id || props.targetProduct.variations?.[0]?.id])}
+      {...props} targetProduct={props.targetProduct} /> : null;
+
+function StockLaunchEditor({ onClose, targetProduct, targetVariation, currentStock: propCurrentStock }:
+  StockLaunchModalProps & { targetProduct: Product }) {
   const [type, setType] = useState<LaunchType>('entry');
   const [quantity, setQuantity] = useState<number>(0);
   const [newDesiredStock, setNewDesiredStock] = useState<string>('');
   const [reason, setReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [uncertain, setUncertain] = useState(false);
+  const locked = useRef(false), blocked = useRef(false), mounted = useRef(false);
+  const close = () => { if (!locked.current) onClose(); };
   const [moves, setMoves] = useState<readonly InventoryMove[]>([]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    return subscribeToInventoryMoves((data) => setMoves(data || []));
-  }, [isOpen]);
-
+    let active = true;
+    const unsubscribe = subscribeToInventoryMoves((data) => { if (active) setMoves(data || []); });
+    return () => { active = false; unsubscribe(); };
+  }, []);
   useEffect(() => {
-    if (isOpen) {
-      setQuantity(0);
-      setNewDesiredStock('');
-      setReason('');
-      setType('entry');
-    }
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isSaving) {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSaving, onClose]);
+    mounted.current = true;
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !locked.current) onClose(); };
+    window.addEventListener('keydown', escape);
+    return () => { mounted.current = false; window.removeEventListener('keydown', escape); };
+  }, [onClose]);
 
   const activeVariation = targetVariation || targetProduct?.variations?.[0];
   const variationWithDisplayName = activeVariation as VariationDisplayNameLike | undefined;
@@ -89,75 +82,44 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
     );
   }, [targetProduct, activeVariation, propCurrentStock, moves]);
 
-  const form = useZodForm(inventoryMoveFormSchema, { type: type === 'exit' ? 'withdrawal' : type, quantity, date: '', observation: reason });
-  if (!isOpen || !targetProduct) return null;
-
-  const fullDisplayName =
-    variationName && variationName.trim() ? variationName.trim() : 'Variação não identificada';
+  const fullDisplayName = variationName.trim() || 'Variação não identificada';
   const adjustmentDiff = newDesiredStock !== '' ? Number(newDesiredStock) - currentStock : 0;
-
+  const values = { productId: targetProduct.id || '', variationId: activeVariation?.id || '', productDescription: fullDisplayName,
+    type, quantity, currentStock, newDesiredStock, observation: reason };
+  const form = useZodForm(stockLaunchFormSchema, values);
+  const latestStock = useRef(currentStock); latestStock.current = currentStock;
   const handleSave = async () => {
-    let moveQuantity = quantity;
-
-    if (type === 'adjustment') {
-      if (newDesiredStock === '') {
-        toast.error('Por favor, informe o novo saldo do produto.');
-        return;
-      }
-      moveQuantity = Number(newDesiredStock) - currentStock;
-      if (moveQuantity === 0) {
-        toast.error('O novo saldo informado é idêntico ao saldo atual.');
-        return;
-      }
-    } else {
-      if (quantity <= 0) {
-        toast.error('Por favor, informe uma quantidade maior que zero.');
-        return;
-      }
-    }
-
-    if (!reason.trim()) {
-      toast.error('Por favor, declare o motivo da movimentação.');
-      return;
-    }
-
-    if (!activeVariation?.id) {
-      toast.error(
-        'Esta operação exige uma variação cadastrada. Vincule ou crie a variação antes de movimentar o estoque.'
-      );
-      return;
-    }
-
-    const validated = await form.validateAndRun({ type: type === 'exit' ? 'withdrawal' : type, quantity: moveQuantity, date: '', observation: reason }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    setIsSaving(true);
+    if (locked.current || blocked.current) return;
+    locked.current = true; setIsSaving(true); setError('');
     try {
-      const move: InventoryMove = {
-        productId: targetProduct.id!,
-        variationId: activeVariation.id,
-        productDescription: fullDisplayName,
-        type: type === 'adjustment' ? 'balance' : type === 'entry' ? 'entry' : 'withdrawal',
-        quantity: validated.quantity,
-        date: new Date().toISOString(),
-        label: validated.observation,
-        observation: validated.observation,
-      };
-
-      await saveInventoryMove(move, currentStock);
-
-      toast.success('Movimentação registrada com sucesso! ✨');
-      onClose();
-      setQuantity(0);
-      setNewDesiredStock('');
-      setReason('');
-    } catch (error: unknown) {
-      console.error('Erro ao salvar movimentação:', error);
-      const message =
-        error instanceof Error ? error.message : 'Erro ao salvar lançamento de estoque.';
-      toast.error(message);
+      await form.validateAndRun(values, async (data) => {
+        if (!mounted.current) return;
+        if (data.type === 'balance' && latestStock.current !== data.currentStock) {
+          setError('O saldo mudou durante a validação. Confira o saldo atualizado antes de ajustar.'); return;
+        }
+        const { currentStock: previousStock, ...move } = data;
+        const result = await withTimeout(saveInventoryMove({ ...move, date: new Date().toISOString(), label: data.observation }, previousStock)
+          .then((saved) => ({ saved })), 30_000, null, 'estoque:manual');
+        if (!mounted.current) return;
+        if (!result?.saved?.id) throw { uncertain: true };
+        toast.success('Movimentação registrada com sucesso! ✨');
+        onClose();
+      }, (errors) => {
+        if (!mounted.current) return;
+        const message = Object.values(flattenFormErrors(errors))[0] || 'Confira a movimentação.';
+        setError(message); toast.error(message);
+      });
+    } catch (cause) {
+      if (!mounted.current) return;
+      const details = cause as { uncertain?: boolean; persistedMoveId?: string };
+      if (details?.uncertain || cause instanceof TypeError) {
+        blocked.current = true; setUncertain(true);
+        setError(details?.persistedMoveId ? 'O movimento foi gravado, mas o saldo não foi confirmado. Consulte o estoque antes de repetir.'
+          : 'Não foi possível confirmar a gravação. Consulte os movimentos antes de repetir.');
+      } else setError('Não foi possível gravar a movimentação. Confira os dados e as permissões.');
     } finally {
-      setIsSaving(false);
+      locked.current = false;
+      if (mounted.current) setIsSaving(false);
     }
   };
 
@@ -170,7 +132,7 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
     >
       <div
         className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm animate-fade-in cursor-pointer"
-        onClick={onClose}
+        onClick={close}
         aria-hidden="true"
       />
 
@@ -200,7 +162,7 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             aria-label="Fechar modal"
           >
@@ -209,6 +171,8 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
         </div>
 
         <div className="p-8 space-y-6">
+          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+          {isSaving && <p role="status" className="text-sm animate-pulse">Validando e gravando a movimentação…</p>}
           {/* Resumo do Produto Selecionado */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
@@ -235,6 +199,7 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
               <button
                 key={t}
                 type="button"
+                disabled={isSaving || uncertain}
                 onClick={() => setType(t)}
                 className={`flex flex-col items-center gap-1.5 p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${
                   type === t
@@ -264,15 +229,17 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {type === 'adjustment' ? (
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <label htmlFor="manual-stock-desired" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                   Novo Saldo do Produto
                 </label>
                 <input
+                  id="manual-stock-desired"
                   type="number"
                   value={newDesiredStock}
                   onChange={(e) => setNewDesiredStock(e.target.value)}
                   placeholder={`Saldo atual: ${currentStock}`}
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-amber-500 transition-colors"
+                  disabled={isSaving || uncertain}
                   autoFocus
                 />
                 {newDesiredStock !== '' && (
@@ -295,27 +262,31 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
               </div>
             ) : (
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <label htmlFor="manual-stock-quantity" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                   Quantidade *
                 </label>
                 <input
+                  id="manual-stock-quantity"
                   type="number"
                   value={quantity || ''}
                   onChange={(e) => setQuantity(Number(e.target.value))}
                   placeholder="0"
                   min="1"
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:border-emerald-500 transition-colors"
+                  disabled={isSaving || uncertain}
                   autoFocus
                 />
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <label htmlFor="manual-stock-reason" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                 Motivo / Observação *
               </label>
               <input
+                id="manual-stock-reason"
                 type="text"
+                disabled={isSaving || uncertain}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Ex: Balanço de estoque, contagem física..."
@@ -328,7 +299,7 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
           <button
             type="button"
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || uncertain}
             className={`w-full py-3.5 rounded-xl font-black uppercase tracking-wider text-xs text-white shadow-lg transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
               type === 'entry'
                 ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none'
@@ -350,6 +321,6 @@ export const StockLaunchModal: React.FC<StockLaunchModalProps> = ({
       </div>
     </div>
   );
-};
+}
 
 export default StockLaunchModal;

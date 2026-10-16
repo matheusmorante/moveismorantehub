@@ -1,5 +1,5 @@
 import InventoryMove from '../../types/inventoryMove.type';
-import { isEntryType, isExitType, isAdjustmentType } from './inventoryTypeRules';
+import { isExitType, isAdjustmentType } from './inventoryTypeRules';
 
 export const mapInventoryMoveToDB = (move: InventoryMove) => {
   // Validação estrita dos tipos aceitos pela constraint do banco: 'entry' | 'exit' | 'adjustment'
@@ -70,12 +70,14 @@ export const mapInventoryMoveFromDB = (data: any): InventoryMove => {
     }
   }
 
+  const hasExplicitStatus = ['effective', 'active', 'reversed', 'cancelled'].includes(data.status)
+    || ['effective', 'active', 'reversed', 'cancelled'].includes(meta.status);
   const isReversed =
     data.status === 'reversed' ||
     data.status === 'cancelled' ||
     meta.status === 'reversed' ||
     meta.status === 'cancelled' ||
-    (typeof data.reason === 'string' &&
+    (!hasExplicitStatus && typeof data.reason === 'string' &&
       (data.reason.startsWith('Cancelamento da venda') ||
         data.reason.startsWith('Estorno de devolução') ||
         data.reason.startsWith('Estorno')));
@@ -103,7 +105,7 @@ export const mapInventoryMoveFromDB = (data: any): InventoryMove => {
     label: data.label,
     unitCost:
       data.unit_cost === null || data.unit_cost === undefined ? undefined : Number(data.unit_cost),
-    unitPrice: data.unit_price ? Number(data.unit_price) : undefined,
+    unitPrice: data.unit_price == null ? undefined : Number(data.unit_price),
     observation: cleanObservation,
     relatedEntityId: data.order_id,
     sourceReceiptId: data.source_receipt_id || undefined,

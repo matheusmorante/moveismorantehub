@@ -2,30 +2,41 @@ import React from 'react';
 import Order from '../../../types/order.type';
 import { buttons } from './orderActionsConfig';
 import { updateOrder } from '../../../utils/orderHistoryService';
-import { POST_RETURN_ACTION_KEYS, POST_SALE_ACTION_KEYS } from '../../../utils/postSaleActions';
 import { NfeEmissionModal } from './NfeEmissionModal';
 import { NfeEnvironmentChoiceModal } from './nfe-modal/NfeEnvironmentChoiceModal';
-import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
-
+import WarrantyTermModal from './WarrantyTermModal';
+import DeliveryInfoModal from './DeliveryInfoModal';
+import { useAuth } from '@/context/AuthContext';
 import { fetchOrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeService';
 import type { OrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeRules';
+import { getAvailablePostOrderActions } from './postOrderActionsHelpers';
+import { PostOrderActionGridButton } from './components/PostOrderActionGridButton';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface PostOrderActionsModalProps {
   readonly order: Order;
   readonly onClose: () => void;
   readonly onIssueNfe?: (order: Order, environment?: 1 | 2) => void;
+  readonly isAdministrator?: boolean;
 }
 
 const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   order,
   onClose,
   onIssueNfe,
+  isAdministrator: propIsAdministrator,
 }) => {
+  useBodyScrollLock(true);
+  const auth = useAuth();
+  const isAdministrator =
+    propIsAdministrator ?? Boolean(auth?.isAdministrator || auth?.isRealAdministrator);
   const orderId = order.id;
   const [nfeChoiceOrder, setNfeChoiceOrder] = React.useState<Order | null>(null);
   const [chosenEnvironment, setChosenEnvironment] = React.useState<1 | 2>(1);
   const [nfeEmissionOrder, setNfeEmissionOrder] = React.useState<Order | null>(null);
   const [nfeEmissionOpenedAt, setNfeEmissionOpenedAt] = React.useState<number | undefined>();
+  const [warrantyTermOrder, setWarrantyTermOrder] = React.useState<Order | null>(null);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = React.useState(false);
   const [fiscalStatuses, setFiscalStatuses] = React.useState<OrderFiscalBadgeStatuses | null>(null);
 
   React.useEffect(() => {
@@ -49,35 +60,62 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   );
 
   const isReturnOrder = order.orderType === 'return';
+  const isPickupOrder = order.shipping?.deliveryMethod === 'pickup';
+  const deliveryModalLabel = isPickupOrder ? 'Informações da Retirada' : 'Informações da Entrega';
   const isCollectionScheduled =
     order.status === 'scheduled' &&
     (order.returnMethod === 'store_collection' || order.returnMethod == null);
-  const isTestArtifact = isIdentifiedTestArtifact(order);
   const modalTitle = isReturnOrder ? 'Ações após cadastro' : 'Ações Pós-Venda';
-  const availableActions = buttons.filter(
-    (btn) =>
-      (isReturnOrder ? POST_RETURN_ACTION_KEYS : POST_SALE_ACTION_KEYS).has(btn.key) &&
-      (btn.key !== 'sendReturnOSTeam' || isCollectionScheduled) &&
-      (!isReturnOrder || !isTestArtifact || !btn.key.startsWith('sendReturnOS')) &&
-      (btn.key !== 'sendCustomerReviews' || !order.reviewRequested)
-  );
+  const availableActions = getAvailablePostOrderActions(order);
 
   const [clickedButtons, setClickedButtons] = React.useState<Record<string, boolean>>(
     order.isButtonsClicked || {}
   );
 
+  const handleExecuteAction = async (key: string, action: (typeof buttons)[number]['action']) => {
+    setClickedButtons((prev) => ({ ...prev, [key]: true }));
+    try {
+      const module = await import('./orderActionsConfig');
+      if (module.actionsMap[action]) {
+        module.actionsMap[action](order);
+      }
+      if (order.id) {
+        const clicked = {
+          ...(order.isButtonsClicked || {}),
+          [key]: true,
+        } as Order['isButtonsClicked'];
+        order.isButtonsClicked = clicked;
+        await updateOrder(
+          order.id,
+          {
+            isButtonsClicked: clicked,
+            ...(key === 'sendCustomerReviews' ? { reviewRequested: true } : {}),
+          },
+          order,
+          undefined,
+          { metadataOnly: true }
+        );
+      }
+    } catch (err: unknown) {
+      console.error('Erro ao executar ação pós-venda:', err);
+    }
+  };
+
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isDeliveryModalOpen || nfeChoiceOrder || nfeEmissionOrder || warrantyTermOrder) {
+        return;
+      }
       if (e.key === 'Escape') {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, isDeliveryModalOpen, nfeChoiceOrder, nfeEmissionOrder, warrantyTermOrder]);
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 overscroll-contain overflow-y-auto">
       <button
         type="button"
         aria-label={
@@ -100,17 +138,12 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
               <i className="bi bi-check2-circle text-xl"></i>
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3
-                  id="post-order-title"
-                  className="text-base font-black text-slate-800 dark:text-slate-100"
-                >
-                  {modalTitle}
-                </h3>
-                <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
-                  Cadastrado
-                </span>
-              </div>
+              <h3
+                id="post-order-title"
+                className="text-base font-black text-slate-800 dark:text-slate-100"
+              >
+                {modalTitle}
+              </h3>
             </div>
           </div>
           <button
@@ -134,94 +167,45 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
               </>
             ) : (
               <>
-                O pedido <strong>já foi cadastrado e gravado</strong> no sistema. Você pode executar
-                as ações rápidas abaixo ou simplesmente fechar esta janela.
+                Você pode executar as ações rápidas abaixo ou simplesmente fechar esta janela.
               </>
             )}
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {availableActions.map((btn) => {
-              // Extract color base: text-green-600 hover:bg-green-50
-              const isGreen = btn.color.includes('green');
-              const isPurple = btn.color.includes('purple');
-              const isOrange = btn.color.includes('orange');
-              const isIndigo = btn.color.includes('indigo');
-              const isClicked = clickedButtons[btn.key];
-
-              let baseColor = 'text-blue-600 bg-blue-50 dark:bg-blue-900/20';
-              if (isGreen) baseColor = 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20';
-              if (isPurple) baseColor = 'text-purple-600 bg-purple-50 dark:bg-purple-900/20';
-              if (isOrange) baseColor = 'text-orange-600 bg-orange-50 dark:bg-orange-900/20';
-              if (isIndigo) baseColor = 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20';
-
-              const isIssueNfeBtn = btn.key === 'issueNfe';
-              const isButtonDisabled = isIssueNfeBtn && isNfeIssued;
-              const tooltipText = isButtonDisabled
-                ? 'Nota fiscal já emitida para este pedido.'
-                : btn.tooltip || undefined;
-
-              return (
-                <button
-                  key={btn.key}
-                  type="button"
-                  disabled={isButtonDisabled}
-                  title={tooltipText}
-                  onClick={async () => {
-                    if (isButtonDisabled) return;
-                    if (btn.key === 'issueNfe') {
-                      if (onIssueNfe) {
-                        onClose();
-                        onIssueNfe(order);
-                      } else {
-                        setNfeChoiceOrder(order);
-                      }
-                      return;
-                    }
-                    setClickedButtons((prev) => ({ ...prev, [btn.key]: true }));
-                    try {
-                      const module = await import('./orderActionsConfig');
-                      module.actionsMap[btn.action](order);
-                      if (order.id) {
-                        const clicked = {
-                          ...(order.isButtonsClicked || {}),
-                          [btn.key]: true,
-                        } as Order['isButtonsClicked'];
-                        order.isButtonsClicked = clicked;
-                        await updateOrder(
-                          order.id,
-                          {
-                            isButtonsClicked: clicked,
-                            ...(btn.key === 'sendCustomerReviews' ? { reviewRequested: true } : {}),
-                          },
-                          order,
-                          undefined,
-                          { metadataOnly: true }
-                        );
-                      }
-                    } catch (err: unknown) {
-                      console.error('Erro ao executar ação pós-venda:', err);
-                    }
-                  }}
-                  className={`flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all relative min-h-[100px] ${
-                    isButtonDisabled
-                      ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 pointer-events-auto'
-                      : `${baseColor} hover:-translate-y-1 hover:shadow-lg`
-                  } ${isClicked ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
-                >
-                  <i className={`bi ${btn.icon} text-2xl mb-2`}></i>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-center">
-                    {typeof btn.label === 'function' ? btn.label(order) : btn.label}
-                  </span>
-
-                  {isClicked && (
-                    <div className="absolute top-2 right-2 bg-emerald-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-in zoom-in duration-300">
-                      <i className="bi bi-check text-sm font-black"></i>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
+            {!isReturnOrder && (
+              <button
+                type="button"
+                title={deliveryModalLabel}
+                onClick={() => setIsDeliveryModalOpen(true)}
+                className="flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all relative min-h-[100px] text-orange-600 bg-orange-50 dark:bg-orange-900/20 hover:-translate-y-1 hover:shadow-lg"
+              >
+                <i className={`bi ${isPickupOrder ? 'bi-shop' : 'bi-truck'} text-2xl mb-2`}></i>
+                <span className="text-[10px] font-black uppercase tracking-widest text-center">
+                  {deliveryModalLabel}
+                </span>
+              </button>
+            )}
+            {availableActions.map((btn) => (
+              <PostOrderActionGridButton
+                key={btn.key}
+                btn={btn}
+                order={order}
+                isClicked={Boolean(clickedButtons[btn.key])}
+                isNfeIssued={isNfeIssued}
+                isAdministrator={isAdministrator}
+                onIssueNfeClick={() => {
+                  if (onIssueNfe) {
+                    onClose();
+                    onIssueNfe(order);
+                  } else {
+                    setNfeChoiceOrder(order);
+                  }
+                }}
+                onOpenWarrantyTerm={() => setWarrantyTermOrder(order)}
+                onExecuteAction={handleExecuteAction}
+              />
+            ))}
           </div>
           <NfeEnvironmentChoiceModal
             isOpen={Boolean(nfeChoiceOrder)}
@@ -243,6 +227,20 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
               setNfeEmissionOrder(null);
               setNfeEmissionOpenedAt(undefined);
             }}
+          />
+          <WarrantyTermModal
+            isOpen={Boolean(warrantyTermOrder)}
+            order={warrantyTermOrder || order}
+            onClose={() => setWarrantyTermOrder(null)}
+            isAdministrator={isAdministrator}
+          />
+          <DeliveryInfoModal
+            isOpen={isDeliveryModalOpen}
+            order={order}
+            clickedButtons={clickedButtons}
+            onClose={() => setIsDeliveryModalOpen(false)}
+            onExecuteAction={handleExecuteAction}
+            isAdministrator={isAdministrator}
           />
         </div>
 

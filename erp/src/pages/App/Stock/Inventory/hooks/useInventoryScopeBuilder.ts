@@ -149,9 +149,9 @@ export const useInventoryScopeBuilder = (
     }
 
     return items;
-  }, [scopeType, allProducts, selectedSupplierId, customProducts, suppliers]);
+  }, [scopeType, allProducts, selectedSupplierId, customProducts, getAssignedSupplierName, getSupplierNames]);
 
-  const handleNextStep = (type: InventoryScopeType) => {
+  const handleNextStep = useCallback((type: InventoryScopeType) => {
     setScopeType(type);
     setStep(2);
 
@@ -160,7 +160,7 @@ export const useInventoryScopeBuilder = (
     if (type === 'full') setInventoryName(`Inventário Geral - ${dateStr}`);
     else if (type === 'supplier') setInventoryName(`Inventário por Fornecedor`);
     else setInventoryName(`Inventário Personalizado`);
-  };
+  }, []);
 
   return {
     step,

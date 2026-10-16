@@ -1,5 +1,7 @@
 import type { Product, Variation } from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { stockUnavailabilityWriteFormSchema, stockUnavailabilityAckSchema, StockUnavailabilityUnconfirmedError } from '../../../../shared-utils/stockUnavailabilityFormSchemas';
+import { withTimeout } from '../../../../shared-utils/withTimeout';
 
 export const STOCK_UNAVAILABILITIES_PAGE_SIZE = 30;
 
@@ -108,7 +110,7 @@ export async function fetchStockUnavailabilities(filters: StockUnavailabilityFil
   };
 }
 
-async function uploadPrivatePhoto(file: File, userId: string) {
+async function uploadPrivatePhoto(file: File, userId: string, uploadedPaths: string[]) {
   const extension =
     file.name
       .split('.')
@@ -116,52 +118,79 @@ async function uploadPrivatePhoto(file: File, userId: string) {
       ?.toLowerCase()
       .replace(/[^a-z0-9]/g, '') || 'bin';
   const path = `${userId}/${crypto.randomUUID()}.${extension}`;
-  const { error } = await supabase.storage
+  uploadedPaths.push(path);
+  const result = await withTimeout(supabase.storage
     .from('unavailabilities')
-    .upload(path, file, { upsert: false, contentType: file.type || undefined });
-  if (error) throw error;
-  return path;
+    .upload(path, file, { upsert: false, contentType: file.type || undefined }), 15000, null, 'indisponibilidade:foto');
+  if (!result) throw new Error('O envio da foto excedeu o prazo. Tente novamente.');
+  if (result.error) throw result.error;
 }
 
-export async function createStockUnavailability(input: CreateStockUnavailabilityInput) {
+export async function createStockUnavailability(input: CreateStockUnavailabilityInput, stillCurrent: () => boolean = () => true): Promise<{ id: string }> {
   if (!input.variation?.id) throw new Error('Selecione uma variação válida.');
+  const values = stockUnavailabilityWriteFormSchema.parse({ ...input, productId: input.product?.id,
+    variationId: input.variation.id, variationIsVirtual: Boolean(input.variation.isVirtual), availableStock: input.variation.stock ?? 0, supplierId: input.supplierId ?? '' });
+  const check = () => { if (!stillCurrent()) throw new Error('O formulário mudou. Confira o registro antes de continuar.'); };
+  check();
+  const auth = await withTimeout(supabase.auth.getSession(), 10000, null, 'indisponibilidade:sessao');
+  if (!auth) throw new Error('Não foi possível confirmar a sessão no prazo. Tente novamente.');
   const {
     data: { session },
     error: sessionError,
-  } = await supabase.auth.getSession();
+  } = auth;
   if (sessionError) throw sessionError;
   if (!session?.user.id) throw new Error('Usuário não autenticado.');
 
   const uploadedPaths: string[] = [];
+  let rpcDispatched = false;
   try {
-    for (const photo of input.photos) {
-      uploadedPaths.push(await uploadPrivatePhoto(photo, session.user.id));
+    for (const photo of values.photos) {
+      check();
+      await uploadPrivatePhoto(photo, session.user.id, uploadedPaths);
     }
-
-    const { data, error } = await supabase.rpc('create_stock_unavailability' as any, {
-      p_product_id: input.product.id,
-      p_variation_id: input.variation.id,
-      p_quantity: input.quantity,
-      p_reason: input.reason,
-      p_treatment: input.treatment,
-      p_physical_location: input.physicalLocation,
-      p_observation: input.observation,
-      p_supplier_id: input.supplierId,
+    check();
+    rpcDispatched = true;
+    const response = await withTimeout(supabase.rpc('create_stock_unavailability' as any, {
+      p_product_id: values.productId,
+      p_variation_id: values.variationId,
+      p_quantity: values.quantity,
+      p_reason: values.reason,
+      p_treatment: values.treatment,
+      p_physical_location: values.physicalLocation,
+      p_observation: values.observation,
+      p_supplier_id: values.supplierId || null,
       p_photos: uploadedPaths.length ? uploadedPaths : null,
-    });
-    if (error) throw error;
-    return data;
+    }), 20000, null, 'indisponibilidade:registrar');
+    if (!response) throw new StockUnavailabilityUnconfirmedError();
+    const { data, error, status } = response;
+    if (error) {
+      if (status === 0 || status >= 500 || !error.code || error.code === '40003' || error.code.startsWith('08')) throw new StockUnavailabilityUnconfirmedError();
+      rpcDispatched = false; // Confirmed SQL/PostgREST rejection; uploaded evidence has no record.
+      throw error;
+    }
+    const ack = stockUnavailabilityAckSchema.safeParse(data);
+    if (!ack.success) throw new StockUnavailabilityUnconfirmedError();
+    check();
+    const confirmed = await withTimeout(supabase.from('stock_unavailabilities')
+      .select('id, product_id, variation_id, quantity, reason, treatment, physical_location, observation, supplier_id, photos, status')
+      .eq('id', ack.data.id).single(), 10000, null, 'indisponibilidade:confirmar');
+    const row = confirmed?.data;
+    if (confirmed?.error || !row || row.id !== ack.data.id || row.product_id !== values.productId
+      || row.variation_id !== values.variationId || Number(row.quantity) !== values.quantity || row.status !== 'active'
+      || row.reason !== values.reason || row.treatment !== values.treatment || row.physical_location !== values.physicalLocation
+      || (row.observation ?? '') !== values.observation || (row.supplier_id ?? '') !== values.supplierId
+      || JSON.stringify(row.photos ?? []) !== JSON.stringify(uploadedPaths)) throw new StockUnavailabilityUnconfirmedError();
+    check();
+    return ack.data;
   } catch (error) {
+    if (rpcDispatched) throw error instanceof StockUnavailabilityUnconfirmedError ? error : new StockUnavailabilityUnconfirmedError();
     if (uploadedPaths.length) {
-      const { error: cleanupError } = await supabase.storage
-        .from('unavailabilities')
-        .remove(uploadedPaths);
-      if (cleanupError) {
-        console.error(
-          'Não foi possível limpar anexos sem vínculo da indisponibilidade.',
-          cleanupError
-        );
-      }
+      try {
+        const cleanup = await withTimeout(supabase.storage
+          .from('unavailabilities')
+          .remove(uploadedPaths), 5000, null, 'indisponibilidade:limpar-fotos');
+        if (!cleanup || cleanup.error) console.warn('Não foi possível confirmar a limpeza das fotos sem vínculo.');
+      } catch { console.warn('Não foi possível confirmar a limpeza das fotos sem vínculo.'); }
     }
     throw error;
   }

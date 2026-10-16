@@ -57,8 +57,9 @@ const SalesOrderReportsBling = lazy(() => import('./pages/App/SalesOrder/Reports
 const SalesOrderReportViewBling = lazy(
   () => import('./pages/App/SalesOrder/ReportsBling/ReportView')
 );
+const CustomerSupport = lazy(() => import('./pages/App/CustomerSupport/Index'));
 import BlingStock from './pages/App/Stock/BlingStock/index';
-import NewSaleOrder from './pages/App/SalesOrder/pages/NewSaleOrder';
+import NewSaleOrder from './pages/App/SalesOrder/pages/NewSaleOrder.tsx';
 import OrderEditModal from './pages/App/SalesOrder/modals/OrderEditModal';
 import FiscalDocumentsPage from './pages/App/FiscalDocuments';
 import { canPerform } from './pages/utils/permissionService';
@@ -313,6 +314,16 @@ function Router() {
               element={
                 <PermissionRoute action="viewFiscal">
                   <FiscalDocumentsPage />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="/atendimento"
+              element={
+                <PermissionRoute action="viewCustomerSupport">
+                  <Suspense fallback={<LoadingFallback />}>
+                    <CustomerSupport />
+                  </Suspense>
                 </PermissionRoute>
               }
             />

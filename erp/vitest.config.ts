@@ -7,6 +7,7 @@ export default defineConfig({
     alias: [
       { find: '@', replacement: path.resolve(__dirname, './src') },
       { find: /^maplibre-gl$/, replacement: path.resolve(__dirname, './src/testMocks/maplibre-gl.ts') },
+      { find: /^canvas$/, replacement: path.resolve(__dirname, './src/testMocks/canvas.ts') },
     ],
   },
   test: {
@@ -19,6 +20,10 @@ export default defineConfig({
     passWithNoTests: true,
     clearMocks: true,
     restoreMocks: true,
+    env: {
+      VITE_SUPABASE_TEST_URL: 'https://hkoxhourxwlddgsfdgws.supabase.co',
+      VITE_SUPABASE_TEST_ANON_KEY: 'test-anon-key',
+    },
   },
 });
 

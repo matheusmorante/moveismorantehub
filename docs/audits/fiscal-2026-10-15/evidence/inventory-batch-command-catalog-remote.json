@@ -1,0 +1,164 @@
+{
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "checkedAt": "2026-10-15T23:23:39.389Z",
+  "authorizedPreparedVersion": "20261015222500",
+  "remoteVersion": "20261015232214",
+  "name": "update_inventory_batch_atomically",
+  "sourceSha256": "79B5D6959A33C98BB7B5BBF9C48A4BBD8DA6C80EA872BDDAB6A8D9980C9BF9C4",
+  "applied": true,
+  "checks": [
+    {
+      "test": "01_exact_command_signature",
+      "passed": true
+    },
+    {
+      "test": "02_five_security_invoker_functions",
+      "passed": true
+    },
+    {
+      "test": "03_empty_search_paths",
+      "passed": true
+    },
+    {
+      "test": "04_command_bounded_waits",
+      "passed": true
+    },
+    {
+      "test": "05_no_public_or_anon_execute",
+      "passed": true
+    },
+    {
+      "test": "06_authenticated_execute",
+      "passed": true
+    },
+    {
+      "test": "07_only_helpers_immutable",
+      "passed": true
+    },
+    {
+      "test": "08_metadata_safe_parse",
+      "passed": true
+    },
+    {
+      "test": "09_finite_numeric_anchors",
+      "passed": true
+    },
+    {
+      "test": "10_explicit_status_and_legacy_reversal",
+      "passed": true
+    },
+    {
+      "test": "11_administrator_override_and_role_precedence",
+      "passed": true
+    },
+    {
+      "test": "12_pending_and_legacy_roles",
+      "passed": true
+    },
+    {
+      "test": "13_permission_explicit_array",
+      "passed": true
+    },
+    {
+      "test": "14_permission_fallback_only_absent_key",
+      "passed": true
+    },
+    {
+      "test": "15_malformed_permissions_deny",
+      "passed": true
+    }
+  ],
+  "advisors": [
+    {
+      "type": "security",
+      "total": 6,
+      "groups": [
+        {
+          "name": "rls_enabled_no_policy",
+          "level": "INFO",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
+        },
+        {
+          "name": "function_search_path_mutable",
+          "level": "WARN",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable"
+        },
+        {
+          "name": "extension_in_public",
+          "level": "WARN",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public"
+        },
+        {
+          "name": "anon_security_definer_function_executable",
+          "level": "WARN",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable"
+        },
+        {
+          "name": "authenticated_security_definer_function_executable",
+          "level": "WARN",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable"
+        },
+        {
+          "name": "auth_leaked_password_protection",
+          "level": "WARN",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+        }
+      ]
+    },
+    {
+      "type": "performance",
+      "total": 7,
+      "groups": [
+        {
+          "name": "unindexed_foreign_keys",
+          "level": "INFO",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys"
+        },
+        {
+          "name": "auth_rls_initplan",
+          "level": "WARN",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0003_auth_rls_initplan"
+        },
+        {
+          "name": "no_primary_key",
+          "level": "INFO",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0004_no_primary_key"
+        },
+        {
+          "name": "unused_index",
+          "level": "INFO",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index"
+        },
+        {
+          "name": "multiple_permissive_policies",
+          "level": "WARN",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0006_multiple_permissive_policies"
+        },
+        {
+          "name": "duplicate_index",
+          "level": "WARN",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0009_duplicate_index"
+        },
+        {
+          "name": "auth_db_connections_absolute",
+          "level": "INFO",
+          "count": 1,
+          "remediation": "https://supabase.com/docs/guides/deployment/going-into-prod"
+        }
+      ]
+    }
+  ],
+  "limitations": "Catalog and pure helpers only. No business fixtures, live batch edits, Auth changes, deployment, fiscal transmission, concurrency or rollback trials."
+}

@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import LabelAssetLibraryModal from '../modals/LabelAssetLibraryModal';
 import LabelCopyCategoryModal from '../modals/LabelCopyCategoryModal';
@@ -9,14 +10,9 @@ import LabelImageModal from '../modals/LabelImageModal';
 import LabelModelManagerModal from '../modals/LabelModelManagerModal';
 import LabelNewAssetModal from '../modals/LabelNewAssetModal';
 import PriceLabelArtEditorModal from '../modals/PriceLabelArtEditorModal';
-import {
-  findIdenticalGridModel,
-  saveGridModelWithFallback,
-} from '../services/labelGridModelPersistence';
 import { persistPriceLabelArtwork } from '../services/labelLayoutService';
 import type { ModalsSectionProps } from '../types/LabelPrintingSections.types';
 import type { LabelConfig } from '../utils/LabelConstants';
-import { DEFAULT_LAYOUT_MODELS } from '../utils/LabelConstants';
 
 export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
   const {
@@ -53,17 +49,24 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
     editingGridModel,
     setEditingGridModel,
     selectedImage,
-    setCustomLayouts,
     selectLayout,
     isCopyModalOpen,
     setIsCopyModalOpen,
     modelToCopy,
     handleCopyToCategory,
+    handleSaveGridModel,
     modelToDelete,
     setModelToDelete,
     confirmDeleteLayout,
+    layoutsBusy,
+    layoutsError,
+    layoutsBlocked,
     handleLogoUpload,
     handleConfirmNewLogo,
+    assetsSaving,
+    assetError,
+    imageUploading,
+    imageUploadError,
     availableLogos,
     handleAddLogoToQueue,
     handleDeleteAvailableLogo,
@@ -75,6 +78,14 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
     selectedProductToAdd,
   } = props;
 
+  const artworkOwnerKey = JSON.stringify([String(config.layoutId || 'preco_2x5_restored'), selectedCategory, isPriceLabelArtEditorOpen]);
+  const artworkOwner = useRef({ key: artworkOwnerKey });
+  if (artworkOwner.current.key !== artworkOwnerKey) artworkOwner.current = { key: artworkOwnerKey };
+  const currentArtworkOwner = artworkOwner.current;
+  const active = useRef(true);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const artworkIsCurrent = () => active.current && artworkOwner.current === currentArtworkOwner && isPriceLabelArtEditorOpen;
+
   return (
     <>
       <LabelGridModelModal
@@ -85,79 +96,18 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
         }}
         editingModel={editingGridModel}
         currentCategory={selectedCategory}
+        currentType={config.type}
         previewImage={selectedImage}
-        onSave={async (newModel) => {
-          const isSystemDefault = editingGridModel
-            ? DEFAULT_LAYOUT_MODELS.some((m) => m.id === editingGridModel.id)
-            : false;
-          const existingOverride = isSystemDefault
-            ? customLayouts.find((c) => c.baseModelId === editingGridModel?.id)
-            : null;
-          const targetId =
-            existingOverride?.id ?? (isSystemDefault ? null : (editingGridModel?.id ?? null));
-
-          const identicalLayout = findIdenticalGridModel(
-            customLayouts,
-            newModel,
-            targetId,
-            editingGridModel?.id
-          );
-
-          if (identicalLayout) {
-            toast.info(`Este modelo de etiqueta já existe (como "${identicalLayout.name}").`);
-            setGridModalOpen(false);
-            setEditingGridModel(null);
-            return;
-          }
-
-          const { finalModel, updatedLayouts, savedToDb, resultError } =
-            await saveGridModelWithFallback({
-              newModel,
-              editingGridModel,
-              customLayouts,
-              selectedCategory,
-            });
-
-          setCustomLayouts(updatedLayouts);
-
-          if (
-            finalModel &&
-            (editingGridModel?.id === config.layoutId || config.layoutId === finalModel.id)
-          ) {
-            selectLayout(finalModel);
-          }
-
-          if (savedToDb) {
-            toast.success('Modelo atualizado no banco!');
-          } else {
-            const errorDetails =
-              typeof resultError === 'object' && resultError !== null
-                ? (resultError as { message?: unknown; status?: unknown })
-                : {};
-            const quota =
-              (typeof errorDetails.message === 'string' &&
-                errorDetails.message.toLowerCase().includes('quota')) ||
-              errorDetails.status === 402;
-            toast.warning(
-              <div className="flex flex-col gap-1">
-                <p className="font-bold text-[10px] uppercase tracking-widest text-slate-800">
-                  Salvo Localmente
-                </p>
-                <p className="text-[9px] opacity-70">
-                  {quota ? 'Limite de dados (Quota) atingido. ' : 'Falha na rede. '}
-                  As alterações foram salvas neste computador.
-                </p>
-              </div>,
-              { autoClose: 9000 }
-            );
-          }
-
-          setGridModalOpen(false);
-          setEditingGridModel(null);
-        }}
+        isPersisting={layoutsBusy}
+        error={layoutsError}
+        blocked={layoutsBlocked}
+        onSave={handleSaveGridModel}
       />
 
       <LabelCopyCategoryModal
+        isSaving={layoutsBusy}
+        error={layoutsError}
+        blocked={layoutsBlocked}
         isOpen={isCopyModalOpen}
         onClose={() => setIsCopyModalOpen(false)}
         modelToCopy={modelToCopy}
@@ -166,6 +116,9 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
       />
 
       <LabelDeleteConfirmModal
+        isSaving={layoutsBusy}
+        error={layoutsError}
+        blocked={layoutsBlocked}
         isOpen={Boolean(modelToDelete)}
         modelToDelete={modelToDelete}
         onClose={() => setModelToDelete(null)}
@@ -179,9 +132,14 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
         newLogoName={newLogoName}
         setNewLogoName={setNewLogoName}
         onConfirm={handleConfirmNewLogo}
+        isSaving={assetsSaving}
+        error={assetError}
       />
 
       <LabelAssetLibraryModal
+        isBusy={Boolean(imageUploading || assetsSaving)}
+        isUploading={imageUploading}
+        error={imageUploadError || assetError}
         isOpen={isAssetManagerModalOpen}
         onClose={() => setIsAssetManagerModalOpen(false)}
         availableLogos={availableLogos}
@@ -200,9 +158,14 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
         setLabelFormImage={setLabelFormImage}
         availableLogos={availableLogos}
         handleSaveCustomLabel={handleSaveCustomLabel}
+        isSaving={assetsSaving}
+        error={assetError}
       />
 
       <LabelModelManagerModal
+        isSaving={layoutsBusy}
+        error={layoutsError}
+        blocked={layoutsBlocked}
         isOpen={isModelManagerModalOpen}
         onClose={() => setIsModelManagerModalOpen(false)}
         selectedCategory={selectedCategory}
@@ -242,12 +205,14 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
         }}
         config={{
           ...config,
+          category: selectedCategory ?? config.category ?? 'precos',
           artConfig:
             savedArtConfigs[String(config.layoutId || 'preco_2x5_restored')] ||
             savedArtConfigs['preco_2x5_restored'] ||
             config.artConfig,
         }}
-        onArtConfigLoaded={(loadedArtConfig) => {
+        onArtConfigLoaded={(loadedArtConfig, stillCurrent = () => true) => {
+          if (!artworkIsCurrent() || !stillCurrent()) return;
           const layoutId = String(config.layoutId || 'preco_2x5_restored');
           setSavedArtConfigs((prev) => ({
             ...prev,
@@ -257,13 +222,17 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
           setConfig((prev) => ({ ...prev, artConfig: loadedArtConfig }));
           setArtVersion((prev) => prev + 1);
         }}
-        onSaveConfig={async (updated: Partial<LabelConfig>) => {
+        onSaveConfig={async (updated: Partial<LabelConfig>, stillCurrent = () => true) => {
+          const isCurrent = () => artworkIsCurrent() && stillCurrent();
+          if (!isCurrent()) return false;
           const layoutId = String(config.layoutId || 'preco_2x5_restored');
-          await persistPriceLabelArtwork({
+          const confirmed = await persistPriceLabelArtwork({
             layoutId,
             category: selectedCategory,
             updated,
+            isCurrent,
           });
+          if (!confirmed || !isCurrent()) return false;
 
           if (updated.artConfig) {
             const artConfig = updated.artConfig;
@@ -283,12 +252,13 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
             artConfig: updated.artConfig || prev.artConfig,
           }));
           setArtVersion((prev) => prev + 1);
+          return true;
         }}
         initialProduct={
           selectedProductToAdd
             ? {
                 name: selectedProductToAdd.description,
-                price: String(selectedProductToAdd.unitPrice || ''),
+                price: String(selectedProductToAdd.unitPrice ?? ''),
                 promoPrice:
                   selectedProductToAdd.promoPrice === undefined
                     ? ''

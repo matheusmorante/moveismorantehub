@@ -4,7 +4,8 @@ import { calculateLabelPhysicalSize } from '../utils/LabelPhysicalGeometry';
 import ProductSearchInput from './ProductSearchInput';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
+import { labelQueueImageUploadFormSchema } from '../../../../../../../shared-utils/labelImageFormSchemas';
+import { readImageFile } from '../../../../../../../shared-utils/readImageFile';
 
 interface LabelQueueProps {
   labelItems: any[];
@@ -26,7 +27,14 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
   selectedCategory,
 }) => {
   const [dragOverIdx, setDragOverIdx] = React.useState<number | null>(null);
-  const imageForm = useZodForm(imageFilesFormSchema, { files: [] });
+  const imageForm = useZodForm(labelQueueImageUploadFormSchema, { files: [], index: 0, blank: false });
+  const [imageBusy, setImageBusy] = React.useState(false), [imageError, setImageError] = React.useState('');
+  const activeRead = React.useRef<AbortController | null>(null), mounted = React.useRef(false);
+  const ownerKey = `${selectedCategory ?? ''}:${printingMode}`;
+  const currentOwner = React.useRef(ownerKey), currentItems = React.useRef(labelItems);
+  currentOwner.current = ownerKey; currentItems.current = labelItems;
+  React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; activeRead.current?.abort(); }; }, []);
+  React.useEffect(() => { setImageError(''); return () => activeRead.current?.abort(); }, [ownerKey]);
   const labelPhysicalSize = calculateLabelPhysicalSize(config || {});
   const isPriceQueue = selectedCategory === 'precos';
   const shouldShowThumbnail = (item: any) =>
@@ -41,20 +49,26 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
   const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>, index: number, blank = false) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file) return;
+    if (!file || activeRead.current) return;
+    const controller = new AbortController(), snapshot = labelItems;
+    activeRead.current = controller; setImageBusy(true); setImageError('');
+    const current = () => mounted.current && !controller.signal.aborted && currentOwner.current === ownerKey;
+    const fail = (message: string) => { if (current()) { setImageError(message); toast.error(message); } };
     try {
-      await imageForm.validateAndRun({ files: [file] }, async (values) => {
-        const image = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
-          reader.readAsDataURL(values.files[0]);
-        });
-        setLabelItems((previous) => previous.map((item, idx) => idx === index
-          ? { ...item, image, ...(blank ? { isBlank: false, printingMode: 'simple' } : {}) } : item));
-      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    } catch {
-      toast.error('Não foi possível ler a imagem.');
+      await imageForm.validateAndRun({ files: [file], index, blank }, async (values) => {
+        if (!current()) return;
+        const target = snapshot[values.index];
+        if (!target) throw new Error('A etiqueta não está mais disponível.');
+        const image = await readImageFile(values.files[0], controller.signal);
+        if (!current()) return;
+        if (!currentItems.current.includes(target)) throw new Error('A etiqueta mudou durante a leitura. Selecione a imagem novamente.');
+        setLabelItems((previous) => previous.map((item) => item === target
+          ? { ...item, image, ...(values.blank ? { isBlank: false, printingMode: 'simple' } : {}) } : item));
+      }, (errors) => fail(Object.values(flattenFormErrors(errors))[0] || 'Confira a imagem.'));
+    } catch (cause) {
+      fail(cause instanceof Error ? cause.message : 'Não foi possível ler a imagem.');
+    } finally {
+      if (activeRead.current === controller) { activeRead.current = null; if (mounted.current) setImageBusy(false); }
     }
   };
 
@@ -108,6 +122,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
   if (labelItems.length === 0) {
     return (
       <div className="py-8 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+        {imageError && <p role="alert" className="text-sm text-red-600">{imageError}</p>}
         <i className="bi bi-tags text-4xl mb-4 opacity-50" />
         <p className="text-xs font-black uppercase tracking-widest text-center">
           Nenhuma etiqueta adicionada
@@ -121,6 +136,8 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
 
   return (
     <div className="flex flex-col gap-3">
+      {imageError && <p role="alert" className="text-sm text-red-600">{imageError}</p>}
+      {imageBusy && <p role="status" className="flex items-center gap-2 text-sm text-blue-600"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Lendo imagem da etiqueta…</p>}
       {labelItems.map((item, idx) => (
         <div
           key={idx}
@@ -215,6 +232,8 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                         <input
                           type="file"
                           accept="image/*"
+                          aria-label={`Imagem da etiqueta ${idx + 1}`}
+                          disabled={imageBusy}
                           className="hidden"
                           onChange={(event) => handleImageChange(event, idx, true)}
                         />
@@ -227,6 +246,8 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
                         <input
                           type="file"
                           accept="image/*"
+                          aria-label={`Imagem da etiqueta ${idx + 1}`}
+                          disabled={imageBusy}
                           className="hidden"
                           onChange={(event) => handleImageChange(event, idx)}
                         />

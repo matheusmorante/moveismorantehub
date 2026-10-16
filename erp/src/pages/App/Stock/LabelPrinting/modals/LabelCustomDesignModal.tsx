@@ -11,7 +11,9 @@ interface LabelCustomDesignModalProps {
   labelFormImage: string;
   setLabelFormImage: (image: string) => void;
   availableLogos: LabelLogoAsset[];
-  handleSaveCustomLabel: () => void;
+  handleSaveCustomLabel: () => Promise<boolean>;
+  isSaving?: boolean;
+  error?: string;
 }
 
 export const LabelCustomDesignModal: React.FC<LabelCustomDesignModalProps> = ({
@@ -24,8 +26,11 @@ export const LabelCustomDesignModal: React.FC<LabelCustomDesignModalProps> = ({
   setLabelFormImage,
   availableLogos,
   handleSaveCustomLabel,
+  isSaving = false,
+  error = '',
 }) => {
   if (!isOpen) return null;
+  const close = () => { if (!isSaving) onClose(); };
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
@@ -34,10 +39,10 @@ export const LabelCustomDesignModal: React.FC<LabelCustomDesignModalProps> = ({
         tabIndex={0}
         aria-label="Cancelar criação de rótulo"
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-fade-in"
-        onClick={onClose}
+        onClick={close}
         onKeyDown={(e) => {
           if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
-            onClose();
+            close();
           }
         }}
       />
@@ -58,7 +63,7 @@ export const LabelCustomDesignModal: React.FC<LabelCustomDesignModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="w-10 h-10 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 cursor-pointer"
           >
             <i className="bi bi-x-lg" />
@@ -66,6 +71,8 @@ export const LabelCustomDesignModal: React.FC<LabelCustomDesignModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-8 pr-2">
+          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+          {isSaving && <p role="status" className="text-sm animate-pulse">Validando e gravando o rótulo…</p>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-6">
               <div>
@@ -78,6 +85,7 @@ export const LabelCustomDesignModal: React.FC<LabelCustomDesignModalProps> = ({
                 <input
                   id="custom-label-name-input"
                   type="text"
+                  disabled={isSaving}
                   value={labelFormName}
                   onChange={(e) => setLabelFormName(e.target.value)}
                   placeholder="EX: RÓTULO VINHO TINTO 750ML"
@@ -126,6 +134,7 @@ export const LabelCustomDesignModal: React.FC<LabelCustomDesignModalProps> = ({
                     <button
                       type="button"
                       key={logo.id}
+                      disabled={isSaving}
                       onClick={() => {
                         setLabelFormImage(logo.image);
                         if (!labelFormName) setLabelFormName(logo.name);
@@ -153,7 +162,8 @@ export const LabelCustomDesignModal: React.FC<LabelCustomDesignModalProps> = ({
         <div className="flex gap-4 pt-8 shrink-0">
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
+            disabled={isSaving}
             className="flex-1 px-8 py-5 border border-slate-100 dark:border-slate-800 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
           >
             Cancelar
@@ -161,6 +171,7 @@ export const LabelCustomDesignModal: React.FC<LabelCustomDesignModalProps> = ({
           <button
             type="button"
             onClick={handleSaveCustomLabel}
+            disabled={isSaving}
             className="flex-[1.5] px-8 py-5 bg-blue-600 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-95 transition-all text-center cursor-pointer"
           >
             {editingLabel ? 'Salvar Alterações' : 'Criar Rótulo Definido'}

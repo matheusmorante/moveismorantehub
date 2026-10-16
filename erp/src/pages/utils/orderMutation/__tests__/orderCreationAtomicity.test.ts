@@ -457,4 +457,46 @@ describe('cadastro de pedido com estoque atômico', () => {
     expect(mocks.recordHistory).not.toHaveBeenCalled();
     expect(mocks.invalidateQueries).not.toHaveBeenCalled();
   });
+
+  it('bloqueia no serviço/backend agendamento com período de data ou horário inválido antes da RPC', async () => {
+    const invalidDateRangeSale = {
+      ...scheduledSale,
+      shipping: {
+        deliveryMethod: 'delivery',
+        scheduling: {
+          dateType: 'range',
+          date: '2026-10-22',
+          endDate: '2026-10-20',
+          type: 'range',
+          startTime: '09:00',
+          endTime: '12:00',
+        },
+      },
+    };
+
+    await expect(executeSaveOrder(invalidDateRangeSale as any, vi.fn())).rejects.toThrow(
+      'A data final não pode ser anterior à data inicial.'
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+
+    const invalidTimeRangeSale = {
+      ...scheduledSale,
+      shipping: {
+        deliveryMethod: 'delivery',
+        scheduling: {
+          dateType: 'fixed',
+          date: '2026-10-22',
+          endDate: '',
+          type: 'range',
+          startTime: '14:00',
+          endTime: '13:00',
+        },
+      },
+    };
+
+    await expect(
+      executeUpdateOrder('pedido-1', invalidTimeRangeSale as any, async () => scheduledSale as any)
+    ).rejects.toThrow('O horário final deve ser posterior ao horário inicial.');
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
 });

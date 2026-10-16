@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product, Variation } from '@/pages/types/product.type';
 import {
   createStockUnavailability,
@@ -26,7 +26,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
 }));
 
 const product = { id: 'product-1' } as Product;
-const variation = { id: 'variation-1' } as Variation;
+const variation: Variation = { id: 'variation-1', name: 'Variação', sku: 'V1', stock: 10, unitPrice: 1, active: true, attributes: [] };
 const baseInput = {
   product,
   variation,
@@ -36,8 +36,12 @@ const baseInput = {
   physicalLocation: 'Depósito',
   observation: '',
   supplierId: null,
-  photos: [{ name: 'avaria.jpg', type: 'image/jpeg' } as File],
+  photos: [new File(['foto'], 'avaria.jpg', { type: 'image/jpeg' })],
 };
+const confirmedRow = () => ({ id: 'unavail-new', product_id: product.id, variation_id: variation.id, quantity: 1,
+  reason: baseInput.reason, treatment: baseInput.treatment, physical_location: baseInput.physicalLocation,
+  observation: '', supplier_id: null, photos: ['user-1/00000000-0000-4000-8000-000000000001.jpg'], status: 'active' });
+afterEach(() => vi.useRealTimers());
 
 describe('stockUnavailabilityService - fetchStockUnavailabilities', () => {
   let mockQuery: any;
@@ -216,6 +220,9 @@ describe('stockUnavailabilityService - createStockUnavailability', () => {
     getSession.mockResolvedValue({ data: { session: { user: { id: 'user-1' } } }, error: null });
     upload.mockResolvedValue({ error: null });
     remove.mockResolvedValue({ error: null });
+    rpc.mockReset().mockResolvedValue({ data: 'unavail-new', error: null, status: 200 });
+    const query = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn(async () => ({ data: confirmedRow(), error: null })) };
+    from.mockReturnValue(query);
   });
 
   it('throws if variation is missing', async () => {
@@ -251,11 +258,12 @@ describe('stockUnavailabilityService - createStockUnavailability', () => {
       p_supplier_id: null,
       p_photos: ['user-1/00000000-0000-4000-8000-000000000001.jpg'],
     });
-    expect(result).toEqual({ id: 'unavail-new', status: 'created' });
+    expect(result).toEqual({ id: 'unavail-new' });
+    expect(from).toHaveBeenCalledWith('stock_unavailabilities');
   });
 
   it('removes successfully uploaded private files when the RPC fails', async () => {
-    rpc.mockResolvedValue({ data: null, error: new Error('RPC failed') });
+    rpc.mockResolvedValue({ data: null, error: Object.assign(new Error('RPC failed'), { code: '23514' }), status: 400 });
 
     await expect(createStockUnavailability(baseInput)).rejects.toThrow('RPC failed');
 
@@ -273,13 +281,56 @@ describe('stockUnavailabilityService - createStockUnavailability', () => {
       .mockResolvedValueOnce({ error: new Error('upload failed') });
     const input = {
       ...baseInput,
-      photos: [baseInput.photos[0], { name: 'outra.png', type: 'image/png' } as File],
+      photos: [baseInput.photos[0], new File(['outra'], 'outra.png', { type: 'image/png' })],
     };
 
     await expect(createStockUnavailability(input)).rejects.toThrow('upload failed');
 
     expect(rpc).not.toHaveBeenCalled();
-    expect(remove).toHaveBeenCalledWith(['user-1/00000000-0000-4000-8000-000000000001.jpg']);
+    expect(remove).toHaveBeenCalledWith(['user-1/00000000-0000-4000-8000-000000000001.jpg', 'user-1/00000000-0000-4000-8000-000000000001.png']);
+  });
+
+  it.each([null, {}, [], { id: '' }])('preserves attachments for an unconfirmed RPC acknowledgement %j', async (data) => {
+    rpc.mockResolvedValue({ data, error: null, status: 200 });
+    await expect(createStockUnavailability(baseInput)).rejects.toMatchObject({ uncertain: true });
+    expect(remove).not.toHaveBeenCalled();
+  });
+  it.each(['timeout', 'network', 'connection'])('does not delete photos after an uncertain RPC %s', async (kind) => {
+    vi.useFakeTimers();
+    if (kind === 'timeout') rpc.mockReturnValue(new Promise(() => {}));
+    if (kind === 'network') rpc.mockRejectedValue(new TypeError('Failed to fetch'));
+    if (kind === 'connection') rpc.mockResolvedValue({ data: null, error: { code: '08006' }, status: 503 });
+    const outcome = createStockUnavailability(baseInput).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(20000); expect(await outcome).toMatchObject({ uncertain: true });
+    expect(remove).not.toHaveBeenCalled();
+  });
+  it.each(['product_id', 'variation_id', 'quantity', 'photos', 'status'])('does not publish a mismatched confirmation: %s', async (field) => {
+    const query = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn(async () => ({ data: { ...confirmedRow(), [field]: 'changed' }, error: null })) };
+    from.mockReturnValue(query);
+    await expect(createStockUnavailability(baseInput)).rejects.toMatchObject({ uncertain: true }); expect(remove).not.toHaveBeenCalled();
+  });
+  it('validates photos, quantity precision and physical variation before Auth/Storage/RPC', async () => {
+    for (const input of [ { ...baseInput, quantity: 1.234 }, { ...baseInput, photos: [new File(['bad'], 'bad.txt', { type: 'text/plain' })] },
+      { ...baseInput, variation: { ...variation, isVirtual: true } } ]) {
+      await expect(createStockUnavailability(input)).rejects.toThrow();
+    }
+    expect(getSession).not.toHaveBeenCalled(); expect(upload).not.toHaveBeenCalled(); expect(rpc).not.toHaveBeenCalled();
+  });
+  it('stops before the RPC if the owner changes during upload and only cleans unlinked photos', async () => {
+    let current = true; upload.mockImplementationOnce(async () => { current = false; return { error: null }; });
+    await expect(createStockUnavailability(baseInput, () => current)).rejects.toThrow('formulário mudou');
+    expect(rpc).not.toHaveBeenCalled(); expect(remove).toHaveBeenCalledOnce();
+  });
+  it('bounds Auth and confirmation waits and never dispatches after an expired Auth wait', async () => {
+    vi.useFakeTimers(); let finish!: (value: unknown) => void;
+    getSession.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    const request = createStockUnavailability(baseInput).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(10000); expect((await request).message).toContain('sessão no prazo');
+    finish({ data: { session: { user: { id: 'late' } } }, error: null }); await vi.advanceTimersByTimeAsync(0);
+    expect(upload).not.toHaveBeenCalled(); expect(rpc).not.toHaveBeenCalled();
+    from.mockReturnValue({ select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn(() => new Promise(() => {})) });
+    const confirmation = createStockUnavailability(baseInput).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(10000); expect(await confirmation).toMatchObject({ uncertain: true }); expect(remove).not.toHaveBeenCalled();
   });
 });
 

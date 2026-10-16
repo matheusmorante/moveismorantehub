@@ -13,7 +13,7 @@ const useShipping = (initialDeliveryMethod: 'delivery' | 'pickup' = 'delivery') 
       time: '',
       startTime: '',
       endTime: '',
-      type: 'range',
+      type: 'fixed',
     },
     autoCalculateValue: true,
     useCustomerAddress: true,

@@ -115,6 +115,7 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
         order={order}
         onOpen={onShowPostSaleActions}
         onCloseMenu={onCloseMenu}
+        onAction={onAction}
       />
 
       <ReturnNfeActionMenuButton

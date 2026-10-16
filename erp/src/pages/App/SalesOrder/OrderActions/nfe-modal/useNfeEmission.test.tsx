@@ -1555,7 +1555,9 @@ describe('preenchimento dos itens da NF-e', () => {
     };
 
     render(<PostOrderActionsModal order={orderWithAllOrigins} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Emitir nota fiscal de saída' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /Emissão de NF de saída|Emitir nota fiscal de saída/i })
+    );
 
     // No novo fluxo, o clique abre primeiramente a escolha de ambiente
     expect(await screen.findByRole('dialog', { name: 'Emitir nota fiscal de saída' })).toBeTruthy();
@@ -1811,7 +1813,7 @@ describe('preenchimento dos itens da NF-e', () => {
 
     render(<PostOrderActionsModal order={orderWithNfe} onClose={vi.fn()} />);
 
-    const issueNfeButton = screen.getByText('Emitir nota fiscal de saída').closest('button');
+    const issueNfeButton = screen.getByText(/Emissão de NF de saída/i).closest('button');
     expect(issueNfeButton).toBeTruthy();
     expect(issueNfeButton?.hasAttribute('disabled')).toBe(true);
     expect(issueNfeButton?.getAttribute('title')).toBe('Nota fiscal já emitida para este pedido.');
@@ -1827,7 +1829,7 @@ describe('preenchimento dos itens da NF-e', () => {
 
     render(<PostOrderActionsModal order={freshOrder} onClose={vi.fn()} />);
 
-    const issueNfeButton = screen.getByText('Emitir nota fiscal de saída');
+    const issueNfeButton = screen.getByText(/Emissão de NF de saída/i);
     fireEvent.click(issueNfeButton);
 
     expect(screen.getByText('Selecione o ambiente fiscal', { exact: false })).toBeTruthy();

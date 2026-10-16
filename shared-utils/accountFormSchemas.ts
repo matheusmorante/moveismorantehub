@@ -44,7 +44,7 @@ export const redeConfigFormSchema = z.object({
   environment: z.enum(['sandbox', 'production'], { error: 'Selecione um ambiente válido.' }),
   active: z.boolean(),
   anticipation_enabled: z.boolean(),
-}).passthrough().superRefine((data, context) => {
+}).superRefine((data, context) => {
   if (!data.active) return;
   for (const field of ['pv', 'client_id', 'client_secret'] as const) {
     if (!data[field].trim()) {

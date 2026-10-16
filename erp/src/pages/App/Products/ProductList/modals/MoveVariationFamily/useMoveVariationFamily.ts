@@ -1,198 +1,160 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { variationFamilyFormSchema } from '../../../../../../../../shared-utils/catalogFormSchemas';
-import { supabase } from '@/pages/utils/supabaseConfig';
+import { variationFamilyCommandSchema, variationFamilyQuerySchema, variationFamilyConflictSchema, variationFamilyAckSchema,
+  VariationFamilyUnconfirmedError, type VariationFamilyOperationGuard } from '../../../../../../../../shared-utils/variationFamilyFormSchemas';
+import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import { ensureAttributeValue } from '@/pages/utils/variationService';
 import { moveVariationToFamily } from '@/pages/utils/productService';
-import Product, { type Variation } from '@/pages/types/product.type';
-import { Family, Attribute, toAttributes, hasSameAttributes, familyName } from './utils';
+import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
+import { fetchVariationFamilyContext, fetchVariationFamilies, fetchVariationFamilyConflict } from '@/pages/utils/productService/productVariationFamilyQueries';
+import type Product from '@/pages/types/product.type';
+import type { Variation } from '@/pages/types/product.type';
+import { type Family, type Attribute, toAttributes, familyName } from './utils';
 
 export const useMoveVariationFamily = (
   variation: (Product & { readonly variationId?: string; attributes: Variation['attributes'] }) | null,
-  onMoved: () => void,
-  onClose: () => void
+  onMoved: () => void, onClose: () => void, operationGuard?: VariationFamilyOperationGuard,
 ) => {
-  const [families, setFamilies] = useState<readonly Family[]>([]);
-  const [targetFamilyId, setTargetFamilyId] = useState('');
-  const [attributes, setAttributes] = useState<Attribute[]>([]);
-  const { validateAndRun } = useZodForm(variationFamilyFormSchema, { sourceId: variation?.variationId || '', familyId: targetFamilyId, attributes });
-  const [hasConflict, setHasConflict] = useState(false);
-  const [countdown, setCountdown] = useState(5);
-  const [isOnlyVariation, setIsOnlyVariation] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const initialSource = useRef(variation), active = useRef(false), lock = useRef(false), completed = useRef(false);
+  const ownGuard = useRef<VariationFamilyOperationGuard>({ active: null, error: '' });
+  const guard = operationGuard ?? ownGuard.current, token = useRef(Symbol('move-family'));
+  const sourceId = (variation?.variationId || '').trim().toLowerCase();
+  const isOpen = Boolean(variation);
+  const [families, setFamilies] = useState<readonly Family[]>([]), [targetFamilyId, selectFamily] = useState('');
+  const [attributes, setAttributes] = useState<Attribute[]>(() => toAttributes(variation?.attributes));
+  const [context, setContext] = useState<Awaited<ReturnType<typeof fetchVariationFamilyContext>> | null>(null);
+  const [loading, setLoading] = useState(Boolean(variation)), [queryError, setQueryError] = useState(''), [queryRevision, setQueryRevision] = useState(0);
+  const [hasConflict, setHasConflict] = useState(false), [conflictLoading, setConflictLoading] = useState(false);
+  const [conflictError, setConflictError] = useState(''), [checkedKey, setCheckedKey] = useState(''), [conflictRevision, setConflictRevision] = useState(0);
+  const [countdown, setCountdown] = useState(5), deadline = useRef(0);
+  const reviewRevision = useRef(0), renderRevision = reviewRevision.current;
+  const [saving, setSaving] = useState(false), [error, setError] = useState(guard.error);
+  const family = families.find((candidate) => candidate.id === targetFamilyId);
+  const values = { sourceId, familyId: targetFamilyId, sourceParentId: context?.sourceParentId || '', attributes,
+    images: context?.images || [], name: [familyName(family), ...attributes.map((attribute) => attribute.value)].filter(Boolean).join(' ') };
+  const { validateAndRun } = useZodForm(variationFamilyCommandSchema, values);
+  const { validateValues: validateQuery } = useZodForm(variationFamilyQuerySchema, { sourceId });
+  const { validateValues: validateConflict } = useZodForm(variationFamilyConflictSchema, { sourceId, familyId: targetFamilyId, attributes });
+  const validationKey = JSON.stringify([sourceId, targetFamilyId, attributes]);
 
   useEffect(() => {
-    if (!variation) return;
-
-    setTargetFamilyId('');
-    setAttributes(toAttributes(variation.attributes));
-    setHasConflict(false);
-    setCountdown(5);
-    setIsOnlyVariation(false);
-
-    if (variation.parentId) {
-      supabase
-        .from('product_variations')
-        .select('id', { count: 'exact', head: true })
-        .eq('product_id', variation.parentId)
-        .then(({ count }) => {
-          if (count === 1) setIsOnlyVariation(true);
-        });
+    const currentToken = token.current;
+    active.current = isOpen;
+    if (guard.active && guard.active !== token.current) {
+      guard.error ||= new VariationFamilyUnconfirmedError().message; setError(guard.error);
     }
-
-    let query = supabase
-      .from('products')
-      .select('id, name, description, code')
-      .eq('deleted', false)
-      .not('code', 'is', null)
-      .neq('code', '')
-      .order('name', { ascending: true });
-
-    if (variation.parentId) query = query.neq('id', variation.parentId);
-
-    query.then(({ data, error }) => {
-      if (error) {
-        toast.error('Não foi possível carregar os produtos pai.');
-        return;
-      }
-      setFamilies((data || []) as readonly Family[]);
-    });
-  }, [variation]);
-
-  useEffect(() => {
-    const validAttributes = attributes.filter(
-      (attribute) => attribute.name.trim() && attribute.value.trim()
-    );
-    if (!variation || !targetFamilyId || validAttributes.length === 0) {
-      setHasConflict(false);
-      return;
-    }
-    let active = true;
-    supabase
-      .from('product_variations')
-      .select('id, attributes')
-      .eq('product_id', targetFamilyId)
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (error) {
-          toast.error('Não foi possível validar as variações do produto pai.');
-          setHasConflict(true);
-          return;
-        }
-        setHasConflict(
-          (data || []).some((candidate) =>
-            hasSameAttributes(
-              validAttributes,
-              toAttributes(candidate.attributes).filter((a) => a.name.trim() && a.value.trim())
-            )
-          )
-        );
-      });
     return () => {
-      active = false;
+      active.current = false;
+      if (!completed.current && guard.active === currentToken) guard.error ||= new VariationFamilyUnconfirmedError().message;
     };
-  }, [variation, targetFamilyId, attributes]);
+  }, [guard, sourceId, isOpen]);
 
   useEffect(() => {
-    if (!variation || !targetFamilyId || hasConflict || saving) {
-      setCountdown(5);
-      return;
-    }
-    if (countdown <= 0) return;
-    const timer = window.setTimeout(() => setCountdown((value) => value - 1), 1000);
-    return () => window.clearTimeout(timer);
-  }, [variation, targetFamilyId, hasConflict, saving, countdown]);
+    let current = true, accepting = true;
+    setLoading(true); setQueryError(''); setContext(null); setFamilies([]);
+    void (async () => {
+      try {
+        const input = await validateQuery({ sourceId });
+        if (!input || !current) throw new Error('A variação precisa de um UUID válido. Reabra pelo cadastro da variação.');
+        const result = await withTimeout(Promise.all([
+          fetchVariationFamilyContext(input, initialSource.current?.parentId, () => current && accepting),
+          fetchVariationFamilies(input, () => current && accepting),
+        ]), 32000, null, 'mover-variacao:consultas');
+        if (!current) return;
+        if (!result) throw new Error('A consulta da mudança de família excedeu o prazo. Consulte novamente.');
+        const [source, parents] = result;
+        setContext(source); setFamilies(parents.filter((candidate) => candidate.id !== source.sourceParentId));
+      } catch (failure) { if (current) setQueryError(failure instanceof Error ? failure.message : 'Não foi possível consultar a mudança de família.'); }
+      finally { accepting = false; if (current) setLoading(false); }
+    })();
+    return () => { current = false; accepting = false; };
+  }, [sourceId, queryRevision, validateQuery]);
 
-  const updateAttribute = useCallback((index: number, field: 'name' | 'value', value: string) => {
-    setAttributes((current) =>
-      current.map((attribute, attributeIndex) =>
-        attributeIndex === index ? { ...attribute, [field]: value } : attribute
-      )
-    );
-  }, []);
+  useEffect(() => {
+    let current = true, accepting = true;
+    deadline.current = 0; setCountdown(5); setCheckedKey(''); setHasConflict(false); setConflictError('');
+    if (loading || !family || !context) { setConflictLoading(false); return; }
+    setConflictLoading(true);
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const input = await validateConflict({ sourceId, familyId: targetFamilyId, attributes }, (errors) => {
+            if (current) setConflictError(Object.values(flattenFormErrors(errors))[0] || 'Confira os atributos.');
+          });
+          if (!current || !input) return;
+          const conflict = await withTimeout(fetchVariationFamilyConflict(input, () => current && accepting), 11000, null, 'mover-variacao:validar-destino');
+          if (!current) return;
+          if (conflict === null) throw new Error('A validação do destino excedeu o prazo. Consulte novamente.');
+          setHasConflict(conflict);
+          if (!conflict) { setCheckedKey(validationKey); deadline.current = Date.now() + 5000; }
+        } catch (failure) { if (current) setConflictError(failure instanceof Error ? failure.message : 'Não foi possível validar o destino.'); }
+        finally { accepting = false; if (current) setConflictLoading(false); }
+      })();
+    }, 150);
+    return () => { current = false; accepting = false; clearTimeout(timer); };
+  }, [sourceId, targetFamilyId, attributes, loading, family, context, validationKey, conflictRevision, validateConflict]);
 
-  const addAttribute = useCallback(() => {
-    setAttributes([{ name: '', value: '' }]);
-  }, []);
+  useEffect(() => {
+    if (checkedKey !== validationKey || !checkedKey || !deadline.current || saving) return;
+    const timer = setInterval(() => setCountdown(Math.max(0, Math.ceil((deadline.current - Date.now()) / 1000))), 250);
+    return () => clearInterval(timer);
+  }, [checkedKey, validationKey, saving]);
 
-  const handleConfirm = useCallback(async () => {
-    const selectedFamily = families.find((family) => family.id === targetFamilyId);
-    if (!selectedFamily || !variation?.variationId) return;
-    const validAttributes = attributes.filter(
-      (attribute) => attribute.name.trim() && attribute.value.trim()
-    );
-    const validated = await validateAndRun({ sourceId: variation.variationId, familyId: selectedFamily.id, attributes: validAttributes }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-
+  const canConfirm = Boolean(family && context && checkedKey === validationKey && !loading && !queryError && !hasConflict && !conflictLoading
+    && !conflictError && countdown === 0 && !saving && !guard.error && !completed.current);
+  const editable = () => active.current && !lock.current && !guard.error && !completed.current;
+  const invalidateReview = () => { reviewRevision.current += 1; deadline.current = 0; setCheckedKey(''); setCountdown(5); };
+  const handleCancel = () => { if (editable()) onClose(); };
+  const handleConfirm = async () => {
+    if (!active.current || lock.current || guard.active || !canConfirm || !deadline.current || renderRevision !== reviewRevision.current || Date.now() < deadline.current) return false;
+    lock.current = true; setSaving(true); setError('');
+    let accepting = true;
+    const stillCurrent = () => active.current && accepting && !guard.error && renderRevision === reviewRevision.current;
     try {
-      setSaving(true);
-      const canonicalAttributes = await Promise.all(
-        validated.attributes.map(async (attribute) => {
-          const stored = await ensureAttributeValue(attribute.name, attribute.value);
-          return { ...attribute, ...stored };
-        })
-      );
-      const newName = [
-        familyName(selectedFamily),
-        ...canonicalAttributes.map((attribute) => attribute.value),
-      ]
-        .filter(Boolean)
-        .join(' ');
-
-      let imagesToMove = variation.images || [];
-
-      if (imagesToMove.length === 0 && variation.parentId) {
-        // Se a variação não tem fotos explícitas, herda as fotos do pai antigo antes de mover
-        const { data: oldParentImages } = await supabase
-          .from('product_images')
-          .select('image_url')
-          .eq('product_id', variation.parentId);
-        if (oldParentImages && oldParentImages.length > 0) {
-          imagesToMove = oldParentImages.map((img: any) => img.image_url);
-        }
-      }
-
-      const result = await moveVariationToFamily(
-        variation.variationId,
-        selectedFamily.id,
-        canonicalAttributes,
-        newName,
-        imagesToMove,
-        variation.parentId
-      );
-
-      if (result?.sourceParentRemoved) {
-        toast.success(
-          `Variação movida (novo SKU: ${result.newSku}). O produto pai antigo ficou sem variações e foi removido.`
-        );
-      } else {
-        toast.success(
-          `Variação movida para o novo produto pai (SKU: ${result?.newSku || 'gerado'}). O ID foi preservado.`
-        );
-      }
-      onMoved();
-      onClose();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Não foi possível mover o produto.';
-      toast.error(message);
+      return await validateAndRun(values, async (parsed) => {
+        if (!stillCurrent()) return false;
+        if (parsed.images.length > MAX_VARIATION_IMAGES) throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
+        guard.active = token.current;
+        const operation = async () => {
+          const canonicalAttributes: Attribute[] = [];
+          for (const attribute of parsed.attributes) {
+            if (!stillCurrent()) throw new VariationFamilyUnconfirmedError();
+            const stored = await ensureAttributeValue(attribute.name, attribute.value, stillCurrent);
+            canonicalAttributes.push({ ...attribute, ...stored });
+          }
+          if (!stillCurrent()) throw new VariationFamilyUnconfirmedError();
+          const newName = [familyName(family), ...canonicalAttributes.map((attribute) => attribute.value)].join(' ');
+          return moveVariationToFamily(parsed.sourceId, parsed.familyId, canonicalAttributes, newName, parsed.images, parsed.sourceParentId, stillCurrent);
+        };
+        const result = await withTimeout(operation(), 60000, null, 'mover-variacao:confirmar-formulario');
+        const confirmation = variationFamilyAckSchema.safeParse(result);
+        if (!confirmation.success) throw new VariationFamilyUnconfirmedError();
+        if (!stillCurrent()) return false;
+        completed.current = true; guard.active = null;
+        toast.success(confirmation.data.sourceParentRemoved
+          ? `Variação movida (novo SKU: ${confirmation.data.newSku}). O produto pai antigo ficou sem variações e foi removido.`
+          : `Variação movida para o novo produto pai (SKU: ${confirmation.data.newSku}). O ID foi preservado.`);
+        try { onMoved(); onClose(); } catch { setError('Mudança confirmada, mas a tela não foi atualizada. Recarregue a página.'); }
+        return true;
+      }, (errors) => { if (active.current) setError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da mudança.'); });
+    } catch (failure) {
+      const message = failure instanceof Error ? failure.message : 'Não foi possível mover a variação.';
+      if ((failure as { uncertain?: boolean })?.uncertain) guard.error = message;
+      if (active.current) { setError(message); toast.error(message); }
+      return false;
     } finally {
-      setSaving(false);
+      accepting = false; lock.current = false;
+      if (guard.active === token.current) guard.active = null;
+      if (active.current) setSaving(false);
     }
-  }, [families, targetFamilyId, variation, attributes, onMoved, onClose, validateAndRun]);
-
-  return {
-    families,
-    targetFamilyId,
-    setTargetFamilyId,
-    attributes,
-    updateAttribute,
-    addAttribute,
-    hasConflict,
-    countdown,
-    isOnlyVariation,
-    saving,
-    handleConfirm,
+  };
+  return { families, targetFamilyId, setTargetFamilyId: (id: string) => { if (editable()) { invalidateReview(); selectFamily(id); } }, attributes,
+    updateAttribute: (index: number, field: 'name' | 'value', value: string) => { if (editable()) { invalidateReview(); setAttributes((current) => current.map((attribute, i) => i === index ? { ...attribute, [field]: value } : attribute)); } },
+    addAttribute: () => { if (editable()) { invalidateReview(); setAttributes((current) => [...current, { name: '', value: '' }]); } },
+    hasConflict, countdown, isOnlyVariation: Boolean(context?.isOnlyVariation), saving, handleConfirm, handleCancel,
+    loading, queryError, conflictLoading, conflictError, error, canConfirm, blocked: Boolean(guard.error) || completed.current,
+    retryQueries: () => { if (editable()) { invalidateReview(); setQueryRevision((revision) => revision + 1); } },
+    retryConflict: () => { if (editable()) { invalidateReview(); setConflictRevision((revision) => revision + 1); } },
   };
 };

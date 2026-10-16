@@ -7,6 +7,7 @@ import {
   getToggledDepthLengthTarget,
   computeTechnicalFieldItemState,
   isOptionalFieldSelected,
+  hasCharacteristicValue,
   SYNCED_FIELDS,
 } from './technicalTabUtils';
 import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
@@ -138,6 +139,41 @@ describe('technicalTabUtils', () => {
       );
       expect(state.isNotApplicable).toBe(true);
       expect(state.isApplicable).toBe(false);
+    });
+  });
+
+  describe('hasCharacteristicValue', () => {
+    it('reconhece valor de marca a partir de formData.brand ou technicalValues', () => {
+      const field: TechnicalFieldDefinition = { id: 'm1', name: 'Marca' };
+      expect(hasCharacteristicValue(field, { brand: 'Morante' })).toBe(true);
+      expect(hasCharacteristicValue(field, { technicalValues: { Marca: 'Morante' } })).toBe(true);
+      expect(hasCharacteristicValue(field, { brand: '' })).toBe(false);
+      expect(hasCharacteristicValue(field, {})).toBe(false);
+    });
+
+    it('reconhece dimensões diretas ou em technicalValues', () => {
+      const fieldAltura: TechnicalFieldDefinition = { id: 'a1', name: 'Altura' };
+      expect(hasCharacteristicValue(fieldAltura, { height: 180 })).toBe(true);
+      expect(hasCharacteristicValue(fieldAltura, { technicalValues: { Altura: '180' } })).toBe(true);
+      expect(hasCharacteristicValue(fieldAltura, { height: 0 })).toBe(false);
+    });
+
+    it('identifica valores de características gerais excluindo vazio e Não se aplica', () => {
+      const field: TechnicalFieldDefinition = { id: 'p1', name: 'Material dos puxadores' };
+      expect(
+        hasCharacteristicValue(field, { technicalValues: { 'Material dos puxadores': 'Alumínio' } })
+      ).toBe(true);
+      expect(
+        hasCharacteristicValue(field, { technicalValues: { 'Material dos puxadores': '' } })
+      ).toBe(false);
+      expect(
+        hasCharacteristicValue(field, {
+          technicalValues: { 'Material dos puxadores': 'Não se aplica' },
+        })
+      ).toBe(false);
+      expect(
+        hasCharacteristicValue(field, { technicalValues: { 'Material dos puxadores': 'n/a' } })
+      ).toBe(false);
     });
   });
 

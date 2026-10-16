@@ -4,13 +4,14 @@ import { mapFromDB as mapProductFromDB, updateProduct } from '@/pages/utils/prod
 import { isEntryType, isExitType, isAdjustmentType } from './inventoryTypeRules';
 
 export const recalculateProductStockOnMove = async (move: InventoryMove): Promise<void> => {
-  const { data: p } = await supabase
+  const { data: p, error } = await supabase
     .from('products')
     .select('*, product_variations(*)')
     .eq('id', move.productId)
     .single();
 
-  if (!p) return;
+  if (error) throw error;
+  if (!p) throw new Error('Produto não encontrado para confirmar o saldo.');
 
   const product = mapProductFromDB(p);
   let newTotalStock = Number(product.stock || 0);
@@ -18,9 +19,11 @@ export const recalculateProductStockOnMove = async (move: InventoryMove): Promis
   const updatedVariations = product.variations ? [...product.variations] : [];
 
   const qty = Number(move.quantity || 0);
+  if (move.variationId && updatedVariations.length === 0) throw new Error('Variação não encontrada para confirmar o saldo.');
 
   if (move.variationId && updatedVariations.length > 0) {
     const vIdx = updatedVariations.findIndex((v: any) => String(v.id) === String(move.variationId));
+    if (vIdx === -1) throw new Error('Variação não encontrada para confirmar o saldo.');
     if (vIdx !== -1) {
       let vStock = Number(updatedVariations[vIdx].stock || 0);
       const previousStock = vStock;

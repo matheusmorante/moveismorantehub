@@ -1,11 +1,14 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import React from 'react';
 import { TechnicalFieldRow } from './TechnicalFieldRow';
 import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 
 describe('TechnicalFieldRow', () => {
+  afterEach(() => {
+    cleanup();
+  });
   it('renderiza o campo com nome, unidade e asterisco de obrigatório', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f1',
@@ -55,7 +58,7 @@ describe('TechnicalFieldRow', () => {
     expect(onOpenModal).toHaveBeenCalledTimes(1);
   });
 
-  it('permite alternar campo opcional via switch entre se aplica e Não se aplica', () => {
+  it('não exibe botão switch para campo opcional e permite edição natural sem asterisco de obrigatório', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f3',
       name: 'Material da estrutura',
@@ -75,11 +78,8 @@ describe('TechnicalFieldRow', () => {
       />
     );
 
-    const switchBtn = screen.getByRole('switch');
-    expect(switchBtn.getAttribute('aria-checked')).toBe('true');
-
-    fireEvent.click(switchBtn);
-    expect(onValueChange).toHaveBeenCalledWith('Material da estrutura', 'Não se aplica');
+    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByText('*')).toBeNull();
   });
 
   it('exibe botão de exclusão para campos manuais e aciona remoção', () => {

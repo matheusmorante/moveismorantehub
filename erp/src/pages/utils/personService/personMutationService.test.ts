@@ -75,22 +75,22 @@ describe('personMutationService test artifact context', () => {
     expect(db.inserts[0]).not.toHaveProperty('full_address');
   });
 
-  it('permite inserir CPF com dígitos verificadores incorretos, desde que tenha o formato correto', async () => {
+  it('permite inserir cliente com CPF válido', async () => {
     await savePerson('customers', {
-      fullName: 'Cliente com CPF de formato correto',
+      fullName: 'Cliente com CPF válido',
       personType: 'PF',
-      cpfCnpj: '343.445.635-34',
+      cpfCnpj: '529.982.247-25',
     } as any);
 
     expect(db.inserts).toHaveLength(1);
-    expect(db.inserts[0].cpf_cnpj).toBe('343.445.635-34');
+    expect(db.inserts[0].cpf_cnpj).toBe('529.982.247-25');
   });
 
-  it('permite documento repetido em lote e ainda bloqueia formato incorreto', async () => {
+  it('permite lote com documentos válidos e bloqueia formato incorreto', async () => {
     await savePeopleBatch('customers', [{
-      fullName: 'Cliente com CPF inválido',
+      fullName: 'Cliente com CPF válido',
       personType: 'PF',
-      cpfCnpj: '333.333.333-33',
+      cpfCnpj: '529.982.247-25',
     }]);
 
     expect(db.inserts).toHaveLength(1);
@@ -100,7 +100,7 @@ describe('personMutationService test artifact context', () => {
       fullName: 'Cliente com CPF em formato incorreto',
       personType: 'PF',
       cpfCnpj: '123.456.789-0A',
-    }])).rejects.toThrow('CPF inválido: informe 11 dígitos numéricos.');
+    }])).rejects.toThrow('CPF inválido: contém letras ou caracteres alfanuméricos');
     expect(db.inserts).toEqual([]);
   });
 
@@ -122,9 +122,30 @@ describe('personMutationService test artifact context', () => {
     });
   });
 
-  it('recusa editar cadastro operacional ou de outra execução no contexto de teste', async () => {
+  it('permite editar cadastro operacional mesmo quando o contexto de teste está ativo', async () => {
     bindTestArtifactContext({ runId, ownerId });
     db.currentPerson = { id: 'person-id', address: { street: 'Cliente real' } };
+
+    await updatePerson('customers', 'person-id', {
+      fullName: 'Matheus Morante dos Santos',
+      phone: '(44) 99999-9999',
+    });
+
+    expect(db.updates).toHaveLength(1);
+    expect(db.updates[0].full_name).toBe('Matheus Morante dos Santos');
+    expect(db.updates[0].phone).toBe('(44) 99999-9999');
+    expect(db.updates[0].address).toBeUndefined();
+  });
+
+  it('recusa editar cadastro de teste de outra execução no contexto de teste', async () => {
+    bindTestArtifactContext({ runId, ownerId });
+    db.currentPerson = {
+      id: 'person-id',
+      address: JSON.stringify({
+        street: 'Rua de outro teste',
+        testArtifact: { is_test: true, runId: 'other-run-id', ownerId },
+      }),
+    };
 
     await expect(updatePerson('customers', 'person-id', { fullName: 'Alteração' }))
       .rejects.toThrow('mesma execução e operador');

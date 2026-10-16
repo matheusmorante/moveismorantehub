@@ -1,3 +1,5 @@
+import type { LabelConfig } from '../utils/LabelConstants';
+
 interface GridModelBase {
   id: string;
   baseModelId?: string;
@@ -121,9 +123,7 @@ export interface GridModel extends GridModelBase {
   imageScale?: number;
   previewImage?: string | null;
   showPromoPrice?: boolean;
-  artConfig?: {
-    opportunities?: Record<string, any>;
-  };
+  artConfig?: LabelConfig['artConfig'];
 }
 
 export type GridModelDraft = Omit<GridModel, 'id'> & { id?: string | undefined };

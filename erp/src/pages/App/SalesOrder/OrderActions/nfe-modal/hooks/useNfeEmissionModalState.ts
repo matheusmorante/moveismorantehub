@@ -6,6 +6,7 @@ import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadg
 import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import type { NfeTabId, FiscalFieldError } from '../types/nfeEmission.types';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export const maskRecipientTaxId = (value: string) => {
   if (/[a-z]/i.test(value)) return formatRecipientTaxId(value, 'PJ');
@@ -133,18 +134,7 @@ export function useNfeEmissionModalState({
 
   React.useEffect(() => setProductionConfirmed(false), [environment]);
 
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const { body, documentElement } = document;
-    const previousBody = body.style.overflow;
-    const previousHtml = documentElement.style.overflow;
-    body.style.overflow = 'hidden';
-    documentElement.style.overflow = 'hidden';
-    return () => {
-      body.style.overflow = previousBody;
-      documentElement.style.overflow = previousHtml;
-    };
-  }, [isOpen]);
+  useBodyScrollLock(isOpen);
 
   const isHmlIssued = Boolean(
     fiscalStatuses?.homologation === 'issued' ||

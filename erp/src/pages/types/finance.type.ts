@@ -49,6 +49,8 @@ export interface FinancialTransaction {
   payment_method: string;
   category_id?: string;
   result_nature?: ResultNature;
+  purpose?: 'BUSINESS' | 'PERSONAL';
+  idempotency_key?: string;
   payable_id?: string;
   receivable_id?: string;
   notes?: string;

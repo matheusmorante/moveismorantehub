@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchSuppliersForProduct } from './unavailabilitySupplierService';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fetchSuppliersForProduct, fetchSuppliersForProductResult } from './unavailabilitySupplierService';
 
 const { from } = vi.hoisted(() => ({
   from: vi.fn(),
@@ -8,6 +8,36 @@ const { from } = vi.hoisted(() => ({
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   supabase: { from },
 }));
+afterEach(() => vi.useRealTimers());
+
+describe('consulta de fornecedores com resultado e prazo', () => {
+  beforeEach(() => vi.clearAllMocks());
+  it('valida a consulta antes do transporte e distingue erro de ausência', async () => {
+    expect((await fetchSuppliersForProductResult('')).error).toBeInstanceOf(Error); expect(from).not.toHaveBeenCalled();
+    const query = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: new Error('Falha') }) };
+    from.mockReturnValue(query);
+    expect((await fetchSuppliersForProductResult('product')).error?.message).toBe('Falha');
+    query.single.mockResolvedValue({ data: { supplier_ids: [] }, error: null });
+    expect(await fetchSuppliersForProductResult('product')).toEqual({ data: [], error: null });
+  });
+  it.each(['products', 'people'])('limita a espera por %s e descarta a continuação anterior', async (table) => {
+    vi.useFakeTimers(); let finish!: (value: unknown) => void;
+    const pending = new Promise((resolve) => { finish = resolve; });
+    from.mockImplementation((name) => ({ select() { return this; }, eq() { return this; }, in() { return this; },
+      single: () => table === 'products' ? pending : Promise.resolve({ data: { supplier_id: 'supplier' }, error: null }),
+      or: () => name === 'people' ? pending : Promise.resolve({ data: [], error: null }) }));
+    const request = fetchSuppliersForProductResult('product'); await vi.advanceTimersByTimeAsync(10000);
+    expect((await request).error?.message).toContain('prazo');
+    finish({ data: table === 'products' ? { supplier_id: 'supplier' } : [{ id: 'supplier' }], error: null }); await vi.advanceTimersByTimeAsync(0);
+    expect(from).toHaveBeenCalledTimes(table === 'products' ? 1 : 2);
+  });
+  it('não consulta pessoas depois que o proprietário mudou', async () => {
+    let current = true;
+    from.mockReturnValue({ select() { return this; }, eq() { return this; }, single: async () => { current = false; return { data: { supplier_id: 'supplier' }, error: null }; } });
+    expect((await fetchSuppliersForProductResult('product', () => current)).error).toBeInstanceOf(Error);
+    expect(from).toHaveBeenCalledOnce();
+  });
+});
 
 describe('unavailabilitySupplierService - fetchSuppliersForProduct', () => {
   beforeEach(() => {

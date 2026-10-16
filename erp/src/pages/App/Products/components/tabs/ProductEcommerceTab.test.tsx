@@ -1,14 +1,33 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ProductEcommerceTab from './ProductEcommerceTab';
+import { uploadOptimizedProductImage } from './images/productImageUpload';
 
 vi.mock('./images/SquareImageCropper', () => ({
-  SquareImageCropper: () => null,
+  SquareImageCropper: ({ imageUrl, onCancel, onConfirm }: any) => (
+    <div role="dialog" data-testid="mock-cropper">
+      <span>Cropping: {imageUrl}</span>
+      <button
+        onClick={() =>
+          onConfirm(new File(['dummy'], 'cropped.webp', { type: 'image/webp' }))
+        }
+      >
+        Salvar Recorte
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock('./images/productImageUpload', () => ({
+  uploadOptimizedProductImage: vi.fn(),
 }));
 
 describe('ProductEcommerceTab image limits', () => {
   afterEach(() => cleanup());
+  beforeEach(() => {
+    vi.mocked(uploadOptimizedProductImage).mockResolvedValue('photo-1-cropped.webp');
+  });
 
   const renderTab = (variationCount: number, images: string[] = []) =>
     render(
@@ -84,5 +103,39 @@ describe('ProductEcommerceTab image limits', () => {
 
     expect(overlay?.className).toContain('pointer-events-auto');
     expect(overlay?.className).toContain('opacity-100');
+  });
+
+  it('substitui foto no produto pai e em todas as variações ao recortar', async () => {
+    let state = {
+      images: ['photo-1.jpg', 'photo-2.jpg'],
+      variations: [
+        { id: 'v1', name: 'Var 1', images: ['photo-1.jpg', 'other.jpg'] },
+        { id: 'v2', name: 'Var 2', images: ['photo-2.jpg'] },
+      ],
+    };
+    const setFormData = vi.fn((updater) => {
+      state = typeof updater === 'function' ? updater(state) : updater;
+    });
+
+    render(
+      <ProductEcommerceTab
+        formData={state as any}
+        setFormData={setFormData}
+        handleFileChange={vi.fn()}
+        removePhoto={vi.fn()}
+      />
+    );
+
+    const cropBtn = screen.getAllByTitle('Recortar foto em 1:1')[0];
+    fireEvent.click(cropBtn);
+
+    const confirmBtn = await screen.findByText('Salvar Recorte');
+    fireEvent.click(confirmBtn);
+
+    await vi.waitFor(() => {
+      expect(state.images).toEqual(['photo-1-cropped.webp', 'photo-2.jpg']);
+      expect(state.variations[0].images).toEqual(['photo-1-cropped.webp', 'other.jpg']);
+      expect(state.variations[1].images).toEqual(['photo-2.jpg']);
+    });
   });
 });

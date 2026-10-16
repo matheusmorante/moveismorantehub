@@ -296,9 +296,28 @@ Intervalos adicionados/modificados no checkout desta revisão, incluindo reinden
   - Migration criada e executada: `supabase/migrations/20261015180000_audit_puxadores_from_descriptions.sql`.
   - Operação atômica em PostgreSQL via `UPDATE ... FROM (VALUES ...) AS t(id, tipo, material)`.
   - Proteção estrita preservada: `NOT public.test_artifact_is_test(to_jsonb(p)) AND COALESCE(public.test_artifact_row_data('products', to_jsonb(p))->>'is_test', 'false') != 'true'`.
-- **Validação:**
-  - Consulta de verificação pós-migration confirmou 80 produtos com especificações ativas de puxadores no banco de dados (`with_tipo = 12`, `with_material = 73`).
-  - Nenhum artefato de teste afetado e nenhuma divergência com os valores da descrição.
+- **Ajuste subsequente das opções de material (Madeira -> Madeira Maciça):**
+  - Por determinação direta do usuário (*"PUXADOR MATERIAL NAO PRECISA DAQUELE MADEIRA POIS JA TEM O MDF, E MADEIRA MACIÇA"*), a opção genérica `Madeira` foi removida/substituída por `Madeira Maciça` em `public.attribute_values` (`Material dos puxadores`).
+  - Os 2 produtos que haviam sido classificados com `Madeira` (*Guarda Roupa 2,70m Ripado Siena Bianchi* e *Treliche Infantil Jade*) foram migrados para `Madeira Maciça`.
+  - Migration executada: `supabase/migrations/20261015190000_replace_madeira_with_madeira_macica_in_puxadores.sql`.
+- **Remoção de 'Sem puxador' e 'Embutido / Cava' de Material dos puxadores:**
+  - Por determinação direta do usuário (*"TIRE A OPÇAO SEM PUXADOR, FICA VAZIO SE A PESSOA NA OSELECIONOU NADA. EMBUTIDO / CAVA NAO É SOBRE MATERIAL E SIM TIPO, ENTAO PODE TIRAR"*), as opções `Sem puxador` e `Embutido / Cava` foram excluídas de `public.attribute_values` para o atributo `Material dos puxadores`.
+  - O campo permanece vazio quando o produto não possui ou o usuário não seleciona material; e "Cava" já pertence exclusivamente ao atributo `Tipo de puxador`.
+  - Opções finais de `Material dos puxadores`: `MDF`, `MDP`, `Madeira Maciça`, `Alumínio / Metal`, `Plástico / ABS`.
+  - Migration executada: `supabase/migrations/20261015200000_remove_sem_puxador_and_embutido_cava.sql`.
+- **Varredura exaustiva dos 378 produtos do catálogo e remoção de valores não comprovados:**
+  - Realizada verificação completa em todos os 378 produtos ativos do catálogo para assegurar 100% de conformidade com a regra (*"se não tiver explicando na descrição, então não informe"*).
+  - Identificados 2 produtos que possuíam especificações de puxadores herdadas de migrações em lote antigas, sem qualquer menção a puxadores em suas descrições:
+    1. *Estante Multiuso Open 56cm* (possuía `Não se aplica` sem ter portas, gavetas ou puxadores no texto).
+    2. *Guarda Roupa Faimec Portugal 2 Portas Branco* (possuía `Plástico / ABS` sem possuir texto de descrição cadastrado).
+  - Ambos tiveram os atributos de puxador removidos do `technical_specs` via migration: `supabase/migrations/20261015210000_clean_unverified_handle_specs.sql`.
+- **Validação consolidada:**
+  - Censo final em 378 produtos:
+    - 78 produtos com puxador comprovado na descrição: com especificações ativas e exatas (`with_tipo = 12`, `with_material = 71`).
+    - 300 produtos sem explicação de puxador no texto: 100% vazios/nulos nas características de puxador.
+  - Distribuição final de `Material dos puxadores`: `Plástico / ABS` (34), `MDF` (23), `Alumínio / Metal` (11), `Madeira Maciça` (3).
+  - Distribuição final de `Tipo de puxador`: `Perfilado` (5), `Cava` (4), `Alça` (2), `Passante` (1).
+  - Nenhum artefato de teste afetado e aderência estrita às descrições.
 
 ## Importação de pessoas: leitura, mapeamento e gravação do lote
 
@@ -343,3 +362,409 @@ Intervalos do checkout comparados à base 910b64ca; arquivos novos listam todo o
 - `erp/src/pages/App/Products/Reconciliation/services/reconciliationMutations.test.ts`: 1–59
 - `erp/src/pages/App/Products/Reconciliation/services/reconciliationQueries.test.ts`: 1–37
 - `shared-utils/reconciliationFormSchemas.ts`: 1–63
+
+
+## Formulários financeiros: contratos e comandos atômicos preparados — em validação
+
+A [revisão financeira de 15/10](../forms/revisao-financeiro-2026-10-15.md) registra as causas comprovadas no código e nos catálogos do Supabase operacional, os quatro proprietários alterados, schemas/serviços, a migration 20261015185418 ainda não aplicada e o roteiro de 15 checks sem escrita comercial. Baixas e recorrência passam localmente por comandos únicos, sem fallback para duas gravações. Parcelas conservam centavos/datas; trava comum, prazo dentro do resolver, erros visíveis e contexto do proprietário preservados. Primeira rodada: 31 testes locais aprovados, ampliada para 35; validação final e linhas exatas em fechamento. Nenhum DDL, fixture, Auth, deploy ou transmissão fiscal executado. Os quatro itens permanecem pendentes no inventário principal.
+
+### Financeiro — fechamento local e limites de prova
+
+54 testes em oito arquivos aprovados (`scratch/rhf-finance-final-tests.log`): 12 de proprietários pagar/lançamento, três receber, cinco Rede, quatro calendário/centavos, quatro ciclo RHF, 13 serviço real/composição com hook e oito consumidor do assistente. Lint das fontes passou sem avisos (`rhf-finance-lint-verified.log`). Transporte HTTP/Supabase simulado: não comprova RPC/RLS/concorrência/rollback no PostgreSQL. Foi acrescentado teste de resposta truncada/gateway/cardinalidade sem segundo INSERT; o serviço marca resultado incerto, e o aviso aparece dentro do modal. Guardas antes de I/O e de feedback impedem efeitos tardios ao desmontar durante o resolver. A primeira compilação passou; rechecagem final após revisão em andamento. O script local de advisors não foi executado porque contraria a política remota vigente. Nenhum segredo foi lido no banco nem incluído em logs de teste.
+
+Arquivos/intervalos modificados do lote financeiro, contra baseline `94097f55` (linhas atuais; arquivos novos completos):
+
+- `erp/src/pages/App/Finance/Payables/PayableModal.tsx`: 5–6, 9–10, 18–26, 32, 41, 46, 50, 52–59, 73–82, 85–90, 95, 114, 121–123, 125, 353, 357, 359–360, 372, 378–379
+- `erp/src/pages/App/Finance/Receivables/ReceivableModal.tsx`: 5–6, 9–10, 18–25, 31, 40, 44, 46–53, 67–72, 75–80, 85, 104, 111–113, 115, 205, 209, 211–212, 224, 230–231
+- `erp/src/pages/App/Finance/Transactions/index.tsx`: 7–8, 10–11, 34–36, 40, 53–55, 65–69, 81–87, 109, 129, 339, 341, 343–345, 352, 355, 365, 413, 416, 422–425
+- `erp/src/pages/App/Finance/Settings/index.tsx`: 1, 4, 7–8, 22–24, 36–38, 40–53, 56–58, 71–74, 105–109, 304
+- `erp/src/pages/App/Finance/financialForms.test.tsx`: 3, 11, 25, 54–64, 99–100, 118, 125–175
+- `erp/src/pages/App/Finance/Receivables/receivableForm.test.tsx`: 7, 9, 13, 34, 40–42
+- `erp/src/pages/App/Finance/Settings/index.test.tsx`: 3, 39–52
+- `erp/src/pages/services/financeService.ts`: 2–4, 14–26, 75–100, 135–136, 138, 141–142, 146–152, 156–157, 159, 163–164, 214–215, 217, 220–221, 225–226, 228, 232–233, 289, 291, 293, 295, 298–300, 302, 307, 310, 315–316, 360–361, 366–368, 373, 378, 380–381
+- `erp/src/pages/types/finance.type.ts`: 52–53
+- `shared-utils/financialFormSchemas.ts`: 5–7, 38–43, 65–68, 84–89, 94–134
+- `shared-utils/accountFormSchemas.ts`: 47
+- `erp/src/pages/App/Finance/useFinancialOperation.ts`: 1–61
+- `erp/src/pages/App/Finance/financialDomain.test.ts`: 1–27
+- `erp/src/pages/App/Finance/useFinancialOperation.test.tsx`: 1–60
+- `erp/src/pages/services/financeCommands.test.ts`: 1–98
+- `supabase/migrations/20261015194122_complete_financial_form_commands.sql`: 1–222 (artefato original 20261015185418_complete_financial_form_commands.sql, mesmo conteúdo)
+- `supabase/tests/financial_form_commands_catalog.sql`: 1–40
+
+Fechamento financeiro local: **54 testes em oito arquivos, lint sem erros/avisos e build final aprovado (1m19s)**. Typecheck final registra 271 diagnósticos externos e zero nos arquivos do lote (`rhf-finance-final-tsc.log`); diff-check restrito ao lote passou. A revisão final não trouxe novos achados. Fonte/intervalos acima permanecem válidos; o plano financeiro registra hashes dos artefatos para autorização. Migration e 15 checks remotos continuam não executados; **71/127, 56 pendentes** no inventário principal. A conclusão dos comandos no PostgreSQL permanece sem prova remota de concorrência/rollback/replay.
+
+### Financeiro — execução remota autorizada e checkpoint de formulários
+
+O usuário autorizou expressamente a migration de referência 20261015185418 e os 15 checks, sem massa comercial, Auth, emissão ou deploy. Preflight de catálogo confirmou as estruturas ausentes e a política Rede original. Aplicação MCP `success=true`, registro remoto `20261015194122_complete_financial_form_commands`; arquivo local alinhado à versão remota sem alterar SQL/hash e sem reparar manualmente o histórico. **15/15 checks aprovados**. [Evidência estruturada](../audits/fiscal-2026-10-15/evidence/financial-form-commands-catalog-remote.json) e [matriz, objetos, arquivos, retenção e pendências](../forms/revisao-financeiro-2026-10-15.md). Advisors relevantes registrados com links de remediação, sem DDL adicional fora da autorização.
+
+Os quatro formulários foram marcados como conferidos quanto ao resolver/payload/erros/ciclo; **ERP principal 75/127 (59,1%), 52 pendentes**. A contagem não atesta a operação comercial das novas RPCs: concorrência, rollback, replay e RLS por operador continuam sem fixtures e sem prova real. Nenhum dado comercial, segredo, Auth, deploy ou transmissão fiscal foi criado/alterado por testes. Mobile/catálogo continuam em conferência.
+
+## Remoção do Botão "Não se aplica" e Persistência de Características Selecionadas na Pesquisa
+
+- **Demanda e regra de negócio:**
+  1. Remoção completa do botão/switch de "Não se aplica" das linhas de características técnicas do produto (`TechnicalFieldRow.tsx`) e de variações (`VariationTechnicalFieldItem.tsx`). O comportamento deve ser natural: se o operador preenche ou seleciona uma opção, ela se aplica; se não preenche ou deixa em branco, ela simplesmente não se aplica e não é informada, sem a necessidade de botão, switch, aviso ou rótulo.
+  2. Correção visual de obrigatoriedade: o asterisco vermelho (`*`) é exibido unicamente em campos que são verdadeiramente obrigatórios (`field.isRequired`), sem marcar campos opcionais como obrigatórios quando preenchidos.
+  3. Desbloqueio e sanitização de inputs: remoção de estados `disabled` atrelados a "Não se aplica" e normalização de valores legados de "Não se aplica" / "N/A" para string vazia `''`, permitindo edição livre e direta.
+  4. Persistência de características preenchidas/selecionadas na busca: qualquer característica que já possua valor preenchido ou selecionado (ou tenha sido adicionada manualmente) deve permanecer visível na tela em seu respectivo grupo temático, mesmo quando o operador digita termos diferentes ou altera a pesquisa no campo de busca de características.
+
+- **Arquivos modificados:**
+  - `erp/src/pages/App/Products/components/tabs/technical/TechnicalFieldRow.tsx`: removido o botão switch `role="switch"` de "Se aplica?"; asterisco `*` condicionado estritamente a `field.isRequired`; input mantido sempre habilitado sem bloquear por "Não se aplica".
+  - `erp/src/pages/App/Products/components/tabs/technical/TechnicalFieldRow.test.tsx`: atualizado teste para validar que campos opcionais não exibem switch e permitem preenchimento natural sem asterisco.
+  - `erp/src/pages/App/Products/components/tabs/technical/technicalTabUtils.ts`: adicionada função utilitária `hasCharacteristicValue(field, formData)` para identificar valores efetivamente selecionados/preenchidos (incluindo dimensões canônicas e marca); simplificada a apuração de `computeTechnicalFieldItemState` e `isOptionalFieldSelected`.
+  - `erp/src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts`: adicionada suíte de testes unitários para `hasCharacteristicValue` validando marca, dimensões e características gerais.
+  - `erp/src/pages/App/Products/components/tabs/technical/useProductTechnicalTab.ts`: ajustada a filtragem dos grupos de campos (`fieldGroups`) para manter sempre visíveis todas as características preenchidas/selecionadas (`filledOrManualOptionalFields`) independentemente do termo de pesquisa ativo, exibindo adicionalmente as características correspondentes à busca; quando a busca está vazia, todas as características da categoria são exibidas naturalmente.
+  - `erp/src/pages/App/Products/components/tabs/technical/useProductTechnicalTab.test.ts`: adicionado teste unitário comprovando que características preenchidas permanecem visíveis durante e após alterações no campo de pesquisa.
+  - `erp/src/pages/App/Products/components/variationTabs/VariationTechnicalFieldItem.tsx`: removido o switch de aplicabilidade e simplificada a resolução de estado do campo na variação.
+
+- **Validação de testes:**
+  - Executados com 100% de sucesso todos os 40 testes em `src/pages/App/Products/components/tabs/technical/` e 34 testes em `src/pages/App/Products/components/variationTabs/`.
+
+
+
+## Cadastro de serviços — conferência do formulário e fronteira de gravação
+
+**Problema e causa:** o formulário validava com RHF/Zod, mas preservava estado entre abertura/identidades, fechava durante gravação e não limitava a espera. O serviço de atualização ignorava erro na leitura do snapshot e podia gravar um objeto incompleto; o mapper permitia que um id antigo dentro de service_data substituísse a identidade da linha. O schema final propagava campos arbitrários e não distinguia contrato parcial de rascunho/finalização.
+
+**Solução:** proprietário remonta por serviço e abertura, envia apenas valores editáveis parseados mais identidade/isDraft=false, mantém o resolver ativo durante a espera de até 30s, trava submissões/fechamento, exibe progresso/erros e não executa gravação/feedback após desmontagem. Resultado incerto bloqueia repetição nesta sessão. Serviço reutiliza schemas explícitos de finalização, rascunho e patch; falha de leitura impede escrita e metadados persistidos são preservados. Patch não injeta preços/defaults ausentes no rascunho. Valor zero e active=false continuam permitidos. Row id prevalece sobre id legado do JSON. Switch de ativo usa botão acessível por teclado.
+
+**Prova:** 17 testes em dois arquivos (`scratch/rhf-service-final-tests.log`): nove do proprietário com RHF real, oito do serviço real com transporte simulado. Testes cobrem valores zero/inativo, rascunho incompleto, patch com metadados, falha antes de UPDATE, identidade, erro incerto, prazo, envio duplicado e troca/desmontagem do proprietário. CurrencyInput é simulado nos testes de componente. Lint das três fontes sem erros/avisos (`rhf-service-lint.log`). TypeScript global registra 275 erros externos e zero dos arquivos deste lote (`rhf-service-tsc.log`), diferente do checkpoint anterior devido a alterações externas simultâneas. Revisão de diff sem novos achados. Build do lote em andamento; inventário ainda não incrementado. Sem gravações no banco, Auth, deploy ou transmissão fiscal.
+
+Arquivos/linhas modificados contra baseline `94097f55`:
+
+- `erp/src/pages/App/Services/ServiceFormModal.tsx`: 1, 8, 16–17, 19, 21–45, 48–57, 61–62, 66, 76–77, 84–85, 87, 131, 138, 140, 146, 154
+- `erp/src/pages/utils/serviceService.ts`: 3, 7, 9, 15–25, 54–55, 60–76, 83–103, 105–113
+- `shared-utils/serviceFormSchema.ts`: 3–4, 7–8, 10–19
+- `erp/src/pages/App/Services/ServiceFormModal.test.tsx`: 1–94
+- `erp/src/pages/utils/serviceService.test.ts`: 1–54
+
+Serviços: compilação do lote aprovada em 1m23s (`scratch/rhf-service-build.log`, avisos existentes de bundle). Inventário agora **76/127 (59,8%), 51 pendentes**. Não houve mudança de escopo dos demais proprietários; provas reais de navegação, persistência e concorrência não são substituídas pelos mocks.
+
+
+## Configuração de APIs — confirmação da persistência e resolver do proprietário
+
+**Problemas/causas comprovados:** saveConfiguration publicava memória/localStorage antes do Supabase e retornava true mesmo quando o banco devolvia error. getAllConfigurations trocava monthly_limit=0 por 10000 com operador ||. O schema/UI exigiam no mínimo dez chamadas/minuto apesar do default instalado gemini_image=5. O modal não reiniciava por abertura/serviço, não limitava gravação e podia fechar/emitir feedback de uma identidade anterior.
+
+**Solução local:** schemas compartilhados explícitos de campos editáveis e comando; zero, false e custos fracionários são preservados; limite por minuto inteiro/positivo aceita todos os defaults instalados. A gravação valida de novo, exige retorno da mesma service_id e só então publica caches. Erro de banco não gera sucesso; resposta perdida/truncada/cardinalidade marca incerteza. O proprietário mantém RHF/resolver ativo na operação, trava desde antes da validação, espera até 30s, mostra erro/progresso dentro do modal e ignora respostas após desmontagem/troca. Não altera o guard crítico fiscal nem cria chave/flag global de produção.
+
+**Validação:** 23 testes em três arquivos (`scratch/rhf-api-config-first-tests.log`): oito proprietário, oito serviço real/cache e sete regressões existentes do guard. RHF/Zod reais; transporte e ApiUsageGuard simulados no teste do formulário, guard real testado isoladamente. Lint das fontes sem erros/avisos (`rhf-api-config-lint.log`). Build e TS em andamento; item permanece pendente no inventário. Não houve rede para APIs externas, persistência remota, DDL, Auth, deploy ou transmissão fiscal.
+
+Arquivos/linhas contra baseline `94097f55`:
+
+- `erp/src/pages/App/ApiUsage/components/ApiConfigEditModal.tsx`: 1–3, 18–28, 30–63, 67, 75–76, 82–83, 90–91, 93, 116, 208, 255, 268, 273, 280
+- `erp/src/services/apiMonitoring/apiConfigService.ts`: 5, 233, 295–297, 301–323, 325–331
+- `shared-utils/apiConfigFormSchema.ts`: 14, 17–26
+- `erp/src/pages/App/ApiUsage/components/ApiConfigEditModal.test.tsx`: 1–96
+- `erp/src/services/apiMonitoring/__tests__/apiConfigService.test.ts`: 1–54
+
+Configuração de APIs: revisão adicional encontrou possível substituição de configurações alheias ao salvar antes da primeira leitura; a publicação agora reutiliza baseline memória/localStorage e um teste garante que outra API desativada/com limite personalizado é preservada sem I/O extra. Rodada ampliada: **24 testes em três arquivos**, `scratch/rhf-api-config-final-tests.log`; revisão final sem novos achados. TypeScript da rodada prévia registra 275 erros externos, zero do lote. Nova compilação/verificações após o ajuste do cache em fechamento; item continua pendente até concluir os gates.
+
+Configuração de APIs — intervalos finais após correção da publicação de cache, contra `94097f55`:
+
+- `erp/src/pages/App/ApiUsage/components/ApiConfigEditModal.tsx`: 1–3, 18–28, 30–63, 67, 75–76, 82–83, 90–91, 93, 116, 208, 255, 268, 273, 280
+- `erp/src/services/apiMonitoring/apiConfigService.ts`: 5, 199–209, 216, 231, 293–295, 299–321, 323–329
+- `shared-utils/apiConfigFormSchema.ts`: 14, 17–26
+- `erp/src/pages/App/ApiUsage/components/ApiConfigEditModal.test.tsx`: 1–96
+- `erp/src/services/apiMonitoring/__tests__/apiConfigService.test.ts`: 1–62
+
+Typecheck final: 275 diagnósticos globais, zero nos arquivos do lote (`scratch/rhf-api-config-final-tsc.log`). Lint final sem erros/avisos (`rhf-api-config-final-lint.log`). A revisão final do cache não trouxe novos achados. A compilação final passou em 1m25s (`scratch/rhf-api-config-final-build.log`, avisos existentes de bundle); o proprietário foi conferido e o inventário passou a **77/127 (60,6%), 50 pendentes**. Não há nova alteração de SQL nem prova de permissão/persistência real neste lote.
+
+
+## Movimentação de estoque do pedido — validação do lote e confirmação das etapas
+
+**Problemas e causas comprovados:** StockActionModal encerrava o resolver após validar só o motivo; criava movimentos em loop sem validar quantidades/identidades do lote, ignorava o retorno do serviço e mantinha Escape/fechamento/duplicação disponíveis. saveInventoryMove podia retornar undefined após INSERT sem linhas, e falha na atualização posterior do saldo não distinguia INSERT já confirmado. O cálculo de saldo retornava silenciosamente quando o produto não vinha da consulta ou a variação estava ausente. O mapper tratava uma entrada efetiva cujo label começa com Estorno como registro estornado, apesar do status explícito efetivo, e perdia unitPrice=0.
+
+**Solução em validação:** schema explícito compartilhado para a operação do pedido e para criação de movimento, aceitando aliases existentes e ajuste negativo não zero. Todo o lote passa pelo resolver real antes do primeiro efeito. O serviço valida novamente e exige retorno de uma linha da mesma origem/produto/variação/tipo/quantidade/data/preço. Recebimento mantém o contrato de deduplicação existente, rejeitando replay com payload divergente. Falha após INSERT confirma a identidade do movimento persistido e sinaliza saldo pendente. O modal mantém RHF ativo durante a gravação, trava antes da validação, espera até 30s por movimento, mostra progresso/erro no diálogo e impede repetição nesta sessão após lote parcial ou resultado incerto. Ao mudar pedido/intenção/itens ou desmontar durante validação, não inicia/continua o lote antigo nem fecha outro contexto. Dados fiscais e metadata JSON não são reescritos por essas validações.
+
+**Limites:** o lote continua sequencial; INSERT e saldo continuam em chamadas distintas. Não há afirmação de transação conjunta, rollback, idempotência entre sessões ou retomada automática segura. Recebimento pré-existente é confirmado contra payload, sem prometer recálculo retroativo do saldo. Recalcular com âncora de inventário ainda tem limite de 500 movimentos, fora desta correção do formulário. Nenhuma exclusão compensatória nem repetição automática foi adicionada. Backend/SQL mantêm as regras de permissão, pertencimento e identidade de teste.
+
+**Prova local inicial:** 40 testes em seis arquivos (`scratch/rhf-order-stock-first-tests.log`), com RHF, Zod, serviço/mapper e cálculo de fallback reais conforme o caso; transporte/Supabase e recálculos são simulados nos testes do serviço, e o teste de modal simula o serviço. Inclui 12 do proprietário, 13 da criação/mapper, três do fallback, seis das regras de elegibilidade, cinco invariantes já existentes e um de saldo com âncora. Não equivale a prova PostgreSQL de concorrência/persistência. Sem banco, Auth, DDL, deploy ou transmissão SEFAZ. Build/TS/revisão em andamento; item ainda pendente no inventário.
+
+Arquivos/intervalos atuais contra `94097f55`:
+
+- `erp/src/pages/App/SalesOrder/OrderActions/StockActionModal.tsx`: 1, 6–7, 18–28, 31–37, 39–43, 53–55, 57–88, 90–91, 101, 127, 135–136, 148, 168, 176, 188
+- `erp/src/pages/utils/inventoryService/inventoryMutationService.ts`: 3, 23–36, 38, 40–43, 44, 47–48, 50, 52–55, 57–61, 63–66, 68–71, 73–77
+- `erp/src/pages/utils/inventoryService/inventoryMapper.ts`: 2, 73–74, 80, 108
+- `erp/src/pages/utils/inventoryService/inventoryStockCalculator.ts`: 7, 13–14, 22, 26
+- `shared-utils/inventoryMoveSchemas.ts`: 1–45
+- `erp/src/pages/App/SalesOrder/OrderActions/StockActionModal.test.tsx`: 1–115
+- `erp/src/pages/utils/inventoryService/inventoryMutationService.test.ts`: 1–100
+- `erp/src/pages/utils/inventoryService/inventoryStockCalculator.test.ts`: 1–31
+
+### Complemento — lançamento manual e entrada por compra
+
+**Causas comprovadas:** o efeito de abertura do lançamento manual também dependia de `isSaving`, apagando quantidade/motivo ao iniciar a gravação. O resolver era encerrado antes do serviço. Na entrada por compra, somente data/observação eram validadas, linhas eram gravadas sem conferência integral prévia e `updatePurchase` não comprovava a linha/flag atualizada. Nenhum dos dois proprietários distinguia resultado incerto, lote parcial ou resposta de uma abertura anterior. A revisão de compatibilidade do serviço também identificou custos médios fracionários que podem ser persistidos arredondados em centavos; comparar o custo original por igualdade estrita rejeitava gravação válida.
+
+**Solução local:** contratos compartilhados distintos para lançamento manual e compra. O ajuste manual transforma o saldo desejado na diferença, aceita zero/negativo conforme contrato anterior, rejeita diferença não finita e confere alteração do saldo durante a validação. Compra exige identidade, estado elegível, itens/quantidades/custos e catálogo completo antes do primeiro efeito. Ambos mantêm o resolver durante a operação, preservam campos, bloqueiam fechamento/duplicação enquanto gravam, limitam espera, mostram erros no diálogo e descartam respostas após troca/desmontagem. Compra exige confirmação de cada movimento e da conclusão, bloqueia repetição após falha parcial e não inicia conclusão com movimento não confirmado. A conclusão exige retorno da mesma compra com `stockProcessed=true`, preservando as regras SQL e filtrando compra cancelada. Erro de leitura interrompe `updatePurchase`. O serviço de movimento aceita arredondamento monetário em centavos e calcula o saldo pelo custo realmente retornado pelo banco; divergências continuam rejeitadas.
+
+**Prova local parcial:** 77 testes em nove arquivos (`scratch/rhf-stock-entry-tests.log`); inclui 10 do lançamento manual, 13 da entrada por compra, 12 da ação de pedido, 15 da criação/mapper, três do fallback, 12 do serviço de compras e 12 regressões de elegibilidade/saldo/segurança. RHF e schemas reais; os testes dos proprietários simulam os serviços e os testes de serviços simulam Supabase/recálculos. Revisão do lançamento manual sem achados; revisão da compra, lint, TS e build em andamento. Inventário ainda não avançado. Sem banco, massa comercial, Auth, DDL, deploy ou transmissão. As limitações de atomicidade/replay entre sessões e de recálculo por âncora acima permanecem.
+
+Arquivos/intervalos deste lote contra `94097f55`:
+
+- `erp/src/pages/App/SalesOrder/OrderActions/StockActionModal.tsx`: 1, 6–7, 18–28, 31–37, 39–43, 53–55, 57–88, 90–91, 101, 127, 135–136, 148, 168, 176, 188
+- `erp/src/pages/App/Stock/modals/StockLaunchModal.tsx`: 1, 7–8, 29–34, 40–43, 47–50, 52–56, 85, 87–90, 92–93, 95–119, 121–122, 135, 165, 174–175, 202, 232, 236, 242, 265, 269, 276, 283, 287, 289, 302, 324
+- `erp/src/pages/App/Stock/Purchases/modals/PurchaseStockEntryModal.tsx`: 1, 9–10, 18–23, 25–28, 30–39, 42, 44, 47–48, 51–56, 59–61, 63–77, 83, 85, 87, 89–114, 116–117, 120, 132, 146, 154–155, 196, 198, 215, 224, 234
+- `erp/src/pages/utils/inventoryService/inventoryMutationService.ts`: 3, 23–46, 48, 50–53, 54, 57–58, 60, 62–65, 67–71, 73–76, 78–87
+- `erp/src/pages/utils/inventoryService/inventoryMapper.ts`: 2, 73–74, 80, 108
+- `erp/src/pages/utils/inventoryService/inventoryStockCalculator.ts`: 7, 13–14, 22, 26
+- `erp/src/pages/utils/purchaseService.ts`: 3, 215, 220, 222, 258–268
+- `shared-utils/inventoryMoveSchemas.ts`: 1–78
+- `erp/src/pages/App/SalesOrder/OrderActions/StockActionModal.test.tsx`: 1–115
+- `erp/src/pages/App/Stock/modals/StockLaunchModal.test.tsx`: 1–108
+- `erp/src/pages/App/Stock/Purchases/modals/PurchaseStockEntryModal.test.tsx`: 1–103
+- `erp/src/pages/utils/inventoryService/inventoryMutationService.test.ts`: 1–117
+- `erp/src/pages/utils/inventoryService/inventoryStockCalculator.test.ts`: 1–31
+- `erp/src/pages/utils/__tests__/purchaseService.test.ts`: 259–286
+
+**Fechamento do lote de estoque:** a revisão da conclusão encontrou que `neq(status,cancelled)` também excluía status SQL nulo, embora o mapper o normalize para `ordered`. O filtro final usa `status.neq.cancelled,status.is.null`; o teste de confirmação cobre status bruto nulo. Removido import sem uso do serviço. A revisão posterior não encontrou novos achados. Os **77 testes em nove arquivos** passaram novamente (`scratch/rhf-stock-entry-final-tests.log`), lint final sem erros/avisos (`rhf-stock-entry-final-lint.log`), TS global com 275 diagnósticos externos e zero do lote (`rhf-stock-entry-final-tsc.log`), compilação final aprovada em **1m40s** (`rhf-stock-entry-final-build.log`). A compilação inclui avisos de tamanho de bundles e da importação `crypto` no módulo de garantia alterado em paralelo; esse módulo não foi modificado nesta correção. Três proprietários conferidos: inventário principal passa a **80/127 (63,0%), 47 pendentes**, sem declarar conclusão global ou prova de negócio no PostgreSQL.
+
+
+## Inventário — escopo, contagem parcial e conclusão no ciclo do resolver
+
+**Problemas/causas comprovados:** o modal de escopo validava só campos básicos e encerrava RHF antes de chamar um callback tipado void que iniciava o rascunho de modo assíncrono. A revisão não possuía resolver antes da consulta/confirmação. O workflow permitia novas contagens durante a conclusão e não congelava a edição após falha com submissão já persistida; callbacks antigos podiam alcançar outra abertura e esperas não tinham limite. O schema de rascunho rejeitava a linha manual ainda sem produto que a interface permite adicionar. A revisão/conclusão precisa distinguir linha sem contagem (que não gera ajuste) de linha contada sem produto (inválida).
+
+**Solução em validação:** o modal de escopo reutiliza o contrato de snapshot completo e aguarda a confirmação dentro do resolver; erro/prazo/opções indisponíveis não viram sucesso. O workflow retorna confirmação booleana, trava início/salvar/concluir e campos filhos, mantém a fila de snapshots validada antes do IndexedDB e impõe limites de espera. Identidade de abertura e montagem descartam comandos/respostas antigos; voltar do código remoto tardio conserva código LOCAL único. Rascunhos aceitam identidades ainda incompletas com números válidos; consulta/conclusão aceitam linha manual sem contagem, mas nenhuma linha contada sem produto pode seguir. Conclusão confere a aritmética das diferenças, congela contagens durante envio e após submissão persistida/resultado incerto, sem reenvio automático. Contexto fiscal, numeração de NF e snapshots de emissão não foram alterados.
+
+**Prova inicial:** 25 testes de escopo/workflow (RHF/schemas reais; IndexedDB simulado por fake-indexeddb; sincronização/código/finalização remotos simulados). Logs scratch/rhf-inventory-workflow-guards-tests.log. Revisão do código, integração do modal de revisão, lint/TS/build ainda em andamento. Inventário principal permanece 80/127, sem incrementar pendências em validação. Nenhuma escrita de negócio remota, SQL/migration, Auth, SEFAZ ou deploy. Estes testes não comprovam transação/rollback/concorrência no PostgreSQL.
+
+Arquivos/intervalos atuais contra 94097f55:
+
+- `shared-utils/inventoryAuditFormSchemas.ts`: 14–34, 46, 53, 62–63
+- `erp/src/pages/App/Stock/Inventory/hooks/useInventoryAuditWorkflow.ts`: 17, 43, 61–79, 117, 120–121, 128, 131, 133, 141–142, 152, 156–157, 170, 173, 175–176, 178–181, 257–258, 266–270, 273, 275–276, 303–304, 306, 310, 319–326, 328–334, 336–338, 341, 343–351, 354–355, 358–360, 378, 384–392, 395–396, 401, 439–444, 450–464, 466–467, 469–470, 488
+- `erp/src/pages/App/Stock/Inventory/hooks/useInventoryAuditWorkflow.test.tsx`: 29–30, 38–43, 47–49, 60, 196–321
+- `erp/src/pages/App/Stock/Inventory/modals/InventoryAuditModal.tsx`: 24–27, 49–50, 58, 140, 149–151, 173, 176, 184, 194, 206, 216
+- `erp/src/pages/App/Stock/Inventory/modals/InventoryScopeModal.tsx`: 1, 3–4, 20, 41, 46–63, 65–106, 107, 128–130, 139–144, 146–161, 169–170, 178
+- `erp/src/pages/App/Stock/Inventory/modals/InventoryScopeModal.test.tsx`: 1–157
+
+### Integração e restauração do inventário — prova ampliada
+
+A revisão encontrou uma corrida real: rascunho/outbox eram consultados sem bloquear o novo escopo. A restauração agora possui prazo, confirmação de ambas as leituras, progresso/erro no proprietário e comandos bloqueados até terminar. Erro não libera um inventário novo sob a identidade antiga; fechamento/troca descarta a leitura tardia. O modal proprietário desmonta por abertura/sessão/cópia. A fila local interrompe novas gravações daquela abertura após timeout incerto, evitando reenvio silencioso; a conclusão confirmada também não é repetida.
+
+O caminho Duplicar recebia copiedItems, mas o workflow os ignorava. A seleção foi reconectada ao escopo real, que usa produtos/variações e saldos atuais e não reaplica contagens/etiquetas antigas. Cópia vazia, duplicada ou com produto/variação indisponível é informada antes de iniciar. A mensagem anterior anunciava inventário criado antes da confirmação; agora informa apenas a seleção. A diferença entre consulta, rascunho incompleto e conclusão foi mantida; nenhuma linha contada pode ser omitida ou ter identidade duplicada na revisão. Consulta de revisão executa resolver antes do Supabase, preserva a paginação e o fallback offline/erro com estimativas locais explícitas, interrompe próximas páginas após prazo/contexto inválido e rejeita saldos retornados não finitos. Confirmação aguarda o callback no resolver e apresenta falha/pendência no diálogo.
+
+Prova atual: **77 testes em 13 arquivos** (scratch/rhf-inventory-final-tests.log), com 19 do escopo, 17 da revisão, 16 do workflow, três do proprietário e 22 regressões existentes dos serviços/telas. Lint final sem erros/avisos (rhf-inventory-final-lint.log). Typecheck ERP: 275 diagnósticos globais externos e zero nos arquivos do lote (rhf-inventory-final-tsc.log), depois de corrigir seis incompatibilidades locais de tipos de snapshot/fixture. Build em andamento; os quatro itens permanecem pendentes até fechar a compilação e os gates. Serviços de rede são simulados; fake-indexeddb verifica as transações/filas locais, sem comprovar comportamento PostgreSQL nem dispositivo mobile real.
+
+Intervalos finais desta implementação contra 94097f55:
+
+- `shared-utils/inventoryAuditFormSchemas.ts`: 14–34, 46, 53, 62–63, 68–71
+- `erp/src/pages/App/Stock/Inventory/hooks/useInventoryAuditWorkflow.ts`: 6, 16, 30, 41–42, 60–81, 119, 122–124, 131, 134, 136, 144–146, 156, 160–161, 169, 175–176, 178, 180, 182–183, 185–188, 210, 212, 262, 265–267, 273, 275–279, 282, 284–285, 312–313, 315, 319, 328–335, 337–343, 345–347, 350, 352–360, 363–364, 367–369, 387, 393–401, 404–405, 410, 448–454, 460–474, 476–477, 479–480, 498–500
+- `erp/src/pages/App/Stock/Inventory/hooks/useInventoryAuditWorkflow.test.tsx`: 29–32, 40–45, 49–51, 62, 196–197, 200–396
+- `erp/src/pages/App/Stock/Inventory/modals/InventoryAuditModal.tsx`: 24–27, 49–53, 60, 135–140, 146, 148, 156–159, 181, 184, 187, 192, 202, 214, 224
+- `erp/src/pages/App/Stock/Inventory/modals/InventoryAuditModal.test.tsx`: 1–37
+- `erp/src/pages/App/Stock/Inventory/modals/InventoryScopeModal.tsx`: 1, 3–4, 11, 20, 22, 30, 44, 46, 50–60, 62–71, 73–140, 161–163, 172–177, 179–194, 202–203, 211
+- `erp/src/pages/App/Stock/Inventory/modals/InventoryScopeModal.test.tsx`: 1–184
+- `erp/src/pages/App/Stock/Inventory/modals/InventoryReviewModal.tsx`: 1, 4–13, 22, 25–29, 37, 39–59, 62–64, 67–68, 69, 104–105, 110–111, 120–121, 123–180, 182–183, 188–228, 235, 247–250, 258–259, 365–367, 373–375
+- `erp/src/pages/App/Stock/Inventory/modals/InventoryReviewModal.test.tsx`: 2–7, 10, 15–38, 68, 79–214
+- `erp/src/pages/App/Stock/Inventory/hooks/useInventoryScopeBuilder.ts`: 152, 154, 163
+- `erp/src/pages/App/Stock/Inventory/components/InventoryAuditContextMenu.tsx`: 78
+
+**Fechamento desta rodada:** build ERP aprovado em **2m07s** (scratch/rhf-inventory-build.log), lint final sem erros/avisos, 77 testes em 13 arquivos aprovados e TS global com 275 diagnósticos fora do lote. A correção da restauração foi comprovada por leitura atrasada/falha na outbox e pela UI que não exibe Novo Inventário enquanto a leitura não termina. Quatro caminhos do inventário principal passaram a conferidos: **84/127 (66,1%), 43 pendentes**. Sem banco, dados comerciais, Auth, SQL/migration, deploy ou SEFAZ.
+
+**Conferência mobile limitada:** a execução inicial em scratch/rhf-inventory-mobile-regressions.log revelou duas condições anteriores ao lote: o runner erp/vitest.mobile.config.ts força parser TSX sobre arquivos .ts com generics (falha ao coletar inventoryFinalizer) e o identificador MH:L:000XXX|SKU-1 é tratado como qr válido, contrariando o teste do scanner. Os arquivos do scanner/catalogo SQLite estavam idênticos a 94097f55, e esses testes não importam o schema alterado. O config nativo mobile não carregou porque vitest/config não está instalado naquele pacote (rhf-inventory-mobile-finalizer-native-config.log). Um runner temporário que conserva parser por extensão (scratch/vitest-mobile-inventory.config.mjs, sem alterar dependências/código de produto) permitiu executar **6/6 regressões** de finalização/conflitos mobile (rhf-inventory-mobile-parser-corrected.log). A falha QR real segue registrada para o lote mobile; não foi ocultada nem convertida em prova de seus formulários.
+
+**Limites:** rede/RPC simulados e armazenamento local testado via fake-indexeddb; nenhum teste em dispositivo real ou PostgreSQL. O timeout não cancela operação já iniciada; confirmação incerta bloqueia repetição e exige conferir o estado. Contratos remotos de finalização, outbox e metadata fiscal não foram modificados. Editor ERP InventoryMoveEditModal foi localizado como dormente, apesar de montado no histórico: não há chamada de setEditingMove com valor não nulo. O consumidor ativo de updateInventoryMove é PriceHistoryModal, distinto e ainda pendente. Não foi reativada edição do ledger nesta rodada.
+
+## Histórico de preços — resolver e comando transacional de lote em validação
+
+**Problemas e causas comprovados:** PriceHistoryModal validava quantidade/custo, mas encerrava o resolver antes da gravação; CurrencyInput não estava importado, impedindo abrir a edição. Consulta e gravação não possuíam limites de espera nem proteção contra respostas de outra abertura. updateInventoryMove ignorava erros/ausência de confirmação do UPDATE e gravava saldo em outra chamada pelo serviço genérico de produtos, que pode ignorar falhas de variações. Seu delta simples incluía entrada revertida/cancelada e entrada anterior a uma contagem absoluta de inventário. Dois clientes podiam ler o mesmo saldo e perder uma alteração. Conferir o saldo depois da chamada não elimina essa corrida.
+
+**Correção implementada localmente:** consulta e edição têm schemas explícitos; RHF aguarda a gravação e a recarga, com trava, proprietário por abertura/produto, erros visíveis e prazos de15s/30s. Zero permanece válido. Snapshot de produto/quantidade/custo anterior segue com os valores parseados. Gravação sem confirmação bloqueia repetição naquela abertura. O serviço chama update_inventory_batch, sem fallback para UPDATE de movimento/saldo no cliente; exige snapshot e somente quantidade/custo. A consulta anterior possui prazo próprio de10s e não inicia RPC se terminar tarde. O serviço confere ID/payload/delta da confirmação, publica o retorno real e invalida consultas de produtos. Falhas SQL conhecidas viram mensagens em português, sem tokens internos. A migration aditiva prepara autenticação/permissão productConfig e locks produto→movimento→variação, atualizando movimento e saldo na mesma transação. Entrada revertida, âncora própria/posterior e contagem revertida com previousStock conservam a regra de saldo existente; cronologia ambígua falha antes das escritas. Fração incompatível com stock INTEGER e valores não finitos são rejeitados. RLS e triggers existentes executam normalmente; não há nova coluna/tabela nem mudança na política fiscal global. Enquanto a RPC não estiver aplicada, o serviço apresenta indisponibilidade e não retorna ao caminho inseguro. Rollback de implantação: desativar o comando no frontend e manter as funções/histórico aditivos.
+
+**Arquivos/intervalos deste lote contra 94097f55:**
+
+- erp/src/pages/App/Products/modals/PriceHistoryModal.tsx:1, 3–5, 23–26, 37–40, 42–47, 49, 51, 56–57, 60–62, 64–72, 74–77, 79–82, 84, 86, 90, 92–117, 124, 154, 172–173, 187–188, 203–207, 215, 364, 388–390, 421–422, 434–435, 445, 447, 449–451.
+- shared-utils/catalogFormSchemas.ts:40–47; shared-utils/inventoryMoveSchemas.ts:70–78.
+- erp/src/pages/utils/inventoryService/inventoryMutationService.ts:3–6, 18–19, 138–193. A criação de movimento já conferida na rodada anterior foi preservada.
+- erp/src/pages/App/Products/modals/PriceHistoryModal.test.tsx:1–124; erp/src/pages/utils/inventoryService/inventoryUpdateService.test.ts:1–124.
+- supabase/migrations/20261015232214_update_inventory_batch_atomically.sql:1–255 (preparada/autorizada como20261015222500, renomeada para o registro remoto sem mudar conteúdo); supabase/tests/inventory_batch_command_catalog.sql:1–60.
+- docs/audits/fiscal-2026-10-15/evidence/inventory-batch-schema-readonly.json e inventory-batch-advisors-before.json: novos registros completos somente de catálogo/funções/advisors, sem dados comerciais ou credenciais.
+
+**Provas locais atuais:** 52 testes em quatro arquivos (scratch/rhf-price-history-final-tests.log), com RHF/Zod/CurrencyInput reais e serviços ou transporte simulados. Os testes incluem prazo da consulta anterior sem iniciar RPC tardia, baseline divergente, retorno de outro ID com os demais campos corretos, custo arredondado/zero, ausência de RPC sem fallback, resposta incerta/replay e mudança de proprietário. Lint final sem erros/avisos (rhf-price-history-final-lint.log). Revisões independentes do SQL/serviço e ciclo de vida sem achados restantes; SQL não é executado por esta suíte local. A instalação e os helpers remotos estão registrados no fechamento abaixo. Build final aprovado em 1m51s (rhf-price-history-final-build.log), com avisos de tamanho de bundles e de módulos de garantia alterados em paralelo. TS global com 273 diagnósticos externos e zero nos arquivos do lote (rhf-price-history-final-tsc.log); dois erros anteriores do modal foram eliminados com o import correto. As provas iniciais da versão cliente foram substituídas por estes testes da fronteira RPC; não são evidência do novo SQL.
+
+**Consulta de referência anterior à aplicação, somente leitura:** projeto hkoxhourxwlddgsfdgws confirmado contra erp/.env.local. O banco confirma inventory_moves.product_id/variation_id text, quantity numeric e custo em centavos; saldo de variação integer e pai numeric. A função de sincronização do SKU único não grava stock. A migration financeira autorizada existia como20261015194122; a nova migration/RPC de lotes ainda não existia naquele catálogo. Advisors anteriores registram seis avisos de segurança e sete de performance, sem modificar políticas/objetos. Foi usada a verificação remota: o script npm legado aponta para --local, incompatível com a política canônica. [Tipos/funções](../audits/fiscal-2026-10-15/evidence/inventory-batch-schema-readonly.json) e [baseline de advisors](../audits/fiscal-2026-10-15/evidence/inventory-batch-advisors-before.json).
+
+**Aplicação autorizada e fechamento do formulário:** o usuário autorizou somente a migration preparada20261015222500 e os15 checks, sem comando comercial, dados, Auth ou transmissão. Projeto/configuração e ausência prévia da RPC foram novamente conferidos; SHA256 aprovado79B5D6959A33C98BB7B5BBF9C48A4BBD8DA6C80EA872BDDAB6A8D9980C9BF9C4 preservado. apply_migration retornou sucesso e o histórico registrou20261015232214_update_inventory_batch_atomically; arquivo local renomeado para o mesmo registro, sem reaplicar. **15/15 checks de catálogo/helpers puros aprovados**: assinatura, cinco funções SECURITY INVOKER, search_path vazio, prazos, grants, metadata segura, números finitos/zero, status e permissões. Advisors depois conservam seis avisos de segurança e sete de performance anteriores. [Evidência remota completa](../audits/fiscal-2026-10-15/evidence/inventory-batch-command-catalog-remote.json).
+
+Nenhum dado comercial criado/alterado, edição real de lote, Auth, deploy ou SEFAZ. Instalação/helpers foram exercitados; comando de negócio, atomicidade/rollback/concorrência e RLS com fixtures **não executados** e não inferidos de mocks/checks. Escritores legados fora da RPC não aderem automaticamente aos seus locks e os triggers de custo existentes continuam ativos; a política de CMV imutável não é declarada resolvida. Um caminho de formulário conferido: **85/127 (66,9%), 42 pendentes**, sem declarar conclusão global.
+
+## Etiquetas — proprietário de logotipos, rótulos e confirmação local
+
+**Problemas e causas comprovados:** writeJson capturava quota/Storage indisponível e os métodos de logos/rótulos retornavam void. O hook publicava o array antes de persistir, encerrava/limpava o formulário e anunciava sucesso mesmo na falha. A expressão de extraFields escolhia config.extraFields apesar de existir edição, podendo perder campos anteriores ou executar JSON.parse(undefined). Exclusão e seleção para fila não executavam resolver. Erros/pending adicionados aos filhos inicialmente não eram repassados pela fachada real; a revisão localizou esse elo e o teste de integração reproduziu a diferença. Logos padrão reaparecem sempre na leitura; anunciar sua exclusão era uma confirmação falsa.
+
+**Solução implementada, fechamento em andamento:** writeJson confirma o mesmo JSON por setItem/getItem; logos/rótulos devolvem boolean e o proprietário exige true antes de estado/fechamento/sucesso. RHF valida as cinco intenções (criar logo, salvar rótulo, excluir cada tipo e adicionar à fila) com valores parseados, incluindo extraFields completos. Falhas mantêm campos/estado e aparecem em toast/inline. Trava comum, mounted e revisão por abertura/categoria/edição bloqueiam comandos antigos. UUID evita colisão de IDs locais. Os padrões continuam permanentes, conforme a leitura já existente; a remoção de logos próprios é persistente. Status/erro são encaminhados por useLabelPrintingState→ModalsSection→filhos, com campos e fechamento desabilitados durante o resolver. Modelos de grade/hidden IDs conservam seu contrato void/fallback anterior, sem declarar seus formulários concluídos.
+
+**Arquivos/intervalos contra94097f55:**
+
+- shared-utils/labelDesignFormSchemas.ts:349, 377–380.
+- erp/src/pages/App/Stock/LabelPrinting/hooks/useLabelModalsAndAssets.ts:1, 5–6, 57–78, 95–115, 117–127, 130–151, 153–183, 185–194, 198–199.
+- erp/src/pages/App/Stock/LabelPrinting/hooks/useLabelPrintingState.ts:235–236.
+- erp/src/pages/App/Stock/LabelPrinting/services/labelStorageService.ts:29–42, 112–114, 129–131; __tests__/labelStorageService.test.ts:32–139.
+- erp/src/pages/App/Stock/LabelPrinting/modals/LabelNewAssetModal.tsx:9–11, 21–22, 25, 34, 37, 57–58, 77, 88–89, 97.
+- erp/src/pages/App/Stock/LabelPrinting/modals/LabelCustomDesignModal.tsx:14–16, 29–30, 33, 42, 45, 66, 74–75, 88, 137, 165–166, 174.
+- erp/src/pages/App/Stock/LabelPrinting/sections/ModalsSection.tsx:67–68, 184–185, 207–208; types/LabelPrintingSections.types.ts:92–94, 121.
+- erp/src/pages/App/Stock/LabelPrinting/__tests__/labelAssetOwners.test.tsx:1–140; __tests__/labelAssetPage.test.tsx:1–47.
+
+**Provas e limites atuais:** 51 testes em cinco arquivos (scratch/rhf-label-assets-tests.log):14 do proprietário com RHF/schemas/armazenamento reais no Happy DOM, dois pela fachada/seção/modais reais (peers fora do escopo simulados), 15 do armazenamento e20 regressões de layouts/fallback. Quota, ausência/escrita silenciosa/readback, zero/metadata, comandos antigos, duplicidade, erros visíveis e exclusão persistente foram exercitados. Revisão posterior sem achados restantes. Lint com zero erros e um aviso anterior useEffect queue em useLabelPrintingState:90; TS/build em andamento. Nenhuma operação Supabase/biblioteca remota, dado comercial, Auth, SQL, deploy ou SEFAZ. Não prova concorrência entre abas/dispositivos, persistência de navegador real ou os fluxos remotos de imagens/grade. Inventário ainda85/127, sem incremento nesta etapa.
+
+**Fechamento do lote local de etiquetas:** 51 testes em cinco arquivos aprovados, revisão final sem achados restantes, build aprovado em **1m43s** (scratch/rhf-label-assets-build.log). Lint com zero erros e um aviso anterior de queue no effect da fachada (rhf-label-assets-lint.log). TS global com 276 diagnósticos; o único no módulo de etiquetas é o erro anterior Index.tsx:38 do contrato de cópia para categoria Promise<void|false> vsPromise<void>, já presente no log anterior de preços. Não há diagnóstico nos demais arquivos alterados ou nos novos testes/schemas (rhf-label-assets-final-tsc.log). Esse contrato de cópia segue na lista de manutenção; não foi ocultado nem alterado para passar o gate. Proprietário e dois filhos conferidos: **88/127 (69,3%), 39 pendentes**. Biblioteca remota, upload inicial, criador dormente, grade e persistência multiaba/dispositivo não são cobertos por esse fechamento. Nenhum Supabase, dados comerciais, Auth, SQL, deploy ou SEFAZ nesta rodada.
+
+## Ações pós-venda: modal de Informações da Entrega e renomeação de Emissão de NF de saída
+
+- **Problema identificado:**
+  1. O cabeçalho do modal de ações pós-venda exibia um rótulo redundante "Cadastrado".
+  2. As ações de entrega ficavam misturadas na grade principal do modal pós-venda.
+  3. O botão de informações sobre a entrega não deve reter checkmark ou borda verde; essa marcação visual deve pertencer exclusivamente aos botões de ação executados dentro do modal de entrega.
+  4. O botão "Emitir nota fiscal de saída" precisava ser renomeado para "Emissão de NF de saída".
+  5. Testes automatizados que mockavam apenas `useAuth` falhavam ao carregar o componente devido ao import direto de `AuthContext`.
+
+- **Causa raiz técnica:**
+  1. O cabeçalho renderizava estaticamente o badge com texto "Cadastrado".
+  2. Falta de um modal dedicado agrupando as ações `printShippingOrder`, `sendShippingOrder`, `sendCustomerOrder` e `sendCustomerOrderDirectApi`.
+  3. `orderActionsConfig.ts` continha o rótulo `'Emitir nota fiscal de saída'` para a ação `issueNfe`.
+  4. Componentes importavam `AuthContext` diretamente via `useContext(AuthContext)` em vez do hook `useAuth()`.
+
+- **Solução implementada:**
+  1. Remoção do rótulo "Cadastrado" do cabeçalho em `PostOrderActionsModal.tsx`.
+  2. Criação do botão "Envio de informações sobre a entrega" na grade principal, abrindo o componente `DeliveryInfoModal.tsx`. O botão externo não recebe checkmark ou anel verde ao ser clicado.
+  3. Criação de `DeliveryInfoModal.tsx` com as ações "Enviar para o Cliente", "Enviar para a Equipe" e "Imprimir informações da entrega", além do botão Beta de envio direto via API para administradores. Os botões internos recebem o checkmark (`bi-check`) e borda verde (`border-emerald-500 ring-2 ring-emerald-500`) ao serem executados.
+  4. Renomeação do botão `issueNfe` para "Emissão de NF de saída" em `orderActionsConfig.ts`.
+  5. Refatoração do acesso ao contexto para usar `useAuth()`, com mock adequado em `PostOrderActionsModal.test.tsx` e consultas de testes ajustadas.
+
+- **Arquivos modificados:**
+  - `erp/src/pages/App/SalesOrder/OrderActions/orderActionsConfig.ts`
+  - `erp/src/pages/App/SalesOrder/OrderActions/PostOrderActionsModal.tsx`
+  - `erp/src/pages/App/SalesOrder/OrderActions/DeliveryInfoModal.tsx`
+  - `erp/src/pages/App/SalesOrder/OrderActions/PostOrderActionsModal.test.tsx`
+  - `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/useNfeEmission.test.tsx`
+  - `erp/tests/e2e/fiscal/fiscal-ui-navigation.spec.ts`
+
+- **Validação e testes de não-regressão:**
+  - `PostOrderActionsModal.test.tsx`: 9/9 testes aprovados.
+  - `useNfeEmission.test.tsx`: 69/69 testes aprovados.
+  - `postSaleActions.test.ts`: 6/6 testes aprovados.
+  - Suíte completa `src/pages/App/SalesOrder/OrderActions`: 17 arquivos e 167 testes aprovados.
+  - Lint verificado com 0 erros.
+
+## Atualização de cliente no pedido de venda: separação entre cadastro operacional e artefato de teste
+
+- **Problema identificado:**
+  Ao tentar atualizar dados (como número de celular) de um cliente operacional real (ex: "Matheus Morante dos Santos") a partir do pedido de venda ou do modal de clientes, a operação falhava com o erro:
+  `Error: Todos os artefatos devem pertencer à mesma execução e operador.` originado em `assertTestArtifactLinks` / `assertOwnedByTestContext` via `updatePerson`.
+
+- **Causa raiz técnica comprovada:**
+  Em modo de desenvolvimento (`import.meta.env.DEV`), administradores autenticados têm um contexto de teste (`testArtifactContext`) vinculado em `sessionStorage` pelo `AuthContext` para permitir alternar o modo de teste ao cadastrar novos registros.
+  No entanto, em `personMutationService.ts` (`updatePerson`), a verificação de `assertOwnedByTestContext` era chamada incondicionalmente para qualquer cliente encontrado no banco sempre que `getTestArtifactContext()` estivesse ativo. Como clientes operacionais reais não possuem a flag e metadados `testArtifact`, a asserção tratava o cliente real como se fosse um artefato de teste não vinculado, bloqueando a atualização legítima.
+
+- **Solução técnica implementada:**
+  1. Em `personMutationService.ts` (`updatePerson`), adicionada a checagem `isIdentifiedTestArtifact(currentPersonForOwnership)` antes de acionar `assertOwnedByTestContext`, alinhando o comportamento ao que já é praticado em `orderUpdateService.ts` e `productMutationService.ts`.
+  2. Clientes operacionais reais (`!isIdentifiedTestArtifact`) agora são atualizados normalmente sem exigência ou estampa de contexto de teste.
+  3. Artefatos de teste legítimos continuam tendo sua posse validada (`assertOwnedByTestContext`) e sua identificação preservada durante atualizações.
+  4. Artefatos de teste pertencentes a outras execuções continuam sendo estritamente bloqueados contra mutação acidental.
+  5. Atualizados os testes unitários em `personMutationService.test.ts` para validar a permissão de atualização de clientes operacionais e o bloqueio de artefatos de terceiros.
+
+- **Arquivos e linhas modificados:**
+  - `erp/src/pages/utils/personService/personMutationService.ts`
+  - `erp/src/pages/utils/personService/personMutationService.test.ts`
+
+- **Validação e não-regressão:**
+  - `personMutationService.test.ts`: 7/7 testes aprovados.
+  - Suíte completa `personService`: 5 arquivos e 30 testes aprovados.
+  - `usePersonForm.test.tsx`: 6/6 testes aprovados.
+  - ESLint nos arquivos modificados: 0 erros e 0 warnings.
+
+## Refatoração de princípios de engenharia no módulo de pessoas e clientes (`usePersonForm`)
+
+- **Problema identificado:**
+  O hook `usePersonForm.ts` constituía um monólito de 522 linhas acumulando múltiplas responsabilidades desvinculadas:
+  1. Inicialização de estado e resolução de rota de entrega.
+  2. Mutação de campos de endereço, consulta assíncrona de CEP via ViaCEP com debounce/invalidação e controle de concorrência por revisão, além de atualização automática de "Consumidor Final" no estado.
+  3. Gerenciamento da coleção de contatos adicionais (adicionar, remover, atualizar campos).
+  4. Atribuição e alternância de papéis de colaboradores (`roles`), seleção de cargo primário e sincronização assíncrona com perfis de autenticação (`user_profiles`).
+  5. Pipeline de submissão com bifurcações condicionais espalhadas (`if (isEmployee) ... else if (collectionName === 'suppliers') ...`) misturando regras específicas de colaboradores, fornecedores e clientes com validação de duplicatas e chamadas de mutação.
+
+- **Princípios de software aplicados:**
+  1. **SRP (Single Responsibility Principle):** Cada preocupação foi extraída para seu próprio hook ou utilitário especializado:
+     - `personFormState.ts`: Helpers puros de domínio (`EMPTY_PERSON_ADDRESS`, `createInitialPersonState`, `isFinalConsumer`, `resolveShippingRouteUrl`).
+     - `usePersonAddress.ts`: Responsável exclusivamente pelo ciclo de vida do endereço, busca de CEP e detecção de Consumidor Final.
+     - `usePersonContacts.ts`: Gerenciamento da lista dinâmica de contatos adicionais.
+     - `useEmployeeRoles.ts`: Gestão de cargos/papéis de colaborador e sincronização de email com perfil de autenticação.
+     - `personSubmitStrategy.ts`: Estratégias desacopladas de submissão por tipo de coleção.
+     - `usePersonSubmit.ts`: Orquestração do pipeline de submissão com React Hook Form.
+  2. **OCP (Open/Closed Principle) & Strategy Pattern:** Substituição de branches condicionais pela interface polimórfica `PersonCollectionStrategy`:
+     - `customerStrategy`: Permite duplicidade com aviso amigável (`toast.warn`), lida com opções de artefato de teste e sanitiza cargo vazio.
+     - `employeeStrategy`: Bloqueia e-mails e duplicatas existentes (`toast.error`), garante cargo primário (`getPrimaryRole`) e sincroniza com `user_profiles`.
+     - `supplierStrategy`: Bloqueia nomes e cadastros duplicados (`toast.error`).
+     Novas entidades ou coleções podem ser adicionadas implementando `PersonCollectionStrategy` sem modificar a lógica dos formulários.
+  3. **Facade Pattern & 100% Retrocompatibilidade:**
+     `usePersonForm.ts` foi mantido como uma fachada coesa e concisa, delegando para os sub-hooks e expondo a interface pública exata consumida por `PersonFormModal.tsx` e `CustomerData.tsx`, além da constante `EMPLOYEE_ROLES`.
+  4. **DIP (Dependency Inversion Principle) & Clean Architecture:**
+     Lógicas puras de cálculo e mapeamento foram isoladas em `personFormState.ts`, livres de hooks do React ou acoplamento a UI.
+  5. **Regra Obrigatória 5 (React Hook Form + zodResolver):**
+     O fluxo de submissão preserva a execução mandatória do resolver Zod via `form.validateAndRun` antes de persistir alterações com `savePerson`.
+
+- **Arquivos modificados e criados:**
+  - `erp/src/pages/App/Registrations/shared/modals/personForm/personFormState.ts` (criado)
+  - `erp/src/pages/App/Registrations/shared/modals/personForm/usePersonAddress.ts` (criado)
+  - `erp/src/pages/App/Registrations/shared/modals/personForm/usePersonContacts.ts` (criado)
+  - `erp/src/pages/App/Registrations/shared/modals/personForm/useEmployeeRoles.ts` (criado)
+  - `erp/src/pages/App/Registrations/shared/modals/personForm/personSubmitStrategy.ts` (criado)
+  - `erp/src/pages/App/Registrations/shared/modals/personForm/usePersonSubmit.ts` (criado)
+  - `erp/src/pages/App/Registrations/shared/modals/personForm/usePersonForm.ts` (refatorado em fachada)
+  - `erp/src/pages/App/Registrations/shared/modals/personForm/PersonAddressSection.tsx` (integração do `routeUrl`)
+  - `erp/src/pages/App/Registrations/shared/modals/personForm/index.ts` (exportação limpa de hooks, tipos e estratégias)
+
+- **Validação e não-regressão:**
+  - `usePersonForm.test.tsx`: 6/6 testes aprovados.
+  - `PersonFormModal.test.tsx`: 1/1 teste aprovado.
+  - Suíte completa `personService`: 5 arquivos e 30 testes aprovados.
+  - ESLint em todos os arquivos de `personForm`: 0 erros e 0 warnings.
+
+## Etiquetas — biblioteca de imagens, consulta e alterações confirmadas
+
+Problema e causa comprovada: o proprietário ativo `LabelImageModal` concluía o resolver antes do FileReader/INSERT; não tratava erro/aborto da leitura nem limitava a consulta. Falhas de consulta eram apenas registradas no console e pareciam biblioteca vazia. Exclusão não tinha resolver e o serviço não confirmava a linha afetada. Seleção acionava diretamente o callback sem validar ID/imagem. Cliques concorrentes e respostas de aberturas/categorias antigas podiam publicar efeitos.
+
+Arquivos e linhas deste lote:
+
+- `shared-utils/labelImageFormSchemas.ts:1–10,17–23`: contratos explícitos de consulta/ordenação, upload com arquivo/nome/categoria, criação, exclusão, seleção, registro histórico e resultado incerto (linhas atualizadas após acrescentar os contratos locais).
+- `erp/src/pages/App/Stock/LabelPrinting/modals/LabelImageModal.tsx:1–133,139–284`: quatro intenções sob RHF; valores parseados antes dos serviços, trava comum até concluir, prazo de consulta 15s/leitura 10s/gravação e exclusão 20s/seleção 15s, aborto de FileReader, proprietário por abertura/categoria e mensagens/estado de progresso. Consulta libera a validação antes do I/O, mantendo revisão própria para StrictMode/recarga. Resultado incerto bloqueia repetição na mesma abertura, inclusive após consulta; a conferência e reabertura ficam sob decisão do operador.
+- `erp/src/pages/App/Stock/LabelPrinting/services/labelImageService.ts:3–53`: schema antes de I/O; ordenação efetivamente aplicada; registros históricos conservam categorias e metadata. INSERT exige ID positivo e campos iguais ao payload parseado; DELETE exige exatamente o ID solicitado. Zero linhas é falha conhecida, resposta ausente/divergente ou falha de transporte/cardinalidade é incerta. Não há retransmissão automática.
+- `erp/src/pages/App/Stock/LabelPrinting/__tests__/labelImageService.test.ts:16–132`, `__tests__/LabelImageModal.test.tsx:1–220` e `__tests__/labelAssetPage.test.tsx:8–71`: transporte simulado, RHF/Zod reais e seleção pela fachada/seção reais; preservação da fila de logos e da imagem das demais categorias. O arquivo de teste de página conserva os dois cenários de ativos locais anteriores.
+
+Validação: 54 testes em quatro arquivos aprovados (`scratch/rhf-label-library-tests.log`), incluindo 14 regressões do proprietário local. ESLint do lote sem erros/avisos (`scratch/rhf-label-library-lint.log`); build aprovado em 1m33s (`scratch/rhf-label-library-build.log`). TypeScript global tem 295 diagnósticos, nenhum nos arquivos deste lote; persiste o diagnóstico anterior do contrato de cópia em `LabelPrinting/Index.tsx:38` (`scratch/rhf-label-library-tsc.log`). Proprietário conferido: ERP **89/127 (70,1%), 38 pendentes**. Sem nova migration, execução de CRUD remoto, dados comerciais, Auth, deploy ou SEFAZ. Mocks não comprovam RLS/rollback/concorrência no PostgreSQL. Upload inicial da fachada, grade, criador dormente e outros caminhos de etiquetas conservavam suas pendências neste checkpoint.
+
+## Etiquetas — uploads locais e amostra com proprietário
+
+Problema e causa comprovada: o upload inicial já validava o arquivo, mas não possuía prazo de leitura, aborto, proteção de categoria/abertura nem erro/progresso na biblioteca de ativos. O upload por item usava o índice anterior: reordenar ou remover a etiqueta durante FileReader podia aplicar imagem em outro destino. A prévia de grade não validava sua limpeza, não limitava o callback e permitia uma leitura antiga restaurar a amostra. Alertas de falha podiam atravessar a mudança de contexto.
+
+Solução: leitura comum com prazo de 10s, aborto e validação de resultado não vazio; cada proprietário mantém o resolver real e sua trava até terminar. A fila confere a referência do item antes e dentro do updater: reordenação preserva o destino, remoção/edição descartam o resultado sem sobrescrever outro item. Categoria/modo/path/abertura invalidam leituras; erros antigos são limpos no contexto novo. Amostra usa ações distintas upload/clear e aguarda callback com prazo de 15s. A geometria incompleta do rascunho continua permitida; contexto é comparado por valores e identidade explícita do editor, sem usar referências de objetos/callbacks criados a cada render. A montagem real encaminha categoria/modelo/abertura.
+
+Arquivos e linhas deste lote:
+
+- `shared-utils/labelImageFormSchemas.ts:11–16` e `shared-utils/readImageFile.ts:1–25`: contratos locais de arquivo/categoria, item/índice/blank e ações de amostra; leitura limitada e abortável usada somente com o arquivo parseado.
+- `erp/src/pages/App/Stock/LabelPrinting/hooks/useLabelPrintingState.ts:5–6,97–150,246–247`: upload inicial com contexto, trava, erro/progresso e aplicação dos valores parseados, preservando logo, imagem selecionada e fila de preços.
+- `erp/src/pages/App/Stock/LabelPrinting/components/LabelQueue.tsx:7–8,30–37,49–72,125,139–140,235–252`: vínculo com item, descarte seguro, estado visível e inputs protegidos. Campos contínuos continuam rascunhos do proprietário da fila.
+- `erp/src/pages/App/Stock/LabelPrinting/components/LabelGridSheetPreview.tsx:1–84,88–126`: upload/limpeza com resolver, contexto, trava, erro/progresso, aborto e callback aguardado. `modals/LabelGridModelModal.tsx:1389` encaminha ownerKey na montagem ativa; salvar o modelo completo não foi conferido por este ajuste.
+- `erp/src/pages/App/Stock/LabelPrinting/modals/LabelAssetLibraryModal.tsx:12–14,24–53,73–82,91,108,127–138`, `sections/ModalsSection.tsx:69–70,191–193` e `types/LabelPrintingSections.types.ts:95–96`: biblioteca controlada recebe e mostra estados/erros da fachada; upload, seleção, exclusão e fechamento ficam protegidos durante operação. A validação continua nos proprietários.
+- `erp/src/pages/App/Stock/LabelPrinting/__tests__/labelQueueImage.test.tsx:1–103`, `__tests__/LabelGridSheetPreview.test.tsx:1–130`, `hooks/useLabelPrintingState.test.tsx:18–90` e `__tests__/labelAssetPage.test.tsx:8–86`: regressões reais de resolver, alvo, contexto, prazos, erros e fachada/seção/biblioteca; FileReader e transporte simulados.
+
+Validação final: **91 testes em oito arquivos aprovados** (`scratch/rhf-label-local-images-tests.log`), incluindo regressões da biblioteca remota e ativos locais. Revisão pediu limpar alertas antigos; a correção e as regressões de troca de categoria/reabertura passaram. ESLint sem erros e dois avisos anteriores (updateExtraField sem uso na fila; dependência queue no efeito da fachada; `rhf-label-local-images-lint.log`). Build final aprovado em **1m42s** (`rhf-label-local-images-final-build.log`). TS global mantém **295 diagnósticos**, nenhum nos arquivos deste lote; o contrato anterior de cópia em `LabelPrinting/Index.tsx:38` segue pendente (`rhf-label-local-images-final-tsc.log`). Inventário explicita dois proprietários antes só no censo/texto (upload da fachada e amostra); fila já constava. **ERP 91/129 (70,5%), 38 pendentes**, sem inferir conclusão global móvel/catálogo ou fiscal. Nenhuma operação remota, migration, dados comerciais, Auth, deploy ou emissão fiscal. Criador dormente permanece dormente; o lote não conclui salvar/excluir/copiar modelos ou impressão completa.
+
+## Etiquetas — fronteiras de persistência de modelos em validação
+
+Problemas e causas comprovadas: serviço aceitava qualquer data como criação/edição, sem conferir payload ou ID, e DELETE não confirmava linha. Consulta malformada podia parecer vazia. Mapper usava || para fontes/escala, trocando zero por padrões, e arredondava campos NUMERIC. NULLs opcionais chegavam incompatíveis ao contrato de domínio. O fallback local não confirmava Storage e também aceitava resultado remoto incerto. Rejeição da persistência escapava do editor sem erro visível. Na revisão, String(id ausente) produzia identificação fictícia e localeCompare empatava chaves Unicode distintas na confirmação JSON; ambos foram corrigidos com regressões.
+
+Arquivos e linhas modificados:
+
+- `shared-utils/labelLayoutFormSchemas.ts:1–11`: contratos remotos de modelo/registro/seleção e erro incerto explícito; reaproveita o schema completo já existente.
+- `erp/src/pages/App/Stock/LabelPrinting/services/labelLayoutService.ts:5–6,55–144`: schema antes do I/O, prazos 15s/20s, lista real, ID bruto válido antes do mapper, confirmação de campos serializados/JSONB/fontes TEXT e DELETE exato. Falhas incertas não viram autorização de replay. Operações de arte separadas não foram conferidas neste lote.
+- `erp/src/pages/App/Stock/LabelPrinting/services/labelLayoutMapper.ts:3–194,203–336`: zero/frações preservados nos campos NUMERIC, grade inteira mantida, objeto de arte vazio quando ausente, números TEXT finitos normalizados e NULLs opcionais apenas no topo removidos. Campos/JSON persistíveis continuam explicitamente mapeados; não espalha propriedades arbitrárias em colunas SQL.
+- `erp/src/pages/App/Stock/LabelPrinting/services/labelModelMapper.ts:81,86,116,178`: seleção conserva zero nas fontes e escala.
+- `erp/src/pages/App/Stock/LabelPrinting/services/labelStorageService.ts:78–80,89–91` e `services/labelGridModelPersistence.ts:5,76–111,128–130`: confirmação local devolvida; modelo validado antes da operação, erro incerto não gera fallback, IDs locais únicos e fallback só retorna após Storage confirmado. Sucesso remoto confirmado permanece sucesso mesmo se seu cache falhar.
+- `erp/src/pages/App/Stock/LabelPrinting/modals/LabelGridModelModal.tsx:24,627–643,733–746,1087–1102,1135`: erro/estado visíveis, trava síncrona até concluir, fechamento protegido, callback assíncrono explicitado e replay incerto bloqueado na abertura. Não conclui o contexto/callback de gravação em ModalsSection nem bloqueio de todos os campos filhos.
+- `erp/src/pages/App/Stock/LabelPrinting/types/LabelGridModelTypes.ts:1,126`: artConfig reutiliza o tipo já consumido por LabelConfig, incluindo globalSnapshot/metadata. O tipo anterior só declarava opportunities e contradizia o schema e a persistência existentes; não foi removida validação para silenciar testes.
+- `erp/src/pages/App/Stock/LabelPrinting/__tests__/labelLayoutService.test.ts:1–224`, `__tests__/labelLayoutMapper.test.ts:1–33`, `__tests__/labelGridModelPersistence.test.ts:38,136–170`, `__tests__/labelStorageService.test.ts:50,83–104` e `__tests__/LabelGridModelBoundary.test.tsx:1–61`: regressões de input/ack, IDs ausentes/divergentes, JSON Unicode/ordenação, zeros/frações/NULL/TEXT, Storage, fallback e erro/duplicação/fechamento pelo editor real. Elementos visuais internos são simulados; isso não comprova o proprietário completo.
+
+Validação final: **113 testes em dez arquivos aprovados** (`scratch/rhf-label-layout-boundary-tests.log`), incluindo regressões de ativos locais/amostra/hook. ESLint sem erros/avisos (`rhf-label-layout-boundary-lint.log`); build aprovado em **2m** (`rhf-label-layout-boundary-build.log`). TS final tem **306 diagnósticos**, nenhum nos arquivos deste lote; três diagnósticos iniciais nos novos testes foram corrigidos alinhando o contrato de arte. Os 11 adicionais em relação ao checkpoint anterior estão em `printAssistanceOs.ts`/`printReturnOs.ts`, externos ao lote; o erro anterior de cópia em `LabelPrinting/Index.tsx` continua (`rhf-label-layout-boundary-final-tsc.log`). As últimas alterações de tipos e opções de teste não alteram o JavaScript compilado. Nenhum CRUD remoto, dados comerciais, migration, Auth, deploy ou SEFAZ. Arte externa/fontes são desabilitadas no teste final do editor. Migrations/snapshot locais mostram art_config NOT NULL/default{} e duas fontes TEXT; ajustes aceitam também os formatos numéricos, sem inferir vigência remota desse snapshot. A origem simbólica dos padrões versus base_model_id UUID continua localizada, sem mascarar nem alterar SQL. Cópia, exclusão, consulta/contexto e recarga do fallback ainda exigem conclusão nos chamadores reais; não marcar itens de formulário completos por esta camada. Inventário preservado em **91/129 (70,5%), 38 pendentes**.
+
+
+

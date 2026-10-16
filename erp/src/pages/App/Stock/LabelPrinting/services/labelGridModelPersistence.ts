@@ -2,25 +2,16 @@ import type { GridModel } from '../types/LabelGridModelTypes';
 import { DEFAULT_LAYOUT_MODELS } from '../utils/defaultLayoutModels';
 import { insertRemoteLabelLayout, updateRemoteLabelLayout } from './labelLayoutService';
 import { saveCustomLabelLayouts } from './labelStorageService';
+import { labelRemoteLayoutDraftSchema, LabelLayoutUnconfirmedError } from '../../../../../../../shared-utils/labelLayoutFormSchemas';
 
 /**
- * Compara se dois modelos de grade possuem dimensões e geometria idênticas.
+ * Compara o conteúdo completo; nomes/identidade não definem o design.
  */
 export const isIdenticalGridModel = (m1: GridModel, m2: GridModel): boolean => {
-  const fieldsToCompare: (keyof GridModel)[] = [
-    'columns',
-    'rows',
-    'marginT',
-    'marginB',
-    'marginL',
-    'marginR',
-    'gapH',
-    'gapV',
-    'paperSize',
-    'type',
-    'category',
-  ];
-  return fieldsToCompare.every((field) => m1[field] === m2[field]);
+  const content = (model: GridModel) => JSON.stringify({ ...model, id: undefined, name: undefined, baseModelId: undefined },
+    (_key, value) => value && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)) : value);
+  return content(m1) === content(m2);
 };
 
 /**
@@ -42,6 +33,8 @@ export interface SaveGridModelParams {
   editingGridModel: GridModel | null;
   customLayouts: GridModel[];
   selectedCategory?: GridModel['category'] | null;
+  isCurrent?: () => boolean;
+  getCurrentLayouts?: () => GridModel[];
 }
 
 export interface SaveGridModelResult {
@@ -59,7 +52,10 @@ export async function saveGridModelWithFallback({
   editingGridModel,
   customLayouts,
   selectedCategory,
+  isCurrent = () => true,
+  getCurrentLayouts,
 }: SaveGridModelParams): Promise<SaveGridModelResult> {
+  if (!isCurrent()) throw new Error('A edição do modelo mudou.');
   const isSystemDefault = editingGridModel
     ? DEFAULT_LAYOUT_MODELS.some((m) => m.id === editingGridModel.id)
     : false;
@@ -72,11 +68,11 @@ export async function saveGridModelWithFallback({
   const isUpdateAction = Boolean(targetId);
 
   const isDbWriteable = isUpdateAction && !String(targetId).startsWith('custom_');
-  const modelToSave: GridModel = {
+  const modelToSave = labelRemoteLayoutDraftSchema.parse({
     ...newModel,
     category: selectedCategory ?? newModel.category,
     baseModelId: isSystemDefault ? editingGridModel?.id : editingGridModel?.baseModelId,
-  };
+  });
 
   let finalModel: GridModel | null = null;
   let savedToDb = false;
@@ -100,21 +96,22 @@ export async function saveGridModelWithFallback({
         resultError = error;
       }
     }
-  } catch (e: unknown) {
-    console.error('Erro no Supabase:', e);
-    resultError = e;
+  } catch { throw new LabelLayoutUnconfirmedError(); }
+  if ((resultError as { uncertain?: boolean } | null)?.uncertain || (!finalModel && !resultError && !String(targetId).startsWith('custom_'))) {
+    throw new LabelLayoutUnconfirmedError();
   }
+  if (!isCurrent()) throw new Error('A edição do modelo mudou. Confira os modelos antes de repetir.');
 
   // Contingência Local caso remoto falhe ou não tenha gravado
   if (!finalModel) {
-    const localId = targetId || `custom_${Date.now()}`;
-    finalModel = { ...modelToSave, id: localId };
+    const localId = isDbWriteable ? `custom_${crypto.randomUUID()}` : targetId || `custom_${crypto.randomUUID()}`;
+    finalModel = { ...modelToSave, id: localId, baseModelId: modelToSave.baseModelId ?? (isDbWriteable ? targetId ?? undefined : undefined) };
   }
 
   // Atualizar Estado (Substituição por Origem e ID)
   const targetBaseId = finalModel.baseModelId;
   const updatedLayouts = [
-    ...customLayouts.filter((model) => {
+    ...(getCurrentLayouts?.() ?? customLayouts).filter((model) => {
       const isOldId = model.id === finalModel.id;
       const isOldOverride = Boolean(targetBaseId && model.baseModelId === targetBaseId);
       return !isOldId && !isOldOverride;
@@ -122,7 +119,8 @@ export async function saveGridModelWithFallback({
     finalModel,
   ];
 
-  saveCustomLabelLayouts(updatedLayouts);
+  const locallySaved = saveCustomLabelLayouts(updatedLayouts);
+  if (!savedToDb && locallySaved !== true) throw new Error('Não foi possível salvar o modelo neste computador. Confira o armazenamento local e tente novamente.');
 
   return {
     finalModel,

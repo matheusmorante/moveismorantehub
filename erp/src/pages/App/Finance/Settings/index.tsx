@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { financeService } from '@/pages/services/financeService';
 import { toast } from 'react-toastify';
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { useZodForm } from '@/hooks/useZodForm';
 import { redeConfigFormSchema } from '../../../../../../shared-utils/accountFormSchemas';
 import type { z } from 'zod';
+import { useFinancialOperation } from '../useFinancialOperation';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import {
   CreditCard,
   ShieldCheck,
@@ -17,6 +19,9 @@ import {
 
 const FinanceSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const request = useRef(0);
+  const operation = useFinancialOperation();
   const [config, setConfig] = useState<z.input<typeof redeConfigFormSchema>>({
     pv: '',
     client_id: '',
@@ -28,33 +33,29 @@ const FinanceSettings: React.FC = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const form = useZodForm(redeConfigFormSchema, config);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    const revision = ++request.current;
+    setLoading(true); setLoadError('');
     try {
-      setLoading(true);
-      const [configData, transData] = await Promise.all([
-        financeService.getRedeConfig(),
-        financeService.getRedeTransactions(5),
-      ]);
-      if (configData) setConfig(configData);
-      if (transData) setTransactions(transData);
-    } catch (error: any) {
-      toast.error('Erro ao carregar configurações: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+      const result = await withTimeout(Promise.all([financeService.getRedeConfig(), financeService.getRedeTransactions(5)]), 15_000, null, 'financeiro:configuracoes');
+      if (revision !== request.current) return;
+      if (!result) throw new Error('Prazo excedido.');
+      const [data, transactions] = result;
+      if (data) setConfig({ pv: data.pv, client_id: data.client_id, client_secret: data.client_secret,
+        environment: data.environment, active: data.active ?? false, anticipation_enabled: data.anticipation_enabled ?? false });
+      setTransactions(transactions || []);
+    } catch { if (revision === request.current) setLoadError('Não foi possível carregar as configurações financeiras.'); }
+    finally { if (revision === request.current) setLoading(false); }
+  }, []);
+  useEffect(() => {
+    void loadData();
+    return () => { request.current += 1; };
+  }, [loadData]);
 
   const handleSave = async (data: z.output<typeof redeConfigFormSchema>) => {
-    try {
-      await financeService.updateRedeConfig(data);
-      toast.success('Configurações da Rede salvas com sucesso!');
-    } catch (error: any) {
-      toast.error('Erro ao salvar: ' + error.message);
-    }
+    if (!operation.current()) return;
+    await operation.wait(financeService.updateRedeConfig(data));
+    if (operation.current()) toast.success('Configurações da Rede salvas com sucesso!');
   };
 
   if (loading) {
@@ -67,6 +68,10 @@ const FinanceSettings: React.FC = () => {
 
   return (
     <div className="p-6 max-w-6xl mx-auto animate-in fade-in duration-500">
+      {loadError && <div role="alert" className="p-4 text-red-700">{loadError} <button type="button" onClick={() => void loadData()}>Tentar novamente</button></div>}
+      {operation.error && <p role="alert" className="p-4 text-red-700">{operation.error}</p>}
+      {operation.busy && <p role="status" className="p-4 animate-pulse">Validando e salvando as configurações…</p>}
+      <fieldset disabled={operation.blocked || !!loadError} className="contents">
       <div className="flex items-center gap-3 mb-8">
         <div className="p-3 bg-orange-100 dark:bg-orange-950/30 rounded-2xl text-orange-600">
           <SettingsIcon size={28} />
@@ -97,9 +102,11 @@ const FinanceSettings: React.FC = () => {
               </div>
             </div>
 
-            <form noValidate onSubmit={form.submit(handleSave, (errors) => {
-              toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira as configurações.');
-            })} className="p-6 space-y-6">
+            <form noValidate onSubmit={(event) => {
+              event.preventDefault();
+              if (loading || loadError) return;
+              void operation.run(() => form.validateAndRun(config, handleSave, (errors) => { if (operation.current()) toast.error(operation.invalid(errors)); }));
+            }} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
@@ -294,6 +301,7 @@ const FinanceSettings: React.FC = () => {
           </div>
         </div>
       </div>
+      </fieldset>
     </div>
   );
 };

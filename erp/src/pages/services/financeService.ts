@@ -1,4 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { financialSettlementCommandSchema, financialSettlementResultSchema, recurringPayableCommandSchema, recurringPayableResultSchema, payableWriteSchema, receivableWriteSchema, financialTransactionWriteSchema } from '../../../../shared-utils/financialFormSchemas';
+import { redeConfigFormSchema } from '../../../../shared-utils/accountFormSchemas';
+import type { z } from 'zod';
 import {
   FinancialCategory,
   AccountPayable,
@@ -8,6 +11,19 @@ import {
 } from '../types/finance.type';
 
 const FINANCE_LIST_PAGE_SIZE = 500;
+const throwFinancialWriteError = (error: unknown, status?: number): never => {
+  const code = (error as { code?: string } | null)?.code;
+  // SQL/PostgREST validation errors are distinct from a lost/malformed reply.
+  // Cardinality errors after RETURNING also cannot acknowledge a write.
+  if (status === 0 || !code || !/^(?:[0-9A-Z]{5}|PGRST\d{3})$/.test(code)
+    || code === 'PGRST116' || code === '40003' || code.startsWith('08')) throw { uncertain: true };
+  throw error;
+};
+const confirmedFinancialRow = <T extends { id: string }>(data: unknown, expectedId?: string): T => {
+  if (!data || typeof data !== 'object' || !('id' in data) || typeof data.id !== 'string'
+    || !data.id || (expectedId !== undefined && data.id !== expectedId)) throw { uncertain: true };
+  return data as T;
+};
 
 const fetchAllFinancePages = async <T>(buildQuery: (from: number, to: number) => any) => {
   const rows: T[] = [];
@@ -56,6 +72,32 @@ export function determineResultNature(
 export const financeService = {
   determineResultNature,
 
+  async settleAccount(input: z.input<typeof financialSettlementCommandSchema>) {
+    const { kind, account } = financialSettlementCommandSchema.parse(input);
+    const { data, error, status } = await supabase.rpc('settle_financial_account', {
+      p_kind: kind, p_account_id: account.id, p_payment_date: account.date,
+      p_expected: { description: account.description, amount: account.amount, category_id: account.category_id || null },
+    });
+    if (error) throwFinancialWriteError(error, status);
+    const parsed = financialSettlementResultSchema.safeParse(data);
+    if (!parsed.success || parsed.data.id !== account.id || parsed.data.payment_date !== account.date) {
+      throw { uncertain: true };
+    }
+    return parsed.data;
+  },
+
+  async createRecurringPayableExpense(input: z.input<typeof recurringPayableCommandSchema>) {
+    const command = recurringPayableCommandSchema.parse(input);
+    const { data, error, status } = await supabase.rpc('create_recurring_payable_expense', {
+      p_request_id: command.request_id, p_payload: { payable: command.payable, frequency: command.frequency },
+    });
+    if (error) throwFinancialWriteError(error, status);
+    const parsed = recurringPayableResultSchema.safeParse(data);
+    if (!parsed.success || parsed.data.recurring_expense_id !== command.request_id
+      || new Set(parsed.data.payable_ids).size !== 12) throw { uncertain: true };
+    return parsed.data;
+  },
+
   // --- Categorias ---
   async getCategories(type?: 'income' | 'expense') {
     let query = supabase.from('financial_categories').select('*');
@@ -90,30 +132,36 @@ export const financeService = {
   },
 
   async createPayable(payable: Omit<AccountPayable, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase
+    const payload = payableWriteSchema.parse(payable);
+    const { data, error, status } = await supabase
       .from('accounts_payable')
-      .insert([payable])
+      .insert([payload])
       .select()
       .single();
-    if (error) throw error;
-    return data as AccountPayable;
+    if (error) throwFinancialWriteError(error, status);
+    return confirmedFinancialRow<AccountPayable>(data);
   },
 
   async bulkCreatePayables(payables: Omit<AccountPayable, 'id' | 'created_at' | 'updated_at'>[]) {
-    const { data, error } = await supabase.from('accounts_payable').insert(payables).select();
-    if (error) throw error;
-    return data as AccountPayable[];
+    const payload = payableWriteSchema.array().min(1).parse(payables);
+    const { data, error, status } = await supabase.from('accounts_payable').insert(payload).select();
+    if (error) throwFinancialWriteError(error, status);
+    if (!Array.isArray(data) || data.length !== payload.length) throw { uncertain: true };
+    const rows = data.map((row) => confirmedFinancialRow<AccountPayable>(row));
+    if (new Set(rows.map((row) => row.id)).size !== rows.length) throw { uncertain: true };
+    return rows;
   },
 
   async updatePayable(id: string, updates: Partial<AccountPayable>) {
-    const { data, error } = await supabase
+    const payload = payableWriteSchema.partial().parse(updates);
+    const { data, error, status } = await supabase
       .from('accounts_payable')
-      .update(updates)
+      .update(payload)
       .eq('id', id)
       .select()
       .single();
-    if (error) throw error;
-    return data as AccountPayable;
+    if (error) throwFinancialWriteError(error, status);
+    return confirmedFinancialRow<AccountPayable>(data, id);
   },
 
   // --- Despesas Fixas / Recorrentes ---
@@ -163,24 +211,26 @@ export const financeService = {
   },
 
   async createReceivable(receivable: Omit<AccountReceivable, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await supabase
+    const payload = receivableWriteSchema.parse(receivable);
+    const { data, error, status } = await supabase
       .from('accounts_receivable')
-      .insert([receivable])
+      .insert([payload])
       .select()
       .single();
-    if (error) throw error;
-    return data as AccountReceivable;
+    if (error) throwFinancialWriteError(error, status);
+    return confirmedFinancialRow<AccountReceivable>(data);
   },
 
   async updateReceivable(id: string, updates: Partial<AccountReceivable>) {
-    const { data, error } = await supabase
+    const payload = receivableWriteSchema.partial().parse(updates);
+    const { data, error, status } = await supabase
       .from('accounts_receivable')
-      .update(updates)
+      .update(payload)
       .eq('id', id)
       .select()
       .single();
-    if (error) throw error;
-    return data as AccountReceivable;
+    if (error) throwFinancialWriteError(error, status);
+    return confirmedFinancialRow<AccountReceivable>(data, id);
   },
 
   // --- Fluxo de Caixa / Transações ---
@@ -236,28 +286,34 @@ export const financeService = {
   async createTransaction(
     transaction: Omit<FinancialTransaction, 'id' | 'created_at' | 'updated_at'>
   ) {
+    transaction = financialTransactionWriteSchema.parse(transaction);
     let catName = '';
+    let categoryNature: ResultNature | undefined;
     if (transaction.category_id) {
-      const { data: cat } = await supabase
+      const { data: cat, error: categoryError } = await supabase
         .from('financial_categories')
-        .select('name')
+        .select('name,type,result_nature')
         .eq('id', transaction.category_id)
         .maybeSingle();
+      if (categoryError) throw categoryError;
+      if (!cat) throw new Error('Categoria financeira indisponível.');
+      if (cat.type !== transaction.type) throw new Error('Categoria incompatível com a movimentação.');
       if (cat?.name) catName = cat.name;
+      categoryNature = cat.result_nature || undefined;
     }
 
     const payload = {
       ...transaction,
-      result_nature: transaction.result_nature || determineResultNature(catName, transaction.type),
+      result_nature: transaction.result_nature || categoryNature || determineResultNature(catName, transaction.type),
     };
 
-    const { data, error } = await supabase
+    const { data, error, status } = await supabase
       .from('financial_transactions')
       .insert([payload])
       .select()
       .single();
-    if (error) throw error;
-    return data as FinancialTransaction;
+    if (error) throwFinancialWriteError(error, status);
+    return confirmedFinancialRow<FinancialTransaction>(data);
   },
 
   async updateTransaction(id: string, updates: Partial<FinancialTransaction>) {
@@ -301,26 +357,28 @@ export const financeService = {
 
   // --- Integração Rede ---
   async getRedeConfig() {
-    const { data, error } = await supabase.from('rede_config').select('*').single();
-    if (error && error.code !== 'PGRST116') throw error; // Ignorar "não encontrado" (vazio)
+    const { data, error } = await supabase.from('rede_config').select('*').maybeSingle();
+    if (error) throw error;
     return data;
   },
 
   async updateRedeConfig(config: any) {
-    const { data: existing } = await supabase.from('rede_config').select('id').single();
+    const payload = redeConfigFormSchema.parse(config);
+    const { data: existing, error: lookupError } = await supabase.from('rede_config').select('id').maybeSingle();
+    if (lookupError) throw lookupError;
     let result;
     if (existing) {
       result = await supabase
         .from('rede_config')
-        .update(config)
+        .update(payload)
         .eq('id', existing.id)
         .select()
         .single();
     } else {
-      result = await supabase.from('rede_config').insert([config]).select().single();
+      result = await supabase.from('rede_config').insert([payload]).select().single();
     }
-    if (result.error) throw result.error;
-    return result.data;
+    if (result.error) throwFinancialWriteError(result.error, result.status);
+    return confirmedFinancialRow<{ id: string }>(result.data, existing?.id);
   },
 
   async getRedeTransactions(limit = 50) {

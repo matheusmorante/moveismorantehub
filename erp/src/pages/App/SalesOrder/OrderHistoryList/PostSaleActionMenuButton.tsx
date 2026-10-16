@@ -1,13 +1,14 @@
-import React from 'react';
-import { ClipboardCheck } from 'lucide-react';
+import React, { useContext } from 'react';
 import Order from '../../../types/order.type';
 import { canOpenPostSaleActions, POST_SALE_ACTION_KEYS } from '../../../utils/postSaleActions';
 import PostOrderActionsModal from '../OrderActions/PostOrderActionsModal';
+import { AuthContext } from '@/context/AuthContext';
 
 type PostSaleActionMenuButtonProps = {
   order: Order;
   onOpen?: (order: Order) => void;
   onCloseMenu: () => void;
+  onAction?: (actionKey: string, order: Order) => void;
 };
 
 export const isPostSaleAction = (actionKey: string) => POST_SALE_ACTION_KEYS.has(actionKey);
@@ -16,8 +17,11 @@ const PostSaleActionMenuButton = ({
   order,
   onOpen,
   onCloseMenu,
+  onAction,
 }: PostSaleActionMenuButtonProps) => {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const authContext = useContext(AuthContext);
+  const isAdministrator = Boolean(authContext?.isAdministrator);
 
   if (!canOpenPostSaleActions(order)) return null;
 
@@ -37,6 +41,7 @@ const PostSaleActionMenuButton = ({
         <i className="bi bi-clipboard-check text-lg shrink-0" />
         <span className="text-xs font-black uppercase tracking-widest">Ações pós-venda</span>
       </button>
+
       {isModalOpen && <PostOrderActionsModal order={order} onClose={() => setIsModalOpen(false)} />}
     </>
   );

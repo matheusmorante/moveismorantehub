@@ -12,6 +12,12 @@ export const GENERIC_HANDLING_LABELS = new Set([
   'Execução no local',
   'Standard',
   'stock',
+  'montagem',
+  'entrega',
+  'sem_manuseio',
+  'Montagem',
+  'Entrega sem montagem',
+  'Sem manuseio',
 ]);
 
 /** Mapeamento de rótulos legados/genéricos para os manuseios corretos */
@@ -103,14 +109,18 @@ const GENERIC_DEFAULT_LABELS = new Set([
 
 export const isGenericHandlingLabel = (label?: string): boolean => {
   const trimmed = (label || '').trim();
-  return !trimmed || GENERIC_HANDLING_LABELS.has(trimmed);
+  if (!trimmed) return true;
+  return (
+    GENERIC_HANDLING_LABELS.has(trimmed) ||
+    GENERIC_HANDLING_LABELS.has(trimmed.toLowerCase())
+  );
 };
 
 export const resolveHandlingLabel = (label?: string): string => {
   const trimmed = (label || '').trim();
   if (!trimmed) return '';
   if (LEGACY_HANDLING_MAP[trimmed]) return LEGACY_HANDLING_MAP[trimmed];
-  if (GENERIC_HANDLING_LABELS.has(trimmed)) return '';
+  if (isGenericHandlingLabel(trimmed)) return '';
   return trimmed;
 };
 
@@ -145,7 +155,7 @@ export const migrateOrderHandlings = <
     if (current) return { ...item, handlingType: current };
     if (fallbackHandling && !item.handlingType?.trim())
       return { ...item, handlingType: fallbackHandling };
-    return item;
+    return { ...item, handlingType: '' };
   });
 
   const firstItemHandling = migratedItems.find((i) => i.handlingType?.trim())?.handlingType || '';

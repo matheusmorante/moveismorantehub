@@ -9,6 +9,9 @@ interface LabelAssetLibraryModalProps {
   onUploadLogo: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSelectLogo: (logo: Pick<LabelLogoAsset, 'image' | 'name'>) => void;
   onDeleteLogo: (id: string) => void;
+  isBusy?: boolean;
+  isUploading?: boolean;
+  error?: string;
 }
 
 export const LabelAssetLibraryModal: React.FC<LabelAssetLibraryModalProps> = ({
@@ -18,18 +21,24 @@ export const LabelAssetLibraryModal: React.FC<LabelAssetLibraryModalProps> = ({
   onUploadLogo,
   onSelectLogo,
   onDeleteLogo,
+  isBusy = false,
+  isUploading = false,
+  error = '',
 }) => {
   const localInputRef = useRef<HTMLInputElement>(null);
+  const close = () => { if (!isBusy) onClose(); };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+    <div role="dialog" aria-modal="true" aria-label="Biblioteca de ativos" onKeyDown={(event) => { if (event.key === 'Escape') close(); }} className="fixed inset-0 z-[300] flex items-center justify-center p-4">
       <input
         type="file"
         ref={localInputRef}
         className="hidden"
         accept="image/*"
+        aria-label="Carregar ativo de etiqueta"
+        disabled={isBusy}
         onChange={onUploadLogo}
       />
       <div
@@ -37,10 +46,10 @@ export const LabelAssetLibraryModal: React.FC<LabelAssetLibraryModalProps> = ({
         tabIndex={0}
         aria-label="Fechar biblioteca de ativos"
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-fade-in"
-        onClick={onClose}
+        onClick={close}
         onKeyDown={(e) => {
           if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
-            onClose();
+            close();
           }
         }}
       />
@@ -61,12 +70,16 @@ export const LabelAssetLibraryModal: React.FC<LabelAssetLibraryModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
+            disabled={isBusy}
+            aria-label="Fechar ativos"
             className="w-12 h-12 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 transition-colors"
           >
             <i className="bi bi-x-lg text-lg" />
           </button>
         </div>
+        {error && <p role="alert" className="mb-4 text-sm text-red-600">{error}</p>}
+        {isBusy && <p role="status" className="mb-4 flex items-center gap-2 text-sm text-blue-600"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />{isUploading ? 'Lendo imagem do ativo…' : 'Atualizando ativos…'}</p>}
         <div className="flex-1 overflow-y-auto custom-scrollbar pr-4">
           <div className="space-y-8">
             <div className="flex items-center justify-between">
@@ -75,6 +88,7 @@ export const LabelAssetLibraryModal: React.FC<LabelAssetLibraryModalProps> = ({
               </h4>
               <button
                 type="button"
+                disabled={isBusy}
                 onClick={() => localInputRef.current?.click()}
                 className="px-5 py-3 bg-indigo-600 text-white rounded-2xl hover:scale-105 active:scale-95 transition-all font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-500/20 flex items-center gap-2 cursor-pointer"
               >
@@ -91,6 +105,7 @@ export const LabelAssetLibraryModal: React.FC<LabelAssetLibraryModalProps> = ({
                 </p>
                 <button
                   type="button"
+                  disabled={isBusy}
                   onClick={() => localInputRef.current?.click()}
                   className="mt-4 text-[9px] font-black uppercase text-indigo-600 hover:underline cursor-pointer"
                 >
@@ -109,6 +124,7 @@ export const LabelAssetLibraryModal: React.FC<LabelAssetLibraryModalProps> = ({
                       <div className="absolute inset-0 bg-indigo-900/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
                         <button
                           type="button"
+                          disabled={isBusy}
                           onClick={(e) => {
                             e.stopPropagation();
                             onSelectLogo(logo);
@@ -119,6 +135,7 @@ export const LabelAssetLibraryModal: React.FC<LabelAssetLibraryModalProps> = ({
                         </button>
                         <button
                           type="button"
+                          disabled={isBusy}
                           onClick={(e) => {
                             e.stopPropagation();
                             onDeleteLogo(logo.id);

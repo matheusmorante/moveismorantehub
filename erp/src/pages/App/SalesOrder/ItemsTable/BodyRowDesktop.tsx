@@ -11,6 +11,7 @@ import ProductAutocomplete from '../../../../components/ProductAutocomplete';
 import ServiceAutocomplete from './ServiceAutocomplete';
 import TemporaryProductWarning from './TemporaryProductWarning';
 import { getSettings } from '@/pages/utils/settingsService';
+import { isGenericHandlingLabel } from '@/pages/utils/handlingMigration';
 import { BodyRowViewProps } from './BodyRowMobile';
 
 const STOCK_ORIGIN_PRODUCT_KINDS = {
@@ -24,6 +25,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   item,
   idx,
   deliveryMethod,
+  settings: propSettings,
   isBudget,
   isReturn,
   hideHandling,
@@ -62,7 +64,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
     commitObservation,
   } = pricing;
 
-  const settings = getSettings();
+  const settings = propSettings || getSettings();
 
   return (
     <tr
@@ -175,6 +177,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
           {!item.isComboItem && (
             <div className="relative group/hsel">
               <select
+                aria-label="Manuseio"
                 className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1 text-[11px] font-bold text-slate-600 outline-none transition-colors dark:text-slate-400 ${
                   handlingError
                     ? 'border-red-500 focus:border-red-500'
@@ -193,9 +196,9 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                 </option>
                 {(() => {
                   const options =
-                    deliveryMethod === 'delivery'
-                      ? settings.deliveryHandlingOptions || []
-                      : settings.pickupHandlingOptions || [];
+                    deliveryMethod === 'pickup'
+                      ? settings.pickupHandlingOptions || []
+                      : settings.deliveryHandlingOptions || [];
                   const isSelectedInOptions =
                     item.handlingType && options.some((o) => o.label === item.handlingType);
 
@@ -206,11 +209,13 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                           {opt.label}
                         </option>
                       ))}
-                      {item.handlingType && !isSelectedInOptions && (
-                        <option value={item.handlingType} className="italic text-slate-400">
-                          {item.handlingType} (Atual)
-                        </option>
-                      )}
+                      {item.handlingType &&
+                        !isSelectedInOptions &&
+                        !isGenericHandlingLabel(item.handlingType) && (
+                          <option value={item.handlingType} className="italic text-slate-400">
+                            {item.handlingType} (Atual)
+                          </option>
+                        )}
                     </>
                   );
                 })()}

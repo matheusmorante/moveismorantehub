@@ -53,14 +53,7 @@ type RequiredGridLayout = Pick<
 
 export type LabelGridModelEditorState = LabelGridModelEditorValues &
   RequiredGridLayout & {
-    editingModel?: Pick<
-      GridModel,
-      | 'id'
-      | 'category'
-      | 'dePricePorGroupPos'
-      | 'dePricePorGroupRotation'
-      | 'dePricePorGroupGap'
-    > | null;
+    editingModel?: GridModel | null;
     name: string;
     generatedName: string;
     currentCategory?: GridModel['category'] | null;
@@ -87,6 +80,7 @@ export function createGridModelFromEditorState(
   const { editingModel, currentCategory, ...values } = state;
 
   return {
+    ...editingModel,
     id: editingModel?.id || `custom_${Date.now()}`,
     name: values.name.trim() || values.generatedName,
     columns: values.columns,

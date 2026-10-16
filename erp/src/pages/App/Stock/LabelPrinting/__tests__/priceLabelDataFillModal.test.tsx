@@ -1,184 +1,118 @@
 // @vitest-environment happy-dom
 import React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
-import { PriceLabelDataFillModal } from '../modals/PriceLabelDataFillModal';
-import * as catalogService from '../services/priceLabelCatalogService';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PriceLabelDataFillModal, type PriceLabelDataFillModalProps } from '../modals/PriceLabelDataFillModal';
+import { searchProductsForLabelResult } from '../services/priceLabelCatalogService';
 import { toast } from 'react-toastify';
+vi.mock('../services/priceLabelCatalogService', () => ({ searchProductsForLabelResult: vi.fn() }));
+vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+const product = { id: ' product-1 ', name: '  mesa de jantar  ', description: 'Mesa', code: 'M1', unit_price: 0, promo_price: 0, images: [] };
+const initial = { title: 'COLCHÃO', normalPrice: '499,00', promoPrice: '399', centsText: ',00', currencySymbol: 'R$', installments: '10x sem juros' };
+function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done; }); return { promise, resolve }; }
+function setup(overrides: Partial<PriceLabelDataFillModalProps> = {}) {
+  const props = { ...initial, isOpen: true, ownerKey: 'layout-1', onClose: vi.fn(), onApplyData: vi.fn().mockResolvedValue(true), onApplyProductTitle: vi.fn().mockResolvedValue(true), ...overrides };
+  const view = render(<PriceLabelDataFillModal {...props} />);
+  return { props, ...view };
+}
+const manual = () => fireEvent.click(screen.getByText('Preenchimento Manual'));
+const submit = () => fireEvent.click(screen.getByText('Aplicar na Etiqueta'));
+const search = (value: string) => fireEvent.change(screen.getByPlaceholderText('Digite o nome, código ou SKU do produto...'), { target: { value } });
+beforeEach(() => { vi.clearAllMocks(); vi.mocked(searchProductsForLabelResult).mockResolvedValue({ data: [], error: null }); vi.spyOn(console, 'warn').mockImplementation(() => undefined); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
-vi.mock('../services/priceLabelCatalogService', () => ({
-  searchProductsForLabel: vi.fn(),
-}));
-
-vi.mock('react-toastify', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
-}));
-
-describe('PriceLabelDataFillModal - Comportamento e Desacoplamento da UI', () => {
-  const defaultProps = {
-    isOpen: true,
-    onClose: vi.fn(),
-    onApplyProductTitle: vi.fn(),
-    title: 'COLCHÃO D28',
-    setTitle: vi.fn(),
-    normalPrice: '499,00',
-    setNormalPrice: vi.fn(),
-    promoPrice: '399',
-    setPromoPrice: vi.fn(),
-    centsText: ',00',
-    setCentsText: vi.fn(),
-    currencySymbol: 'R$',
-    setCurrencySymbol: vi.fn(),
-    installments: '10x de 39,90',
-    setInstallments: vi.fn(),
-  };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(catalogService.searchProductsForLabel).mockResolvedValue([]);
+describe('dados da etiqueta com resolver real e rascunho por abertura', () => {
+  it('não consulta nem aplica quando fechado', () => {
+    const s = setup({ isOpen: false }); expect(screen.queryByRole('dialog')).toBeNull(); expect(searchProductsForLabelResult).not.toHaveBeenCalled(); expect(s.props.onApplyData).not.toHaveBeenCalled();
   });
 
-  afterEach(() => {
-    cleanup();
-  });
-
-  it('não renderiza conteúdo quando isOpen é false', () => {
-    const { container } = render(<PriceLabelDataFillModal {...defaultProps} isOpen={false} />);
-    expect(container.firstChild).toBeNull();
-  });
-
-  it('renderiza o modal aberto na aba de busca por padrão', () => {
-    render(<PriceLabelDataFillModal {...defaultProps} />);
-
-    expect(screen.getByText('Produto Modelo & Dados')).toBeDefined();
-    expect(screen.getByPlaceholderText('Digite o nome, código ou SKU do produto...')).toBeDefined();
-    expect(screen.getByText('Puxar Produto da Lista')).toBeDefined();
-    expect(screen.getByText('Preenchimento Manual')).toBeDefined();
-  });
-
-  it('executa busca com debounce chamando searchProductsForLabel sem Supabase na UI', async () => {
-    const mockProducts: catalogService.PriceLabelCatalogProduct[] = [
-      {
-        id: 'p-1',
-        name: 'SOFÁ RETRÁTIL 3 LUGARES',
-        description: 'SOFÁ RETRÁTIL 3 LUGARES',
-        code: 'SOF-001',
-        unit_price: 1899.0,
-        promo_price: 1499.0,
-        images: ['https://example.com/sofa.jpg'],
-      },
-    ];
-
-    vi.mocked(catalogService.searchProductsForLabel).mockResolvedValue(mockProducts);
-
-    render(<PriceLabelDataFillModal {...defaultProps} />);
-
-    const searchInput = screen.getByPlaceholderText('Digite o nome, código ou SKU do produto...');
-    fireEvent.change(searchInput, { target: { value: 'sofa' } });
-
-    await waitFor(
-      () => {
-        expect(catalogService.searchProductsForLabel).toHaveBeenCalledWith('sofa');
-      },
-      { timeout: 1500 }
-    );
-
-    await waitFor(
-      () => {
-        expect(screen.getByText('SOFÁ RETRÁTIL 3 LUGARES')).toBeDefined();
-        expect(screen.getByText('CÓD: SOF-001')).toBeDefined();
-        expect(screen.getByText('Puxar')).toBeDefined();
-      },
-      { timeout: 1500 }
-    );
-  });
-
-  it('dispara onApplyProductTitle ao clicar em um produto retornado', async () => {
-    const mockProducts: catalogService.PriceLabelCatalogProduct[] = [
-      {
-        id: 'p-2',
-        name: 'MESA DE JANTAR 6 CADEIRAS',
-        description: 'MESA DE JANTAR 6 CADEIRAS',
-        code: 'MES-002',
-        unit_price: 1200.0,
-        promo_price: 0,
-        images: [],
-      },
-    ];
-
-    vi.mocked(catalogService.searchProductsForLabel).mockResolvedValue(mockProducts);
-
-    render(<PriceLabelDataFillModal {...defaultProps} />);
-
-    const searchInput = screen.getByPlaceholderText('Digite o nome, código ou SKU do produto...');
-    fireEvent.change(searchInput, { target: { value: 'mesa' } });
-
-    await waitFor(
-      () => {
-        expect(screen.getByText('MESA DE JANTAR 6 CADEIRAS')).toBeDefined();
-      },
-      { timeout: 1500 }
-    );
-
-    const productCard = screen
-      .getByText('MESA DE JANTAR 6 CADEIRAS')
-      .closest('div[class*="cursor-pointer"]');
-    expect(productCard).not.toBeNull();
-
-    fireEvent.click(productCard!);
-    expect(defaultProps.onApplyProductTitle).toHaveBeenCalledWith('MESA DE JANTAR 6 CADEIRAS');
-  });
-
-  it('alterna para aba Preenchimento Manual e sincroniza campos digitados', () => {
-    render(<PriceLabelDataFillModal {...defaultProps} />);
-
-    // Clica na aba Preenchimento Manual
-    const manualTabBtn = screen.getByText('Preenchimento Manual');
-    fireEvent.click(manualTabBtn);
-
-    // Verifica campos manuais
-    const titleInput = screen.getByPlaceholderText('Ex: COLCHÃO DE ESPUMA D28...');
-    expect(titleInput).toBeDefined();
-
-    fireEvent.change(titleInput, { target: { value: 'novo colchao super' } });
-    expect(defaultProps.setTitle).toHaveBeenCalledWith('NOVO COLCHAO SUPER');
-
-    const normalPriceInput = screen.getByPlaceholderText('Ex: 499,00');
-    fireEvent.change(normalPriceInput, { target: { value: '599,00' } });
-    expect(defaultProps.setNormalPrice).toHaveBeenCalledWith('599,00');
-
-    const promoPriceInput = screen.getByPlaceholderText('Ex: 299');
-    fireEvent.change(promoPriceInput, { target: { value: '450' } });
-    expect(defaultProps.setPromoPrice).toHaveBeenCalledWith('450');
-
-    const installmentsInput = screen.getByPlaceholderText('Ex: Em até 10x sem juros no cartão');
-    fireEvent.change(installmentsInput, { target: { value: '12x sem juros' } });
-    expect(defaultProps.setInstallments).toHaveBeenCalledWith('12x sem juros');
-  });
-
-  it('fecha o modal e notifica sucesso ao clicar em Aplicar na Etiqueta', () => {
-    render(<PriceLabelDataFillModal {...defaultProps} />);
-
-    // Vai para manual
-    fireEvent.click(screen.getByText('Preenchimento Manual'));
-
-    const applyBtn = screen.getByText('Aplicar na Etiqueta');
-    fireEvent.click(applyBtn);
-
-    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+  it('mantém rascunho local e aplica um snapshot parseado completo somente ao confirmar', async () => {
+    const s = setup(); manual();
+    fireEvent.change(screen.getByPlaceholderText('Ex: COLCHÃO DE ESPUMA D28...'), { target: { value: 'mesa especial' } });
+    fireEvent.change(screen.getByPlaceholderText('Ex: 499,00'), { target: { value: 'R$ 0,00' } });
+    expect(s.props.onApplyData).not.toHaveBeenCalled(); expect(s.props.onApplyProductTitle).not.toHaveBeenCalled(); submit();
+    await waitFor(() => expect(s.props.onClose).toHaveBeenCalledTimes(1));
+    expect(s.props.onApplyData).toHaveBeenCalledWith({ ...initial, title: 'MESA ESPECIAL', normalPrice: 'R$ 0,00' }, expect.any(Function));
     expect(toast.success).toHaveBeenCalledWith('Campos atualizados na etiqueta!');
   });
 
-  it('fecha o modal ao clicar no botão X do cabeçalho', () => {
-    const { container } = render(<PriceLabelDataFillModal {...defaultProps} />);
+  it('cancelar descarta rascunho e a próxima abertura parte dos valores do proprietário', () => {
+    const s = setup(); manual(); fireEvent.change(screen.getByPlaceholderText('Ex: COLCHÃO DE ESPUMA D28...'), { target: { value: 'RASCUNHO' } });
+    fireEvent.click(screen.getByLabelText('Fechar dados da etiqueta')); expect(s.props.onClose).toHaveBeenCalledOnce(); expect(s.props.onApplyData).not.toHaveBeenCalled();
+    s.rerender(<PriceLabelDataFillModal {...s.props} isOpen={false} />); s.rerender(<PriceLabelDataFillModal {...s.props} />); manual();
+    expect((screen.getByPlaceholderText('Ex: COLCHÃO DE ESPUMA D28...') as HTMLInputElement).value).toBe(initial.title);
+  });
 
-    const closeBtn = container.querySelector('button i.bi-x-lg')?.closest('button');
-    expect(closeBtn).toBeDefined();
+  it('bloqueia repetição, edição e Escape até confirmar o callback', async () => {
+    const request = deferred<boolean>(), callback = vi.fn(() => request.promise), s = setup({ onApplyData: callback }); manual(); submit(); submit();
+    await waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('status').textContent).toContain('aplicando'); expect(screen.getByText('Aplicar na Etiqueta').closest('fieldset')!.disabled).toBe(true);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' }); fireEvent.click(screen.getByLabelText('Fechar dados da etiqueta')); expect(s.props.onClose).not.toHaveBeenCalled();
+    await act(async () => { request.resolve(true); }); expect(s.props.onClose).toHaveBeenCalledTimes(1);
+  });
 
-    fireEvent.click(closeBtn!);
-    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+  it.each(['false', 'throw'])('mostra erro de callback %s e mantém dados sem anunciar sucesso', async (kind) => {
+    const callback = vi.fn(async () => { if (kind === 'throw') throw new Error('Falha de aplicação'); return false; });
+    const s = setup({ onApplyData: callback }); manual(); submit();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy()); expect(s.props.onClose).not.toHaveBeenCalled(); expect(toast.success).not.toHaveBeenCalled();
+    expect((screen.getByText('Aplicar na Etiqueta') as HTMLButtonElement).disabled).toBe(false); expect(screen.getByText('Aplicar na Etiqueta').closest('fieldset')!.disabled).toBe(false);
+  });
+
+  it('rejeita estrutura manual inválida antes de chamar o proprietário', async () => {
+    const s = setup({ normalPrice: 999 as unknown as string }); manual(); submit();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy()); expect(s.props.onApplyData).not.toHaveBeenCalled(); expect(s.props.onClose).not.toHaveBeenCalled();
+  });
+
+  it('consulta com termo parseado e aplica somente o nome do produto pelo resolver', async () => {
+    vi.mocked(searchProductsForLabelResult).mockResolvedValue({ data: [product], error: null }); const s = setup(); search('  mesa  ');
+    const button = await screen.findByRole('button', { name: 'Aplicar nome de mesa de jantar' });
+    expect(searchProductsForLabelResult).toHaveBeenCalledWith('mesa'); fireEvent.click(button);
+    await waitFor(() => expect(s.props.onClose).toHaveBeenCalledTimes(1));
+    expect(s.props.onApplyProductTitle).toHaveBeenCalledWith('MESA DE JANTAR', expect.any(Function)); expect(s.props.onApplyData).not.toHaveBeenCalled();
+  });
+
+  it('mostra falha da nuvem junto do cache válido e não publica registros malformados', async () => {
+    vi.mocked(searchProductsForLabelResult).mockResolvedValueOnce({ data: [product], error: new Error('Offline') }); setup();
+    expect(await screen.findByRole('button', { name: 'Aplicar nome de mesa de jantar' })).toBeTruthy(); expect(screen.getByRole('alert').textContent).toContain('resultados locais');
+    vi.mocked(searchProductsForLabelResult).mockResolvedValueOnce({ data: [{ ...product, id: '' }], error: null }); search('outro');
+    await waitFor(() => expect(searchProductsForLabelResult).toHaveBeenLastCalledWith('outro'));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Aplicar nome de mesa de jantar' })).toBeNull());
+  });
+
+  it('permite repetir a consulta pelo mesmo resolver e encerra consulta sem resposta', async () => {
+    vi.useFakeTimers(); const request = deferred<Awaited<ReturnType<typeof searchProductsForLabelResult>>>(); vi.mocked(searchProductsForLabelResult).mockReturnValueOnce(request.promise); setup();
+    await act(async () => { await vi.advanceTimersByTimeAsync(16_150); });
+    expect(screen.getByRole('alert').textContent).toContain('consulta na nuvem'); expect(screen.queryByRole('status')).toBeNull();
+    vi.mocked(searchProductsForLabelResult).mockResolvedValueOnce({ data: [product], error: null });
+    fireEvent.click(screen.getByText('Tentar consulta novamente'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    expect(screen.getByRole('button', { name: 'Aplicar nome de mesa de jantar' })).toBeTruthy(); expect(searchProductsForLabelResult).toHaveBeenCalledTimes(2);
+    await act(async () => { request.resolve({ data: [], error: null }); });
+    expect(screen.getByRole('button', { name: 'Aplicar nome de mesa de jantar' })).toBeTruthy();
+  });
+
+  it('ignora resultado de consulta antigo quando a busca muda', async () => {
+    const old = deferred<Awaited<ReturnType<typeof searchProductsForLabelResult>>>(); vi.mocked(searchProductsForLabelResult).mockReturnValueOnce(old.promise); setup();
+    await waitFor(() => expect(searchProductsForLabelResult).toHaveBeenCalledTimes(1));
+    vi.mocked(searchProductsForLabelResult).mockResolvedValueOnce({ data: [{ ...product, id: 'novo', name: 'ATUAL' }], error: null }); search('atual');
+    expect(await screen.findByRole('button', { name: 'Aplicar nome de ATUAL' })).toBeTruthy();
+    await act(async () => { old.resolve({ data: [product], error: null }); });
+    expect(screen.queryByRole('button', { name: 'Aplicar nome de mesa de jantar' })).toBeNull(); expect(screen.getByRole('button', { name: 'Aplicar nome de ATUAL' })).toBeTruthy();
+  });
+
+  it('não fecha nova abertura após callback da abertura antiga', async () => {
+    const request = deferred<boolean>(), callback = vi.fn(() => request.promise), s = setup({ onApplyData: callback }); manual(); submit(); await waitFor(() => expect(callback).toHaveBeenCalled());
+    s.rerender(<PriceLabelDataFillModal {...s.props} ownerKey="layout-2" />); const dialog = screen.getByRole('dialog');
+    await act(async () => { request.resolve(true); });
+    expect(screen.getByRole('dialog')).toBe(dialog); expect(s.props.onClose).not.toHaveBeenCalled(); expect(toast.success).not.toHaveBeenCalled();
+    expect((callback.mock.calls[0] as unknown as [unknown, () => boolean])[1]()).toBe(false);
+  });
+
+  it('limita callback a 15s, bloqueia repetição e descarta sucesso tardio', async () => {
+    vi.useFakeTimers(); const request = deferred<boolean>(), callback = vi.fn(() => request.promise), s = setup({ onApplyData: callback }); manual(); submit();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); }); expect(callback).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(screen.getByRole('alert').textContent).toContain('não foi confirmada'); expect((screen.getByText('Aplicar na Etiqueta') as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { request.resolve(true); }); expect(s.props.onClose).not.toHaveBeenCalled(); expect(toast.success).not.toHaveBeenCalled();
   });
 });

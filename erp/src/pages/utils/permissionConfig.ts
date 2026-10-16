@@ -176,6 +176,16 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
     ],
   },
   {
+    id: 'customerSupport',
+    name: 'Central de Atendimento',
+    description: 'Atendimento integrado WhatsApp, conversas e dados comerciais de clientes.',
+    icon: 'bi-chat-dots-fill',
+    actions: [
+      action('viewCustomerSupport', 'Acesso à Central', 'view', 'Acessar Central de Atendimento', 'Consultar conversas e mensagens recebidas pelo WhatsApp.', 'bi-chat-dots-fill', ['manager', 'seller', 'deliverer']),
+      action('viewCustomerCommercialInfo', 'Dados comerciais no atendimento', 'view', 'Visualizar informações comerciais', 'Consultar pedidos, valores e dados comerciais do cliente na Central.', 'bi-bag-check-fill', ['manager', 'seller']),
+    ],
+  },
+  {
     id: 'settingsAndAccess',
     name: 'Configurações e acessos',
     description: 'Gestão de usuários, perfis e parâmetros do ERP.',

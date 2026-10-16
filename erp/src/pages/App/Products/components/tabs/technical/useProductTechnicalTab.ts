@@ -16,6 +16,7 @@ import {
   parseNumericDimension,
   getToggledDepthLengthTarget,
   isOptionalFieldSelected,
+  hasCharacteristicValue,
 } from './technicalTabUtils';
 
 export interface UseProductTechnicalTabParams {
@@ -133,9 +134,47 @@ export const useProductTechnicalTab = ({
   const requiredFieldGroups = groupTechnicalFields(requiredFields);
   const optionalFields = visibleFields.filter((field) => !field.isRequired);
 
-  const selectedOptionalFields = optionalFields.filter((field) =>
+  const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
+  const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
+
+  // Características selecionadas ou preenchidas pelo usuário (ou adicionadas manualmente)
+  // REGRA DO USUÁRIO: Características selecionadas ou preenchidas devem continuar exibidas
+  // por mais que altere o campo de pesquisa na aba de características.
+  const filledOrManualOptionalFields = optionalFields.filter((field) =>
     isOptionalFieldSelected(field, formData, manualFieldNames)
   );
+
+  let displayedOptionalFields: TechnicalFieldDefinition[] = [];
+
+  if (requiredFieldsOnly) {
+    displayedOptionalFields = [];
+  } else if (!normalizedSearchTerm) {
+    // Quando não há pesquisa digitada, exibe todas as características aplicáveis da categoria + preenchidas
+    displayedOptionalFields = optionalFields;
+  } else {
+    // Quando há pesquisa ativa:
+    // 1. Mantém SEMPRE visíveis todos os campos preenchidos/selecionados
+    const visibleMap = new Map<string, TechnicalFieldDefinition>();
+    filledOrManualOptionalFields.forEach((f) => visibleMap.set(f.name, f));
+
+    // 2. Adiciona campos opcionais aplicáveis que coincidem com o termo pesquisado
+    optionalFields.forEach((f) => {
+      if (normalizeSearchTerm(f.name).includes(normalizedSearchTerm)) {
+        visibleMap.set(f.name, f);
+      }
+    });
+
+    // 3. Adiciona características globais do catálogo que coincidem com a busca
+    allTechnicalFields.forEach((f) => {
+      if (!f.isRequired && normalizeSearchTerm(f.name).includes(normalizedSearchTerm)) {
+        if (!visibleMap.has(f.name)) {
+          visibleMap.set(f.name, f);
+        }
+      }
+    });
+
+    displayedOptionalFields = Array.from(visibleMap.values());
+  }
 
   const requiredFieldNames = new Set(
     requiredFields.map((field) => normalizeTechnicalName(field.name))
@@ -143,11 +182,8 @@ export const useProductTechnicalTab = ({
 
   const searchableOptionalFields = getAvailableAdditionalFields(allTechnicalFields, [
     ...requiredFields,
-    ...selectedOptionalFields,
+    ...displayedOptionalFields,
   ]).filter((field) => !requiredFieldNames.has(normalizeTechnicalName(field.name)));
-
-  const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
-  const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
 
   const matchingOptionalFields =
     !requiredFieldsOnly &&
@@ -160,9 +196,14 @@ export const useProductTechnicalTab = ({
           .slice(0, 3)
       : [];
 
-  const fieldGroups = [...requiredFieldGroups, ...groupTechnicalFields(selectedOptionalFields)];
+  const fieldGroups = requiredFieldsOnly
+    ? requiredFieldGroups
+    : [...requiredFieldGroups, ...groupTechnicalFields(displayedOptionalFields)];
 
   const handleTechnicalValueChange = (fieldName: string, value: unknown) => {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      setManualFieldNames((prev) => (prev.includes(fieldName) ? prev : [...prev, fieldName]));
+    }
     setFormData((prev) => {
       const currentTech = { ...(prev.technicalValues || {}) };
       if (value === undefined || value === null) {

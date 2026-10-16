@@ -16,6 +16,8 @@ const LabelPrinting: React.FC = () => {
         className={`flex flex-col gap-2 max-w-[1600px] mx-auto pt-2 pb-4 px-6 min-h-screen no-print transition-all`}
       >
         <HeaderSection {...state} />
+        {state.layoutsLoading && <p role="status" className="flex items-center gap-2 text-sm text-blue-700"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Consultando modelos de etiquetas…</p>}
+        {(state.layoutsError || state.layoutsQueryError || state.layoutPreferenceError) && <p role="alert" className="text-sm text-red-700">{state.layoutsError || state.layoutsQueryError || state.layoutPreferenceError}</p>}
 
         {!state.selectedCategory ? (
           <LabelPrintingCategoryTabs

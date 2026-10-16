@@ -1,71 +1,88 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { labelDataFillFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
-import { searchFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
+import { labelManualDataFormSchema, labelDataFillProductFormSchema, labelCatalogSearchFormSchema, labelCatalogProductsSchema, type LabelManualData } from '../../../../../../../shared-utils/labelDataFillFormSchemas';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import {
-  searchProductsForLabel,
+  searchProductsForLabelResult,
   PriceLabelCatalogProduct,
 } from '../services/priceLabelCatalogService';
 
 export interface PriceLabelDataFillModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApplyProductTitle: (prodName: string) => void;
+  onApplyProductTitle: (prodName: string, stillCurrent?: () => boolean) => boolean | Promise<boolean>;
+  onApplyData: (values: LabelManualData, stillCurrent?: () => boolean) => boolean | Promise<boolean>;
+  ownerKey?: string;
   title: string;
-  setTitle: (val: string) => void;
   normalPrice: string;
-  setNormalPrice: (val: string) => void;
   promoPrice: string;
-  setPromoPrice: (val: string) => void;
   centsText: string;
-  setCentsText: (val: string) => void;
   currencySymbol: string;
-  setCurrencySymbol: (val: string) => void;
   installments: string;
-  setInstallments: (val: string) => void;
 }
 
-export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = ({
-  isOpen,
-  onClose,
-  onApplyProductTitle,
-  title,
-  setTitle,
-  normalPrice,
-  setNormalPrice,
-  promoPrice,
-  setPromoPrice,
-  centsText,
-  setCentsText,
-  currencySymbol,
-  setCurrencySymbol,
-  installments,
-  setInstallments,
-}) => {
+const PriceLabelDataFillDialog: React.FC<PriceLabelDataFillModalProps> = (props) => {
+  const { onClose, onApplyProductTitle, onApplyData } = props;
+  const [draft, setDraft] = useState<LabelManualData>(() => ({ title: props.title, normalPrice: props.normalPrice, promoPrice: props.promoPrice, centsText: props.centsText, currencySymbol: props.currencySymbol, installments: props.installments }));
+  const { title, normalPrice, promoPrice, centsText, currencySymbol, installments } = draft;
+  const setTitle = (value: string) => setDraft((previous) => ({ ...previous, title: value }));
+  const setNormalPrice = (value: string) => setDraft((previous) => ({ ...previous, normalPrice: value }));
+  const setPromoPrice = (value: string) => setDraft((previous) => ({ ...previous, promoPrice: value }));
+  const setCentsText = (value: string) => setDraft((previous) => ({ ...previous, centsText: value }));
+  const setCurrencySymbol = (value: string) => setDraft((previous) => ({ ...previous, currencySymbol: value }));
+  const setInstallments = (value: string) => setDraft((previous) => ({ ...previous, installments: value }));
   const [dataFillTab, setDataFillTab] = useState<'search' | 'manual'>('search');
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<PriceLabelCatalogProduct[]>([]);
   const [isSearchingProducts, setIsSearchingProducts] = useState(false);
-  const formValues = { title, normalPrice, promoPrice, centsText, currencySymbol, installments };
-  const form = useZodForm(labelDataFillFormSchema, formValues);
-  const { validateValues: validateSearch } = useZodForm(searchFormSchema, { search: productSearchTerm });
+  const [searchRevision, setSearchRevision] = useState(0);
+  const form = useZodForm(labelManualDataFormSchema, draft);
+  const productForm = useZodForm(labelDataFillProductFormSchema, { id: '', title: '' });
+  const { validateValues: validateSearch } = useZodForm(labelCatalogSearchFormSchema, { searchTerm: productSearchTerm });
+  const [pending, setPending] = useState(false), [error, setError] = useState(''), [queryError, setQueryError] = useState(''), [blocked, setBlocked] = useState(false);
+  const mounted = useRef(false), locked = useRef(false), closed = useRef(false), replayBlocked = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const close = () => { if (mounted.current && !locked.current && !closed.current) { closed.current = true; onClose(); } };
+  const apply = async (product?: PriceLabelCatalogProduct) => {
+    if (!mounted.current || locked.current || closed.current || replayBlocked.current) return;
+    locked.current = true; setPending(true); setError(''); let active = true;
+    const current = () => active && mounted.current && !closed.current;
+    const fail = (message: string) => { if (current()) { setError(message); toast.error(message); } };
+    const confirm = async (operation: () => boolean | Promise<boolean>) => {
+      if (!current()) return;
+      const result = await withTimeout(Promise.resolve(operation()).then((confirmed) => ({ confirmed })), 15_000, null, 'etiquetas:aplicar-dados');
+      if (!current()) return;
+      if (!result) { replayBlocked.current = true; setBlocked(true); throw new Error('A aplicação não foi confirmada. Confira o editor antes de repetir.'); }
+      if (result.confirmed !== true) throw new Error('Não foi possível aplicar os dados. Confira os campos e tente novamente.');
+      closed.current = true; onClose(); toast.success(product ? 'Nome do produto aplicado na etiqueta!' : 'Campos atualizados na etiqueta!');
+    };
+    try {
+      const invalid = (errors: Parameters<typeof flattenFormErrors>[0]) => fail(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da etiqueta.');
+      if (product) await productForm.validateAndRun({ id: product.id, title: product.name }, (values) => confirm(() => onApplyProductTitle(values.title, current)), invalid);
+      else await form.validateAndRun(draft, (values) => confirm(() => onApplyData(values, current)), invalid);
+    } catch (cause) { fail(cause instanceof Error ? cause.message : 'Não foi possível aplicar os dados.'); }
+    finally { active = false; locked.current = false; if (mounted.current) setPending(false); }
+  };
 
   useEffect(() => {
-    if (!isOpen || dataFillTab !== 'search') return;
+    setIsSearchingProducts(false); setSearchResults([]); setQueryError('');
+    if (dataFillTab !== 'search') return;
 
     let isCurrent = true;
     const timer = setTimeout(async () => {
       setIsSearchingProducts(true);
       try {
-        const values = await validateSearch({ search: productSearchTerm });
+        const values = await validateSearch({ searchTerm: productSearchTerm }, (errors) => { if (isCurrent) setQueryError(Object.values(flattenFormErrors(errors))[0] || 'Confira a busca.'); });
         if (!values || !isCurrent) return;
-        const results = await searchProductsForLabel(values.search);
+        const results = await withTimeout(searchProductsForLabelResult(values.searchTerm), 16_000, null, 'etiquetas:buscar-produto');
         if (isCurrent) {
-          setSearchResults(Array.isArray(results) ? results : []);
+          const parsed = labelCatalogProductsSchema.safeParse(results?.data);
+          setSearchResults(parsed.success ? parsed.data : []);
+          if (!results || results.error || !parsed.success) setQueryError('Não foi possível confirmar a consulta na nuvem. Confira os resultados locais ou tente novamente.');
         }
       } catch {
-        if (isCurrent) setSearchResults([]);
+        if (isCurrent) { setSearchResults([]); setQueryError('Não foi possível consultar os produtos. Tente novamente.'); }
       } finally {
         if (isCurrent) setIsSearchingProducts(false);
       }
@@ -75,16 +92,21 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
       isCurrent = false;
       clearTimeout(timer);
     };
-  }, [isOpen, dataFillTab, productSearchTerm, validateSearch]);
-
-  if (!isOpen) return null;
+  }, [dataFillTab, productSearchTerm, searchRevision, validateSearch]);
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Dados da etiqueta de preço"
+      aria-busy={pending}
+      onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}
       style={{ zIndex: 9999 }}
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[85vh]">
+      <fieldset disabled={pending} className="m-0 min-w-0 bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[85vh]">
+        {(error || queryError) && <p role="alert" className="text-sm text-red-700">{error || queryError}</p>}
+        {pending && <p role="status" className="flex items-center gap-2 text-sm text-blue-700"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Validando e aplicando dados…</p>}
         {/* Topo do Modal */}
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4 shrink-0">
           <div className="flex items-center gap-3">
@@ -102,7 +124,8 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
+            aria-label="Fechar dados da etiqueta"
             className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white flex items-center justify-center cursor-pointer transition"
           >
             <i className="bi bi-x-lg text-sm" />
@@ -145,17 +168,19 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
               <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
               <input
                 type="text"
+                aria-label="Buscar produto para etiqueta"
                 value={productSearchTerm}
                 onChange={(e) => setProductSearchTerm(e.target.value)}
                 placeholder="Digite o nome, código ou SKU do produto..."
                 className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
               />
               {isSearchingProducts && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <div role="status" aria-label="Consultando produtos" className="absolute right-4 top-1/2 -translate-y-1/2">
                   <div className="w-4 h-4 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
                 </div>
               )}
             </div>
+            {queryError && <button type="button" disabled={pending || isSearchingProducts} onClick={() => setSearchRevision((value) => value + 1)} className="text-sm font-bold text-emerald-700">Tentar consulta novamente</button>}
 
             {/* Lista de Resultados */}
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1 min-h-[220px]">
@@ -174,9 +199,12 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
                     Array.isArray(prod.images) && prod.images.length > 0 ? prod.images[0] : null;
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={prod.id}
-                      onClick={() => onApplyProductTitle(prod.name)}
+                      onClick={() => { void apply(prod); }}
+                      disabled={pending || blocked}
+                      aria-label={`Aplicar nome de ${prod.name}`}
                       className="p-3 bg-slate-50 dark:bg-slate-950 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 rounded-2xl flex items-center justify-between transition-all cursor-pointer group"
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
@@ -232,14 +260,13 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
                           )}
                         </div>
 
-                        <button
-                          type="button"
+                        <span
                           className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider group-hover:bg-emerald-700 shadow-sm transition"
                         >
                           Puxar
-                        </button>
+                        </span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })
               )}
@@ -256,6 +283,7 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
               </label>
               <input
                 type="text"
+                aria-label="Título da etiqueta"
                 value={title}
                 onChange={(e) => setTitle(e.target.value.toUpperCase())}
                 placeholder="Ex: COLCHÃO DE ESPUMA D28..."
@@ -270,6 +298,7 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
                 </label>
                 <input
                   type="text"
+                  aria-label="Preço normal da etiqueta"
                   value={normalPrice}
                   onChange={(e) => setNormalPrice(e.target.value)}
                   placeholder="Ex: 499,00"
@@ -283,6 +312,7 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
                 </label>
                 <input
                   type="text"
+                  aria-label="Preço principal da etiqueta"
                   value={promoPrice}
                   onChange={(e) => setPromoPrice(e.target.value)}
                   placeholder="Ex: 299"
@@ -296,6 +326,7 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
                 <label className="text-[10px] font-black text-slate-500 uppercase">Centavos</label>
                 <input
                   type="text"
+                  aria-label="Centavos da etiqueta"
                   value={centsText}
                   onChange={(e) => setCentsText(e.target.value)}
                   placeholder="Ex: ,00"
@@ -309,6 +340,7 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
                 </label>
                 <input
                   type="text"
+                  aria-label="Símbolo da moeda da etiqueta"
                   value={currencySymbol}
                   onChange={(e) => setCurrencySymbol(e.target.value)}
                   placeholder="Ex: R$"
@@ -323,6 +355,7 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
               </label>
               <input
                 type="text"
+                aria-label="Parcelamento da etiqueta"
                 value={installments}
                 onChange={(e) => setInstallments(e.target.value)}
                 placeholder="Ex: Em até 10x sem juros no cartão"
@@ -332,18 +365,18 @@ export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (
 
             <button
               type="button"
-              onClick={() => form.validateAndRun(formValues, (values) => {
-                setTitle(values.title); setNormalPrice(values.normalPrice); setPromoPrice(values.promoPrice);
-                setCentsText(values.centsText); setCurrencySymbol(values.currencySymbol); setInstallments(values.installments);
-                onClose(); toast.success('Campos atualizados na etiqueta!');
-              }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]))}
+              onClick={() => { void apply(); }}
+              disabled={pending || blocked}
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md mt-2 cursor-pointer"
             >
               Aplicar na Etiqueta
             </button>
           </div>
         )}
-      </div>
+      </fieldset>
     </div>
   );
 };
+
+export const PriceLabelDataFillModal: React.FC<PriceLabelDataFillModalProps> = (props) => props.isOpen
+  ? <PriceLabelDataFillDialog key={props.ownerKey || 'data-fill'} {...props} /> : null;

@@ -102,6 +102,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     handleCategorySelect,
     handleCloseVariationModal,
     handleSaveVariation,
+    handleReplaceImageGlobal,
     handleConvertProduct,
     scheduleDraftAutoSave,
     deletingVariationId,
@@ -337,6 +338,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
                 ) || null
               }
               onSave={handleSaveVariation}
+              onReplaceImageGlobal={handleReplaceImageGlobal}
               canMarkTestArtifact={canToggleTestArtifact}
               isTestArtifact={isTestArtifact}
               onTestArtifactChange={setIsTestArtifact}

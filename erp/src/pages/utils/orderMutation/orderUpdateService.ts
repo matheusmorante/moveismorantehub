@@ -10,7 +10,6 @@ import type { OrderCirculationState } from '../nfe/cancellationEligibility';
 import { ensureCustomerInCrm, syncCustomerToCrmBackground } from './orderCrmSyncService';
 import { dispatchOrderUpdateNotifications } from './orderNotificationDispatcher';
 import { removeNonStockItemLinks } from '../saleInventoryRules';
-import { assertOwnedByTestContext, getTestArtifactContext, stampTestOrder } from '../../../../../shared-utils/testArtifactContext';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
 import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
@@ -19,8 +18,69 @@ import {
   setPersistedOrderDataSnapshot,
 } from '../orderMapper';
 import type { OrderUpdateOptions } from './orderMutationTypes';
+import {
+  applyTestArtifactUpdateRules,
+  assertValidMutationScheduling,
+  assertValidOrderQuotedStatus,
+  buildUpdateOrderRpcCall,
+  sanitizeOrderUpdateFields,
+} from './orderUpdateSchema';
 
 const TABLE_NAME = 'orders';
+
+const resolveStatusOnlyOrderDataSnapshot = async (
+  id: string,
+  currentOrder: Order | undefined,
+  merged: any,
+  initialSnapshot: Record<string, unknown> | undefined,
+  cleanUpdates: Record<string, any>
+): Promise<Record<string, unknown>> => {
+  let persistedSnapshot = initialSnapshot;
+
+  if (!persistedSnapshot && id && typeof supabase?.from === 'function') {
+    try {
+      const query = supabase.from(TABLE_NAME);
+      if (query && typeof query.select === 'function') {
+        const { data: currentDbOrder, error: fetchSnapshotError } = await query
+          .select('order_data')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (
+          !fetchSnapshotError &&
+          currentDbOrder?.order_data &&
+          typeof currentDbOrder.order_data === 'object'
+        ) {
+          persistedSnapshot = currentDbOrder.order_data as Record<string, unknown>;
+          if (currentOrder) {
+            setPersistedOrderDataSnapshot(currentOrder, persistedSnapshot);
+          }
+        }
+      }
+    } catch {
+      // Fallback seguro se a consulta do banco falhar ou estiver em ambiente restrito
+    }
+  }
+
+  const statusUpdateSnapshot =
+    persistedSnapshot ??
+    (currentOrder && !currentOrder.updatedAt ? merged : undefined) ??
+    merged;
+
+  if (!statusUpdateSnapshot) {
+    throw new Error(
+      'Não foi possível preservar o snapshot original do pedido. Atualize a lista e tente novamente.'
+    );
+  }
+
+  return {
+    ...statusUpdateSnapshot,
+    status: cleanUpdates.status,
+    ...(Object.hasOwn(cleanUpdates, 'autoFulfillExempt')
+      ? { autoFulfillExempt: cleanUpdates.autoFulfillExempt }
+      : {}),
+  };
+};
 
 /**
  * Atualização completa ou parcial de pedidos com conciliação de estoque, transição de status e CRM.
@@ -33,19 +93,10 @@ export const executeUpdateOrder = async (
   options: OrderUpdateOptions = {}
 ): Promise<void> => {
   try {
+    const { cleanUpdates, isStatusOnlyUpdate } = sanitizeOrderUpdateFields(orderToUpdate);
     let merged: any;
     let previousOrderData: any = currentOrder || null;
     let currentCirculationState: OrderCirculationState | undefined = currentOrder;
-
-    const cleanUpdates: any = {};
-    for (const [k, v] of Object.entries(orderToUpdate)) {
-      if (v !== undefined) {
-        cleanUpdates[k] = v;
-      }
-    }
-    const isStatusOnlyUpdate =
-      Object.hasOwn(cleanUpdates, 'status') &&
-      Object.keys(cleanUpdates).every((key) => key === 'status' || key === 'autoFulfillExempt');
     let persistedOrderDataSnapshot = currentOrder
       ? getPersistedOrderDataSnapshot(currentOrder) ||
         ((currentOrder as any)?.order_data && typeof (currentOrder as any).order_data === 'object'
@@ -80,18 +131,8 @@ export const executeUpdateOrder = async (
       merged = rest;
     }
 
-    if (isIdentifiedTestArtifact(previousOrderData)) assertOwnedByTestContext(previousOrderData);
-    if (cleanUpdates.is_test === false) {
-      delete merged.testArtifact;
-      delete merged.testRunId;
-      delete merged.testOwnerId;
-    } else if (cleanUpdates.is_test === true && !isIdentifiedTestArtifact(previousOrderData)) {
-      const identity = getTestArtifactContext();
-      if (!identity) throw new Error('O modo de teste exige operador autorizado nesta execução.');
-      merged = stampTestOrder(merged, identity);
-    }
+    merged = applyTestArtifactUpdateRules(merged, previousOrderData, cleanUpdates);
 
-    // 1. Manutenção do código do pedido
     const persistedCodeSource = getOrderIndex(previousOrderData) ? previousOrderData : currentOrder;
     const existingCode = resolveOrderIndexForUpdate(persistedCodeSource, cleanUpdates);
     if (existingCode) {
@@ -103,11 +144,10 @@ export const executeUpdateOrder = async (
       merged.orderNumber = newIndex;
     }
 
-    if (!options.metadataOnly) {
-      if (!isStatusOnlyUpdate) {
-        merged = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(merged as Order));
-      }
+    if (!options.metadataOnly && !isStatusOnlyUpdate) {
+      merged = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(merged as Order));
     }
+
     if (
       !options.metadataOnly &&
       ['draft', 'scheduled'].includes(previousOrderData?.status) &&
@@ -119,12 +159,15 @@ export const executeUpdateOrder = async (
     }
     if (merged.id) delete merged.id;
 
-    // 2. Validação da transição de status
     const previousStatus = previousOrderData?.status;
     const resultingStatus = orderToUpdate.status || merged.status || previousStatus;
-    if (resultingStatus === 'quoted' && merged.orderType !== 'budget') {
-      throw new Error('Somente orçamentos podem ser cadastrados com este status.');
+
+    assertValidOrderQuotedStatus(resultingStatus, merged.orderType);
+
+    if (!options.metadataOnly && !isStatusOnlyUpdate && Object.hasOwn(cleanUpdates, 'shipping')) {
+      assertValidMutationScheduling(merged, resultingStatus);
     }
+
     const validation = validateOrderStatusTransition(
       previousStatus,
       orderToUpdate.status,
@@ -133,7 +176,7 @@ export const executeUpdateOrder = async (
     if (!validation.allowed && validation.reason) {
       throw new Error(validation.reason);
     }
-    // 3. Garantir cliente no CRM
+
     const customerId =
       options.metadataOnly || merged.is_test || isStatusOnlyUpdate
         ? merged.customerData?.id
@@ -147,90 +190,31 @@ export const executeUpdateOrder = async (
 
     const updatePayload = buildOrderPersistencePayload(merged);
     if (isStatusOnlyUpdate) {
-      if (!persistedOrderDataSnapshot && id && typeof supabase?.from === 'function') {
-        try {
-          const query = supabase.from(TABLE_NAME);
-          if (query && typeof query.select === 'function') {
-            const { data: currentDbOrder, error: fetchSnapshotError } = await query
-              .select('order_data')
-              .eq('id', id)
-              .maybeSingle();
-
-            if (
-              !fetchSnapshotError &&
-              currentDbOrder?.order_data &&
-              typeof currentDbOrder.order_data === 'object'
-            ) {
-              persistedOrderDataSnapshot = currentDbOrder.order_data as Record<string, unknown>;
-              if (currentOrder) {
-                setPersistedOrderDataSnapshot(currentOrder, persistedOrderDataSnapshot);
-              }
-            }
-          }
-        } catch {
-          // Fallback seguro se a consulta do banco falhar ou estiver em ambiente restrito
-        }
-      }
-
-      const statusUpdateSnapshot =
-        persistedOrderDataSnapshot ??
-        (currentOrder && !currentOrder.updatedAt ? merged : undefined) ??
-        merged;
-      if (!statusUpdateSnapshot) {
-        throw new Error(
-          'Não foi possível preservar o snapshot original do pedido. Atualize a lista e tente novamente.'
-        );
-      }
-      // Keep fiscal inputs byte-for-byte equivalent at the JSON value level;
-      // the database guard should only see the intended status transition.
-      updatePayload.order_data = {
-        ...statusUpdateSnapshot,
-        status: cleanUpdates.status,
-        ...(Object.hasOwn(cleanUpdates, 'autoFulfillExempt')
-          ? { autoFulfillExempt: cleanUpdates.autoFulfillExempt }
-          : {}),
-      };
+      updatePayload.order_data = await resolveStatusOnlyOrderDataSnapshot(
+        id,
+        currentOrder,
+        merged,
+        persistedOrderDataSnapshot,
+        cleanUpdates
+      );
     }
-    const orderItemsPayload =
-      merged.items && merged.items.length > 0
-        ? merged.items
-        : ((updatePayload.order_data as any)?.items && Array.isArray((updatePayload.order_data as any).items)
-            ? (updatePayload.order_data as any).items
-            : []);
-    const orderPaymentsPayload =
-      merged.payments && merged.payments.length > 0
-        ? merged.payments
-        : ((updatePayload.order_data as any)?.payments && Array.isArray((updatePayload.order_data as any).payments)
-            ? (updatePayload.order_data as any).payments
-            : []);
 
-    // 4. Pedido, saídas/entradas, estornos e saldo são uma única transação.
-    // Sem fallback de escrita parcial quando a movimentação falha.
-    const rpcName = expectedUpdatedAt
-      ? 'update_order_with_inventory_transaction_if_version'
-      : 'create_order_with_inventory_transaction';
-    const rpcArguments = expectedUpdatedAt
-      ? {
-          p_order_id: String(id),
-          p_expected_updated_at: expectedUpdatedAt,
-          p_order_payload: updatePayload,
-          p_items: orderItemsPayload,
-          p_payments: orderPaymentsPayload,
-        }
-      : {
-          p_order_id: String(id),
-          p_order_payload: updatePayload,
-          p_items: orderItemsPayload,
-          p_payments: orderPaymentsPayload,
-          p_is_update: true,
-        };
+    const { rpcName, rpcArguments } = buildUpdateOrderRpcCall(
+      id,
+      merged,
+      updatePayload,
+      expectedUpdatedAt
+    );
+
     const { data: transaction, error: rpcError } = await supabase.rpc(rpcName, rpcArguments);
-    if (rpcError?.message?.includes('ORDER_VERSION_CONFLICT'))
-      throw new Error('O pedido mudou durante a conferência fiscal. Reabra a edição para revisar os dados atuais.');
+    if (rpcError?.message?.includes('ORDER_VERSION_CONFLICT')) {
+      throw new Error(
+        'O pedido mudou durante a conferência fiscal. Reabra a edição para revisar os dados atuais.'
+      );
+    }
     if (rpcError) throw rpcError;
     merged = { ...merged, ...(transaction?.order_data || {}) };
 
-    // 5. Notificações de eventos e alterações
     const oldStatus = previousStatus;
     const newStatus = orderToUpdate.status || merged.status || oldStatus;
     if (
@@ -241,16 +225,19 @@ export const executeUpdateOrder = async (
       dispatchOrderUpdateNotifications(id, previousOrderData, merged, oldStatus, newStatus);
     }
 
-    // 6. Sincronização em background do cliente no CRM
-    if (!options.metadataOnly && !isStatusOnlyUpdate && !merged.is_test) syncCustomerToCrmBackground(
-      merged.customerData?.id,
-      merged.customerData?.phone,
-      merged.marketingOrigin
-    );
+    if (!options.metadataOnly && !isStatusOnlyUpdate && !merged.is_test) {
+      syncCustomerToCrmBackground(
+        merged.customerData?.id,
+        merged.customerData?.phone,
+        merged.marketingOrigin
+      );
+    }
     if (!options.metadataOnly) {
       void queryClient
         .invalidateQueries({ queryKey: ['orders'] })
-        .catch((error) => console.error('[OrderUpdate] Falha ao atualizar a lista de pedidos:', error));
+        .catch((error) =>
+          console.error('[OrderUpdate] Falha ao atualizar a lista de pedidos:', error)
+        );
     }
   } catch (error) {
     console.error('Erro ao atualizar o pedido: ', error);

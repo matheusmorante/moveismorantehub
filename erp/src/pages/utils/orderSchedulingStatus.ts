@@ -24,7 +24,7 @@ export const formatOrderSchedulingText = (shipping: any, order?: any): string =>
 
   let timeLabel = '';
   if (sched.type === 'range' && sched.startTime && sched.endTime) {
-    timeLabel = `${sched.startTime} até ${sched.endTime}`;
+    timeLabel = `${sched.startTime} às ${sched.endTime}`;
   } else if (sched.startTime) {
     timeLabel = sched.startTime;
   } else if (sched.time) {

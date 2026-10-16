@@ -78,12 +78,12 @@ export function mapModelToLabelConfig(
     category: model.category || prefConfig.category,
 
     // Design e Tipografia (Normal)
-    nameFontSize: model.nameFontSize || prefConfig.nameFontSize,
+    nameFontSize: model.nameFontSize ?? prefConfig.nameFontSize,
     nameColor: model.nameColor || '#1e293b',
     nameBold: model.nameBold,
     nameAlign: model.nameAlign,
     nameVAlign: model.nameVAlign,
-    priceFontSize: model.priceFontSize || prefConfig.priceFontSize,
+    priceFontSize: model.priceFontSize ?? prefConfig.priceFontSize,
     priceColor: model.priceColor || '#1e293b',
     priceBold: model.priceBold,
     priceAlign: model.priceAlign,
@@ -113,7 +113,7 @@ export function mapModelToLabelConfig(
     artConfig: savedArtConfigs[model.id] || model.artConfig || prefConfig.artConfig,
 
     // Estilos Promocionais (Novo Preço)
-    promoPriceFontSize: model.promoPriceFontSize || 24,
+    promoPriceFontSize: model.promoPriceFontSize ?? 24,
     promoPriceColor: model.promoPriceColor || '#2563eb',
     promoPriceBold: model.promoPriceBold,
     promoPriceAlign: model.promoPriceAlign,
@@ -175,7 +175,7 @@ export function mapModelToLabelConfig(
     showPrice: model.category === 'precos',
     showBarcode: model.category !== 'precos',
     showStoreLogo: model.category !== 'precos',
-    imageScale: model.imageScale || 1,
+    imageScale: model.imageScale ?? 1,
   };
 }
 

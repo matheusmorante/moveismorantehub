@@ -85,7 +85,7 @@ const magnitudeSnapshotSchema = z.object({
   "bgColor": z.string().optional()
 }).passthrough();
 export const labelArtSnapshotSchema = magnitudeSnapshotSchema.extend({ magnitudeTemplates: z.record(z.string(), magnitudeSnapshotSchema).optional(), selectedMagnitude: z.string().optional(), selectedOppId: z.string().optional(), oppColorsMap: z.record(z.string(), z.record(z.string(), z.string())).optional() });
-const labelArtConfigSchema = z.object({ opportunities: z.record(z.string(), labelArtSnapshotSchema).optional(), globalSnapshot: labelArtSnapshotSchema.optional(), oppColorsMap: z.record(z.string(), z.record(z.string(), z.string())).optional() }).passthrough();
+export const labelArtConfigSchema = z.object({ opportunities: z.record(z.string(), labelArtSnapshotSchema).optional(), globalSnapshot: labelArtSnapshotSchema.optional(), oppColorsMap: z.record(z.string(), z.record(z.string(), z.string())).optional() }).passthrough();
 export const labelGridModelFormSchema = z.object({
   "id": z.string(),
   "baseModelId": z.string().optional(),
@@ -346,6 +346,7 @@ export const labelConfigFormSchema = z.object({
 export const labelPartialConfigFormSchema = labelConfigFormSchema.partial();
 export const labelGridModelDraftFormSchema = labelGridModelFormSchema.extend({ id: z.string().optional() });
 export const labelAssetFormSchema = z.object({ name: z.string().trim().min(1, 'Informe o nome.'), image: z.string().min(1, 'Selecione uma imagem.') });
+export const customLabelAssetFormSchema = labelAssetFormSchema.extend({ extraFields: z.array(labelExtraFieldSchema) });
 export const labelDefaultLayoutFormSchema = z.object({ modelId: z.string().min(1, 'Selecione o modelo.'), category: z.string().min(1, 'Selecione a categoria.'), type: z.enum(['rect', 'round']) });
 const labelQuantity = z.number({ error: 'Informe uma quantidade inteira maior que zero.' }).int('Informe uma quantidade inteira maior que zero.').positive('Informe uma quantidade inteira maior que zero.');
 export const labelBlankQueueFormSchema = z.object({ quantity: labelQuantity });
@@ -373,6 +374,10 @@ const labelQueueItem = z.object({
   productId: z.string().optional(), variationId: z.string().optional(), instances: z.array(z.string()).optional(),
   printingMode: z.enum(['simple', 'advanced']).optional(), isBlank: z.boolean().optional(),
 }).passthrough();
+export const labelAssetQueueFormSchema = z.object({
+  category: z.enum(['identificacao', 'precos', 'logos', 'posts']),
+  item: labelQueueItem.extend({ name: z.string().trim().min(1, 'Informe o nome.'), image: z.string().min(1, 'Selecione uma imagem.') }),
+});
 export const labelPrintingFormSchema = z.object({
   config: labelConfigFormSchema, items: z.array(labelQueueItem.extend({ name: z.string(), price: z.string() })), logos: z.array(labelQueueItem),
 });
