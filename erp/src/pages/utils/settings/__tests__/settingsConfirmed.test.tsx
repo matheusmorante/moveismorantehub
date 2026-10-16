@@ -35,6 +35,20 @@ beforeEach(() => {
 afterEach(() => { cleanup(); for (const unsubscribe of unsubscribers.splice(0)) unsubscribe(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('confirmação optativa de configurações e preferência real de etiquetas', () => {
+  it('reports remote load confirmation even when local cache is unavailable', async () => {
+    const settings = changedSettings(), observer = vi.fn(), loaded = vi.fn();
+    transport.read.mockResolvedValue({ data: { id: 'app', data: settings }, error: null });
+    vi.spyOn(localStorage, 'setItem').mockImplementation(() => { throw new Error('Quota'); });
+    unsubscribers.push(subscribeToSettings(observer, { onRemoteLoad: loaded }));
+    await waitFor(() => expect(loaded).toHaveBeenCalledWith({ confirmed: true }));
+    expect(observer.mock.calls.at(-1)?.[0].defaultLabelLayoutIds).toEqual(settings.defaultLabelLayoutIds);
+  });
+  it('reports a bounded failed query without claiming the local fallback was confirmed', async () => {
+    vi.useFakeTimers(); transport.read.mockReturnValue(new Promise(() => {})); const loaded = vi.fn();
+    unsubscribers.push(subscribeToSettings(vi.fn(), { onRemoteLoad: loaded }));
+    await vi.advanceTimersByTimeAsync(15_001);
+    expect(loaded).toHaveBeenCalledWith({ confirmed: false, message: expect.any(String) });
+  });
   it('não publica/cacheia antes de confirmar a linha e conserva contrato legado', async () => {
     const request = deferred<Response>(); transport.write.mockReturnValueOnce(request.promise);
     const settings = changedSettings(), pending = saveSettings(settings, { confirm: true });

@@ -4,6 +4,8 @@ import { AppSettingsFormSchema } from '../../../../../../shared-utils/appSetting
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { getSettings, saveSettings, subscribeToSettings, type AppSettings } from '@/pages/utils/settingsService';
 
+const themeFormSchema = AppSettingsFormSchema.pick({ defaultTheme: true });
+
 function editPath(settings: AppSettings, path: string, value: unknown): AppSettings {
   const parts = path.split('.');
   if (parts.some((part) => !part || ['__proto__', 'constructor', 'prototype'].includes(part))) throw new Error('Campo de configuração inválido.');
@@ -33,6 +35,7 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const pendingRevisions = useRef(new Set<number>());
   const themeCallback = useRef(setTheme); themeCallback.current = setTheme;
+  const { enqueueAndRun: previewTheme } = useZodForm(themeFormSchema, { defaultTheme: settings.defaultTheme });
   const { validateAndRun } = useZodForm(AppSettingsFormSchema, settings as unknown as z.input<typeof AppSettingsFormSchema>);
 
   useEffect(() => {
@@ -107,7 +110,7 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
     const completed = pending.finally(() => { pendingRevisions.current.delete(submittedRevision); });
     queue.current = completed.catch(() => undefined);
     return completed;
-  }, [form.validateAndRun]);
+  }, [validateAndRun]);
   const flushRef = useRef(flush); flushRef.current = flush;
   const handleChange = useCallback((path: string, value: unknown) => {
     if (!ready.current || !scope.current.ownerId || uncertainOwners.current.has(scope.current.ownerId)) return;
@@ -115,11 +118,16 @@ export function useSettingsForm(ownerId: string | null, setTheme: (theme: 'light
       latest.current = editPath(latest.current, path, value);
       dirty.current.set(path, value); revision.current++;
       setSettings(latest.current); setIsSaving(true); setValidationError(null);
-      if (path === 'defaultTheme' && (value === 'light' || value === 'dark')) themeCallback.current(value);
+      if (path === 'defaultTheme') {
+        const generation = scope.current;
+        void previewTheme({ defaultTheme: value as 'light' | 'dark' }, (parsed) => {
+          if (mounted.current && scope.current === generation && latest.current.defaultTheme === parsed.defaultTheme) themeCallback.current(parsed.defaultTheme);
+        }).catch(() => { if (mounted.current && scope.current === generation) setValidationError('Não foi possível aplicar o tema.'); });
+      }
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => { void flushRef.current(); }, 1000);
     } catch (error) { setValidationError(error instanceof Error ? error.message : 'Campo inválido.'); }
-  }, []);
+  }, [previewTheme]);
   return { settings, handleChange, isSaving, isLoading, validationError, flush,
     uncertain: Boolean(ownerId && uncertainOwners.current.has(ownerId)),
     hasPendingEdits: dirty.current.size > 0,
