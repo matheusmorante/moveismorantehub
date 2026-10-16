@@ -114,15 +114,18 @@ export interface QuickItemPayload {
  */
 export async function prepareNewParentWithVariation(
   item: QuickItemPayload,
-  supplierId?: string
+  supplierId?: string,
+  assertCurrent: () => void = () => {},
 ): Promise<Partial<Product>> {
-  const finalCost = item.finalCost || item.unitCost || 0;
+  const finalCost = item.finalCost ?? item.unitCost ?? 0;
 
   const parentName = item.productDescription.trim();
 
   // 2. Montar a variação inicial sem atributos automáticos (deve ser configurada manualmente pelo usuário)
   const initialVariationId = crypto.randomUUID();
+  assertCurrent();
   const parentCode = await getNextSequentialProductCode();
+  assertCurrent();
   const initialVariation: Variation = {
     id: initialVariationId,
     sku: generateVariationSku(parentCode, []),
@@ -149,16 +152,19 @@ export async function prepareNewParentWithVariation(
   let autoCategoryName = '';
   try {
     const categoryResponse = await fetchGroupsAndCategories();
+    assertCurrent();
     const activeCategories = (categoryResponse?.categories || []).filter(
       (c: any) => c.active !== false
     );
     const resolved = await resolveAutoCategory(parentName, activeCategories);
+    assertCurrent();
     if (resolved) {
       autoCategoryIds = [resolved.id];
       autoCategories = [resolved.name || resolved.category || ''];
       autoCategoryName = resolved.name || resolved.category || '';
     }
   } catch (catErr) {
+    assertCurrent();
     console.warn('[prepareNewParentWithVariation] Falha ao resolver categoria automática:', catErr);
   }
 
@@ -185,7 +191,7 @@ export async function prepareExistingParentNewVariation(
   parentProduct: Product,
   item: QuickItemPayload
 ): Promise<Product> {
-  const finalCost = item.finalCost || item.unitCost || 0;
+  const finalCost = item.finalCost ?? item.unitCost ?? 0;
 
   const newVarId = crypto.randomUUID();
   const newVar: Variation = {

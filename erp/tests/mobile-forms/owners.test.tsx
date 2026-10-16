@@ -50,11 +50,11 @@ describe('continued mobile form owners', () => {
     await act(async () => fireEvent.click(screen.getByText('Salvar')));
     expect(mocks.saveComposition).toHaveBeenCalledWith(expect.objectContaining({ name: 'Conjunto', manual_price: 150.5 }), [expect.objectContaining({ items: [expect.objectContaining({ product_id: 'product', variation_id: 'variation', quantity: 1, unitPrice: 125 })] })]);
   });
-  it('releases financial submission after a rejected request and keeps the intent available for retry', async () => {
+  it('releases financial submission after a confirmed refusal and keeps the intent available for retry', async () => {
     const registered = vi.fn();
-    mocks.confirmFinancial.mockRejectedValueOnce(new Error('Falha de conexão')).mockResolvedValueOnce({ success: true });
+    mocks.confirmFinancial.mockResolvedValueOnce({ success: false, error: 'Falha de conexão' }).mockResolvedValueOnce({ success: true, recordId: 'confirmed-transaction' });
     const { result } = renderHook(() => useFinancialAiChat({ categories: [], onTransactionRegistered: registered }));
-    act(() => result.current.setPendingIntent({ description: 'Compra', totalAmount: 100, type: 'expense' }));
+    act(() => result.current.setPendingIntent({ description: 'Compra', totalAmount: 100, type: 'expense', paymentMethod: 'PIX', businessPurpose: 'BUSINESS' }));
     await act(async () => { await result.current.handleConfirmRegister(); });
     expect(result.current.registering).toBe(false);
     expect(result.current.pendingIntent).toEqual(expect.objectContaining({ totalAmount: 100 }));

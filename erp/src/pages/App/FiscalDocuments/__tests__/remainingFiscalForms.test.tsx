@@ -1,38 +1,22 @@
 // @vitest-environment happy-dom
 import { act, cleanup, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useFiscalCceModal } from '../hooks/useFiscalCceModal';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { legacyCceFormSchema } from '../../../../../../shared-utils/legacyFiscalFormSchemas';
 import { useZodForm } from '@/hooks/useZodForm';
 import { ORDER_EDIT_CCE_DISABLED_REASON } from '../../../../../../shared-utils/fiscalCorrectionPolicy';
 import { hmlCsosnFormSchema } from '../../../../../../shared-utils/fiscalOperationFormSchemas';
 import { nfeAcquisitionPurposeFormSchema, nfeEmissionDraftFormSchema } from '../../../../../../shared-utils/nfeEmissionFormValidation';
 import { ncmCorrelationFormSchema, ncmProductReviewFormSchema } from '../../../../../../shared-utils/ncmManagementFormSchemas';
 
-const mocks = vi.hoisted(() => ({ history: vi.fn(), submit: vi.fn(), reconcile: vi.fn(), error: vi.fn() }));
-vi.mock('../services/fiscalCceService', () => ({ fetchCceHistory: mocks.history, submitCce: mocks.submit, reconcileCce: mocks.reconcile }));
-vi.mock('react-toastify', () => ({ toast: { error: mocks.error, info: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
 afterEach(cleanup);
-beforeEach(() => { vi.clearAllMocks(); mocks.history.mockResolvedValue({ previousCorrection: '', nextSequence: 1, pending: false }); });
 
 describe('remaining fiscal form boundaries', () => {
-  it('blocks every new CC-e submission before calling the API', async () => {
-    const { result } = renderHook(() => useFiscalCceModal());
-    await act(async () => { await result.current.openCce({ id: 'historical-document', ambiente: 1 } as never); });
-    act(() => result.current.setCceText('Correção histórica com conteúdo suficiente.'));
-    await act(async () => { await result.current.handleSubmit(); });
-    expect(mocks.submit).not.toHaveBeenCalled();
-    expect(mocks.error).toHaveBeenCalledWith(ORDER_EDIT_CCE_DISABLED_REASON);
-  });
-  it('preserves historical reconciliation without starting a new event', async () => {
-    const updated = vi.fn();
-    mocks.history.mockResolvedValueOnce({ previousCorrection: 'Histórico', nextSequence: 2, pending: true });
-    mocks.reconcile.mockResolvedValue({ success: true, pending: false, sequence: 1, protocolNumber: 'historical-protocol' });
-    const { result } = renderHook(() => useFiscalCceModal(updated));
-    await act(async () => { await result.current.openCce({ id: 'historical-document', ambiente: 1 } as never); });
-    await act(async () => { await result.current.handleReconcile(); });
-    expect(mocks.reconcile).toHaveBeenCalledWith('historical-document');
-    expect(mocks.submit).not.toHaveBeenCalled();
-    expect(updated).toHaveBeenCalledTimes(1);
+  it.each(['', 'Conteudo legado suficiente para rejeicao.'])('rejects legacy CC-e before any effect: %s', async (correction) => {
+    const submit = vi.fn();
+    const { result } = renderHook(() => useZodForm(legacyCceFormSchema, { correction }));
+    await act(async () => { expect(await result.current.validateAndRun({ correction }, submit)).toBe(false); });
+    expect(submit).not.toHaveBeenCalled();
+    expect(legacyCceFormSchema.safeParse({ correction }).error?.issues[0].message).toBe(ORDER_EDIT_CCE_DISABLED_REASON);
   });
   it('runs the resolver before saving the homologation CSOSN', async () => {
     const save = vi.fn();

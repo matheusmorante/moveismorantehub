@@ -1,7 +1,23 @@
 import { z } from 'zod';
 import { inboundInvoiceFormSchema } from './inboundInvoiceFormSchema';
+import { quickRegisterSelectionFormSchema } from './operationsFormSchemas';
 
 const identifier = z.string().trim().min(1, 'Selecione um cadastro válido.');
+export const inboundQuickRegisterItemSchema = z.object({
+  productDescription: z.string().trim().min(1, 'Informe a descrição do item da nota.'),
+  productCode: z.string().trim().optional(), unit: z.string().trim().optional(),
+  ncm: z.string().trim().optional(), quantity: z.number().positive('A quantidade do item é inválida.'),
+  unitCost: z.number().nonnegative('O custo do item é inválido.'),
+  finalCost: z.number().nonnegative('O custo final do item é inválido.').optional(),
+});
+export function createInboundQuickRegisterSchema(itemNumbers: readonly number[]) {
+  return z.object({
+    itemNumber: z.number().int().positive().refine((value) => itemNumbers.includes(value), 'O item não pertence à nota de entrada atual.'),
+    supplierId: identifier,
+    item: inboundQuickRegisterItemSchema,
+    selection: quickRegisterSelectionFormSchema,
+  });
+}
 const markup = z.string().transform((value) => value.trim() ? Number(value.replace(',', '.')) : undefined)
   .pipe(z.number().nonnegative('Informe um acréscimo válido sobre o custo final.').optional());
 
@@ -52,14 +68,35 @@ export function createInboundProductLinkSchema(itemNumbers: readonly number[]) {
   });
 }
 
+export function createInboundCreatedProductLinkSchema(itemNumbers: readonly number[]) {
+  return createInboundProductLinkSchema(itemNumbers).extend({
+    supplierId: identifier,
+    supplierProductCode: z.string().trim().min(1, 'O item não possui código do fornecedor para vincular.'),
+    supplierDescription: z.string().trim().min(1, 'O item não possui descrição para vincular.'),
+  });
+}
+
 /** Only editable mapping fields are checked; original NF XML/metadata are preserved. */
 export const inboundInvoiceMappingFormSchema = z.object({
-  id: z.string().optional(), supplierId: identifier.optional(),
+  id: identifier, supplierId: identifier.optional(),
   items: z.array(z.object({
     itemNumber: z.number().int().positive(), matchedProductId: identifier.optional(), matchedVariationId: identifier.optional(),
     linkedProductCode: z.string().optional(), productErpName: z.string().optional(),
+    ncm: z.string().transform((value) => value.trim().replace(/[.\s]/g, '')).pipe(z.string().regex(/^(\d{8})?$/, 'Informe um NCM válido com 8 dígitos.')).optional(),
+    sellingPrice: z.number().nonnegative('Informe um preço válido.').optional(),
+    linkMode: z.enum(['single', 'composition']).optional(),
+    compositionLinks: z.array(z.object({
+      id: identifier, productId: identifier, variationId: identifier.optional(), quantityMultiplier: z.number().positive(),
+      sellingPrice: z.number().nonnegative().optional(), apportionedCost: z.number().nonnegative().optional(),
+    }).passthrough()).optional(),
   }).passthrough()),
-}).passthrough();
+}).passthrough().superRefine((value, ctx) => {
+  if (new Set(value.items.map((item) => item.itemNumber)).size !== value.items.length) ctx.addIssue({ code: 'custom', path: ['items'], message: 'Não repita o mesmo item da nota.' });
+  value.items.forEach((item, index) => {
+    if ((item.matchedProductId || item.compositionLinks?.length) && !value.supplierId) ctx.addIssue({ code: 'custom', path: ['supplierId'], message: 'Selecione o fornecedor antes de vincular produtos.' });
+    if (item.matchedVariationId && !item.matchedProductId) ctx.addIssue({ code: 'custom', path: ['items', index, 'matchedProductId'], message: 'Selecione o produto da variação.' });
+  });
+});
 export const mobileInboundMappingsFormSchema = z.object({
   invoiceId: identifier, supplierId: z.string(),
   items: z.array(z.object({

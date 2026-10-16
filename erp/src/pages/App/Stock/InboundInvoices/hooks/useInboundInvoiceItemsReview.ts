@@ -31,7 +31,8 @@ import {
 import { useInboundInvoiceQuickRegister } from './useInboundInvoiceQuickRegister';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { createInboundProductPreparationSchema, createInboundProductLinkSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
+import { createInboundProductPreparationSchema, createInboundCreatedProductLinkSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import {
   useInboundInvoiceClassification,
   type AiClassification,
@@ -41,7 +42,7 @@ export interface UseInboundInvoiceItemsReviewParams {
   items: InboundInvoiceItem[];
   supplierId?: string;
   suppliers: Person[];
-  onChange: (itemNumber: number, update: Partial<InboundInvoiceItem>) => void;
+  onChange: (itemNumber: number, update: Partial<InboundInvoiceItem>) => void | boolean | Promise<void | boolean>;
   onProcessingSuggestionsChange?: (processing: boolean) => void;
   suggestionsEnabled?: boolean;
 }
@@ -74,6 +75,12 @@ export function useInboundInvoiceItemsReview({
   const [acceptingSuggestion, setAcceptingSuggestion] = useState<number | null>(null);
   const [removingLink, setRemovingLink] = useState<number | null>(null);
   const removalInProgress = useRef(false);
+  const [linkError, setLinkError] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
+  const uncertainOperation = useRef('');
+  const linkSourceKey = JSON.stringify([supplierId, items]);
+  const currentLinkContext = useRef({ supplierId, items, key: linkSourceKey });
+  if (currentLinkContext.current.key !== linkSourceKey) currentLinkContext.current = { supplierId, items, key: linkSourceKey };
   const [individualBusy, setIndividualBusy] = useState(false);
   const [individualError, setIndividualError] = useState('');
   const individualInFlight = useRef(false), individualActive = useRef(true);
@@ -136,7 +143,7 @@ export function useInboundInvoiceItemsReview({
     setSuggestedCategory,
     editProduct,
     closeProductModal,
-  } = useInboundInvoiceQuickRegister(supplierId);
+  } = useInboundInvoiceQuickRegister(supplierId, items);
 
   const {
     isClassifying,
@@ -156,7 +163,9 @@ export function useInboundInvoiceItemsReview({
     itemNumber: individualItem?.itemNumber || 0, supplierId: supplierId || '', markup: individualMarkup,
     finalCost: individualItem ? itemCostWithAdditionalCosts(individualItem) : 0, quantity: individualItem?.quantity || 0,
   });
-  const selectionForm = useZodForm(createInboundProductLinkSchema(itemNumbers), { itemNumber: 0, productId: '' });
+  const selectionForm = useZodForm(createInboundCreatedProductLinkSchema(itemNumbers), {
+    itemNumber: 0, productId: '', supplierId: '', supplierProductCode: '', supplierDescription: '',
+  });
 
   const linkedCount = useMemo(
     () => items.filter((item) => Boolean(item.matchedProductId)).length,
@@ -175,27 +184,7 @@ export function useInboundInvoiceItemsReview({
   const setEffectiveMarkup = setIndividualMarkup;
 
   const removeLink = async (item: InboundInvoiceItem) => {
-    if (removalInProgress.current) return;
-    removalInProgress.current = true;
-    setRemovingLink(item.itemNumber);
-    try {
-      if (supplierId && item.productCode)
-        await deleteProductSupplierCode(supplierId, item.productCode);
-      rejectSuggestion(item);
-      onChange(item.itemNumber, {
-        matchedProductId: undefined,
-        matchedVariationId: undefined,
-        linkedProductCode: undefined,
-        productErpName: undefined,
-      });
-      toast.success('Vínculo e associação do código do fornecedor removidos.');
-    } catch (error) {
-      console.error('Erro ao remover vínculo do fornecedor:', error);
-      toast.error('Não foi possível remover o vínculo. Tente novamente.');
-    } finally {
-      removalInProgress.current = false;
-      setRemovingLink(null);
-    }
+    return executeLinkOperation('remove', item.itemNumber, item.matchedProductId || '', item.matchedVariationId);
   };
 
   const {
@@ -256,56 +245,70 @@ export function useInboundInvoiceItemsReview({
     } finally { individualInFlight.current = false; if (individualActive.current) setIndividualBusy(false); }
   };
 
-  const selectProduct = async (itemNumber: number, product: Product, variation?: Variation) => {
-    const matchedProductId = product.id;
-    const matchedVariationId = variation?.id;
-    const linkedProductCode = variation?.sku || product.code || '';
-    const productErpName =
-      variation?.name || variation?.title || product.name || product.title || '';
-    return selectionForm.validateAndRun({ itemNumber, productId: matchedProductId || '', variationId: matchedVariationId, supplierId, linkedProductCode, productErpName }, async (values) => {
-    if (supplierId) {
-      const item = items.find((i) => i.itemNumber === itemNumber);
-      if (item) {
-        try {
-          await saveProductSupplierCode({
-            supplierId: values.supplierId!,
-            productId: values.productId,
-            productVariationId: values.variationId,
-            supplierProductCode: item.productCode,
-            supplierDescription: item.productDescription,
-          });
-        } catch (err) {
-          console.warn('Erro ao salvar código de fornecedor do produto:', err);
-        }
+  const executeLinkOperation = async (operation: 'select' | 'remove', itemNumber: number, productId: string, variationId?: string) => {
+    if (removalInProgress.current) return false;
+    if (uncertainOperation.current) { setLinkError(uncertainOperation.current); return false; }
+    removalInProgress.current = true;
+    setLinkBusy(true); setLinkError('');
+    if (operation === 'remove') setRemovingLink(itemNumber); else setAcceptingSuggestion(itemNumber);
+    const item = items.find((candidate) => candidate.itemNumber === itemNumber);
+    const submittedContext = currentLinkContext.current;
+    const itemSnapshot = JSON.stringify(item);
+    let expired = false, writing = false;
+    const assertCurrent = () => {
+      if (expired || !individualActive.current || currentLinkContext.current !== submittedContext ||
+        JSON.stringify(currentLinkContext.current.items.find((candidate) => candidate.itemNumber === itemNumber)) !== itemSnapshot) {
+        throw new Error('O item ou fornecedor mudou. Confira os vínculos antes de continuar.');
       }
-    }
-
-    onChange(values.itemNumber, {
-      matchedProductId: values.productId,
-      matchedVariationId: values.variationId,
-      linkedProductCode: values.linkedProductCode,
-      productErpName: values.productErpName,
-    });
-    toast.success(`Item vinculado a "${productErpName}"`);
-    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-  };
-
-  const acceptSuggestion = async (item: InboundInvoiceItem, suggestion: InboundSuggestion) => {
-    setAcceptingSuggestion(item.itemNumber);
+    };
     try {
-      const product = await getFullProduct(suggestion.productId);
-      const variation = product?.variations?.find(
-        (candidate) => candidate.id === suggestion.variationId
-      );
-      if (!product || (suggestion.variationId && !variation))
-        throw new Error('Produto ou variação indisponível. Pesquise novamente.');
-      await selectProduct(item.itemNumber, product, variation);
+      return Boolean(await selectionForm.validateAndRun({ itemNumber, productId, variationId, supplierId: supplierId || '',
+        supplierProductCode: item?.productCode || '', supplierDescription: item?.productDescription || '' }, async (data) => {
+        assertCurrent();
+        let linkedProductCode: string | undefined, productErpName: string | undefined;
+        if (operation === 'select') {
+          const product = await withTimeout(getFullProduct(data.productId), 15000, null, 'entrada:consultar-produto-vinculo');
+          assertCurrent();
+          const variation = data.variationId ? product?.variations?.find((candidate) => candidate.id === data.variationId) : undefined;
+          if (!product || product.id !== data.productId || product.deleted || (data.variationId && !variation)) throw new Error('Produto ou variação indisponível. Pesquise novamente.');
+          linkedProductCode = variation?.sku || product.code || '';
+          productErpName = variation?.name || variation?.title || product.name || product.title || '';
+          writing = true;
+          const saved = await withTimeout(saveProductSupplierCode({ supplierId: data.supplierId, productId: data.productId, productVariationId: data.variationId,
+            supplierProductCode: data.supplierProductCode, supplierDescription: data.supplierDescription }).then(() => true), 20000, false, 'entrada:salvar-vinculo-selecionado');
+          assertCurrent(); if (!saved) throw new Error('Não foi possível confirmar o vínculo do fornecedor.');
+        } else {
+          writing = true;
+          const deleted = await withTimeout(deleteProductSupplierCode(data.supplierId, data.supplierProductCode).then(() => true), 20000, false, 'entrada:remover-vinculo-fornecedor');
+          assertCurrent(); if (!deleted) throw new Error('Não foi possível confirmar a remoção do vínculo.');
+        }
+        const mappings = await withTimeout(findProductSupplierCodes(data.supplierId, [data.supplierProductCode]), 15000, null, 'entrada:confirmar-vinculo-selecionado');
+        assertCurrent();
+        const confirmed = mappings?.get(data.supplierProductCode.toLocaleUpperCase('pt-BR'));
+        if (!mappings || (operation === 'remove' ? Boolean(confirmed) : !confirmed || confirmed.productId !== data.productId || confirmed.productVariationId !== data.variationId)) {
+          throw new Error('O resultado do vínculo não foi confirmado.');
+        }
+        const applied = await withTimeout(Promise.resolve(onChange(data.itemNumber, operation === 'remove' ? {
+          matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined,
+        } : { matchedProductId: data.productId, matchedVariationId: data.variationId, linkedProductCode, productErpName })).then((result) => result !== false), 20000, false, 'entrada:aplicar-mapeamento-item');
+        if (!applied) throw new Error('A alteração do item da nota não foi confirmada.');
+        if (!individualActive.current) return false;
+        if (operation === 'remove' && item) rejectSuggestion(item);
+        toast.success(operation === 'remove' ? 'Vínculo e associação do código do fornecedor removidos.' : `Item vinculado a "${productErpName}"`);
+        return true;
+      }, (errors) => setLinkError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados do vínculo.')));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Não foi possível aceitar a sugestão.');
+      const message = error instanceof Error ? error.message : 'Não foi possível confirmar o vínculo.';
+      if (writing) uncertainOperation.current = `${message} Confira a nota antes de repetir.`;
+      if (individualActive.current) { setLinkError(uncertainOperation.current || message); toast.error(uncertainOperation.current || message); }
+      return false;
     } finally {
-      setAcceptingSuggestion(null);
+      expired = true; removalInProgress.current = false;
+      if (individualActive.current) { setAcceptingSuggestion(null); setRemovingLink(null); setLinkBusy(false); }
     }
   };
+  const selectProduct = (itemNumber: number, product: Product, variation?: Variation) => executeLinkOperation('select', itemNumber, product.id || '', variation?.id);
+  const acceptSuggestion = (item: InboundInvoiceItem, suggestion: InboundSuggestion) => executeLinkOperation('select', item.itemNumber, suggestion.productId, suggestion.variationId);
 
   return {
     // Estatísticas e listas
@@ -324,6 +327,8 @@ export function useInboundInvoiceItemsReview({
     selectProduct,
     removeLink,
     removingLink,
+    linkBusy,
+    linkError,
     requestIndividualCreation,
     // Estado individual
     individualItem,

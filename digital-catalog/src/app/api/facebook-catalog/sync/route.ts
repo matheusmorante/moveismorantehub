@@ -162,7 +162,15 @@ export async function POST(request: Request) {
 
       // Tratamento de exclusões (itens deletados, desativados ou ocultados)
       if (hasRelationalVariations) {
-        // Se o produto pai tiver variações, remove o id pai do catálogo pois a venda ocorre por variações
+        // Se o produto pai tiver variações, remove o SKU/código e ID pai do catálogo pois a venda ocorre por variações
+        const parentCode = p.code ? String(p.code).trim() : '';
+        if (parentCode) {
+          batchRequests.push({
+            method: 'DELETE',
+            retailer_id: parentCode,
+            data: { id: parentCode },
+          });
+        }
         batchRequests.push({
           method: 'DELETE',
           retailer_id: String(p.id),
@@ -176,15 +184,33 @@ export async function POST(request: Request) {
               (!variation.status && isParentVisible) ||
               (isParentVisible && variation.status !== 'hidden'));
           if (!isVarPublished) {
-            batchRequests.push({
-              method: 'DELETE',
-              retailer_id: String(variation.sku || variation.id),
-              data: { id: String(variation.sku || variation.id) },
-            });
+            const varSku = variation.sku ? String(variation.sku).trim() : '';
+            if (varSku) {
+              batchRequests.push({
+                method: 'DELETE',
+                retailer_id: varSku,
+                data: { id: varSku },
+              });
+            }
+            if (variation.id) {
+              batchRequests.push({
+                method: 'DELETE',
+                retailer_id: String(variation.id),
+                data: { id: String(variation.id) },
+              });
+            }
           }
         }
         if (visibleVariations.length === 0) continue;
       } else if (!isParentVisible) {
+        const parentCode = p.code ? String(p.code).trim() : '';
+        if (parentCode) {
+          batchRequests.push({
+            method: 'DELETE',
+            retailer_id: parentCode,
+            data: { id: parentCode },
+          });
+        }
         batchRequests.push({
           method: 'DELETE',
           retailer_id: String(p.id),
@@ -319,7 +345,12 @@ export async function POST(request: Request) {
             promoVarPrice = 0;
           }
 
-          const retailerId = String(v.sku || v.id);
+          const varSku =
+            String(v.sku || '').trim() ||
+            (p.code
+              ? `${p.code}-${String(visibleVariations.indexOf(v) + 1).padStart(2, '0')}`
+              : String(v.id));
+          const retailerId = varSku;
 
           // Meta exige preço estritamente positivo e imagem válida
           if (regularVarPrice <= 0 || !varImageLink) {
@@ -390,7 +421,8 @@ export async function POST(request: Request) {
         }
 
         const finalParentImage = normalizeMetaImageUrl(parentImage);
-        const retailerId = String(p.code || p.id);
+        const parentSku = String(p.code || p.sku || '').trim() || String(p.id);
+        const retailerId = parentSku;
 
         // Meta exige preço estritamente positivo e imagem válida
         if (regularParentPrice <= 0 || !finalParentImage) {

@@ -14,6 +14,10 @@ export const showcaseAssemblyFormSchema = z.object({
   status: z.enum(['pending', 'completed']),
 }).passthrough();
 export const inventoryReversalFormSchema = z.object({ reason: requiredText });
+export const createStockLabelingFormSchema = (itemCount: number) => z.object({
+  orderId: z.string().trim().min(1, 'Pedido não identificado.'),
+  checkedItems: z.array(z.boolean()).min(1, 'O pedido não contém itens para etiquetar.').length(itemCount, 'A conferência deve corresponder aos itens do pedido.'),
+});
 export const inventoryMoveFormSchema = z.object({
   type: z.enum(['entry', 'withdrawal', 'balance', 'adjustment']),
   quantity: z.number(), date: z.string().refine((value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value), 'Informe uma data válida.'),
@@ -32,7 +36,7 @@ export const inventoryScopeFormSchema = z.object({
 });
 export const quickRegisterSelectionFormSchema = z.object({
   mode: z.enum(['EXISTING_PARENT', 'NEW_PARENT']),
-  parentProductId: z.string().nullable().optional(),
+  parentProductId: z.string().trim().nullable().optional(),
 }).superRefine((value, ctx) => {
   if (value.mode === 'EXISTING_PARENT' && !value.parentProductId?.trim()) {
     ctx.addIssue({ code: 'custom', path: ['parentProductId'], message: 'Selecione o produto pai.' });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { inboundInvoiceMappingFormSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
@@ -11,12 +11,13 @@ import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesServ
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import Person from '@/pages/types/person.type';
 import { InboundInvoiceItemsReview } from '../components/InboundInvoiceItemsReview';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
   invoice: InboundInvoice | null;
-  onSaveSuccess: () => void;
+  onSaveSuccess: () => void | Promise<void>;
 };
 
 export function ManageInboundInvoiceMappingsModal({
@@ -28,8 +29,13 @@ export function ManageInboundInvoiceMappingsModal({
   const [invoice, setInvoice] = useState<InboundInvoice | null>(initialInvoice);
   const [suppliers, setSuppliers] = useState<Person[]>([]);
   const [newSupplier, setNewSupplier] = useState(false);
-  const [checkedMappingsKey, setCheckedMappingsKey] = useState<string | null>(null);
-  const mappingForm = useZodForm(inboundInvoiceMappingFormSchema, { items: [] });
+  const [saving, setSaving] = useState(false), [loading, setLoading] = useState(false), [errorMessage, setErrorMessage] = useState('');
+  const [loadRevision, setLoadRevision] = useState(0);
+  const inFlight = useRef(false), activeRef = useRef(true), uncertain = useRef(new Set<string>());
+  const context = useRef({ initialInvoice, isOpen });
+  if (context.current.initialInvoice !== initialInvoice || context.current.isOpen !== isOpen) context.current = { initialInvoice, isOpen };
+  useEffect(() => { activeRef.current = true; return () => { activeRef.current = false; }; }, []);
+  const mappingForm = useZodForm(inboundInvoiceMappingFormSchema, { id: initialInvoice?.id || '', items: [] });
   const mappingsKey = `${invoice?.supplierId || ''}:${invoice?.items?.map((item) => `${item.itemNumber}:${item.productCode}`).join('|') || ''}`;
 
   useEffect(() => {
@@ -78,27 +84,27 @@ export function ManageInboundInvoiceMappingsModal({
   useEffect(() => {
     if (!isOpen) return;
     let active = true;
+    const sourceSnapshot = JSON.stringify(invoice?.items);
     const loadInitialData = async () => {
+      setLoading(true);
       try {
-        const list = await fetchPersons('suppliers');
+        const list = await withTimeout(fetchPersons('suppliers'), 15000, null, 'entrada:consultar-fornecedores');
+        if (!list) throw new Error('A consulta de fornecedores demorou demais.');
         if (active) setSuppliers(list);
 
         if (!invoice?.supplierId || !invoice?.items?.length) {
-          if (active) setCheckedMappingsKey(mappingsKey);
           return;
         }
 
-        const mappings = await findProductSupplierCodes(
+        const mappings = await withTimeout(findProductSupplierCodes(
           invoice.supplierId,
           invoice.items.map((item) => item.productCode)
-        );
-        if (active) setCheckedMappingsKey(mappingsKey);
+        ), 15000, null, 'entrada:consultar-vinculos');
+        if (!mappings) throw new Error('A consulta de vínculos demorou demais.');
         if (!active || !mappings.size) return;
         setInvoice((current) => {
-          if (!current || current.supplierId !== invoice.supplierId) return current;
-          return {
-            ...current,
-            items: current.items.map((item) => {
+          if (!current || inFlight.current || current.id !== invoice.id || current.supplierId !== invoice.supplierId || JSON.stringify(current.items) !== sourceSnapshot) return current;
+          const nextItems = current.items.map((item) => {
               const mapping = mappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
               return mapping
                 ? {
@@ -107,35 +113,61 @@ export function ManageInboundInvoiceMappingsModal({
                     matchedVariationId: item.matchedVariationId || mapping.productVariationId,
                   }
                 : item;
-            }),
-          };
+            });
+          return JSON.stringify(nextItems) === sourceSnapshot ? current : { ...current, items: nextItems };
         });
       } catch (error) {
-        console.warn('Erro ao carregar dados do fornecedor/vínculos:', error);
+        if (active) setErrorMessage(error instanceof Error ? error.message : 'Não foi possível consultar fornecedores/vínculos.');
+      } finally {
+        if (active) setLoading(false);
       }
     };
     void loadInitialData();
     return () => {
       active = false;
     };
-  }, [isOpen, mappingsKey]);
+  }, [isOpen, mappingsKey, initialInvoice, loadRevision, invoice?.id, invoice?.items, invoice?.supplierId]);
 
   if (!isOpen || !invoice) return null;
 
-  const hasMatchedProducts = invoice.items.some((item) => Boolean(item.matchedProductId));
+  const hasMatchedProducts = invoice.items.some((item) => Boolean(item.matchedProductId || item.compositionLinks?.length));
+  const close = () => { if (!inFlight.current) onClose(); };
 
-  const persistInvoice = async (nextInvoice: InboundInvoice, previousInvoice: InboundInvoice) => {
-    return mappingForm.validateAndRun({ ...nextInvoice, items: nextInvoice.items.map((item) => ({ ...item })) }, async (values) => {
-    const parsedInvoice = values as unknown as InboundInvoice;
-    setInvoice(parsedInvoice);
+  const persistInvoice = async (nextInvoice: InboundInvoice) => {
+    if (inFlight.current) return false;
+    if (uncertain.current.has(nextInvoice.id)) { setErrorMessage('Há uma alteração sem confirmação nesta nota. Recarregue e confira os vínculos antes de repetir.'); return false; }
+    inFlight.current = true;
+    setSaving(true); setErrorMessage('');
+    const submittedContext = context.current;
+    let expired = false, writing = false;
+    const assertCurrent = () => {
+      if (expired || !activeRef.current || context.current !== submittedContext) throw new Error('A nota mudou. Confira o resultado antes de repetir.');
+    };
     try {
-      await saveInboundInvoice(parsedInvoice);
-      onSaveSuccess();
-    } catch (error: any) {
-      setInvoice(previousInvoice);
-      toast.error(error.message || 'Não foi possível salvar a alteração do vínculo.');
-    }
-    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+      return Boolean(await mappingForm.validateAndRun({ ...nextInvoice, items: nextInvoice.items.map((item) => ({ ...item })) }, async (values) => {
+        assertCurrent();
+        const parsedInvoice = values as unknown as InboundInvoice;
+        writing = true;
+        const saved = await withTimeout(saveInboundInvoice(parsedInvoice, { requireConfirmation: true, assertCurrent }), 30000, null, 'entrada:salvar-mapeamentos');
+        assertCurrent();
+        if (!saved || saved.id !== parsedInvoice.id) throw new Error('A alteração do vínculo não foi confirmada.');
+        setInvoice(saved);
+        try {
+          const refreshed = await withTimeout(Promise.resolve(onSaveSuccess()).then(() => true), 15000, false, 'entrada:atualizar-lista');
+          if (!refreshed && activeRef.current && context.current === submittedContext) setErrorMessage('Vínculos salvos. A atualização da lista demorou demais; recarregue a lista.');
+        } catch {
+          if (activeRef.current && context.current === submittedContext) setErrorMessage('Vínculos salvos. Não foi possível atualizar a lista; recarregue a lista.');
+        }
+        return true;
+      }, (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0] || 'Confira os vínculos.')));
+    } catch (error) {
+      if (writing) uncertain.current.add(nextInvoice.id);
+      if (activeRef.current && context.current === submittedContext) {
+        const message = `${error instanceof Error ? error.message : 'Não foi possível salvar o vínculo.'} ${writing ? 'Confira a nota antes de repetir.' : ''}`;
+        setErrorMessage(message); toast.error(message);
+      }
+      return false;
+    } finally { expired = true; inFlight.current = false; if (activeRef.current) setSaving(false); }
   };
 
   const setSupplier = (id: string) => {
@@ -148,7 +180,7 @@ export function ManageInboundInvoiceMappingsModal({
         matchedVariationId: undefined,
       })),
     };
-    void persistInvoice(nextInvoice, invoice);
+    return persistInvoice(nextInvoice);
   };
 
   const handleItemChange = (itemNumber: number, update: Partial<InboundInvoiceItem>) => {
@@ -158,14 +190,14 @@ export function ManageInboundInvoiceMappingsModal({
         item.itemNumber === itemNumber ? { ...item, ...update } : item
       ),
     };
-    void persistInvoice(nextInvoice, invoice);
+    return persistInvoice(nextInvoice);
   };
 
   return (
     <>
       <div className="fixed inset-0 z-[1000002] flex items-center justify-center p-3">
-        <button className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs" onClick={onClose} />
-        <section className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900 animate-in fade-in zoom-in-95">
+        <button type="button" aria-label="Fechar vínculos" disabled={saving} className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs" onClick={close} />
+        <section role="dialog" aria-modal="true" aria-label="Gerenciar vínculos da nota" className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900 animate-in fade-in zoom-in-95">
           <header className="flex items-center justify-between border-b p-5 dark:border-slate-800">
             <div>
               <h2 className="text-base font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -174,7 +206,10 @@ export function ManageInboundInvoiceMappingsModal({
               </h2>
             </div>
             <button
-              onClick={onClose}
+              type="button"
+              aria-label="Fechar janela"
+              disabled={saving}
+              onClick={close}
               className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <i className="bi bi-x-lg" />
@@ -182,6 +217,10 @@ export function ManageInboundInvoiceMappingsModal({
           </header>
 
           <main className="space-y-5 overflow-y-auto p-5">
+            {errorMessage && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">{errorMessage}</p>}
+            {(loading || saving) && <p role="status" className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300"><i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" />{saving ? 'Salvando e confirmando vínculos...' : 'Consultando fornecedores e vínculos...'}</p>}
+            {errorMessage && !saving && <button type="button" onClick={() => { setErrorMessage(''); setLoadRevision((value) => value + 1); }}>Consultar novamente</button>}
+            <fieldset disabled={saving} className="space-y-5">
             {/* Seção Fornecedor */}
             <section className="rounded-2xl border p-4 dark:border-slate-800">
               <h3 className="text-xs font-black uppercase text-slate-500">Fornecedor</h3>
@@ -243,6 +282,7 @@ export function ManageInboundInvoiceMappingsModal({
               suppliers={suppliers}
               onChange={handleItemChange}
             />
+            </fieldset>
           </main>
         </section>
       </div>

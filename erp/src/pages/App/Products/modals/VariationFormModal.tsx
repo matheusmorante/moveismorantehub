@@ -1,12 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
-import Product, { Variation } from '../../../types/product.type';
+import type Product from '../../../types/product.type';
+import type { Variation } from '../../../types/product.type';
 import ManageAttributesModal from '../components/modals/attributes/ManageAttributesModal';
 import VariationPhotosTab from '../components/tabs/images/VariationPhotosTab';
 import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
 import { useVariationForm } from '../hooks/variation/useVariationForm';
-import type { VariationTabId, VariationFormOperationGuard } from '../hooks/variation/variationForm.types';
+import type { VariationFormOperationGuard } from '../hooks/variation/variationForm.types';
 import { VariationIdentificationTab } from '../components/variationTabs/VariationIdentificationTab';
 import { VariationPricingTab } from '../components/variationTabs/VariationPricingTab';
 import { VariationTechnicalTab } from '../components/variationTabs/VariationTechnicalTab';
@@ -14,8 +15,17 @@ import { VariationDescriptionTab } from '../components/variationTabs/VariationDe
 import { VariationCompositionItemsTab } from '../components/variationTabs/VariationCompositionItemsTab';
 import { checkERPLegibility, checkEcomLegibility } from '../domain/productLegibilityRules';
 import { isStockistOnlyProfile } from '@/pages/utils/accessRoles';
+import {
+  getVariationFormTabs,
+  INHERITED_DATA_TABS,
+  VariationModalHeader,
+  VariationModalTabsNav,
+  VariationInheritedNotice,
+  VariationModalFooter,
+  VariationModalFeedbackBanners,
+} from '../components/variationModal';
 
-interface VariationFormModalProps {
+export interface VariationFormModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly parentId?: string;
@@ -29,40 +39,39 @@ interface VariationFormModalProps {
   readonly onReplaceImageGlobal?: (oldUrl: string, newUrl: string) => void | Promise<void>;
 }
 
-interface TabDefinition {
-  readonly id: VariationTabId;
-  readonly label: string;
-  readonly icon: string;
-}
-
-const getFormTabs = (isComposition: boolean, isStockistOnly: boolean): readonly TabDefinition[] => {
-  const tabs: TabDefinition[] = [
-    { id: 'identificacao', label: 'Informações Básicas', icon: 'bi-info-circle' },
-    ...(!isStockistOnly ? [{ id: 'fotos' as const, label: 'Fotos vinculadas', icon: 'bi-images' }] : []),
-    { id: 'tecnico', label: 'Características', icon: 'bi-gear' },
-    ...(!isStockistOnly ? [{ id: 'descricao' as const, label: 'Descrição', icon: 'bi-file-text' }] : []),
-  ];
-
-  tabs.push({ id: 'estoque', label: 'Precificação', icon: 'bi-tag' });
-
-  if (isComposition) {
-    tabs.push({ id: 'compostos', label: 'Produtos Componentes', icon: 'bi-diagram-3' });
-  }
-
-  return tabs;
-};
-
+/**
+ * Modal para criação e edição de variações de produtos.
+ * Segue os princípios de Clean Code e SOLID:
+ * - Responsabilidade Única (SRP): Atua como camada de apresentação visual, delegando
+ *   a lógica de estado para `useVariationForm` e decompondo a interface em
+ *   subcomponentes modulares e reutilizáveis (Header, TabsNav, Feedback, Notice, Footer).
+ */
 export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => {
   const guards = useRef(new Map<string, VariationFormOperationGuard>());
-  const identity = JSON.stringify([props.parentProduct.parentId || props.parentId || props.parentProduct.id, props.variation?.id || 'new']);
-  if (!guards.current.has(identity)) guards.current.set(identity, { pending: null, error: '' });
-  return props.isOpen ? <VariationFormSession key={identity} {...props} operationGuard={guards.current.get(identity)!} /> : null;
+  const identity = JSON.stringify([
+    props.parentProduct.parentId || props.parentId || props.parentProduct.id,
+    props.variation?.id || 'new',
+  ]);
+  if (!guards.current.has(identity)) {
+    guards.current.set(identity, { pending: null, error: '' });
+  }
+
+  return props.isOpen ? (
+    <VariationFormSession
+      key={identity}
+      {...props}
+      operationGuard={guards.current.get(identity)!}
+    />
+  ) : null;
 };
 
-const VariationFormSession: React.FC<VariationFormModalProps & { operationGuard: VariationFormOperationGuard }> = (props) => {
+const VariationFormSession: React.FC<
+  VariationFormModalProps & { operationGuard: VariationFormOperationGuard }
+> = (props) => {
   const { isOpen, parentProduct, variation } = props;
   const { profile } = useAuth();
   const isStockistOnly = isStockistOnlyProfile(profile);
+
   const isSingleVariation = variation
     ? (parentProduct.variations || []).length === 1
     : (parentProduct.variations || []).length === 0;
@@ -70,7 +79,11 @@ const VariationFormSession: React.FC<VariationFormModalProps & { operationGuard:
 
   const {
     loading,
-    error, blocked, referenceErrors, referenceLoading, retryReferences,
+    error,
+    blocked,
+    referenceErrors,
+    referenceLoading,
+    retryReferences,
     activeTab,
     setActiveTab,
     formData,
@@ -121,19 +134,22 @@ const VariationFormSession: React.FC<VariationFormModalProps & { operationGuard:
       ? parentProduct.unitPrice
       : formData.unitPrice || parentProduct.unitPrice,
     images:
-      formData.images && formData.images.length > 0 ? formData.images : parentProduct.images || [],
+      formData.images && formData.images.length > 0
+        ? formData.images
+        : parentProduct.images || [],
   };
 
   const erpStatus = checkERPLegibility(effectiveProductForValidation);
   const ecomStatus = checkEcomLegibility(effectiveProductForValidation);
-  const inheritedDataTabs: readonly VariationTabId[] = [
-    'tecnico',
-    'descricao',
-    'estoque',
-    'compostos',
-  ];
+
+  const isCompositionProduct =
+    parentProduct.itemType === 'composition' ||
+    (parentProduct as any).item_type === 'composition';
+
+  const formTabs = getVariationFormTabs(isCompositionProduct, isStockistOnly);
+
   const showInheritedDataNotice =
-    isSingleExistingVariation && inheritedDataTabs.includes(activeTab);
+    isSingleExistingVariation && INHERITED_DATA_TABS.includes(activeTab);
 
   return createPortal(
     <div className="fixed inset-0 z-[1000020] flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in duration-200">
@@ -152,209 +168,40 @@ const VariationFormSession: React.FC<VariationFormModalProps & { operationGuard:
         aria-labelledby="variation-form-modal-title"
         className="product-form-fullscreen relative bg-white dark:bg-slate-900 w-full max-w-5xl h-[100dvh] sm:h-[calc(100dvh-2rem)] rounded-none sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border-0 sm:border border-slate-100 dark:border-slate-800 z-10"
       >
-        {/* Header */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-50 dark:border-slate-800/50 flex flex-col gap-2 sm:gap-4 shrink-0 bg-white dark:bg-slate-900">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <h2
-                id="variation-form-modal-title"
-                className="text-lg sm:text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2 flex-wrap"
-              >
-                <span className="shrink-0">
-                  {variation ? 'Editar Variação' : 'Adicionar Variação'}
-                </span>
-                <span className="text-slate-400 text-xs font-normal truncate max-w-[200px] sm:max-w-none">
-                  | {parentProduct.name || parentProduct.description || 'Produto Pai'}
-                </span>
-              </h2>
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-0.5">
-                Configure os dados específicos desta variação.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={loading}
-              aria-label="Fechar"
-              className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all cursor-pointer"
-            >
-              <i className="bi bi-x-lg text-base sm:text-lg" aria-hidden="true" />
-            </button>
-          </div>
+        <VariationModalHeader
+          variation={variation}
+          parentProduct={parentProduct}
+          loading={loading}
+          isStockistOnly={isStockistOnly}
+          erpStatus={erpStatus}
+          ecomStatus={ecomStatus}
+          onClose={handleClose}
+        />
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Pílulas de status */}
-            <div className="relative group cursor-help">
-              <div
-                className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${erpStatus.isLegible ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-955/20 dark:text-blue-400 dark:border-blue-900/30' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-955/20 dark:text-amber-400 dark:border-amber-900/30'}`}
-              >
-                <span>ERP: {erpStatus.isLegible ? 'Ativo' : 'Pendente'}</span>
-              </div>
-
-              <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-left">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                  Requisitos do ERP (Variação / Ativação)
-                </p>
-                <ul className="space-y-1 text-xs font-bold text-slate-600 dark:text-slate-300 mt-2">
-                  <li className="flex items-center gap-2 p-1 rounded-xl">
-                    <i
-                      className={`bi ${erpStatus.checks.description ? 'bi-check-circle-fill text-blue-500' : 'bi-x-circle-fill text-amber-500'}`}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={
-                        erpStatus.checks.description
-                          ? 'text-blue-700 dark:text-blue-400'
-                          : 'text-slate-500 font-bold'
-                      }
-                    >
-                      Nome / Identificação Válida
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-2 p-1 rounded-xl">
-                    <i
-                      className={`bi ${erpStatus.checks.unitPrice ? 'bi-check-circle-fill text-blue-500' : 'bi-x-circle-fill text-amber-500'}`}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={
-                        erpStatus.checks.unitPrice
-                          ? 'text-blue-700 dark:text-blue-400'
-                          : 'text-slate-500 font-bold'
-                      }
-                    >
-                      Preço de Venda &gt; R$ 0
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-2 p-1 rounded-xl">
-                    <i
-                      className={`bi ${erpStatus.checks.categories ? 'bi-check-circle-fill text-blue-500' : 'bi-x-circle-fill text-amber-500'}`}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={
-                        erpStatus.checks.categories
-                          ? 'text-blue-700 dark:text-blue-400'
-                          : 'text-slate-500 font-bold'
-                      }
-                    >
-                      Categoria (Herdada do Pai)
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-2 p-1 rounded-xl">
-                    <i
-                      className="bi bi-check-circle-fill text-blue-500"
-                      aria-hidden="true"
-                    />
-                    <span className="text-blue-700 dark:text-blue-400">
-                      Fornecedor (Herdado do Pai)
-                    </span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Estoquista não edita fotos; os requisitos do catálogo incluem fotos. */}
-            {!isStockistOnly && (
-              <div className="relative group cursor-help">
-              <div
-                className={`flex items-center gap-1.5 h-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${parentProduct.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30' : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'}`}
-              >
-                <span>
-                  Catálogo: {parentProduct.status === 'published' ? 'Publicado' : 'Ocultado'}
-                </span>
-              </div>
-
-              <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-left">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                  Requisitos para o Catálogo
-                </p>
-                <ul className="space-y-1 text-xs font-bold text-slate-600 dark:text-slate-300 mt-2">
-                  <li className="flex items-center gap-2 p-1 rounded-xl">
-                    <i
-                      className={`bi ${ecomStatus.checks.unitPrice ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={
-                        ecomStatus.checks.unitPrice
-                          ? 'text-emerald-700 dark:text-emerald-400'
-                          : 'text-slate-500 font-bold'
-                      }
-                    >
-                      Preço de Venda &gt; R$ 0
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-2 p-1 rounded-xl">
-                    <i
-                      className={`bi ${ecomStatus.checks.images ? 'bi-check-circle-fill text-emerald-500' : 'bi-x-circle-fill text-slate-400'}`}
-                      aria-hidden="true"
-                    />
-                    <span
-                      className={
-                        ecomStatus.checks.images
-                          ? 'text-emerald-700 dark:text-emerald-400'
-                          : 'text-slate-500 font-bold'
-                      }
-                    >
-                      Fotos vinculadas (Pai ou Variação)
-                    </span>
-                  </li>
-                </ul>
-              </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Sub-Header Navegação de Abas */}
-        <div
-          className="px-4 sm:px-6 border-b border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0 z-10 overflow-x-auto scrollbar-hide"
-          style={{ scrollbarWidth: 'none' }}
-        >
-          <div
-            className="flex items-center gap-4 sm:gap-6 min-w-max"
-            role="tablist"
-            aria-label="Abas da variação"
-          >
-            {getFormTabs(
-              parentProduct.itemType === 'composition' ||
-                (parentProduct as any).item_type === 'composition',
-              isStockistOnly
-            ).map((tab) => {
-              const isInheritedDataTab =
-                isSingleExistingVariation && inheritedDataTabs.includes(tab.id);
-
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  disabled={loading || blocked}
-                  className={`py-3 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border-b-2 transition-all shrink-0 whitespace-nowrap ${isInheritedDataTab ? 'opacity-50' : ''} ${
-                    activeTab === tab.id
-                      ? 'border-blue-600 text-blue-600 cursor-pointer'
-                      : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer'
-                  }`}
-                >
-                  <i className={`bi ${tab.icon}`} aria-hidden="true" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <VariationModalTabsNav
+          tabs={formTabs}
+          activeTab={activeTab}
+          isSingleExistingVariation={isSingleExistingVariation}
+          disabled={loading || blocked}
+          onSelectTab={setActiveTab}
+        />
 
         {/* Corpo do Formulário */}
         <div className="relative flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4 sm:gap-6 custom-scrollbar min-h-0">
-          {loading && <p role="status" className="flex items-center gap-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-800"><i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" />Salvando e aguardando a confirmação da variação...</p>}
-          {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-          {(referenceLoading.attributes || referenceLoading.images) && <p role="status" className="text-sm text-slate-600">Carregando atributos e fotos do produto pai...</p>}
-          {(referenceErrors.attributes || referenceErrors.images) && <div role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{[referenceErrors.attributes, referenceErrors.images].filter(Boolean).join(' ')} <button type="button" onClick={retryReferences} disabled={loading || referenceLoading.attributes || referenceLoading.images}>Consultar novamente</button></div>}
+          <VariationModalFeedbackBanners
+            loading={loading}
+            error={error}
+            referenceLoading={referenceLoading}
+            referenceErrors={referenceErrors}
+            onRetryReferences={retryReferences}
+          />
+
           <div
-            className={showInheritedDataNotice ? 'pointer-events-none select-none opacity-30 grayscale' : ''}
+            className={
+              showInheritedDataNotice
+                ? 'pointer-events-none select-none opacity-30 grayscale'
+                : ''
+            }
           >
             <fieldset
               disabled={showInheritedDataNotice || loading || blocked}
@@ -378,15 +225,20 @@ const VariationFormSession: React.FC<VariationFormModalProps & { operationGuard:
 
               {!isStockistOnly && activeTab === 'fotos' && (
                 <VariationPhotosTab
-                  images={(
-                    formData.images && formData.images.length > 0
-                      ? formData.images
-                      : (allParentImages.length > 0 ? allParentImages : parentProduct?.images || [])
+                  images={(formData.images && formData.images.length > 0
+                    ? formData.images
+                    : allParentImages.length > 0
+                      ? allParentImages
+                      : parentProduct?.images || []
                   ).slice(0, MAX_VARIATION_IMAGES)}
-                  parentImages={allParentImages.length > 0 ? allParentImages : parentProduct?.images || []}
+                  parentImages={
+                    allParentImages.length > 0 ? allParentImages : parentProduct?.images || []
+                  }
                   isSingleVariation={isSingleVariation}
                   onChangeImages={(newImages) =>
-                    setFormData((prev) => (prev ? { ...prev, images: newImages.slice(0, MAX_VARIATION_IMAGES) } : null))
+                    setFormData((prev) =>
+                      prev ? { ...prev, images: newImages.slice(0, MAX_VARIATION_IMAGES) } : null
+                    )
                   }
                   onReplaceImageGlobal={handleReplaceImageGlobal}
                 />
@@ -440,53 +292,23 @@ const VariationFormSession: React.FC<VariationFormModalProps & { operationGuard:
               )}
             </fieldset>
           </div>
-          {showInheritedDataNotice && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-50/40 px-5 py-8 dark:bg-slate-950/40">
-              <div
-                role="status"
-                className="max-w-lg rounded-2xl border border-slate-200 bg-white/95 px-6 py-5 text-center shadow-xl dark:border-slate-700 dark:bg-slate-900/95"
-              >
-                <i className="bi bi-arrow-down-up mb-3 block text-2xl text-blue-600 dark:text-blue-400" aria-hidden="true" />
-                <p className="text-sm font-bold leading-relaxed text-slate-700 dark:text-slate-200">
-                  Como este produto tem apenas uma variação, somente as abas Informações Básicas e Fotos vinculadas permitem edição.
-                </p>
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                  Para editar as demais informações, atualize o produto principal ou adicione outra variação.
-                </p>
-              </div>
-            </div>
-          )}
+
+          {showInheritedDataNotice && <VariationInheritedNotice />}
         </div>
 
-        {/* Footer Controls */}
-        <div
-          className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shrink-0"
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-        >
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={loading}
-            className="px-5 sm:px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all cursor-pointer min-h-[44px]"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading || blocked}
-            className="px-6 sm:px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-h-[44px]"
-          >
-            {loading ? 'Salvando...' : variation ? 'Salvar Alterações' : 'Cadastrar'}
-          </button>
-        </div>
+        <VariationModalFooter
+          variation={variation}
+          loading={loading}
+          blocked={blocked}
+          onClose={handleClose}
+          onSubmit={handleSubmit}
+        />
 
-        {/* Manage Global Attributes & Values Modal */}
         <ManageAttributesModal
           isOpen={isManageAttributesOpen}
           onClose={() => {
             setIsManageAttributesOpen(false);
-            fetchDbAttributes();
+            void fetchDbAttributes();
           }}
         />
       </div>

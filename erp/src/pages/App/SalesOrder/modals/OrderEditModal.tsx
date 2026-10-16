@@ -155,7 +155,7 @@ const OrderEditModal = ({
       try {
         if (!jsonData || typeof jsonData !== 'object') {
           toast.error('JSON inválido.');
-          return;
+          return false;
         }
 
         if (jsonData.client) {
@@ -170,8 +170,10 @@ const OrderEditModal = ({
           applyOrderData(jsonData);
           toast.success('Pedido preenchido com sucesso via JSON!');
         }
+        return true;
       } catch (err: any) {
         toast.error('Erro ao carregar JSON: ' + err.message);
+        return false;
       }
     },
     [applyOrderData]

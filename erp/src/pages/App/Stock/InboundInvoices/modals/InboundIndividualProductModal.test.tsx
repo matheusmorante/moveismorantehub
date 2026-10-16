@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { useInboundInvoiceItemsReview } from '../hooks/useInboundInvoiceItemsReview';
@@ -52,7 +52,7 @@ describe('preparação individual com proprietário, resolver e cadeia de prepar
     expect((screen.getByRole('button', { name: 'Abrir cadastro' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByLabelText('Acréscimo sobre o custo final (%)') as HTMLInputElement).disabled).toBe(true);
     fireEvent.click(screen.getByText('Cancelar')); fireEvent.click(screen.getByText('Abrir cadastro'));
-    expect(screen.getByRole('status').textContent).toContain('Preparando'); expect(controller.individualItem).toBeTruthy(); expect(mocks.title).toHaveBeenCalledOnce();
+    expect(within(screen.getByRole('dialog')).getByRole('status').textContent).toContain('Preparando'); expect(controller.individualItem).toBeTruthy(); expect(mocks.title).toHaveBeenCalledOnce();
     await act(async () => { title.resolve({ title: 'Mesa pronta' }); });
     await waitFor(() => expect(screen.getByLabelText('Cadastro aberto').textContent).toBe('true'));
     expect(controller.individualItem).toBeNull();
@@ -78,6 +78,7 @@ describe('preparação individual com proprietário, resolver e cadeia de prepar
     await waitFor(() => expect(controller.isProductModalOpen).toBe(true));
     expect(mocks.find).toHaveBeenCalledWith('supplier-1', ['FORN-1']); expect(mocks.title).toHaveBeenCalledWith({ description: 'Mesa' });
     expect(controller.initialProductData).toMatchObject({ supplierId: 'supplier-1', costPrice: 0, stock: 0, unitPrice: 0, fiscal: { ncm: item.ncm, cfop: item.cfop } });
+    expect(item.productDescription).toBe(' Mesa ');
   });
   it('nome inválido não abre o cadastro nem fecha o modal', async () => {
     mocks.title.mockResolvedValueOnce({ title: ' ' }); render(<Page />); fireEvent.click(screen.getByText('Preparar item')); fireEvent.click(screen.getByText('Abrir cadastro'));

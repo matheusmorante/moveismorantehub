@@ -81,10 +81,13 @@ export function filterChannelCatalogRows(
 
 export function buildChannelCatalogSyncPayload(row: ChannelCatalogVariationRow) {
   const price = row.varPrice > 0 ? row.varPrice : Number(row.rawParent.unit_price ?? 0);
+  const sku = String(row.varSku || row.parentCode || '').trim() || row.varId;
   return {
     ...row.rawParent,
     id: row.varId,
-    retailer_id: row.varSku || row.varId,
+    retailer_id: sku,
+    code: sku,
+    sku,
     description: `${row.parentDescription} - ${row.varName}`,
     unitPrice: price,
     unit_price: price,

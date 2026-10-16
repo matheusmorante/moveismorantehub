@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
 import { getTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
@@ -10,21 +10,10 @@ import { isProductDraft } from '@/pages/utils/productService/productDraftSnapsho
 import { readTestArtifactIdentity } from '../../../../../../shared-utils/testArtifactPolicy';
 import { ProductFormFooter } from '../components/form/ProductFormFooter';
 import { ProductFormHeader } from '../components/form/ProductFormHeader';
-import CategorySearchModal from '../components/modals/product/CategorySearchModal';
-import ProductConversionModal from '../components/modals/product/ProductConversionModal';
-import { ProductSaveResultModal } from '../components/modals/product/ProductSaveResultModal';
-import ProductFiscalTab from '../components/tabs/fiscal/ProductFiscalTab';
-import ProductDescriptionTab from '../components/tabs/ProductDescriptionTab';
-import ProductEcommerceTab from '../components/tabs/ProductEcommerceTab';
-// Modular Tab Components
-import ProductGeneralTab from '../components/tabs/ProductGeneralTab';
-import ProductInventoryTab from '../components/tabs/ProductInventoryTab';
-import ProductVariationsTab from '../components/tabs/ProductVariationsTab';
-import ProductTechnicalTab from '../components/tabs/technical/ProductTechnicalTab';
-// Orchestrator Hook
+import { ProductFormTabContent } from '../components/form/ProductFormTabContent';
+import { ProductFormSubModals } from '../components/form/ProductFormSubModals';
+import { useProductDraftCapture } from '../hooks/form/useProductDraftCapture';
 import { useProductFormModal } from '../hooks/form/useProductFormModal';
-// Modular UI Components
-import VariationFormModal from './VariationFormModal';
 
 export interface ProductFormModalProps {
   readonly isOpen: boolean;
@@ -33,7 +22,7 @@ export interface ProductFormModalProps {
   readonly initialData?: Partial<Product> | null;
   readonly initialTab?: 'geral' | 'ambientes' | 'estoque' | 'variacoes' | 'ecommerce' | 'fiscal';
   readonly openAddVariationOnOpen?: boolean;
-  readonly onSuccess?: (newProduct: Product) => void;
+  readonly onSuccess?: (newProduct: Product) => void | boolean | Promise<void | boolean>;
   readonly onDraftSaved?: () => void;
   readonly onSave?: (savedProduct?: Product) => void | Promise<void>;
   readonly isQuickRegister?: boolean;
@@ -44,12 +33,13 @@ export interface ProductFormModalProps {
  * Segue os princípios de Clean Code e SOLID:
  * - Responsabilidade Única (SRP): Atua exclusivamente como casca visual (apresentação),
  *   delegando toda a orquestração e regras para `useProductFormModal`.
- * - Composição modular de abas, header, footer e submodais especializados.
+ * - Composição modular de abas, cabeçalho, rodapé e submodais especializados.
  */
 const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
   const { isOpen, onClose, product, onSuccess } = props;
   const { profile, isAdministrator } = useAuth();
   const isStockistOnly = isStockistOnlyProfile(profile);
+
   const testContext = getTestArtifactContext();
   const existingTestIdentity = props.product ? readTestArtifactIdentity(props.product) : null;
   const canMarkTestArtifact = Boolean(
@@ -60,6 +50,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
         (existingTestIdentity.runId === testContext.runId &&
           existingTestIdentity.ownerId === testContext.ownerId))
   );
+
   const profileRoles = profile ? getProfileRoles(profile) : [];
   const canConfigureProductTaxes = profileRoles.some(
     (role) => role !== 'seller' && role !== 'stockist'
@@ -115,44 +106,14 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     canMarkTestArtifact,
   });
 
-  const handleDraftFieldBlurCapture = useCallback(
-    (event: React.FocusEvent<HTMLDivElement>) => {
-      const target = event.target;
-      if (
-        !variations.editingVariationId &&
-        target instanceof HTMLElement &&
-        !target.closest('[data-variation-modal]') &&
-        target.matches('input:not([type="file"]), textarea, select, [role="combobox"]')
-      ) {
-        scheduleDraftAutoSave();
-      }
-    },
-    [scheduleDraftAutoSave, variations.editingVariationId]
-  );
-  const handleDraftSelectChangeCapture = useCallback(
-    (event: React.FormEvent<HTMLDivElement>) => {
-      if (
-        event.target instanceof HTMLSelectElement &&
-        !variations.editingVariationId &&
-        !event.target.closest('[data-variation-modal]')
-      )
-        scheduleDraftAutoSave();
-    },
-    [scheduleDraftAutoSave, variations.editingVariationId]
-  );
-  const handleDraftSearchOptionClickCapture = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      if (
-        event.target instanceof Element &&
-        !variations.editingVariationId &&
-        !event.target.closest('[data-variation-modal]') &&
-        event.target.closest('[role="option"]')
-      ) {
-        scheduleDraftAutoSave();
-      }
-    },
-    [scheduleDraftAutoSave, variations.editingVariationId]
-  );
+  const {
+    handleDraftFieldBlurCapture,
+    handleDraftSelectChangeCapture,
+    handleDraftSearchOptionClickCapture,
+  } = useProductDraftCapture({
+    editingVariationId: variations.editingVariationId,
+    scheduleDraftAutoSave,
+  });
 
   // As características só existem no contexto de uma categoria.
   // Se a categoria for removida enquanto a aba estiver aberta, volta ao cadastro geral.
@@ -200,110 +161,30 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           validationErrors={validationErrors}
         />
 
-        <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-3 sm:p-4 lg:p-6">
-          {activeTab === 'geral' && (
-            <ProductGeneralTab
-              onOpenCategorySearch={() => setIsCategorySearchOpen(true)}
-              isService={isService}
-              isStockistOnly={isStockistOnly}
-              formData={formData}
-              setFormData={setFormData}
-              availableCategories={availableCategories}
-              validationErrors={validationErrors}
-              setValidationErrors={setValidationErrors}
-              isGeneratingCategory={ai.isGeneratingCategory}
-            />
-          )}
-
-          {!isStockistOnly && !isService && activeTab === 'ecommerce' && (
-            <ProductEcommerceTab
-              formData={formData}
-              setFormData={setFormData}
-              activeEcommerceSubTab={activeEcommerceSubTab}
-              setActiveEcommerceSubTab={setActiveEcommerceSubTab}
-              isDraggingPhoto={images.isDraggingPhoto}
-              setIsDraggingPhoto={images.setIsDraggingPhoto}
-              handleFileChange={images.handleFileChange}
-              onImagesSaved={scheduleDraftAutoSave}
-              removingPhoto={images.removingPhoto}
-              removePhoto={images.removePhoto}
-              handleGenerateAIDescription={ai.handleGenerateAIDescription}
-              isGeneratingDescription={ai.isGeneratingDescription}
-              handleGenerateMarketplaceTitle={ai.handleGenerateMarketplaceTitle}
-              isGeneratingTitle={ai.isGeneratingTitle}
-            />
-          )}
-
-          {!isService && activeTab === 'technical' && (
-            <ProductTechnicalTab
-              formData={formData}
-              setFormData={setFormData}
-              handleImproveDescriptionWithAI={ai.handleImproveDescriptionWithAI}
-              isImprovingDescription={ai.isImprovingDescription}
-              requiredFieldsOnly={isStockistOnly}
-              validationErrors={validationErrors}
-            />
-          )}
-
-          {!isStockistOnly && !isService && activeTab === 'description' && (
-            <ProductDescriptionTab
-              formData={formData}
-              setFormData={setFormData}
-              onImprove={ai.handleImproveDescriptionWithAI}
-              improving={ai.isImprovingDescription}
-            />
-          )}
-
-          {!isService && activeTab === 'estoque' && (
-            <ProductInventoryTab
-              formData={formData}
-              setFormData={setFormData}
-              suppliers={suppliers}
-              discountPercent={pricing.discountPercent}
-              discountFixed={pricing.discountFixed}
-              setDiscountPercent={pricing.setDiscountPercent}
-              setDiscountFixed={pricing.setDiscountFixed}
-              handlePriceChange={pricing.handlePriceChange}
-              handleDiscountPercentChange={pricing.handleDiscountPercentChange}
-              handleDiscountFixedChange={pricing.handleDiscountFixedChange}
-              handlePromoPriceFieldChange={pricing.handlePromoPriceFieldChange}
-              validationErrors={validationErrors}
-              setValidationErrors={setValidationErrors}
-              handleSuggestPrices={ai.handleSuggestPrices}
-              isSuggestingPrices={ai.isSuggestingPrices}
-              suggestPricesResults={ai.suggestPricesResults}
-            />
-          )}
-
-          {!isService && activeTab === 'variacoes' && (
-            <ProductVariationsTab
-              formData={formData}
-              setFormData={setFormData}
-              editingVariationComboId={variations.editingVariationComboId}
-              setEditingVariationComboId={variations.setEditingVariationComboId}
-              editingVariationId={variations.editingVariationId}
-              setEditingVariationId={variations.setEditingVariationId}
-              onEdit={(id) => variations.setEditingVariationId(id)}
-              addVariation={variations.addVariation}
-              removeVariation={variations.removeVariation}
-              onDeleteVariation={isRegisteredProduct ? handleDeleteVariation : undefined}
-              deletingVariationId={deletingVariationId}
-            />
-          )}
-
-          {activeTab === 'fiscal' && (
-            <ProductFiscalTab
-              formData={formData}
-              setFormData={setFormData}
-              canConfigureProductTaxes={canConfigureProductTaxes}
-              isStockistOnly={isStockistOnly}
-              validationErrors={validationErrors}
-              ncmSuggestion={jev.suggestion}
-              onAcceptNcmSuggestion={jev.acceptSuggestion}
-              onRejectNcmSuggestion={jev.rejectSuggestion}
-            />
-          )}
-        </div>
+        <ProductFormTabContent
+          activeTab={activeTab}
+          isService={isService}
+          isStockistOnly={isStockistOnly}
+          isRegisteredProduct={isRegisteredProduct}
+          canConfigureProductTaxes={canConfigureProductTaxes}
+          formData={formData}
+          setFormData={setFormData}
+          validationErrors={validationErrors}
+          setValidationErrors={setValidationErrors}
+          availableCategories={availableCategories}
+          suppliers={suppliers}
+          ai={ai}
+          pricing={pricing}
+          jev={jev}
+          variations={variations}
+          images={images}
+          activeEcommerceSubTab={activeEcommerceSubTab}
+          setActiveEcommerceSubTab={setActiveEcommerceSubTab}
+          onOpenCategorySearch={() => setIsCategorySearchOpen(true)}
+          scheduleDraftAutoSave={scheduleDraftAutoSave}
+          deletingVariationId={deletingVariationId}
+          handleDeleteVariation={handleDeleteVariation}
+        />
 
         <ProductFormFooter
           isDraftProduct={isDraftProduct}
@@ -319,65 +200,29 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           onSubmit={() => handleSubmit()}
         />
 
-        {variations.editingVariationId &&
-          formData.variations?.some(
-            (v) =>
-              v.id === variations.editingVariationId ||
-              String(v.id) === String(variations.editingVariationId)
-          ) && (
-            <VariationFormModal
-              isOpen={!!variations.editingVariationId}
-              onClose={handleCloseVariationModal}
-              parentId={formData.id}
-              parentProduct={formData as any}
-              variation={
-                formData.variations?.find(
-                  (v) =>
-                    v.id === variations.editingVariationId ||
-                    String(v.id) === String(variations.editingVariationId)
-                ) || null
-              }
-              onSave={handleSaveVariation}
-              onReplaceImageGlobal={handleReplaceImageGlobal}
-              canMarkTestArtifact={canToggleTestArtifact}
-              isTestArtifact={isTestArtifact}
-              onTestArtifactChange={setIsTestArtifact}
-            />
-          )}
-
-        {isCategorySearchOpen && (
-          <CategorySearchModal
-            isOpen={isCategorySearchOpen}
-            onClose={() => setIsCategorySearchOpen(false)}
-            categories={availableCategories}
-            selectedIds={formData.categoryIds || []}
-            onSelect={handleCategorySelect}
-          />
-        )}
-
-        {isConversionModalOpen && (
-          <ProductConversionModal
-            isOpen={isConversionModalOpen}
-            onClose={() => setIsConversionModalOpen(false)}
-            formData={formData}
-            onConvert={handleConvertProduct}
-          />
-        )}
-
-        <ProductSaveResultModal
-          saveResult={saveResult}
-          canPublishToCatalog={!isStockistOnly}
-          onCloseModal={() => setSaveResult(null)}
-          onSuccess={
-            onSuccess ||
-            (props.onSave
-              ? (p) => {
-                  props.onSave?.(p);
-                }
-              : undefined)
-          }
-          onCloseForm={onClose}
+        <ProductFormSubModals
+          formData={formData}
           setFormData={setFormData}
+          variations={variations}
+          isStockistOnly={isStockistOnly}
+          canToggleTestArtifact={canToggleTestArtifact}
+          isTestArtifact={isTestArtifact}
+          setIsTestArtifact={setIsTestArtifact}
+          handleCloseVariationModal={handleCloseVariationModal}
+          handleSaveVariation={handleSaveVariation}
+          handleReplaceImageGlobal={handleReplaceImageGlobal}
+          isCategorySearchOpen={isCategorySearchOpen}
+          setIsCategorySearchOpen={setIsCategorySearchOpen}
+          availableCategories={availableCategories}
+          handleCategorySelect={handleCategorySelect}
+          isConversionModalOpen={isConversionModalOpen}
+          setIsConversionModalOpen={setIsConversionModalOpen}
+          handleConvertProduct={handleConvertProduct}
+          saveResult={saveResult}
+          setSaveResult={setSaveResult}
+          onSuccess={onSuccess}
+          onSave={props.onSave}
+          onClose={onClose}
         />
       </div>
     </div>,

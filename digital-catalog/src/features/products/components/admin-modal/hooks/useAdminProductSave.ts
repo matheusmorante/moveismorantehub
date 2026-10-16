@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -13,6 +13,11 @@ import {
 import { Product, ProductFormData, TempVariation } from '../types';
 import { formatMeasures } from '../utils/measuresUtils';
 import { generateSlug } from '../utils/slugAndSkuUtils';
+import { useAuth } from '@/hooks/use-auth';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+
+const snapshotSignature = (value: unknown) => JSON.stringify(value, (_key, item) =>
+  item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([left], [right]) => left.localeCompare(right))) : item);
 
 interface UseAdminProductSaveProps {
   formData: ProductFormData;
@@ -44,6 +49,26 @@ export function useAdminProductSave({
   const [isSaving, setIsSaving] = useState(false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const autoSaveTimeout = useRef<NodeJS.Timeout | null>(null);
+  const { user, loading: authLoading } = useAuth();
+  const mounted = useRef(true);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const finishing = useRef(false);
+  const completed = useRef(false);
+  const uncertain = useRef(false);
+  const generatedVariationIds = useRef(new WeakMap<object, string>());
+  const savedSnapshot = useRef('');
+  const context = useRef({ open: isOpen, id: currentProduct?.id, userId: user?.id, generation: 0 });
+  useLayoutEffect(() => {
+    if (context.current.open !== isOpen || context.current.id !== currentProduct?.id || context.current.userId !== user?.id) {
+      context.current = { open: isOpen, id: currentProduct?.id, userId: user?.id, generation: context.current.generation + 1 };
+      completed.current = false;
+      savedSnapshot.current = '';
+    }
+  }, [isOpen, currentProduct?.id, user?.id]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current); };
+  }, []);
 
   const productSnapshot = {
     product: formData,
@@ -51,13 +76,14 @@ export function useAdminProductSave({
     variationsEnabled,
   };
 
+  const snapshotKey = snapshotSignature(productSnapshot);
   const draftForm = useZodForm(storefrontProductDraftFormSchema, productSnapshot);
   const finalForm = useZodForm(storefrontProductFormSchema, productSnapshot);
 
   const showFormError = (errors: Parameters<typeof flattenFormErrors>[0]) =>
     toast.error(Object.values(flattenFormErrors(errors))[0]);
 
-  const saveProductData = async (values: z.output<typeof storefrontProductDraftFormSchema>) => {
+  const saveProductData = async (values: z.output<typeof storefrontProductDraftFormSchema>, request: <T>(query: PromiseLike<T>, mutation?: boolean) => Promise<T>, generation: number) => {
     const { product, variations, variationsEnabled } = values;
     let baseSlug = product.slug ? product.slug.trim() : generateSlug(product.name);
     if (!baseSlug) baseSlug = 'produto';
@@ -67,14 +93,16 @@ export function useAdminProductSave({
     let slugExists = true;
 
     while (slugExists) {
+      if (counter > 50) throw new Error('Não foi possível encontrar um endereço disponível para o produto.');
       const query = supabase.from('products').select('id').eq('slug', finalSlug);
 
-      if (currentProduct?.id) {
-        query.neq('id', currentProduct.id);
+      if (context.current.id) {
+        query.neq('id', context.current.id);
       }
 
-      const { data: existing, error } = await query;
+      const { data: existing, error } = await request(query);
       if (error) throw error;
+      if (!Array.isArray(existing)) throw new Error('A consulta do endereço do produto não foi confirmada.');
 
       if (existing && existing.length > 0) {
         counter++;
@@ -82,10 +110,6 @@ export function useAdminProductSave({
       } else {
         slugExists = false;
       }
-    }
-
-    if (finalSlug !== product.slug) {
-      setFormData((prev) => ({ ...prev, slug: finalSlug }));
     }
 
     const dataToSave = {
@@ -104,43 +128,60 @@ export function useAdminProductSave({
       status: currentProduct?.status || 'draft',
     };
 
-    let savedId = currentProduct?.id;
+    let savedId = context.current.id;
+    let confirmedVariations = variations;
+    const matchesProduct = (row: Product) => Object.entries(dataToSave).every(([key, value]) => (row as unknown as Record<string, unknown>)[key] === value);
 
-    if (currentProduct?.id) {
-      const { error } = await supabase
+    if (savedId) {
+      const { data, error } = await request(supabase
         .from('products')
         .update(dataToSave)
-        .eq('id', currentProduct.id);
+        .eq('id', savedId).select(), true);
       if (error) throw error;
+      if (data?.length !== 1 || data[0].id !== savedId || !matchesProduct(data[0])) throw new Error('A atualização do produto não foi confirmada.');
     } else {
-      const { data, error } = await supabase.from('products').insert([dataToSave]).select();
+      const { data, error } = await request(supabase.from('products').insert([dataToSave]).select(), true);
       if (error) throw error;
+      if (data?.length !== 1 || !data[0].id || !matchesProduct(data[0])) {
+        uncertain.current = true;
+        throw new Error('A criação do produto não foi confirmada. Confira os produtos e recarregue a página antes de repetir.');
+      }
       savedId = data[0].id;
+      if (context.current.generation !== generation) throw new Error('O produto em edição mudou. Reabra o cadastro.');
+      context.current.id = savedId;
       setCurrentProduct(data[0]);
     }
 
     // Sincronizar Imagens
-    if (product.images.length > 0 && savedId) {
-      await supabase.from('product_images').delete().eq('product_id', savedId);
+    if (savedId) {
+      const deletion = await request(supabase.from('product_images').delete().eq('product_id', savedId).select('product_id'), true);
+      if (deletion.error) throw deletion.error;
+      if (!Array.isArray(deletion.data)) throw new Error('A remoção das imagens anteriores não foi confirmada.');
       const imageRecords = product.images.map((url, index) => ({
         product_id: savedId,
         image_url: url,
         is_main: index === 0,
       }));
-      const { error } = await supabase.from('product_images').insert(imageRecords);
-      if (error) throw error;
+      if (imageRecords.length) {
+        const { data, error } = await request(supabase.from('product_images').insert(imageRecords).select('product_id,image_url,is_main'), true);
+        if (error) throw error;
+        if (data?.length !== imageRecords.length || imageRecords.some((record) => !data.some((row) => row.product_id === record.product_id && row.image_url === record.image_url && row.is_main === record.is_main))) throw new Error('As imagens do produto não foram confirmadas.');
+      }
     }
 
     // Sincronizar Categorias
     if (savedId) {
-      await supabase.from('product_categories').delete().eq('product_id', savedId);
+      const deletion = await request(supabase.from('product_categories').delete().eq('product_id', savedId).select('product_id'), true);
+      if (deletion.error) throw deletion.error;
+      if (!Array.isArray(deletion.data)) throw new Error('A remoção das categorias anteriores não foi confirmada.');
       if (product.category_ids.length > 0) {
         const categoryRecords = product.category_ids.map((categoryId) => ({
           product_id: savedId,
           category_id: categoryId,
         }));
-        const { error } = await supabase.from('product_categories').insert(categoryRecords);
+        const { data, error } = await request(supabase.from('product_categories').insert(categoryRecords).select('product_id,category_id'), true);
         if (error) throw error;
+        if (data?.length !== categoryRecords.length || categoryRecords.some((record) => !data.some((row) => row.product_id === record.product_id && row.category_id === record.category_id))) throw new Error('As categorias do produto não foram confirmadas.');
       }
     }
 
@@ -149,18 +190,20 @@ export function useAdminProductSave({
       if (variationsEnabled && variations.length > 0) {
         const currentIds = variations.map((v) => v.id).filter(Boolean);
         if (currentIds.length > 0) {
-          const { error: delErr } = await supabase
+          const { data, error: delErr } = await request(supabase
             .from('product_variations')
             .delete()
             .eq('product_id', savedId)
-            .not('id', 'in', `(${currentIds.join(',')})`);
+            .not('id', 'in', `(${currentIds.join(',')})`).select('id'), true);
           if (delErr) throw delErr;
+          if (!Array.isArray(data)) throw new Error('A remoção das variações anteriores não foi confirmada.');
         } else {
-          const { error: delErr } = await supabase
+          const { data, error: delErr } = await request(supabase
             .from('product_variations')
             .delete()
-            .eq('product_id', savedId);
+            .eq('product_id', savedId).select('id'), true);
           if (delErr) throw delErr;
+          if (!Array.isArray(data)) throw new Error('A remoção das variações anteriores não foi confirmada.');
         }
 
         const updatedVariations = variations.map((v) => {
@@ -179,8 +222,6 @@ export function useAdminProductSave({
             description: isParentDesc ? product.description : v.description,
           };
         });
-        setProductVariations(updatedVariations);
-
         const recordsToSave = updatedVariations.map((v) => ({
           ...(v.id ? { id: v.id } : {}),
           product_id: savedId,
@@ -206,111 +247,122 @@ export function useAdminProductSave({
           use_parent_description: v.use_parent_description !== false,
         }));
 
-        const { error: varErr } = await supabase.from('product_variations').upsert(recordsToSave);
+        const { data, error: varErr } = await request(supabase.from('product_variations').upsert(recordsToSave).select('id,product_id'), true);
         if (varErr) throw varErr;
+        if (data?.length !== recordsToSave.length || data.some((row) => row.product_id !== savedId) || recordsToSave.some((record) => record.id && !data.some((row) => row.id === record.id))) throw new Error('As variações do produto não foram confirmadas.');
+        confirmedVariations = updatedVariations;
       } else {
-        const { error: delErr } = await supabase
+        const { data, error: delErr } = await request(supabase
           .from('product_variations')
           .delete()
-          .eq('product_id', savedId);
+          .eq('product_id', savedId).select('id'), true);
         if (delErr) throw delErr;
+        if (!Array.isArray(data)) throw new Error('A remoção das variações anteriores não foi confirmada.');
       }
     }
 
+    const confirmedSnapshot = { product: { ...product, slug: finalSlug }, variations: confirmedVariations, variationsEnabled };
+    savedSnapshot.current = snapshotSignature(confirmedSnapshot);
+    setFormData((current) => snapshotSignature(current) === snapshotSignature(product) ? confirmedSnapshot.product : current);
+    setProductVariations((current) => snapshotSignature(current) === snapshotSignature(variations) ? confirmedVariations : current);
     return savedId;
   };
 
-  const triggerAutoSave = async () => {
-    if (!formData.name || isSaving) return;
-    setIsAutoSaving(true);
-    try {
-      await draftForm.validateAndRun(productSnapshot, saveProductData, showFormError);
-    } catch (error) {
-      console.error('Erro no auto-save:', error);
-    } finally {
-      setIsAutoSaving(false);
+  const submitProduct = (publish: boolean) => {
+    if (publish && uncertain.current) {
+      toast.error('Há uma gravação sem confirmação. Confira o produto e recarregue a página antes de repetir.');
+      return Promise.resolve(false);
     }
-  };
-
-  // Efeito de Auto-save com debounce de 1.5s
-  useEffect(() => {
-    const isPublished = currentProduct?.status === 'published';
-    if (isOpen && isLoaded.current && formData.name && !isSaving && !isPublished) {
-      if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
-      autoSaveTimeout.current = setTimeout(() => {
-        triggerAutoSave();
-      }, 1500);
+    if (publish && (authLoading || !user)) {
+      toast.error('Aguarde a confirmação da sessão antes de salvar o produto.');
+      return Promise.resolve(false);
     }
-  }, [formData, isOpen, currentProduct]);
-
-  const handleFinish = async (e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
-
-    return finalForm.validateAndRun(
-      productSnapshot,
-      async (values) => {
-        if (autoSaveTimeout.current) {
-          clearTimeout(autoSaveTimeout.current);
-        }
-
-        setIsSaving(true);
+    if (!isOpen || !isLoaded.current || authLoading || !user || isSaving || finishing.current || completed.current || uncertain.current) return Promise.resolve(false);
+    if (!publish && (!formData.name || currentProduct?.status === 'published')) return Promise.resolve(false);
+    if (publish) finishing.current = true;
+    if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
+    const generation = context.current.generation;
+    const snapshot = structuredClone({ ...productSnapshot, variations: productVariations.map((variation) => {
+      let id = variation.id || generatedVariationIds.current.get(variation);
+      if (!id) { id = crypto.randomUUID(); generatedVariationIds.current.set(variation, id); }
+      return { ...variation, id };
+    }) });
+    const isCurrent = () => mounted.current && context.current.open && context.current.generation === generation;
+    const pending = queue.current.then(async () => {
+      if (!isCurrent() || uncertain.current || completed.current) return false;
+      if (publish) setIsSaving(true); else setIsAutoSaving(true);
+      // A timed-out write can still finish remotely: stop this queue until review.
+      const request = async <T,>(query: PromiseLike<T>, mutation = false): Promise<T> => {
+        if (!isCurrent()) throw new Error('O produto ou a sessão mudou. Reabra o cadastro.');
+        let response: T | null;
         try {
-          const savedId = await saveProductData(values);
-          if (!savedId) throw new Error('Não foi possível salvar os dados do produto.');
-
-          const { error } = await supabase
-            .from('products')
-            .update({ status: 'published' })
-            .eq('id', savedId);
-
-          if (error) throw error;
-
-          await supabase
-            .from('product_variations')
-            .update({ status: 'published' })
-            .eq('product_id', savedId);
-
-          if (currentProduct) {
-            setCurrentProduct({ ...currentProduct, status: 'published' });
-          }
-
-          // Sincronizar com o catálogo da Meta em background
-          fetch('/api/catalog/sync-batch', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              productId: savedId,
-              action: 'UPDATE',
-            }),
-          }).catch((err) => console.error('Erro ao sincronizar com a Meta:', err));
-
-          toast.success('Produto salvo com sucesso!');
-          if (typeof window !== 'undefined') {
-            const channel = new BroadcastChannel('catalog-updates');
-            channel.postMessage('catalog-updated');
-            channel.close();
-          }
-          onOpenChange(false);
-          if (onSuccess) onSuccess();
-        } catch (error: any) {
-          toast.error(error.message);
-        } finally {
-          setIsSaving(false);
+          response = await withTimeout(query, 20_000, null, 'Persistência do produto no catálogo');
+        } catch (error) {
+          if (mutation) uncertain.current = true;
+          throw error;
         }
-      },
-      showFormError
-    );
+        if (response === null) {
+          if (mutation) uncertain.current = true;
+          throw new Error(mutation ? 'A gravação não foi confirmada. Confira o produto e recarregue a página antes de repetir.' : 'A consulta demorou demais. Tente novamente.');
+        }
+        if (!isCurrent()) throw new Error('O produto ou a sessão mudou. Reabra o cadastro.');
+        return response;
+      };
+      try {
+        const form = publish ? finalForm : draftForm;
+        return await form.validateAndRun(snapshot, async (values) => {
+          // Retain allocated UUIDs before I/O so retries and queued finalization upsert the same rows.
+          setProductVariations((current) => current === productVariations ? snapshot.variations : current);
+          const savedId = await saveProductData(values, request, generation);
+          if (!publish) return savedId;
+          const variationsResult = await request(supabase.from('product_variations').update({ status: 'published' }).eq('product_id', savedId).select('id,product_id,status'), true);
+          if (variationsResult.error) throw variationsResult.error;
+          if (!Array.isArray(variationsResult.data) || variationsResult.data.some((row) => row.product_id !== savedId || row.status !== 'published') || (values.variationsEnabled && variationsResult.data.length !== values.variations.length)) throw new Error('A publicação das variações não foi confirmada.');
+          const { data, error } = await request(supabase.from('products').update({ status: 'published' }).eq('id', savedId).select(), true);
+          if (error) throw error;
+          if (data?.length !== 1 || data[0].id !== savedId || data[0].status !== 'published') throw new Error('A publicação do produto não foi confirmada.');
+          setCurrentProduct(data[0]);
+          completed.current = true;
+          toast.success('Produto salvo com sucesso!');
+          const channel = new BroadcastChannel('catalog-updates');
+          channel.postMessage('catalog-updated');
+          channel.close();
+          onOpenChange(false);
+          onSuccess?.();
+          // Meta remains an independent background sync after confirmed publication.
+          void withTimeout(fetch('/api/catalog/sync-batch', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId: savedId, action: 'UPDATE' }),
+          }), 20_000, null, 'Sincronização do catálogo Meta').catch(() => undefined);
+          return savedId;
+        }, (errors) => { if (isCurrent()) showFormError(errors); });
+      } catch (error) {
+        if (isCurrent()) toast.error(error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : 'Não foi possível confirmar o salvamento do produto.');
+        return false;
+      } finally {
+        if (mounted.current) { setIsSaving(false); setIsAutoSaving(false); }
+      }
+    });
+    queue.current = pending.catch(() => undefined);
+    return pending.finally(() => { if (publish) finishing.current = false; });
   };
+
+  const triggerAutoSave = () => submitProduct(false);
+  const handleFinish = (e?: React.FormEvent) => { e?.preventDefault(); return submitProduct(true); };
+
+  const latestAutoSave = useRef(triggerAutoSave);
+  useLayoutEffect(() => { latestAutoSave.current = triggerAutoSave; });
+  useEffect(() => {
+    if (isOpen && isLoaded.current && formData.name && !isSaving && currentProduct?.status !== 'published' && snapshotKey !== savedSnapshot.current) {
+      autoSaveTimeout.current = setTimeout(() => { void latestAutoSave.current(); }, 1500);
+    }
+    return () => { if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current); };
+  }, [snapshotKey, formData.name, isOpen, currentProduct?.id, currentProduct?.status, isLoaded, isSaving, authLoading, user?.id]);
 
   return {
     isSaving,
     setIsSaving,
     isAutoSaving,
-    saveProductData,
     triggerAutoSave,
     handleFinish,
     autoSaveTimeout,

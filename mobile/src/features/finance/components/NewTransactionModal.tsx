@@ -31,7 +31,7 @@ interface Props {
   onClose: () => void;
   categories: FinancialCategory[];
   transaction?: FinancialTransaction | null;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
   userName?: string;
   isDarkMode?: boolean;
 }
@@ -57,7 +57,7 @@ export const NewTransactionModal: React.FC<Props> = ({
 
   return (
     <>
-      <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+      <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={form.handleClose}>
         <View
           style={[
             styles.overlay,
@@ -70,12 +70,12 @@ export const NewTransactionModal: React.FC<Props> = ({
               <Text style={[styles.title, isDarkMode && styles.titleDark]}>
                 {transaction ? 'Editar Transação' : '+ Nova Transação'}
               </Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <TouchableOpacity onPress={form.handleClose} style={styles.closeBtn} disabled={form.saving}>
                 <X size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.body} pointerEvents={form.saving ? 'none' : 'auto'} showsVerticalScrollIndicator={false}>
               {/* Tipo de Movimentação: Primeiro campo absoluto */}
               <TransactionTypeSelector
                 type={form.type}
@@ -113,6 +113,7 @@ export const NewTransactionModal: React.FC<Props> = ({
                   </Text>
                   <CurrencyInput
                     testID="input-amount"
+                    editable={!form.saving}
                     style={[
                       styles.input,
                       styles.amountInput,
@@ -135,6 +136,7 @@ export const NewTransactionModal: React.FC<Props> = ({
                   </Text>
                   <TextInput
                     testID="input-description"
+                    editable={!form.saving}
                     style={[
                       styles.input,
                       isDarkMode && styles.inputDark,
@@ -206,9 +208,10 @@ export const NewTransactionModal: React.FC<Props> = ({
               )}
             </ScrollView>
 
+            {form.saving && <Text accessibilityRole="text">Confirmando lançamento financeiro...</Text>}
             {/* Rodapé de Ações */}
             <View style={styles.footer}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={form.saving}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={form.handleClose} disabled={form.saving}>
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
 

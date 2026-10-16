@@ -3,11 +3,13 @@ import { toast } from 'react-toastify';
 import { aiService } from '@/pages/utils/aiService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { assistedOrderFormSchema, textPromptFormSchema } from '../../../../../../shared-utils/assistedFormSchemas';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 interface SmartAIFillModalProps {
   isOpen: boolean;
-  onClose: () => void;
-  onApplyData: (data: any) => void;
+  onClose: () => void | Promise<void>;
+  onApplyData: (data: any) => void | boolean | Promise<void | boolean>;
+  contextKey?: string;
   onStartLiveMode?: () => void;
   sellerList?: string[];
 }
@@ -16,30 +18,96 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
   isOpen,
   onClose,
   onApplyData,
-  onStartLiveMode,
+  contextKey = 'new',
   sellerList = [],
 }) => {
   const [promptText, setPromptText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [applyBlocked, setApplyBlocked] = useState(false);
   const [lastParsedResult, setLastParsedResult] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'ai' | 'json_manual'>('ai');
   const [manualJSON, setManualJSON] = useState('');
   const [liveTranscript, setLiveTranscript] = useState('');
   const promptForm = useZodForm(textPromptFormSchema, { text: `${promptText} ${liveTranscript}` });
+  const jsonForm = useZodForm(textPromptFormSchema, { text: manualJSON });
   const dataForm = useZodForm(assistedOrderFormSchema, {});
-  const applyData = async (data: unknown) => {
-    const validated = await dataForm.validateAndRun(data as never, (values) => values,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    onApplyData(validated);
-    onClose();
-  };
-
   const recognitionRef = useRef<any>(null);
+  const readerRef = useRef<FileReader | null>(null);
+  const actionRef = useRef<symbol | null>(null);
+  const blockedContexts = useRef(new Set<string>());
+  const contextRef = useRef({ isOpen, contextKey, sellerKey: JSON.stringify(sellerList), version: 0 });
+  const sellerKey = JSON.stringify(sellerList);
+  if (contextRef.current.isOpen !== isOpen || contextRef.current.contextKey !== contextKey || contextRef.current.sellerKey !== sellerKey) {
+    contextRef.current = { isOpen, contextKey, sellerKey, version: contextRef.current.version + 1 };
+  }
+  useEffect(() => {
+    actionRef.current = null;
+    setBusy(false);
+    setIsProcessingAI(false);
+    setSubmitError('');
+    setLastParsedResult(null);
+    setPromptText('');
+    setManualJSON('');
+    setLiveTranscript('');
+    setIsListening(false);
+    setApplyBlocked(blockedContexts.current.has(contextKey));
+    readerRef.current?.abort();
+    try { recognitionRef.current?.stop(); } catch { /* already stopped */ }
+  }, [isOpen, contextKey]);
+  useEffect(() => () => {
+    contextRef.current.isOpen = false;
+    actionRef.current = null;
+    readerRef.current?.abort();
+  }, []);
+  useEffect(() => { setLastParsedResult(null); setIsListening(false); setLiveTranscript(''); }, [sellerKey]);
+
+  const showError = (message: string) => { setSubmitError(message); toast.error(message); };
+  const invalid = (errors: Parameters<typeof flattenFormErrors>[0]) => showError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados informados.');
+  const runAction = async (processing: boolean, operation: (current: () => boolean) => Promise<unknown>) => {
+    if (actionRef.current || !isOpen || applyBlocked || blockedContexts.current.has(contextKey)) return;
+    const action = Symbol();
+    const version = contextRef.current.version;
+    actionRef.current = action;
+    const current = () => contextRef.current.isOpen && contextRef.current.version === version && actionRef.current === action;
+    setBusy(true);
+    setIsProcessingAI(processing);
+    setSubmitError('');
+    try { await operation(current); }
+    catch (error: unknown) { if (current()) showError(error instanceof Error ? error.message : 'Não foi possível concluir o preenchimento.'); }
+    finally {
+      if (actionRef.current === action) { actionRef.current = null; setBusy(false); setIsProcessingAI(false); }
+    }
+  };
+  const applyData = async (data: unknown, current: () => boolean) => dataForm.validateAndRun(data as never, async (values) => {
+    if (!current()) return;
+    const timeout = Symbol('timeout');
+    blockedContexts.current.add(contextKey);
+    let receipt: void | boolean | symbol;
+    try {
+      receipt = await withTimeout<void | boolean | symbol>(Promise.resolve(onApplyData(values)), 30_000, timeout, 'aplicação do pedido assistido');
+    } catch (error) {
+      blockedContexts.current.delete(contextKey);
+      throw error;
+    }
+    if (receipt !== timeout) blockedContexts.current.delete(contextKey);
+    if (!current()) return;
+    if (receipt === timeout) {
+      setApplyBlocked(true);
+      throw new Error('A aplicação demorou além do esperado. Confira o pedido antes de tentar novamente.');
+    }
+    if (receipt === false) throw new Error('O pedido não confirmou a aplicação dos dados. Confira o formulário.');
+    setApplyBlocked(true);
+    const closed = await withTimeout(Promise.resolve(onClose()).then(() => true), 15_000, false, 'fechamento do preenchimento assistido');
+    if (current() && !closed) throw new Error('Dados aplicados. Feche esta janela para conferir o pedido.');
+  }, (errors) => { if (current()) invalid(errors); });
 
   // Inicialização da Web Speech API para Transcrição de Áudio ao Vivo
   useEffect(() => {
+    if (!isOpen) return;
+    const version = contextRef.current.version;
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -49,6 +117,8 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
       recognition.lang = 'pt-BR';
 
       recognition.onresult = (event: any) => {
+        if (!contextRef.current.isOpen || contextRef.current.version !== version || actionRef.current || blockedContexts.current.has(contextRef.current.contextKey)) return;
+        setLastParsedResult(null);
         let currentInterim = '';
         let currentFinal = '';
 
@@ -71,6 +141,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
       };
 
       recognition.onerror = (event: any) => {
+        if (!contextRef.current.isOpen || contextRef.current.version !== version) return;
         console.warn('Speech recognition error:', event.error);
         if (event.error !== 'no-speech') {
           setIsListening(false);
@@ -81,6 +152,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
       };
 
       recognition.onend = () => {
+        if (!contextRef.current.isOpen || contextRef.current.version !== version) return;
         setIsListening(false);
         setLiveTranscript('');
       };
@@ -95,9 +167,10 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
         } catch {
           // ignore
         }
+        recognitionRef.current = null;
       }
     };
-  }, []);
+  }, [isOpen, contextKey, sellerKey]);
 
   const toggleListening = () => {
     if (!recognitionRef.current) {
@@ -124,69 +197,62 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
     }
   };
 
-  const handleGenerateAI = async () => {
-    const fullText = (promptText + (liveTranscript ? ` ${liveTranscript}` : '')).trim();
-    if (!fullText) {
-      toast.warn('Por favor, fale no microfone ou digite o texto do pedido para a IA analisar.');
-      return;
-    }
+  const handleGenerateAI = () => runAction(true, async (current) => {
+    const fullText = promptText + (liveTranscript ? ` ${liveTranscript}` : '');
+    await promptForm.validateAndRun({ text: fullText }, async (values) => {
+      if (!current()) return;
+      try { recognitionRef.current?.stop(); } catch { /* already stopped */ }
+      setIsListening(false);
+      const result = await withTimeout<Awaited<ReturnType<typeof aiService.parseOrderFreeText>> | null>(aiService.parseOrderFreeText(values.text, sellerList), 45_000, null, 'análise do pedido assistido');
+      if (!current()) return;
+      if (!result) throw new Error('A análise demorou além do esperado. Tente novamente.');
+      await dataForm.validateAndRun(result.rawJSON, (parsed) => {
+        if (!current()) return;
+        setLastParsedResult({ ...result, rawJSON: parsed });
+        toast.success('Pedido analisado com sucesso pela IA Gemini!');
+      }, (errors) => { if (current()) invalid(errors); });
+    }, (errors) => { if (current()) invalid(errors); });
+  });
 
-    if (isListening && recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-        setIsListening(false);
-      } catch {
-        /* no-op: intencionalmente silencioso */
-      }
-    }
+  const handleConfirmApply = () => runAction(false, async (current) => {
+    await applyData(lastParsedResult?.rawJSON, current);
+  });
 
-    const validated = await promptForm.validateAndRun({ text: fullText }, (data) => data,
-      (errors) => toast.warn(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    setIsProcessingAI(true);
-    try {
-      const result = await aiService.parseOrderFromFreeText(validated.text, sellerList);
-      setLastParsedResult(result);
-      toast.success('Pedido analisado com sucesso pela IA Gemini!');
-    } catch (err: any) {
-      console.error('Erro ao processar pedido com IA:', err);
-      toast.error(err.message || 'Falha ao analisar o pedido com a IA Gemini.');
-    } finally {
-      setIsProcessingAI(false);
-    }
-  };
-
-  const handleConfirmApply = async () => {
-    if (!lastParsedResult?.rawJSON) {
-      toast.warn('Gere ou processe o pedido com a IA antes de aplicar.');
-      return;
-    }
-    await applyData(lastParsedResult.rawJSON);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
+    void runAction(false, async (current) => {
+      const reader = new FileReader();
+      readerRef.current = reader;
       try {
-        const parsed = JSON.parse(event.target?.result as string);
-        await applyData(parsed);
-      } catch (err: any) {
-        toast.error('Arquivo JSON inválido: ' + err.message);
+        const content = await withTimeout<string | null>(new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error('Não foi possível ler o arquivo JSON.'));
+          reader.onabort = () => reject(new Error('Leitura do arquivo interrompida.'));
+          reader.readAsText(file);
+        }), 10_000, null, 'leitura do pedido JSON');
+        if (!current()) return;
+        if (content === null) throw new Error('A leitura do arquivo demorou além do esperado.');
+        await jsonForm.validateAndRun({ text: content }, async (values) => {
+          if (current()) await applyData(JSON.parse(values.text), current);
+        }, (errors) => { if (current()) invalid(errors); });
+      } finally {
+        if (reader.readyState === FileReader.LOADING) reader.abort();
+        if (readerRef.current === reader) readerRef.current = null;
       }
-    };
-    reader.readAsText(file);
+    });
   };
 
-  const handleProcessManualJSON = async () => {
-    try {
-      const parsed = JSON.parse(manualJSON);
-      await applyData(parsed);
-    } catch (err: any) {
-      toast.error('JSON inválido: ' + err.message);
-    }
+  const handleProcessManualJSON = () => runAction(false, async (current) => {
+    await jsonForm.validateAndRun({ text: manualJSON }, async (values) => {
+      if (current()) await applyData(JSON.parse(values.text), current);
+    }, (errors) => { if (current()) invalid(errors); });
+  });
+  const closeModal = async () => {
+    if (actionRef.current) return;
+    try { await onClose(); }
+    catch (error: unknown) { showError(error instanceof Error ? error.message : 'Não foi possível fechar a janela.'); }
   };
 
   if (!isOpen) return null;
@@ -198,7 +264,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in"
-      onClick={onClose}
+      onClick={closeModal}
     >
       <div
         className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 max-h-[90vh] animate-slide-up"
@@ -229,6 +295,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
               <button
                 type="button"
+                disabled={busy}
                 onClick={() => setActiveTab('ai')}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                   activeTab === 'ai'
@@ -240,6 +307,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
               </button>
               <button
                 type="button"
+                disabled={busy}
                 onClick={() => setActiveTab('json_manual')}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                   activeTab === 'json_manual'
@@ -253,7 +321,9 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={closeModal}
+              disabled={busy}
+              aria-label="Fechar"
               className="w-8 h-8 flex items-center justify-center hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 rounded-xl transition-all"
             >
               <i className="bi bi-x-lg text-sm" />
@@ -263,6 +333,9 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
 
         {/* Conteúdo Principal */}
         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar flex flex-col gap-5">
+          {submitError && <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">{submitError}</p>}
+          {applyBlocked && <p role="status" className="text-xs text-amber-700">Confira o pedido antes de uma nova aplicação dos dados.</p>}
+          {busy && <p role="status" className="text-xs text-violet-700 dark:text-violet-300"><i className="bi bi-arrow-repeat animate-spin mr-2" />{isProcessingAI ? 'Analisando os dados do pedido...' : 'Processando e aplicando os dados no pedido...'}</p>}
           {activeTab === 'ai' ? (
             <>
               {/* Botão Principal: Live de Áudio ao Vivo */}
@@ -303,6 +376,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
                 <button
                   type="button"
                   onClick={toggleListening}
+                  disabled={busy || applyBlocked}
                   className={`px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shrink-0 ${
                     isListening
                       ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/30 scale-105'
@@ -324,9 +398,11 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
                   {promptText && (
                     <button
                       type="button"
+                      disabled={busy || applyBlocked}
                       onClick={() => {
                         setPromptText('');
                         setLiveTranscript('');
+                        setLastParsedResult(null);
                       }}
                       className="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors"
                     >
@@ -338,7 +414,8 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
                 <div className="relative">
                   <textarea
                     value={promptText + (liveTranscript ? ` ${liveTranscript}` : '')}
-                    onChange={(e) => setPromptText(e.target.value)}
+                    onChange={(e) => { setPromptText(e.target.value); setLastParsedResult(null); }}
+                    disabled={busy || applyBlocked}
                     placeholder="Exemplo: O cliente é Angelina da Silva, telefone (11) 98765-4321, mora na Rua das Flores 123, comprou um Sofá Retrátil 3 Lugares por 2500 reais e uma Mesa de Jantar com 4 Cadeiras por 1200 reais. Entrega agendada para sábado de manhã com montagem no local, pagamento 50% no Pix e o restante no cartão..."
                     rows={5}
                     className="w-full p-4 text-xs font-medium bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none custom-scrollbar text-slate-800 dark:text-slate-100 placeholder-slate-400 resize-none transition-all"
@@ -360,7 +437,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
                   <button
                     type="button"
                     onClick={handleGenerateAI}
-                    disabled={isProcessingAI}
+                    disabled={busy || applyBlocked}
                     className="px-6 py-2.5 bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-violet-500/20 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
                   >
                     {isProcessingAI ? (
@@ -475,6 +552,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
                     <button
                       type="button"
                       onClick={handleConfirmApply}
+                      disabled={busy || applyBlocked}
                       className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition-all active:scale-95"
                     >
                       <i className="bi bi-check2-circle text-base" />
@@ -499,6 +577,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
                     type="file"
                     accept=".json"
                     onChange={handleFileUpload}
+                    disabled={busy || applyBlocked}
                     className="hidden"
                   />
                 </label>
@@ -508,6 +587,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
                 <textarea
                   value={manualJSON}
                   onChange={(e) => setManualJSON(e.target.value)}
+                  disabled={busy || applyBlocked}
                   placeholder="Cole aqui o JSON estruturado..."
                   rows={8}
                   className="w-full p-3.5 text-xs font-mono bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none custom-scrollbar text-slate-800 dark:text-slate-200"
@@ -515,6 +595,7 @@ export const SmartAIFillModal: React.FC<SmartAIFillModalProps> = ({
                 <button
                   type="button"
                   onClick={handleProcessManualJSON}
+                  disabled={busy || applyBlocked}
                   className="self-end px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all active:scale-95"
                 >
                   Processar e Preencher

@@ -34,6 +34,8 @@ Toda e qualquer correção de bug, ajuste de lógica, adequação de schema, oti
 
 ## 3. Invariantes de Segurança e Confiabilidade Fiscal
 
+**Política de produto obrigatória: o MoranteHub NÃO utiliza Carta de Correção Eletrônica (CC-e). Não criar, restaurar ou oferecer botão, formulário, modal, menu, rota ou fluxo de CC-e, inclusive tela dedicada de histórico. A correção fiscal adotada é cancelamento fiscal ou estorno fiscal direto da NF, segundo a elegibilidade vigente. Artefatos técnicos/eventos antigos de CC-e, quando necessários à auditoria, não autorizam reintroduzir a funcionalidade. Esta diretriz não altera por inferência os critérios de circulação da mercadoria.**
+
 1. **Separação de Ambientes:** Isolamento estrito entre Homologação (`tpAmb = 2`) e Produção (`tpAmb = 1`). Produção exige autorização explícita do operador e certificado válido.
 2. **Idempotência e Numeração:** 
    * `SELECT MAX(numero) + 1` é estritamente proibido. Numerações fiscais são reservadas de forma atômica no PostgreSQL.

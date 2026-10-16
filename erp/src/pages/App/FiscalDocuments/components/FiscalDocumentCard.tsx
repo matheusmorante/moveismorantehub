@@ -22,7 +22,6 @@ export const FiscalDocumentCard: React.FC<FiscalDocumentRowProps> = ({
   onPrintDanfe,
   onDownloadXml,
   onConsultSituation,
-  onOpenCce,
   onOpenFiscalTreatment,
   onPrepareLinkedOperation,
   onRetryHml,
@@ -66,7 +65,6 @@ export const FiscalDocumentCard: React.FC<FiscalDocumentRowProps> = ({
           onPrintDanfe={onPrintDanfe}
           onDownloadXml={onDownloadXml}
           onConsultSituation={onConsultSituation}
-          onOpenCce={onOpenCce}
           onOpenFiscalTreatment={onOpenFiscalTreatment}
           onPrepareLinkedOperation={onPrepareLinkedOperation}
           onRetryHml={onRetryHml}

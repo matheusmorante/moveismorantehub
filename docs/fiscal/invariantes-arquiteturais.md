@@ -19,7 +19,7 @@
 | FISCAL-013 | A NF-e preserva snapshot dos dados usados na emissão. | XML e itens/dados fiscais da tentativa sobrevivem a edições futuras do pedido/cadastro. |
 | FISCAL-014 | Falha local após autorização é reconciliável. | Chave, XML, resposta e protocolo recuperáveis; teste de falha na persistência. |
 | FISCAL-015 | Cancelar pedido ou estado local não cancela a NF-e na SEFAZ. | Evento fiscal com retorno/protocolo próprio e estado separado. |
-| FISCAL-016 | O ERP não utiliza CC-e; correções seguem cancelamento/estorno direto conforme elegibilidade. | Nova emissão de CC-e bloqueada. Eventos antigos somente como histórico/reconciliação, sem reescrever XML autorizado. |
+| FISCAL-016 | O MoranteHub NÃO utiliza Carta de Correção Eletrônica (CC-e). Correções fiscais seguem cancelamento fiscal ou estorno fiscal direto conforme elegibilidade. | Não existe funcionalidade de CC-e na interface: sem formulário, botão, menu, modal ou rota dedicada, inclusive para histórico. Nova transmissão permanece bloqueada. Artefatos técnicos/eventos antigos permanecem somente para auditoria/reconciliação técnica, sem reescrever XML autorizado e sem justificar reativação da funcionalidade. |
 | FISCAL-017 | Biblioteca de terceiros não substitui especificação oficial. | Regra fiscal ligada a MOC/Anexo/NT/XSD/UF e versão aplicável. |
 | FISCAL-018 | Alteração de regra fiscal tem evidência oficial verificável. | Fonte, versão, seção, data, ambiente/modelo/UF e decisão registrados no diff ou documentação. |
 | FISCAL-019 | Transações no banco de dados e advisory locks devem ter timeout estrito (`idle_in_transaction_session_timeout <= 60s`). | Nunca manter transação PostgreSQL aberta aguardando I/O de rede ou resposta do cliente/SEFAZ; conexões ociosas devem ser abortadas para evitar saturação do pool do PostgREST. |
@@ -34,7 +34,7 @@
 - **Transmissão:** persistir XML/chave e estado antes de chamar a SEFAZ. Não manter transação PostgreSQL aberta durante SOAP/mTLS. Timeout, crash ou resposta perdida preservam estado incerto e bloqueiam nova emissão da mesma intenção até reconciliação.
 - **Autorização confirmada:** persistir resposta, `cStat`, protocolo, XML autorizado e itens/snapshot; efeitos internos vinculados ao estado autorizado devem ocorrer atomicamente ou ficar numa fila/estado reconciliável, sem declarar conclusão parcial. Uma reconsulta não cria efeitos pela segunda vez.
 - **Rejeição confirmada:** preservar tentativa e motivo; permitir nova tentativa apenas conforme regra de numeração e idempotência da operação, sem reclassificar timeout como rejeição.
-- **Cancelamento e histórico de CC-e:** manter eventos e protocolos próprios, ligados à nota; não apagar autorização nem substituir seu XML. Não transmitir novas CC-e. Qualquer reversão de estoque/financeiro segue a regra específica do pedido/devolução e precisa de vínculo e idempotência próprios.
+- **Cancelamento fiscal/estorno fiscal e auditoria:** manter eventos e protocolos próprios, ligados à nota; não apagar autorização nem substituir seu XML. O sistema não oferece CC-e. Eventuais registros legados não constituem um fluxo de produto, nem autorizam recriar sua interface. Qualquer reversão de estoque/financeiro segue a regra específica do pedido/devolução e precisa de vínculo e idempotência próprios. A política de ausência de CC-e não altera os critérios de elegibilidade por circulação.
 
 ## Gatilhos de revisão antes de produção
 

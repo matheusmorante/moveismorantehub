@@ -19,7 +19,7 @@ interface FormHeaderProps {
   isSaving?: boolean;
   status: string;
   isBudget?: boolean;
-  onLoadJSON?: (data: any) => void;
+  onLoadJSON?: (data: any) => void | boolean | Promise<void | boolean>;
 }
 
 const FormHeader = ({
@@ -99,11 +99,9 @@ const FormHeader = ({
       <SmartAIFillModal
         isOpen={isAIModalOpen}
         onClose={() => setIsAIModalOpen(false)}
-        onApplyData={(data) => {
-          if (onLoadJSON) {
-            onLoadJSON(data);
-          }
-        }}
+        key={currentOrderId || currentOrder?.id || 'new'}
+        contextKey={currentOrderId || currentOrder?.id || 'new'}
+        onApplyData={(data) => onLoadJSON ? onLoadJSON(data) : false}
         sellerList={employeeNames}
       />
     </div>

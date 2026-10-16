@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { z } from 'zod';
+import React, { useState, useEffect, useRef } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import Order, { AssistanceItem } from '../../../types/order.type';
 import { Item } from '../../../types/items.type';
 import { formatOrderCode } from '../../../utils/orderCode';
+import { createStockLabelingFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 interface Props {
   readonly isOpen: boolean;
@@ -14,11 +15,11 @@ interface Props {
     value: boolean,
     updatedItems?: readonly Item[],
     updatedAssistanceItems?: readonly AssistanceItem[]
-  ) => void;
+  ) => void | boolean | Promise<void | boolean>;
 }
 
 const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) => {
-  const items = [...(order.items || []), ...(order.assistanceItems || [])];
+  const items: ((Item | AssistanceItem) & { isStockChecked?: boolean })[] = [...(order.items || []), ...(order.assistanceItems || [])];
 
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>(() => {
     const initial: Record<number, boolean> = {};
@@ -32,16 +33,28 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
     return initial;
   });
   const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const inFlight = useRef(false), active = useRef(true), uncertain = useRef(new Set<string>());
+  const sourceKey = JSON.stringify([order.id, order.updatedAt, items.map(({ isStockChecked: _checked, ...item }) => item)]);
+  const selectionSource = useRef({ items, orderChecked: order.isStockChecked, orderId: order.id });
+  selectionSource.current = { items, orderChecked: order.isStockChecked, orderId: order.id };
+  const context = useRef({ isOpen, sourceKey });
+  if (context.current.isOpen !== isOpen || context.current.sourceKey !== sourceKey) context.current = { isOpen, sourceKey };
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  useEffect(() => {
+    if (!isOpen) return;
+    const source = selectionSource.current;
+    setCheckedItems(Object.fromEntries(source.items.map((item, index) => [index, Boolean(item.isStockChecked || source.orderChecked)])));
+    setFormError(uncertain.current.has(source.orderId || '') ? 'Há uma etiquetagem sem confirmação. Confira o pedido antes de repetir.' : '');
+  }, [isOpen, sourceKey]);
   const formValues = { orderId: order.id || '', checkedItems: items.map((_, index) => Boolean(checkedItems[index])) };
-  const form = useZodForm(z.object({
-    orderId: z.string().trim().min(1, 'Pedido não identificado.'),
-    checkedItems: z.array(z.boolean()).min(1, 'O pedido não contém itens para etiquetar.').length(items.length, 'A conferência deve corresponder aos itens do pedido.'),
-  }), formValues);
+  const form = useZodForm(createStockLabelingFormSchema(items.length), formValues);
+  const close = () => { if (!inFlight.current) onClose(); };
 
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !inFlight.current) {
         onClose();
       }
     };
@@ -52,6 +65,7 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
   if (!isOpen) return null;
 
   const toggleItem = (index: number) => {
+    if (inFlight.current) return;
     setCheckedItems((prev) => ({
       ...prev,
       [index]: !prev[index],
@@ -59,6 +73,7 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
   };
 
   const toggleAll = () => {
+    if (inFlight.current) return;
     const allChecked = items.every((_, idx) => checkedItems[idx]);
     const newState: Record<number, boolean> = {};
     if (!allChecked) {
@@ -70,8 +85,12 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
   };
 
   const handleConfirm = async () => {
+    if (inFlight.current || uncertain.current.has(order.id || '')) return;
+    inFlight.current = true; setSaving(true);
+    const submitted = context.current;
     setFormError('');
-    await form.validateAndRun(formValues, async (validated) => {
+    try { await form.validateAndRun(formValues, async (validated) => {
+      if (!active.current || context.current !== submitted) return;
       const updatedItems = (order.items || []).map((item, idx) => ({
         ...item,
         isStockChecked: validated.checkedItems[idx],
@@ -82,12 +101,15 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
       });
       const allChecked = [...updatedItems, ...updatedAssistanceItems].every((item) => item.isStockChecked);
       try {
-        await onStockCheckUpdate(validated.orderId, allChecked, updatedItems, updatedAssistanceItems);
-        onClose();
+        const saved = await withTimeout(Promise.resolve(onStockCheckUpdate(validated.orderId, allChecked, updatedItems, updatedAssistanceItems)).then((result) => result !== false), 30000, false, 'pedido:salvar-etiquetagem');
+        if (!saved) { uncertain.current.add(validated.orderId); throw new Error('Não foi possível confirmar a etiquetagem. Confira o pedido antes de repetir.'); }
+        if (active.current && context.current === submitted) onClose();
       } catch (cause) {
-        setFormError(cause instanceof Error ? cause.message : 'Não foi possível salvar a etiquetagem.');
+        uncertain.current.add(validated.orderId);
+        if (active.current && context.current === submitted) setFormError(cause instanceof Error ? cause.message : 'Não foi possível salvar a etiquetagem.');
       }
     }, (errors) => setFormError(Object.values(flattenFormErrors(errors))[0] || 'Revise a etiquetagem dos itens.'));
+    } finally { inFlight.current = false; if (active.current) setSaving(false); }
   };
 
   const isAllChecked = items.length > 0 && items.every((_, idx) => checkedItems[idx]);
@@ -98,7 +120,8 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
         type="button"
         aria-label="Fechar modal de etiquetagem de itens"
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
+        onClick={close}
+        disabled={saving}
       />
       <div
         role="dialog"
@@ -124,7 +147,8 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
           <button
             type="button"
             aria-label="Fechar"
-            onClick={onClose}
+            onClick={close}
+            disabled={saving}
             className="p-2 hover:bg-white/10 rounded-full transition-colors"
           >
             <i className="bi bi-x-lg text-xl" />
@@ -133,6 +157,7 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
 
         <div className="p-8 flex flex-col gap-4 max-h-[50vh] overflow-y-auto custom-scrollbar">
           {formError && <div role="alert" className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-800">{formError}</div>}
+          {saving && <p role="status" className="text-sm text-indigo-700 dark:text-indigo-300"><i className="bi bi-arrow-repeat animate-spin mr-2" aria-hidden="true" />Confirmando a etiquetagem dos itens...</p>}
           <div className="flex justify-between items-center mb-2">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
               Itens do Pedido ({items.length})
@@ -140,6 +165,7 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
             <button
               type="button"
               onClick={toggleAll}
+              disabled={saving}
               className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:opacity-80 flex items-center gap-1"
             >
               <i className={`bi ${isAllChecked ? 'bi-check-square-fill' : 'bi-square'}`} />
@@ -153,6 +179,7 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
                 key={idx}
                 role="checkbox"
                 aria-checked={!!checkedItems[idx]}
+                aria-disabled={saving}
                 tabIndex={0}
                 onClick={() => toggleItem(idx)}
                 onKeyDown={(e) => {
@@ -199,7 +226,8 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
         <div className="p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex justify-end gap-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
+            disabled={saving}
             className="px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all"
           >
             Cancelar
@@ -207,6 +235,7 @@ const StockCheckModal = ({ isOpen, onClose, order, onStockCheckUpdate }: Props) 
           <button
             type="button"
             onClick={handleConfirm}
+            disabled={saving || uncertain.current.has(order.id || '')}
             className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-indigo-200 dark:shadow-none flex items-center gap-2"
           >
             <i className="bi bi-check2-circle text-sm" />

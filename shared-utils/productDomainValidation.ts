@@ -117,3 +117,10 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
       }
     });
 };
+
+/** Acknowledgement/channel actions operate on an already saved product, not a new finalization. */
+export const savedProductFormSchema = createProductFormSchema({ isStockistOnly: false, saveAsDraft: true }).safeExtend({
+  id: z.string().trim().min(1, 'O produto salvo não foi identificado.'),
+  active: z.boolean().optional(), isDraft: z.boolean().optional(),
+  status: z.enum(['draft', 'published', 'hidden']).optional(),
+});

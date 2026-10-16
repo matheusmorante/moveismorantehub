@@ -5,6 +5,10 @@ import { CSOSN_CODES } from './fiscalIcmsGroups';
 export const hmlCsosnFormSchema = z.object({
   csosn: z.string().refine((value) => (CSOSN_CODES as readonly string[]).includes(value), 'CSOSN inválido. Selecione uma opção fiscal válida.'),
 });
+export const hmlCsosnConfigurationSchema = hmlCsosnFormSchema.extend({
+  environment: z.literal(2), model: z.literal('55'), issuerCrt: z.literal('1'),
+  productionApproved: z.literal(false), version: z.string().min(1),
+});
 
 // Count Unicode code points as the event/XML validators do; do not rewrite inputs or snapshots.
 export const fiscalReasonFormSchema = z.string().refine(

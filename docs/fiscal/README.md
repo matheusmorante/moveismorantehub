@@ -4,7 +4,23 @@
 
 ## Referências atuais
 
-- [Produto da nota de entrada — preparação em conferência — 16/10](historico-correcoes-2026-10-16.md#produto-da-nota-de-entrada--preparação-em-conferência): falha de fechamento antecipado reproduzida; resolver acompanha a preparação, com contexto/prazo/erro e campos parseados. Testes em andamento; inventário permanece 100/130.
+- [CSOSN de homologação — proprietário conferido16/10](historico-correcoes-2026-10-16.md#csosn-de-homologação--proprietário-conferido): resolver até recibo HML confirmado, prazo/trava/retry/erro;32 testes, lint e build ERP em 1m33s aprovados. ERP110/131 encerrados,21 pendentes.
+
+- [Continuidade final dos formulários16/10](../forms/continuidade-formularios-2026-10-16.md): ERP109/131 itens encerrados,22 pendentes;65 provas ERP,42 móveis e48 catálogo. Builds ERP/Next e TS catálogo aprovados; pendências de voz/live, uploads e demais proprietários preservadas. Inclui retirada definitiva da interface de CC-e por determinação do usuário.
+
+- [Pedido assistido, lançamento móvel e produto do catálogo — continuação16/10](historico-correcoes-2026-10-16.md#pedido-assistido-lançamento-móvel-e-produto-do-catálogo--continuação): pedido assistido e lançamento manual conferidos; salvamento do catálogo com provas próprias, uploads ainda pendentes. ERP108/131 encerrados,23 pendentes, incluindo retirada de CC-e.
+
+- **[Política de produto: CC-e ausente do sistema — 16/10](historico-correcoes-2026-10-16.md#política-de-produto--cc-e-ausente-do-sistema). O MoranteHub NÃO utiliza Carta de Correção. Não criar/restaurar interface ou fluxo de CC-e, nem tela dedicada de histórico. Correções seguem cancelamento fiscal/estorno fiscal direto conforme elegibilidade; critérios de circulação permanecem nas regras vigentes. Artefatos legados são exclusivamente técnicos/de auditoria.**
+
+- [Etiquetagem — biblioteca conferida — 16/10](historico-correcoes-2026-10-16.md#etiquetagem--biblioteca-conferida): dez provas de contexto, callback aguardado, prazo e seleção preservada; sem acionador ativo localizado.
+
+- [Vínculo após cadastrar produto — confirmação e persistência conferidas — 16/10](historico-correcoes-2026-10-16.md#vínculo-após-cadastrar-produto--confirmação-e-persistência-conferidas): seleção/remoção, callback pós-cadastro e mapeamentos aguardam recibos; canais/conclusão têm proprietário próprio. 157 testes, lint sem erros e build aprovados; TS global falha fora das fontes deste lote. ERP 105/131, 26 pendentes; sem prontidão global ou operação remota declarada.
+
+- [WhatsApp e bibliotecas assistidas — conferência de submissões — 16/10](historico-correcoes-2026-10-16.md#whatsapp-e-bibliotecas-assistidas--conferência-de-submissões): travas comuns, callback/recibo aguardado, timeout/contexto, erro visível e sugestão no resolver; 32 testes incluídos no lote de 157 aprovado. WhatsApp tem consumidor ativo; recebimento assistido/voz permanecem bibliotecas sem acionador localizado, sem reativação inferida.
+
+- [Cadastro rápido da nota de entrada — preparação no resolver — 16/10](historico-correcoes-2026-10-16.md#cadastro-rápido-da-nota-de-entrada--preparação-no-resolver): seleção/comando no RHF até resultado, prazo/contexto, erro/progresso, pai revalidado e custo zero. 59 testes, lint sem erros e build aprovados; TS global falha fora do lote. Salvamento/vínculo posterior continuam pendentes; inventário 100/130, 30 pendentes.
+
+- [Produto da nota de entrada — biblioteca conferida, abertura ausente — 16/10](historico-correcoes-2026-10-16.md#produto-da-nota-de-entrada--biblioteca-conferida-abertura-ausente): resolver acompanha a preparação, com contexto/prazo/erro e campos parseados. 47 testes, lint sem erros e build aprovados; TS global falha fora do lote. Sem acionador ativo localizado; cadastro rápido e vínculo posterior ainda exigem sua prova própria. Inventário permanece 100/130 (76,9%), 30 pendentes.
 
 - [Cancelamento da devolução comercial — confirmação conferida — 16/10](historico-correcoes-2026-10-16.md#cancelamento-da-devolução-comercial--confirmação-conferida): contrato próprio, versão/snapshot, resolver até recibo, trava comum com recebimento, prazos/falhas e notificação correta. 156 testes, lint e build aprovados; TS global falha fora do lote. ERP 100/130 (76,9%), 30 pendentes; sem operação comercial remota ou transmissão fiscal.
 

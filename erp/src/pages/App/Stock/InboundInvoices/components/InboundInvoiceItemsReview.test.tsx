@@ -1,13 +1,13 @@
-﻿// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import React from 'react';
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { InboundInvoiceItemsReview } from './InboundInvoiceItemsReview';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {}, isTestEnvironment: false }));
 vi.mock('@/pages/utils/personService', () => ({ fetchPersons: vi.fn().mockResolvedValue([]) }));
-vi.mock('@/pages/App/Products/ProductFormModal', () => ({ default: () => null }));
+vi.mock('@/pages/App/Products/modals/ProductFormModal', () => ({ default: () => null }));
 vi.mock('../modals/QuickRegisterVariationModal', () => ({ QuickRegisterVariationModal: () => null }));
 vi.mock('@/components/shared/DropdownPortal', () => ({ default: () => null }));
 vi.mock('@/pages/utils/productSupplierCodesService', () => ({
@@ -16,6 +16,7 @@ vi.mock('@/pages/utils/productSupplierCodesService', () => ({
   deleteProductSupplierCode: vi.fn().mockResolvedValue(undefined),
 }));
 import { getFullProduct } from '@/pages/utils/productService';
+import { findProductSupplierCodes, saveProductSupplierCode, deleteProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
 
 vi.mock('react-toastify', () => ({
   toast: {
@@ -71,6 +72,9 @@ vi.mock('../hooks/useInboundInvoiceSuggestions', () => ({
 }));
 
 beforeEach(() => {
+  vi.mocked(saveProductSupplierCode).mockResolvedValue(undefined);
+  vi.mocked(deleteProductSupplierCode).mockResolvedValue(undefined);
+  vi.mocked(findProductSupplierCodes).mockResolvedValue(new Map([['FORN_01', { supplierId: 'forn_123', supplierProductCode: 'FORN_01', productId: 'prod_1', productVariationId: 'var_1' }]]));
   vi.mocked(getFullProduct).mockResolvedValue({
     id: 'prod_1',
     name: 'Beliche Rubim',
@@ -81,8 +85,54 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.useRealTimers();
   mockIsProcessing = false;
   currentSuggestion = mockSuggestion;
+});
+
+it('seleção aguarda salvar, confirmar e aplicar antes de liberar a linha', async () => {
+  let saved!: () => void, applied!: (value: boolean) => void;
+  vi.mocked(saveProductSupplierCode).mockReturnValueOnce(new Promise<void>((resolve) => { saved = resolve; }));
+  const onChange = vi.fn(() => new Promise<boolean>((resolve) => { applied = resolve; }));
+  const view = render(<InboundInvoiceItemsReview items={[sampleItem]} supplierId="forn_123" suppliers={[]} onChange={onChange} />);
+  fireEvent.click(view.getByTitle('Vincular produto sugerido')); await waitFor(() => expect(saveProductSupplierCode).toHaveBeenCalledOnce());
+  expect(onChange).not.toHaveBeenCalled(); expect(view.getByRole('status').textContent).toContain('Confirmando');
+  fireEvent.click(view.getByTitle('Vincular produto sugerido')); expect(saveProductSupplierCode).toHaveBeenCalledOnce();
+  await act(async () => { saved(); }); await waitFor(() => expect(onChange).toHaveBeenCalledOnce()); expect(view.getByRole('status')).toBeTruthy();
+  await act(async () => { applied(true); }); await waitFor(() => expect(view.queryByRole('status')).toBeNull());
+});
+
+it.each(['invalid', 'saveError', 'missingAck', 'applyError'] as const)('seleção %s não declara sucesso nem avança sem confirmação', async (kind) => {
+  if (kind === 'invalid') currentSuggestion = { ...mockSuggestion, productId: ' ' };
+  if (kind === 'saveError') vi.mocked(saveProductSupplierCode).mockRejectedValueOnce(new Error('Falha de gravação'));
+  if (kind === 'missingAck') vi.mocked(findProductSupplierCodes).mockResolvedValueOnce(new Map());
+  const onChange = kind === 'applyError' ? vi.fn().mockResolvedValue(false) : vi.fn();
+  const view = render(<InboundInvoiceItemsReview items={[sampleItem]} supplierId="forn_123" suppliers={[]} onChange={onChange} />);
+  fireEvent.click(view.getByTitle('Vincular produto sugerido')); await waitFor(() => expect(view.getByRole('alert')).toBeTruthy());
+  if (kind !== 'applyError') expect(onChange).not.toHaveBeenCalled();
+  if (kind === 'invalid') expect(getFullProduct).not.toHaveBeenCalled();
+  else { fireEvent.click(view.getByTitle('Vincular produto sugerido')); expect(saveProductSupplierCode).toHaveBeenCalledOnce(); }
+});
+
+it('remoção tem resolver e aguarda ausência confirmada e aplicação', async () => {
+  vi.mocked(findProductSupplierCodes).mockResolvedValueOnce(new Map()); const onChange = vi.fn().mockResolvedValue(true);
+  const view = render(<InboundInvoiceItemsReview items={[{ ...sampleItem, matchedProductId: 'prod_1', matchedVariationId: 'var_1', linkedProductCode: '100-01', productErpName: 'Beliche', sellingPrice: 10 }]} supplierId="forn_123" suppliers={[]} onChange={onChange} />);
+  fireEvent.click(view.getByTitle('Remover vínculo')); await waitFor(() => expect(onChange).toHaveBeenCalledWith(1, { matchedProductId: undefined, matchedVariationId: undefined, linkedProductCode: undefined, productErpName: undefined }));
+  expect(deleteProductSupplierCode).toHaveBeenCalledWith('forn_123', 'FORN_01'); expect(findProductSupplierCodes).toHaveBeenCalledWith('forn_123', ['FORN_01']);
+});
+
+it('remoção sem ausência confirmada não altera o item e bloqueia repetição', async () => {
+  const onChange = vi.fn(); const view = render(<InboundInvoiceItemsReview items={[{ ...sampleItem, matchedProductId: 'prod_1', matchedVariationId: 'var_1', linkedProductCode: '100-01', productErpName: 'Beliche', sellingPrice: 10 }]} supplierId="forn_123" suppliers={[]} onChange={onChange} />);
+  fireEvent.click(view.getByTitle('Remover vínculo')); await waitFor(() => expect(view.getByRole('alert').textContent).toContain('não foi confirmado')); expect(onChange).not.toHaveBeenCalled();
+  fireEvent.click(view.getByTitle('Remover vínculo')); expect(deleteProductSupplierCode).toHaveBeenCalledOnce();
+});
+
+it('timeout da seleção descarta gravação tardia e libera progresso sem replay', async () => {
+  vi.useFakeTimers(); let saved!: () => void; vi.mocked(saveProductSupplierCode).mockReturnValueOnce(new Promise<void>((resolve) => { saved = resolve; }));
+  const onChange = vi.fn(); const view = render(<InboundInvoiceItemsReview items={[sampleItem]} supplierId="forn_123" suppliers={[]} onChange={onChange} />);
+  fireEvent.click(view.getByTitle('Vincular produto sugerido')); await act(async () => { await vi.advanceTimersByTimeAsync(20001); });
+  expect(view.getByRole('alert')).toBeTruthy(); expect(view.queryByRole('status')).toBeNull();
+  await act(async () => { saved(); }); expect(onChange).not.toHaveBeenCalled(); expect(findProductSupplierCodes).not.toHaveBeenCalled();
 });
 
 const sampleItem: InboundInvoiceItem = {

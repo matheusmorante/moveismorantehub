@@ -1,6 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { canIssueCce } from '@/pages/utils/nfe/nfeService';
 import type {
   CancellationEligibility,
   NfeDocumentRecord,
@@ -17,7 +16,6 @@ interface FiscalDocumentRowActionsProps {
   onPrintDanfe: () => void;
   onDownloadXml: () => void;
   onConsultSituation: () => void;
-  onOpenCce: () => void;
   onOpenFiscalTreatment: () => void;
   onPrepareLinkedOperation: () => void;
   onRetryHml: () => void;
@@ -40,7 +38,6 @@ export const FiscalDocumentRowActions: React.FC<FiscalDocumentRowActionsProps> =
   onPrintDanfe,
   onDownloadXml,
   onConsultSituation,
-  onOpenCce,
   onOpenFiscalTreatment,
   onPrepareLinkedOperation,
   onRetryHml,
@@ -171,17 +168,6 @@ export const FiscalDocumentRowActions: React.FC<FiscalDocumentRowActionsProps> =
           className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800"
         >
           Consultar situação na SEFAZ
-        </button>
-      )}
-
-      {canOperateFiscal && canIssueCce(fiscalDocument).canIssue && (
-        <button
-          type="button"
-          role="menuitem"
-          onClick={() => runAction(onOpenCce)}
-          className="rounded px-2 py-1.5 text-left text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800"
-        >
-          Carta de Correção (CC-e)
         </button>
       )}
 

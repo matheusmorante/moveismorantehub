@@ -338,8 +338,14 @@ export async function GET(request: Request) {
           const currentVarPrice = hasVarPromo ? promoVarPrice : regularVarPrice;
           const oldVarPriceFormatted = hasVarPromo ? formatDecimalPrice(regularVarPrice) : '';
 
+          const varSku =
+            String(v.sku || '').trim() ||
+            (p.code
+              ? `${p.code}-${String(variationsList.indexOf(v) + 1).padStart(2, '0')}`
+              : String(v.id));
+
           rows.push([
-            v.sku || v.id, // id
+            varSku, // id (SKU único da variação)
             varName, // title
             descWithPrefix, // description
             `${origin}/produto/${p.slug}?var=${v.id}`, // link
@@ -399,8 +405,10 @@ export async function GET(request: Request) {
         const currentParentPrice = hasParentPromo ? promoParentPrice : regularParentPrice;
         const oldParentPriceFormatted = hasParentPromo ? formatDecimalPrice(regularParentPrice) : '';
 
+        const parentSku = String(p.code || p.sku || '').trim() || String(p.id);
+
         rows.push([
-          p.id, // id
+          parentSku, // id (SKU único do produto pai)
           p.name, // title
           descWithPrefix, // description
           `${origin}/produto/${p.slug}`, // link

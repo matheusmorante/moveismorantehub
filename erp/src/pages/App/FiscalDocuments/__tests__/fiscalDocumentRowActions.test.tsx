@@ -1,14 +1,10 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FiscalDocumentRowActions } from '../components/FiscalDocumentRowActions';
 import type { NfeDocumentRecord } from '../types/fiscalDocuments.types';
-
-vi.mock('@/pages/utils/nfe/nfeService', () => ({
-  canIssueCce: () => ({ canIssue: true }),
-}));
 
 afterEach(cleanup);
 
@@ -34,7 +30,6 @@ const makeHandlers = () => ({
   onPrintDanfe: vi.fn(),
   onDownloadXml: vi.fn(),
   onConsultSituation: vi.fn(),
-  onOpenCce: vi.fn(),
   onOpenFiscalTreatment: vi.fn(),
   onPrepareLinkedOperation: vi.fn(),
   onRetryHml: vi.fn(),
@@ -46,12 +41,20 @@ const standardMenuActions = [
   { label: 'Visualizar / imprimir DANFE', callback: 'onPrintDanfe' },
   { label: 'Baixar XML autorizado', callback: 'onDownloadXml' },
   { label: 'Consultar situação na SEFAZ', callback: 'onConsultSituation' },
-  { label: 'Carta de Correção (CC-e)', callback: 'onOpenCce' },
   { label: 'Cancelar NF-e', callback: 'onOpenFiscalTreatment' },
   { label: 'Verificar e retomar HML', callback: 'onRetryHml' },
 ] as const;
 
 describe('FiscalDocumentRowActions', () => {
+  it.each([{ modelo: '55', ambiente: 1 }, { modelo: '55', ambiente: 2 }, { modelo: '65', ambiente: 1 }, { modelo: '65', ambiente: 2 }] as const)(
+    'never offers CC-e for model $modelo environment $ambiente', async (context) => {
+      render(<FiscalDocumentRowActions document={makeDocument({ ...context, status: 'autorizada' })} isDetailsOpen={false} canOperateFiscal={true} cancellationEligibility={{ canProceed: true, action: 'cancel' }} {...makeHandlers()} />);
+      await userEvent.click(screen.getByRole('button', { name: 'Ações da NF-e 100' }));
+      expect(screen.queryByRole('menuitem', { name: /CC-e|Carta de Correção/i })).toBeNull();
+      expect(screen.getByRole('menuitem', { name: 'Cancelar NF-e' })).toBeTruthy();
+    }
+  );
+
   it.each(standardMenuActions)(
     '$label aciona seu handler e fecha o menu flutuante',
     async ({ label, callback }) => {
@@ -90,7 +93,7 @@ describe('FiscalDocumentRowActions', () => {
       <FiscalDocumentRowActions
         document={makeDocument({ order_id: null, status: 'autorizada' })}
         isDetailsOpen={false}
-        canOperateFiscal={false}
+        canOperateFiscal={true}
         {...handlers}
       />
     );
@@ -123,12 +126,12 @@ describe('FiscalDocumentRowActions', () => {
     await userEvent.click(trigger);
     expect(screen.getByRole('menu')).toBeTruthy();
 
-    await userEvent.keyboard('{Escape}');
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('menu')).toBeNull();
 
     await userEvent.click(trigger);
     expect(screen.getByRole('menu')).toBeTruthy();
-    await userEvent.click(screen.getByRole('button', { name: 'Fora do menu' }));
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Fora do menu' }));
     expect(screen.queryByRole('menu')).toBeNull();
   });
 });

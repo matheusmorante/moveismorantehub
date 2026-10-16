@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Product from '../../../../../types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
 import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { savedProductFormSchema } from '../../../../../../../../shared-utils/productDomainValidation';
+import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 
 export interface ProductErpChecks {
+  readonly origin?: boolean;
   readonly description?: boolean;
   readonly unitPrice?: boolean;
   readonly categories?: boolean;
@@ -30,7 +34,7 @@ export interface ProductSaveResult {
 export interface ProductSaveResultModalProps {
   readonly saveResult: ProductSaveResult | null;
   readonly onCloseModal: () => void;
-  readonly onSuccess?: (newProduct: Product) => void;
+  readonly onSuccess?: (newProduct: Product) => void | boolean | Promise<void | boolean>;
   readonly onCloseForm: () => void;
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
   readonly canPublishToCatalog?: boolean;
@@ -50,10 +54,19 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
   const [currentProduct, setCurrentProduct] = useState<Product | null>(saveResult?.product ?? null);
   const [updatingErp, setUpdatingErp] = useState(false);
   const [updatingEcom, setUpdatingEcom] = useState(false);
+  const [finishing, setFinishing] = useState(false), [finishError, setFinishError] = useState('');
+  const [channelUncertain, setChannelUncertain] = useState(false);
+  const uncertainProducts = useRef(new Set<string>());
+  const finishInFlight = useRef(false), active = useRef(true);
+  const currentResult = useRef(saveResult); currentResult.current = saveResult;
+  const finishForm = useZodForm(savedProductFormSchema, { ...currentProduct, id: currentProduct?.id || '' });
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
 
   useEffect(() => {
     if (saveResult?.product) {
       setCurrentProduct(saveResult.product);
+      setChannelUncertain(uncertainProducts.current.has(saveResult.product.id || ''));
+      setFinishError('');
     }
   }, [saveResult]);
 
@@ -61,7 +74,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
     if (!saveResult) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !finishInFlight.current) {
         onCloseModal();
       }
     };
@@ -77,29 +90,38 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
   const isCatalogPublished = currentProduct.status === 'published';
 
   const handleToggleErp = async () => {
-    if (updatingErp || isNonConventional) return;
+    if (finishInFlight.current || channelUncertain || isNonConventional) return;
     const newActive = !isERPActive;
     if (newActive && isNonConventionalProduct(currentProduct)) {
       toast.warning('Produtos de origem diferente de Convencional não podem ser ativados no ERP.');
       return;
     }
-    setUpdatingErp(true);
+    finishInFlight.current = true; setFinishError(''); setUpdatingErp(true);
+    const submitted = saveResult;
     const updatedData: Product = { ...currentProduct, active: newActive };
     try {
-      await saveProduct(updatedData);
-      setCurrentProduct(updatedData);
-      setFormData((prev) => ({ ...prev, active: newActive }));
-      toast.success(newActive ? 'Produto ativado no ERP!' : 'Produto desativado no ERP!');
+      await finishForm.validateAndRun({ ...updatedData, id: updatedData.id || '' }, async (values) => {
+        if (!active.current || currentResult.current !== submitted) return;
+        const savedId = await withTimeout(saveProduct(values as Product), 20000, null, 'produto:alterar-ativacao-erp');
+        if (!savedId || savedId !== currentProduct.id) uncertainProducts.current.add(currentProduct.id || '');
+        if (!active.current || currentResult.current !== submitted) return;
+        if (!savedId || savedId !== currentProduct.id) { setChannelUncertain(true); throw new Error('A alteração do ERP não foi confirmada. Confira o cadastro antes de repetir.'); }
+        setCurrentProduct(values as Product);
+        setFormData((prev) => ({ ...prev, active: newActive }));
+        toast.success(newActive ? 'Produto ativado no ERP!' : 'Produto desativado no ERP!');
+      }, (errors) => setFinishError(Object.values(flattenFormErrors(errors))[0] || 'Confira o produto.'));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      toast.error(`Erro ao atualizar ERP: ${message}`);
+      uncertainProducts.current.add(currentProduct.id || '');
+      if (active.current && currentResult.current === submitted) setChannelUncertain(true);
+      if (active.current && currentResult.current === submitted) { setFinishError(`Erro ao atualizar ERP: ${message}`); toast.error(`Erro ao atualizar ERP: ${message}`); }
     } finally {
-      setUpdatingErp(false);
+      finishInFlight.current = false; if (active.current) setUpdatingErp(false);
     }
   };
 
   const handleToggleCatalog = async () => {
-    if (updatingEcom || !canPublishToCatalog) return;
+    if (finishInFlight.current || channelUncertain || !canPublishToCatalog) return;
     const newStatus: 'hidden' | 'published' = isCatalogPublished ? 'hidden' : 'published';
 
     if (newStatus === 'published' && !saveResult.ecomLegible) {
@@ -107,7 +129,8 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
       return;
     }
 
-    setUpdatingEcom(true);
+    finishInFlight.current = true; setFinishError(''); setUpdatingEcom(true);
+    const submitted = saveResult;
     const updatedVariations = (currentProduct.variations || []).map((v) => ({
       ...v,
       status: newStatus,
@@ -118,8 +141,13 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
       variations: updatedVariations,
     };
     try {
-      await saveProduct(updatedData);
-      setCurrentProduct(updatedData);
+      await finishForm.validateAndRun({ ...updatedData, id: updatedData.id || '' }, async (values) => {
+      if (!active.current || currentResult.current !== submitted) return;
+      const savedId = await withTimeout(saveProduct(values as Product), 20000, null, 'produto:alterar-publicacao-catalogo');
+      if (!savedId || savedId !== currentProduct.id) uncertainProducts.current.add(currentProduct.id || '');
+      if (!active.current || currentResult.current !== submitted) return;
+      if (!savedId || savedId !== currentProduct.id) { setChannelUncertain(true); throw new Error('A publicação não foi confirmada. Confira o cadastro antes de repetir.'); }
+      setCurrentProduct(values as Product);
       setFormData((prev) => ({
         ...prev,
         status: newStatus,
@@ -133,18 +161,33 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
           ? 'Produto publicado no Catálogo Digital! 🛍️'
           : 'Produto ocultado do Catálogo Digital!'
       );
+      }, (errors) => setFinishError(Object.values(flattenFormErrors(errors))[0] || 'Confira o produto.'));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      toast.error(`Erro ao atualizar Catálogo: ${message}`);
+      uncertainProducts.current.add(currentProduct.id || '');
+      if (active.current && currentResult.current === submitted) setChannelUncertain(true);
+      if (active.current && currentResult.current === submitted) { setFinishError(`Erro ao atualizar Catálogo: ${message}`); toast.error(`Erro ao atualizar Catálogo: ${message}`); }
     } finally {
-      setUpdatingEcom(false);
+      finishInFlight.current = false; if (active.current) setUpdatingEcom(false);
     }
   };
 
-  const handleFinish = () => {
-    onCloseModal();
-    if (onSuccess) onSuccess(currentProduct);
-    onCloseForm();
+  const handleFinish = async () => {
+    if (finishInFlight.current || channelUncertain || updatingErp || updatingEcom) return;
+    finishInFlight.current = true;
+    setFinishing(true); setFinishError('');
+    const submitted = saveResult;
+    try {
+      await finishForm.validateAndRun({ ...currentProduct, id: currentProduct.id || '' }, async (values) => {
+        if (!active.current || currentResult.current !== submitted) return;
+        const completed = await withTimeout(Promise.resolve(onSuccess?.(values as Product)).then((result) => result !== false), 90000, false, 'produto:concluir-cadastro-salvo');
+        if (!active.current || currentResult.current !== submitted) return;
+        if (!completed) throw new Error('Produto salvo. Não foi possível concluir a etapa seguinte. Confira os vínculos informados antes de continuar.');
+        onCloseModal(); onCloseForm();
+      }, (errors) => setFinishError(Object.values(flattenFormErrors(errors))[0] || 'Confira o cadastro salvo.'));
+    } catch (error) {
+      if (active.current && currentResult.current === submitted) setFinishError(error instanceof Error ? error.message : 'Não foi possível concluir a etapa seguinte.');
+    } finally { finishInFlight.current = false; if (active.current) setFinishing(false); }
   };
 
   return (
@@ -158,6 +201,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
         type="button"
         className="absolute inset-0 bg-transparent cursor-default"
         onClick={onCloseModal}
+        disabled={finishing || updatingErp || updatingEcom}
         aria-label="Fechar modal"
       />
       <div className="relative bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl w-full max-w-xl animate-in zoom-in-95 duration-200 text-center max-h-[90vh] overflow-y-auto">
@@ -279,7 +323,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
             <button
               type="button"
               onClick={isNonConventional ? undefined : handleToggleErp}
-              disabled={updatingErp || isNonConventional}
+              disabled={finishing || updatingErp || updatingEcom || channelUncertain || isNonConventional}
               title={
                 isNonConventional
                   ? 'Produtos de origem de estoque Salvados ou Usados não podem ser ativados no ERP, apenas no catálogo digital.'
@@ -426,7 +470,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
               )}
               <button
                 type="button"
-                disabled={updatingEcom || (!saveResult.ecomLegible && !isCatalogPublished)}
+                disabled={finishing || updatingEcom || updatingErp || channelUncertain || (!saveResult.ecomLegible && !isCatalogPublished)}
                 onClick={handleToggleCatalog}
                 className={`w-full py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed ${
                   isCatalogPublished
@@ -449,9 +493,12 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
           )}
         </div>
 
+        {finishError && <p role="alert" className="mb-3 text-sm text-rose-700 dark:text-rose-300">{finishError}</p>}
+        {(finishing || updatingErp || updatingEcom) && <p role="status" className="mb-3 text-sm text-blue-700 dark:text-blue-300"><i className="bi bi-arrow-repeat animate-spin mr-2" aria-hidden="true" />{finishing ? 'Concluindo as etapas após o cadastro...' : 'Salvando a ativação do produto...'}</p>}
         <button
           type="button"
           onClick={handleFinish}
+          disabled={finishing || channelUncertain || updatingErp || updatingEcom}
           className="w-full py-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition-all"
         >
           Concluir

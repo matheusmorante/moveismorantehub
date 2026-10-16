@@ -84,20 +84,22 @@ const NewSaleOrder = ({
       try {
         if (!jsonData || typeof jsonData !== 'object') {
           toast.error('JSON inválido.');
-          return;
+          return false;
         }
 
         if (jsonData.client) {
           setPendingCustomerData(buildPendingCustomerFromImportedJson(jsonData.client));
           setPendingOrderData(jsonData);
           setIsCustomerRegistrationOpen(true);
-          return;
+          return true;
         }
 
         applyOrderData(jsonData);
         toast.success('Pedido preenchido com sucesso via JSON!');
+        return true;
       } catch (err: any) {
         toast.error('Erro ao carregar JSON: ' + err.message);
+        return false;
       }
     },
     [applyOrderData]

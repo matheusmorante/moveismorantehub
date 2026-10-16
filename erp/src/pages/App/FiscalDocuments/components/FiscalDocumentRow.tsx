@@ -26,7 +26,6 @@ export interface FiscalDocumentRowProps {
   onPrintDanfe: () => void;
   onDownloadXml: () => void;
   onConsultSituation: () => void;
-  onOpenCce: () => void;
   onOpenFiscalTreatment: () => void;
   onPrepareLinkedOperation: () => void;
   onRetryHml: () => void;
@@ -47,7 +46,6 @@ export const FiscalDocumentRow: React.FC<FiscalDocumentRowProps> = ({
   onPrintDanfe,
   onDownloadXml,
   onConsultSituation,
-  onOpenCce,
   onOpenFiscalTreatment,
   onPrepareLinkedOperation,
   onRetryHml,
@@ -177,7 +175,6 @@ export const FiscalDocumentRow: React.FC<FiscalDocumentRowProps> = ({
             onPrintDanfe={onPrintDanfe}
             onDownloadXml={onDownloadXml}
             onConsultSituation={onConsultSituation}
-            onOpenCce={onOpenCce}
             onOpenFiscalTreatment={onOpenFiscalTreatment}
             onPrepareLinkedOperation={onPrepareLinkedOperation}
             onRetryHml={onRetryHml}

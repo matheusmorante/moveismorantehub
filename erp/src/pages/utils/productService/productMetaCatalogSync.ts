@@ -106,10 +106,14 @@ export async function syncProductToMetaCatalog(
 
       if (!isParentEligible) {
         // Se o pai foi desativado/ocultado, remove todas as variações da Meta
-        for (const v of varList) {
+        for (let idx = 0; idx < varList.length; idx++) {
+          const v = varList[idx];
+          const varSku =
+            String(v.sku || v.code || '').trim() ||
+            (product.code ? `${product.code}-${String(idx + 1).padStart(2, '0')}` : v.id);
           itemsToSend.push({
             id: v.id,
-            code: v.sku || v.code || v.id,
+            code: varSku,
             deleted: true,
             status: 'hidden',
           });
@@ -129,8 +133,11 @@ export async function syncProductToMetaCatalog(
 
         const publishedIds = new Set(built.map((item) => item.code));
 
-        for (const v of varList) {
-          const varCode = v.sku || v.code || v.id;
+        for (let idx = 0; idx < varList.length; idx++) {
+          const v = varList[idx];
+          const varCode =
+            String(v.sku || v.code || '').trim() ||
+            (product.code ? `${product.code}-${String(idx + 1).padStart(2, '0')}` : v.id);
           if (publishedIds.has(varCode)) {
             const item = built.find((b) => b.code === varCode);
             if (item) itemsToSend.push(item);

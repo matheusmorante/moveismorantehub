@@ -275,8 +275,10 @@ export function mapProductToMeta(
   const currentPrice = hasPromo ? promoPrice : regularPrice;
   const oldPriceFormatted = hasPromo ? formatDecimalPrice(regularPrice) : undefined;
 
+  const parentSku = String((product as any).code || (product as any).sku || '').trim() || product.id;
+
   const data: MetaProductData = {
-    id: product.id,
+    id: parentSku,
     title: product.name,
     description: stripHtml(baseDescription),
     price: `${regularPrice.toFixed(2)} BRL`,

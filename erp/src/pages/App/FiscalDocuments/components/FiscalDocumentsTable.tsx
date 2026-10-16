@@ -24,7 +24,6 @@ interface FiscalDocumentsTableProps {
   onPrintDanfe: (doc: NfeDocumentRecord) => void;
   onDownloadXml: (doc: NfeDocumentRecord) => void;
   onConsultSituation: (doc: NfeDocumentRecord) => void;
-  onOpenCce: (doc: NfeDocumentRecord) => void;
   onOpenFiscalTreatment: (doc: NfeDocumentRecord) => void;
   onPrepareLinkedOperation: (doc: NfeDocumentRecord) => void;
   onRetryHml: (doc: NfeDocumentRecord) => void;
@@ -46,7 +45,6 @@ export const FiscalDocumentsTable: React.FC<FiscalDocumentsTableProps> = ({
   onPrintDanfe,
   onDownloadXml,
   onConsultSituation,
-  onOpenCce,
   onOpenFiscalTreatment,
   onPrepareLinkedOperation,
   onRetryHml,
@@ -87,7 +85,6 @@ export const FiscalDocumentsTable: React.FC<FiscalDocumentsTableProps> = ({
     onPrintDanfe: () => onPrintDanfe(doc),
     onDownloadXml: () => onDownloadXml(doc),
     onConsultSituation: () => onConsultSituation(doc),
-    onOpenCce: () => onOpenCce(doc),
     onOpenFiscalTreatment: () => onOpenFiscalTreatment(doc),
     onPrepareLinkedOperation: () => onPrepareLinkedOperation(doc),
     onRetryHml: () => onRetryHml(doc),

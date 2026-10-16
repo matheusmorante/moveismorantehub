@@ -13,7 +13,7 @@ import {
 type SalesOrderFormSectionProps = {
   form: ReturnType<typeof useSalesOrderForm>;
   scrollRef?: React.RefObject<HTMLDivElement>;
-  onLoadJSON?: (data: any) => void;
+  onLoadJSON?: (data: any) => void | boolean | Promise<void | boolean>;
   onOpenSellerSearch?: () => void;
   sellerRef?: React.RefObject<HTMLButtonElement>;
   /** Se true, destaca visualmente os itens sem produto vinculado (temporários) */

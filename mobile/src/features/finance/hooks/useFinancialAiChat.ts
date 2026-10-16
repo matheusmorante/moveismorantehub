@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { z } from 'zod';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { textPromptFormSchema } from '../../../../../shared-utils/assistedFormSchemas';
 import { financialIntentDraftFormSchema, financialTransactionFormSchema } from '../../../../../shared-utils/financialFormSchemas';
@@ -27,10 +28,31 @@ import {
 } from '../components/chat/financialCardTimeline';
 import type { FinancialCardTimelineEntry } from '../components/chat/financialCardTimeline';
 import { startVoiceRecording, stopVoiceRecording } from '../../../services/voiceRecorderService';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { advanceFinancialBatch } from '../../../services/financial/financialBatchQueue';
+
+const messageFormSchema = textPromptFormSchema.extend({ targetMessageId: z.string().trim().min(1).optional() });
+const purposeSchema = z.string().pipe(z.enum(['BUSINESS', 'PERSONAL', 'PERSONAL_PARTNER']));
+// Incomplete drafts remain editable; only confirmation requires a realized fact.
+const confirmationFormSchema = financialIntentDraftFormSchema.extend({
+  description: z.string().trim().nullish(), supplier: z.string().trim().nullish(),
+  paymentMethod: financialTransactionFormSchema.shape.payment_method.refine((value) => !['UNKNOWN', 'UNKNOWN_BY_USER'].includes(value), 'Informe a forma de pagamento.'),
+  businessPurpose: purposeSchema.nullish(), purpose: purposeSchema.nullish(),
+  categoryName: z.string().trim().nullish(), categoryId: z.string().trim().nullish(),
+  vehicleId: z.string().trim().nullish(),
+  matchedAccount: z.object({ id: z.string().trim().min(1, 'Conta não identificada.') }).passthrough().nullish(),
+}).superRefine((values, ctx) => {
+  if (!values.businessPurpose && !values.purpose) ctx.addIssue({ code: 'custom', path: ['businessPurpose'], message: 'Informe a finalidade da movimentação.' });
+  const amount = financialTransactionFormSchema.shape.amount.safeParse(values.amount ?? values.totalAmount);
+  if (!amount.success) ctx.addIssue({ code: 'custom', path: ['amount'], message: amount.error.issues[0].message });
+  if (values.intentType && ['INSTALLMENT', 'PAYABLE_BILL', 'RECURRING'].includes(values.intentType)) ctx.addIssue({ code: 'custom', path: ['intentType'], message: 'Registre apenas fatos realizados; parcelas futuras e recorrências não são suportadas.' });
+});
+const singleTransactionFormSchema = financialTransactionFormSchema.extend({ category_name: z.string().trim().nullish(), purpose: purposeSchema.nullish() });
+const uncertainMessage = 'Não foi possível confirmar o registro. Confira as movimentações antes de repetir.';
 
 interface UseFinancialAiChatProps {
   categories: FinancialCategory[];
-  onTransactionRegistered: () => void;
+  onTransactionRegistered: () => void | Promise<void>;
   userName?: string;
 }
 
@@ -40,9 +62,9 @@ export function useFinancialAiChat({
   userName = 'Operador',
 }: UseFinancialAiChatProps) {
   const [inputText, setInputText] = useState('');
-  const inputForm = useZodForm(textPromptFormSchema, { text: inputText });
-  const intentForm = useZodForm(financialIntentDraftFormSchema, {});
-  const transactionForm = useZodForm(financialTransactionFormSchema, { description: '', amount: 0, type: 'expense', date: '', payment_method: '' });
+  const inputForm = useZodForm(messageFormSchema, { text: inputText });
+  const intentForm = useZodForm(confirmationFormSchema, { paymentMethod: '' });
+  const transactionForm = useZodForm(singleTransactionFormSchema, { description: '', amount: 0, type: 'expense', date: '', payment_method: '' });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingIntent, setPendingIntent] = useState<ParsedFinancialIntent | null>(null);
@@ -70,16 +92,30 @@ export function useFinancialAiChat({
   const silenceTimerRef = useRef<any>(null);
   const inactivityTimerRef = useRef<any>(null);
   const geminiHistoryRef = useRef<GeminiContent[]>([]);
-  const confirmingTimelineCardIdsRef = useRef(new Set<string>());
   const liveSessionRef = useRef<GeminiLiveSession | null>(null);
+  const mountedRef = useRef(true);
+  const scopeRef = useRef({ userName, revision: 0 });
+  if (scopeRef.current.userName !== userName) scopeRef.current = { userName, revision: scopeRef.current.revision + 1 };
+  const operationRef = useRef<object | null>(null);
+  const uncertainWrites = useRef(new Set<string>());
+  const confirmedWrites = useRef(new Set<string>());
+  const completedBatchCounts = useRef(new Map<string, number>());
+  const latest = useRef({ inputText, editText, pendingIntent, timelineCards, messages, editingMessageId });
+  latest.current = { inputText, editText, pendingIntent, timelineCards, messages, editingMessageId };
 
   const voiceSessionIdRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
-      stopVoiceRecording();
+      mountedRef.current = false;
+      scopeRef.current.revision += 1;
+      void stopVoiceRecording();
       void liveSessionRef.current?.end();
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -132,6 +168,7 @@ export function useFinancialAiChat({
   };
 
   const handleClearChat = () => {
+    scopeRef.current.revision += 1;
     void liveSessionRef.current?.end();
     liveSessionRef.current = null;
     setLiveState(null);
@@ -165,11 +202,13 @@ export function useFinancialAiChat({
   };
 
   const handleStartEditMessage = (msg: ChatMessage) => {
+    if (operationRef.current) return;
     setEditingMessageId(msg.id);
     setEditText(msg.text);
   };
 
   const handleCancelEdit = () => {
+    if (operationRef.current) return;
     setEditingMessageId(null);
     setEditText('');
   };
@@ -209,135 +248,56 @@ export function useFinancialAiChat({
       .forEach((tool) => publishPreparedTransactionCard(tool, asstMsgId));
   };
 
-  const handleSaveAndResend = async (targetMsg: ChatMessage) => {
-    const newContent = editText.trim();
-    if (!newContent || loading) return;
-
-    setEditingMessageId(null);
-    setEditText('');
-
-    const targetIndex = messages.findIndex((m) => m.id === targetMsg.id);
-    if (targetIndex === -1) return;
-
-    const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const updatedMessages = messages.map((m, idx) => {
-      if (m.id === targetMsg.id) return { ...m, status: 'SUPERSEDED' as const };
-      if (idx > targetIndex) return { ...m, status: 'BRANCH_INACTIVE' as const };
-      return m;
-    });
-
-    const editedMsg: ChatMessage = {
-      id: `usr_${Date.now()}`,
-      sender: 'user',
-      text: newContent,
-      timestamp: timeStr,
-      parentMessageId: targetMsg.id,
-      version: (targetMsg.version || 1) + 1,
-      status: 'ACTIVE',
-      editedAt: timeStr,
-    };
-
-    setMessages([...updatedMessages, editedMsg]);
-    setLoading(true);
-    scrollToBottom();
-
-    try {
-      const { result, updatedHistory } = await MobileAgentService.sendMessage(
-        newContent,
-        geminiHistoryRef.current
-      );
-      geminiHistoryRef.current = updatedHistory;
-
-      const asstMsg: ChatMessage = {
-        id: `asst_${Date.now()}`,
-        sender: 'assistant',
-        text: result.answer,
-        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      };
-
-      setMessages((prev) => [...prev, asstMsg]);
-
-      publishPreparedTransactionCards(result.executedTools, asstMsg.id);
-    } catch (err: any) {
-      console.warn('Erro ao reenviar mensagem editada no mobile:', err);
-    } finally {
-      setLoading(false);
-      scrollToBottom();
+  const runOperation = async (kind: 'message' | 'write', action: (isCurrent: () => boolean) => Promise<unknown>) => {
+    if (operationRef.current) return false;
+    const token = {}, scope = scopeRef.current;
+    const revision = scope.revision;
+    const isCurrent = () => mountedRef.current && scopeRef.current === scope && scope.revision === revision;
+    operationRef.current = token;
+    if (kind === 'message') setLoading(true); else setRegistering(true);
+    try { return await action(isCurrent); }
+    finally {
+      if (operationRef.current === token) operationRef.current = null;
+      if (mountedRef.current) { if (kind === 'message') setLoading(false); else setRegistering(false); }
     }
   };
 
-  const handleSendMessage = async (textToSend?: string) => {
-    const messageText = (textToSend || inputText).trim();
-    if (!messageText || loading) return;
-    return inputForm.validateAndRun({ text: messageText }, async ({ text: messageText }) => {
-    setInputText('');
-    setLivePill(null);
-    const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-    const userMsg: ChatMessage = {
-      id: `usr_${Date.now()}`,
-      sender: 'user',
-      text: messageText,
-      timestamp: timeStr,
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setLoading(true);
-    scrollToBottom();
-
+  const sendValidatedMessage = (text: string, targetMessageId?: string) => runOperation('message', async (isCurrent) => {
     try {
-      const { result, updatedHistory } = await MobileAgentService.sendMessage(
-        messageText,
-        geminiHistoryRef.current
-      );
-      geminiHistoryRef.current = updatedHistory;
-
-      const asstMsg: ChatMessage = {
-        id: `asst_${Date.now()}`,
-        sender: 'assistant',
-        text: result.answer,
-        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      };
-
-      setMessages((prev) => [...prev, asstMsg]);
-
-      publishPreparedTransactionCards(result.executedTools, asstMsg.id);
-    } catch (err: any) {
-      console.warn('Erro ao processar mensagem com o agente Gemini no mobile:', err);
-      const errorMsg = err?.message || '';
-      let userFriendlyText =
-        'Desculpe, ocorreu uma falha ao consultar o assistente. Por favor, tente novamente.';
-
-      if (
-        errorMsg.includes('Chave de API do Gemini não configurada') ||
-        errorMsg.includes('API_KEY_INVALID') ||
-        errorMsg.includes('403')
-      ) {
-        userFriendlyText =
-          'A chave da API do Gemini não foi encontrada ou é inválida. Verifique as configurações do sistema.';
-      } else if (
-        errorMsg.includes('Network') ||
-        errorMsg.includes('Failed to fetch') ||
-        errorMsg.includes('network')
-      ) {
-        userFriendlyText =
-          'Não foi possível conectar ao servidor do Gemini. Verifique a sua conexão com a internet.';
-      }
-
-      const asstMsg: ChatMessage = {
-        id: `asst_${Date.now()}`,
-        sender: 'assistant',
-        text: userFriendlyText,
-        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        isAlert: true,
-      };
-      setMessages((prev) => [...prev, asstMsg]);
-    } finally {
-      setLoading(false);
-      scrollToBottom();
+      return await inputForm.validateAndRun({ text, targetMessageId }, async (values) => {
+        const sourceMessages = latest.current.messages;
+        const target = values.targetMessageId ? sourceMessages.find((message) => message.id === values.targetMessageId) : undefined;
+        if (values.targetMessageId && !target) { Alert.alert('Revise a mensagem', 'A mensagem editada não está mais disponível.'); return false; }
+        if (!isCurrent()) return false;
+        const response = await withTimeout(MobileAgentService.sendMessage(values.text, geminiHistoryRef.current), 45_000, null, 'Análise da mensagem financeira');
+        if (!isCurrent()) return false;
+        if (!response) throw new Error('A análise demorou demais. Sua mensagem foi preservada; tente novamente.');
+        const { result, updatedHistory } = response;
+        if (!result || typeof result.answer !== 'string') throw new Error('O assistente não confirmou a análise. Tente novamente.');
+        geminiHistoryRef.current = updatedHistory;
+        const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const editedMessage: ChatMessage = { id: 'usr_' + Date.now(), sender: 'user', text: values.text, timestamp: timeStr,
+          ...(target ? { parentMessageId: target.id, version: (target.version || 1) + 1, status: 'ACTIVE' as const, editedAt: timeStr } : {}) };
+        const assistantMessage: ChatMessage = { id: 'asst_' + Date.now(), sender: 'assistant', text: result.answer, timestamp: timeStr };
+        setMessages((current) => {
+          const targetIndex = target ? current.findIndex((message) => message.id === target.id) : -1;
+          const base = target ? current.map((message, index) => message.id === target.id ? { ...message, status: 'SUPERSEDED' as const } : index > targetIndex ? { ...message, status: 'BRANCH_INACTIVE' as const } : message) : current;
+          return [...base, editedMessage, assistantMessage];
+        });
+        if (target) { setEditingMessageId(null); setEditText(''); }
+        else setInputText((current) => current.trim() === values.text ? '' : current);
+        setLivePill(null);
+        publishPreparedTransactionCards(result.executedTools, assistantMessage.id);
+        scrollToBottom();
+        return true;
+      }, (errors) => { if (isCurrent()) Alert.alert('Revise a mensagem', Object.values(flattenFormErrors(errors))[0]); });
+    } catch (error) {
+      if (isCurrent()) Alert.alert('Erro ao consultar o assistente', error instanceof Error ? error.message : 'Não foi possível analisar a mensagem. Tente novamente.');
+      return false;
     }
-    }, (errors) => Alert.alert('Revise a mensagem', Object.values(flattenFormErrors(errors))[0]));
-  };
+  });
+  const handleSaveAndResend = (targetMsg: ChatMessage) => sendValidatedMessage(latest.current.editText, targetMsg.id);
+  const handleSendMessage = (textToSend?: string) => sendValidatedMessage(textToSend ?? latest.current.inputText);
 
   const resetInactivityTimer = () => {
     if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
@@ -499,59 +459,60 @@ export function useFinancialAiChat({
     setLivePill(null);
   };
 
-  const handleConfirmRegister = async () => {
-    if (!pendingIntent || registering) return;
-    return intentForm.validateAndRun({ ...pendingIntent }, async (values) => {
-
-    setRegistering(true);
-    markActiveTimelineCard('SAVING');
+  const confirmIntent = (intent: ParsedFinancialIntent, idempotencyKey: string, cardId: string | null, clearPending: boolean) => runOperation('write', async (isCurrent) => {
+    const writeKey = userName + ':' + idempotencyKey;
+    if (uncertainWrites.current.has(writeKey)) { Alert.alert('Registro não confirmado', uncertainMessage); return false; }
+    if (confirmedWrites.current.has(writeKey)) return false;
+    const mark = (state: CardVisualState) => { if (isCurrent()) setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, state)); };
+    let writing = false;
     try {
-    const draftIdKey = `${values.supplier || values.description}_${values.totalAmount || values.amount}_${values.installmentList?.length || 1}`;
-    const res = await confirmFinancialDraft(values as ParsedFinancialIntent, draftIdKey, userName);
-
-    if (res.success) {
-      finishActiveTimelineCard('SAVED');
-      setPendingIntent(null);
-      setActiveDraft(null);
-      onTransactionRegistered();
-    } else {
-      markActiveTimelineCard('ERROR');
-      Alert.alert('Erro ao Salvar', res.error || 'Nao foi possivel registrar a movimentacao.');
-    }
+      return await intentForm.validateAndRun({ ...intent, paymentMethod: intent.paymentMethod ?? '' }, async (values) => {
+        if (!isCurrent()) return false;
+        mark('SAVING'); writing = true;
+        const response = await withTimeout(confirmFinancialDraft(values as ParsedFinancialIntent, idempotencyKey, userName), 20_000, null, 'Confirmação financeira assistida');
+        if (!response || (response.success && !response.recordId)) {
+          uncertainWrites.current.add(writeKey); mark('ERROR');
+          if (isCurrent()) Alert.alert('Registro não confirmado', uncertainMessage);
+          return false;
+        }
+        if (response.success === true) confirmedWrites.current.add(writeKey);
+        if (!isCurrent()) return false;
+        if (response.success !== true) { mark('ERROR'); Alert.alert('Erro ao Salvar', response.error || 'Não foi possível registrar a movimentação.'); return false; }
+        confirmedWrites.current.add(writeKey);
+        writing = false;
+        const card = latest.current.timelineCards.find((entry) => entry.id === cardId);
+        const remaining = card?.intent.batchDraftsList?.length ? advanceFinancialBatch(card.intent) : null;
+        if (remaining && card) {
+          const completedCount = (completedBatchCounts.current.get(card.id) || 0) + 1;
+          completedBatchCounts.current.set(card.id, completedCount);
+          setTimelineCards((cards) => cards.map((entry) => entry.id === cardId ? { ...entry, intent: remaining, cardState: remaining.isReadyForConfirmation ? 'READY_TO_CONFIRM' : 'NEEDS_INPUT' } : entry));
+        } else mark('SAVED');
+        if (clearPending) { setPendingIntent(null); setActiveDraft(null); setActiveTimelineCardId(null); }
+        try {
+          const refreshed = await withTimeout(Promise.resolve(onTransactionRegistered()).then(() => true), 15_000, false, 'Atualização das movimentações');
+          if (!refreshed && isCurrent()) Alert.alert('Registro salvo', 'A atualização da lista demorou demais. Confira as movimentações.');
+        } catch { if (isCurrent()) Alert.alert('Registro salvo', 'Não foi possível atualizar a lista. Confira as movimentações.'); }
+        return true;
+      }, (errors) => { if (isCurrent()) Alert.alert('Revise a movimentação', Object.values(flattenFormErrors(errors))[0]); });
     } catch (error) {
-      markActiveTimelineCard('ERROR');
-      Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Não foi possível registrar a movimentação.');
-    } finally {
-      setRegistering(false);
+      if (writing) uncertainWrites.current.add(writeKey);
+      mark('ERROR');
+      if (isCurrent()) Alert.alert(writing ? 'Registro não confirmado' : 'Erro ao Salvar', writing ? uncertainMessage : error instanceof Error ? error.message : 'Revise a movimentação.');
+      return false;
     }
-    }, (errors) => Alert.alert('Revise a movimentação', Object.values(flattenFormErrors(errors))[0]));
+  });
+  const handleConfirmRegister = () => {
+    const intent = latest.current.pendingIntent;
+    if (!intent) return Promise.resolve(false);
+    const key = 'draft_' + JSON.stringify([intent.description || intent.supplier, intent.amount ?? intent.totalAmount, intent.date, intent.paymentMethod, intent.categoryId]);
+    return confirmIntent(intent, key, activeTimelineCardId, true);
   };
-
-  const handleConfirmTimelineCard = async (cardId: string, intent: ParsedFinancialIntent) => {
-    if (confirmingTimelineCardIdsRef.current.has(cardId)) return;
-    return intentForm.validateAndRun({ ...intent }, async (values) => {
-
-    confirmingTimelineCardIdsRef.current.add(cardId);
-    setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, 'SAVING'));
-
-    try {
-      const res = await confirmFinancialDraft(values as ParsedFinancialIntent, `agent-card_${cardId}`, userName);
-
-      if (res.success) {
-        setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, 'SAVED'));
-        onTransactionRegistered();
-        return;
-      }
-
-      setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, 'ERROR'));
-      Alert.alert('Erro ao Salvar', res.error || 'Nao foi possivel registrar a movimentacao.');
-    } catch (error) {
-      setTimelineCards((current) => updateFinancialTimelineCardState(current, cardId, 'ERROR'));
-      Alert.alert('Erro ao Salvar', error instanceof Error ? error.message : 'Não foi possível registrar a movimentação.');
-    } finally {
-      confirmingTimelineCardIdsRef.current.delete(cardId);
-    }
-    }, (errors) => Alert.alert('Revise a movimentação', Object.values(flattenFormErrors(errors))[0]));
+  const handleConfirmTimelineCard = (cardId: string, intent: ParsedFinancialIntent) => {
+    const current = latest.current.timelineCards.find((card) => card.id === cardId);
+    if (!current || current.cardState === 'SAVED' || current.cardState === 'DISCARDED') return Promise.resolve(false);
+    const expected = current.intent.batchDraftsList?.[0] || current.intent;
+    if (JSON.stringify(expected) !== JSON.stringify(intent)) return Promise.resolve(false);
+    return confirmIntent(expected, 'agent-card_' + cardId + '_' + (completedBatchCounts.current.get(cardId) || 0), cardId, false);
   };
 
   const handleSelectCandidate = (candidate: any) => {
@@ -569,41 +530,43 @@ export function useFinancialAiChat({
     setPendingIntent(updated);
   };
 
-  const handleConfirmRegisterSingle = async (intent: ParsedFinancialIntent, index: number) => {
+  const handleConfirmRegisterSingle = (intent: ParsedFinancialIntent, index: number) => runOperation('write', async (isCurrent) => {
+    const draft = intent.batchDraftsList?.[index] || intent;
+    const values = {
+      type: draft.type || 'expense', amount: draft.amount ?? draft.totalAmount ?? 0, description: draft.description || '',
+      payment_method: draft.paymentMethod || '', date: draft.date || new Date().toISOString().split('T')[0],
+      category_name: draft.categoryName, purpose: draft.businessPurpose === 'UNKNOWN' ? undefined : draft.businessPurpose,
+    };
+    const key = userName + ':single:' + JSON.stringify(values);
+    if (confirmedWrites.current.has(key)) return false;
+    if (uncertainWrites.current.has(key)) { Alert.alert('Registro não confirmado', uncertainMessage); return false; }
+    let writing = false;
     try {
-      const draftToRegister = intent.batchDraftsList?.[index] || intent;
-      const amountValue = draftToRegister.amount || draftToRegister.totalAmount || 0;
-
-      if (amountValue <= 0) {
-        Alert.alert(
-          'Valor Invalido',
-          'Esta movimentacao nao possui valor informado e nao pode ser registrada.'
-        );
-        return;
-      }
-
-      setRegistering(true);
-      const saved = await transactionForm.validateAndRun({
-        type: draftToRegister.type || 'expense',
-        amount: amountValue,
-        description: draftToRegister.description || '',
-        payment_method: draftToRegister.paymentMethod || '',
-        date: draftToRegister.date || new Date().toISOString().split('T')[0],
-      }, async (values) => { await createFinancialTransaction({ ...values, category_name: draftToRegister.categoryName, purpose:
-          draftToRegister.businessPurpose && draftToRegister.businessPurpose !== 'UNKNOWN'
-            ? draftToRegister.businessPurpose
-            : null,
-      }); return true; }, (errors) => Alert.alert('Revise a movimentação', Object.values(flattenFormErrors(errors))[0]));
-      setRegistering(false);
-      if (!saved) return;
-      onTransactionRegistered();
-      finishActiveTimelineCard('SAVED');
-    } catch (err) {
-      setRegistering(false);
-      markActiveTimelineCard('ERROR');
-      Alert.alert('Erro', 'Nao foi possivel registrar a transacao.');
+      return await transactionForm.validateAndRun(values, async (parsed) => {
+        if (!isCurrent()) return false;
+        writing = true;
+        const result = await withTimeout(createFinancialTransaction(parsed), 20_000, null, 'Registro financeiro assistido');
+        if (!result || (result.success && !result.data?.id)) {
+          uncertainWrites.current.add(key);
+          if (isCurrent()) Alert.alert('Registro não confirmado', uncertainMessage);
+          return false;
+        }
+        if (result.success === true) confirmedWrites.current.add(key);
+        if (!isCurrent()) return false;
+        if (result.success !== true) { Alert.alert('Erro ao Salvar', result.error || 'Não foi possível registrar a movimentação.'); return false; }
+        confirmedWrites.current.add(key);
+        writing = false;
+        if (intent.batchDraftsList?.length) setPendingIntent(advanceFinancialBatch(intent, index)); else setPendingIntent(null);
+        finishActiveTimelineCard('SAVED');
+        onTransactionRegistered();
+        return true;
+      }, (errors) => { if (isCurrent()) Alert.alert('Revise a movimentação', Object.values(flattenFormErrors(errors))[0]); });
+    } catch {
+      if (writing) uncertainWrites.current.add(key);
+      if (isCurrent()) Alert.alert('Registro não confirmado', uncertainMessage);
+      return false;
     }
-  };
+  });
 
   return {
     inputText,

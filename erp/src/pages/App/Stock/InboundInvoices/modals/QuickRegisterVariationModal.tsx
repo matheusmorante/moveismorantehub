@@ -1,9 +1,8 @@
-import type { z } from 'zod';
-import { ZodForm } from '@/components/forms/ZodForm';
+import { FormProvider } from 'react-hook-form';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { quickRegisterSelectionFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
-import { toast } from 'react-toastify';
 
 export interface QuickRegisterItem {
   readonly productDescription: string;
@@ -28,7 +27,7 @@ interface QuickRegisterVariationModalProps {
   readonly item: QuickRegisterItem | null;
   readonly supplierId?: string;
   readonly onClose: () => void;
-  readonly onConfirmSelection: (selection: QuickRegisterSelection) => void;
+  readonly onConfirmSelection: (selection: QuickRegisterSelection) => Promise<boolean>;
 }
 
 export function QuickRegisterVariationModal({
@@ -40,11 +39,21 @@ export function QuickRegisterVariationModal({
 }: QuickRegisterVariationModalProps) {
   const [mode, setMode] = useState<'EXISTING_PARENT' | 'NEW_PARENT'>('EXISTING_PARENT');
   const [selectedParent, setSelectedParent] = useState<{ id: string; name: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const inFlight = useRef(false), active = useRef(true);
+  const context = useRef({ isOpen, item, supplierId });
+  if (context.current.isOpen !== isOpen || context.current.item !== item || context.current.supplierId !== supplierId) {
+    context.current = { isOpen, item, supplierId };
+  }
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const form = useZodForm(quickRegisterSelectionFormSchema, { mode, parentProductId: selectedParent?.id });
+  const close = () => { if (!inFlight.current) onClose(); };
 
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !inFlight.current) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -54,25 +63,36 @@ export function QuickRegisterVariationModal({
     if (!isOpen) return;
     setMode('EXISTING_PARENT');
     setSelectedParent(null);
-  }, [isOpen]);
+    setError('');
+  }, [isOpen, item, supplierId]);
 
   if (!isOpen || !item) return null;
 
-  const handleSubmit = (values: z.output<typeof quickRegisterSelectionFormSchema>) => {
-    if (values.mode === 'EXISTING_PARENT') {
-      if (!selectedParent?.id || values.parentProductId !== selectedParent.id) {
-        toast.warning('Selecione o produto pai.');
-        return;
-      }
-      onConfirmSelection({
-        mode: 'EXISTING_PARENT',
-        parentProductId: values.parentProductId,
-        parentProductName: selectedParent.name,
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
+    const submittedContext = context.current;
+    setBusy(true);
+    setError('');
+    try {
+      await form.validateAndRun({ mode, parentProductId: selectedParent?.id }, async (values) => {
+        if (!active.current || submittedContext !== context.current) return;
+        const selection: QuickRegisterSelection = values.mode === 'EXISTING_PARENT'
+          ? { mode: 'EXISTING_PARENT', parentProductId: values.parentProductId!, parentProductName: selectedParent?.name || '' }
+          : { mode: 'NEW_PARENT' };
+        if (values.mode === 'EXISTING_PARENT' && values.parentProductId !== selectedParent?.id.trim()) {
+          throw new Error('Selecione o produto pai.');
+        }
+        if (!await onConfirmSelection(selection)) throw new Error('Não foi possível preparar o cadastro. Tente novamente.');
+      }, (errors) => {
+        if (active.current && submittedContext === context.current) setError(Object.values(flattenFormErrors(errors))[0] || 'Confira os campos.');
       });
-    } else {
-      onConfirmSelection({
-        mode: 'NEW_PARENT',
-      });
+    } catch (failure) {
+      if (active.current && context.current === submittedContext) setError(failure instanceof Error ? failure.message : 'Erro ao preparar o cadastro.');
+    } finally {
+      inFlight.current = false;
+      if (active.current) setBusy(false);
     }
   };
 
@@ -86,7 +106,8 @@ export function QuickRegisterVariationModal({
       <button
         type="button"
         aria-label="Fechar cadastro rápido"
-        onClick={onClose}
+        onClick={close}
+        disabled={busy}
         className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs cursor-default border-0 p-0 m-0 w-full h-full"
       />
       <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
@@ -110,7 +131,8 @@ export function QuickRegisterVariationModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
+            disabled={busy}
             aria-label="Fechar"
             className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 transition-colors"
           >
@@ -118,7 +140,11 @@ export function QuickRegisterVariationModal({
           </button>
         </header>
 
-        <ZodForm schema={quickRegisterSelectionFormSchema} values={{ mode, parentProductId: selectedParent?.id }} onValid={handleSubmit} className="p-6 space-y-5">
+        <FormProvider {...form}>
+        <form noValidate onSubmit={handleSubmit} className="p-6 space-y-5" aria-busy={busy}>
+          {error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
+          {busy && <p role="status" className="flex items-center gap-2 text-sm text-indigo-600"><i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" />Preparando o cadastro do produto...</p>}
+          <fieldset disabled={busy} className="space-y-5">
           {/* Seleção do Modo de Cadastro */}
           <div className="space-y-2">
             <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -168,11 +194,13 @@ export function QuickRegisterVariationModal({
                 Produto Pai <span className="text-rose-500">*</span>
               </label>
               <ProductAutocomplete
+                disabled={busy}
                 supplierId={supplierId}
                 parentsOnly
                 value={selectedParent?.name || ''}
                 isSelected={Boolean(selectedParent)}
                 placeholder="Digite 2 ou mais letras para buscar o produto pai..."
+                onChange={() => setSelectedParent(null)}
                 onSelect={(prod) =>
                   setSelectedParent({ id: prod.id as string, name: prod.name || prod.title || '' })
                 }
@@ -184,7 +212,7 @@ export function QuickRegisterVariationModal({
           <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 cursor-pointer transition-colors"
             >
               Cancelar
@@ -192,14 +220,16 @@ export function QuickRegisterVariationModal({
 
             <button
               type="submit"
-              disabled={mode === 'EXISTING_PARENT' && !selectedParent}
+              disabled={busy}
               className="rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-black text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2 shadow-md shadow-indigo-600/20 cursor-pointer"
             >
               <i className="bi bi-box-arrow-up-right text-xs" aria-hidden="true" />
               <span>Abrir Cadastramento</span>
             </button>
           </div>
-        </ZodForm>
+          </fieldset>
+        </form>
+        </FormProvider>
       </div>
     </div>
   );

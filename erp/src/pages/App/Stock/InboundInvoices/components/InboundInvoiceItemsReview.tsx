@@ -12,7 +12,7 @@ interface InboundInvoiceItemsReviewProps {
   items: InboundInvoiceItem[];
   supplierId?: string;
   suppliers: Person[];
-  onChange: (itemNumber: number, update: Partial<InboundInvoiceItem>) => void;
+  onChange: (itemNumber: number, update: Partial<InboundInvoiceItem>) => void | boolean | Promise<void | boolean>;
   onProcessingSuggestionsChange?: (processing: boolean) => void;
   suggestionsEnabled?: boolean;
 }
@@ -39,7 +39,9 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
           </div>
         </header>
 
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+        {review.linkError && <p role="alert" className="px-5 py-3 text-sm text-rose-700 dark:text-rose-300">{review.linkError}</p>}
+        {review.linkBusy && <p role="status" className="flex items-center gap-2 px-5 py-3 text-sm text-blue-700 dark:text-blue-300"><i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" />Confirmando a alteração do vínculo...</p>}
+        <fieldset disabled={review.linkBusy} className="divide-y divide-slate-100 dark:divide-slate-800">
           {items.map((item) => (
             <InboundInvoiceItemRow
               key={item.itemNumber}
@@ -57,7 +59,7 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
               onUpdateItem={props.onChange}
             />
           ))}
-        </div>
+        </fieldset>
 
         {review.unlinkedItems.length > 0 && (
           <footer className="border-t border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-800 dark:bg-slate-950/30">

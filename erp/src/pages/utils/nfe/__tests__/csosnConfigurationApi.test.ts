@@ -108,14 +108,14 @@ describe('configuração e preparação CSOSN server-side', () => {
       })
     );
   });
-  it('usa 103 em item de teste e o CSOSN atual do produto cadastrado', async () => {
+  it('preserva o CSOSN já registrado nos itens mesmo após alterar o cadastro', async () => {
     const state = database();
     mocks.createClient.mockReturnValue(state.db);
     const before = structuredClone(state.items);
     const result = await call('POST', { environment: 2, orderId: 'synthetic' });
     expect(result.value.items).toEqual([
-      { itemNumber: 1, csosn: '103', source: 'default', cfop: '5102', cfopSource: 'INTERNAL_RULE' },
-      { itemNumber: 2, csosn: '500', source: 'catalog' },
+      { itemNumber: 1, csosn: '102', source: 'catalog', cfop: '5102', cfopSource: 'INTERNAL_RULE' },
+      { itemNumber: 2, csosn: '102', source: 'catalog' },
     ]);
     expect(state.items).toEqual(before);
     expect(state.upsert).not.toHaveBeenCalled();

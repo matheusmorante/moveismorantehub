@@ -24,24 +24,46 @@ export async function POST(req: Request) {
 
     // Se for DELETE explícito, busca possíveis variações para remover todos os retailer_ids associados
     if (action === 'DELETE') {
+      const { data: parentProduct } = await supabase
+        .from('products')
+        .select('id, code')
+        .eq('id', productId)
+        .maybeSingle();
+
       const { data: variations } = await supabase
         .from('product_variations')
         .select('id, sku')
         .eq('product_id', productId);
 
-      const requests: MetaBatchRequest[] = [
-        {
+      const requests: MetaBatchRequest[] = [];
+      const parentCode = parentProduct?.code ? String(parentProduct.code).trim() : '';
+      if (parentCode) {
+        requests.push({
           method: 'DELETE',
-          retailer_id: String(productId),
-        },
-      ];
+          retailer_id: parentCode,
+        });
+      }
+      // Garante remoção caso tenha sido persistido no Meta via UUID anteriormente
+      requests.push({
+        method: 'DELETE',
+        retailer_id: String(productId),
+      });
 
       if (variations && variations.length > 0) {
         for (const v of variations) {
-          requests.push({
-            method: 'DELETE',
-            retailer_id: String(v.sku || v.id),
-          });
+          const varSku = v.sku ? String(v.sku).trim() : '';
+          if (varSku) {
+            requests.push({
+              method: 'DELETE',
+              retailer_id: varSku,
+            });
+          }
+          if (v.id) {
+            requests.push({
+              method: 'DELETE',
+              retailer_id: String(v.id),
+            });
+          }
         }
       }
 
@@ -67,19 +89,34 @@ export async function POST(req: Request) {
 
     // Se o produto foi despublicado, rascunho ou excluído logicamente, remova do Meta Catalog
     if (product.status !== 'published' || product.deleted_at || product.deleted || product.is_draft) {
-      const requests: MetaBatchRequest[] = [
-        {
+      const requests: MetaBatchRequest[] = [];
+      const parentCode = product.code ? String(product.code).trim() : '';
+      if (parentCode) {
+        requests.push({
           method: 'DELETE',
-          retailer_id: String(productId),
-        },
-      ];
+          retailer_id: parentCode,
+        });
+      }
+      requests.push({
+        method: 'DELETE',
+        retailer_id: String(productId),
+      });
 
       if (product.product_variations && product.product_variations.length > 0) {
         for (const v of product.product_variations) {
-          requests.push({
-            method: 'DELETE',
-            retailer_id: String(v.sku || v.id),
-          });
+          const varSku = v.sku ? String(v.sku).trim() : '';
+          if (varSku) {
+            requests.push({
+              method: 'DELETE',
+              retailer_id: varSku,
+            });
+          }
+          if (v.id) {
+            requests.push({
+              method: 'DELETE',
+              retailer_id: String(v.id),
+            });
+          }
         }
       }
 
@@ -135,6 +172,10 @@ export async function POST(req: Request) {
 
     if (hasVariations) {
       // O pai nunca é vendido diretamente quando há variações
+      const parentCode = product.code ? String(product.code).trim() : '';
+      if (parentCode) {
+        requests.push({ method: 'DELETE', retailer_id: parentCode });
+      }
       requests.push({ method: 'DELETE', retailer_id: String(product.id) });
 
       for (const v of variations) {
@@ -143,11 +184,23 @@ export async function POST(req: Request) {
           v.status !== 'hidden' &&
           (v.status === 'published' || (!v.status && product.status === 'published'));
 
+        const varSku =
+          String(v.sku || '').trim() ||
+          (product.code
+            ? `${product.code}-${String(variations.indexOf(v) + 1).padStart(2, '0')}`
+            : String(v.id));
+
         if (!isPublished) {
           requests.push({
             method: 'DELETE',
-            retailer_id: String(v.sku || v.id),
+            retailer_id: varSku,
           });
+          if (v.id) {
+            requests.push({
+              method: 'DELETE',
+              retailer_id: String(v.id),
+            });
+          }
           continue;
         }
 
@@ -214,7 +267,7 @@ export async function POST(req: Request) {
 
         const isStockAvailable = v.stock === null || v.stock === undefined || Number(v.stock) > 0;
         const quantityToSell = v.stock !== null && v.stock !== undefined ? Math.max(0, Number(v.stock)) : 1;
-        const retailerId = String(v.sku || v.id);
+        const retailerId = varSku;
 
         requests.push({
           method: 'UPDATE',
@@ -250,9 +303,10 @@ export async function POST(req: Request) {
       mappedData.custom_label_0 = productType;
       mappedData.item_group_id = '';
 
+      const parentSku = String(product.code || product.sku || '').trim() || String(product.id);
       requests.push({
         method: 'UPDATE',
-        retailer_id: String(product.code || product.id),
+        retailer_id: parentSku,
         data: mappedData,
       });
     }

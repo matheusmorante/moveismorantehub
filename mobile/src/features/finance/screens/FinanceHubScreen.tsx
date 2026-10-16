@@ -57,10 +57,7 @@ export const FinanceHubScreen: React.FC<Props> = ({ userProfile, isDarkMode = fa
         }}
         categories={hub.categories}
         transaction={hub.editingTransaction}
-        onSuccess={() => {
-          hub.setEditingTransaction(null);
-          hub.loadData(false);
-        }}
+        onSuccess={() => hub.loadData(false)}
         userName={hub.userName}
         isDarkMode={isDarkMode}
       />

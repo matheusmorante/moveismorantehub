@@ -289,9 +289,15 @@ export function buildMetaCatalogItems(
 
         const varLink = `https://moveismorante.com.br/produto/${parentSlug}?var=${variation.id}`;
 
+        const varSku =
+          String(variation.sku || variation.code || '').trim() ||
+          (parent.code
+            ? `${parent.code}-${String(parentVariations.indexOf(variation) + 1).padStart(2, '0')}`
+            : variation.id);
+
         allItems.push({
           id: variation.id,
-          code: variation.sku || variation.code || variation.id,
+          code: varSku,
           name: variationTitle,
           description: fullDescription,
           sales_price: varPrice,
@@ -326,10 +332,11 @@ export function buildMetaCatalogItems(
       }
 
       const prodLink = `https://moveismorante.com.br/produto/${parentSlug}`;
+      const parentSku = String(parent.code || parent.sku || '').trim() || parent.id;
 
       allItems.push({
         id: parent.id,
-        code: parent.code || parent.sku || parent.id,
+        code: parentSku,
         name: parentTitle,
         description: fullDescription,
         sales_price: parentPrice,

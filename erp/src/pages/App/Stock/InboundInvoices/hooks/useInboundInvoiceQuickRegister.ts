@@ -1,4 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
+import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundItemCosts';
+import { createInboundQuickRegisterSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import type Product from '@/pages/types/product.type';
 import { getFullProduct } from '@/pages/utils/productService';
 import {
@@ -11,7 +16,7 @@ import type {
 } from '../modals/QuickRegisterVariationModal';
 import { toast } from 'react-toastify';
 
-export function useInboundInvoiceQuickRegister(supplierId?: string) {
+export function useInboundInvoiceQuickRegister(supplierId?: string, items: InboundInvoiceItem[] = []) {
   const [quickRegisterTarget, setQuickRegisterTarget] = useState<{
     itemNumber: number;
     item: QuickRegisterItem;
@@ -25,50 +30,79 @@ export function useInboundInvoiceQuickRegister(supplierId?: string) {
   const [suggestedCategory, setSuggestedCategory] = useState<{ id: string; name: string } | null>(
     null
   );
+  const sourceItem = items.find((item) => item.itemNumber === quickRegisterTarget?.itemNumber);
+  const sourceSnapshot = JSON.stringify(sourceItem);
+  const context = useRef({ supplierId, target: quickRegisterTarget, sourceSnapshot });
+  if (context.current.supplierId !== supplierId || context.current.target !== quickRegisterTarget || context.current.sourceSnapshot !== sourceSnapshot) {
+    context.current = { supplierId, target: quickRegisterTarget, sourceSnapshot };
+  }
+  const active = useRef(true), inFlight = useRef(false);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const preparationForm = useZodForm(createInboundQuickRegisterSchema(items.map((item) => item.itemNumber)), {
+    itemNumber: quickRegisterTarget?.itemNumber || 0, supplierId: supplierId || '',
+    item: quickRegisterTarget?.item || { productDescription: '', quantity: 0, unitCost: 0 },
+    selection: { mode: 'NEW_PARENT' },
+  });
 
   const handleQuickRegisterConfirm = async (selection: QuickRegisterSelection) => {
-    if (!quickRegisterTarget) return;
-    const { itemNumber, item } = quickRegisterTarget;
-    setQuickRegisterTarget(null);
-
-    if (selection.mode === 'EXISTING_PARENT') {
-      try {
-        setIsPreparingProduct(true);
-        const parentProduct = await getFullProduct(selection.parentProductId);
-        if (!parentProduct) {
-          setIsPreparingProduct(false);
-          toast.error('Produto pai não encontrado.');
-          return;
+    if (inFlight.current) return false;
+    inFlight.current = true;
+    const submittedContext = context.current;
+    let expired = false;
+    const assertCurrent = () => {
+      if (expired || !active.current || submittedContext !== context.current) {
+        throw new Error('O item ou fornecedor mudou. Reabra o cadastro rápido.');
+      }
+    };
+    let validationError = 'Selecione o item da nota.';
+    try {
+      const result = await preparationForm.validateAndRun({
+        itemNumber: quickRegisterTarget?.itemNumber || 0, supplierId: supplierId || '',
+        item: quickRegisterTarget?.item || { productDescription: '', quantity: 0, unitCost: 0 }, selection,
+      }, async (data) => {
+        assertCurrent();
+        if (!sourceItem || data.item.productDescription !== sourceItem.productDescription.trim() ||
+          data.item.productCode !== sourceItem.productCode.trim() || data.item.quantity !== sourceItem.quantity ||
+          data.item.unitCost !== sourceItem.unitCost || data.item.unit !== sourceItem.unit.trim() ||
+          data.item.ncm !== sourceItem.ncm?.trim() ||
+          (data.item.finalCost !== undefined && data.item.finalCost !== itemCostWithAdditionalCosts(sourceItem))) {
+          throw new Error('O item da nota mudou. Reabra o cadastro rápido.');
         }
-
-        const updatedParentProduct = await prepareExistingParentNewVariation(parentProduct, item);
-
-        setIsPreparingProduct(false);
-        setCreatingItemNumber(itemNumber);
-        setCreatingVariationId(
-          updatedParentProduct.variations?.[updatedParentProduct.variations.length - 1]?.id || null
-        );
-        setEditingParentProduct(updatedParentProduct);
-        setIsProductModalOpen(true);
-      } catch (err: any) {
-        setIsPreparingProduct(false);
-        toast.error(err.message || 'Erro ao carregar produto pai.');
-      }
-    } else {
-      try {
         setIsPreparingProduct(true);
-        const preparedData = await prepareNewParentWithVariation(item, supplierId);
-        setIsPreparingProduct(false);
-
-        setCreatingItemNumber(itemNumber);
-        setCreatingVariationId(preparedData.variations?.[0]?.id || null);
-        setEditingParentProduct(null);
-        setInitialProductData(preparedData);
+        const pending = (async () => {
+          if (data.selection.mode === 'EXISTING_PARENT') {
+            const parent = await getFullProduct(data.selection.parentProductId!);
+            assertCurrent();
+            if (!parent || parent.id !== data.selection.parentProductId || parent.deleted || parent.isVariation || parent.active === false) {
+              throw new Error('Produto pai não encontrado ou indisponível.');
+            }
+            if (!(parent.supplierIds || []).includes(data.supplierId) && (parent.mainSupplierId || parent.supplierId) !== data.supplierId) {
+              throw new Error('O produto pai não pertence mais ao fornecedor da nota. Selecione outro produto.');
+            }
+            return { existing: true, product: await prepareExistingParentNewVariation(parent, data.item) };
+          }
+          return { existing: false, product: await prepareNewParentWithVariation(data.item, data.supplierId, assertCurrent) };
+        })();
+        const prepared = await withTimeout(pending, 20000, null, 'preparação do cadastro rápido');
+        if (!prepared) {
+          expired = true;
+          throw new Error('A preparação demorou demais. Tente novamente.');
+        }
+        assertCurrent();
+        setCreatingItemNumber(data.itemNumber);
+        setCreatingVariationId(prepared.existing ? prepared.product.variations?.at(-1)?.id || null : prepared.product.variations?.[0]?.id || null);
+        setEditingParentProduct(prepared.existing ? prepared.product as Product : null);
+        setInitialProductData(prepared.existing ? null : prepared.product);
         setIsProductModalOpen(true);
-      } catch (err: any) {
-        setIsPreparingProduct(false);
-        toast.error(err.message || 'Erro ao preparar formulário de cadastro.');
-      }
+        setQuickRegisterTarget(null);
+        return true;
+      }, (errors) => { validationError = Object.values(flattenFormErrors(errors))[0] || validationError; });
+      if (!result) throw new Error(validationError);
+      return true;
+    } finally {
+      expired = true;
+      inFlight.current = false;
+      if (active.current) setIsPreparingProduct(false);
     }
   };
 

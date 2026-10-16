@@ -9,7 +9,6 @@ import type { NfeDocumentRecord } from './types/fiscalDocuments.types';
 
 import { useFiscalDocumentsList } from './hooks/useFiscalDocumentsList';
 import { useFiscalDocumentDetails } from './hooks/useFiscalDocumentDetails';
-import { useFiscalCceModal } from './hooks/useFiscalCceModal';
 import { useFiscalCancelModal } from './hooks/useFiscalCancelModal';
 import { useFiscalSefazActions } from './hooks/useFiscalSefazActions';
 
@@ -17,7 +16,6 @@ import { FiscalDocumentsHeader } from './components/FiscalDocumentsHeader';
 import { FiscalDocumentsFilterBar } from './components/FiscalDocumentsFilterBar';
 import { FiscalDocumentsTable } from './components/FiscalDocumentsTable';
 import { FiscalDocumentsPagination } from './components/FiscalDocumentsPagination';
-import { FiscalCceModal } from './modals/FiscalCceModal';
 import { FiscalCancelModal } from './modals/FiscalCancelModal';
 import NfeOperationDraftModal from './modals/NfeOperationDraftModal';
 import { IssuedFiscalDocumentDetailsModal } from './modals/IssuedFiscalDocumentDetailsModal';
@@ -70,9 +68,6 @@ export default function FiscalDocumentsPage() {
     detailsLoadingId,
     toggleDetails,
   } = useFiscalDocumentDetails();
-
-  // Hook de CC-e Modal
-  const cceModal = useFiscalCceModal(loadDocuments);
 
   // Hook de Cancelamento Modal
   const cancelModal = useFiscalCancelModal({
@@ -191,7 +186,6 @@ export default function FiscalDocumentsPage() {
           onPrintDanfe={sefaz.handlePrint}
           onDownloadXml={sefaz.handleDownload}
           onConsultSituation={sefaz.handleConsultSituation}
-          onOpenCce={cceModal.openCce}
           onOpenFiscalTreatment={(doc) =>
             cancelModal.openCancel(doc, cancellationEligibility[doc.id])
           }
@@ -208,23 +202,6 @@ export default function FiscalDocumentsPage() {
           />
         )}
       </div>
-
-      <FiscalCceModal
-        isOpen={cceModal.showCceModal}
-        document={cceModal.selectedDoc}
-        cceText={cceModal.cceText}
-        onCceTextChange={cceModal.setCceText}
-        isSubmitting={cceModal.isSubmittingCce}
-        isLoadingInfo={cceModal.isLoadingCceInfo}
-        previousCorrection={cceModal.ccePreviousCorrection}
-        nextSequence={cceModal.cceNextSequence}
-        isPending={cceModal.ccePending}
-        productionConfirmed={cceModal.productionCceConfirmed}
-        onProductionConfirmedChange={cceModal.setProductionCceConfirmed}
-        onClose={cceModal.closeCce}
-        onSubmit={cceModal.handleSubmit}
-        onReconcile={cceModal.handleReconcile}
-      />
 
       <FiscalCancelModal
         isOpen={cancelModal.showCancelModal}

@@ -1,24 +1,14 @@
 /** @jsxImportSource react */
-import React, { useState, useEffect, useCallback } from 'react';
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { AppSettingsFormSchema } from '../../../../../shared-utils/appSettingsFormSchema';
-import type { z } from 'zod';
-import {
-  getSettings,
-  saveSettings,
-  AppSettings,
-  subscribeToSettings,
-} from '@/pages/utils/settingsService';
+import React, { useState, useEffect } from 'react';
+import { useSettingsForm } from './hooks/useSettingsForm';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 
-import { Link } from 'react-router-dom';
 import SettingsSidebar from './components/SettingsSidebar';
 import SettingsSection from './components/SettingsSection';
 import StatusLabelsSection from './components/StatusLabelsSection';
 import LogisticsSection from './components/LogisticsSection';
 import HandlingSection from './components/HandlingSection';
-import AutoScrollSection from './components/AutoScrollSection';
 import AppearanceSection from './components/AppearanceSection';
 import WhatsAppConfigSection from './components/WhatsAppConfigSection';
 import OrderNotificationTestSection from './components/OrderNotificationTestSection';
@@ -33,73 +23,15 @@ import PrintConfigSection from './components/PrintConfigSection';
 import { settingsCategories } from './components/settingsCategories';
 
 export default function Settings(): any {
-  const { theme, setTheme } = useTheme();
-  const { isAdmin } = useAuth();
-  const [settings, setSettings] = useState<AppSettings>(getSettings());
+  const { setTheme } = useTheme();
+  const { isAdmin, user } = useAuth();
   const [search, setSearch] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const { validateAndRun: validateSettings } = useZodForm(AppSettingsFormSchema, settings as unknown as z.input<typeof AppSettingsFormSchema>);
-  const saveTimeoutRef = React.useRef<any>(null);
-
-  useEffect(() => {
-    const unsubscribe = subscribeToSettings((newSettings) => {
-      setSettings(newSettings);
-
-      if (newSettings.defaultTheme && newSettings.defaultTheme !== (theme as any)) {
-        setTheme(newSettings.defaultTheme);
-      }
-    });
-    return () => unsubscribe();
-  }, [setTheme, theme]);
-
+  const { settings, handleChange, isSaving, isLoading, validationError, blocked, reload, flush, uncertain, hasPendingEdits } = useSettingsForm(user?.id || null, setTheme);
   useEffect(() => {
     const hash = window.location.hash.replace('#', '');
-    if (hash) {
-      setTimeout(() => {
-        const element = document.getElementById(hash);
-        element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 500);
-    }
+    const timer = hash ? setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 500) : null;
+    return () => { if (timer) clearTimeout(timer); };
   }, []);
-
-  const handleChange = useCallback(
-    (path: string, value: any) => {
-      if (path === 'defaultTheme') {
-        setTheme(value);
-      }
-
-      setSettings((prev: AppSettings) => {
-        const next = { ...prev };
-        const parts = path.split('.');
-        let current: any = next;
-
-        for (let i = 0; i < parts.length - 1; i++) {
-          current[parts[i]] = { ...current[parts[i]] };
-          current = current[parts[i]];
-        }
-
-        current[parts[parts.length - 1]] = value;
-
-        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        setIsSaving(true);
-        saveTimeoutRef.current = setTimeout(async () => {
-          try {
-            await validateSettings(next as unknown as z.input<typeof AppSettingsFormSchema>, async (data) => {
-              await saveSettings(data as unknown as AppSettings);
-              setValidationError(null);
-            }, (errors) => {
-              const [path, message] = Object.entries(flattenFormErrors(errors))[0] || ['configuração', 'Valor inválido.'];
-              setValidationError(`Confira ${path}: ${message}`);
-            });
-          } finally { setIsSaving(false); }
-        }, 1000);
-
-        return next;
-      });
-    },
-    [setTheme, validateSettings]
-  );
 
   const isVisible = (id: string) => {
     const category = settingsCategories.find((c) => c.id === id);
@@ -135,7 +67,7 @@ export default function Settings(): any {
                 Configurações
               </h1>
               {isSaving && (
-                <span className="flex items-center gap-2 text-xs font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full animate-pulse">
+                <span role="status" className="flex items-center gap-2 text-xs font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full animate-pulse">
                   <i className="bi bi-cloud-arrow-up-fill" /> Salvando...
                 </span>
               )}
@@ -158,7 +90,9 @@ export default function Settings(): any {
         </header>
         {validationError && <div role="alert" className="mb-6 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{validationError}</div>}
 
-        <div className="w-full space-y-8 pb-48">
+        {isLoading && <p role="status"><i className="bi bi-arrow-repeat animate-spin inline-block mr-2" aria-hidden="true" />Confirmando configurações na nuvem...</p>}
+        {validationError && !uncertain && (blocked || hasPendingEdits) && <button type="button" disabled={isSaving} onClick={() => { if (blocked) reload(); else void flush(); }}>{blocked ? 'Tentar carregar novamente' : 'Tentar salvar novamente'}</button>}
+        <fieldset disabled={blocked} className="min-w-0 w-full space-y-8 pb-48">
           <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xl shadow-slate-200/20 dark:shadow-none space-y-1">
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 px-3 mb-3">
               Minha Conta
@@ -324,7 +258,7 @@ export default function Settings(): any {
               <PrintConfigSection />
             </SettingsSection>
           </div>
-        </div>
+        </fieldset>
       </div>
     </div>
   );

@@ -34,8 +34,12 @@ export const deleteInboundInvoice = async (invoiceIdOrKey: string): Promise<void
   }
 };
 
-export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<InboundInvoice> => {
-  if (isSampleInvoice(invoice)) return invoice;
+export const saveInboundInvoice = async (invoice: InboundInvoice, options: { requireConfirmation?: boolean; assertCurrent?: () => void } = {}): Promise<InboundInvoice> => {
+  if (isSampleInvoice(invoice)) {
+    if (options.requireConfirmation) throw new Error('Não é possível gravar alterações na nota demonstrativa.');
+    return invoice;
+  }
+  options.assertCurrent?.();
   const accessKey = normalizeFiscalIdentifier(invoice.nfeKey);
   const validId = isValidUuid(invoice.id) ? invoice.id : crypto.randomUUID();
   const invoiceToSave: InboundInvoice = { ...invoice, id: validId, nfeKey: accessKey };
@@ -48,7 +52,7 @@ export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<Inbou
   } else {
     local.unshift(invoiceToSave);
   }
-  saveLocalInvoices(local);
+  if (!options.requireConfirmation) saveLocalInvoices(local);
 
   try {
     const payload: Record<string, any> = {
@@ -102,7 +106,19 @@ export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<Inbou
     };
 
     const onConflict = accessKey.length === 44 ? 'chave_acesso' : 'id';
-    const { error } = await supabase.from('inbound_invoices').upsert(payload, { onConflict });
+    const headerWrite = supabase.from('inbound_invoices').upsert(payload, { onConflict });
+    const header = options.requireConfirmation ? await headerWrite.select('id,supplier_id,itens').single() : await headerWrite;
+    options.assertCurrent?.();
+    const { error } = header;
+    if (options.requireConfirmation) {
+        if (error) throw error;
+        const row = header.data;
+        const canonical = (value: unknown) => JSON.stringify(value, (_key, entry) => entry && typeof entry === 'object' && !Array.isArray(entry)
+          ? Object.fromEntries(Object.keys(entry).sort().map((key) => [key, entry[key]])) : entry);
+        if (!row || row.id !== validId || (row.supplier_id || undefined) !== (invoice.supplierId || undefined) || canonical(row.itens) !== canonical(invoice.items)) {
+          throw new Error('A gravação dos vínculos da nota não foi confirmada pelo servidor.');
+        }
+    }
     if (error) {
       console.warn('Alerta upsert Supabase:', error);
     } else if (Array.isArray(invoice.items) && invoice.items.length > 0) {
@@ -148,15 +164,31 @@ export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<Inbou
             },
           };
         });
-        await supabase
+        options.assertCurrent?.();
+        const itemWrite = supabase
           .from('inbound_invoice_items')
           .upsert(itemRows, { onConflict: 'inbound_invoice_id,item_index' });
+        const itemResult = options.requireConfirmation ? await itemWrite.select('inbound_invoice_id,item_index') : await itemWrite;
+        options.assertCurrent?.();
+        if (options.requireConfirmation && (itemResult.error || !Array.isArray(itemResult.data) || itemResult.data.length !== itemRows.length ||
+          itemRows.some((expected) => !itemResult.data?.some((row) => row.inbound_invoice_id === validId && row.item_index === expected.item_index)))) {
+          throw itemResult.error || new Error('A gravação dos itens da nota não foi confirmada pelo servidor.');
+        }
       } catch (itemErr) {
+        if (options.requireConfirmation) throw itemErr;
         console.warn('Alerta ao persistir itens normalizados em inbound_invoice_items:', itemErr);
       }
     }
   } catch (err) {
+    if (options.requireConfirmation) throw err;
     console.warn('Erro ao salvar no Supabase, mantido em cache local:', err);
+  }
+
+  if (options.requireConfirmation) {
+    options.assertCurrent?.();
+    // Merge against the latest cache, so other invoices loaded during the request survive.
+    const latest = getLocalInvoices().filter((current) => !isSampleInvoice(current) && current.id !== validId && (!accessKey || normalizeFiscalIdentifier(current.nfeKey) !== accessKey));
+    saveLocalInvoices([invoiceToSave, ...latest]);
   }
 
   return invoiceToSave;

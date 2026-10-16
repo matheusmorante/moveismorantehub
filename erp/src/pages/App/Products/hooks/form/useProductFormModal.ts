@@ -39,7 +39,7 @@ export interface UseProductFormModalProps {
   readonly initialData?: Partial<Product> | null;
   readonly initialTab?: 'geral' | 'ambientes' | 'estoque' | 'variacoes' | 'ecommerce' | 'fiscal';
   readonly openAddVariationOnOpen?: boolean;
-  readonly onSuccess?: (newProduct: Product) => void;
+  readonly onSuccess?: (newProduct: Product) => void | boolean | Promise<void | boolean>;
   readonly onDraftSaved?: () => void;
   readonly onSave?: (savedProduct?: Product) => void | Promise<void>;
   readonly isQuickRegister?: boolean;

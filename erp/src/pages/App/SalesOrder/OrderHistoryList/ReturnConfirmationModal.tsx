@@ -1,17 +1,59 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { z } from 'zod';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+
+const returnDraftConfirmationSchema = z.object({
+  reviewSecondsLeft: z.number().int().min(0).max(0, 'Aguarde a revisão antes de continuar.'),
+});
 import { createPortal } from 'react-dom';
 
 interface ReturnConfirmationModalProps {
   readonly onCancel: () => void;
-  readonly onConfirm: () => void;
+  readonly onConfirm: () => void | boolean | Promise<void | boolean>;
 }
 
 const ReturnConfirmationModal = ({ onCancel, onConfirm }: ReturnConfirmationModalProps) => {
   const [secondsLeft, setSecondsLeft] = useState(5);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const active = useRef(true), inFlight = useRef(false), completed = useRef(false), uncertain = useRef(false);
+  const values = { reviewSecondsLeft: secondsLeft };
+  const form = useZodForm(returnDraftConfirmationSchema, values);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const close = () => { if (!inFlight.current) onCancel(); };
+  const confirm = async () => {
+    if (inFlight.current || completed.current || uncertain.current) return;
+    inFlight.current = true;
+    setSaving(true); setError('');
+    try {
+      await form.validateAndRun(values, async (parsed) => {
+        if (!active.current || parsed.reviewSecondsLeft !== 0) return false;
+        const result = await withTimeout(Promise.resolve(onConfirm()).then((ack) => ({ ack })), 30_000, null, 'abertura do rascunho de devolução');
+        if (!result) {
+          uncertain.current = true;
+          if (active.current) setError('A abertura não foi confirmada. Confira a devolução antes de repetir.');
+          return false;
+        }
+        if (result.ack === false) {
+          if (active.current) setError('Não foi possível abrir a devolução. Tente novamente.');
+          return false;
+        }
+        completed.current = true;
+        return true;
+      }, (errors) => { if (active.current) setError(Object.values(flattenFormErrors(errors))[0]); });
+    } catch {
+      uncertain.current = true;
+      if (active.current) setError('A abertura não foi confirmada. Confira a devolução antes de repetir.');
+    } finally {
+      inFlight.current = false;
+      if (active.current) setSaving(false);
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !inFlight.current) {
         onCancel();
       }
     };
@@ -32,7 +74,8 @@ const ReturnConfirmationModal = ({ onCancel, onConfirm }: ReturnConfirmationModa
         type="button"
         aria-label="Fechar confirmação de devolução"
         className="fixed inset-0 bg-slate-950/55 transition-opacity"
-        onClick={onCancel}
+        onClick={close}
+        disabled={saving}
       />
       <section
         role="dialog"
@@ -60,18 +103,21 @@ const ReturnConfirmationModal = ({ onCancel, onConfirm }: ReturnConfirmationModa
           <strong>apenas para produtos cadastrados</strong>. Itens sem cadastro no sistema não geram
           movimentação de estoque.
         </p>
+        {error && <p role="alert">{error}</p>}
+        {saving && <p role="status">Abrindo rascunho de devolução...</p>}
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={close}
+            disabled={saving}
             className="rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             Cancelar
           </button>
           <button
             type="button"
-            disabled={secondsLeft > 0}
-            onClick={onConfirm}
+            disabled={secondsLeft > 0 || saving || completed.current || uncertain.current}
+            onClick={() => void confirm()}
             className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-black uppercase tracking-widest text-white disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-700"
           >
             {secondsLeft > 0 ? `Aguarde ${secondsLeft}s` : 'Sim, continuar'}

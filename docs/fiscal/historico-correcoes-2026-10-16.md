@@ -1,5 +1,147 @@
 # Histórico de correções — 16/10/2026
 
+## Política de produto — CC-e ausente do sistema
+
+**Diretriz vigente, obrigatória para todos os agentes:** o MoranteHub **NÃO utiliza Carta de Correção Eletrônica (CC-e)**. Não criar, restaurar nem oferecer formulário, botão, menu, modal, rota ou fluxo de CC-e; a proibição inclui tela dedicada de histórico. A correção fiscal adotada é **cancelamento fiscal ou estorno fiscal direto da NF, conforme a elegibilidade vigente**. Esta diretriz de produto não altera automaticamente os critérios de circulação da mercadoria.
+
+**Causa da confusão:** a interface de documentos ainda carregava um hook/modal/cliente de CC-e e conservava um item condicionado no menu. O bloqueio da API e de `canIssueCce` impedia emissão, mas código de interface legado permitia interpretar CC-e como funcionalidade do produto. A referência a uma tela histórica no checkpoint imediatamente abaixo está substituída por esta política.
+
+**Correção:** removidos `useFiscalCceModal.ts`, `FiscalCceModal.tsx` e `fiscalCceService.ts` do frontend; removidos imports/montagem/callbacks da página, tabela, linha, card e menu de documentos. Regressões passaram a exigir ausência de CC-e no menu e manutenção do bloqueio da API legada. Regras de cancelamento/estorno fiscal e elegibilidade por circulação não foram modificadas. Nenhum evento/XML/protocolo antigo foi apagado: artefatos técnicos legados servem à auditoria/reconciliação técnica e não autorizam recriar uma funcionalidade de CC-e.
+
+**Documentação vinculante:** esta referência no índice fiscal, FISCAL-016 em `invariantes-arquiteturais.md` e a regra explícita em `AGENTS.md` prevalecem sobre snapshots ou referências antigas a CC-e. Não usar documentação antiga como justificativa para reintroduzir a funcionalidade.
+
+**Prova inicial:** 58 testes em sete arquivos aprovados, incluindo 13 do menu (ausência de CC-e nos dois modelos/ambientes e ações mantidas), quatro do endpoint legado, três do XML técnico e seis fronteiras fiscais. As outras 32 provas são etiquetagem e preenchimento assistido. Busca em erp/src não encontra referências aos três módulos removidos nem onOpenCce. Log: scratch/rhf-no-cce-labeling-tests.log. Lint do lote sem erros (dez avisos anteriores no FormHeader); build inicial aprovado em1m35s. Gate final com confirmação da biblioteca de devolução/FormHeader: **65 testes em nove arquivos e build ERP completo com startup fiscal aprovado em1m51s** (scratch/rhf-no-cce-final-{tests,build}.log). TypeScript global tem 304 diagnósticos; mantém erro anterior na assinatura de salvamento do OrderEditModal fora do callback alterado e fixtures fiscais, sem diagnóstico nas fontes da retirada de CC-e. Sem transmissão, alteração de dados comerciais, migration ou deploy.
+
+**Arquivos e linhas da retirada:**
+
+| Arquivo | Região modificada |
+|---|---|
+| erp/src/pages/App/FiscalDocuments/index.tsx | imports/hook/montagem retirados (antigas12,20,74–76,194,212–228); tabela atual178–191 sem callback CC-e. |
+| erp/src/pages/App/FiscalDocuments/components/FiscalDocumentsTable.tsx | remoções nas linhas antigas27,49,90; regiões atuais26,47,87. |
+| erp/src/pages/App/FiscalDocuments/components/FiscalDocumentRow.tsx | remoções antigas29,50,180; regiões atuais28,48,177. |
+| erp/src/pages/App/FiscalDocuments/components/FiscalDocumentCard.tsx | remoções antigas25,69; regiões atuais24,67. |
+| erp/src/pages/App/FiscalDocuments/components/FiscalDocumentRowActions.tsx | remoções antigas3,20,43,177–187; regiões atuais2,18,40,173. |
+| erp/src/pages/App/FiscalDocuments/hooks/useFiscalCceModal.ts | arquivo removido integralmente (115 linhas no baseline). |
+| erp/src/pages/App/FiscalDocuments/modals/FiscalCceModal.tsx | arquivo removido integralmente (177 linhas no baseline). |
+| erp/src/pages/App/FiscalDocuments/services/fiscalCceService.ts | arquivo removido integralmente (83 linhas no baseline). |
+| shared-utils/legacyFiscalFormSchemas.ts:4 | comentário explicita rejeição defensiva, sem UI/fluxo de produto. |
+| erp/src/pages/App/FiscalDocuments/__tests__/fiscalDocumentRowActions.test.tsx:49 | quatro regressões de ausência de CC-e; removido handler legado; fixture de permissão e eventos DOM do menu alinhados ao componente existente. |
+| erp/src/pages/App/FiscalDocuments/__tests__/fiscalDocumentsComponents.test.tsx | removidos import/teste do modal excluído; título atual de cancelamento e happy-dom local. |
+| erp/src/pages/App/FiscalDocuments/__tests__/remainingFiscalForms.test.tsx:14 | teste defensivo executa resolver real sem recriar proprietário CC-e. |
+| AGENTS.md; docs/fiscal/invariantes-arquiteturais.md (FISCAL-016); README.md; inventários e este registro | política explícita e referências vigentes. |
+
+
+## CSOSN de homologação — proprietário conferido
+
+**Problema e causa:** HmlCsosnSettings liberava o resolver antes do serviço de persistência, permitia nova submissão entre validação/espera e não limitava a leitura inicial. Uma resposta apenas tipada como HML podia ser publicada sem conferir ambiente/modelo/CRT/produção/versão ou o valor efetivamente salvo.
+
+**Solução:** RHF mantém o contrato até o recibo, com trava síncrona comum, prazo15s na leitura/20s na escrita, erro/progresso e retry protegido de leitura. Salvamento fica indisponível sem leitura confirmada. Schema explícito do recibo reutiliza CSOSN_CODES e exige ambiente2/modelo55/CRT1/productionApprovedfalse/versão não vazia; recibo de escrita deve confirmar o CSOSN solicitado. Timeout/rejeição/recibo inválido conservam estado e bloqueiam repetição na instância até revisão/recarregamento. Resposta de componente desmontado não altera UI. Política tributária, API, permissões e padrão inicial103 permanecem.
+
+**Regressão de teste encontrada:** csosnConfigurationApi.test esperava103/500 apesar de seus próprios itens já conterem snapshot102. O código existente de resolvePreparedItems prioriza esse snapshot; a expectativa foi alinhada a102 para os dois itens. Não houve alteração de lógica fiscal ou do backend. A provenance textual existente source=catalog foi preservada.
+
+**Arquivos/linhas:** shared-utils/fiscalOperationFormSchemas.ts:8–11 (schema explícito do recibo); erp/src/pages/App/Settings/components/fiscal/HmlCsosnSettings.tsx:1–4,17–59,select/botão/status/retry (resolver/guardas/prazos/recibo); HmlCsosnSettings.test.tsx:1–103 (fixtures completas e dez provas); erp/src/pages/utils/nfe/__tests__/csosnConfigurationApi.test.ts:111–118 (nome/expectativa de snapshot existente). Inventário principal, migração, índice e este registro atualizados.
+
+**Provas:**32 testes em quatro arquivos aprovados (dez do painel,12 da política, quatro da API e seis fronteiras fiscais); lint específico sem erros/avisos. TS ERP mantém304 diagnósticos globais, nenhum no painel/schema/testes alterados. Build ERP completo com startup fiscal aprovado em 1m33s. Logs scratch/rhf-hml-csosn-{tests,lint,tsc,build}.log. Serviços/API/banco simulados: sem configuração real modificada, escrita remota, Auth real, SEFAZ ou deploy. Consumidor ativo FiscalSettingsSection → HmlCsosnSettings; Settings agregado mantém linha própria.
+
+**Cobertura:** ERP110/131 itens conferidos/encerrados (84,0%),21 pendentes. Não é conclusão global; mobile/catálogo conservam seus inventários.
+
+## Continuação final dos formulários — checkpoint109/131
+
+A biblioteca de confirmação de abertura da devolução tem contrato explícito de revisão e espera do callback, sem conter itens nem ter consumidor localizado. Catálogo: categorias conferidas, autosave de produto sem repetição por estado próprio e UUIDs preservados; uploads do agregado ainda pendentes. Mobile: lançamento manual aguarda refresh/fechamento, mensagens/reenvios e confirmação financeira têm guardas/recibos; voz/live ainda pendentes. **ERP109/131 encerrados (83,2%),22 pendentes**, incluindo retirada de CC-e e bibliotecas retidas. **65 testes ERP,42 móveis e48 catálogo aprovados; builds ERP/Next aprovados.** TS catálogo aprovado; TS ERP304 globais e mobile30 externos, sem declaração de aprovação global. [Causas, arquivos/linhas, logs e limites completos](../forms/continuidade-formularios-2026-10-16.md). Sem operação remota/transmissão.
+
+## Etiquetagem — biblioteca conferida
+
+**Causa comprovada:** StockCheckModal conservava checks por índice entre pedidos/aberturas e permitia editar/fechar enquanto aguardava callback sem prazo.
+
+**Correção:** contrato compartilhado de etiquetagem com RHF até o callback, seleção por abertura/contexto e snapshots preservados; trava/erro/progresso/prazo de 30s, recusa e bloqueio incerto. Biblioteca retida, sem consumidor ativo localizado; o badge operacional tem proprietário distinto. Não reativada por inferência.
+
+**Prova:** dez testes do modal/resolver reais, incluindo contexto, falha, timeout, espera e snapshots; incluídos nos 58 testes aprovados do lote de retirada de CC-e. Arquivos: shared-utils/operationsFormSchemas.ts (createStockLabelingFormSchema); erp/src/pages/App/SalesOrder/OrderHistoryList/StockCheckModal.tsx:6–119; StockCheckModal.test.tsx (dez provas). O esboço anterior de uma interface histórica de CC-e foi descartado e removido conforme a política acima.
+
+## Pedido assistido, lançamento móvel e produto do catálogo — continuação
+
+**Pedido assistido ativo:** SmartAIFillModal chamava método inexistente da fachada IA (parseOrderFromFreeText), encerrava resolver antes do I/O e descartava a promessa de aplicação no FormHeader. Usa parseOrderFreeText real, prompt/JSON/payload parseados, contratos de rascunho incompleto, prazo por etapa, trava comum/contexto/voz e arquivo tardios, erro/progresso. FormHeader retorna a promessa e isola por pedido; callbacks de importação retornam false após erro, sem anunciar aplicação bem-sucedida. Importação abre o rascunho de cliente quando necessário; não equivale a salvar/finalizar o pedido. Arquivos: SmartAIFillModal.tsx:9–255,324–605; novo SmartAIFillModal.test.tsx (18 provas); FormHeader.tsx:22,99–108; SalesOrderFormSection.tsx:16; steps/SalesOrderStepPanels.tsx:20; pages/NewSaleOrder.tsx:82–104; modals/OrderEditModal.tsx:153–178; novo FormHeader.smartFill.test.tsx (três integrações reais). Paths relativos a erp/src/pages/App/SalesOrder. Provas do modal +assistidos21/21 e integração+modal21/21 aprovadas; lint específico limpo. 18 provas do modal incluídas no lote conjunto de58; build acima. Não é conferência global do OrderEditModal.
+
+**Lançamento financeiro móvel:** useTransactionForm.ts:23,76–144,283–357 em mobile/src/features/finance/hooks estende schema financeiro comum com campos do proprietário, mantém RHF até create/update com payload parseado, guarda/prazo20s/erro/finally, categorias não apagam rascunho e consulta colaboradores tem prazo15s. Novo erp/tests/mobile-forms/manualTransactionOwner.test.tsx (14 provas); suite móvel30/30, lint limpo e TS móvel mantém22 diagnósticos externos, nenhum no hook. Consumidor FinanceHubScreen → NewTransactionModal. Create exige data.id; update confirma apenas o ACKbooleano do serviço, sem provar linha afetada. Contexto incerto bloqueado enquanto a instância estiver montada; sem dispositivo ou escrita remota. Logs scratch/rhf-mobile-manual-transaction-{tests,lint,tsc}.log.
+
+**Produto no catálogo — proprietário parcial:** digital-catalog/src/features/products/components/admin-modal/hooks/useAdminProductSave.ts:56–350 conserva contratos distintos de rascunho/final, fila única autosave/conclusão, RHF até recibo/payload confirmado, prazo20s, contexto/cleanup, erros de relacionamento/status e bloqueio incerto. Novo erp/tests/catalog-forms/adminProductOwner.test.tsx (17 provas) aprovado; TS completo catálogo e lint focal aprovados. Upload iniciado posteriormente por Step1Photos ainda não participa da fila; callback vazio de substituição de imagem continua pendente. Logo o proprietário agregado continua pendente. Sincronização Meta é background independente após publicação confirmada. Sem transação remota comprovada ou escrita real.
+
+**Cobertura:** ERP108/131 itens conferidos/encerrados,23 pendentes (82,4%); o incremento inclui retirada de CC-e por determinação do usuário, biblioteca de etiquetagem e pedido assistido. Não são108 formulários operacionais migrados. Mobile acrescenta o proprietário manual; catálogo registra prova parcial do hook, sem declarar agregado concluído. Inventários próprios continuam vinculando filhos e efeitos; nenhum percentual global é afirmado.
+
+## Vínculo após cadastrar produto — confirmação e persistência conferidas
+
+**Causa comprovada:** `handleCreatedProductFromModal` liberava o resolver antes das consultas/gravações e limpava o alvo mesmo após falha. O `onSuccess` do submit de produto e a conclusão do modal de resultado descartavam a promessa. `ManageInboundInvoiceMappingsModal.handleItemChange` descartava a promessa da gravação; o serviço genérico mantinha fallback em cache mesmo após erro remoto, impedindo distinguir confirmação remota.
+
+**Correção aplicada:** comando próprio inclui item atual/código/descrição/fornecedor e produto/variação; RHF acompanha recarga obrigatória, gravação, consulta de confirmação e callback de aplicação. Resposta incerta bloqueia replay e preserva produto/alvo; falha antes da escrita permite retomada explícita. Submit e conclusão do produto aguardam o callback e respeitam recusa `false`; a conclusão mostra erro sem fechar. Seleção/remoção têm a mesma proteção até confirmar associação/ausência e aplicar no item. Mapeamentos aguardam seu resolver até salvar e confirmar, possuem prazo/trava/erro/contexto e callback de refresh separado da confirmação. Modo optativo `requireConfirmation` no serviço exige recibo do cabeçalho/itens e não publica cache prematuro; o contrato legado de fallback dos demais chamadores permanece. Isso não constitui transação entre tabelas: falha parcial fica incerta e bloqueada para revisão.
+
+**Proprietário adicional localizado:** `ProductSaveResultModal` também altera ativação ERP/publicação. As duas ações agora executam o contrato compartilhado de produto salvo no resolver até o ID confirmado, com trava comum, contexto/prazo/erro e bloqueio por produto em resultado incerto. Conclusão usa o mesmo contrato, conserva recusa do callback e não repete o cadastro para tentar novamente a etapa seguinte. Adicionado ao inventário principal; requisitos de origem de estoque e permissão de catálogo permanecem. Foram alinhados imports de tipo/contratos dos callbacks na extração local prévia `ProductFormSubModals`, sem desfazer a composição existente.
+
+**Arquivos e linhas modificados neste lote:**
+
+| Arquivo | Linhas / região modificada |
+|---|---|
+| `shared-utils/inboundProductLinkFormSchemas.ts` | 71–99: comando pós-cadastro e contrato de mapeamentos/NCM/composição. |
+| `shared-utils/productDomainValidation.ts` | 121–127: contrato próprio do produto já salvo. |
+| `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceProductCreation.ts` | 4, 23, 88–99, 310–373: comando aguardado até recarga/gravação/consulta/aplicação. |
+| `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceItemsReview.ts` | 36–37, 45, 78–84, 161–164, 184–186, 248–309, retorno do hook: seleção/remoção com resolver e contexto/erro/trava. |
+| `erp/src/pages/App/Stock/InboundInvoices/components/InboundInvoiceItemsReview.tsx` | 16, 42–45, 65: callback assíncrono e feedback/bloqueio dos filhos. |
+| `erp/src/pages/App/Stock/InboundInvoices/modals/ManageInboundInvoiceMappingsModal.tsx` | 1, 14, 20, 33–43, 88–132, 136–189, 212–239, fechamento do fieldset: consultas, persistência aguardada e feedback. |
+| `erp/src/pages/utils/inboundNfe/services/inboundInvoicesMutationService.ts` | 37–45, 57, 110–128, 174–205: confirmação optativa, guardas entre I/O e cache após recibo. |
+| `erp/src/pages/App/Products/hooks/form/useProductFormSubmit.ts` | 28, 215: assinatura e espera de onSuccess/recusa false. |
+| `erp/src/pages/App/Products/hooks/form/useProductFormModal.ts` | 42: contrato assíncrono de onSuccess. |
+| `erp/src/pages/App/Products/modals/ProductFormModal.tsx` | 25: contrato assíncrono de onSuccess. |
+| `erp/src/pages/App/Products/components/form/ProductFormSubModals.tsx` | 2–3, 21, 25, 28, 31, 110–112: imports de tipo/callbacks reais e promessa de onSave preservada. |
+| `erp/src/pages/App/Products/components/modals/product/ProductSaveResultModal.tsx` | 1–9, 12, 41, 62–194, 215, 326, 475, 501–507: três intenções no resolver, callback aguardado, erro/progresso/trava/ACK. |
+| `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceCreatedLink.test.tsx` | arquivo novo: 14 provas do callback e suas fronteiras. |
+| `erp/src/pages/utils/inboundNfe/__tests__/inboundMappingConfirmation.test.ts` | arquivo novo: dez provas da confirmação estrita e preservação do fallback legado. |
+| `erp/src/pages/App/Stock/InboundInvoices/modals/ManageInboundInvoiceMappingsModal.test.tsx` | arquivo novo: nove provas de persistência, payload, falha, callback, contexto e prazo. |
+| `erp/src/pages/App/Stock/InboundInvoices/modals/ManageInboundInvoiceMappingsModal.suggestions.test.tsx` | 1: ambiente happy-dom existente no projeto, pois o jsdom local requer canvas nativo indisponível. Três regressões mantidas. |
+| `erp/src/pages/App/Stock/InboundInvoices/components/InboundInvoiceItemsReview.test.tsx` | imports, preparação e oito provas novas da seleção/remoção aguardadas, incerteza e prazo; dez testes no arquivo. |
+| `erp/src/pages/App/Products/hooks/form/useProductFormSubmit.test.tsx` | novo teste inicial: espera/recusa de onSuccess do cadastro existente. |
+| `erp/src/pages/App/Products/components/modals/product/ProductSaveResultModal.test.tsx` | imports/preparação, fixtures com itemType e sete provas novas; dez no arquivo. |
+| `docs/audits/fiscal-2026-10-14/form-migration-inventory.md`, `docs/forms/migracao-rhf-zod-2026-10-14.md`, `docs/fiscal/README.md`, este histórico | cobertura, disposição das bibliotecas e referências atuais. |
+
+**Validação final conjunta:** **157 testes em 14 arquivos aprovados**, incluindo as bibliotecas assistidas (`scratch/rhf-assisted-created-link-final-regression.log`). Após o último ajuste de dependências/no-op da consulta, 22 testes dos três proprietários afetados foram repetidos e aprovados (`rhf-assisted-created-link-last-source-tests.log`). Lint do lote sem erros (18 avisos naquele log; o aviso novo de dependência foi eliminado e lint dos últimos três arquivos passou sem avisos: `rhf-assisted-created-link-final-lint.log`, `rhf-assisted-created-link-last-source-lint.log`). **Build ERP completo com startup fiscal aprovado em 1m31s** (`rhf-assisted-created-link-final-build.log`). TypeScript global mantém **305 diagnósticos**, nenhum nas fontes ou testes alterados deste lote (`rhf-assisted-created-link-final-tsc.log`); fontes de outra extração local, como ProductFormTabContent, continuam com diagnósticos próprios. Não há declaração de TS global aprovado.
+
+**Fonte da API:** documentação oficial de [upsert com retorno via select](https://supabase.com/docs/reference/javascript/upsert), consultada em 16/10; changelog atual arquivado em `scratch/supabase-changelog-forms.md`. A confirmação compara IDs/JSONB e quantidade de itens, sem afirmar atomicidade conjunta nem RLS/transações remotas comprovadas. Transporte, autocomplete, editor completo de produto e persistência remota são simulados nas provas. Nenhuma gravação remota, migration, Auth real, emissão ou deploy.
+
+**Cobertura:** quatro itens anteriores conferidos (WhatsApp, bibliotecas de recebimento/voz e mapeamentos) e um proprietário antes ausente acrescentado/conferido (pós-cadastro/canais). **ERP 105/131 (80,2%), 26 pendentes.** Classificação de entrada, variação assistida e demais pendências conservam linhas próprias; mobile/catálogo ainda não estão globalmente conferidos.
+
+## WhatsApp e bibliotecas assistidas — conferência de submissões
+
+**Problema e causa comprovada:** o WhatsApp usava formulários separados sem trava comum entre envio direto e link manual, não aguardava callbacks e não limitava a espera. No recebimento assistido, a validação de texto acabava antes da interpretação; o modal podia fechar sem concluir a aplicação. O atendimento por voz lia texto da closure, aceitava telefone parcial, não mostrava erro no componente e disparava sugestões diretamente sem resolver.
+
+**Solução aplicada:** trava comum e callback aguardado no WhatsApp, feedback/timeout e bloqueio do mesmo envio confirmado/incerto na instância; resposta de abertura anterior não fecha destinatário novo. Recebimento mantém os dois resolvers até interpretação/aplicação, descarta contexto antigo, bloqueia fechamento enquanto espera e impede reaplicação após timeout incerto. Atendimento envia texto/telefone parseados, aguarda análise/upload/recibo, protege sessão, mostra erros e usa contrato distinto para sugestões. Telefone opcional continua vazio permitido; telefones preenchidos reutilizam normalização/mínimo10 já existente em mensagens. IA indisponível conserva o fallback anterior do relato bruto. Gravação sem recibo ou rejeitada bloqueia repetição e preserva relato.
+
+**Evidência final:** 8 testes de WhatsApp, 10 de recebimento, 11 de atendimento e 3 regressões assistidas aprovados (32, incluídos no conjunto de 157 acima). Lint sem erros; removida dependência desnecessária do hook. Build completo e TS global com seus limites estão registrados no checkpoint conjunto acima. Testes usam componentes/hooks/resolvers reais e serviços simulados; nenhuma mensagem, áudio, registro ou operação fiscal real.
+
+**Arquivos/linhas:** `shared-utils/messagingFormSchemas.ts:10–24` (telefone/sugestões), `erp/src/components/shared/SendWhatsAppModal.tsx:10–16,31–119,149–235` (trava/callback/prazo/contexto/feedback), `erp/src/components/forms/messagingForms.test.tsx` (oito provas), `erp/src/components/shared/AttendanceVoiceInput.tsx:4–5,17–60,89–210` (comando de sugestão/feedback/bloqueios), `erp/src/hooks/useAttendanceVoice.ts:1–10,17–28,51,76–85,113–265` (payload parseado/recibo/sessão/prazos), `erp/src/components/shared/AttendanceVoiceInput.test.tsx` (novo: onze provas), `erp/src/pages/App/Stock/Receipts/modals/ReceiptAIFillModal.tsx:6,51–82,104–136,145–190,207–264` (dois resolvers aguardados/guardas/feedback) e `erp/src/pages/App/Stock/Receipts/modals/ReceiptAIFillModal.test.tsx` (novo: dez provas).
+
+**Disposição dos consumidores:** `ProductRowModals` monta SendWhatsAppModal para compartilhar produtos; contrato manual conserva telefone/mensagem vazios. `ReceiptAIFillModal` e `AttendanceVoiceInput` não têm import/acionador operacional localizado em `erp/src`; permanecerão bibliotecas conferidas, sem reativação inferida. A aplicação final de recebimento, listeners comerciais das sugestões e captura real de microfone não são comprovados por testes destas bibliotecas. A meta global continua em andamento.
+
+## Cadastro rápido da nota de entrada — preparação no resolver
+
+**Problema e causa comprovada:** o acionador ativo `InboundItemLinkHeader` abria a seleção, mas `QuickRegisterVariationModal` tratava o callback assíncrono como `void`. `useInboundInvoiceQuickRegister` fechava a seleção antes de carregar/preparar o produto, sem prazo ou guarda de contexto. Item e fornecedor não integravam o comando do resolver. O serviço usava `finalCost || unitCost`, substituindo custo final zero.
+
+**Correção:** a seleção e o comando completo executam RHF/zodResolver até terminar a preparação. Modal bloqueado desde o início do resolver, progresso/erro visíveis, prazo de 20s, descarte por item/fornecedor/abertura/desmontagem e seleção invalidada ao editar a busca. Produto pai recarregado deve conservar identidade, disponibilidade e vínculo com o fornecedor. O serviço conserva zero com `??` e verifica contexto entre consultas. Consultas de código são prévias de SKU de produto, sem reserva fiscal ou escrita. Categoria automática conserva o fallback anterior quando há falha conhecida.
+
+**Arquivos e linhas deste lote:**
+
+| Arquivo | Linhas / responsabilidade |
+|---|---|
+| `shared-utils/operationsFormSchemas.ts` | 35: normalização do identificador selecionado. |
+| `shared-utils/inboundProductLinkFormSchemas.ts` | 3–20: contrato explícito do item e comando de preparação. |
+| `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceQuickRegister.ts` | 1–6, 20, 33–107: resolver até resultado, contexto do item atual, prazo, trava e produto pai revalidado. |
+| `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceItemsReview.ts` | 139: itens da nota encaminhados ao proprietário da preparação. |
+| `erp/src/pages/App/Stock/InboundInvoices/modals/QuickRegisterVariationModal.tsx` | 1–6, 30, 42–98, 110, 135, 143–147, 197–203, 223–232: RHF aguardado, bloqueios, feedback, invalidação da seleção. |
+| `erp/src/pages/App/Stock/InboundInvoices/services/inboundProductPreparationService.ts` | 118–128, 155–167, 194: guarda entre consultas e custo final zero nos dois modos. |
+| `erp/src/pages/App/Stock/InboundInvoices/components/InboundQuickRegister.test.tsx` | 1–146: 25 provas diretas da composição ativa, falhas, contexto, disponibilidade, fornecedor, fechamento, prazo e zero. |
+| `docs/audits/fiscal-2026-10-14/form-migration-inventory.md` | linhas dos proprietários QuickRegisterVariationModal e ManageInboundInvoiceMappingsModal: payload correto, cobertura e pendência posterior explícitos. |
+| `docs/forms/migracao-rhf-zod-2026-10-14.md`, `docs/fiscal/README.md`, este histórico | checkpoint e referência vigente deste lote. |
+
+**Validação final:** 59 testes em cinco arquivos aprovados, incluindo 25 diretos (`scratch/rhf-quick-register-regression.log`). Lint sem erros, 21 avisos em código anterior (`rhf-quick-register-lint.log`); build ERP completo com startup fiscal aprovado em 1m49s (`rhf-quick-register-build.log`). TypeScript global registra 316 diagnósticos fora dos arquivos deste lote, sem diagnóstico no teste novo ou fontes alteradas (`rhf-quick-register-tsc.log`); o fixture recebeu o CFOP obrigatório. Revisão focada final sem achados. Linha/proprietário/modal/resolvers e serviços de preparação são reais; transporte, autocomplete e editor final são simulados. Isso comprova preparação até abrir o produto, sem comprovar o salvamento posterior, consulta de autocomplete ou persistência remota.
+
+**Pendências preservadas:** `handleCreatedProductFromModal` ainda encerra o resolver antes de recarregar/gravar o vínculo, fecha antes do resultado e limpa estado após falha. Salvar produto/vincular e salvar mapeamentos continuam pendentes no agregado; edição direta de produto possui caminho próprio. Inventário ERP permanece **100/130, 30 pendentes**, pois a seleção já estava marcada; corrigida sua descrição antiga de payload, sem incremento artificial. Mobile/catálogo continuam em inventários separados. Sem operação remota, SQL, Auth real, emissão ou deploy.
+
 ## Formulário de variações — composição em conferência
 
 Problemas constatados no proprietário/composição: fechamento e edição continuavam habilitados durante gravação; a operação não possuía prazo/guarda de contexto; atributos incompletos eram filtrados antes do resolver e componentes sem produto/quantidade mínima passavam na conclusão. Descontos fora dos limites podiam virar uma prévia de preço zero e perder a entrada inválida antes da validação. Consultas de atributos/fotos não tinham prazo nem proteção contra publicar retorno de outro contexto.
@@ -303,9 +445,23 @@ Evidência de contrato: leitura de `pg_proc/pg_get_functiondef`, coluna `orders.
 
 Validação: **110 testes em nove arquivos aprovados**, sendo 43 da composição modal → hook → resolver → serviço real (`scratch/rhf-return-fulfillment-final-tests.log`, 79; `scratch/rhf-return-fulfillment-final-domain-tests.log`, 31). Build ERP aprovado em **2m03s** (`scratch/rhf-return-fulfillment-final-build.log`); lint sem erros/avisos (`scratch/rhf-return-fulfillment-final-lint.log`). TypeScript global tem **300 diagnósticos fora do lote** (`scratch/rhf-return-fulfillment-final-tsc.log`). Diff-check aprovado. Transporte e notificações/etapa fiscal são simulados; não houve chamada comercial real, DDL, fixtures, Auth, transmissão SEFAZ ou deploy. Leituras de catálogo/contagem não comprovam RLS, efeitos, rollback, concorrência ou atomicidade comportamental remota. Inventário passa a **99/130 (76,2%), 31 pendentes**: foi incluído `CancelReturnModal`, proprietário ativo de cancelamento comercial ausente do inventário anterior. Mobile/catálogo permanecem separados; sem conclusão global.
 
-## Produto da nota de entrada — preparação em conferência
+## Produto da nota de entrada — biblioteca conferida, abertura ausente
 
-Falha reproduzida em teste real de composição: o modal individual fechava enquanto a promessa de título da IA ainda estava pendente. `classifyAndStart` e `startCreation` liberavam o resolver antes do I/O; o primeiro disparava o segundo com `void`, e o segundo engolia falhas. Correção local em validação: comando compartilhado com item da NF validado, resolver ativo até resultado de vínculo/classificação/preparação, trava/sessão/contexto e prazo total de 60s; fornecedor e campos parseados seguem ao I/O. Consulta de contexto não publica cache antigo. O proprietário mantém o modal, erro e progresso até confirmar resultado; o filho recebe estado/controladores do proprietário. Sem I/O remoto, SQL, cadastros, Auth, SEFAZ ou deploy. Conferência de callbacks adicionais de classificação/cadastro/vínculo permanece distinta; arquivos/linhas e resultados finais serão registrados após regressões.
+Falha reproduzida em composição de biblioteca: o modal individual fechava enquanto a promessa de título da IA ainda estava pendente. `classifyAndStart` e `startCreation` liberavam o resolver antes do I/O; o primeiro disparava o segundo com `void`, e o segundo engolia falhas. Correção local em validação: comando compartilhado com item da NF validado, resolver ativo até resultado de vínculo/classificação/preparação, trava/sessão/contexto e prazo total de 60s; fornecedor e campos parseados seguem ao I/O. Consulta de contexto não publica cache antigo. O proprietário mantém o modal, erro e progresso até confirmar resultado; o filho recebe estado/controladores do proprietário.
+
+**Localização posterior obrigatória:** `InboundInvoiceItemsReview` monta o modal, mas a linha real de itens recebe apenas `onRequestQuickRegister`, sem callback para `requestIndividualCreation`. A busca de consumidores encontrou este último somente no hook e no novo teste; não há abertura ativa localizada. Não foi reativado fluxo legado por inferência e este item **continua pendente no inventário**. As provas cobrem a biblioteca composta, não uma rota operacional acessível. O cadastro rápido ativo e seu callback `handleCreatedProductFromModal` mantêm conferência própria; este último ainda libera o resolver antes de recarregar o produto/gravar o vínculo. Sem I/O remoto, SQL, cadastros, Auth, SEFAZ ou deploy. Arquivos/linhas e resultados finais serão registrados após regressões.
+
+Arquivos e linhas desta etapa:
+
+- `shared-utils/inboundProductLinkFormSchemas.ts:2,29–42`: reutiliza o schema do item da nota, exige descrição e coerência de item/quantidade, preserva metadata e explicita o retorno de título válido. Não altera XML ou snapshot persistido da NF.
+- `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceProductCreation.ts:1–5,35,64–72,92–215,364–365`: resolver único acompanha consulta de código, classificação e preparação; fornecedor/item/acréscimo parseados seguem ao I/O. Guarda após cada espera, prazo total de 60s, vínculo sem produto existente recusado, resultado booleano/erro e trava comum. O prazo invalida a publicação, sem abortar uma requisição de IA/leitura já iniciada. O callback ativo posterior de produto criado (linha 301) não foi incluído nesta certificação.
+- `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceClassification.ts:24–26,38–74`: target de fornecedor parseado, token/contexto de consulta, cache protegido e reset da classificação.
+- `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceItemsReview.ts:77–85,153,202–203,233–256,328–336`: resolver do acréscimo permanece até o resultado, mantém o modal na falha, trava de fechar/submeter e erro/progresso controlados pelo proprietário.
+- `erp/src/pages/App/Stock/InboundInvoices/modals/InboundIndividualProductModal.tsx:12–23,36,54,63–77` e `components/InboundInvoiceItemsReview.tsx:79–88`: feedback acessível, controles bloqueados e estado encaminhado ao filho; sobreposições de preparação evitadas durante o modal individual. Não adicionam acionador na linha de itens.
+- `erp/src/pages/App/Stock/InboundInvoices/modals/InboundIndividualProductModal.test.tsx:1–141`: novo teste de biblioteca com 20 cenários de espera/erro/retry, concorrência, valores parseados/zeros/NF preservada, vínculo existente, classificação, prazo, troca de contexto/cache e desmontagem.
+- `erp/src/pages/App/Stock/InboundInvoices/components/InboundInvoiceItemsReview.test.tsx:1,10` e `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceSuggestions.test.ts:1`: usam o DOM já disponível; a carga jsdom falhava antes de executar as duas suítes por binding nativo de canvas ausente. O mock do formulário de produto foi alinhado ao caminho atual `Products/modals/ProductFormModal`; o caminho antigo deixava montar um formulário fora do AuthProvider. As asserções existentes foram mantidas.
+
+Validação final da biblioteca: baseline reproduziu o fechamento antecipado (`scratch/rhf-inbound-individual-baseline-tests.log`). **47 testes em seis arquivos aprovados**, incluindo os 20 da biblioteca composta (`scratch/rhf-inbound-individual-final-tests.log`); lint sem erros e 19 avisos de variáveis anteriores (`scratch/rhf-inbound-individual-final-lint.log`). TypeScript global registra **315 diagnósticos fora dos arquivos deste lote** (`scratch/rhf-inbound-individual-final-tsc.log`); fontes e testes alterados sem diagnóstico. **Build ERP aprovado em 1m40s** (`scratch/rhf-inbound-individual-verified-build.log`), após a última alteração de fonte; diff-check aprovado. Sem IA/rede reais, persistência, autenticação real, SQL/migration, SEFAZ ou deploy. A conferência não prova cadastro/vínculo no banco, concorrência remota, browser real nem caminho acessível; inventário permanece **100/130 (76,9%), 30 pendentes**, além de mobile/catálogo. Não conta o harness que cria um acionador de teste como abertura de produção.
 
 ## Cancelamento da devolução comercial — confirmação conferida
 

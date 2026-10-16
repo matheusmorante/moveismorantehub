@@ -17,7 +17,7 @@ export const BasicInfoStepSection = ({
 }: {
   form: FormInstance;
   isBudget: boolean;
-  onLoadJSON?: (data: any) => void;
+  onLoadJSON?: (data: any) => void | boolean | Promise<void | boolean>;
   onOpenSellerSearch?: () => void;
 }) => {
   const { state, actions } = form;

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { PatternFormat as PatternFormatBase } from 'react-number-format';
 import { useAttendanceVoice } from '../../hooks/useAttendanceVoice';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { attendanceSuggestionFormSchema } from '../../../../shared-utils/messagingFormSchemas';
 
 const PatternFormat = PatternFormatBase as any;
 
@@ -11,12 +13,16 @@ interface AttendanceVoiceInputProps {
 const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [customerPhone, setCustomerPhone] = useState('');
+  const [suggestionError, setSuggestionError] = useState('');
+  const suggestionForm = useZodForm(attendanceSuggestionFormSchema, { type: 'ASSISTANCE', data: { customerPhone } });
 
   const {
     isRecording,
     transcript,
     setTranscript,
     isProcessing,
+    processError,
+    saveUncertain,
     suggestedAction,
     setSuggestedAction,
     startRecording,
@@ -29,13 +35,25 @@ const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) 
     const result = await processAttendance(customerPhone);
     if (result && result.success) {
       if (!result.suggestedAction) {
-        setTimeout(() => {
-          setTranscript('');
-          setCustomerPhone('');
-          setIsOpen(false);
-        }, 1500);
+        setTranscript('');
+        setCustomerPhone('');
+        setIsOpen(false);
       }
     }
+  };
+
+  const applySuggestion = async () => {
+    if (!suggestedAction || isProcessing) return;
+    const command = suggestedAction.type === 'ASSISTANCE'
+      ? { type: 'ASSISTANCE' as const, data: { customerName: suggestedAction.data.extracted_data?.customer_name,
+          customerPhone, description: suggestedAction.data.extracted_data?.problem_description, matchedProductId: suggestedAction.data.matched_product?.id } }
+      : { type: 'DESIRE' as const, data: { customer_phone: customerPhone, customer_name: suggestedAction.data.customer_name,
+          product_name: suggestedAction.data.product_name, details: suggestedAction.data.details, status: 'pending' as const } };
+    setSuggestionError('');
+    await suggestionForm.validateAndRun(command, (values) => {
+      window.dispatchEvent(new CustomEvent(values.type === 'ASSISTANCE' ? 'OPEN_ASSISTANCE_MODAL' : 'REGISTER_CUSTOMER_DESIRE', { detail: values.data }));
+      setSuggestedAction(null); setTranscript(''); setCustomerPhone(''); setIsOpen(false);
+    }, (errors) => setSuggestionError(Object.values(flattenFormErrors(errors))[0] || 'Confira a sugestão.'));
   };
 
   return (
@@ -59,6 +77,7 @@ const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) 
               </div>
             </div>
             <button
+              disabled={isProcessing}
               onClick={() => setIsOpen(false)}
               className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors"
             >
@@ -76,6 +95,8 @@ const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) 
                 Telefone do Cliente (Opcional)
               </label>
               <PatternFormat
+                disabled={isProcessing || saveUncertain}
+                aria-label="Telefone do Cliente (Opcional)"
                 format="(##) #####-####"
                 value={customerPhone}
                 onValueChange={(values: any) => setCustomerPhone(values.value)}
@@ -90,36 +111,8 @@ const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) 
                   Seu Lizandro Sugere:
                 </p>
                 <button
-                  onClick={async () => {
-                    if (suggestedAction.type === 'ASSISTANCE') {
-                      window.dispatchEvent(
-                        new CustomEvent('OPEN_ASSISTANCE_MODAL', {
-                          detail: {
-                            customerName: suggestedAction.data.extracted_data?.customer_name,
-                            customerPhone: customerPhone,
-                            description: suggestedAction.data.extracted_data?.problem_description,
-                            matchedProductId: suggestedAction.data.matched_product?.id,
-                          },
-                        })
-                      );
-                    } else if (suggestedAction.type === 'DESIRE') {
-                      window.dispatchEvent(
-                        new CustomEvent('REGISTER_CUSTOMER_DESIRE', {
-                          detail: {
-                            customer_phone: customerPhone,
-                            customer_name: suggestedAction.data.customer_name,
-                            product_name: suggestedAction.data.product_name,
-                            details: suggestedAction.data.details,
-                            status: 'pending',
-                          },
-                        })
-                      );
-                    }
-                    setSuggestedAction(null);
-                    setTranscript('');
-                    setCustomerPhone('');
-                    setIsOpen(false);
-                  }}
+                  onClick={applySuggestion}
+                  disabled={isProcessing}
                   className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg"
                 >
                   {suggestedAction.label}
@@ -135,6 +128,7 @@ const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) 
 
             <div className="relative group">
               <textarea
+                disabled={isProcessing || saveUncertain}
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
                 placeholder="Diga ou digite o que aconteceu no atendimento..."
@@ -150,10 +144,13 @@ const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) 
             </div>
           </div>
 
+          {(processError || suggestionError) && <p role="alert" className="mb-3 text-xs text-rose-700 dark:text-rose-300">{suggestionError || processError}</p>}
+          {isProcessing && <p role="status" className="mb-3 text-xs text-blue-700 dark:text-blue-300">Analisando e registrando atendimento...</p>}
           <div className="flex gap-2">
             {!isRecording ? (
               <button
                 onClick={startRecording}
+                disabled={isProcessing || saveUncertain}
                 className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-200 dark:shadow-none flex items-center justify-center gap-2"
               >
                 <i className="bi bi-mic-fill text-sm"></i>
@@ -173,6 +170,7 @@ const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) 
               <>
                 <button
                   onClick={clearTranscript}
+                  disabled={isProcessing || saveUncertain}
                   className="px-4 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-all flex items-center justify-center"
                   title="Limpar tudo"
                 >
@@ -181,7 +179,7 @@ const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) 
 
                 <button
                   onClick={handleProcess}
-                  disabled={isProcessing}
+                  disabled={isProcessing || saveUncertain}
                   className="px-5 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-emerald-200 dark:shadow-none disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isProcessing ? (
@@ -201,6 +199,7 @@ const AttendanceVoiceInput = ({ isFloating = true }: AttendanceVoiceInputProps) 
 
       {isFloating && (
         <button
+          disabled={isProcessing}
           onClick={() => setIsOpen(!isOpen)}
           className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-2xl transition-all hover:scale-110 active:scale-95 ${isOpen ? 'bg-slate-800' : 'bg-emerald-600 shadow-emerald-200 dark:shadow-none'}`}
           title="Novo Log de Atendimento (BI)"

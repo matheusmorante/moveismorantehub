@@ -72,3 +72,7 @@ Os seis caminhos de nome/e-mail/senha agora mantêm o resolver até terminar o s
 ### Fronteira de formulário — 15/10
 
 ZodForm sem consumidor ativo localizado foi conferido: onValid obrigatório recebe valores parseados, espera pelo callback e apresenta falha. Três testes específicos passaram; o conjunto completo do catálogo soma 20, com TypeScript, lint da fronteira e build Next finais aprovados. Não contar a fronteira técnica como página operacional. Continuar com navegação de usuário/admin, buscas, categorias e produto, preservando proprietário dos campos filhos e as pendências do inventário central.
+
+### Formulários —16/10: continuidade
+
+Autosave/finalização de produto e criar/editar/excluir categorias passaram nos testes locais, TypeScript/lint e build Next. Autosave usa assinatura estável do snapshot e preserva UUIDs de variações para não repetir gravação sem edição. Produto agregado permanece pendente: Step1Photos não compartilha fila com upload iniciado posteriormente e ImageActionModal ainda possui callback vazio de substituição global. Conferir também AttributeManagerModal, VariationFormModal, buscas/filtros, carrinho e preferências no inventário vigente; não declarar conclusão global. Sem escrita remota nesta revisão.

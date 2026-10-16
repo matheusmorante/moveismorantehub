@@ -78,7 +78,9 @@ if (typeof window !== 'undefined') {
 /**
  * Inicialização e assinatura de configurações com Supabase
  */
-export const subscribeToSettings = (callback: (settings: AppSettings) => void) => {
+export const subscribeToSettings = (callback: (settings: AppSettings) => void, options?: {
+  onRemoteLoad: (result: { confirmed: boolean; message?: string }) => void;
+}) => {
   settingsSubscribers.add(callback);
   const defaults = getDefaultSettings();
   // Initial load from localStorage for speed
@@ -92,16 +94,25 @@ export const subscribeToSettings = (callback: (settings: AppSettings) => void) =
     .eq('id', SETTINGS_ID)
     .single(), 15_000, null, 'configuracoes:consultar')
     .then((response) => {
-      if (!active || revision !== settingsRevision) return;
+      if (!active) return;
+      if (revision !== settingsRevision) {
+        options?.onRemoteLoad({ confirmed: false, message: 'A configuração mudou durante a consulta. Carregue novamente antes de editar.' });
+        return;
+      }
       const { data, error } = response || {};
       if (data && !error) {
         const settingsFromCloud = data.data as any;
         const migrated = migrateSettings(settingsFromCloud);
         const mergedSettings = deepMerge(defaults, migrated);
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings));
+        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings)); } catch { /* The remote read remains authoritative when cache is unavailable. */ }
         notifySettingsSubscribers(mergedSettings);
+        options?.onRemoteLoad({ confirmed: true });
+      } else {
+        options?.onRemoteLoad({ confirmed: false, message: 'Não foi possível confirmar as configurações na nuvem. Tente carregar novamente.' });
       }
-    }).catch(() => { /* Preserve the initial local snapshot when cloud/cache fails. */ });
+    }).catch(() => {
+      if (active) options?.onRemoteLoad({ confirmed: false, message: 'Não foi possível carregar as configurações. Tente novamente.' });
+    });
 
   return () => {
     active = false;

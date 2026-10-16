@@ -50,6 +50,18 @@ function renderSubmit(
 }
 
 describe('conclusão do pai respeita os requisitos de cada variação', () => {
+  it('aguarda onSuccess do cadastro existente e preserva a tela quando ele recusa a etapa seguinte', async () => {
+    let finish!: (value: boolean) => void;
+    const onSuccess = vi.fn(() => new Promise<boolean>((resolve) => { finish = resolve; })), onClose = vi.fn();
+    const { result } = renderHook(() => useProductFormSubmit({
+      formData: { ...complete, isDraft: false, status: 'hidden', active: true }, product: complete, isRegisteredProduct: true,
+      setFormData: vi.fn(), setValidationErrors: vi.fn(), setActiveTab: vi.fn(), variations: {}, draft: {}, setLoading: vi.fn(), setSaveResult: vi.fn(), hasChanged: { current: true }, onSuccess, onClose,
+    }));
+    let submitted!: Promise<boolean>;
+    await act(async () => { submitted = result.current.handleSubmit(); }); expect(onSuccess).toHaveBeenCalledOnce(); expect(onClose).not.toHaveBeenCalled();
+    await act(async () => { expect(await result.current.handleSubmit()).toBe(false); });
+    await act(async () => { finish(false); expect(await submitted).toBe(false); }); expect(onClose).not.toHaveBeenCalled();
+  });
   it.each([false, true])('resumes autosave after manual draft save or service failure (failure=%s)', async (failure) => {
     if (failure) mocks.saveProduct.mockRejectedValueOnce(new Error('Falha manual simulada'));
     else mocks.saveProduct.mockImplementationOnce(async (product) => { product.updatedAt = 'manual-version'; return product.id; });

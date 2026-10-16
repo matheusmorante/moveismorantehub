@@ -25,7 +25,7 @@ interface SubmitProps {
   setLoading: (loading: boolean) => void;
   setSaveResult: (result: any) => void;
   hasChanged: React.MutableRefObject<boolean>;
-  onSuccess?: (product: Product) => void;
+  onSuccess?: (product: Product) => void | boolean | Promise<void | boolean>;
   onSave?: (product?: Product) => void | Promise<void>;
   onClose: () => void;
   isTestArtifact?: boolean;
@@ -213,7 +213,7 @@ export const useProductFormSubmit = ({
               toast.success('Produto cadastrado com sucesso! 🚀');
             } else {
               toast.success('Produto salvo com sucesso!');
-              if (onSuccess) onSuccess(normalizedData);
+              if (onSuccess && await onSuccess(normalizedData) === false) return false;
               if (onSave) await onSave(normalizedData);
               onClose();
             }

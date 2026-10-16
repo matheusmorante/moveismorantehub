@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { createInboundFamilyVariationSchema, createInboundProductLinkSchema, createInboundProductPreparationCommandSchema, inboundProductTitleSchema, type InboundProductPreparationCommand } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
+import { createInboundCreatedProductLinkSchema, createInboundFamilyVariationSchema, createInboundProductLinkSchema, createInboundProductPreparationCommandSchema, inboundProductTitleSchema, type InboundProductPreparationCommand } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
@@ -21,7 +21,7 @@ import type { AiClassification } from './useInboundInvoiceClassification';
 export interface UseInboundInvoiceProductCreationParams {
   items: InboundInvoiceItem[];
   supplierId?: string;
-  onChange: (itemNumber: number, update: Partial<InboundInvoiceItem>) => void;
+  onChange: (itemNumber: number, update: Partial<InboundInvoiceItem>) => void | boolean | Promise<void | boolean>;
   setCreatingItemNumber: (val: number | null) => void;
   setCreatingVariationId: (val: string | null) => void;
   setIsPreparingProduct: (val: boolean) => void;
@@ -80,6 +80,15 @@ export function useInboundInvoiceProductCreation({
     itemNumber: classifyingItem?.itemNumber || 0, productId: aiClassification?.matchedProductId || '',
     variationId: aiClassification?.matchedVariationId || undefined, supplierId,
   });
+  const createdLinkForm = useZodForm(createInboundCreatedProductLinkSchema(itemNumbers), {
+    itemNumber: creatingItemNumber || 0, supplierId: supplierId || '', productId: '',
+    supplierProductCode: '', supplierDescription: '',
+  });
+  const linkInFlight = useRef(false), uncertainLink = useRef('');
+  const currentLinkItem = items.find((item) => item.itemNumber === creatingItemNumber);
+  const linkKey = JSON.stringify([supplierId, creatingItemNumber, creatingVariationId, currentLinkItem]);
+  const linkContext = useRef({ key: linkKey, generation: 0 });
+  if (linkContext.current.key !== linkKey) linkContext.current = { key: linkKey, generation: linkContext.current.generation + 1 };
 
   const advanceQueue = (queue: number[]) => {
     setCreationQueue(queue);
@@ -102,63 +111,63 @@ export function useInboundInvoiceProductCreation({
     setCreatingVariationId(null);
     setIsSuggestingName(true);
     setIsPreparingProduct(true);
-      const parsedTitle = inboundProductTitleSchema.safeParse(await aiService.generateMarketplaceTitle({
-        description: item.productDescription,
-      }));
-      if (!parsedTitle.success) throw new Error(parsedTitle.error.issues[0].message);
-      const suggestion = parsedTitle.data;
-      assertCurrent();
-      const { categories } = await fetchGroupsAndCategories();
-      assertCurrent();
-      const activeCategories = (categories || []).filter(
-        (category) => (category as { active?: boolean }).active !== false
-      );
-      const resolvedCategory = await resolveAutoCategory(suggestion.title, activeCategories);
-      assertCurrent();
+    const parsedTitle = inboundProductTitleSchema.safeParse(await aiService.generateMarketplaceTitle({
+      description: item.productDescription,
+    }));
+    if (!parsedTitle.success) throw new Error(parsedTitle.error.issues[0].message);
+    const suggestion = parsedTitle.data;
+    assertCurrent();
+    const { categories } = await fetchGroupsAndCategories();
+    assertCurrent();
+    const activeCategories = (categories || []).filter(
+      (category) => (category as { active?: boolean }).active !== false
+    );
+    const resolvedCategory = await resolveAutoCategory(suggestion.title, activeCategories);
+    assertCurrent();
 
-      const finalCost = validated.finalCost;
-      const markup = validated.markup || 0;
-      const salePrice =
-        Number.isFinite(markup) && markup > 0
-          ? Number((finalCost * (1 + markup / 100)).toFixed(2))
-          : 0;
+    const finalCost = validated.finalCost;
+    const markup = validated.markup || 0;
+    const salePrice =
+      Number.isFinite(markup) && markup > 0
+        ? Number((finalCost * (1 + markup / 100)).toFixed(2))
+        : 0;
 
-      setSuggestedCategory(
-        resolvedCategory
-          ? {
-              id: resolvedCategory.id,
-              name: resolvedCategory.name || resolvedCategory.category || '',
-            }
-          : null
-      );
-      setInitialProductData({
-        name: suggestion.title,
-        title: suggestion.title,
-        description: '',
-        unit: item.unit || 'UN',
-        itemType: 'product',
-        active: true,
-        isDraft: false,
-        status: 'hidden',
-        mainSupplierId: validated.supplierId,
-        supplierId: validated.supplierId,
-        supplierIds: [validated.supplierId],
-        supplierRef: item.productCode || undefined,
-        categoryIds: resolvedCategory ? [resolvedCategory.id] : [],
-        parentId: family?.id,
-        costPrice: finalCost,
-        unitPrice: salePrice,
-        stock: 0,
-        fiscal: {
-          ncm: item.ncm || undefined,
-          cest: item.cest || undefined,
-          cfop: item.cfop || undefined,
-        },
-        ecommerceSync: false,
-        whatsappSync: false,
-      });
-      setIsProductModalOpen(true);
-      return true;
+    setSuggestedCategory(
+      resolvedCategory
+        ? {
+            id: resolvedCategory.id,
+            name: resolvedCategory.name || resolvedCategory.category || '',
+          }
+        : null
+    );
+    setInitialProductData({
+      name: suggestion.title,
+      title: suggestion.title,
+      description: '',
+      unit: item.unit || 'UN',
+      itemType: 'product',
+      active: true,
+      isDraft: false,
+      status: 'hidden',
+      mainSupplierId: validated.supplierId,
+      supplierId: validated.supplierId,
+      supplierIds: [validated.supplierId],
+      supplierRef: item.productCode || undefined,
+      categoryIds: resolvedCategory ? [resolvedCategory.id] : [],
+      parentId: family?.id,
+      costPrice: finalCost,
+      unitPrice: salePrice,
+      stock: 0,
+      fiscal: {
+        ncm: item.ncm || undefined,
+        cest: item.cest || undefined,
+        cfop: item.cfop || undefined,
+      },
+      ecommerceSync: false,
+      whatsappSync: false,
+    });
+    setIsProductModalOpen(true);
+    return true;
   };
 
   const runPreparation = async (
@@ -175,7 +184,7 @@ export function useInboundInvoiceProductCreation({
     const assertCurrent = () => { if (!isCurrent()) throw new Error('O contexto da nota mudou. Reabra a preparação do produto.'); };
     try {
       return await preparationForm.validateAndRun({ itemNumber: item.itemNumber, supplierId: supplierId || '', markup: markupInput || '',
-        finalCost: itemCostWithAdditionalCosts(item), quantity: item.quantity, item }, async (values) => {
+        finalCost: itemCostWithAdditionalCosts(item), quantity: item.quantity, item: { ...item } }, async (values) => {
         const task = async () => {
           assertCurrent(); resetClassification();
           if (classify) {
@@ -298,66 +307,59 @@ export function useInboundInvoiceProductCreation({
     if (item) void startCreation(item, queue);
   };
 
-  const handleCreatedProductFromModal = async (createdProduct: Product) => {
-    if (!creatingItemNumber || !supplierId) return;
-    const validated = await linkForm.validateAndRun({
-      itemNumber: creatingItemNumber, productId: createdProduct.id || '', supplierId,
-      variationId: creatingVariationId || undefined,
-    }, (data) => data, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    setIsProductModalOpen(false);
-
-    const currentItem = items.find((item) => item.itemNumber === creatingItemNumber);
-    if (currentItem) {
-      try {
-        // Recarrega para usar os UUIDs/SKUs efetivamente persistidos.
-        let productToUse = createdProduct;
-        if (productToUse.id) {
-          const reloaded = await getFullProduct(productToUse.id);
-          if (reloaded) productToUse = reloaded;
-        }
-        const variation = creatingVariationId
-          ? productToUse.variations?.find((candidate) => candidate.id === creatingVariationId)
-          : productToUse.variations?.[0];
-        if (creatingVariationId && !variation) {
-          throw new Error(
-            'A variação recém-cadastrada não foi encontrada. O vínculo não foi salvo em outra variação.'
-          );
-        }
+  const handleCreatedProductFromModal = async (createdProduct: Product): Promise<boolean> => {
+    // Editing without a creation target does not create a supplier association.
+    if (creatingItemNumber === null) return true;
+    if (linkInFlight.current) return false;
+    if (uncertainLink.current) { toast.error(uncertainLink.current); return false; }
+    linkInFlight.current = true;
+    const submittedContext = linkContext.current;
+    let expired = false, writing = false;
+    const assertCurrent = () => {
+      if (expired || !active.current || linkContext.current !== submittedContext) throw new Error('O item ou fornecedor mudou. Confira o produto salvo antes de vincular.');
+    };
+    try {
+      return Boolean(await createdLinkForm.validateAndRun({
+        itemNumber: creatingItemNumber, productId: createdProduct.id || '', supplierId: supplierId || '',
+        variationId: creatingVariationId || undefined, supplierProductCode: currentLinkItem?.productCode || '',
+        supplierDescription: currentLinkItem?.productDescription || '',
+      }, async (data) => {
+        assertCurrent();
+        const productToUse = await withTimeout(getFullProduct(data.productId), 15000, null, 'entrada:recarregar-produto-salvo');
+        assertCurrent();
+        if (!productToUse || productToUse.id !== data.productId || productToUse.deleted) throw new Error('Produto salvo não encontrado. Confira o cadastro antes de vincular.');
+        const variation = data.variationId ? productToUse.variations?.find((candidate) => candidate.id === data.variationId) : productToUse.variations?.[0];
+        if (data.variationId && !variation) throw new Error('A variação recém-cadastrada não foi encontrada. O vínculo não foi salvo em outra variação.');
         const resolvedCode = (variation?.sku || productToUse.code || productToUse.sku || '').trim();
-        const resolvedName = (
-          variation?.name ||
-          variation?.title ||
-          productToUse.name ||
-          productToUse.title ||
-          currentItem.productDescription
-        ).trim();
-
-        await saveProductSupplierCode({
-          supplierId: validated.supplierId!,
-          productId: (productToUse.id || createdProduct.id) as string,
-          productVariationId: variation?.id,
-          supplierProductCode: currentItem.productCode,
-          supplierDescription: currentItem.productDescription,
-        });
-        onChange(currentItem.itemNumber, {
-          matchedProductId: productToUse.id || createdProduct.id,
-          matchedVariationId: variation?.id,
-          linkedProductCode: resolvedCode,
-          productErpName: resolvedName,
-        });
+        const resolvedName = (variation?.name || variation?.title || productToUse.name || productToUse.title || data.supplierDescription).trim();
+        writing = true;
+        const saved = await withTimeout(saveProductSupplierCode({
+          supplierId: data.supplierId, productId: data.productId, productVariationId: variation?.id,
+          supplierProductCode: data.supplierProductCode, supplierDescription: data.supplierDescription,
+        }).then(() => true), 20000, false, 'entrada:salvar-codigo-fornecedor');
+        assertCurrent();
+        if (!saved) throw new Error('A gravação do vínculo não foi confirmada.');
+        const mappings = await withTimeout(findProductSupplierCodes(data.supplierId, [data.supplierProductCode]), 15000, null, 'entrada:confirmar-codigo-fornecedor');
+        assertCurrent();
+        const mapping = mappings?.get(data.supplierProductCode.toLocaleUpperCase('pt-BR'));
+        if (!mapping || mapping.productId !== data.productId || mapping.productVariationId !== variation?.id) throw new Error('O vínculo salvo não corresponde ao produto e à variação escolhidos.');
+        const applied = await withTimeout(Promise.resolve(onChange(data.itemNumber, {
+          matchedProductId: data.productId, matchedVariationId: variation?.id, linkedProductCode: resolvedCode, productErpName: resolvedName,
+        })).then((result) => result !== false), 20000, false, 'entrada:aplicar-vinculo-produto');
+        if (!applied) throw new Error('Não foi possível confirmar o vínculo no item da nota.');
+        if (!active.current) return false;
+        setIsProductModalOpen(false);
+        setCreatingItemNumber(null); setCreatingVariationId(null); setInitialProductData(null); setSuggestedCategory(null); setIndividualMarkup('');
+        advanceQueue(creationQueue.filter((number) => number !== data.itemNumber));
         toast.success(`Produto "${resolvedName}" cadastrado e vinculado.`);
-      } catch (error: any) {
-        toast.error('Produto cadastrado, mas não foi possível vincular o código do fornecedor.');
-      }
-    }
-    const nextQueue = creationQueue.filter((itemNumber) => itemNumber !== creatingItemNumber);
-    setCreatingItemNumber(null);
-    setCreatingVariationId(null);
-    setInitialProductData(null);
-    setSuggestedCategory(null);
-    setIndividualMarkup('');
-    advanceQueue(nextQueue);
+        return true;
+      }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])));
+    } catch (error) {
+      const message = `Produto já salvo. ${error instanceof Error ? error.message : 'Não foi possível confirmar o vínculo.'}`;
+      if (writing) uncertainLink.current = `${message} Confira os vínculos antes de repetir.`;
+      if (active.current) toast.error(uncertainLink.current || message);
+      return false;
+    } finally { expired = true; linkInFlight.current = false; }
   };
 
   return {
