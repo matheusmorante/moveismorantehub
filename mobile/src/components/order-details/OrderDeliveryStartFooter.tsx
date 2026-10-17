@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Play, Truck, MapPin } from 'lucide-react-native';
+import { DeliveryFlowIcon } from '../shared/DeliveryFlowIcon';
 
 interface Props {
   order: any;
@@ -113,12 +114,12 @@ export function OrderDeliveryStartFooter({
     );
   }
 
-  // Não iniciado → Botão 'INICIAR ENTREGA'
+  // Não iniciado → Botão 'Iniciar fluxo de entrega'
   if (onStart) {
     return (
       <TouchableOpacity onPress={onStart} style={styles.startButton} activeOpacity={0.85}>
-        <Play size={18} color="#fff" fill="#fff" />
-        <Text style={styles.text}>INICIAR ENTREGA</Text>
+        <DeliveryFlowIcon size={24} color="#ffffff" />
+        <Text style={styles.text}>Iniciar fluxo de entrega</Text>
       </TouchableOpacity>
     );
   }

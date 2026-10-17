@@ -7,3 +7,13 @@ export { ProductAiWebSearchForm } from './ProductAiWebSearchForm';
 export { ProductAiDescriptiveTextForm } from './ProductAiDescriptiveTextForm';
 export { ProductAiReviewPhase } from './ProductAiReviewPhase';
 export { useProductAiCharacteristicsModal } from './useProductAiCharacteristicsModal';
+export {
+  extractProductAiPrerequisites,
+  type ProductAiPrerequisites,
+} from './utils/productAiPrerequisites';
+export {
+  hasErpValue,
+  computeInitialSelectionKeys,
+  computeSelectAllKeys,
+} from './utils/productAiSelectionRules';
+export { applyAiCharacteristicsToProduct } from './utils/productAiApplyHelpers';

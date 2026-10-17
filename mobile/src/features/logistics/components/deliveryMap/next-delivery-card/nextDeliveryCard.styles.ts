@@ -1,0 +1,197 @@
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 14,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 6,
+    maxWidth: '100%',
+  },
+  cardDark: {
+    backgroundColor: '#1e293b',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
+  },
+  badgeProgress: {
+    backgroundColor: '#eff6ff',
+  },
+  badgeNext: {
+    backgroundColor: '#f0fdf4',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  badgeTextProgress: {
+    color: '#2563eb',
+  },
+  badgeTextNext: {
+    color: '#16a34a',
+  },
+  orderIndexText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748b',
+  },
+  closeCardBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeCardBtnDark: {
+    backgroundColor: '#334155',
+  },
+  customerName: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0f172a',
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 5,
+    marginBottom: 8,
+  },
+  addressText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    flex: 1,
+    lineHeight: 16,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginBottom: 12,
+  },
+  metricPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
+    borderRadius: 8,
+  },
+  metricText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#2563eb',
+  },
+  actionsContainer: {
+    gap: 6,
+  },
+  primaryActionBtnFull: {
+    width: '100%',
+    height: 46,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+  },
+  primaryActionText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+  },
+  successActionBtn: {
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#16a34a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+  },
+  successActionText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  compactSecondaryBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 6,
+  },
+  compactSecondaryBtnDark: {},
+  compactSecondaryText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748b',
+  },
+  completedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
+  },
+  completedTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  completedSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  opBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  opBadgeDepot: {
+    backgroundColor: '#f59e0b',
+  },
+  opBadgeOutside: {
+    backgroundColor: '#dc2626',
+  },
+  opBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 0.4,
+  },
+  textLight: {
+    color: '#f8fafc',
+  },
+  textMuted: {
+    color: '#94a3b8',
+  },
+});

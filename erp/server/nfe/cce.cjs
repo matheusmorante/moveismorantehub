@@ -485,7 +485,7 @@ async function handler(req, res) {
       return res.status(404).json({ success: false, error: "Documento fiscal n\xE3o encontrado." });
     if (document.modelo !== "55")
       return res.status(409).json({ success: false, error: "CC-e s\xF3 pode ser emitida para NF-e modelo 55." });
-    if (![1, 2].includes(Number(document.ambiente)) || !/^\d{44}$/.test(document.chave_acesso || ""))
+    if (![1, 2].includes(Number(document.ambiente)) || !/^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/.test(document.chave_acesso || ""))
       return res.status(409).json({ success: false, error: "Ambiente ou chave de acesso inv\xE1lidos." });
     if (!["autorizada", "homologada"].includes(document.status))
       return res.status(409).json({ success: false, error: "A NF-e precisa estar autorizada para receber CC-e." });

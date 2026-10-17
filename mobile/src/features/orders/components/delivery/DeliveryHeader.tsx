@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
+import { DeliveryFlowIcon } from '../../../../components/shared/DeliveryFlowIcon';
 
 interface Props {
   title: string;
@@ -34,10 +35,15 @@ export const DeliveryHeader: React.FC<Props> = ({
           <ArrowLeft size={20} color="#2563eb" />
         </TouchableOpacity>
         <View style={{ flexShrink: 1 }}>
-          <Text numberOfLines={1} style={[styles.title, isDarkMode && styles.textLight]}>
-            {title}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <DeliveryFlowIcon size={22} color={isDarkMode ? '#60a5fa' : '#2563eb'} />
+            <Text numberOfLines={1} style={[styles.title, isDarkMode && styles.textLight]}>
+              Fluxo de Entrega
+            </Text>
+          </View>
+          <Text style={styles.subtitle}>
+            Pedido #{orderCode || '—'}{title ? ` • ${title}` : ''}
           </Text>
-          <Text style={styles.subtitle}>Pedido #{orderCode || '—'}</Text>
         </View>
       </View>
 

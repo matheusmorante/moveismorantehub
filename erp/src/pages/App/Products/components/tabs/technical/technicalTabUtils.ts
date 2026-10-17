@@ -102,6 +102,13 @@ export const computeTechnicalFieldItemState = (
       formData.depth
     ) {
       rawValue = formData.depth;
+    } else if (norm === 'modelo/linha' || norm === 'linha/modelo') {
+      rawValue =
+        formData.technicalValues?.['Modelo'] ??
+        formData.technicalValues?.['modelo'] ??
+        formData.technicalValues?.['Linha'] ??
+        formData.technicalValues?.['linha'] ??
+        formData.line;
     }
   }
 
@@ -115,7 +122,15 @@ export const computeTechnicalFieldItemState = (
       norm === 'profundidade total' ||
       norm === 'comprimento' ||
       norm === 'comprimento total') &&
-      Boolean(formData.depth));
+      Boolean(formData.depth)) ||
+    ((norm === 'modelo/linha' || norm === 'linha/modelo') &&
+      Boolean(
+        formData.technicalValues?.['Modelo'] ??
+        formData.technicalValues?.['modelo'] ??
+        formData.technicalValues?.['Linha'] ??
+        formData.technicalValues?.['linha'] ??
+        formData.line
+      ));
 
   const hasSelectedValue =
     rawValue !== undefined &&

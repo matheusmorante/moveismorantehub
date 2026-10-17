@@ -33,6 +33,15 @@ export const buttons: OrderButton[] = [
     orderTypes: ['sale'], // Não aparece para assistência
   },
   {
+    key: 'printPromissoryNote',
+    icon: 'bi-file-earmark-ruled',
+    action: 'PRINT_PROMISSORY_NOTE',
+    label: 'Nota Promissória',
+    color: 'text-amber-600 hover:bg-amber-50',
+    tooltip: 'Visualizar, imprimir ou exportar em PDF a Nota Promissória do pedido',
+    orderTypes: ['sale'],
+  },
+  {
     key: 'issueNfe',
     icon: 'bi-file-earmark-text-fill',
     action: 'ISSUE_NFE',

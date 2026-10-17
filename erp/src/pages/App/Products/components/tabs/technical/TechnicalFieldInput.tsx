@@ -29,7 +29,7 @@ export const TechnicalFieldInput: React.FC<Props> = ({
   onChange,
 }) => {
   let type = field.dataType || 'list';
-  if (/^(marca|modelo|linha)$/i.test(field.name.trim())) {
+  if (/^(marca|modelo|modelo\s*\/\s*linha|linha\s*\/\s*modelo|linha)$/i.test(field.name.trim())) {
     type = 'text_short';
   } else if (
     /quantidade de (portas?|gavetas?|p[eé]s?)/i.test(field.name) ||
@@ -62,14 +62,17 @@ export const TechnicalFieldInput: React.FC<Props> = ({
   if (type === 'text_short' || type === 'text') {
     const isMarca = /^marca$/i.test(field.name.trim());
     const isModelo = /^modelo$/i.test(field.name.trim());
+    const isModeloLinha = /^(modelo\s*\/\s*linha|linha\s*\/\s*modelo)$/i.test(field.name.trim());
     const isLinha = /^linha$/i.test(field.name.trim());
     const placeholder = isMarca
       ? 'Digite a marca'
       : isModelo
         ? 'Digite o modelo'
-        : isLinha
-          ? 'Digite a linha'
-          : undefined;
+        : isModeloLinha
+          ? 'Digite o modelo / linha'
+          : isLinha
+            ? 'Digite a linha'
+            : undefined;
 
     return (
       <input

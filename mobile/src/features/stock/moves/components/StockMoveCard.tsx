@@ -1,9 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import {
-  PackagePlus,
-  PackageMinus,
-  Scale,
   CheckCircle2,
   RotateCcw,
   Check,
@@ -13,6 +10,15 @@ import {
 } from 'lucide-react-native';
 import { StockMove } from '../../types/stock.types';
 import { isOrderLinked as checkIsOrderLinked } from '../domain/inventoryTimelineBalance';
+import { styles } from './stock-move-card/stockMoveCard.styles';
+import {
+  getTypeVisualConfig,
+  formatCurrency,
+  formatDateAndTime,
+  getReversedLabel,
+  parseObservationAndReason,
+  getQuantityDisplay,
+} from './stock-move-card/stockMoveCardUtils';
 
 export const StockMoveCard = ({
   move,
@@ -28,81 +34,24 @@ export const StockMoveCard = ({
   onEdit?: (move: StockMove) => void;
 }) => {
   const [expandedObservation, setExpandedObservation] = React.useState(false);
-  const isEntry = move.type === 'in' || move.type === 'entry';
-  const isExit = move.type === 'out' || move.type === 'exit' || move.type === 'withdrawal';
+
   const isReversed = move.status === 'reversed';
   const isEffective = move.status === 'effective' || move.status === 'active';
   const isOrderLinked = checkIsOrderLinked(move);
 
-  let TypeIcon = Scale;
-  let typeText = 'AJUSTE';
-  let typeColor = isDarkMode ? '#fdb95b' : '#d97706';
-  let typeBg = isDarkMode ? 'rgba(253,185,91,0.15)' : '#fef3c7';
-  let typeBorder = isDarkMode ? '#a16207' : '#fde68a';
-  if (isEntry) {
-    TypeIcon = PackagePlus;
-    typeText = 'ENTRADA';
-    typeColor = isDarkMode ? '#4ade80' : '#16a34a';
-    typeBg = isDarkMode ? 'rgba(74,222,128,0.15)' : '#dcfce7';
-    typeBorder = isDarkMode ? '#166534' : '#bbf7d0';
-  } else if (isExit) {
-    TypeIcon = PackageMinus;
-    typeText = 'SAÍDA';
-    typeColor = isDarkMode ? '#f87171' : '#dc2626';
-    typeBg = isDarkMode ? 'rgba(248,113,113,0.15)' : '#fee2e2';
-    typeBorder = isDarkMode ? '#991b1b' : '#fecaca';
-  }
+  const { TypeIcon, typeText, typeColor, typeBg, typeBorder, isEntry, isExit } =
+    getTypeVisualConfig(move, isDarkMode);
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  const { dateStr, timeStr } = formatDateAndTime(move.created_at);
+  const reversedLabel = getReversedLabel(isReversed, move.reversedAt);
+  const { finalObs, obsLabel, reasonText } = parseObservationAndReason(move, isReversed);
+  const { qtyPrefix, displayedQuantity, qtyColor } = getQuantityDisplay(
+    move,
+    isEntry,
+    isExit,
+    isDarkMode
+  );
 
-  const dateObj = new Date(move.created_at);
-  const dateStr = dateObj.toLocaleDateString('pt-BR');
-  const timeStr = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-  let reversedLabel = '';
-  if (isReversed && move.reversedAt) {
-    const r = new Date(move.reversedAt);
-    reversedLabel = `Estornado em ${r.toLocaleDateString('pt-BR')} as ${r.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-  }
-
-  let obsText = move.observation || '';
-  if (obsText.startsWith('{') || obsText.startsWith('[')) {
-    try {
-      const p = JSON.parse(obsText);
-      if (typeof (p.note || p.observation || p.reason) === 'string')
-        obsText = p.note || p.observation || p.reason;
-    } catch {
-      obsText = move.observation || '';
-    }
-  }
-  const reasonText =
-    move.reversalReason ||
-    (isReversed && typeof move.observation === 'string' && !move.observation.startsWith('{')
-      ? move.observation
-      : '');
-  const finalObs =
-    isReversed && reasonText
-      ? obsText && obsText !== reasonText
-        ? `Original: ${obsText} | Estorno: ${reasonText}`
-        : reasonText
-      : obsText;
-  const obsLabel = isReversed && reasonText ? 'MOTIVO/OBS:' : 'OBSERVACAO:';
-
-  const qtyPrefix = isEntry ? '+' : isExit ? '-' : '';
-  const displayedQuantity =
-    isEntry || isExit ? Math.abs(Number(move.quantity || 0)) : Number(move.quantity || 0);
-  const qtyColor = isEntry
-    ? isDarkMode
-      ? '#4ade80'
-      : '#16a34a'
-    : isExit
-      ? isDarkMode
-        ? '#f87171'
-        : '#dc2626'
-      : isDarkMode
-        ? '#fdb95b'
-        : '#d97706';
   const dividerColor = isDarkMode ? '#263245' : '#f1f5f9';
   const footerBg = isDarkMode ? 'rgba(15,23,42,0.4)' : '#f8fafc';
 
@@ -267,7 +216,7 @@ export const StockMoveCard = ({
 
       <View style={[styles.divider, { backgroundColor: dividerColor }]} />
 
-      {/* Rodape */}
+      {/* Rodapé */}
       <View style={[styles.footer, { backgroundColor: footerBg }]}>
         <View style={styles.footerCell}>
           <View style={styles.footerCellHeader}>
@@ -300,6 +249,7 @@ export const StockMoveCard = ({
           {reversedLabel}
         </Text>
       )}
+
       {canManage && isEffective && !isOrderLinked && (onReverse || onEdit) && (
         <View style={styles.actionsRow}>
           {onEdit && (
@@ -324,122 +274,3 @@ export const StockMoveCard = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    marginBottom: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  cardDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 12,
-    gap: 8,
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' },
-  typeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 5,
-  },
-  typeBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 4,
-  },
-  statusBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  microBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  quantity: { fontSize: 18, fontWeight: '900' },
-  qtyUnit: { fontSize: 12, fontWeight: '600', opacity: 0.7 },
-  divider: { height: 1 },
-  body: { paddingHorizontal: 14, paddingVertical: 12, gap: 8 },
-  bodyRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  fieldLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#94a3b8',
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
-  fieldLabelDark: { color: '#64748b' },
-  productText: { fontSize: 14, fontWeight: '700', color: '#0f172a', lineHeight: 20 },
-  labelText: { fontSize: 13, color: '#64748b', flex: 1, lineHeight: 18 },
-  textDark: { color: '#f1f5f9' },
-  textMutedDark: { color: '#94a3b8' },
-  obsBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#f8fafc',
-    borderTopWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 7,
-  },
-  obsBoxDark: { backgroundColor: 'rgba(15,23,42,0.4)' },
-  obsBoxAmber: { backgroundColor: '#fffbeb', borderTopColor: '#fde68a' },
-  obsBoxAmberDark: {
-    backgroundColor: 'rgba(120,53,15,0.2)',
-    borderTopColor: 'rgba(146,64,14,0.4)',
-  },
-  obsLabel: { fontSize: 10, fontWeight: '800', marginBottom: 2, letterSpacing: 0.5 },
-  obsContent: { fontSize: 12, fontWeight: '500', lineHeight: 17 },
-  footer: { flexDirection: 'row' },
-  footerCell: { flex: 1, paddingHorizontal: 14, paddingVertical: 10 },
-  footerCellHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
-  footerValue: { fontSize: 14, fontWeight: '800', color: '#0f172a' },
-  footerSub: { fontSize: 11, color: '#94a3b8', marginTop: 1 },
-  reversedText: {
-    fontSize: 11,
-    color: '#d97706',
-    fontWeight: '600',
-    paddingHorizontal: 14,
-    paddingBottom: 10,
-  },
-  reverseButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 11,
-    borderTopWidth: 1,
-    borderTopColor: '#fde68a',
-    backgroundColor: '#fffbeb',
-  },
-  reverseButtonText: { fontSize: 11, fontWeight: '800', color: '#b45309' },
-  actionsRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  actionButton: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 11 },
-  actionButtonText: { fontSize: 11, fontWeight: '800', color: '#2563eb' },
-  expandText: { fontSize: 11, fontWeight: '800', color: '#2563eb', marginTop: 4 },
-});

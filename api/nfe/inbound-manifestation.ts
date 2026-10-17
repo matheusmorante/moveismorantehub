@@ -8,6 +8,11 @@ import {
   buildInboundScienceEventXml,
   parseInboundManifestationResponse,
 } from './inboundManifestationProtocol';
+import {
+  ACCESS_KEY_PATTERN,
+  CNPJ_PATTERN,
+  normalizeFiscalIdentifier,
+} from '../../shared-utils/fiscalIdentifiers.js';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -16,8 +21,6 @@ const supabaseUrl =
 const serviceKey = getSupabaseSecretKey() || '';
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-
-const digits = (value: unknown) => String(value || '').replace(/\D/g, '');
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -35,9 +38,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!authorization.ok)
     return res.status(authorization.status).json({ success: false, error: authorization.message });
 
-  const accessKey = digits(req.body?.accessKey);
+  const accessKey = normalizeFiscalIdentifier(req.body?.accessKey);
   const requestId = String(req.body?.requestId || '');
-  if (!/^\d{44}$/.test(accessKey))
+  if (!ACCESS_KEY_PATTERN.test(accessKey))
     return res.status(400).json({ success: false, error: 'Chave de acesso inválida.' });
   if (!isUuid(requestId))
     return res.status(400).json({ success: false, error: 'Identificador da solicitação inválido.' });
@@ -56,14 +59,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const environment = Number(invoice.ambiente) as 1 | 2;
   if (environment === 1 && req.body?.productionConfirmed !== true)
     return res.status(400).json({ success: false, error: 'Confirme explicitamente o envio da Ciência em Produção.' });
-  const recipientCnpj = digits(invoice.destinatario_cnpj);
+  const recipientCnpj = normalizeFiscalIdentifier(invoice.destinatario_cnpj);
   const { data: settingsRow, error: settingsError } = await db
     .from('settings')
     .select('data')
     .eq('id', 'app')
     .maybeSingle();
-  const configuredCnpj = digits(settingsRow?.data?.companyCnpj);
-  if (settingsError || configuredCnpj.length !== 14 || recipientCnpj !== configuredCnpj)
+  const configuredCnpj = normalizeFiscalIdentifier(settingsRow?.data?.companyCnpj);
+  if (settingsError || !CNPJ_PATTERN.test(configuredCnpj) || recipientCnpj !== configuredCnpj)
     return res.status(409).json({ success: false, error: 'O destinatário da nota não corresponde ao CNPJ configurado para esta empresa.' });
 
   if (String(invoice.modelo || accessKey.slice(20, 22)) !== '55')

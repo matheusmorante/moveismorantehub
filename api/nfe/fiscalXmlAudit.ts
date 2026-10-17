@@ -96,8 +96,10 @@ const allDescendants = (node: XmlNode, name: string): XmlNode[] => {
   return result;
 };
 
+import { normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers.js';
+
 function normalizeTaxId(value: string) {
-  return value.replace(/\D/g, '');
+  return normalizeFiscalIdentifier(value);
 }
 
 function objectValue(value: unknown): Record<string, unknown> {

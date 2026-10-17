@@ -35,6 +35,8 @@ type Shipping = {
   useCustomerAddress?: boolean;
   /** Snapshot do endereço efetivamente usado quando o pedido foi salvo. */
   deliveryAddress?: FullAddress;
+  deliveryResponsibles?: Array<{ id?: string; name: string; role?: string }>;
+  deliveryResponsibleName?: string;
 };
 
 export default Shipping;

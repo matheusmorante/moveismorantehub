@@ -3,7 +3,9 @@ export const MAX_INLINE_CHOICE_OPTIONS = 8;
 export type TechnicalFieldInputMode = 'inline' | 'searchable' | 'text';
 
 export const resolveTechnicalFieldDataType = (name: string, dataType?: string | null) => {
-  if (/^(linha|marca|modelo)$/i.test(name.trim())) return 'text_short';
+  if (/^(linha|marca|modelo|modelo\s*\/\s*linha|linha\s*\/\s*modelo)$/i.test(name.trim())) {
+    return 'text_short';
+  }
   if (/quantidade de (portas?|gavetas?)/i.test(name) || /lugar(es)?/i.test(name)) {
     return 'integer';
   }
@@ -17,6 +19,9 @@ export const getTechnicalFieldTextPlaceholder = (name: string) => {
   const normalizedName = name.trim().toLocaleLowerCase('pt-BR');
   if (normalizedName === 'marca') return 'Digite a marca';
   if (normalizedName === 'modelo') return 'Digite o modelo';
+  if (normalizedName === 'modelo/linha' || normalizedName === 'linha/modelo') {
+    return 'Digite o modelo / linha';
+  }
   if (normalizedName === 'linha') return 'Digite a linha';
   return undefined;
 };

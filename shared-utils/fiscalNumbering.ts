@@ -1,3 +1,5 @@
+import { ACCESS_KEY_PATTERN } from './fiscalIdentifiers';
+
 export const MAX_FISCAL_NUMBER = 999999999;
 export const DEFAULT_NFE_NUMBER = 102;
 export const DEFAULT_NFCE_NUMBER = 600;
@@ -27,8 +29,8 @@ export function parseFiscalNumberConflict(value: unknown): FiscalNumberConflict 
 
 /** MOC 7.0 Anexo I, 2B08-10: same issuer/model/series/number, different access key. */
 export function isDifferentKeyNumberConflict(cStat: string, reason: string, ownKey: string): boolean {
-  if (cStat !== '539' || !/^\d{44}$/.test(ownKey)) return false;
-  const otherKey = reason.match(/\[chNFe:\s*(\d{44})\]/)?.[1];
+  if (cStat !== '539' || !ACCESS_KEY_PATTERN.test(ownKey)) return false;
+  const otherKey = reason.match(/\[chNFe:\s*([0-9]{6}[A-Z0-9]{12}[0-9]{26})\]/)?.[1];
   return Boolean(otherKey && otherKey !== ownKey && otherKey.slice(0, 2) === ownKey.slice(0, 2) &&
     otherKey.slice(6, 34) === ownKey.slice(6, 34));
 }

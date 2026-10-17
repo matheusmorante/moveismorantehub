@@ -13,6 +13,7 @@ interface PostOrderActionGridButtonProps {
   readonly isAdministrator: boolean;
   readonly onIssueNfeClick: () => void;
   readonly onOpenWarrantyTerm: () => void;
+  readonly onOpenPromissoryNote?: () => void;
   readonly onExecuteAction: (
     key: string,
     action: PostOrderButtonConfig['action']
@@ -27,6 +28,7 @@ export const PostOrderActionGridButton: React.FC<PostOrderActionGridButtonProps>
   isAdministrator,
   onIssueNfeClick,
   onOpenWarrantyTerm,
+  onOpenPromissoryNote,
   onExecuteAction,
 }) => {
   const baseColor = resolvePostOrderButtonColorClass(btn.color);
@@ -60,6 +62,13 @@ export const PostOrderActionGridButton: React.FC<PostOrderActionGridButtonProps>
         }
         if (btn.key === 'printWarrantyTerm') {
           onOpenWarrantyTerm();
+          return;
+        }
+        if (btn.key === 'printPromissoryNote') {
+          if (onOpenPromissoryNote) {
+            onOpenPromissoryNote();
+          }
+          await onExecuteAction(btn.key, btn.action);
           return;
         }
         await onExecuteAction(btn.key, btn.action);

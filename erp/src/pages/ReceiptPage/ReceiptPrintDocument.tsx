@@ -82,18 +82,25 @@ export const ReceiptPrintDocument: React.FC<ReceiptPrintDocumentProps> = ({ orde
                 @media print {
                     body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                     .no-print { display: none !important; }
+                    .min-h-screen { min-height: auto !important; }
+                    .receipt-print-header {
+                        padding-top: 0.15rem !important;
+                        padding-bottom: 0.25rem !important;
+                        margin-bottom: 0.25rem !important;
+                    }
                     .header-logo-container {
-                        width: 12rem !important;
-                        height: 6rem !important;
-                        padding: 0.25rem !important;
-                        border-radius: 0.75rem !important;
+                        width: 11rem !important;
+                        height: 3.25rem !important;
+                        padding: 0.1rem !important;
+                        margin: 0 !important;
+                        border-radius: 0.5rem !important;
                     }
                     .header-logo-container img {
                         width: 100% !important;
                         height: 100% !important;
                         object-fit: contain !important;
                     }
-                    @page { margin: 10mm; }
+                    @page { margin: 8mm; }
                 }
             `,
         }}

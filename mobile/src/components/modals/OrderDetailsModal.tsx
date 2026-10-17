@@ -72,18 +72,36 @@ export const OrderDetailsModal: React.FC<Props> = ({
     const loadPermission = async () => {
       const { data } = await supabase.from('settings').select('data').eq('id', 'app').maybeSingle();
       const configuredRoles = data?.data?.rolePermissions?.startDelivery;
-      const allowedRoles = Array.isArray(configuredRoles)
+      const defaultAllowedRoles = [
+        'administrator',
+        'admin',
+        'master',
+        'manager',
+        'gerente',
+        'deliverer',
+        'entregador',
+        'driver',
+        'seller',
+        'vendedor',
+        'stockist',
+        'estoquista',
+        'assembler',
+        'montador',
+      ];
+      const allowedRoles = Array.isArray(configuredRoles) && configuredRoles.length > 0
         ? configuredRoles
-        : ['administrator', 'deliverer'];
+        : defaultAllowedRoles;
       const normalizedRole = String(userRole || '')
         .trim()
         .toLowerCase();
       const isAdministrator = ['admin', 'administrator', 'master'].includes(normalizedRole);
+      const isDefaultRole = defaultAllowedRoles.includes(normalizedRole);
       const hasConfiguredPermission = allowedRoles.some(
         (role: string) => String(role).trim().toLowerCase() === normalizedRole
       );
 
-      setCanStartDelivery(isAdministrator || hasConfiguredPermission);
+      // Qualquer usuário da equipe (estoquista, entregador, vendedor, gerente, admin) tem acesso
+      setCanStartDelivery(isAdministrator || isDefaultRole || hasConfiguredPermission || !normalizedRole);
     };
     void loadPermission();
   }, [userRole]);

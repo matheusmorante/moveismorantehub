@@ -258,6 +258,13 @@ async function sendNationalEventOnce(input) {
 // api/nfe/inboundManifestationProtocol.ts
 var import_node_crypto3 = require("node:crypto");
 
+// shared-utils/fiscalIdentifiers.ts
+var CNPJ_PATTERN = /^[A-Z0-9]{12}[0-9]{2}$/;
+var ACCESS_KEY_PATTERN = /^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/;
+function normalizeFiscalIdentifier(value) {
+  return String(value ?? "").trim().toUpperCase().replace(/[.\-/\s]/g, "");
+}
+
 // shared-utils/fiscal-cfop-model/catalog.ts
 var CFOP_CATALOG_BASE = [
   // --- SAÍDAS INTERNAS (5.xxx) ---
@@ -785,9 +792,9 @@ var extractBlock = (xml, tag) => {
 };
 function buildInboundScienceEventXml(input) {
   const { accessKey, environment, recipientCnpj } = input;
-  if (!/^\d{44}$/.test(accessKey) || accessKey.slice(20, 22) !== "55")
+  if (!ACCESS_KEY_PATTERN.test(accessKey) || accessKey.slice(20, 22) !== "55")
     throw new Error("A Ci\xEAncia da Emiss\xE3o deste fluxo exige chave de NF-e modelo 55 v\xE1lida.");
-  if (!/^\d{14}$/.test(recipientCnpj) || accessKey.slice(6, 20) !== recipientCnpj)
+  if (!CNPJ_PATTERN.test(recipientCnpj) || accessKey.slice(6, 20) !== recipientCnpj)
     throw new Error("O CNPJ destinat\xE1rio n\xE3o corresponde \xE0 chave de acesso da NF-e.");
   if (environment !== 1 && environment !== 2)
     throw new Error("O ambiente fiscal da NF-e n\xE3o foi identificado.");
@@ -816,7 +823,6 @@ function parseInboundManifestationResponse(xml) {
 var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
 var serviceKey = getSupabaseSecretKey() || "";
 var isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-var digits = (value) => String(value || "").replace(/\D/g, "");
 async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "OPTIONS,POST");
@@ -831,9 +837,9 @@ async function handler(req, res) {
   const authorization = await authorizeFiscalOperator(db, req.headers.authorization);
   if (!authorization.ok)
     return res.status(authorization.status).json({ success: false, error: authorization.message });
-  const accessKey = digits(req.body?.accessKey);
+  const accessKey = normalizeFiscalIdentifier(req.body?.accessKey);
   const requestId = String(req.body?.requestId || "");
-  if (!/^\d{44}$/.test(accessKey))
+  if (!ACCESS_KEY_PATTERN.test(accessKey))
     return res.status(400).json({ success: false, error: "Chave de acesso inv\xE1lida." });
   if (!isUuid(requestId))
     return res.status(400).json({ success: false, error: "Identificador da solicita\xE7\xE3o inv\xE1lido." });
@@ -847,10 +853,10 @@ async function handler(req, res) {
   const environment = Number(invoice.ambiente);
   if (environment === 1 && req.body?.productionConfirmed !== true)
     return res.status(400).json({ success: false, error: "Confirme explicitamente o envio da Ci\xEAncia em Produ\xE7\xE3o." });
-  const recipientCnpj = digits(invoice.destinatario_cnpj);
+  const recipientCnpj = normalizeFiscalIdentifier(invoice.destinatario_cnpj);
   const { data: settingsRow, error: settingsError } = await db.from("settings").select("data").eq("id", "app").maybeSingle();
-  const configuredCnpj = digits(settingsRow?.data?.companyCnpj);
-  if (settingsError || configuredCnpj.length !== 14 || recipientCnpj !== configuredCnpj)
+  const configuredCnpj = normalizeFiscalIdentifier(settingsRow?.data?.companyCnpj);
+  if (settingsError || !CNPJ_PATTERN.test(configuredCnpj) || recipientCnpj !== configuredCnpj)
     return res.status(409).json({ success: false, error: "O destinat\xE1rio da nota n\xE3o corresponde ao CNPJ configurado para esta empresa." });
   if (String(invoice.modelo || accessKey.slice(20, 22)) !== "55")
     return res.status(409).json({ success: false, error: "Ci\xEAncia do destinat\xE1rio s\xF3 pode ser enviada para NF-e modelo 55." });

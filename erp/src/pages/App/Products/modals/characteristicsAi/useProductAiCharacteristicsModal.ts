@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'react-toastify';
@@ -14,6 +14,12 @@ import {
   ProductAiSuggestedCharacteristics,
 } from '../../../../../../../shared-utils/productAiFormSchemas';
 import { useAiCharacteristicsQuota } from '../../hooks/useAiCharacteristicsQuota';
+import { extractProductAiPrerequisites } from './utils/productAiPrerequisites';
+import {
+  computeInitialSelectionKeys,
+  computeSelectAllKeys,
+} from './utils/productAiSelectionRules';
+import { applyAiCharacteristicsToProduct } from './utils/productAiApplyHelpers';
 
 export interface UseProductAiCharacteristicsModalParams {
   isOpen: boolean;
@@ -47,7 +53,7 @@ export const useProductAiCharacteristicsModal = ({
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
   const [loadedAttributes, setLoadedAttributes] = useState<TechnicalFieldDefinition[]>([]);
 
-  // Sincronizar estado apenas quando o modal for aberto (evita resetar phase ao atualizar estado)
+  // Sincronizar estado apenas quando o modal for aberto
   const prevIsOpenRef = useRef(isOpen);
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
@@ -56,7 +62,7 @@ export const useProductAiCharacteristicsModal = ({
       void refreshQuota();
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, initialMode]);
+  }, [isOpen, initialMode, refreshQuota]);
 
   // Carregar atributos se não vierem nas props
   useEffect(() => {
@@ -90,87 +96,11 @@ export const useProductAiCharacteristicsModal = ({
   });
 
   // Normalização e extração de dados base do produto
-  const productName = (formData.name || formData.title || '').trim();
-  const brand = (
-    formData.brand ||
-    formData.technicalValues?.Marca ||
-    formData.technicalValues?.marca ||
-    ''
-  ).toString().trim();
-  const model = (
-    formData.technicalValues?.Modelo ||
-    formData.technicalValues?.modelo ||
-    formData.line ||
-    ''
-  ).toString().trim();
-  const description = (formData.description || formData.ecommerceDescription || '').trim();
-  const effectiveCategory = (categoryName || '').trim();
-  const hasCategory = effectiveCategory.length > 0;
-  const images = useMemo(() => {
-    return (formData.images || []).filter((img) => typeof img === 'string' && img.startsWith('http'));
-  }, [formData.images]);
-
-  // Regra do Modo 1: Nome, Marca e Modelo são obrigatórios
-  const hasName = productName.length >= 2;
-  const hasDescription = description.length > 0;
-  const hasBrand = brand.length > 0;
-  const hasModel = model.length > 0;
-  const isPrerequisitesMet = hasName && hasBrand && hasModel;
-
-  const hasErpValue = (val: any) =>
-    val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '0';
-
-  // Configura seleção padrão com proteção a dados já preenchidos no ERP
-  const applyInitialSelectionRules = (result: ProductAiSuggestedCharacteristics) => {
-    const initialSelected: Record<string, boolean> = {};
-    const conf = result.itemConfidence || {};
-
-    // 1. Campos Gerais
-    if (result.identifiedProduct?.name) {
-      initialSelected['__field_name__'] = !hasErpValue(formData.name || formData.title);
-    }
-    if (result.identifiedProduct?.brand) {
-      const currentBrand =
-        formData.brand || formData.technicalValues?.Marca || formData.technicalValues?.marca;
-      initialSelected['__field_brand__'] = !hasErpValue(currentBrand);
-    }
-    if (result.identifiedProduct?.model) {
-      const currentModel =
-        formData.technicalValues?.Modelo || formData.technicalValues?.modelo || formData.line;
-      initialSelected['__field_model__'] = !hasErpValue(currentModel);
-    }
-    if (result.description) {
-      initialSelected['__field_description__'] = !hasErpValue(formData.description);
-    }
-
-    // 2. Dimensões
-    if (result.height !== undefined && Number(result.height) > 0) {
-      initialSelected['__field_height__'] = !hasErpValue(formData.height);
-    }
-    if (result.width !== undefined && Number(result.width) > 0) {
-      initialSelected['__field_width__'] = !hasErpValue(formData.width);
-    }
-    if (result.depth !== undefined && Number(result.depth) > 0) {
-      initialSelected['__field_depth__'] = !hasErpValue(formData.depth);
-    }
-    if (result.weight !== undefined && Number(result.weight) > 0) {
-      initialSelected['__field_weight__'] = !hasErpValue(formData.weight);
-    }
-
-    // 3. Características Técnicas
-    const currentTechnical = formData.technicalValues || {};
-    Object.keys(result.technicalValues || {}).forEach((key) => {
-      const isAlreadyFilled = hasErpValue(currentTechnical[key]);
-      const isLowConfidence = conf[key] === 'baixa';
-      initialSelected[key] = !isAlreadyFilled && !isLowConfidence;
-    });
-
-    setSelectedKeys(initialSelected);
-  };
+  const prerequisites = extractProductAiPrerequisites(formData, categoryName);
 
   // Disparo Modo 1: Pesquisa na Web
   const handleStartWebSearch = async (values: ProductAiCharacteristicsModalFormValues) => {
-    if (!isPrerequisitesMet) {
+    if (!prerequisites.isPrerequisitesMet) {
       toast.warning('Preencha os campos obrigatórios (Nome do produto, Marca e Modelo) para consultar com IA.');
       return;
     }
@@ -182,13 +112,13 @@ export const useProductAiCharacteristicsModal = ({
     setIsAnalyzing(true);
     try {
       const result = await aiService.extractProductCharacteristicsWithAI({
-        productName,
-        categoryName: effectiveCategory,
-        description,
-        brand,
-        model,
+        productName: prerequisites.productName,
+        categoryName: prerequisites.effectiveCategory,
+        description: prerequisites.description,
+        brand: prerequisites.brand,
+        model: prerequisites.model,
         additionalInfo: values.additionalInfo || '',
-        images,
+        images: prerequisites.images,
         availableAttributes: effectiveAttributes.map((attr) => ({
           id: attr.id,
           name: attr.name,
@@ -199,7 +129,7 @@ export const useProductAiCharacteristicsModal = ({
 
       setSuggestedResult(result);
       setEditedValues({});
-      applyInitialSelectionRules(result);
+      setSelectedKeys(computeInitialSelectionKeys(result, formData));
       setPhase('preview');
       void refreshQuota();
       toast.success('Informações e características pesquisadas com sucesso na internet! ✨');
@@ -222,10 +152,10 @@ export const useProductAiCharacteristicsModal = ({
     try {
       const result = await aiService.extractFromDescriptiveTextWithAI({
         descriptiveText: values.descriptiveText,
-        currentName: productName,
-        currentBrand: brand,
-        currentModel: model,
-        categoryName: effectiveCategory,
+        currentName: prerequisites.productName,
+        currentBrand: prerequisites.brand,
+        currentModel: prerequisites.model,
+        categoryName: prerequisites.effectiveCategory,
         additionalInfo: values.additionalInfo || '',
         availableAttributes: effectiveAttributes.map((attr) => ({
           id: attr.id,
@@ -237,7 +167,7 @@ export const useProductAiCharacteristicsModal = ({
 
       setSuggestedResult(result);
       setEditedValues({});
-      applyInitialSelectionRules(result);
+      setSelectedKeys(computeInitialSelectionKeys(result, formData));
       setPhase('preview');
       void refreshQuota();
       toast.success('Dados extraídos com sucesso do texto descritivo! ✨');
@@ -257,32 +187,7 @@ export const useProductAiCharacteristicsModal = ({
   };
 
   const handleSelectAll = (select: boolean) => {
-    if (!suggestedResult) return;
-    const updated: Record<string, boolean> = {};
-
-    if (suggestedResult.identifiedProduct?.name) updated['__field_name__'] = select;
-    if (suggestedResult.identifiedProduct?.brand) updated['__field_brand__'] = select;
-    if (suggestedResult.identifiedProduct?.model) updated['__field_model__'] = select;
-    if (suggestedResult.description) updated['__field_description__'] = select;
-
-    if (suggestedResult.height !== undefined && Number(suggestedResult.height) > 0) {
-      updated['__field_height__'] = select;
-    }
-    if (suggestedResult.width !== undefined && Number(suggestedResult.width) > 0) {
-      updated['__field_width__'] = select;
-    }
-    if (suggestedResult.depth !== undefined && Number(suggestedResult.depth) > 0) {
-      updated['__field_depth__'] = select;
-    }
-    if (suggestedResult.weight !== undefined && Number(suggestedResult.weight) > 0) {
-      updated['__field_weight__'] = select;
-    }
-
-    Object.keys(suggestedResult.technicalValues || {}).forEach((key) => {
-      updated[key] = select;
-    });
-
-    setSelectedKeys(updated);
+    setSelectedKeys(computeSelectAllKeys(suggestedResult, select));
   };
 
   const handleEditValue = (key: string, value: any) => {
@@ -297,81 +202,9 @@ export const useProductAiCharacteristicsModal = ({
   const handleApplyCharacteristics = () => {
     if (!suggestedResult) return;
 
-    setFormData((prev) => {
-      const next: Partial<Product> = { ...prev };
-      const nextTechnical: Record<string, any> = { ...(prev.technicalValues || {}) };
-
-      // 1. Campos Gerais
-      if (selectedKeys['__field_name__']) {
-        const val = editedValues['__field_name__'] ?? suggestedResult.identifiedProduct?.name;
-        if (val) {
-          next.name = String(val);
-          next.title = String(val);
-          next.marketplaceTitle = String(val);
-        }
-      }
-      if (selectedKeys['__field_brand__']) {
-        const val = editedValues['__field_brand__'] ?? suggestedResult.identifiedProduct?.brand;
-        if (val) {
-          next.brand = String(val);
-          nextTechnical['Marca'] = String(val);
-        }
-      }
-      if (selectedKeys['__field_model__']) {
-        const val = editedValues['__field_model__'] ?? suggestedResult.identifiedProduct?.model;
-        if (val) {
-          next.line = String(val);
-          nextTechnical['Modelo'] = String(val);
-        }
-      }
-      if (selectedKeys['__field_description__']) {
-        const val = editedValues['__field_description__'] ?? suggestedResult.description;
-        if (val) {
-          next.description = String(val);
-        }
-      }
-
-      // 2. Dimensões e Peso
-      if (selectedKeys['__field_height__']) {
-        const val = editedValues['__field_height__'] ?? suggestedResult.height;
-        if (Number(val) > 0) {
-          next.height = Number(val);
-          nextTechnical['Altura'] = String(val);
-        }
-      }
-      if (selectedKeys['__field_width__']) {
-        const val = editedValues['__field_width__'] ?? suggestedResult.width;
-        if (Number(val) > 0) {
-          next.width = Number(val);
-          nextTechnical['Largura'] = String(val);
-        }
-      }
-      if (selectedKeys['__field_depth__']) {
-        const val = editedValues['__field_depth__'] ?? suggestedResult.depth;
-        if (Number(val) > 0) {
-          next.depth = Number(val);
-          nextTechnical['Profundidade'] = String(val);
-        }
-      }
-      if (selectedKeys['__field_weight__']) {
-        const val = editedValues['__field_weight__'] ?? suggestedResult.weight;
-        if (Number(val) > 0) {
-          next.weight = Number(val);
-          nextTechnical['Peso'] = String(val);
-        }
-      }
-
-      // 3. Características Técnicas
-      Object.entries(suggestedResult.technicalValues || {}).forEach(([key, originalVal]) => {
-        if (selectedKeys[key]) {
-          const finalVal = editedValues[key] !== undefined ? editedValues[key] : originalVal;
-          nextTechnical[key] = finalVal;
-        }
-      });
-
-      next.technicalValues = nextTechnical;
-      return next;
-    });
+    setFormData((prev) =>
+      applyAiCharacteristicsToProduct(prev, suggestedResult, selectedKeys, editedValues)
+    );
 
     toast.success(`${selectedCount} campo(s) aplicado(s) ao formulário! 🎉`);
     if (onCharacteristicsApplied) {
@@ -396,18 +229,18 @@ export const useProductAiCharacteristicsModal = ({
     stats,
     isHourlyLimitReached,
     isBlocked,
-    productName,
-    brand,
-    model,
-    description,
-    effectiveCategory,
-    hasCategory,
-    images,
-    hasName,
-    hasDescription,
-    hasBrand,
-    hasModel,
-    isPrerequisitesMet,
+    productName: prerequisites.productName,
+    brand: prerequisites.brand,
+    model: prerequisites.model,
+    description: prerequisites.description,
+    effectiveCategory: prerequisites.effectiveCategory,
+    hasCategory: prerequisites.hasCategory,
+    images: prerequisites.images,
+    hasName: prerequisites.hasName,
+    hasDescription: prerequisites.hasDescription,
+    hasBrand: prerequisites.hasBrand,
+    hasModel: prerequisites.hasModel,
+    isPrerequisitesMet: prerequisites.isPrerequisitesMet,
     webSearchForm,
     descriptiveTextForm,
     handleStartWebSearch,

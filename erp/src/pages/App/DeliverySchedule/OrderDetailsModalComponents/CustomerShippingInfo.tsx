@@ -150,12 +150,16 @@ export const ShippingSection = ({
   destinationCoords,
   distance,
   durationMinutes,
+  deliveryResponsibleName,
+  deliveryResponsibles,
   isReadOnly,
 }: {
   fullAddress: any;
   destinationCoords?: [number, number];
   distance?: number;
   durationMinutes?: number;
+  deliveryResponsibleName?: string;
+  deliveryResponsibles?: Array<{ id?: string; name: string; role?: string }>;
   isReadOnly?: boolean;
 }) => (
   <section>
@@ -220,6 +224,18 @@ export const ShippingSection = ({
         </a>
       );
     })()}
+
+    {(deliveryResponsibleName || (deliveryResponsibles && deliveryResponsibles.length > 0)) && (
+      <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+        <i className="bi bi-person-badge-fill text-blue-500 text-xs" />
+        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          Responsável pela Entrega:
+        </span>
+        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+          {deliveryResponsibleName || deliveryResponsibles?.map((r) => r.name).join(', ')}
+        </span>
+      </div>
+    )}
   </section>
 );
 

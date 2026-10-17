@@ -711,3 +711,276 @@ Criação de componentes dedicados na pasta [`label-grid-model-editor/`](file://
 4. **Invariantes Arquiteturais:**
    - Invariante Zero CC-e (`FISCAL-016`) estritamente respeitado.
    - Invariante RHF + zodResolver preservado integralmente.
+
+---
+
+## Cancelamento Fiscal de NF-e 55 de Devolução e Estorno e Suporte Integral a CNPJ Alfanumérico (NT 2026.004 v1.01) — 17/10
+
+### 1. Problemas Identificados e Motivação Técnica
+1. **Bloqueio no Cancelamento Fiscal de Devolução e Estorno:**
+   - O endpoint de cancelamento fiscal (`cancel.ts`) e o preflight (`cancellationPreflight.ts`) estavam restritos exclusivamente a `document_type = 'outbound'`. Qualquer tentativa de cancelamento fiscal de uma NF-e de devolução (`finNFe = 4`) ou estorno (`finNFe = 3`) autorizada era rejeitada na entrada, sem suporte ao cancelamento (`tpEvento = 110111`) previsto pela SEFAZ.
+2. **Travamento de Reemissão por Índices Parciais e Alocações Presas:**
+   - Quando um documento de devolução ou estorno precisava ser cancelado, o rascunho de operação (`nfe_operation_drafts`) permanecia com status `authorized`, impedindo nova emissão por causa de índices parciais únicos no banco (`uq_nfe_return_draft_source_order` e `uq_nfe_estorno_draft_source`).
+   - As alocações de itens de devolução (`nfe_return_item_allocations.fiscal_return_document_id`) ficavam presas ao documento cancelado, impedindo a reemissão da devolução fiscal do pedido atendido.
+3. **Incompatibilidades Ponta a Ponta com CNPJ Alfanumérico (`NT 2026.004 v1.01`):**
+   - Havia incompatibilidades remanescentes na validação e normalização de chaves de acesso de 44 posições e CNPJ alfanumérico em manifestação de notas de entrada (`inbound_manifestation_events`, `inboundManifestationProtocol.ts`, `inbound-manifestation.ts`), `shared-utils/fiscalNumbering.ts`, `api/nfe/fiscalXmlAudit.ts` e `api/nfe/orderEditFiscalAudit.ts`, onde CNPJs com letras podiam ter os caracteres alfanuméricos removidos por `\D` ou violar check constraints do banco.
+
+### 2. Soluções Técnicas Implementadas
+
+#### A. Banco de Dados (PostgreSQL Remoto - Supabase `hkoxhourxwlddgsfdgws`)
+- Migration [`20261017150000_nfe_return_estorno_cancellation_and_inbound_alphanumeric.sql`](file:///c:/Users/mathe/OneDrive/Área%20de%20Trabalho/projetos/morantehub/supabase/migrations/20261017150000_nfe_return_estorno_cancellation_and_inbound_alphanumeric.sql) aplicada:
+  1. **Constraints Alfanuméricas:** Atualização das check constraints em `inbound_manifestation_events` para aceitar chaves `^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$` e CNPJ destinatário `^[A-Z0-9]{12}[0-9]{2}$`.
+  2. **Status `cancelled` em Rascunhos:** Adição de `'cancelled'` na constraint `nfe_operation_drafts_status_check`.
+  3. **Índices Parciais Únicos:** Ajuste de `uq_nfe_estorno_draft_source` e `uq_nfe_return_draft_source_order` para ignorar rascunhos com status `'cancelled'`.
+  4. **Preparação de Rascunhos:** Atualização de `prepare_nfe_operation_draft` para ignorar rascunhos cancelados.
+  5. **Cancelamento Atômico de Devolução e Estorno:** Atualização de `reserve_nfe_cancellation_event` e `persist_nfe_cancellation_result`:
+     - Validação e aceitação de `document_type in ('outbound', 'return', 'estorno')` com `modelo = '55'`.
+     - Rejeição de cancelamento de estorno se houver substituição de edição fiscal ativa (`status in ('ready_to_reissue', 'replacement_prepared', 'completed')`).
+     - Ao confirmar o cancelamento (`persist_nfe_cancellation_result`), se o documento for `return` ou `estorno`, atualiza atomicamente `nfe_operation_drafts.status = 'cancelled'`.
+     - Se for `return`, atualiza atomicamente `nfe_return_item_allocations.fiscal_return_document_id = NULL`, liberando os itens faturados para nova emissão.
+
+#### B. Backend API & Preflight (`api/nfe/`)
+- **[`cancellationPreflight.ts`](file:///c:/Users/mathe/OneDrive/Área%20de%20Trabalho/projetos/morantehub/api/nfe/cancellationPreflight.ts):**
+  - Ampliado `validateCancellationDocument` para aceitar `document_type in ('outbound', 'return', 'estorno')` (exigindo estritamente `modelo === '55'` para return e estorno).
+  - Atualizado `validateCancellationOrderAndCirculation` para validar vínculos com pedidos de devolução comercial (`order_type === 'return'`) ou checar ausência de substituições ativas em `nfe_order_edit_replacements` para estorno, mantendo a verificação do prazo de 168h da SEFAZ.
+- **Unificação de Regexes Alfanuméricas:**
+  - Atualização em [`shared-utils/fiscalNumbering.ts`](file:///c:/Users/mathe/OneDrive/Área%20de%20Trabalho/projetos/morantehub/shared-utils/fiscalNumbering.ts), [`api/nfe/fiscalXmlAudit.ts`](file:///c:/Users/mathe/OneDrive/Área%20de%20Trabalho/projetos/morantehub/api/nfe/fiscalXmlAudit.ts), [`api/nfe/orderEditFiscalAudit.ts`](file:///c:/Users/mathe/OneDrive/Área%20de%20Trabalho/projetos/morantehub/api/nfe/orderEditFiscalAudit.ts), [`api/nfe/inboundManifestationProtocol.ts`](file:///c:/Users/mathe/OneDrive/Área%20de%20Trabalho/projetos/morantehub/api/nfe/inboundManifestationProtocol.ts), [`api/nfe/inbound-manifestation.ts`](file:///c:/Users/mathe/OneDrive/Área%20de%20Trabalho/projetos/morantehub/api/nfe/inbound-manifestation.ts), [`api/nfe/cce.ts`](file:///c:/Users/mathe/OneDrive/Área%20de%20Trabalho/projetos/morantehub/api/nfe/cce.ts) e [`erp/src/pages/utils/nfe/nfeCce.ts`](file:///c:/Users/mathe/OneDrive/Área%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/nfe/nfeCce.ts). Preservado integralmente o bloqueio de emissão de CC-e (`FISCAL-016`).
+
+#### C. Testes Unitários de API
+- **[`cancelEndpoint.test.ts`](file:///c:/Users/mathe/OneDrive/Área%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/nfe/__tests__/cancelEndpoint.test.ts):**
+  - Adição de 5 testes unitários dedicados cobrindo:
+    1. Cancelamento fiscal de NF-e 55 de Devolução vinculada a pedido comercial atendido.
+    2. Rejeição de cancelamento de Devolução quando pedido de devolução não é do tipo `return`.
+    3. Cancelamento fiscal de NF-e 55 de Estorno sem substituição ativa vinculada.
+    4. Rejeição de cancelamento de Estorno quando há substituição ativa em andamento (`ready_to_reissue`).
+    5. Rejeição de cancelamento de Devolução ou Estorno em modelo 65.
+  - Total: **25/25 testes aprovados**.
+
+### 3. Provas Comportamentais Transacionais no PostgreSQL Remoto (Suíte 5 pgTAP)
+Execução transacional em ambiente de Homologação no projeto `hkoxhourxwlddgsfdgws` sob `BEGIN ... ROLLBACK` (garantindo **0 linhas residuais** no banco):
+- **`T01`**: Cancelamento de NF-e de Devolução (`finNFe = 4`): documento status `cancelada`, rascunho status `cancelled`, alocação liberada (`fiscal_return_document_id IS NULL`) -> **PASSED** (`doc_status=cancelada, draft_status=cancelled, alloc_is_null=true`).
+- **`T02`**: Idempotência do cancelamento de Devolução (retorna `idempotent = true`, `status = registered`) -> **PASSED**.
+- **`T03`**: Nova emissão de Devolução liberada após cancelamento fiscal da anterior (`new_draft_id <> prev_draft_id`) -> **PASSED**.
+- **`T04`**: Cancelamento de NF-e de Estorno (`finNFe = 3`): documento status `cancelada`, rascunho status `cancelled` -> **PASSED** (`doc_status=cancelada, draft_status=cancelled`).
+- **`T05`**: Idempotência do cancelamento de Estorno (retorna `idempotent = true`, `status = registered`) -> **PASSED**.
+- **`T06`**: Nova emissão de Estorno liberada após cancelamento fiscal da anterior (`new_draft_id <> prev_draft_id`) -> **PASSED**.
+- Resultado: **6/6 asserções aprovadas com sucesso**, comprovando integridade e não-regressão.
+
+### 4. Validações e Não-Regressão
+1. **Compilação TypeScript:**
+   - `npx.cmd tsc -p api/tsconfig.nfe.json --noEmit`: **0 erros**.
+   - `npx.cmd tsc -p erp/tsconfig.fiscal.json --noEmit`: **0 erros**.
+2. **Empacotamento e Startup Fiscal:**
+   - `npm.cmd --prefix erp run test:fiscal-startup`: 15 módulos empacotados, 12/12 funções Vercel, WASM + XSD oficial `PL_010f_v1.04` resolvidos com sucesso.
+3. **Suíte Completa de Testes Fiscais:**
+   - `npx.cmd vitest run src/pages/utils/nfe/`: **76 arquivos de teste, 842/842 testes aprovados**.
+4. **Invariantes Arquiteturais:**
+   - Invariante Zero CC-e (`FISCAL-016`) estritamente respeitado em todo o fluxo.
+   - Terminologia estrita (`FISCAL-023`) mantida em todos os schemas, RPCs e documentações.
+
+
+---
+
+## Decomposição e Refatoração Modular do Módulo de Estoque (`Stock / Inventory`) — ERP & Mobile — 17/10
+
+### 1. Problema Identificado e Sintomas Observados
+Auditoria exaustiva de contagem de linhas e responsabilidades nos módulos de Estoque do ERP (`erp/src/pages/App/Stock/`) e Mobile (`mobile/src/features/stock/`) identificou componentes monolíticos com excessiva complexidade ciclomática e acoplamento entre regras de negócio, layouts e manipulações visuais:
+
+1. **`InboundInvoiceMappingsModal.tsx` no Mobile (1.591 linhas, 68 KB)**:
+   - O maior monolito do app mobile, acumulando em um único arquivo: tipos, cálculo de custos landed (`landedUnitCost`), debounced search de fornecedores, scoring determinístico de correspondências (`rankInboundSuggestions`), fluxo de cadastro rápido de produtos/variações via `ProductFormScreen`, gerenciamento de vínculos individuais e em composição, detalhamento fiscal com mais de 25 campos tributários e mais de 340 linhas de `StyleSheet`.
+2. **`InvoicesScreen.tsx` no Mobile (784 linhas, 28 KB)**:
+   - Acumulava cabeçalho com múltiplos tipos de filtros de período (mês atual, mês anterior, custom_month, custom_range), busca com debounce, estados vazios/erro/carregamento, paginação e modais múltiplos.
+3. **`PurchaseDetailsModal.tsx` no ERP (481 linhas, 25 KB)**:
+   - Acumulava geração em linha de documento HTML de impressão com mais de 90 linhas de template string, cabeçalho de status de pedido, grid de cards de estatísticas, tabela de produtos com quantidades pedida/recebida e seções fiscais.
+4. **`useReceiptForm.ts` no ERP (554 linhas, 24 KB)**:
+   - Misturava ciclo de vida de rascunhos com validação Zod, parsing manual de data ISO para o fuso brasileiro, persistência manual de códigos de fornecedor em laço com Promise.all e montagem manual duplicada de payloads de recebimento.
+5. **`InvoiceDetailsModal.tsx` no Mobile (527 linhas, 23 KB)**:
+   - Acumulava formatação de moeda e datas fiscais, layout de partes (emitente/destinatário), grid fiscal com 15 indicadores, listagem de itens e mais de 130 linhas de estilos.
+
+### 2. Causa Raiz Técnica
+Violação do Princípio de Responsabilidade Única (SRP) e falta de granularidade em subcomponentes puros, tornando a leitura, manutenção e evolução dos módulos de entrada e conferência de notas fiscais complexa e propensa a efeitos colaterais.
+
+### 3. Soluções Técnicas Implementadas
+
+#### A. Modularização de Vínculos de Notas Fiscais no Mobile (`InboundInvoiceMappingsModal.tsx` -> 496 linhas)
+Criação do diretório estruturado [`mobile/src/features/stock/invoices/modals/inbound-mappings/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/inbound-mappings/):
+- **[`types.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/inbound-mappings/types.ts)**: Tipos de domínio desacoplados (`MappingItem`, `Supplier`, `ProductSuggestion`, `CompositionLink`).
+- **[`inboundCostUtils.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/inbound-mappings/inboundCostUtils.ts)**: Funções de cálculo landed (`amount`, `formatMoney`, `landedUnitCost`).
+- **[`inboundMappings.styles.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/inbound-mappings/inboundMappings.styles.ts)**: Extração integral do `StyleSheet.create`.
+- **[`InboundSupplierSection.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/inbound-mappings/InboundSupplierSection.tsx)**: Componente para seleção, busca com debounce e criação de fornecedores.
+- **[`InboundQuickProductModal.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/inbound-mappings/InboundQuickProductModal.tsx)**: Sub-modais de opções de cadastro e integração isolada com `ProductFormScreen`.
+- **[`InboundMappingItemCard.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/inbound-mappings/InboundMappingItemCard.tsx)**: Card atômico do item com custos rateados, painel fiscal colapsável, toggle de modo único/composição, sugestões determinísticas e busca de produtos.
+- **[`index.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/inbound-mappings/index.ts)**: Barril de exportação limpa.
+- **[`InboundInvoiceMappingsModal.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/InboundInvoiceMappingsModal.tsx)**: Reduzido de 1.591 linhas para 496 linhas, atuando como orquestrador limpo e declarativo de estado e persistência.
+
+#### B. Modularização da Tela de Notas Fiscais no Mobile (`InvoicesScreen.tsx` -> 365 linhas)
+Criação do diretório estruturado [`mobile/src/features/stock/invoices/screens/invoices-screen/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/screens/invoices-screen/):
+- **[`invoicesScreen.styles.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/screens/invoices-screen/invoicesScreen.styles.ts)**: Extração de 215 linhas de `StyleSheet`.
+- **[`InvoicePeriodFilterModal.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/screens/invoices-screen/InvoicePeriodFilterModal.tsx)**: Modal dedicado de seleção de período e exportação de `periodOptions`.
+- **[`InvoicesPageHeader.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/screens/invoices-screen/InvoicesPageHeader.tsx)**: Cabeçalho com título, botão de importar XML, badge SEFAZ, filtro de período e campo de busca.
+- **[`InvoicesListStates.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/screens/invoices-screen/InvoicesListStates.tsx)**: Componentes atômicos para `InvoicesLoadingState`, `InvoicesErrorState` e `InvoicesEmptyState`.
+- **[`index.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/screens/invoices-screen/index.ts)**: Barril de exportação limpa.
+- **[`InvoicesScreen.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/screens/InvoicesScreen.tsx)**: Reduzido de 784 para 365 linhas.
+
+#### C. Modularização do Modal de Detalhes da Nota Fiscal no Mobile (`InvoiceDetailsModal.tsx` -> 99 linhas)
+Criação do diretório estruturado [`mobile/src/features/stock/invoices/modals/invoice-details/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/invoice-details/):
+- **[`invoiceDetailsModal.styles.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/invoice-details/invoiceDetailsModal.styles.ts)**: Estilos isolados.
+- **[`invoiceDetailsFormatters.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/invoice-details/invoiceDetailsFormatters.ts)**: Funções puras `money` e `fiscalDate`.
+- **[`InvoiceDetailsHeader.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/invoice-details/InvoiceDetailsHeader.tsx)**: Cabeçalho com badges de status, chave de acesso e datas.
+- **[`InvoiceDetailsFiscalSection.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/invoice-details/InvoiceDetailsFiscalSection.tsx)**: Dados das partes e grid com 15 tributos e despesas acessórias.
+- **[`InvoiceDetailsItemsSection.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/invoice-details/InvoiceDetailsItemsSection.tsx)**: Lista de itens ou estado vazio com ação de obter XML SEFAZ.
+- **[`InvoiceDetailsModal.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/InvoiceDetailsModal.tsx)**: Reduzido de 527 para 99 linhas.
+
+#### D. Modularização do Modal de Detalhes de Pedido de Compra no ERP (`PurchaseDetailsModal.tsx` -> 105 linhas)
+Criação do diretório estruturado [`erp/src/pages/App/Stock/Purchases/modals/purchase-details/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Purchases/modals/purchase-details/):
+- **[`purchasePrintService.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Purchases/utils/purchasePrintService.ts)**: Serviço dedicado isolando o template HTML e o fluxo de impressão em janela separada.
+- **[`PurchaseDetailsHeader.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Purchases/modals/purchase-details/PurchaseDetailsHeader.tsx)**: Cabeçalho desacoplado com status e ações rápidas.
+- **[`PurchaseDetailsStats.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Purchases/modals/purchase-details/PurchaseDetailsStats.tsx)**: Grid de estatísticas numéricas do pedido.
+- **[`PurchaseDetailsItemsTable.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Purchases/modals/purchase-details/PurchaseDetailsItemsTable.tsx)**: Tabela limpa de produtos pedidos e recebidos.
+- **[`PurchaseDetailsFiscalAndNotes.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Purchases/modals/purchase-details/PurchaseDetailsFiscalAndNotes.tsx)**: Seções de dados fiscais com cópia de chave e arquivos anexos.
+- **[`PurchaseDetailsFooter.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Purchases/modals/purchase-details/PurchaseDetailsFooter.tsx)**: Botões de fechamento, conferência e edição.
+- **[`PurchaseDetailsModal.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Purchases/modals/PurchaseDetailsModal.tsx)**: Reduzido de 481 para 105 linhas.
+
+#### E. Refatoração de Utilitários de Recebimento no ERP (`useReceiptForm.ts`)
+Criação de utilitários de domínio em [`erp/src/pages/App/Stock/Receipts/utils/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Receipts/utils/):
+- **[`receiptDateUtils.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Receipts/utils/receiptDateUtils.ts)**: Função pura `getSafeReceivedAt` para normalização de datas de recebimento.
+- **[`receiptSupplierCodesPersistence.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Receipts/utils/receiptSupplierCodesPersistence.ts)**: Função pura `persistInboundSupplierProductCodes` desacoplando a persistência de códigos de fornecedor para vínculos individuais e de composição.
+- **[`receiptPayloadBuilders.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Receipts/utils/receiptPayloadBuilders.ts)**: Construtor tipado `buildGoodsReceiptPayload` unificando a formatação de payloads de rascunho e finalização.
+- **[`ReceiptsPagination.test.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Receipts/components/ReceiptsPagination.test.tsx)**: Ajustado ambiente de teste para `happy-dom`, sanando o erro de módulo nativo do canvas.
+
+### 4. Validações e Não-Regressão
+1. **Suíte Móvel Geral (`npm run test:unit:mobile --prefix erp`)**:
+   - **64 arquivos de teste aprovados (339/339 testes verdes)**.
+2. **Suíte Móvel de Formulários (`npm run test:unit:mobile-forms --prefix erp`)**:
+   - **5 arquivos de teste aprovados (47/47 testes verdes)**.
+3. **Suíte de Formulários do Catálogo Digital (`npm run test:unit:catalog-forms --prefix erp`)**:
+   - **6 arquivos de teste aprovados (53/53 testes verdes)**.
+4. **Suíte de Recebimentos do ERP (`npm run test:unit -- src/pages/App/Stock/Receipts/ --prefix erp`)**:
+   - **8 arquivos de teste aprovados (36/36 testes verdes)**.
+5. **Suíte de Compras do ERP (`npm run test:unit -- src/pages/App/Stock/Purchases/ --prefix erp`)**:
+   - **4 arquivos de teste aprovados (29/29 testes verdes)**.
+6. **Suíte de Impressão de Etiquetas do ERP (`npm run test:unit -- src/pages/App/Stock/LabelPrinting/ --prefix erp`)**:
+   - **34 arquivos de teste aprovados (397/397 testes verdes)**.
+7. **Build de Produção do Catálogo Digital (`npm run build --prefix digital-catalog`)**:
+   - Next.js 16.3.6 (Turbopack) compilado com sucesso com código de saída 0.
+8. **Invariantes Arquiteturais**:
+   - Zero CC-e (`FISCAL-016`) estritamente verificado (0 ocorrências em todo o código).
+   - Validação Zod prévia à submissão garantida em todos os fluxos.
+
+---
+
+## Auditoria e Refatoração de Arquitetura no Módulo de Estoque (Fase 2)
+
+### 1. Problemas Identificados e Diagnóstico
+Em continuidade à auditoria profunda do módulo de Estoque/Inventário no ERP e no App Mobile, identificou-se arquivos com alto acoplamento, mistura de renderização de interface com regras de negócio, manipulação direta de estilos inline e acumulação massiva de hooks de estado em um único componente:
+- **`SuppliersScreen.tsx` (Mobile - 488 linhas)**: Tela agregava estilos complexos de StyleSheet, renderização direta do card do fornecedor com contagem de produtos e menu de contexto, barra de filtros com ordenação cíclica e chips de status, e múltiplos estados de carregamento e erro com tentativa de recarga.
+- **`InvoiceImportModal.tsx` (Mobile - 488 linhas)**: Modal combinava cabeçalho, cartão de status de progresso, seção de busca por chave de acesso com consulta direta via SEFAZ / Portal Nacional, seção de upload por drag-and-drop de arquivo XML e modal de scanner.
+- **`StockMoveCard.tsx` (Mobile - 446 linhas)**: Componente de card continha mais de 118 linhas de estilos, funções puras de parsing de observações em JSON, mapeamento de paletas de cor para os tipos de movimentação (entrada, saída, ajuste, estorno) e formatação de datas e valores monetários.
+- **`InboundInvoiceReceiptPickerModal.tsx` (ERP - 449 linhas)**: Modal de seleção de NF-e para recebimento de mercadorias mantinha lógica de normalização de dígitos, formatação de períodos (`getCurrentYearMonth`, `getPreviousYearMonth`), predicados de filtragem por data e busca, barra de filtros e card de exibição da nota fiscal.
+- **`LabelGridModelModal.tsx` (ERP - 1.303 linhas)**: Monólito responsável pela edição de grades de etiquetas físicas, mantendo mais de 50 hooks `useState` simultâneos para tipografia (normal, promocional, preço antigo, preço dividido), posições (X, Y), dimensões, campos extras e canvas interativo com manipulação de mouse (drag, resize, snap, guias magnéticas).
+
+### 2. Causa Raiz Técnica
+Falta de segregação de responsabilidades (SRP) e ausência de camadas intermediárias de custom hooks de domínio para orquestrar sessões e interações de canvas, sobrecarregando os componentes de visualização com detalhes de infraestrutura e manipulação de estado de baixo nível.
+
+### 3. Soluções Técnicas Implementadas
+
+#### A. Modularização da Tela de Fornecedores Mobile (`SuppliersScreen.tsx` 488 -> 171 linhas)
+Criados arquivos especializados em [`mobile/src/features/stock/suppliers/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/suppliers/):
+- **[`suppliersScreen.styles.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/suppliers/suppliersScreen.styles.ts)**: Extração completa de 103 linhas de `StyleSheet.create`.
+- **[`SupplierToolbar.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/suppliers/components/SupplierToolbar.tsx)**: Barra de ferramentas isolada com busca por texto, ciclo de ordenação (A-Z, Z-A, Recentes, Antigos), botão de novo fornecedor e chips de status.
+- **[`SupplierCard.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/suppliers/components/SupplierCard.tsx)**: Card individual com exibição de documento (CPF/CNPJ), razão social/fantasia, contagem de produtos associados com retry sob demanda, atalho de histórico de pedidos e menu de ações (editar, mover para lixeira).
+- **[`SupplierListStates.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/suppliers/components/SupplierListStates.tsx)**: Tratamento limpo de estados de loading, erro e lista vazia com mensagens orientadas a filtros.
+- **[`SuppliersScreen.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/suppliers/SuppliersScreen.tsx)**: Simplificado para 171 linhas, atuando como orquestrador limpo.
+
+#### B. Modularização do Modal de Importação de XML Mobile (`InvoiceImportModal.tsx` 488 -> 225 linhas)
+Criados arquivos especializados em [`mobile/src/features/stock/invoices/modals/invoice-import/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/invoice-import/):
+- **[`invoiceImportModal.styles.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/invoice-import/invoiceImportModal.styles.ts)**: Estilos do modal extraídos de forma independente.
+- **[`InvoiceImportAccessKeySection.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/invoice-import/InvoiceImportAccessKeySection.tsx)**: Seção de consulta por chave de acesso de 44 dígitos com acionamento do leitor de código de barras/DANFE, busca direta na SEFAZ e consulta no Portal Nacional.
+- **[`InvoiceImportXmlUploadSection.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/invoice-import/InvoiceImportXmlUploadSection.tsx)**: Área de toque e seleção de arquivo XML oficial da NF-e via `expo-document-picker`.
+- **[`InvoiceImportModal.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/invoices/modals/InvoiceImportModal.tsx)**: Reduzido para 225 linhas, preservando integralmente os fluxos validados por Zod (`inboundAccessKeyFormSchema` e `inboundXmlFileFormSchema`).
+
+#### C. Modularização do Card de Movimentação de Estoque (`StockMoveCard.tsx` 446 -> 263 linhas)
+Criados arquivos especializados em [`mobile/src/features/stock/moves/components/stock-move-card/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/moves/components/stock-move-card/):
+- **[`stockMoveCard.styles.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/moves/components/stock-move-card/stockMoveCard.styles.ts)**: 118 linhas de estilos desacopladas.
+- **[`stockMoveCardUtils.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/moves/components/stock-move-card/stockMoveCardUtils.ts)**: Funções puras para determinação visual do tipo de movimentação (`getTypeVisualConfig`), formatação de moeda (`formatCurrency`), datas (`formatDateAndTime`), texto de estorno (`getReversedLabel`), parsing de observações em JSON (`parseObservationAndReason`) e cálculo de prefixos e cores de quantidade (`getQuantityDisplay`).
+- **[`StockMoveCard.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/moves/components/StockMoveCard.tsx)**: Reduzido para 263 linhas, com layout declarativo e legibilidade impecável.
+
+#### D. Modularização do Seletor de NF-e para Recebimento no ERP (`InboundInvoiceReceiptPickerModal.tsx` 449 -> 191 linhas)
+Criados arquivos especializados em [`erp/src/pages/App/Stock/Receipts/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Receipts/):
+- **[`inboundInvoicePickerFilters.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Receipts/utils/inboundInvoicePickerFilters.ts)**: Funções puras de filtragem (`normalizeDigits`, `getCurrentYearMonth`, `getPreviousYearMonth`, `statusLabel`, `isInDateFilter`, `filterInboundInvoicesForReceipt`).
+- **[`InboundInvoiceReceiptFilterBar.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Receipts/modals/inbound-invoice-picker/InboundInvoiceReceiptFilterBar.tsx)**: Barra de pesquisa por texto e seletor de períodos (Mês Atual, Mês Anterior, Este Ano, Ano Passado, Outro Mês, Intervalo Personalizado).
+- **[`InboundInvoiceReceiptItem.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Receipts/modals/inbound-invoice-picker/InboundInvoiceReceiptItem.tsx)**: Card individual da nota fiscal com badges de conferência, emissão, total e ações (Usar NF ou Finalizar Vinculação).
+- **[`InboundInvoiceReceiptPickerModal.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/Receipts/modals/InboundInvoiceReceiptPickerModal.tsx)**: Reduzido de 449 para 191 linhas.
+
+#### E. Desacoplamento do Editor de Grades de Etiquetas no ERP (`LabelGridModelModal.tsx` 1.303 -> 437 linhas)
+Criados hooks dedicados em [`erp/src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/):
+- **[`useLabelGridModelSession.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/useLabelGridModelSession.ts)**: Gerenciamento unificado de todos os estados do modelo de etiqueta (papel, dimensões, margens, espaçamentos, tipografia normal/promocional/antigo, preço dividido, cores de fundo, posições e campos extras), sincronização com o modelo em edição e fábrica do estado `buildEditorState()`.
+- **[`useLabelGridModelInteractions.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/useLabelGridModelInteractions.ts)**: Isolamento de toda a interação do canvas: seleção de elementos, dragging, redimensionamento (largura e fonte), guias magnéticas (snap), alternância de modos de visualização (design, promoção, paleta de cores) e manipuladores de estilo (`updateStyle`, `cycleAlign`, `cycleVAlign`).
+- **[`LabelGridModelModal.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/LabelGridModelModal.tsx)**: Reduzido de 1.303 para 437 linhas, atuando puramente na orquestração da validação Zod via `labelGridModelSaveFormSchema` e na composição dos componentes `LabelGridModelHeader`, `LabelGridModelToolbar`, `LabelGridModelDesignCanvas`, `LabelGridModelSettingsPanel` e `LabelGridSheetPreview`.
+
+### 4. Validações e Não-Regressão
+1. **Suíte Móvel Geral (`npm run test:unit:mobile --prefix erp`)**: 339/339 testes aprovados (64 arquivos).
+2. **Suíte Móvel de Formulários (`npm run test:unit:mobile-forms --prefix erp`)**: 47/47 testes aprovados (5 arquivos).
+3. **Suíte de Modelos de Grade de Etiquetas (`npm run test:unit -- src/pages/App/Stock/LabelPrinting/__tests__/labelGridModel`)**: 29/29 testes aprovados (4 arquivos).
+4. **Suíte Geral de Impressão de Etiquetas (`npm run test:unit -- src/pages/App/Stock/LabelPrinting`)**: 397/397 testes aprovados (34 arquivos).
+5. **Suíte de Recebimentos do ERP (`npm run test:unit -- src/pages/App/Stock/Receipts`)**: 36/36 testes aprovados (8 arquivos).
+6. **Suíte de Compras do ERP (`npm run test:unit -- src/pages/App/Stock/Purchases`)**: 29/29 testes aprovados (4 arquivos).
+7. **Invariante Fiscal de Segurança (`FISCAL-016`)**: Verificação estrita confirma **0 menções** a CC-e / Carta de Correção Eletrônica em todo o módulo de estoque.
+
+
+## Refatoração Modular e Princípios de Engenharia — Módulos de Logística e Fluxo de Entrega
+
+### 1. Problemas Identificados e Motivação
+- **`NextDeliveryCard.tsx` (Mobile - 502 linhas)** e **`RouteListItem.tsx` (Mobile - 380 linhas)**: Monólitos visuais com estilos acoplados e lógica duplicada de detecção de serviços (Entrega, Retirada, Assistência, Coleta de Devolução) e montagem (Depósito vs Externa), violando o princípio DRY e gerando divergências com as regras de negócio consolidadas de `orderAssemblyRules.ts`.
+- **`DeliveryPreparationScreen.tsx` (Mobile - 522 linhas)**: Monólito que acumulava busca de staff em banco, gerenciamento de múltiplos modais, formulários Zod (`routeForm`, `finishForm`), emissão de broadcast de localização em background e persistência offline e online, violando o Princípio da Responsabilidade Única (SRP).
+- **`DeliveryPreparationStep.tsx` (Mobile - 519 linhas)**: Card com mais de 200 linhas de estilos inline e acoplamento de seleção de múltiplos colaboradores com chips, sugestões e inputs manuais misturados ao checklist operacional.
+
+### 2. Soluções Técnicas Implementadas
+
+#### A. Centralização do Domínio Logístico (SSOT e DRY)
+Criado [`mobile/src/features/logistics/domain/deliveryServiceClassification.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/logistics/domain/deliveryServiceClassification.ts):
+- Função pura `classifyDeliveryService(order)` que extrai tipo de serviço, labels, cores temáticas e necessidade de montagem (depósito vs externa) consumindo `getOrderAssemblyFlags` de `orderAssemblyRules.ts`.
+- Suíte de testes unitários dedicada em [`deliveryServiceClassification.test.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/logistics/domain/deliveryServiceClassification.test.ts) (5 testes aprovados).
+
+#### B. Modularização do Card de Próxima Parada (`NextDeliveryCard.tsx` 502 -> 75 linhas)
+Criada subpasta [`mobile/src/features/logistics/components/deliveryMap/next-delivery-card/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/logistics/components/deliveryMap/next-delivery-card/):
+- `nextDeliveryCard.types.ts` e `nextDeliveryCard.styles.ts` (estilos desacoplados).
+- `NextDeliveryCompletedCard.tsx` (estado de roteiro concluído).
+- `NextDeliveryCardHeader.tsx` (status EM ANDAMENTO, pedido e botão fechar).
+- `NextDeliveryCardBadges.tsx` (badges de serviço e montagens).
+- `NextDeliveryCardMetrics.tsx` (métricas de janela/horário, distância, duração e volumes).
+- `NextDeliveryCardActions.tsx` (ações operacionais de navegação e detalhes).
+- `NextDeliveryCard.tsx`: orquestrador declarativo enxuto de 75 linhas.
+
+#### C. Modularização do Item de Roteiro (`RouteListItem.tsx` 380 -> 72 linhas)
+Criada subpasta [`mobile/src/features/logistics/components/routeList/route-list-item/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/logistics/components/routeList/route-list-item/):
+- `routeListItem.types.ts` e `routeListItem.styles.ts`.
+- `RouteListItemBadges.tsx` (badges operacionais).
+- `RouteListItemHeader.tsx` (sequência, cliente, pedido e status pill).
+- `RouteListItemFooter.tsx` (métricas e atalhos rápidos de navegação externa e visualização).
+- `RouteListItem.tsx`: orquestrador declarativo de 72 linhas.
+
+#### D. Desacoplamento da Tela do Fluxo de Entrega (`DeliveryPreparationScreen.tsx` 522 -> 167 linhas)
+Criada subpasta [`mobile/src/features/orders/screens/delivery-preparation/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/orders/screens/delivery-preparation/):
+- `deliveryPreparation.types.ts` e `deliveryPreparation.styles.ts`.
+- `deliveryStaffRules.ts`: funções puras de seleção a 0s, adição sem duplicatas, remoção segura e filtragem de sugestões.
+- `useDeliveryStaff.ts`: hook especializado de consulta e gestão de colaboradores.
+- `useDeliveryFlowActions.ts`: hook de ciclo de vida (início de rota, chegada no cliente, finalização com validação Zod, não atendimento, retrocesso de etapas e cancelamento seguro).
+- `deliveryStaffRules.test.ts`: 7 testes unitários cobrindo todas as regras de colaboradores.
+- `DeliveryPreparationScreen.tsx`: orquestrador limpo de 167 linhas.
+
+#### E. Modularização da Etapa 1 de Preparação (`DeliveryPreparationStep.tsx` 519 -> 106 linhas)
+Criada subpasta [`mobile/src/features/orders/components/delivery/preparation/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/orders/components/delivery/preparation/):
+- `deliveryPreparationStep.styles.ts`.
+- `DeliveryDestinationInfoCard.tsx` (cliente, endereço, janela e atalho Maps).
+- `DeliveryResponsiblesSection.tsx` (gestão de múltiplos responsáveis, chips, sugestões e inputs).
+- `DeliveryPreparationStep.tsx`: reduzido de 519 para 106 linhas.
+
+### 3. Validações e Não-Regressão
+1. **Suíte Móvel Geral (`npm run test:unit:mobile --prefix erp`)**: 351/351 testes aprovados (66 arquivos de teste, 100% de sucesso).
+2. **Novos Testes de Domínio e Regras Adicionados**:
+   - `deliveryServiceClassification.test.ts`: 5 testes aprovados.
+   - `deliveryStaffRules.test.ts`: 7 testes aprovados.
+   - `deliveryRouteFormSchema.test.ts`: 8 testes aprovados.
+3. **Compatibilidade Total**: Nenhuma interface, contrato de exportação ou rota externa sofreu alteração que quebre compatibilidade com os demais componentes do sistema.
+

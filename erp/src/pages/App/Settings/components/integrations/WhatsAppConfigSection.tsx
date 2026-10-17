@@ -32,6 +32,11 @@ const VARIABLE_OPTIONS = [
     value: 7,
     label: '7 variáveis — Completo (Nome, Data, Hora, Endereço, Produtos, Total, Pagamento)',
   },
+  {
+    value: 8,
+    label:
+      '8 variáveis — Completo com Tipo (Nome, Tipo Entrega/Retirada, Data, Hora, Endereço, Produtos, Total, Pagamento)',
+  },
 ];
 
 export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppConfigSectionProps) {
@@ -106,7 +111,10 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
   const handleTestTemplateSend = () => run('send', async (current) => templateForm.validateAndRun({ phone: testPhone, template: config.templateNameOrderConfirmation || '', language: config.templateLanguage || 'pt_BR', variableCount: config.templateVariableCount ?? 7, config }, async (values) => {
     const key = JSON.stringify([values.phone, values.template, values.language, values.variableCount, values.config.phoneNumberId]);
     if (completedSends.current.has(key)) throw new Error('Este teste já foi enviado ou ficou sem confirmação. Confira as mensagens antes de repetir.');
-    const params = ['Cliente Teste', '26/08/2026', 'Manhã', 'Rua Cascavel, 306, Guaraituba - Colombo/PR', '1x Guarda Roupa Casal 6 Portas', '949,00', 'Pix'].slice(0, values.variableCount);
+    const sampleList = values.variableCount >= 8
+      ? ['Cliente Teste', 'entrega', '26/08/2026', 'Manhã', 'Rua Cascavel, 306, Guaraituba - Colombo/PR', '1x Guarda Roupa Casal 6 Portas', '949,00', 'Pix | R$ 949,00 | Status: Pendente']
+      : ['Cliente Teste', '26/08/2026', 'Manhã', 'Rua Cascavel, 306, Guaraituba - Colombo/PR', '1x Guarda Roupa Casal 6 Portas', '949,00', 'Pix'];
+    const params = sampleList.slice(0, values.variableCount);
     let result;
     try { result = await withTimeout(whatsappGraphService.sendTemplateMessage(values.phone, values.template, params, values.language, values.config), 30_000, null, 'Teste de mensagem WhatsApp'); }
     catch (error) {

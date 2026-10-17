@@ -27,6 +27,10 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
   PRINT_RECEIPT: (order) => {
     printReceipt(order);
   },
+  PRINT_PROMISSORY_NOTE: (order) => {
+    sessionStorage.setItem('order', JSON.stringify(order));
+    window.open('/promissory-note', '_blank');
+  },
   PRINT_SHIPPING_ORDER: (order) => {
     printSalesOrder(order);
   },

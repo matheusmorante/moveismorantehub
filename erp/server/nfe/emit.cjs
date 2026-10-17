@@ -649,8 +649,8 @@ function fiscalNumberConflict(number) {
   return { previousNumber: number, nextNumber: number < MAX_FISCAL_NUMBER ? number + 1 : null };
 }
 function isDifferentKeyNumberConflict(cStat, reason, ownKey) {
-  if (cStat !== "539" || !/^\d{44}$/.test(ownKey)) return false;
-  const otherKey = reason.match(/\[chNFe:\s*(\d{44})\]/)?.[1];
+  if (cStat !== "539" || !ACCESS_KEY_PATTERN.test(ownKey)) return false;
+  const otherKey = reason.match(/\[chNFe:\s*([0-9]{6}[A-Z0-9]{12}[0-9]{26})\]/)?.[1];
   return Boolean(otherKey && otherKey !== ownKey && otherKey.slice(0, 2) === ownKey.slice(0, 2) && otherKey.slice(6, 34) === ownKey.slice(6, 34));
 }
 
@@ -2319,7 +2319,7 @@ var allDescendants = (node, name) => {
   return result;
 };
 function normalizeTaxId(value) {
-  return value.replace(/\D/g, "");
+  return normalizeFiscalIdentifier(value);
 }
 function objectValue(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};

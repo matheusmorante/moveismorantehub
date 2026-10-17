@@ -53,8 +53,8 @@ export const buildNfeCceXml = (input: NfeCceXmlInput): string => {
   const correction = input.correction.trim();
   const correctionError = validateNfeCce(correction);
   if (correctionError) throw new Error(correctionError);
-  if (!/^\d{44}$/.test(input.accessKey)) throw new Error('Chave da NF-e inválida para CC-e.');
-  if (!/^\d{14}$/.test(input.issuerCnpj)) throw new Error('CNPJ do emitente inválido para CC-e.');
+  if (!/^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/.test(input.accessKey)) throw new Error('Chave da NF-e inválida para CC-e.');
+  if (!/^[A-Z0-9]{12}[0-9]{2}$/.test(input.issuerCnpj)) throw new Error('CNPJ do emitente inválido para CC-e.');
   if (![1, 2].includes(input.environment)) throw new Error('Ambiente fiscal inválido para CC-e.');
   if (!Number.isInteger(input.sequence) || input.sequence < 1 || input.sequence > 20)
     throw new Error('A sequência de CC-e deve estar entre 1 e 20.');

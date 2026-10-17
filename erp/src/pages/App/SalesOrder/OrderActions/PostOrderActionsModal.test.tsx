@@ -10,6 +10,7 @@ const { mockActionsMap } = vi.hoisted(() => ({
     SEND_SHIPPING_ORDER: vi.fn(),
     SEND_CUSTOMER_ORDER: vi.fn(),
     PRINT_RECEIPT: vi.fn(),
+    PRINT_PROMISSORY_NOTE: vi.fn(),
     ISSUE_NFE: vi.fn(),
     PRINT_WARRANTY_TERM: vi.fn(),
     SEND_GROUP_INVITE: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock('./orderActionsConfig', () => ({
   buttons: [
     { key: 'printShippingOrder', label: 'Imprimir Pedido', icon: 'bi-printer-fill', action: 'PRINT_SHIPPING_ORDER', color: '' },
     { key: 'printReceipt', label: 'Imprimir Recibo', icon: 'bi-receipt', action: 'PRINT_RECEIPT', color: '' },
+    { key: 'printPromissoryNote', label: 'Nota Promissória', icon: 'bi-file-earmark-ruled', action: 'PRINT_PROMISSORY_NOTE', color: '' },
     { key: 'issueNfe', label: 'Emissão de NF de saída', icon: 'bi-receipt', action: 'ISSUE_NFE', color: '' },
     { key: 'printWarrantyTerm', label: 'Termo de garantia', icon: 'bi-shield-check', action: 'PRINT_WARRANTY_TERM', color: '' },
     { key: 'sendShippingOrder', label: 'Enviar Entrega para a equipe', icon: 'bi-truck', action: 'SEND_SHIPPING_ORDER', color: '' },
@@ -91,6 +93,10 @@ vi.mock('./nfe-modal/NfeEnvironmentChoiceModal', () => ({
 vi.mock('./WarrantyTermModal', () => ({
   default: () => null,
   WarrantyTermModal: () => null,
+}));
+vi.mock('./PromissoryNoteModal', () => ({
+  default: () => null,
+  PromissoryNoteModal: () => null,
 }));
 
 const returnOrder = {
@@ -347,6 +353,39 @@ describe('ações pós-venda do pedido de venda', () => {
 
     expect(document.body.style.overflow).toBe('');
     expect(document.documentElement.style.overflow).toBe('');
+  });
+
+  it('não exibe o botão de Nota Promissória se a venda não possuir pagamento com forma promissória', () => {
+    const orderWithoutPromissory = {
+      ...saleOrder,
+      payments: [
+        { method: 'Dinheiro', amount: 500 },
+        { method: 'Cartão de crédito', amount: 1500 },
+      ],
+    } as unknown as Order;
+
+    render(<PostOrderActionsModal order={orderWithoutPromissory} onClose={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: /Nota Promissória/i })).toBeNull();
+  });
+
+  it('exibe o botão de Nota Promissória e executa a ação apenas quando houver pagamento com forma promissória', async () => {
+    const orderWithPromissory = {
+      ...saleOrder,
+      payments: [
+        { method: 'Dinheiro', amount: 500 },
+        { method: 'Cartão de crédito', amount: 1500 },
+        { method: 'Nota promissória', amount: 1000 },
+      ],
+    } as unknown as Order;
+
+    render(<PostOrderActionsModal order={orderWithPromissory} onClose={vi.fn()} />);
+    const promissoryBtn = screen.getByRole('button', { name: /Nota Promissória/i });
+    expect(promissoryBtn).toBeTruthy();
+
+    fireEvent.click(promissoryBtn);
+    await waitFor(() => {
+      expect(mockActionsMap.PRINT_PROMISSORY_NOTE).toHaveBeenCalledWith(orderWithPromissory);
+    });
   });
 });
 

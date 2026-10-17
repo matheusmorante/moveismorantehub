@@ -78,6 +78,48 @@ describe('orderSnapshotResolution', () => {
     expect(resolvedOrder.shipping?.deliveryAddress?.street).toBe('Rua Rio Guaíba');
   });
 
+  it('deve recuperar e congelar o endereço do cliente se o pedido possuir ID, nome e telefone, mas endereço vazio e noAddress falso', async () => {
+    const orderSemEndereco: Order = {
+      id: 'ord-sem-end-1',
+      orderIndex: 2549,
+      status: 'scheduled',
+      customerData: {
+        id: '43f8df58-6606-4625-9988-797407cf83e6',
+        fullName: 'Carmen José da Silva',
+        phone: '(41) 99864-6446',
+        noPhone: false,
+        noAddress: false,
+        fullAddress: {
+          cep: '',
+          street: '',
+          number: '',
+          neighborhood: '',
+          city: '',
+          state: '',
+          complement: '',
+          observation: '',
+        },
+      },
+      shipping: {
+        deliveryMethod: 'delivery',
+        value: 0,
+        orderType: 'Standard',
+        useCustomerAddress: true,
+        scheduling: { date: '2026-09-12', time: '14:00', type: 'fixed' },
+      },
+      items: [],
+      payments: [],
+    } as any;
+
+    const mockFetch = vi.fn().mockResolvedValue(mockDbPerson);
+    const resolvedOrder = await resolveOrderCustomerSnapshot(orderSemEndereco, mockFetch);
+
+    expect(mockFetch).toHaveBeenCalledWith('43f8df58-6606-4625-9988-797407cf83e6');
+    expect(resolvedOrder.customerData?.fullAddress?.street).toBe('Rua Rio Guaíba');
+    expect(resolvedOrder.customerData?.fullAddress?.number).toBe('135');
+    expect(resolvedOrder.shipping?.deliveryAddress?.street).toBe('Rua Rio Guaíba');
+  });
+
   it('ao alterar o pedido na tela de edição, deve respeitar e salvar o novo snapshot informado', async () => {
     const orderAlterado: Order = {
       id: '16e600ba-28a5-4025-a740-3cfe9a672152',

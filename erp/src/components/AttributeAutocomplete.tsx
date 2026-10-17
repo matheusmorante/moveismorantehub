@@ -44,7 +44,11 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
       try {
         const { data } = await supabase.from('attributes').select('id, name').order('name');
         if (data) {
-          setAllNodes((data as AttributeRow[]).map((d) => ({ id: d.id, name: d.name })));
+          setAllNodes(
+            (data as AttributeRow[])
+              .filter((d) => !/^(reclin[aá]vel|linha|modelo)$/i.test(String(d.name).trim()))
+              .map((d) => ({ id: d.id, name: d.name }))
+          );
         }
       } catch (err) {
         console.error('Erro ao buscar atributos:', err);

@@ -97,24 +97,49 @@ describe('ProductDescriptionTab', () => {
     expect(completeViaTech).toHaveLength(0);
   });
 
-  it('exibe toast de aviso e bloqueia a chamada da IA no Modo 1 se faltarem campos obrigatórios', async () => {
+  it('não renderiza container com borda amarela nem botão avulso de texto informativo na aba', () => {
     const formData = { name: 'Mesa' };
     const setFormData = vi.fn();
 
     render(<ProductDescriptionTab formData={formData} setFormData={setFormData} />);
 
-    const starBtn = screen.getByRole('button', { name: /gerar descrição a partir das características/i });
-    expect(starBtn).toBeDefined();
+    // Deve ter apenas o botão principal de IA no cabeçalho
+    expect(screen.getByRole('button', { name: /gerar descrição com ia/i })).toBeDefined();
 
-    fireEvent.click(starBtn);
+    // Não deve conter o container com o banner antigo
+    expect(screen.queryByText('Gerar Descrição com IA', { selector: 'span' })).toBeNull();
 
-    expect(toast.warning).toHaveBeenCalledWith(
-      expect.stringContaining('Para gerar a descrição por características, preencha: Marca, Modelo, Cor')
-    );
+    // Não deve ter botão avulso na aba chamado "Texto informativo"
+    expect(screen.queryByRole('button', { name: /gerar descrição via texto informativo/i })).toBeNull();
+    expect(screen.queryByText('Texto informativo')).toBeNull();
+  });
+
+  it('abre o modal ao clicar no botão de IA e bloqueia a geração por características se faltarem campos', async () => {
+    const formData = { name: 'Mesa' };
+    const setFormData = vi.fn();
+
+    render(<ProductDescriptionTab formData={formData} setFormData={setFormData} />);
+
+    const aiBtn = screen.getByRole('button', { name: /gerar descrição com ia/i });
+    fireEvent.click(aiBtn);
+
+    // O modal deve abrir com o título
+    expect(screen.getByText('Gerar Descrição com IA')).toBeDefined();
+
+    // Na aba de características, como faltam campos, o botão fica desabilitado e há alerta
+    const charTabBtn = screen.getByRole('button', { name: /características do cadastro/i });
+    fireEvent.click(charTabBtn);
+
+    expect(screen.getByText(/campos recomendados pendentes/i)).toBeDefined();
+    expect(screen.getByText(/marca, modelo, cor/i)).toBeDefined();
+
+    const submitCharBtn = screen.getByRole('button', { name: /gerar descrição a partir das características/i });
+    expect(submitCharBtn.hasAttribute('disabled')).toBe(true);
+
     expect(aiService.improveProductDescription).not.toHaveBeenCalled();
   });
 
-  it('executa a geração por características (Modo 1), exibe loading com shimmer e atualiza formData', async () => {
+  it('executa a geração por características (Modo 1) pelo modal, exibe shimmer e atualiza formData', async () => {
     const formData = {
       name: 'Sofá Confort',
       brand: 'Morante',
@@ -133,10 +158,17 @@ describe('ProductDescriptionTab', () => {
 
     render(<ProductDescriptionTab formData={formData} setFormData={setFormData} />);
 
-    const starBtn = screen.getByRole('button', { name: /gerar descrição a partir das características/i });
-    fireEvent.click(starBtn);
+    // Abre o modal
+    const aiBtn = screen.getByRole('button', { name: /gerar descrição com ia/i });
+    fireEvent.click(aiBtn);
 
-    // Deve exibir o indicador com shimmer
+    // Como os dados estão completos, o modo características é o inicial e o botão está ativo
+    const charBtn = screen.getByRole('button', { name: /gerar descrição a partir das características/i });
+    expect(charBtn.hasAttribute('disabled')).toBe(false);
+
+    fireEvent.click(charBtn);
+
+    // Deve exibir o indicador com shimmer na aba
     expect(screen.getByTestId('description-shimmer-indicator')).toBeDefined();
     expect(screen.getByText(/gerando descrição com ia.../i)).toBeDefined();
 
@@ -160,7 +192,7 @@ describe('ProductDescriptionTab', () => {
     });
   });
 
-  it('abre o modal de texto informativo no Modo 2, gera descrição e atualiza formData', async () => {
+  it('abre o modal e gera descrição a partir do texto descritivo (Modo 2)', async () => {
     const formData = {
       name: 'Cadeira Gamer',
       brand: 'Morante Tech',
@@ -175,12 +207,13 @@ describe('ProductDescriptionTab', () => {
 
     render(<ProductDescriptionTab formData={formData} setFormData={setFormData} />);
 
-    // Clica no botão de "Texto informativo"
-    const textBtn = screen.getByRole('button', { name: /gerar descrição via texto informativo/i });
-    fireEvent.click(textBtn);
+    // Abre o modal pelo botão principal de IA
+    const aiBtn = screen.getByRole('button', { name: /gerar descrição com ia/i });
+    fireEvent.click(aiBtn);
 
-    // O modal deve abrir
-    expect(screen.getByText('Gerar Descrição com Texto Informativo')).toBeDefined();
+    // Alterna para o modo de texto descritivo / anotações
+    const textTabBtn = screen.getByRole('button', { name: /texto descritivo \/ anotações/i });
+    fireEvent.click(textTabBtn);
 
     // Digita o texto informativo
     const modalInput = screen.getByLabelText(/texto informativo \/ anotações do produto/i);
@@ -189,7 +222,7 @@ describe('ProductDescriptionTab', () => {
     });
 
     // Submete o modal
-    const submitBtn = screen.getByRole('button', { name: /^gerar descrição$/i });
+    const submitBtn = screen.getByRole('button', { name: /gerar descrição via texto informativo/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
@@ -221,8 +254,11 @@ describe('ProductDescriptionTab', () => {
 
     render(<ProductDescriptionTab formData={formData} setFormData={setFormData} />);
 
-    const starBtn = screen.getByRole('button', { name: /gerar descrição a partir das características/i });
-    fireEvent.click(starBtn);
+    const aiBtn = screen.getByRole('button', { name: /gerar descrição com ia/i });
+    fireEvent.click(aiBtn);
+
+    const charBtn = screen.getByRole('button', { name: /gerar descrição a partir das características/i });
+    fireEvent.click(charBtn);
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Erro de conexão com o Gemini');

@@ -17,6 +17,7 @@ interface ProductFormHeaderProps {
   readonly activeTab: ProductFormTabId;
   readonly setActiveTab: (tab: ProductFormTabId) => void;
   readonly validationErrors?: Record<string, boolean>;
+  readonly onOpenAiFillModal?: (mode?: 'web_search' | 'descriptive_text') => void;
 }
 
 export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
@@ -31,6 +32,7 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
   activeTab,
   setActiveTab,
   validationErrors = {},
+  onOpenAiFillModal,
 }) => {
   const legacyItemType = 'item_type' in formData ? formData.item_type : undefined;
   const isComposition = formData.itemType === 'composition' || legacyItemType === 'composition';
@@ -77,14 +79,30 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
             navigateToRequirementField={navigateToRequirementField}
           />
         </div>
-        <button
-          type="button"
-          onClick={handleCloseWithAutoSave}
-          aria-label="Fechar formulário"
-          className="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all self-end sm:self-auto cursor-pointer"
-        >
-          <i className="bi bi-x-lg text-lg" aria-hidden="true" />
-        </button>
+
+        <div className="flex items-center gap-2.5 self-end sm:self-auto">
+          {onOpenAiFillModal && (
+            <button
+              type="button"
+              onClick={() => onOpenAiFillModal('web_search')}
+              title="Preenchimento Inteligente com IA"
+              aria-label="Preencher cadastro com IA"
+              className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs hover:shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95"
+            >
+              <i className="bi bi-stars text-sm" />
+              <span className="hidden sm:inline">Preencher com IA</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleCloseWithAutoSave}
+            aria-label="Fechar formulário"
+            className="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all cursor-pointer"
+          >
+            <i className="bi bi-x-lg text-lg" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       <ProductFormTabsNavigation

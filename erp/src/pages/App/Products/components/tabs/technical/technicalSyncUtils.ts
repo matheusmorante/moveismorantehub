@@ -134,6 +134,8 @@ export const applyTechnicalValueChangeToProduct = (
   ) {
     next.depth = parseNumericDimension(value);
     dimensionChanged = true;
+  } else if (norm === 'modelo/linha' || norm === 'linha/modelo') {
+    next.line = typeof value === 'string' ? value : String(value ?? '');
   }
 
   if (dimensionChanged) {
@@ -290,6 +292,43 @@ export const populateInitialTechnicalValues = (
       technicalValues['Possui pés'] = 'Sim';
       changed = true;
     }
+  }
+
+  // Consolidação de Modelo e Linha legados em Modelo/Linha para manter compatibilidade
+  const legacyModelOrLine =
+    technicalValues['Modelo/Linha'] ??
+    technicalValues['Linha/Modelo'] ??
+    technicalValues['Modelo'] ??
+    technicalValues['Linha'] ??
+    technicalValues['modelo'] ??
+    technicalValues['linha'] ??
+    prev.line;
+
+  if (
+    legacyModelOrLine !== undefined &&
+    legacyModelOrLine !== null &&
+    String(legacyModelOrLine).trim() !== ''
+  ) {
+    if (!technicalValues['Modelo/Linha'] || String(technicalValues['Modelo/Linha']).trim() === '') {
+      technicalValues['Modelo/Linha'] = legacyModelOrLine;
+      changed = true;
+    }
+  }
+  if ('Modelo' in technicalValues) {
+    delete technicalValues['Modelo'];
+    changed = true;
+  }
+  if ('modelo' in technicalValues) {
+    delete technicalValues['modelo'];
+    changed = true;
+  }
+  if ('Linha' in technicalValues) {
+    delete technicalValues['Linha'];
+    changed = true;
+  }
+  if ('linha' in technicalValues) {
+    delete technicalValues['linha'];
+    changed = true;
   }
 
   return changed ? { ...prev, technicalValues } : prev;

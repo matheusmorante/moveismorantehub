@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import { ACCESS_KEY_PATTERN, CNPJ_PATTERN } from '../../shared-utils/fiscalIdentifiers.js';
 import { formatNfeDateTime } from '../../erp/src/pages/utils/nfe/nfeXmlBuilder';
 
 const extractTag = (xml: string, tag: string): string => {
@@ -21,9 +22,9 @@ export function buildInboundScienceEventXml(input: {
   recipientCnpj: string;
 }): string {
   const { accessKey, environment, recipientCnpj } = input;
-  if (!/^\d{44}$/.test(accessKey) || accessKey.slice(20, 22) !== '55')
+  if (!ACCESS_KEY_PATTERN.test(accessKey) || accessKey.slice(20, 22) !== '55')
     throw new Error('A Ciência da Emissão deste fluxo exige chave de NF-e modelo 55 válida.');
-  if (!/^\d{14}$/.test(recipientCnpj) || accessKey.slice(6, 20) !== recipientCnpj)
+  if (!CNPJ_PATTERN.test(recipientCnpj) || accessKey.slice(6, 20) !== recipientCnpj)
     throw new Error('O CNPJ destinatário não corresponde à chave de acesso da NF-e.');
   if (environment !== 1 && environment !== 2)
     throw new Error('O ambiente fiscal da NF-e não foi identificado.');

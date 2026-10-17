@@ -52,6 +52,10 @@ export type Order = {
   deliveryStartedAt?: string | null;
   deliveryFinishedAt?: string | null;
   pickupConfirmedAt?: string | null;
+  /** Responsáveis pela entrega do pedido (operador e ajudantes). */
+  deliveryResponsibles?: Array<{ id?: string; name: string; role?: string }>;
+  deliveryResponsibleName?: string | null;
+  deliveryResponsibleId?: string | null;
   items: Item[];
   itemsSummary: ItemsSummary;
   shipping: Shipping;
@@ -139,6 +143,7 @@ export type Order = {
 
 export type OrderAction =
   | 'PRINT_RECEIPT'
+  | 'PRINT_PROMISSORY_NOTE'
   | 'PRINT_SHIPPING_ORDER'
   | 'PRINT_WARRANTY_TERM'
   | 'SEND_SHIPPING_ORDER'
@@ -170,6 +175,7 @@ export type PdvAction = OrderAction;
 
 export type IsButtonsClicked = {
   printReceipt?: boolean;
+  printPromissoryNote?: boolean;
   printShippingOrder?: boolean;
   printWarrantyTerm?: boolean;
   sendShippingOrder?: boolean;

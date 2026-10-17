@@ -120,7 +120,7 @@ export const fetchTechnicalFieldDefinitions = async (
       }
 
       const result = (attributes ?? [])
-        .filter((attribute) => !/^reclin[aá]vel$/i.test(String(attribute.name).trim()))
+        .filter((attribute) => !/^(reclin[aá]vel|linha|modelo)$/i.test(String(attribute.name).trim()))
         .map((attribute) => {
           const normalizedName = String(attribute.name).trim().toLocaleLowerCase('pt-BR');
           const isFirmnessField = normalizedName === 'nível de firmeza do estofamento';

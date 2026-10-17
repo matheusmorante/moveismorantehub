@@ -434,6 +434,42 @@ describe('sendDirectCustomerOrderViaMetaApi', () => {
       expect.any(Object)
     );
   });
+
+  it('monta parâmetros de 8 variáveis com tipo "entrega" e estilo idêntico ao wa.me', () => {
+    const config = { templateVariableCount: 8 };
+    const params = buildOrderMetaTemplateParams(baseOrder as Order, config);
+    expect(params).toHaveLength(8);
+    expect(params[0]).toBe('Consumidor Teste');
+    expect(params[1]).toBe('entrega');
+    expect(params[2]).toBe('domingo, 25/10/2026');
+    expect(params[3]).toBe('10:00');
+    expect(params[4]).toBe('Rua das Flores, 123, Centro, Curitiba');
+    expect(params[5]).toContain('Mesa de Jantar | 1 UN');
+    expect(params[5]).toContain('1.500,00');
+    expect(params[6]).toBe('1.500,00');
+    expect(params[7]).toBe('Não informado');
+  });
+
+  it('monta parâmetros de 8 variáveis com tipo "retirada" e endereço "Retirada em loja"', () => {
+    const pickupOrder = {
+      ...baseOrder,
+      shipping: {
+        deliveryMethod: 'pickup',
+        noAddress: true,
+        scheduling: {
+          date: '2026-10-25',
+          time: '10:00 às 12:00',
+        },
+      },
+    } as unknown as Order;
+
+    const config = { templateVariableCount: 8 };
+    const params = buildOrderMetaTemplateParams(pickupOrder, config);
+    expect(params).toHaveLength(8);
+    expect(params[0]).toBe('Consumidor Teste');
+    expect(params[1]).toBe('retirada');
+    expect(params[4]).toBe('Retirada em loja');
+  });
 });
 
 describe('isSamePhoneNumber', () => {

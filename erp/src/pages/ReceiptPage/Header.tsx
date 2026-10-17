@@ -14,37 +14,39 @@ const Header = ({ seller }: Props) => {
   const companyPhone = settings.companyPhone || '41997493547 | 41992244631';
 
   return (
-    <header className="flex justify-between items-start pb-2 border-b border-slate-100 text-slate-800 transition-colors duration-300 shrink-0">
+    <header className="receipt-print-header flex justify-between items-center py-1 pb-1.5 border-b border-slate-200 text-slate-800 transition-colors duration-300 shrink-0 mb-1">
       <div className="flex items-center">
-        <div className="header-logo-container w-56 h-24 sm:w-56 sm:h-28 bg-white rounded-xl p-1 border-0 shadow-none overflow-hidden flex items-center justify-center shrink-0">
+        <div className="header-logo-container w-44 sm:w-48 h-12 sm:h-13 bg-white rounded-lg p-0.5 border-0 shadow-none flex items-center justify-start shrink-0">
           <img
             src={logo}
             alt={`Logo ${companyName}`}
-            className="w-full h-full object-contain rounded-2xl"
+            className="w-full h-full object-contain"
           />
         </div>
       </div>
 
-      <div className="flex flex-col items-end text-right gap-0.5 max-w-[50%]">
-        <div className="bg-slate-50 px-3 py-1 rounded-xl border border-slate-100 mb-1">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">
+      <div className="flex flex-col items-end text-right gap-0.5 max-w-[55%]">
+        <div className="bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200/60 mb-0.5 flex items-center gap-1.5">
+          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">
             Responsável
-          </p>
-          <p className="text-xs font-black text-blue-600 uppercase tracking-tight">{seller}</p>
+          </span>
+          <span className="text-[11px] font-black text-blue-600 uppercase tracking-tight leading-none">
+            {seller}
+          </span>
         </div>
 
-        <div className="space-y-0 mt-0.5">
-          <p className="text-[10px] text-slate-500 font-medium">
+        <div className="space-y-0 text-[9px] sm:text-[10px] text-slate-500 font-medium leading-tight">
+          <p>
             <span className="font-black text-slate-800 uppercase tracking-tighter mr-1">CNPJ:</span>{' '}
             {companyCnpj}
           </p>
-          <p className="text-[10px] text-slate-500 font-medium">
+          <p>
             <span className="font-black text-slate-800 uppercase tracking-tighter mr-1">
               Endereço:
             </span>{' '}
             {companyAddress}
           </p>
-          <p className="text-[10px] text-slate-500 font-medium">
+          <p>
             <span className="font-black text-slate-800 uppercase tracking-tighter mr-1">
               Contato:
             </span>{' '}

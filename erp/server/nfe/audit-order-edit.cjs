@@ -617,6 +617,11 @@ function composeServiceFiscalValues(items = []) {
   };
 }
 
+// shared-utils/fiscalIdentifiers.ts
+function normalizeFiscalIdentifier(value) {
+  return String(value ?? "").trim().toUpperCase().replace(/[.\-/\s]/g, "");
+}
+
 // api/nfe/fiscalXmlAudit.ts
 function createStrictXmlParser(parseErrors) {
   return new import_xmldom.DOMParser({
@@ -652,7 +657,7 @@ var allDescendants = (node, name) => {
   return result;
 };
 function normalizeTaxId(value) {
-  return value.replace(/\D/g, "");
+  return normalizeFiscalIdentifier(value);
 }
 function objectValue(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -1334,7 +1339,7 @@ function resolveNormalSalePayments(params) {
 // api/nfe/orderEditFiscalAudit.ts
 var objectValue2 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 var normalizeText = (value) => String(value ?? "").trim();
-var normalizeTaxId2 = (value) => String(value ?? "").replace(/\D/g, "");
+var normalizeTaxId2 = (value) => normalizeFiscalIdentifier(value);
 var moneyMatches = (left, right) => {
   const a = Number(left);
   const b = Number(right);

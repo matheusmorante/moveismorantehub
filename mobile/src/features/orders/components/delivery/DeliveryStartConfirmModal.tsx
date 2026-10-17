@@ -2,11 +2,13 @@ import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Radio, Play, X, Shield } from 'lucide-react-native';
+import { DeliveryFlowIcon } from '../../../../components/shared/DeliveryFlowIcon';
 
 interface Props {
   visible: boolean;
   orderNumber?: string;
   customerName?: string;
+  responsibles?: Array<{ id?: string; name: string; role?: string }>;
   loading?: boolean;
   isDarkMode?: boolean;
   onConfirm: () => void;
@@ -17,6 +19,7 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
   visible,
   orderNumber,
   customerName,
+  responsibles,
   loading = false,
   isDarkMode = false,
   onConfirm,
@@ -52,17 +55,28 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
 
           {/* Ícone de Destaque */}
           <View style={[styles.iconCircle, isDarkMode && styles.iconCircleDark]}>
-            <Radio size={28} color="#2563eb" />
+            <DeliveryFlowIcon size={32} color="#2563eb" />
           </View>
 
           {/* Título & Identificação */}
-          <Text style={[styles.title, isDarkMode && styles.textLight]}>Iniciar Entrega</Text>
+          <Text style={[styles.title, isDarkMode && styles.textLight]}>Iniciar Fluxo de Entrega</Text>
 
           {orderNumber ? (
             <Text style={[styles.orderSubtitle, isDarkMode && styles.textMuted]}>
               {orderNumber} {customerName ? `• ${customerName}` : ''}
             </Text>
           ) : null}
+
+          {responsibles && responsibles.length > 0 && (
+            <View style={[styles.responsiblesBox, isDarkMode && styles.responsiblesBoxDark]}>
+              <Text style={[styles.responsiblesLabel, isDarkMode && styles.textMuted]}>
+                Responsável(is) pela entrega:
+              </Text>
+              <Text style={[styles.responsiblesValue, isDarkMode && styles.textLight]}>
+                {responsibles.map((r) => r.name).join(', ')}
+              </Text>
+            </View>
+          )}
 
           {/* Box Informativo de Privacidade e Compartilhamento */}
           <View style={[styles.noticeBox, isDarkMode && styles.noticeBoxDark]}>
@@ -194,6 +208,33 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: '#94a3b8',
+  },
+  responsiblesBox: {
+    width: '100%',
+    backgroundColor: '#eff6ff',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    marginBottom: 14,
+  },
+  responsiblesBoxDark: {
+    backgroundColor: '#1e293b',
+    borderColor: '#2563eb',
+  },
+  responsiblesLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#3b82f6',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  responsiblesValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1e3a8a',
   },
   noticeBox: {
     width: '100%',

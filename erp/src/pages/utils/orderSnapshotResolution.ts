@@ -10,7 +10,14 @@ const isCustomerSnapshotIncomplete = (customerData?: CustomerData): boolean => {
   const hasPhone = Boolean(
     customerData.noPhone || (customerData.phone && customerData.phone.trim().length > 0)
   );
-  return !hasName || !hasPhone;
+  const hasAddress = Boolean(
+    customerData.noAddress ||
+      customerData.fullAddress?.street?.trim() ||
+      customerData.fullAddress?.mapsUrl?.trim() ||
+      (customerData.fullAddress as any)?.googleMapsUrl?.trim() ||
+      (customerData.fullAddress as any)?.mapsLink?.trim()
+  );
+  return !hasName || !hasPhone || !hasAddress;
 };
 
 const mapPersonToCustomerSnapshot = (person: Person, currentData?: CustomerData): CustomerData => {

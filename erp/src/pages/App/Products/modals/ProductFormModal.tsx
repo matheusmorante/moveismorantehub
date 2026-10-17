@@ -163,6 +163,10 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           validationErrors={validationErrors}
+          onOpenAiFillModal={(mode = 'web_search') => {
+            setAiCharacteristicsInitialMode(mode);
+            setIsAiCharacteristicsModalOpen(true);
+          }}
         />
 
         <ProductFormTabContent

@@ -105,7 +105,7 @@ describe('ProductGeneralTab product name field', () => {
     expect(oppContainer?.querySelector('.text-red-500')).toBeTruthy();
   });
 
-  it('renderiza o botão de estrelinha e o botão de texto descritivo no topo da aba', () => {
+  it('não renderiza botão de IA ou container amarelo na primeira aba (migrado para o cabeçalho global)', () => {
     const mockOpenAi = vi.fn();
     render(
       <ProductGeneralTab
@@ -118,21 +118,15 @@ describe('ProductGeneralTab product name field', () => {
       />
     );
 
-    // Botão de estrelinha (apenas ícone)
-    const starBtn = screen.getByRole('button', { name: /Preencher cadastro com IA/i });
-    expect(starBtn).toBeTruthy();
-    expect(starBtn.querySelector('.bi-stars')).toBeTruthy();
+    // O botão genérico de IA não deve ficar na aba/campo individual
+    expect(screen.queryByRole('button', { name: /Preencher cadastro com IA/i })).toBeNull();
 
-    starBtn.click();
-    expect(mockOpenAi).toHaveBeenCalledWith('web_search');
+    // Não deve renderizar botão de texto descritivo avulso na aba
+    expect(screen.queryByRole('button', { name: /Preencher via texto descritivo/i })).toBeNull();
+    expect(screen.queryByText('Texto descritivo')).toBeNull();
 
-    // Botão com texto descritivo
-    const textBtn = screen.getByRole('button', { name: /Preencher via texto descritivo/i });
-    expect(textBtn).toBeTruthy();
-    expect(textBtn.textContent).toContain('Texto descritivo');
-
-    textBtn.click();
-    expect(mockOpenAi).toHaveBeenCalledWith('descriptive_text');
+    // Não deve renderizar container de preenchimento com IA com borda amarela
+    expect(screen.queryByText('Preenchimento com IA')).toBeNull();
   });
 });
 

@@ -201,9 +201,9 @@ export const isThicknessCharacteristic = (name: string): boolean => {
 export const isWeightCharacteristicName = (name: string): boolean =>
   normalizeName(name) === 'peso';
 
-/** Mantém o campo operacional Reclinável oculto, conforme a regra canônica do ERP. */
+/** Mantém os campos operacionais/redundantes Reclinável, Linha e Modelo (isolado) ocultos, conforme a regra canônica do ERP. */
 export const isExcludedProductTechnicalField = (name: string): boolean =>
-  /^reclin[aá]vel$/i.test(String(name || '').trim());
+  /^(reclin[aá]vel|linha|modelo)$/i.test(String(name || '').trim());
 
 export const isMattressCategory = (
   categoryIds: readonly string[] = [],
@@ -224,6 +224,14 @@ export const isMattressCategory = (
 export const isRequiredCharacteristicName = (name: string): boolean => {
   const normalized = normalizeName(name);
   if (isLengthCharacteristic(name)) return true;
+  if (
+    normalized === 'modelo/linha' ||
+    normalized === 'modelo / linha' ||
+    normalized === 'linha/modelo' ||
+    normalized === 'linha / modelo'
+  ) {
+    return true;
+  }
   return GLOBAL_REQUIRED_ATTRIBUTE_NAMES.some(
     (requiredName) => normalizeName(requiredName) === normalized
   );
@@ -389,6 +397,30 @@ export const getPersistableProductTechnicalValues = (
     }
   }
 
+  // Consolidar Modelo e Linha legados em Modelo/Linha
+  const legacyModelOrLine =
+    result['Modelo/Linha'] ??
+    result['Linha/Modelo'] ??
+    result['Modelo'] ??
+    result['modelo'] ??
+    result['Linha'] ??
+    result['linha'] ??
+    product?.line;
+
+  if (
+    legacyModelOrLine !== undefined &&
+    legacyModelOrLine !== null &&
+    String(legacyModelOrLine).trim() !== ''
+  ) {
+    if (!result['Modelo/Linha'] || String(result['Modelo/Linha']).trim() === '') {
+      result['Modelo/Linha'] = legacyModelOrLine;
+    }
+  }
+  delete result['Modelo'];
+  delete result['modelo'];
+  delete result['Linha'];
+  delete result['linha'];
+
   return result;
 };
 
@@ -420,11 +452,37 @@ export const getTechnicalValue = (values: Record<string, unknown> = {}, name: st
   const matchingEntry = Object.entries(values).find(
     ([key]) => normalizeName(key) === normalizedName
   );
+  if (
+    matchingEntry?.[1] !== undefined &&
+    matchingEntry?.[1] !== null &&
+    String(matchingEntry[1]).trim() !== ''
+  ) {
+    return matchingEntry[1];
+  }
+  if (normalizedName === 'modelo/linha' || normalizedName === 'linha/modelo') {
+    const fallbackEntry = Object.entries(values).find(([key]) => {
+      const k = normalizeName(key);
+      return k === 'modelo' || k === 'linha' || k === 'modelo e linha' || k === 'modelo ou linha';
+    });
+    if (fallbackEntry?.[1] !== undefined && fallbackEntry?.[1] !== null) {
+      return fallbackEntry[1];
+    }
+  }
   return matchingEntry?.[1];
 };
 
-export const hasTechnicalValue = (values: Record<string, unknown> = {}, name: string) =>
-  Object.keys(values).some((key) => normalizeName(key) === normalizeName(name));
+export const hasTechnicalValue = (values: Record<string, unknown> = {}, name: string) => {
+  const normalizedName = normalizeName(name);
+  const exists = Object.keys(values).some((key) => normalizeName(key) === normalizedName);
+  if (exists) return true;
+  if (normalizedName === 'modelo/linha' || normalizedName === 'linha/modelo') {
+    return Object.keys(values).some((key) => {
+      const k = normalizeName(key);
+      return k === 'modelo' || k === 'linha' || k === 'modelo e linha' || k === 'modelo ou linha';
+    });
+  }
+  return false;
+};
 
 // ============================================================================
 // 5. APPLICABLE FIELDS & DEPTH/LENGTH RESOLUTION
@@ -607,7 +665,16 @@ export const groupProductTechnicalFields = <T extends ProductTechnicalField>(
 
 export const getMissingRequiredCharacteristics = (values: Record<string, unknown> = {}) => {
   return REQUIRED_CHARACTERISTIC_NAMES.filter((name) => {
-    const value = String(getTechnicalValue(values, name) ?? '')
+    let raw = getTechnicalValue(values, name);
+    if (name === 'Modelo' && (raw === undefined || raw === null || String(raw).trim() === '')) {
+      raw =
+        getTechnicalValue(values, 'modelo/linha') ??
+        getTechnicalValue(values, 'modelo / linha') ??
+        getTechnicalValue(values, 'linha/modelo') ??
+        getTechnicalValue(values, 'linha / modelo') ??
+        getTechnicalValue(values, 'linha');
+    }
+    const value = String(raw ?? '')
       .trim()
       .toLocaleLowerCase('pt-BR');
     return !value || ['não se aplica', 'nao se aplica', 'n/a'].includes(value);

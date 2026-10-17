@@ -9,6 +9,7 @@ import {
   getProductCharacteristicAttributes,
   groupProductTechnicalFields,
   hasTechnicalValue,
+  getTechnicalValue,
   isExcludedProductTechnicalField,
   isProductTechnicalFieldRequired,
   isRequiredCharacteristicName,
@@ -158,21 +159,53 @@ describe('productCharacteristics', () => {
     ).toEqual(['Cor', 'Da categoria', 'Legado preenchido', 'Campo legado inativo']);
   });
 
-  it('mantém Reclinável fora dos campos técnicos aplicáveis, como no ERP', () => {
+  it('mantém Reclinável, Linha e Modelo (isolado) fora dos campos técnicos aplicáveis, preservando Modelo/Linha', () => {
     const fields = [
       { name: 'Reclinável', categoryIds: ['category-1'] },
       { name: 'reclinavel', isRequired: true },
       { name: 'Reclinável manual', categoryIds: ['category-1'] },
+      { name: 'Linha', categoryIds: ['category-1'] },
+      { name: 'Modelo', categoryIds: ['category-1'] },
+      { name: 'Modelo/Linha', categoryIds: ['category-1'] },
       { name: 'Cor' },
     ];
 
     expect(
-      getApplicableProductTechnicalFields(fields, ['category-1'], { Reclinável: 'Sim' }, [
+      getApplicableProductTechnicalFields(fields, ['category-1'], { Reclinável: 'Sim', Linha: 'Paris', Modelo: 'Capri' }, [
         'reclinavel',
       ]).map(({ name }) => name)
-    ).toEqual(['Reclinável manual', 'Cor']);
+    ).toEqual(['Reclinável manual', 'Modelo/Linha', 'Cor']);
     expect(isExcludedProductTechnicalField(' RECLINÁVEL ')).toBe(true);
     expect(isExcludedProductTechnicalField('Reclinável manual')).toBe(false);
+    expect(isExcludedProductTechnicalField(' Linha ')).toBe(true);
+    expect(isExcludedProductTechnicalField(' Modelo ')).toBe(true);
+    expect(isExcludedProductTechnicalField('Modelo/Linha')).toBe(false);
+    expect(isExcludedProductTechnicalField('Linha/Modelo')).toBe(false);
+  });
+
+  it('mantém compatibilidade com valores legados de Modelo e Linha para Modelo/Linha', () => {
+    expect(hasTechnicalValue({ Modelo: 'Capri' }, 'Modelo/Linha')).toBe(true);
+    expect(hasTechnicalValue({ Linha: 'Paris' }, 'Modelo/Linha')).toBe(true);
+    expect(getTechnicalValue({ Modelo: 'Capri' }, 'Modelo/Linha')).toBe('Capri');
+    expect(getTechnicalValue({ Linha: 'Paris' }, 'Modelo/Linha')).toBe('Paris');
+
+    expect(
+      getPersistableProductTechnicalValues({
+        technicalValues: { Modelo: 'Capri', Cor: 'Azul' },
+      })
+    ).toEqual({
+      'Modelo/Linha': 'Capri',
+      Cor: 'Azul',
+    });
+
+    expect(
+      getPersistableProductTechnicalValues({
+        technicalValues: { Linha: 'Paris', Cor: 'Branco' },
+      })
+    ).toEqual({
+      'Modelo/Linha': 'Paris',
+      Cor: 'Branco',
+    });
   });
 
   it('mantém Profundidade e Comprimento exclusivos e prioriza a opção preenchida', () => {

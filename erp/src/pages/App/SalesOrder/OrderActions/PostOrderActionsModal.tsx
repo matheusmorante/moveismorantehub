@@ -6,6 +6,7 @@ import { NfeEmissionModal } from './NfeEmissionModal';
 import { NfeEnvironmentChoiceModal } from './nfe-modal/NfeEnvironmentChoiceModal';
 import WarrantyTermModal from './WarrantyTermModal';
 import DeliveryInfoModal from './DeliveryInfoModal';
+import PromissoryNoteModal from './PromissoryNoteModal';
 import { useAuth } from '@/context/AuthContext';
 import { fetchOrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeService';
 import type { OrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeRules';
@@ -36,6 +37,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   const [nfeEmissionOrder, setNfeEmissionOrder] = React.useState<Order | null>(null);
   const [nfeEmissionOpenedAt, setNfeEmissionOpenedAt] = React.useState<number | undefined>();
   const [warrantyTermOrder, setWarrantyTermOrder] = React.useState<Order | null>(null);
+  const [promissoryNoteOrder, setPromissoryNoteOrder] = React.useState<Order | null>(null);
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = React.useState(false);
   const [fiscalStatuses, setFiscalStatuses] = React.useState<OrderFiscalBadgeStatuses | null>(null);
 
@@ -103,7 +105,13 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isDeliveryModalOpen || nfeChoiceOrder || nfeEmissionOrder || warrantyTermOrder) {
+      if (
+        isDeliveryModalOpen ||
+        nfeChoiceOrder ||
+        nfeEmissionOrder ||
+        warrantyTermOrder ||
+        promissoryNoteOrder
+      ) {
         return;
       }
       if (e.key === 'Escape') {
@@ -112,7 +120,14 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, isDeliveryModalOpen, nfeChoiceOrder, nfeEmissionOrder, warrantyTermOrder]);
+  }, [
+    onClose,
+    isDeliveryModalOpen,
+    nfeChoiceOrder,
+    nfeEmissionOrder,
+    warrantyTermOrder,
+    promissoryNoteOrder,
+  ]);
 
   return (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 overscroll-contain overflow-y-auto">
@@ -203,6 +218,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                   }
                 }}
                 onOpenWarrantyTerm={() => setWarrantyTermOrder(order)}
+                onOpenPromissoryNote={() => setPromissoryNoteOrder(order)}
                 onExecuteAction={handleExecuteAction}
               />
             ))}
@@ -233,6 +249,11 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
             order={warrantyTermOrder || order}
             onClose={() => setWarrantyTermOrder(null)}
             isAdministrator={isAdministrator}
+          />
+          <PromissoryNoteModal
+            isOpen={Boolean(promissoryNoteOrder)}
+            order={promissoryNoteOrder || order}
+            onClose={() => setPromissoryNoteOrder(null)}
           />
           <DeliveryInfoModal
             isOpen={isDeliveryModalOpen}

@@ -1,10 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
-import { deliveryRouteFormSchema, deliveryFinishFormSchema } from '../../../../../shared-utils/operationsFormSchemas';
-import { supabase } from '../../../services/supabaseClient';
+import React from 'react';
+import { ScrollView, View } from 'react-native';
 import { formatFullAddress, formatOrderCode } from '../../../utils/orderUtils';
-import { buildDeliveryChecklist } from '../utils/deliveryChecklist';
 import { getFulfillmentLabels } from '../domain/orderStatusPresentation';
 import { DeliveryHeader } from '../components/delivery/DeliveryHeader';
 import { DeliveryPreparationStep } from '../components/delivery/DeliveryPreparationStep';
@@ -14,23 +10,29 @@ import { UnattendedModal } from '../components/delivery/UnattendedModal';
 import { DeliveryQuickContactBar } from '../components/delivery/DeliveryQuickContactBar';
 import { CancelDeliveryConfirmModal } from '../components/delivery/CancelDeliveryConfirmModal';
 import { DeliveryStepProgressIndicator } from '../components/delivery/DeliveryStepProgressIndicator';
-import { areDeliveryPaymentsPaid } from '../components/delivery/DeliveryPaymentSection';
-import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
-
 import { DeliveryStartConfirmModal } from '../components/delivery/DeliveryStartConfirmModal';
+
 import {
-  broadcastMyLocation,
-  stopDeliveringBroadcast,
-} from '../../../services/teamLocationService';
+  DeliveryPreparationScreenProps,
+  DeliveryResponsibleItem,
+} from './delivery-preparation/deliveryPreparation.types';
+import { styles } from './delivery-preparation/deliveryPreparation.styles';
+import { useDeliveryStaff } from './delivery-preparation/useDeliveryStaff';
+import { useDeliveryFlowActions } from './delivery-preparation/useDeliveryFlowActions';
 
-type Props = {
-  order: any;
-  isDarkMode: boolean;
-  onBack: (started?: boolean) => void;
-  userProfile?: any;
-};
+export type { DeliveryPreparationScreenProps, DeliveryResponsibleItem };
 
-export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfile }: Props) {
+/**
+ * Tela do Fluxo de Entrega (1. Preparação -> 2. Em Rota -> 3. Em Atendimento).
+ * Refatorada sob os princípios de Single Responsibility (SRP) e Clean Architecture,
+ * com desacoplamento de responsabilidades entre hooks e visualização.
+ */
+export function DeliveryPreparationScreen({
+  order,
+  isDarkMode,
+  onBack,
+  userProfile,
+}: DeliveryPreparationScreenProps) {
   const fulfillmentLabels = getFulfillmentLabels({
     ...order,
     shipping: {
@@ -38,291 +40,60 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
       deliveryMethod: order.shipping?.deliveryMethod || 'delivery',
     },
   });
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
-  const [saving, setSaving] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
-  const [showUnattendedModal, setShowUnattendedModal] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showStartConfirmModal, setShowStartConfirmModal] = useState(false);
-  const [deliveryData, setDeliveryData] = useState(() => order.order_data || order);
-  const [payments, setPayments] = useState<any[]>(() => {
-    const data = order.order_data || order;
-    if (Array.isArray(data.payments) && data.payments.length) return data.payments;
-    const amount = Number(data.paymentsSummary?.totalOrderValue || data.totalValue || 0);
-    return [
-      { method: data.paymentMethod || 'Pix', amount, status: 'Pendente', fee: 0, feeType: 'fixed' },
-    ];
+
+  // 1. Gerenciamento de Colaboradores e Responsáveis pela Entrega
+  const {
+    responsibles,
+    availableStaff,
+    handleAddResponsible,
+    handleRemoveResponsible,
+  } = useDeliveryStaff({ order, userProfile });
+
+  // 2. Orquestração do Ciclo de Vida e Ações do Fluxo
+  const {
+    deliveryData,
+    checklist,
+    checked,
+    handleToggleChecklist,
+    payments,
+    setPayments,
+    saving,
+    cancelling,
+    showUnattendedModal,
+    setShowUnattendedModal,
+    showCancelModal,
+    setShowCancelModal,
+    showStartConfirmModal,
+    setShowStartConfirmModal,
+    isInService,
+    isInTransit,
+    isInProgress,
+    currentStep,
+    headerTitle,
+    paymentsConfirmed,
+    handleConfirmStartRoute,
+    handleArriveAtDestination,
+    handleFinishDelivery,
+    handleConfirmUnattended,
+    handleStepBackToPreparation,
+    handleStepBackToRoute,
+    handleConfirmCancelDelivery,
+  } = useDeliveryFlowActions({
+    order,
+    userProfile,
+    responsibles,
+    onBack,
+    fulfillmentSuccessMessage: fulfillmentLabels.successMessage,
   });
 
-  const checklist = useMemo(() => buildDeliveryChecklist(order), [order]);
-  const routeForm = useZodForm(deliveryRouteFormSchema, { orderId: String(order.id || ''), checklist: checklist.map((item) => ({ ...item, checked: Boolean(checked[item.id]) })) });
-  const finishForm = useZodForm(deliveryFinishFormSchema, { orderId: String(order.id || ''), payments });
-  const data = deliveryData;
-  const customer = data.customerData || {};
-  const fullAddress = formatFullAddress(data.shipping || {}, customer);
-  const items = data.items || order.items || data.assistanceItems || order.assistance_items || [];
-
-  // Status de entrega: 'not_started' | 'in_transit' | 'in_service'
-  const deliveryStatus = data.deliveryStatus;
-  const isInService = deliveryStatus === 'in_service' || Boolean(data.deliveryArrivedAt);
-  const isInTransit =
-    (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) && !isInService;
-  const isInProgress = isInTransit || isInService;
-  const paymentsConfirmed = areDeliveryPaymentsPaid(payments);
-
-  const headerTitle = isInService ? 'Em Atendimento' : isInTransit ? 'Em Rota' : 'Preparar Saída';
-
-  // 1. Iniciar Rota
-  const handleStartRoute = async () => {
-    if (saving) return;
-    return routeForm.validateAndRun({ orderId: String(order.id || ''), checklist: checklist.map((item) => ({ ...item, checked: Boolean(checked[item.id]) })) }, async (values) => {
-    setSaving(true);
-    const now = new Date().toISOString();
-    const payload = {
-      deliveryStatus: 'in_progress',
-      deliveryStartedAt: now,
-      deliveryChecklist: values.checklist,
-    };
-    const updatedData = {
-      ...data,
-      ...payload,
-    };
-
-    // Atualiza estado local imediatamente (Zero latência para o operador)
-    order.order_data = updatedData;
-    setDeliveryData(updatedData);
-
-    // Registra evento atômico na fila offline (tenta enviar em background)
-    await offlineSyncManager.recordEvent('DELIVERY_START_ROUTE', 'order', values.orderId, payload);
-
-    // Notifica Supabase imediatamente que o entregador iniciou a rota e está compartilhando localização
-    if (userProfile?.id) {
-      void broadcastMyLocation(userProfile, null, true, true, {
-        id: order.id,
-        code: formatOrderCode(order),
-      });
-    }
-
-    setSaving(false);
-    Alert.alert(
-      'Em Rota',
-      'A saída para entrega foi registrada. Sua localização agora está visível para a equipe.'
-    );
-    }, (errors) => Alert.alert('Revise a entrega', Object.values(flattenFormErrors(errors))[0]));
-  };
-
-  // 2. Cheguei no Destino
-  const handleArriveAtDestination = async () => {
-    if (saving) return;
-    setSaving(true);
-    const now = new Date().toISOString();
-    const payload = {
-      deliveryStatus: 'in_service',
-      deliveryArrivedAt: now,
-    };
-    const updatedData = {
-      ...data,
-      ...payload,
-    };
-
-    // Atualiza estado local imediatamente
-    order.order_data = updatedData;
-    setDeliveryData(updatedData);
-
-    // Registra evento atômico na fila offline
-    await offlineSyncManager.recordEvent('DELIVERY_ARRIVE_DESTINATION', 'order', order.id, payload);
-
-    setSaving(false);
-    Alert.alert('Chegada Confirmada', 'Você está no local do cliente.');
-  };
-
-  // 3. Confirmar entrega
-  const handleFinishDelivery = async () => {
-    if (saving) return;
-    if (!paymentsConfirmed) {
-      Alert.alert(
-        'Pagamento pendente',
-        'Confirme todos os pagamentos como pagos antes de finalizar a entrega.'
-      );
-      return;
-    }
-    return finishForm.validateAndRun({ orderId: String(order.id || ''), payments }, async (values) => {
-    setSaving(true);
-    const now = new Date().toISOString();
-    const paidAmount = values.payments.reduce((total, payment) => total + Number(payment.amount || 0), 0);
-    const totalValue = Number(data.paymentsSummary?.totalOrderValue || paidAmount);
-    const payload = {
-      payments: values.payments,
-      paymentsSummary: {
-        ...data.paymentsSummary,
-        totalOrderValue: totalValue,
-        totalPaid: paidAmount,
-        totalAmountPaid: paidAmount,
-        amountRemaining: Math.max(0, totalValue - paidAmount),
-      },
-      status: 'fulfilled',
-      deliveryStatus: 'completed',
-      deliveryFinishedAt: now,
-    };
-    const updatedData = {
-      ...data,
-      ...payload,
-    };
-
-    // Atualiza estado local imediatamente
-    order.status = 'fulfilled';
-    order.order_data = updatedData;
-    setDeliveryData(updatedData);
-
-    // Registra evento atômico de finalização na fila offline
-    await offlineSyncManager.recordEvent('DELIVERY_FINISH', 'order', values.orderId, payload);
-
-    // Encerra imediatamente o compartilhamento de localização da equipe
-    if (userProfile?.id) {
-      void stopDeliveringBroadcast(userProfile.id);
-    }
-
-    setSaving(false);
-    Alert.alert('🎉 Entrega Finalizada!', fulfillmentLabels.successMessage, [
-      { text: 'OK', onPress: () => onBack(true) },
-    ]);
-    }, (errors) => Alert.alert('Revise a entrega', Object.values(flattenFormErrors(errors))[0]));
-  };
-
-  // 4. Registrar Não Atendido
-  const handleConfirmUnattended = async (reason: string, notes: string, proofUrls: string[]) => {
-    const now = new Date().toISOString();
-    const payload = {
-      deliveryStatus: 'unattended',
-      unattendedReason: reason,
-      unattendedNotes: notes,
-      unattendedProofUrl: proofUrls[0] || '',
-      unattendedProofUrls: proofUrls,
-      unattendedAt: now,
-    };
-    const updatedData = {
-      ...data,
-      ...payload,
-    };
-
-    // Atualiza estado local imediatamente
-    order.order_data = updatedData;
-    setDeliveryData(updatedData);
-    setShowUnattendedModal(false);
-
-    // Registra evento de insucesso na fila offline
-    await offlineSyncManager.recordEvent('DELIVERY_UNATTENDED', 'order', order.id, payload);
-
-    // Encerra imediatamente o compartilhamento de localização da equipe
-    if (userProfile?.id) {
-      void stopDeliveringBroadcast(userProfile.id);
-    }
-
-    Alert.alert('Insucesso Registrado', `O não atendimento foi registrado (${reason}).`, [
-      { text: 'OK', onPress: () => onBack(true) },
-    ]);
-  };
-
-  // Retroceder da Etapa 2 (Em Rota) para a Etapa 1 (Preparação)
-  const handleStepBackToPreparation = async () => {
-    if (saving) return;
-    setSaving(true);
-    const updatedData = { ...data };
-    delete updatedData.deliveryStatus;
-    delete updatedData.deliveryStartedAt;
-
-    order.order_data = updatedData;
-    setDeliveryData(updatedData);
-
-    await offlineSyncManager.recordEvent('DELIVERY_STEP_BACK', 'order', order.id, updatedData);
-
-    // Encerra compartilhamento ao voltar para preparação
-    if (userProfile?.id) {
-      void stopDeliveringBroadcast(userProfile.id);
-    }
-
-    setSaving(false);
-    Alert.alert('Etapa Retrocedida', 'O pedido voltou para a etapa de Preparação e Conferência.');
-  };
-
-  // Retroceder da Etapa 3 (Em Atendimento) para a Etapa 2 (Em Rota)
-  const handleStepBackToRoute = async () => {
-    if (saving) return;
-    setSaving(true);
-    const updatedData = {
-      ...data,
-      deliveryStatus: 'in_progress',
-    };
-    delete updatedData.deliveryArrivedAt;
-
-    order.order_data = updatedData;
-    setDeliveryData(updatedData);
-
-    await offlineSyncManager.recordEvent('DELIVERY_STEP_BACK', 'order', order.id, updatedData);
-
-    setSaving(false);
-    Alert.alert('Etapa Retrocedida', 'O status voltou para Em Rota.');
-  };
-
-  // 5. Cancelar Entrega (Execução com confirmação)
-  const handleConfirmCancelDelivery = async () => {
-    setCancelling(true);
-    try {
-      const now = new Date().toISOString();
-      const updatedData = { ...data };
-      delete updatedData.deliveryStatus;
-      delete updatedData.deliveryStartedAt;
-      delete updatedData.deliveryArrivedAt;
-      delete updatedData.deliveryFinishedAt;
-      delete updatedData.deliveryChecklist;
-      delete updatedData.unattendedReason;
-      delete updatedData.unattendedNotes;
-      delete updatedData.unattendedProofUrl;
-      delete updatedData.unattendedProofUrls;
-
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          status: 'scheduled',
-          order_data: updatedData,
-          updated_at: now,
-        })
-        .eq('id', order.id);
-
-      setCancelling(false);
-      setShowCancelModal(false);
-
-      if (error) {
-        Alert.alert('Erro ao Cancelar', error.message);
-        return;
-      }
-
-      // Encerra compartilhamento de localização da equipe
-      if (userProfile?.id) {
-        void stopDeliveringBroadcast(userProfile.id);
-      }
-
-      order.status = 'scheduled';
-      order.order_data = updatedData;
-      setDeliveryData(updatedData);
-
-      onBack(true);
-    } catch (err: any) {
-      setCancelling(false);
-      setShowCancelModal(false);
-      Alert.alert('Erro', err?.message || 'Falha ao cancelar entrega');
-    }
-  };
-
-  const handleConfirmStartRoute = async () => {
-    setShowStartConfirmModal(false);
-    await handleStartRoute();
-  };
-
-  const currentStep = isInService ? 3 : isInTransit ? 2 : 1;
+  const customer = deliveryData.customerData || {};
+  const fullAddress = formatFullAddress(deliveryData.shipping || {}, customer);
+  const items =
+    deliveryData.items || order.items || deliveryData.assistanceItems || order.assistance_items || [];
 
   return (
     <View style={[styles.container, isDarkMode && styles.dark]}>
+      {/* Cabeçalho Padronizado do Fluxo de Entrega */}
       <DeliveryHeader
         title={headerTitle}
         orderId={order.id}
@@ -334,10 +105,10 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
         cancelling={cancelling}
       />
 
-      {/* Barra de Contato Rápido (Cliente e Vendedor) em todas as etapas */}
+      {/* Barra de Contato Rápido (Cliente e Vendedor) */}
       <DeliveryQuickContactBar order={order} isDarkMode={isDarkMode} />
 
-      {/* Indicador Informativo da Etapa Atual (1. Preparação -> 2. Em Rota -> 3. Em Atendimento) */}
+      {/* Indicador Informativo da Etapa Atual (1 -> 2 -> 3) */}
       <DeliveryStepProgressIndicator currentStep={currentStep} isDarkMode={isDarkMode} />
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -348,7 +119,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
             customer={customer}
             fullAddress={fullAddress}
             isDarkMode={isDarkMode}
-            arrivedAt={data.deliveryArrivedAt || data.deliveryStartedAt}
+            arrivedAt={deliveryData.deliveryArrivedAt || deliveryData.deliveryStartedAt}
             onOpenUnattendedModal={() => setShowUnattendedModal(true)}
             onFinishDelivery={handleFinishDelivery}
             onStepBackToRoute={handleStepBackToRoute}
@@ -363,7 +134,7 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
             customer={customer}
             fullAddress={fullAddress}
             isDarkMode={isDarkMode}
-            startedAt={data.deliveryStartedAt}
+            startedAt={deliveryData.deliveryStartedAt}
             onArriveAtDestination={handleArriveAtDestination}
             onStepBackToPreparation={handleStepBackToPreparation}
             loading={saving}
@@ -375,7 +146,12 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
             fullAddress={fullAddress}
             checklist={checklist}
             checked={checked}
-            onToggleChecklist={(id) => setChecked((c) => ({ ...c, [id]: !c[id] }))}
+            onToggleChecklist={handleToggleChecklist}
+            responsibles={responsibles}
+            onAddResponsible={handleAddResponsible}
+            onRemoveResponsible={handleRemoveResponsible}
+            availableStaff={availableStaff}
+            userProfile={userProfile}
             onStartDelivery={() => setShowStartConfirmModal(true)}
             saving={saving}
             isDarkMode={isDarkMode}
@@ -383,11 +159,12 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
         )}
       </ScrollView>
 
-      {/* Modal de Confirmação & Aviso de Compartilhamento de Localização ao Iniciar Entrega */}
+      {/* Modais de Confirmação e Registro */}
       <DeliveryStartConfirmModal
         visible={showStartConfirmModal}
         orderNumber={formatOrderCode(order)}
         customerName={customer.fullName || 'Cliente'}
+        responsibles={responsibles}
         loading={saving}
         isDarkMode={isDarkMode}
         onConfirm={handleConfirmStartRoute}
@@ -413,9 +190,3 @@ export function DeliveryPreparationScreen({ order, isDarkMode, onBack, userProfi
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  dark: { backgroundColor: '#0f172a' },
-  content: { padding: 16, gap: 14, paddingBottom: 36 },
-});

@@ -33,7 +33,7 @@ export const whatsappTemplatesQueryFormSchema = z.object({
 export const whatsappTemplateTestFormSchema = z.object({
   phone: phone.pipe(z.string().min(10, 'Informe um telefone com DDD válido.')),
   template: z.string().trim().min(1, 'Preencha o nome do modelo.'),
-  language: z.string().trim().min(1), variableCount: z.number().int().min(0).max(7),
+  language: z.string().trim().min(1), variableCount: z.number().int().min(0).max(8),
 });
 
 export const whatsappTemplateTestCommandSchema = whatsappTemplateTestFormSchema.extend({ config: whatsappConnectionFormSchema });

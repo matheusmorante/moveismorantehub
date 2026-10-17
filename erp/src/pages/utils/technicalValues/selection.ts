@@ -89,10 +89,16 @@ export const getApplicableTechnicalFields = (
   let applicable = safeFields.filter((field) => {
     if (isExcludedCharacteristic(field.name)) return false;
 
-    const hasExistingValue = Object.prototype.hasOwnProperty.call(
-      productTechnicalValues,
-      field.name
-    );
+    const normName = normalizeCharacteristicName(field.name);
+    const hasExistingValue =
+      Object.prototype.hasOwnProperty.call(productTechnicalValues, field.name) ||
+      ((normName === 'modelo/linha' || normName === 'linha/modelo') &&
+        Boolean(
+          productTechnicalValues['Modelo'] !== undefined ||
+          productTechnicalValues['modelo'] !== undefined ||
+          productTechnicalValues['Linha'] !== undefined ||
+          productTechnicalValues['linha'] !== undefined
+        ));
 
     // Se for colchão, "Altura / Altura total" não deve ser oferecida automaticamente (apenas Espessura do colchão)
     if (isMattress && isHeightCharacteristic(field.name)) {

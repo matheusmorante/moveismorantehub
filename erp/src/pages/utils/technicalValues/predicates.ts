@@ -41,7 +41,7 @@ export const isWeightCharacteristicName = (name: string): boolean =>
   normalizeCharacteristicName(name) === 'peso';
 
 export const isExcludedCharacteristic = (name: string): boolean =>
-  /^reclin[aá]vel$/i.test(name.trim());
+  /^(reclin[aá]vel|linha|modelo)$/i.test(name.trim());
 
 export const isMattressCategory = (
   categoryIds: readonly string[] = [],
@@ -65,6 +65,8 @@ export const isModelCharacteristic = (name: string): boolean => {
     norm === 'modelo' ||
     norm === 'modelo/linha' ||
     norm === 'modelo / linha' ||
+    norm === 'linha/modelo' ||
+    norm === 'linha / modelo' ||
     norm === 'modelo e linha' ||
     norm === 'modelo ou linha' ||
     norm === 'linha'

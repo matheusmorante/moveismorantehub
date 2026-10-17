@@ -36,10 +36,10 @@ export const CancelDeliveryConfirmModal: React.FC<Props> = ({
             </TouchableOpacity>
           </View>
 
-          <Text style={[styles.title, isDarkMode && styles.textLight]}>Cancelar Entrega</Text>
+          <Text style={[styles.title, isDarkMode && styles.textLight]}>Cancelar Fluxo de Entrega</Text>
 
           <Text style={styles.description}>
-            Deseja realmente cancelar o processo de entrega do pedido{' '}
+            Deseja realmente cancelar o fluxo de entrega do pedido{' '}
             <Text style={{ fontWeight: '900', color: '#0f172a' }}>#{orderNumber}</Text>? O status do
             pedido retornará para{' '}
             <Text style={{ fontWeight: '900', color: '#2563eb' }}>Agendado</Text>.

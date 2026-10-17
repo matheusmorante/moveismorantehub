@@ -37,35 +37,43 @@ A Meta impõe regras estritas de proteção contra spam para mensagens enviadas 
 
 ## 3. Modelo de Mensagem Recomendado para Aprovação na Meta
 
-Para que o envio direto funcione a qualquer momento (mesmo para clientes que nunca conversaram com a loja), crie o modelo no **Meta Business Suite**:
+Para que o envio direto funcione a qualquer momento (mesmo para clientes que nunca conversaram com a loja), utilize o modelo ativo e aprovado no **Meta Business Suite** (`envio_de_pedido`):
 
 ### Dados do Modelo:
-* **Nome do Modelo:** `confirmacao_pedido_entrega` *(letras minúsculas e underline)*
+* **Nome do Modelo:** `envio_de_pedido` *(ou `confirmacao_pedido_entrega`)*
 * **Categoria:** `Utilidade` (`UTILITY`)
 * **Idioma:** `Português (Brasil)` (`pt_BR`)
 
-### Corpo do Modelo (Copie e Cole no Meta):
+### Corpo do Modelo (Idêntico ao Estilo do WhatsApp Web / `wa.me`):
 ```text
-Olá, {{1}}! Seu pedido na Móveis Morante foi agendado com sucesso.
+*Olá {{1}}, seu pedido foi confirmado!* 📦
 
-📅 Data de entrega/retirada: {{2}}
-⏰ Horário agendado: {{3}}
-📍 Endereço: {{4}}
-📦 Itens do pedido: {{5}}
-💰 Total: R$ {{6}}
-💳 Condições de Pagamento: {{7}}
+*Anote aí, a sua {{2}} está agendada para:* 
+{{3}} | {{4}}
 
-Agradecemos a sua confiança e preferência! Caso tenha alguma dúvida sobre sua entrega, basta responder a esta mensagem.
+*Endereço:* 
+{{5}}
+
+*Itens:* 
+{{6}}
+
+*Valor Total:* R$ {{7}}
+
+*Pagamento:* 
+{{8}}
+
+Agradecemos a preferência! Móveis Morante 🏠
 ```
 
-### Mapeamento das Variáveis (7 Parâmetros):
-1. `{{1}}`: Nome do cliente (ex: *Maria da Silva*)
-2. `{{2}}`: Data agendada da entrega ou retirada (ex: *25/10/2026*)
-3. `{{3}}`: Horário ou período agendado (ex: *Manhã (08:00 às 12:00)*)
-4. `{{4}}`: Endereço completo com ponto de referência (ou *Retirada em loja*)
-5. `{{5}}`: Lista com descrição, manuseio e quantidades dos itens
-6. `{{6}}`: Valor total do pedido formatado (ex: *1.890,00*)
-7. `{{7}}`: Formas e parcelamentos de pagamento combinados
+### Mapeamento das Variáveis (8 Parâmetros Dinâmicos):
+1. `{{1}}`: Nome do cliente (ex: *Adriane Kubis*)
+2. `{{2}}`: Tipo da operação dinâmico: `entrega` ou `retirada` (conforme o pedido)
+3. `{{3}}`: Data agendada da entrega ou retirada (ex: *segunda-feira, 17/08/2026*)
+4. `{{4}}`: Horário ou período agendado (ex: *13:00 às 18:00*)
+5. `{{5}}`: Endereço completo com ponto de referência (ou *Retirada em loja*)
+6. `{{6}}`: Lista de itens formatada com pipe ` | ` e quantidades (ex: *Mesa Luise | 1 UN | R$ 899,00*)
+7. `{{7}}`: Valor total do pedido formatado (ex: *1.508,00*)
+8. `{{8}}`: Formas de pagamento com status (ex: *Pix | R$ 500,00 | Status: Pendente*)
 
 ---
 
@@ -73,13 +81,13 @@ Agradecemos a sua confiança e preferência! Caso tenha alguma dúvida sobre sua
 
 1. Acesse o **Meta WhatsApp Manager (Gerenciador de Modelos)**:
    🔗 [https://business.facebook.com/wa/manage/message-templates/](https://business.facebook.com/wa/manage/message-templates/)
-2. Clique no botão azul **Criar Modelo**.
+2. Clique no botão azul **Criar Modelo** (ou edite o modelo existente `envio_de_pedido`).
 3. Selecione a categoria **Utilidade** (*Utility*).
-4. Informe o nome: `confirmacao_pedido_entrega`.
+4. Informe o nome: `envio_de_pedido`.
 5. Selecione o idioma: **Português (Brasil)**.
 6. Cole o texto do modelo acima.
-7. No rodapé, preencha exemplos de cada variável para a revisão da Meta (ex: `{{1}}` = Maria, `{{2}}` = 20/10/2026, etc.).
-8. Clique em **Enviar para Análise**. Modelos de utilidade costumam ser aprovados automaticamente em menos de 5 minutos.
+7. No rodapé, preencha exemplos de cada variável para a revisão da Meta.
+8. Clique em **Enviar para Análise** (aprovação automática em menos de 1 minuto).
 
 ---
 
@@ -91,7 +99,7 @@ Agradecemos a sua confiança e preferência! Caso tenha alguma dúvida sobre sua
    * **Identificador do Número de Telefone (Phone Number ID)**.
    * **Identificador da Conta do WhatsApp Business (WABA ID)**.
 3. Clique em **Consultar Modelos na Conta Meta (WABA)** para puxar a lista de modelos aprovados.
-4. Selecione o modelo `confirmacao_pedido_entrega` e configure a quantidade de variáveis para **7**.
+4. Selecione o modelo `envio_de_pedido` e configure a quantidade de variáveis para **8** (ou clique diretamente no modelo na lista para auto-preencher).
 5. Salve as configurações.
 
 ---

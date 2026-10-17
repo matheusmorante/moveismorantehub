@@ -1144,6 +1144,9 @@ function getHomologationRecipientName(input) {
 
 // shared-utils/fiscalIdentifiers.ts
 var ACCESS_KEY_PATTERN = /^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/;
+function normalizeFiscalIdentifier(value) {
+  return String(value ?? "").trim().toUpperCase().replace(/[.\-/\s]/g, "");
+}
 
 // shared-utils/fiscalIcmsGroups.ts
 var ZERO_OWN_ICMS_CSOSNS = ["102", "103", "300", "400"];
@@ -1388,7 +1391,7 @@ var allDescendants = (node, name) => {
   return result;
 };
 function normalizeTaxId(value) {
-  return value.replace(/\D/g, "");
+  return normalizeFiscalIdentifier(value);
 }
 function objectValue(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -2070,7 +2073,7 @@ function resolveNormalSalePayments(params) {
 // api/nfe/orderEditFiscalAudit.ts
 var objectValue2 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 var normalizeText = (value) => String(value ?? "").trim();
-var normalizeTaxId2 = (value) => String(value ?? "").replace(/\D/g, "");
+var normalizeTaxId2 = (value) => normalizeFiscalIdentifier(value);
 var moneyMatches = (left, right) => {
   const a = Number(left);
   const b = Number(right);
@@ -2471,11 +2474,17 @@ async function validateCancellationDocument(params) {
   const { data: doc, error: docError } = await supabase.from("nfe_documents").select("*").eq("id", documentId).maybeSingle();
   if (docError || !doc)
     return { ok: false, status: 404, error: "Documento fiscal n\xE3o encontrado." };
-  if (doc.document_type !== "outbound")
+  if (!["outbound", "return", "estorno"].includes(String(doc.document_type)))
     return {
       ok: false,
       status: 409,
-      error: "Somente uma NF-e de sa\xEDda pode receber este evento de cancelamento."
+      error: "Somente uma NF-e de sa\xEDda, devolu\xE7\xE3o ou estorno pode receber este evento de cancelamento."
+    };
+  if (["return", "estorno"].includes(String(doc.document_type)) && String(doc.modelo) !== "55")
+    return {
+      ok: false,
+      status: 409,
+      error: "Cancelamento fiscal de NF-e de devolu\xE7\xE3o ou estorno exige modelo 55."
     };
   if (!["autorizada", "homologada"].includes(doc.status))
     return {
@@ -2511,6 +2520,86 @@ async function validateCancellationOrderAndCirculation(params) {
   let orderEditVersion = params.orderEditVersion;
   let proposedOrder = params.proposedOrder;
   const replacementId = params.replacementId;
+  if (doc.document_type === "return" || doc.document_type === "estorno") {
+    if (viaOrderEdit) {
+      return {
+        ok: false,
+        status: 409,
+        error: "Substitui\xE7\xE3o por edi\xE7\xE3o de pedido aplica-se apenas \xE0 NF-e de venda original."
+      };
+    }
+    if (!doc.original_document_id) {
+      return {
+        ok: false,
+        status: 409,
+        error: "A NF-e de devolu\xE7\xE3o ou estorno n\xE3o possui v\xEDnculo com o documento fiscal original."
+      };
+    }
+    if (doc.document_type === "return") {
+      if (!doc.related_return_order_id) {
+        return {
+          ok: false,
+          status: 409,
+          error: "A NF-e de devolu\xE7\xE3o n\xE3o possui v\xEDnculo com o pedido de devolu\xE7\xE3o comercial."
+        };
+      }
+      const { data: returnOrder, error: returnOrderError } = await supabase.from("orders").select("id,status,order_type,linked_order_id,order_data").eq("id", doc.related_return_order_id).maybeSingle();
+      if (returnOrderError || !returnOrder || String(returnOrder.order_type || "").toLowerCase() !== "return") {
+        return {
+          ok: false,
+          status: 409,
+          error: "N\xE3o foi poss\xEDvel validar o pedido de devolu\xE7\xE3o comercial vinculado \xE0 NF-e de devolu\xE7\xE3o."
+        };
+      }
+    }
+    if (doc.document_type === "estorno") {
+      const { data: activeReplacement, error: replacementError } = await supabase.from("nfe_order_edit_replacements").select("id,status").eq("original_document_id", doc.original_document_id).eq("environment", doc.ambiente).eq("reversal_kind", "estorno").in("status", ["ready_to_reissue", "replacement_prepared", "completed"]).maybeSingle();
+      if (replacementError) {
+        return {
+          ok: false,
+          status: 503,
+          error: "N\xE3o foi poss\xEDvel verificar substitui\xE7\xF5es fiscais vinculadas ao estorno."
+        };
+      }
+      if (activeReplacement) {
+        const errorMsg = "Esta NF-e de estorno j\xE1 comp\xF5e uma substitui\xE7\xE3o fiscal de edi\xE7\xE3o aplicada ou conclu\xEDda e n\xE3o pode ser cancelada isoladamente.";
+        await recordCancellationPreflightFailure({
+          supabase,
+          documentId: doc.id,
+          attemptNumber,
+          environment: Number(doc.ambiente),
+          reason,
+          errorMessage: errorMsg,
+          userId
+        });
+        return { ok: false, status: 409, error: errorMsg };
+      }
+    }
+    const authorizedAt2 = getAuthorizedAt(String(doc.xml_protocolo || ""), "");
+    const cancellationPolicy2 = getFiscalCancellationPolicy({
+      model: "55",
+      authorizedAt: authorizedAt2,
+      status: String(doc.status),
+      environment: Number(doc.ambiente),
+      goodsCirculated: false,
+      operationDidNotOccur: true,
+      issuerUf: String(doc.chave_acesso || "").slice(0, 2) === "41" ? "PR" : ""
+    });
+    if (cancellationPolicy2.action !== "cancel") {
+      const policyReason = cancellationPolicy2.reason || "Prazo de cancelamento da NF-e (168 horas no Paran\xE1) ultrapassado.";
+      await recordCancellationPreflightFailure({
+        supabase,
+        documentId: doc.id,
+        attemptNumber,
+        environment: Number(doc.ambiente),
+        reason,
+        errorMessage: policyReason,
+        userId
+      });
+      return { ok: false, status: 409, error: policyReason };
+    }
+    return { ok: true };
+  }
   if (!doc.order_id) {
     return {
       ok: false,

@@ -15,11 +15,17 @@ export const addressStateKey = (address: AddressSelectionBaseline) => JSON.strin
   ...guardedFields.map((field) => address[field] ?? ''), address.coords ?? null,
 ]);
 
-/** Editing an address invalidates coordinates and links from its previous location. */
+const clearDerivedLocation = (address: Record<string, unknown>) => {
+  address.coords = undefined;
+  address.placeId = '';
+  address.formattedAddress = '';
+};
+
+/** Editing an address invalidates coordinates and links from its previous location, but preserves explicitly provided mapsUrl when editing physical fields. */
 export function changeAddressField<T extends object>(current: T, field: string, value: unknown): T {
   if ((current as Record<string, unknown> | undefined)?.[field] === value) return current;
   const next = { ...current } as Record<string, unknown>;
-  if (guardedFields.includes(field as typeof guardedFields[number])) clearLocation(next);
+  if (guardedFields.includes(field as typeof guardedFields[number])) clearDerivedLocation(next);
   next[field] = value;
   return next as T;
 }

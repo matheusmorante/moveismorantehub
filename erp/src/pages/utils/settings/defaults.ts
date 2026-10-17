@@ -257,6 +257,9 @@ RESPOSTA NO FORMATO JSON:
     wabaId: '',
     catalogId: '',
     sendMode: 'wame',
+    templateNameOrderConfirmation: 'envio_de_pedido',
+    templateLanguage: 'pt_BR',
+    templateVariableCount: 8,
   },
   channelBaseDescriptions: {
     whatsapp: `🏠 *Móveis Morante*

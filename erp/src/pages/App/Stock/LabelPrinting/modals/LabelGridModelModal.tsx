@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelGridModelSaveFormSchema } from '../../../../../../../shared-utils/labelLayoutFormSchemas';
@@ -8,6 +8,11 @@ import { LabelGridModelToolbar } from './label-grid-model-editor/LabelGridModelT
 import { LabelGridModelSettingsPanel } from './label-grid-model-editor/LabelGridModelSettingsPanel';
 import { LabelGridModelHeader } from './label-grid-model-editor/LabelGridModelHeader';
 import { LabelGridModelDesignCanvas } from './label-grid-model-editor/LabelGridModelDesignCanvas';
+import {
+  useLabelGridModelSession,
+  PAPER_OPTIONS,
+} from './label-grid-model-editor/useLabelGridModelSession';
+import { useLabelGridModelInteractions } from './label-grid-model-editor/useLabelGridModelInteractions';
 
 const BOOTSTRAP_ICONS_URL =
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
@@ -30,14 +35,6 @@ interface LabelGridModelModalProps {
   previewImage?: string | null;
 }
 
-const PAPER_OPTIONS = [
-  { id: 'A4', name: 'Folha A4 (210x297mm)', w: 210, h: 297 },
-  { id: 'A3', name: 'Folha A3 (297x420mm)', w: 297, h: 420 },
-  { id: 'A5', name: 'Folha A5 (148x210mm)', w: 148, h: 210 },
-  { id: 'Letter', name: 'Carta (216x279mm)', w: 216, h: 279 },
-  { id: 'Custom', name: 'Tamanho Personalizado', w: 0, h: 0 },
-];
-
 const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
   isOpen,
   onClose,
@@ -50,1041 +47,150 @@ const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
   error = '',
   blocked = false,
 }) => {
-  const [name, setName] = useState('');
-  const [paperSize, setPaperSize] = useState('A4');
-  const [customWidth, setCustomWidth] = useState(210);
-  const [customHeight, setCustomHeight] = useState(297);
-  const [columns, setColumns] = useState(3);
-  const [rows, setRows] = useState(7);
-  const [marginT, setMarginT] = useState(10);
-  const [marginB, setMarginB] = useState(10);
-  const [marginL, setMarginL] = useState(10);
-  const [marginR, setMarginR] = useState(10);
-  const [gapH, setGapH] = useState(2);
-  const [gapV, setGapV] = useState(2);
-  const [layoutType, setLayoutType] = useState<'round' | 'rect'>(currentType || 'rect');
+  const session = useLabelGridModelSession({
+    isOpen,
+    editingModel,
+    currentCategory,
+    currentType,
+    previewImage,
+  });
 
-  const [imageScale, setImageScale] = useState(1);
-  const [customPreviewImage, setCustomPreviewImage] = useState<string | null>(null);
-
-  // Estados de tipografia
-  const [nameFontSize, setNameFontSize] = useState(7);
-  const [nameColor, setNameColor] = useState('#1e293b');
-  const [nameBold, setNameBold] = useState(true);
-  const [nameAlign, setNameAlign] = useState<'left' | 'center' | 'right'>('center');
-  const [nameVAlign, setNameVAlign] = useState<'top' | 'middle' | 'bottom'>('middle');
-
-  // Estados de tipografia Normal
-  const [priceFontSize, setPriceFontSize] = useState(11);
-  const [priceColor, setPriceColor] = useState('#1e293b');
-  const [priceBold, setPriceBold] = useState(true);
-  const [priceAlign, setPriceAlign] = useState<'left' | 'center' | 'right'>('center');
-  const [priceVAlign, setPriceVAlign] = useState<'top' | 'middle' | 'bottom'>('middle');
-
-  // Estados de tipografia Promocional (Novo Preço)
-  const [promoPriceFontSize, setPromoPriceFontSize] = useState(24);
-  const [promoPriceColor, setPromoPriceColor] = useState('#2563eb');
-  const [promoPriceBold, setPromoPriceBold] = useState(true);
-  const [promoPriceAlign, setPromoPriceAlign] = useState<'left' | 'center' | 'right'>('center');
-  const [promoPriceVAlign, setPromoPriceVAlign] = useState<'top' | 'middle' | 'bottom'>('middle');
-
-  // Estados de tipografia Promocional (Preço Antigo Riscado)
-  const [oldPriceFontSize, setOldPriceFontSize] = useState(7);
-  const [oldPriceColor, setOldPriceColor] = useState('#94a3b8');
-  const [oldPriceBold, setOldPriceBold] = useState(false);
-  const [oldPriceAlign, setOldPriceAlign] = useState<'left' | 'center' | 'right'>('center');
-  const [oldPriceVAlign, setOldPriceVAlign] = useState<'top' | 'middle' | 'bottom'>('middle');
-
-  const [bgColor, setBgColor] = useState('#ffffff');
-  const [nameBgColor, setNameBgColor] = useState('transparent');
-  const [priceBgColor, setPriceBgColor] = useState('transparent');
-  const [promoBgColor, setPromoBgColor] = useState('transparent');
-
-  const [priceFontSizeTens, setPriceFontSizeTens] = useState<number | undefined>(undefined);
-  const [priceFontSizeHundreds, setPriceFontSizeHundreds] = useState<number | undefined>(undefined);
-  const [priceFontSizeThousands, setPriceFontSizeThousands] = useState<number | undefined>(
-    undefined
-  );
-  const [priceFontSizeTenThousands, setPriceFontSizeTenThousands] = useState<number | undefined>(
-    undefined
-  );
-
-  const [promoFontSize, setPromoFontSize] = useState(9);
-  const [promoColor, setPromoColor] = useState('#dc2626');
-
-  // Estados de Posicionamento
-  const [namePos, setNamePos] = useState({ x: 50, y: 30 });
-  const [pricePos, setPricePos] = useState({ x: 50, y: 60 });
-  const [promoPos, setPromoPos] = useState({ x: 50, y: 75 });
-  const [barcodePos, setBarcodePos] = useState({ x: 50, y: 90 });
-
-  // Estados de Áreas de Segurança (Largura baseada em %)
-  const [nameWidth, setNameWidth] = useState(80);
-  const [nameHeight, setNameHeight] = useState(20);
-  const [priceWidth, setPriceWidth] = useState(80);
-  const [priceHeight, setPriceHeight] = useState(30);
-  const [promoWidth, setPromoWidth] = useState(80);
-  const [promoHeight, setPromoHeight] = useState(40);
-
-  // Lógica de Interação
-  const [selectedElement, setSelectedElement] = useState<string | null>('name');
-  const [editingTextElement, setEditingTextElement] = useState<string | null>(null);
-  const [resizingElement, setResizingElement] = useState<string | null>(null);
-  const [resizeSide, setResizeSide] = useState<'left' | 'right' | 'font' | null>(null);
-  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
-  const [resizeStartValue, setResizeStartValue] = useState(0);
-  const [resizeStartX, setResizeStartX] = useState(0);
-  const [resizeStartWidth, setResizeStartWidth] = useState(0);
-
-  // Estados de Preço Dividido
-  const [priceFormat, setPriceFormat] = useState<'standard' | 'split'>('split'); // Default to split as requested
-  const [fontFamily, setFontFamily] = useState('Inter');
-  const [priceSymbolFontSize, setPriceSymbolFontSize] = useState(8);
-  const [priceSymbolColor, setPriceSymbolColor] = useState('#1e293b');
-  const [priceSymbolBold, setPriceSymbolBold] = useState(true);
-  const [priceSymbolPos, setPriceSymbolPos] = useState({ x: 35, y: 55 });
-
-  const [priceDecimalsFontSize, setPriceDecimalsFontSize] = useState(8);
-  const [priceDecimalsColor, setPriceDecimalsColor] = useState('#1e293b');
-  const [priceDecimalsBold, setPriceDecimalsBold] = useState(true);
-  const [priceDecimalsPos, setPriceDecimalsPos] = useState({ x: 65, y: 55 });
-
-  // Estados Específicos para o Modo Promocional
-  const [promoNamePos, setPromoNamePos] = useState({ x: 50, y: 25 });
-  const [promoNameFontSize, setPromoNameFontSize] = useState(9);
-  const [promoNameAlign, setPromoNameAlign] = useState<'left' | 'center' | 'right'>('center');
-  const [promoNameVAlign, setPromoNameVAlign] = useState<'top' | 'middle' | 'bottom'>('middle');
-  const [promoNameColor, setPromoNameColor] = useState('#1e293b');
-  const [promoNameBold, setPromoNameBold] = useState(false);
-  const [promoNameWidth, setPromoNameWidth] = useState(80);
-  const [promoNameHeight, setPromoNameHeight] = useState(20);
-  const [promoNameBgColor, setPromoNameBgColor] = useState('transparent');
-
-  const [oldPricePos, setOldPricePos] = useState({ x: 50, y: 60 });
-  const [oldPriceWidth, setOldPriceWidth] = useState(80);
-  const [oldPriceHeight, setOldPriceHeight] = useState(30);
-
-  const [promoBarcodePos, setPromoBarcodePos] = useState({ x: 50, y: 85 });
-
-  // Campos Extras (Texto Livre)
-  const [extraFields, setExtraFields] = useState<any[]>([]);
-  const [extraFieldsPromo, setExtraFieldsPromo] = useState<any[]>([]);
-
-  const addExtraField = () => {
-    const newField = {
-      id: `extra_${Date.now()}`,
-      text: 'Novo Texto',
-      x: 50,
-      y: 50,
-      size: 10,
-      color: '#1e293b',
-      bold: false,
-      align: 'center',
-      width: 40,
-      height: 10,
-      bgColor: 'transparent',
-    };
-    if (isPromoPreview) setExtraFieldsPromo((prev) => [...prev, newField]);
-    else setExtraFields((prev) => [...prev, newField]);
-    setSelectedElement(newField.id);
-  };
-
-  const duplicateExtraField = (id: string) => {
-    const fields = isPromoPreview ? extraFieldsPromo : extraFields;
-    const source = fields.find((f) => f.id === id);
-    if (!source) return;
-
-    const newField = {
-      ...source,
-      id: `extra_${Date.now()}`,
-      x: Math.min(95, source.x + 5),
-      y: Math.min(95, source.y + 5),
-    };
-
-    if (isPromoPreview) setExtraFieldsPromo((prev) => [...prev, newField]);
-    else setExtraFields((prev) => [...prev, newField]);
-    setSelectedElement(newField.id);
-  };
-
-  const removeExtraField = (id: string) => {
-    if (isPromoPreview) setExtraFieldsPromo((prev) => prev.filter((f) => f.id !== id));
-    else setExtraFields((prev) => prev.filter((f) => f.id !== id));
-    setSelectedElement(null);
-  };
-
-  // Estados de Preço Dividido Promoção
-  const [promoPriceSymbolFontSize, setPromoPriceSymbolFontSize] = useState(12);
-  const [promoPriceSymbolColor, setPromoPriceSymbolColor] = useState('#2563eb');
-  const [promoPriceSymbolBold, setPromoPriceSymbolBold] = useState(true);
-  const [promoPriceSymbolPos, setPromoPriceSymbolPos] = useState({ x: 35, y: 70 });
-
-  const [promoPriceDecimalsFontSize, setPromoPriceDecimalsFontSize] = useState(12);
-  const [promoPriceDecimalsColor, setPromoPriceDecimalsColor] = useState('#2563eb');
-  const [promoPriceDecimalsBold, setPromoPriceDecimalsBold] = useState(true);
-  const [promoPriceDecimalsPos, setPromoPriceDecimalsPos] = useState({ x: 65, y: 70 });
-
-  // Lógica de Interação
-  const [draggingElement, setDraggingElement] = useState<string | null>(null);
-  const [previewRef, setPreviewRef] = useState<HTMLDivElement | null>(null);
-  const [showGuides, setShowGuides] = useState({ h: false, v: false });
-
-  // NOVOS ESTADOS DE CONTROLE DE FLUXO E ÍMÃ
-  const [isDesignMode, setIsDesignMode] = useState(false);
-  const [snapEnabled, setSnapEnabled] = useState(true);
-  const [showColorPalette, setShowColorPalette] = useState(false);
-  const [isPromoPreview, setIsPromoPreview] = useState(true);
-
-  // Fecha a paleta ao mudar de elemento
-  React.useEffect(() => setShowColorPalette(false), [selectedElement]);
-
-  const formatLabel = layoutType === 'round' ? 'Redonda' : 'Retangular';
-  const generatedName =
-    currentCategory === 'logos'
-      ? `${columns * rows} Etiquetas (${formatLabel}) (${columns}x${rows})`
-      : `${columns * rows} ${columns * rows === 1 ? 'Etiqueta' : 'Etiquetas'} (${columns}x${rows})`;
-
-  const handleMouseDownResize = (
-    e: React.MouseEvent,
-    element: string,
-    side: 'left' | 'right' | 'font',
-    val: number,
-    currentX: number,
-    currentW: number
-  ) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setResizingElement(element);
-    setResizeSide(side);
-    setResizeStartPos({ x: e.clientX, y: e.clientY });
-    setResizeStartValue(val);
-    setResizeStartX(currentX);
-    setResizeStartWidth(currentW);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!draggingElement && !resizingElement) return;
-    const rect = previewRef?.getBoundingClientRect();
-    if (!rect) return;
-    const targetX = e.clientX - rect.left;
-    const targetY = e.clientY - rect.top;
-    const newX = Math.max(0, Math.min(100, (targetX / rect.width) * 100));
-    const newY = Math.max(0, Math.min(100, (targetY / rect.height) * 100));
-
-    if (resizingElement && resizeSide) {
-      const deltaX = e.clientX - resizeStartPos.x;
-      const deltaY = e.clientY - resizeStartPos.y;
-      const previewW = rect.width;
-      const deltaPX = (deltaX / previewW) * 100;
-
-      if (resizeSide === 'font') {
-        const newValue = Math.max(4, resizeStartValue + deltaY / 2);
-
-        if (resizingElement === 'name') {
-          if (isPromoPreview) {
-            setPromoNameFontSize(newValue);
-          } else {
-            setNameFontSize(newValue);
-          }
-        } else if (resizingElement === 'mainPrice') {
-          if (isPromoPreview) {
-            setPromoPriceFontSize(newValue);
-            setPromoFontSize(newValue);
-          } else {
-            setPriceFontSize(newValue);
-          }
-        } else if (resizingElement === 'oldPrice') {
-          setOldPriceFontSize(newValue);
-        } else if (resizingElement === 'priceSymbol') {
-          if (isPromoPreview) setPromoPriceSymbolFontSize(newValue);
-          else setPriceSymbolFontSize(newValue);
-        } else if (resizingElement === 'priceDecimals') {
-          if (isPromoPreview) setPromoPriceDecimalsFontSize(newValue);
-          else setPriceDecimalsFontSize(newValue);
-        } else if (resizingElement.startsWith('extra_')) {
-          const update = (prev: any[]) =>
-            prev.map((f) => (f.id === resizingElement ? { ...f, size: newValue } : f));
-          if (isPromoPreview) setExtraFieldsPromo(update);
-          else setExtraFields(update);
-        }
-      } else if (resizeSide === 'right' || resizeSide === 'left') {
-        const isLeft = resizeSide === 'left';
-        const FixedEdge = isLeft
-          ? resizeStartX + resizeStartWidth / 2
-          : resizeStartX - resizeStartWidth / 2;
-
-        const requestedWidth = isLeft ? resizeStartWidth - deltaPX : resizeStartWidth + deltaPX;
-        const maxPossibleWidth = isLeft ? FixedEdge : 100 - FixedEdge;
-
-        const newWidth = Math.max(5, Math.min(maxPossibleWidth, requestedWidth));
-        const newX = isLeft ? FixedEdge - newWidth / 2 : FixedEdge + newWidth / 2;
-
-        if (resizingElement === 'name') {
-          if (isPromoPreview) {
-            setPromoNameWidth(newWidth);
-            setPromoNamePos((p) => ({ ...p, x: newX }));
-          } else {
-            setNameWidth(newWidth);
-            setNamePos((p) => ({ ...p, x: newX }));
-          }
-        } else if (resizingElement === 'mainPrice') {
-          if (isPromoPreview) {
-            setPromoWidth(newWidth);
-            setPromoPos((p) => ({ ...p, x: newX }));
-          } else {
-            setPriceWidth(newWidth);
-            setPricePos((p) => ({ ...p, x: newX }));
-          }
-        } else if (resizingElement === 'oldPrice') {
-          setOldPriceWidth(newWidth);
-          setOldPricePos((p) => ({ ...p, x: newX }));
-        } else if (resizingElement.startsWith('extra_')) {
-          const update = (prev: any[]) =>
-            prev.map((f) => (f.id === resizingElement ? { ...f, width: newWidth, x: newX } : f));
-          if (isPromoPreview) setExtraFieldsPromo(update);
-          else setExtraFields(update);
-        }
-      }
-    } else if (draggingElement) {
-      const snappedX = snapEnabled && Math.abs(newX - 50) < 3.5 ? 50 : newX;
-      const snappedY = snapEnabled && Math.abs(newY - 50) < 3.5 ? 50 : newY;
-
-      setShowGuides({
-        h: snapEnabled && snappedX === 50,
-        v: snapEnabled && snappedY === 50,
-      });
-
-      // Helper para obter largura/altura atual do elemento arrastado
-      const getElemSize = () => {
-        if (draggingElement === 'name')
-          return {
-            w: isPromoPreview ? promoNameWidth : nameWidth,
-            h: isPromoPreview ? promoNameHeight : nameHeight,
-          };
-        if (draggingElement === 'mainPrice')
-          return {
-            w: isPromoPreview ? promoWidth : priceWidth,
-            h: isPromoPreview ? promoHeight : priceHeight,
-          };
-        if (draggingElement === 'oldPrice') return { w: oldPriceWidth, h: oldPriceHeight };
-        if (draggingElement === 'barcode') return { w: 80, h: 15 };
-        if (draggingElement?.startsWith('extra_')) {
-          const f = (isPromoPreview ? extraFieldsPromo : extraFields).find(
-            (field) => field.id === draggingElement
-          );
-          return { w: f?.width || 40, h: f?.height || 10 };
-        }
-        return { w: 10, h: 10 };
-      };
-
-      const size = getElemSize();
-      const minX = size.w / 2;
-      const maxX = 100 - size.w / 2;
-      const minY = size.h / 2;
-      const maxY = 100 - size.h / 2;
-
-      const finalX = Math.max(minX, Math.min(maxX, snappedX));
-      const finalY = Math.max(minY, Math.min(maxY, snappedY));
-
-      if (draggingElement === 'name') {
-        if (isPromoPreview) {
-          setPromoNamePos({ x: finalX, y: finalY });
-        } else {
-          setNamePos({ x: finalX, y: finalY });
-        }
-      } else if (draggingElement === 'mainPrice') {
-        if (isPromoPreview) {
-          setPromoPos({ x: finalX, y: finalY });
-        } else {
-          setPricePos({ x: finalX, y: finalY });
-        }
-      } else if (draggingElement === 'oldPrice') {
-        setOldPricePos({ x: finalX, y: finalY });
-      } else if (draggingElement === 'barcode') {
-        if (isPromoPreview) {
-          setPromoBarcodePos({ x: finalX, y: finalY });
-        } else {
-          setBarcodePos({ x: finalX, y: finalY });
-        }
-      } else if (draggingElement === 'priceSymbol') {
-        // Símbolo e decimais não têm largura fixa no designer, vamos usar 10% como margem de segurança
-        const sX = Math.max(5, Math.min(95, snappedX));
-        const sY = Math.max(5, Math.min(95, snappedY));
-        if (isPromoPreview) setPromoPriceSymbolPos({ x: sX, y: sY });
-        else setPriceSymbolPos({ x: sX, y: sY });
-      } else if (draggingElement === 'priceDecimals') {
-        const sX = Math.max(5, Math.min(95, snappedX));
-        const sY = Math.max(5, Math.min(95, snappedY));
-        if (isPromoPreview) setPromoPriceDecimalsPos({ x: sX, y: sY });
-        else setPriceDecimalsPos({ x: sX, y: sY });
-      } else if (draggingElement.startsWith('extra_')) {
-        const update = (prev: any[]) =>
-          prev.map((f) => (f.id === draggingElement ? { ...f, x: finalX, y: finalY } : f));
-        if (isPromoPreview) setExtraFieldsPromo(update);
-        else setExtraFields(update);
-      }
-    }
-  };
-
-  const handleMouseUp = () => {
-    setDraggingElement(null);
-    setResizingElement(null);
-    setShowGuides({ h: false, v: false });
-  };
-
-  React.useEffect(() => {
-    if (draggingElement || resizingElement) {
-      window.addEventListener('mouseup', handleMouseUp);
-      return () => window.removeEventListener('mouseup', handleMouseUp);
-    }
-  }, [draggingElement, resizingElement]);
-
-  React.useEffect(() => {
-    if (isOpen) {
-      setIsDesignMode(false);
-      if (editingModel) {
-        setName(editingModel.name || '');
-        setLayoutType(editingModel.type || 'rect');
-        setPaperSize(editingModel.paperSize);
-        if (editingModel.paperWidth !== undefined) setCustomWidth(editingModel.paperWidth);
-        if (editingModel.paperHeight !== undefined) setCustomHeight(editingModel.paperHeight);
-        setColumns(editingModel.columns);
-        setRows(editingModel.rows);
-        setMarginT(editingModel.marginT);
-        setMarginB(editingModel.marginB);
-        setMarginL(editingModel.marginL);
-        setMarginR(editingModel.marginR);
-        setGapH(editingModel.gapH);
-        setGapV(editingModel.gapV);
-        if (editingModel.bg_color !== undefined) setBgColor(editingModel.bg_color);
-        if (editingModel.nameFontSize !== undefined) setNameFontSize(editingModel.nameFontSize);
-        if (editingModel.nameColor !== undefined) setNameColor(editingModel.nameColor);
-        if (editingModel.nameBold !== undefined) setNameBold(editingModel.nameBold);
-        if (editingModel.nameAlign !== undefined) setNameAlign(editingModel.nameAlign);
-        if (editingModel.nameVAlign !== undefined) setNameVAlign(editingModel.nameVAlign);
-        if (editingModel.priceFontSize !== undefined) setPriceFontSize(editingModel.priceFontSize);
-        if (editingModel.priceColor !== undefined) setPriceColor(editingModel.priceColor);
-        if (editingModel.priceBold !== undefined) setPriceBold(editingModel.priceBold);
-        if (editingModel.priceAlign !== undefined) setPriceAlign(editingModel.priceAlign);
-        if (editingModel.priceVAlign !== undefined) setPriceVAlign(editingModel.priceVAlign);
-        if (editingModel.promoPriceFontSize !== undefined)
-          setPromoPriceFontSize(editingModel.promoPriceFontSize);
-        if (editingModel.promoPriceColor !== undefined)
-          setPromoPriceColor(editingModel.promoPriceColor);
-        if (editingModel.promoPriceBold !== undefined)
-          setPromoPriceBold(editingModel.promoPriceBold);
-        if (editingModel.promoPriceAlign !== undefined)
-          setPromoPriceAlign(editingModel.promoPriceAlign);
-        if (editingModel.promoPriceVAlign !== undefined)
-          setPromoPriceVAlign(editingModel.promoPriceVAlign);
-
-        if (editingModel.oldPriceColor !== undefined) setOldPriceColor(editingModel.oldPriceColor);
-        if (editingModel.oldPriceFontSize !== undefined)
-          setOldPriceFontSize(editingModel.oldPriceFontSize);
-        if (editingModel.oldPriceBold !== undefined) setOldPriceBold(editingModel.oldPriceBold);
-        if (editingModel.oldPriceAlign !== undefined) setOldPriceAlign(editingModel.oldPriceAlign);
-        if (editingModel.oldPriceVAlign !== undefined)
-          setOldPriceVAlign(editingModel.oldPriceVAlign);
-        if (editingModel.nameWidth !== undefined) setNameWidth(editingModel.nameWidth);
-        if (editingModel.nameHeight !== undefined) setNameHeight(editingModel.nameHeight);
-        if (editingModel.priceWidth !== undefined) setPriceWidth(editingModel.priceWidth);
-        if (editingModel.priceHeight !== undefined) setPriceHeight(editingModel.priceHeight);
-        if (editingModel.promoWidth !== undefined) setPromoWidth(editingModel.promoWidth);
-        if (editingModel.promoHeight !== undefined) setPromoHeight(editingModel.promoHeight);
-        if (editingModel.priceFontSizeTens !== undefined) setPriceFontSizeTens(editingModel.priceFontSizeTens);
-        if (editingModel.priceFontSizeHundreds !== undefined)
-          setPriceFontSizeHundreds(editingModel.priceFontSizeHundreds);
-        if (editingModel.priceFontSizeThousands !== undefined)
-          setPriceFontSizeThousands(editingModel.priceFontSizeThousands);
-        if (editingModel.priceFontSizeTenThousands !== undefined)
-          setPriceFontSizeTenThousands(editingModel.priceFontSizeTenThousands);
-        if (editingModel.promoFontSize !== undefined) setPromoFontSize(editingModel.promoFontSize);
-        if (editingModel.promoColor) setPromoColor(editingModel.promoColor);
-        if (editingModel.bg_color) setBgColor(editingModel.bg_color);
-        if (editingModel.nameBgColor) setNameBgColor(editingModel.nameBgColor);
-        if (editingModel.priceBgColor) setPriceBgColor(editingModel.priceBgColor);
-        if (editingModel.promoBgColor) setPromoBgColor(editingModel.promoBgColor);
-
-        setNamePos({ x: editingModel.namePosX ?? 50, y: editingModel.namePosY ?? 30 });
-        setPricePos({ x: editingModel.pricePosX ?? 50, y: editingModel.pricePosY ?? 60 });
-        setPromoPos({ x: editingModel.promoPosX ?? 50, y: editingModel.promoPosY ?? 75 });
-        setBarcodePos({ x: editingModel.barcodePosX ?? 50, y: editingModel.barcodePosY ?? 90 });
-
-        setPriceFormat(editingModel.priceFormat || 'split');
-        if (editingModel.priceSymbolFontSize !== undefined)
-          setPriceSymbolFontSize(editingModel.priceSymbolFontSize);
-        if (editingModel.priceSymbolColor) setPriceSymbolColor(editingModel.priceSymbolColor);
-        if (editingModel.priceSymbolBold !== undefined)
-          setPriceSymbolBold(editingModel.priceSymbolBold);
-        setPriceSymbolPos({
-          x: editingModel.priceSymbolPosX ?? 35,
-          y: editingModel.priceSymbolPosY ?? 55,
-        });
-
-        if (editingModel.priceDecimalsFontSize !== undefined)
-          setPriceDecimalsFontSize(editingModel.priceDecimalsFontSize);
-        if (editingModel.priceDecimalsColor) setPriceDecimalsColor(editingModel.priceDecimalsColor);
-        if (editingModel.priceDecimalsBold !== undefined)
-          setPriceDecimalsBold(editingModel.priceDecimalsBold);
-        setPriceDecimalsPos({
-          x: editingModel.priceDecimalsPosX ?? 65,
-          y: editingModel.priceDecimalsPosY ?? 55,
-        });
-
-        // Carregar Estados Promocionais
-        setPromoNamePos({
-          x: editingModel.promoNamePosX ?? 50,
-          y: editingModel.promoNamePosY ?? 25,
-        });
-        if (editingModel.promoNameFontSize !== undefined) setPromoNameFontSize(editingModel.promoNameFontSize);
-        if (editingModel.promoNameAlign) setPromoNameAlign(editingModel.promoNameAlign);
-        if (editingModel.promoNameVAlign) setPromoNameVAlign(editingModel.promoNameVAlign);
-        if (editingModel.promoNameColor) setPromoNameColor(editingModel.promoNameColor);
-        if (editingModel.promoNameBold !== undefined) setPromoNameBold(editingModel.promoNameBold);
-        if (editingModel.promoNameWidth !== undefined) setPromoNameWidth(editingModel.promoNameWidth);
-        if (editingModel.promoNameHeight !== undefined) setPromoNameHeight(editingModel.promoNameHeight);
-        if (editingModel.promoNameBgColor) setPromoNameBgColor(editingModel.promoNameBgColor);
-
-        setOldPricePos({ x: editingModel.oldPricePosX ?? 50, y: editingModel.oldPricePosY ?? 60 });
-        if (editingModel.oldPriceWidth !== undefined) setOldPriceWidth(editingModel.oldPriceWidth);
-        if (editingModel.oldPriceHeight !== undefined) setOldPriceHeight(editingModel.oldPriceHeight);
-        if (editingModel.oldPriceFontSize !== undefined) setOldPriceFontSize(editingModel.oldPriceFontSize);
-        if (editingModel.oldPriceColor) setOldPriceColor(editingModel.oldPriceColor);
-        if (editingModel.oldPriceBold !== undefined) setOldPriceBold(editingModel.oldPriceBold);
-        if (editingModel.oldPriceAlign) setOldPriceAlign(editingModel.oldPriceAlign);
-        if (editingModel.oldPriceVAlign) setOldPriceVAlign(editingModel.oldPriceVAlign);
-
-        setPromoBarcodePos({
-          x: editingModel.promoBarcodePosX ?? 50,
-          y: editingModel.promoBarcodePosY ?? 85,
-        });
-        if (editingModel.extraFields) setExtraFields(editingModel.extraFields);
-
-        if (editingModel.extraFieldsPromo) setExtraFieldsPromo(editingModel.extraFieldsPromo);
-        if (editingModel.fontFamily) setFontFamily(editingModel.fontFamily);
-        if (editingModel.priceFormat) setPriceFormat(editingModel.priceFormat);
-
-        if (editingModel.imageScale !== undefined) setImageScale(editingModel.imageScale);
-        if (editingModel.previewImage) setCustomPreviewImage(editingModel.previewImage);
-
-        // Carregar Split Price Promoção
-        if (editingModel.promoPriceSymbolPosX !== undefined)
-          setPromoPriceSymbolPos({
-            x: editingModel.promoPriceSymbolPosX,
-            y: editingModel.promoPriceSymbolPosY ?? 70,
-          });
-        if (editingModel.promoPriceSymbolFontSize !== undefined)
-          setPromoPriceSymbolFontSize(editingModel.promoPriceSymbolFontSize);
-        if (editingModel.promoPriceSymbolColor)
-          setPromoPriceSymbolColor(editingModel.promoPriceSymbolColor);
-        if (editingModel.promoPriceSymbolBold !== undefined)
-          setPromoPriceSymbolBold(editingModel.promoPriceSymbolBold);
-
-        if (editingModel.promoPriceDecimalsPosX !== undefined)
-          setPromoPriceDecimalsPos({
-            x: editingModel.promoPriceDecimalsPosX,
-            y: editingModel.promoPriceDecimalsPosY ?? 70,
-          });
-        if (editingModel.promoPriceDecimalsFontSize !== undefined)
-          setPromoPriceDecimalsFontSize(editingModel.promoPriceDecimalsFontSize);
-        if (editingModel.promoPriceDecimalsColor)
-          setPromoPriceDecimalsColor(editingModel.promoPriceDecimalsColor);
-        if (editingModel.promoPriceDecimalsBold !== undefined)
-          setPromoPriceDecimalsBold(editingModel.promoPriceDecimalsBold);
-      } else {
-        setLayoutType(currentType || 'rect');
-        // Reset para padrões ao criar novo
-        setName('');
-        setPaperSize('A4');
-        setColumns(3);
-        setRows(7);
-        setMarginT(10);
-        setMarginB(10);
-        setMarginL(10);
-        setMarginR(10);
-        setGapH(2);
-        setGapV(2);
-        setBgColor('#ffffff');
-        setNamePos({ x: 50, y: 30 });
-        setPricePos({ x: 50, y: 60 });
-        setPromoPos({ x: 50, y: 75 });
-        setBarcodePos({ x: 50, y: 90 });
-        setExtraFields([]);
-        setExtraFieldsPromo([]);
-        if (currentCategory === 'precos') {
-          setExtraFields([
-            {
-              id: `extra_default`,
-              text: 'DESCRIÇÃO EXTRA',
-              x: 50,
-              y: 45,
-              size: 8,
-              color: '#64748b',
-              bold: false,
-              align: 'center',
-              width: 60,
-              height: 10,
-              bgColor: 'transparent',
-            },
-          ]);
-        }
-      }
-    }
-  }, [isOpen, editingModel, currentType, currentCategory]);
+  const interactions = useLabelGridModelInteractions(session);
 
   const [isSaving, setIsSaving] = React.useState(false);
-  const [saveError, setSaveError] = React.useState(''), [saveBlocked, setSaveBlocked] = React.useState(false);
-  const saveLocked = React.useRef(false), mounted = React.useRef(false), closed = React.useRef(false);
-  React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const [saveError, setSaveError] = React.useState('');
+  const [saveBlocked, setSaveBlocked] = React.useState(false);
+
+  const saveLocked = React.useRef(false);
+  const mounted = React.useRef(false);
+  const closed = React.useRef(false);
+
+  React.useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   const busy = isSaving || isPersisting;
   const current = () => mounted.current && !closed.current;
-  const close = () => { if (current() && !saveLocked.current && !isPersisting) { closed.current = true; onClose(); } };
-  const modelForm = useZodForm(labelGridModelSaveFormSchema, { id: '', name: '', columns: 1, rows: 1, marginT: 0, marginB: 0, marginL: 0, marginR: 0, gapH: 0, gapV: 0, paperSize: 'A4', icon: '' });
+
+  const close = () => {
+    if (current() && !saveLocked.current && !isPersisting) {
+      closed.current = true;
+      onClose();
+    }
+  };
+
+  const modelForm = useZodForm(labelGridModelSaveFormSchema, {
+    id: '',
+    name: '',
+    columns: 1,
+    rows: 1,
+    marginT: 0,
+    marginB: 0,
+    marginL: 0,
+    marginR: 0,
+    gapH: 0,
+    gapV: 0,
+    paperSize: 'A4',
+    icon: '',
+  });
 
   const handleSave = async () => {
     if (!current() || saveLocked.current || isPersisting || saveBlocked || blocked) return;
-    saveLocked.current = true; setIsSaving(true); setSaveError('');
+    saveLocked.current = true;
+    setIsSaving(true);
+    setSaveError('');
+
     try {
-      const newModel = createGridModelFromEditorState({
-        editingModel,
-        name,
-        generatedName,
-        currentCategory,
-        columns,
-        rows,
-        marginT,
-        marginB,
-        marginL,
-        marginR,
-        gapH,
-        gapV,
-        paperSize,
-        customWidth,
-        customHeight,
-        layoutType,
-        nameFontSize,
-        nameColor,
-        nameBold,
-        nameAlign,
-        nameVAlign,
-        priceFontSize,
-        priceColor,
-        priceBold,
-        priceAlign,
-        priceVAlign,
-        promoFontSize,
-        promoColor,
-        promoPriceFontSize,
-        promoPriceColor,
-        promoPriceBold,
-        promoPriceAlign,
-        promoPriceVAlign,
-        oldPriceFontSize,
-        oldPriceColor,
-        oldPriceBold,
-        oldPriceAlign,
-        oldPriceVAlign,
-        namePos,
-        pricePos,
-        promoPos,
-        barcodePos,
-        nameWidth,
-        nameHeight,
-        priceWidth,
-        priceHeight,
-        promoWidth,
-        promoHeight,
-        priceFontSizeTens,
-        priceFontSizeHundreds,
-        priceFontSizeThousands,
-        priceFontSizeTenThousands,
-        bg_color: bgColor,
-        nameBgColor,
-        priceBgColor,
-        promoBgColor,
-        priceFormat,
-        priceSymbolFontSize,
-        priceSymbolColor,
-        priceSymbolBold,
-        priceSymbolPos,
-        priceDecimalsFontSize,
-        priceDecimalsColor,
-        priceDecimalsBold,
-        priceDecimalsPos,
-        promoNamePos,
-        promoNameFontSize,
-        promoNameAlign,
-        promoNameVAlign,
-        promoNameColor,
-        promoNameBold,
-        promoNameWidth,
-        promoNameHeight,
-        promoNameBgColor,
-        oldPricePos,
-        oldPriceWidth,
-        oldPriceHeight,
-        promoBarcodePos,
-        extraFields,
-        extraFieldsPromo,
-        fontFamily,
-        promoPriceSymbolPos,
-        promoPriceSymbolFontSize,
-        promoPriceSymbolColor,
-        promoPriceSymbolBold,
-        promoPriceDecimalsPos,
-        promoPriceDecimalsFontSize,
-        promoPriceDecimalsColor,
-        promoPriceDecimalsBold,
-        imageScale,
-        customPreviewImage,
-      });
-      await modelForm.validateAndRun({ ...newModel }, async (values) => {
-        if (!current()) return;
-        const confirmed = await onSave(values, current);
-        if (!current()) return;
-        if (confirmed === true) { closed.current = true; onClose(); }
-        else setSaveError('A gravação do modelo não foi confirmada. Confira os dados antes de repetir.');
-      }, (errors) => {
-        const message = Object.values(flattenFormErrors(errors))[0] || 'Confira o modelo.';
-        if (current()) { setSaveError(message); toast.error(message); }
-      });
+      const editorState = session.buildEditorState();
+      const newModel = createGridModelFromEditorState(editorState);
+
+      await modelForm.validateAndRun(
+        { ...newModel },
+        async (values) => {
+          if (!current()) return;
+          const confirmed = await onSave(values, current);
+          if (!current()) return;
+          if (confirmed === true) {
+            closed.current = true;
+            onClose();
+          } else {
+            setSaveError(
+              'A gravação do modelo não foi confirmada. Confira os dados antes de repetir.'
+            );
+          }
+        },
+        (errors) => {
+          const message = Object.values(flattenFormErrors(errors))[0] || 'Confira o modelo.';
+          if (current()) {
+            setSaveError(message);
+            toast.error(message);
+          }
+        }
+      );
     } catch (cause) {
       if (current()) {
-        const message = cause instanceof Error ? cause.message : 'Não foi possível salvar o modelo.';
-        setSaveError(message); toast.error(message);
+        const message =
+          cause instanceof Error ? cause.message : 'Não foi possível salvar o modelo.';
+        setSaveError(message);
+        toast.error(message);
         if ((cause as { uncertain?: boolean })?.uncertain) setSaveBlocked(true);
       }
     } finally {
-      saveLocked.current = false; if (mounted.current) setIsSaving(false);
+      saveLocked.current = false;
+      if (mounted.current) setIsSaving(false);
     }
   };
 
   if (!isOpen) return null;
 
-  // Métodos de Estilo Unificados (Acessíveis pelo Toolbar e Edição Inline)
-  const isInactive = !selectedElement;
-  const isText = selectedElement && selectedElement !== 'barcode';
-
-  const getActiveValue = () => {
-    if (selectedElement === 'name')
-      return {
-        font: nameFontSize,
-        color: nameColor,
-        bold: nameBold,
-        align: nameAlign,
-        valign: nameVAlign,
-        text: 'Sofá de Canto Luxo Reclinável',
-      };
-    if (selectedElement === 'mainPrice') {
-      if (isPromoPreview)
-        return {
-          font: promoPriceFontSize,
-          color: promoPriceColor,
-          bold: promoPriceBold,
-          align: promoPriceAlign,
-          valign: promoPriceVAlign,
-          text: '2.990',
-        };
-      return {
-        font: priceFontSize,
-        color: priceColor,
-        bold: priceBold,
-        align: priceAlign,
-        valign: priceVAlign,
-        text: '3.490',
-      };
-    }
-    if (selectedElement === 'oldPrice')
-      return {
-        font: oldPriceFontSize,
-        color: oldPriceColor,
-        bold: oldPriceBold,
-        align: oldPriceAlign,
-        valign: oldPriceVAlign,
-        text: '3.490',
-      };
-    if (selectedElement === 'priceSymbol') {
-      if (isPromoPreview)
-        return {
-          font: promoPriceSymbolFontSize,
-          color: promoPriceSymbolColor,
-          bold: promoPriceSymbolBold,
-          align: 'center' as const,
-          valign: 'middle' as const,
-          text: 'R$',
-        };
-      return {
-        font: priceSymbolFontSize,
-        color: priceSymbolColor,
-        bold: priceSymbolBold,
-        align: 'center' as const,
-        valign: 'middle' as const,
-        text: 'R$',
-      };
-    }
-    if (selectedElement === 'priceDecimals') {
-      if (isPromoPreview)
-        return {
-          font: promoPriceDecimalsFontSize,
-          color: promoPriceDecimalsColor,
-          bold: promoPriceDecimalsBold,
-          align: 'center' as const,
-          valign: 'middle' as const,
-          text: ',00',
-        };
-      return {
-        font: priceDecimalsFontSize,
-        color: priceDecimalsColor,
-        bold: priceDecimalsBold,
-        align: 'center' as const,
-        valign: 'middle' as const,
-        text: ',00',
-      };
-    }
-    if (selectedElement?.toString().startsWith('extra_')) {
-      const fields = isPromoPreview ? extraFieldsPromo : extraFields;
-      const f = fields.find((field) => field.id === selectedElement);
-      if (f)
-        return {
-          font: f.size,
-          color: f.color,
-          bold: f.bold,
-          align: f.align || 'center',
-          valign: 'middle' as const,
-          text: f.text,
-        };
-    }
-    return {
-      font: 0,
-      color: '#ccc',
-      bold: false,
-      align: 'center' as const,
-      valign: 'middle' as const,
-      text: '',
-    };
-  };
-
-  const active = getActiveValue();
-  const activeColor = isText ? active.color : '#ccc';
-  const activeSize = isText ? active.font : 0;
-  const activeBold = isText ? active.bold : false;
-  const activeAlign = isText ? active.align : 'center';
-  const activeVAlign = isText ? active.valign : 'middle';
-
-  const activeBg = !selectedElement
-    ? bgColor
-    : selectedElement === 'name'
-      ? isPromoPreview
-        ? promoNameBgColor
-        : nameBgColor
-      : selectedElement === 'mainPrice'
-        ? isPromoPreview
-          ? promoBgColor
-          : priceBgColor
-        : selectedElement === 'oldPrice'
-          ? 'transparent'
-          : selectedElement === 'priceSymbol' || selectedElement === 'priceDecimals'
-            ? isPromoPreview
-              ? promoBgColor
-              : priceBgColor
-            : 'transparent';
-
-  const updateStyle = (key: string, val: any) => {
-    if (!selectedElement) {
-      if (key === 'bg') setBgColor(val);
-      return;
-    }
-    if (selectedElement === 'name') {
-      if (isPromoPreview) {
-        if (key === 'color') setPromoNameColor(val);
-        if (key === 'size') setPromoNameFontSize(val);
-        if (key === 'bold') setPromoNameBold(val);
-        if (key === 'align') setPromoNameAlign(val);
-        if (key === 'valign') setPromoNameVAlign(val);
-        if (key === 'bg') setPromoNameBgColor(val);
-      } else {
-        if (key === 'color') setNameColor(val);
-        if (key === 'size') setNameFontSize(val);
-        if (key === 'bold') setNameBold(val);
-        if (key === 'align') setNameAlign(val);
-        if (key === 'valign') setNameVAlign(val);
-        if (key === 'bg') setNameBgColor(val);
-      }
-    } else if (selectedElement === 'mainPrice') {
-      if (isPromoPreview) {
-        if (key === 'color') setPromoPriceColor(val);
-        if (key === 'size') {
-          setPromoPriceFontSize(val);
-          setPromoFontSize(val);
-        }
-        if (key === 'bold') setPromoPriceBold(val);
-        if (key === 'align') setPromoPriceAlign(val);
-        if (key === 'valign') setPromoPriceVAlign(val);
-        if (key === 'bg') setPromoBgColor(val);
-      } else {
-        if (key === 'color') setPriceColor(val);
-        if (key === 'size') setPriceFontSize(val);
-        if (key === 'bold') setPriceBold(val);
-        if (key === 'align') setPriceAlign(val);
-        if (key === 'valign') setPriceVAlign(val);
-        if (key === 'bg') setPriceBgColor(val);
-      }
-    } else if (selectedElement === 'oldPrice') {
-      if (key === 'color') setOldPriceColor(val);
-      if (key === 'size') setOldPriceFontSize(val);
-      if (key === 'bold') setOldPriceBold(val);
-      if (key === 'align') setOldPriceAlign(val);
-      if (key === 'valign') setOldPriceVAlign(val);
-    } else if (selectedElement === 'priceSymbol') {
-      if (isPromoPreview) {
-        if (key === 'color') setPromoPriceSymbolColor(val);
-        if (key === 'size') setPromoPriceSymbolFontSize(val);
-        if (key === 'bold') setPromoPriceSymbolBold(val);
-      } else {
-        if (key === 'color') setPriceSymbolColor(val);
-        if (key === 'size') setPriceSymbolFontSize(val);
-        if (key === 'bold') setPriceSymbolBold(val);
-      }
-      if (key === 'bg') setPriceBgColor(val);
-    } else if (selectedElement === 'priceDecimals') {
-      if (isPromoPreview) {
-        if (key === 'color') setPromoPriceDecimalsColor(val);
-        if (key === 'size') setPromoPriceDecimalsFontSize(val);
-        if (key === 'bold') setPromoPriceDecimalsBold(val);
-      } else {
-        if (key === 'color') setPriceDecimalsColor(val);
-        if (key === 'size') setPriceDecimalsFontSize(val);
-        if (key === 'bold') setPriceDecimalsBold(val);
-      }
-      if (key === 'bg') setPriceBgColor(val);
-    } else if (selectedElement?.toString().startsWith('extra_')) {
-      const update = (prev: any[]) =>
-        prev.map((f) => {
-          if (f.id === selectedElement) {
-            if (key === 'color') return { ...f, color: val };
-            if (key === 'size') return { ...f, size: val };
-            if (key === 'bold') return { ...f, bold: val };
-            if (key === 'text') return { ...f, text: val };
-            if (key === 'align') return { ...f, align: val };
-          }
-          return f;
-        });
-      if (isPromoPreview) setExtraFieldsPromo(update);
-      else setExtraFields(update);
-    }
-  };
-
-  const cycleAlign = () => {
-    const next: Record<string, 'left' | 'center' | 'right'> = {
-      left: 'center',
-      center: 'right',
-      right: 'left',
-    };
-    updateStyle('align', next[activeAlign]);
-  };
-
-  const cycleVAlign = () => {
-    const next: Record<string, 'top' | 'middle' | 'bottom'> = {
-      top: 'middle',
-      middle: 'bottom',
-      bottom: 'top',
-    };
-    updateStyle('valign', next[activeVAlign]);
-  };
-
-  const effectivePreviewImage = customPreviewImage || previewImage || null;
-  const selectedPaper = PAPER_OPTIONS.find((option) => option.id === paperSize) || PAPER_OPTIONS[0];
-  const toolbarState = {
-    isInactive,
-    isDesignMode,
-    isPromoPreview,
-    selectedElement,
-    activeBackground: activeBg,
-    snapEnabled,
-    showColorPalette,
-    activeColor,
-    activeSize,
-    activeBold,
-    activeAlign,
-    activeVerticalAlign: activeVAlign,
-    priceFontSizes: {
-      tens: priceFontSizeTens,
-      hundreds: priceFontSizeHundreds,
-      thousands: priceFontSizeThousands,
-      tenThousands: priceFontSizeTenThousands,
-    },
-    fontFamily,
-    priceFormat,
-  };
-  const toolbarHandlers = {
-    onExitDesignMode: () => setIsDesignMode(false),
-    onChangePreviewMode: (promo: boolean) => {
-      setIsPromoPreview(promo);
-      setSelectedElement(null);
-    },
-    onAddExtraField: addExtraField,
-    onUpdateStyle: updateStyle,
-    onToggleSnap: () => setSnapEnabled(!snapEnabled),
-    onToggleColorPalette: setShowColorPalette,
-    onPriceFontSizeChange: (
-      scale: 'tens' | 'hundreds' | 'thousands' | 'tenThousands',
-      value: number
-    ) => {
-      if (scale === 'tens') setPriceFontSizeTens(value);
-      else if (scale === 'hundreds') setPriceFontSizeHundreds(value);
-      else if (scale === 'thousands') setPriceFontSizeThousands(value);
-      else setPriceFontSizeTenThousands(value);
-    },
-    onCycleAlign: cycleAlign,
-    onCycleVerticalAlign: cycleVAlign,
-    onFontFamilyChange: setFontFamily,
-    onTogglePriceFormat: () =>
-      setPriceFormat((prev) => (prev === 'split' ? 'standard' : 'split')),
-    onClearSelection: () => setSelectedElement(null),
-  };
   const settingsPanelState = {
-    name,
-    generatedName,
-    paperSize,
+    name: session.name,
+    generatedName: session.generatedName,
+    paperSize: session.paperSize,
     paperOptions: PAPER_OPTIONS,
-    customWidth,
-    customHeight,
-    columns,
-    rows,
-    imageScale,
-    gapH,
-    gapV,
-    marginT,
-    marginB,
-    marginL,
-    marginR,
+    customWidth: session.customWidth,
+    customHeight: session.customHeight,
+    columns: session.columns,
+    rows: session.rows,
+    imageScale: session.imageScale,
+    gapH: session.gapH,
+    gapV: session.gapV,
+    marginT: session.marginT,
+    marginB: session.marginB,
+    marginL: session.marginL,
+    marginR: session.marginR,
   };
+
   const settingsPanelHandlers = {
-    onNameChange: setName,
+    onNameChange: session.setName,
     onPaperSizeChange: (value: string) => {
       const option = PAPER_OPTIONS.find((candidate) => candidate.id === value);
       if (option) {
-        setPaperSize(option.id);
+        session.setPaperSize(option.id);
         if (option.id !== 'Custom') {
-          setCustomWidth(option.w);
-          setCustomHeight(option.h);
+          session.setCustomWidth(option.w);
+          session.setCustomHeight(option.h);
         }
       }
     },
-    onCustomWidthChange: setCustomWidth,
-    onCustomHeightChange: setCustomHeight,
-    onColumnsChange: setColumns,
-    onRowsChange: setRows,
+    onCustomWidthChange: session.setCustomWidth,
+    onCustomHeightChange: session.setCustomHeight,
+    onColumnsChange: session.setColumns,
+    onRowsChange: session.setRows,
     onDecreaseImageScale: () =>
-      setImageScale((prev) => Math.max(0.1, parseFloat((prev - 0.01).toFixed(2)))),
-    onImageScaleChange: setImageScale,
+      session.setImageScale((prev) => Math.max(0.1, parseFloat((prev - 0.01).toFixed(2)))),
+    onImageScaleChange: session.setImageScale,
     onIncreaseImageScale: () =>
-      setImageScale((prev) => Math.min(10, parseFloat((prev + 0.01).toFixed(2)))),
-    onGapHChange: setGapH,
-    onGapVChange: setGapV,
-    onMarginTChange: setMarginT,
-    onMarginBChange: setMarginB,
-    onMarginLChange: setMarginL,
-    onMarginRChange: setMarginR,
+      session.setImageScale((prev) => Math.min(10, parseFloat((prev + 0.01).toFixed(2)))),
+    onGapHChange: session.setGapH,
+    onGapVChange: session.setGapV,
+    onMarginTChange: session.setMarginT,
+    onMarginBChange: session.setMarginB,
+    onMarginLChange: session.setMarginL,
+    onMarginRChange: session.setMarginR,
   };
 
   return (
@@ -1109,23 +215,52 @@ const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
       />
       <fieldset
         disabled={busy}
-        onMouseDownCapture={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); } }}
-        onPointerDownCapture={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); } }}
-        onKeyDownCapture={(event) => { if (busy) { event.preventDefault(); event.stopPropagation(); } }}
-        className={`relative m-0 min-w-0 p-0 bg-white dark:bg-slate-900 w-full ${isDesignMode ? 'max-w-7xl' : 'max-w-5xl'} h-[95vh] rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in zoom-in duration-500`}
+        onMouseDownCapture={(event) => {
+          if (busy) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
+        onPointerDownCapture={(event) => {
+          if (busy) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
+        onKeyDownCapture={(event) => {
+          if (busy) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
+        className={`relative m-0 min-w-0 p-0 bg-white dark:bg-slate-900 w-full ${
+          interactions.isDesignMode ? 'max-w-7xl' : 'max-w-5xl'
+        } h-[95vh] rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in zoom-in duration-500`}
       >
-        {(error || saveError) && <p role="alert" className="px-8 pt-4 text-sm text-red-600">{error || saveError}</p>}
-        {busy && <p role="status" className="flex items-center gap-2 px-8 pt-4 text-sm text-blue-600"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Salvando modelo…</p>}
+        {(error || saveError) && (
+          <p role="alert" className="px-8 pt-4 text-sm text-red-600">
+            {error || saveError}
+          </p>
+        )}
+        {busy && (
+          <p role="status" className="flex items-center gap-2 px-8 pt-4 text-sm text-blue-600">
+            <span
+              aria-hidden="true"
+              className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"
+            />
+            Salvando modelo…
+          </p>
+        )}
         <LabelGridModelHeader
-          isDesignMode={isDesignMode}
-          setIsDesignMode={setIsDesignMode}
-          marginT={marginT}
-          marginB={marginB}
-          marginL={marginL}
-          marginR={marginR}
-          gapH={gapH}
-          gapV={gapV}
-          displayName={name.trim() || generatedName}
+          isDesignMode={interactions.isDesignMode}
+          setIsDesignMode={interactions.setIsDesignMode}
+          marginT={session.marginT}
+          marginB={session.marginB}
+          marginL={session.marginL}
+          marginR={session.marginR}
+          gapH={session.gapH}
+          gapV={session.gapV}
+          displayName={session.name.trim() || session.generatedName}
           onSave={handleSave}
           busy={busy}
           saveBlocked={saveBlocked}
@@ -1133,124 +268,129 @@ const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
           isSaving={isSaving}
         />
 
-        {isDesignMode ? (
+        {interactions.isDesignMode ? (
           <>
-            <LabelGridModelToolbar state={toolbarState} handlers={toolbarHandlers} />
+            <LabelGridModelToolbar
+              state={interactions.toolbarState}
+              handlers={interactions.toolbarHandlers}
+            />
             <LabelGridModelDesignCanvas
-              customWidth={customWidth}
-              customHeight={customHeight}
-              columns={columns}
-              rows={rows}
-              gapH={gapH}
-              gapV={gapV}
-              marginL={marginL}
-              marginR={marginR}
-              marginT={marginT}
-              marginB={marginB}
-              bgColor={bgColor}
-              effectivePreviewImage={effectivePreviewImage}
-              imageScale={imageScale}
-              setPreviewRef={setPreviewRef}
-              handleMouseMove={handleMouseMove}
-              handleMouseUp={handleMouseUp}
-              showGuides={showGuides}
-              isPromoPreview={isPromoPreview}
-              promoNamePos={promoNamePos}
-              namePos={namePos}
-              promoNameWidth={promoNameWidth}
-              nameWidth={nameWidth}
-              promoNameHeight={promoNameHeight}
-              nameHeight={nameHeight}
-              promoNameFontSize={promoNameFontSize}
-              nameFontSize={nameFontSize}
-              promoNameColor={promoNameColor}
-              nameColor={nameColor}
-              promoNameBold={promoNameBold}
-              nameBold={nameBold}
-              promoNameAlign={promoNameAlign}
-              nameAlign={nameAlign}
-              promoNameVAlign={promoNameVAlign}
-              nameVAlign={nameVAlign}
-              promoNameBgColor={promoNameBgColor}
-              nameBgColor={nameBgColor}
-              promoPos={promoPos}
-              pricePos={pricePos}
-              promoWidth={promoWidth}
-              priceWidth={priceWidth}
-              promoHeight={promoHeight}
-              priceHeight={priceHeight}
-              promoPriceFontSize={promoPriceFontSize}
-              priceFontSize={priceFontSize}
-              priceFontSizeThousands={priceFontSizeThousands}
-              promoPriceColor={promoPriceColor}
-              priceColor={priceColor}
-              promoPriceBold={promoPriceBold}
-              priceBold={priceBold}
-              promoPriceAlign={promoPriceAlign}
-              priceAlign={priceAlign}
-              promoPriceVAlign={promoPriceVAlign}
-              priceVAlign={priceVAlign}
-              promoBgColor={promoBgColor}
-              priceBgColor={priceBgColor}
-              oldPricePos={oldPricePos}
-              oldPriceWidth={oldPriceWidth}
-              oldPriceHeight={oldPriceHeight}
-              oldPriceFontSize={oldPriceFontSize}
-              oldPriceColor={oldPriceColor}
-              oldPriceBold={oldPriceBold}
-              oldPriceAlign={oldPriceAlign}
-              oldPriceVAlign={oldPriceVAlign}
-              priceFormat={priceFormat}
-              promoPriceSymbolPos={promoPriceSymbolPos}
-              priceSymbolPos={priceSymbolPos}
-              promoPriceSymbolFontSize={promoPriceSymbolFontSize}
-              priceSymbolFontSize={priceSymbolFontSize}
-              promoPriceSymbolColor={promoPriceSymbolColor}
-              priceSymbolColor={priceSymbolColor}
-              promoPriceSymbolBold={promoPriceSymbolBold}
-              priceSymbolBold={priceSymbolBold}
-              promoPriceDecimalsPos={promoPriceDecimalsPos}
-              priceDecimalsPos={priceDecimalsPos}
-              promoPriceDecimalsFontSize={promoPriceDecimalsFontSize}
-              priceDecimalsFontSize={priceDecimalsFontSize}
-              promoPriceDecimalsColor={promoPriceDecimalsColor}
-              priceDecimalsColor={priceDecimalsColor}
-              promoPriceDecimalsBold={promoPriceDecimalsBold}
-              priceDecimalsBold={priceDecimalsBold}
+              customWidth={session.customWidth}
+              customHeight={session.customHeight}
+              columns={session.columns}
+              rows={session.rows}
+              gapH={session.gapH}
+              gapV={session.gapV}
+              marginL={session.marginL}
+              marginR={session.marginR}
+              marginT={session.marginT}
+              marginB={session.marginB}
+              bgColor={session.bgColor}
+              effectivePreviewImage={session.effectivePreviewImage}
+              imageScale={session.imageScale}
+              setPreviewRef={interactions.setPreviewRef}
+              handleMouseMove={interactions.handleMouseMove}
+              handleMouseUp={interactions.handleMouseUp}
+              showGuides={interactions.showGuides}
+              isPromoPreview={interactions.isPromoPreview}
+              promoNamePos={session.promoNamePos}
+              namePos={session.namePos}
+              promoNameWidth={session.promoNameWidth}
+              nameWidth={session.nameWidth}
+              promoNameHeight={session.promoNameHeight}
+              nameHeight={session.nameHeight}
+              promoNameFontSize={session.promoNameFontSize}
+              nameFontSize={session.nameFontSize}
+              promoNameColor={session.promoNameColor}
+              nameColor={session.nameColor}
+              promoNameBold={session.promoNameBold}
+              nameBold={session.nameBold}
+              promoNameAlign={session.promoNameAlign}
+              nameAlign={session.nameAlign}
+              promoNameVAlign={session.promoNameVAlign}
+              nameVAlign={session.nameVAlign}
+              promoNameBgColor={session.promoNameBgColor}
+              nameBgColor={session.nameBgColor}
+              promoPos={session.promoPos}
+              pricePos={session.pricePos}
+              promoWidth={session.promoWidth}
+              priceWidth={session.priceWidth}
+              promoHeight={session.promoHeight}
+              priceHeight={session.priceHeight}
+              promoPriceFontSize={session.promoPriceFontSize}
+              priceFontSize={session.priceFontSize}
+              priceFontSizeThousands={session.priceFontSizeThousands}
+              promoPriceColor={session.promoPriceColor}
+              priceColor={session.priceColor}
+              promoPriceBold={session.promoPriceBold}
+              priceBold={session.priceBold}
+              promoPriceAlign={session.promoPriceAlign}
+              priceAlign={session.priceAlign}
+              promoPriceVAlign={session.promoPriceVAlign}
+              priceVAlign={session.priceVAlign}
+              promoBgColor={session.promoBgColor}
+              priceBgColor={session.priceBgColor}
+              oldPricePos={session.oldPricePos}
+              oldPriceWidth={session.oldPriceWidth}
+              oldPriceHeight={session.oldPriceHeight}
+              oldPriceFontSize={session.oldPriceFontSize}
+              oldPriceColor={session.oldPriceColor}
+              oldPriceBold={session.oldPriceBold}
+              oldPriceAlign={session.oldPriceAlign}
+              oldPriceVAlign={session.oldPriceVAlign}
+              priceFormat={session.priceFormat}
+              promoPriceSymbolPos={session.promoPriceSymbolPos}
+              priceSymbolPos={session.priceSymbolPos}
+              promoPriceSymbolFontSize={session.promoPriceSymbolFontSize}
+              priceSymbolFontSize={session.priceSymbolFontSize}
+              promoPriceSymbolColor={session.promoPriceSymbolColor}
+              priceSymbolColor={session.priceSymbolColor}
+              promoPriceSymbolBold={session.promoPriceSymbolBold}
+              priceSymbolBold={session.priceSymbolBold}
+              promoPriceDecimalsPos={session.promoPriceDecimalsPos}
+              priceDecimalsPos={session.priceDecimalsPos}
+              promoPriceDecimalsFontSize={session.promoPriceDecimalsFontSize}
+              priceDecimalsFontSize={session.priceDecimalsFontSize}
+              promoPriceDecimalsColor={session.promoPriceDecimalsColor}
+              priceDecimalsColor={session.priceDecimalsColor}
+              promoPriceDecimalsBold={session.promoPriceDecimalsBold}
+              priceDecimalsBold={session.priceDecimalsBold}
               currentCategory={currentCategory}
-              promoBarcodePos={promoBarcodePos}
-              barcodePos={barcodePos}
-              extraFields={extraFields}
-              extraFieldsPromo={extraFieldsPromo}
-              draggingElement={draggingElement}
-              resizingElement={resizingElement}
-              selectedElement={selectedElement}
-              editingTextElement={editingTextElement}
-              fontFamily={fontFamily}
-              setDraggingElement={setDraggingElement}
-              setSelectedElement={setSelectedElement}
-              setEditingTextElement={setEditingTextElement}
-              updateStyle={updateStyle}
-              duplicateExtraField={duplicateExtraField}
-              removeExtraField={removeExtraField}
-              handleMouseDownResize={handleMouseDownResize}
+              promoBarcodePos={session.promoBarcodePos}
+              barcodePos={session.barcodePos}
+              extraFields={session.extraFields}
+              extraFieldsPromo={session.extraFieldsPromo}
+              draggingElement={interactions.draggingElement}
+              resizingElement={interactions.resizingElement}
+              selectedElement={interactions.selectedElement}
+              editingTextElement={interactions.editingTextElement}
+              fontFamily={session.fontFamily}
+              setDraggingElement={interactions.setDraggingElement}
+              setSelectedElement={interactions.setSelectedElement}
+              setEditingTextElement={interactions.setEditingTextElement}
+              updateStyle={interactions.updateStyle}
+              duplicateExtraField={interactions.duplicateExtraField}
+              removeExtraField={interactions.removeExtraField}
+              handleMouseDownResize={interactions.handleMouseDownResize}
             />
           </>
         ) : (
           <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50 dark:bg-slate-950 flex flex-col gap-8 items-center">
-            <LabelGridModelSettingsPanel state={settingsPanelState} handlers={settingsPanelHandlers} />
+            <LabelGridModelSettingsPanel
+              state={settingsPanelState}
+              handlers={settingsPanelHandlers}
+            />
 
             {/* Botão de Edição de Design (Oculto em categorias de imagem) */}
             {currentCategory !== 'logos' && currentCategory !== 'posts' && (
               <div className="relative group shrink-0">
                 <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000" />
                 <button
-                  onClick={() => setIsDesignMode(true)}
+                  onClick={() => interactions.setIsDesignMode(true)}
                   className="relative px-12 py-6 bg-white dark:bg-slate-900 border-2 border-blue-500/20 rounded-[2rem] flex items-center gap-6 shadow-2xl hover:scale-105 transition-all"
                 >
                   <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
-                    {' '}
-                    <i className="bi bi-palette2 text-3xl" />{' '}
+                    <i className="bi bi-palette2 text-3xl" />
                   </div>
                   <div className="text-left">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
@@ -1274,19 +414,28 @@ const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
                 disabled={busy}
                 ownerKey={JSON.stringify([isOpen, currentCategory, editingModel?.id ?? 'new'])}
                 layout={{
-                  paperWidth: paperSize === 'Custom' ? customWidth : selectedPaper.w,
-                  paperHeight: paperSize === 'Custom' ? customHeight : selectedPaper.h,
-                  columns,
-                  rows,
-                  margins: { top: marginT, bottom: marginB, left: marginL, right: marginR },
-                  gaps: { horizontal: gapH, vertical: gapV },
-                  layoutType,
-                  backgroundColor: bgColor,
-                  imageScale,
-                  previewImage: effectivePreviewImage,
-                  customPreviewImage,
+                  paperWidth:
+                    session.paperSize === 'Custom' ? session.customWidth : session.selectedPaper.w,
+                  paperHeight:
+                    session.paperSize === 'Custom'
+                      ? session.customHeight
+                      : session.selectedPaper.h,
+                  columns: session.columns,
+                  rows: session.rows,
+                  margins: {
+                    top: session.marginT,
+                    bottom: session.marginB,
+                    left: session.marginL,
+                    right: session.marginR,
+                  },
+                  gaps: { horizontal: session.gapH, vertical: session.gapV },
+                  layoutType: session.layoutType,
+                  backgroundColor: session.bgColor,
+                  imageScale: session.imageScale,
+                  previewImage: session.effectivePreviewImage,
+                  customPreviewImage: session.customPreviewImage,
                 }}
-                onCustomPreviewImageChange={setCustomPreviewImage}
+                onCustomPreviewImageChange={session.setCustomPreviewImage}
               />
             </div>
           </div>
@@ -1296,7 +445,16 @@ const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
   );
 };
 
-const LabelGridModelModal: React.FC<LabelGridModelModalProps> = (props) => props.isOpen
-  ? <LabelGridModelDialog key={JSON.stringify([props.currentCategory, props.currentType, props.editingModel?.id ?? 'new'])} {...props} /> : null;
+const LabelGridModelModal: React.FC<LabelGridModelModalProps> = (props) =>
+  props.isOpen ? (
+    <LabelGridModelDialog
+      key={JSON.stringify([
+        props.currentCategory,
+        props.currentType,
+        props.editingModel?.id ?? 'new',
+      ])}
+      {...props}
+    />
+  ) : null;
 
 export default LabelGridModelModal;

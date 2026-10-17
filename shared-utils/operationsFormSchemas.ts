@@ -195,9 +195,19 @@ export const unattendedDeliveryFormSchema = z.object({
     .max(5),
 });
 
+export const deliveryResponsibleSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().trim().min(1, 'Informe o nome do responsável.'),
+  role: z.string().optional(),
+});
+
 export const deliveryRouteFormSchema = z.object({
   orderId: z.string().min(1, 'Pedido não identificado.'),
   checklist: z.array(z.object({ id: z.string().min(1), checked: z.boolean() }).passthrough()),
+  responsibles: z
+    .array(deliveryResponsibleSchema)
+    .min(1, 'Adicione pelo menos um responsável pela entrega.')
+    .optional(),
 });
 
 export const deliveryFinishFormSchema = z

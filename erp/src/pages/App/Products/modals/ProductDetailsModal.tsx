@@ -18,7 +18,7 @@ const detailRows = (product: ProductDetailsData) =>
     ['Código', product.code || product.sku],
     ['Categoria', product.category],
     ['Marca', product.brand],
-    ['Linha', product.line],
+    ['Linha/Modelo', product.line],
     ['Cor', product.colors],
     ['Material', product.material],
     ['Largura', product.width ? `${product.width} cm` : undefined],

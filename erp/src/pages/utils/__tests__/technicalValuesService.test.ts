@@ -25,6 +25,7 @@ import {
   CHARACTERISTIC_TOPIC_GROUPS,
   isYesNoCharacteristic,
   isYesNoValueActive,
+  isExcludedCharacteristic,
 } from '../technicalValuesService';
 
 describe('technicalValuesService', () => {
@@ -344,41 +345,138 @@ describe('technicalValuesService', () => {
       expect(names).toContain('Formato');
     });
 
-    it('retorna apenas os campos centrais ainda não presentes como opções adicionais', () => {
-      const currentVisible = [
-        mockAllFields[0], // Cor
-        mockAllFields[1], // Material
-        mockAllFields[4], // Formato
-      ];
+    describe('getAvailableAdditionalFields', () => {
+      it('retorna apenas os campos centrais ainda não presentes como opções adicionais', () => {
+        const currentVisible = [
+          mockAllFields[0], // Cor
+          mockAllFields[1], // Material
+          mockAllFields[4], // Formato
+        ];
 
-      const available = getAvailableAdditionalFields(mockAllFields, currentVisible);
-      const availableNames = available.map((f) => f.name);
+        const available = getAvailableAdditionalFields(mockAllFields, currentVisible);
+        const availableNames = available.map((f) => f.name);
 
-      expect(availableNames).toEqual(['Quantidade de portas', 'Quantidade de gavetas']);
+        expect(availableNames).toEqual(['Quantidade de portas', 'Quantidade de gavetas']);
+      });
+
+      it('não oferece campos inativos nem características excluídas como campos adicionais', () => {
+        const fields: TechnicalFieldDefinition[] = [
+          ...mockAllFields,
+          { id: 'inativo', name: 'Campo Antigo', dataType: 'list', active: false, options: [] },
+          { id: 'rec', name: 'Reclinável', dataType: 'radio', options: [] },
+          { id: 'lin', name: 'Linha', dataType: 'radio', options: [] },
+          { id: 'mod', name: 'Modelo', dataType: 'text_short', options: [] },
+        ];
+
+        const available = getAvailableAdditionalFields(fields, []);
+        const names = available.map((f) => f.name);
+
+        expect(names).not.toContain('Campo Antigo');
+        expect(names).not.toContain('Reclinável');
+        expect(names).not.toContain('Linha');
+        expect(names).not.toContain('Modelo');
+      });
     });
 
-    it('nunca inclui a característica Reclinável nos campos aplicáveis nem nos adicionais', () => {
-      const fieldsWithReclinavel = [
-        ...mockAllFields,
-        {
-          id: 'rec-1',
-          name: 'Reclinável',
-          dataType: 'radio' as const,
-          options: [{ id: '1', value: 'Sim' }],
-          categoryIds: [catMesas],
-        },
-      ];
+    describe('exclusão canônica de características operacionais e redundantes', () => {
+      const createField = (
+        name: string,
+        categoryIds: string[] = [catMesas],
+        dataType: TechnicalFieldDefinition['dataType'] = 'text_short'
+      ): TechnicalFieldDefinition => ({
+        id: `field-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+        name,
+        dataType,
+        categoryIds,
+        options: [],
+      });
 
-      const applicable = getApplicableTechnicalFields(
-        fieldsWithReclinavel,
-        [catMesas],
-        { Reclinável: 'Sim' },
-        []
-      );
-      expect(applicable.some((f) => f.name.toLowerCase().includes('reclinável'))).toBe(false);
+      it('valida predicado isExcludedCharacteristic para Reclinável, Linha e Modelo isolado', () => {
+        // Excluídos (redundantes ou operacionais de produto)
+        expect(isExcludedCharacteristic('Reclinável')).toBe(true);
+        expect(isExcludedCharacteristic('reclinavel')).toBe(true);
+        expect(isExcludedCharacteristic(' Linha ')).toBe(true);
+        expect(isExcludedCharacteristic('linha')).toBe(true);
+        expect(isExcludedCharacteristic(' Modelo ')).toBe(true);
+        expect(isExcludedCharacteristic('modelo')).toBe(true);
 
-      const available = getAvailableAdditionalFields(fieldsWithReclinavel, []);
-      expect(available.some((f) => f.name.toLowerCase().includes('reclinável'))).toBe(false);
+        // Permitidos e preservados
+        expect(isExcludedCharacteristic('Modelo/Linha')).toBe(false);
+        expect(isExcludedCharacteristic('Linha/Modelo')).toBe(false);
+        expect(isExcludedCharacteristic('Reclinável manual')).toBe(false);
+        expect(isExcludedCharacteristic('Modelo e Linha')).toBe(false);
+      });
+
+      it('nunca inclui Reclinável, Linha ou Modelo isolado nos campos aplicáveis', () => {
+        const fields = [
+          ...mockAllFields,
+          createField('Reclinável', [catMesas], 'radio'),
+          createField('Linha', [catMesas], 'radio'),
+          createField('Modelo', [catMesas]),
+          createField('Modelo/Linha', [catMesas]),
+        ];
+
+        const applicable = getApplicableTechnicalFields(
+          fields,
+          [catMesas],
+          { Reclinável: 'Sim', Linha: 'Paris', Modelo: 'Imperial' },
+          []
+        );
+
+        const applicableNames = applicable.map((f) => f.name);
+        expect(applicableNames).not.toContain('Reclinável');
+        expect(applicableNames).not.toContain('Linha');
+        expect(applicableNames).not.toContain('Modelo');
+        expect(applicableNames).toContain('Modelo/Linha');
+      });
+
+      it('permite que Modelo/Linha herde e substitua valores legados de Modelo e Linha', () => {
+        const fields = [createField('Modelo/Linha', [catMesas])];
+
+        // Produto com chave legada Modelo no banco
+        const applicableComModeloLegado = getApplicableTechnicalFields(
+          fields,
+          [catMesas],
+          { Modelo: 'Imperial' },
+          []
+        );
+        expect(applicableComModeloLegado.some((f) => f.name === 'Modelo/Linha')).toBe(true);
+
+        // Produto com chave legada Linha no banco
+        const applicableComLinhaLegada = getApplicableTechnicalFields(
+          fields,
+          [catMesas],
+          { Linha: 'Paris' },
+          []
+        );
+        expect(applicableComLinhaLegada.some((f) => f.name === 'Modelo/Linha')).toBe(true);
+      });
+    });
+
+    describe('compatibilidade e herança canônica entre Modelo/Linha e chaves legadas', () => {
+      it('resolve herança bi-direcional transparente entre Modelo/Linha e chaves legadas', () => {
+        // Fallback para valor do pai gravado como Modelo
+        expect(getEffectiveTechnicalValue({ Modelo: 'Imperial' }, {}, 'Modelo/Linha')).toBe('Imperial');
+        // Fallback para valor do pai gravado como Linha
+        expect(getEffectiveTechnicalValue({ Linha: 'Roma' }, {}, 'Modelo/Linha')).toBe('Roma');
+        // Consulta por chave legada recupera valor gravado no pai como Modelo/Linha
+        expect(getEffectiveTechnicalValue({ 'Modelo/Linha': 'Veneza' }, {}, 'Modelo')).toBe('Veneza');
+        expect(getEffectiveTechnicalValue({ 'Modelo/Linha': 'Veneza' }, {}, 'Linha')).toBe('Veneza');
+      });
+
+      it('detecta e remove overrides na variação entre Modelo/Linha e chaves legadas', () => {
+        expect(hasVariationOverride({ Modelo: 'Variação 1' }, 'Modelo/Linha')).toBe(true);
+        expect(hasVariationOverride({ Linha: 'Variação 2' }, 'Modelo/Linha')).toBe(true);
+        expect(hasVariationOverride({ 'Modelo/Linha': 'Variação 3' }, 'Modelo')).toBe(true);
+
+        // removeVariationOverride limpa tanto a chave unificada quanto as chaves legadas
+        const cleaned = removeVariationOverride(
+          { 'Modelo/Linha': 'Nova', Modelo: 'Antigo', Linha: 'Antiga', Cor: 'Preto' },
+          'Modelo/Linha'
+        );
+        expect(cleaned).toEqual({ Cor: 'Preto' });
+        expect(hasVariationOverride(cleaned, 'Modelo/Linha')).toBe(false);
+      });
     });
 
     it('para colchões, exclui Altura e exige Espessura do colchão', () => {

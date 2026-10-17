@@ -64,11 +64,18 @@ export async function validateCancellationDocument(params: {
   if (docError || !doc)
     return { ok: false, status: 404, error: 'Documento fiscal não encontrado.' };
 
-  if (doc.document_type !== 'outbound')
+  if (!['outbound', 'return', 'estorno'].includes(String(doc.document_type)))
     return {
       ok: false,
       status: 409,
-      error: 'Somente uma NF-e de saída pode receber este evento de cancelamento.',
+      error: 'Somente uma NF-e de saída, devolução ou estorno pode receber este evento de cancelamento.',
+    };
+
+  if (['return', 'estorno'].includes(String(doc.document_type)) && String(doc.modelo) !== '55')
+    return {
+      ok: false,
+      status: 409,
+      error: 'Cancelamento fiscal de NF-e de devolução ou estorno exige modelo 55.',
     };
 
   if (!['autorizada', 'homologada'].includes(doc.status))
@@ -127,6 +134,115 @@ export async function validateCancellationOrderAndCirculation(params: {
   let orderEditVersion = params.orderEditVersion;
   let proposedOrder = params.proposedOrder;
   const replacementId = params.replacementId;
+
+  if (doc.document_type === 'return' || doc.document_type === 'estorno') {
+    if (viaOrderEdit) {
+      return {
+        ok: false,
+        status: 409,
+        error: 'Substituição por edição de pedido aplica-se apenas à NF-e de venda original.',
+      };
+    }
+
+    if (!doc.original_document_id) {
+      return {
+        ok: false,
+        status: 409,
+        error: 'A NF-e de devolução ou estorno não possui vínculo com o documento fiscal original.',
+      };
+    }
+
+    if (doc.document_type === 'return') {
+      if (!doc.related_return_order_id) {
+        return {
+          ok: false,
+          status: 409,
+          error: 'A NF-e de devolução não possui vínculo com o pedido de devolução comercial.',
+        };
+      }
+      const { data: returnOrder, error: returnOrderError } = await supabase
+        .from('orders')
+        .select('id,status,order_type,linked_order_id,order_data')
+        .eq('id', doc.related_return_order_id)
+        .maybeSingle();
+
+      if (
+        returnOrderError ||
+        !returnOrder ||
+        String(returnOrder.order_type || '').toLowerCase() !== 'return'
+      ) {
+        return {
+          ok: false,
+          status: 409,
+          error:
+            'Não foi possível validar o pedido de devolução comercial vinculado à NF-e de devolução.',
+        };
+      }
+    }
+
+    if (doc.document_type === 'estorno') {
+      const { data: activeReplacement, error: replacementError } = await supabase
+        .from('nfe_order_edit_replacements')
+        .select('id,status')
+        .eq('original_document_id', doc.original_document_id)
+        .eq('environment', doc.ambiente)
+        .eq('reversal_kind', 'estorno')
+        .in('status', ['ready_to_reissue', 'replacement_prepared', 'completed'])
+        .maybeSingle();
+
+      if (replacementError) {
+        return {
+          ok: false,
+          status: 503,
+          error: 'Não foi possível verificar substituições fiscais vinculadas ao estorno.',
+        };
+      }
+
+      if (activeReplacement) {
+        const errorMsg =
+          'Esta NF-e de estorno já compõe uma substituição fiscal de edição aplicada ou concluída e não pode ser cancelada isoladamente.';
+        await recordCancellationPreflightFailure({
+          supabase,
+          documentId: doc.id,
+          attemptNumber,
+          environment: Number(doc.ambiente),
+          reason,
+          errorMessage: errorMsg,
+          userId,
+        });
+        return { ok: false, status: 409, error: errorMsg };
+      }
+    }
+
+    const authorizedAt = getAuthorizedAt(String(doc.xml_protocolo || ''), '');
+    const cancellationPolicy = getFiscalCancellationPolicy({
+      model: '55',
+      authorizedAt,
+      status: String(doc.status),
+      environment: Number(doc.ambiente) as 1 | 2,
+      goodsCirculated: false,
+      operationDidNotOccur: true,
+      issuerUf: String(doc.chave_acesso || '').slice(0, 2) === '41' ? 'PR' : '',
+    });
+
+    if (cancellationPolicy.action !== 'cancel') {
+      const policyReason =
+        cancellationPolicy.reason ||
+        'Prazo de cancelamento da NF-e (168 horas no Paraná) ultrapassado.';
+      await recordCancellationPreflightFailure({
+        supabase,
+        documentId: doc.id,
+        attemptNumber,
+        environment: Number(doc.ambiente),
+        reason,
+        errorMessage: policyReason,
+        userId,
+      });
+      return { ok: false, status: 409, error: policyReason };
+    }
+
+    return { ok: true };
+  }
 
   if (!doc.order_id) {
     return {

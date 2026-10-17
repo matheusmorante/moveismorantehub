@@ -16,13 +16,16 @@ export const calcItemsTotalValue = (items: Item[]) => {
 };
 
 export const getFixedDiscount = (item: Item) => {
-  if (item.discountType === 'fixed') return item.unitDiscount;
-  else return (item.unitPrice * item.unitDiscount) / 100;
+  const discount = item.unitDiscount || 0;
+  if (item.discountType === 'fixed') return discount;
+  else return (item.unitPrice * discount) / 100;
 };
 
 export const getFixedFee = (payment: Payment) => {
-  if (payment.feeType === 'fixed') return payment.fee;
-  else return (payment.amount * payment.fee) / 100;
+  const fee = payment.fee || 0;
+  const amount = payment.amount || 0;
+  if (payment.feeType === 'fixed') return fee;
+  else return (amount * fee) / 100;
 };
 
 export function sumKeyValues<T extends Record<string, any>>(array: T[], key: keyof T): number {

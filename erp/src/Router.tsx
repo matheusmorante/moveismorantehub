@@ -7,6 +7,7 @@ import Dashboard from './pages/App/Dashboard/Index';
 import AppLayout from './AppLayout';
 import PendingApproval from './pages/PendingApproval';
 import ReceiptPage from './pages/ReceiptPage';
+import PromissoryNotePage from './pages/PromissoryNotePage';
 import WarrantyTermPage from './pages/WarrantyTermPage';
 import DeliverySchedule from './pages/App/DeliverySchedule';
 import OrderPage from './pages/OrderPage';
@@ -207,6 +208,7 @@ function Router() {
 
           {/* Publicly accessible order pages could go here if needed */}
           <Route path="/receipt" element={<ReceiptPage />} />
+          <Route path="/promissory-note" element={<PromissoryNotePage />} />
           <Route path="/order" element={<OrderPage />} />
           <Route path="/shipping-label" element={<ShippingLabelPage />} />
           <Route path="/schedule" element={<DeliverySchedule />} />

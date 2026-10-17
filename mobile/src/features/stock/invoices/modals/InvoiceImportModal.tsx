@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
-  TextInput,
   Modal,
   KeyboardAvoidingView,
   Platform,
@@ -12,21 +10,20 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import {
-  X,
-  UploadCloud,
-  Search,
-  ScanBarcode,
-  CloudDownload,
-  ExternalLink,
-} from 'lucide-react-native';
+import { X, UploadCloud } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { InventoryScannerScreen } from '../../inventory/screens/InventoryScannerScreen';
 import { extractNfeAccessKey } from '../utils/accessKey';
 import * as stockService from '../../../../services/stockService';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
-import { inboundAccessKeyFormSchema, inboundXmlFileFormSchema } from '../../../../../../shared-utils/lookupFormSchemas';
+import {
+  inboundAccessKeyFormSchema,
+  inboundXmlFileFormSchema,
+} from '../../../../../../shared-utils/lookupFormSchemas';
+import { styles } from './invoice-import/invoiceImportModal.styles';
+import { InvoiceImportAccessKeySection } from './invoice-import/InvoiceImportAccessKeySection';
+import { InvoiceImportXmlUploadSection } from './invoice-import/InvoiceImportXmlUploadSection';
 
 interface Props {
   visible: boolean;
@@ -61,8 +58,11 @@ export const InvoiceImportModal: React.FC<Props> = ({
         if (onUploadXml) {
           setIsLoading(true);
           try {
-            await fileForm.validateAndRun({ ...result.assets[0] }, (values) => onUploadXml(values as DocumentPickerAsset),
-              (errors) => Alert.alert('Arquivo inválido', Object.values(flattenFormErrors(errors))[0]));
+            await fileForm.validateAndRun(
+              { ...result.assets[0] },
+              (values) => onUploadXml(values as DocumentPickerAsset),
+              (errors) => Alert.alert('Arquivo inválido', Object.values(flattenFormErrors(errors))[0])
+            );
           } finally {
             setIsLoading(false);
           }
@@ -77,43 +77,48 @@ export const InvoiceImportModal: React.FC<Props> = ({
 
   const handleDirectSefazQuery = async () => {
     if (!isAccessKeyValid || isDirectSyncing || isLoading) return;
-    return keyForm.validateAndRun({ accessKey }, async (values) => {
-    setIsDirectSyncing(true);
-    try {
-      const res = await stockService.consultSefazByAccessKey(values.accessKey);
-      const data = res?.data;
-      if (data?.success) {
-        Alert.alert(
-          'NF-e Localizada!',
-          data.message || 'Nota fiscal sincronizada com sucesso a partir do Ambiente Nacional.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                onClose();
-                if (onDirectSyncSuccess) onDirectSyncSuccess();
-              },
-            },
-          ]
-        );
-      } else {
-        const msg =
-          data?.message ||
-          res?.error?.message ||
-          'A SEFAZ não retornou o documento para a chave informada.';
-        Alert.alert('Consulta SEFAZ', msg);
-      }
-    } catch (err: any) {
-      console.error('Falha na consulta SEFAZ direta:', err);
-      Alert.alert(
-        'Erro na Consulta',
-        err?.message || 'Falha ao comunicar com o Web Service da SEFAZ.'
-      );
-    } finally {
-      setIsDirectSyncing(false);
-    }
-    }, (errors) => Alert.alert('Chave inválida', Object.values(flattenFormErrors(errors))[0]));
+    return keyForm.validateAndRun(
+      { accessKey },
+      async (values) => {
+        setIsDirectSyncing(true);
+        try {
+          const res = await stockService.consultSefazByAccessKey(values.accessKey);
+          const data = res?.data;
+          if (data?.success) {
+            Alert.alert(
+              'NF-e Localizada!',
+              data.message || 'Nota fiscal sincronizada com sucesso a partir do Ambiente Nacional.',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    onClose();
+                    if (onDirectSyncSuccess) onDirectSyncSuccess();
+                  },
+                },
+              ]
+            );
+          } else {
+            const msg =
+              data?.message ||
+              res?.error?.message ||
+              'A SEFAZ não retornou o documento para a chave informada.';
+            Alert.alert('Consulta SEFAZ', msg);
+          }
+        } catch (err: any) {
+          console.error('Falha na consulta SEFAZ direta:', err);
+          Alert.alert(
+            'Erro na Consulta',
+            err?.message || 'Falha ao comunicar com o Web Service da SEFAZ.'
+          );
+        } finally {
+          setIsDirectSyncing(false);
+        }
+      },
+      (errors) => Alert.alert('Chave inválida', Object.values(flattenFormErrors(errors))[0])
+    );
   };
+
   const handleScan = (value: string) => {
     const key = extractNfeAccessKey(value);
     setShowScanner(false);
@@ -125,6 +130,14 @@ export const InvoiceImportModal: React.FC<Props> = ({
       return;
     }
     setAccessKey(key);
+  };
+
+  const handleConsultPortal = () => {
+    keyForm.validateAndRun(
+      { accessKey },
+      (values) => onConsultSefaz?.(values.accessKey),
+      (errors) => Alert.alert('Chave inválida', Object.values(flattenFormErrors(errors))[0])
+    );
   };
 
   return (
@@ -173,134 +186,25 @@ export const InvoiceImportModal: React.FC<Props> = ({
                   </Text>
                 </View>
               </View>
-
             )}
 
-            <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
-              <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
-                Consultar Chave de Acesso
-              </Text>
-              {accessKey && !isAccessKeyValid ? <Text style={{ color: '#dc2626', marginTop: 8 }}>Informe uma chave NF-e válida de 44 caracteres, incluindo o dígito verificador.</Text> : null}
+            <InvoiceImportAccessKeySection
+              accessKey={accessKey}
+              setAccessKey={setAccessKey}
+              isAccessKeyValid={isAccessKeyValid}
+              isLoading={isLoading}
+              isDirectSyncing={isDirectSyncing}
+              isDarkMode={isDarkMode}
+              onOpenScanner={() => setShowScanner(true)}
+              onDirectSefazQuery={handleDirectSefazQuery}
+              onConsultPortal={handleConsultPortal}
+            />
 
-              <View style={styles.inputRow}>
-                <View style={[styles.inputWrapper, isDarkMode && styles.inputWrapperDark]}>
-                  <TextInput
-                    editable={!isLoading}
-                    style={[styles.input, isDarkMode && styles.textDark]}
-                    placeholder="Digite os 44 caracteres..."
-                    placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
-                    keyboardType="default"
-                    autoCapitalize="characters"
-                    maxLength={44}
-                    value={accessKey}
-                    onChangeText={(text) => setAccessKey(text.toUpperCase().replace(/[.\-/\s]/g, ''))}
-                  />
-                  <TouchableOpacity
-                    style={styles.scanBtn}
-                    onPress={() => setShowScanner(true)}
-                    disabled={isLoading}
-                    accessibilityRole="button"
-                    accessibilityLabel="Escanear chave da NF-e"
-                    hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-                  >
-                    <ScanBarcode size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.actionButtonsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.directSyncBtn,
-                    isAccessKeyValid && !isDirectSyncing && !isLoading
-                      ? styles.directSyncBtnActive
-                      : styles.directSyncBtnDisabled,
-                    isDarkMode &&
-                      (!isAccessKeyValid || isDirectSyncing || isLoading) &&
-                      styles.directSyncBtnDisabledDark,
-                  ]}
-                  disabled={!isAccessKeyValid || isDirectSyncing || isLoading}
-                  onPress={handleDirectSefazQuery}
-                >
-                  {isDirectSyncing ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  ) : (
-                    <CloudDownload
-                      size={17}
-                      color={isAccessKeyValid ? '#ffffff' : isDarkMode ? '#64748b' : '#94a3b8'}
-                    />
-                  )}
-                  <Text
-                    style={[
-                      styles.directSyncBtnText,
-                      isAccessKeyValid && !isDirectSyncing
-                        ? styles.directSyncBtnTextActive
-                        : styles.directSyncBtnTextDisabled,
-                      isDarkMode &&
-                        (!isAccessKeyValid || isDirectSyncing) &&
-                        styles.directSyncBtnTextDisabledDark,
-                    ]}
-                  >
-                    {isDirectSyncing ? 'Buscando...' : 'Buscar SEFAZ Direto'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.portalBtn,
-                    isDarkMode && styles.portalBtnDark,
-                    !isAccessKeyValid && styles.portalBtnDisabled,
-                  ]}
-                  disabled={!isAccessKeyValid || isLoading}
-                  onPress={() => keyForm.validateAndRun({ accessKey }, (values) => onConsultSefaz?.(values.accessKey),
-                    (errors) => Alert.alert('Chave inválida', Object.values(flattenFormErrors(errors))[0]))}
-                >
-                  <ExternalLink
-                    size={15}
-                    color={
-                      isAccessKeyValid
-                        ? isDarkMode
-                          ? '#cbd5e1'
-                          : '#475569'
-                        : isDarkMode
-                          ? '#64748b'
-                          : '#94a3b8'
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.portalBtnText,
-                      isDarkMode && styles.textDark,
-                      !isAccessKeyValid && styles.portalBtnTextDisabled,
-                    ]}
-                  >
-                    Consultar no Portal
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.sectionHeaderSpacing}>
-              <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
-                Arquivo XML da NF-e
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.uploadArea, isDarkMode && styles.uploadAreaDark]}
-              onPress={handlePickDocument}
-              disabled={isLoading}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.uploadIconCircle, isDarkMode && styles.uploadIconCircleDark]}>
-                <UploadCloud size={28} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
-              </View>
-              <Text style={[styles.uploadTitle, isDarkMode && styles.textDark]}>
-                Toque para escolher o arquivo
-              </Text>
-              <Text style={[styles.uploadSubtitle, isDarkMode && styles.textMutedDark]}>
-                Formato aceito: XML oficial da NF-e
-              </Text>
-            </TouchableOpacity>
+            <InvoiceImportXmlUploadSection
+              isLoading={isLoading}
+              isDarkMode={isDarkMode}
+              onPickDocument={handlePickDocument}
+            />
           </ScrollView>
 
           <View style={[styles.footer, isDarkMode && styles.footerDark]}>
@@ -314,6 +218,7 @@ export const InvoiceImportModal: React.FC<Props> = ({
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
       <Modal
         visible={showScanner}
         animationType="slide"
@@ -331,157 +236,3 @@ export const InvoiceImportModal: React.FC<Props> = ({
     </>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  containerDark: { backgroundColor: '#0f172a' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  headerDark: { backgroundColor: '#1e293b', borderBottomColor: '#334155' },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  headerCopy: { flex: 1, minWidth: 0 },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#eff6ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconBoxDark: { backgroundColor: '#172554' },
-  title: { fontSize: 16, fontWeight: '800', color: '#0f172a', marginBottom: 2 },
-  subtitle: { fontSize: 12, color: '#64748b' },
-  closeBtn: { padding: 4 },
-  content: { padding: 20, paddingBottom: 40 },
-  loadingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#eff6ff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-    padding: 14,
-    marginBottom: 18,
-  },
-  loadingCopy: { flex: 1, gap: 3 },
-  loadingTitle: { color: '#1e3a8a', fontSize: 13, fontWeight: '800' },
-  loadingSubtitle: { color: '#475569', fontSize: 11, lineHeight: 16 },
-  sectionCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    marginBottom: 24,
-  },
-  sectionCardDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#334155', marginBottom: 16 },
-  sectionHeaderSpacing: { marginBottom: 12, paddingHorizontal: 4 },
-  inputRow: { marginBottom: 16 },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
-    height: 48,
-  },
-  inputWrapperDark: { borderColor: '#475569', backgroundColor: '#0f172a' },
-  input: { flex: 1, height: '100%', paddingHorizontal: 16, fontSize: 15, color: '#0f172a' },
-  scanBtn: {
-    paddingHorizontal: 14,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderLeftWidth: 1,
-    borderLeftColor: '#e2e8f0',
-  },
-  actionButtonsRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  directSyncBtn: {
-    flex: 1.3,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 46,
-    borderRadius: 12,
-    gap: 7,
-    paddingHorizontal: 10,
-  },
-  directSyncBtnActive: { backgroundColor: '#2563eb' },
-  directSyncBtnDisabled: { backgroundColor: '#e2e8f0' },
-  directSyncBtnDisabledDark: { backgroundColor: '#334155' },
-  directSyncBtnText: { fontSize: 13, fontWeight: '700' },
-  directSyncBtnTextActive: { color: '#ffffff' },
-  directSyncBtnTextDisabled: { color: '#94a3b8' },
-  directSyncBtnTextDisabledDark: { color: '#64748b' },
-  portalBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#ffffff',
-    gap: 6,
-    paddingHorizontal: 10,
-  },
-  portalBtnDark: { backgroundColor: '#1e293b', borderColor: '#475569' },
-  portalBtnDisabled: { opacity: 0.5 },
-  portalBtnText: { fontSize: 13, fontWeight: '700', color: '#334155' },
-  portalBtnTextDisabled: { color: '#94a3b8' },
-  uploadArea: {
-    borderWidth: 2,
-    borderColor: '#cbd5e1',
-    borderStyle: 'dashed',
-    borderRadius: 16,
-    backgroundColor: '#ffffff',
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uploadAreaDark: { borderColor: '#475569', backgroundColor: '#1e293b' },
-  uploadIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#eff6ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  uploadIconCircleDark: { backgroundColor: '#172554' },
-  uploadTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b', marginBottom: 8 },
-  uploadSubtitle: { fontSize: 13, color: '#64748b' },
-  footer: {
-    padding: 20,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-    alignItems: 'flex-end',
-  },
-  footerDark: { backgroundColor: '#1e293b', borderTopColor: '#334155' },
-  cancelBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#ffffff',
-  },
-  cancelBtnDark: { borderColor: '#475569', backgroundColor: '#1e293b' },
-  cancelBtnText: { fontSize: 15, fontWeight: '600', color: '#334155' },
-  textDark: { color: '#f8fafc' },
-  textMutedDark: { color: '#94a3b8' },
-});

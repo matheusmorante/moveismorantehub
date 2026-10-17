@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import type Product from '../../../../types/product.type';
 import { aiService } from '../../../../utils/aiService';
-import { getMissingRequiredCharacteristics } from '../../../../utils/technicalValuesService';
+import { validateProductDescriptionPrerequisites } from './productDescriptionPrerequisites';
 import { ProductDescriptionInformativeModal } from '../../modals/descriptionAi/ProductDescriptionInformativeModal';
+export { validateProductDescriptionPrerequisites };
 
 export interface ProductDescriptionTabProps {
   readonly formData: Partial<Product>;
@@ -13,61 +14,6 @@ export interface ProductDescriptionTabProps {
   readonly improving?: boolean;
   readonly showImprove?: boolean;
 }
-
-/**
- * Validação dos pré-requisitos para geração da descrição por características:
- * - Nome do produto preenchido (mínimo 2 caracteres)
- * - Características obrigatórias mínimas preenchidas (Marca, Modelo, Cor e obrigatórias de catálogo)
- */
-export const validateProductDescriptionPrerequisites = (formData: Partial<Product>): string[] => {
-  const missing: string[] = [];
-
-  const name = formData.name?.trim() || '';
-  if (name.length < 2) {
-    missing.push('Nome do produto');
-  }
-
-  const techValues = formData.technicalValues || {};
-  const hasBrand = Boolean(formData.brand?.trim() || techValues['Marca'] || techValues['marca']);
-  if (!hasBrand) {
-    missing.push('Marca');
-  }
-
-  const hasModel = Boolean(
-    formData.model?.trim() ||
-    formData.line?.trim() ||
-    techValues['Modelo/Linha'] ||
-    techValues['Modelo / Linha'] ||
-    techValues['modelo/linha'] ||
-    techValues['Modelo'] ||
-    techValues['modelo'] ||
-    techValues['Linha'] ||
-    techValues['linha']
-  );
-  if (!hasModel) {
-    missing.push('Modelo');
-  }
-
-  const hasColor = Boolean(formData.color?.trim() || techValues['Cor'] || techValues['cor']);
-  if (!hasColor) {
-    missing.push('Cor');
-  }
-
-  const missingFromUtils = getMissingRequiredCharacteristics({
-    ...techValues,
-    ...(formData.brand ? { Marca: formData.brand } : {}),
-    ...(formData.model ? { Modelo: formData.model } : {}),
-    ...(formData.color ? { Cor: formData.color } : {}),
-  });
-
-  missingFromUtils.forEach((field) => {
-    if (!missing.includes(field)) {
-      missing.push(field);
-    }
-  });
-
-  return missing;
-};
 
 export default function ProductDescriptionTab({
   formData,
@@ -86,6 +32,7 @@ export default function ProductDescriptionTab({
     }
 
     setIsGenerating(true);
+    setIsInformativeModalOpen(false);
     try {
       const techValues = {
         ...(formData.technicalValues || {}),
@@ -159,49 +106,26 @@ export default function ProductDescriptionTab({
 
   return (
     <div className="w-full space-y-4">
-      {/* Barra de Ações de IA na Descrição */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-500/15 dark:via-amber-500/5 border border-amber-200/60 dark:border-amber-800/60">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-            <i className="bi bi-stars text-amber-500 text-sm animate-pulse" />
-            <span>Gerar Descrição com IA</span>
-          </span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+            Descrição do produto
+          </h3>
+          <p className="text-xs font-semibold text-slate-400">
+            Descreva o produto, seus diferenciais e informações importantes para o catálogo.
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Botão de Estrelinha (somente ícone) - Modo 1: Usar características e dados já preenchidos */}
-          <button
-            type="button"
-            onClick={handleGenerateFromCharacteristics}
-            disabled={isGenerating}
-            title="Gerar descrição a partir das características e dados preenchidos"
-            aria-label="Gerar descrição a partir das características"
-            className="w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-xs hover:shadow-md flex items-center justify-center transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <i className="bi bi-stars text-base" />
-          </button>
 
-          {/* Botão com texto informativo - Modo 2: Abrir modal de texto informativo */}
-          <button
-            type="button"
-            onClick={() => setIsInformativeModalOpen(true)}
-            disabled={isGenerating}
-            title="Gerar descrição a partir de anotações ou texto informativo"
-            aria-label="Gerar descrição via texto informativo"
-            className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <i className="bi bi-file-text text-amber-500" />
-            <span>Texto informativo</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <h3 className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-          Descrição do produto
-        </h3>
-        <p className="text-xs font-semibold text-slate-400">
-          Descreva o produto, seus diferenciais e informações importantes para o catálogo.
-        </p>
+        <button
+          type="button"
+          onClick={() => setIsInformativeModalOpen(true)}
+          disabled={isGenerating}
+          title="Gerar descrição com IA"
+          aria-label="Gerar descrição com IA"
+          className="w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-xs hover:shadow-md flex items-center justify-center transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          <i className="bi bi-stars text-base" />
+        </button>
       </div>
 
       {/* Container do Textarea com faixa animada shimmer de loading */}
@@ -238,11 +162,13 @@ export default function ProductDescriptionTab({
         )}
       </div>
 
-      {/* Modal para inserção de texto informativo (Modo 2) */}
+      {/* Modal para geração da descrição com IA (Características ou Texto Informativo) */}
       <ProductDescriptionInformativeModal
         isOpen={isInformativeModalOpen}
         onClose={() => setIsInformativeModalOpen(false)}
         onSubmit={handleGenerateFromInformativeText}
+        onGenerateFromCharacteristics={handleGenerateFromCharacteristics}
+        formData={formData}
         isGenerating={isGenerating}
       />
     </div>

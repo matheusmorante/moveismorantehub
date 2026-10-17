@@ -118,7 +118,7 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
     icon: 'bi-truck',
     actions: [
       action('viewDeliverySchedule', 'Agenda de entregas', 'view', 'Acessar', 'Consultar agenda e pedidos programados para entrega.', 'bi-calendar-event', logisticsViewers),
-      action('startDelivery', 'Agenda de entregas', 'operate', 'Iniciar e atualizar rota', 'Despachar pedidos e atualizar o andamento da entrega.', 'bi-truck', ['manager', 'deliverer']),
+      action('startDelivery', 'Agenda de entregas', 'operate', 'Iniciar e atualizar rota', 'Despachar pedidos e atualizar o andamento da entrega.', 'bi-truck', ['administrator', 'manager', 'deliverer', 'seller', 'stockist']),
       action('viewAssemblyList', 'Lista de montagem', 'view', 'Acessar', 'Consultar itens e serviços de montagem.', 'bi-tools', logisticsViewers),
     ],
   },

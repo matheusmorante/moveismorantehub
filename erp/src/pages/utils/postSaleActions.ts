@@ -3,6 +3,7 @@ import Order from '../types/order.type';
 export const POST_SALE_ACTION_KEYS = new Set([
   'printShippingOrder',
   'printReceipt',
+  'printPromissoryNote',
   'printWarrantyTerm',
   'sendShippingOrder',
   'sendCustomerOrder',

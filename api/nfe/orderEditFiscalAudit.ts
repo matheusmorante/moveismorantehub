@@ -9,6 +9,7 @@ import type {
   FiscalDocument,
   FiscalSnapshotCandidate,
 } from './fiscalSnapshot';
+import { normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers.js';
 import type { FiscalXmlAuditMismatch } from './fiscalXmlAudit';
 
 type JsonObject = Record<string, any>;
@@ -17,7 +18,7 @@ const objectValue = (value: unknown): JsonObject =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as JsonObject) : {};
 
 const normalizeText = (value: unknown) => String(value ?? '').trim();
-const normalizeTaxId = (value: unknown) => String(value ?? '').replace(/\D/g, '');
+const normalizeTaxId = (value: unknown) => normalizeFiscalIdentifier(value);
 const moneyMatches = (left: unknown, right: unknown) => {
   const a = Number(left);
   const b = Number(right);

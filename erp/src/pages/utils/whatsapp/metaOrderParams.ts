@@ -46,12 +46,15 @@ export const buildOrderMetaTemplateParams = (order: Order, config?: any): string
     }
   }
 
-  // Lista de itens formatada em linha única usando ' • ' como separador (sem quebras de linha \n)
+  const isPickup = order.shipping?.deliveryMethod === 'pickup';
+  const actionType = isPickup ? 'retirada' : 'entrega';
+
+  // Lista de itens formatada com pipe ' | ' para atributos (idêntico ao wa.me) e ' • ' entre múltiplos itens (sem \n)
   const itemsList = (order.items || []).map((item) => {
     const totalVal = calcItemTotalValue(item);
     const obs = item.observation?.trim() ? ` - ${item.observation.trim()}` : '';
-    const valStr = totalVal > 0 ? ` - ${formatCurrency(totalVal)}` : '';
-    return `${item.description}${obs} (${item.quantity} UN${valStr})`;
+    const valStr = totalVal > 0 ? ` | ${formatCurrency(totalVal)}` : '';
+    return `${item.description}${obs} | ${item.quantity} UN${valStr}`;
   });
   if (order.shipping?.value && order.shipping.value > 0) {
     itemsList.push(`Frete: ${formatCurrency(order.shipping.value)}`);
@@ -59,7 +62,7 @@ export const buildOrderMetaTemplateParams = (order: Order, config?: any): string
   const itemsBlock = itemsList.length > 0 ? itemsList.join(' • ') : 'Produtos do pedido';
 
   const addressStr = order.shipping?.noAddress
-    ? order.shipping?.deliveryMethod === 'pickup'
+    ? isPickup
       ? 'Retirada em loja'
       : 'Não informado'
     : stringifyFullAddressWithObservation(customer?.fullAddress);
@@ -69,11 +72,12 @@ export const buildOrderMetaTemplateParams = (order: Order, config?: any): string
     maximumFractionDigits: 2,
   });
 
-  // Lista de pagamentos formatada em linha única usando ' • ' como separador (sem quebras de linha \n)
+  // Lista de pagamentos formatada com pipe ' | ' e status (idêntico ao wa.me) e ' • ' entre múltiplos pagamentos
   const paymentsList = (order.payments || []).map((p) => {
     const totalVal = calcPaymentTotalValue(p);
-    const valStr = totalVal > 0 ? ` (${formatCurrency(totalVal)})` : '';
-    return `${p.method || 'Pagamento'}${valStr}`;
+    const valStr = totalVal > 0 ? ` | ${formatCurrency(totalVal)}` : '';
+    const statusStr = p.status ? ` | Status: ${p.status}` : '';
+    return `${p.method || 'Pagamento'}${valStr}${statusStr}`;
   });
   const paymentsStr = paymentsList.length > 0 ? paymentsList.join(' • ') : 'Não informado';
 
@@ -86,7 +90,43 @@ export const buildOrderMetaTemplateParams = (order: Order, config?: any): string
     );
   };
 
-  const allParams = [
+  const varCount =
+    typeof config?.templateVariableCount === 'number' ? config.templateVariableCount : 7;
+
+  if (varCount === 0) return [];
+
+  // Se o modelo configurado tiver 8 variáveis (padrão com tipo dinâmico 'entrega' ou 'retirada'):
+  // {{1}}: Nome do Cliente
+  // {{2}}: Tipo ('entrega' ou 'retirada')
+  // {{3}}: Data
+  // {{4}}: Horário
+  // {{5}}: Endereço
+  // {{6}}: Itens
+  // {{7}}: Valor Total
+  // {{8}}: Pagamento
+  if (varCount >= 8) {
+    const params8 = [
+      customer?.fullName || 'Cliente',
+      actionType,
+      date || 'A confirmar',
+      time || 'A combinar',
+      addressStr || 'Não informado',
+      itemsBlock,
+      cleanTotalVal || '0,00',
+      paymentsStr,
+    ].map(cleanParam);
+    return params8.slice(0, varCount);
+  }
+
+  // Modelos com 7 variáveis ou menos (legado):
+  // {{1}}: Nome
+  // {{2}}: Data
+  // {{3}}: Horário
+  // {{4}}: Endereço
+  // {{5}}: Itens
+  // {{6}}: Valor Total
+  // {{7}}: Pagamento
+  const legacyParams = [
     customer?.fullName || 'Cliente',
     date || 'A confirmar',
     time || 'A combinar',
@@ -96,7 +136,5 @@ export const buildOrderMetaTemplateParams = (order: Order, config?: any): string
     paymentsStr,
   ].map(cleanParam);
 
-  const varCount =
-    typeof config?.templateVariableCount === 'number' ? config.templateVariableCount : 7;
-  return varCount === 0 ? [] : allParams.slice(0, varCount);
+  return legacyParams.slice(0, varCount);
 };

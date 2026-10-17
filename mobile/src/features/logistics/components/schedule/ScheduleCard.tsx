@@ -12,6 +12,7 @@ import {
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
+import { DeliveryFlowIcon } from '../../../../components/shared/DeliveryFlowIcon';
 import { isAssemblyInternalType, isAssemblyOutsideType } from '../../../../utils/aiSummaryHelper';
 
 interface Props {
@@ -177,9 +178,13 @@ export const ScheduleCard: React.FC<Props> = ({
           }}
           activeOpacity={0.85}
         >
-          <Play size={14} color="#ffffff" fill="#ffffff" />
+          {item.activityType === 'delivery' ? (
+            <DeliveryFlowIcon size={18} color="#ffffff" />
+          ) : (
+            <Play size={14} color="#ffffff" fill="#ffffff" />
+          )}
           <Text style={styles.startBtnText}>
-            {item.activityType === 'delivery' ? 'INICIAR ENTREGA' : 'VER ATIVIDADE'}
+            {item.activityType === 'delivery' ? 'INICIAR FLUXO DE ENTREGA' : 'VER ATIVIDADE'}
           </Text>
         </TouchableOpacity>
       </View>

@@ -7,7 +7,7 @@ vi.mock('@/pages/utils/maps', async () => ({ searchAddressSuggestions: mocks.sea
   normalizeUf: (value = 'PR') => value.trim().toUpperCase() === 'PARANÁ' ? 'PR' : value.trim().toUpperCase(),
 }));
 import { AddressAutocompleteInput } from './AddressAutocompleteInput';
-import { mergeAddressSelection, type SelectedAddress } from '../../../../shared-utils/addressSelection';
+import { changeAddressField, mergeAddressSelection, type SelectedAddress } from '../../../../shared-utils/addressSelection';
 const suggestion = (street = 'Rua A', place = 'a') => ({ display_name: ` ${street}, Colombo `, place_id: ` ${place} `, address: { road: ` ${street} `, city: ' Colombo ', state: 'Paraná', suburb: ' Centro ' } });
 const details = (street = 'Rua A', place = 'a') => ({ street, number: ' 20 ', city: ' Colombo ', state: 'Paraná', cep: ' 83400000 ', placeId: place, coords: [-49.1, -25.1], formattedAddress: ` ${street}, 20 ` });
 function Owner({ initial = {} as Record<string, unknown>, city = ' Colombo ', state = ' PR ', disabled = false }) {
@@ -100,5 +100,21 @@ describe('consultas e seleção do autocomplete compartilhado', () => {
   it('não inicia nem aplica buscas quando o componente é desabilitado ou desmontado', async () => {
     const view = render(<Owner />); fireEvent.change(screen.getByPlaceholderText(/Rua das Flores/), { target: { value: 'Rua A' } }); view.unmount();
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); }); expect(mocks.search).not.toHaveBeenCalled();
+  });
+  it('changeAddressField preserva mapsUrl informado ao editar número ou outro campo físico', () => {
+    const initial = {
+      street: 'Estrada Elena Tomé De Oliveira Lisboa',
+      number: '',
+      city: 'Colombo',
+      state: 'PR',
+      mapsUrl: 'https://maps.google.com/?q=-25.26,-49.14',
+      coords: [-49.14, -25.26],
+      placeId: 'pl-1',
+    };
+    const updated = changeAddressField(initial, 'number', '0');
+    expect(updated.number).toBe('0');
+    expect(updated.mapsUrl).toBe('https://maps.google.com/?q=-25.26,-49.14');
+    expect(updated.coords).toBeUndefined();
+    expect(updated.placeId).toBe('');
   });
 });

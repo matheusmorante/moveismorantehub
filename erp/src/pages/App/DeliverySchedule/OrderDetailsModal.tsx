@@ -109,6 +109,14 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
                       destinationCoords={order.shipping?.destinationCoords}
                       distance={order.shipping?.distance}
                       durationMinutes={order.shipping?.durationMinutes}
+                      deliveryResponsibleName={
+                        order.deliveryResponsibleName ||
+                        (order as any).shipping?.deliveryResponsibleName
+                      }
+                      deliveryResponsibles={
+                        order.deliveryResponsibles ||
+                        (order as any).shipping?.deliveryResponsibles
+                      }
                       isReadOnly={isReadOnly}
                     />
                     {isRecalculating && (

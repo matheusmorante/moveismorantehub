@@ -172,7 +172,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .json({ success: false, error: 'CC-e só pode ser emitida para NF-e modelo 55.' });
     if (
       ![1, 2].includes(Number(document.ambiente)) ||
-      !/^\d{44}$/.test(document.chave_acesso || '')
+      !/^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/.test(document.chave_acesso || '')
     )
       return res
         .status(409)

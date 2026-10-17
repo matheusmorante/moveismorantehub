@@ -34,7 +34,14 @@ const isReason = (value: unknown): value is ConflictReasonCode =>
 const eventPatch = (event: SyncEvent): Record<string, unknown> => {
   const base = { ...(event.payload as Record<string, unknown>), lastSyncEventId: event.eventId };
   if (event.type === 'DELIVERY_START_ROUTE')
-    return { ...base, deliveryStatus: 'in_progress', deliveryStartedAt: event.occurredAt };
+    return {
+      ...base,
+      deliveryStatus: 'in_progress',
+      deliveryStartedAt: event.occurredAt,
+      deliveryResponsibles: (event.payload as any)?.deliveryResponsibles ?? base.deliveryResponsibles,
+      deliveryResponsibleName: (event.payload as any)?.deliveryResponsibleName ?? base.deliveryResponsibleName,
+      deliveryResponsibleId: (event.payload as any)?.deliveryResponsibleId ?? base.deliveryResponsibleId,
+    };
   if (event.type === 'DELIVERY_ARRIVE_DESTINATION')
     return { ...base, deliveryStatus: 'in_service', deliveryArrivedAt: event.occurredAt };
   if (event.type === 'DELIVERY_FINISH')

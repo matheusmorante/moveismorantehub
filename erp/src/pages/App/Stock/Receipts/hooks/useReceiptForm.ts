@@ -14,11 +14,13 @@ import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { markInvoiceAsReceived } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import type Purchase from '@/pages/types/purchase.type';
 import { type InboundReceiptItem } from '../components/InboundNfeItemsSection';
-import { saveProductSupplierCode } from '@/pages/utils/productSupplierCodesService';
 import { calculateReceiptItems } from '@/pages/utils/goodsReceiptCostCalculation';
 import { convertInboundToPurchaseItems } from '../utils/inboundToPurchaseConverter';
 import { adaptInboundInvoiceToReceiptState } from '../utils/inboundInvoiceToReceiptAdapter';
 import { calculateReceiptRateioBase } from '../utils/calculateReceiptRateioBase';
+import { getSafeReceivedAt } from '../utils/receiptDateUtils';
+import { persistInboundSupplierProductCodes } from '../utils/receiptSupplierCodesPersistence';
+import { buildGoodsReceiptPayload } from '../utils/receiptPayloadBuilders';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -293,39 +295,16 @@ export function useReceiptForm({
         const write = validateReceiptDraft(formValues, async (validated) => {
         if (finalizingRef.current || completedRef.current) return;
         const currentSupplier = suppliers.find((p) => p.id === validated.supplierId);
-        const safeReceivedAt = (() => {
-          if (!validated.receiptDate) return new Date().toISOString();
-          const d = new Date(validated.receiptDate.includes('T') ? validated.receiptDate : `${validated.receiptDate}T12:00:00`);
-          return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
-        })();
-
-        const savedDraft = await saveGoodsReceiptDraft({
+        const safeReceivedAt = getSafeReceivedAt(validated.receiptDate);
+        const draftPayload = buildGoodsReceiptPayload(validated, {
           id: draftIdRef.current || undefined,
           receiptIndex: receiptIndex || (copyReceipt ? undefined : initialReceipt?.receiptIndex),
           purchaseId: sourcePurchaseId || undefined,
-          supplierId: validated.supplierId,
           supplierName: currentSupplier?.fullName || 'Fornecedor',
-          receivedAt: safeReceivedAt,
-          invoiceNumber: validated.invoiceNumber,
-          invoiceDate: validated.invoiceDate,
-          items: validated.items,
-          totalValue: validated.totalValue,
-          observation: validated.observations.join('\n'),
-          fiscalKey: validated.fiscalKey,
-          attachments: validated.attachments,
-          ipiPercent: validated.ipiPercent,
-          freightPercent: validated.freightPercent,
-          nonFiscalDiscountMode: validated.nonFiscalDiscountMode,
-          nonFiscalDiscountValue: validated.nonFiscalDiscountValue,
-          nonFiscalFreightMode: validated.nonFiscalFreightMode,
-          nonFiscalFreightValue: validated.nonFiscalFreightValue,
-          nonFiscalOtherExpensesMode: validated.nonFiscalOtherExpensesMode,
-          nonFiscalOtherExpensesValue: validated.nonFiscalOtherExpensesValue,
-          fiscalIpi: validated.fiscalIpi,
-          fiscalFreight: validated.fiscalFreight,
-          fiscalDiscount: validated.fiscalDiscount,
-          fiscalOtherExpenses: validated.fiscalOtherExpenses,
+          safeReceivedAt,
         });
+
+        const savedDraft = await saveGoodsReceiptDraft(draftPayload);
         if (savedDraft.id) setDraftId(savedDraft.id);
         if (savedDraft.receiptIndex) setReceiptIndex(savedDraft.receiptIndex);
         setIsDraftSaved(true);
@@ -407,71 +386,20 @@ export function useReceiptForm({
       await validateReceipt(formValues, async (validated) => {
       const receiptId = draftIdRef.current || crypto.randomUUID();
 
-      if (inboundItems) {
-        await Promise.all(
-          inboundItems.flatMap((item) => {
-            if (item.linkMode === 'composition' && item.compositionLinks?.length) {
-              return item.compositionLinks.map((comp) =>
-                saveProductSupplierCode({
-                  supplierId,
-                  productId: comp.productId,
-                  productVariationId: comp.variationId,
-                  supplierProductCode: item.productCode,
-                  supplierDescription: item.productDescription,
-                })
-              );
-            }
-            if (item.linkedProductId) {
-              return [
-                saveProductSupplierCode({
-                  supplierId,
-                  productId: item.linkedProductId,
-                  productVariationId: item.linkedVariationId,
-                  supplierProductCode: item.productCode,
-                  supplierDescription: item.productDescription,
-                }),
-              ];
-            }
-            return [];
-          })
-        );
-      }
+      await persistInboundSupplierProductCodes(inboundItems, supplierId);
 
-      const safeReceivedAt = (() => {
-        if (!validated.receiptDate) return new Date().toISOString();
-        const d = new Date(validated.receiptDate.includes('T') ? validated.receiptDate : `${validated.receiptDate}T12:00:00`);
-        return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
-      })();
-
-      await finalizeGoodsReceipt({
+      const safeReceivedAt = getSafeReceivedAt(validated.receiptDate);
+      const finalizePayload = buildGoodsReceiptPayload(validated, {
         id: receiptId,
         receiptIndex: receiptIndex || (copyReceipt ? undefined : initialReceipt?.receiptIndex),
         purchaseId: sourcePurchaseId || undefined,
-        supplierId: validated.supplierId,
         supplierName: supplier.fullName,
-        receivedAt: safeReceivedAt,
-        invoiceNumber: validated.invoiceNumber,
-        invoiceDate: validated.invoiceDate,
-        items: validated.items,
-        totalValue: validated.totalValue,
-        observation: validated.observations.join('\n'),
-        fiscalKey: validated.fiscalKey,
-        attachments: validated.attachments,
-        ipiPercent: validated.ipiPercent,
-        freightPercent: validated.freightPercent,
-        nonFiscalDiscountMode: validated.nonFiscalDiscountMode,
-        nonFiscalDiscountValue: validated.nonFiscalDiscountValue,
-        nonFiscalFreightMode: validated.nonFiscalFreightMode,
-        nonFiscalFreightValue: validated.nonFiscalFreightValue,
-        nonFiscalOtherExpensesMode: validated.nonFiscalOtherExpensesMode,
-        nonFiscalOtherExpensesValue: validated.nonFiscalOtherExpensesValue,
-        fiscalIpi: validated.fiscalIpi,
-        fiscalFreight: validated.fiscalFreight,
-        fiscalDiscount: validated.fiscalDiscount,
-        fiscalOtherExpenses: validated.fiscalOtherExpenses,
+        safeReceivedAt,
         status: 'received',
         isDraft: false,
       });
+
+      await finalizeGoodsReceipt(finalizePayload);
 
       const isCompleteInvoiceReceipt =
         !inboundItems ||

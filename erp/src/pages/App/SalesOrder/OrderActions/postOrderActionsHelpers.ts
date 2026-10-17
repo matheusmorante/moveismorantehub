@@ -2,6 +2,7 @@ import Order from '../../../types/order.type';
 import { buttons } from './orderActionsConfig';
 import { POST_RETURN_ACTION_KEYS, POST_SALE_ACTION_KEYS } from '../../../utils/postSaleActions';
 import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
+import { canIssuePromissoryNote } from '../../../utils/promissory/promissoryNoteService';
 
 export const DELIVERY_ACTION_KEYS = new Set([
   'printShippingOrder',
@@ -18,6 +19,7 @@ export function getAvailablePostOrderActions(order: Order): PostOrderButtonConfi
     order.status === 'scheduled' &&
     (order.returnMethod === 'store_collection' || order.returnMethod == null);
   const isTestArtifact = isIdentifiedTestArtifact(order);
+  const isPromissoryEligible = canIssuePromissoryNote(order);
 
   return buttons.filter(
     (btn) =>
@@ -25,7 +27,8 @@ export function getAvailablePostOrderActions(order: Order): PostOrderButtonConfi
       (isReturnOrder || !DELIVERY_ACTION_KEYS.has(btn.key)) &&
       (btn.key !== 'sendReturnOSTeam' || isCollectionScheduled) &&
       (!isReturnOrder || !isTestArtifact || !btn.key.startsWith('sendReturnOS')) &&
-      (btn.key !== 'sendCustomerReviews' || !order.reviewRequested)
+      (btn.key !== 'sendCustomerReviews' || !order.reviewRequested) &&
+      (btn.key !== 'printPromissoryNote' || isPromissoryEligible)
   );
 }
 

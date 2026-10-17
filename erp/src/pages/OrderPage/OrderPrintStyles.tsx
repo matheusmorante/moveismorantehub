@@ -10,26 +10,34 @@ const OrderPrintStyles = () => {
                 .flex.flex-col.gap-2 { gap: 0.25rem !important; }
                 
                 /* Cabeçalho */
-                .bg-slate-800.text-white.shadow-xl,
-                .bg-emerald-700.text-white.shadow-xl,
-                .bg-orange-500.text-white.shadow-xl,
-                .bg-purple-700.text-white.shadow-xl {
-                    padding: 0.75rem 1rem !important;
-                    margin-bottom: 0.5rem !important;
-                    border-radius: 1rem !important;
+                .order-print-header,
+                .bg-slate-800.text-white,
+                .bg-emerald-700.text-white,
+                .bg-orange-500.text-white,
+                .bg-purple-700.text-white {
+                    padding: 0.2rem 0.6rem !important;
+                    margin-bottom: 0.25rem !important;
+                    border-radius: 0.75rem !important;
                 }
                 .header-logo-container {
-                    width: 13rem !important;
-                    height: 13rem !important;
-                    padding: 0.5rem !important;
-                    border-radius: 1.25rem !important;
+                    width: 11rem !important;
+                    height: 3.25rem !important;
+                    padding: 0.15rem 0.4rem !important;
+                    border-radius: 0.5rem !important;
+                    margin: 0 !important;
                 }
                 .header-logo-container img {
                     width: 100% !important;
                     height: 100% !important;
                     object-fit: contain !important;
                 }
-                h1.text-3xl { font-size: 1.5rem !important; }
+                .order-print-header .text-2xl,
+                .order-print-header .text-xl {
+                    font-size: 1.25rem !important;
+                    line-height: 1.1 !important;
+                    margin-bottom: 0.15rem !important;
+                }
+                h1.text-3xl { font-size: 1.25rem !important; }
                 
                 /* Atendente / Validade */
                 .bg-slate-50.rounded-2xl {

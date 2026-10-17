@@ -267,6 +267,9 @@ const toListItem = (row: any): MobileOrderListItem => {
       deliveryStatus: data.deliveryStatus || row.delivery_status || '',
       deliveryArrivedAt: data.deliveryArrivedAt || row.delivery_arrived_at || '',
       deliveryStartedAt: data.deliveryStartedAt || row.delivery_started_at || '',
+      deliveryResponsibles: data.deliveryResponsibles || null,
+      deliveryResponsibleName: data.deliveryResponsibleName || null,
+      deliveryResponsibleId: data.deliveryResponsibleId || null,
       unattendedReason: data.unattendedReason || row.unattended_reason || '',
       marketingOrigin:
         data.marketingOrigin || data.customerData?.marketingOrigin || row.marketing_origin || '',

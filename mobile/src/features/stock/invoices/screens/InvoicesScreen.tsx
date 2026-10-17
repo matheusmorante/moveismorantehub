@@ -2,39 +2,33 @@ import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   ActivityIndicator,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  ScrollView,
   Alert,
   Platform,
   Share,
   useWindowDimensions,
 } from 'react-native';
-import {
-  Calendar,
-  ChevronDown,
-  FilePlus2,
-  ReceiptText,
-  Search,
-  X,
-} from 'lucide-react-native';
 import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useInvoices } from '../hooks/useInvoices';
 import { FixedPageSlots } from '../../../../components/shared/FixedPageSlots';
 import { InvoiceCard } from '../components/InvoiceCard';
-import { SefazSyncStatusBadge } from '../components/SefazSyncStatusBadge';
 import { InvoiceActionModal } from '../modals/InvoiceActionModal';
 import { InvoiceImportModal } from '../modals/InvoiceImportModal';
 import { InvoiceDetailsModal } from '../modals/InvoiceDetailsModal';
 import { InboundInvoiceMappingsModal } from '../modals/InboundInvoiceMappingsModal';
 import type { Invoice, InvoiceDetail } from '../../types/stock.types';
-import type { InvoiceDateFilterMode } from '../../types/stock.types';
 import * as stockService from '../../../../services/stockService';
+import {
+  InvoicesEmptyState,
+  InvoicesErrorState,
+  InvoicesLoadingState,
+  InvoicesPageHeader,
+  InvoicePeriodFilterModal,
+  periodOptions,
+  styles,
+} from './invoices-screen';
 
 const ITEMS_PER_PAGE = stockService.ITEMS_PER_PAGE;
 
@@ -50,16 +44,7 @@ type InvoiceListRow = {
   invoice?: Invoice;
 };
 
-const periodOptions: Array<{ value: InvoiceDateFilterMode; label: string }> = [
-  { value: 'current_month', label: 'Mês Atual' },
-  { value: 'previous_month', label: 'Mês Anterior' },
-  { value: 'current_year', label: 'Este Ano' },
-  { value: 'previous_year', label: 'Ano Passado' },
-  { value: 'custom_month', label: 'Outro Mês' },
-  { value: 'custom_range', label: 'Intervalo Personalizado' },
-];
-
-export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHeader }) => {
+export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, renderHeader }) => {
   const { width: viewportWidth } = useWindowDimensions();
   const isCompactViewport = viewportWidth < 540;
   const {
@@ -228,110 +213,6 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
     );
   };
 
-  const PageHeader = () => (
-    <View style={[styles.pageHeaderWrapper, isDarkMode && styles.pageHeaderWrapperDark]}>
-      <View style={[styles.titleRow, isCompactViewport && styles.titleRowCompact]}>
-        <View style={styles.titleGroup}>
-          <View style={styles.titleIcon}>
-            <ReceiptText size={20} color="#ffffff" />
-          </View>
-          <View style={styles.titleCopy}>
-            <Text style={[styles.pageTitle, isDarkMode && styles.textDark]}>
-              Notas Fiscais de Entrada
-            </Text>
-            <Text style={styles.subtitle}>
-              Gestão e importação de notas fiscais de entrada dos fornecedores
-            </Text>
-          </View>
-        </View>
-        <TouchableOpacity
-          style={[styles.importBtn, isCompactViewport && styles.importBtnCompact]}
-          onPress={() => setShowImportModal(true)}
-          accessibilityRole="button"
-        >
-          <FilePlus2 size={17} color="#ffffff" />
-          <Text style={styles.importBtnText}>Importar XML da NF-e</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.filtersContainer}>
-        <View style={styles.periodRow}>
-          <TouchableOpacity
-            style={[styles.periodBtn, isDarkMode && styles.periodBtnDark]}
-            onPress={() => setShowPeriodModal(true)}
-            accessibilityRole="button"
-            accessibilityLabel={`Período: ${periodLabel}`}
-          >
-            <Calendar size={17} color={isDarkMode ? '#60a5fa' : '#2563eb'} />
-            <Text style={[styles.periodLabel, isDarkMode && styles.textMutedDark]}>Período:</Text>
-            <View style={[styles.periodValueWrapper, isDarkMode && styles.periodValueWrapperDark]}>
-              <Text style={[styles.periodValue, isDarkMode && styles.textDark]}>{periodLabel}</Text>
-              <ChevronDown size={15} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-            </View>
-          </TouchableOpacity>
-
-          <SefazSyncStatusBadge isDarkMode={isDarkMode} onSyncSuccess={reload} />
-        </View>
-
-        {dateFilter.mode === 'custom_month' && (
-          <TextInput
-            value={dateFilter.customMonth}
-            onChangeText={(customMonth) => setDateFilter({ ...dateFilter, customMonth })}
-            placeholder="AAAA-MM"
-            accessibilityLabel="Mês personalizado"
-            maxLength={7}
-            style={[styles.monthInput, isDarkMode && styles.monthInputDark]}
-          />
-        )}
-        {dateFilter.mode === 'custom_range' && (
-          <View style={styles.customRange}>
-            <Text style={styles.rangeLabel}>De:</Text>
-            <TextInput
-              value={dateFilter.startMonth}
-              onChangeText={(startMonth) => setDateFilter({ ...dateFilter, startMonth })}
-              placeholder="AAAA-MM"
-              accessibilityLabel="Mês inicial"
-              maxLength={7}
-              style={[styles.monthInput, isDarkMode && styles.monthInputDark]}
-            />
-            <Text style={styles.rangeLabel}>Até:</Text>
-            <TextInput
-              value={dateFilter.endMonth}
-              onChangeText={(endMonth) => setDateFilter({ ...dateFilter, endMonth })}
-              placeholder="AAAA-MM"
-              accessibilityLabel="Mês final"
-              maxLength={7}
-              style={[styles.monthInput, isDarkMode && styles.monthInputDark]}
-            />
-          </View>
-        )}
-
-        <View style={[styles.searchWrapper, isDarkMode && styles.searchWrapperDark]}>
-          <Search size={18} color={isDarkMode ? '#64748b' : '#94a3b8'} />
-          <TextInput
-            style={[styles.searchInput, isDarkMode && styles.textDark]}
-            placeholder="Pesquisar por fornecedor, número da NF-e ou chave de acesso de 44 dígitos..."
-            placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-            returnKeyType="search"
-            accessibilityLabel="Pesquisar notas fiscais"
-          />
-          {searchTerm.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchTerm('')}
-              accessibilityRole="button"
-              accessibilityLabel="Limpar busca"
-              hitSlop={8}
-            >
-              <X size={17} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    </View>
-  );
-
   const handleFetchXml = async (invoice: Invoice) => {
     if (!invoice.accessKey) {
       Alert.alert('Chave indisponível', 'Esta nota não possui chave de acesso válida cadastrada.');
@@ -390,36 +271,26 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
         keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => {
           if (item.type === 'module') return renderHeader();
-          if (item.type === 'page') return <PageHeader />;
-          if (item.type === 'loading')
+          if (item.type === 'page')
             return (
-              <View style={styles.stateBox}>
-                <ActivityIndicator color="#2563eb" />
-                <Text style={styles.stateText}>Carregando notas fiscais...</Text>
-              </View>
+              <InvoicesPageHeader
+                isDarkMode={isDarkMode}
+                isCompactViewport={isCompactViewport}
+                periodLabel={periodLabel}
+                dateFilter={dateFilter}
+                searchTerm={searchTerm}
+                onOpenImport={() => setShowImportModal(true)}
+                onOpenPeriodModal={() => setShowPeriodModal(true)}
+                onSyncSuccess={reload}
+                onChangeDateFilter={setDateFilter}
+                onChangeSearchTerm={setSearchTerm}
+                onClearSearch={() => setSearchTerm('')}
+              />
             );
+          if (item.type === 'loading') return <InvoicesLoadingState />;
           if (item.type === 'error')
-            return (
-              <View style={styles.stateBox}>
-                <Text style={[styles.stateText, styles.errorText]}>{error}</Text>
-                <TouchableOpacity style={styles.retryBtn} onPress={reload}>
-                  <Text style={styles.retryText}>Tentar novamente</Text>
-                </TouchableOpacity>
-              </View>
-            );
-          if (item.type === 'empty')
-            return (
-              <View style={[styles.emptyCard, isDarkMode && styles.emptyCardDark]}>
-                <ReceiptText size={30} color={isDarkMode ? '#475569' : '#cbd5e1'} />
-                <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
-                  Nenhuma nota fiscal de entrada encontrada
-                </Text>
-                <Text style={styles.emptyText}>
-                  Você pode adicionar novas notas fiscais ou importar XMLs recebidos de
-                  fornecedores.
-                </Text>
-              </View>
-            );
+            return <InvoicesErrorState error={error} onRetry={reload} />;
+          if (item.type === 'empty') return <InvoicesEmptyState isDarkMode={isDarkMode} />;
 
           return (
             <View style={styles.cardContainer}>
@@ -449,7 +320,9 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
                 </Text>
               </View>
               <View style={styles.paginationControls}>
-                <Text style={styles.pageCount}>{page} / {totalPages}</Text>
+                <Text style={styles.pageCount}>
+                  {page} / {totalPages}
+                </Text>
                 <FixedPageSlots
                   label="Paginação de notas fiscais de entrada"
                   currentPage={page}
@@ -509,275 +382,16 @@ export const InvoicesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
         onUploadXml={importXml}
       />
 
-      <Modal
+      <InvoicePeriodFilterModal
         visible={showPeriodModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPeriodModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowPeriodModal(false)}
-        >
-          <View style={[styles.periodModal, isDarkMode && styles.periodModalDark]}>
-            <View style={styles.periodModalHeader}>
-              <Text style={[styles.modalTitle, isDarkMode && styles.textDark]}>
-                Selecione o Período
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowPeriodModal(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Fechar períodos"
-              >
-                <X size={20} color={isDarkMode ? '#cbd5e1' : '#64748b'} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {periodOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.periodOption,
-                    dateFilter.mode === option.value && styles.periodOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setDateFilter({ ...dateFilter, mode: option.value });
-                    setShowPeriodModal(false);
-                  }}
-                  accessibilityRole="button"
-                >
-                  <Text
-                    style={[
-                      styles.periodOptionText,
-                      isDarkMode && styles.textDark,
-                      dateFilter.mode === option.value && styles.periodOptionTextSelected,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        isDarkMode={isDarkMode}
+        currentMode={dateFilter.mode}
+        onClose={() => setShowPeriodModal(false)}
+        onSelectMode={(mode) => {
+          setDateFilter({ ...dateFilter, mode });
+          setShowPeriodModal(false);
+        }}
+      />
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  containerDark: { backgroundColor: '#0f172a' },
-  pageHeaderWrapper: {
-    backgroundColor: '#f8fafc',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  pageHeaderWrapperDark: { backgroundColor: '#0f172a', borderBottomColor: '#1e293b' },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingVertical: 10,
-  },
-  titleRowCompact: { flexDirection: 'column', alignItems: 'stretch', gap: 10 },
-  titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
-  titleIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 15,
-    backgroundColor: '#3157df',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  titleCopy: { flex: 1, minWidth: 0 },
-  pageTitle: { fontSize: 17, fontWeight: '900', color: '#1e293b' },
-  subtitle: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
-  importBtn: {
-    minHeight: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    gap: 7,
-  },
-  importBtnCompact: { alignSelf: 'stretch' },
-  importBtnText: { color: '#fff', fontWeight: '800', fontSize: 11, flexShrink: 1 },
-  filtersContainer: { gap: 10, paddingBottom: 12 },
-  periodRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  periodBtn: {
-    minHeight: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 7,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
-  },
-  periodBtnDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
-  periodLabel: { color: '#64748b', fontSize: 12, fontWeight: '700' },
-  periodValueWrapper: {
-    backgroundColor: '#f1f5f9',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  periodValueWrapperDark: { backgroundColor: '#0f172a' },
-  periodValue: { color: '#1e293b', fontSize: 12, fontWeight: '800' },
-  customRange: { flexDirection: 'row', alignItems: 'center', gap: 7, flexWrap: 'wrap' },
-  rangeLabel: { color: '#94a3b8', fontSize: 11 },
-  monthInput: {
-    minWidth: 100,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 9,
-    backgroundColor: '#fff',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    color: '#0f172a',
-  },
-  monthInputDark: { backgroundColor: '#1e293b', borderColor: '#475569', color: '#f8fafc' },
-  searchWrapper: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    paddingHorizontal: 11,
-  },
-  searchWrapperDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
-  searchInput: { flex: 1, minWidth: 0, minHeight: 42, fontSize: 12, color: '#0f172a' },
-  cardContainer: { paddingHorizontal: 16, paddingTop: 12 },
-  emptyCard: {
-    margin: 16,
-    padding: 24,
-    minHeight: 150,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyCardDark: { backgroundColor: '#0f172a', borderColor: '#1e293b' },
-  emptyTitle: {
-    color: '#64748b',
-    fontSize: 13,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  emptyText: { color: '#94a3b8', fontSize: 11, textAlign: 'center', marginTop: 5 },
-  stateBox: {
-    minHeight: 140,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    padding: 24,
-  },
-  stateText: { color: '#64748b', fontSize: 12, textAlign: 'center' },
-  errorText: { color: '#dc2626' },
-  retryBtn: {
-    minHeight: 40,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: '#2563eb',
-  },
-  retryText: { color: '#fff', fontWeight: '800', fontSize: 12 },
-  pagination: {
-    marginHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
-    gap: 10,
-  },
-  paginationDark: { backgroundColor: '#0f172a', borderColor: '#1e293b' },
-  paginationCopy: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  paginationText: { color: '#64748b', fontSize: 11, fontWeight: '700', flexShrink: 1 },
-  paginationControls: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 13,
-  },
-  pageButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 11,
-    backgroundColor: '#fff',
-  },
-  pageButtonDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
-  pageCount: {
-    minWidth: 56,
-    textAlign: 'center',
-    color: '#2563eb',
-    fontWeight: '900',
-    fontSize: 13,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  periodModal: {
-    width: '100%',
-    maxWidth: 420,
-    maxHeight: '80%',
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 18,
-  },
-  periodModalDark: { backgroundColor: '#1e293b' },
-  periodModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  modalTitle: { color: '#0f172a', fontSize: 17, fontWeight: '800' },
-  periodOption: {
-    minHeight: 46,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
-  },
-  periodOptionSelected: { backgroundColor: '#eff6ff', borderRadius: 9 },
-  periodOptionText: { color: '#334155', fontSize: 14, fontWeight: '600' },
-  periodOptionTextSelected: { color: '#2563eb', fontWeight: '800' },
-  textDark: { color: '#f8fafc' },
-  textMutedDark: { color: '#94a3b8' },
-});
