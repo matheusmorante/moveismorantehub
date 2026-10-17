@@ -9,6 +9,9 @@ const service = vi.hoisted(() => ({ cancelFiscalDocumentForOrderEdit: vi.fn(), c
 vi.mock('@/pages/utils/nfe/orderEditFiscalService', () => service);
 vi.mock('../../FiscalDocuments/modals/NfeOperationDraftModal', () => ({ default: ({ sourceDocument, initialDraftId, onAuthorized }: any) => <button onClick={onAuthorized}>Revisão {sourceDocument.id} {initialDraftId}</button> }));
 vi.mock('../OrderActions/NfeEmissionModal', () => ({ default: ({ order, initialEnvironment, onSuccess }: any) => <button onClick={onSuccess}>Emissão {order.items[0].description} {initialEnvironment}</button> }));
+vi.mock('@/pages/utils/nfeEmissionSnapshotService', () => ({
+  prepareOrderFiscalSnapshotForEmission: vi.fn((order) => Promise.resolve(order)),
+}));
 import OrderEditFiscalContinuation from './OrderEditFiscalContinuation';
 
 const original = { id: 'TEST_AUT_order', status: 'scheduled', items: [{ description: 'Sofá e mesa' }] } as Order;
@@ -34,11 +37,15 @@ describe('continuação da substituição fiscal', () => {
     fireEvent.click(screen.getByText('Cancelar original em Homologação'));
     await waitFor(() => expect(screen.getByText('Aplicar alterações ao pedido')).toBeTruthy());
     expect(service.cancelFiscalDocumentForOrderEdit).toHaveBeenCalledWith(expect.objectContaining({ replacementId: 'replacement', environment: 2 }));
-    service.resumeFiscalOrderEdit.mockResolvedValueOnce({ order: edited, replacements: [{ ...replacement, reversalConfirmed: true, status: 'ready_to_reissue' }] });
+    service.resumeFiscalOrderEdit.mockResolvedValue({ order: edited, replacements: [{ ...replacement, reversalConfirmed: true, status: 'ready_to_reissue' }] });
     fireEvent.click(screen.getByText('Aplicar alterações ao pedido'));
-    await waitFor(() => expect(screen.getByText('Conferir e emitir nova nota')).toBeTruthy());
+    await waitFor(() => {
+      expect(service.finalizeFiscalOrderEdit).toHaveBeenCalledWith(expect.objectContaining({ orderId: 'TEST_AUT_order' }));
+      expect(screen.queryByText('Aplicar alterações ao pedido')).toBeNull();
+      expect(screen.queryByText('Conferindo a etapa fiscal…')).toBeNull();
+    });
     fireEvent.click(screen.getByText('Conferir e emitir nova nota'));
-    expect(screen.getByText('Emissão Só sofá 2')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('Emissão Só sofá 2')).toBeTruthy());
   });
 
   it('abre o rascunho integral de estorno e mantém a proposta sem aplicar antes da autorização', () => {

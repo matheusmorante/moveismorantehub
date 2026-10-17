@@ -5,6 +5,7 @@ interface AssistanceOrderHeaderProps {
   isLinked?: boolean;
   linkedOrderCode?: string;
   onClose: () => void;
+  autoSaving?: boolean;
 }
 
 const AssistanceOrderHeader: React.FC<AssistanceOrderHeaderProps> = ({
@@ -12,6 +13,7 @@ const AssistanceOrderHeader: React.FC<AssistanceOrderHeaderProps> = ({
   isLinked,
   linkedOrderCode,
   onClose,
+  autoSaving,
 }) => (
   <div className="px-6 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-amber-50 dark:bg-amber-900/10 shrink-0">
     <div className="flex items-center gap-3">
@@ -32,6 +34,14 @@ const AssistanceOrderHeader: React.FC<AssistanceOrderHeaderProps> = ({
           {isLinked && linkedOrderCode && (
             <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
               Venda #{linkedOrderCode}
+            </span>
+          )}
+          {autoSaving && (
+            <span
+              data-testid="assistance-autosaving-badge"
+              className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 animate-pulse"
+            >
+              <i className="bi bi-cloud-arrow-up" /> Salvando rascunho...
             </span>
           )}
         </div>

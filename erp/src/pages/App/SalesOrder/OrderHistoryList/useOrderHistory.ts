@@ -274,33 +274,33 @@ export const useOrderHistory = (filters?: any) => {
   const handleStatusUpdate = async (
     id: string,
     newStatus: Order['status'],
-    options?: { productionConfirmed?: boolean }
-  ) => {
+    options?: { productionConfirmed?: boolean; isCurrent?: () => boolean }
+  ): Promise<boolean> => {
     const currentOrder = ordersForCurrentQuery.find((order) => order.id === id);
-    if (!currentOrder) return;
-    if (currentOrder.orderType === 'return' && currentOrder.status === 'fulfilled' && newStatus === 'fulfilled') return;
+    if (!currentOrder) return false;
+    if (currentOrder.orderType === 'return' && currentOrder.status === 'fulfilled' && newStatus === 'fulfilled') return false;
     if (currentOrder.status === 'draft') {
       toast.warning(
         'Pedidos em rascunho devem ter seu cadastro finalizado através do formulário para serem agendados.'
       );
-      return;
+      return false;
     }
     if (currentOrder.status === 'cancelled' && newStatus !== 'cancelled') {
       toast.warning(
         'Pedido cancelado não pode ser reaberto. Duplique-o para criar uma nova venda.'
       );
-      return;
+      return false;
     }
     if (currentOrder.orderType === 'return' && currentOrder.status === 'scheduled' && newStatus === 'cancelled') {
       pendingReturnOwner.current = null; setPendingReturnFulfillment(null);
       pendingReturnCancellationOwner.current = currentOrder; setPendingReturnCancellation(currentOrder);
-      return;
+      return false;
     }
     if (newStatus === 'cancelled' && !canCancelOrderDirectly(currentOrder)) {
       toast.warning(
         'A mercadoria já saiu para entrega ou foi retirada. Registre uma devolução para reverter a operação.'
       );
-      return;
+      return false;
     }
     if (
       currentOrder.orderType === 'return' &&
@@ -308,7 +308,7 @@ export const useOrderHistory = (filters?: any) => {
       newStatus === 'cancelled'
     ) {
       toast.warning('Uma devolução concluída não pode ser cancelada ou desfeita.');
-      return;
+      return false;
     }
     if (
       currentOrder.orderType === 'return' &&
@@ -317,19 +317,19 @@ export const useOrderHistory = (filters?: any) => {
     ) {
       pendingReturnCancellationOwner.current = null; setPendingReturnCancellation(null);
       pendingReturnOwner.current = currentOrder; setPendingReturnFulfillment(currentOrder);
-      return;
+      return false;
     }
     if (newStatus !== 'cancelled') {
-      await operations.commitStatusUpdate(currentOrder, newStatus, options);
-      return;
+      return await operations.commitStatusUpdate(currentOrder, newStatus, options);
     }
 
     bumpFiscalBadgeRefreshVersion(id);
     setFiscalBadgeLoadingByOrderId((previous) => ({ ...previous, [id]: true }));
     try {
-      await operations.commitStatusUpdate(currentOrder, newStatus, options);
+      return await operations.commitStatusUpdate(currentOrder, newStatus, options);
     } catch (error) {
       console.error('[useOrderHistory] Erro inesperado ao cancelar o pedido.', error);
+      return false;
     } finally {
       setFiscalBadgeLoadingByOrderId((previous) => ({ ...previous, [id]: false }));
     }

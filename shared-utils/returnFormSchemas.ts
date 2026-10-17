@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { getReturnRequestValidationError, type ReturnQuantityItem, type ReturnQuantityRecord } from './commercialReturnRules';
+import { commercialSchedulingFormSchema as returnSchedulingSchema } from './commercialSchedulingFormSchema';
 
 const returnedItemSchema = z.object({
   description: z.string().optional(), productId: z.string().optional(),
@@ -8,20 +9,6 @@ const returnedItemSchema = z.object({
   returnedQuantity: z.number().positive().optional(),
   originalOrderItemIndex: z.number().int().nonnegative().optional(),
 }).passthrough();
-// Empty scheduling remains valid until the operator defines the collection.
-// This form does not change the backend's scheduling/physical-return policy.
-const returnSchedulingSchema = z.object({
-  date: z.union([z.literal(''), z.iso.date('Informe uma data válida.')]),
-  endDate: z.union([z.literal(''), z.iso.date('Informe uma data válida.')]).optional(),
-  dateType: z.enum(['fixed', 'range']).optional(),
-  time: z.string(),
-  startTime: z.string().regex(/^$|^([01]\d|2[0-3]):[0-5]\d$/, 'Informe um horário válido.').optional(),
-  endTime: z.string().regex(/^$|^([01]\d|2[0-3]):[0-5]\d$/, 'Informe um horário válido.').optional(),
-  type: z.enum(['fixed', 'range']),
-  notInformed: z.boolean().optional(),
-  pendingScheduling: z.boolean().optional(),
-  immediatePickup: z.boolean().optional(),
-});
 const collectionFields = {
   collectAtAddress: z.boolean('Informe se haverá coleta no endereço.'),
   scheduling: returnSchedulingSchema,

@@ -23,7 +23,7 @@ function Owner({ currentItem = item, proposal = classification as any, supplierI
 }
 beforeEach(() => {
   vi.resetAllMocks(); mocks.title.mockResolvedValue({ title: 'Mesa' }); mocks.full.mockResolvedValue({ id: 'parent', name: 'Mesa', variations: [] }); mocks.variation.mockResolvedValue(undefined); mocks.code.mockResolvedValue(undefined); mocks.change.mockResolvedValue(true); mocks.details.mockResolvedValue({ linkedProductCode: '100-01', productErpName: 'Mesa' });
-  vi.mocked(fetchGroupsAndCategories).mockResolvedValue({ categories: [], groups: [] }); vi.mocked(resolveAutoCategory).mockResolvedValue(null);
+  vi.mocked(fetchGroupsAndCategories).mockResolvedValue({ categories: [], relations: [] }); vi.mocked(resolveAutoCategory).mockResolvedValue(null);
   mocks.find.mockImplementation(async () => new Map([['FORN-1', { productId: 'parent', productVariationId: mocks.variation.mock.calls[0]?.[1].id }]]));
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });

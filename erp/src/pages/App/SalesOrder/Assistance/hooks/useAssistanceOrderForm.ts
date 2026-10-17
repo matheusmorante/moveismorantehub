@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type Order from '@/pages/types/order.type';
 import type CustomerData from '@/pages/types/customerData.type';
 import type Item from '@/pages/types/items.type';
@@ -8,10 +8,11 @@ import { toast } from 'react-toastify';
 import { subscribeToOrders, fetchOrderById, saveOrder } from '@/pages/utils/orderHistoryService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { createAssistanceOrderFormSchema } from '@/../../shared-utils/orderDomainValidation';
+import { createAssistanceOrderFormSchema, assistanceOrderDraftFormSchema, assistanceSavedIdSchema, assistanceLinkedOrderLookupSchema } from '@/../../shared-utils/orderDomainValidation';
 import { buildAssistanceOrderPayload, isAssistanceFormBlank } from '../services/assistanceOrderService';
 import type { AssistanceOrderModalProps } from '../types/assistance.types';
 import type { z } from 'zod';
+import { withTimeout } from '@/../../shared-utils/withTimeout';
 
 const EMPTY_CUSTOMER: CustomerData = {
   fullName: '',
@@ -39,19 +40,20 @@ export const useAssistanceOrderForm = ({
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [currentOrderId, setCurrentOrderId] = useState<string | undefined>(order?.id);
-  const [status, setStatus] = useState<Order['status']>(order?.status || 'draft');
+  const [status] = useState<Order['status']>(order?.status || 'draft');
   const [customerData, setCustomerData] = useState<CustomerData>(
     order?.customerData || sourceOrder?.customerData || EMPTY_CUSTOMER
   );
   const [description, setDescription] = useState(order?.assistanceDescription || '');
   const [observation, setObservation] = useState(order?.observation || '');
   const [scheduling, setScheduling] = useState<Scheduling>(
-    order?.shipping?.scheduling || {
+    order?.shipping?.scheduling ? { ...order.shipping.scheduling, time: order.shipping.scheduling.time || '' } : {
       date: order?.scheduledDate || '',
       startTime: order?.scheduledTime || '',
       endTime: '',
       type: 'fixed',
       notInformed: false,
+      time: '',
     }
   );
   const [isLinked, setIsLinked] = useState(Boolean(order?.linkedOrderId || sourceOrder?.id));
@@ -70,53 +72,20 @@ export const useAssistanceOrderForm = ({
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  type AssistanceInput = z.input<ReturnType<typeof createAssistanceOrderFormSchema>>;
+  const active = useRef(true), confirmedId = useRef(order?.id);
+  const creationDate = useRef(new Date().toISOString()), creationKey = useRef(crypto.randomUUID());
+  const writeInFlight = useRef(false), manualPending = useRef(false), uncertain = useRef(false);
+  const operationQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const autosaveRevision = useRef(0);
+  const [autoSaving, setAutoSaving] = useState(false), [operationError, setOperationError] = useState('');
+  const [saveBlocked, setSaveBlocked] = useState(false), [hasSavedFinal, setHasSavedFinal] = useState(false);
+  useEffect(() => { active.current = true; return () => { active.current = false; if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); }; }, []);
+
   // Submodals visibility
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const [isCustomerSearchOpen, setIsCustomerSearchOpen] = useState(false);
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
-
-  // Sync state when order or sourceOrder prop updates
-  useEffect(() => {
-    if (order) {
-      setCurrentOrderId(order.id);
-      setStatus(order.status || 'draft');
-      setCustomerData(order.customerData || EMPTY_CUSTOMER);
-      setDescription(order.assistanceDescription || '');
-      setObservation(order.observation || '');
-      if (order.shipping?.scheduling) {
-        setScheduling(order.shipping.scheduling);
-      } else {
-        setScheduling({
-          date: order.scheduledDate || '',
-          startTime: order.scheduledTime || '',
-          endTime: '',
-          type: 'fixed',
-          notInformed: false,
-        });
-      }
-      setIsLinked(Boolean(order.linkedOrderId));
-      setLinkedOrderId(order.linkedOrderId || '');
-      setSelectedAssistanceItems(order.assistanceItems || []);
-      setExtraItems(order.items || []);
-      setAssistanceCost(order.assistanceCost || 0);
-      setAssistanceServiceValue(order.assistanceServiceValue || 0);
-      setSeller(order.seller || '');
-    } else if (sourceOrder) {
-      setCurrentOrderId(undefined);
-      setStatus('draft');
-      setIsLinked(true);
-      setLinkedOrderId(sourceOrder.id || '');
-      setSelectedLinkedOrder(sourceOrder);
-      setCustomerData(sourceOrder.customerData || EMPTY_CUSTOMER);
-      setSeller(sourceOrder.seller || '');
-      setSelectedAssistanceItems([]);
-      setExtraItems([]);
-      setDescription('');
-      setObservation('');
-      setAssistanceCost(0);
-      setAssistanceServiceValue(0);
-    }
-  }, [order, sourceOrder]);
 
   // Order stream and auto-match by initialData
   useEffect(() => {
@@ -262,9 +231,9 @@ export const useAssistanceOrderForm = ({
   };
 
   const getOrderData = (isDraft: boolean): Order => {
-    return buildAssistanceOrderPayload({
+    const payload = buildAssistanceOrderPayload({
       baseOrder: order,
-      currentOrderId,
+      currentOrderId: confirmedId.current || currentOrderId,
       isDraft,
       status,
       customerData,
@@ -279,103 +248,107 @@ export const useAssistanceOrderForm = ({
       assistanceServiceValue,
       seller,
     });
+    return { ...payload, date: order?.date || creationDate.current };
   };
 
-  const form = useZodForm(createAssistanceOrderFormSchema(getSettings().requiredFields), {
-    status: 'draft',
-    date: '',
-    seller,
-    assistanceDescription: description,
-    assistanceCost,
-    assistanceServiceValue,
-    items: extraItems,
-  });
+  const signature = (data: Order) => JSON.stringify({ ...data, id: undefined, date: undefined });
+  const draftPayload = getOrderData(true);
+  const draftSignature = signature(draftPayload);
+  const form = useZodForm(createAssistanceOrderFormSchema(getSettings().requiredFields), draftPayload as unknown as AssistanceInput);
+  const draftForm = useZodForm(assistanceOrderDraftFormSchema, { ...draftPayload, status: 'draft' } as unknown as z.input<typeof assistanceOrderDraftFormSchema>);
+  const lastSavedSignature = useRef(isEditing ? draftSignature : '');
+  const receipt = useRef<{ id: string; data: Order; signature: string } | null>(null);
+  const forms = useRef({ form, draftForm }); forms.current = { form, draftForm };
+  const enqueue = useCallback((operation: () => Promise<boolean>) => {
+    const queued = operationQueue.current.then(operation);
+    operationQueue.current = queued.catch(() => false);
+    return queued;
+  }, []);
 
-  // Autosave debounced
-  useEffect(() => {
-    if (!initialDataFetched.current && !isEditing && !sourceOrder) return;
-    if (status !== 'draft' && currentOrderId) return;
-
-    if (isAssistanceFormBlank(customerData, description, observation, extraItems, selectedAssistanceItems)) {
-      return;
-    }
-
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-
-    autoSaveTimerRef.current = setTimeout(async () => {
-      if (loading) return;
-      const draftOrder = getOrderData(true);
-      try {
-        const savedId = await form.validateAndRun(
-          draftOrder as unknown as z.input<ReturnType<typeof createAssistanceOrderFormSchema>>,
-          (data) => saveOrder(data as unknown as Order)
-        );
-        if (!currentOrderId && savedId) {
-          setCurrentOrderId(savedId);
-        }
-      } catch (error) {
-        console.error('Auto-save failed', error);
-      }
-    }, 2000);
-
-    return () => {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    };
-  }, [
-    customerData,
-    description,
-    observation,
-    scheduling,
-    isLinked,
-    linkedOrderId,
-    seller,
-    selectedAssistanceItems,
-    extraItems,
-    assistanceCost,
-    assistanceServiceValue,
-    sourceOrder,
-  ]);
-
-  const handleSaveBase = async (isDraft: boolean) => {
-    setLoading(true);
-    setValidationErrors({});
-
+  const notifySaved = async (saved: NonNullable<typeof receipt.current>) => {
+    if (!active.current) return false;
+    const accepted = await withTimeout(Promise.resolve(onSaveSuccess(saved.id, saved.data)).then(result => result !== false), 15_000, false, 'assistencia:confirmar-painel');
+    if (!accepted) throw new Error('A assistência já foi gravada, mas o painel não confirmou a atualização. Tente concluir novamente sem repetir o salvamento.');
+    if (!active.current) return true;
+    toast.success(isEditing ? 'Assistência atualizada!' : 'Assistência finalizada!');
+    onClose(); return true;
+  };
+  const persist = async (snapshot: Order, intent: 'draft' | 'final', revision = 0): Promise<boolean> => {
+    if (!active.current || uncertain.current || (intent === 'draft' && (manualPending.current || receipt.current || revision !== autosaveRevision.current))) return false;
+    const snapshotSignature = signature(snapshot);
+    if (intent === 'draft' && snapshotSignature === lastSavedSignature.current) return true;
+    writeInFlight.current = true;
+    if (intent === 'draft') setAutoSaving(true);
+    let dispatched = false; let acknowledged = false; let caughtFailure: unknown = null;
     try {
-      const assistanceOrder = await form.validateAndRun(
-        getOrderData(isDraft) as unknown as z.input<ReturnType<typeof createAssistanceOrderFormSchema>>,
-        (data) => data as unknown as Order,
-        (errors) => {
-          const messages = flattenFormErrors(errors);
-          setValidationErrors(messages);
-          const firstMessage = Object.values(messages)[0];
-          if (firstMessage) toast.warning(`Campos obrigatórios: ${firstMessage}`);
-        }
-      );
-
-      if (!assistanceOrder) {
-        setLoading(false);
-        return;
+      if (intent === 'final' && receipt.current) {
+        if (receipt.current.signature !== snapshotSignature) throw new Error('A assistência já foi gravada com os dados anteriores. Confira o histórico antes de alterar este pedido.');
+        return await notifySaved(receipt.current);
       }
-
-      const savedId = await saveOrder(assistanceOrder);
-      toast.success(isEditing ? 'Assistência atualizada!' : 'Assistência finalizada!');
-      onSaveSuccess(savedId, assistanceOrder);
-      onClose();
-    } catch (error: any) {
-      console.error('Erro ao salvar assistência:', error);
-      toast.error(`Erro: ${error?.message || 'Erro desconhecido'}`);
-      setLoading(false);
-    }
+      const input = { ...snapshot, id: confirmedId.current || undefined } as unknown as AssistanceInput;
+      const run = intent === 'draft' ? forms.current.draftForm.validateAndRun : forms.current.form.validateAndRun;
+      const ran = await run(input as z.input<typeof assistanceOrderDraftFormSchema>, async (values) => {
+        try {
+          if (!active.current || (intent === 'draft' && (manualPending.current || revision !== autosaveRevision.current))) return false;
+          dispatched = true;
+          const saved = await withTimeout(saveOrder(values as unknown as Order, { idempotencyKey: creationKey.current }), 30_000, null, 'assistencia:confirmar-gravacao');
+          const savedId = assistanceSavedIdSchema.safeParse(saved);
+          if (!savedId.success || (values.id && savedId.data !== values.id)) throw new Error('O serviço não confirmou a identidade da assistência. Consulte o histórico antes de repetir.');
+          acknowledged = true; confirmedId.current = savedId.data; lastSavedSignature.current = snapshotSignature;
+          if (intent === 'final') receipt.current = { id: savedId.data, data: { ...values, id: savedId.data } as unknown as Order, signature: snapshotSignature };
+          if (!active.current) return true;
+          setCurrentOrderId(savedId.data);
+          if (intent === 'draft') return true;
+          setHasSavedFinal(true); return await notifySaved(receipt.current!);
+        } catch (err) {
+          caughtFailure = err;
+          throw err;
+        }
+      }, errors => {
+        if (!active.current) return;
+        const messages = flattenFormErrors(errors); setValidationErrors(messages);
+        setOperationError((intent === 'draft' ? 'Rascunho não salvo: ' : '') + (Object.values(messages)[0] || 'Confira os dados da assistência.'));
+      });
+      if (caughtFailure) throw caughtFailure;
+      return Boolean(ran);
+    } catch (failure) {
+      const known = Boolean(failure && typeof failure === 'object' && ('code' in failure && /^(22|23|42)/.test(String(failure.code))));
+      if (dispatched && !acknowledged && !known) { uncertain.current = true; if (active.current) setSaveBlocked(true); }
+      if (active.current) {
+        const message = failure instanceof Error ? failure.message : 'Não foi possível confirmar a assistência.';
+        setOperationError(receipt.current ? 'Assistência já gravada. ' + message : uncertain.current ? message + ' Confira o histórico antes de repetir.' : message);
+      }
+      return false;
+    } finally { writeInFlight.current = false; if (active.current && intent === 'draft') setAutoSaving(false); }
   };
+  const persistRef = useRef(persist); persistRef.current = persist;
+  const autosaveEnabled = Boolean(isEditing || sourceOrder || initialDataFetched.current) && status === 'draft';
+  useEffect(() => {
+    if (!autosaveEnabled || manualPending.current || uncertain.current || receipt.current || draftSignature === lastSavedSignature.current || isAssistanceFormBlank(customerData, description, observation, extraItems, selectedAssistanceItems)) return;
+    const revision = ++autosaveRevision.current;
+    const snapshot = draftPayload;
+    autoSaveTimerRef.current = setTimeout(() => { void enqueue(() => persistRef.current(snapshot, 'draft', revision)); }, 2000);
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  // draftSignature contains every editable draft field; ref updates alone do not resubmit it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autosaveEnabled, draftSignature, enqueue]);
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleSaveBase(false);
+  const handleSaveBase = async () => {
+    if (manualPending.current || uncertain.current || !active.current) return false;
+    manualPending.current = true; ++autosaveRevision.current;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    const snapshot = getOrderData(false);
+    setLoading(true); setValidationErrors({}); setOperationError('');
+    try { return await enqueue(() => persistRef.current(snapshot, 'final')); }
+    finally { manualPending.current = false; if (active.current) setLoading(false); }
   };
+  const handleSave = (event: React.FormEvent) => { event.preventDefault(); return handleSaveBase(); };
+  const handleClose = () => { if (!manualPending.current && !writeInFlight.current) onClose(); };
 
   return {
     isEditing,
     loading,
+    autoSaving, operationError, saveBlocked, hasSavedFinal, handleClose,
     customerData,
     setCustomerData,
     seller,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   updateOrder: vi.fn(),
@@ -32,6 +32,7 @@ vi.mock('@/pages/utils/nfe/nfeService', () => ({
 }));
 
 describe('transação comercial antes dos efeitos fiscais do cancelamento', () => {
+  afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -131,7 +132,7 @@ describe('transação comercial antes dos efeitos fiscais do cancelamento', () =
     expect(result).toBe(false);
     expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
     expect(mocks.processFiscalEffects).not.toHaveBeenCalled();
-    expect(setOrders).toHaveBeenCalledTimes(2);
+    expect(setOrders).toHaveBeenCalledTimes(1);
     expect(mocks.toast.error).toHaveBeenCalledWith('Erro no cancelamento comercial do pedido.');
   });
 
@@ -200,5 +201,50 @@ describe('transação comercial antes dos efeitos fiscais do cancelamento', () =
     expect(mocks.toast.warning).toHaveBeenCalledWith(
       expect.stringContaining('o cancelamento fiscal não foi registrado')
     );
+  });
+
+  const setupCancellation = async () => {
+    const { createOrderHistoryOperations } = await import('./useOrderHistoryOperations');
+    const order = { id: 'sale-owner', status: 'scheduled', stockProcessed: true } as any;
+    const setOrders = vi.fn(); const refresh = vi.fn().mockResolvedValue(undefined);
+    mocks.updateOrder.mockResolvedValue(undefined); mocks.processFiscalEffects.mockResolvedValue({ action: 'none' });
+    return { order, setOrders, refresh, operations: createOrderHistoryOperations({ orders: [order], setOrders, selectedOrders: [], setSelectedOrders: vi.fn(), setLoading: vi.fn(), refresh }) };
+  };
+  const pendingResult = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
+
+  it('não desmonta a confirmação por atualização otimista enquanto comercial e fiscal estão pendentes', async () => {
+    const fixture = await setupCancellation(); const commercial = pendingResult<void>(); const fiscal = pendingResult<any>();
+    mocks.updateOrder.mockReturnValue(commercial.promise); mocks.processFiscalEffects.mockReturnValue(fiscal.promise);
+    const operation = fixture.operations.commitStatusUpdate(fixture.order, 'cancelled');
+    expect(fixture.setOrders).not.toHaveBeenCalled(); expect(mocks.processFiscalEffects).not.toHaveBeenCalled();
+    commercial.resolve(); await vi.waitFor(() => expect(mocks.processFiscalEffects).toHaveBeenCalledTimes(1));
+    expect(fixture.setOrders).not.toHaveBeenCalled(); fiscal.resolve({ action: 'none' }); await expect(operation).resolves.toBe(true);
+    expect(fixture.setOrders.mock.calls[0][0]([fixture.order])[0].status).toBe('cancelled');
+  });
+
+  it('preserva cancelamento comercial tardio sem iniciar o fiscal em contexto expirado', async () => {
+    const fixture = await setupCancellation(); const commercial = pendingResult<void>(); mocks.updateOrder.mockReturnValue(commercial.promise); let current = true;
+    const operation = fixture.operations.commitStatusUpdate(fixture.order, 'cancelled', { isCurrent: () => current }); current = false; commercial.resolve();
+    await expect(operation).resolves.toBe(true); expect(mocks.processFiscalEffects).not.toHaveBeenCalled();
+    expect(fixture.setOrders.mock.calls[0][0]([fixture.order])[0].status).toBe('cancelled'); expect(mocks.toast.warning).toHaveBeenCalledWith(expect.stringContaining('outro contexto'));
+  });
+
+  it('encerra a espera comercial sem iniciar fiscal após timeout ou retorno tardio', async () => {
+    vi.useFakeTimers(); const fixture = await setupCancellation(); const commercial = pendingResult<void>(); mocks.updateOrder.mockReturnValue(commercial.promise);
+    const operation = fixture.operations.commitStatusUpdate(fixture.order, 'cancelled'); await vi.advanceTimersByTimeAsync(30000);
+    await expect(operation).resolves.toBe(false); commercial.resolve(); await Promise.resolve(); expect(mocks.processFiscalEffects).not.toHaveBeenCalled();
+  });
+
+  it('timeout fiscal conserva o fato comercial e não repete a gravação', async () => {
+    vi.useFakeTimers(); const fixture = await setupCancellation(); const fiscal = pendingResult<any>(); mocks.processFiscalEffects.mockReturnValue(fiscal.promise);
+    const operation = fixture.operations.commitStatusUpdate(fixture.order, 'cancelled'); await vi.advanceTimersByTimeAsync(30000);
+    await expect(operation).resolves.toBe(true); expect(mocks.updateOrder).toHaveBeenCalledTimes(1); expect(fixture.setOrders.mock.calls[0][0]([fixture.order])[0].status).toBe('cancelled');
+    fiscal.resolve({ action: 'cancel' }); await Promise.resolve(); expect(mocks.processFiscalEffects).toHaveBeenCalledTimes(1);
+  });
+
+  it('prazo do refresh não desfaz cancelamento confirmado nem repete a operação', async () => {
+    vi.useFakeTimers(); const fixture = await setupCancellation(); fixture.refresh.mockReturnValue(new Promise(() => {}));
+    const operation = fixture.operations.commitStatusUpdate(fixture.order, 'cancelled'); await vi.advanceTimersByTimeAsync(10000);
+    await expect(operation).resolves.toBe(true); expect(mocks.updateOrder).toHaveBeenCalledTimes(1); expect(mocks.processFiscalEffects).toHaveBeenCalledTimes(1); expect(mocks.toast.warning).toHaveBeenCalledWith(expect.stringContaining('lista não pôde'));
   });
 });

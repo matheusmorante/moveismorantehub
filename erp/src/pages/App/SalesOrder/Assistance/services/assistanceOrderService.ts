@@ -87,8 +87,8 @@ export const buildAssistanceOrderPayload = ({
     status: resolvedStatus,
     customerData: {
       ...customerData,
-      fullName: customerData.fullName.trim(),
-      phone: customerData.phone.trim(),
+      fullName: (customerData.fullName || '').trim(),
+      phone: (customerData.phone || '').trim(),
     },
     assistanceDescription: description.trim(),
     observation: observation.trim(),

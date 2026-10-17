@@ -22,6 +22,7 @@ export interface MetaCatalogProductSource {
   is_draft?: boolean | null;
   slug?: string | null;
   is_salvado?: boolean | null;
+  product_kind?: string | null;
   material?: string | null;
   condition?: string | null;
   product_categories?: Array<{
@@ -173,8 +174,7 @@ export function buildMetaCatalogItems(
     if (
       parent.deleted ||
       parent.deleted_at !== null ||
-      parent.status === 'draft' ||
-      parent.active === false ||
+      parent.status !== 'published' ||
       parent.is_draft
     ) {
       continue;
@@ -186,7 +186,7 @@ export function buildMetaCatalogItems(
         variation.product_id === parent.id &&
         variation.status !== 'hidden' &&
         variation.status !== 'draft' &&
-        variation.active !== false
+        (variation.status === 'published' || (!variation.status && isParentPublished))
     );
     const hasPublishedVars = parentVariations.some((v) => v.status === 'published');
 

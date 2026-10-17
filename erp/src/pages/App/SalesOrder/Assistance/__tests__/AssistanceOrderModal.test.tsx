@@ -272,4 +272,18 @@ describe('AssistanceOrderModal', () => {
     // Deve exibir o cabeçalho de edição vinculada
     expect(screen.getByText('Editar Assistência Vinculada')).toBeInTheDocument();
   });
+
+  it('permite fechar o modal pressionando a tecla Escape quando não estiver ocupado', () => {
+    const onClose = vi.fn();
+    render(
+      <AssistanceOrderModal
+        onClose={onClose}
+        onSaveSuccess={vi.fn()}
+      />
+    );
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
 });
+

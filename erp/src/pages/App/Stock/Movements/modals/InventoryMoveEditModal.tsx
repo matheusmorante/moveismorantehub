@@ -6,6 +6,8 @@ import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { inventoryMoveFormSchema } from '../../../../../../../shared-utils/operationsFormSchemas';
 
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+
 export interface InventoryMoveEditModalProps {
   readonly move: InventoryMove | null;
   readonly isOpen: boolean;
@@ -57,37 +59,36 @@ export const InventoryMoveEditModal: React.FC<InventoryMoveEditModalProps> = ({
   if (!isOpen || !move) return null;
 
   const handleSave = async () => {
-    const validated = await form.validateAndRun(values, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    if (type !== 'balance' && quantity <= 0) {
-      toast.error('Por favor, informe uma quantidade maior que zero.');
-      return;
-    }
-
-    if (type === 'balance' && quantity === 0) {
-      toast.error('O valor do ajuste não pode ser zero.');
-      return;
-    }
-
-    if (!observation.trim()) {
-      toast.error('Por favor, informe um motivo ou observação.');
-      return;
-    }
-
+    if (isSaving || !move?.id) return;
     setIsSaving(true);
     try {
-      await updateInventoryMove(move.id!, {
-        type,
-        quantity,
-        date: date ? new Date(date + 'T12:00:00Z').toISOString() : new Date().toISOString(),
-        label: validated.observation,
-        observation: validated.observation,
-      });
+      await form.validateAndRun(
+        values,
+        async (validated) => {
+          await withTimeout(
+            updateInventoryMove(move.id!, {
+              type: validated.type,
+              quantity: validated.quantity,
+              date: validated.date
+                ? new Date(validated.date + 'T12:00:00Z').toISOString()
+                : new Date().toISOString(),
+              label: validated.observation,
+              observation: validated.observation,
+            }),
+            20_000,
+            undefined,
+            'estoque:editar-movimentacao'
+          );
 
-      toast.success('Movimentação atualizada com sucesso!');
-      onSuccess?.();
-      onClose();
+          toast.success('Movimentação atualizada com sucesso!');
+          onSuccess?.();
+          onClose();
+          return true;
+        },
+        (errors) => {
+          toast.error(Object.values(flattenFormErrors(errors))[0]);
+        }
+      );
     } catch (error: unknown) {
       console.error('Erro ao atualizar movimentação:', error);
       const message =

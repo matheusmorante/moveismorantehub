@@ -190,14 +190,14 @@ test('mapProductsToFeedRows outputs strictly SKUs as id and ignores invalid/inac
         },
       ],
     },
-    // 3. Produto inativo (não deve entrar)
+    // 3. Produto inativo/oculto no catálogo (não deve entrar)
     {
       id: 'p-uuid-inativo',
       code: '000999',
       name: 'Produto Inativo',
       slug: 'inativo',
       price: 100,
-      status: 'published',
+      status: 'hidden',
       active: false,
       images: ['https://pub-r2.dev/inativo.jpg'],
     },
@@ -222,4 +222,56 @@ test('mapProductsToFeedRows outputs strictly SKUs as id and ignores invalid/inac
   // Garante que o código do produto pai 000131 NÃO está presente em nenhuma linha
   const hasParentCode = rows.some((r) => r[0] === '000131' || r[0] === '000224');
   assert.equal(hasParentCode, false);
+});
+
+test('mapProductsToFeedRows includes published variations of salvados even if active is false', () => {
+  const settings: MetaCatalogSettings = {
+    globalDescriptionPrefix: '',
+    columnMappings: { brand: 'Móveis Morante', gender: 'unisex' },
+  };
+
+  const products: RawCatalogProduct[] = [
+    {
+      id: '5f44c0e1-1596-4f27-adc8-9f0afce089f7',
+      code: '000314',
+      name: 'Guarda-Roupa Paris Queima dos Salvados',
+      slug: 'guarda-roupa-paris-queima-dos-salvados',
+      price: 1399,
+      status: 'published',
+      active: false, // Em salvados, active é false no ERP
+      is_salvado: true,
+      product_kind: 'salvado',
+      images: ['https://pub-r2.dev/paris-pai.jpg'],
+      product_variations: [
+        {
+          id: 'df9f1631-844e-4b24-8ab3-3af810a159e8',
+          sku: '000314-01',
+          name: 'Guarda-Roupa Paris Preto',
+          status: 'published',
+          active: false,
+          attributes: { Cor: 'Preto' },
+          image_url: 'https://pub-r2.dev/paris-preto.jpg',
+        },
+        {
+          id: 'e4f92379-fa15-4428-8c0e-311bf48f9437',
+          sku: '000314-04',
+          name: 'Guarda-Roupa Paris Branco',
+          status: 'hidden',
+          active: false,
+        },
+      ],
+    },
+  ];
+
+  const rows = mapProductsToFeedRows({
+    products,
+    settings,
+    origin: 'https://moveismorante.com.br',
+  });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0][0], '000314-01');
+  assert.equal(rows[0][1], 'Guarda-Roupa Paris Preto');
+  assert.equal(rows[0][11], 'refurbished'); // condition para salvados
+  assert.equal(rows[0][12], 'Preto'); // cor
 });

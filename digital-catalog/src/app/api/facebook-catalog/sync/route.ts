@@ -114,7 +114,7 @@ export async function POST(request: Request) {
     const { data: allProducts, error: productsError } = await supabase
       .from('products')
       .select(
-        'id, name, slug, description, price, unit_price, promo_price, status, deleted_at, deleted, is_draft, is_salvado, material, stock, code, category_id, product_categories(categories(name, type)), product_images(image_url, is_main), product_variations(id, name, sku, price, promo_price, image_url, attributes, status, active, stock, use_parent_price, use_parent_promo_price, use_parent_name), opportunities(name, observations)'
+        'id, name, slug, description, price, unit_price, promo_price, status, deleted_at, deleted, is_draft, is_salvado, product_kind, material, stock, code, category_id, product_categories(categories(name, type)), product_images(image_url, is_main), product_variations(id, name, sku, price, promo_price, image_url, attributes, status, active, stock, use_parent_price, use_parent_promo_price, use_parent_name), opportunities(name, observations)'
       );
 
     if (productsError || !allProducts) {
@@ -134,30 +134,27 @@ export async function POST(request: Request) {
 
     // 3. Montar as requisições em lote para a Meta Catalog API (items_batch)
     const batchRequests: MetaBatchRequest[] = [];
-    const visibleProducts = allProducts.filter(
-      (p: any) =>
-        p.active !== false &&
+    const visibleProducts = allProducts.filter((p: any) => {
+      return (
         p.status === 'published' &&
         !p.deleted_at &&
         !p.deleted &&
         !p.is_draft
-    );
+      );
+    });
 
     for (const p of allProducts as any[]) {
       const relationalVariations = p.product_variations || [];
       const hasRelationalVariations = relationalVariations.length > 0;
       const isParentVisible =
-        p.active !== false &&
         p.status === 'published' &&
         !p.deleted_at &&
         !p.deleted &&
         !p.is_draft;
       const visibleVariations = relationalVariations.filter(
         (v: any) =>
-          v.active !== false &&
-          (v.status === 'published' ||
-            (!v.status && isParentVisible) ||
-            (isParentVisible && v.status !== 'hidden'))
+          v.status !== 'hidden' &&
+          (v.status === 'published' || (!v.status && isParentVisible))
       );
 
       // Tratamento de exclusões (itens deletados, desativados ou ocultados)
@@ -179,10 +176,8 @@ export async function POST(request: Request) {
 
         for (const variation of relationalVariations) {
           const isVarPublished =
-            variation.active !== false &&
-            (variation.status === 'published' ||
-              (!variation.status && isParentVisible) ||
-              (isParentVisible && variation.status !== 'hidden'));
+            variation.status !== 'hidden' &&
+            (variation.status === 'published' || (!variation.status && isParentVisible));
           if (!isVarPublished) {
             const varSku = variation.sku ? String(variation.sku).trim() : '';
             if (varSku) {

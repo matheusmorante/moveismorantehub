@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createOperationConfirmationFormSchema } from '../../../../../../shared-utils/operationConfirmationFormSchema';
-import { toast } from 'react-toastify';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 interface CancelSaleModalProps {
   readonly order: import('../../../types/order.type').default;
@@ -26,7 +26,7 @@ interface CancelSaleModalProps {
     operations?: Array<{ action: string; documentId: string; environment?: 1 | 2; model?: string; reason?: string }>;
   };
   readonly onCancel: () => void;
-  readonly onConfirm: (options: { productionConfirmed: boolean }) => void;
+  readonly onConfirm: (options: { productionConfirmed: boolean }, stillCurrent: () => boolean) => boolean | Promise<boolean>;
 }
 
 const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModalProps) => {
@@ -34,6 +34,22 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
   const [confirmed, setConfirmed] = useState(false);
   const [productionConfirmed, setProductionConfirmed] = useState(false);
   const confirmedRef = useRef(false);
+  const inFlight = useRef(false);
+  const active = useRef(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [uncertain, setUncertain] = useState(false);
+  const blockedContexts = useRef(new Set<string>());
+  const completedContexts = useRef(new Set<string>());
+  const contextKey = JSON.stringify([order.id, order.updatedAt, order.status, preview]);
+  const currentContext = useRef(contextKey); currentContext.current = contextKey;
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  useEffect(() => {
+    confirmedRef.current = completedContexts.current.has(contextKey); setConfirmed(confirmedRef.current); setProductionConfirmed(false); setSecondsLeft(3);
+    setUncertain(blockedContexts.current.has(contextKey));
+    setError(blockedContexts.current.has(contextKey) ? 'Existe uma operação sem confirmação. Consulte o histórico antes de repetir.' : '');
+  }, [contextKey]);
+  const close = () => { if (!inFlight.current) onCancel(); };
   const requiresProductionConfirmation =
     (preview.action === 'cancel' && preview.environment === 1) ||
     (preview.action === 'batch' &&
@@ -71,7 +87,7 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !inFlight.current) {
         onCancel();
       }
     };
@@ -88,6 +104,31 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
   }, [secondsLeft]);
 
   const form = useZodForm(createOperationConfirmationFormSchema(requiresProductionConfirmation), { productionConfirmed, waitingSeconds: secondsLeft });
+  const confirm = async () => {
+    if (inFlight.current || confirmedRef.current || blockedContexts.current.has(contextKey) || fiscalProcedureBlocked) return;
+    inFlight.current = true; setBusy(true); setError('');
+    let accepting = true;
+    const isCurrent = () => accepting && active.current && currentContext.current === contextKey;
+    try {
+      await form.validateAndRun({ productionConfirmed, waitingSeconds: secondsLeft }, async (data) => {
+        if (!isCurrent()) return false;
+        const result = await withTimeout(Promise.resolve(onConfirm({ productionConfirmed: data.productionConfirmed }, isCurrent)), 45_000, null, 'venda:confirmar-cancelamento');
+        if (result === null) throw new Error('O resultado não foi confirmado no prazo. Consulte o histórico antes de repetir.');
+        if (result === true) completedContexts.current.add(contextKey);
+        if (!isCurrent()) return false;
+        if (result !== true) { setError('Não foi possível confirmar a operação. Confira os dados e tente novamente.'); return false; }
+        confirmedRef.current = true; setConfirmed(true); return true;
+      }, (errors) => { if (isCurrent()) setError(Object.values(flattenFormErrors(errors))[0] || 'Confira a confirmação.'); });
+    } catch (failure) {
+      const known = Boolean(failure && typeof failure === 'object' && 'knownFailure' in failure && failure.knownFailure === true);
+      if (!known) blockedContexts.current.add(contextKey);
+      if (isCurrent()) {
+        setUncertain(!known);
+        const message = failure instanceof Error ? failure.message : 'Não foi possível confirmar a operação.';
+        setError(known ? message : `${message} Confira o histórico antes de repetir o cancelamento comercial ou fiscal.`);
+      }
+    } finally { accepting = false; inFlight.current = false; if (active.current) setBusy(false); }
+  };
   if (typeof document === 'undefined') return null;
 
   return createPortal(
@@ -96,7 +137,8 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
         type="button"
         aria-label="Fechar modal de cancelamento de venda"
         className="fixed inset-0 bg-slate-950/55 transition-opacity"
-        onClick={onCancel}
+        onClick={close}
+        disabled={busy}
       />
       <section
         role="dialog"
@@ -202,16 +244,20 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
             <input
               type="checkbox"
               checked={productionConfirmed}
+              disabled={busy || uncertain || confirmed}
               onChange={(event) => setProductionConfirmed(event.target.checked)}
               className="mt-0.5 accent-red-600"
             />
             Confirmo a solicitação de cancelamento fiscal desta nota na SEFAZ de Produção.
           </label>
         )}
+        {error && <p role="alert" className="mt-3 text-sm text-rose-700 dark:text-rose-300">{error}</p>}
+        {busy && <p role="status" className="mt-3 text-sm text-slate-600 dark:text-slate-300"><i className="bi bi-arrow-repeat animate-spin mr-2" />Aguardando confirmação da operação...</p>}
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={close}
+            disabled={busy}
             className="rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             Voltar
@@ -222,20 +268,14 @@ const CancelSaleModal = ({ order, preview, onCancel, onConfirm }: CancelSaleModa
             disabled={
               secondsLeft > 0 ||
               confirmed ||
+              busy || uncertain ||
               (requiresProductionConfirmation && !productionConfirmed)
             }
-            onClick={async () => {
-              if (confirmedRef.current) return;
-              const validated = await form.validateAndRun({ productionConfirmed, waitingSeconds: secondsLeft }, (data) => data,
-                (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-              if (!validated || confirmedRef.current) return;
-              confirmedRef.current = true;
-              setConfirmed(true);
-              onConfirm({ productionConfirmed: validated.productionConfirmed });
-            }}
+            onClick={() => { void confirm(); }}
             className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-white transition-all ${
               secondsLeft > 0 ||
               confirmed ||
+              busy || uncertain ||
               (requiresProductionConfirmation && !productionConfirmed)
                 ? 'cursor-not-allowed bg-red-400 opacity-60 dark:bg-red-900/60 dark:text-red-300'
                 : 'cursor-pointer bg-red-600 hover:bg-red-700 active:scale-95 shadow-md shadow-red-500/20'

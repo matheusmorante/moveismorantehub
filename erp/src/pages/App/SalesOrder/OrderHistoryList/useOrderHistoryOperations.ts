@@ -10,6 +10,7 @@ import { toast } from 'react-toastify';
 import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
 import { processOrderCancellationFiscalEffects } from '@/pages/utils/nfe/nfeService';
 import { canUndoFulfillment } from '@/pages/utils/orderStatusTransitionRules';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 interface OrderHistoryOperationsParams {
   orders: Order[];
@@ -116,8 +117,9 @@ export const createOrderHistoryOperations = ({
   const commitStatusUpdate = async (
     currentOrder: Order,
     newStatus: Order['status'],
-    fiscalOptions: { productionConfirmed?: boolean } = {}
+    fiscalOptions: { productionConfirmed?: boolean; isCurrent?: () => boolean } = {}
   ) => {
+    if (fiscalOptions.isCurrent?.() === false) return false;
     const id = currentOrder.id!;
     const isCancelled = newStatus === 'cancelled';
     const expectedStockProcessed = isCancelled ? false : currentOrder.stockProcessed;
@@ -140,8 +142,8 @@ export const createOrderHistoryOperations = ({
       payload.autoFulfillExempt = true;
     }
 
-    // Optimistic update
-    setOrders((prev) =>
+    // A cancellation must remain open until its commercial/fiscal result is known.
+    const applyStatus = () => setOrders((prev) =>
       prev.map((o) =>
         o.id === id
           ? {
@@ -156,8 +158,10 @@ export const createOrderHistoryOperations = ({
           : o
       )
     );
+    if (!isCancelled) applyStatus();
     try {
-      await updateOrder(id, payload, currentOrder);
+      const committed = await withTimeout(Promise.resolve(updateOrder(id, payload, currentOrder)).then(() => true), 30_000, false, 'pedido:confirmar-status-comercial');
+      if (!committed) throw new Error('A alteração comercial não foi confirmada no prazo. Consulte o histórico antes de repetir.');
       if (isUndoFulfillment) {
         const labels = getFulfillmentLabels(currentOrder);
         toast.success(
@@ -189,13 +193,19 @@ export const createOrderHistoryOperations = ({
       return false;
     }
 
+    if (isCancelled && fiscalOptions.isCurrent?.() === false) {
+      applyStatus();
+      toast.warning('Cancelamento comercial confirmado em outro contexto. Consulte NF/NFH para conferir a regularização fiscal; nenhum novo procedimento fiscal foi iniciado.');
+      return true;
+    }
     if (isCancelled) {
       try {
-        const result = await processOrderCancellationFiscalEffects(
+        const result = await withTimeout(processOrderCancellationFiscalEffects(
           id,
           String(currentOrder.orderIndex || currentOrder.orderNumber || id),
           { productionConfirmed: fiscalOptions.productionConfirmed }
-        );
+        ), 30_000, null, 'pedido:confirmar-regularizacao-fiscal');
+        if (!result) throw new Error('O resultado fiscal não foi confirmado no prazo. Consulte NF/NFH antes de repetir.');
         if (result.action === 'batch') {
           const outcomes = result.results || [];
           const failed = outcomes.filter((item) => item.action === 'failed');
@@ -234,9 +244,11 @@ export const createOrderHistoryOperations = ({
       }
     }
 
+    if (isCancelled) applyStatus();
     try {
       if (isCancelled || (currentOrder.status === 'fulfilled' && newStatus === 'scheduled')) {
-        await refresh();
+        const refreshed = await withTimeout(refresh().then(() => true), 10_000, false, 'pedido:recarregar-status');
+        if (!refreshed) throw new Error('O recarregamento excedeu o prazo.');
       }
     } catch {
       toast.warning('O pedido foi atualizado, mas a lista não pôde ser recarregada.');

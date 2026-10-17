@@ -18,10 +18,14 @@ import { useAssistanceOrderForm } from './hooks/useAssistanceOrderForm';
 import type { AssistanceOrderModalProps } from './types/assistance.types';
 
 const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
-  const { onClose } = props;
+  const { onClose: _onClose } = props;
   const {
     isEditing,
     loading,
+    autoSaving,
+    operationError,
+    saveBlocked,
+    handleClose,
     customerData,
     setCustomerData,
     seller,
@@ -51,10 +55,20 @@ const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
     setIsCustomerSearchOpen,
   } = useAssistanceOrderForm(props);
 
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleClose]);
+
   return (
     <div
       className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-[3px] animate-fade-in"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-t sm:border border-slate-100 dark:border-slate-800"
@@ -65,7 +79,8 @@ const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
           isEditing={isEditing}
           isLinked={isLinked}
           linkedOrderCode={currentLinkedOrder ? formatOrderCode(currentLinkedOrder) : undefined}
-          onClose={onClose}
+          onClose={handleClose}
+          autoSaving={autoSaving}
         />
 
         <form
@@ -73,6 +88,15 @@ const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
           onSubmit={handleSave}
           className="p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar"
         >
+          {operationError && (
+            <div
+              role="alert"
+              className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs font-semibold flex items-center gap-3 animate-fade-in"
+            >
+              <i className="bi bi-exclamation-triangle-fill text-amber-500 text-base shrink-0" />
+              <span>{operationError}</span>
+            </div>
+          )}
           {/* Card do Pedido Original e Itens (apenas quando for assistência vinculada) */}
           {isLinked && currentLinkedOrder && (
             <AssistanceLinkedOrderSection
@@ -134,7 +158,12 @@ const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
           </div>
 
           {/* Ações do formulário */}
-          <AssistanceActions onClose={onClose} isLoading={loading} isEditing={isEditing} />
+          <AssistanceActions
+            onClose={handleClose}
+            isLoading={loading}
+            isEditing={isEditing}
+            saveBlocked={saveBlocked}
+          />
         </form>
       </div>
 

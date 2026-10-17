@@ -139,8 +139,8 @@ export function mapProductsToFeedRows(options: MapProductsOptions): string[][] {
   const rows: string[][] = [];
 
   for (const product of products) {
-    // Ignora rascunhos, inativos ou deletados
-    if (product.is_draft || product.deleted || product.deleted_at || product.active === false) {
+    // Ignora rascunhos, deletados ou produtos não publicados no canal do Catálogo
+    if (product.is_draft || product.deleted || product.deleted_at || product.status !== 'published') {
       continue;
     }
 
@@ -151,10 +151,8 @@ export function mapProductsToFeedRows(options: MapProductsOptions): string[][] {
     if (product.product_variations && product.product_variations.length > 0) {
       variationsList = product.product_variations.filter(
         (v) =>
-          v.active !== false &&
-          (v.status === 'published' ||
-            (!v.status && isParentPublished) ||
-            (isParentPublished && v.status !== 'hidden'))
+          v.status !== 'hidden' &&
+          (v.status === 'published' || (!v.status && isParentPublished))
       );
     } else if (product.variations) {
       const rawVars: RawProductVariation[] = Array.isArray(product.variations)
@@ -164,10 +162,8 @@ export function mapProductsToFeedRows(options: MapProductsOptions): string[][] {
           : [];
       variationsList = rawVars.filter(
         (v) =>
-          v.active !== false &&
-          (v.status === 'published' ||
-            (!v.status && isParentPublished) ||
-            (isParentPublished && v.status !== 'hidden'))
+          v.status !== 'hidden' &&
+          (v.status === 'published' || (!v.status && isParentPublished))
       );
     }
 

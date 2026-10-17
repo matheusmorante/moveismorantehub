@@ -229,44 +229,48 @@ const OrderEditModal = ({
     async (updatedOrder: Order): Promise<string | false> => {
       const targetOrderId = effectiveOrder?.id;
       if (!targetOrderId) return false;
-      const validated = await validateEditedOrder(
+      const result = await validateEditedOrder(
         updatedOrder as unknown as z.input<typeof editSchema>,
-        (data) => data as unknown as Order,
-        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])
-      );
-      if (!validated) return false;
-      try {
-        const audit = await auditFiscalOrderEdit(targetOrderId, validated);
-        if (audit.status === 'blocked') {
-          toast.error(audit.error || 'A edição fiscal exige revisão antes de salvar.');
-          return false;
-        }
-        if (audit.status === 'confirmation_required') {
-          if (!audit.orderUpdatedAt || !audit.documents.length) {
+        async (validatedData) => {
+          const validated = validatedData as unknown as Order;
+          try {
+            const audit = await auditFiscalOrderEdit(targetOrderId, validated);
+            if (audit.status === 'blocked') {
+              toast.error(audit.error || 'A edição fiscal exige revisão antes de salvar.');
+              return false;
+            }
+            if (audit.status === 'confirmation_required') {
+              if (!audit.orderUpdatedAt || !audit.documents.length) {
+                toast.error(
+                  'A conferência fiscal retornou incompleta; o pedido permanece sem alteração.'
+                );
+                return false;
+              }
+              setPendingFiscalEdit({ requestId: crypto.randomUUID(), order: validated, audit });
+              setIsFiscalEditConfirmationOpen(true);
+              return false;
+            }
+            if (!audit.orderUpdatedAt) {
+              toast.error(
+                'Não foi possível fixar a versão atual do pedido; nenhuma alteração foi salva.'
+              );
+              return false;
+            }
+            return await persistUpdate(validated, audit.orderUpdatedAt);
+          } catch (error) {
             toast.error(
-              'A conferência fiscal retornou incompleta; o pedido permanece sem alteração.'
+              error instanceof Error
+                ? error.message
+                : 'Não foi possível conferir as notas autorizadas do pedido.'
             );
             return false;
           }
-          setPendingFiscalEdit({ requestId: crypto.randomUUID(), order: validated, audit });
-          setIsFiscalEditConfirmationOpen(true);
-          return false;
+        },
+        (errors) => {
+          toast.error(Object.values(flattenFormErrors(errors))[0]);
         }
-        if (!audit.orderUpdatedAt) {
-          toast.error(
-            'Não foi possível fixar a versão atual do pedido; nenhuma alteração foi salva.'
-          );
-          return false;
-        }
-        return persistUpdate(validated, audit.orderUpdatedAt);
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível conferir as notas autorizadas do pedido.'
-        );
-        return false;
-      }
+      );
+      return result || false;
     },
     [effectiveOrder?.id, persistUpdate, validateEditedOrder]
   );

@@ -66,6 +66,16 @@ describe('useOrderHistory query state', () => {
     );
   };
 
+  it('devolve o resultado comercial de cancelamento ao proprietário da confirmação', async () => {
+    const order = { id: 'sale-cancellation-receipt', status: 'scheduled', orderType: 'sale', items: [] };
+    mocks.fetchOrdersPage.mockResolvedValue({ orders: [order], total: 1 }); mocks.fetchOrderFiscalBadgeStatuses.mockResolvedValue({}); mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
+    const { result } = renderHook(() => useOrderHistory(), { wrapper: createWrapper() }); await waitFor(() => expect(result.current.orders[0]?.id).toBe(order.id));
+    for (const expected of [true, false]) {
+      mocks.commitStatusUpdate.mockResolvedValue(expected);
+      await act(async () => { expect(await result.current.handleStatusUpdate(order.id, 'cancelled', { productionConfirmed: false })).toBe(expected); });
+    }
+  });
+
   it('não repete automaticamente uma leitura bloqueada pelo Query Guard', async () => {
     mocks.fetchOrdersPage.mockRejectedValue(
       new CircuitBreakerError('Requisição bloqueada pelo Query Guard (Loop Detectado).')

@@ -2,7 +2,7 @@ import React from 'react';
 import { ConversationFilter } from '../types';
 import { FreeTierUsageInfo } from '@/pages/utils/customerSupport/freeTierTracker';
 import { useAuth } from '@/context/AuthContext';
-import { NavigationRailItem, NavigationRailFooter } from './navigationRail';
+import { NavigationRailItem, NavigationRailFooter } from './navigationRail/index';
 
 export interface NavigationRailProps {
   activeFilter: ConversationFilter;

@@ -35,7 +35,7 @@ import {
 } from '../services/nfeReconciliationService';
 import { validateNfeEmission } from '../services/nfeValidationService';
 import { nfeEmissionFormSchema } from '../../../../../../../../shared-utils/nfeEmissionFormValidation';
-import { useZodForm } from '@/hooks/useZodForm';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { getSettings } from '@/pages/utils/settingsService';
 import type { FiscalFieldError, NfeSequencePreviewState } from '../types/nfeEmission.types';
 import {
@@ -236,10 +236,6 @@ export function useNfeEmissionActions({
       fiscalPreparationError,
       manualNumber,
     });
-    const validatedValues = await form.validateAndRun({
-      order, currentModel, deliveryMethod, recipientTaxId, nfeItems,
-      isLoadingFiscalData, fiscalPreparationError, manualNumber, issuerUf: getSettings().companyUF,
-    }, (values) => values);
 
     if (validation.recipientTaxIdError !== undefined) {
       setRecipientTaxIdError(validation.recipientTaxIdError);
@@ -271,9 +267,22 @@ export function useNfeEmissionActions({
       }
     }
 
-    if (!validation.valid || !validatedValues) return;
+    if (!validation.valid) return;
 
-    if (!previewOnly) lastEmissionProductionConfirmation.current = productionConfirmed;
+    await form.validateAndRun(
+      {
+        order,
+        currentModel,
+        deliveryMethod,
+        recipientTaxId,
+        nfeItems,
+        isLoadingFiscalData,
+        fiscalPreparationError,
+        manualNumber,
+        issuerUf: getSettings().companyUF,
+      },
+      async () => {
+        if (!previewOnly) lastEmissionProductionConfirmation.current = productionConfirmed;
     setFiscalFieldError(null);
     submissionInProgress.current = true;
     if (previewOnly) setIsPreparingPreview(true);
@@ -458,6 +467,15 @@ export function useNfeEmissionActions({
       if (previewOnly) setIsPreparingPreview(false);
       else setIsSubmitting(false);
     }
+      },
+      (errors) => {
+        const flat = flattenFormErrors(errors);
+        const firstMessage = Object.values(flat)[0];
+        if (firstMessage && !validation.toastError) {
+          toast.error(firstMessage);
+        }
+      }
+    );
   };
 
   const handleReconcile = async () => {

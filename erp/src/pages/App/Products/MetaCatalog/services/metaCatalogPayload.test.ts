@@ -34,7 +34,7 @@ describe('buildMetaCatalogItems', () => {
       {
         id: 'variation-inactive',
         product_id: product.id,
-        status: 'published',
+        status: 'draft',
         active: false,
       },
       {
@@ -187,5 +187,55 @@ describe('buildMetaCatalogItems', () => {
     expect(items[0].productType).not.toBe('Furniture');
     expect(items[0].condition).toBe('new');
     expect(items[0].url).toBe('https://moveismorante.com.br/produto/prod-sem-cat');
+  });
+
+  it('permite que produtos salvados e suas variações com active=false sejam incluídos se status=published', () => {
+    const product: MetaCatalogProductSource = {
+      id: 'paris-salvado-1',
+      code: '000314',
+      name: 'Guarda-Roupa Paris Queima dos Salvados',
+      slug: 'guarda-roupa-paris-queima-dos-salvados',
+      status: 'published',
+      active: false, // salvados são active=false no ERP
+      is_salvado: true,
+      product_kind: 'salvado',
+      deleted: false,
+      deleted_at: null,
+      price: 1399,
+      images: ['paris.jpg'],
+    };
+
+    const variations: MetaCatalogVariationSource[] = [
+      {
+        id: 'var-preto',
+        product_id: 'paris-salvado-1',
+        sku: '000314-01',
+        name: 'Guarda-Roupa Paris Preto',
+        status: 'published',
+        active: false, // salvado
+        attributes: [{ name: 'Cor', value: 'Preto' }],
+      },
+      {
+        id: 'var-branco',
+        product_id: 'paris-salvado-1',
+        sku: '000314-04',
+        name: 'Guarda-Roupa Paris Branco',
+        status: 'hidden',
+        active: false,
+      },
+    ];
+
+    const items = buildMetaCatalogItems([product], variations, []);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      id: 'var-preto',
+      code: '000314-01',
+      name: 'Guarda-Roupa Paris Preto',
+      condition: 'refurbished',
+      is_salvado: true,
+      color: 'Preto',
+      url: 'https://moveismorante.com.br/produto/guarda-roupa-paris-queima-dos-salvados?var=var-preto',
+    });
   });
 });

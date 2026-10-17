@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type Order from '../erp/src/pages/types/order.type';
 import type { CommercialRequiredFields } from './commercialDomainTypes';
 import { validateAssistanceOrder, validateOrder, type ValidationErrors } from './commercialOrderRules';
+import { commercialSchedulingFormSchema } from './commercialSchedulingFormSchema';
 
 const orderItemSchema = z.object({
   description: z.string().optional(),
@@ -63,15 +64,38 @@ export const orderReconciliationFormSchema = z.object({
 }).passthrough();
 
 export const createAssistanceOrderFormSchema = (requiredFields: CommercialRequiredFields = {}) => z.object({
+  id: z.string().trim().min(1).optional(),
+  orderType: z.literal('assistance'),
   status: z.enum(['draft', 'scheduled', 'fulfilled', 'cancelled']),
-  date: z.string(), seller: z.string(), assistanceDescription: z.string(),
+  date: z.string(), seller: z.string().trim(), assistanceDescription: z.string().trim(),
   assistanceCost: z.number().nonnegative(), assistanceServiceValue: z.number().nonnegative(),
   items: z.array(orderItemSchema),
+  linkedOrderId: z.string().optional(),
+  assistanceItems: z.array(z.object({
+    id: z.string(), description: z.string(), quantity: z.number().nonnegative('A quantidade não pode ser negativa.'), originalOrderId: z.string().optional(),
+    handlingType: z.string().optional(), observation: z.string().optional(),
+  }).passthrough()),
+  customerData: z.object({
+    fullName: z.string().trim(), phone: z.string().trim(), noPhone: z.boolean().optional(),
+    fullAddress: z.object({
+      cep: z.string().optional(), street: z.string().optional(), number: z.string().optional(), neighborhood: z.string().optional(), city: z.string().optional(), state: z.string().optional(),
+    }).passthrough().optional(),
+  }).passthrough(),
+  shipping: z.object({
+    deliveryMethod: z.enum(['delivery', 'pickup']).optional(),
+    scheduling: commercialSchedulingFormSchema.passthrough(),
+  }).passthrough(),
 }).passthrough().superRefine((value, ctx) => {
+  if (value.status !== 'draft') value.assistanceItems.forEach((item, index) => {
+    if (item.quantity <= 0) ctx.addIssue({ code: 'custom', path: ['assistanceItems', index, 'quantity'], message: 'Informe uma quantidade maior que zero.' });
+  });
   for (const [field, message] of Object.entries(validateAssistanceOrder(value as unknown as Order, requiredFields))) {
     ctx.addIssue({ code: 'custom', path: [field], message });
   }
 });
+export const assistanceOrderDraftFormSchema = createAssistanceOrderFormSchema().safeExtend({ status: z.literal('draft') });
+export const assistanceSavedIdSchema = z.string().trim().min(1, 'O serviço não confirmou o ID da assistência.');
+export const assistanceLinkedOrderLookupSchema = z.object({ orderId: z.string().trim().min(1, 'Identifique a venda vinculada.') });
 
 export function validateOrderWithZod(order: unknown, requiredFields: CommercialRequiredFields = {}): ValidationErrors {
   const result = createOrderDomainSchema(requiredFields).safeParse(order);

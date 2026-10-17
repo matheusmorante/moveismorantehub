@@ -11,7 +11,7 @@ describe('modal de cancelamento da venda', () => {
 
   it('explica o efeito fiscal e bloqueia confirmação repetida', async () => {
     vi.useFakeTimers();
-    const onConfirm = vi.fn();
+    const onConfirm = vi.fn().mockResolvedValue(true);
     render(
       <CancelSaleModal
         order={{ status: 'scheduled', stockProcessed: true } as any}
@@ -39,14 +39,14 @@ describe('modal de cancelamento da venda', () => {
     const productionConfirmation = screen.getByRole('checkbox', {
       name: /Confirmo a solicitação de cancelamento fiscal desta nota na SEFAZ de Produção/,
     });
-    expect(confirm.disabled).toBe(true);
+    expect(confirm).toHaveProperty('disabled', true);
     fireEvent.click(productionConfirmation);
     await act(async () => {
       fireEvent.click(confirm);
       fireEvent.click(confirm);
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
-    expect(onConfirm).toHaveBeenCalledWith({ productionConfirmed: true });
+    expect(onConfirm).toHaveBeenCalledWith({ productionConfirmed: true }, expect.any(Function));
   });
 
   it('explica o estorno NFE específico sem mensagem genérica de revisão', () => {

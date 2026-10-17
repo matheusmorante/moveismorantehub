@@ -16,4 +16,4 @@ export * from './chat';
 export * from './infoPanel';
 export * from './inbox';
 export * from './conversation';
-export * from './navigationRail';
+export * from './navigationRail/index';

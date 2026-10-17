@@ -65,6 +65,7 @@ export interface RawCatalogProduct {
   deleted?: boolean | null;
   deleted_at?: string | null;
   is_salvado?: boolean | null;
+  product_kind?: string | null;
   material?: string | null;
   images?: string[] | null;
   product_images?: RawProductImage[] | null;

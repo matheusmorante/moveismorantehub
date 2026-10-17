@@ -10,6 +10,8 @@ export interface MetaCatalogStatsProductSource {
   active?: boolean | null;
   deleted?: boolean | null;
   deleted_at?: string | null;
+  is_salvado?: boolean | null;
+  product_kind?: string | null;
 }
 
 export interface MetaCatalogStatsVariationSource {
@@ -37,20 +39,22 @@ export function calculateMetaCatalogStats(
 
   products.forEach((parent) => {
     const isParentDeleted = parent.deleted || parent.deleted_at !== null;
-    const isParentActive = parent.active !== false;
-    const isParentVisible = parent.status !== 'hidden';
+    const isParentPublished = parent.status === 'published';
     const parentVariations = variationsByParent[parent.id] || [];
 
     if (isParentDeleted) return;
 
-    if (!isParentActive || !isParentVisible) {
+    if (!isParentPublished) {
       notPublished += parentVariations.length > 0 ? parentVariations.length : 1;
       return;
     }
 
     if (parentVariations.length > 0) {
       parentVariations.forEach((variation) => {
-        if (variation.active !== false && variation.status !== 'hidden') {
+        const isVarPublished =
+          variation.status === 'published' ||
+          (!variation.status && variation.status !== 'hidden');
+        if (isVarPublished) {
           publishedVariations += 1;
         } else {
           notPublished += 1;

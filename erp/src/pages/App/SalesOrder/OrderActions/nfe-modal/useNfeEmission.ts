@@ -140,21 +140,24 @@ export function useNfeEmission(
       toast.error('Salve o pedido antes de registrar a finalidade da compra.');
       return;
     }
-    const validated = await purposeForm.validateAndRun({ orderId: order.id, purpose }, (data) => data,
-      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-
     purposeSaveInProgress.current = true;
     setIsSavingAcquisitionPurpose(true);
     try {
-      await updateOrder(order.id, {
-        fiscalContext: {
-          ...order.fiscalContext,
-          acquisitionPurpose: validated.purpose,
-          finalConsumer: validated.purpose !== 'resale',
+      await purposeForm.validateAndRun(
+        { orderId: order.id, purpose },
+        async (validated) => {
+          await updateOrder(order.id, {
+            fiscalContext: {
+              ...order.fiscalContext,
+              acquisitionPurpose: validated.purpose,
+              finalConsumer: validated.purpose !== 'resale',
+            },
+          });
+          setSavedAcquisitionPurpose(validated.purpose);
+          return true;
         },
-      });
-      setSavedAcquisitionPurpose(validated.purpose);
+        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])
+      );
     } catch {
       toast.error('Não foi possível salvar a finalidade da compra no pedido.');
     } finally {

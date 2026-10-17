@@ -9,7 +9,7 @@ import { calculateMetaCatalogStats, type MetaCatalogStats } from './metaCatalogS
 export const fetchMetaCatalogStats = async (): Promise<MetaCatalogStats> => {
   const [{ data: products, error: productsError }, { data: variations, error: variationsError }] =
     await Promise.all([
-      supabase.from('products').select('id, status, active, deleted, deleted_at'),
+      supabase.from('products').select('id, status, active, deleted, deleted_at, is_salvado, product_kind'),
       supabase.from('product_variations').select('id, product_id, status, active'),
     ]);
 
@@ -34,7 +34,7 @@ export const fetchMetaCatalogSyncSources = async (): Promise<MetaCatalogSyncSour
     supabase
       .from('products')
       .select(
-        'id, name, description, status, active, deleted, deleted_at, opportunity_id, unit_price, price, promo_price, stock, images, brand, code, is_draft, slug, is_salvado, material, condition, product_categories(categories(name, type))'
+        'id, name, description, status, active, deleted, deleted_at, opportunity_id, unit_price, price, promo_price, stock, images, brand, code, is_draft, slug, is_salvado, product_kind, material, condition, product_categories(categories(name, type))'
       ),
     supabase
       .from('product_variations')
