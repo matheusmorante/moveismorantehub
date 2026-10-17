@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { isSamePhoneNumber } from '../textUtils';
 import { buildOrderMetaTemplateParams } from './metaOrderParams';
 import { buildCustomerOrderMessage } from '../whatsappTemplates';
+import { customerOrderWhatsappUrl } from './whatsappUrls';
 import {
   recordWhatsAppDispatch,
   waitForMetaDeliveryConfirmation,
@@ -168,11 +169,85 @@ export const sendDirectCustomerOrderViaMetaApi = async (order: Order): Promise<b
     }
 
     // 7. Aguarda resposta do Webhook da Meta
-    const webhookResult: WebhookWaitResult = apiMessageId
+    let webhookResult: WebhookWaitResult = apiMessageId
       ? await waitForMetaDeliveryConfirmation(apiMessageId)
       : { status: 'delivered' };
 
+    // Se o envio inicial de texto livre falhar de forma assíncrona pela janela de 24h (Meta Webhook erro 131047):
     if (webhookResult.status === 'failed') {
+      const is24hWebhookError =
+        webhookResult.errorCode === '131047' ||
+        String(webhookResult.failureReason || '').includes('131047') ||
+        String(webhookResult.failureReason || '').includes('24h') ||
+        String(webhookResult.failureReason || '').includes('24 hours') ||
+        String(webhookResult.failureReason || '').includes('Re-engagement');
+
+      // Se a falha foi por janela de 24h fechada e ainda não usamos o template, aciona o fallback automático para o modelo aprovado
+      if (is24hWebhookError && !isTemplateFallback && templateName) {
+        console.warn(
+          '[Meta WhatsApp API] Webhook reportou Janela de 24h fechada (#131047). Acionando fallback automático para modelo aprovado:',
+          templateName
+        );
+        updateToastStatus(toastId, {
+          render: `Janela de 24h fechada para texto livre. Enviando via modelo aprovado (${templateName})... ⏳`,
+          type: 'info',
+        });
+
+        try {
+          const fallbackResult = await whatsappGraphService.sendTemplateMessage(
+            customer.phone,
+            templateName,
+            finalParams,
+            config?.templateLanguage || 'pt_BR'
+          );
+          isTemplateFallback = true;
+          const fallbackMsgId = fallbackResult?.messages?.[0]?.id;
+
+          if (fallbackMsgId) {
+            await recordWhatsAppDispatch({
+              orderId: order.id ? String(order.id) : undefined,
+              recipientPhone: cleanPhone,
+              messageType: 'order_confirmation',
+              messageContent: `[Modelo: ${templateName}] ${finalParams.join(' • ')}`,
+              apiMessageId: fallbackMsgId,
+            });
+
+            webhookResult = await waitForMetaDeliveryConfirmation(fallbackMsgId);
+          } else {
+            webhookResult = { status: 'delivered' };
+          }
+        } catch (templateError: any) {
+          console.error(
+            '[Meta WhatsApp API] Falha no envio do modelo aprovado como fallback:',
+            templateError
+          );
+          throw templateError;
+        }
+      }
+    }
+
+    // Se persistir com status failed (mesmo após tentar o template ou se não havia template cadastrado)
+    if (webhookResult.status === 'failed') {
+      const is24hWebhookError =
+        webhookResult.errorCode === '131047' ||
+        String(webhookResult.failureReason || '').includes('131047') ||
+        String(webhookResult.failureReason || '').includes('24h') ||
+        String(webhookResult.failureReason || '').includes('24 hours') ||
+        String(webhookResult.failureReason || '').includes('Re-engagement');
+
+      if (is24hWebhookError) {
+        updateToastStatus(toastId, {
+          render:
+            'Meta API (Janela de 24h fechada): A Meta exige um Modelo de Mensagem aprovado para iniciar conversas. Como nenhum modelo está configurado em Configurações > WhatsApp API, abrindo o WhatsApp Web como alternativa...',
+          type: 'warning',
+          autoClose: 9000,
+        });
+        if (typeof window !== 'undefined' && typeof window.open === 'function') {
+          window.open(customerOrderWhatsappUrl(order), '_blank');
+        }
+        return false;
+      }
+
       const failMsg =
         webhookResult.failureReason ||
         'A Meta recusou a entrega desta mensagem após o envio (falha assíncrona).';

@@ -266,7 +266,7 @@ describe('Paridade de Inventário de Estoque (ERP Web x App Mobile)', () => {
       loading: boolean
     ) => {
       const uncountedCount = totalCount - countedCount;
-      return !(countedCount === 0 || loading);
+      return !(countedCount === 0 || loading || (hasStages && uncountedCount > 0));
     };
 
     // Inventário full com etapas: pendências permanecem como aviso, sem bloquear

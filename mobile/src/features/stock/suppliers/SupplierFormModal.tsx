@@ -1,141 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   Modal,
   TouchableOpacity,
   TextInput,
   ScrollView,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { X } from 'lucide-react-native';
-import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
-import { createPersonFormSchema } from '../../../../../shared-utils/personDomainValidation';
+import {
+  FieldOptions,
+  SupplierAddress,
+  SupplierFormData,
+  SupplierFormItem,
+} from './types/supplierForm.types';
+import { formatDocument, formatPhone } from './domain/supplierFormDomain';
+import { useSupplierForm } from './hooks/useSupplierForm';
+import { styles } from './SupplierFormModal.styles';
 
-export interface SupplierAddress {
-  cep: string;
-  street: string;
-  number: string;
-  neighborhood: string;
-  complement: string;
-  city: string;
-  state: string;
-  [key: string]: unknown;
-}
-
-export interface SupplierFormData {
-  id?: string;
-  personType: 'PF' | 'PJ';
-  fullName: string;
-  tradeName: string;
-  cpfCnpj: string;
-  leadTime: string;
-  email: string;
-  phone: string;
-  active: boolean;
-  observation: string;
-  fullAddress: SupplierAddress;
-  [key: string]: unknown;
-}
-
-interface FieldOptions {
-  addressKey?: keyof SupplierAddress;
-  placeholder?: string;
-  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad' | 'number-pad';
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-  maxLength?: number;
-  format?: (value: string) => string;
-}
-
-export interface SupplierFormItem extends Partial<SupplierFormData> {
-  id?: string;
-  full_name?: string;
-  trade_name?: string;
-  nickname?: string;
-  name?: string;
-  person_type_pf_pj?: 'PF' | 'PJ';
-  cpf_cnpj?: string;
-  documentNumber?: string;
-  lead_time?: number;
-  observations?: string;
-  full_address?: Partial<SupplierAddress>;
-  address?: Partial<SupplierAddress>;
-}
+export type { SupplierAddress, SupplierFormData, SupplierFormItem };
 
 interface Props {
-  visible: boolean;
-  onClose: () => void;
-  isDarkMode: boolean;
-  supplier?: SupplierFormItem | null;
-  onSave: (data: Record<string, unknown>) => Promise<void>;
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly isDarkMode: boolean;
+  readonly supplier?: SupplierFormItem | null;
+  readonly onSave: (data: Record<string, unknown>) => Promise<void>;
 }
-
-const emptyForm = (): SupplierFormData => ({
-  personType: 'PF',
-  fullName: '',
-  tradeName: '',
-  cpfCnpj: '',
-  leadTime: '',
-  email: '',
-  phone: '',
-  active: true,
-  observation: '',
-  fullAddress: {
-    cep: '',
-    street: '',
-    number: '',
-    neighborhood: '',
-    complement: '',
-    city: '',
-    state: 'PR',
-  },
-});
-
-const formatDocument = (value: string, personType: string) => {
-  const digits = (
-    personType === 'PJ'
-      ? value.toUpperCase().replace(/[^0-9A-Z]/g, '')
-      : value.replace(/\D/g, '')
-  ).slice(0, personType === 'PJ' ? 14 : 11);
-
-  if (personType === 'PJ') {
-    return [
-      digits.slice(0, 2),
-      digits.slice(2, 5),
-      digits.slice(5, 8),
-      digits.slice(8, 12),
-      digits.slice(12, 14),
-    ]
-      .filter(Boolean)
-      .reduce(
-        (result, part, index) =>
-          result +
-          (index === 1 || index === 2 ? '.' : index === 3 ? '/' : index === 4 ? '-' : '') +
-          part,
-        ''
-      );
-  }
-  return [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6, 9), digits.slice(9, 11)]
-    .filter(Boolean)
-    .reduce(
-      (result, part, index) =>
-        result + (index === 1 || index === 2 ? '.' : index === 3 ? '-' : '') + part,
-      ''
-    );
-};
-
-const formatPhone = (value: string) => {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
-  if (digits.length <= 2) return digits;
-  const area = digits.slice(0, 2);
-  const number = digits.slice(2);
-  const prefixLength = digits.length > 10 ? 5 : 4;
-  return `(${area}) ${number.slice(0, prefixLength)}${number.length > prefixLength ? `-${number.slice(prefixLength)}` : ''}`;
-};
 
 export const SupplierFormModal: React.FC<Props> = ({
   visible,
@@ -144,9 +38,13 @@ export const SupplierFormModal: React.FC<Props> = ({
   supplier,
   onSave,
 }) => {
-  const [form, setForm] = useState<SupplierFormData>(emptyForm());
-  const [isSaving, setIsSaving] = useState(false);
-  const personForm = useZodForm(createPersonFormSchema('suppliers'), form);
+  const { form, setForm, isSaving, updateAddress, updateField, handleSave } = useSupplierForm({
+    visible,
+    supplier,
+    onSave,
+    onClose,
+  });
+
   const theme = isDarkMode
     ? {
         bg: '#0f172a',
@@ -164,40 +62,6 @@ export const SupplierFormModal: React.FC<Props> = ({
         muted: '#64748b',
         input: '#fff',
       };
-
-  useEffect(() => {
-    if (!visible) return;
-    setForm(
-      supplier
-        ? {
-            ...emptyForm(),
-            ...supplier,
-            personType: supplier.personType || supplier.person_type_pf_pj || 'PF',
-            fullName: supplier.fullName || supplier.full_name || supplier.name || '',
-            tradeName: supplier.tradeName || supplier.trade_name || supplier.nickname || '',
-            cpfCnpj: supplier.cpfCnpj || supplier.cpf_cnpj || supplier.documentNumber || '',
-            leadTime: String(supplier.leadTime ?? supplier.lead_time ?? ''),
-            observation: supplier.observation || supplier.observations || '',
-            fullAddress: {
-              ...emptyForm().fullAddress,
-              ...(supplier.fullAddress || supplier.full_address || supplier.address || {}),
-            },
-          }
-        : emptyForm()
-    );
-  }, [supplier, visible]);
-
-  const updateAddress = (key: keyof SupplierAddress, value: string) =>
-    setForm((current) => ({
-      ...current,
-      fullAddress: { ...current.fullAddress, [key]: value },
-    }));
-
-  const updateField = (key: keyof Omit<SupplierFormData, 'fullAddress'>, value: string) =>
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
 
   const field = (
     label: string,
@@ -232,41 +96,6 @@ export const SupplierFormModal: React.FC<Props> = ({
       />
     </View>
   );
-
-  const handleSave = async () => {
-    await personForm.validateAndRun(
-      form,
-      async (validated) => {
-        setIsSaving(true);
-        try {
-          await onSave({
-            ...validated,
-            id: supplier?.id,
-            fullName: (validated.fullName || '').trim(),
-            leadTime: validated.leadTime || 0,
-            personType: validated.personType,
-            type: 'suppliers',
-            active: validated.active !== false,
-            fullAddress: validated.fullAddress,
-            isDraft: false,
-          });
-          onClose();
-        } catch (err: unknown) {
-          console.error('Erro ao salvar fornecedor:', err);
-          const message =
-            err instanceof Error
-              ? err.message
-              : typeof err === 'object' && err && 'message' in err
-                ? String((err as { message: unknown }).message)
-                : 'Tente novamente.';
-          Alert.alert('Não foi possível salvar', message);
-        } finally {
-          setIsSaving(false);
-        }
-      },
-      (errors) => Alert.alert('Campo obrigatório', Object.values(flattenFormErrors(errors))[0])
-    );
-  };
 
   return (
     <Modal
@@ -429,84 +258,4 @@ export const SupplierFormModal: React.FC<Props> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { fontSize: 13, marginTop: 2 },
-  closeBtn: { padding: 4 },
-  content: { padding: 18, gap: 14 },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: 6,
-  },
-  typeRow: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 3,
-    gap: 4,
-  },
-  typeButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 9,
-  },
-  typeButtonActive: {
-    backgroundColor: '#0284c7',
-  },
-  typeButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748b',
-  },
-  typeButtonTextActive: {
-    color: '#fff',
-  },
-  inputGroup: { gap: 6 },
-  label: { fontSize: 13, fontWeight: '700' },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 14,
-  },
-  multiline: { height: 90, textAlignVertical: 'top' },
-  inlineFields: { flexDirection: 'row', gap: 10 },
-  footer: {
-    flexDirection: 'row',
-    padding: 18,
-    borderTopWidth: 1,
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-  },
-  saveBtn: {
-    flex: 2,
-    backgroundColor: '#0284c7',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-  },
-  saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-});
+export default SupplierFormModal;

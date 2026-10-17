@@ -2043,7 +2043,7 @@ function parseFiscalEmissionCommand(value) {
   const environment = Number(body.environment);
   const emissionRequestId = typeof body.emissionRequestId === "string" ? body.emissionRequestId : "";
   const supersedesDocumentId = typeof body.supersedesDocumentId === "string" ? body.supersedesDocumentId : void 0;
-  if (!orderId || ![1, 2].includes(environment) || !UUID_PATTERN.test(emissionRequestId) || supersedesDocumentId !== void 0 && !UUID_PATTERN.test(supersedesDocumentId) || supersedesDocumentId !== void 0 && environment !== 2 || body.productionConfirmed !== void 0 && typeof body.productionConfirmed !== "boolean")
+  if (!orderId || ![1, 2].includes(environment) || environment === 1 && orderId.startsWith("TEST_AUT_") || !UUID_PATTERN.test(emissionRequestId) || supersedesDocumentId !== void 0 && !UUID_PATTERN.test(supersedesDocumentId) || supersedesDocumentId !== void 0 && environment !== 2 || body.productionConfirmed !== void 0 && typeof body.productionConfirmed !== "boolean")
     return { error: "Pedido, ambiente ou chave de idempot\xEAncia inv\xE1lidos." };
   if (body.previewOnly !== void 0 && typeof body.previewOnly !== "boolean")
     return { error: "Indicador de pr\xE9via fiscal inv\xE1lido." };
@@ -3682,36 +3682,14 @@ function resolveTransport(input) {
   };
 }
 
-// shared-utils/recipientIeIndicator.ts
-function resolveEffectiveRecipientIeIndicator(input) {
-  for (const candidate of [input.selected, input.persisted, input.customer]) {
-    const value = String(candidate ?? "").trim();
-    if (value === "1" || value === "2" || value === "9") return value;
-  }
-  return String(input.ie ?? "").trim() ? "1" : "9";
-}
-function getRecipientIeIndicatorConsistencyError(indicator, ie) {
-  if (indicator !== "1" && indicator !== "2" && indicator !== "9") {
-    return "Selecione uma situa\xE7\xE3o v\xE1lida para a Inscri\xE7\xE3o Estadual do destinat\xE1rio.";
-  }
-  const rawIe = typeof ie === "string" ? ie.trim() : "";
-  const digits2 = rawIe.replace(/\D/g, "");
-  if (indicator === "1") {
-    if (!digits2) {
-      return "Destinat\xE1rio contribuinte do ICMS (indIEDest=1) exige Inscri\xE7\xE3o Estadual.";
-    }
-    if (digits2.length < 2 || digits2.length > 14) {
-      return "A IE informada para indIEDest=1 deve conter de 2 a 14 d\xEDgitos.";
-    }
-    return null;
-  }
-  if (indicator === "2") {
-    return rawIe ? "Destinat\xE1rio isento (indIEDest=2) n\xE3o deve possuir Inscri\xE7\xE3o Estadual informada." : null;
-  }
-  if (rawIe && (digits2.length < 2 || digits2.length > 14)) {
-    return "A IE informada para indIEDest=9 deve conter de 2 a 14 d\xEDgitos.";
-  }
-  return null;
+// shared-utils/orderItemFiscalSnapshot.ts
+var record = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
+var nonEmptyString = (value) => typeof value === "string" && value.trim() ? value.trim() : void 0;
+function hasFiscalItemSnapshot(item) {
+  const itemRecord = record(item);
+  const version = itemRecord.fiscalSnapshotVersion;
+  const fiscal = record(itemRecord.fiscal);
+  return typeof version === "number" && Number.isInteger(version) && version > 0 && Boolean(nonEmptyString(fiscal.commercialUnit)) && Boolean(nonEmptyString(fiscal.taxableUnit));
 }
 
 // api/nfe/interstate-outbound-fiscal-matrix/rules.ts
@@ -4290,14 +4268,129 @@ function resolveInterstateOutboundFiscalMatrix(facts, rules = INTERSTATE_OUTBOUN
   return notApproved("Nenhuma regra APPROVED completa e vigente corresponde aos fatos.");
 }
 
-// shared-utils/orderItemFiscalSnapshot.ts
-var record = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
-var nonEmptyString = (value) => typeof value === "string" && value.trim() ? value.trim() : void 0;
-function hasFiscalItemSnapshot(item) {
-  const itemRecord = record(item);
-  const version = itemRecord.fiscalSnapshotVersion;
-  const fiscal = record(itemRecord.fiscal);
-  return typeof version === "number" && Number.isInteger(version) && version > 0 && Boolean(nonEmptyString(fiscal.commercialUnit)) && Boolean(nonEmptyString(fiscal.taxableUnit));
+// api/nfe/normal-sale/interstateValidation.ts
+function resolveInterstateFinalConsumer(operationScope, contextData, requestFinalConsumer) {
+  if (operationScope.scope !== "interstate") {
+    return requestFinalConsumer;
+  }
+  const acquisitionPurpose = contextData.acquisitionPurpose;
+  if (acquisitionPurpose !== "resale" && acquisitionPurpose !== "use_consumption" && acquisitionPurpose !== "fixed_asset") {
+    throw new Error(
+      "ACQUISITION_PURPOSE_REQUIRED: registre no pedido se a compra \xE9 para revenda, uso/consumo ou ativo imobilizado."
+    );
+  }
+  const finalConsumer = acquisitionPurpose !== "resale";
+  if (requestFinalConsumer !== finalConsumer) {
+    throw new Error(
+      "ACQUISITION_PURPOSE_MISMATCH: o indFinal enviado n\xE3o corresponde \xE0 finalidade persistida no pedido."
+    );
+  }
+  return finalConsumer;
+}
+function validateInterstateNormalSaleMatrix(params) {
+  const {
+    facts,
+    operationScope,
+    modelDecision,
+    initialComposition,
+    customer,
+    ieIndicator,
+    finalConsumer,
+    ruleSetVersion
+  } = params;
+  if (operationScope.scope !== "interstate") {
+    return;
+  }
+  if (modelDecision.model !== "55") {
+    throw new Error("NFC-e modelo 65 n\xE3o pode ser usada em opera\xE7\xE3o interestadual.");
+  }
+  const routeFacts = {
+    environment: facts.emissionRequest.environment,
+    model: modelDecision.model,
+    issuerRegime: String(facts.issuerProfile.companyCRT || ""),
+    issuerUf: operationScope.issuerUf || "",
+    destinationUf: operationScope.operationUf || "",
+    destinationScope: "INTERSTATE",
+    operationType: "sale",
+    purpose: "1",
+    effectiveAt: facts.capturedAt
+  };
+  if (!hasApprovedInterstateOutboundRoute(routeFacts)) {
+    throw new Error(
+      `Opera\xE7\xE3o interestadual n\xE3o est\xE1 coberta pela matriz ${ruleSetVersion} (HML_INTERSTATE_MATRIX_NOT_APPROVED). A Matriz de Decis\xE3o Fiscal Interestadual de Sa\xEDda n\xE3o cont\xE9m regra APPROVED utiliz\xE1vel; CFOP candidato n\xE3o define CSOSN, ICMS, ST, DIFAL ou FCP.`
+    );
+  }
+  const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
+  const inputs = obj(facts.fiscalInputs);
+  const productCatalog = obj(inputs.products);
+  const recipientIeStatus = ieIndicator === "1" ? "taxpayer" : ieIndicator === "2" ? "exempt" : "non_taxpayer";
+  const explicitBoolean = (...values) => values.find((value) => typeof value === "boolean");
+  const merchandiseOrigin = (item, fiscal) => {
+    const source = item.merchandiseOrigin ?? fiscal.merchandiseOrigin;
+    if (source === "third_party" || source === "own_production") return source;
+    const isOwnProduction = explicitBoolean(item.isOwnProduction, fiscal.isOwnProduction);
+    return isOwnProduction === void 0 ? "third_party" : isOwnProduction ? "own_production" : "third_party";
+  };
+  const matrixResults = initialComposition.products.map(({ item }, index) => {
+    const selected = selections[String(index + 1)];
+    const itemRecord = item;
+    const itemFiscal = itemRecord.fiscal && typeof itemRecord.fiscal === "object" ? itemRecord.fiscal : {};
+    const productFiscalRaw = hasFiscalItemSnapshot(itemRecord) ? itemFiscal : itemRecord.productId ? productCatalog[itemRecord.productId] : void 0;
+    const productFiscal = productFiscalRaw && typeof productFiscalRaw === "object" ? productFiscalRaw : {};
+    const matrixFacts = {
+      environment: facts.emissionRequest.environment,
+      model: modelDecision.model,
+      issuerRegime: String(facts.issuerProfile.companyCRT || ""),
+      issuerUf: operationScope.issuerUf || "",
+      destinationUf: operationScope.operationUf || "",
+      destinationScope: "INTERSTATE",
+      operationType: "sale",
+      purpose: "1",
+      recipientPersonType: customer.personType === "PF" || customer.personType === "PJ" ? customer.personType : void 0,
+      recipientIeStatus,
+      finalConsumer,
+      merchandiseOrigin: merchandiseOrigin(itemRecord, productFiscal),
+      productOrigin: selected?.origem,
+      ncm: selected?.ncm,
+      cest: selected?.cest,
+      hasSt: explicitBoolean(
+        itemFiscal.hasSt,
+        itemFiscal.isSt,
+        productFiscal.hasSt,
+        productFiscal.isSt
+      ),
+      productId: typeof itemRecord.productId === "string" ? itemRecord.productId : void 0,
+      effectiveAt: facts.capturedAt
+    };
+    const matrixResult = resolveInterstateOutboundFiscalMatrix(matrixFacts);
+    if (matrixResult.status === "approved") {
+      const approvedTreatment = matrixResult.treatment;
+      if (selected?.cfop === "6933" || selected?.cfop === "5933") {
+        throw new Error(
+          `CFOP ${selected.cfop} pertence a presta\xE7\xE3o de servi\xE7o (ISSQN) e n\xE3o pode ser aplicado a venda de mercadoria.`
+        );
+      }
+      if (selected?.cfop && selected.cfop !== approvedTreatment.cfop) {
+        throw new Error(
+          `CFOP escolhido diverge do tratamento aprovado pela matriz (esperado ${approvedTreatment.cfop} para opera\xE7\xE3o interestadual); nenhuma escolha foi substitu\xEDda.`
+        );
+      }
+      if (selected?.csosn !== approvedTreatment.csosn) {
+        throw new Error(
+          `CSOSN ${selected?.csosn || "n\xE3o informado"} diverge do tratamento aprovado pela matriz (esperado ${approvedTreatment.csosn}); nenhuma escolha foi substitu\xEDda.`
+        );
+      }
+    }
+    return matrixResult;
+  });
+  const nonApproved = matrixResults.find((result) => result.status !== "approved");
+  if (!matrixResults.length || nonApproved) {
+    const code = nonApproved && "code" in nonApproved ? nonApproved.code : "HML_INTERSTATE_MATRIX_NOT_APPROVED";
+    const reason = nonApproved && "reason" in nonApproved ? nonApproved.reason : "";
+    throw new Error(
+      `Opera\xE7\xE3o interestadual n\xE3o est\xE1 coberta pela matriz ${ruleSetVersion} (${code}). ${reason || "A Matriz de Decis\xE3o Fiscal Interestadual de Sa\xEDda n\xE3o cont\xE9m regra APPROVED utiliz\xE1vel; CFOP candidato n\xE3o define CSOSN, ICMS, ST, DIFAL ou FCP."}`
+    );
+  }
 }
 
 // api/nfe/normal-sale/items.ts
@@ -4457,37 +4550,6 @@ function determineNormalSaleItems(params) {
   const discount = composition.products.reduce((sum, item) => sum + item.vDescCents, 0);
   const invoice = products - discount + freight + composition.vOutroCents;
   return { traces, determinedItems, products, discount, invoice };
-}
-
-// api/nfe/normal-sale/municipality.ts
-var municipalitiesByUf = /* @__PURE__ */ new Map();
-async function municipalityCode(city, uf = "PR", existingCode) {
-  if (existingCode && /^\d{7}$/.test(String(existingCode))) {
-    return String(existingCode);
-  }
-  const normUf = uf.toUpperCase();
-  let promise = municipalitiesByUf.get(normUf);
-  if (!promise) {
-    promise = fetch(
-      `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${normUf}/municipios`,
-      { signal: AbortSignal.timeout(1e4) }
-    ).then(async (response) => {
-      if (!response.ok) throw new Error(`Consulta oficial IBGE indispon\xEDvel para UF ${normUf}.`);
-      const data = await response.json();
-      if (!Array.isArray(data) || data.some((item) => !Number.isInteger(item.id) || typeof item.nome !== "string"))
-        throw new Error("Resposta oficial IBGE inv\xE1lida.");
-      return data;
-    }).catch((error) => {
-      municipalitiesByUf.delete(normUf);
-      throw error;
-    });
-    municipalitiesByUf.set(normUf, promise);
-  }
-  const list = await promise;
-  const match = list.find((item) => normalize(item.nome) === normalize(city));
-  if (!match)
-    throw new Error(`Munic\xEDpio do destinat\xE1rio n\xE3o encontrado na fonte oficial IBGE de ${normUf}.`);
-  return String(match.id);
 }
 
 // shared-utils/orderPaymentState.ts
@@ -4665,6 +4727,164 @@ function resolveNormalSalePayments(params) {
   return { payments, payment, billingInstallments };
 }
 
+// shared-utils/recipientIeIndicator.ts
+function resolveEffectiveRecipientIeIndicator(input) {
+  for (const candidate of [input.selected, input.persisted, input.customer]) {
+    const value = String(candidate ?? "").trim();
+    if (value === "1" || value === "2" || value === "9") return value;
+  }
+  return String(input.ie ?? "").trim() ? "1" : "9";
+}
+function getRecipientIeIndicatorConsistencyError(indicator, ie) {
+  if (indicator !== "1" && indicator !== "2" && indicator !== "9") {
+    return "Selecione uma situa\xE7\xE3o v\xE1lida para a Inscri\xE7\xE3o Estadual do destinat\xE1rio.";
+  }
+  const rawIe = typeof ie === "string" ? ie.trim() : "";
+  const digits2 = rawIe.replace(/\D/g, "");
+  if (indicator === "1") {
+    if (!digits2) {
+      return "Destinat\xE1rio contribuinte do ICMS (indIEDest=1) exige Inscri\xE7\xE3o Estadual.";
+    }
+    if (digits2.length < 2 || digits2.length > 14) {
+      return "A IE informada para indIEDest=1 deve conter de 2 a 14 d\xEDgitos.";
+    }
+    return null;
+  }
+  if (indicator === "2") {
+    return rawIe ? "Destinat\xE1rio isento (indIEDest=2) n\xE3o deve possuir Inscri\xE7\xE3o Estadual informada." : null;
+  }
+  if (rawIe && (digits2.length < 2 || digits2.length > 14)) {
+    return "A IE informada para indIEDest=9 deve conter de 2 a 14 d\xEDgitos.";
+  }
+  return null;
+}
+
+// api/nfe/normal-sale/municipality.ts
+var municipalitiesByUf = /* @__PURE__ */ new Map();
+async function municipalityCode(city, uf = "PR", existingCode) {
+  if (existingCode && /^\d{7}$/.test(String(existingCode))) {
+    return String(existingCode);
+  }
+  const normUf = uf.toUpperCase();
+  let promise = municipalitiesByUf.get(normUf);
+  if (!promise) {
+    promise = fetch(
+      `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${normUf}/municipios`,
+      { signal: AbortSignal.timeout(1e4) }
+    ).then(async (response) => {
+      if (!response.ok) throw new Error(`Consulta oficial IBGE indispon\xEDvel para UF ${normUf}.`);
+      const data = await response.json();
+      if (!Array.isArray(data) || data.some((item) => !Number.isInteger(item.id) || typeof item.nome !== "string"))
+        throw new Error("Resposta oficial IBGE inv\xE1lida.");
+      return data;
+    }).catch((error) => {
+      municipalitiesByUf.delete(normUf);
+      throw error;
+    });
+    municipalitiesByUf.set(normUf, promise);
+  }
+  const list = await promise;
+  const match = list.find((item) => normalize(item.nome) === normalize(city));
+  if (!match)
+    throw new Error(`Munic\xEDpio do destinat\xE1rio n\xE3o encontrado na fonte oficial IBGE de ${normUf}.`);
+  return String(match.id);
+}
+
+// api/nfe/normal-sale/recipientScope.ts
+function resolveNormalSaleCustomer(orderData, inputs) {
+  const savedCustomer = orderData.customerData ? obj(orderData.customerData) : {};
+  const catalogCustomer = inputs.customer ? obj(inputs.customer) : {};
+  return {
+    ...catalogCustomer,
+    fullName: savedCustomer.fullName ?? savedCustomer.name ?? catalogCustomer.fullName,
+    cpfCnpj: savedCustomer.cpfCnpj ?? catalogCustomer.cpfCnpj,
+    address: savedCustomer.fullAddress ?? catalogCustomer.address,
+    ie: savedCustomer.ie ?? catalogCustomer.ie,
+    ieIndicator: savedCustomer.ieIndicator ?? catalogCustomer.ieIndicator,
+    personType: savedCustomer.personType ?? catalogCustomer.personType
+  };
+}
+function resolveRecipientIeContext(facts, customer, contextData) {
+  const ieIndicator = resolveEffectiveRecipientIeIndicator({
+    selected: facts.emissionRequest.recipientIeIndicator,
+    persisted: contextData.recipientIeIndicator,
+    customer: customer.ieIndicator,
+    ie: facts.emissionRequest.recipientIe ?? customer.ie
+  });
+  const recipientIe = String(facts.emissionRequest.recipientIe ?? customer.ie ?? "");
+  return { ieIndicator, recipientIe };
+}
+async function resolveNormalSaleRecipientAddress(params) {
+  const { address: address2, requirements, issuerProfile } = params;
+  const city = requirements.addressRequired ? required2(address2.city, "Munic\xEDpio real do destinat\xE1rio") : "";
+  const issuerUf = String(issuerProfile.companyUF || "").toUpperCase();
+  const uf = requirements.addressRequired ? required2(address2.state || address2.uf, "UF real do destinat\xE1rio").toUpperCase() : issuerUf;
+  const code = requirements.addressRequired ? await municipalityCode(
+    city,
+    uf,
+    address2.cityCode || address2.ibge || address2.municipalityCode
+  ) : String(issuerProfile.companyCMun || "");
+  const recipientAddress = requirements.addressRequired ? {
+    street: required2(address2.street, "Logradouro real"),
+    number: required2(String(address2.number || ""), "N\xFAmero real"),
+    district: required2(address2.neighborhood || address2.bairro, "Bairro real"),
+    municipality: city,
+    municipalityCode: code,
+    uf,
+    postalCode: String(address2.zipCode || address2.cep || address2.postalCode || "").replace(
+      /[-.]/g,
+      ""
+    )
+  } : void 0;
+  if (recipientAddress?.postalCode && !/^\d{8}$/.test(recipientAddress.postalCode)) {
+    throw new Error("CEP real inv\xE1lido.");
+  }
+  return { recipientAddress, municipalityCode: code };
+}
+function validateNormalSaleRecipientRequirements(params) {
+  const {
+    requirements,
+    model,
+    cpfCnpj,
+    personType,
+    ieIndicator,
+    recipientIe,
+    facts,
+    shippingData,
+    operationDestination
+  } = params;
+  if (!requirements.supported) {
+    throw new Error(requirements.message || "Matriz fiscal n\xE3o aplic\xE1vel.");
+  }
+  if (operationDestination === "2" && model === "65") {
+    throw new Error("NFC-e n\xE3o permite opera\xE7\xE3o interestadual; utilize NF-e modelo 55.");
+  }
+  if (requirements.documentRequired && !cpfCnpj) {
+    throw new Error(
+      `${requirements.documentType} do destinat\xE1rio \xE9 obrigat\xF3rio para esta opera\xE7\xE3o fiscal.`
+    );
+  }
+  if (cpfCnpj && !isValidRecipientTaxId(cpfCnpj)) {
+    throw new Error("CPF/CNPJ do destinat\xE1rio inv\xE1lido para esta opera\xE7\xE3o fiscal.");
+  }
+  if (cpfCnpj && !recipientTaxIdMatchesPersonType(cpfCnpj, personType)) {
+    throw new Error(`CPF/CNPJ do destinat\xE1rio inv\xE1lido para o tipo ${personType}.`);
+  }
+  const ieConsistencyError = getRecipientIeIndicatorConsistencyError(ieIndicator, recipientIe);
+  if (ieConsistencyError) {
+    throw new Error(ieConsistencyError);
+  }
+  if (model === "65" && ieIndicator !== "9") {
+    throw new Error(
+      "NFC-e exige destinat\xE1rio n\xE3o contribuinte; revise a condi\xE7\xE3o fiscal da opera\xE7\xE3o."
+    );
+  }
+  const effectiveTransporter = facts.emissionRequest.transporter || shippingData.transporter;
+  if (facts.emissionRequest.transportResponsible === "THIRD_PARTY" && !effectiveTransporter) {
+    throw new Error("Identifique o transportador terceirizado.");
+  }
+}
+
 // api/nfe/simplesNormalSaleContribution.ts
 var SUPPORTED_MODELS = ["55", "65"];
 var SHARED_DECISION_ID = "fiscal_decision_simples_normal_sale_v1";
@@ -4777,30 +4997,15 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
   if (environment !== 1 && environment !== 2) throw new Error("Ambiente fiscal inv\xE1lido.");
   const inputs = obj(facts.fiscalInputs);
   const orderData = facts.order.data;
-  const savedCustomer = orderData.customerData ? obj(orderData.customerData) : {};
-  const catalogCustomer = inputs.customer ? obj(inputs.customer) : {};
-  const customer = {
-    ...catalogCustomer,
-    fullName: savedCustomer.fullName ?? savedCustomer.name ?? catalogCustomer.fullName,
-    cpfCnpj: savedCustomer.cpfCnpj ?? catalogCustomer.cpfCnpj,
-    address: savedCustomer.fullAddress ?? catalogCustomer.address,
-    ie: savedCustomer.ie ?? catalogCustomer.ie,
-    ieIndicator: savedCustomer.ieIndicator ?? catalogCustomer.ieIndicator,
-    personType: savedCustomer.personType ?? catalogCustomer.personType
-  };
   const contextData = orderData.fiscalContext ? obj(orderData.fiscalContext) : {};
   const shippingData = orderData.shipping ? obj(orderData.shipping) : {};
-  const ieIndicator = resolveEffectiveRecipientIeIndicator({
-    selected: facts.emissionRequest.recipientIeIndicator,
-    persisted: contextData.recipientIeIndicator,
-    customer: customer.ieIndicator,
-    ie: facts.emissionRequest.recipientIe ?? customer.ie
-  });
-  const recipientIe = String(facts.emissionRequest.recipientIe ?? customer.ie ?? "");
-  if (!["delivery", "pickup"].includes(String(shippingData.deliveryMethod || "")))
+  if (!["delivery", "pickup"].includes(String(shippingData.deliveryMethod || ""))) {
     throw new Error(
       "Modalidade atual do pedido ausente ou inv\xE1lida; confirme entrega ou retirada."
     );
+  }
+  const customer = resolveNormalSaleCustomer(orderData, inputs);
+  const { ieIndicator, recipientIe } = resolveRecipientIeContext(facts, customer, contextData);
   const address2 = getFiscalRecipientAddress({
     ...orderData,
     customerData: { ...obj(orderData.customerData || {}), fullAddress: customer.address }
@@ -4811,25 +5016,17 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
     shipping: shippingData,
     customerAddress: customer.address
   });
-  if (operationScope.destination === null)
+  if (operationScope.destination === null) {
     throw new Error(operationScope.reason || "Local f\xEDsico da opera\xE7\xE3o fiscal n\xE3o identificado.");
-  if (operationScope.scope === "foreign")
-    throw new Error("Opera\xE7\xE3o com exterior exige matriz fiscal espec\xEDfica aprovada.");
-  let finalConsumer = facts.emissionRequest.finalConsumer;
-  if (operationScope.scope === "interstate") {
-    const acquisitionPurpose = contextData.acquisitionPurpose;
-    if (acquisitionPurpose !== "resale" && acquisitionPurpose !== "use_consumption" && acquisitionPurpose !== "fixed_asset") {
-      throw new Error(
-        "ACQUISITION_PURPOSE_REQUIRED: registre no pedido se a compra \xE9 para revenda, uso/consumo ou ativo imobilizado."
-      );
-    }
-    finalConsumer = acquisitionPurpose !== "resale";
-    if (facts.emissionRequest.finalConsumer !== finalConsumer) {
-      throw new Error(
-        "ACQUISITION_PURPOSE_MISMATCH: o indFinal enviado n\xE3o corresponde \xE0 finalidade persistida no pedido."
-      );
-    }
   }
+  if (operationScope.scope === "foreign") {
+    throw new Error("Opera\xE7\xE3o com exterior exige matriz fiscal espec\xEDfica aprovada.");
+  }
+  const finalConsumer = resolveInterstateFinalConsumer(
+    operationScope,
+    contextData,
+    facts.emissionRequest.finalConsumer
+  );
   const initialComposition = composeServiceFiscalValues(orderData.items);
   const modelTotal = initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + initialComposition.vOutroCents + money2(shippingData.value ?? 0, "Frete comercial");
   const decisionOrder = {
@@ -4857,105 +5054,28 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
       "RESALE",
       "VALUE_LIMIT"
     ].includes(reason) && !(reason === "OTHER_FISCAL_REQUIREMENT" && ieIndicator === "1" && contextData.otherFiscalRequirement !== true)
-  ))
+  )) {
     throw new Error(
       `${modelDecision.reason} Esta opera\xE7\xE3o exige matriz tribut\xE1ria espec\xEDfica aprovada.`
     );
-  const deliveryMethod = shippingData.deliveryMethod;
-  if (operationScope.scope === "interstate") {
-    if (modelDecision.model !== "55")
-      throw new Error("NFC-e modelo 65 n\xE3o pode ser usada em opera\xE7\xE3o interestadual.");
-    const routeFacts = {
-      environment: facts.emissionRequest.environment,
-      model: modelDecision.model,
-      issuerRegime: String(facts.issuerProfile.companyCRT || ""),
-      issuerUf: operationScope.issuerUf || "",
-      destinationUf: operationScope.operationUf || "",
-      destinationScope: "INTERSTATE",
-      operationType: "sale",
-      purpose: "1",
-      effectiveAt: facts.capturedAt
-    };
-    if (!hasApprovedInterstateOutboundRoute(routeFacts))
-      throw new Error(
-        `Opera\xE7\xE3o interestadual n\xE3o est\xE1 coberta pela matriz ${ruleSetVersion} (HML_INTERSTATE_MATRIX_NOT_APPROVED). A Matriz de Decis\xE3o Fiscal Interestadual de Sa\xEDda n\xE3o cont\xE9m regra APPROVED utiliz\xE1vel; CFOP candidato n\xE3o define CSOSN, ICMS, ST, DIFAL ou FCP.`
-      );
-    const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
-    const productCatalog = obj(inputs.products);
-    const recipientIeStatus = ieIndicator === "1" ? "taxpayer" : ieIndicator === "2" ? "exempt" : "non_taxpayer";
-    const explicitBoolean = (...values) => values.find((value) => typeof value === "boolean");
-    const merchandiseOrigin = (item, fiscal) => {
-      const source = item.merchandiseOrigin ?? fiscal.merchandiseOrigin;
-      if (source === "third_party" || source === "own_production") return source;
-      const isOwnProduction = explicitBoolean(item.isOwnProduction, fiscal.isOwnProduction);
-      return isOwnProduction === void 0 ? "third_party" : isOwnProduction ? "own_production" : "third_party";
-    };
-    const matrixResults = initialComposition.products.map(({ item }, index) => {
-      const selected = selections[String(index + 1)];
-      const itemRecord = item;
-      const itemFiscal = itemRecord.fiscal && typeof itemRecord.fiscal === "object" ? itemRecord.fiscal : {};
-      const productFiscalRaw = hasFiscalItemSnapshot(itemRecord) ? itemFiscal : itemRecord.productId ? productCatalog[itemRecord.productId] : void 0;
-      const productFiscal = productFiscalRaw && typeof productFiscalRaw === "object" ? productFiscalRaw : {};
-      const matrixFacts = {
-        environment: facts.emissionRequest.environment,
-        model: modelDecision.model,
-        issuerRegime: String(facts.issuerProfile.companyCRT || ""),
-        issuerUf: operationScope.issuerUf || "",
-        destinationUf: operationScope.operationUf || "",
-        destinationScope: "INTERSTATE",
-        operationType: "sale",
-        purpose: "1",
-        recipientPersonType: customer.personType === "PF" || customer.personType === "PJ" ? customer.personType : void 0,
-        recipientIeStatus,
-        finalConsumer,
-        merchandiseOrigin: merchandiseOrigin(itemRecord, productFiscal),
-        productOrigin: selected?.origem,
-        ncm: selected?.ncm,
-        cest: selected?.cest,
-        hasSt: explicitBoolean(
-          itemFiscal.hasSt,
-          itemFiscal.isSt,
-          productFiscal.hasSt,
-          productFiscal.isSt
-        ),
-        productId: typeof itemRecord.productId === "string" ? itemRecord.productId : void 0,
-        effectiveAt: facts.capturedAt
-      };
-      const matrixResult = resolveInterstateOutboundFiscalMatrix(matrixFacts);
-      if (matrixResult.status === "approved") {
-        const approvedTreatment = matrixResult.treatment;
-        if (selected?.cfop === "6933" || selected?.cfop === "5933") {
-          throw new Error(
-            `CFOP ${selected.cfop} pertence a presta\xE7\xE3o de servi\xE7o (ISSQN) e n\xE3o pode ser aplicado a venda de mercadoria.`
-          );
-        }
-        if (selected?.cfop && selected.cfop !== approvedTreatment.cfop) {
-          throw new Error(
-            `CFOP escolhido diverge do tratamento aprovado pela matriz (esperado ${approvedTreatment.cfop} para opera\xE7\xE3o interestadual); nenhuma escolha foi substitu\xEDda.`
-          );
-        }
-        if (selected?.csosn !== approvedTreatment.csosn) {
-          throw new Error(
-            `CSOSN ${selected?.csosn || "n\xE3o informado"} diverge do tratamento aprovado pela matriz (esperado ${approvedTreatment.csosn}); nenhuma escolha foi substitu\xEDda.`
-          );
-        }
-      }
-      return matrixResult;
-    });
-    const nonApproved = matrixResults.find((result) => result.status !== "approved");
-    if (!matrixResults.length || nonApproved) {
-      const code2 = nonApproved && "code" in nonApproved ? nonApproved.code : "HML_INTERSTATE_MATRIX_NOT_APPROVED";
-      const reason = nonApproved && "reason" in nonApproved ? nonApproved.reason : "";
-      throw new Error(
-        `Opera\xE7\xE3o interestadual n\xE3o est\xE1 coberta pela matriz ${ruleSetVersion} (${code2}). ${reason || "A Matriz de Decis\xE3o Fiscal Interestadual de Sa\xEDda n\xE3o cont\xE9m regra APPROVED utiliz\xE1vel; CFOP candidato n\xE3o define CSOSN, ICMS, ST, DIFAL ou FCP."}`
-      );
-    }
   }
+  const deliveryMethod = shippingData.deliveryMethod;
+  validateInterstateNormalSaleMatrix({
+    facts,
+    operationScope,
+    modelDecision,
+    initialComposition,
+    customer,
+    ieIndicator,
+    finalConsumer,
+    ruleSetVersion
+  });
   const contribution = resolveNormalSaleContribution(inputs, modelDecision.model);
   const issuerCnpj = normalizeRecipientTaxId(String(facts.issuerProfile.companyCnpj || ""));
   if (!/^[A-Z0-9]{12}[0-9]{2}$/.test(issuerCnpj)) throw new Error("CNPJ do emitente inv\xE1lido.");
-  if (facts.issuerProfile.companyCRT !== "1" || facts.issuerProfile.companyUF !== "PR")
+  if (facts.issuerProfile.companyCRT !== "1" || facts.issuerProfile.companyUF !== "PR") {
     throw new Error("Regra de venda normal exige emitente Simples Nacional no Paran\xE1.");
+  }
   const cpfCnpj = normalizeRecipientTaxId(
     String(facts.emissionRequest.recipientTaxId ?? customer.cpfCnpj ?? "")
   );
@@ -4969,49 +5089,22 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
     recipientTaxId: cpfCnpj,
     operationScope: "NORMAL_DOMESTIC_SALE"
   });
-  if (!requirements.supported)
-    throw new Error(requirements.message || "Matriz fiscal n\xE3o aplic\xE1vel.");
-  const city = requirements.addressRequired ? required2(address2.city, "Munic\xEDpio real do destinat\xE1rio") : "";
-  const issuerUf = String(facts.issuerProfile.companyUF || "").toUpperCase();
-  const uf = requirements.addressRequired ? required2(address2.state || address2.uf, "UF real do destinat\xE1rio").toUpperCase() : issuerUf;
-  if (operationScope.destination === "2" && modelDecision.model === "65")
-    throw new Error("NFC-e n\xE3o permite opera\xE7\xE3o interestadual; utilize NF-e modelo 55.");
-  const code = requirements.addressRequired ? await municipalityCode(
-    city,
-    uf,
-    address2.cityCode || address2.ibge || address2.municipalityCode
-  ) : String(facts.issuerProfile.companyCMun || "");
-  const recipientAddress = requirements.addressRequired ? {
-    street: required2(address2.street, "Logradouro real"),
-    number: required2(String(address2.number || ""), "N\xFAmero real"),
-    district: required2(address2.neighborhood || address2.bairro, "Bairro real"),
-    municipality: city,
-    municipalityCode: code,
-    uf,
-    postalCode: String(address2.zipCode || address2.cep || address2.postalCode || "").replace(
-      /[-.]/g,
-      ""
-    )
-  } : void 0;
-  if (recipientAddress?.postalCode && !/^\d{8}$/.test(recipientAddress.postalCode))
-    throw new Error("CEP real inv\xE1lido.");
-  if (requirements.documentRequired && !cpfCnpj)
-    throw new Error(
-      `${requirements.documentType} do destinat\xE1rio \xE9 obrigat\xF3rio para esta opera\xE7\xE3o fiscal.`
-    );
-  if (cpfCnpj && !isValidRecipientTaxId(cpfCnpj))
-    throw new Error("CPF/CNPJ do destinat\xE1rio inv\xE1lido para esta opera\xE7\xE3o fiscal.");
-  if (cpfCnpj && !recipientTaxIdMatchesPersonType(cpfCnpj, personType))
-    throw new Error(`CPF/CNPJ do destinat\xE1rio inv\xE1lido para o tipo ${personType}.`);
-  const ieConsistencyError = getRecipientIeIndicatorConsistencyError(ieIndicator, recipientIe);
-  if (ieConsistencyError) throw new Error(ieConsistencyError);
-  if (modelDecision.model === "65" && ieIndicator !== "9")
-    throw new Error(
-      "NFC-e exige destinat\xE1rio n\xE3o contribuinte; revise a condi\xE7\xE3o fiscal da opera\xE7\xE3o."
-    );
-  const effectiveTransporter = facts.emissionRequest.transporter || shippingData.transporter;
-  if (facts.emissionRequest.transportResponsible === "THIRD_PARTY" && !effectiveTransporter)
-    throw new Error("Identifique o transportador terceirizado.");
+  const { recipientAddress, municipalityCode: code } = await resolveNormalSaleRecipientAddress({
+    address: address2,
+    requirements,
+    issuerProfile: facts.issuerProfile
+  });
+  validateNormalSaleRecipientRequirements({
+    requirements,
+    model: modelDecision.model,
+    cpfCnpj,
+    personType,
+    ieIndicator,
+    recipientIe,
+    facts,
+    shippingData,
+    operationDestination: operationScope.destination
+  });
   return {
     version: ruleSetVersion,
     approvedBy: contribution.confirmedBy,
@@ -5019,8 +5112,9 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
     effectiveFrom: contribution.confirmedAt,
     issuerCnpj,
     determine: (snapshot, hash) => {
-      if (snapshot.emissionRequest.environment !== environment || snapshot.order.deleted || snapshot.order.type !== "sale" || ["draft", "cancelled", "cancelado"].includes(snapshot.order.status.toLowerCase()))
+      if (snapshot.emissionRequest.environment !== environment || snapshot.order.deleted || snapshot.order.type !== "sale" || ["draft", "cancelled", "cancelado"].includes(snapshot.order.status.toLowerCase())) {
         throw new Error("Pedido n\xE3o eleg\xEDvel para venda normal neste ambiente.");
+      }
       const data = snapshot.order.data;
       const snapshotShipping = data.shipping ? obj(data.shipping) : {};
       const snapshotCustomer = data.customerData ? obj(data.customerData) : {};
@@ -5030,27 +5124,32 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         shipping: snapshotShipping,
         customerAddress: snapshotCustomer.fullAddress || snapshotCustomer.address || customer.address || void 0
       });
-      if (snapshotScope.destination === null)
+      if (snapshotScope.destination === null) {
         throw new Error(
           snapshotScope.reason || "Local f\xEDsico da opera\xE7\xE3o fiscal n\xE3o identificado."
         );
+      }
       const recipientCpfCnpj = normalizeRecipientTaxId(
         String(snapshot.emissionRequest.recipientTaxId ?? customer.cpfCnpj ?? "")
       );
       const items = data.items;
       const selections = parseFiscalItemSelections(snapshot.emissionRequest.itemFiscalSelections);
       const composition = composeServiceFiscalValues(items);
-      if (!composition.products.length || Object.keys(selections).length !== composition.products.length)
+      if (!composition.products.length || Object.keys(selections).length !== composition.products.length) {
         throw new Error("Campos confirmados n\xE3o cobrem todos os produtos.");
+      }
       for (const item of items) {
-        if (typeof item.quantity !== "number" || item.quantity <= 0 || !Number.isFinite(item.quantity))
+        if (typeof item.quantity !== "number" || item.quantity <= 0 || !Number.isFinite(item.quantity)) {
           throw new Error("Quantidade comercial inv\xE1lida.");
+        }
         money2(item.unitPrice, "Pre\xE7o comercial", true);
         if (item.unitDiscount !== void 0) money2(item.unitDiscount, "Desconto comercial");
-        if (item.unitDiscount && !["fixed", "percentage"].includes(item.discountType))
+        if (item.unitDiscount && !["fixed", "percentage"].includes(item.discountType)) {
           throw new Error("Tipo de desconto ausente ou n\xE3o suportado.");
-        if (item.discountType === "percentage" && item.unitDiscount > 100 || item.discountType === "fixed" && item.unitDiscount > item.unitPrice)
+        }
+        if (item.discountType === "percentage" && item.unitDiscount > 100 || item.discountType === "fixed" && item.unitDiscount > item.unitPrice) {
           throw new Error("Desconto excede o pre\xE7o comercial.");
+        }
       }
       const shipping = data.shipping ? obj(data.shipping) : {};
       const freight = money2(shipping.value ?? 0, "Frete comercial");
@@ -5087,12 +5186,12 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         postalCode: required2(issuer.companyCEP, "CEP emitente").replace(/\D/g, "")
       };
       const isDelivery = shipping.deliveryMethod === "delivery";
-      const deliveryMethod2 = isDelivery ? "delivery" : "pickup";
-      const effectiveTransporter2 = snapshot.emissionRequest.transporter || shipping.transporter;
-      const rawResponsible = snapshot.emissionRequest.transportResponsible || (snapshot.emissionRequest.deliveryByIssuer === true ? "OWN_COMPANY" : snapshot.emissionRequest.deliveryByIssuer === false && effectiveTransporter2 ? "THIRD_PARTY" : void 0);
+      const snapshotDeliveryMethod = isDelivery ? "delivery" : "pickup";
+      const effectiveTransporter = snapshot.emissionRequest.transporter || shipping.transporter;
+      const rawResponsible = snapshot.emissionRequest.transportResponsible || (snapshot.emissionRequest.deliveryByIssuer === true ? "OWN_COMPANY" : snapshot.emissionRequest.deliveryByIssuer === false && effectiveTransporter ? "THIRD_PARTY" : void 0);
       const resolvedTransport = resolveTransport({
         fiscalModel: modelDecision.model,
-        deliveryMethod: deliveryMethod2,
+        deliveryMethod: snapshotDeliveryMethod,
         hasTransport: snapshot.emissionRequest.hasTransport,
         transportResponsible: rawResponsible,
         freightContractResponsible: snapshot.emissionRequest.freightContractResponsible
@@ -5103,7 +5202,7 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         ie: String(issuer.companyIE || "").replace(/\D/g, ""),
         city: issuerAddress.municipality,
         uf: issuerAddress.uf
-      } : resolvedTransport.requiresTransporterData && effectiveTransporter2 ? effectiveTransporter2 : void 0;
+      } : resolvedTransport.requiresTransporterData && effectiveTransporter ? effectiveTransporter : void 0;
       return {
         snapshotHash: hash,
         ruleSetVersion,
@@ -7128,7 +7227,11 @@ async function handler(req, res) {
           success: false,
           error: "Servi\xE7o fiscal sem credencial segura do banco."
         });
-      supabase = (0, import_supabase_js.createClient)(supabaseUrl, supabaseServiceKey, { db: { retry: false } });
+      supabase = (0, import_supabase_js.createClient)(
+        supabaseUrl,
+        supabaseServiceKey,
+        { db: { retry: false } }
+      );
       const fiscalAuthorization2 = await withNfeEmissionStage(
         "operator_authorization",
         () => authorizeFiscalOperator(supabase, req.headers.authorization),
@@ -7290,7 +7393,11 @@ async function handler(req, res) {
     }
     if (!supabaseServiceKey)
       return res.status(503).json({ success: false, error: "Servi\xE7o fiscal sem credencial segura do banco." });
-    supabase = (0, import_supabase_js.createClient)(supabaseUrl, supabaseServiceKey, { db: { retry: false } });
+    supabase = (0, import_supabase_js.createClient)(
+      supabaseUrl,
+      supabaseServiceKey,
+      { db: { retry: false } }
+    );
     const fiscalAuthorization = await authorizeFiscalOperator(supabase, req.headers.authorization);
     if (!fiscalAuthorization.ok)
       return res.status(fiscalAuthorization.status).json({

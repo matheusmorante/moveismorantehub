@@ -27,8 +27,10 @@ interface SalesOrderTopToolbarProps {
   readonly onToggleShowTestOrders: (checked: boolean) => void;
   readonly customerSearchInput: string;
   readonly onCustomerSearchChange: (val: string) => void;
-  readonly onCustomerSearchFocus: () => void;
-  readonly onCustomerSearchBlur: () => void;
+  readonly onCustomerSearchFocus?: () => void;
+  readonly onCustomerSearchBlur?: () => void;
+  readonly onCustomerSearchKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  readonly onCustomerSearchClear?: () => void;
   readonly showSettings: boolean;
   readonly onToggleShowSettings: () => void;
   readonly onCloseSettings: () => void;
@@ -52,6 +54,8 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
   onCustomerSearchChange,
   onCustomerSearchFocus,
   onCustomerSearchBlur,
+  onCustomerSearchKeyDown,
+  onCustomerSearchClear,
   showSettings,
   onToggleShowSettings,
   onCloseSettings,
@@ -73,6 +77,8 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
               onChange={onCustomerSearchChange}
               onSearchFocus={onCustomerSearchFocus}
               onSearchBlur={onCustomerSearchBlur}
+              onKeyDown={onCustomerSearchKeyDown}
+              onClear={onCustomerSearchClear}
               placeholder="Buscar pedido pelo nome do cliente (mín. 3 caracteres)..."
             />
           </div>

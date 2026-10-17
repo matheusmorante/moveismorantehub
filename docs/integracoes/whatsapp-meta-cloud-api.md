@@ -116,7 +116,9 @@ O sistema possui integração ponta a ponta com Webhook e Realtime:
 3. **Escuta Reativa:** O frontend aguarda a confirmação via **Supabase Realtime** no canal do despacho (com failsafe de polling).
 4. **Recebimento do Webhook (`api/whatsapp-webhook.ts` e `erp/api/whatsapp-webhook.ts`):**
    * Se a Meta entregar (`delivered` ou `sent`), o toast é atualizado para sucesso: `"Pedido/entrega enviado diretamente ao cliente via Cloud WhatsApp com sucesso! 🎉"`.
-   * Se a Meta rejeitar (`failed` / `#131056` spam, `#131049` política, `#131026` número inválido, etc.), o toast em espera é convertido para **Toast de Erro** detalhando exatamente o motivo: `"Cloud WhatsApp: Falha na entrega (Mensagem descartada pela Meta (proteção anti-spam ou envio repetido). Aguarde 1 minuto ou altere o conteúdo do pedido antes de reenviar.)"`.
+   * **Fallback Automático de Janela de 24h (#131047):** Se o disparo inicial de texto livre for recusado pela Meta devido à janela de atendimento de 24h estar fechada e houver um modelo aprovado configurado em *Configurações > WhatsApp API* (ex: `envio_de_pedido` ou `confirmacao_pedido_entrega`), o sistema **aciona automaticamente o fallback para o modelo aprovado**, retransmite com os parâmetros higienizados e aguarda a confirmação de entrega do modelo.
+   * Se não houver modelo configurado ou se o modelo também falhar, o sistema exibe aviso orientativo e **abre automaticamente o WhatsApp Web (`wa.me`)** como contingência imediata, garantindo que o operador nunca fique bloqueado de comunicar a entrega ao cliente.
+   * Se a Meta rejeitar por outros motivos (`failed` / `#131056` spam, `#131049` política, `#131026` número inválido, etc.), o toast em espera é convertido para **Toast de Erro** detalhando exatamente o motivo: `"Cloud WhatsApp: Falha na entrega (...)"`.
    * Se houver timeout no webhook (ex: destinatário temporariamente sem internet), o toast informa com transparência que a mensagem está aceita na fila da Meta.
 
 ---

@@ -31,7 +31,7 @@ const issuedAt = '2026-10-09T12:00:00-03:00';
 const identity = generateNfeAccessKey({
   ufCode: '41',
   yearMonth: '2610',
-  cnpj: '12345678000199',
+  cnpj: '12345678000195',
   model: '55',
   series: '1',
   number: 42,
@@ -57,7 +57,7 @@ const document: FiscalDocument = {
   model: '55',
   environment: 2,
   issuer: {
-    cnpj: '12345678000199',
+    cnpj: '12345678000195',
     name: 'Emitente sintético',
     ie: '1234567890',
     crt: '1',
@@ -166,7 +166,7 @@ const snapshot: FiscalSnapshotCandidate = {
       paymentsSummary: { totalOrderValue: 3500 },
     },
   },
-  issuerProfile: { companyCnpj: '12345678000199' },
+  issuerProfile: { companyCnpj: '12345678000195' },
   emissionRequest: {
     id: '75ad9d8a-87d9-4de2-820e-4670903f7303',
     environment: 2,
@@ -233,7 +233,7 @@ function unsignedXml(
     `<tpNF>1</tpNF><idDest>1</idDest><cMunFG>4104808</cMunFG><tpImp>${model === '65' ? '4' : '1'}</tpImp><tpEmis>1</tpEmis>` +
     `<cDV>${key[43]}</cDV><tpAmb>2</tpAmb><finNFe>1</finNFe><indFinal>1</indFinal><indPres>1</indPres>` +
     `<procEmi>0</procEmi><verProc>MoranteHub_1.0</verProc></ide>` +
-    `<emit><CNPJ>12345678000199</CNPJ><xNome>Emitente sintético</xNome><enderEmit><xLgr>Rua de Teste</xLgr>` +
+    `<emit><CNPJ>12345678000195</CNPJ><xNome>Emitente sintético</xNome><enderEmit><xLgr>Rua de Teste</xLgr>` +
     `<nro>100</nro><xBairro>Centro</xBairro><cMun>4104808</cMun><xMun>Cascavel</xMun><UF>PR</UF>` +
     `<CEP>85801000</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderEmit><IE>1234567890</IE><CRT>1</CRT></emit>` +
     `<dest><CPF>52998224725</CPF><xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome><indIEDest>9</indIEDest></dest>` +
@@ -291,7 +291,7 @@ describe('auditoria backend do XML fiscal', () => {
 
   it('aceita a transformação obrigatória da primeira descrição em NFC-e 65 de homologação', () => {
     const nfcKey = generateNfeAccessKey({
-      ufCode: '41', yearMonth: '2610', cnpj: '12345678000199', model: '65', series: '1',
+      ufCode: '41', yearMonth: '2610', cnpj: '12345678000195', model: '65', series: '1',
       number: 43, emissionType: '1', randomCode: '87654321',
     }).accessKey;
     const nfcDocument: FiscalDocument = { ...document, model: '65' };

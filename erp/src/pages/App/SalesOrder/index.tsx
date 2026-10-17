@@ -40,8 +40,10 @@ const SalesOrder = () => {
     filters,
     setFilters,
     customerSearchInput,
-    setCustomerSearchInput,
-    clearCustomerSearchBlurTimer,
+    handleCustomerSearchChange,
+    handleClearCustomerSearch,
+    handleCustomerSearchKeyDown,
+    clearCustomerSearchDebounceTimer,
     handleCustomerSearchBlur,
     visibilitySettings,
     toggleVisibility,
@@ -82,9 +84,11 @@ const SalesOrder = () => {
           showTestOrders={showTestOrders}
           onToggleShowTestOrders={setShowTestOrders}
           customerSearchInput={customerSearchInput}
-          onCustomerSearchChange={setCustomerSearchInput}
-          onCustomerSearchFocus={clearCustomerSearchBlurTimer}
+          onCustomerSearchChange={handleCustomerSearchChange}
+          onCustomerSearchFocus={clearCustomerSearchDebounceTimer}
           onCustomerSearchBlur={handleCustomerSearchBlur}
+          onCustomerSearchKeyDown={handleCustomerSearchKeyDown}
+          onCustomerSearchClear={handleClearCustomerSearch}
           showSettings={showSettings}
           onToggleShowSettings={() => setShowSettings((prev) => !prev)}
           onCloseSettings={() => setShowSettings(false)}
@@ -144,11 +148,14 @@ const SalesOrder = () => {
                   highlightOrderId={highlightOrderId}
                   ref={orderListRef}
                   onFilterByOrderId={(id) => setFilters((prev) => ({ ...prev, searchId: id }))}
+                  customerSearchInput={isSalesOrderRoute ? undefined : customerSearchInput}
                   onCustomerSearchChange={
                     isSalesOrderRoute
                       ? undefined
-                      : (name) => setFilters((prev) => ({ ...prev, customerName: name }))
+                      : handleCustomerSearchChange
                   }
+                  onCustomerSearchClear={isSalesOrderRoute ? undefined : handleClearCustomerSearch}
+                  onCustomerSearchKeyDown={isSalesOrderRoute ? undefined : handleCustomerSearchKeyDown}
                   onAction={modals.handleOrderAction}
                   onIssueNfe={modals.handleDirectIssueNfe}
                   onShowPostSaleActions={modals.setPostOrderDetails}

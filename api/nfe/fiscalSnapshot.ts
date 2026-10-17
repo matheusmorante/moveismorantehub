@@ -408,6 +408,7 @@ export function parseFiscalEmissionCommand(
   if (
     !orderId ||
     ![1, 2].includes(environment) ||
+    (environment === 1 && orderId.startsWith('TEST_AUT_')) ||
     !UUID_PATTERN.test(emissionRequestId) ||
     (supersedesDocumentId !== undefined && !UUID_PATTERN.test(supersedesDocumentId)) ||
     (supersedesDocumentId !== undefined && environment !== 2) ||

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ createClient: vi.fn() }));
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: mocks.createClient,
+}));
 vi.mock('../../../../../../node_modules/@supabase/supabase-js/dist/index.mjs', () => ({
   createClient: mocks.createClient,
 }));
@@ -31,7 +34,7 @@ function response() {
   };
 }
 
-function database(role = 'seller') {
+function database(role = 'manager') {
   const rpc = vi.fn(async () => ({ data: 701, error: null }));
   const sequenceRead = vi.fn(async () => ({ data: { ultimo_numero: 701 }, error: null }));
   const sequenceFilters: Array<[string, string | number]> = [];
@@ -109,7 +112,7 @@ describe('reserva fiscal via API autenticada', () => {
   });
 
   it('impede reserva direta mesmo para operador autorizado', async () => {
-    const { db, rpc } = database('seller');
+    const { db, rpc } = database('manager');
     mocks.createClient.mockReturnValue(db);
     const handler = (await import('../../../../../../api/nfe/reserve-number')).default;
     const result = response();

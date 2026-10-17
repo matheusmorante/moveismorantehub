@@ -5,12 +5,16 @@ import {
   getCachedFiscalNumberPreview,
   getNextNfeNumberPreview,
 } from '@/pages/utils/nfe/nfeService';
-import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import type {
   NfeSequencePreviewState,
   NfeSequenceSettingsState,
 } from '../types/nfeEmission.types';
 import { withNfeEmissionStage } from '../../../../../../../../src/telemetry/nfeEmissionPerformance';
+import {
+  computeDerivedSequencePreview,
+  resolveInitialPreviewState,
+  resolveInitialSequenceSettings,
+} from './nfeSequencePreviewHelpers';
 
 export interface UseNfeSequencePreviewProps {
   orderId: string | number | undefined;
@@ -24,74 +28,26 @@ export function useNfeSequencePreview({
   environment,
 }: UseNfeSequencePreviewProps) {
   const [numberPreviewState, setNumberPreviewState] =
-    useState<NfeSequencePreviewState | null>(() => {
-      const model = currentModel;
-      try {
-        const sequence = resolveNfeSequenceSettings(getSettings(), model, DEFAULT_NFE_ENVIRONMENT);
-        const cached = getCachedFiscalNumberPreview(model, DEFAULT_NFE_ENVIRONMENT, sequence.series);
-        if (cached !== null) {
-          return {
-            number: String(cached),
-            model,
-            series: sequence.series,
-            environment: DEFAULT_NFE_ENVIRONMENT,
-          };
-        }
-      } catch (err) {
-        console.warn('[useNfeSequencePreview] Falha ao recuperar prévia em cache da sequência fiscal:', err);
-        return null;
-      }
-      return null;
-    });
+    useState<NfeSequencePreviewState | null>(() => resolveInitialPreviewState(currentModel));
 
   const [nfeNumberSequenceSettings, setNfeNumberSequenceSettings] =
-    useState<NfeSequenceSettingsState>(() => {
-      const model = currentModel;
-      try {
-        return {
-          model,
-          series: resolveNfeSequenceSettings(getSettings(), model, DEFAULT_NFE_ENVIRONMENT).series,
-          environment: DEFAULT_NFE_ENVIRONMENT,
-        };
-      } catch (err) {
-        console.warn(
-          '[useNfeSequencePreview] Falha ao resolver configuração de série da sequência fiscal:',
-          err
-        );
-        return { model, series: null, environment: DEFAULT_NFE_ENVIRONMENT };
-      }
-    });
+    useState<NfeSequenceSettingsState>(() => resolveInitialSequenceSettings(currentModel));
 
   const [isResolvingNfeNumber, setIsResolvingNfeNumber] = useState(Boolean(orderId));
   const [nfeNumberLookupError, setNfeNumberLookupError] = useState<string | null>(null);
   const [manualNumberInput, setManualNumberInput] = useState<string | null>(null);
 
-  const sequenceScopeMatches =
-    nfeNumberSequenceSettings.model === currentModel &&
-    nfeNumberSequenceSettings.environment === environment;
-
-  const nfeNumberSequence = sequenceScopeMatches
-    ? nfeNumberSequenceSettings
-    : { model: currentModel, series: null, environment };
-
-  const autoPreview =
-    sequenceScopeMatches &&
-    nfeNumberSequence.series &&
-    numberPreviewState?.model === currentModel &&
-    numberPreviewState.environment === environment &&
-    numberPreviewState.series === nfeNumberSequence.series
-      ? numberPreviewState.number
-      : '';
-
-  const numberPreview = manualNumberInput !== null ? manualNumberInput : autoPreview;
-
-  const isLoadingNfeNumber =
-    Boolean(orderId) &&
-    (!sequenceScopeMatches ||
-      isResolvingNfeNumber ||
-      (!numberPreviewState && !nfeNumberLookupError));
-
-  const nfeNumberError = sequenceScopeMatches ? nfeNumberLookupError : null;
+  const { nfeNumberSequence, numberPreview, isLoadingNfeNumber, nfeNumberError } =
+    computeDerivedSequencePreview({
+      currentModel,
+      environment,
+      numberPreviewState,
+      nfeNumberSequenceSettings,
+      manualNumberInput,
+      isResolvingNfeNumber,
+      nfeNumberLookupError,
+      hasOrderId: Boolean(orderId),
+    });
 
   useEffect(() => {
     if (!orderId) return;

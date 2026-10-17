@@ -114,7 +114,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           success: false,
           error: 'Serviço fiscal sem credencial segura do banco.',
         });
-      supabase = createClient<FiscalDatabase>(supabaseUrl, supabaseServiceKey, { db: { retry: false } });
+      supabase = createClient<FiscalDatabase>(
+        supabaseUrl,
+        supabaseServiceKey,
+        { db: { retry: false } } as Parameters<typeof createClient<FiscalDatabase>>[2]
+      );
       const fiscalAuthorization = await withNfeEmissionStage(
         'operator_authorization',
         () => authorizeFiscalOperator(supabase!, req.headers.authorization),
@@ -331,7 +335,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res
         .status(503)
         .json({ success: false, error: 'Serviço fiscal sem credencial segura do banco.' });
-    supabase = createClient<FiscalDatabase>(supabaseUrl, supabaseServiceKey, { db: { retry: false } });
+    supabase = createClient<FiscalDatabase>(
+      supabaseUrl,
+      supabaseServiceKey,
+      { db: { retry: false } } as Parameters<typeof createClient<FiscalDatabase>>[2]
+    );
     const fiscalAuthorization = await authorizeFiscalOperator(supabase, req.headers.authorization);
     if (!fiscalAuthorization.ok)
       return res.status(fiscalAuthorization.status).json({

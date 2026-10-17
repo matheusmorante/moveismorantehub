@@ -3356,7 +3356,11 @@ async function handler(req, res) {
     return res.status(405).json({ success: false, error: "M\xE9todo n\xE3o permitido." });
   if (!serviceKey)
     return res.status(503).json({ success: false, error: "Servi\xE7o fiscal indispon\xEDvel." });
-  const supabase = (0, import_supabase_js.createClient)(supabaseUrl, serviceKey, { db: { retry: false } });
+  const supabase = (0, import_supabase_js.createClient)(
+    supabaseUrl,
+    serviceKey,
+    { db: { retry: false } }
+  );
   const fiscalAuthorization = await authorizeFiscalOperator(supabase, req.headers.authorization);
   if (!fiscalAuthorization.ok)
     return res.status(fiscalAuthorization.status).json({

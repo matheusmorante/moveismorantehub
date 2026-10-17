@@ -3,9 +3,7 @@ import { toast } from 'react-toastify';
 import type Item from '@/pages/types/items.type';
 import type Order from '@/pages/types/order.type';
 import type { FiscalAcquisitionPurpose } from '@/pages/types/order.type';
-import { updateOrder } from '@/pages/utils/orderHistoryService';
 import {
-  getFiscalIssuePresentation,
   HML_INTERSTATE_MATRIX_NOT_APPROVED,
   isHmlInterstateMatrixBlock,
   safeFiscalIssueMessage,
@@ -38,24 +36,12 @@ import { nfeEmissionFormSchema } from '../../../../../../../../shared-utils/nfeE
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { getSettings } from '@/pages/utils/settingsService';
 import type { FiscalFieldError, NfeSequencePreviewState } from '../types/nfeEmission.types';
+import { backfillLegacyOrderItemSnapshots } from '../services/nfeSnapshotBackfillService';
 import {
-  hasFiscalItemSnapshot,
-  hasPersistedAuthorizedInvoice,
-  ORDER_ITEM_FISCAL_SNAPSHOT_VERSION,
-} from '../../../../../../../../shared-utils/orderItemFiscalSnapshot';
-
-function notifyEmissionIssue(result: NfeEmissionResult) {
-  const issue = getFiscalIssuePresentation(result);
-  const message = `${issue.title}. ${issue.description}`;
-
-  if (issue.tone === 'attention') {
-    toast.warning(message);
-  } else if (issue.tone === 'info') {
-    toast.info(message);
-  } else {
-    toast.error(message);
-  }
-}
+  buildFailedEmissionResult,
+  createPreviewContextKey,
+  notifyEmissionIssue,
+} from '../services/nfePreviewContextService';
 
 export interface UseNfeEmissionActionsProps {
   order: Order | null;
@@ -124,24 +110,20 @@ export function useNfeEmissionActions({
   const submissionInProgress = useRef(false);
   const lastEmissionProductionConfirmation = useRef(false);
   const persistedLegacySnapshotOrderIds = useRef(new Set<string>());
+
   const form = useZodForm(nfeEmissionFormSchema, {
-    order: order as Order, currentModel, deliveryMethod, recipientTaxId, nfeItems,
-    isLoadingFiscalData, fiscalPreparationError, issuerUf: getSettings().companyUF,
+    order: order as Order,
+    currentModel,
+    deliveryMethod,
+    recipientTaxId,
+    nfeItems,
+    isLoadingFiscalData,
+    fiscalPreparationError,
+    issuerUf: getSettings().companyUF,
   });
 
-  const getPreviewContextKey = (numberInput: string | null) => JSON.stringify({
-    order: order
-      ? {
-          id: order.id,
-          updatedAt: (order as Order & { updatedAt?: string }).updatedAt,
-          version: (order as Order & { version?: number }).version,
-          customerData: order.customerData,
-          shipping: order.shipping,
-          paymentsSummary: order.paymentsSummary,
-          items: order.items,
-          fiscalContext: order.fiscalContext,
-        }
-      : null,
+  const previewContextKey = createPreviewContextKey({
+    order,
     environment,
     currentModel,
     nfeItems,
@@ -151,10 +133,11 @@ export function useNfeEmissionActions({
     recipientIeIndicator,
     resolvedTransport,
     thirdPartyTransporter,
-    manualNumberInput: numberInput,
+    manualNumberInput,
   });
-  const previewContextKey = getPreviewContextKey(manualNumberInput);
+
   const hasCurrentXmlPreview = Boolean(xmlPreview && xmlPreview.contextKey === previewContextKey);
+
   useEffect(() => {
     if (xmlPreview && xmlPreview.contextKey !== previewContextKey) {
       setXmlPreview(null);
@@ -283,190 +266,147 @@ export function useNfeEmissionActions({
       },
       async () => {
         if (!previewOnly) lastEmissionProductionConfirmation.current = productionConfirmed;
-    setFiscalFieldError(null);
-    submissionInProgress.current = true;
-    if (previewOnly) setIsPreparingPreview(true);
-    else setIsSubmitting(true);
+        setFiscalFieldError(null);
+        submissionInProgress.current = true;
+        if (previewOnly) setIsPreparingPreview(true);
+        else setIsSubmitting(true);
 
-    try {
-      if (
-        order.id &&
-        !previewOnly &&
-        !isRetry &&
-        !persistedLegacySnapshotOrderIds.current.has(String(order.id))
-      ) {
-        if (hasPersistedAuthorizedInvoice(order)) {
-          await updateOrder(
-            order.id,
-            { items: order.items || [] },
+        try {
+          await backfillLegacyOrderItemSnapshots({
             order,
-            (order as Order & { updatedAt?: string }).updatedAt
-          );
-          persistedLegacySnapshotOrderIds.current.add(order.id);
-        } else {
-          let productIndex = 0;
-          let changed = false;
-          const backfilledItems = (order.items || []).map((item) => {
-            if (item.itemType === 'service') return item;
-            const emissionItem = nfeItems[productIndex++];
-            if (!emissionItem || hasFiscalItemSnapshot(item)) return item;
-            changed = true;
-            return {
-              ...item,
-              fiscal: { ...emissionItem.fiscal },
-              fiscalSnapshotVersion: ORDER_ITEM_FISCAL_SNAPSHOT_VERSION,
-              ...(item.productId ? { fiscalSnapshotProductId: item.productId } : {}),
-              ...(item.variationId ? { fiscalSnapshotVariationId: item.variationId } : {}),
-            };
-          });
-          if (changed) {
-            const updatedAt = (order as Order & { updatedAt?: string }).updatedAt;
-            await updateOrder(order.id, { items: backfilledItems }, order, updatedAt);
-          }
-          persistedLegacySnapshotOrderIds.current.add(order.id);
-        }
-      }
-
-      const orderWithFiscalItems: Order = {
-        ...order,
-        items: [
-          ...nfeItems.map((item): Item => ({ ...item, fiscal: item.fiscal })),
-          ...(order.items || []).filter((item) => item.itemType === 'service'),
-        ],
-      };
-
-      const res = await emitNfeForOrder(
-        orderWithFiscalItems,
-        environment,
-        productionConfirmed,
-        retryId,
-        manualNumber,
-        (order.items || [])
-          .filter((item) => item.itemType !== 'service')
-          .map((item) => String(item.fiscal?.ncm || '')),
-        recipientTaxId,
-        finalConsumer,
-        resolvedTransport.isEmitterTransporter,
-        true,
-        resolvedTransport.requiresTransporterData ? thirdPartyTransporter : undefined,
-        resolvedTransport.modFrete,
-        resolvedTransport.hasTransport,
-        resolvedTransport.transportResponsible !== 'NONE'
-          ? resolvedTransport.transportResponsible
-          : undefined,
-        resolvedTransport.freightContractResponsible,
-        shouldStartFreshHmlEmission,
-        recipientIe,
-          recipientIeIndicator,
-          {
+            nfeItems,
             previewOnly,
-            ...(!previewOnly && !isRetry && xmlPreview ? { previewProof: xmlPreview.proof } : {}),
-            ...(existingEmissionRequestId ? { existingEmissionRequestId } : {}),
-          }
-      );
-
-      if (previewOnly) {
-        if (res.success && res.preview && res.xml && res.previewProof) {
-          setXmlPreview({
-            xml: res.xml,
-            proof: res.previewProof,
-            contextKey: getPreviewContextKey(freshHmlEmission ? null : manualNumberInput),
-            freshHmlEmission,
+            isRetry,
+            persistedOrderIds: persistedLegacySnapshotOrderIds.current,
           });
-          setIsXmlPreviewOpen(true);
-          toast.success('Prévia pronta. Este XML ainda não foi transmitido nem autorizado pela SEFAZ.');
-        } else {
+
+          const orderWithFiscalItems: Order = {
+            ...order,
+            items: [
+              ...nfeItems.map((item): Item => ({ ...item, fiscal: item.fiscal })),
+              ...(order.items || []).filter((item) => item.itemType === 'service'),
+            ],
+          };
+
+          const res = await emitNfeForOrder(
+            orderWithFiscalItems,
+            environment,
+            productionConfirmed,
+            retryId,
+            manualNumber,
+            (order.items || [])
+              .filter((item) => item.itemType !== 'service')
+              .map((item) => String(item.fiscal?.ncm || '')),
+            recipientTaxId,
+            finalConsumer,
+            resolvedTransport.isEmitterTransporter,
+            true,
+            resolvedTransport.requiresTransporterData ? thirdPartyTransporter : undefined,
+            resolvedTransport.modFrete,
+            resolvedTransport.hasTransport,
+            resolvedTransport.transportResponsible !== 'NONE'
+              ? resolvedTransport.transportResponsible
+              : undefined,
+            resolvedTransport.freightContractResponsible,
+            shouldStartFreshHmlEmission,
+            recipientIe,
+            recipientIeIndicator,
+            {
+              previewOnly,
+              ...(!previewOnly && !isRetry && xmlPreview ? { previewProof: xmlPreview.proof } : {}),
+              ...(existingEmissionRequestId ? { existingEmissionRequestId } : {}),
+            }
+          );
+
+          if (previewOnly) {
+            if (res.success && res.preview && res.xml && res.previewProof) {
+              setXmlPreview({
+                xml: res.xml,
+                proof: res.previewProof,
+                contextKey: createPreviewContextKey({
+                  order,
+                  environment,
+                  currentModel,
+                  nfeItems,
+                  finalConsumer,
+                  recipientTaxId,
+                  recipientIe,
+                  recipientIeIndicator,
+                  resolvedTransport,
+                  thirdPartyTransporter,
+                  manualNumberInput: freshHmlEmission ? null : manualNumberInput,
+                }),
+                freshHmlEmission,
+              });
+              setIsXmlPreviewOpen(true);
+              toast.success(
+                'Prévia pronta. Este XML ainda não foi transmitido nem autorizado pela SEFAZ.'
+              );
+            } else {
+              setXmlPreview(null);
+              setIsXmlPreviewOpen(false);
+              toast.error(res.error || 'Não foi possível preparar a prévia do XML.');
+            }
+            return;
+          }
+
           setXmlPreview(null);
           setIsXmlPreviewOpen(false);
-          toast.error(res.error || 'Não foi possível preparar a prévia do XML.');
-        }
-        return;
-      }
 
-      setXmlPreview(null);
-      setIsXmlPreviewOpen(false);
+          if (!res.success) {
+            setEmissionResult(res);
+            if (res.numberConflict?.nextNumber) {
+              if (nfeNumberSequence.series) {
+                updateFiscalNumberPreviewCache(
+                  nfeNumberSequence.model,
+                  environment,
+                  nfeNumberSequence.series,
+                  res.numberConflict.nextNumber
+                );
+              }
+              setNumberPreviewState({
+                number: String(res.numberConflict.nextNumber),
+                model: nfeNumberSequence.model,
+                series: nfeNumberSequence.series || '',
+                environment,
+              });
+            }
+            notifyEmissionIssue(res);
+            return;
+          }
 
-      if (!res.success) {
-        setEmissionResult(res);
-        if (res.numberConflict?.nextNumber) {
-          if (nfeNumberSequence.series) {
+          setEmissionResult(res);
+          if (res.nfeNumber && nfeNumberSequence.series) {
             updateFiscalNumberPreviewCache(
               nfeNumberSequence.model,
               environment,
               nfeNumberSequence.series,
-              res.numberConflict.nextNumber
+              res.nfeNumber + 1
             );
+            setNumberPreviewState({
+              number: String(res.nfeNumber),
+              model: nfeNumberSequence.model,
+              series: nfeNumberSequence.series,
+              environment,
+            });
           }
-          setNumberPreviewState({
-            number: String(res.numberConflict.nextNumber),
-            model: nfeNumberSequence.model,
-            series: nfeNumberSequence.series || '',
-            environment,
-          });
+          toast.success(
+            res.environment === 2
+              ? 'Documento autorizado pela SEFAZ em homologação (sem valor fiscal).'
+              : 'Documento autorizado pela SEFAZ em produção.'
+          );
+          if (onSuccess) onSuccess(res);
+        } catch (err: unknown) {
+          console.error(err);
+          if (!previewOnly) setXmlPreview(null);
+          const failedResult = buildFailedEmissionResult(err);
+          setEmissionResult(failedResult);
+          notifyEmissionIssue(failedResult);
+        } finally {
+          submissionInProgress.current = false;
+          if (previewOnly) setIsPreparingPreview(false);
+          else setIsSubmitting(false);
         }
-        notifyEmissionIssue(res);
-        return;
-      }
-
-      setEmissionResult(res);
-      if (res.nfeNumber && nfeNumberSequence.series) {
-        updateFiscalNumberPreviewCache(
-          nfeNumberSequence.model,
-          environment,
-          nfeNumberSequence.series,
-          res.nfeNumber + 1
-        );
-        setNumberPreviewState({
-          number: String(res.nfeNumber),
-          model: nfeNumberSequence.model,
-          series: nfeNumberSequence.series,
-          environment,
-        });
-      }
-      toast.success(
-        res.environment === 2
-          ? 'Documento autorizado pela SEFAZ em homologação (sem valor fiscal).'
-          : 'Documento autorizado pela SEFAZ em produção.'
-      );
-      if (onSuccess) onSuccess(res);
-    } catch (err: unknown) {
-      console.error(err);
-      if (!previewOnly) setXmlPreview(null);
-      const errObj = err as Record<string, unknown>;
-      const failedResult: NfeEmissionResult = {
-        success: false,
-        pending: errObj?.pending === true,
-        error:
-          (typeof errObj?.message === 'string' ? errObj.message : '') ||
-          'Ocorreu um erro ao processar a emissão fiscal.',
-        ...(typeof errObj?.documentId === 'string' ? { documentId: errObj.documentId } : {}),
-        ...(typeof errObj?.emissionRequestId === 'string'
-          ? { emissionRequestId: errObj.emissionRequestId }
-          : {}),
-        technicalDetails: {
-          ...(typeof errObj?.code === 'string' ? { apiCode: errObj.code } : {}),
-          ...(typeof errObj?.status === 'number' ? { httpStatus: errObj.status } : {}),
-          ...(typeof errObj?.diagnosticStage === 'string'
-            ? { diagnosticStage: errObj.diagnosticStage }
-            : {}),
-          ...(typeof errObj?.diagnosticId === 'string'
-            ? { diagnosticId: errObj.diagnosticId }
-            : {}),
-          ...(typeof (errObj?.transportDiagnostic as Record<string, unknown>)?.code === 'string'
-            ? {
-                transportCode: (errObj?.transportDiagnostic as Record<string, unknown>)
-                  .code as string,
-              }
-            : {}),
-        },
-      };
-      setEmissionResult(failedResult);
-      notifyEmissionIssue(failedResult);
-    } finally {
-      submissionInProgress.current = false;
-      if (previewOnly) setIsPreparingPreview(false);
-      else setIsSubmitting(false);
-    }
       },
       (errors) => {
         const flat = flattenFormErrors(errors);

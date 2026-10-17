@@ -32,7 +32,10 @@ type OrderHistoryListProps = {
   onSort?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
   highlightOrderId?: string | null;
   onFilterByOrderId?: (id: string) => void;
+  customerSearchInput?: string;
   onCustomerSearchChange?: (name: string) => void;
+  onCustomerSearchClear?: () => void;
+  onCustomerSearchKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onAction?: (actionKey: string, order: Order) => void;
   onIssueNfe?: (order: Order, environment: 1 | 2) => void;
 };
@@ -59,7 +62,10 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       onSort,
       highlightOrderId,
       onFilterByOrderId,
+      customerSearchInput,
       onCustomerSearchChange,
+      onCustomerSearchClear,
+      onCustomerSearchKeyDown,
       onAction: onActionProp,
       onIssueNfe,
     },
@@ -231,9 +237,11 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         {onCustomerSearchChange && (
           <div className="w-full">
             <OrderCustomerSearchBar
-              value={filters?.customerName || ''}
+              value={customerSearchInput !== undefined ? customerSearchInput : (filters?.customerName || '')}
               onChange={onCustomerSearchChange}
-              placeholder="Buscar pedido pelo nome do cliente..."
+              onClear={onCustomerSearchClear}
+              onKeyDown={onCustomerSearchKeyDown}
+              placeholder="Buscar pedido pelo nome do cliente (mín. 3 caracteres)..."
             />
           </div>
         )}

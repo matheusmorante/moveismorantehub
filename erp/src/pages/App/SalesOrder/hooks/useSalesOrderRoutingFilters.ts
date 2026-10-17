@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Filters } from '../components/OrderFilters';
-import { VisibilitySettings } from '../../types/order.type';
+import { VisibilitySettings } from '@/pages/types/order.type';
 
 export interface UseSalesOrderRoutingFiltersProps {
   setHighlightOrderId: (id: string | null) => void;
@@ -49,45 +49,112 @@ export function useSalesOrderRoutingFilters({
     searchId: '',
   });
 
-  const [customerSearchInput, setCustomerSearchInput] = useState(filters.customerName);
-  const customerSearchBlurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [customerSearchInput, setCustomerSearchInput] = useState(filters.customerName || '');
+  const customerSearchDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearCustomerSearchBlurTimer = useCallback(() => {
-    if (customerSearchBlurTimer.current) {
-      clearTimeout(customerSearchBlurTimer.current);
-      customerSearchBlurTimer.current = null;
+  const clearCustomerSearchDebounceTimer = useCallback(() => {
+    if (customerSearchDebounceTimer.current) {
+      clearTimeout(customerSearchDebounceTimer.current);
+      customerSearchDebounceTimer.current = null;
     }
   }, []);
 
   useEffect(
     () => () => {
-      clearCustomerSearchBlurTimer();
+      clearCustomerSearchDebounceTimer();
     },
-    [clearCustomerSearchBlurTimer]
+    [clearCustomerSearchDebounceTimer]
   );
 
-  useEffect(() => {
-    clearCustomerSearchBlurTimer();
-    setCustomerSearchInput(filters.customerName || '');
-  }, [clearCustomerSearchBlurTimer, filters.customerName]);
+  const handleCustomerSearchChange = useCallback((value: string) => {
+    setCustomerSearchInput(value);
+    clearCustomerSearchDebounceTimer();
 
-  const handleCustomerSearchBlur = (value: string) => {
-    const customerName = value.trim();
-    if (customerName.length > 0 && customerName.length < 3) {
-      setCustomerSearchInput(filters.customerName || '');
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      setFilters((previous) =>
+        previous.customerName ? { ...previous, customerName: '' } : previous
+      );
       return;
     }
 
-    clearCustomerSearchBlurTimer();
-    customerSearchBlurTimer.current = setTimeout(() => {
+    if (trimmed.length < 3) {
+      // Menos de 3 dígitos: não pesquisa; se havia busca anterior ativa, limpa após debounce sem apagar o texto digitado
+      customerSearchDebounceTimer.current = setTimeout(() => {
+        setFilters((previous) =>
+          previous.customerName ? { ...previous, customerName: '' } : previous
+        );
+        customerSearchDebounceTimer.current = null;
+      }, 350);
+      return;
+    }
+
+    // >= 3 dígitos: busca por digitação com debounce de 350ms
+    customerSearchDebounceTimer.current = setTimeout(() => {
       setFilters((previous) =>
-        (previous.customerName || '').trim() === customerName
+        (previous.customerName || '').trim() === trimmed
           ? previous
-          : { ...previous, customerName }
+          : { ...previous, customerName: trimmed }
       );
-      customerSearchBlurTimer.current = null;
-    }, 300);
-  };
+      customerSearchDebounceTimer.current = null;
+    }, 350);
+  }, [clearCustomerSearchDebounceTimer]);
+
+  const handleClearCustomerSearch = useCallback(() => {
+    clearCustomerSearchDebounceTimer();
+    setCustomerSearchInput('');
+    setFilters((previous) =>
+      previous.customerName ? { ...previous, customerName: '' } : previous
+    );
+  }, [clearCustomerSearchDebounceTimer]);
+
+  const handleCustomerSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      clearCustomerSearchDebounceTimer();
+      const trimmed = customerSearchInput.trim();
+      if (trimmed.length >= 3) {
+        setFilters((previous) =>
+          (previous.customerName || '').trim() === trimmed
+            ? previous
+            : { ...previous, customerName: trimmed }
+        );
+      } else if (trimmed.length === 0) {
+        setFilters((previous) =>
+          previous.customerName ? { ...previous, customerName: '' } : previous
+        );
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      handleClearCustomerSearch();
+    }
+  }, [clearCustomerSearchDebounceTimer, customerSearchInput, handleClearCustomerSearch]);
+
+  const handleCustomerSearchBlur = useCallback((value?: string) => {
+    clearCustomerSearchDebounceTimer();
+    const target = (value !== undefined ? value : customerSearchInput).trim();
+    if (target.length >= 3) {
+      setFilters((previous) =>
+        (previous.customerName || '').trim() === target
+          ? previous
+          : { ...previous, customerName: target }
+      );
+    } else if (target.length === 0) {
+      setFilters((previous) =>
+        previous.customerName ? { ...previous, customerName: '' } : previous
+      );
+    }
+  }, [clearCustomerSearchDebounceTimer, customerSearchInput]);
+
+  useEffect(() => {
+    const filterName = (filters.customerName || '').trim();
+    const inputTrimmed = customerSearchInput.trim();
+    if (filterName !== '' && filterName !== inputTrimmed) {
+      setCustomerSearchInput(filterName);
+    } else if (filterName === '' && inputTrimmed !== '' && inputTrimmed.length >= 3) {
+      setCustomerSearchInput('');
+    }
+  }, [filters.customerName]);
 
   // Sincronizar filtro quando a rota mudar
   useEffect(() => {
@@ -223,7 +290,11 @@ export function useSalesOrderRoutingFilters({
     setFilters,
     customerSearchInput,
     setCustomerSearchInput,
-    clearCustomerSearchBlurTimer,
+    handleCustomerSearchChange,
+    handleClearCustomerSearch,
+    handleCustomerSearchKeyDown,
+    clearCustomerSearchBlurTimer: clearCustomerSearchDebounceTimer,
+    clearCustomerSearchDebounceTimer,
     handleCustomerSearchBlur,
     visibilitySettings,
     toggleVisibility,

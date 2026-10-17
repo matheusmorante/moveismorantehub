@@ -29,7 +29,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!serviceKey)
     return res.status(503).json({ success: false, error: 'Serviço fiscal indisponível.' });
 
-  const supabase = createClient(supabaseUrl, serviceKey, { db: { retry: false } });
+  const supabase = createClient(
+    supabaseUrl,
+    serviceKey,
+    { db: { retry: false } } as Parameters<typeof createClient>[2]
+  );
   const fiscalAuthorization = await authorizeFiscalOperator(supabase, req.headers.authorization);
   if (!fiscalAuthorization.ok)
     return res.status(fiscalAuthorization.status).json({

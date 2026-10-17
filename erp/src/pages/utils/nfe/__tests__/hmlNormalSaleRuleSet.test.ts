@@ -416,7 +416,7 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     });
     expect(xml).toContain('<detPag><indPag>0</indPag><tPag>17</tPag><vPag>569.00</vPag><card><tpIntegra>2</tpIntegra></card></detPag>');
   });
-  it('aceita documento com qualquer dígito verificador e rejeita CPF/CNPJ incompatível com PF/PJ', async () => {
+  it('rejeita CPF com dígitos verificadores inválidos e rejeita CPF/CNPJ incompatível com PF/PJ', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
     facts.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };
@@ -425,7 +425,9 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     (facts.fiscalInputs!.customer as any).cpfCnpj = '';
     (facts.fiscalInputs!.customer as any).address = '{}';
     facts.emissionRequest.recipientTaxId = '11111111111';
-    await expect(createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())).resolves.toBeDefined();
+    await expect(createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())).rejects.toThrow(
+      'CPF/CNPJ do destinatário inválido para esta operação fiscal.'
+    );
 
     facts.emissionRequest.recipientTaxId = '11.222.333/0001-81';
     await expect(createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())).rejects.toThrow(

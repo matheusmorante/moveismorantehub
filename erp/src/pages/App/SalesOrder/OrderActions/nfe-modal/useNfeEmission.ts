@@ -146,7 +146,7 @@ export function useNfeEmission(
       await purposeForm.validateAndRun(
         { orderId: order.id, purpose },
         async (validated) => {
-          await updateOrder(order.id, {
+          await updateOrder(validated.orderId, {
             fiscalContext: {
               ...order.fiscalContext,
               acquisitionPurpose: validated.purpose,

@@ -247,4 +247,116 @@ describe('sendDirectCustomerOrderViaMetaApi com Webhook Flow', () => {
       })
     );
   });
+
+  it('quando o webhook reporta falha por janela de 24h (131047) e há template configurado, aciona automaticamente o fallback para o modelo aprovado e atualiza para sucesso', async () => {
+    (getSettings as any).mockReturnValue({
+      companyPhone: '(41) 99749-3547',
+      whatsappConfig: {
+        accessToken: 'valid-meta-token',
+        phoneNumberId: '10987654321',
+        templateNameOrderConfirmation: 'envio_de_pedido',
+        templateLanguage: 'pt_BR',
+        templateVariableCount: 7,
+      },
+    });
+
+    (whatsappGraphService.sendTextMessage as any).mockResolvedValue({
+      messaging_product: 'whatsapp',
+      messages: [{ id: 'wamid.HBgL_INITIAL_TEXT' }],
+    });
+
+    (whatsappGraphService.sendTemplateMessage as any).mockResolvedValue({
+      messaging_product: 'whatsapp',
+      messages: [{ id: 'wamid.HBgL_TEMPLATE_FALLBACK' }],
+    });
+
+    let callCount = 0;
+    const qb: any = {
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount <= 1) {
+          return Promise.resolve({
+            data: {
+              status: 'failed',
+              error_code: '131047',
+              failure_reason:
+                'Janela de 24h fechada. É obrigatório o uso de modelo de mensagem aprovado. Detalhes: Message failed to send because more than 24 hours have passed since the customer last replied to this number.',
+            },
+            error: null,
+          });
+        }
+        return Promise.resolve({
+          data: { status: 'delivered', error_code: null, failure_reason: null },
+          error: null,
+        });
+      }),
+    };
+    qb.select.mockReturnValue(qb);
+    qb.eq.mockReturnValue(qb);
+    supabaseMock.from.mockReturnValue(qb);
+
+    const success = await sendDirectCustomerOrderViaMetaApi(baseOrder);
+
+    expect(success).toBe(true);
+    expect(whatsappGraphService.sendTemplateMessage).toHaveBeenCalledWith(
+      '41988887777',
+      'envio_de_pedido',
+      expect.any(Array),
+      'pt_BR'
+    );
+    expect(toast.update).toHaveBeenCalledWith(
+      'toast-test-id',
+      expect.objectContaining({
+        type: 'success',
+        render: expect.stringContaining('via modelo aprovado'),
+      })
+    );
+  });
+
+  it('quando o webhook reporta falha por janela de 24h (131047) e não há template configurado, alerta sobre modelo e abre WhatsApp Web', async () => {
+    const originalWindow = (globalThis as any).window;
+    const openMock = vi.fn();
+    (globalThis as any).window = { open: openMock };
+
+    (getSettings as any).mockReturnValue({
+      companyPhone: '(41) 99749-3547',
+      whatsappConfig: {
+        accessToken: 'valid-meta-token',
+        phoneNumberId: '10987654321',
+        templateNameOrderConfirmation: '',
+      },
+    });
+
+    (whatsappGraphService.sendTextMessage as any).mockResolvedValue({
+      messaging_product: 'whatsapp',
+      messages: [{ id: 'wamid.HBgL_INITIAL_TEXT' }],
+    });
+
+    mockSupabaseQuery({
+      status: 'failed',
+      error_code: '131047',
+      failure_reason:
+        'Janela de 24h fechada. É obrigatório o uso de modelo de mensagem aprovado.',
+    });
+
+    const success = await sendDirectCustomerOrderViaMetaApi(baseOrder);
+
+    expect(success).toBe(false);
+    expect(toast.update).toHaveBeenCalledWith(
+      'toast-test-id',
+      expect.objectContaining({
+        type: 'warning',
+        render: expect.stringContaining('Janela de 24h fechada'),
+      })
+    );
+    expect(openMock).toHaveBeenCalledWith(
+      expect.stringContaining('https://wa.me/41988887777'),
+      '_blank'
+    );
+
+    (globalThis as any).window = originalWindow;
+  });
 });

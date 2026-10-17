@@ -1,31 +1,27 @@
 import {
-  ArrowLeftRight,
-  Check,
-  Eye,
-  EyeOff,
-  GitMerge,
   MoreVertical,
-  PlusCircle,
   Search,
-  Settings,
-  Tag,
   X,
 } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import {
-  Modal,
-  ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { styles } from './header/ProductsHeader.styles';
+import {
+  ProductsHeaderModeSelector,
+  ProductListMode,
+} from './header/ProductsHeaderModeSelector';
+import { ProductsHeaderMenuDropdown } from './header/ProductsHeaderMenuDropdown';
+import { ProductsHeaderFiltersSheet } from './header/ProductsHeaderFiltersSheet';
 
 interface Props {
-  mode?: 'standard' | 'composition' | 'categories';
-  availableModes?: Array<'standard' | 'composition' | 'categories'>;
-  onModeChange?: (mode: 'standard' | 'composition' | 'categories') => void;
+  mode?: ProductListMode;
+  availableModes?: ProductListMode[];
+  onModeChange?: (mode: ProductListMode) => void;
   dark: boolean;
   search: string;
   totalCount: number;
@@ -57,6 +53,10 @@ interface Props {
   onToggleTestProducts?: () => void;
 }
 
+/**
+ * Cabeçalho principal da listagem de produtos no app mobile.
+ * Coordena barra de busca, seletor de modo, menu de contexto e modal de filtros.
+ */
 export function ProductsHeader({
   mode = 'standard',
   availableModes = ['standard', 'composition', 'categories'],
@@ -98,7 +98,6 @@ export function ProductsHeader({
 
   const handleOpenMenu = () => {
     menuBtnRef.current?.measure((_x, _y, _width, height, _pageX, pageY) => {
-      // Dropdown logo abaixo do botão, ancorado à direita da tela
       setMenuAnchor({ top: pageY + height + 4, right: 16 });
       setShowMenu(true);
     });
@@ -133,565 +132,87 @@ export function ProductsHeader({
         </TouchableOpacity>
       </View>
 
+      {/* Seletor de Modo (Produtos, Composições, Ambientes/Categorias) */}
       {onModeChange && (
-        <View style={styles.modeRow}>
-          {(
-            [
-              { key: 'standard', label: 'Produtos' },
-              { key: 'composition', label: 'Composições' },
-              { key: 'categories', label: 'Ambientes e Categorias' },
-            ] as const
-          )
-            .filter(({ key }) => availableModes.includes(key))
-            .map(({ key, label }) => (
-              <TouchableOpacity
-                key={key}
-                onPress={() => onModeChange(key)}
-                style={[styles.modeButton, mode === key && styles.modeButtonActive]}
-              >
-                <Text style={[styles.modeText, mode === key && styles.modeTextActive]}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-        </View>
+        <ProductsHeaderModeSelector
+          mode={mode}
+          availableModes={availableModes}
+          onModeChange={onModeChange}
+        />
       )}
 
+      {/* Barra de Pesquisa */}
       {mode !== 'categories' && (
-        <>
-          {/* Barra de Pesquisa / Busca de Produtos */}
-          <View style={[styles.searchBox, dark && styles.darkSearch]}>
-            <Search size={16} color="#94a3b8" />
-            <TextInput
-              value={search}
-              onChangeText={onSearch}
-              placeholder={
-                mode === 'composition'
-                  ? 'Buscar composições (mín. 3 caracteres)...'
-                  : 'Buscar produtos por nome (mín. 3 caracteres)...'
-              }
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.light, { outlineStyle: 'none' } as any]}
-            />
-            {Boolean(search) && (
-              <TouchableOpacity
-                onPress={() => onSearch('')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <X size={16} color="#94a3b8" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </>
+        <View style={[styles.searchBox, dark && styles.darkSearch]}>
+          <Search size={16} color="#94a3b8" />
+          <TextInput
+            value={search}
+            onChangeText={onSearch}
+            placeholder={
+              mode === 'composition'
+                ? 'Buscar composições (mín. 3 caracteres)...'
+                : 'Buscar produtos por nome (mín. 3 caracteres)...'
+            }
+            placeholderTextColor="#94a3b8"
+            style={[styles.input, dark && styles.light, { outlineStyle: 'none' } as any]}
+          />
+          {Boolean(search) && (
+            <TouchableOpacity
+              onPress={() => onSearch('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <X size={16} color="#94a3b8" />
+            </TouchableOpacity>
+          )}
+        </View>
       )}
 
-      {/* Dropdown ancorado ao botão — NÃO bloqueia a tela */}
-      <Modal
-        visible={showMenu && menuAnchor !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowMenu(false)}
-      >
-        {/* Backdrop invisível cobre a tela inteira para fechar ao tocar fora */}
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={() => setShowMenu(false)}
-        >
-          {menuAnchor && (
-            <View
-              style={[
-                styles.menuDropdown,
-                dark && styles.darkMenu,
-                { position: 'absolute', top: menuAnchor.top, right: menuAnchor.right },
-              ]}
-            >
-              {((mode === 'composition' && canCreateComposition) ||
-                (mode === 'standard' && canCreateProduct)) && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    if (mode === 'composition' && onNewComposition) onNewComposition();
-                    else onNewProduct();
-                  }}
-                >
-                  <PlusCircle size={18} color="#2563eb" />
-                  <Text style={[styles.menuItemText, dark && styles.light]}>
-                    {mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}
-                  </Text>
-                </TouchableOpacity>
-              )}
+      {/* Dropdown Menu Ancorado */}
+      <ProductsHeaderMenuDropdown
+        visible={showMenu}
+        menuAnchor={menuAnchor}
+        onClose={() => setShowMenu(false)}
+        dark={dark}
+        mode={mode}
+        availableModes={availableModes}
+        canCreateProduct={canCreateProduct}
+        canCreateComposition={canCreateComposition}
+        canOpenConfigs={canOpenConfigs}
+        canViewReconciliation={canViewReconciliation}
+        showDeactivated={showDeactivated}
+        showMergedProducts={showMergedProducts}
+        onNewProduct={onNewProduct}
+        onNewComposition={onNewComposition}
+        onModeChange={onModeChange}
+        onOpenConfigs={onOpenConfigs}
+        onOpenReconciliation={onOpenReconciliation}
+        onToggleDeactivated={onToggleDeactivated}
+        onToggleMergedProducts={onToggleMergedProducts}
+        onOpenFilters={() => setShowFilters(true)}
+      />
 
-              {canCreateComposition && onNewComposition && mode === 'standard' && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    onNewComposition();
-                  }}
-                >
-                  <PlusCircle size={18} color="#10b981" />
-                  <Text style={[styles.menuItemText, dark && styles.light]}>Nova Composição</Text>
-                </TouchableOpacity>
-              )}
-
-              <View style={styles.menuDivider} />
-
-              {onModeChange && availableModes.includes('categories') && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    onModeChange('categories');
-                  }}
-                >
-                  <Tag size={18} color="#2563eb" />
-                  <Text style={[styles.menuItemText, dark && styles.light]}>
-                    Ambientes e Categorias
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {canOpenConfigs && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    onOpenConfigs();
-                  }}
-                >
-                  <Settings size={18} color="#475569" />
-                  <Text style={[styles.menuItemText, dark && styles.light]}>
-                    Configurações de Produto
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {canViewReconciliation && onOpenReconciliation && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    onOpenReconciliation();
-                  }}
-                >
-                  <ArrowLeftRight size={18} color="#2563eb" />
-                  <Text style={[styles.menuItemText, dark && styles.light]}>
-                    Conciliação de Fornecedores
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {mode !== 'categories' && (canCreateProduct || canCreateComposition) && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    onToggleDeactivated();
-                  }}
-                >
-                  {showDeactivated ? (
-                    <EyeOff size={18} color="#64748b" />
-                  ) : (
-                    <Eye size={18} color="#64748b" />
-                  )}
-                  <Text style={[styles.menuItemText, dark && styles.light]}>
-                    {showDeactivated ? 'Ocultar Inativos' : 'Mostrar Inativos'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {mode !== 'categories' && onToggleMergedProducts && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    onToggleMergedProducts();
-                  }}
-                >
-                  <GitMerge size={18} color="#64748b" />
-                  <Text style={[styles.menuItemText, dark && styles.light]}>
-                    {showMergedProducts ? 'Ocultar Mesclados' : 'Mostrar Mesclados'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  setShowFilters(true);
-                }}
-              >
-                <Settings size={18} color="#2563eb" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>Filtros avançados</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </TouchableOpacity>
-      </Modal>
-
-      <Modal
+      {/* Modal de Filtros Avançados */}
+      <ProductsHeaderFiltersSheet
         visible={showFilters}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowFilters(false)}
-      >
-        <View style={styles.filterBackdrop}>
-          <View style={[styles.filterSheet, dark && styles.darkMenu]}>
-            <View style={styles.filterHeader}>
-              <Text style={[styles.filterTitle, dark && styles.light]}>Filtros de produtos</Text>
-              <TouchableOpacity onPress={() => setShowFilters(false)}>
-                <X size={20} color={dark ? '#cbd5e1' : '#475569'} />
-              </TouchableOpacity>
-            </View>
-            <Text style={[styles.filterLabel, dark && styles.light]}>Situação no ERP</Text>
-            <View style={styles.choiceRow}>
-              {(
-                [
-                  ['all', 'Todos'],
-                  ['active', 'Ativos'],
-                  ['disabled', 'Desativados'],
-                  ['draft', 'Rascunhos'],
-                ] as const
-              ).map(([value, label]) => (
-                <TouchableOpacity
-                  key={value}
-                  onPress={() => onStatusFilterChange(value)}
-                  style={[styles.choice, statusFilter === value && styles.choiceActive]}
-                >
-                  <Text
-                    style={[styles.choiceText, statusFilter === value && styles.choiceTextActive]}
-                  >
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {mode === 'standard' && (
-              <>
-                <Text style={[styles.filterLabel, dark && styles.light]}>Tipo geral</Text>
-                <View style={styles.choiceRow}>
-                  {(
-                    [
-                      ['all', 'Todos'],
-                      ['product', 'Somente Produtos'],
-                      ['service', 'Somente Serviços'],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <TouchableOpacity
-                      key={value}
-                      onPress={() => onGeneralTypeFilterChange?.(value)}
-                      style={[styles.choice, generalTypeFilter === value && styles.choiceActive]}
-                    >
-                      <Text
-                        style={[
-                          styles.choiceText,
-                          generalTypeFilter === value && styles.choiceTextActive,
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
-            {mode === 'standard' && canToggleTestProducts && hasTestProducts && (
-              <TouchableOpacity
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: showTestProducts }}
-                onPress={onToggleTestProducts}
-                style={styles.testToggleRow}
-              >
-                <View style={[styles.testCheckbox, showTestProducts && styles.testCheckboxChecked]}>
-                  {showTestProducts && <Check size={14} color="#ffffff" />}
-                </View>
-                <Text style={[styles.choiceText, dark && styles.light]}>Mostrar testes</Text>
-              </TouchableOpacity>
-            )}
-            {mode === 'standard' && onToggleMergedProducts && (
-              <TouchableOpacity
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: showMergedProducts }}
-                onPress={onToggleMergedProducts}
-                style={styles.testToggleRow}
-              >
-                <View style={[styles.testCheckbox, showMergedProducts && styles.testCheckboxChecked]}>
-                  {showMergedProducts && <Check size={14} color="#ffffff" />}
-                </View>
-                <Text style={[styles.choiceText, dark && styles.light]}>Mostrar mesclados</Text>
-              </TouchableOpacity>
-            )}
-            <Text style={[styles.filterLabel, dark && styles.light]}>Catálogo digital</Text>
-            <View style={styles.choiceRow}>
-              {(
-                [
-                  ['all', 'Todos'],
-                  ['published', 'Publicados'],
-                  ['hidden', 'Ocultados'],
-                ] as const
-              ).map(([value, label]) => (
-                <TouchableOpacity
-                  key={value}
-                  onPress={() => onCatalogStatusFilterChange(value)}
-                  style={[styles.choice, catalogStatusFilter === value && styles.choiceActive]}
-                >
-                  <Text
-                    style={[
-                      styles.choiceText,
-                      catalogStatusFilter === value && styles.choiceTextActive,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={[styles.filterLabel, dark && styles.light]}>Categoria</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.choiceRow}
-            >
-              <TouchableOpacity
-                onPress={() => onCategoryFilterChange('')}
-                style={[styles.choice, !categoryFilter && styles.choiceActive]}
-              >
-                <Text style={[styles.choiceText, !categoryFilter && styles.choiceTextActive]}>
-                  Todas
-                </Text>
-              </TouchableOpacity>
-              {categories.map((category) => (
-                <TouchableOpacity
-                  key={category.id}
-                  onPress={() => onCategoryFilterChange(String(category.id))}
-                  style={[
-                    styles.choice,
-                    categoryFilter === String(category.id) && styles.choiceActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.choiceText,
-                      categoryFilter === String(category.id) && styles.choiceTextActive,
-                    ]}
-                  >
-                    {category.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity style={styles.applyButton} onPress={() => setShowFilters(false)}>
-              <Text style={styles.applyButtonText}>Aplicar filtros</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowFilters(false)}
+        dark={dark}
+        mode={mode}
+        statusFilter={statusFilter}
+        onStatusFilterChange={onStatusFilterChange}
+        generalTypeFilter={generalTypeFilter}
+        onGeneralTypeFilterChange={onGeneralTypeFilterChange}
+        canToggleTestProducts={canToggleTestProducts}
+        hasTestProducts={hasTestProducts}
+        showTestProducts={showTestProducts}
+        onToggleTestProducts={onToggleTestProducts}
+        showMergedProducts={showMergedProducts}
+        onToggleMergedProducts={onToggleMergedProducts}
+        catalogStatusFilter={catalogStatusFilter}
+        onCatalogStatusFilterChange={onCatalogStatusFilterChange}
+        categories={categories}
+        categoryFilter={categoryFilter}
+        onCategoryFilterChange={onCategoryFilterChange}
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  modeButton: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-  },
-  modeButtonActive: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
-  modeText: { fontSize: 12, fontWeight: '800', color: '#64748b' },
-  modeTextActive: { color: '#2563eb' },
-  container: {
-    paddingVertical: 6,
-    gap: 10,
-  },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  titleArea: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#0f172a',
-  },
-  light: {
-    color: '#f8fafc',
-  },
-  counterBadge: {
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  counterText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#2563eb',
-  },
-  menuBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#eff6ff',
-  },
-  darkMenuBtn: {
-    backgroundColor: '#1e3a8a30',
-  },
-  searchBox: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  darkSearch: {
-    backgroundColor: '#1e293b',
-    borderColor: '#334155',
-  },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0f172a',
-  },
-  visibilityFilters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  visibilityButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  darkVisibilityButton: { borderColor: '#334155', backgroundColor: '#1e293b' },
-  deactivatedSelected: { borderColor: '#fda4af', backgroundColor: '#fff1f2' },
-  mergedSelected: { borderColor: '#c4b5fd', backgroundColor: '#f5f3ff' },
-  visibilityText: { fontSize: 11, fontWeight: '800', color: '#475569' },
-  selectedVisibilityText: { color: '#6d28d9' },
-  // Backdrop TOTALMENTE transparente — não escurece a tela
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  menuDropdown: {
-    width: 240,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 6,
-    elevation: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 14,
-  },
-  darkMenu: {
-    backgroundColor: '#1e293b',
-  },
-  menuItem: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 12,
-    borderRadius: 12,
-  },
-  menuItemText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 4,
-    marginHorizontal: 8,
-  },
-  filterBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-  },
-  filterSheet: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    gap: 12,
-    maxHeight: '82%',
-  },
-  filterHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 8,
-  },
-  filterTitle: { fontSize: 17, fontWeight: '900', color: '#0f172a' },
-  filterLabel: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#64748b',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  choice: {
-    minHeight: 44,
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 10,
-    paddingHorizontal: 11,
-    paddingVertical: 9,
-    backgroundColor: '#f8fafc',
-  },
-  choiceActive: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
-  choiceText: { fontSize: 12, fontWeight: '700', color: '#475569' },
-  choiceTextActive: { color: '#1d4ed8' },
-  testToggleRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9 },
-  testCheckbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1,
-    borderColor: '#94a3b8',
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-  },
-  testCheckboxChecked: { borderColor: '#2563eb', backgroundColor: '#2563eb' },
-  applyButton: {
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    paddingVertical: 13,
-    marginTop: 4,
-  },
-  applyButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-});

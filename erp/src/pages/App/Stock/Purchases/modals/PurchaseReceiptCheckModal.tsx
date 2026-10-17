@@ -1,15 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import Purchase, { PurchaseItem } from '../../../../types/purchase.type';
-import { updatePurchase } from '../../../../utils/purchaseService';
+import React from 'react';
+import Purchase from '../../../../types/purchase.type';
 import QRScannerModal from '@/components/shared/QRScannerModal';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
-import { toast } from 'react-toastify';
 import { formatToBRDate } from '../../../../utils/formatters';
-import { getProductsByIds } from '../../../../utils/productService';
-import Product, { Variation } from '../../../../types/product.type';
-import { extractScannedCodes, extractLabelIdentity } from '@/pages/utils/barcodeScannerUtils';
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { createPurchaseReceiptCheckFormSchema } from '../../../../../../../shared-utils/purchaseReceiptCheckFormSchema';
+import { usePurchaseReceiptCheckForm } from '../hooks/usePurchaseReceiptCheckForm';
+import { PurchaseReceiptItemRow } from '../components/PurchaseReceiptItemRow';
 
 export interface PurchaseReceiptCheckModalProps {
   readonly purchase: Purchase | null;
@@ -25,272 +20,32 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
   isOpen,
   onClose,
 }) => {
-  const [scannedItems, setScannedItems] = useState<Record<string, number>>({});
-  const [invoicedQuantities, setInvoicedQuantities] = useState<Record<string, number>>({});
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [products, setProducts] = useState<readonly Product[]>([]);
-  const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [invoiceDate, setInvoiceDate] = useState('');
-  const [discrepancyNote, setDiscrepancyNote] = useState('');
-  const [validationError, setValidationError] = useState('');
-  const form = useZodForm(createPurchaseReceiptCheckFormSchema(
-    (purchase?.items || []).map((item) => item.productId + (item.variationId || '')),
-  ), { invoiceNumber, invoiceDate, discrepancyNote, receivedQuantities: scannedItems, invoicedQuantities });
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isScannerOpen) {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isScannerOpen, onClose]);
-
-  useEffect(() => {
-    if (purchase && isOpen) {
-      const receivedInitial: Record<string, number> = {};
-      const invoicedInitial: Record<string, number> = {};
-
-      purchase.items.forEach((item: PurchaseItem) => {
-        const key = item.productId + (item.variationId || '');
-        receivedInitial[key] = item.receivedQuantity || 0;
-        invoicedInitial[key] = item.quantity;
-      });
-
-      setScannedItems(receivedInitial);
-      setInvoicedQuantities(invoicedInitial);
-      setInvoiceNumber(purchase.invoiceNumber || '');
-      setInvoiceDate(purchase.invoiceDate || '');
-      setDiscrepancyNote('');
-
-      const productIds = Array.from(new Set(purchase.items.map((i) => i.productId)));
-      getProductsByIds(productIds).then((data) => setProducts(data || []));
-    }
-  }, [purchase, isOpen]);
-
-  const scannedLabelsRef = React.useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (!isOpen) {
-      scannedLabelsRef.current.clear();
-    }
-  }, [isOpen]);
-
-  const handleScan = useCallback(
-    (code: string) => {
-      if (!purchase) return;
-
-      // Extrai a identidade física (UUID) se existir para evitar dupla contagem
-      const { labelId } = extractLabelIdentity(code);
-      if (labelId && scannedLabelsRef.current.has(labelId)) {
-        toast.warning('Unidade física já recebida e contabilizada.');
-        return;
-      }
-
-      const candidates = extractScannedCodes(code).map((c) => c.trim().toLowerCase());
-      if (candidates.length === 0) return;
-
-      // Tenta localizar produto por código ou referência do fornecedor
-      const product = products.find(
-        (p) =>
-          candidates.includes((p.code || '').trim().toLowerCase()) ||
-          candidates.includes((p.supplierRef || '').trim().toLowerCase()) ||
-          candidates.includes(String(p.id).trim().toLowerCase())
-      );
-
-      if (product) {
-        const purchaseItem = purchase.items.find(
-          (i) => i.productId === product.id && !i.variationId
-        );
-        if (purchaseItem) {
-          if (labelId) scannedLabelsRef.current.add(labelId);
-          const key = purchaseItem.productId;
-          setScannedItems((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-          toast.success(`+1 ${purchaseItem.description}`);
-          return;
-        }
-      }
-
-      // Tenta localizar variação por SKU ou barcode
-      for (const p of products) {
-        if (p.hasVariations && p.variations) {
-          const variation = p.variations.find(
-            (v: Variation) =>
-              candidates.includes((v.sku || '').trim().toLowerCase()) ||
-              candidates.includes(((v as any).barcode || '').trim().toLowerCase()) ||
-              candidates.includes(String(v.id).trim().toLowerCase())
-          );
-          if (variation) {
-            const purchaseItem = purchase.items.find(
-              (i) => i.productId === p.id && i.variationId === variation.id
-            );
-            if (purchaseItem) {
-              if (labelId) scannedLabelsRef.current.add(labelId);
-              const key = purchaseItem.productId + (purchaseItem.variationId || '');
-              setScannedItems((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-              toast.success(`+1 ${purchaseItem.description}`);
-              return;
-            }
-          }
-        }
-      }
-
-      toast.warning('Item não encontrado neste pedido.');
-    },
-    [products, purchase]
-  );
+  const {
+    scannedItems,
+    invoicedQuantities,
+    isScannerOpen,
+    setIsScannerOpen,
+    isSaving,
+    invoiceNumber,
+    setInvoiceNumber,
+    invoiceDate,
+    setInvoiceDate,
+    discrepancyNote,
+    setDiscrepancyNote,
+    validationError,
+    form,
+    handleScan,
+    updateReceivedQty,
+    updateInvoicedQty,
+    handlePrint,
+    handleSave,
+  } = usePurchaseReceiptCheckForm({
+    purchase,
+    isOpen,
+    onClose,
+  });
 
   if (!isOpen || !purchase) return null;
-
-  const updateReceivedQty = (key: string, val: number) => {
-    setScannedItems((prev) => ({ ...prev, [key]: val }));
-  };
-
-  const updateInvoicedQty = (key: string, val: number) => {
-    setInvoicedQuantities((prev) => ({ ...prev, [key]: val }));
-  };
-
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const content = `
-            <html>
-                <head>
-                    <title>Conferência de Compra - ${purchase.supplierName}</title>
-                    <style>
-                        body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; }
-                        .header { margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
-                        h1 { margin: 0; font-size: 24px; font-weight: 800; text-transform: uppercase; letter-spacing: -0.025em; }
-                        .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 30px; }
-                        th { background: #f8fafc; text-align: left; padding: 12px 15px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; border-bottom: 2px solid #e2e8f0; }
-                        td { padding: 12px 15px; font-size: 13px; border-bottom: 1px solid #f1f5f9; font-weight: 600; }
-                        .divergent { color: #f59e0b; }
-                        .footer { margin-top: 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-                        .sig-line { border-top: 1px solid #cbd5e1; margin-top: 40px; padding-top: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #94a3b8; text-align: center; }
-                        @media print { body { padding: 20px; } .no-print { display: none; } }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <h1>Conferência de Compra (3-Way Match)</h1>
-                        <div class="meta">
-                            <div>Fornecedor: ${purchase.supplierName}</div>
-                            <div>Pedido: #${purchase.id?.slice(-6).toUpperCase()}</div>
-                            <div>Data do Pedido: ${formatToBRDate(purchase.date)}</div>
-                            <div>NF: ${invoiceNumber || 'NÃO INFORMADA'}</div>
-                        </div>
-                    </div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Produto / Descrição</th>
-                                <th style="text-align: center">Comprado</th>
-                                <th style="text-align: center">Faturado (NF)</th>
-                                <th style="text-align: center">Recebido (Físico)</th>
-                                <th style="text-align: center">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${purchase.items
-                              .map((item) => {
-                                const key = item.productId + (item.variationId || '');
-                                const received = scannedItems[key] || 0;
-                                const invoiced = invoicedQuantities[key] || 0;
-                                const isDivergent =
-                                  received !== item.quantity || received !== invoiced;
-                                return `
-                                    <tr>
-                                        <td>${item.description}</td>
-                                        <td style="text-align: center">${item.quantity}</td>
-                                        <td style="text-align: center">${invoiced}</td>
-                                        <td style="text-align: center">${received}</td>
-                                        <td style="text-align: center; color: ${isDivergent ? '#f59e0b' : '#10b981'}">
-                                            ${isDivergent ? 'DIVERGENTE' : 'OK'}
-                                        </td>
-                                    </tr>
-                                `;
-                              })
-                              .join('')}
-                        </tbody>
-                    </table>
-                    <div class="footer">
-                        <div class="sig-line">Responsável pela Conferência</div>
-                        <div class="sig-line">Data e Hora do Recebimento</div>
-                    </div>
-                    <script>
-                        window.onload = () => {
-                            window.print();
-                            setTimeout(() => window.close(), 500);
-                        }
-                    </script>
-                </body>
-            </html>
-        `;
-
-    printWindow.document.write(content);
-    printWindow.document.close();
-  };
-
-  const handleSave = form.submit(async (values) => {
-    setIsSaving(true);
-    try {
-      const updatedItems = purchase.items.map((item: PurchaseItem) => {
-        const key = item.productId + (item.variationId || '');
-        return {
-          ...item,
-          receivedQuantity: values.receivedQuantities[key],
-        };
-      });
-
-      const isAllReceived = updatedItems.every((i) => (i.receivedQuantity || 0) === i.quantity);
-      const isAnyReceived = updatedItems.some((i) => (i.receivedQuantity || 0) > 0);
-
-      const hasDiscrepancy = updatedItems.some((i) => {
-        const key = i.productId + (i.variationId || '');
-        const invoiced = values.invoicedQuantities[key];
-        const received = values.receivedQuantities[key];
-        return received !== i.quantity || received !== invoiced || invoiced !== i.quantity;
-      });
-
-      let newStatus = purchase.status;
-      let invStatus: 'pending' | 'partially_received' | 'received' = 'pending';
-
-      if (isAllReceived && !hasDiscrepancy) {
-        newStatus = 'fulfilled';
-        invStatus = 'received';
-      } else if (isAnyReceived) {
-        invStatus = 'partially_received';
-      }
-
-      await updatePurchase(purchase.id!, {
-        items: updatedItems,
-        status: newStatus,
-        invoiceNumber: values.invoiceNumber,
-        invoiceDate: values.invoiceDate,
-        invoiceStatus: invStatus,
-        observation: values.discrepancyNote
-          ? `${purchase.observation || ''}\n[Divergência: ${values.discrepancyNote}]`
-          : purchase.observation,
-      });
-
-      toast.success(
-        'Conferência salva. Registre o recebimento em Recebimentos de Mercadorias para movimentar o estoque.'
-      );
-      onClose();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erro ao salvar conferência.';
-      toast.error(message);
-    } finally {
-      setIsSaving(false);
-    }
-  }, (errors) => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira as quantidades dos itens.'));
 
   return (
     <div
@@ -397,106 +152,27 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
               const key = item.productId + (item.variationId || '');
               const received = scannedItems[key] || 0;
               const invoiced = invoicedQuantities[key] || 0;
-              const isMatch = received === item.quantity && received === invoiced;
-              const hasDivergence = received !== item.quantity || received !== invoiced;
 
               return (
-                <div
+                <PurchaseReceiptItemRow
                   key={index}
-                  className={`p-5 rounded-[1.5rem] border transition-all ${
-                    isMatch
-                      ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-900/10'
-                      : hasDivergence
-                        ? 'bg-amber-50/50 border-amber-100 dark:bg-amber-900/10'
-                        : 'bg-slate-50 border-slate-100 dark:bg-slate-900/50'
-                  }`}
-                >
-                  <div className="grid grid-cols-12 items-center gap-4">
-                    <div className="col-span-5 flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                          isMatch
-                            ? 'bg-emerald-100 text-emerald-600'
-                            : hasDivergence
-                              ? 'bg-amber-100 text-amber-600'
-                              : 'bg-blue-100 text-blue-600'
-                        }`}
-                      >
-                        <i
-                          className={`bi ${
-                            isMatch
-                              ? 'bi-check-lg'
-                              : hasDivergence
-                                ? 'bi-exclamation-triangle'
-                                : 'bi-box-seam'
-                          } text-lg`}
-                          aria-hidden="true"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
-                          {item.description}
-                        </h4>
-                        {hasDivergence && (
-                          <p className="text-[9px] font-black text-amber-600 dark:text-amber-400 mt-0.5 animate-pulse uppercase tracking-tighter">
-                            Divergência
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="col-span-2 text-center text-xs font-black text-slate-400">
-                      {item.quantity}
-                    </div>
-
-                    <div className="col-span-2 flex justify-center">
-                      <input
-                        type="number"
-                        value={invoiced}
-                        onChange={(e) => updateInvoicedQty(key, Number(e.target.value))}
-                        className="w-14 h-9 text-center bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl font-black text-xs text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div className="col-span-3 flex justify-center">
-                      <div className="flex items-center bg-white dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-                        <button
-                          type="button"
-                          onClick={() => updateReceivedQty(key, Math.max(0, received - 1))}
-                          className="w-10 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all font-black"
-                          aria-label="Diminuir recebimento"
-                        >
-                          <i className="bi bi-dash text-lg" aria-hidden="true" />
-                        </button>
-                        <input
-                          type="number"
-                          value={received}
-                          onChange={(e) => updateReceivedQty(key, Number(e.target.value))}
-                          className={`w-12 h-9 text-center bg-transparent border-none outline-none font-black text-xs ${
-                            received === invoiced
-                              ? 'text-emerald-600 font-black'
-                              : 'text-amber-600 font-black'
-                          }`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => updateReceivedQty(key, received + 1)}
-                          className="w-10 h-9 flex items-center justify-center text-slate-400 hover:text-emerald-500 transition-all font-black"
-                          aria-label="Aumentar recebimento"
-                        >
-                          <i className="bi bi-plus text-lg" aria-hidden="true" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  item={item}
+                  received={received}
+                  invoiced={invoiced}
+                  onUpdateInvoiced={(val) => updateInvoicedQty(key, val)}
+                  onUpdateReceived={(val) => updateReceivedQty(key, val)}
+                />
               );
             })}
           </div>
         </div>
 
         <div className="p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
-          {validationError && <p role="alert" className="mb-3 text-sm font-bold text-red-600 dark:text-red-400">{validationError}</p>}
+          {validationError && (
+            <p role="alert" className="mb-3 text-sm font-bold text-red-600 dark:text-red-400">
+              {validationError}
+            </p>
+          )}
           <button
             type="button"
             onClick={handleSave}

@@ -1,8 +1,10 @@
 {
-  "extends": "../tsconfig.json",
+  "extends": "../erp/tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "incremental": false
+    "incremental": false,
+    "baseUrl": "../erp",
+    "types": ["node"]
   },
   "include": [
     "nfe/emit.ts",

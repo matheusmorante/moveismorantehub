@@ -10,7 +10,7 @@ interface InventoryCatalogRow {
   updated_at: string;
 }
 
-export const getLocalInventoryCatalogSnapshot = async <T>(): Promise<T | null> => {
+export const getLocalInventoryCatalogSnapshot = async <T,>(): Promise<T | null> => {
   const db = await getSQLiteDatabase();
   await runMigrations(db);
   for (const id of [CATALOG_ROW_ID, LEGACY_CATALOG_ROW_ID]) {
