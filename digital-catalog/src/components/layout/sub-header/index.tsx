@@ -94,16 +94,16 @@ export function SubHeader() {
             const SALVADOS_OPP_ID = '9d8bedae-b366-4f8c-ac49-74b85b882bde';
             const isSalvadosActive = activeType === 'salvados' || activeType === SALVADOS_OPP_ID;
             const salvadosClass = [
-              'flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 leading-tight',
-              'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all border-b-2',
+              'flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-1.5 leading-tight rounded-lg',
+              'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs',
               isSalvadosActive
-                ? 'border-orange-500 text-orange-400 bg-white/10'
-                : 'border-transparent text-orange-400 hover:text-orange-300 hover:border-orange-400/45 hover:bg-white/5',
+                ? 'bg-orange-500 text-black ring-2 ring-white/80 shadow-sm'
+                : 'bg-orange-500 hover:bg-orange-400 text-black',
             ].join(' ');
 
             return (
               <Link href="/?type=salvados" className={salvadosClass}>
-                <Flame className="h-3.5 w-3.5 fill-current" />
+                <Flame className="h-3.5 w-3.5 fill-black text-black shrink-0" />
                 QUEIMA DOS SALVADOS
               </Link>
             );
@@ -112,16 +112,16 @@ export function SubHeader() {
           {(() => {
             const isMegaLiquidacaoActive = activeType === 'liquidacao';
             const liquidacaoClass = [
-              'flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 leading-tight',
-              'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all border-b-2',
+              'flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-2 leading-tight rounded-lg',
+              'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs',
               isMegaLiquidacaoActive
-                ? 'border-amber-300 text-amber-200 bg-white/10'
-                : 'border-transparent text-amber-200 hover:text-amber-100 hover:border-amber-200/45 hover:bg-white/5',
+                ? 'bg-amber-400 text-black ring-2 ring-white/80 shadow-sm'
+                : 'bg-amber-400 hover:bg-amber-300 text-black',
             ].join(' ');
 
             return (
               <Link href="/?type=liquidacao" className={liquidacaoClass}>
-                <Tag className="h-3.5 w-3.5" />
+                <Tag className="h-3.5 w-3.5 text-black shrink-0" />
                 MEGA LIQUIDAÇÃO
               </Link>
             );
@@ -229,17 +229,17 @@ export function SubHeader() {
                       <Link
                         href="/?type=salvados"
                         onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-2 rounded-xl bg-orange-50 px-3 py-2.5 text-sm font-black text-orange-600"
+                        className="flex items-center gap-2 rounded-lg bg-orange-500 hover:bg-orange-600 px-3 py-2.5 text-sm font-black text-black transition-all shadow-xs"
                       >
-                        <Flame className="h-4 w-4 fill-current" />
+                        <Flame className="h-4 w-4 fill-black text-black shrink-0" />
                         QUEIMA DOS SALVADOS
                       </Link>
                       <Link
                         href="/?type=liquidacao"
                         onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-black text-amber-700"
+                        className="flex items-center gap-2 rounded-lg bg-amber-400 hover:bg-amber-300 px-3 py-2.5 text-sm font-black text-black transition-all shadow-xs"
                       >
-                        <Tag className="h-4 w-4" />
+                        <Tag className="h-4 w-4 text-black shrink-0" />
                         MEGA LIQUIDAÇÃO
                       </Link>
                     </div>

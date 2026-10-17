@@ -109,25 +109,25 @@ export function MobileMenu() {
                 <Link
                   href="/?type=salvados"
                   onClick={() => setOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-orange-50 hover:bg-orange-100 text-orange-600 transition-all text-sm font-black group shadow-2xs"
+                  className="flex items-center justify-between p-3 rounded-lg bg-orange-500 hover:bg-orange-600 text-black transition-all text-sm font-black group shadow-xs"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Flame className="h-4 w-4 fill-current text-orange-500" />
+                    <Flame className="h-4 w-4 fill-black text-black shrink-0" />
                     <span>QUEIMA DOS SALVADOS</span>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-orange-400 group-hover:translate-x-0.5 transition-transform" />
+                  <ChevronRight className="h-4 w-4 text-black/70 group-hover:translate-x-0.5 transition-transform shrink-0" />
                 </Link>
 
                 <Link
                   href="/?type=liquidacao"
                   onClick={() => setOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-700 transition-all text-sm font-black group shadow-2xs"
+                  className="flex items-center justify-between p-3 rounded-lg bg-amber-400 hover:bg-amber-300 text-black transition-all text-sm font-black group shadow-xs"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Tag className="h-4 w-4 text-amber-600" />
+                    <Tag className="h-4 w-4 text-black shrink-0" />
                     <span>MEGA LIQUIDAÇÃO</span>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-amber-500 group-hover:translate-x-0.5 transition-transform" />
+                  <ChevronRight className="h-4 w-4 text-black/70 group-hover:translate-x-0.5 transition-transform shrink-0" />
                 </Link>
               </div>
             </div>

@@ -63,7 +63,7 @@ export async function syncProductToMetaCatalog(
       supabase
         .from('products')
         .select(
-          'id, name, description, status, active, deleted, deleted_at, opportunity_id, unit_price, price, promo_price, stock, images, brand, code, is_draft, slug, is_salvado, material, condition, product_categories(categories(name, type))'
+          'id, name, description, status, active, deleted, deleted_at, opportunity_id, unit_price, price, promo_price, stock, images, brand, code, is_draft, slug, is_salvado, product_kind, material, condition, product_categories(categories(name, type))'
         )
         .eq('id', productId)
         .maybeSingle(),
@@ -86,7 +86,6 @@ export async function syncProductToMetaCatalog(
 
     const itemsToSend: any[] = [];
     const isParentEligible =
-      product.active !== false &&
       product.status === 'published' &&
       !product.deleted_at &&
       !product.deleted &&

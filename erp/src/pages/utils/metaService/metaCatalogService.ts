@@ -83,7 +83,11 @@ export const metaCatalogService = {
     const rawPrice = product.unitPrice ?? product.unit_price ?? product.price ?? 0;
 
     const isInactiveOrHidden =
-      product.active === false || product.hidden === true || product.deleted === true;
+      product.hidden === true ||
+      product.status === 'hidden' ||
+      product.status === 'draft' ||
+      product.deleted === true ||
+      (product.deleted_at !== undefined && product.deleted_at !== null);
     const targetAction = isInactiveOrHidden ? 'DELETE' : action;
 
     const cleanTitle =
@@ -254,7 +258,6 @@ export const metaCatalogService = {
         const isInactiveOrHidden =
           isHidden ||
           isDeleted ||
-          product.active === false ||
           product.status === 'draft';
         const retailerId = String(product.code || product.sku || product.id);
 
