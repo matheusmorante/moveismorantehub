@@ -4,8 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Plus, Trash2, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { optimizeProductImage } from '@/lib/utils/image-optimization';
-import { uploadToR2 } from '@/lib/utils/upload-r2';
+import {
+  processAndUploadProductImages,
+  processAndUploadSingleProductImage,
+} from '../utils/productImageUploadUtils';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import {
   storefrontImageUploadFormSchema,
@@ -68,36 +70,24 @@ export function Step1Photos({
 
       if (imageFiles.length === 0) return;
 
-      const validated = await uploadForm.validateAndRun(
+      await uploadForm.validateAndRun(
         { files: imageFiles },
-        (values) => values,
+        async (validated) => {
+          setIsSaving(true);
+          const toastId = toast.loading('Otimizando imagem colada...');
+
+          try {
+            const newUrls = await processAndUploadProductImages(validated.files, 'pasted');
+            setImages((prev) => [...prev, ...newUrls]);
+            toast.success('Imagem colada com sucesso!', { id: toastId });
+          } catch (error: any) {
+            toast.error('Erro no upload da imagem colada: ' + error.message, { id: toastId });
+          } finally {
+            setIsSaving(false);
+          }
+        },
         showFormError
       );
-      if (!validated) return;
-
-      setIsSaving(true);
-      const toastId = toast.loading('Otimizando imagem colada...');
-
-      try {
-        const newUrls: string[] = [];
-        for (let i = 0; i < validated.files.length; i++) {
-          const file = validated.files[i];
-          const optimizedBlob = await optimizeProductImage(file);
-          const optimizedFile = new File([optimizedBlob], `pasted-${Date.now()}.webp`, {
-            type: 'image/webp',
-          });
-
-          const publicUrl = await uploadToR2(optimizedFile);
-          newUrls.push(publicUrl);
-        }
-
-        setImages((prev) => [...prev, ...newUrls]);
-        toast.success('Imagem colada com sucesso!', { id: toastId });
-      } catch (error: any) {
-        toast.error('Erro no upload da imagem colada: ' + error.message, { id: toastId });
-      } finally {
-        setIsSaving(false);
-      }
     };
 
     window.addEventListener('paste', handleGlobalPaste);
@@ -109,70 +99,50 @@ export function Step1Photos({
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
     const incoming = Array.from(e.target.files);
-    const validated = await uploadForm.validateAndRun(
+    await uploadForm.validateAndRun(
       { files: incoming },
-      (values) => values,
+      async (validated) => {
+        setIsSaving(true);
+        const toastId = toast.loading('Otimizando imagens...');
+
+        try {
+          const newUrls = await processAndUploadProductImages(validated.files);
+          setImages((prev) => [...prev, ...newUrls]);
+          toast.success('Imagens enviadas!', { id: toastId });
+        } catch (error: any) {
+          toast.error('Erro no upload: ' + error.message, { id: toastId });
+        } finally {
+          setIsSaving(false);
+        }
+      },
       showFormError
     );
-    if (!validated) return;
-    const files = validated.files;
-
-    setIsSaving(true);
-    const toastId = toast.loading('Otimizando imagens...');
-
-    try {
-      const newUrls: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const optimizedBlob = await optimizeProductImage(file);
-        const optimizedFile = new File([optimizedBlob], `${Date.now()}.webp`, {
-          type: 'image/webp',
-        });
-
-        const publicUrl = await uploadToR2(optimizedFile);
-        newUrls.push(publicUrl);
-      }
-
-      setImages((prev) => [...prev, ...newUrls]);
-      toast.success('Imagens enviadas!', { id: toastId });
-    } catch (error: any) {
-      toast.error('Erro no upload: ' + error.message, { id: toastId });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const handleReplaceImage = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     if (!e.target.files?.length) return;
-    const validated = await uploadForm.validateAndRun(
+    await uploadForm.validateAndRun(
       { files: [e.target.files[0]] },
-      (values) => values,
+      async (validated) => {
+        setIsSaving(true);
+        const toastId = toast.loading('Substituindo imagem...');
+
+        try {
+          const publicUrl = await processAndUploadSingleProductImage(validated.files[0]);
+          setImages((prev) => {
+            const newImages = [...prev];
+            newImages[index] = publicUrl;
+            return newImages;
+          });
+          toast.success('Imagem substituída!', { id: toastId });
+        } catch (error: any) {
+          toast.error('Erro na substituição: ' + error.message, { id: toastId });
+        } finally {
+          setIsSaving(false);
+        }
+      },
       showFormError
     );
-    if (!validated) return;
-    const files = validated.files;
-
-    setIsSaving(true);
-    const toastId = toast.loading('Substituindo imagem...');
-
-    try {
-      const file = files[0];
-      const optimizedBlob = await optimizeProductImage(file);
-      const optimizedFile = new File([optimizedBlob], `${Date.now()}.webp`, { type: 'image/webp' });
-
-      const publicUrl = await uploadToR2(optimizedFile);
-
-      setImages((prev) => {
-        const newImages = [...prev];
-        newImages[index] = publicUrl;
-        return newImages;
-      });
-      toast.success('Imagem substituída!', { id: toastId });
-    } catch (error: any) {
-      toast.error('Erro na substituição: ' + error.message, { id: toastId });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const removeImage = (index: number) => {
@@ -202,84 +172,68 @@ export function Step1Photos({
 
     const incomingFiles = e.dataTransfer.files;
     if (incomingFiles && incomingFiles.length > 0) {
-      const validated = await uploadForm.validateAndRun(
+      await uploadForm.validateAndRun(
         { files: Array.from(incomingFiles) },
-        (values) => values,
+        async (validated) => {
+          const files = validated.files;
+          setIsSaving(true);
+          const toastId = toast.loading('Otimizando imagens soltas...');
+          try {
+            const imageFiles = validated.files.filter((file) => file.type.startsWith('image/'));
+            const newUrls = await processAndUploadProductImages(imageFiles);
+            if (newUrls.length > 0) {
+              setImages((prev) => [...prev, ...newUrls]);
+              toast.success('Imagens adicionadas com sucesso!', { id: toastId });
+            } else {
+              toast.dismiss(toastId);
+            }
+          } catch (error: any) {
+            toast.error('Erro no upload das imagens: ' + error.message, { id: toastId });
+          } finally {
+            setIsSaving(false);
+          }
+        },
         showFormError
       );
-      if (!validated) return;
-      const files = validated.files;
-      setIsSaving(true);
-      const toastId = toast.loading('Otimizando imagens soltas...');
-      try {
-        const newUrls: string[] = [];
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          if (file.type.startsWith('image/')) {
-            const optimizedBlob = await optimizeProductImage(file);
-            const optimizedFile = new File([optimizedBlob], `${Date.now()}.webp`, {
-              type: 'image/webp',
-            });
-
-            const publicUrl = await uploadToR2(optimizedFile);
-            newUrls.push(publicUrl);
-          }
-        }
-        if (newUrls.length > 0) {
-          setImages((prev) => [...prev, ...newUrls]);
-          toast.success('Imagens adicionadas com sucesso!', { id: toastId });
-        } else {
-          toast.dismiss(toastId);
-        }
-      } catch (error: any) {
-        toast.error('Erro no upload das imagens: ' + error.message, { id: toastId });
-      } finally {
-        setIsSaving(false);
-      }
     } else {
       const imageUrl = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('URL');
       if (imageUrl) {
-        const validatedUrl = await imageUrlForm.validateAndRun(
+        await imageUrlForm.validateAndRun(
           { url: imageUrl },
-          (values) => values,
+          async (validatedUrl) => {
+            setIsSaving(true);
+            const toastId = toast.loading('Tentando baixar imagem arrastada do site...');
+            try {
+              const response = await fetch(validatedUrl.url);
+              if (!response.ok) throw new Error('Não foi possível baixar a imagem.');
+              const blob = await response.blob();
+              if (!blob.type.startsWith('image/')) {
+                throw new Error('O link não corresponde a uma imagem válida.');
+              }
+              const file = new File([blob], `dragged-${Date.now()}.webp`, { type: blob.type });
+              await uploadForm.validateAndRun(
+                { files: [file] },
+                async (validatedFiles) => {
+                  const publicUrl = await processAndUploadSingleProductImage(
+                    validatedFiles.files[0],
+                    'dragged'
+                  );
+                  setImages((prev) => [...prev, publicUrl]);
+                  toast.success('Imagem arrastada com sucesso!', { id: toastId });
+                },
+                showFormError
+              );
+            } catch (error: any) {
+              toast.error(
+                "Este site protege as imagens de fora. Para funcionar, clique nela com o botão direito -> 'Copiar imagem' e aperte Ctrl + V aqui!",
+                { id: toastId, duration: 8000 }
+              );
+            } finally {
+              setIsSaving(false);
+            }
+          },
           showFormError
         );
-        if (!validatedUrl) return;
-        setIsSaving(true);
-        const toastId = toast.loading('Tentando baixar imagem arrastada do site...');
-        try {
-          const response = await fetch(validatedUrl.url);
-          if (!response.ok) throw new Error('Não foi possível baixar a imagem.');
-          const blob = await response.blob();
-          if (!blob.type.startsWith('image/')) {
-            throw new Error('O link não corresponde a uma imagem válida.');
-          }
-          const file = new File([blob], `dragged-${Date.now()}.webp`, { type: blob.type });
-          const validatedFiles = await uploadForm.validateAndRun(
-            { files: [file] },
-            (values) => values,
-            showFormError
-          );
-          if (!validatedFiles) {
-            toast.dismiss(toastId);
-            return;
-          }
-          const optimizedBlob = await optimizeProductImage(validatedFiles.files[0]);
-          const optimizedFile = new File([optimizedBlob], `dragged-${Date.now()}.webp`, {
-            type: 'image/webp',
-          });
-
-          const publicUrl = await uploadToR2(optimizedFile);
-          setImages((prev) => [...prev, publicUrl]);
-          toast.success('Imagem arrastada com sucesso!', { id: toastId });
-        } catch (error: any) {
-          toast.error(
-            "Este site protege as imagens de fora. Para funcionar, clique nela com o botão direito -> 'Copiar imagem' e aperte Ctrl + V aqui!",
-            { id: toastId, duration: 8000 }
-          );
-        } finally {
-          setIsSaving(false);
-        }
       }
     }
   };

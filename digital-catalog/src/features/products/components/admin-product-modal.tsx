@@ -23,6 +23,10 @@ import { Step4Variations } from './admin-modal/steps/Step4Variations';
 import { VariationFormModal } from './admin-modal/dialogs/VariationFormModal';
 import { AttributeManagerModal } from './admin-modal/dialogs/AttributeManagerModal';
 import { ImageActionModal } from './admin-modal/dialogs/ImageActionModal';
+import { toast } from 'sonner';
+import { processAndUploadSingleProductImage } from './admin-modal/utils/productImageUploadUtils';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { storefrontImageUploadFormSchema } from '@/shared-utils/storefrontProductFormSchemas';
 
 export type { AdminProductModalProps };
 
@@ -165,6 +169,34 @@ export function AdminProductModal({
       ...prev,
       images: typeof imagesOrFn === 'function' ? imagesOrFn(prev.images) : imagesOrFn,
     }));
+  };
+
+  const uploadForm = useZodForm(storefrontImageUploadFormSchema, { files: [] });
+
+  const handleReplaceImage = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    if (!e.target.files?.length) return;
+    const incomingFile = e.target.files[0];
+    await uploadForm.validateAndRun(
+      { files: [incomingFile] },
+      async (validated) => {
+        setIsSaving(true);
+        const toastId = toast.loading('Substituindo imagem...');
+        try {
+          const publicUrl = await processAndUploadSingleProductImage(validated.files[0]);
+          handleSetImages((prev) => {
+            const next = [...prev];
+            next[index] = publicUrl;
+            return next;
+          });
+          toast.success('Imagem substituída!', { id: toastId });
+        } catch (error: any) {
+          toast.error('Erro na substituição: ' + error.message, { id: toastId });
+        } finally {
+          setIsSaving(false);
+        }
+      },
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])
+    );
   };
 
   return (
@@ -329,9 +361,7 @@ export function AdminProductModal({
         activeImageIndex={activeImageIndex}
         images={formData.images}
         onClose={() => setActiveImageIndex(null)}
-        onReplaceImage={(e, idx) => {
-          // Handled within Step1Photos or ImageActionModal
-        }}
+        onReplaceImage={handleReplaceImage}
         onRemoveImage={(idx) => {
           handleSetImages((prev) => prev.filter((_, i) => i !== idx));
         }}

@@ -25,11 +25,40 @@ interface UseMobileUnavailabilityFormProps {
   onSuccess: () => void;
 }
 
+export interface UseMobileUnavailabilityFormReturn {
+  state: {
+    isLoading: boolean;
+    productQuery: string;
+    productSuggestions: ProductVariationSuggestion[];
+    isSearchingProduct: boolean;
+    selectedProductVariation: ProductVariationSuggestion | null;
+    quantity: string;
+    reason: string;
+    treatment: string;
+    observation: string;
+    suppliers: SupplierOption[];
+    selectedSupplierId: string;
+    isFieldsDisabled: boolean;
+  };
+  actions: {
+    setProductQuery: (query: string) => void;
+    setSelectedProductVariation: (item: ProductVariationSuggestion | null) => void;
+    setQuantity: (quantity: string) => void;
+    setReason: (reason: string) => void;
+    setTreatment: (treatment: string) => void;
+    setSelectedSupplierId: (supplierId: string) => void;
+    setObservation: (observation: string) => void;
+    handleSubmit: () => Promise<void>;
+    handleClose: () => void;
+    resetForm: () => void;
+  };
+}
+
 export function useMobileUnavailabilityForm({
   isOpen,
   onClose,
   onSuccess,
-}: UseMobileUnavailabilityFormProps) {
+}: UseMobileUnavailabilityFormProps): UseMobileUnavailabilityFormReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [productQuery, setProductQuery] = useState('');
   const [productSuggestions, setProductSuggestions] = useState<ProductVariationSuggestion[]>([]);
@@ -167,64 +196,42 @@ export function useMobileUnavailabilityForm({
   }, [resetForm, onClose]);
 
   const handleSubmit = async () => {
-    const validated = await form.validateAndRun(formValues, (data) => data,
-      (errors) => Alert.alert('Atenção', Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    if (!selectedProductVariation) {
-      Alert.alert('Atenção', 'Selecione uma variação do produto.');
-      return;
-    }
+    await form.validateAndRun(
+      formValues,
+      async (validated) => {
+        const targetSupplierId =
+          validated.treatment === 'Devolução ao fornecedor' ? selectedSupplierId || null : null;
 
-    const qty = validated.quantity;
-    if (Number.isNaN(qty) || qty <= 0) {
-      Alert.alert('Atenção', 'Informe uma quantidade válida maior que zero.');
-      return;
-    }
+        setIsLoading(true);
+        try {
+          await createStockUnavailability({
+            productId: validated.productId,
+            variationId: validated.variationId,
+            quantity: validated.quantity,
+            reason: validated.reason,
+            treatment: validated.treatment,
+            physicalLocation,
+            observation: observation.trim() || undefined,
+            supplierId: targetSupplierId,
+          });
 
-    if (treatment === 'Devolução ao fornecedor' && !selectedSupplierId) {
-      Alert.alert('Atenção', 'Selecione o fornecedor para a devolução.');
-      return;
-    }
-
-    const currentStock = Number(selectedProductVariation.stock || 0);
-    if (qty > currentStock) {
-      Alert.alert(
-        'Estoque insuficiente',
-        `A quantidade informada (${qty}) é maior que o saldo em estoque (${currentStock}).`
-      );
-      return;
-    }
-
-    const targetSupplierId =
-      treatment === 'Devolução ao fornecedor' ? selectedSupplierId || null : null;
-
-    setIsLoading(true);
-    try {
-      await createStockUnavailability({
-        productId: selectedProductVariation.id,
-        variationId: selectedProductVariation.variation_id,
-        quantity: qty,
-        reason,
-        treatment,
-        physicalLocation,
-        observation: observation.trim() || undefined,
-        supplierId: targetSupplierId,
-      });
-
-      Alert.alert('Sucesso', 'Indisponibilidade registrada com sucesso!');
-      resetForm();
-      onSuccess();
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : typeof error === 'object' && error && 'message' in error
-            ? String((error as { message: unknown }).message)
-            : 'Falha ao registrar indisponibilidade.';
-      Alert.alert('Erro ao registrar', errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
+          Alert.alert('Sucesso', 'Indisponibilidade registrada com sucesso!');
+          resetForm();
+          onSuccess();
+        } catch (error: unknown) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : typeof error === 'object' && error && 'message' in error
+                ? String((error as { message: unknown }).message)
+                : 'Falha ao registrar indisponibilidade.';
+          Alert.alert('Erro ao registrar', errorMessage);
+        } finally {
+          setIsLoading(false);
+        }
+      },
+      (errors) => Alert.alert('Atenção', Object.values(flattenFormErrors(errors))[0])
+    );
   };
 
   const isFieldsDisabled = !selectedProductVariation || isLoading;

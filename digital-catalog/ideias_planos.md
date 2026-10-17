@@ -76,3 +76,14 @@ ZodForm sem consumidor ativo localizado foi conferido: onValid obrigatório rece
 ### Formulários —16/10: continuidade
 
 Autosave/finalização de produto e criar/editar/excluir categorias passaram nos testes locais, TypeScript/lint e build Next. Autosave usa assinatura estável do snapshot e preserva UUIDs de variações para não repetir gravação sem edição. Produto agregado permanece pendente: Step1Photos não compartilha fila com upload iniciado posteriormente e ImageActionModal ainda possui callback vazio de substituição global. Conferir também AttributeManagerModal, VariationFormModal, buscas/filtros, carrinho e preferências no inventário vigente; não declarar conclusão global. Sem escrita remota nesta revisão.
+
+### Agregados do Catálogo e Modais — 17/10
+
+Pendências do modal agregado de produto e navegação resolvidas:
+- `admin-product-modal.tsx`: implementado `handleReplaceImage` validado via `storefrontImageUploadFormSchema` (`useZodForm`), otimização e upload R2 sob guarda `isSaving`, conectado diretamente a `<ImageActionModal onReplaceImage={handleReplaceImage}>` eliminando o callback vazio.
+- `Step1Photos.tsx`: upload por arquivos, URLs, colagem (`paste`) e drag-and-drop envolvidos em `uploadForm.validateAndRun` com feedback de erro e progresso.
+- `VariationFormModal.tsx`: criação e edição de variações, geração de SKU e persistência executadas estritamente dentro do `onValid` de `variationForm.validateAndRun`.
+- `AttributeManagerModal.tsx`: criação de atributos e novos valores vinculados executados dentro de `attributeForm.validateAndRun` e `attributeValueForm.validateAndRun`.
+- `user-nav.tsx`: login por e-mail/senha migrado para formulário real com `useForm`, `zodResolver(loginFormSchema)`, timeout protegido via `waitForAuthOperation`, feedback de erro/sucesso e link de cadastro para `/auth/signup`.
+- Provas automatizadas em `erp/tests/catalog-forms/catalogAggregateModals.test.tsx` (5/5) e suite completa do catálogo com 53/53 testes aprovados. TypeScript com 0 erros e build de produção Next.js aprovado.
+

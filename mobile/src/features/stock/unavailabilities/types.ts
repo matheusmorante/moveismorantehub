@@ -1,3 +1,10 @@
+import {
+  UNAVAILABILITY_REASONS,
+  UNAVAILABILITY_TREATMENTS,
+  type UnavailabilityReason,
+  type UnavailabilityTreatment,
+} from '../../../../../shared-utils/operationsFormSchemas';
+
 export type {
   CreateStockUnavailabilityInput,
   StockUnavailability,
@@ -6,14 +13,15 @@ export type {
   UnavailabilityStatusFilter,
 } from '../../../services/stock/stockUnavailabilitiesService';
 
-export const REASONS = [
-  'Avaria',
-  'Defeito',
-  'Separação para devolução ao fornecedor',
-  'Outro',
-] as const;
+export {
+  UNAVAILABILITY_REASONS,
+  UNAVAILABILITY_TREATMENTS,
+  type UnavailabilityReason,
+  type UnavailabilityTreatment,
+};
 
-export const TREATMENTS = ['Devolução ao fornecedor', 'Descarte/perda', 'Outro'] as const;
+export const REASONS = UNAVAILABILITY_REASONS;
+export const TREATMENTS = UNAVAILABILITY_TREATMENTS;
 
 export const LOCATIONS = ['Depósito', 'Mostruário', 'Outro'] as const;
 

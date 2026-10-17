@@ -16,15 +16,65 @@ import { X } from 'lucide-react-native';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { createPersonFormSchema } from '../../../../../shared-utils/personDomainValidation';
 
+export interface SupplierAddress {
+  cep: string;
+  street: string;
+  number: string;
+  neighborhood: string;
+  complement: string;
+  city: string;
+  state: string;
+  [key: string]: unknown;
+}
+
+export interface SupplierFormData {
+  id?: string;
+  personType: 'PF' | 'PJ';
+  fullName: string;
+  tradeName: string;
+  cpfCnpj: string;
+  leadTime: string;
+  email: string;
+  phone: string;
+  active: boolean;
+  observation: string;
+  fullAddress: SupplierAddress;
+  [key: string]: unknown;
+}
+
+interface FieldOptions {
+  addressKey?: keyof SupplierAddress;
+  placeholder?: string;
+  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad' | 'number-pad';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  maxLength?: number;
+  format?: (value: string) => string;
+}
+
+export interface SupplierFormItem extends Partial<SupplierFormData> {
+  id?: string;
+  full_name?: string;
+  trade_name?: string;
+  nickname?: string;
+  name?: string;
+  person_type_pf_pj?: 'PF' | 'PJ';
+  cpf_cnpj?: string;
+  documentNumber?: string;
+  lead_time?: number;
+  observations?: string;
+  full_address?: Partial<SupplierAddress>;
+  address?: Partial<SupplierAddress>;
+}
+
 interface Props {
   visible: boolean;
   onClose: () => void;
   isDarkMode: boolean;
-  supplier?: any;
-  onSave: (data: any) => Promise<void>;
+  supplier?: SupplierFormItem | null;
+  onSave: (data: Record<string, unknown>) => Promise<void>;
 }
 
-const emptyForm = () => ({
+const emptyForm = (): SupplierFormData => ({
   personType: 'PF',
   fullName: '',
   tradeName: '',
@@ -44,8 +94,14 @@ const emptyForm = () => ({
     state: 'PR',
   },
 });
+
 const formatDocument = (value: string, personType: string) => {
-  const digits = (personType === 'PJ' ? value.toUpperCase().replace(/[^0-9A-Z]/g, '') : value.replace(/\D/g, '')).slice(0, personType === 'PJ' ? 14 : 11);
+  const digits = (
+    personType === 'PJ'
+      ? value.toUpperCase().replace(/[^0-9A-Z]/g, '')
+      : value.replace(/\D/g, '')
+  ).slice(0, personType === 'PJ' ? 14 : 11);
+
   if (personType === 'PJ') {
     return [
       digits.slice(0, 2),
@@ -71,6 +127,7 @@ const formatDocument = (value: string, personType: string) => {
       ''
     );
 };
+
 const formatPhone = (value: string) => {
   const digits = value.replace(/\D/g, '').slice(0, 11);
   if (digits.length <= 2) return digits;
@@ -87,7 +144,7 @@ export const SupplierFormModal: React.FC<Props> = ({
   supplier,
   onSave,
 }) => {
-  const [form, setForm] = useState<any>(emptyForm());
+  const [form, setForm] = useState<SupplierFormData>(emptyForm());
   const [isSaving, setIsSaving] = useState(false);
   const personForm = useZodForm(createPersonFormSchema('suppliers'), form);
   const theme = isDarkMode
@@ -130,12 +187,23 @@ export const SupplierFormModal: React.FC<Props> = ({
     );
   }, [supplier, visible]);
 
-  const updateAddress = (key: string, value: string) =>
-    setForm((current: any) => ({
+  const updateAddress = (key: keyof SupplierAddress, value: string) =>
+    setForm((current) => ({
       ...current,
       fullAddress: { ...current.fullAddress, [key]: value },
     }));
-  const field = (label: string, key: string, options: any = {}) => (
+
+  const updateField = (key: keyof Omit<SupplierFormData, 'fullAddress'>, value: string) =>
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+
+  const field = (
+    label: string,
+    key: keyof Omit<SupplierFormData, 'fullAddress'> | keyof SupplierAddress,
+    options: FieldOptions = {}
+  ) => (
     <View style={styles.inputGroup} key={key}>
       <Text style={[styles.label, { color: theme.muted }]}>{label}</Text>
       <TextInput
@@ -144,15 +212,17 @@ export const SupplierFormModal: React.FC<Props> = ({
           { color: theme.text, backgroundColor: theme.input, borderColor: theme.border },
         ]}
         value={String(
-          options.addressKey ? form.fullAddress?.[options.addressKey] || '' : (form[key] ?? '')
+          options.addressKey
+            ? form.fullAddress[options.addressKey] || ''
+            : (form[key as keyof Omit<SupplierFormData, 'fullAddress'>] ?? '')
         )}
         onChangeText={(value) =>
           options.addressKey
             ? updateAddress(options.addressKey, value)
-            : setForm((current: any) => ({
-                ...current,
-                [key]: options.format ? options.format(value) : value,
-              }))
+            : updateField(
+                key as keyof Omit<SupplierFormData, 'fullAddress'>,
+                options.format ? options.format(value) : value
+              )
         }
         placeholder={options.placeholder || ''}
         placeholderTextColor={theme.muted}
@@ -164,37 +234,38 @@ export const SupplierFormModal: React.FC<Props> = ({
   );
 
   const handleSave = async () => {
-    const validated = await personForm.validateAndRun(form, (data) => data,
-      (errors) => Alert.alert('Campo obrigatório', Object.values(flattenFormErrors(errors))[0]));
-    if (!validated) return;
-    const name = validated.fullName!.trim();
-    if (!name) {
-      Alert.alert(
-        'Campo obrigatório',
-        form.personType === 'PJ' ? 'A Razão Social é obrigatória.' : 'O nome é obrigatório.'
-      );
-      return;
-    }
-    setIsSaving(true);
-    try {
-      await onSave({
-        ...validated,
-        id: supplier?.id,
-        fullName: name,
-        leadTime: validated.leadTime || 0,
-        personType: validated.personType,
-        type: 'suppliers',
-        active: validated.active !== false,
-        fullAddress: validated.fullAddress,
-        isDraft: false,
-      });
-      onClose();
-    } catch (err: any) {
-      console.error('Erro ao salvar fornecedor:', err);
-      Alert.alert('Não foi possível salvar', err?.message || 'Tente novamente.');
-    } finally {
-      setIsSaving(false);
-    }
+    await personForm.validateAndRun(
+      form,
+      async (validated) => {
+        setIsSaving(true);
+        try {
+          await onSave({
+            ...validated,
+            id: supplier?.id,
+            fullName: (validated.fullName || '').trim(),
+            leadTime: validated.leadTime || 0,
+            personType: validated.personType,
+            type: 'suppliers',
+            active: validated.active !== false,
+            fullAddress: validated.fullAddress,
+            isDraft: false,
+          });
+          onClose();
+        } catch (err: unknown) {
+          console.error('Erro ao salvar fornecedor:', err);
+          const message =
+            err instanceof Error
+              ? err.message
+              : typeof err === 'object' && err && 'message' in err
+                ? String((err as { message: unknown }).message)
+                : 'Tente novamente.';
+          Alert.alert('Não foi possível salvar', message);
+        } finally {
+          setIsSaving(false);
+        }
+      },
+      (errors) => Alert.alert('Campo obrigatório', Object.values(flattenFormErrors(errors))[0])
+    );
   };
 
   return (
@@ -240,7 +311,7 @@ export const SupplierFormModal: React.FC<Props> = ({
               <TouchableOpacity
                 key={type}
                 onPress={() =>
-                  setForm((current: any) => ({
+                  setForm((current) => ({
                     ...current,
                     personType: type,
                     cpfCnpj: formatDocument(current.cpfCnpj, type),
@@ -319,7 +390,7 @@ export const SupplierFormModal: React.FC<Props> = ({
             ]}
             value={form.observation}
             onChangeText={(value) =>
-              setForm((current: any) => ({ ...current, observation: value }))
+              setForm((current) => ({ ...current, observation: value }))
             }
             placeholder="Informações extras sobre o fornecedor"
             placeholderTextColor={theme.muted}
@@ -368,72 +439,74 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerTitle: { fontSize: 18, fontWeight: '900' },
-  headerSubtitle: { fontSize: 11, fontWeight: '600', marginTop: 3 },
-  closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 16, paddingBottom: 28 },
+  headerTitle: { fontSize: 18, fontWeight: '800' },
+  headerSubtitle: { fontSize: 13, marginTop: 2 },
+  closeBtn: { padding: 4 },
+  content: { padding: 18, gap: 14 },
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1,
+    fontSize: 14,
+    fontWeight: '800',
     textTransform: 'uppercase',
-    marginTop: 10,
-    marginBottom: 12,
+    letterSpacing: 0.5,
+    marginTop: 6,
   },
   typeRow: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 4,
     flexDirection: 'row',
-    gap: 5,
-    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 3,
+    gap: 4,
   },
   typeButton: {
-    minHeight: 42,
     flex: 1,
-    borderRadius: 9,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 5,
+    borderRadius: 9,
   },
-  typeButtonActive: { backgroundColor: '#2563eb' },
-  typeButtonText: { color: '#64748b', fontSize: 10, fontWeight: '800', textAlign: 'center' },
-  typeButtonTextActive: { color: '#fff' },
-  inputGroup: { marginBottom: 14 },
-  label: {
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.7,
-    textTransform: 'uppercase',
-    marginBottom: 6,
+  typeButtonActive: {
+    backgroundColor: '#0284c7',
   },
+  typeButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  typeButtonTextActive: {
+    color: '#fff',
+  },
+  inputGroup: { gap: 6 },
+  label: { fontSize: 13, fontWeight: '700' },
   input: {
-    minHeight: 46,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 13,
+    borderRadius: 10,
+    paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 14,
-    fontWeight: '600',
   },
-  multiline: { minHeight: 100, marginBottom: 12 },
+  multiline: { height: 90, textAlignVertical: 'top' },
   inlineFields: { flexDirection: 'row', gap: 10 },
-  footer: { padding: 14, borderTopWidth: 1, flexDirection: 'row', gap: 10 },
+  footer: {
+    flexDirection: 'row',
+    padding: 18,
+    borderTopWidth: 1,
+    gap: 12,
+  },
   cancelButton: {
-    minHeight: 48,
+    flex: 1,
     borderWidth: 1,
-    borderRadius: 11,
-    paddingHorizontal: 18,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 14,
   },
   saveBtn: {
-    flex: 1,
-    minHeight: 48,
-    backgroundColor: '#2563eb',
-    borderRadius: 11,
+    flex: 2,
+    backgroundColor: '#0284c7',
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 14,
   },
-  saveBtnText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
 });

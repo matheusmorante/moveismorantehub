@@ -83,71 +83,71 @@ export function AttributeManagerModal({
       }
     }
 
-    const validated = await attributeForm.validateAndRun(
+    await attributeForm.validateAndRun(
       { name: fastAttrName, values: finalValues },
-      (values) => values,
+      async (validated) => {
+        const valuesToSave = validated.values;
+        const toastId = toast.loading('Salvando atributo...');
+        try {
+          if (editingAttrId) {
+            const { error: attrErr } = await supabase
+              .from('attributes')
+              .update({ name: validated.name })
+              .eq('id', editingAttrId);
+
+            if (attrErr) throw attrErr;
+
+            const { error: delErr } = await supabase
+              .from('attribute_values')
+              .delete()
+              .eq('attribute_id', editingAttrId);
+
+            if (delErr) throw delErr;
+
+            const valuesToInsert = valuesToSave.map((val) => ({
+              attribute_id: editingAttrId,
+              value: val,
+            }));
+            const { error: valErr } = await supabase.from('attribute_values').insert(valuesToInsert);
+            if (valErr) throw valErr;
+
+            toast.success('Atributo atualizado com sucesso!', { id: toastId });
+            await fetchDbAttributes();
+          } else {
+            const { data: attr, error: attrErr } = await supabase
+              .from('attributes')
+              .insert([{ name: validated.name }])
+              .select()
+              .single();
+
+            if (attrErr) throw attrErr;
+
+            const valuesToInsert = valuesToSave.map((val) => ({
+              attribute_id: attr.id,
+              value: val,
+            }));
+            const { error: valErr } = await supabase.from('attribute_values').insert(valuesToInsert);
+            if (valErr) throw valErr;
+
+            toast.success('Atributo criado com sucesso!', { id: toastId });
+            await fetchDbAttributes();
+
+            if (onAttributeCreated) {
+              onAttributeCreated(validated.name, valuesToSave[0] || '');
+            }
+          }
+
+          onOpenChange(false);
+          setFastAttrName('');
+          setFastAttrValues([]);
+          setFastAttrValInput('');
+          setEditingAttrId(null);
+        } catch (err: any) {
+          toast.error('Erro ao salvar atributo: ' + err.message, { id: toastId });
+        }
+      },
       showFormError
     );
-    if (!validated) return;
-    finalValues = validated.values;
-    const toastId = toast.loading('Salvando atributo...');
-    try {
-      if (editingAttrId) {
-        const { error: attrErr } = await supabase
-          .from('attributes')
-          .update({ name: validated.name })
-          .eq('id', editingAttrId);
-
-        if (attrErr) throw attrErr;
-
-        const { error: delErr } = await supabase
-          .from('attribute_values')
-          .delete()
-          .eq('attribute_id', editingAttrId);
-
-        if (delErr) throw delErr;
-
-        const valuesToInsert = finalValues.map((val) => ({
-          attribute_id: editingAttrId,
-          value: val,
-        }));
-        const { error: valErr } = await supabase.from('attribute_values').insert(valuesToInsert);
-        if (valErr) throw valErr;
-
-        toast.success('Atributo atualizado com sucesso!', { id: toastId });
-        await fetchDbAttributes();
-      } else {
-        const { data: attr, error: attrErr } = await supabase
-          .from('attributes')
-          .insert([{ name: validated.name }])
-          .select()
-          .single();
-
-        if (attrErr) throw attrErr;
-
-        const valuesToInsert = finalValues.map((val) => ({
-          attribute_id: attr.id,
-          value: val,
-        }));
-        const { error: valErr } = await supabase.from('attribute_values').insert(valuesToInsert);
-        if (valErr) throw valErr;
-
-        toast.success('Atributo criado com sucesso!', { id: toastId });
-        await fetchDbAttributes();
-
-        if (onAttributeCreated) {
-          onAttributeCreated(validated.name, finalValues[0] || '');
-        }
-      }
-
-      onOpenChange(false);
-      setFastAttrName('');
-      setFastAttrValues([]);
-      setFastAttrValInput('');
-      setEditingAttrId(null);
-    } catch (err: any) {
-      toast.error('Erro ao salvar atributo: ' + err.message, { id: toastId });
-    }
   };
 
   const handleDeleteDbAttribute = async (attrId: string) => {
@@ -201,23 +201,23 @@ export function AttributeManagerModal({
 
   const handleAddDbAttributeValueToExisting = async (attrId: string, valText: string) => {
     if (!valText.trim()) return;
-    const validated = await attributeValueForm.validateAndRun(
+    await attributeValueForm.validateAndRun(
       { attributeId: attrId, value: valText },
-      (values) => values,
+      async (validated) => {
+        try {
+          const { error } = await supabase
+            .from('attribute_values')
+            .insert([{ attribute_id: validated.attributeId, value: validated.value }]);
+
+          if (error) throw error;
+          toast.success('Valor adicionado com sucesso!');
+          await fetchDbAttributes();
+        } catch (err: any) {
+          toast.error('Erro ao adicionar valor: ' + err.message);
+        }
+      },
       showFormError
     );
-    if (!validated) return;
-    try {
-      const { error } = await supabase
-        .from('attribute_values')
-        .insert([{ attribute_id: validated.attributeId, value: validated.value }]);
-
-      if (error) throw error;
-      toast.success('Valor adicionado com sucesso!');
-      await fetchDbAttributes();
-    } catch (err: any) {
-      toast.error('Erro ao adicionar valor: ' + err.message);
-    }
   };
 
   return (

@@ -184,27 +184,27 @@ export function VariationFormModal({
       return;
     }
 
-    const validated = await variationForm.validateAndRun(varFormState, (values) => values, showFormError);
-    if (!validated) return;
-    const updatedAttributes = { ...validated.attributes };
-    const generatedSku = generateAutoSku(productFormData.slug, updatedAttributes);
+    await variationForm.validateAndRun(varFormState, (validated) => {
+      const updatedAttributes = { ...validated.attributes };
+      const generatedSku = generateAutoSku(productFormData.slug, updatedAttributes);
 
-    const updatedVar: TempVariation = {
-      ...validated,
-      id:
-        validated.id || (typeof window !== 'undefined' ? window.crypto.randomUUID() : undefined),
-      sku: generatedSku,
-      stock: validated.stock || '999',
-    };
+      const updatedVar: TempVariation = {
+        ...validated,
+        id:
+          validated.id || (typeof window !== 'undefined' ? window.crypto.randomUUID() : undefined),
+        sku: generatedSku,
+        stock: validated.stock || '999',
+      };
 
-    if (validated.use_parent_name !== false) {
-      updatedVar.name = getDefaultVariationName(productFormData.name, updatedAttributes);
-    } else {
-      updatedVar.name = validated.name || 'Padrão';
-    }
+      if (validated.use_parent_name !== false) {
+        updatedVar.name = getDefaultVariationName(productFormData.name, updatedAttributes);
+      } else {
+        updatedVar.name = validated.name || 'Padrão';
+      }
 
-    onSave(updatedVar, editingIndex);
-    onOpenChange(false);
+      onSave(updatedVar, editingIndex);
+      onOpenChange(false);
+    }, showFormError);
   };
 
   return (

@@ -9,6 +9,7 @@ import {
   resolveMobileProductStatusFilter,
 } from '../domain/mobileProductListFilters';
 import { getMobileEffectiveVariationPrice } from '../domain/productRegistrationRules';
+import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
   deleteMobileProduct,

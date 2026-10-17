@@ -18,78 +18,164 @@ export function useCustomerSupportMessages({
 }: UseCustomerSupportMessagesParams) {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isRefreshingMessages, setIsRefreshingMessages] = useState(false);
 
-  const selectedConvIdRef = useRef<string | null>(null);
-  selectedConvIdRef.current = selectedConversation?.id || null;
+  const activeConvIdRef = useRef<string | null>(null);
+  activeConvIdRef.current = selectedConversation?.id || null;
 
-  // Carrega histórico de mensagens da conversa selecionada
-  const loadMessages = useCallback(async (conv: WhatsAppConversation) => {
-    setIsLoadingMessages(true);
+  const onClearUnreadRef = useRef(onClearUnread);
+  onClearUnreadRef.current = onClearUnread;
+
+  // Carrega histórico de mensagens da conversa (apenas leitura, sem escrita em whatsapp_conversations)
+  const loadMessages = useCallback(async (convId: string, isSilent = false) => {
+    if (!convId) return;
+    if (!isSilent) setIsLoadingMessages(true);
+
     try {
-      if (conv.unreadCount > 0) {
-        await markConversationAsRead(supabase, conv.id);
-        onClearUnread(conv.id);
+      const msgs = await fetchConversationMessages(supabase, convId);
+      if (activeConvIdRef.current === convId) {
+        setMessages((prev) => {
+          if (prev.length === msgs.length) {
+            const lastPrev = prev[prev.length - 1];
+            const lastNew = msgs[msgs.length - 1];
+            if (lastPrev?.id === lastNew?.id && lastPrev?.status === lastNew?.status) {
+              return prev; // Conteúdo idêntico, preserva referência para não causar re-render
+            }
+          }
+          return msgs;
+        });
       }
-      const msgs = await fetchConversationMessages(supabase, conv.id);
-      setMessages(msgs);
     } finally {
-      setIsLoadingMessages(false);
+      if (!isSilent) setIsLoadingMessages(false);
     }
-  }, [onClearUnread]);
+  }, []);
 
-  // Ao trocar de conversa, limpa e carrega as mensagens
+  // Ao trocar de conversa, limpa, carrega e zera não lidas apenas uma vez
+  const lastLoadedConvIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (selectedConversation) {
-      loadMessages(selectedConversation);
-    } else {
-      setMessages([]);
+    const convId = selectedConversation?.id || null;
+    if (convId !== lastLoadedConvIdRef.current) {
+      lastLoadedConvIdRef.current = convId;
+      if (convId && selectedConversation) {
+        loadMessages(convId, false);
+        // Se tinha mensagens não lidas, zera de forma atômica apenas na abertura da conversa
+        if (selectedConversation.unreadCount > 0) {
+          markConversationAsRead(supabase, convId);
+          onClearUnreadRef.current(convId);
+        }
+      } else {
+        setMessages([]);
+      }
     }
   }, [selectedConversation?.id, loadMessages]);
 
-  // Supabase Realtime para mensagens da conversa aberta
+  // Sincronização periódica automática em segundo plano (auto-reload a cada 6 segundos)
   useEffect(() => {
-    const channel = supabase
-      .channel('whatsapp-messages-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'whatsapp_messages' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newMsg = mapRowToMessage(payload.new);
-            if (selectedConvIdRef.current === newMsg.conversationId) {
-              setMessages((prev) => {
-                if (
-                  prev.some(
-                    (m) =>
-                      m.id === newMsg.id ||
-                      (m.apiMessageId && m.apiMessageId === newMsg.apiMessageId)
-                  )
-                ) {
-                  return prev;
-                }
-                return [...prev, newMsg];
-              });
-            }
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedMsg = mapRowToMessage(payload.new);
-            if (selectedConvIdRef.current === updatedMsg.conversationId) {
-              setMessages((prev) =>
-                prev.map((m) => (m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m))
-              );
-            }
-          }
-        }
-      )
-      .subscribe();
+    const interval = setInterval(() => {
+      const currentId = activeConvIdRef.current;
+      if (currentId && (typeof document === 'undefined' || document.visibilityState === 'visible')) {
+        loadMessages(currentId, true);
+      }
+    }, 6000);
+
+    const handleVisibilityChange = () => {
+      const currentId = activeConvIdRef.current;
+      if (currentId && document.visibilityState === 'visible') {
+        loadMessages(currentId, true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadMessages]);
+
+  // Supabase Realtime para mensagens da conversa aberta com reconexão automática
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let reconnectTimer: any = null;
+
+    const setupChannel = () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+
+      channel = supabase
+        .channel(`whatsapp-messages-realtime-${Date.now()}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'whatsapp_messages' },
+          async (payload) => {
+            if (payload.eventType === 'INSERT') {
+              const newMsg = mapRowToMessage(payload.new);
+              if (activeConvIdRef.current === newMsg.conversationId) {
+                // Se for recebimento na conversa ativa, zera o status de não lida
+                if (newMsg.direction === 'inbound') {
+                  await markConversationAsRead(supabase, newMsg.conversationId);
+                  onClearUnreadRef.current(newMsg.conversationId);
+                }
+                setMessages((prev) => {
+                  if (
+                    prev.some(
+                      (m) =>
+                        m.id === newMsg.id ||
+                        (m.apiMessageId && m.apiMessageId === newMsg.apiMessageId)
+                    )
+                  ) {
+                    return prev;
+                  }
+                  return [...prev, newMsg];
+                });
+              }
+            } else if (payload.eventType === 'UPDATE') {
+              const updatedMsg = mapRowToMessage(payload.new);
+              if (activeConvIdRef.current === updatedMsg.conversationId) {
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m))
+                );
+              }
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(() => {
+              setupChannel();
+            }, 5000);
+          }
+        });
+    };
+
+    setupChannel();
+
+    return () => {
+      clearTimeout(reconnectTimer);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, []);
+
+  const refreshMessages = useCallback(async () => {
+    const currentId = activeConvIdRef.current;
+    if (currentId) {
+      setIsRefreshingMessages(true);
+      try {
+        await loadMessages(currentId, false);
+      } finally {
+        setIsRefreshingMessages(false);
+      }
+    }
+  }, [loadMessages]);
 
   return {
     messages,
     setMessages,
     isLoadingMessages,
+    isRefreshingMessages,
+    refreshMessages,
   };
 }

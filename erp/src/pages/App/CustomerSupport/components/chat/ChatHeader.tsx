@@ -23,6 +23,8 @@ interface ChatHeaderProps {
   onUpdateStatus?: (status: ConversationStatus) => Promise<void>;
   currentUserId?: string;
   currentUserName?: string;
+  onRefreshMessages?: () => Promise<void> | void;
+  isRefreshingMessages?: boolean;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -46,6 +48,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onUpdateStatus,
   currentUserId,
   currentUserName,
+  onRefreshMessages,
+  isRefreshingMessages = false,
 }) => {
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
@@ -220,6 +224,30 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             </div>
           )}
         </div>
+
+        {/* Indicador Ao Vivo (Realtime / Auto-Reload) */}
+        <span
+          className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 select-none"
+          title="Sincronização em tempo real ativa: novas mensagens chegam sozinhas automaticamente via WebSocket e auto-reload"
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          Tempo Real
+        </span>
+
+        {/* Botão de Atualizar / Recarregar Mensagens */}
+        <button
+          type="button"
+          onClick={onRefreshMessages}
+          title="Recarregar mensagens desta conversa (atualização automática ativa)"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          aria-label="Recarregar mensagens"
+        >
+          <i
+            className={`bi bi-arrow-clockwise text-base ${
+              isRefreshingMessages ? 'animate-spin text-emerald-500' : ''
+            }`}
+          ></i>
+        </button>
 
         {/* 2. Respostas Rápidas / Snippets (⚡) */}
         <button

@@ -30,13 +30,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  getProductProfileRoles,
-  isStockistOnlyProductProfile,
-  normalizePermissionRoles,
-  shouldHideProductCatalogPublicationStatus,
-} from '../../../../../shared-utils/productPermissions';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useProductFormPermissions } from '../hooks/useProductFormPermissions';
 import {
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
@@ -188,14 +182,12 @@ export const ProductFormScreen: React.FC<Props> = ({
   onClose,
   onSave,
 }) => {
-  const { userProfile, canUseProductPermission } = useAuth();
-  const isStockistOnly = isStockistOnlyProductProfile(userProfile);
-  const productProfileRoles = normalizePermissionRoles(getProductProfileRoles(userProfile));
-  const canConfigureProductTaxes = productProfileRoles.some(
-    (role) => role !== 'seller' && role !== 'stockist'
-  );
-  const canManageCategories = canUseProductPermission('viewProductCategories');
-  const hideCatalogPublicationStatus = shouldHideProductCatalogPublicationStatus(userProfile);
+  const {
+    isStockistOnly,
+    canConfigureProductTaxes,
+    canManageCategories,
+    hideCatalogPublicationStatus,
+  } = useProductFormPermissions();
   const [activeTab, setActiveTab] = useState<TabId>('geral');
   const [formData, setFormDataRaw] = useState<any>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
@@ -540,55 +532,59 @@ export const ProductFormScreen: React.FC<Props> = ({
 
   const handleSubmit = useCallback(
     async (isDraft: boolean) => {
-      const validated = await (isDraft ? draftForm : finalForm).validateAndRun(formData, (data) => data, (errors) => {
-        const messages = flattenFormErrors(errors);
-        const tab = Object.keys(messages)[0];
-        if (['geral', 'variacoes', 'estoque', 'fiscal', 'technical', 'fotos', 'description'].includes(tab)) setActiveTab(tab as TabId);
-        setNcmError(tab === 'fiscal');
-        Alert.alert('Confira os campos', Object.values(messages)[0]);
-      });
-      if (!validated) return;
-      const saveAsDraft = isDraft;
-      setSaving(true);
-      try {
-        const productCode =
-          String(validated.code || clientProductCodeRef.current || '').trim() ||
-          (product?.id ? '' : await getNextSequentialProductCode());
-        clientProductCodeRef.current = productCode;
-        if (productCode && !validated.code) {
-          setFormDataRaw((prev: any) => ({ ...prev, code: productCode }));
-        }
-        const isSalvado = validated.productKind === 'salvado' || validated.condition === 'salvado';
-        const isUsado = validated.productKind === 'usado' || validated.condition === 'usado';
-        const saveState = prepareMobileProductSaveState(product, validated, saveAsDraft);
-        const operationId = saveOperationIdRef.current || createUuid();
-        saveOperationIdRef.current = operationId;
+      await (isDraft ? draftForm : finalForm).validateAndRun(
+        formData,
+        async (validated) => {
+          const saveAsDraft = isDraft;
+          setSaving(true);
+          try {
+            const productCode =
+              String(validated.code || clientProductCodeRef.current || '').trim() ||
+              (product?.id ? '' : await getNextSequentialProductCode());
+            clientProductCodeRef.current = productCode;
+            if (productCode && !validated.code) {
+              setFormDataRaw((prev: any) => ({ ...prev, code: productCode }));
+            }
+            const isSalvado = validated.productKind === 'salvado' || validated.condition === 'salvado';
+            const isUsado = validated.productKind === 'usado' || validated.condition === 'usado';
+            const saveState = prepareMobileProductSaveState(product, validated, saveAsDraft);
+            const operationId = saveOperationIdRef.current || createUuid();
+            saveOperationIdRef.current = operationId;
 
-        await onSave({
-          ...validated,
-          code: productCode,
-          operationId,
-          clientProductId: product?.id || clientProductIdRef.current,
-          productKind: isSalvado ? 'salvado' : isUsado ? 'usado' : 'normal',
-          condition: isSalvado ? 'salvado' : isUsado ? 'usado' : 'novo',
-          isDraft: saveState.isDraft,
-          active: saveState.active,
-          status: saveState.status,
-          hasVariations:
-            validated.itemType !== 'composition' ||
-            Boolean(Array.isArray(validated.variations) && validated.variations.length > 0),
-          variations: saveState.variations,
-        });
-        dirtyRef.current = false;
-        onClose();
-      } catch (err: any) {
-        Alert.alert(
-          'Erro ao Salvar',
-          err?.message || 'Falha ao salvar o produto. Tente novamente.'
-        );
-      } finally {
-        setSaving(false);
-      }
+            await onSave({
+              ...validated,
+              code: productCode,
+              operationId,
+              clientProductId: product?.id || clientProductIdRef.current,
+              productKind: isSalvado ? 'salvado' : isUsado ? 'usado' : 'normal',
+              condition: isSalvado ? 'salvado' : isUsado ? 'usado' : 'novo',
+              isDraft: saveState.isDraft,
+              active: saveState.active,
+              status: saveState.status,
+              hasVariations:
+                validated.itemType !== 'composition' ||
+                Boolean(Array.isArray(validated.variations) && validated.variations.length > 0),
+              variations: saveState.variations,
+            });
+            dirtyRef.current = false;
+            onClose();
+          } catch (err: any) {
+            Alert.alert(
+              'Erro ao Salvar',
+              err?.message || 'Falha ao salvar o produto. Tente novamente.'
+            );
+          } finally {
+            setSaving(false);
+          }
+        },
+        (errors) => {
+          const messages = flattenFormErrors(errors);
+          const tab = Object.keys(messages)[0];
+          if (['geral', 'variacoes', 'estoque', 'fiscal', 'technical', 'fotos', 'description'].includes(tab)) setActiveTab(tab as TabId);
+          setNcmError(tab === 'fiscal');
+          Alert.alert('Confira os campos', Object.values(messages)[0]);
+        }
+      );
     },
     [formData, draftForm, finalForm, onSave, onClose, product]
   );

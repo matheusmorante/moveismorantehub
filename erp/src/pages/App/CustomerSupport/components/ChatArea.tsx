@@ -27,6 +27,8 @@ export interface ChatAreaProps {
   onAssign?: (profileId: string | null, profileName?: string) => Promise<void>;
   onUpdateStatus?: (status: ConversationStatus) => Promise<void>;
   onAddInternalNote?: (text: string) => Promise<void>;
+  onRefreshMessages?: () => Promise<void> | void;
+  isRefreshingMessages?: boolean;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -42,6 +44,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onAssign,
   onUpdateStatus,
   onAddInternalNote,
+  onRefreshMessages,
+  isRefreshingMessages = false,
 }) => {
   const { profile, user } = useAuth();
   const [inChatSearch, setInChatSearch] = useState('');
@@ -102,6 +106,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         onUpdateStatus={onUpdateStatus}
         currentUserId={profile?.id || user?.id}
         currentUserName={currentUserName}
+        onRefreshMessages={onRefreshMessages}
+        isRefreshingMessages={isRefreshingMessages}
       />
 
       {/* 2. Barra de Busca Interna (se ativada) */}

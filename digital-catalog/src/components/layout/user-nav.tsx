@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   User as UserIcon,
   LogOut,
@@ -8,6 +9,7 @@ import {
   Settings,
   ShoppingBag,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 import { useAdminMode } from '@/hooks/use-admin-mode';
 import { Button } from '@/components/ui/button';
@@ -31,6 +33,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/use-auth';
+import { supabase } from '@/lib/supabase/client';
+import { waitForAuthOperation } from '@/shared-utils/authOperationTimeout';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -40,6 +44,7 @@ export function UserNav() {
   const { user, loginWithGoogle, logout } = useAuth();
   const { isAdminMode, toggleAdminMode } = useAdminMode();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const form = useForm({ resolver: zodResolver(loginFormSchema), defaultValues: { email: '', password: '' } });
 
   const handleLoginGoogle = async () => {
@@ -58,9 +63,26 @@ export function UserNav() {
     }
   };
 
-  const handleEmailLoginPlaceholder = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.info('Login por e-mail será implementado em breve. Use o Google por enquanto!');
+  const handleEmailLogin = async (data: { email: string; password: string }) => {
+    if (isLoggingIn) return;
+    setIsLoggingIn(true);
+    try {
+      const { error } = await waitForAuthOperation(
+        supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        }),
+        'login do catálogo'
+      );
+      if (error) throw new Error(error.message);
+      toast.success('Login realizado com sucesso!');
+      setIsLoginOpen(false);
+      form.reset();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao realizar login');
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   if (!user) {
@@ -80,17 +102,24 @@ export function UserNav() {
                 Entre para acompanhar seus pedidos e gerenciar seu perfil.
               </DialogDescription>
             </DialogHeader>
-            <form noValidate onSubmit={form.handleSubmit((_data, event) => handleEmailLoginPlaceholder(event as React.FormEvent), (errors) => toast.error(errors.email?.message || errors.password?.message || 'Confira os dados.'))} className="space-y-4 py-4">
+            <form
+              noValidate
+              onSubmit={form.handleSubmit(
+                handleEmailLogin,
+                (errors) => toast.error(errors.email?.message || errors.password?.message || 'Confira os dados.')
+              )}
+              className="space-y-4 py-4"
+            >
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
-                <Input {...form.register('email')} id="email" type="email" placeholder="seu@email.com" required />
+                <Input {...form.register('email')} id="email" type="email" placeholder="seu@email.com" required disabled={isLoggingIn} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
-                <Input {...form.register('password')} id="password" type="password" required />
+                <Input {...form.register('password')} id="password" type="password" required disabled={isLoggingIn} />
               </div>
-              <Button type="submit" className="w-full bg-primary text-white font-bold py-6">
-                Entrar
+              <Button type="submit" disabled={isLoggingIn} className="w-full bg-primary text-white font-bold py-6">
+                {isLoggingIn ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 'Entrar'}
               </Button>
             </form>
 
@@ -133,7 +162,13 @@ export function UserNav() {
 
             <div className="text-center text-sm text-muted-foreground">
               Ainda não tem uma conta?{' '}
-              <button className="text-primary font-bold hover:underline">Cadastre-se</button>
+              <Link
+                href="/auth/signup"
+                onClick={() => setIsLoginOpen(false)}
+                className="text-primary font-bold hover:underline"
+              >
+                Cadastre-se
+              </Link>
             </div>
           </DialogContent>
         </Dialog>

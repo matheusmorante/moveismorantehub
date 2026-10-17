@@ -48,13 +48,26 @@ export default function CustomerSupport() {
   } = useCustomerSupportConversations({ userId: user?.id });
 
   // 2. Gerenciamento de mensagens da conversa selecionada e canal Realtime
-  const { messages, setMessages, isLoadingMessages } = useCustomerSupportMessages({
-    selectedConversation,
-    onClearUnread: (convId) => {
-      setConversations((prev) =>
-        prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c))
-      );
+  const handleClearUnread = useCallback(
+    (convId: string) => {
+      setConversations((prev) => {
+        const target = prev.find((c) => c.id === convId);
+        if (!target || target.unreadCount === 0) return prev;
+        return prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c));
+      });
     },
+    [setConversations]
+  );
+
+  const {
+    messages,
+    setMessages,
+    isLoadingMessages,
+    isRefreshingMessages,
+    refreshMessages,
+  } = useCustomerSupportMessages({
+    selectedConversation,
+    onClearUnread: handleClearUnread,
   });
 
   // 3. Operações e ações de atendimento (status, atribuição, notas internas)
@@ -175,6 +188,8 @@ export default function CustomerSupport() {
             onAssign={handleAssignConversation}
             onUpdateStatus={handleUpdateStatus}
             onAddInternalNote={handleAddInternalNote}
+            onRefreshMessages={refreshMessages}
+            isRefreshingMessages={isRefreshingMessages}
           />
 
           {/* Coluna 5: Painel Contextual do ERP (Dados do Cliente e Pedidos) */}

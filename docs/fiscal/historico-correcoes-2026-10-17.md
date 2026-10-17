@@ -133,3 +133,83 @@ O progresso por item conserva UUID e etapas confirmadas durante a montagem: recu
 ## Fechamento do Inventário Principal de Formulários do ERP
 
 Com a conclusão dos cinco proprietários pendentes, o inventário principal em `docs/audits/fiscal-2026-10-14/form-migration-inventory.md` alcança **132/132 itens conferidos e encerrados (100%)**. Todas as submissões executam o resolver real de schemas Zod explícitos antes de chamar serviços externos ou APIs de persistência.
+
+## Catálogo Digital e App Mobile — Agregados, Modais e Resolução de Formulários
+
+**Problemas identificados e sintomas observados:**
+- No Catálogo Digital (`digital-catalog`), o modal de edição agregada de produto mantinha pendências reportadas no inventário (`ideias_planos.md`): `ImageActionModal` recebia um callback vazio de substituição de foto (`onReplaceImage`), `Step1Photos.tsx` realizava uploads, colagem (`paste`) e drag-and-drop sem validação de resolver RHF unificada, `VariationFormModal.tsx` gerava dados de variação sem envolver o cálculo e salvamento no ciclo `onValid` do schema, e `AttributeManagerModal.tsx` persistia atributos diretamente no Supabase fora do `onValid`. Na navegação (`user-nav.tsx`), o login por e-mail consistia em um placeholder que apenas exibia alertas informativos sem autenticar o usuário.
+- No App Mobile (`mobile`), o formulário de produto (`ProductFormScreen.tsx`), o cadastro de fornecedores (`SupplierFormModal.tsx`) e o registro de indisponibilidade de estoque (`useMobileUnavailabilityForm.ts`) possuíam esquemas Zod instanciados mas disparavam suas persistências (`onSave`, `createStockUnavailability`) antes ou fora do encerramento seguro do resolver. Além disso, `useMobileProducts.ts` apresentava erro de importação de `isTestProduct`.
+
+**Causa raiz técnica comprovada:**
+- Ausência de conexão entre os schemas Zod de domínio (`storefrontProductFormSchemas.ts`, `personDomainValidation.ts`, `operationsFormSchemas.ts`) e as chamadas assíncronas de gravação, permitindo que mutações corressem sem a validação do schema ou com dados não parseados, violando a Regra 5 de `AGENTS.md`.
+
+**Lista de arquivos e pontos modificados:**
+1. `digital-catalog/src/features/products/components/admin-product-modal.tsx`: implementação de `handleReplaceImage` validado via `storefrontImageUploadFormSchema`, com upload seguro no Cloudflare R2 e vínculo real ao `<ImageActionModal onReplaceImage={handleReplaceImage} />`.
+2. `digital-catalog/src/features/products/components/admin-modal/steps/Step1Photos.tsx`: validação de uploads de arquivos e URLs remotas via `uploadForm.validateAndRun` em `handleGlobalPaste`, `handleImageUpload`, `handleReplaceImage` e `handleDropArea`.
+3. `digital-catalog/src/features/products/components/admin-modal/dialogs/VariationFormModal.tsx`: geração de SKU automático, identificação e fechamento executados estritamente no callback `onValid` de `variationForm.validateAndRun`.
+4. `digital-catalog/src/features/products/components/admin-modal/dialogs/AttributeManagerModal.tsx`: criação de atributos e inserção de novos valores encapsulados em `attributeForm.validateAndRun` e `attributeValueForm.validateAndRun`.
+5. `digital-catalog/src/components/layout/user-nav.tsx`: formulário de autenticação conectado a `useForm` com `zodResolver(loginFormSchema)`, timeout protegido via `waitForAuthOperation`, invocação de `supabase.auth.signInWithPassword`, feedback com toast e redirecionamento de cadastro para `/auth/signup`.
+6. `mobile/src/features/products/domain/productSaveState.ts`: re-exportação de `isTestProduct` de `shared-utils/isTestProduct`.
+7. `mobile/src/features/products/hooks/useMobileProducts.ts`: importação canônica de `isTestProduct` a partir de `shared-utils`.
+8. `mobile/src/features/products/screens/ProductFormScreen.tsx`: submissão unificada de rascunho (`draftForm`) e publicação final (`finalForm`) envolvendo geração de código sequencial e `onSave` no callback `onValid`.
+9. `mobile/src/features/stock/suppliers/SupplierFormModal.tsx`: submissão encapsulada no callback `onValid` de `personForm.validateAndRun(form, ...)` antes de `onSave`.
+10. `mobile/src/features/stock/unavailabilities/hooks/useMobileUnavailabilityForm.ts`: validação estrita com `stockUnavailabilityFormSchema`, bloqueando estoque insuficiente e devolução sem fornecedor no callback `onValid` de `form.validateAndRun`.
+11. `erp/tests/catalog-forms/catalogAggregateModals.test.tsx`: suíte de 5 testes unitários cobrindo `UserNav`, `AttributeManagerModal` e `VariationFormModal`.
+12. `erp/tests/mobile-forms/mobileProductAndSupplierOwners.test.tsx`: suíte de 5 testes unitários cobrindo `SupplierFormModal`, `useMobileUnavailabilityForm` e `ProductFormScreen`.
+
+**Validação e Não-Regressão:**
+- **53/53 testes aprovados** em `npm run test:unit:catalog-forms --prefix erp` (6 arquivos de teste).
+- **47/47 testes aprovados** em `npm run test:unit:mobile-forms --prefix erp` (5 arquivos de teste).
+- **100/100 testes de formulário aprovados (100% de sucesso)**.
+- **Typecheck**: `npx tsc --noEmit -p "digital-catalog/tsconfig.json"` executado com 0 erros.
+- **Build de Produção**: `npm run build --prefix digital-catalog` (Next.js 16.3.6 Turbopack) concluído com sucesso (código 0).
+- **Invariante de Segurança e Política Fiscal**: Estrita ausência de CC-e em qualquer tela, modal ou componente.
+
+
+## Refatoração Arquitetural e Princípios de Engenharia de Software (Clean Code, DRY, SRP, SSOT)
+
+**Problemas identificados e motivação técnica:**
+1. **Violação de DRY no upload de fotos do catálogo digital**: O fluxo de otimização de imagem via WebP (`optimizeProductImage`) e upload para o Cloudflare R2 (`uploadToR2`) estava duplicado em 5 pontos distintos dentro de `Step1Photos.tsx` e `admin-product-modal.tsx`.
+2. **Violação de Single Source of Truth (SSOT) no domínio de indisponibilidades**: Os arrays de motivos (`REASONS` / `UNAVAILABILITY_REASONS`) e tratamentos (`TREATMENTS` / `UNAVAILABILITY_TREATMENTS`) de estoque estavam definidos simultaneamente em `shared-utils/operationsFormSchemas.ts` e duplicados em `mobile/src/features/stock/unavailabilities/types.ts`.
+3. **Acoplamento e quebra de Single Responsibility Principle (SRP) na tela de produto mobile**: A verificação de permissões do usuário e perfil fiscal (`isStockistOnly`, `canConfigureProductTaxes`, `canManageCategories`, `hideCatalogPublicationStatus`) estava misturada dentro do corpo do componente de tela `ProductFormScreen.tsx`, em vez de isolada em um hook dedicado.
+4. **Ausência de tipagem estrita e validação redundante no cadastro de fornecedores mobile**: `SupplierFormModal.tsx` utilizava tipagem aberta (`any`) para o formulário, campos e propriedades, além de manter validações manuais de presença de nome duplicando a regra já inspecionada pelo schema Zod (`createPersonFormSchema`).
+5. **Falta de tipagem explícita nos retornos de hooks e schemas operacionais**: `useMobileUnavailabilityForm.ts` e `operationsFormSchemas.ts` careciam de interfaces exportadas para facilitar o consumo seguro por outros componentes e testes.
+
+**Soluções arquiteturais implementadas:**
+1. **Extração de utilitário reaproveitável de upload (`DRY & SRP`)**:
+   - Criação de `digital-catalog/src/features/products/components/admin-modal/utils/productImageUploadUtils.ts`, fornecendo `processAndUploadSingleProductImage` e `processAndUploadProductImages`.
+   - Substituição de todas as rotinas repetitivas em `Step1Photos.tsx` (colagem, input file, drag-and-drop de arquivos e URL) e `admin-product-modal.tsx` (`handleReplaceImage`).
+2. **Harmonização de Domínio e SSOT (`SSOT`)**:
+   - Centralização de `UNAVAILABILITY_REASONS` e `UNAVAILABILITY_TREATMENTS` e seus tipos inferidos (`UnavailabilityReason`, `UnavailabilityTreatment`) em `shared-utils/operationsFormSchemas.ts`.
+   - `mobile/src/features/stock/unavailabilities/types.ts` passa a re-exportar essas definições mantendo compatibilidade retroativa para consumidores legados.
+3. **Extração do hook de permissões (`SRP & Clean Code`)**:
+   - Criação de `mobile/src/features/products/hooks/useProductFormPermissions.ts` encapsulando as checagens de perfil e papéis com tipagem completa na interface `ProductFormPermissions`.
+   - Limpeza em `ProductFormScreen.tsx`, removendo importações diretas de `useAuth` e das funções de cálculo de papéis.
+4. **Tipagem estrita e validação limpa em `SupplierFormModal`**:
+   - Criação das interfaces `SupplierAddress`, `SupplierFormData`, `FieldOptions` e `SupplierFormItem`.
+   - Delegação integral da validação de obrigatoriedade de Nome/Razão Social para o resolver Zod, eliminando checagens manuais no callback `onValid`.
+5. **Tipagem e formatação estruturada de Schemas e Hooks**:
+   - Exportação de tipos inferidos em `shared-utils/operationsFormSchemas.ts` (`StockUnavailabilityFormValues`, `AssemblyScheduleFormValues`, etc.).
+   - Criação da interface de retorno `UseMobileUnavailabilityFormReturn` em `useMobileUnavailabilityForm.ts`.
+   - Refinamento dos mocks em `erp/tests/mobile-forms/mobileProductAndSupplierOwners.test.tsx` com tipos explícitos para elementos do React Native e chamadas do cliente Supabase.
+
+**Arquivos modificados e criados:**
+- `digital-catalog/src/features/products/components/admin-modal/utils/productImageUploadUtils.ts` (criado)
+- `digital-catalog/src/features/products/components/admin-modal/steps/Step1Photos.tsx`
+- `digital-catalog/src/features/products/components/admin-product-modal.tsx`
+- `mobile/src/features/products/hooks/useProductFormPermissions.ts` (criado)
+- `mobile/src/features/products/screens/ProductFormScreen.tsx`
+- `mobile/src/features/stock/suppliers/SupplierFormModal.tsx`
+- `mobile/src/features/stock/unavailabilities/hooks/useMobileUnavailabilityForm.ts`
+- `mobile/src/features/stock/unavailabilities/types.ts`
+- `shared-utils/operationsFormSchemas.ts`
+- `erp/tests/mobile-forms/mobileProductAndSupplierOwners.test.tsx`
+
+**Validação e Não-Regressão:**
+- **Testes Unitários Mobile**: 47/47 aprovados (`npm run test:unit:mobile-forms --prefix erp`).
+- **Testes Unitários Catálogo Digital**: 53/53 aprovados (`npm run test:unit:catalog-forms --prefix erp`).
+- **Total de Testes**: 100/100 aprovados (100% de sucesso).
+- **Typecheck Catálogo**: `npx tsc --noEmit -p "digital-catalog/tsconfig.json"` executado com 0 erros.
+- **Typecheck Mobile (arquivos modificados)**: 0 diagnósticos de erro.
+- **Build de Produção**: `npm run build --prefix digital-catalog` (Next.js 16 Turbopack) concluído com sucesso (código 0).
+- **Invariante Fiscal Mandatório**: Total conformidade com a ausência de CC-e e execução real do resolver Zod antes de qualquer mutação.

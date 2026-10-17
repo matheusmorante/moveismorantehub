@@ -1,6 +1,8 @@
 import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import { isMobileEcommerceLegible } from './productRegistrationRules';
 
+export { isTestProduct };
+
 export const prepareMobileProductSaveState = (
   product: any,
   formData: any,

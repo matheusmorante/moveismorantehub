@@ -118,10 +118,10 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
           <button
             type="button"
             onClick={onRefresh}
-            title="Atualizar lista"
+            title="Atualizar lista de conversas agora (sincronização automática ativa)"
             className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            <i className={`bi bi-arrow-clockwise text-xs ${isLoading ? 'animate-spin' : ''}`}></i>
+            <i className={`bi bi-arrow-clockwise text-xs ${isLoading ? 'animate-spin text-emerald-500' : ''}`}></i>
           </button>
         </div>
       </div>

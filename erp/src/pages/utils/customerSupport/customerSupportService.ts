@@ -314,10 +314,16 @@ export async function markConversationAsRead(
   supabase: SupabaseClient,
   conversationId: string
 ): Promise<void> {
-  await supabase
+  const query = supabase
     .from('whatsapp_conversations')
     .update({ unread_count: 0, updated_at: new Date().toISOString() })
     .eq('id', conversationId);
+
+  if (typeof (query as any).gt === 'function') {
+    await (query as any).gt('unread_count', 0);
+  } else {
+    await query;
+  }
 }
 
 /**
