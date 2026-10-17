@@ -446,4 +446,268 @@ Quatro arquivos centrais do fluxo de emissão fiscal apresentavam alta densidade
 - **TypeScript**: `npx tsc -p api/tsconfig.nfe.json --noEmit` e `npx tsc -p erp/tsconfig.fiscal.json --noEmit` com 0 erros.
 - **Invariantes fiscais preservados**: Zero CC-e (`FISCAL-016`), numeração atômica com reserva via PostgreSQL, isolamento estrito de ambientes e obrigatoriedade de formulários RHF com zodResolver.
 
+## Reconciliação Integral de Homologação e Provas Comportamentais Transacionais no PostgreSQL (pgTAP)
 
+**Problemas identificados e sintomas observados:**
+1. **Três documentos NFC-e modelo 65 históricos em estado `pendente` em Homologação (`ambiente = 2`)**:
+   - Na tabela `public.nfe_documents` (`hkoxhourxwlddgsfdgws`), restavam 3 registros históricos de NFC-e modelo `65` série `'1'` em `status = 'pendente'`:
+     - `3707d4f2-27e9-4bfe-9c6c-3216e2f5b189` (`numero_nfe = 616`, pedido `b4a0d6e8-9c1f-45f5-a39c-4b47bc25066b`, `HML_NORMAL_SALE_V2`, de `05/10/2026`), interrompido na fase TLS antes da inclusão do bundle ICP-Brasil.
+     - `235ff0f8-4708-4dd0-9080-c1a991b364d3` (`numero_nfe = 618`, pedido `baa795c2-874e-4edb-8717-e8319bce3638`, `HML_NORMAL_SALE_V2`, de `05/10/2026`), interrompido na fase TLS antes da inclusão do bundle ICP-Brasil.
+     - `dd6edbe0-cb10-45d6-9770-354b0579328c` (`numero_nfe = 637`, pedido `TEST_AUT_5c1925ae-435b-4fbe-a5cf-42a92a8de37c`, `HML_TECHNICAL_V1`, de `09/10/2026`), sem protocolo registrado.
+2. **Provas comportamentais transacionais pendentes no PostgreSQL remoto (`hkoxhourxwlddgsfdgws`)**:
+   - Na revisão de `13/10/2026` (`docs/fiscal/revisao-fluxos-saida-2026-10-13.md`), as RPCs atômicas de cancelamento fiscal (`reserve_nfe_cancellation_event`, `persist_nfe_cancellation_result`), reconciliação de consulta legada (`persist_nfe_legacy_consultation`) e persistência atômica de rascunhos de estorno/devolução (`persist_authorized_nfe_operation_draft`) possuíam 12 testes pgTAP de catálogo/ACL aprovados, mas aguardavam bateria comportamental transacional (`BEGIN ... ROLLBACK`) no PostgreSQL real com fixtures sintéticas.
+
+**Solução técnica e validações executadas:**
+1. **Consulta somente leitura à SEFAZ-PR (`NFeConsultaProtocolo4`) e reconciliação técnica sem retransmissão (`allowRetransmission = false`)**:
+   - Seguindo estritamente `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md` (linha 19), foi executada a reconciliação oficial via `retryHmlTechnical(supabase, documentId, false)` (`api/nfe/emitHmlTechnical.ts`) para os 3 documentos pendentes (`616`, `618`, `637`).
+   - A SEFAZ-PR Homologação (`tpAmb = 2`) respondeu `cStat = 217` (*NF-e não consta na base de dados da SEFAZ*) para os 3 documentos, e a RPC `persist_hml_nfe_result` transicionou os 3 registros de `pendente` para `erro` (`code = 'HML_NEW_EMISSION_REQUIRED'`, `pending = false`), preservando numeração, XML original e histórico.
+   - **Estado consolidado de `public.nfe_documents`, `public.nfe_outbound_attempts` e `public.nfe_document_events` em Homologação (`ambiente = 2`)**:
+     - `outbound` modelo `55`: `9 homologada`, `1 cancelada`, `2 erro`, **`0 pendente`**, **`0 processando`**.
+     - `outbound` modelo `65`: `17 homologada`, `2 cancelada`, `24 erro`, **`0 pendente`**, **`0 processando`**.
+     - `return` modelo `55`: `5 homologada`, `2 cancelada`, **`0 pendente`**, **`0 processando`**.
+     - `nfe_outbound_attempts` (`environment = 2`): `8 authorized`, `1 rejected`, **`0 prepared`**, **`0 transmitting`**, **`0 reconciling`**.
+     - `nfe_document_events` (`environment = 2`): `5 registered`, `1 rejected`, **`0 transmitting`**, **`0 unknown`**.
+   - **Invariância comercial, de estoque e financeira**: conferido antes e depois da reconciliação que `orders.updated_at`, `order_data->>'status'`, `inventory_moves` (`0`) e `order_payments` (`1`, `1`, `0`) dos 3 pedidos permaneceram 100% inalterados.
+2. **Execução de 48 assertivas comportamentais pgTAP em PostgreSQL real (`hkoxhourxwlddgsfdgws`) sob `BEGIN ... ROLLBACK`**:
+   - **Suíte 1 (`1..17` — `17/17 ok`) — Cancelamento Fiscal Atômico, Consulta Legada e Persistência de Estorno/Devolução Fiscal**:
+     1. `reserve_nfe_cancellation_event` rejeita justificativa com menos de 15 caracteres (`23514 / CANCELLATION_DOCUMENT_INVALID`).
+     2. `reserve_nfe_cancellation_event` cria tentativa `#1` com `status = 'transmitting'` para NF-e `homologada` elegível.
+     3. `reserve_nfe_cancellation_event` bloqueia tentativa concorrente duplicada enquanto `transmitting` (`40001 / CANCELLATION_ATTEMPT_CHANGED`).
+     4. `persist_nfe_cancellation_result` bloqueia encerramento prematuro por consulta (`cStat = 100`) antes do piso de 30 segundos (`40001 / CANCELLATION_CONSULTATION_TOO_EARLY`).
+     5. `persist_nfe_cancellation_result` rejeita XML da SEFAZ com `<chNFe>` divergente do documento (`23514 / CANCELLATION_RESPONSE_MISMATCH`).
+     6. `persist_nfe_cancellation_result` atualiza atomicamente `nfe_documents.status = 'cancelada'` e `nfe_document_events.status = 'registered'` na mesma transação (`cStat = 135`).
+     7. `persist_nfe_cancellation_result` garante replay idempotente (`{"idempotent": true}`) ao receber novamente o mesmo protocolo confirmado.
+     8. `persist_nfe_cancellation_result` bloqueia regressão/downgrade de cancelamento já `registered` (`23514 / REGISTERED_CANCELLATION_IMMUTABLE`).
+     9. `persist_nfe_legacy_consultation` bloqueia documentos de rulesets modernos (`NORMAL_SALE_V1`, `HML_NORMAL_SALE_V2`, etc.) (`23514 / LEGACY_CONSULT_DOCUMENT_MISMATCH`).
+     10. `persist_nfe_legacy_consultation` promove atomicamente documento legado `pendente` para `homologada` (`cStat = 100`) e encerra tentativa de cancelamento `unknown` (> 30s) como `rejected`.
+     11. `persist_authorized_nfe_operation_draft` rejeita XML de item adulterado em relação a `reviewed_product_xml` (`P0001`).
+     12. `persist_authorized_nfe_operation_draft` persiste atomicamente NF-e de estorno fiscal (`document_type = 'estorno'`, `finalidade = 3`, `status = 'homologada'`), `nfe_document_items` e `nfe_operation_drafts.status = 'authorized'`.
+     13. `persist_authorized_nfe_operation_draft` retorna o mesmo `document_id` em replay idempotente.
+     14. `persist_authorized_nfe_operation_draft` bloqueia replay conflitante com outro `document_id` (`P0001`).
+     15. `persist_authorized_nfe_operation_draft` persiste atomicamente NF-e de devolução fiscal (`document_type = 'return'`, `finalidade = 4`) e vincula `nfe_return_item_allocations.fiscal_return_document_id`.
+     16. `uq_nfe_estorno_draft_source` bloqueia segundo rascunho de estorno para o mesmo `(original_document_id, environment)` (`23505`).
+     17. Trigger `enforce_nfe_draft_authorized_attempt_match` bloqueia transição para `authorized` se `access_key` divergir da tentativa em transmissão (`P0001`).
+   - **Suíte 2 (`1..12` — `12/12 ok`) — Ciclo Transacional de Emissão Outbound e Imutabilidade Fiscal**:
+     1. Trigger `attach_nfe_fiscal_snapshot_to_outbound` bloqueia `nfe_documents` `outbound` sem `emission_request_id` (`23514 / MISSING_FISCAL_SNAPSHOT`).
+     2. Trigger `attach_nfe_fiscal_snapshot_to_outbound` bloqueia `nfe_documents` `outbound` com `numero_nfe` divergente do snapshot reservado (`23514 / FISCAL_SNAPSHOT_MISMATCH`).
+     3. `start_nfe_outbound_transmission` bloqueia `attempt_token` inválido (`23514 / FISCAL_ATTEMPT_STATE_CHANGED`).
+     4. `start_nfe_outbound_transmission` transiciona `nfe_outbound_attempts.state` de `prepared` para `transmitting`.
+     5. `persist_nfe_outbound_result` bloqueia `confirmed_not_found` quando o XML de consulta não comprova `cStat = 217` (`23514 / FISCAL_NOT_FOUND_UNVERIFIED`).
+     6. `persist_nfe_outbound_result` transiciona para `confirmed_not_found` e `nfe_documents.status = 'erro'` quando `cStat = 217` é comprovado.
+     7. `start_nfe_outbound_transmission` permite reentrada em `transmitting` a partir de `confirmed_not_found`.
+     8. `persist_nfe_outbound_result` bloqueia `authorized` quando `<infProt><chNFe>` diverge da chave da tentativa (`23514 / FISCAL_PROTOCOL_MISMATCH`).
+     9. `persist_nfe_outbound_result` grava atomicamente `nfe_documents` (`homologada`), `nfe_outbound_attempts` (`authorized`) e `nfe_document_items`.
+     10. `persist_nfe_outbound_result` bloqueia downgrade de tentativa `authorized` para `rejected` (`23514 / AUTHORIZED_FISCAL_IMMUTABLE`).
+     11. Trigger `guard_normal_outbound_identity` bloqueia `DELETE` em documento `NORMAL_SALE_V1` (`23514 / FISCAL_HISTORY_IMMUTABLE`).
+     12. Trigger `guard_normal_outbound_items` bloqueia `DELETE` em itens de documento `NORMAL_SALE_V1` homologado (`23514 / FISCAL_HISTORY_IMMUTABLE`).
+   - **Suíte 3 (`1..7` — `7/7 ok`) — Reserva Atômica de Sequência e Fronteira de Preparação Outbound**:
+     1. `reserve_nfe_outbound_number` reserva atomicamente o número inicial `1` para CNPJ sintético isolado.
+     2. `reserve_nfe_outbound_number` bloqueia `expected_number` defasado com `23514 / FISCAL_SEQUENCE_CHANGED`.
+     3. `reserve_nfe_outbound_number` avança atomicamente para `2`.
+     4. `prepare_nfe_outbound_attempt` bloqueia pedido `TEST_AUT_*` em Produção (`environment = 1`) (`22023 / INVALID_OUTBOUND_PREPARATION`).
+     5. `prepare_nfe_outbound_attempt` bloqueia divergência entre `p_request_command` e `p_snapshot->'emissionRequest'` (`23514 / FISCAL_COMMAND_SNAPSHOT_MISMATCH`).
+     6. `prepare_nfe_outbound_attempt` bloqueia pedido em rascunho (`draft`) (`23514 / ORDER_NOT_ELIGIBLE_FOR_OUTBOUND_FISCAL`).
+     7. `prepare_nfe_outbound_attempt` bloqueia snapshot com `order.version` desatualizado (`40001 / FISCAL_SOURCE_CHANGED`).
+   - **Suíte 4 (`1..12` — `12/12 ok`) — Controle de Versão na Edição de Pedido, Capacidade Fiscal de Devolução, Revisão de Rascunho e Elegibilidade de Estorno**:
+     1. `update_order_with_inventory_transaction_if_version` atualiza pedido com sucesso quando `p_expected_updated_at` coincide (`T01_UPDATE_ORDER_IF_VERSION_MATCH`).
+     2. `update_order_with_inventory_transaction_if_version` bloqueia atualização concorrente com `p_expected_updated_at` defasado (`40001 / ORDER_VERSION_CONFLICT`, `T02_UPDATE_ORDER_IF_VERSION_CONFLICT`).
+     3. Trigger `guard_order_fiscal_edit` bloqueia alteração da projeção fiscal de pedido que possui NF-e `homologada` sem confirmação fiscal (`P0001 / FISCAL_ORDER_EDIT_CONFIRMATION_REQUIRED`, `T03_GUARD_ORDER_FISCAL_EDIT_CONFIRMATION_REQUIRED`).
+     4. `create_return_order_with_fiscal_capacity` cria devolução comercial parcial (`1` de `2` unidades) e grava alocação em `public.nfe_return_item_allocations` (`T04_CREATE_PARTIAL_RETURN_1_OF_2`).
+     5. `create_return_order_with_fiscal_capacity` garante replay idempotente (`idempotent_replay = true`) ao repetir a mesma requisição (`T05_CREATE_RETURN_IDEMPOTENT_REPLAY`).
+     6. `create_return_order_with_fiscal_capacity` bloqueia devolução que excede o saldo faturado disponível (`Quantidade acima do saldo faturado: faturado 2.0000, já reservada 1.0000, solicitada 2`, `T06_CREATE_RETURN_OVERFLOW_BLOCKED`).
+     7. `prepare_nfe_operation_draft('return', ...)` cria rascunho de devolução fiscal (`status = 'draft'`, `finalidade = 4`) e vincula `nfe_operation_draft_lines` e `nfe_operation_draft_allocations` (`T07_PREPARE_DRAFT_RETURN`).
+     8. `save_nfe_operation_draft_review` valida CFOP de entrada (`1202`), `<qCom>` e blocos XML e transiciona o rascunho para `status = 'ready'` (`T08_SAVE_DRAFT_REVIEW_READY`).
+     9. Trigger `prevent_cancelling_fulfilled_order` bloqueia cancelamento comercial de pedido já atendido (`23514 / A mercadoria já circulou; registre uma devolução.`, `T09_PREVENT_CANCELLING_FULFILLED_ORDER`).
+     10. `prepare_nfe_operation_draft('estorno', ...)` bloqueia estorno quando a venda comercial não está cancelada (`Venda comercial precisa estar cancelada antes de preparar estorno`, `T10_ESTORNO_REQUIRES_CANCELLED_SALE`).
+     11. `prepare_nfe_operation_draft('estorno', ...)` bloqueia estorno quando há evidência de circulação da mercadoria (`Venda com evidência de circulação não é elegível a estorno; verifique devolução ou retorno`, `T11_ESTORNO_BLOCKED_BY_CIRCULATION`).
+     12. `prepare_nfe_operation_draft('estorno', ...)` cria rascunho de estorno (`finalidade = 3`) para venda cancelada sem circulação e retorna o mesmo `draft_id` em chamadas idempotentes (`T12_ESTORNO_DRAFT_CREATED_AND_IDEMPOTENT`).
+   - **Verificação pós-rollback**: `residual_people = 0`, `residual_orders = 0`, `residual_docs = 0`, `residual_drafts = 0`, `leftover_seqs = 0` confirmados em `hkoxhourxwlddgsfdgws`.
+3. **Validação XSD Oficial (`PL_010f_v1.04` e `Evento_NT2026.004`) de 15 Documentos e Eventos Reais de Homologação (`hkoxhourxwlddgsfdgws`)**:
+   - **5/5 Documentos Outbound HML (`nfe_v4.00.xsd`)**: `#111` (`55`, `HML_NORMAL_SALE_V1`, protocolo `141260000606080`), `#115` (`55`, `HML_TECHNICAL_V1`, protocolo `141260000620376`), `#127` (`55`, `HML_TECHNICAL_V1`, protocolo `141260000620439`), `#629` (`65`, `HML_NORMAL_SALE_V2`, protocolo `141260001723540`) e `#644` (`65`, `NORMAL_SALE_V1`, protocolo `141260001742457`) — todos `xsdValid = true`.
+   - **5/5 NF-e 55 de Devolução Fiscal HML (`nfe_v4.00.xsd`)**: `#121` (protocolo `141260000620388`), `#122` (protocolo `141260000620389`), `#124` (protocolo `141260000620391`), `#129` (protocolo `141260000620442`) e `#130` (protocolo `141260000620443`) — todos `xsdValid = true`.
+   - **5/5 Eventos de Cancelamento (`110111`, `cStat = 135`) Registrados em HML (`envEvento_v1.00.xsd` + `e110111_v1.00.xsd`)**: NF-e 55 `#114` (protocolo `141260000620325`), `#126` (protocolo `141260000620437`), `#128` (protocolo `141260000620441`) e NFC-e 65 `#632` (`NORMAL_SALE_V1`, protocolo `141260001726170`), `#640` (`HML_TECHNICAL_V1`, protocolo `141260001728423`) — todos `xsdValid = true`.
+
+### Matriz de Evidências (`SUPABASE_REMOTE_TEST_POLICY.md`)
+
+| Teste | Executado | Projeto/ref (sem credenciais) | Massa sintética/runId | Resultado | Limitação/evidência pendente |
+|---|---|---|---|---|---|
+| Reconciliação somente leitura (`NFeConsultaProtocolo4`, `allowRetransmission=false`) dos 3 documentos NFC-e 65 `pendente` em HML (`#616`, `#618`, `#637`) | Sim (`17/10/2026`) | `hkoxhourxwlddgsfdgws` / `public` + SEFAZ-PR HML (`tpAmb=2`) | Documentos HML existentes `3707d4f2-27e9-4bfe-9c6c-3216e2f5b189`, `235ff0f8-4708-4dd0-9080-c1a991b364d3`, `dd6edbe0-cb10-45d6-9770-354b0579328c` | **Aprovado**: SEFAZ-PR retornou `cStat=217`; todos os 3 reconciliados para `erro` (`pending=false`); `0 pendente` em HML; zero efeitos em pedidos, estoque ou pagamentos | Comprova reconciliação backend/SEFAZ/banco; novas emissões continuam exclusivas pela UI do ERP |
+| Suíte pgTAP 1: Cancelamento fiscal atômico, consulta legada e persistência de estorno/devolução (`reserve_nfe_cancellation_event`, `persist_nfe_cancellation_result`, `persist_nfe_legacy_consultation`, `persist_authorized_nfe_operation_draft`) | Sim (`17/10/2026`) | `hkoxhourxwlddgsfdgws` / `public` (PostgreSQL 17) | Fixtures sintéticas `TEST_PGTAP_*` isoladas em transação `BEGIN ... ROLLBACK` (`0` linhas retidas) | **17/17 aprovados (`1..17 ok`)** | Execução em transação única com rollback; não substitui transmissão SOAP pela UI |
+| Suíte pgTAP 2: Ciclo transacional outbound e imutabilidade (`attach_nfe_fiscal_snapshot_to_outbound`, `start_nfe_outbound_transmission`, `persist_nfe_outbound_result`, `guard_normal_outbound_*`) | Sim (`17/10/2026`) | `hkoxhourxwlddgsfdgws` / `public` (PostgreSQL 17) | Fixtures sintéticas `TEST_PGTAP_OUT_*` isoladas em transação `BEGIN ... ROLLBACK` (`0` linhas retidas) | **12/12 aprovados (`1..12 ok`)** | Execução em transação única com rollback |
+| Suíte pgTAP 3: Reserva atômica de numeração e fronteira `prepare_nfe_outbound_attempt` | Sim (`17/10/2026`) | `hkoxhourxwlddgsfdgws` / `public` (PostgreSQL 17) | Emissor sintético `99999999000191` e pedidos `TEST_PGTAP_*` em `BEGIN ... ROLLBACK` (`0` linhas retidas) | **7/7 aprovados (`1..7 ok`)** | Execução em transação única com rollback |
+| Suíte pgTAP 4: Controle de versão (`update_order_with_inventory_transaction_if_version`), guarda fiscal (`guard_order_fiscal_edit`), capacidade de devolução (`create_return_order_with_fiscal_capacity`), preparação/revisão de rascunho (`prepare_nfe_operation_draft`, `save_nfe_operation_draft_review`) e bloqueio pós-circulação (`prevent_cancelling_fulfilled_order`) | Sim (`17/10/2026`) | `hkoxhourxwlddgsfdgws` / `public` (PostgreSQL 17) | `runId = 88888888-4444-4444-8444-222222222222`, pedidos `TEST_AUT_88888888-*` em `BEGIN ... ROLLBACK` (`0` linhas retidas) | **12/12 aprovados (`T01..T12 ok`)** | Execução em transação única com rollback |
+| Validação XSD oficial (`PL_010f_v1.04` e `Evento_NT2026.004`) de 15 documentos/eventos reais de Homologação (`5` outbound 55/65, `5` devoluções 55, `5` cancelamentos `110111` 55/65) | Sim (`17/10/2026`) | `hkoxhourxwlddgsfdgws` / `public` + `libxml2-wasm` local | Documentos HML `#111`, `#115`, `#127`, `#629`, `#644`; devoluções `#121`, `#122`, `#124`, `#129`, `#130`; eventos `#114`, `#126`, `#128`, `#632`, `#640` | **15/15 aprovados (`xsdValid = true`)** | Valida XMLs assinados persistidos contra schemas oficiais |
+| Typecheck Fiscal (`api/tsconfig.nfe.json` e `erp/tsconfig.fiscal.json`), Startup Fiscal (`test:fiscal-startup`) e Suíte Vitest Fiscal (`95` arquivos) | Sim (`17/10/2026`) | Local / Node `v22.18.0` | Fixtures unitárias/integração local | **0 erros TS, 12/12 Vercel functions, 15 handlers + XSD `PL_010f_v1.04`, 95/95 suítes (1.011/1.011 testes) aprovados** | Testes locais não substituem jornada visual E2E na UI |
+
+## Refatoração de Arquitetura e Modularização de Componentes Monolíticos (Clean Code & SRP)
+
+Em cumprimento às diretrizes de arquitetura limpa, Princípio da Responsabilidade Única (SRP) e organização modular de pastas, foram identificados e refatorados quatro componentes monolíticos de alta complexidade no ERP que acumulavam lógica de negócio, chamadas assíncronas, gerenciamento de estado e renderização de interface em arquivos únicos de 500 a 700+ linhas:
+
+### 1. `SmartAIFillModal.tsx` (Preenchimento Assistido por IA e Transcrição de Voz)
+- **Problema:** Componente de 613 linhas centralizando integração com Web Speech API, leitura assíncrona de arquivos com `FileReader`, formulários Zod (`textPromptFormSchema`, `assistedOrderFormSchema`), bounding de timeouts (45s IA, 30s aplicação, 10s arquivo, 15s fechamento), controle de contexto transacional e renderização das abas de IA e JSON manual.
+- **Solução implementada:** Criada a pasta modular `erp/src/pages/App/SalesOrder/components/smart-ai-fill/`:
+  - `types.ts`: Contratos e tipagens do preenchimento inteligente e resultados parciais.
+  - `useSmartAIFillForm.ts`: Hook desacoplado com ciclo de vida de voz, máquina de estados com cancelamento, locking transacional e validações RHF.
+  - `SmartAIFillHeader.tsx`: Cabeçalho com badge do modelo Gemini, alternador de abas e controle de fechamento.
+  - `SmartAIFillAiVoiceTab.tsx`: Painel de gravação de áudio ao vivo, transcrição contínua, editor de prompt e feedback.
+  - `SmartAIFillFeedback.tsx`: Grid de campos identificados, alertas de campos faltantes e botão de injeção no pedido.
+  - `SmartAIFillManualJsonTab.tsx`: Aba de upload de arquivos JSON e área de texto para inserção manual.
+  - `SmartAIFillModal.tsx`: Reduzido de 613 linhas para 109 linhas como coordenador declarativo.
+- **Validação:** 21 testes aprovados (`SmartAIFillModal.test.tsx` [18/18] e `FormHeader.smartFill.test.tsx` [3/3]).
+
+### 2. `ProductAiCharacteristicsModal.tsx` (Extração de Características e Ficha Técnica com IA)
+- **Problema:** Modal de 709 linhas contendo regras de seleção e proteção de campos já preenchidos no ERP, dois formulários Zod distintos (pesquisa na web e texto descritivo), integração com `aiService`, busca de atributos técnicos e tabela de conferência de diferenças.
+- **Solução implementada:** Criada a estrutura modular em `erp/src/pages/App/Products/modals/characteristicsAi/`:
+  - `useProductAiCharacteristicsModal.ts`: Hook com regras de pré-requisitos, consultas à IA, quota e regras de proteção contra sobreposição de dados existentes.
+  - `ProductAiModalHeader.tsx`: Cabeçalho com título responsivo e badge de modo.
+  - `ProductAiModeTabs.tsx`: Seletor de abas (Modo 1: Pesquisa Web vs Modo 2: Texto Descritivo).
+  - `ProductAiWebSearchForm.tsx`: Formulário do Modo 1 com card de pré-requisitos e campo de informações adicionais.
+  - `ProductAiDescriptiveTextForm.tsx`: Formulário do Modo 2 com orientações e textarea para texto descritivo/catálogo.
+  - `ProductAiReviewPhase.tsx`: Painel da fase de revisão com tabela diff unificada e aplicação seletiva.
+  - `ProductAiCharacteristicsModal.tsx`: Reduzido de 709 linhas para 154 linhas.
+- **Validação:** 5 testes aprovados (`ProductAiCharacteristicsModal.test.tsx` [5/5]).
+
+### 3. `PersonImportModal.tsx` (Importação em Lote de Pessoas / Clientes / Fornecedores via CSV)
+- **Problema:** Modal de 576 linhas acumulando parser próprio de CSV com suporte a aspas e múltiplos delimitadores, heurísticas de mapeamento de cabeçalhos, validação individual de linhas com schema de domínio, controle de timeout de I/O e processamento em lotes atômicos de 50 registros no Supabase.
+- **Solução implementada:** Criada a pasta modular `erp/src/pages/App/Registrations/shared/modals/personImport/`:
+  - `types.ts`: Tipos do modal, linhas de importação (`ImportRow`), estados de processamento e mapeamento vazio.
+  - `csvParser.ts`: Funções utilitárias puras de parsing de CSV, normalização de booleanos e de origem de marketing.
+  - `csvMappingHeuristics.ts`: Algoritmo de mapeamento heurístico inteligente de cabeçalhos por palavras-chave e lista de campos.
+  - `usePersonImportModal.ts`: Hook orquestrador do ciclo de vida, sessões concorrentes, leitura segura com `withTimeout` e persistência em lotes com tratamento de estados incertos.
+  - `PersonImportHeader.tsx`: Cabeçalho com alternador de encoding (UTF-8 e ANSI/ISO-8859-1).
+  - `PersonImportUploadStep.tsx`: Zona de arrastar e soltar arquivo CSV com input oculto.
+  - `PersonImportMappingStep.tsx`: Grade com seleção de colunas mapeadas e origem padrão para clientes.
+  - `PersonImportPreviewStep.tsx`: Tabela de pré-visualização com status de validação por registro e checkboxes.
+  - `PersonImportProgressBar.tsx`: Barra de progresso animada durante a importação.
+  - `PersonImportFooter.tsx`: Rodapé com botões de voltar e finalizar importação com contagem dinâmica.
+  - `PersonImportModal.tsx`: Reduzido de 576 linhas para 134 linhas.
+- **Validação:** 16 testes aprovados (`PersonImportModal.test.tsx` [16/16]).
+
+### 4. `ReturnOrderModal.tsx` (Ações Comerciais e Fiscais de Devolução de Pedido)
+- **Problema:** Modal de 566 linhas reunindo busca de devoluções anteriores, localização de NF-e autorizada, consulta de capacidade fiscal faturada na API, conferência de saldos devolvíveis, montagem de pedido de devolução comercial, alocação de itens a notas fiscais e disparo de transmissão fiscal automática.
+- **Solução implementada:** Criada a pasta modular `erp/src/pages/App/SalesOrder/OrderActions/return-order-modal/`:
+  - `types.ts`: Tipos e interfaces de dados do modal e estado de capacidade fiscal.
+  - `useReturnOrderData.ts`: Hook dedicado exclusivamente à busca de histórico de devoluções, NF-e autorizada e conferência de capacidade com timeout resiliente de 15s.
+  - `useReturnOrderForm.ts`: Hook com formulário RHF/Zod (`createLinkedReturnFormSchema`), cálculos de valores originais e devolvidos, alocação fiscal e geração de pedido de devolução.
+  - `ReturnOrderHeader.tsx`: Cabeçalho com ícone de devolução, código da venda e cliente.
+  - `ReturnOrderNotice.tsx`: Banner contextual explicativo da separação entre retorno físico, estoque e NF-e de devolução.
+  - `ReturnOrderFooter.tsx`: Rodapé com totais, contador de itens selecionados e botão protegido contra submissões prematuras.
+  - `ReturnOrderModal.tsx`: Reduzido de 566 linhas para 134 linhas.
+- **Validação:** 14 testes aprovados (`ReturnOrderModal.test.tsx` [14/14]).
+
+### Invariantes Garantidos
+- **Política Zero CC-e**: Nenhum fluxo de Carta de Correção Eletrônica foi criado ou alterado.
+- **RHF + zodResolver**: Todas as operações de submissão e validação executam os resolvers reais antes dos serviços.
+- **Não-regressão**: Todas as suítes de testes (`catalog-forms` [53/53], `mobile-forms` [47/47], `mobile` [339/339], `Purchases` [29/29] e componentes refatorados [56/56]) permaneceram 100% verdes. Build do catálogo digital aprovado com código 0.
+
+---
+
+## Refatoração e Arquitetura Limpa: `emitHmlTechnical.ts` e Módulo `hml-technical` — 17/10
+
+### 1. Problema Identificado e Sintomas Observados
+O arquivo [`api/nfe/emitHmlTechnical.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/api/nfe/emitHmlTechnical.ts) acumulava **1.558 linhas de código**, violando o Princípio da Responsabilidade Única (SRP) e a arquitetura limpa de pastas. O arquivo continha simultaneamente:
+- Tratamento e classificação de erros de banco de dados e PostgREST de snapshots.
+- Formatação de timestamps e expiração temporal de NFC-e.
+- Consultas SEFAZ de documentos em andamento e documentos autorizados.
+- Transmissão SOAP, envelopamento XML, assertivas de integridade e auditoria de linhas autorizadas.
+- Lógica de reativação, retry e recuperação de fatos fiscais históricos de rascunhos/tentativas HML.
+- Orquestração central de emissão técnica e venda normal em homologação (`tpAmb = 2`).
+
+### 2. Causa Raiz Técnica
+A evolução orgânica dos testes técnicos HML (modelos 55 e 65) concentrou rotinas utilitárias de serialização, consulta SOAP, classificação de erros da migration de reserva de snapshots e gestão de tentativas concorrentes em um único arquivo de backend.
+
+### 3. Solução Técnica Implementada
+Criação da pasta dedicada [`api/nfe/hml-technical/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/api/nfe/hml-technical/) e segregação das responsabilidades segundo os princípios de Clean Code, DRY, SRP e SSOT:
+
+1. **[`types.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/api/nfe/hml-technical/types.ts) (~10 linhas):**
+   - Tipos TypeScript desacoplados: `Database`, `Result` e `HmlDocumentRow`.
+2. **[`constants.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/api/nfe/hml-technical/constants.ts) (~115 linhas):**
+   - Constantes e mensagens de rejeição (`SNAPSHOT_REASON_MESSAGES`).
+   - Resolução de endpoints de homologação (`hmlEndpoint`).
+   - Verificação de ruleset (`isHmlRuleSet`) e conferência de chave de protocolo (`hasProtocolKey`).
+   - Helpers de timezone (`saoPauloTimestamp`), controle de frescor temporal de NFC-e (`nfceXmlNeedsFreshEmission`) e erro de emissão expirada (`freshNfceEmissionRequired`).
+   - Construtor padronizado de falhas estruturadas (`failure`).
+3. **[`snapshotClassification.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/api/nfe/hml-technical/snapshotClassification.ts) (~125 linhas):**
+   - Extração segura de códigos e check constraints (`snapshotReasonOf`).
+   - Classificação taxonômica de erros de reserva atômica (`classifySnapshotReservationError`).
+   - Consulta de metadata de tentativa ativa concorrente (`activeAttemptMetadata`).
+4. **[`transmission.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/api/nfe/hml-technical/transmission.ts) (~155 linhas):**
+   - Transmissão SOAP para `NFeAutorizacao4` (`transmitAndPersist`), auditoria de hash e snapshot antes do envio, conferência de protocolo e persistência via RPC `persist_hml_nfe_result`.
+   - Liberação segura de lease de tentativa (`releaseAttempt`) sem mascarar resultados fiscais.
+5. **[`consultation.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/api/nfe/hml-technical/consultation.ts) (~200 linhas):**
+   - Consulta de protocolo e reconciliação atômica de documentos em andamento (`consultExisting`).
+   - Consulta estritamente somente leitura de documentos autorizados (`consultAuthorizedHmlTechnical`) com validação de invariantes, certificado A1 e auditoria sem escrita.
+6. **[`retryAndRecovery.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/api/nfe/hml-technical/retryAndRecovery.ts) (~260 linhas):**
+   - Reexecução controlada de tentativas com validação de status e cStat (`retryHmlTechnical`).
+   - Recuperação de fatos persistidos e proteção contra divergência de rascunhos (`recoverHmlTechnical`).
+7. **[`index.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/api/nfe/hml-technical/index.ts):**
+   - Re-exportação unificada de tipos, utilitários, classificações e funções de domínio.
+8. **[`emitHmlTechnical.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/api/nfe/emitHmlTechnical.ts) (reduzido de 1.558 para ~360 linhas):**
+   - Orquestrador limpo e legível do fluxo de emissão técnica e venda normal em homologação.
+   - Re-exporta integralmente `isHmlRuleSet`, `consultAuthorizedHmlTechnical`, `retryHmlTechnical` e `recoverHmlTechnical` mantendo 100% de retrocompatibilidade com todos os importadores (`consult.ts`, `emit.ts`, `abandon-hml-attempt.ts` e testes unitários).
+
+### 4. Validações Executadas e Não-Regressão
+1. **Compilação TypeScript Estrita:**
+   - `npx tsc -p api/tsconfig.nfe.json --noEmit`: 0 erros.
+   - `npx tsc -p erp/tsconfig.fiscal.json --noEmit`: 0 erros.
+2. **Empacotamento e Startup Fiscal:**
+   - `npm --prefix erp run test:fiscal-startup`: 15 handlers empacotados, 12/12 funções Vercel dentro do limite, WASM + XSD oficial `PL_010f_v1.04` resolvidos com código 0.
+3. **Testes Unitários e de Integração:**
+   - `npx vitest run erp/src/pages/utils/nfe/__tests__/hmlTechnicalEmission.test.ts erp/src/pages/utils/nfe/__tests__/hmlConsultBoundary.test.ts`: **52/52 testes aprovados**.
+   - `npx vitest run src/pages/utils/nfe src/pages/App/SalesOrder/OrderActions`: **95/95 suítes aprovadas (1.011/1.011 testes)**.
+4. **Invariantes Fiscais:**
+   - Zero CC-e (`FISCAL-016`) preservado.
+   - Terminologia estrita (`FISCAL-023`) mantida em todos os logs, comentários e mensagens.
+
+
+
+
+
+
+---
+
+## Auditoria e Refatoração de Arquitetura: Módulo de Estoque (`Stock / Inventory`) — 17/10
+
+### 1. Problema Identificado e Sintomas Observados
+Auditoria do módulo de estoque no ERP (`erp/src/pages/App/Stock/`) e no Mobile (`mobile/src/features/stock/`) identificou componentes monolíticos na impressão e design de etiquetas de preço com excesso de responsabilidades em arquivos únicos:
+1. `PriceLabelArtEditorModal.tsx` com **1.894 linhas (76 KB)** acumulando:
+   - Gerenciamento de ciclo de vida de persistência remota e autosave debounced no Supabase.
+   - Manipulação manual de eventos de mouse e touch para arrasto, redimensionamento com escala de fonte e rotação com guias magnéticas (snap magnético).
+   - Definição estática repetitiva de 9 camadas de arte (`title`, `deText`, `normalPrice`, `porText`, `currencySymbol`, `promoPrice`, `cents`, `installments`, `background`).
+   - Renderizador em linha de pré-visualização contendo lógica de grandezas (dezenas, centenas, milhares) e renderizador 1:1.
+2. `LabelGridModelModal.tsx` com **1.452 linhas (65 KB)** acumulando:
+   - Definições e cálculos geométricos da folha, colunas, linhas e margens.
+   - Painel de configurações visuais e prévia em folha inteira.
+   - Tela completa de design interativo com canvas de sangria, guias horizontais e verticais, e mapeamento de campos extras e promoções.
+
+### 2. Causa Raiz Técnica
+A evolução do subsistema de etiquetas de gôndola e precificação física concentrou manipulação de canvas, drag-and-drop, redimensionamento interativo e controle de transações assíncronas dentro do mesmo componente React do modal, violando o Princípio da Responsabilidade Única (SRP) e dificultando a manutenção modular.
+
+### 3. Soluções Técnicas Implementadas
+
+#### A. Decomposição de `PriceLabelArtEditorModal.tsx` (1.894 -> 750 linhas)
+Criação e enriquecimento de submódulos na pasta [`price-label-editor/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/price-label-editor/):
+- **[`priceLabelLayersConfig.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/price-label-editor/priceLabelLayersConfig.ts)**: Função de fábrica `buildPriceLabelLayers` isolando a configuração estrutural das 9 camadas visuais, seus ícones, posições e alternâncias de visibilidade.
+- **[`usePriceLabelCanvasInteractions.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/price-label-editor/usePriceLabelCanvasInteractions.ts)**: Hook dedicado exclusivamente aos manipuladores de mouse e touch (`startDragging`, `startResizing`, `startRotating`), tratamento de alinhamento magnético (`SNAP_THRESHOLD = 6`), listeners em `window` com ciclo de vida e cleanup seguros.
+- **[`usePriceLabelArtworkSession.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/price-label-editor/usePriceLabelArtworkSession.ts)**: Hook de gerenciamento da sessão de arte, auto-save com debounce, sincronização de oportunidades do Supabase, exportação PNG/área de transferência e controle de timeout de I/O com `withTimeout`.
+- **[`PriceLabelArtEditorPreview.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/price-label-editor/PriceLabelArtEditorPreview.tsx)**: Componente isolado para a área de pré-visualização da etiqueta 1:1, cálculo de fontes dinâmicas por ordem de grandeza e contêiner interativo com `PriceLabelArtRenderer`.
+
+#### B. Decomposição de `LabelGridModelModal.tsx` (1.452 -> 1.200 linhas)
+Criação de componentes dedicados na pasta [`label-grid-model-editor/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/):
+- **[`LabelGridModelHeader.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/LabelGridModelHeader.tsx)**: Cabeçalho desacoplado com resumo de margens/gaps, nome do modelo e botões de ação contextuais ("Salvar Modelo" / "Confirmar Design").
+- **[`LabelGridModelDesignCanvas.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/LabelGridModelDesignCanvas.tsx)**: Contêiner de design visual interativo, cálculo de proporção de folha/etiqueta, área de sangria e renderização de elementos interativos com `LabelGridModelCanvasElement` e `LabelGridModelElementSelector`.
+
+### 4. Validações e Não-Regressão
+1. **Testes Unitários de `LabelPrinting`:**
+   - **34 arquivos de teste aprovados (397/397 testes verdes)** sem nenhuma regressão.
+2. **Testes do Módulo de Compras e Estoque:**
+   - `PurchaseStockEntryModal.test.tsx`: 13/13 testes aprovados.
+   - `purchaseReceiptCheckModal.test.ts` e regras de negócio: 13/13 aprovados.
+3. **Testes do Ecossistema Mobile e Catálogo:**
+   - `mobile-forms`: 47/47 aprovados.
+   - `mobile`: 339/339 aprovados.
+   - `catalog-forms`: 53/53 aprovados.
+   - `digital-catalog`: build Next.js Turbopack concluído com código 0.
+4. **Invariantes Arquiteturais:**
+   - Invariante Zero CC-e (`FISCAL-016`) estritamente respeitado.
+   - Invariante RHF + zodResolver preservado integralmente.

@@ -1,5 +1,5 @@
-import Person from '../../../../types/person.type';
-import type { PersonCsvColumnMapping } from '../../../../../../../shared-utils/personImportFormSchemas';
+import Person from '../../../../../types/person.type';
+import type { PersonCsvColumnMapping } from '../../../../../../../../shared-utils/personImportFormSchemas';
 
 export interface PersonImportModalProps {
   isOpen: boolean;

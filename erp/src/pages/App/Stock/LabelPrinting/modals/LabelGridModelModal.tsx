@@ -6,9 +6,8 @@ import { LabelGridSheetPreview } from '../components/LabelGridSheetPreview';
 import { createGridModelFromEditorState } from '../services/labelGridModelFactory';
 import { LabelGridModelToolbar } from './label-grid-model-editor/LabelGridModelToolbar';
 import { LabelGridModelSettingsPanel } from './label-grid-model-editor/LabelGridModelSettingsPanel';
-import { LabelGridModelCanvasElement } from './label-grid-model-editor/LabelGridModelCanvasElement';
-import type { LabelGridModelCanvasElementData } from './label-grid-model-editor/LabelGridModelCanvasElement';
-import { LabelGridModelElementSelector } from './label-grid-model-editor/LabelGridModelElementSelector';
+import { LabelGridModelHeader } from './label-grid-model-editor/LabelGridModelHeader';
+import { LabelGridModelDesignCanvas } from './label-grid-model-editor/LabelGridModelDesignCanvas';
 
 const BOOTSTRAP_ICONS_URL =
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';
@@ -1117,273 +1116,125 @@ const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
       >
         {(error || saveError) && <p role="alert" className="px-8 pt-4 text-sm text-red-600">{error || saveError}</p>}
         {busy && <p role="status" className="flex items-center gap-2 px-8 pt-4 text-sm text-blue-600"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Salvando modelo…</p>}
-        {/* Header Principal */}
-        <div className="px-12 py-8 border-b border-slate-50 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-5">
-            <div className="w-14 h-14 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-              {' '}
-              <i
-                className={`bi bi-${isDesignMode ? 'brush-fill' : 'grid-3x3-gap-fill'} text-2xl`}
-              />{' '}
-            </div>
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <p className="text-[9px] text-slate-400 uppercase tracking-[0.3em] font-black leading-none">
-                  {isDesignMode ? 'Design da Etiqueta' : 'Editar Modelo de Etiqueta'}
-                </p>
-                <div className="h-1 w-1 rounded-full bg-slate-300" />
-                <p className="text-[9px] text-blue-500 font-black uppercase tracking-widest leading-none">
-                  Margens: {marginT}|{marginB}|{marginL}|{marginR} - Gaps: {gapH}|{gapV} (mm)
-                </p>
-              </div>
-              <h3
-                id="label-grid-modal-title"
-                className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none"
-              >
-                {name.trim() || generatedName}
-              </h3>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {!isDesignMode && (
-              <button
-                onClick={handleSave}
-                disabled={busy || saveBlocked || blocked}
-                className={`px-8 py-4 ${isSaving ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest shadow-xl shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2`}
-              >
-                {isSaving ? 'Salvando...' : 'Salvar Modelo'}
-              </button>
-            )}
-            {isDesignMode && (
-              <button
-                onClick={() => setIsDesignMode(false)}
-                className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest shadow-xl shadow-emerald-500/20 transition-all active:scale-95 flex items-center gap-4"
-              >
-                <i className="bi bi-check-circle-fill" /> Confirmar Design
-              </button>
-            )}
-          </div>
-        </div>
+        <LabelGridModelHeader
+          isDesignMode={isDesignMode}
+          setIsDesignMode={setIsDesignMode}
+          marginT={marginT}
+          marginB={marginB}
+          marginL={marginL}
+          marginR={marginR}
+          gapH={gapH}
+          gapV={gapV}
+          displayName={name.trim() || generatedName}
+          onSave={handleSave}
+          busy={busy}
+          saveBlocked={saveBlocked}
+          blocked={blocked}
+          isSaving={isSaving}
+        />
 
         {isDesignMode ? (
           <>
             <LabelGridModelToolbar state={toolbarState} handlers={toolbarHandlers} />
-            <div className="flex-1 overflow-y-auto p-12 bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-start gap-12 select-none">
-              {/* Visualização da Etiqueta Interativa */}
-              <div className="relative flex-1 flex flex-col items-center justify-center p-4">
-                {(() => {
-                  const paperW = customWidth || 210;
-                  const paperH = customHeight || 297;
-                  const cols = columns || 1;
-                  const rowCount = rows || 1;
-                  const totalGapW = (gapH || 0) * (cols - 1);
-                  const totalGapH = (gapV || 0) * (rowCount - 1);
-                  const totalMarginsW = (marginL || 0) + (marginR || 0);
-                  const totalMarginsH = (marginT || 0) + (marginB || 0);
-                  const labelW = (paperW - totalMarginsW - totalGapW) / cols;
-                  const labelH = (paperH - totalMarginsH - totalGapH) / rowCount;
-                  const aspectRatio = labelW / labelH;
-
-                  return (
-                    <div className="relative flex items-center justify-center">
-                      {/* Área de Sangria Interativa (Azul) - Prioridade Visual para a Imagem */}
-                      <div
-                        style={{
-                          position: 'absolute',
-                          width: '500px',
-                          height: `${500 / (aspectRatio || 1)}px`,
-                          backgroundColor: bgColor || 'white',
-                          zIndex: 0,
-                          borderRadius: '8px',
-                          overflow: 'visible', // Permitir ver o transbordo no designer
-                        }}
-                      >
-                        {effectivePreviewImage && (
-                          <img
-                            src={effectivePreviewImage}
-                            alt=""
-                            style={{
-                              position: 'absolute',
-                              top: '50%',
-                              left: '50%',
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              transform: `translate(-50%, -50%) scale(${imageScale})`,
-                              transition: 'transform 0.1s ease-out',
-                            }}
-                          />
-                        )}
-                      </div>
-
-                      <div
-                        ref={setPreviewRef}
-                        style={{
-                          width: '500px',
-                          height: `${500 / (aspectRatio || 1)}px`,
-                          backgroundColor: 'transparent',
-                          boxShadow: '0 30px 60px -12px rgba(0,0,0,0.25)',
-                          position: 'relative',
-                          overflow: 'hidden',
-                          containerType: 'size',
-                          border: '1px solid #94a3b8',
-                          borderRadius: '4px',
-                          zIndex: 1,
-                        }}
-                        onMouseMove={handleMouseMove}
-                        onMouseUp={handleMouseUp}
-                        onMouseLeave={handleMouseUp}
-                      >
-                        <div
-                          className="absolute inset-0 opacity-[0.05] pointer-events-none"
-                          style={{
-                            backgroundImage:
-                              'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)',
-                            backgroundSize: '20px 20px',
-                          }}
-                        />
-                        {showGuides.h && (
-                          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-blue-500/50 z-50 pointer-events-none" />
-                        )}
-                        {showGuides.v && (
-                          <div className="absolute top-1/2 left-0 right-0 h-px bg-blue-500/50 z-50 pointer-events-none" />
-                        )}
-
-                        {[
-                          {
-                            id: 'name',
-                            pos: isPromoPreview ? promoNamePos : namePos,
-                            width: isPromoPreview ? promoNameWidth : nameWidth,
-                            height: isPromoPreview ? promoNameHeight : nameHeight,
-                            font: isPromoPreview ? promoNameFontSize : nameFontSize,
-                            color: isPromoPreview ? promoNameColor : nameColor,
-                            bold: isPromoPreview ? promoNameBold : nameBold,
-                            align: isPromoPreview ? promoNameAlign : nameAlign,
-                            valign: isPromoPreview ? promoNameVAlign : nameVAlign,
-                            text: 'Sofá de Canto Luxo Reclinável',
-                            bgColor: isPromoPreview ? promoNameBgColor : nameBgColor,
-                          },
-                          {
-                            id: 'mainPrice',
-                            pos: isPromoPreview ? promoPos : pricePos,
-                            width: isPromoPreview ? promoWidth : priceWidth,
-                            height: isPromoPreview ? promoHeight : priceHeight,
-                            font:
-                              (isPromoPreview ? promoPriceFontSize || 0 : priceFontSize || 0) +
-                              (priceFontSizeThousands || 0),
-                            color: isPromoPreview ? promoPriceColor : priceColor,
-                            bold: isPromoPreview ? promoPriceBold : priceBold,
-                            align: isPromoPreview ? promoPriceAlign : priceAlign,
-                            valign: isPromoPreview ? promoPriceVAlign : priceVAlign,
-                            text: isPromoPreview ? '2.990' : '3.490',
-                            bgColor: isPromoPreview ? promoBgColor : priceBgColor,
-                          },
-                          {
-                            id: 'oldPrice',
-                            pos: oldPricePos,
-                            width: oldPriceWidth,
-                            height: oldPriceHeight,
-                            font: oldPriceFontSize,
-                            color: oldPriceColor,
-                            bold: oldPriceBold,
-                            align: oldPriceAlign,
-                            valign: oldPriceVAlign,
-                            text: (
-                              <span className="relative">
-                                R$ 3.490,00
-                                <div className="absolute top-[50%] left-[-5%] right-[-5%] h-[4px] bg-red-500 rounded-full" />
-                              </span>
-                            ),
-                            hidden: !isPromoPreview,
-                            bgColor: 'transparent',
-                          },
-                          {
-                            id: 'priceSymbol',
-                            pos: isPromoPreview ? promoPriceSymbolPos : priceSymbolPos,
-                            font: isPromoPreview
-                              ? promoPriceSymbolFontSize || 0
-                              : priceSymbolFontSize || 0,
-                            color: isPromoPreview ? promoPriceSymbolColor : priceSymbolColor,
-                            bold: isPromoPreview ? promoPriceSymbolBold : priceSymbolBold,
-                            text: 'R$',
-                            hidden: priceFormat !== 'split',
-                          },
-                          {
-                            id: 'priceDecimals',
-                            pos: isPromoPreview ? promoPriceDecimalsPos : priceDecimalsPos,
-                            font: isPromoPreview
-                              ? promoPriceDecimalsFontSize || 0
-                              : priceDecimalsFontSize || 0,
-                            color: isPromoPreview ? promoPriceDecimalsColor : priceDecimalsColor,
-                            bold: isPromoPreview ? promoPriceDecimalsBold : priceDecimalsBold,
-                            text: ',00',
-                            hidden: priceFormat !== 'split',
-                          },
-                          ...(currentCategory !== 'precos'
-                            ? [
-                                {
-                                  id: 'barcode',
-                                  pos: isPromoPreview ? promoBarcodePos : barcodePos,
-                                  width: 80,
-                                  isBarcode: true,
-                                },
-                              ]
-                            : []),
-                          ...(isPromoPreview ? extraFieldsPromo || [] : extraFields || []).map(
-                            (f) => ({
-                              id: f.id,
-                              pos: { x: f.x, y: f.y },
-                              width: f.width || 40,
-                              height: f.height || 10,
-                              font: f.size,
-                              color: f.color,
-                              bold: f.bold,
-                              align: f.align || 'center',
-                              valign: 'middle',
-                              text: f.text,
-                              hidden: false,
-                              bgColor: f.bgColor,
-                            })
-                          ),
-                        ]
-                          .filter((el) => !el.hidden)
-                          .map((element) => {
-                            const el = element as LabelGridModelCanvasElementData;
-                            return (
-                            <LabelGridModelCanvasElement
-                              key={el.id}
-                              el={el}
-                              draggingElement={draggingElement}
-                              resizingElement={resizingElement}
-                              selectedElement={selectedElement}
-                              editingTextElement={editingTextElement}
-                              fontFamily={fontFamily}
-                              setDraggingElement={setDraggingElement}
-                              setSelectedElement={setSelectedElement}
-                              setEditingTextElement={setEditingTextElement}
-                              updateStyle={updateStyle}
-                              duplicateExtraField={duplicateExtraField}
-                              removeExtraField={removeExtraField}
-                              handleMouseDownResize={handleMouseDownResize}
-                            />
-                            );
-                          })}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              <LabelGridModelElementSelector
-                currentCategory={currentCategory}
-                isPromoPreview={isPromoPreview}
-                extraFields={extraFields}
-                extraFieldsPromo={extraFieldsPromo}
-                selectedElement={selectedElement}
-                onSelectElement={(elementId) => setSelectedElement(elementId)}
-              />
-            </div>
+            <LabelGridModelDesignCanvas
+              customWidth={customWidth}
+              customHeight={customHeight}
+              columns={columns}
+              rows={rows}
+              gapH={gapH}
+              gapV={gapV}
+              marginL={marginL}
+              marginR={marginR}
+              marginT={marginT}
+              marginB={marginB}
+              bgColor={bgColor}
+              effectivePreviewImage={effectivePreviewImage}
+              imageScale={imageScale}
+              setPreviewRef={setPreviewRef}
+              handleMouseMove={handleMouseMove}
+              handleMouseUp={handleMouseUp}
+              showGuides={showGuides}
+              isPromoPreview={isPromoPreview}
+              promoNamePos={promoNamePos}
+              namePos={namePos}
+              promoNameWidth={promoNameWidth}
+              nameWidth={nameWidth}
+              promoNameHeight={promoNameHeight}
+              nameHeight={nameHeight}
+              promoNameFontSize={promoNameFontSize}
+              nameFontSize={nameFontSize}
+              promoNameColor={promoNameColor}
+              nameColor={nameColor}
+              promoNameBold={promoNameBold}
+              nameBold={nameBold}
+              promoNameAlign={promoNameAlign}
+              nameAlign={nameAlign}
+              promoNameVAlign={promoNameVAlign}
+              nameVAlign={nameVAlign}
+              promoNameBgColor={promoNameBgColor}
+              nameBgColor={nameBgColor}
+              promoPos={promoPos}
+              pricePos={pricePos}
+              promoWidth={promoWidth}
+              priceWidth={priceWidth}
+              promoHeight={promoHeight}
+              priceHeight={priceHeight}
+              promoPriceFontSize={promoPriceFontSize}
+              priceFontSize={priceFontSize}
+              priceFontSizeThousands={priceFontSizeThousands}
+              promoPriceColor={promoPriceColor}
+              priceColor={priceColor}
+              promoPriceBold={promoPriceBold}
+              priceBold={priceBold}
+              promoPriceAlign={promoPriceAlign}
+              priceAlign={priceAlign}
+              promoPriceVAlign={promoPriceVAlign}
+              priceVAlign={priceVAlign}
+              promoBgColor={promoBgColor}
+              priceBgColor={priceBgColor}
+              oldPricePos={oldPricePos}
+              oldPriceWidth={oldPriceWidth}
+              oldPriceHeight={oldPriceHeight}
+              oldPriceFontSize={oldPriceFontSize}
+              oldPriceColor={oldPriceColor}
+              oldPriceBold={oldPriceBold}
+              oldPriceAlign={oldPriceAlign}
+              oldPriceVAlign={oldPriceVAlign}
+              priceFormat={priceFormat}
+              promoPriceSymbolPos={promoPriceSymbolPos}
+              priceSymbolPos={priceSymbolPos}
+              promoPriceSymbolFontSize={promoPriceSymbolFontSize}
+              priceSymbolFontSize={priceSymbolFontSize}
+              promoPriceSymbolColor={promoPriceSymbolColor}
+              priceSymbolColor={priceSymbolColor}
+              promoPriceSymbolBold={promoPriceSymbolBold}
+              priceSymbolBold={priceSymbolBold}
+              promoPriceDecimalsPos={promoPriceDecimalsPos}
+              priceDecimalsPos={priceDecimalsPos}
+              promoPriceDecimalsFontSize={promoPriceDecimalsFontSize}
+              priceDecimalsFontSize={priceDecimalsFontSize}
+              promoPriceDecimalsColor={promoPriceDecimalsColor}
+              priceDecimalsColor={priceDecimalsColor}
+              promoPriceDecimalsBold={promoPriceDecimalsBold}
+              priceDecimalsBold={priceDecimalsBold}
+              currentCategory={currentCategory}
+              promoBarcodePos={promoBarcodePos}
+              barcodePos={barcodePos}
+              extraFields={extraFields}
+              extraFieldsPromo={extraFieldsPromo}
+              draggingElement={draggingElement}
+              resizingElement={resizingElement}
+              selectedElement={selectedElement}
+              editingTextElement={editingTextElement}
+              fontFamily={fontFamily}
+              setDraggingElement={setDraggingElement}
+              setSelectedElement={setSelectedElement}
+              setEditingTextElement={setEditingTextElement}
+              updateStyle={updateStyle}
+              duplicateExtraField={duplicateExtraField}
+              removeExtraField={removeExtraField}
+              handleMouseDownResize={handleMouseDownResize}
+            />
           </>
         ) : (
           <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50 dark:bg-slate-950 flex flex-col gap-8 items-center">

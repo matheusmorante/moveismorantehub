@@ -1,4 +1,4 @@
-import type { PersonCsvColumnMapping } from '../../../../../../../shared-utils/personImportFormSchemas';
+import type { PersonCsvColumnMapping } from '../../../../../../../../shared-utils/personImportFormSchemas';
 import { emptyMapping } from './types';
 
 export const MAPPING_FIELDS: Array<{

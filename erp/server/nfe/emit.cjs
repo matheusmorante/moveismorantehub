@@ -419,7 +419,7 @@ async function withNfeEmissionStage(stage, operation, attributes = {}) {
 }
 
 // api/nfe/emit.ts
-var import_node_crypto9 = require("node:crypto");
+var import_node_crypto11 = require("node:crypto");
 
 // api/nfe/sefazTransportDiagnostic.ts
 function sefazTransportDiagnostic(error) {
@@ -5705,7 +5705,7 @@ async function authorizeFiscalOperator(client, authorizationHeader) {
 }
 
 // api/nfe/emitHmlTechnical.ts
-var import_node_crypto8 = require("node:crypto");
+var import_node_crypto10 = require("node:crypto");
 
 // api/nfe/hmlTechnicalRuleSet.ts
 var HML_TECHNICAL_RULESET_VERSION = "HML_TECHNICAL_V1";
@@ -5929,6 +5929,324 @@ function createHmlTechnicalRuleSet(snapshot, savedDecision, csosnConfiguration) 
   };
 }
 
+// api/nfe/hml-normal-sale/constants.ts
+var HML_NORMAL_SALE_RULESET_VERSION = "HML_NORMAL_SALE_V2";
+
+// api/nfe/hmlNormalSaleRuleSet.ts
+async function createHmlNormalSaleRuleSet(facts, configuration) {
+  if (facts.emissionRequest.environment !== 2)
+    throw new Error("PRODUCTION_FISCAL_RULESET_REQUIRED");
+  parseHmlCsosnConfiguration(configuration);
+  const rules = await createNormalSaleRuleSet(facts, HML_NORMAL_SALE_RULESET_VERSION);
+  return { ...rules, technicalHomologationOnly: true };
+}
+
+// api/nfe/hml-technical/constants.ts
+var isHmlRuleSet = (version) => version === HML_TECHNICAL_RULESET_VERSION || version === "HML_NORMAL_SALE_V1" || version === HML_NORMAL_SALE_RULESET_VERSION;
+var hmlEndpoint = (model, service) => {
+  if (model !== "55" && model !== "65") throw new Error("Modelo fiscal inv\xE1lido.");
+  return getNfeServiceEndpoint(model, 2, service);
+};
+var failure = (status, code, error, extra = {}) => ({ status, body: { success: false, code, error, ...extra } });
+var SNAPSHOT_REASON_MESSAGES = {
+  ORDER_NOT_ELIGIBLE_FOR_OUTBOUND_FISCAL: "O pedido n\xE3o \xE9 venda/showroom ativa ou est\xE1 cancelado.",
+  ORDER_FISCAL_DATA_UNAVAILABLE: "O pedido n\xE3o possui dados fiscais v\xE1lidos.",
+  ORDER_REVISION_UNAVAILABLE: "O pedido n\xE3o possui vers\xE3o/data de atualiza\xE7\xE3o registrada.",
+  HML_ORDER_NOT_ISOLATED: "O pedido t\xE9cnico HML precisa estar isolado (rascunho, exclu\xEDdo e sem pagamentos).",
+  NCM_NOT_ACTIVE: "Algum item usa NCM inexistente, inativo ou fora da vig\xEAncia.",
+  ISSUER_PROFILE_UNAVAILABLE: "Configura\xE7\xF5es da empresa emitente n\xE3o encontradas.",
+  HML_CSOSN_CONFIGURATION_UNAVAILABLE: "Configura\xE7\xE3o padr\xE3o de CSOSN da homologa\xE7\xE3o n\xE3o encontrada.",
+  ISSUER_MUNICIPALITY_UNAVAILABLE: "C\xF3digo IBGE do munic\xEDpio do emitente ausente ou inv\xE1lido (7 d\xEDgitos).",
+  ALREADY_ACTIVE_FISCAL_ATTEMPT: "J\xE1 existe uma tentativa fiscal em andamento para este pedido. Consulte o status antes de emitir novamente.",
+  HML_ORDER_ALREADY_HAS_ATTEMPT: "O pedido de teste t\xE9cnico HML j\xE1 possui uma tentativa registrada."
+};
+var hasProtocolKey = (xml, key) => {
+  const protocol = xml.match(/<(?:[\w.-]+:)?protNFe\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?protNFe>/i)?.[1] || "";
+  return ACCESS_KEY_PATTERN.test(key) && new RegExp(`<(?:[\\w.-]+:)?chNFe>\\s*${key}\\s*<\\/(?:[\\w.-]+:)?chNFe>`, "i").test(protocol);
+};
+function saoPauloTimestamp(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) throw new Error("Data da reserva inv\xE1lida.");
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "longOffset"
+  });
+  const parts = Object.fromEntries(
+    formatter.formatToParts(date).map(({ type, value }) => [type, value])
+  );
+  const offset = String(parts.timeZoneName || "").replace("GMT", "") || "+00:00";
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
+}
+function nfceXmlNeedsFreshEmission(xml, now = Date.now()) {
+  const issuedAtText = xml?.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1];
+  const issuedAt = issuedAtText ? Date.parse(issuedAtText) : Number.NaN;
+  return !Number.isFinite(issuedAt) || now - issuedAt >= 4 * 6e4 || issuedAt > now + 6e4;
+}
+function freshNfceEmissionRequired(doc, cStat) {
+  return failure(
+    409,
+    "HML_NEW_EMISSION_REQUIRED",
+    cStat === "217" ? "A SEFAZ confirmou que a NFC-e original n\xE3o consta, mas seu hor\xE1rio de emiss\xE3o expirou. Inicie uma nova tentativa para gerar XML assinado com hor\xE1rio e numera\xE7\xE3o atuais." : "A SEFAZ rejeitou a NFC-e original por data-hora de emiss\xE3o atrasada. Inicie uma nova tentativa para gerar XML assinado com hor\xE1rio e numera\xE7\xE3o atuais.",
+    {
+      documentId: doc.id,
+      orderId: doc.order_id,
+      accessKey: doc.chave_acesso,
+      nfeNumber: doc.numero_nfe,
+      series: doc.serie,
+      model: doc.modelo,
+      environment: 2,
+      cStat,
+      pending: false,
+      sefazContacted: true,
+      safeNewEmission: true
+    }
+  );
+}
+
+// api/nfe/hml-technical/snapshotClassification.ts
+function snapshotReasonOf(error) {
+  const message = typeof error === "object" && error !== null && "message" in error && typeof error.message === "string" ? error.message.trim() : "";
+  if (/^[A-Z][A-Z0-9_]{2,80}$/.test(message)) return message;
+  const check = message.match(
+    /relation "([\w.]{1,80})" violates check constraint "([\w.]{1,120})"/
+  );
+  return check ? `CHECK:${check[1]}.${check[2]}` : void 0;
+}
+async function activeAttemptMetadata(db, orderId, model) {
+  const { data: doc, error } = await db.from("nfe_documents").select("id,emission_request_id,chave_acesso,numero_nfe,serie,modelo,fiscal_snapshot_id").eq("order_id", orderId).eq("ambiente", 2).eq("document_type", "outbound").in("status", ["pendente", "processando", "homologada", "autorizada"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (error) return {};
+  if (doc)
+    return {
+      documentId: doc.id,
+      emissionRequestId: doc.emission_request_id,
+      accessKey: doc.chave_acesso,
+      nfeNumber: doc.numero_nfe,
+      series: doc.serie,
+      model: doc.modelo,
+      fiscalSnapshotId: doc.fiscal_snapshot_id
+    };
+  if (!model) return {};
+  const { data: snapshot, error: snapshotError } = await db.from("nfe_fiscal_snapshots").select("id,emission_request_id,reserved_number,series,requested_model").eq("order_id", orderId).eq("environment", 2).eq("requested_model", model).order("captured_at", { ascending: false }).limit(1).maybeSingle();
+  if (snapshotError || !snapshot) return {};
+  return {
+    emissionRequestId: snapshot.emission_request_id,
+    fiscalSnapshotId: snapshot.id,
+    nfeNumber: snapshot.reserved_number,
+    series: snapshot.series,
+    model: snapshot.requested_model,
+    reservationRecoveryRequired: true
+  };
+}
+function classifySnapshotReservationError(error) {
+  const databaseCode = typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" && /^[A-Z0-9]{5,8}$/.test(error.code) ? error.code : "UNKNOWN";
+  const databaseReason = snapshotReasonOf(error);
+  const reasonMessage = databaseReason ? SNAPSHOT_REASON_MESSAGES[databaseReason] : void 0;
+  if (reasonMessage)
+    return {
+      databaseCode,
+      databaseReason,
+      category: "DATABASE_VALIDATION_REJECTED",
+      hint: reasonMessage
+    };
+  if (databaseCode === "42883")
+    return {
+      databaseCode,
+      category: "SQL_FUNCTION_NOT_FOUND",
+      hint: "O PostgreSQL n\xE3o encontrou a fun\xE7\xE3o SQL solicitada. Verifique se a migration da reserva foi aplicada com a assinatura esperada."
+    };
+  if (databaseCode === "PGRST202")
+    return {
+      databaseCode,
+      category: "RPC_MISSING_FROM_SCHEMA_CACHE",
+      hint: "A fun\xE7\xE3o n\xE3o foi localizada no schema cache do PostgREST. Confira a migration e atualize o cache do Supabase."
+    };
+  if (databaseCode === "PGRST203")
+    return {
+      databaseCode,
+      category: "RPC_SIGNATURE_AMBIGUOUS",
+      hint: "H\xE1 sobrecarga amb\xEDgua para a fun\xE7\xE3o de reserva. Confira e remova assinaturas conflitantes."
+    };
+  if (databaseCode === "42501")
+    return {
+      databaseCode,
+      category: "DATABASE_PERMISSION_DENIED",
+      hint: "O papel de servi\xE7o n\xE3o tem permiss\xE3o para executar a reserva fiscal."
+    };
+  if (databaseCode === "23505")
+    return {
+      databaseCode,
+      category: "DATABASE_UNIQUE_CONFLICT",
+      hint: "A reserva encontrou um registro fiscal duplicado ou uma chave de idempot\xEAncia j\xE1 usada."
+    };
+  if (databaseCode === "23502")
+    return {
+      databaseCode,
+      category: "DATABASE_REQUIRED_VALUE_MISSING",
+      hint: "A reserva encontrou um campo obrigat\xF3rio ausente no snapshot ou na sequ\xEAncia fiscal."
+    };
+  if (databaseCode === "23503")
+    return {
+      databaseCode,
+      category: "DATABASE_REFERENCE_CONFLICT",
+      hint: "A reserva encontrou uma refer\xEAncia fiscal inexistente."
+    };
+  if (databaseCode === "23514" || databaseCode === "22023")
+    return {
+      databaseCode,
+      category: "DATABASE_VALIDATION_REJECTED",
+      hint: "O banco rejeitou um par\xE2metro ou valor do snapshot fiscal."
+    };
+  if (databaseCode.startsWith("08"))
+    return {
+      databaseCode,
+      category: "DATABASE_CONNECTION_FAILED",
+      hint: "O banco n\xE3o conseguiu concluir a chamada de reserva."
+    };
+  return {
+    databaseCode,
+    category: "SNAPSHOT_RESERVATION_FAILED",
+    hint: "Consulte o log do servidor pelo identificador de diagn\xF3stico para encontrar a causa."
+  };
+}
+
+// api/nfe/hml-technical/transmission.ts
+var import_node_crypto8 = require("node:crypto");
+async function releaseAttempt(db, documentId, attemptToken) {
+  try {
+    await db.rpc("release_hml_nfe_attempt", {
+      p_document_id: documentId,
+      p_attempt_token: attemptToken
+    });
+  } catch {
+  }
+}
+async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumber, metadata2, cert, attemptToken) {
+  try {
+    const { data: persisted, error } = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("id", String(metadata2.fiscalSnapshotId || "")).maybeSingle();
+    if (error || !persisted) throw new Error("Snapshot fiscal indispon\xEDvel na transmiss\xE3o.");
+    await assertXmlFiscalSelections(persisted.snapshot_data, signedXml);
+  } catch {
+    return failure(
+      422,
+      "HML_TRANSMISSION_INTEGRITY_FAILED",
+      "XML assinado e campos confirmados n\xE3o puderam ser reconciliados. Transmiss\xE3o bloqueada.",
+      { ...metadata2, sefazContacted: false, numberReserved: true }
+    );
+  }
+  let responseXml;
+  try {
+    const envelope = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${nfeNumber}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
+    responseXml = await withNfeEmissionStage(
+      "sefaz_transmission",
+      () => sendSoapToSefaz({
+        url: hmlEndpoint(metadata2.model, "NFeAutorizacao4"),
+        action: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote",
+        serviceNamespace: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4",
+        xmlPayload: envelope,
+        certPem: cert.certPem,
+        privateKeyPem: cert.privateKeyPem
+      }),
+      { environment: 2, model: String(metadata2.model || "") }
+    );
+  } catch (error) {
+    const transportDiagnostic = sefazTransportDiagnostic(error);
+    const diagnosticId = (0, import_node_crypto8.randomUUID)();
+    const attemptDiagnostic = {
+      diagnosticId,
+      emissionRequestId: metadata2.emissionRequestId,
+      ...transportDiagnostic
+    };
+    console.error("SEFAZ_HML_TRANSPORT", { documentId, ...attemptDiagnostic });
+    const { error: diagnosticPersistError } = await db.rpc("persist_hml_nfe_result", {
+      p_document_id: documentId,
+      p_attempt_token: attemptToken,
+      p_status: "pendente",
+      p_reason: `Resposta da transmiss\xE3o HML desconhecida: ${JSON.stringify(attemptDiagnostic)}`,
+      p_response_xml: "",
+      p_protocol: null,
+      p_items: []
+    });
+    return failure(
+      502,
+      "HML_TRANSMISSION_UNCERTAIN",
+      "Transmiss\xE3o sem resposta confirmada. Consulte a chave antes de qualquer nova tentativa.",
+      {
+        pending: true,
+        ...metadata2,
+        transportDiagnostic,
+        diagnosticId,
+        diagnosticStage: "sefaz-transmission",
+        diagnosticCategory: "SEFAZ_TRANSPORT_FAILED",
+        transportDiagnosticPersisted: !diagnosticPersistError
+      }
+    );
+  }
+  const parsed = parseSefazAuthorization(responseXml);
+  const protocolMatches = hasProtocolKey(responseXml, accessKey);
+  const authorized = parsed.authorized && protocolMatches;
+  const numberConflict = isDifferentKeyNumberConflict(parsed.cStat, parsed.xMotivo, accessKey) ? fiscalNumberConflict(nfeNumber) : void 0;
+  const status = authorized ? "homologada" : parsed.pending || parsed.cStat === "100" || parsed.cStat === "204" || !/^\d{3}$/.test(parsed.cStat) ? "pendente" : "erro";
+  const lines = authorized ? parseAuthorizedInvoiceLines(signedXml).map((line) => ({
+    item_number: line.invoiceItemNumber,
+    product_code: line.productCode,
+    description: line.description,
+    billed_quantity: line.billedQuantity,
+    unit_value: line.unitValue,
+    gross_value: line.grossValue,
+    discount_value: line.discountValue,
+    product_xml: line.productXml,
+    taxes_xml: line.taxesXml
+  })) : [];
+  const { error: persistError } = await db.rpc("persist_hml_nfe_result", {
+    p_document_id: documentId,
+    p_attempt_token: attemptToken,
+    p_status: status,
+    p_reason: parsed.xMotivo || `SEFAZ cStat ${parsed.cStat || "desconhecido"}`,
+    p_response_xml: responseXml,
+    p_protocol: authorized ? parsed.protocolNumber || null : null,
+    p_items: lines
+  });
+  if (persistError)
+    return failure(
+      503,
+      "HML_RESULT_PERSIST_FAILED",
+      "Resposta SEFAZ recebida, mas n\xE3o persistida; reconcilia\xE7\xE3o obrigat\xF3ria.",
+      { pending: true, ...metadata2 }
+    );
+  return {
+    status: numberConflict ? 409 : status === "erro" ? 422 : 200,
+    body: {
+      success: authorized,
+      pending: status === "pendente",
+      ...numberConflict ? {
+        code: "NFE_NUMBER_ALREADY_USED",
+        error: `A numera\xE7\xE3o ${nfeNumber} j\xE1 est\xE1 sendo usada. Escolha o n\xFAmero sugerido ou informe outro.`,
+        numberConflict
+      } : status === "erro" ? {
+        code: "HML_SEFAZ_REJECTED",
+        error: `${parsed.cStat ? parsed.cStat + ": " : ""}${parsed.xMotivo || "Rejei\xE7\xE3o da SEFAZ."}`
+      } : {},
+      ...metadata2,
+      signedXml,
+      sefazResponseXml: responseXml,
+      cStat: parsed.cStat,
+      xMotivo: parsed.xMotivo,
+      protocolNumber: parsed.protocolNumber,
+      protocolDate: parsed.protocolDate
+    }
+  };
+}
+
+// api/nfe/hml-technical/retryAndRecovery.ts
+var import_node_crypto9 = require("node:crypto");
+
 // api/nfe/hmlAttemptSafety.ts
 var asRecord = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 var normalized = (value) => value == null ? "" : String(value);
@@ -6039,190 +6357,7 @@ function isFormallyAbandonedHmlAttempt(history) {
   );
 }
 
-// api/nfe/hml-normal-sale/constants.ts
-var HML_NORMAL_SALE_RULESET_VERSION = "HML_NORMAL_SALE_V2";
-
-// api/nfe/hmlNormalSaleRuleSet.ts
-async function createHmlNormalSaleRuleSet(facts, configuration) {
-  if (facts.emissionRequest.environment !== 2)
-    throw new Error("PRODUCTION_FISCAL_RULESET_REQUIRED");
-  parseHmlCsosnConfiguration(configuration);
-  const rules = await createNormalSaleRuleSet(facts, HML_NORMAL_SALE_RULESET_VERSION);
-  return { ...rules, technicalHomologationOnly: true };
-}
-
-// api/nfe/emitHmlTechnical.ts
-var isHmlRuleSet = (version) => version === HML_TECHNICAL_RULESET_VERSION || version === "HML_NORMAL_SALE_V1" || version === HML_NORMAL_SALE_RULESET_VERSION;
-var hmlEndpoint = (model, service) => {
-  if (model !== "55" && model !== "65") throw new Error("Modelo fiscal inv\xE1lido.");
-  return getNfeServiceEndpoint(model, 2, service);
-};
-var failure = (status, code, error, extra = {}) => ({ status, body: { success: false, code, error, ...extra } });
-var SNAPSHOT_REASON_MESSAGES = {
-  ORDER_NOT_ELIGIBLE_FOR_OUTBOUND_FISCAL: "O pedido n\xE3o \xE9 venda/showroom ativa ou est\xE1 cancelado.",
-  ORDER_FISCAL_DATA_UNAVAILABLE: "O pedido n\xE3o possui dados fiscais v\xE1lidos.",
-  ORDER_REVISION_UNAVAILABLE: "O pedido n\xE3o possui vers\xE3o/data de atualiza\xE7\xE3o registrada.",
-  HML_ORDER_NOT_ISOLATED: "O pedido t\xE9cnico HML precisa estar isolado (rascunho, exclu\xEDdo e sem pagamentos).",
-  NCM_NOT_ACTIVE: "Algum item usa NCM inexistente, inativo ou fora da vig\xEAncia.",
-  ISSUER_PROFILE_UNAVAILABLE: "Configura\xE7\xF5es da empresa emitente n\xE3o encontradas.",
-  HML_CSOSN_CONFIGURATION_UNAVAILABLE: "Configura\xE7\xE3o padr\xE3o de CSOSN da homologa\xE7\xE3o n\xE3o encontrada.",
-  ISSUER_MUNICIPALITY_UNAVAILABLE: "C\xF3digo IBGE do munic\xEDpio do emitente ausente ou inv\xE1lido (7 d\xEDgitos).",
-  ALREADY_ACTIVE_FISCAL_ATTEMPT: "J\xE1 existe uma tentativa fiscal em andamento para este pedido. Consulte o status antes de emitir novamente.",
-  HML_ORDER_ALREADY_HAS_ATTEMPT: "O pedido de teste t\xE9cnico HML j\xE1 possui uma tentativa registrada."
-};
-function snapshotReasonOf(error) {
-  const message = typeof error === "object" && error !== null && "message" in error && typeof error.message === "string" ? error.message.trim() : "";
-  if (/^[A-Z][A-Z0-9_]{2,80}$/.test(message)) return message;
-  const check = message.match(
-    /relation "([\w.]{1,80})" violates check constraint "([\w.]{1,120})"/
-  );
-  return check ? `CHECK:${check[1]}.${check[2]}` : void 0;
-}
-async function activeAttemptMetadata(db, orderId, model) {
-  const { data: doc, error } = await db.from("nfe_documents").select("id,emission_request_id,chave_acesso,numero_nfe,serie,modelo,fiscal_snapshot_id").eq("order_id", orderId).eq("ambiente", 2).eq("document_type", "outbound").in("status", ["pendente", "processando", "homologada", "autorizada"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (error) return {};
-  if (doc)
-    return {
-      documentId: doc.id,
-      emissionRequestId: doc.emission_request_id,
-      accessKey: doc.chave_acesso,
-      nfeNumber: doc.numero_nfe,
-      series: doc.serie,
-      model: doc.modelo,
-      fiscalSnapshotId: doc.fiscal_snapshot_id
-    };
-  if (!model) return {};
-  const { data: snapshot, error: snapshotError } = await db.from("nfe_fiscal_snapshots").select("id,emission_request_id,reserved_number,series,requested_model").eq("order_id", orderId).eq("environment", 2).eq("requested_model", model).order("captured_at", { ascending: false }).limit(1).maybeSingle();
-  if (snapshotError || !snapshot) return {};
-  return {
-    emissionRequestId: snapshot.emission_request_id,
-    fiscalSnapshotId: snapshot.id,
-    nfeNumber: snapshot.reserved_number,
-    series: snapshot.series,
-    model: snapshot.requested_model,
-    reservationRecoveryRequired: true
-  };
-}
-function classifySnapshotReservationError(error) {
-  const databaseCode = typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" && /^[A-Z0-9]{5,8}$/.test(error.code) ? error.code : "UNKNOWN";
-  const databaseReason = snapshotReasonOf(error);
-  const reasonMessage = databaseReason ? SNAPSHOT_REASON_MESSAGES[databaseReason] : void 0;
-  if (reasonMessage)
-    return {
-      databaseCode,
-      databaseReason,
-      category: "DATABASE_VALIDATION_REJECTED",
-      hint: reasonMessage
-    };
-  if (databaseCode === "42883")
-    return {
-      databaseCode,
-      category: "SQL_FUNCTION_NOT_FOUND",
-      hint: "O PostgreSQL n\xE3o encontrou a fun\xE7\xE3o SQL solicitada. Verifique se a migration da reserva foi aplicada com a assinatura esperada."
-    };
-  if (databaseCode === "PGRST202")
-    return {
-      databaseCode,
-      category: "RPC_MISSING_FROM_SCHEMA_CACHE",
-      hint: "A fun\xE7\xE3o n\xE3o foi localizada no schema cache do PostgREST. Confira a migration e atualize o cache do Supabase."
-    };
-  if (databaseCode === "PGRST203")
-    return {
-      databaseCode,
-      category: "RPC_SIGNATURE_AMBIGUOUS",
-      hint: "H\xE1 sobrecarga amb\xEDgua para a fun\xE7\xE3o de reserva. Confira e remova assinaturas conflitantes."
-    };
-  if (databaseCode === "42501")
-    return {
-      databaseCode,
-      category: "DATABASE_PERMISSION_DENIED",
-      hint: "O papel de servi\xE7o n\xE3o tem permiss\xE3o para executar a reserva fiscal."
-    };
-  if (databaseCode === "23505")
-    return {
-      databaseCode,
-      category: "DATABASE_UNIQUE_CONFLICT",
-      hint: "A reserva encontrou um registro fiscal duplicado ou uma chave de idempot\xEAncia j\xE1 usada."
-    };
-  if (databaseCode === "23502")
-    return {
-      databaseCode,
-      category: "DATABASE_REQUIRED_VALUE_MISSING",
-      hint: "A reserva encontrou um campo obrigat\xF3rio ausente no snapshot ou na sequ\xEAncia fiscal."
-    };
-  if (databaseCode === "23503")
-    return {
-      databaseCode,
-      category: "DATABASE_REFERENCE_CONFLICT",
-      hint: "A reserva encontrou uma refer\xEAncia fiscal inexistente."
-    };
-  if (databaseCode === "23514" || databaseCode === "22023")
-    return {
-      databaseCode,
-      category: "DATABASE_VALIDATION_REJECTED",
-      hint: "O banco rejeitou um par\xE2metro ou valor do snapshot fiscal."
-    };
-  if (databaseCode.startsWith("08"))
-    return {
-      databaseCode,
-      category: "DATABASE_CONNECTION_FAILED",
-      hint: "O banco n\xE3o conseguiu concluir a chamada de reserva."
-    };
-  return {
-    databaseCode,
-    category: "SNAPSHOT_RESERVATION_FAILED",
-    hint: "Consulte o log do servidor pelo identificador de diagn\xF3stico para encontrar a causa."
-  };
-}
-var hasProtocolKey = (xml, key) => {
-  const protocol = xml.match(/<(?:[\w.-]+:)?protNFe\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?protNFe>/i)?.[1] || "";
-  return ACCESS_KEY_PATTERN.test(key) && new RegExp(`<(?:[\\w.-]+:)?chNFe>\\s*${key}\\s*<\\/(?:[\\w.-]+:)?chNFe>`, "i").test(protocol);
-};
-function saoPauloTimestamp(iso) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) throw new Error("Data da reserva inv\xE1lida.");
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-    timeZoneName: "longOffset"
-  });
-  const parts = Object.fromEntries(
-    formatter.formatToParts(date).map(({ type, value }) => [type, value])
-  );
-  const offset = String(parts.timeZoneName || "").replace("GMT", "") || "+00:00";
-  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
-}
-function nfceXmlNeedsFreshEmission(xml, now = Date.now()) {
-  const issuedAtText = xml?.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1];
-  const issuedAt = issuedAtText ? Date.parse(issuedAtText) : Number.NaN;
-  return !Number.isFinite(issuedAt) || now - issuedAt >= 4 * 6e4 || issuedAt > now + 6e4;
-}
-function freshNfceEmissionRequired(doc, cStat) {
-  return failure(
-    409,
-    "HML_NEW_EMISSION_REQUIRED",
-    cStat === "217" ? "A SEFAZ confirmou que a NFC-e original n\xE3o consta, mas seu hor\xE1rio de emiss\xE3o expirou. Inicie uma nova tentativa para gerar XML assinado com hor\xE1rio e numera\xE7\xE3o atuais." : "A SEFAZ rejeitou a NFC-e original por data-hora de emiss\xE3o atrasada. Inicie uma nova tentativa para gerar XML assinado com hor\xE1rio e numera\xE7\xE3o atuais.",
-    {
-      documentId: doc.id,
-      orderId: doc.order_id,
-      accessKey: doc.chave_acesso,
-      nfeNumber: doc.numero_nfe,
-      series: doc.serie,
-      model: doc.modelo,
-      environment: 2,
-      cStat,
-      pending: false,
-      sefazContacted: true,
-      safeNewEmission: true
-    }
-  );
-}
+// api/nfe/hml-technical/consultation.ts
 async function consultExisting(db, doc, cert, attemptToken) {
   const query = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>2</tpAmb><xServ>CONSULTAR</xServ><chNFe>${doc.chave_acesso}</chNFe></consSitNFe>`;
   const response = await sendSoapToSefaz({
@@ -6355,130 +6490,8 @@ async function consultExisting(db, doc, cert, attemptToken) {
     }
   };
 }
-async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumber, metadata2, cert, attemptToken) {
-  try {
-    const { data: persisted, error } = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("id", String(metadata2.fiscalSnapshotId || "")).maybeSingle();
-    if (error || !persisted) throw new Error("Snapshot fiscal indispon\xEDvel na transmiss\xE3o.");
-    await assertXmlFiscalSelections(persisted.snapshot_data, signedXml);
-  } catch {
-    return failure(
-      422,
-      "HML_TRANSMISSION_INTEGRITY_FAILED",
-      "XML assinado e campos confirmados n\xE3o puderam ser reconciliados. Transmiss\xE3o bloqueada.",
-      { ...metadata2, sefazContacted: false, numberReserved: true }
-    );
-  }
-  let responseXml;
-  try {
-    const envelope = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${nfeNumber}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
-    responseXml = await withNfeEmissionStage(
-      "sefaz_transmission",
-      () => sendSoapToSefaz({
-        url: hmlEndpoint(metadata2.model, "NFeAutorizacao4"),
-        action: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote",
-        xmlPayload: envelope,
-        certPem: cert.certPem,
-        privateKeyPem: cert.privateKeyPem
-      }),
-      { environment: 2, model: String(metadata2.model || "") }
-    );
-  } catch (error) {
-    const transportDiagnostic = sefazTransportDiagnostic(error);
-    const diagnosticId = (0, import_node_crypto8.randomUUID)();
-    const attemptDiagnostic = {
-      diagnosticId,
-      emissionRequestId: metadata2.emissionRequestId,
-      ...transportDiagnostic
-    };
-    console.error("SEFAZ_HML_TRANSPORT", { documentId, ...attemptDiagnostic });
-    const { error: diagnosticPersistError } = await db.rpc("persist_hml_nfe_result", {
-      p_document_id: documentId,
-      p_attempt_token: attemptToken,
-      p_status: "pendente",
-      p_reason: `Resposta da transmiss\xE3o HML desconhecida: ${JSON.stringify(attemptDiagnostic)}`,
-      p_response_xml: "",
-      p_protocol: null,
-      p_items: []
-    });
-    return failure(
-      502,
-      "HML_TRANSMISSION_UNCERTAIN",
-      "Transmiss\xE3o sem resposta confirmada. Consulte a chave antes de qualquer nova tentativa.",
-      {
-        pending: true,
-        ...metadata2,
-        transportDiagnostic,
-        diagnosticId,
-        diagnosticStage: "sefaz-transmission",
-        diagnosticCategory: "SEFAZ_TRANSPORT_FAILED",
-        transportDiagnosticPersisted: !diagnosticPersistError
-      }
-    );
-  }
-  const parsed = parseSefazAuthorization(responseXml);
-  const protocolMatches = hasProtocolKey(responseXml, accessKey);
-  const authorized = parsed.authorized && protocolMatches;
-  const numberConflict = isDifferentKeyNumberConflict(parsed.cStat, parsed.xMotivo, accessKey) ? fiscalNumberConflict(nfeNumber) : void 0;
-  const status = authorized ? "homologada" : parsed.pending || parsed.cStat === "100" || parsed.cStat === "204" || !/^\d{3}$/.test(parsed.cStat) ? "pendente" : "erro";
-  const lines = authorized ? parseAuthorizedInvoiceLines(signedXml).map((line) => ({
-    item_number: line.invoiceItemNumber,
-    product_code: line.productCode,
-    description: line.description,
-    billed_quantity: line.billedQuantity,
-    unit_value: line.unitValue,
-    gross_value: line.grossValue,
-    discount_value: line.discountValue,
-    product_xml: line.productXml,
-    taxes_xml: line.taxesXml
-  })) : [];
-  const { error: persistError } = await db.rpc("persist_hml_nfe_result", {
-    p_document_id: documentId,
-    p_attempt_token: attemptToken,
-    p_status: status,
-    p_reason: parsed.xMotivo || `SEFAZ cStat ${parsed.cStat || "desconhecido"}`,
-    p_response_xml: responseXml,
-    p_protocol: authorized ? parsed.protocolNumber || null : null,
-    p_items: lines
-  });
-  if (persistError)
-    return failure(
-      503,
-      "HML_RESULT_PERSIST_FAILED",
-      "Resposta SEFAZ recebida, mas n\xE3o persistida; reconcilia\xE7\xE3o obrigat\xF3ria.",
-      { pending: true, ...metadata2 }
-    );
-  return {
-    status: numberConflict ? 409 : status === "erro" ? 422 : 200,
-    body: {
-      success: authorized,
-      pending: status === "pendente",
-      ...numberConflict ? {
-        code: "NFE_NUMBER_ALREADY_USED",
-        error: `A numera\xE7\xE3o ${nfeNumber} j\xE1 est\xE1 sendo usada. Escolha o n\xFAmero sugerido ou informe outro.`,
-        numberConflict
-      } : status === "erro" ? {
-        code: "HML_SEFAZ_REJECTED",
-        error: `${parsed.cStat ? parsed.cStat + ": " : ""}${parsed.xMotivo || "Rejei\xE7\xE3o da SEFAZ."}`
-      } : {},
-      ...metadata2,
-      signedXml,
-      sefazResponseXml: responseXml,
-      cStat: parsed.cStat,
-      xMotivo: parsed.xMotivo,
-      protocolNumber: parsed.protocolNumber,
-      protocolDate: parsed.protocolDate
-    }
-  };
-}
-async function releaseAttempt(db, documentId, attemptToken) {
-  try {
-    await db.rpc("release_hml_nfe_attempt", {
-      p_document_id: documentId,
-      p_attempt_token: attemptToken
-    });
-  } catch {
-  }
-}
+
+// api/nfe/hml-technical/retryAndRecovery.ts
 async function retryHmlTechnical(db, documentId, allowRetransmission = true) {
   const { data: doc, error } = await db.from("nfe_documents").select("*").eq("id", documentId).maybeSingle();
   if (error || !doc || doc.ambiente !== 2 || !["55", "65"].includes(doc.modelo) || !isHmlRuleSet(doc.fiscal_ruleset_version))
@@ -6586,7 +6599,7 @@ async function retryHmlTechnical(db, documentId, allowRetransmission = true) {
   } catch {
     return failure(503, "HML_CERTIFICATE_INVALID", "Certificado A1 inv\xE1lido.");
   }
-  const attemptToken = (0, import_node_crypto8.randomUUID)();
+  const attemptToken = (0, import_node_crypto9.randomUUID)();
   const { data: claimed, error: claimError } = await db.rpc("claim_hml_nfe_attempt", {
     p_document_id: doc.id,
     p_attempt_token: attemptToken
@@ -6604,7 +6617,7 @@ async function retryHmlTechnical(db, documentId, allowRetransmission = true) {
       consultation = await consultExisting(db, doc, cert, attemptToken);
     } catch (error2) {
       const transportDiagnostic = sefazTransportDiagnostic(error2);
-      const diagnosticId = (0, import_node_crypto8.randomUUID)();
+      const diagnosticId = (0, import_node_crypto9.randomUUID)();
       const attemptDiagnostic = {
         diagnosticId,
         emissionRequestId: doc.emission_request_id,
@@ -6801,6 +6814,8 @@ async function recoverHmlTechnical(db, command) {
     );
   return null;
 }
+
+// api/nfe/emitHmlTechnical.ts
 async function emitHmlTechnical(db, command, candidate, appSettings) {
   if (command.environment !== 2)
     return failure(
@@ -6993,7 +7008,7 @@ async function emitHmlTechnical(db, command, candidate, appSettings) {
     );
   }
   if (reservationError || !reservation) {
-    const diagnosticId = (0, import_node_crypto8.randomUUID)();
+    const diagnosticId = (0, import_node_crypto10.randomUUID)();
     const diagnostic = classifySnapshotReservationError(reservationError);
     const databaseReason = snapshotReasonOf(reservationError);
     const activeConflict = databaseReason === "ALREADY_ACTIVE_FISCAL_ATTEMPT";
@@ -7087,7 +7102,7 @@ async function emitHmlTechnical(db, command, candidate, appSettings) {
     );
   }
   const issuedAt = saoPauloTimestamp(reservation.issuedAt);
-  const cNf = (0, import_node_crypto8.createHash)("sha256").update(command.emissionRequestId).digest("hex");
+  const cNf = (0, import_node_crypto10.createHash)("sha256").update(command.emissionRequestId).digest("hex");
   const randomCode = String(parseInt(cNf.slice(0, 10), 16) % 1e8).padStart(8, "0");
   const accessKey = generateNfeAccessKey({
     ufCode: "41",
@@ -7120,7 +7135,7 @@ async function emitHmlTechnical(db, command, candidate, appSettings) {
       { numberReserved: true, sefazContacted: false }
     );
   }
-  const attemptToken = (0, import_node_crypto8.randomUUID)();
+  const attemptToken = (0, import_node_crypto10.randomUUID)();
   const { data: documentId, error: insertError } = await db.rpc(
     "reserve_hml_nfe_outbound_with_replacement",
     {
@@ -7691,7 +7706,7 @@ async function handler(req, res) {
         { environment: selectedEnvironment, model }
       );
     } catch (soapErr) {
-      const diagnosticId = (0, import_node_crypto9.randomUUID)();
+      const diagnosticId = (0, import_node_crypto11.randomUUID)();
       const transportDiagnostic = sefazTransportDiagnostic(soapErr);
       const attemptDiagnostic = { diagnosticId, emissionRequestId, ...transportDiagnostic };
       console.error("[NF-e Emit] Falha de transporte:", { documentId, ...attemptDiagnostic });

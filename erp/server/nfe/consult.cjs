@@ -316,7 +316,7 @@ async function sendSoapToSefaz(params) {
 }
 
 // api/nfe/consult.ts
-var import_node_crypto6 = require("node:crypto");
+var import_node_crypto8 = require("node:crypto");
 
 // api/nfe/sefazTransportDiagnostic.ts
 function sefazTransportDiagnostic(error) {
@@ -783,48 +783,6 @@ async function authorizeFiscalOperator(client, authorizationHeader) {
   } catch {
     return { ok: false, status: 503, message: "N\xE3o foi poss\xEDvel validar a permiss\xE3o fiscal." };
   }
-}
-
-// api/nfe/emitHmlTechnical.ts
-var import_node_crypto4 = require("node:crypto");
-
-// erp/src/pages/utils/nfe/invoiceLineSnapshot.ts
-var decodeXml = (value) => value.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
-var childText = (xml, tag2) => {
-  const found = xml.match(new RegExp(`<${tag2}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag2}>`, "i"));
-  return found ? decodeXml(found[1].replace(/<[^>]+>/g, "").trim()) : "";
-};
-var decimal = (value) => {
-  const parsed = Number(value.replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : NaN;
-};
-function parseAuthorizedInvoiceLines(xml) {
-  if (!/<(?:\w+:)?infNFe\b/i.test(xml)) throw new Error("XML n\xE3o cont\xE9m uma NF-e identific\xE1vel.");
-  const details = [...xml.matchAll(/<(?:\w+:)?det\b([^>]*)>([\s\S]*?)<\/(?:\w+:)?det>/gi)];
-  if (!details.length) throw new Error("XML autorizado n\xE3o cont\xE9m itens fiscais.");
-  return details.map(([, attributes, content]) => {
-    const itemNumber = attributes.match(/\bnItem=["'](\d+)["']/i)?.[1];
-    const productXml = content.match(/<(?:\w+:)?prod\b[^>]*>[\s\S]*?<\/(?:\w+:)?prod>/i)?.[0] || "";
-    const taxesXml = content.match(/<(?:\w+:)?imposto\b[^>]*>[\s\S]*?<\/(?:\w+:)?imposto>/i)?.[0] || "";
-    const billedQuantity = decimal(childText(productXml, "qCom"));
-    const unitValue = decimal(childText(productXml, "vUnCom"));
-    const grossValue = decimal(childText(productXml, "vProd"));
-    const discountValue = decimal(childText(productXml, "vDesc") || "0");
-    if (!itemNumber || !productXml || !Number.isFinite(billedQuantity) || billedQuantity <= 0 || !Number.isFinite(unitValue) || unitValue < 0 || !Number.isFinite(grossValue) || grossValue < 0 || !Number.isFinite(discountValue) || discountValue < 0) {
-      throw new Error(`Linha fiscal inv\xE1lida no item ${itemNumber || "sem nItem"}.`);
-    }
-    return {
-      invoiceItemNumber: Number(itemNumber),
-      productCode: childText(productXml, "cProd"),
-      description: childText(productXml, "xProd"),
-      billedQuantity,
-      unitValue,
-      grossValue,
-      discountValue,
-      productXml,
-      taxesXml
-    };
-  });
 }
 
 // shared-utils/fiscalNumbering.ts
@@ -1493,54 +1451,6 @@ async function validatePinnedSchema(xml, relativePath, packageName) {
   }
 }
 
-// api/nfe/nfeEmissionPerformance.ts
-var import_api = require("@opentelemetry/api");
-var tracer = import_api.trace.getTracer("morante-hub", "1.0.0");
-async function withNfeEmissionStage(stage, operation, attributes = {}) {
-  const correlationId = typeof attributes.emissionRequestId === "string" ? attributes.emissionRequestId : typeof attributes.correlationId === "string" ? attributes.correlationId : void 0;
-  const name = `fiscal.nfe.${stage}`;
-  const safeAttributes = {
-    module: "Fiscal",
-    flow: "outbound_nfe",
-    stage,
-    ...correlationId ? { correlation_id: correlationId } : {},
-    ...attributes
-  };
-  return tracer.startActiveSpan(name, { attributes: safeAttributes }, async (span) => {
-    const startedAt = performance.now();
-    let succeeded = false;
-    try {
-      const result = await operation();
-      succeeded = true;
-      span.setStatus({ code: import_api.SpanStatusCode.OK });
-      return result;
-    } catch (error) {
-      span.recordException("NF-e performance stage failed");
-      span.setStatus({ code: import_api.SpanStatusCode.ERROR, message: "NF-e performance stage failed" });
-      throw error;
-    } finally {
-      const durationMs = Math.max(0, performance.now() - startedAt);
-      span.setAttribute("operation.duration_ms", durationMs);
-      span.setAttribute("operation.success", succeeded);
-      span.end();
-      console.info(
-        JSON.stringify({
-          event: "fiscal.nfe.performance",
-          stage,
-          ...correlationId ? { correlation_id: correlationId } : {},
-          duration_ms: Number(durationMs.toFixed(2)),
-          success: succeeded
-        })
-      );
-    }
-  });
-}
-
-// api/nfe/xmlEnvelope.ts
-function embeddedNfeXml(xml) {
-  return xml.replace(/^\uFEFF?\s*<\?xml\s[^?]*\?>\s*/, "");
-}
-
 // api/nfe/hml-normal-sale/constants.ts
 var HML_NORMAL_SALE_RULESET_VERSION = "HML_NORMAL_SALE_V2";
 
@@ -1834,7 +1744,7 @@ var INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES = [
   }
 ];
 
-// api/nfe/emitHmlTechnical.ts
+// api/nfe/hml-technical/constants.ts
 var isHmlRuleSet = (version) => version === HML_TECHNICAL_RULESET_VERSION || version === "HML_NORMAL_SALE_V1" || version === HML_NORMAL_SALE_RULESET_VERSION;
 var hmlEndpoint = (model, service) => {
   if (model !== "55" && model !== "65") throw new Error("Modelo fiscal inv\xE1lido.");
@@ -1870,6 +1780,229 @@ function freshNfceEmissionRequired(doc, cStat) {
     }
   );
 }
+
+// api/nfe/hml-technical/transmission.ts
+var import_node_crypto4 = require("node:crypto");
+
+// api/nfe/nfeEmissionPerformance.ts
+var import_api = require("@opentelemetry/api");
+var tracer = import_api.trace.getTracer("morante-hub", "1.0.0");
+async function withNfeEmissionStage(stage, operation, attributes = {}) {
+  const correlationId = typeof attributes.emissionRequestId === "string" ? attributes.emissionRequestId : typeof attributes.correlationId === "string" ? attributes.correlationId : void 0;
+  const name = `fiscal.nfe.${stage}`;
+  const safeAttributes = {
+    module: "Fiscal",
+    flow: "outbound_nfe",
+    stage,
+    ...correlationId ? { correlation_id: correlationId } : {},
+    ...attributes
+  };
+  return tracer.startActiveSpan(name, { attributes: safeAttributes }, async (span) => {
+    const startedAt = performance.now();
+    let succeeded = false;
+    try {
+      const result = await operation();
+      succeeded = true;
+      span.setStatus({ code: import_api.SpanStatusCode.OK });
+      return result;
+    } catch (error) {
+      span.recordException("NF-e performance stage failed");
+      span.setStatus({ code: import_api.SpanStatusCode.ERROR, message: "NF-e performance stage failed" });
+      throw error;
+    } finally {
+      const durationMs = Math.max(0, performance.now() - startedAt);
+      span.setAttribute("operation.duration_ms", durationMs);
+      span.setAttribute("operation.success", succeeded);
+      span.end();
+      console.info(
+        JSON.stringify({
+          event: "fiscal.nfe.performance",
+          stage,
+          ...correlationId ? { correlation_id: correlationId } : {},
+          duration_ms: Number(durationMs.toFixed(2)),
+          success: succeeded
+        })
+      );
+    }
+  });
+}
+
+// api/nfe/xmlEnvelope.ts
+function embeddedNfeXml(xml) {
+  return xml.replace(/^\uFEFF?\s*<\?xml\s[^?]*\?>\s*/, "");
+}
+
+// erp/src/pages/utils/nfe/invoiceLineSnapshot.ts
+var decodeXml = (value) => value.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+var childText = (xml, tag2) => {
+  const found = xml.match(new RegExp(`<${tag2}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag2}>`, "i"));
+  return found ? decodeXml(found[1].replace(/<[^>]+>/g, "").trim()) : "";
+};
+var decimal2 = (value) => {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : NaN;
+};
+function parseAuthorizedInvoiceLines(xml) {
+  if (!/<(?:\w+:)?infNFe\b/i.test(xml)) throw new Error("XML n\xE3o cont\xE9m uma NF-e identific\xE1vel.");
+  const details = [...xml.matchAll(/<(?:\w+:)?det\b([^>]*)>([\s\S]*?)<\/(?:\w+:)?det>/gi)];
+  if (!details.length) throw new Error("XML autorizado n\xE3o cont\xE9m itens fiscais.");
+  return details.map(([, attributes, content]) => {
+    const itemNumber = attributes.match(/\bnItem=["'](\d+)["']/i)?.[1];
+    const productXml = content.match(/<(?:\w+:)?prod\b[^>]*>[\s\S]*?<\/(?:\w+:)?prod>/i)?.[0] || "";
+    const taxesXml = content.match(/<(?:\w+:)?imposto\b[^>]*>[\s\S]*?<\/(?:\w+:)?imposto>/i)?.[0] || "";
+    const billedQuantity = decimal2(childText(productXml, "qCom"));
+    const unitValue = decimal2(childText(productXml, "vUnCom"));
+    const grossValue = decimal2(childText(productXml, "vProd"));
+    const discountValue = decimal2(childText(productXml, "vDesc") || "0");
+    if (!itemNumber || !productXml || !Number.isFinite(billedQuantity) || billedQuantity <= 0 || !Number.isFinite(unitValue) || unitValue < 0 || !Number.isFinite(grossValue) || grossValue < 0 || !Number.isFinite(discountValue) || discountValue < 0) {
+      throw new Error(`Linha fiscal inv\xE1lida no item ${itemNumber || "sem nItem"}.`);
+    }
+    return {
+      invoiceItemNumber: Number(itemNumber),
+      productCode: childText(productXml, "cProd"),
+      description: childText(productXml, "xProd"),
+      billedQuantity,
+      unitValue,
+      grossValue,
+      discountValue,
+      productXml,
+      taxesXml
+    };
+  });
+}
+
+// api/nfe/hml-technical/transmission.ts
+async function releaseAttempt(db, documentId, attemptToken) {
+  try {
+    await db.rpc("release_hml_nfe_attempt", {
+      p_document_id: documentId,
+      p_attempt_token: attemptToken
+    });
+  } catch {
+  }
+}
+async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumber, metadata2, cert, attemptToken) {
+  try {
+    const { data: persisted, error } = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("id", String(metadata2.fiscalSnapshotId || "")).maybeSingle();
+    if (error || !persisted) throw new Error("Snapshot fiscal indispon\xEDvel na transmiss\xE3o.");
+    await assertXmlFiscalSelections(persisted.snapshot_data, signedXml);
+  } catch {
+    return failure(
+      422,
+      "HML_TRANSMISSION_INTEGRITY_FAILED",
+      "XML assinado e campos confirmados n\xE3o puderam ser reconciliados. Transmiss\xE3o bloqueada.",
+      { ...metadata2, sefazContacted: false, numberReserved: true }
+    );
+  }
+  let responseXml;
+  try {
+    const envelope = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${nfeNumber}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
+    responseXml = await withNfeEmissionStage(
+      "sefaz_transmission",
+      () => sendSoapToSefaz({
+        url: hmlEndpoint(metadata2.model, "NFeAutorizacao4"),
+        action: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote",
+        serviceNamespace: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4",
+        xmlPayload: envelope,
+        certPem: cert.certPem,
+        privateKeyPem: cert.privateKeyPem
+      }),
+      { environment: 2, model: String(metadata2.model || "") }
+    );
+  } catch (error) {
+    const transportDiagnostic = sefazTransportDiagnostic(error);
+    const diagnosticId = (0, import_node_crypto4.randomUUID)();
+    const attemptDiagnostic = {
+      diagnosticId,
+      emissionRequestId: metadata2.emissionRequestId,
+      ...transportDiagnostic
+    };
+    console.error("SEFAZ_HML_TRANSPORT", { documentId, ...attemptDiagnostic });
+    const { error: diagnosticPersistError } = await db.rpc("persist_hml_nfe_result", {
+      p_document_id: documentId,
+      p_attempt_token: attemptToken,
+      p_status: "pendente",
+      p_reason: `Resposta da transmiss\xE3o HML desconhecida: ${JSON.stringify(attemptDiagnostic)}`,
+      p_response_xml: "",
+      p_protocol: null,
+      p_items: []
+    });
+    return failure(
+      502,
+      "HML_TRANSMISSION_UNCERTAIN",
+      "Transmiss\xE3o sem resposta confirmada. Consulte a chave antes de qualquer nova tentativa.",
+      {
+        pending: true,
+        ...metadata2,
+        transportDiagnostic,
+        diagnosticId,
+        diagnosticStage: "sefaz-transmission",
+        diagnosticCategory: "SEFAZ_TRANSPORT_FAILED",
+        transportDiagnosticPersisted: !diagnosticPersistError
+      }
+    );
+  }
+  const parsed = parseSefazAuthorization(responseXml);
+  const protocolMatches = hasProtocolKey(responseXml, accessKey);
+  const authorized = parsed.authorized && protocolMatches;
+  const numberConflict = isDifferentKeyNumberConflict(parsed.cStat, parsed.xMotivo, accessKey) ? fiscalNumberConflict(nfeNumber) : void 0;
+  const status = authorized ? "homologada" : parsed.pending || parsed.cStat === "100" || parsed.cStat === "204" || !/^\d{3}$/.test(parsed.cStat) ? "pendente" : "erro";
+  const lines = authorized ? parseAuthorizedInvoiceLines(signedXml).map((line) => ({
+    item_number: line.invoiceItemNumber,
+    product_code: line.productCode,
+    description: line.description,
+    billed_quantity: line.billedQuantity,
+    unit_value: line.unitValue,
+    gross_value: line.grossValue,
+    discount_value: line.discountValue,
+    product_xml: line.productXml,
+    taxes_xml: line.taxesXml
+  })) : [];
+  const { error: persistError } = await db.rpc("persist_hml_nfe_result", {
+    p_document_id: documentId,
+    p_attempt_token: attemptToken,
+    p_status: status,
+    p_reason: parsed.xMotivo || `SEFAZ cStat ${parsed.cStat || "desconhecido"}`,
+    p_response_xml: responseXml,
+    p_protocol: authorized ? parsed.protocolNumber || null : null,
+    p_items: lines
+  });
+  if (persistError)
+    return failure(
+      503,
+      "HML_RESULT_PERSIST_FAILED",
+      "Resposta SEFAZ recebida, mas n\xE3o persistida; reconcilia\xE7\xE3o obrigat\xF3ria.",
+      { pending: true, ...metadata2 }
+    );
+  return {
+    status: numberConflict ? 409 : status === "erro" ? 422 : 200,
+    body: {
+      success: authorized,
+      pending: status === "pendente",
+      ...numberConflict ? {
+        code: "NFE_NUMBER_ALREADY_USED",
+        error: `A numera\xE7\xE3o ${nfeNumber} j\xE1 est\xE1 sendo usada. Escolha o n\xFAmero sugerido ou informe outro.`,
+        numberConflict
+      } : status === "erro" ? {
+        code: "HML_SEFAZ_REJECTED",
+        error: `${parsed.cStat ? parsed.cStat + ": " : ""}${parsed.xMotivo || "Rejei\xE7\xE3o da SEFAZ."}`
+      } : {},
+      ...metadata2,
+      signedXml,
+      sefazResponseXml: responseXml,
+      cStat: parsed.cStat,
+      xMotivo: parsed.xMotivo,
+      protocolNumber: parsed.protocolNumber,
+      protocolDate: parsed.protocolDate
+    }
+  };
+}
+
+// api/nfe/hml-technical/retryAndRecovery.ts
+var import_node_crypto6 = require("node:crypto");
+
+// api/nfe/hml-technical/consultation.ts
+var import_node_crypto5 = require("node:crypto");
 async function consultExisting(db, doc, cert, attemptToken) {
   const query = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>2</tpAmb><xServ>CONSULTAR</xServ><chNFe>${doc.chave_acesso}</chNFe></consSitNFe>`;
   const response = await sendSoapToSefaz({
@@ -2031,7 +2164,7 @@ async function consultAuthorizedHmlTechnical(doc) {
     });
   } catch (error) {
     const transportDiagnostic = sefazTransportDiagnostic(error);
-    const diagnosticId = (0, import_node_crypto4.randomUUID)();
+    const diagnosticId = (0, import_node_crypto5.randomUUID)();
     console.error("SEFAZ_HML_AUTHORIZED_CONSULT", {
       documentId: doc.id,
       emissionRequestId: doc.emission_request_id,
@@ -2066,7 +2199,7 @@ async function consultAuthorizedHmlTechnical(doc) {
         cStat: situation.cStat || parsed.cStat,
         xMotivo: situation.xMotivo || parsed.xMotivo,
         protocolMatches: parsed.protocolNumber === doc.numero_protocolo,
-        responseHash: (0, import_node_crypto4.createHash)("sha256").update(response).digest("hex")
+        responseHash: (0, import_node_crypto5.createHash)("sha256").update(response).digest("hex")
       }
     );
   }
@@ -2087,134 +2220,12 @@ async function consultAuthorizedHmlTechnical(doc) {
       xMotivo: situation.xMotivo || parsed.xMotivo,
       protocolNumber: parsed.protocolNumber,
       protocolDate: parsed.protocolDate,
-      responseHash: (0, import_node_crypto4.createHash)("sha256").update(response).digest("hex")
+      responseHash: (0, import_node_crypto5.createHash)("sha256").update(response).digest("hex")
     }
   };
 }
-async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumber, metadata2, cert, attemptToken) {
-  try {
-    const { data: persisted, error } = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("id", String(metadata2.fiscalSnapshotId || "")).maybeSingle();
-    if (error || !persisted) throw new Error("Snapshot fiscal indispon\xEDvel na transmiss\xE3o.");
-    await assertXmlFiscalSelections(persisted.snapshot_data, signedXml);
-  } catch {
-    return failure(
-      422,
-      "HML_TRANSMISSION_INTEGRITY_FAILED",
-      "XML assinado e campos confirmados n\xE3o puderam ser reconciliados. Transmiss\xE3o bloqueada.",
-      { ...metadata2, sefazContacted: false, numberReserved: true }
-    );
-  }
-  let responseXml;
-  try {
-    const envelope = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${nfeNumber}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
-    responseXml = await withNfeEmissionStage(
-      "sefaz_transmission",
-      () => sendSoapToSefaz({
-        url: hmlEndpoint(metadata2.model, "NFeAutorizacao4"),
-        action: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote",
-        xmlPayload: envelope,
-        certPem: cert.certPem,
-        privateKeyPem: cert.privateKeyPem
-      }),
-      { environment: 2, model: String(metadata2.model || "") }
-    );
-  } catch (error) {
-    const transportDiagnostic = sefazTransportDiagnostic(error);
-    const diagnosticId = (0, import_node_crypto4.randomUUID)();
-    const attemptDiagnostic = {
-      diagnosticId,
-      emissionRequestId: metadata2.emissionRequestId,
-      ...transportDiagnostic
-    };
-    console.error("SEFAZ_HML_TRANSPORT", { documentId, ...attemptDiagnostic });
-    const { error: diagnosticPersistError } = await db.rpc("persist_hml_nfe_result", {
-      p_document_id: documentId,
-      p_attempt_token: attemptToken,
-      p_status: "pendente",
-      p_reason: `Resposta da transmiss\xE3o HML desconhecida: ${JSON.stringify(attemptDiagnostic)}`,
-      p_response_xml: "",
-      p_protocol: null,
-      p_items: []
-    });
-    return failure(
-      502,
-      "HML_TRANSMISSION_UNCERTAIN",
-      "Transmiss\xE3o sem resposta confirmada. Consulte a chave antes de qualquer nova tentativa.",
-      {
-        pending: true,
-        ...metadata2,
-        transportDiagnostic,
-        diagnosticId,
-        diagnosticStage: "sefaz-transmission",
-        diagnosticCategory: "SEFAZ_TRANSPORT_FAILED",
-        transportDiagnosticPersisted: !diagnosticPersistError
-      }
-    );
-  }
-  const parsed = parseSefazAuthorization(responseXml);
-  const protocolMatches = hasProtocolKey(responseXml, accessKey);
-  const authorized = parsed.authorized && protocolMatches;
-  const numberConflict = isDifferentKeyNumberConflict(parsed.cStat, parsed.xMotivo, accessKey) ? fiscalNumberConflict(nfeNumber) : void 0;
-  const status = authorized ? "homologada" : parsed.pending || parsed.cStat === "100" || parsed.cStat === "204" || !/^\d{3}$/.test(parsed.cStat) ? "pendente" : "erro";
-  const lines = authorized ? parseAuthorizedInvoiceLines(signedXml).map((line) => ({
-    item_number: line.invoiceItemNumber,
-    product_code: line.productCode,
-    description: line.description,
-    billed_quantity: line.billedQuantity,
-    unit_value: line.unitValue,
-    gross_value: line.grossValue,
-    discount_value: line.discountValue,
-    product_xml: line.productXml,
-    taxes_xml: line.taxesXml
-  })) : [];
-  const { error: persistError } = await db.rpc("persist_hml_nfe_result", {
-    p_document_id: documentId,
-    p_attempt_token: attemptToken,
-    p_status: status,
-    p_reason: parsed.xMotivo || `SEFAZ cStat ${parsed.cStat || "desconhecido"}`,
-    p_response_xml: responseXml,
-    p_protocol: authorized ? parsed.protocolNumber || null : null,
-    p_items: lines
-  });
-  if (persistError)
-    return failure(
-      503,
-      "HML_RESULT_PERSIST_FAILED",
-      "Resposta SEFAZ recebida, mas n\xE3o persistida; reconcilia\xE7\xE3o obrigat\xF3ria.",
-      { pending: true, ...metadata2 }
-    );
-  return {
-    status: numberConflict ? 409 : status === "erro" ? 422 : 200,
-    body: {
-      success: authorized,
-      pending: status === "pendente",
-      ...numberConflict ? {
-        code: "NFE_NUMBER_ALREADY_USED",
-        error: `A numera\xE7\xE3o ${nfeNumber} j\xE1 est\xE1 sendo usada. Escolha o n\xFAmero sugerido ou informe outro.`,
-        numberConflict
-      } : status === "erro" ? {
-        code: "HML_SEFAZ_REJECTED",
-        error: `${parsed.cStat ? parsed.cStat + ": " : ""}${parsed.xMotivo || "Rejei\xE7\xE3o da SEFAZ."}`
-      } : {},
-      ...metadata2,
-      signedXml,
-      sefazResponseXml: responseXml,
-      cStat: parsed.cStat,
-      xMotivo: parsed.xMotivo,
-      protocolNumber: parsed.protocolNumber,
-      protocolDate: parsed.protocolDate
-    }
-  };
-}
-async function releaseAttempt(db, documentId, attemptToken) {
-  try {
-    await db.rpc("release_hml_nfe_attempt", {
-      p_document_id: documentId,
-      p_attempt_token: attemptToken
-    });
-  } catch {
-  }
-}
+
+// api/nfe/hml-technical/retryAndRecovery.ts
 async function retryHmlTechnical(db, documentId, allowRetransmission = true) {
   const { data: doc, error } = await db.from("nfe_documents").select("*").eq("id", documentId).maybeSingle();
   if (error || !doc || doc.ambiente !== 2 || !["55", "65"].includes(doc.modelo) || !isHmlRuleSet(doc.fiscal_ruleset_version))
@@ -2322,7 +2333,7 @@ async function retryHmlTechnical(db, documentId, allowRetransmission = true) {
   } catch {
     return failure(503, "HML_CERTIFICATE_INVALID", "Certificado A1 inv\xE1lido.");
   }
-  const attemptToken = (0, import_node_crypto4.randomUUID)();
+  const attemptToken = (0, import_node_crypto6.randomUUID)();
   const { data: claimed, error: claimError } = await db.rpc("claim_hml_nfe_attempt", {
     p_document_id: doc.id,
     p_attempt_token: attemptToken
@@ -2340,7 +2351,7 @@ async function retryHmlTechnical(db, documentId, allowRetransmission = true) {
       consultation = await consultExisting(db, doc, cert, attemptToken);
     } catch (error2) {
       const transportDiagnostic = sefazTransportDiagnostic(error2);
-      const diagnosticId = (0, import_node_crypto4.randomUUID)();
+      const diagnosticId = (0, import_node_crypto6.randomUUID)();
       const attemptDiagnostic = {
         diagnosticId,
         emissionRequestId: doc.emission_request_id,
@@ -2430,7 +2441,7 @@ async function retryHmlTechnical(db, documentId, allowRetransmission = true) {
 }
 
 // api/nfe/normal-sale/outboundAttempt.ts
-var import_node_crypto5 = require("node:crypto");
+var import_node_crypto7 = require("node:crypto");
 
 // erp/src/pages/utils/nfe/fiscalEnvelope.ts
 function validateOrdinaryOutboundEnvelope(input) {
@@ -3065,7 +3076,7 @@ async function transmitPreparedOutbound(db, a, doc, token, certificate, producti
   try {
     const saved = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("id", a.snapshot_id).maybeSingle();
     const xml = String(doc.xml_nfe || "");
-    if (saved.error || !saved.data || (0, import_node_crypto5.createHash)("sha256").update(xml).digest("hex") !== a.xml_sha256)
+    if (saved.error || !saved.data || (0, import_node_crypto7.createHash)("sha256").update(xml).digest("hex") !== a.xml_sha256)
       throw new Error("Snapshot ou XML reservado indispon\xEDvel.");
     const envelopeError = validateOrdinaryOutboundEnvelope({
       xml,
@@ -3220,7 +3231,7 @@ async function reconcileNormalSale(db, documentId, allowTransmission = false, pr
   }
   const { attempt: a, document: doc } = loaded;
   if (["authorized", "rejected"].includes(a.state)) return finalResult(a, doc);
-  const token = ownedToken || (0, import_node_crypto5.randomUUID)();
+  const token = ownedToken || (0, import_node_crypto7.randomUUID)();
   if (!ownedToken) {
     const claimed = await db.rpc("claim_nfe_outbound_attempt", {
       p_document_id: documentId,
@@ -3411,7 +3422,7 @@ async function handler(req, res) {
     const result = await reconcileLegacyConsultation(supabase, doc, responseXml, consultationStartedAt);
     return res.status(result.status).json(result.body);
   } catch (err) {
-    const diagnosticId = (0, import_node_crypto6.randomUUID)();
+    const diagnosticId = (0, import_node_crypto8.randomUUID)();
     const transportDiagnostic = sefazTransportDiagnostic(err);
     console.error("[NF-e Consult] Falha de transporte:", {
       documentId,
