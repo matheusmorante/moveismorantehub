@@ -272,6 +272,7 @@ export function ModelFormModal({ value, onClose, onSave }: Props) {
         onValid={submit}
         className="max-h-[94vh] w-full max-w-6xl overflow-hidden rounded-xl border border-slate-700 bg-slate-900 text-white shadow-2xl flex flex-col"
       >
+        {editor.message && <p role="alert" className="p-3 text-sm text-amber-300">{editor.message}</p>}
         <header className="flex items-center justify-between border-b border-slate-700 p-5 shrink-0">
           <div>
             <h2 className="text-lg font-bold text-white">

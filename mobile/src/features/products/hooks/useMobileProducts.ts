@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { productListFormSchema } from '../../../../../shared-utils/listingFormSchemas';
-import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
+import { validateCatalogPublication } from '../../../../../shared-utils/catalogPublicationValidation';
 import {
   canShowMobileTestProducts,
   resolveAppliedMobileProductSearch,
@@ -150,91 +150,18 @@ export function useMobileProducts(
     varId?: string
   ) => {
     const targetProd = products.find((p) => p.id === productId);
-    if (
-      targetProd &&
-      (targetProd.isDraft || targetProd.is_draft || targetProd.status === 'draft')
-    ) {
-      Alert.alert(
-        'Produto em Rascunho',
-        'Termine o cadastramento deste produto para poder publicá-lo no Catálogo.'
-      );
-      return;
-    }
+    const variation = isVar
+      ? (targetProd?.allVariations || []).find((v: any) => String(v.id) === String(varId))
+      : null;
+
     if (currentStatus !== 'published' && targetProd) {
-      if (isTestProduct(targetProd)) {
+      const validation = validateCatalogPublication(targetProd, variation, isVar);
+      if (!validation.isValid) {
         Alert.alert(
-          'Produto não pode ser publicado',
-          'Produtos identificados como teste não podem ser publicados no Catálogo Digital.'
-        );
-        return;
-      }
-      const variation = isVar
-        ? (targetProd.allVariations || []).find((v: any) => String(v.id) === String(varId))
-        : null;
-      const effective: any = variation
-        ? {
-            ...targetProd,
-            ...variation,
-            title:
-              variation.title ||
-              variation.marketplaceTitle ||
-              targetProd.title ||
-              targetProd.marketplaceTitle ||
-              targetProd.name,
-            description:
-              variation.syncDescription !== false
-                ? targetProd.description || targetProd.name
-                : variation.description || targetProd.description || targetProd.name,
-            unitPrice:
-              variation.syncUnitPrice !== false
-                ? (targetProd.unitPrice ?? targetProd.unit_price ?? targetProd.price)
-                : (variation.price ?? variation.unitPrice),
-            images: variation.image_url
-              ? String(variation.image_url).split(',').filter(Boolean)
-              : targetProd.images || [],
-            width: variation.syncWidth !== false ? targetProd.width : variation.width,
-            height: variation.syncHeight !== false ? targetProd.height : variation.height,
-            depth: variation.syncDepth !== false ? targetProd.depth : variation.depth,
-          }
-        : targetProd;
-      const errors: string[] = [];
-      const hasVariations = Boolean(
-        effective.has_variations ||
-          effective.hasVariations ||
-          (effective.allVariations || []).length
-      );
-      if (String(effective.title || effective.marketplaceTitle || '').trim().length < 2)
-        errors.push('título do catálogo');
-      if (
-        String(
-          effective.ecommerceDescription ||
-            effective.ecommerce_description ||
-            effective.description ||
-            ''
-        ).trim().length < 2
-      )
-        errors.push('descrição do catálogo');
-      if (
-        !hasVariations &&
-        Number(effective.unitPrice ?? effective.unit_price ?? effective.price ?? 0) <= 0
-      )
-        errors.push('preço de venda');
-      if (!(effective.categoryIds || []).length && !effective.category_id && !effective.category)
-        errors.push('categoria');
-      if (!(Array.isArray(effective.images) && effective.images.length > 0)) errors.push('foto');
-      if (
-        effective.itemType !== 'service' &&
-        effective.item_type !== 'service' &&
-        [effective.width, effective.height, effective.depth].some(
-          (value: any) => Number(value) <= 0 || value == null || value === ''
-        )
-      ) {
-        errors.push('dimensões');
-      }
-      if (errors.length > 0) {
-        Alert.alert(
-          'Produto não pode ser publicado',
-          `Preencha os requisitos do ERP: ${errors.join(', ')}.`
+          validation.errorMessage?.includes('rascunho')
+            ? 'Produto em Rascunho'
+            : 'Produto não pode ser publicado',
+          validation.errorMessage || 'Preencha os requisitos do catálogo antes de publicar.'
         );
         return;
       }

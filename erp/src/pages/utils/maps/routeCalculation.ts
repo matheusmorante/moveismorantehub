@@ -16,6 +16,13 @@ export interface RouteResult {
 
 type GoogleRouteResult = { distanceKm: number; durationMinutes: number; geometry: any };
 const routeRequests = new Map<string, Promise<GoogleRouteResult | null>>();
+const routeCache = new Map<string, { result: GoogleRouteResult; timestamp: number }>();
+const ROUTE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas de cache em memória
+
+export const clearRouteCache = () => {
+  routeRequests.clear();
+  routeCache.clear();
+};
 
 export const getShippingRouteUrl = (fullAddress: CustomerData['fullAddress'] | any): string => {
   const explicitUrl = fullAddress?.mapsUrl || fullAddress?.googleMapsUrl || fullAddress?.mapsLink;
@@ -39,7 +46,15 @@ export const calculateRouteViaGoogleMaps = async (
   apiKey?: string,
   onFailure?: (reason: string) => void
 ): Promise<GoogleRouteResult | null> => {
-  const routeKey = [...origin, ...destination].map((coordinate) => String(Number(coordinate))).join('|');
+  const routeKey = [...origin, ...destination]
+    .map((coordinate) => Number(coordinate).toFixed(4))
+    .join('|');
+
+  const cached = routeCache.get(routeKey);
+  if (cached && Date.now() - cached.timestamp < ROUTE_CACHE_TTL_MS) {
+    return cached.result;
+  }
+
   const existingRequest = routeRequests.get(routeKey);
   if (existingRequest) return existingRequest;
 
@@ -87,7 +102,7 @@ export const calculateRouteViaGoogleMaps = async (
           module_source: 'logistics',
         });
 
-        return {
+        const routeResult: GoogleRouteResult = {
           distanceKm,
           durationMinutes,
           geometry: {
@@ -98,6 +113,9 @@ export const calculateRouteViaGoogleMaps = async (
             ]),
           },
         };
+
+        routeCache.set(routeKey, { result: routeResult, timestamp: Date.now() });
+        return routeResult;
       }
       throw new Error('Google Routes API não encontrou uma rota dirigível.');
     } catch (e) {

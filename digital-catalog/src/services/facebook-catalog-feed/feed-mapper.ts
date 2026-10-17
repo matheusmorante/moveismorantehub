@@ -11,7 +11,6 @@ import {
   resolveEffectivePrice,
   extractProductImages,
   resolveVariationSku,
-  resolveParentProductSku,
   normalizeMetaImageUrl,
   formatDecimalPrice,
 } from './feed-helpers';
@@ -131,77 +130,9 @@ function buildVariationRow(options: {
 }
 
 /**
- * Constrói uma linha CSV para um produto simples (sem variações)
- */
-function buildSimpleProductRow(options: {
-  product: RawCatalogProduct;
-  origin: string;
-  productType: string;
-  parentImage: string;
-  additionalImages: string;
-  globalPrefix?: string;
-  opportunityName?: string;
-  opportunityObservations?: string;
-  columnMappings: MetaCatalogColumnMappings;
-}): string[] | null {
-  const { product, origin, productType, parentImage, additionalImages } = options;
-
-  const rawParentPrice = product.price || product.unit_price || 0;
-  const rawParentPromo = product.promo_price || 0;
-  const priceInfo = resolveEffectivePrice(rawParentPrice, rawParentPromo);
-
-  const finalParentImage = normalizeMetaImageUrl(parentImage);
-
-  // Meta exige preço estritamente positivo e imagem válida
-  if (!priceInfo.isValid || !finalParentImage) {
-    return null;
-  }
-
-  const descWithPrefix = buildDescription({
-    globalPrefix: options.globalPrefix,
-    opportunityName: options.opportunityName,
-    opportunityObservations: options.opportunityObservations,
-    body: product.description,
-  });
-
-  const parentSku = resolveParentProductSku(product);
-
-  const finalAdditionalImages = additionalImages
-    .split(',')
-    .map(normalizeMetaImageUrl)
-    .filter(Boolean)
-    .join(',');
-
-  return [
-    parentSku, // id (SKU único do produto)
-    product.name, // title
-    descWithPrefix, // description
-    `${origin}/produto/${product.slug}`, // link
-    finalParentImage, // image_link
-    finalAdditionalImages, // additional_image_link
-    'in stock', // availability
-    descWithPrefix, // rich_text_description
-    `${priceInfo.regularPrice.toFixed(2)} BRL`, // price
-    priceInfo.hasPromo ? `${priceInfo.promoPrice.toFixed(2)} BRL` : '', // sale_price
-    options.columnMappings.brand || 'Móveis Morante', // brand
-    product.is_salvado ? 'refurbished' : 'new', // condition
-    '', // color
-    options.columnMappings.gender || 'unisex', // gender
-    product.material || '', // material
-    '', // size
-    '', // item_group_id
-    'no', // identifier_exists
-    '1', // quantity_to_sell_on_facebook
-    productType, // product_type
-    productType, // custom_label_0
-    formatDecimalPrice(priceInfo.currentPrice), // custom_label_1
-    priceInfo.oldPriceFormatted, // custom_label_2
-    options.opportunityName || '', // custom_label_3
-  ];
-}
-
-/**
- * Mapeia todos os produtos e variações em linhas para o feed da Meta
+ * Mapeia todos os produtos e variações em linhas para o feed da Meta.
+ * No MoranteHub, apenas variações são itens de venda e devem compor o catálogo.
+ * Códigos pai de produtos nunca devem ser exportados ao Meta Catalog.
  */
 export function mapProductsToFeedRows(options: MapProductsOptions): string[][] {
   const { products, settings, origin } = options;
@@ -240,8 +171,8 @@ export function mapProductsToFeedRows(options: MapProductsOptions): string[][] {
       );
     }
 
-    // Se nem o produto pai nem nenhuma variação estiver publicada, ignora
-    if (!isParentPublished && variationsList.length === 0) {
+    // Se não houver variações publicadas para esta família de produtos, ignora completamente
+    if (variationsList.length === 0) {
       continue;
     }
 
@@ -254,29 +185,11 @@ export function mapProductsToFeedRows(options: MapProductsOptions): string[][] {
     const opportunityName = opp?.name ? String(opp.name).trim() : '';
     const opportunityObservations = opp?.observations ? String(opp.observations).trim() : '';
 
-    if (variationsList.length > 0) {
-      for (let i = 0; i < variationsList.length; i++) {
-        const row = buildVariationRow({
-          product,
-          variation: variationsList[i],
-          variationIndex: i,
-          origin,
-          productType,
-          parentImage,
-          additionalImages,
-          globalPrefix: settings.globalDescriptionPrefix,
-          opportunityName,
-          opportunityObservations,
-          columnMappings: settings.columnMappings,
-        });
-
-        if (row) {
-          rows.push(row);
-        }
-      }
-    } else if (isParentPublished) {
-      const row = buildSimpleProductRow({
+    for (let i = 0; i < variationsList.length; i++) {
+      const row = buildVariationRow({
         product,
+        variation: variationsList[i],
+        variationIndex: i,
         origin,
         productType,
         parentImage,

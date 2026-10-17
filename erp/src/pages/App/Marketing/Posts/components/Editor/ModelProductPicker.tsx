@@ -9,11 +9,12 @@ export function ModelProductPicker({
 }) {
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const search = useRef(e.setSearch); search.current = e.setSearch;
   useEffect(() => {
-    if (!open) e.setSearch('');
+    if (!open) search.current('');
   }, [open]);
   const select = async (id: string) => {
-    await e.selectProduct(id);
+    if (!await e.selectProduct(id)) return;
     onSelected?.(id);
     setOpen(false);
   };
@@ -29,6 +30,7 @@ export function ModelProductPicker({
   };
   return (
     <div className="relative">
+      {e.message && <p role="alert" className="text-xs text-red-300">{e.message}</p>}
       <button
         title="Usado somente para visualizar o template"
         onClick={() => setOpen((value) => !value)}

@@ -115,6 +115,15 @@ export const buttons: OrderButton[] = [
     orderTypes: ['sale', 'showroom'],
   },
   {
+    key: 'generateAssistance',
+    icon: 'bi-tools',
+    action: 'GENERATE_ASSISTANCE',
+    label: 'Gerar Assistência',
+    color: 'text-orange-600 hover:bg-orange-50',
+    tooltip: 'Criar uma assistência técnica vinculada a este pedido atendido',
+    orderTypes: ['sale', 'showroom'],
+  },
+  {
     key: 'undoReturn',
     icon: 'bi-arrow-counterclockwise',
     action: 'UNDO_RETURN',

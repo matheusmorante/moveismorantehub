@@ -270,6 +270,8 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
             neighborhood: shipping.deliveryAddress?.neighborhood || '',
             city: shipping.deliveryAddress?.city || '',
           }}
+          coords={shipping.deliveryAddress?.coords || shipping.destinationCoords}
+          placeId={shipping.deliveryAddress?.placeId}
         />
       </div>
     </div>

@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import { compressImageToFile } from '@/pages/utils/imageUtils';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
@@ -19,16 +21,24 @@ type Drag =
 interface SquareImageCropperProps {
   imageUrl: string;
   onCancel: () => void;
-  onConfirm: (file: File) => void;
+  onConfirm: (file: File) => void | boolean | Promise<void | boolean>;
+  onProcessingChange?: (pending: boolean) => boolean | void;
+  portal?: boolean;
 }
 
-export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImageCropperProps) {
+export function SquareImageCropper({ imageUrl, onCancel, onConfirm, onProcessingChange, portal = false }: SquareImageCropperProps) {
   const [selection, setSelection] = useState<SquareSelection | null>(null);
   const [imageSrc, setImageSrc] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<boolean>(false);
   const [isApplying, setIsApplying] = useState<boolean>(false);
 
+  const [errorMessage, setErrorMessage] = useState('');
+  const active = useRef(true), applying = useRef(false), uncertain = useRef(false);
+  const preparedFile = useRef<{ signature: string; file: File } | null>(null);
+  const source = useRef({ imageUrl }); if (source.current.imageUrl !== imageUrl) source.current = { imageUrl };
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const close = () => { if (!applying.current) onCancel(); };
   const [paddingPercent, setPaddingPercent] = useState<number>(0);
   const cropForm = useZodForm(squareImageCropFormSchema, { image: imageUrl, paddingPercent, displayWidth: 0, displayHeight: 0, sourceWidth: 0, sourceHeight: 0, selection: { x: 0, y: 0, size: 0 } });
 
@@ -41,7 +51,10 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
     setLoadError(false);
     setLoading(true);
 
-    let active = true;
+    let active = true, expired = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => { expired = true; controller.abort(); if (active) { setLoading(false); setLoadError(true); } }, 15_000);
+    const current = () => active && !expired;
     let objectUrl = '';
 
     async function prepareImage() {
@@ -61,11 +74,12 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
       const urlsToTry = buildImageFetchCandidates(imageUrl, true);
 
       for (const url of urlsToTry) {
+        if (!current()) return;
         try {
-          const res = await fetch(url);
+          const res = await fetch(url, { signal: controller.signal });
           if (res.ok) {
             const blob = await res.blob();
-            if (!active) return;
+            if (!current()) return;
             objectUrl = URL.createObjectURL(blob);
             setImageSrc(objectUrl);
             setLoading(false);
@@ -77,15 +91,15 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
       }
 
       // Fallback final: se tudo falhar, atribui a URL direta
-      if (!active) return;
+      if (!current()) return;
       setImageSrc(imageUrl);
       setLoading(false);
     }
 
-    prepareImage();
+    void prepareImage().catch(() => { if (current()) { setLoading(false); setLoadError(true); } }).finally(() => clearTimeout(timeout));
 
     return () => {
-      active = false;
+      active = false; clearTimeout(timeout); controller.abort();
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
       }
@@ -94,7 +108,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
 
   const initializeSelection = () => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || applying.current) return;
     setSelection(createCenteredSquareSelection(container.clientWidth, container.clientHeight));
   };
 
@@ -112,7 +126,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
   const move = (event: React.PointerEvent<HTMLElement>) => {
     const container = containerRef.current;
     const drag = dragRef.current;
-    if (!container || !drag || !selection) return;
+    if (!container || !drag || !selection || applying.current) return;
     if (drag.mode === 'resize') {
       setSelection(
         resizeSquareSelection(
@@ -142,9 +156,13 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
   const finish = async () => {
     const image = imageRef.current;
     const container = containerRef.current;
-    if (!image || !container || !selection) return;
-    return cropForm.validateAndRun({ image: imageSrc, paddingPercent, selection, displayWidth: container.clientWidth, displayHeight: container.clientHeight, sourceWidth: image.naturalWidth || image.clientWidth, sourceHeight: image.naturalHeight || image.clientHeight }, async (values) => {
-    setIsApplying(true);
+    if (!image || !container || !selection || applying.current || uncertain.current) return;
+    if (onProcessingChange?.(true) === false) { setErrorMessage('Aguarde a operação do formulário.'); return; }
+    applying.current = true; setIsApplying(true); setErrorMessage('');
+    const scope = source.current, current = () => active.current && source.current === scope;
+    let calling = false;
+    try {
+    return await cropForm.validateAndRun({ image: imageSrc, paddingPercent, selection, displayWidth: container.clientWidth, displayHeight: container.clientHeight, sourceWidth: image.naturalWidth || image.clientWidth, sourceHeight: image.naturalHeight || image.clientHeight }, async (values) => {
     try {
       // 1. Criar um canvas temporário do palco quadrado 1080x1080 com o padding configurado
       const stageCanvas = document.createElement('canvas');
@@ -195,27 +213,37 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
         1080
       );
 
-      const blob = await new Promise<Blob | null>((resolve) =>
-        finalCanvas.toBlob(resolve, 'image/webp', 0.95)
-      );
+      const signature = JSON.stringify(values);
+      let compressed = preparedFile.current?.signature === signature ? preparedFile.current.file : null;
+      if (!compressed) {
+      const blob = await withTimeout(new Promise<Blob | null>((resolve) => finalCanvas.toBlob(resolve, 'image/webp', 0.95)), 10_000, null, 'Gerar recorte');
+      if (!current()) return false;
       if (blob) {
         const file = new File([blob], `produto-quadrado-${Date.now()}.webp`, { type: 'image/webp' });
-        const compressed = await compressImageToFile(file, { maxMB: 0.3, maxWidth: 1080, fileType: 'image/webp' });
-        await onConfirm(compressed);
+        compressed = await withTimeout(compressImageToFile(file, { maxMB: 0.3, maxWidth: 1080, fileType: 'image/webp' }), 15_000, null, 'Preparar recorte');
+        if (!current()) return false;
+        if (!compressed) throw new Error('A preparação do recorte demorou demais. Tente novamente.');
+        preparedFile.current = { signature, file: compressed };
       } else {
         throw new Error('Não foi possível gerar a imagem recortada.');
       }
-    } catch (err: unknown) {
-      console.error('Erro ao aplicar recorte/moldura:', err);
-      toast.error('Erro ao processar imagem. Tente novamente.');
-    } finally {
-      setIsApplying(false);
+      }
+      if (!current()) return false;
+      calling = true;
+      const result = await withTimeout(Promise.resolve(onConfirm(compressed)).then((value) => value !== false), 95_000, null, 'Confirmar recorte no formulário');
+      if (!current()) return false;
+      if (result === null) throw Object.assign(new Error('A aplicação do recorte não foi confirmada. Confira antes de repetir.'), { uncertain: true });
+      if (!result) throw Object.assign(new Error('O recorte não foi aplicado. Confira o formulário.'), { knownFailure: true });
+      return true;
+    } catch (error) {
+      if (current()) { if (calling && (!error || typeof error !== 'object' || !('knownFailure' in error) || !error.knownFailure)) uncertain.current = true; const message = error instanceof Error ? error.message : 'Não foi possível aplicar o recorte.'; setErrorMessage(message); toast.error(message); }
     }
-    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+    }, (errors) => { const message = Object.values(flattenFormErrors(errors))[0]; setErrorMessage(message); toast.error(message); });
+    } finally { applying.current = false; if (active.current) setIsApplying(false); onProcessingChange?.(false); }
   };
 
   const startResize = (event: React.PointerEvent<HTMLSpanElement>, corner: CropCorner) => {
-    if (!selection) return;
+    if (!selection || applying.current) return;
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = { mode: 'resize', x: event.clientX, corner, selection };
@@ -223,27 +251,28 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
 
   const resetToFull = () => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || applying.current) return;
     setSelection(createCenteredSquareSelection(container.clientWidth, container.clientHeight));
   };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isApplying) {
-        onCancel();
-      }
+      if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); if (!applying.current) onCancel(); }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [onCancel, isApplying]);
 
-  return (
+  const content = (
     <div
+      data-product-image-cropper
       role="dialog"
       aria-modal="true"
       aria-labelledby="cropper-dialog-title"
       className="fixed inset-0 z-[1000025] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
     >
+      {errorMessage && <p role="alert" className="text-sm text-red-300">{errorMessage}</p>}
+      {isApplying && <p role="status">Conferindo e aplicando o recorte...</p>}
       <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex flex-col gap-4">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -261,7 +290,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
           </div>
           <button
             type="button"
-            onClick={onCancel}
+            onClick={close}
             disabled={isApplying}
             className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
             aria-label="Fechar"
@@ -286,6 +315,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
               step="5"
               aria-label="Percentual de moldura branca"
               value={paddingPercent}
+              disabled={isApplying}
               onChange={(e) => setPaddingPercent(Number(e.target.value))}
               className="w-28 h-1.5 accent-blue-600 cursor-pointer"
             />
@@ -304,6 +334,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
           <div className="flex items-center gap-2">
             <button
               type="button"
+              disabled={isApplying}
               onClick={resetToFull}
               className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-sm transition-all cursor-pointer border border-slate-200/60 dark:border-slate-700/60"
             >
@@ -415,7 +446,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onCancel}
+              onClick={close}
               disabled={isApplying}
               className="rounded-xl px-5 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
@@ -444,6 +475,7 @@ export function SquareImageCropper({ imageUrl, onCancel, onConfirm }: SquareImag
       </div>
     </div>
   );
+  return portal ? createPortal(content, document.body) : content;
 }
 
 export default SquareImageCropper;

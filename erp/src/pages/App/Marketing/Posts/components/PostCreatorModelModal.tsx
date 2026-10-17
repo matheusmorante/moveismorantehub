@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { toast } from 'react-toastify';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { postElementModelEditorFormSchema, postElementReferenceUploadFormSchema } from '../../../../../../../shared-utils/marketingFormSchemas';
 import {
   defaultContentKind,
@@ -22,15 +23,20 @@ type Props = {
 const fileToReference = (file: File): Promise<ElementModelReference> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () =>
+    const timer = setTimeout(() => { reader.onload = null; reader.onerror = null; reader.abort(); reject(new Error('A leitura da imagem demorou demais. Selecione novamente.')); }, 10_000);
+    const finish = () => { clearTimeout(timer); reader.onload = null; reader.onerror = null; };
+    reader.onload = () => {
+      const fileUrl = String(reader.result); finish();
+      if (!fileUrl.startsWith('data:image/')) { reject(new Error('A imagem lida não foi confirmada.')); return; }
       resolve({
         id: crypto.randomUUID(),
         name: file.name,
-        fileUrl: String(reader.result),
+        fileUrl,
         mimeType: file.type,
       });
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    };
+    reader.onerror = () => { finish(); reject(new Error('Não foi possível ler a imagem.')); };
+    try { reader.readAsDataURL(file); } catch (error) { finish(); reject(error); }
   });
 
 export function PostCreatorModelModal({
@@ -56,14 +62,24 @@ export function PostCreatorModelModal({
   const form = useZodForm(postElementModelEditorFormSchema, formValues);
   const fileForm = useZodForm(postElementReferenceUploadFormSchema, { files: [] });
   const initialEdit = useRef(true);
+  const active = useRef(true), requested = useRef(false), working = useRef(false), uncertain = useRef(false);
+  const context = useRef({ id: value?.id, elementType, initialOpportunityId });
+  if (context.current.id !== value?.id || context.current.elementType !== elementType || context.current.initialOpportunityId !== initialOpportunityId) context.current = { id: value?.id, elementType, initialOpportunityId };
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const draftId = useRef(value?.id || crypto.randomUUID());
+  const valueSource = useRef(value); valueSource.current = value;
   useEffect(() => {
-    setName(value?.name || '');
-    setPrompt(value?.prompt || '');
-    setReferences(value?.referenceFiles || []);
-    setOpportunityId(value?.opportunityId || initialOpportunityId || '');
+    const selected = valueSource.current;
+    initialEdit.current = true;
+    uncertain.current = false;
+    draftId.current = selected?.id || crypto.randomUUID();
+    setName(selected?.name || '');
+    setPrompt(selected?.prompt || '');
+    setReferences(selected?.referenceFiles || []);
+    setOpportunityId(selected?.opportunityId || initialOpportunityId || '');
   }, [value?.id, initialOpportunityId]);
   const modelValue = (): ElementModel => ({
-    id: value?.id || crypto.randomUUID(),
+    id: draftId.current,
     name: name.trim(),
     elementType,
     contentKind: value?.contentKind || defaultContentKind[elementType],
@@ -79,18 +95,27 @@ export function PostCreatorModelModal({
   });
   const persist = async (closeAfterSave = false) => {
     return form.enqueueAndRun(formValues, async (validated) => {
+    if (!active.current || working.current) return false;
+    if (uncertain.current) { setFormError('Há um salvamento sem confirmação. Confira antes de repetir.'); return false; }
+    working.current = true;
+    const scope = context.current, current = () => active.current && context.current === scope;
     setFormError('');
     setSaving(true);
     onSavingChange(true);
     try {
-      await onSave({ ...modelValue(), name: validated.name.trim(), prompt: validated.prompt, referenceFiles: validated.referenceFiles, opportunityId: validated.elementType === 'BADGE' ? validated.opportunityId : null });
+      const result = await withTimeout(Promise.resolve(onSave({ ...modelValue(), name: validated.name.trim(), prompt: validated.prompt, referenceFiles: validated.referenceFiles, opportunityId: validated.elementType === 'BADGE' ? validated.opportunityId : null })).then(() => true), 80_000, false, 'Salvar modelo da campanha');
+      if (!current()) return false;
+      if (!result) { uncertain.current = true; throw new Error('O salvamento não foi confirmado. Confira antes de repetir.'); }
       if (closeAfterSave) onClose();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível salvar o modelo.';
+      if (!current()) return false;
+      if (error && typeof error === 'object' && 'uncertain' in error && error.uncertain) uncertain.current = true;
       setFormError(message);
       if (closeAfterSave) toast.error(message);
     } finally {
-      setSaving(false);
+      working.current = false;
+      if (active.current) setSaving(false);
       onSavingChange(false);
     }
     }, (errors) => {
@@ -101,26 +126,33 @@ export function PostCreatorModelModal({
   };
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    await persist(true);
+    if (requested.current || working.current) return; requested.current = true;
+    try { await persist(true); } finally { requested.current = false; }
   };
+  const persistCurrent = useRef(persist); persistCurrent.current = persist;
+  const hasExistingModel = Boolean(value);
   useEffect(() => {
-    if (!value) return;
+    if (!hasExistingModel) return;
     if (initialEdit.current) {
       initialEdit.current = false;
       return;
     }
-    const timeout = window.setTimeout(() => void persist(), 700);
+    const timeout = window.setTimeout(() => void persistCurrent.current(), 700);
     return () => window.clearTimeout(timeout);
-  }, [name, prompt, references, opportunityId]);
+  }, [name, prompt, references, opportunityId, hasExistingModel]);
   const addReferences = async (files: FileList | null) => {
-    if (!files) return;
-    return fileForm.validateAndRun({ files: Array.from(files) }, async (values) => {
+    if (!files || working.current || requested.current) return;
+    working.current = true; setSaving(true);
+    const scope = context.current, current = () => active.current && context.current === scope;
+    try { return await fileForm.validateAndRun({ files: Array.from(files) }, async (values) => {
       try {
         const added = await Promise.all(values.files.map(fileToReference));
+        if (!current()) return false;
         setReferences((items) => items.concat(added));
         setFormError('');
-      } catch { setFormError('Não foi possível ler as imagens selecionadas.'); }
-    }, (errors) => setFormError(Object.values(flattenFormErrors(errors))[0]));
+      } catch (error) { if (current()) setFormError(error instanceof Error ? error.message : 'Não foi possível ler as imagens selecionadas.'); }
+    }, (errors) => { if (current()) setFormError(Object.values(flattenFormErrors(errors))[0]); }); }
+    finally { working.current = false; if (active.current) setSaving(false); }
   };
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
@@ -136,11 +168,12 @@ export function PostCreatorModelModal({
               post.
             </p>
           </div>
-          <button type="button" onClick={onClose}>
+          <button type="button" disabled={saving} onClick={() => { if (!working.current && !requested.current) onClose(); }}>
             ✕
           </button>
         </header>
-        <div className="space-y-4 p-5">
+        <fieldset disabled={saving} className="min-w-0 space-y-4 p-5">
+          {saving && <p role="status"><i className="bi bi-arrow-repeat animate-spin inline-block mr-2" aria-hidden="true" />Conferindo imagens e salvando o modelo...</p>}
           {formError && <p role="alert" className="text-sm text-red-300">{formError}</p>}
           <label className="block text-xs font-semibold text-slate-300">
             Identificação / Nome
@@ -224,9 +257,9 @@ export function PostCreatorModelModal({
               className="max-h-40 rounded border border-slate-700 object-contain"
             />
           )}
-        </div>
+        </fieldset>
         <footer className="flex justify-end gap-2 border-t border-slate-700 p-4">
-          <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-xs">
+          <button type="button" disabled={saving} onClick={() => { if (!working.current && !requested.current) onClose(); }} className="rounded-lg px-3 py-2 text-xs">
             Cancelar
           </button>
           <button

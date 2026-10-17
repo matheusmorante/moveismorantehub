@@ -1,5 +1,56 @@
 # Histórico de correções — 16/10/2026
 
+## Assistência técnica: segregação entre Assistência Avulsa e Assistência Vinculada a Venda Atendida
+
+**Data:** 16/10/2026  
+**Problema identificado:**
+1. No módulo de assistência, o formulário de cadastro exigia lidar com toggle e campos de vincular pedido de venda original mesmo quando o objetivo era cadastrar uma assistência técnica avulsa (ou quando a venda de origem não se encontrava no ERP).
+2. Na listagem de pedidos de venda (`OrderHistoryList`), os operadores não tinham um atalho direto e intuitivo para abrir uma assistência vinculada a partir de uma venda concluída/entregue.
+
+**Causa raiz técnica comprovada:**
+- Acoplamento do fluxo de seleção/busca de pedidos dentro do modal genérico de assistência técnica.
+- Ausência de ação dedicada no menu de contexto dos 3 pontinhos (`OrderOptionsMenu`) e de uma política de elegibilidade formal de pedidos aptos a gerar assistência.
+
+**Solução técnica implementada:**
+1. **Regra de Elegibilidade (`canGenerateAssistance`):** Criada em `erp/src/pages/utils/assistancePolicy.ts` garantindo que apenas pedidos de venda (`sale`, `showroom`) com status de atendimento (`fulfilled`, `delivered`, `atendido`, `entregue`, `retirado`) ou com circulação de mercadorias concluída (`getGoodsCirculationState === 'completed'`) exibem o botão "Gerar Assistência". Pedidos cancelados, rascunhos, devoluções ou assistências são estritamente excluídos.
+2. **Ação no Menu dos 3 Pontinhos (`OrderOptionsMenu`):** Registrada a ação `GENERATE_ASSISTANCE` em `orderButtonsConfig.ts` e `orderActionsConfig.ts`, validada por `orderActionValidationRules.ts` e filtrada em `OrderMenuActiveActions.tsx`.
+3. **Orquestração de Modais (`useSalesOrderModals` & `SalesOrderModalsContainer`):** Implementado suporte a `assistanceSourceOrder` para abrir o modal de assistência passando a venda atendida como fonte direta.
+4. **Segregação Clara de Fluxos na Interface:**
+   - **Fluxo Avulso (na rota de assistências):** O botão na toolbar chama-se **"Nova Assistência Avulsa"**. O modal intitula-se **"Pedido de Assistência Avulso"** (ou "Editar Assistência Avulsa"). A seção de vínculo de venda **não é renderizada**, proporcionando uma experiência enxuta e sem campos irrelevantes.
+   - **Fluxo Vinculado (via "Gerar Assistência" no pedido atendido):** O modal intitula-se **"Nova Assistência Vinculada"** (com badge `#código` da venda). No início do formulário, renderiza o card elegante `AssistanceLinkedOrderSection` com os dados da venda vinculada (código, cliente, data, vendedor) e a lista de itens daquela venda original, permitindo selecionar individualmente quais itens estão sob assistência técnica e a quantidade com defeito (1 a maxQty). Não há botões confusos de busca ou toggle. Os dados do cliente e atendente são pré-carregados automaticamente.
+5. **Formulários RHF + Zod:** Mantido o uso rigoroso de `useZodForm` com schema validado via Zod (`createAssistanceOrderFormSchema`).
+6. **Política Mandatória de CC-e:** Nenhuma menção a CC-e foi reintroduzida.
+
+**Arquivos modificados:**
+- `erp/src/pages/utils/assistancePolicy.ts` (criação da regra de elegibilidade pura `canGenerateAssistance`).
+- `erp/src/pages/utils/__tests__/assistancePolicy.test.ts` (5 testes unitários de elegibilidade).
+- `erp/src/pages/types/order.type.ts` (tipagem de `OrderAction` e `IsButtonsClicked`).
+- `erp/src/pages/App/SalesOrder/OrderActions/orderButtonsConfig.ts` (configuração do botão `generateAssistance`).
+- `erp/src/pages/App/SalesOrder/OrderActions/orderActionsConfig.ts` (registro da ação no mapa de ações).
+- `erp/src/pages/App/SalesOrder/OrderActions/orderActionValidationRules.ts` (regra de validação com `canGenerateAssistance`).
+- `erp/src/pages/App/SalesOrder/OrderHistoryList/OrderMenuActiveActions.tsx` (filtro no menu de contexto).
+- `erp/src/pages/App/SalesOrder/PdvActions/Index.tsx` (exclusão no pós-venda).
+- `erp/src/pages/App/SalesOrder/hooks/useSalesOrderModals.ts` (estado e handler `generateAssistance`).
+- `erp/src/pages/App/SalesOrder/hooks/useSalesOrderModals.test.tsx` (testes de orquestração de modais).
+- `erp/src/pages/App/SalesOrder/modals/SalesOrderModalsContainer.tsx` (renderização condicional de `<AssistanceOrderModal sourceOrder={assistanceSourceOrder} />`).
+- `erp/src/pages/App/SalesOrder/components/SalesOrderTopToolbar.tsx` (label "Nova Assistência Avulsa").
+- `erp/src/pages/App/SalesOrder/Assistance/types/assistance.types.ts` (prop `sourceOrder?: Order`).
+- `erp/src/pages/App/SalesOrder/Assistance/components/AssistanceOrderHeader.tsx` (títulos dinâmicos e badge da venda vinculada).
+- `erp/src/pages/App/SalesOrder/Assistance/components/AssistanceLinkedOrderSection.tsx` (card do pedido vinculado e itens para seleção).
+- `erp/src/pages/App/SalesOrder/Assistance/hooks/useAssistanceOrderForm.ts` (suporte a `sourceOrder`, cliente/vendedor e remoção de modal de busca).
+- `erp/src/pages/App/SalesOrder/Assistance/AssistanceOrderModal.tsx` (composição limpa sem `OrderSelectionModal`).
+- `erp/src/pages/App/SalesOrder/Assistance/__tests__/AssistanceOrderModal.test.tsx` (testes de renderização avulsa e vinculada).
+
+**Validações e Testes Executados:**
+- 17 testes executados com Vitest e 100% aprovados:
+  - `assistancePolicy.test.ts` (5 testes): aprovação de pedidos atendidos/entregues/concluídos e exclusão de cancelados/rascunhos/devoluções/assistências.
+  - `useSalesOrderModals.test.tsx` (4 testes): validação do handler `generateAssistance` e abertura do modal vinculado.
+  - `AssistanceOrderModal.test.tsx` (4 testes): validação de formulário avulso sem vínculo, fechamento, formulário vinculado com `sourceOrder` e seleção de itens, e modo de edição.
+  - `assistanceOrderService.test.ts` (4 testes): payload e validação pura de rascunhos.
+- Suíte geral de pedidos de venda (`SalesOrder`) executada com 511 testes aprovados.
+
+---
+
 ## Política de produto — CC-e ausente do sistema
 
 **Diretriz vigente, obrigatória para todos os agentes:** o MoranteHub **NÃO utiliza Carta de Correção Eletrônica (CC-e)**. Não criar, restaurar nem oferecer formulário, botão, menu, modal, rota ou fluxo de CC-e; a proibição inclui tela dedicada de histórico. A correção fiscal adotada é **cancelamento fiscal ou estorno fiscal direto da NF, conforme a elegibilidade vigente**. Esta diretriz de produto não altera automaticamente os critérios de circulação da mercadoria.
@@ -9,6 +60,8 @@
 **Correção:** removidos `useFiscalCceModal.ts`, `FiscalCceModal.tsx` e `fiscalCceService.ts` do frontend; removidos imports/montagem/callbacks da página, tabela, linha, card e menu de documentos. Regressões passaram a exigir ausência de CC-e no menu e manutenção do bloqueio da API legada. Regras de cancelamento/estorno fiscal e elegibilidade por circulação não foram modificadas. Nenhum evento/XML/protocolo antigo foi apagado: artefatos técnicos legados servem à auditoria/reconciliação técnica e não autorizam recriar uma funcionalidade de CC-e.
 
 **Documentação vinculante:** esta referência no índice fiscal, FISCAL-016 em `invariantes-arquiteturais.md` e a regra explícita em `AGENTS.md` prevalecem sobre snapshots ou referências antigas a CC-e. Não usar documentação antiga como justificativa para reintroduzir a funcionalidade.
+
+**Reforço no ponto de entrada da documentação:** `docs/fiscal/README.md:5` passa a exibir a proibição antes das referências, para que o crescimento do histórico não esconda a política. A conferência textual confirmou a mesma regra em `AGENTS.md:37`, FISCAL-016 e neste registro. Alteração somente documental, sem mudar critérios de circulação, cancelamento ou estorno; nenhuma operação fiscal executada.
 
 **Prova inicial:** 58 testes em sete arquivos aprovados, incluindo 13 do menu (ausência de CC-e nos dois modelos/ambientes e ações mantidas), quatro do endpoint legado, três do XML técnico e seis fronteiras fiscais. As outras 32 provas são etiquetagem e preenchimento assistido. Busca em erp/src não encontra referências aos três módulos removidos nem onOpenCce. Log: scratch/rhf-no-cce-labeling-tests.log. Lint do lote sem erros (dez avisos anteriores no FormHeader); build inicial aprovado em1m35s. Gate final com confirmação da biblioteca de devolução/FormHeader: **65 testes em nove arquivos e build ERP completo com startup fiscal aprovado em1m51s** (scratch/rhf-no-cce-final-{tests,build}.log). TypeScript global tem 304 diagnósticos; mantém erro anterior na assinatura de salvamento do OrderEditModal fora do callback alterado e fixtures fiscais, sem diagnóstico nas fontes da retirada de CC-e. Sem transmissão, alteração de dados comerciais, migration ou deploy.
 
@@ -169,6 +222,8 @@ A biblioteca de confirmação de abertura da devolução tem contrato explícito
 **Pendências preservadas:** `handleCreatedProductFromModal` ainda encerra o resolver antes de recarregar/gravar o vínculo, fecha antes do resultado e limpa estado após falha. Salvar produto/vincular e salvar mapeamentos continuam pendentes no agregado; edição direta de produto possui caminho próprio. Inventário ERP permanece **100/130, 30 pendentes**, pois a seleção já estava marcada; corrigida sua descrição antiga de payload, sem incremento artificial. Mobile/catálogo continuam em inventários separados. Sem operação remota, SQL, Auth real, emissão ou deploy.
 
 ## Formulário de variações — composição em conferência
+
+**Continuação vigente:** recorte/envio/propagação e busca conferidos no [registro posterior](#variações--recorte-envio-propagação-e-busca-conferidos). O agregado foi encerrado após137 testes e build completo; o checkpoint abaixo é histórico.
 
 Problemas constatados no proprietário/composição: fechamento e edição continuavam habilitados durante gravação; a operação não possuía prazo/guarda de contexto; atributos incompletos eram filtrados antes do resolver e componentes sem produto/quantidade mínima passavam na conclusão. Descontos fora dos limites podiam virar uma prévia de preço zero e perder a entrada inválida antes da validação. Consultas de atributos/fotos não tinham prazo nem proteção contra publicar retorno de outro contexto.
 
@@ -536,4 +591,433 @@ No componente `OrderFiscalBadge.tsx` (linhas 117–124), quando a propriedade bo
 - **Suíte de histórico de pedidos:** 24 testes aprovados em 6 arquivos (`OrderFiscalBadge`, `OrderHistoryRow`, `OrderHistoryTable`, `OrderFiscalOperationBadge`, `CancelSaleModal`, `OrderCancellationFailureNotice`).
 - **ESLint:** 0 erros e 0 warnings nos arquivos alterados.
 - **TypeScript:** Verificação de tipos limpa e sem diagnósticos nos arquivos modificados.
+
+
+## Biblioteca de artes — upload, consulta e exclusão conferidos
+
+**Problema e causa comprovada:** o upload liberava o resolver antes de terminar a leitura da imagem, aceitava troca de formato após a conferência, descartava a promessa de atualização da biblioteca e não conferia recibos do Storage/registro. A página proprietária tinha busca/filtros/exclusão diretos, respostas antigas podiam substituir filtros novos e o arquivo era removido antes da confirmação da exclusão do registro. O proprietário da página não constava no inventário principal; foi acrescentado antes da conferência, elevando o denominador de131 para132.
+
+**Solução:** contratos explícitos compartilhados para arquivo/proporção, upload, filtros, exclusão vinculada ao produto/arte e download HTTPS. RHF acompanha cada intenção até o efeito confirmado, com guarda comum, prazo, contexto de sessão/produto e erro visível. Upload tem ID estável por tentativa, exige path e snapshot do registro correspondentes; atualização da página é aguardada. Se o registro foi confirmado e o refresh falha, a repetição atualiza somente a lista. Respostas incertas bloqueiam reenvio na instância; não há retransmissão automática. URLs temporárias são liberadas.
+
+A exclusão confirma exatamente o registro por id/produto antes de remover seu arquivo. Falha posterior conserva uma limpeza pendente explícita; o operador pode repetir somente a limpeza, sem novo DELETE do registro. Erro de transporte/recibo vazio antes da confirmação conserva o arquivo e bloqueia repetição incerta. PostCard usa imageUrl, o campo canônico do tipo/serviço. A busca e o carregamento descartam respostas de sessão/filtro antigos.
+
+**Arquivos e linhas:**
+
+| Arquivo | Região modificada |
+|---|---|
+| shared-utils/marketingFormSchemas.ts | 64–81: contratos de upload/proporção, filtros, exclusão e download. |
+| erp/src/pages/App/Marketing/Posts/components/PostsLibrary/UploadPostModal.tsx | 1–173 e controles: schemas, contexto/guardas, busca, arquivo, persistência/refresh, feedback e bloqueio. |
+| erp/src/pages/App/Marketing/Posts/components/PostsLibrary/PostsLibraryPage.tsx | 1–149, filtros/feedback e296–305: consulta/busca, confirmação de exclusão, limpeza e callback aguardável do upload. |
+| erp/src/pages/App/Marketing/Posts/components/PostsLibrary/PostCard.tsx | 28: imagem canônica imageUrl. |
+| erp/src/pages/App/Marketing/Posts/services/productPostsService.ts | 13,36–88,91–99,124–206: leitura de proporção, prazos, identidade/recibos e exclusão parcial. |
+| erp/src/pages/App/Marketing/Posts/components/PostsLibrary/UploadPostModal.test.tsx | novo: nove provas do proprietário. |
+| erp/src/pages/App/Marketing/Posts/components/PostsLibrary/PostsLibraryPage.test.tsx | novo: dez provas, incluindo página e modal reais juntos. |
+| erp/src/pages/App/Marketing/Posts/services/productPostsService.test.ts | novo: treze provas com serviço real e transporte simulado. |
+| inventário principal, continuidade e índice fiscal | cobertura, denominador corrigido, evidências e limites. |
+
+**Validação:**35 testes em quatro arquivos aprovados (32 novos e três regressões de campanhas); lint das oito fontes/testes sem erros ou avisos. Build ERP completo com startup fiscal aprovado em1m47s. TypeScript global mantém303 diagnósticos fora das fontes/testes do lote; não está aprovado globalmente. Logs: scratch/rhf-post-library-final-{tests,lint,tsc,build}.log. Revisão React conferiu ordem de hooks, dependências, cleanup de imagens/timers e controles/erros acessíveis.
+
+**Contrato consultado:** SDK instalado retorna FileObject[] em StorageFileApi.remove; o [endpoint oficial de exclusão](https://github.com/supabase/storage/blob/master/src/http/routes/object/deleteObjects.ts) retorna os objetos de [deleteObjects](https://github.com/supabase/storage/blob/master/src/storage/object.ts), identificados por name. A confirmação local exige o nome/caminho solicitado. Isso não comprova versão ou políticas do Storage remoto. Não houve criação/exclusão remota, geração por IA, migration, mensagem ou transmissão.
+
+**Limites e cobertura:** não há transação entre Storage e registro; falha após upload pode deixar arquivo sem registro. Timeout não cancela transporte, e as travas/limpezas pendentes duram na instância montada. Testes simulam Auth/Supabase e não provam RLS/concorrência/execução remota. Dois proprietários ativos conferidos: ERP114/132 encerrados (86,4%),18 pendentes. Página principal de criação/editor/ambientação e mobile/catálogo mantêm pendências próprias; não é conclusão global.
+
+## Ambientação — biblioteca conferida sem acionador ativo
+
+**Problema e causa comprovada:** a biblioteca de ambientação liberava isGenerating antes de terminar saveAmbientedImage e já permitia aplicar a prévia. O serviço ignorava erros/recibos do INSERT, também retornava sucesso quando a gravação local falhava e criava uma identidade nova a cada repetição. Sugestão e aplicação não compartilhavam trava; a aplicação chamava um callback void e fechava sem confirmação, com espera/contexto sem proteção.
+
+**Solução:** contratos distintos para sugestão, geração, registro da imagem e aplicação, todos executados pelo resolver real do proprietário. Nome/prompt/produto seguem parseados; origem/resultado aceitam HTTPS válido ou dados de imagem raster. Guarda comum impede geração, aplicação e fechamento simultâneos; prazos são15s para sugestão,90s para IA,20s para INSERT (25s na fronteira do proprietário) e30s para aplicação. Respostas após troca de produto, foto, sessão ou abertura são descartadas. Erros e progresso são visíveis.
+
+A prévia pode ser exibida enquanto salva, mas Usar Foto Ambientada só aparece após recibo correspondente. Cada resultado recebe UUID estável antes da persistência. Se há falha local conhecida, Salvar ambiente gerado repete a persistência da mesma imagem/ID sem nova geração por IA; resultado remoto incerto bloqueia repetição na instância. A aplicação aguarda o callback, conserva a imagem após recusa explícita e bloqueia repetição após timeout/retorno incerto.
+
+O serviço confere ID/produto/variação/imagens/prompt no INSERT.select.single. O fallback existente é conservado somente após recusa explícita de tabela ausente/permissão (42P01,42501,PGRST205); exige setItem e leitura de confirmação, deduplica o mesmo ID e retorna persistence:local. A interface informa Imagem salva somente neste navegador. Transporte/timeout/recibo divergente não são convertidos em sucesso local. Cache local indisponível não invalida um recibo remoto já confirmado. Consulta de biblioteca ganha prazo de15s.
+
+**Arquivos e linhas:**
+
+| Arquivo | Região modificada |
+|---|---|
+| shared-utils/marketingFormSchemas.ts | 55–63: contratos separados, imagens e UUID. |
+| erp/src/pages/App/Marketing/Posts/components/Ambientation/AmbientationStudioModal.tsx | 1–121: formulários/guardas/contexto, sugestão, geração/persistência e callback;132–137,176–193,215–234: feedback e controles. |
+| erp/src/pages/App/Marketing/Posts/services/ambientationService.ts | 3–4,11–20,46–98: prazo de leitura, schema/ID, recibo remoto e confirmação local. |
+| erp/src/pages/App/Marketing/Posts/components/Ambientation/AmbientationStudioModal.test.tsx | novo: treze provas do proprietário com RHF real. |
+| erp/src/pages/App/Marketing/Posts/services/ambientationService.test.ts | novo: oito provas do serviço real, transporte e Storage local simulados. |
+| inventário principal, continuidade e índice fiscal | disposição da biblioteca, cobertura e evidências. |
+
+**Validação:**21 novas provas; conjunto de marketing56 testes em seis arquivos aprovado, incluindo biblioteca de artes/upload/campanhas. Lint das12 fontes/testes sem erros ou avisos. TypeScript global mantém303 diagnósticos fora do lote. Build ERP completo com startup fiscal aprovado em1m30s. Logs: scratch/rhf-marketing-owners-final-{tests,lint,tsc,build}.log. Fontes de códigos de recusa: [PostgREST](https://docs.postgrest.org/en/v14/references/errors.html) e [PostgreSQL](https://www.postgresql.org/docs/18/errcodes-appendix.html). Não foi inferida a versão ou a existência da tabela no remoto.
+
+**Disposição e limites:** busca por consumidores encontra somente a própria declaração de AmbientationStudioModal e os testes; generateRoom/saveAmbientedImage também não têm outro consumidor ativo localizado. Biblioteca retida e conferida, sem reativar funcionalidade ou contar formulário operacional ativo. IA, Supabase e Auth simulados; não houve geração/INSERT real, migration, alteração comercial ou transmissão. Timeout não cancela transporte/geração; travas incertas duram na instância/contexto montado. Armazenamento local não prova sincronização, RLS ou durabilidade remota. Biblioteca conferida e retida: ERP115/132 itens encerrados (87,1%),17 pendentes, incluindo itens retirados e bibliotecas sem consumidor. Página principal, editor/autosave de modelos e mobile/catálogo mantêm caminhos próprios pendentes.
+
+## Campanhas e modelos — proprietário ativo com recibos conferidos
+
+**Problema e causa comprovada:** a página ativa de posts chamava serviços diretamente para salvar/remover campanhas, persistir regras gerais e criar/editar/vincular modelos. Os serviços descartavam erros do Supabase e retornavam o objeto local sem conferir a escrita. A limpeza de escolhas de fotos não executava resolver; salvar/limpar o Storage local absorvia falhas, mas a interface publicava sucesso e alterava a prévia. Exclusão era disparada sem espera/erro no modal. Uma nova identidade de modelo era criada a cada repetição. A consulta também podia criar campanha padrão implicitamente e não tinha prazo/contexto.
+
+**Solução no proprietário:** contratos compartilhados explícitos para campanha, exclusão, consulta e comando completo de modelo; regras gerais e escolhas/limpeza de fotos conservam contratos próprios. Cada intenção executa RHF/zodResolver até o serviço/recibo, usando valores parseados. Trava comum, identidade estável, contexto de sessão/campanha/modal, erro/progresso e bloqueio de repetição incerta. Consultas/refresh têm15s por etapa e descartam resposta antiga; escolhas locais só atualizam a prévia após confirmação de setItem/removeItem. O reset tem resolver próprio.
+
+**Confirmação de serviço:** acrescentada opção confirm aos métodos utilizados pela página. Escrita exige select.single correspondente ao payload; exclusão exige exatamente o ID solicitado. Datas são comparadas como instantes e referências JSON por seus campos de domínio, conservando diferenças de ordem de chaves. Espera de escrita limitada a20s; contexto conferido antes do envio e depois do recibo, antes de publicar cache. Erro explícito é distinguido de transporte/timeout/ACK divergente. Cache indisponível não invalida escrita remota já confirmada. Leitura confirmada não cria campanha padrão implicitamente nem mascara consulta desconhecida como conteúdo padrão. Demais consumidores legados conservam o contrato existente e continuam sujeitos à sua conferência própria.
+
+**Falha parcial:** campanha já confirmada com refresh malsucedido mantém o mesmo ID; repetir atualiza somente a lista. Modelo salvo com vínculo recusado informa explicitamente Modelo salvo / vínculo pendente; a repetição conhecida tenta somente o vínculo. Vínculo incerto bloqueia repetição. Após refresh confirmado, as etapas guardadas são liberadas para permitir uma nova edição legítima. Rascunhos locais antigos são preservados e marcados persistedRemotely:false; vínculos somente locais ficam inativos até confirmação remota. Registros anteriormente confirmados e ausentes na leitura remota não são restaurados como novos rascunhos.
+
+**Filhos reais:** exclusão no gerenciador passa por resolver até callback, bloqueia dupla ação/fechamento e mostra erro. Regras gerais descartam load/filas de componente desmontado. Modal de modelo mantém UUID do rascunho, compartilha trava entre leitura de arquivo e salvamento, limita FileReader a10s e callback a80s (composição pode exigir modelo20s+vínculo20s+refresh30s), desativa controles pendentes e libera leitores/timers. Callback não confirmado conserva rascunho/erro e bloqueia repetição. Produto/variações usam o contrato canônico do mapper existente; atributos em array são adaptados à leitura das imagens, preservando a identificação legada de oportunidade.
+
+**Arquivos e linhas modificados:**
+
+| Arquivo | Região modificada |
+|---|---|
+| shared-utils/postManagerFormSchemas.ts | novo,1–15: comandos de campanha/consulta/exclusão/modelo. |
+| shared-utils/marketingFormSchemas.ts | 88–94: escolhas de imagem com URL válida e contrato de reset. |
+| erp/src/pages/App/Marketing/Posts/index.tsx | 1–103: formulários, contexto/trava e regras/seleção;105–193: compatibilidade de produto e imagens;222–323: reset, consultas e cinco callbacks;326–fim: feedback e controles/fechamento. |
+| erp/src/pages/App/Marketing/Posts/services/postCreatorService.ts | 2,89–265: opção de confirmação, recibos, prazos, cache e leituras; demais cadeias then com rejeição equivalente corrigem PromiseLike sem alterar os contratos legados. |
+| erp/src/pages/App/Marketing/Posts/services/postProductImageSelections.ts | 1,13–19,23–47: leitura parseada e confirmação de gravação/remoção local. |
+| erp/src/pages/App/Marketing/Posts/types/postCreator.ts | 36,55,65: marcador opcional de persistência em modelo/vínculo/campanha, sem alteração de banco. |
+| erp/src/pages/App/Marketing/Posts/components/CampaignManagerModal.tsx | 4,27–77,86–95,130–174: resolver de exclusão, guardas, contexto, erro e rascunho local. |
+| erp/src/pages/App/Marketing/Posts/components/GeneralCampaignRules.tsx | 20–28,42–54: ciclo de vida da consulta e das submissões em fila. |
+| erp/src/pages/App/Marketing/Posts/components/PostCreatorModelModal.tsx | 4,23–40,59–156,175–260,rodapé: UUID/contexto, leitura e callback limitados, trava/erro/feedback e controles. |
+| erp/src/pages/App/Marketing/Posts/postManagerOwner.test.tsx | novo:14 provas do proprietário; compõe CampaignManagerModal/GeneralCampaignRules reais e simula outras fronteiras de UI. |
+| erp/src/pages/App/Marketing/Posts/services/postCreatorConfirmation.test.ts | novo:20 provas do serviço/recibos, compatibilidade, rascunhos locais e Storage. |
+## Assistência técnica — modularização, princípios SOLID e vínculo opcional
+
+**Problema e causas comprovadas:**
+1. No fluxo de emissão/edição de assistência técnica, o sistema exigia obrigatoriamente a seleção de um pedido original de venda do ERP e a escolha de itens originários desse pedido. Isso impedia o registro de ordens de serviço/assistência técnica cujo pedido original não constava no ERP (vendas anteriores à implantação do sistema, atendimentos avulsos a terceiros, etc.).
+2. O modal de assistência (`AssistanceOrderModal.tsx`) acumulava mais de 550 linhas misturando ciclo de vida do formulário, autosave com debounce, chamadas de stream reativo, montagem de payload, formatação de dados e renderização de múltiplas seções no mesmo arquivo, ferindo os princípios SOLID (Single Responsibility Principle, Separation of Concerns e Clean Architecture).
+3. O modal de seleção de pedidos vinculados (`OrderSelectionModal.tsx`) precisava restringir a exibição exclusivamente a pedidos atendidos (`status === 'delivered'`) e possuir paginação padrão do ERP com 15 itens por página.
+
+**Soluções arquiteturais implementadas:**
+1. **Regras de Domínio (`shared-utils/commercialAssistanceRules.ts` e `commercialOrderRules.ts`):**
+   - Atualizada a função `validateAssistanceOrder`: quando a assistência não está vinculada a uma venda (`!order.linkedOrderId`), a seleção de itens de pedido original é estritamente opcional. A validação exige o detalhamento do serviço (`assistanceDescription`), dados do cliente e atendente.
+   - Quando vinculada a uma venda original, mantém-se a exigência de seleção de pelo menos um item ou peça extra.
+2. **Separação de Responsabilidades e Camada de Serviços:**
+   - Criado o diretório modular `erp/src/pages/App/SalesOrder/Assistance/`.
+   - `types/assistance.types.ts`: Tipagem estrita e centralizada para o formulário e propriedades de modais.
+   - `services/assistanceOrderService.ts`: Funções puras desacopladas de React para construção de payload (`buildAssistanceOrderPayload`), detecção de formulário em branco (`isAssistanceFormBlank`) e sumarização de itens (`calcAssistanceItemsSummary`).
+   - `hooks/useAssistanceOrderForm.ts`: Custom hook encapsulando o estado do formulário, integração com `useZodForm` e `createAssistanceOrderFormSchema`, autosave com debounce seguro, detecção automática por produto (`initialData.matchedProductId`), inscrição no stream de pedidos e cancelamento com guarda defensiva (`isCurrent`).
+   - `components/`: Componentes visuais modulares focados exclusivamente em renderização (`AssistanceOrderHeader`, `AssistanceLinkedOrderSection`, `AssistanceCustomerSection`, `AssistanceDescriptionSection`, `AssistanceExtraItemsSection`, `AssistanceActions`).
+   - `AssistanceOrderModal.tsx`: Visual limpo e declarativo reduzido de ~550 para ~140 linhas.
+3. **Seleção de Pedido Original (`OrderSelectionModal.tsx`):**
+   - Filtragem estrita para pedidos atendidos (`status === 'delivered'`).
+   - Paginação padrão do ERP implementada com 15 itens por página e controles universais de navegação.
+4. **Retrocompatibilidade e Limpeza:**
+   - Mantidos re-exports no caminho legado `erp/src/pages/App/SalesOrder/modals/AssistanceOrderModal.tsx` e `AssistanceOrderModalComponents/` para garantir compatibilidade com `AppLayout`, `SalesOrderModalsContainer` e demais pontos de montagem.
+   - Removido o arquivo morto não importado `erp/src/pages/App/SalesOrder/AssistanceOrderModalComponents/AssistanceSchedulingSection.tsx`.
+
+**Arquivos e linhas modificados:**
+| Arquivo | Região modificada |
+|---|---|
+| `shared-utils/commercialAssistanceRules.ts` | Linhas 18–48: flexibilização de itens para assistência avulsa desvinculada. |
+| `shared-utils/commercialOrderRules.ts` | Linhas 135–150: exceção de `items_summary` para assistências sem venda original. |
+| `erp/src/pages/App/SalesOrder/Assistance/types/assistance.types.ts` | Novo: interfaces `AssistanceOrderModalProps`, `AssistanceFormState`. |
+| `erp/src/pages/App/SalesOrder/Assistance/services/assistanceOrderService.ts` | Novo: funções puras de payload, blank check e cálculo de itens. |
+| `erp/src/pages/App/SalesOrder/Assistance/hooks/useAssistanceOrderForm.ts` | Novo: hook orquestrador com RHF + Zod resolver, autosave debounced e proteção de desmontagem. |
+| `erp/src/pages/App/SalesOrder/Assistance/components/*` | Novo: 6 componentes visuais desacoplados e barrel export `index.ts`. |
+| `erp/src/pages/App/SalesOrder/Assistance/AssistanceOrderModal.tsx` | Novo: view declarativa desacoplada (~140 linhas). |
+| `erp/src/pages/App/SalesOrder/modals/AssistanceOrderModal.tsx` | Re-export limpo do componente modular. |
+| `erp/src/pages/App/SalesOrder/modals/OrderSelectionModal.tsx` | Linhas 44–120: filtro `delivered`, paginação 15 itens/página. |
+| `erp/src/components/NoticeInput.tsx` | Linhas 32–40: defensiva `setFrequencies(freq || {})` com try/catch. |
+| `erp/src/pages/App/SalesOrder/AssistanceOrderModalComponents/AssistanceSchedulingSection.tsx` | Arquivo obsoleto removido. |
+
+**Validação e Provas Executadas:**
+- `erp/src/pages/App/SalesOrder/Assistance/services/__tests__/assistanceOrderService.test.ts`: 4 testes aprovados (100%).
+- `erp/src/pages/utils/__tests__/commercialAssistanceRules.test.ts`: 6 testes aprovados (100%).
+- `erp/src/pages/App/SalesOrder/Assistance/__tests__/AssistanceOrderModal.test.tsx`: 3 testes aprovados (100%).
+- `erp/src/pages/App/SalesOrder/modals/OrderSelectionModal.test.tsx`: 5 testes aprovados (100%).
+- `erp/src/pages/utils/__tests__/orderSyncQueries.test.ts`: 11 testes aprovados (100%).
+- Total: 29 testes aprovados sem falhas ou exceções não tratadas.
+
+
+## Editor de posts — busca, seleção e template conferidos
+
+**Problema e causa comprovada:** usePostEditor disparava busca/seleção de produto e composição por IA sem resolver próprio, com consultas sem prazo. Resposta antiga e preferência local não confirmada podiam afetar a prévia; falha no carregamento complementar podia deixar loading ativo. O salvamento de template não tinha guarda comum/contexto/recibo, e templateService marcava persistedRemotely apenas pela ausência de error, sem select de confirmação. Falha de transporte era convertida em aparente sucesso local. Erros do hook não eram apresentados pelos dois consumidores atuais.
+
+**Solução:** contratos explícitos compartilhados para consulta paginada, produto da prévia (vazio remove preferência), campanha e composição; template mantém seu schema de domínio. RHF acompanha cada operação até serviço/resultado; entrada parseada é usada na consulta/seleção/IA/persistência. Produto/campanha anteriores são preservados em falha; respostas antigas são descartadas por sessão/revisão, e fila de seleção conserva a intenção mais recente. Preferência local só é publicada após confirmação do produto, carregamento complementar e setItem/removeItem conferido. Análise opcional da foto tem fallback após10s. Busca15s, produto20s e templates20s no proprietário; sessão/consultas antigas não publicam resultados.
+
+Salvamento e composição compartilham trava síncrona; salvar tem ID pré-alocado estável por tentativa e timestamp atual. Resolver continua ativo até recibo de save (20s no serviço/25s no proprietário). Falha conhecida permite repetir com a mesma identidade; resultado incerto bloqueia repetição na instância. Composição tem prazo90s, valida input e resultado antes de alterar camadas/slogan. Troca de revisão/sessão descarta resultado anterior. Seleção de template também executa o resolver; a campanha selecionada é confirmada após consultar seus templates.
+
+**Serviço e compatibilidade:** save({confirm:true}) valida o contrato completo e exige select.single com o mesmo snapshot, incluindo JSON de camadas/layouts/settings e instante updatedAt. Chaves JSON em ordem diferente são equivalentes; valores distintos não são. O cache local confirma set/get, preserva histórico ilegível e rejeita substituição local por versão anterior. Recibo remoto válido continua válido quando o cache falha. Recusa explícita do servidor permite retorno persistedRemotely:false apenas com armazenamento local confirmado; transporte/timeout/recibo divergente conservam status incerto. Caminhos legados sem confirm conservam contrato anterior e seguem em conferência própria. getAll recebe prazo15s e marca registros remotos como confirmados.
+
+**Consumidores:** MarketingPostsManager usa busca/seleção para a prévia e ModelFormModal também usa o hook; ambos apresentam sua mensagem. ModelProductPicker, biblioteca sem consumidor localizado, só confirma seleção/fecha após retorno verdadeiro. save/run/selectTemplate/selectCampaign não têm acionador ativo localizado nos consumidores atuais; foram conferidos como métodos retidos do proprietário, sem reativar interface. Autosave de templates/useTemplateWorkspace permanece em item próprio.
+
+**Arquivos e linhas:**
+
+| Arquivo | Região modificada |
+|---|---|
+| shared-utils/postEditorFormSchemas.ts | novo,1–11: consulta/produto/campanha/composição. |
+| shared-utils/marketingFormSchemas.ts | 83: helper aceita timestamps opcionais do contrato de entrada sem perder metadata. |
+| erp/src/pages/App/Marketing/Posts/components/Editor/usePostEditor.ts | 1–80: contratos, busca e sessão;100–213: seleção/campanha/composição/salvamento;retorno: loading agregado e guarda da revisão. |
+| erp/src/pages/App/Marketing/Posts/services/templateService.ts | 6–9,35–48,51–79,89–150: schema, confirmação local/recibo remoto, prazo/contexto e compatibilidade optativa. |
+| erp/src/pages/App/Marketing/Posts/components/Editor/ModelProductPicker.tsx | 12–19,39: busca estável, callback verdadeiro antes de fechar e erro visível. |
+| erp/src/pages/App/Marketing/Posts/index.tsx | 327: mensagem do hook ativo. |
+| erp/src/pages/App/Marketing/Posts/components/ModelFormModal.tsx | 276: mensagem do hook ativo. |
+| erp/src/pages/App/Marketing/Posts/components/Editor/usePostEditor.test.tsx | novo:12 provas do proprietário, incluindo PreviewProductPicker real. |
+| erp/src/pages/App/Marketing/Posts/services/templateConfirmation.test.ts | novo: dez provas do serviço real/contratos de recibos e cache. |
+| inventário principal, continuidade e índice fiscal | cobertura, evidências e caminhos ainda pendentes. |
+
+**Validação:**162 testes em17 arquivos aprovados no gate final, incluindo22 provas novas do editor/serviço e11 da biblioteca de autosave. Persistência legada de templates, composição e proprietários anteriores de marketing preservados. Lint sem erros; quatro avisos anteriores do ModelFormModal fora da linha de feedback. TypeScript global mantém305 diagnósticos fora das fontes/testes deste lote; não está aprovado globalmente. Build ERP completo com startup fiscal aprovado em1m37s. Logs: scratch/rhf-post-workspace-final-{tests,lint,tsc,build}.log. Sem novo pacote, chamada real de IA, escrita Supabase, migration, transmissão ou deploy.
+
+**Limites:** testes simulam Auth, Supabase, IA, análise de foto e serviços de produto; provam o encadeamento local e a composição com o picker real, sem comprovar permissões/concorrência/versionamento remoto. Cache/controle de timestamp não substitui controle de concorrência no banco. Timeout não cancela transporte; geração pode continuar e a trava incerta dura na instância/sessão montada. Cache local confirmado não equivale a sincronização remota. Proprietário ativo e métodos retidos estão conferidos; autosave da biblioteca foi conferido na continuação abaixo. Demais formulários ERP/mobile/catálogo continuam pendentes.
+
+## Autosave de templates — biblioteca proprietária e fila conferidas
+
+**Problema e causa comprovada:** scheduleTemplateSave gravava cache e avisava que havia salvado antes do resolver acompanhar o serviço; useTemplateWorkspace concluía validateAndRun assim que agendava a fila. Edições rápidas podiam ser descartadas enquanto o resolver anterior trabalhava. A leitura não encerrava loading em erro; respostas antigas não eram vinculadas à sessão/campanha. change() construía o novo objeto apenas com layouts/updatedAt e descartava editorSettings produzido por setSettings.
+
+**Solução:** fila mantém debounce700ms, consolida o último snapshot e serializa gravações por ID. O agendador não grava nem chama templateService diretamente: executa a função de persistência do proprietário. Esse callback usa enqueueAndRun/RHF/zodResolver até save({confirm:true}) e seu recibo, com prazo25s no proprietário/20s no serviço. Não há anúncio de salvamento local antes da confirmação. Validação inválida não chama serviço/cache. Edição posterior é preservada na fila enquanto aguarda o primeiro recibo; retorno antigo não substitui o status da revisão atual.
+
+Contexto de sessão/campanha e cleanup cancelam itens ainda não enviados; resposta antiga não publica em outro contexto. Resultado incerto bloqueia novas gravações/retry desse ID na instância; recusa conhecida conserva estado e permite retrySave explícito com a mesma identidade. Consulta de20s no proprietário encerra loading em todos os resultados, limpa o proprietário anterior antes de trocar campanha e oferece reload. Estado carregado é validado, dois layouts são preservados, e editorSettings atualizado é incorporado ao estado/payload. Recibo somente local continua com mensagem explícita de sincronização indisponível.
+
+**Arquivos e linhas:**
+
+| Arquivo | Região modificada |
+|---|---|
+| erp/src/pages/App/Marketing/Posts/services/templateAutosave.ts | 1–49: job com callback do proprietário/contexto, fila/debounce, status e cancelamento pendente; retiradas escritas fora do resolver. |
+| erp/src/pages/App/Marketing/Posts/components/Editor/useTemplateWorkspace.ts | 1–3,75–147: sessão, consulta/validação, carregamento e callback RHF até recibo;149–181: settings preservados, reload e retry. |
+| erp/src/pages/App/Marketing/Posts/components/Editor/useTemplateWorkspace.test.tsx | novo: onze provas com hook, fila, debounce e RHF reais. |
+| inventário principal, continuidade e índice fiscal | disposição da biblioteca, evidências e limites. |
+
+**Validação:** onze novas provas. Conjunto com editor/templates e proprietários anteriores de marketing:162 testes em17 arquivos aprovados; lint sem erros, quatro avisos anteriores de ModelFormModal fora da linha alterada. TypeScript global mantém305 diagnósticos fora das fontes/testes do lote; build ERP completo com startup fiscal aprovado em1m37s. Logs: scratch/rhf-post-workspace-final-{tests,lint,tsc,build}.log. Revisão React conferiu dependências, fila e cleanup, respostas antigas e ausência de autosave no carregamento inicial.
+
+**Disposição e limites:** useTemplateWorkspace continua sem consumidor ativo localizado em erp/src; templateAutosave é chamado somente por esse proprietário. Biblioteca retida e conferida sem reativar tela; não são formulários operacionais ativos adicionais. O item de autosave existente no inventário passa a apontar proprietário e agendador juntos, pois o módulo agora apenas agenda a mesma submissão validada. Não há nova operação independente nem alteração de denominador. Testes simulam persistência/Auth; provas de recibos reais são locais e não provam RLS/concorrência remota. Timeout não cancela I/O já enviado, a fila é em memória e trava incerta dura na instância. Não houve escrita remota, migration, mensagem, geração real por IA ou transmissão. Editor ativo/métodos retidos e autosave de biblioteca encerram dois itens existentes: ERP118/132 (89,4%),14 pendentes.
+
+## Replicação e Paridade: Módulo de Produtos ERP → Mobile App
+
+**Problema e sintomas observados:**
+1. **Publicação no Catálogo Digital e Feedback de Rascunhos:** No aplicativo móvel, o botão de catálogo bloqueava produtos em rascunho com um alerta genérico opaco (`Alert.alert('Produto em Rascunho', ...)`), sem avaliar e detalhar os campos obrigatórios pendentes. No ERP (`2b4833f4`), o botão de catálogo foi desbloqueado para permitir que o usuário visualize uma lista detalhada com marcadores (`• Pelo menos uma foto deve ser adicionada`, etc.) e uma nota orientando a finalização do rascunho. Além disso, a validação de dimensões no mobile exigia estritamente todas as 3 dimensões (largura, altura, profundidade), ao passo que o ERP permite produtos com dimensões não aplicáveis desde que pelo menos uma dimensão física ativa seja positiva.
+2. **Exibição de SKU em Produto com Variação Única:** No ERP (`547bcf6c` e `0df5a0bd`), quando o produto possui apenas 1 variação (`singleVariation`), o cabeçalho do card exibe o SKU normalizado da variação (`000100-01`) em vez do código base do pai (`000100`). No mobile, o card renderizava apenas `product.code`.
+3. **Validação de Fornecedor e Dimensões na Variação:** Em `productRegistrationRules.ts`, `getMobileVariationRegistrationIssue` exigia fornecedor diretamente no objeto pai ao cadastrar/salvar a variação, gerando falso bloqueio caso o rascunho do pai ainda não tivesse fornecedor selecionado ou fosse produção própria/serviço. No ERP (`productVariationRules.ts`), a validação de variação descarta erro de fornecedor porque a variação herda o fornecedor do pai e a validação do fornecedor pertence ao formulário principal do pai ao concluir. Além disso, dimensões com valor "Não se aplica" no cadastro técnico eram computadas como ausentes no mobile.
+
+**Solução técnica implementada:**
+1. **Compartilhamento de Regras em `shared-utils/catalogPublicationValidation.ts`:** Criada biblioteca canônica compartilhada contendo `checkEcomLegibility` e `validateCatalogPublication`, mantendo paridade estrita de mensagens, requisitos de fotos, categorias, preço, dimensões com tolerância a "não se aplica" e identificador de artefatos de teste fiscal (`isTestProduct`).
+2. **Delegação no ERP:** `productLegibilityRules.ts` e `useProductsCatalogActions.ts` foram refatorados para consumir `catalogPublicationValidation.ts`, eliminando duplicações e assegurando retrocompatibilidade total.
+3. **Replicação no Mobile (`useMobileProducts.ts` & Componentes):**
+   - Em `useMobileProducts.ts`, o fluxo de alternância de catálogo (`handleToggleCatalog`) passou a executar `validateCatalogPublication`, apresentando o alerta estruturado com todos os itens faltantes e nota de rascunho quando pertinente.
+   - Em `MobileChannelBadges.tsx` e `MobileProductVariationCard.tsx`, removidos os bloqueios antecipados que impediam a chamada a `onToggleCatalog` em itens em rascunho.
+4. **Exibição de SKU de Variação Única no Mobile (`MobileProductCard.tsx`):**
+   - Integrado `normalizeVariationSku` em `MobileProductCard.tsx` para computar `displaySku`: quando houver variação única, apresenta o SKU normalizado da variação; caso contrário, apresenta o código do pai.
+5. **Harmonização de Regras de Variação (`productRegistrationRules.ts`):**
+   - Ajustada a verificação de dimensões para ignorar campos configurados explicitamente como "não se aplica", "nao se aplica" ou "n/a" em características técnicas.
+   - Removida a exigência indevida de fornecedor no nível da variação em `getMobileVariationRegistrationIssue`, alinhando-se a `productVariationRules.ts` do ERP.
+
+**Arquivos e linhas modificados:**
+| Arquivo | Modificação / Linhas |
+|---|---|
+| `shared-utils/catalogPublicationValidation.ts` | Arquivo novo: implementação canônica de `checkEcomLegibility` e `validateCatalogPublication`. |
+| `erp/src/pages/App/Products/domain/productLegibilityRules.ts` | 9–14: reexporta `checkEcomLegibility`, `EcomLegibilityResult` e `isPositiveNumber` de `shared-utils`. |
+| `erp/src/pages/App/Products/ProductList/hooks/actions/useProductsCatalogActions.ts` | 108: reexporta `validateCatalogPublication` da biblioteca canônica compartilhada. |
+| `mobile/src/features/products/hooks/useMobileProducts.ts` | 5, 150–175: integra `validateCatalogPublication` e remove validação manual ad-hoc divergente. |
+| `mobile/src/features/products/components/MobileChannelBadges.tsx` | 63–75: remove retorno precoce em rascunho no `handleToggleCat`. |
+| `mobile/src/features/products/components/MobileProductVariationCard.tsx` | 95–99: remove bloqueio precoce em rascunho do pai no toggle de catálogo da variação. |
+| `mobile/src/features/products/components/MobileProductCard.tsx` | 31, 241–252, 281: computa e exibe `displaySku` para produtos com variação única. |
+| `mobile/src/features/products/domain/productRegistrationRules.ts` | 122–165: alinha isenção de dimensões "não se aplica" e remove exigência indevida de fornecedor em variações. |
+| `mobile/src/features/products/domain/productRegistrationRules.test.ts` | 185–212: novos testes cobrindo isenção de fornecedor e dimensões "não se aplica". |
+
+**Validações e Testes Executados:**
+- **Testes Unitários Mobile:** 21 arquivos de testes do módulo de produtos executados via `npm run test:unit:mobile --prefix erp -- src/features/products`, com **139 testes aprovados** (0 falhas).
+- **Testes Unitários ERP:** `catalogPublicationValidation.test.ts` e `productLegibilityRules.test.ts` executados via `npm run test:unit`, com **20 testes aprovados** (0 falhas).
+
+## Variações — recorte, envio, propagação e busca conferidos
+
+**Problema e causa comprovada:** VariationPhotosTab enviava o recorte sem resolver do proprietário e a trava do modal não cobria preparação/upload. useVariationForm.handleReplaceImageGlobal alterava imagens locais antes de aguardar o callback e absorvia falhas ao sincronizar o pai. O callback do formulário do produto devolvia void assim que agendava autosave. No cropper, a promessa retornada dentro de try/finally não era aguardada: a trava era liberada antes do resolver terminar, permitindo Escape enquanto enviava. Carga/compressão/upload/callback não tinham limite uniforme. A busca compartilhada já validava valores, mas liberava o resolver antes do I/O, não expunha searchError/retry no componente e não recebia disabled do proprietário.
+
+**Solução de propriedade:** useVariationForm recebe contratos explícitos de arquivo/origem e substituição HTTPS em shared-utils. RHF acompanha o arquivo até upload e aplicação; substituição também executa resolver próprio. A trava comum cobre preparação, upload e propagação, impedindo conclusão/fechamento/edições do modal. Sessão inclui usuário, produto e variação; retorno antigo não altera outro contexto. Fotos da variação e referência do pai só são atualizadas após callback/serviço resolver. Timeout/resultado incerto mantém erro e bloqueia repetição/salvamento final no proprietário.
+
+**Recorte real e fila de efeitos:** SquareImageCropper aguarda validateAndRun antes do finally, limita a carga a15s, canvas a10s, compressão a15s e callback composto a95s. Os limites internos do proprietário são55s para o helper de upload e30s para propagação. O recortador abre por portal no fluxo de variação, mantendo seus controles acessíveis enquanto o campo proprietário está desativado. Escape cancela somente o cropper ocioso e não fecha o modal enquanto trabalha; ponteiros já iniciados também respeitam a trava. Erro/progresso ficam visíveis, URLs temporárias e timers são liberados. Mesma geometria/preparação reaproveita o File; após upload confirmado, recusa explícita da aplicação repete só o callback com a mesma URL, sem nova compressão/envio.
+
+**Upload:** helper valida arquivo antes de preparar/enviar, conserva uma identidade para original/média/thumb, limita preparações a10s cada e uploads a30s. Exige URL HTTPS válida do original; falha opcional de derivada conserva o original confirmado. Falha local conhecida permite retry; retorno original ausente/divergente ou transporte incerto não fabrica URL nem autoriza repetição automática. Contexto é conferido antes de iniciar upload depois da preparação.
+
+**Propagação ao produto:** callback do formulário do produto aplica um snapshot explícito em imagens e variações, confirmando a aplicação local. Produto registrado continua com alteração no formulário até seu salvamento normal; não se anuncia persistência remota por essa confirmação local. Para produto rascunho, callback aguarda autoSaveDraft; ausência de confirmação conserva o rascunho alterado e retorna erro incerto. Sem callback de agregado local, o proprietário aguarda o contrato void existente de updateProduct, sem absorver sua falha; exige pai disponível no cache. Ctrl+S do formulário pai respeita o modal de variação aberto.
+
+**Busca de componentes:** ProductAutocomplete encaminha disabled, mostra erro/retry e rejeita sugestão de outro contexto/geração. useProductAutocomplete mantém enqueueAndRun ativo durante consulta, utiliza query/fornecedor/opções parseados, prazo10s, descarte antigo e nova validação no retry. A composição real conserva preço/estoque zero. As duas suítes antigas desse componente passaram a happy-dom: jsdom não inicializava neste checkout Windows por ausência do binário canvas.node; não havia resultado de teste para contar nessa tentativa. Não alteradas as asserções funcionais desses testes.
+
+**Arquivos e linhas modificados:**
+
+| Arquivo | Região modificada |
+|---|---|
+| shared-utils/productImageFormSchemas.ts | 2–5: upload de recorte e substituição HTTPS. |
+| erp/src/pages/App/Products/hooks/variation/useVariationForm.ts | 1–5,39,371–442,retorno: dois resolvers, trava compartilhada, upload/callback limitados, erro/recusa/incerteza e estado aplicado após resposta. |
+| erp/src/pages/App/Products/modals/VariationFormModal.tsx | 36–49,113–125,248–250: identidade de usuário, Escape e encadeamento real do recorte. |
+| erp/src/pages/App/Products/components/tabs/images/VariationPhotosTab.tsx | 1–74,247–253: encaminhamento ao proprietário, fallback validado, recibo de arquivo e erro. |
+| erp/src/pages/App/Products/components/tabs/images/SquareImageCropper.tsx | 1–48,50–108,156–245,255–270,476: espera correta, contexto/prazos, preparação reaproveitada, feedback/guardas e portal. |
+| erp/src/pages/App/Products/components/tabs/images/productImageUpload.ts | 3–5,14–fim: arquivo, contexto, preparações/envios limitados e confirmação da URL. |
+| erp/src/pages/App/Products/hooks/form/useProductFormModal.ts | 344–348,475–489: Ctrl+S e callback aguardável com snapshot/rascunho. |
+| erp/src/pages/App/Products/components/form/ProductFormSubModals.tsx | 21: contrato aguardável de aplicação com recusa explícita. |
+| erp/src/components/ProductAutocomplete.tsx | 77–97,253: disabled, erro/retry e seleção atual. |
+| erp/src/components/hooks/useProductAutocomplete.ts | 47,93–181,206: resolver até consulta e opções parseadas. |
+| erp/src/pages/App/Products/modals/VariationFormModal.test.tsx | mocks/cleanup e198–fim: oito provas novas com modal/hook/cropper reais. |
+| erp/src/pages/App/Products/hooks/form/useProductFormModal.variation.test.tsx | mocks,83 e99–fim: quatro provas novas da propagação no pai; fixture pendente completa o tipo Variation existente. |
+| erp/src/components/forms/imageCropOwners.test.tsx | cleanup e29–35: carga de origem limitada. |
+| erp/src/pages/App/Products/components/tabs/images/productImageUpload.test.ts | novo: oito provas do helper real e transporte simulado. |
+| erp/src/components/ProductAutocomplete.form.test.tsx | novo: cinco provas do componente/hook/RHF reais. |
+| erp/src/components/ProductAutocomplete.ai.test.tsx e ProductAutocomplete.variationDisplay.test.tsx | 1: runtime DOM compatível com checkout. |
+| inventário principal, continuidade e índice fiscal | evidências e fechamento do agregado após conferir seus caminhos antes pendentes. |
+
+**Validação:**137 testes em16 arquivos aprovados após o catch final da preparação de origem (26 provas novas), incluindo conclusão/rascunho/preços, seleção/reordenação/fotos, composição real do modal e busca. Lint sem erros; três avisos anteriores nos hooks. TypeScript global294 diagnósticos fora das fontes/testes do lote. Build ERP completo com startup fiscal aprovado em1m48s. Agregado de variações conferido: ERP119/132 (90,2%),13 pendentes no inventário principal; não é conclusão global de ERP/mobile/catálogo. Logs finais: scratch/rhf-variation-images-final-{tests,lint,tsc,build}.log.
+
+**Limites:** serviços de produto, R2, Supabase, compressão/canvas e Auth são simulados. Testes provam o encadeamento do proprietário e contratos locais, sem certificar pixels reais/CORS, permissões, linha persistida, transação ou concorrência remota. updateProduct preserva seu retorno void existente; resolver esse contrato não equivale a uma leitura independente do registro no banco. Registro/arquivo/imagens globais não formam transação atômica. Arquivo enviado antes de falha na aplicação pode permanecer sem vínculo; não há exclusão automática. Timeout não cancela todo transporte já iniciado; recibos e travas de imagem são da instância/sessão. Não houve gravação real, migration, transmissão ou deploy. Cancelamento/estorno e política de ausência de CC-e permanecem conforme documentação vigente.
+
+## Modelo de etiqueta — biblioteca de recorte conferida
+
+**Problema e causa comprovada:** LabelModelCreationModal liberava validação antes de terminar FileReader; a prévia desenhava sem executar o resolver. Aplicar gerava outra Image assíncrona e esperava100ms fixos antes de ler o canvas/fechar, podendo enviar resultado vazio ou antigo. Callback onApply era tratado como void; não havia prazo/trava comum ou erro visível durante leitura/aplicação. O schema não conferia dimensões carregadas, limites nem interseção do recorte com a imagem.
+
+**Correção:** leitura reutiliza readImageFile já existente (10s/AbortSignal), dentro do resolver real. Prévia e aplicação usam o mesmo contrato explícito de imagem/escala/geometria antes do canvas. O recorte usa a imagem exibida com dimensões confirmadas, calcula sua interseção visível e devolve o PNG sincronamente; removidos Image extra e atraso fixo. Seleção inicial é ajustada a displays estreitos. Mesma geometria reutiliza o PNG preparado, e uma recusa explícita permite repetir somente o callback. Arquivo inválido/dimensões zero/recorte sem interseção/canvas vazio bloqueiam o efeito com erro.
+
+Callback permanece no resolver até confirmação, com30s de limite; resultado incerto bloqueia repetição na instância. Campos, ponteiros, cabeçalho/backdrop/Cancelar/Escape compartilham a trava. Leitura pode ser repetida para o mesmo arquivo; erros de decode são visíveis. Sessão própria por abertura/contextKey cancela leituras e impede callback antigo de fechar/destravar outro contexto. Controles e imagens são preservados após falha conhecida; progresso/erro ficam na interface.
+
+| Arquivo | Linhas modificadas |
+|---|---|
+| shared-utils/labelDesignFormSchemas.ts | 367–377: imagem, escala, dimensões e interseção da geometria. |
+| erp/src/pages/App/Stock/LabelPrinting/modals/LabelModelCreationModal.tsx | 4–8,10–71: contratos/sessão/guardas e cleanup;83–101: leitura aguardada;145–180: canvas validado e callback confirmado;190–fim: feedback, fechamento/controles, metadados da imagem e display estreito. |
+| erp/src/pages/App/Stock/LabelPrinting/modals/LabelModelCreationModal.test.tsx | novo:13 provas com componente, FileReader, canvas e resolver reais no encadeamento; APIs nativas simuladas. |
+| inventário principal, continuidade e índice fiscal | disposição da biblioteca, evidência e cobertura. |
+
+**Provas:**37 testes em quatro arquivos aprovados, incluindo13 novos do proprietário e regressões de estado/controles/página da arte. Lint das três fontes/testes sem erros/avisos. TypeScript global mantém294 diagnósticos fora deste lote; não está aprovado globalmente. Build ERP completo com startup fiscal aprovado em1m30s. Logs: scratch/rhf-label-model-creation-final-{tests,lint,tsc,build}.log. O reset final do input foi novamente conferido nos37 testes. Nenhum pacote adicionado.
+
+**Disposição:** busca de consumidores em erp/src localiza somente a declaração e os testes. Biblioteca retida e conferida, sem reativar tela nem declarar formulário operacional ativo. Fechado um item já existente: ERP120/132 itens encerrados (90,9%),12 pendentes no principal; censo adicional/mobile/catálogo continuam separados. Testes não certificam pixels/decodificação reais, impressão física ou persistência no consumidor futuro. onApply aceita void/true como confirmação do contrato e false como recusa; sua implementação continua responsável pelo efeito. Timeout não cancela callback já iniciado e bloqueio incerto é da instância. Sem escrita remota, migration, mensagem, transmissão ou deploy.
+
+
+## Assistente global — envio, histórico e voz conferidos
+
+**Problema e causa comprovada:** o componente ativo no AppLayout só validava o texto; enviava histórico/contexto da closure e gravava histórico/preferência diretamente em efeitos. getItem fora do try podia derrubar a tela, dados inválidos eram descartados e sobrescritos silenciosamente, e o texto era apagado antes da resposta. Voz criava reconhecedores sem cleanup e agendava envio dentro do updater de estado, capturando histórico antigo. O serviço não limitava esperas nem conferia contexto entre modelo e ferramentas. Três provas iniciais falharam reproduzindo perda antecipada do rascunho, falha de leitura e cache inválido sem aviso (scratch/rhf-agent-chat-baseline-tests.log).
+
+**Solução:** quatro contratos explícitos compartilhados: envio com texto/histórico/contexto; persistência de mensagens/histórico; limpeza confirmada; preferência de voz. Cada intenção mantém o useZodForm/zodResolver real até seu efeito terminar. A operação recebe valores parseados; resposta e conteúdo do modelo são conferidos antes de publicação/despacho. Metadados do provedor são preservados; os argumentos/resultados dinâmicos das ferramentas não substituem suas regras de serviço/backend. Leitura inválida/inacessível apresenta aviso e impede sobrescrever o cache até limpeza explícita. Escritas e remoções locais conferem readback; falha de cache depois de uma resposta confirmada conserva essa resposta e não dispara novamente o serviço.
+
+Envio por Enter, botão, drawer/floating e voz compartilha trava síncrona. O rascunho só é limpo após resposta válida e se não foi editado durante a espera. Contexto de usuário/rota/abertura e AbortController impedem publicar resposta antiga ou iniciar ferramentas posteriores; esperas têm prazo de30s/modelo,20s/ferramenta e90s/conversa. Falha após ferramenta despachada é incerta, com aviso e bloqueio da mesma mensagem normalizada na instância, inclusive após limpar o histórico. Recusa conhecida antes de ferramentas permite nova tentativa. O limite de iterações e a ausência de texto não declaram operação bem-sucedida.
+
+Reconhecedor e timer de silêncio têm cleanup por fechamento/rota/usuário/unmount, e os callbacks leem o envio/histórico atual. O microfone pausa durante consulta e reprodução da resposta, sem capturar a fala do próprio assistente; término/erro de voz e prazo de60s liberam ou encerram a chamada com feedback. Formas visuais têm rótulos acessíveis e status/erro persistentes.
+
+**Arquivos e linhas:**
+
+| Arquivo | Alteração |
+|---|---|
+| shared-utils/agentChatFormSchemas.ts:1 | Contratos explícitos de conteúdo, ferramenta, envio, resposta, cache, limpeza e voz (linhas6–42). |
+| erp/src/components/shared/AIChatAssistant.tsx:44 | Contexto autenticado; leitura segura107–125; proprietários131–134; travas/sessão135–175; voz179–270; cache274–287; envio289–349; limpeza351–368; status/erro/controles em ambos os layouts. |
+| erp/src/services/aiAgent/geminiAgentService.ts:18 | Opções de contexto/aborto e erro com classificação; sendMessage132–240 limita modelo/ferramentas/total, valida conteúdo e confere atualidade antes/depois de cada espera. Prompt e contratos de negócio das ferramentas preservados. |
+| erp/src/components/shared/AIChatAssistant.test.tsx:1 |25 testes do componente real com RHF/resolvers reais; serviços, cache e APIs de voz simulados. |
+| erp/src/services/aiAgent/__tests__/geminiAgentRequest.test.ts:1 |10 provas da orquestração real: contexto, aborto, resposta tardia, prazos por etapa/total, dispatch e resposta inválida; modelo/dispatcher simulados. |
+| docs/audits/fiscal-2026-10-14/form-migration-inventory.md:7 | Checkpoint e fechamento das duas referências do assistente (principal e censo), sem dupla contagem. |
+| docs/forms/migracao-rhf-zod-2026-10-14.md:3; docs/forms/continuidade-formularios-2026-10-16.md:5; docs/fiscal/README.md:9 | Checkpoint e referência vigente sincronizados. |
+
+**Prova final:**45 testes em quatro arquivos, sendo25 novos do componente,10 novos do serviço e10 regressões conversacionais existentes. Lint dos cinco arquivos de fonte/teste passou sem erros/avisos. Build ERP completo com startup fiscal passou em1m35s. TypeScript global mantém294 diagnósticos fora destes arquivos, sem aprovação global do projeto. Logs: scratch/rhf-agent-chat-final-{tests,lint,build,tsc}.log; configuração de lint compartilhado: scratch/agent-chat-rhf-eslint.config.mjs.
+
+**Limites e cobertura:** um proprietário existente encerrado: ERP121/132 (91,7%),11 pendentes no principal; censo adicional, mobile e catálogo continuam abertos. IA/dispatcher, armazenamento e voz foram simulados: não certifica microfone/áudio real, permissões, persistência de lançamentos/feedback, transação remota ou concorrência entre abas. Aborto/prazo não desfaz ferramenta já enviada nem cancela todos os transportes iniciados. O bloqueio de mensagem incerta é da instância e não uma chave de idempotência persistida. As duas chaves legadas de histórico foram preservadas; readback não as torna uma transação atômica e este lote não altera sua política de armazenamento por usuário. Sem chamada paga de IA, gravação comercial, transmissão, migration, mensagem externa ou deploy. Política de ausência de CC-e e elegibilidade de cancelamento/estorno não foram alteradas.
+
+
+## Relatórios Bling — proprietário e composição conferidos
+
+**Problema e causa comprovada:** o período do Index já tinha um resolver, mas o hook gravava nome/configuração e dados calculados diretamente no Supabase, sem validar o payload agregado nem conferir o recibo. Update aceitava nenhuma linha como sucesso, exclusão não conferia ID e consultas engoliam erros. A busca paginada interrompia em erro/limite devolvendo as páginas anteriores, permitindo gravar análise incompleta. O cálculo preparatório alterava totais/datas da tela antes de salvar. O nome usava Date de meia-noite UTC para um campo de data local, podendo rotular o mês anterior. Três testes iniciais reproduziram nome vazio e NaN chegando à gravação e update sem recibo aceito (scratch/rhf-bling-report-baseline-tests.log).
+
+**Solução e proprietário:** schemas explícitos compartilhados para configuração, métricas calculadas, períodos, conteúdo consumido do provedor, gravação/criação/atualização/exclusão, consultas e filtros da visualização. Valores financeiros finitos podem ser negativos; não foram inferidas restrições de lucro/giro positivo. Configuração vazia continua válida para os defaults do cálculo, e campos legados de mapeamento/configuração são preservados. Histórico de métricas mensais ausentes é normalizado somente na leitura, mantendo o fallback existente, sem regravar relatórios antigos.
+
+O hook executa RHF/zodResolver real antes de cada efeito e mantém o proprietário até resposta/recibo. Criação conserva UUID na recusa conhecida; criar/atualizar comparam ID, tipo, fonte, nome, configuração e dados retornados, independentemente da ordem das chaves JSONB. Exclusão exige o ID exato no retorno; get exige o relatório solicitado e o tipo correto. Recusa conhecida permite retry; resultado incerto congela novas gravações naquele contexto da instância, mantendo consultas para conferência. Gravação confirmada seguida de falha só no refresh retorna o recibo e não repete automaticamente a mutação.
+
+Consultas e páginas têm prazo de15s; gravação20s e importação90s no total. Alteração de usuário/relatório/modo ou unmount descarta resultados antigos e impede iniciar outra página/gravação na sequência. Erro posterior, página inválida ou teto de50 páginas encerram a importação com erro, sem devolver dados parciais. Os estados e cálculo dos itens atendidos/enviados (6/9), zeros para campos de valor ausentes e regras da curva ABC/giro existentes foram preservados; preparar resultado com returnRaw não altera a análise exibida.
+
+Index mantém submissão até consulta/cálculo/gravação/recibo e navega apenas com confirmação, guarda o intervalo no config.dateRange, preserva campos em falha e mostra status/erro/retry. O rótulo usa a data validada sem conversão UTC. View usa o proprietário de consulta, valida filtros/URL antes de aplicá-los, conserva erro e permite recarregar. Callback retido de configuração valida o agregado antes das consultas, aguarda gravação e reload, trava fechamento e conserva recibo para repetir somente a leitura após confirmação conhecida.
+
+**Disposição da configuração:** Router.tsx:296–307 monta as duas rotas Bling e o menu desktop aponta para a lista. Há criação/lista/exclusão e leitura operacionais. A View mantém isConfigOpen inicial false e nenhum setIsConfigOpen(true) localizado; o ramo de configuração é biblioteca retida, sem reativação nesta tarefa. As provas de composição não afirmam abertura operacional desse ramo. O contrato de atualização e seus recibos/contexto foram exercitados diretamente no proprietário do hook; o modal compartilhado tem nove regressões próprias.
+
+**Arquivos e linhas:**
+
+| Arquivo | Alteração |
+|---|---|
+| shared-utils/salesReportFormSchemas.ts:1 | Configuração, métricas/relatório, intents/recibos e consultas (5–46); filtros/URL47 e página do provedor54. |
+| erp/src/pages/App/SalesOrder/ReportsBling/useSalesReport.ts:43 | Proprietário/autorização/contexto e formulários; query84–118; preparação de cálculo sem aplicar estado120–315; filtro317; consulta paginada366; gravação407–462 com recibos/trava/prazo e falha parcial explícita. |
+| erp/src/pages/App/SalesOrder/ReportsBling/Index.tsx:9 | Rótulo de período sem UTC; formulário39; submissão51–75 até navegação confirmada; campos/status/erro e exclusão aguardada98–202. |
+| erp/src/pages/App/SalesOrder/ReportsBling/ReportView.tsx:92 | Contratos no proprietário; consulta145, callback retido184 e filtros/URL214; erro/retry346 e progresso/fechamento440. |
+| erp/src/pages/App/SalesOrder/ReportsBling/useSalesReport.test.tsx:1 |31 provas do hook real com RHF/resolvers reais, transporte/provedor simulados. |
+| erp/src/pages/App/SalesOrder/ReportsBling/reportsBlingOwner.test.tsx:1 |Nove provas das páginas reais com hook/RHF reais, sem simular o proprietário; transporte, Auth, router, gráficos, visão de fornecedores e provedor são simulados. |
+| docs/audits/fiscal-2026-10-14/form-migration-inventory.md:7 | Checkpoint e fechamento do hook principal e censo do Index, um único incremento. |
+| docs/forms/migracao-rhf-zod-2026-10-14.md:3; docs/forms/continuidade-formularios-2026-10-16.md:5; docs/fiscal/README.md:9 | Cobertura e referência vigente sincronizadas. |
+
+**Prova final:**49 testes em três arquivos (31 do hook, nove da composição e nove regressões do modal compartilhado). A reprodução com TZ=America/Sao_Paulo confirmou que 2025-07-01 era rotulado06/25 e agora fica07/25 (scratch/rhf-bling-report-period-proof.log). Lint dos seis arquivos sem erros;34 avisos de código não utilizado da View já presentes no baseline, sem mensagem nova (baseline38, removidas também dependências incompletas). Build ERP completo com startup fiscal aprovado em1m42s. TypeScript global tem296 diagnósticos, nenhum nestes arquivos; o gate intermediário tinha294 e os dois adicionais estão em PersonAddressSection/CustomDeliveryAddressFields, fora do lote, por contrato de AddressVerificationMapProps. Não há aprovação global de TypeScript. Logs: scratch/rhf-bling-report-final-{tests,build,tsc}.log, scratch/rhf-bling-report-final-lint.json e baseline-view-lint.json; configuração: scratch/bling-report-rhf-eslint.config.mjs.
+
+**Limites e cobertura:** ERP122/132 itens encerrados (92,4%),10 pendentes no principal. Censo adicional, ERP ReportView/autosave e mobile/catálogo mantêm suas pendências. Transporte Supabase/Bling e gráficos foram simulados: não certifica o contrato live da API Bling, permissões/RLS, persistência real, pixels, compartilhamento ou concorrência remota. Timeout não cancela todo transporte já iniciado; trava incerta e UUID de retry pertencem à instância/contexto, sem idempotência persistida entre abas/reaberturas. Escrita e refresh não são uma transação; resposta confirmada é distinguida de falha de leitura posterior. Relatórios históricos sem dateRange mantêm a consulta sem período do contrato legado, sem inventar um intervalo. Sem chamada real ao Bling, gravação comercial, migration, transmissão, mensagem externa ou deploy. CC-e segue ausente do produto; regras fiscais não foram modificadas.
+
+
+## Relatórios ERP — proprietário, autosave e filhos conferidos
+
+**Problema e causa comprovada:** a View validava só os filtros, gravando configuração inteira sem recibo e sem impedir autosave no modo público. Criação/atualização usavam o hook com persistência direta sem resolver do agregado; update aceitava zero linhas como resultado, e o modal fechava antes da confirmação. A preparação calculateABC(..., true) retornava results/allProducts vazios, impedindo criar análises úteis; três dos quatro testes iniciais reproduziram a inconsistência (scratch/rhf-sales-report-calculation-baseline-tests.log). Atualização CSV sem arquivo reutilizava allProducts com nomes de campos incompatíveis com SaleItem, convertendo receita/quantidade em zeros. Exclusões chamavam efeito dentro de updater e fechavam sem esperar o callback. Referências de produto validavam apenas adição; exclusão/leitura/refresh não tinham contratos/recibos/prazos. Leitura de arquivo não tinha resolver, cleanup ou prazo.
+
+**Solução e preservação:** extraída a persistência já conferida do Bling para useSavedSalesReports, com schema conforme o módulo, intents separados de criação, atualização, configuração e exclusão, consultas list/get/mappings e contexto usuário/relatório/modo. A mesma prova de49 testes passou antes/depois da extração (scratch/rhf-sales-report-extraction-tests.log), antes de acrescentar o ERP. Ambos usam resolver RHF real até resposta/recibo; gravação completa exige dados calculados explícitos e configuração, enquanto filtros preservam o snapshot antigo e validam só o contrato apropriado. UUID estável em recusa conhecida, comparação de recibo e ID, trava/fila, prazo20s de escrita e15s de consulta. Incerto congela novas gravações na instância/contexto; refresh posterior a confirmação não repete a mutação. O modo público bloqueia gravação, inclusive para operador autenticado, e conserva a leitura compartilhada de relatório ERP ou Bling.
+
+Index prepara ERP/CSV dentro do resolver proprietário, aguarda consulta/cálculo e confirmação, preserva modal e navega só após recibo. View restaura o baseline antes de autosave, valida/aplica filtros e URL, só grava mudança real após debounce1s, serializa snapshots atuais e descarta trabalhos cancelados. Última edição sobrevive ao recibo anterior; alteração manual aguarda o autosave já iniciado e conserva filtros atuais. Falha mostra aviso persistente e ação específica de retry sem apagar o digitado. Contexto antigo não preenche a tela de outro usuário/relatório. Atualização/gerência de itens espera confirmação antes de fechar; efeito saiu do updater.
+
+O cálculo puro agora devolve o resultado completo em preparação e visualização; o hook decide se aplica estado. allProducts mantém também os excluídos, inclusive ao excluir tudo, para re-inclusão posterior. Preparação não muda totais/datas antes de confirmação. CSV novo tem conversão compartilhada de valores locais, conserva perdas e cálculo de lucro ausente e recusa data/número inválido. CSV sem novo arquivo reconstrói SaleItem explicitamente dos agregados completos; histórico incompleto pede reanexar arquivo, sem fabricar receita. Estruturas legadas de allProducts são toleradas na leitura/configuração sem se tornarem payload completo de gravação.
+
+Modal compartilhado usa resolver de arquivo até FileReader/parse, prazo10s, AbortController/cleanup e erro/status; fechar/enviar fica protegido durante processamento. Callback recusado/rejeitado conserva modal/seleção. Referências têm proprietário real para lista, adição e exclusão confirmada, recibo/ID, trava/prazo/contexto e falha de refresh distinta de mutação. A API de consulta ERP limita etapa canônica/fallback/resolução a15s e o proprietário30s; timeout/troca de contexto não aciona novo fallback. Removidos os quatro exports sem consumidores de persistência direta em salesReportApiService, substituídos pelo proprietário compartilhado.
+
+**Arquivos e linhas:**
+
+| Arquivo | Alteração |
+|---|---|
+| shared-utils/salesReportFormSchemas.ts:24 | Produto/dados calculados; contratos ERP de escrita51, leitura histórica58, itens62, consulta/csv/exportação66–72, preparação73 e referências81–86; Bling preservado. |
+| erp/src/pages/App/SalesOrder/Reports/hooks/useSavedSalesReports.ts:22 | Proprietário extraído; formulários/intents, query50, gravação87 e config144. Duas famílias preservadas, backend continua responsável por permissão e consistência remota. |
+| erp/src/pages/App/SalesOrder/ReportsBling/useSalesReport.ts:47 | Usa a persistência compartilhada; orquestração/cálculo/importação Bling preservados. |
+| erp/src/pages/App/SalesOrder/Reports/hooks/useSalesReport.ts:28 | Integra persistência; preparação sem aplicar estado; consultas70, importação90, exportação108 e restauração110 executam resolvers reais antes de seus efeitos. |
+| erp/src/pages/App/SalesOrder/Reports/Index.tsx:29 | Preparação45–67 até confirmação/navegação; modal aguardado, falha/progresso e exclusão confirmada. |
+| erp/src/pages/App/SalesOrder/Reports/components/ReportView.tsx:93 | Proprietários e contexto; leitura205, atualização333, filtros/URL374 e autosave399; callbacks filhos aguardados e modo público protegido. |
+| erp/src/pages/App/SalesOrder/Reports/modals/ReportConfigModal.tsx:77 | Arquivo/readback local e lifetime; callback99 e fechamento185; upload136 e status/erro/finalização351. |
+| erp/src/pages/App/SalesOrder/Reports/modals/ItemExclusionModal.tsx:24 | Callback aguardado, recusa/rejeição preservam seleção e impedem fechamento. |
+| erp/src/pages/App/SalesOrder/Reports/modals/ProductReferenceModal.tsx:60 | Consulta e recibos; escrita78; add111/delete116; erros/status/controles. |
+| erp/src/pages/App/SalesOrder/Reports/utils/reportCsvInput.ts:6 | Leitor nativo limitado/abortável e mapper28 com contratos de dados. |
+| erp/src/pages/App/SalesOrder/Reports/utils/salesReportCalculations.ts:130 | Agregado preserva excluídos; resultados completos202–204 para preparar ou exibir. Métricas e classificação existentes mantidas. |
+| erp/src/pages/App/SalesOrder/Reports/services/salesReportApiService.ts:8 | Consulta limitada/contextual; fallback só continua enquanto atual; exports antigos de escrita/listagem retirados. |
+| erp/src/pages/App/SalesOrder/Reports/hooks/useSalesReport.test.tsx:1 |29 provas do hook real: payload, config, fila, recibo, consulta, contexto e erros. |
+| erp/src/pages/App/SalesOrder/Reports/reportsOwner.test.tsx:1 |16 provas da composição real de Index/View/referências com RHF/hook reais, transportes/roteador/gráficos/Auth simulados. |
+| erp/src/pages/App/SalesOrder/Reports/modals/reportModalLifecycle.test.tsx:1 |Sete provas de callbacks, arquivo inválido, prazo/aborto e conversão CSV. |
+| erp/src/pages/App/SalesOrder/Reports/utils/salesReportCalculations.test.ts:1 |Cinco provas do cálculo/preparação/excluídos. |
+| erp/src/pages/App/SalesOrder/Reports/services/salesReportApiService.test.ts:1 |Cinco provas do serviço real canônico/fallback/contexto/prazos; Supabase/canonicalização simulados. |
+
+**Verificação e limites:**111 testes em oito arquivos aprovados, incluindo40 regressões Bling e nove do modal compartilhado. Lint de17 arquivos sem erros; nove avisos de código não utilizado da View já constavam no baseline16, sem aviso novo. TypeScript global312 diagnósticos fora dos arquivos deste lote; não há aprovação global. Build ERP completo com startup fiscal aprovado em1m42s. As duas tentativas anteriores falharam em imports do módulo de IA de produtos fora do lote, corrigidos por outra frente no checkout antes do build final; não houve reversão dessas mudanças. Logs: scratch/rhf-sales-report-final-{tests,build,build-retry,build-verified,tsc}.log, final-lint.json, baseline-view-lint.json e configuração scratch/sales-report-rhf-eslint.config.mjs. Leitura da skill Supabase/React e consulta do changelog/documentação de retorno de delete efetuadas; confirmação .select() segue o [contrato documentado](https://supabase.com/docs/reference/javascript/delete), sem alterar SDK/RLS/schema.
+
+**Cobertura:** um item existente encerrado, agregado ERP de relatórios e filhos:123/132 (93,2%),9 pendentes no principal. A contagem não duplica o proprietário compartilhado nem os filhos já existentes. Censo adicional, mobile e catálogo continuam abertos; não há conclusão global. Inventário e continuidade sincronizados em docs/audits/fiscal-2026-10-14/form-migration-inventory.md:7, docs/forms/migracao-rhf-zod-2026-10-14.md:3, docs/forms/continuidade-formularios-2026-10-16.md:5 e docs/fiscal/README.md:9.
+
+Transportes Supabase/Bling, Auth, canonicalização e gráficos foram simulados; FileReader/callbacks também são simulados nas falhas. Não certifica RLS, persistência real, atomicidade/concorrência entre abas, pixels/print ou dados live. Timeout não cancela todo transporte já iniciado; bloqueios de incerteza/UUID pertencem à instância/contexto. Configuração é um snapshot completo, sem controle transacional de concorrência remota. Métodos retidos de export/import/restauração validam no proprietário, mas não ganharam acionador operacional. Biblioteca de configuração do Bling continua sem reativação. Sem escrita real, chamada paga, migration, transmissão, mensagem externa ou deploy. CC-e segue ausente e elegibilidade fiscal não foi modificada.
+
+## Desacoplamento de Características Técnicas do Cadastro/ERP e Ocultação para Estoquista
+
+**Problema e sintomas observados:**
+1. Asteriscos vermelhos (`*`) estavam visíveis em características técnicas nos componentes `TechnicalFieldRow.tsx` e `VariationTechnicalFieldItem.tsx`, sugerindo que eram campos obrigatórios para o cadastro/salvamento do produto no ERP.
+2. O asterisco vermelho de `Preço de Venda` no formulário principal continuava visível mesmo quando o produto possuía variações (onde cada variação define ou sincroniza seu próprio preço).
+3. A aba de características técnicas (`technical` no produto principal e `tecnico` no modal de variações) continuava visível para usuários com perfil estoquista (`isStockistOnly`), contrariando o princípio de que o estoquista apenas ativa produtos no ERP e não publica no Catálogo Digital.
+4. A função `getVariationRegistrationIssue` bloqueava o cadastro de variações se características ou dimensões não estivessem preenchidas, impedindo que estoquistas e operadores salvassem o produto sem preencher requisitos que são de competência exclusiva da publicação no Catálogo Digital.
+
+**Causa raiz técnica comprovada:**
+- A renderização do asterisco em `TechnicalFieldRow.tsx` e `VariationTechnicalFieldItem.tsx` checava `field.isRequired`, propriedade do schema técnico que dita conformidade para o Catálogo Digital (`checkEcomLegibility`), e não obrigatoriedade de cadastro no ERP.
+- As abas `technical` em `productFormTabs.ts` e `tecnico` em `variationModalTabs.ts` não estavam condicionadas a `!isStockistOnly`.
+- As regras `missingDimensions` e `missingCharacteristics` foram indevidamente inseridas no fluxo de validação de registro da variação em `shared-utils/productVariationRules.ts` e `mobile/src/features/products/domain/productRegistrationRules.ts`.
+- `ProductPricingFields.tsx` exibia `*` incondicionalmente no campo Preço de Venda, sem considerar `!formData.hasVariations`.
+
+**Solução técnica implementada:**
+1. **Remoção de Asteriscos Vermelhos de Características:** Excluído o render de `<span className="text-red-500">*</span>` de `TechnicalFieldRow.tsx` e `VariationTechnicalFieldItem.tsx`.
+2. **Ocultação de Características para Estoquista (`isStockistOnly`):**
+   - Condicionada a aba `technical` em `productFormTabs.ts` e `tecnico` em `variationModalTabs.ts` a `!isStockistOnly`.
+   - Adicionados guards em `useProductFormModal.ts` e `useVariationForm.ts` para forçar redirecionamento a abas permitidas caso uma aba oculta esteja ativa em sessão de estoquista.
+3. **Condicionamento de Preço de Venda em Produtos com Variações:**
+   - Em `ProductPricingFields.tsx`, o asterisco de `Preço de Venda` agora só é exibido quando `!formData.hasVariations`.
+4. **Desacoplamento de Características do Cadastro de Variações:**
+   - Em `shared-utils/productVariationRules.ts` e `mobile/src/features/products/domain/productRegistrationRules.ts`, removida a checagem de dimensões e características obrigatórias em `getVariationRegistrationIssue` e `getMobileVariationRegistrationIssue`.
+   - Essas checagens permanecem estritamente ativas nos validadores de publicação do Catálogo Digital (`checkEcomLegibility` e `validateCatalogPublication`).
+5. **Atualização e Criação de Testes:**
+   - Criado `erp/src/pages/App/Products/modals/productFormTabs.test.ts` cobrindo a ocultação de abas para estoquistas.
+   - Atualizados `TechnicalFieldRow.test.tsx`, `variationRegistrationRules.test.ts`, `useProductFormSubmit.test.tsx`, `mobileProductFormSchema.test.ts` e `productRegistrationRules.test.ts`.
+
+**Arquivos e linhas modificados:**
+| Arquivo | Modificação |
+|---|---|
+| `erp/src/pages/App/Products/components/tabs/technical/TechnicalFieldRow.tsx` | 74–81: removido asterisco vermelho `*` de características. |
+| `erp/src/pages/App/Products/components/variationTabs/VariationTechnicalFieldItem.tsx` | 168–174: removido asterisco vermelho `*` de características da variação. |
+| `erp/src/pages/App/Products/modals/productFormTabs.ts` | 19–26: aba `technical` condicionada a `!isStockistOnly`. |
+| `erp/src/pages/App/Products/hooks/form/useProductFormModal.ts` | 170–175: guard de redirecionamento para aba `technical` em `isStockistOnly`. |
+| `erp/src/pages/App/Products/components/variationModal/variationModalTabs.ts` | 20–26: aba `tecnico` condicionada a `!isStockistOnly`. |
+| `erp/src/pages/App/Products/hooks/variation/useVariationForm.ts` | 239–246, 347–352: guard de aba e filtragem de foco de erro para `isStockistOnly`. |
+| `erp/src/pages/App/Products/components/tabs/ProductPricingFields.tsx` | 52–57: asterisco vermelho de `Preço de Venda` condicionado a `!formData.hasVariations`. |
+| `shared-utils/productVariationRules.ts` | 2–5, 53–87: removidas checagens de características e dimensões do cadastro de variação. |
+| `mobile/src/features/products/domain/productRegistrationRules.ts` | 1–8, 122–160: removidas checagens de características e dimensões de variação no mobile. |
+| `erp/src/pages/App/Products/modals/productFormTabs.test.ts` | Novo arquivo: 2 testes validando ocultação de abas técnicas para estoquista. |
+| `erp/src/pages/App/Products/components/tabs/technical/TechnicalFieldRow.test.tsx` | 12–34, 202–211: testes ajustados para garantir ausência de asterisco em características. |
+| `erp/src/pages/App/Products/domain/variationRegistrationRules.test.ts` | 47–104: testes ajustados para validar que ausência de características não bloqueia cadastro de variação. |
+| `erp/src/pages/App/Products/hooks/form/useProductFormSubmit.test.tsx` | 138–175: testes atualizados validando que características não bloqueiam cadastro e roteamento correto de variação. |
+| `mobile/src/features/products/domain/productRegistrationRules.test.ts` | 131–145: teste atualizado confirmando que variação sem dimensões é aceita no cadastro mobile. |
+| `mobile/src/features/products/domain/mobileProductFormSchema.test.ts` | 44–64: teste atualizado confirmando que dimensões são exigidas apenas ao publicar no catálogo. |
+| `erp/vitest.config.ts` | 18: incluído caminho dos testes mobile para execução unificada. |
+
+**Validações e Testes Executados:**
+- **Testes Unitários Mobile:** 21 arquivos de testes em `mobile/src/features/products/` executados com **140 testes aprovados** (100%).
+- **Testes Unitários ERP:** 74 testes da aba técnica, 106 testes dos hooks de formulário, 55 testes dos modais e 29 testes de regras de domínio executados com **100% de aprovação**.
 

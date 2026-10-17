@@ -2,7 +2,7 @@
 
 Este documento registra todas as integrações Cloud, APIs externas, limites de cota, modelos de faturamento e regras de segurança para manter o custo do workspace em **R$ 0,00** ou dentro dos limites estritos de segurança.
 
-**Data da última revisão:** 12/10/2026
+**Data da última revisão:** 16/10/2026
 
 ---
 
@@ -15,7 +15,7 @@ Este documento registra todas as integrações Cloud, APIs externas, limites de 
 #### Serviços Google Cloud e limites registrados
 | Serviço | Identificador Técnico | Finalidade no ERP / Mobile | Limite Físico Configurado no Google Cloud | Proteção no Código |
 |---|---|---|---|---|
-| **Routes API (Maps JavaScript)** | `routes.googleapis.com` | Cálculo de rota, distância (km) e duração para frete | **Ativa (confirmada em 12/10/2026); quota diária personalizada não verificada** | Guard ERP (limite padrão 1.000 req/mês, bloqueio em 95%) + Circuit Breaker (20 req/min) + deduplicação simultânea |
+| **Routes API (Maps JavaScript)** | `routes.googleapis.com` | Cálculo de rota, distância (km) e duração para frete | **300 req / dia** (Configurado no Google Cloud Console) | Cache 24h em memória + Guard ERP (limite 9.000 req/mês, bloqueio em 95%) + Circuit Breaker (20 req/min) + deduplicação simultânea + proibição de loops automáticos em listas |
 | **Maps JavaScript API** | `maps-backend.googleapis.com` | Carregamento da biblioteca de mapas e componentes web | **100 map loads / dia** (Bloqueio automático ao atingir) | Carregamento único singleton (`__googleMapsPromise`) |
 | **Places API** | `places-backend.googleapis.com` | Autocomplete de endereços de clientes | **100 req / dia** (Bloqueio automático ao atingir) | Debounce 600ms + Min 3 caracteres |
 | **Geocoding API** | `geocoding-backend.googleapis.com` | Resolução de coordenadas a partir de logradouro/CEP | **100 req / dia** (Bloqueio automático ao atingir) | Cache de geocodificação em memória |
@@ -30,12 +30,17 @@ As seguintes APIs foram **desabilitadas** no projeto por não serem utilizadas:
 - ❌ `placewidgets.googleapis.com` (Places UI Kit)
 - ❌ `maps-embed-backend.googleapis.com` (Maps Embed API)
 
-#### Modelo de custo da Routes API
-- O código usa `Route.computeRoutes` com os campos `distanceMeters`, `durationMillis` e `path`, classificados na SKU Essentials.
-- A tabela global do Google informa 10.000 requisições mensais sem cobrança e, acima da franquia, USD 5 por 1.000 eventos na primeira faixa paga. O faturamento agrega o uso dos projetos vinculados à mesma conta de cobrança.
-- O guard interno mantém um teto conservador padrão de 1.000 requisições mensais (bloqueio a partir de 950), abaixo da franquia publicada. A documentação oficial informa limite técnico de 3.000 consultas por minuto e permite configurar quota diária no Console.
-- Para manter no máximo 70% da franquia mensal apenas com este projeto, a quota diária calculada é `floor(10.000 × 0,70 / 31) = 225` requisições/dia. O Google agrega consumo de projetos ligados à mesma conta de faturamento; reduza a quota conforme o consumo dos demais projetos.
-- A Routes API está ativa conforme confirmação do usuário pelo Console em 12/10/2026. Ainda não foram conferidas a quota diária efetiva nem as restrições da chave de navegador para domínios oficiais e APIs necessárias.
+#### Resolução do incidente de esgotamento de cota da Routes API (16/10/2026)
+- **Causa Raiz Identificada:**
+  1. No hook `useDeliverySchedule.ts`, havia um `useEffect` em segundo plano que procurava pedidos agendados sem `shipping.distance` e tentava calculá-los em lotes de 5 via Google Routes API, chamando `updateOrder` logo em seguida.
+  2. Porém, a query `fetchScheduledAndDraftOrders()` não incluía a coluna `shipping_data:order_data->shipping` no `select`. Portanto, na memória do frontend, `order.shipping.distance` era **sempre `undefined`**.
+  3. Cada batch chamava a Routes API 5 vezes e salvava no Supabase (`updateOrder`). O evento `postgres_changes` notificava o Realtime, que chamava `loadOrders`, que recarregava os pedidos ainda sem `shipping.distance`, disparando novamente o `useEffect`.
+  4. Esse ciclo recursivo executava centenas de requisições por minuto na abertura da tela de Agendamento de Entregas (ex: 216 chamadas em 2 minutos), esgotando completamente a cota diária de 300 req/dia do Google Cloud Console (`RESOURCE_EXHAUSTED`).
+- **Ações Corretivas Implementadas:**
+  1. **Eliminação do Loop:** O `useEffect` de cálculo automático em lote no `useDeliverySchedule.ts` foi completamente removido. O cálculo de rota deve ocorrer exclusivamente no momento da criação/edição do pedido ou sob demanda explícita no modal (`OrderDetailsModal.tsx`).
+  2. **Carregamento Otimizado de Frete:** `fetchScheduledAndDraftOrders` agora inclui `shipping_data:order_data->shipping`, permitindo que os pedidos exibam a distância e duração já previamente salvas no banco sem requisições adicionais.
+  3. **Cache de Rotas 24h:** Adicionado cache em memória (`routeCache`) com TTL de 24 horas indexado pelas coordenadas arredondadas em `routeCalculation.ts`. Consultas para o mesmo destino não disparam novas requisições para a Routes API.
+  4. **Circuit Breaker Ativo:** Atualizado no banco (`api_configurations`) o limite do Circuit Breaker para 20 req/min (alinhado à documentação), impedindo que qualquer anomalia futura consuma a cota diária.
 
 ---
 

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { GeoMapOrderProjection } from '@/pages/types/dashboardOrderProjection.type';
-import { geocodeAddress, getNeighborhoodCoords } from '@/pages/utils/maps';
+import { getNeighborhoodCoords } from '@/pages/utils/maps';
 
 interface ProfitHeatMapProps {
   orders: GeoMapOrderProjection[];
@@ -16,53 +16,8 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
   const [metric, setMetric] = useState<MetricType>('value');
   const [opacity, setOpacity] = useState(0.8);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [ordersWithCoords, setOrdersWithCoords] = useState<Record<string, [number, number]>>({});
 
-  // Efeito para Geocodificação em Segundo Plano
-  useEffect(() => {
-    const fetchMissingCoords = async () => {
-      const newCoords = { ...ordersWithCoords };
-      let updated = false;
-
-      // Filtra pedidos que não tem coordenadas e ainda não foram processados nesta sessão
-      const toGeocode = orders
-        .filter((o) => o.id && !o.shipping?.destinationCoords && !newCoords[o.id])
-        .slice(0, 50); // Aumentado limite para 50 para cobrir mais do período
-
-      if (toGeocode.length === 0) return;
-
-      for (const order of toGeocode) {
-        if (!order.id) continue;
-        const fullAddr = order.customerData?.fullAddress;
-        // Exige rua para tentar geocodificar
-        if (!fullAddr?.street) continue;
-
-        try {
-          // Tenta geocodificar usando Rua, Número, Bairro e Cidade
-          const geoRes = await geocodeAddress(fullAddr);
-          if (geoRes) {
-            newCoords[order.id] = geoRes.coords;
-            updated = true;
-          }
-        } catch (e) {
-          console.warn(`Erro ao geocodificar pedido ${order.id}:`, e);
-        }
-
-        // Pequeno delay entre requisições de geocodificação
-        await new Promise((r) => setTimeout(r, 250));
-      }
-
-      if (updated) {
-        setOrdersWithCoords(newCoords);
-      }
-    };
-
-    // Inicia após carregar o mapa
-    const timer = setTimeout(fetchMissingCoords, 2500);
-    return () => clearTimeout(timer);
-  }, [orders, ordersWithCoords]);
-
-  // Converte ordens em GeoJSON para MapLibre
+  // Converte ordens em GeoJSON para MapLibre (usando coordenadas salvas ou centróides de bairros/cidades)
   const geoJsonData = useMemo(() => {
     const features = orders.map((order) => {
       const fullAddr = order.customerData?.fullAddress;
@@ -71,15 +26,11 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
 
       // Ordem de prioridade de Coordenadas:
       // 1. Coordenadas salvas no pedido
-      // 2. Coordenadas encontradas pela geocodificação dinâmica
-      // 3. Fallback de bairro/cidade via utilitário global
+      // 2. Fallback regional de bairro/cidade via utilitário estático (zero chamadas de API)
       let finalCoords: [number, number];
 
       if (order.shipping?.destinationCoords && order.shipping.destinationCoords[0] !== 0) {
         finalCoords = order.shipping.destinationCoords;
-      } else if (ordersWithCoords[order.id || '']) {
-        const c = ordersWithCoords[order.id || ''];
-        finalCoords = [c[0], c[1]];
       } else {
         const fall = getNeighborhoodCoords(neighborhood, city);
         finalCoords = fall ? [fall.lng, fall.lat] : [-49.2671, -25.429];
@@ -89,8 +40,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
       const addrNumber = fullAddr?.number ? parseInt(fullAddr.number.replace(/\D/g, '')) : 0;
       const seed = (order.id || '').length + addrNumber + (fullAddr?.street || '').length;
 
-      // Jittering ultra-reduzido para pontos precisos, mantendo o ponto na rua correta
-      const isPrecision = order.shipping?.destinationCoords || ordersWithCoords[order.id || ''];
+      const isPrecision = Boolean(order.shipping?.destinationCoords && order.shipping.destinationCoords[0] !== 0);
       const jitterScale = isPrecision ? 0.00005 : 0.0006;
       const jitterLat = ((seed % 20) - 10) * jitterScale;
       const jitterLng = ((Math.floor(seed / 5) % 20) - 10) * jitterScale;
@@ -114,7 +64,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
       type: 'FeatureCollection',
       features,
     } as any;
-  }, [orders, ordersWithCoords]);
+  }, [orders]);
 
   useEffect(() => {
     if (!mapContainer.current) return;

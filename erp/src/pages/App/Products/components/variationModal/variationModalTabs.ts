@@ -19,9 +19,13 @@ export const getVariationFormTabs = (
 ): readonly TabDefinition[] => {
   const tabs: TabDefinition[] = [
     { id: 'identificacao', label: 'Informações Básicas', icon: 'bi-info-circle' },
-    ...(!isStockistOnly ? [{ id: 'fotos' as const, label: 'Fotos vinculadas', icon: 'bi-images' }] : []),
-    { id: 'tecnico', label: 'Características', icon: 'bi-gear' },
-    ...(!isStockistOnly ? [{ id: 'descricao' as const, label: 'Descrição', icon: 'bi-file-text' }] : []),
+    ...(!isStockistOnly
+      ? [
+          { id: 'fotos' as const, label: 'Fotos vinculadas', icon: 'bi-images' },
+          { id: 'tecnico' as const, label: 'Características', icon: 'bi-gear' },
+          { id: 'descricao' as const, label: 'Descrição', icon: 'bi-file-text' },
+        ]
+      : []),
   ];
 
   tabs.push({ id: 'estoque', label: 'Precificação', icon: 'bi-tag' });

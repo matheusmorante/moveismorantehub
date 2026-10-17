@@ -23,6 +23,7 @@ export {
   getShippingRouteUrl,
   calculateRouteViaGoogleMaps,
   autoCalculateRouteDistance,
+  clearRouteCache,
   type RouteResult,
 } from './routeCalculation';
 

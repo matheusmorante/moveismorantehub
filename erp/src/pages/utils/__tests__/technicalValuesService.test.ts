@@ -3,8 +3,6 @@ import {
   getEffectiveTechnicalValue,
   hasVariationOverride,
   removeVariationOverride,
-  setVariationOverride,
-  areEffectiveValuesEqual,
   hasEffectiveDifferenceFromParent,
   computeEffectiveVariationName,
   getApplicableTechnicalFields,
@@ -22,6 +20,11 @@ import {
   isWidthCharacteristic,
   isThicknessCharacteristic,
   getDimensionSortRank,
+  getCharacteristicDependencyState,
+  mergeCharacteristicGroups,
+  CHARACTERISTIC_TOPIC_GROUPS,
+  isYesNoCharacteristic,
+  isYesNoValueActive,
 } from '../technicalValuesService';
 
 describe('technicalValuesService', () => {
@@ -110,6 +113,7 @@ describe('technicalValuesService', () => {
   it('exige Cor, Modelo, Marca e Dimensões como características obrigatórias globais', () => {
     expect(isRequiredCharacteristicName('cor')).toBe(true);
     expect(isRequiredCharacteristicName('modelo')).toBe(true);
+    expect(isRequiredCharacteristicName('modelo/linha')).toBe(true);
     expect(isRequiredCharacteristicName('marca')).toBe(true);
     expect(isRequiredCharacteristicName('altura')).toBe(true);
     expect(isRequiredCharacteristicName('largura')).toBe(true);
@@ -118,6 +122,9 @@ describe('technicalValuesService', () => {
     expect(isRequiredCharacteristicName('tecido')).toBe(false);
     expect(
       getMissingRequiredCharacteristics({ Cor: 'Preto', Modelo: 'Premium', Marca: 'Morante' })
+    ).toEqual([]);
+    expect(
+      getMissingRequiredCharacteristics({ Cor: 'Preto', 'Modelo/Linha': 'Florença', Marca: 'Móveis Sul' })
     ).toEqual([]);
     expect(getMissingRequiredCharacteristics({ Cor: 'Preto' })).toEqual(['Modelo', 'Marca']);
     expect(
@@ -441,6 +448,259 @@ describe('technicalValuesService', () => {
       expect(getDimensionSortRank('Comprimento total')).toBe(5);
       expect(getDimensionSortRank('Peso')).toBe(9);
       expect(getDimensionSortRank('Campo Aleatório')).toBe(99);
+    });
+
+    it('ordena Tipo(s) de puxador corretamente no grupo Acessórios', () => {
+      const groups = groupCharacteristicsByTopic([
+        { name: 'Material dos puxadores', isCustom: false },
+        { name: 'Tipo(s) de puxador', isCustom: false },
+      ]);
+      const acessoriosGroup = groups.find((g) => g.title === 'Acessórios')!;
+      expect(acessoriosGroup.fields.map((f) => f.name)).toEqual([
+        'Tipo(s) de puxador',
+        'Material dos puxadores',
+      ]);
+    });
+
+    it('ordena Tipo/Material das corrediças corretamente no grupo Gavetas', () => {
+      const groups = groupCharacteristicsByTopic([
+        { name: 'Material das gavetas', isCustom: false },
+        { name: 'Tipo/Material das corrediças', isCustom: false },
+        { name: 'Quantidade de gavetas', isCustom: false },
+      ]);
+      const gavetasGroup = groups.find((g) => g.title === 'Gavetas')!;
+      expect(gavetasGroup.fields.map((f) => f.name)).toEqual([
+        'Quantidade de gavetas',
+        'Tipo/Material das corrediças',
+        'Material das gavetas',
+      ]);
+    });
+
+    it('calcula estado de dependência para características de portas e gavetas', () => {
+      // Porta: sem quantidade definida ou zero e sem toggle mestre
+      const depDoorZero = getCharacteristicDependencyState('Tipo de portas', {
+        'Quantidade de portas': 0,
+      });
+      expect(depDoorZero.isDependent).toBe(true);
+      expect(depDoorZero.isDisabled).toBe(true);
+      expect(depDoorZero.disabledReason).toContain('Possui portas for Sim');
+
+      // Porta: switch mestre desligado
+      const depDoorOff = getCharacteristicDependencyState('Tipo de portas', {
+        'Possui portas': 'Não',
+        'Quantidade de portas': 2,
+      });
+      expect(depDoorOff.isDependent).toBe(true);
+      expect(depDoorOff.isDisabled).toBe(true);
+
+      const depDoorEmpty = getCharacteristicDependencyState('Material da porta', {
+        'Quantidade de portas': '',
+      });
+      expect(depDoorEmpty.isDependent).toBe(true);
+      expect(depDoorEmpty.isDisabled).toBe(true);
+
+      // Porta: switch mestre ligado
+      const depDoorOn = getCharacteristicDependencyState('Tipo de portas', {
+        'Possui portas': 'Sim',
+      });
+      expect(depDoorOn.isDependent).toBe(true);
+      expect(depDoorOn.isDisabled).toBe(false);
+
+      // Porta: quantidade positiva (compatibilidade legada)
+      const depDoorPositive = getCharacteristicDependencyState('Tipo de portas', {
+        'Quantidade de portas': 2,
+      });
+      expect(depDoorPositive.isDependent).toBe(true);
+      expect(depDoorPositive.isDisabled).toBe(false);
+
+      // Gaveta: sem quantidade definida ou zero e sem toggle mestre
+      const depDrawerZero = getCharacteristicDependencyState('Materiais das corrediças', {
+        'Quantidade de gavetas': 0,
+      });
+      expect(depDrawerZero.isDependent).toBe(true);
+      expect(depDrawerZero.isDisabled).toBe(true);
+      expect(depDrawerZero.disabledReason).toContain('Possui gavetas for Sim');
+
+      // Gaveta: switch mestre ligado
+      const depDrawerOn = getCharacteristicDependencyState('Materiais das corrediças', {
+        'Possui gavetas': 'Sim',
+      });
+      expect(depDrawerOn.isDependent).toBe(true);
+      expect(depDrawerOn.isDisabled).toBe(false);
+
+      // Gaveta: quantidade positiva (compatibilidade legada)
+      const depDrawerPositive = getCharacteristicDependencyState('Material das gavetas', {
+        'Quantidade de gavetas': 4,
+      });
+      expect(depDrawerPositive.isDependent).toBe(true);
+      expect(depDrawerPositive.isDisabled).toBe(false);
+
+      // Característica independente
+      const depOther = getCharacteristicDependencyState('Material da estrutura', {
+        'Quantidade de portas': 0,
+      });
+      expect(depOther.isDependent).toBe(false);
+      expect(depOther.isDisabled).toBe(false);
+    });
+
+    it('getMissingRequiredTechnicalFields ignora campos dependentes desativados', () => {
+      const requiredFields = [
+        'Altura',
+        'Quantidade de portas',
+        'Tipo de portas',
+        'Material das portas',
+      ];
+
+      // Quando quantidade de portas for 0, Tipo e Material NÃO devem ser reportados como ausentes
+      const missingWhenZero = getMissingRequiredTechnicalFields(requiredFields, {
+        Altura: '180',
+        'Quantidade de portas': 0,
+      });
+      expect(missingWhenZero).toEqual([]);
+
+      // Quando quantidade de portas for > 0 e Tipo de portas estiver vazio, ele DEVE ser reportado
+      const missingWhenPositive = getMissingRequiredTechnicalFields(requiredFields, {
+        Altura: '180',
+        'Quantidade de portas': 2,
+      });
+      expect(missingWhenPositive).toEqual(['Tipo de portas', 'Material das portas']);
+    });
+
+    it('mergeCharacteristicGroups unifica campos de Portas e Gavetas sob os tópicos canônicos sem duplicação', () => {
+      const requiredGroups = [
+        {
+          title: 'Portas',
+          fields: [{ name: 'Quantidade de portas', isRequired: true }],
+        },
+        {
+          title: 'Gavetas',
+          fields: [{ name: 'Quantidade de gavetas', isRequired: true }],
+        },
+      ];
+
+      const optionalGroups = [
+        {
+          title: 'Portas',
+          fields: [
+            { name: 'Tipo de portas', isRequired: false },
+            { name: 'Material das portas', isRequired: false },
+          ],
+        },
+        {
+          title: 'Gavetas',
+          fields: [
+            { name: 'Materiais das corrediças', isRequired: false },
+            { name: 'Material das gavetas', isRequired: false },
+          ],
+        },
+      ];
+
+      const merged = mergeCharacteristicGroups([...requiredGroups, ...optionalGroups]);
+      const portaGroup = merged.find((g) => g.title === 'Portas')!;
+      const gavetaGroup = merged.find((g) => g.title === 'Gavetas')!;
+
+      expect(portaGroup.fields.map((f) => f.name)).toEqual([
+        'Quantidade de portas',
+        'Tipo de portas',
+        'Material das portas',
+      ]);
+
+      expect(gavetaGroup.fields.map((f) => f.name)).toEqual([
+        'Quantidade de gavetas',
+        'Materiais das corrediças',
+        'Material das gavetas',
+      ]);
+    });
+
+    it('identifica corretamente características binárias de Sim ou Não (isYesNoCharacteristic)', () => {
+      // 1. Campo com opções Sim e Não
+      expect(
+        isYesNoCharacteristic({
+          id: '1',
+          name: 'Possui espelho',
+          options: [{ value: 'Não' }, { value: 'Sim' }],
+        })
+      ).toBe(true);
+
+      expect(
+        isYesNoCharacteristic({
+          id: '2',
+          name: 'Possui pés',
+          options: [{ value: 'Sim' }, { value: 'Não' }],
+        })
+      ).toBe(true);
+
+      expect(
+        isYesNoCharacteristic({
+          id: '3',
+          name: 'Reclinável',
+          options: [{ value: 'Não' }, { value: 'Sim' }],
+        })
+      ).toBe(true);
+
+      // 2. Campo com tipo de dado boolean
+      expect(
+        isYesNoCharacteristic({
+          id: '4',
+          name: 'Possui iluminação',
+          dataType: 'boolean',
+        })
+      ).toBe(true);
+
+      // 3. Campo cujo nome começa com "Possui " e tem poucas ou nenhuma opção
+      expect(
+        isYesNoCharacteristic({
+          id: '5',
+          name: 'Possui portas',
+          options: [],
+        })
+      ).toBe(true);
+
+      // 4. Campos que NÃO são Sim/Não
+      expect(
+        isYesNoCharacteristic({
+          id: '6',
+          name: 'Material da estrutura',
+          options: [{ value: 'MDF' }, { value: 'MDP' }],
+        })
+      ).toBe(false);
+
+      expect(
+        isYesNoCharacteristic({
+          id: '7',
+          name: 'Quantidade de portas',
+          dataType: 'integer',
+        })
+      ).toBe(false);
+
+      expect(
+        isYesNoCharacteristic({
+          id: '8',
+          name: 'Almofadas',
+          options: [
+            { value: 'Acompanha almofadas decorativas' },
+            { value: 'Almofadas fixas' },
+            { value: 'Não' },
+            { value: 'Sim' },
+          ],
+        })
+      ).toBe(false);
+    });
+
+    it('identifica se o valor está ativo ou desligado (isYesNoValueActive)', () => {
+      expect(isYesNoValueActive('Sim')).toBe(true);
+      expect(isYesNoValueActive('sim')).toBe(true);
+      expect(isYesNoValueActive(true)).toBe(true);
+      expect(isYesNoValueActive('true')).toBe(true);
+      expect(isYesNoValueActive('ligado')).toBe(true);
+
+      expect(isYesNoValueActive('Não')).toBe(false);
+      expect(isYesNoValueActive('nao')).toBe(false);
+      expect(isYesNoValueActive(false)).toBe(false);
+      expect(isYesNoValueActive('false')).toBe(false);
+      expect(isYesNoValueActive('')).toBe(false);
+      expect(isYesNoValueActive(undefined)).toBe(false);
+      expect(isYesNoValueActive(null)).toBe(false);
     });
   });
 });

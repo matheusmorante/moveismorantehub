@@ -71,4 +71,43 @@ describe('TechnicalCharacteristicSearch', () => {
     fireEvent.click(addBtns[1]);
     expect(onAddField).toHaveBeenCalledWith(matchingFields[1]);
   });
+
+  it('exibe grupo encontrado na pesquisa (ex: Portas) e aciona onAddGroup ao clicar em Adicionar grupo', () => {
+    const matchingGroups = [
+      {
+        id: 'portas',
+        title: 'Portas',
+        searchKeywords: ['porta', 'portas'],
+        masterField: 'Quantidade de portas',
+        fieldNames: ['Quantidade de portas', 'Tipo de portas', 'Material das portas'],
+        description: 'Quantidade de portas, Tipo de portas e Material das portas',
+      },
+    ];
+    const onAddGroup = vi.fn();
+
+    render(
+      <TechnicalCharacteristicSearch
+        searchTerm="porta"
+        onSearchTermChange={vi.fn()}
+        normalizedSearchTerm="porta"
+        normalizedDebouncedSearchTerm="porta"
+        matchingFields={[]}
+        matchingGroups={matchingGroups}
+        onAddField={vi.fn()}
+        onAddGroup={onAddGroup}
+      />
+    );
+
+    expect(screen.getByText('Grupo')).toBeDefined();
+    expect(screen.getByText('Portas')).toBeDefined();
+    expect(
+      screen.getByText('Quantidade de portas, Tipo de portas e Material das portas')
+    ).toBeDefined();
+
+    const addGroupBtn = screen.getByRole('button', { name: /adicionar grupo portas/i });
+    expect(addGroupBtn).toBeDefined();
+
+    fireEvent.click(addGroupBtn);
+    expect(onAddGroup).toHaveBeenCalledWith(matchingGroups[0]);
+  });
 });

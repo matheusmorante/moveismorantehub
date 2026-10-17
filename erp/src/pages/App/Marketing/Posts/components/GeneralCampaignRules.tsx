@@ -17,11 +17,13 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [saveError, setSaveError] = useState('');
   const initialValue = useRef(true);
+  const active = useRef(true);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const form = useZodForm(campaignRulesFormSchema, { content: value });
   const { enqueueAndRun } = form;
 
   const persist = useCallback(async (data: z.output<typeof campaignRulesFormSchema>) => {
-    if (!loaded) return;
+    if (!loaded || !active.current) return;
     setSaving(true);
     onSavingChange(true);
     setSaveError('');
@@ -39,10 +41,14 @@ export function GeneralCampaignRules({ load, save, onSavingChange }: Props) {
 
   useEffect(() => {
     initialValue.current = true;
+    let current = true;
+    setLoaded(false);
     void load().then((text) => {
+      if (!current || !active.current) return;
       setValue(text);
       setLoaded(true);
-    }).catch(() => setSaveError('Não foi possível carregar as regras.'));
+    }).catch(() => { if (current && active.current) setSaveError('Não foi possível carregar as regras.'); });
+    return () => { current = false; };
   }, [load]);
   useEffect(() => {
     if (!loaded) return;

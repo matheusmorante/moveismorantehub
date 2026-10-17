@@ -18,8 +18,12 @@ export const getProductFormTabs = (
     { id: 'geral', label: 'Informações Básicas' },
     ...(!isService
       ? [
-          ...(!isStockistOnly ? [{ id: 'ecommerce' as const, label: 'Galeria' }] : []),
-          { id: 'technical' as const, label: 'Características' },
+          ...(!isStockistOnly
+            ? [
+                { id: 'ecommerce' as const, label: 'Galeria' },
+                { id: 'technical' as const, label: 'Características' },
+              ]
+            : []),
           { id: 'estoque' as const, label: 'Estoque e Precificação' },
           { id: 'variacoes' as const, label: 'Variações' },
         ]

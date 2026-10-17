@@ -115,6 +115,10 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     scheduleDraftAutoSave,
   });
 
+  const [isAiCharacteristicsModalOpen, setIsAiCharacteristicsModalOpen] = useState(false);
+  const [aiCharacteristicsInitialMode, setAiCharacteristicsInitialMode] = useState<'web_search' | 'descriptive_text'>('web_search');
+
+
   // As características só existem no contexto de uma categoria.
   // Se a categoria for removida enquanto a aba estiver aberta, volta ao cadastro geral.
   useEffect(() => {
@@ -184,6 +188,10 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           scheduleDraftAutoSave={scheduleDraftAutoSave}
           deletingVariationId={deletingVariationId}
           handleDeleteVariation={handleDeleteVariation}
+          onOpenAiCharacteristicsModal={(mode = 'web_search') => {
+            setAiCharacteristicsInitialMode(mode);
+            setIsAiCharacteristicsModalOpen(true);
+          }}
         />
 
         <ProductFormFooter
@@ -223,6 +231,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           onSuccess={onSuccess}
           onSave={props.onSave}
           onClose={onClose}
+          isAiCharacteristicsModalOpen={isAiCharacteristicsModalOpen}
+          setIsAiCharacteristicsModalOpen={setIsAiCharacteristicsModalOpen}
+          aiCharacteristicsInitialMode={aiCharacteristicsInitialMode}
         />
       </div>
     </div>,

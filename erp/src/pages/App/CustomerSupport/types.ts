@@ -1,6 +1,16 @@
 import { CustomerSummary, CustomerLinkStatus } from '@/pages/utils/customerSupport/customerMatchingService';
 import { SupportOrderSummary } from '@/pages/utils/customerSupport/supportOrdersService';
 
+export type ConversationStatus = 'open' | 'closed' | 'snoozed';
+
+export interface AssignedProfileSummary {
+  id: string;
+  fullName: string;
+  role?: string;
+  email?: string;
+  avatarUrl?: string | null;
+}
+
 export interface WhatsAppConversation {
   id: string;
   businessPhoneNumberId: string;
@@ -20,7 +30,9 @@ export interface WhatsAppConversation {
   createdAt: string;
   updatedAt: string;
 
-  // Campos hidratados em tempo de execução
+  // Campos enriquecidos e calculados em tempo de execução
+  status?: ConversationStatus;
+  assignedProfile?: AssignedProfileSummary | null;
   customer?: CustomerSummary | null;
   orders?: SupportOrderSummary[];
   ambiguityList?: CustomerSummary[];
@@ -37,6 +49,8 @@ export type WhatsAppMessageType =
   | 'sticker'
   | 'location'
   | 'contacts'
+  | 'internal_note'
+  | 'system_event'
   | 'unsupported';
 
 export type WhatsAppMessageDeliveryStatus =
@@ -65,13 +79,31 @@ export interface WhatsAppMessage {
   failureReason: string | null;
   timestamp: string;
   createdAt: string;
+
+  // Informações de autoria de notas internas ou atendente
+  authorName?: string | null;
+  authorAvatar?: string | null;
+  authorRole?: string | null;
+  rawPayload?: any;
 }
 
 export type ConversationFilter =
   | 'all'
+  | 'mine'
+  | 'unassigned'
   | 'unread'
   | 'linked'
   | 'unlinked'
   | 'with_orders'
   | 'without_orders'
-  | 'archived';
+  | 'archived'
+  | 'closed'
+  | 'snoozed';
+
+export interface QuickSnippet {
+  id: string;
+  title: string;
+  category: 'pagamento' | 'entrega' | 'loja' | 'assistencia' | 'geral';
+  content: string;
+  shortcut: string;
+}

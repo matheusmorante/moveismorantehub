@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import Order from '../../types/order.type';
 import {
   subscribeToOrderChanges,
-  updateOrder,
   fetchScheduledAndDraftOrders,
 } from '../../utils/orderHistoryService';
 import { getLocalISODate } from '../../utils/formatters';
@@ -13,7 +12,6 @@ import {
   getOperationalScheduleDate,
   normalizeScheduleStatus,
 } from '@/pages/utils/operationalSchedule';
-import { autoCalculateRouteDistance } from '@/pages/utils/maps';
 
 export type ScheduleFilter = 'custom' | 'default' | 'week' | 'month' | 'year' | 'all';
 export type OrderTypeFilter = 'delivery' | 'pickup' | 'assistance' | 'assembly';
@@ -346,51 +344,8 @@ export const useDeliverySchedule = () => {
     settings,
   ]);
 
-  // Auto-calculate missing route distances ("Percurso não calculado") via Google Maps and persist in Supabase
-  useEffect(() => {
-    if (loading || allOrders.length === 0) return;
-
-    const ordersMissingRoute = allOrders.filter((o) => {
-      if (!o.id || String(o.id).startsWith('showroom_')) return false;
-      if (o.shipping?.deliveryMethod === 'pickup') return false;
-      if (o.orderType === 'showroom' || o.orderType === 'budget') return false;
-      if (!o.customerData?.fullAddress) return false;
-
-      const hasDistance = typeof o.shipping?.distance === 'number' && o.shipping.distance > 0;
-      const hasDuration =
-        typeof o.shipping?.durationMinutes === 'number' && o.shipping.durationMinutes > 0;
-      return !hasDistance || !hasDuration;
-    });
-
-    if (ordersMissingRoute.length === 0) return;
-
-    let isSubscribed = true;
-    const calculateBatch = async () => {
-      for (const order of ordersMissingRoute.slice(0, 5)) {
-        if (!isSubscribed) break;
-        try {
-          const res = await autoCalculateRouteDistance(order.customerData?.fullAddress);
-          if (res && isSubscribed) {
-            const updatedShipping = {
-              ...order.shipping,
-              distance: res.distanceKm,
-              durationMinutes: res.durationMinutes,
-              destinationCoords: res.destinationCoords || order.shipping?.destinationCoords,
-            };
-            await updateOrder(order.id!, { shipping: updatedShipping }, order);
-          }
-        } catch (err) {
-          console.error('[useDeliverySchedule] Error auto-calculating route:', err);
-        }
-      }
-    };
-
-    calculateBatch();
-
-    return () => {
-      isSubscribed = false;
-    };
-  }, [allOrders, loading]);
+  // As distâncias de rota são calculadas na criação/edição do pedido ou sob demanda pelo operador
+  // no modal de detalhes do pedido (OrderDetailsModal), evitando requisições automáticas e estouro de cota.
 
   const handleShare = () => {
     const PRODUCTION_URL = 'https://morantehub.vercel.app';

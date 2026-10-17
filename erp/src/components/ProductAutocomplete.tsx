@@ -74,6 +74,9 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     showSuggestions,
     setShowSuggestions,
     wrapperRef,
+    searchError,
+    retrySearch,
+    isCurrentSuggestion,
   } = useProductAutocomplete({
     value,
     supplierId,
@@ -83,6 +86,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     allowedProductKinds,
     localProducts,
     excludeCombos,
+    disabled,
     onChange: (v) => {
       if (onChange) onChange(v);
     },
@@ -90,6 +94,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
   return (
     <div ref={wrapperRef} className={`relative ${className}`}>
+      {searchError && <p role="alert" className="text-xs text-red-600">{searchError} <button type="button" disabled={disabled || isLoading} onClick={retrySearch}>Tentar buscar novamente</button></p>}
       <div className="flex gap-1.5">
         <div className="relative flex-1">
           <input
@@ -245,6 +250,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                   key={`${p.id}-${v?.id || 'base'}-${index}`}
                   type="button"
                   onClick={() => {
+                    if (!isCurrentSuggestion(item)) return;
                     onSelect(p, v);
                     if (clearOnSelect) {
                       setQuery('');

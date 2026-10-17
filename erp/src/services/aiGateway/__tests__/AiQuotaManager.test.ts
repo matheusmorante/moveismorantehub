@@ -1,37 +1,31 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 let mockLogs: any[] = [];
+let mockCount: number | null = null;
+let mockError: any = null;
 const mockInsertFn = vi.fn(() => Promise.resolve({ data: null, error: null }));
 
 vi.mock('../../../pages/utils/supabaseConfig', () => ({
   supabase: {
     from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              gte: vi.fn((_col: string, val: string) =>
-                Promise.resolve({
-                  data: mockLogs.filter((item) => !item.created_at || item.created_at >= val),
-                  error: null,
-                })
-              ),
-            })),
-            gte: vi.fn((_col: string, val: string) =>
-              Promise.resolve({
-                data: mockLogs.filter((item) => !item.created_at || item.created_at >= val),
-                error: null,
-              })
-            ),
-          })),
-          gte: vi.fn((_col: string, val: string) =>
-            Promise.resolve({
-              data: mockLogs.filter((item) => !item.created_at || item.created_at >= val),
+      select: vi.fn((_cols: any, opts?: any) => {
+        const buildChain = (filters: any) => ({
+          eq: vi.fn((col: string, val: any) => buildChain({ ...filters, [col]: val })),
+          gte: vi.fn((_col: string, val: string) => {
+            if (mockError) {
+              return Promise.resolve({ data: null, count: null, error: mockError });
+            }
+            const filtered = mockLogs.filter((item) => !item.created_at || item.created_at >= val);
+            const count = mockCount !== null ? mockCount : filtered.length;
+            return Promise.resolve({
+              data: opts?.head ? null : filtered,
+              count,
               error: null,
-            })
-          ),
-        })),
-      })),
+            });
+          }),
+        });
+        return buildChain({});
+      }),
       insert: mockInsertFn,
     })),
   },
@@ -110,3 +104,77 @@ describe('AiQuotaManager - Cota Mensal de R$ 30,00 para Geração de Imagens', (
     expect(mockInsertFn).not.toHaveBeenCalled();
   });
 });
+
+describe('AiQuotaManager - Cota de Preenchimento de Características (20 req/h e 80 req/dia)', () => {
+  beforeEach(() => {
+    mockLogs = [];
+    mockCount = null;
+    mockError = null;
+    mockInsertFn.mockClear();
+    vi.restoreAllMocks();
+  });
+
+  it('deve retornar estatísticas de uso padrão quando não houver requisições', async () => {
+    mockCount = 0;
+    const stats = await AiQuotaManager.getCharacteristicsUsageStats();
+    expect(stats.usedToday).toBe(0);
+    expect(stats.limitToday).toBe(80);
+    expect(stats.usedHour).toBe(0);
+    expect(stats.limitHour).toBe(20);
+  });
+
+  it('deve permitir reserva de cota quando o consumo estiver abaixo dos limites', async () => {
+    mockCount = 5; // 5 reqs hoje e na última hora
+    const result = await AiQuotaManager.reserveCharacteristicsQuota();
+    expect(result.allowed).toBe(true);
+    expect(mockInsertFn).toHaveBeenCalledTimes(1);
+    expect(mockInsertFn).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: 'gemini',
+          operation: 'catalog_extract_technical_specs',
+          module_source: 'characteristics_ai',
+        }),
+      ])
+    );
+  });
+
+  it('deve bloquear a requisição se atingir o limite estrito de 20 requisições por hora', async () => {
+    mockCount = 20; // 20 reqs na hora
+    const result = await AiQuotaManager.reserveCharacteristicsQuota();
+    expect(result.allowed).toBe(false);
+    expect(result.errorCode).toBe('AI_HOURLY_LIMIT_REACHED');
+    expect(result.errorMessage).toContain('20/20');
+    expect(mockInsertFn).not.toHaveBeenCalled();
+  });
+
+  it('deve bloquear a requisição se atingir o limite diário de 80 requisições', async () => {
+    // Simular que na última hora foram poucas, mas no dia foram 80
+    // Usando mockLogs com timestamps para diferenciar hora de dia
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+    
+    mockLogs = [
+      ...Array.from({ length: 5 }).map(() => ({ created_at: new Date().toISOString() })),
+      ...Array.from({ length: 75 }).map(() => ({ created_at: fourHoursAgo })),
+    ];
+    // mockCount null uses mockLogs.filter by gte val
+    mockCount = null;
+
+    const result = await AiQuotaManager.reserveCharacteristicsQuota();
+    expect(result.allowed).toBe(false);
+    expect(result.errorCode).toBe('AI_DAILY_LIMIT_REACHED');
+    expect(result.errorMessage).toContain('80/80');
+    expect(mockInsertFn).not.toHaveBeenCalled();
+  });
+
+  it('deve bloquear preventivamente em caso de falha de conexão com o banco (FAIL-CLOSED)', async () => {
+    mockError = { message: 'Database connection timeout' };
+    const result = await AiQuotaManager.reserveCharacteristicsQuota();
+    expect(result.allowed).toBe(false);
+    expect(result.errorCode).toBe('AI_FAIL_CLOSED_BLOCKED');
+    expect(result.errorMessage).toContain('FAIL CLOSED');
+    expect(mockInsertFn).not.toHaveBeenCalled();
+  });
+});
+

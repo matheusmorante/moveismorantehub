@@ -30,8 +30,12 @@ const NoticeInput = ({
 
   useEffect(() => {
     const loadFrequencies = async () => {
-      const freq = await getNoticeFrequency();
-      setFrequencies(freq);
+      try {
+        const freq = await getNoticeFrequency();
+        setFrequencies(freq || {});
+      } catch {
+        setFrequencies({});
+      }
     };
     loadFrequencies();
   }, []);

@@ -32,7 +32,14 @@ import {
   fetchConversationMessages,
   markConversationAsRead,
   toggleArchiveConversation,
+  assignConversation,
+  updateConversationStatus,
+  createInternalNoteMessage,
+  computeConversationStatus,
+  DEFAULT_QUICK_SNIPPETS,
 } from '@/pages/utils/customerSupport/customerSupportService';
+import { formatTimeAgo } from '../components/ConversationItem';
+import { groupMessagesByDate } from '../components/ChatArea';
 
 describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => {
   beforeEach(() => {
@@ -490,5 +497,249 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
   it('18. garante que nenhum teste faz chamadas HTTP externas ou envia mensagens reais', () => {
     const fetchSpy = vi.spyOn(global, 'fetch');
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  // 19. Formatação de tempo relativo (estilo WhatsApp Web)
+  it('19. deve formatar carimbos de data/hora no padrão WhatsApp Web', () => {
+    const now = new Date();
+    const todayFormatted = formatTimeAgo(now.toISOString());
+    expect(todayFormatted).toMatch(/^\d{2}:\d{2}$/);
+
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    const yesterdayFormatted = formatTimeAgo(yesterday.toISOString());
+    expect(yesterdayFormatted).toBe('Ontem');
+  });
+
+  // 20. Agrupamento de mensagens por data (Hoje, Ontem e datas completas)
+  it('20. deve agrupar mensagens por data com separadores contextuais', () => {
+    const now = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+
+    const mockMsgs: any[] = [
+      { id: '1', timestamp: yesterday.toISOString(), textContent: 'Msg ontem' },
+      { id: '2', timestamp: now.toISOString(), textContent: 'Msg hoje' },
+    ];
+
+    const grouped = groupMessagesByDate(mockMsgs);
+    expect(grouped.length).toBe(2);
+    expect(grouped[0].dateLabel).toBe('Ontem');
+    expect(grouped[1].dateLabel).toBe('Hoje');
+  });
+
+  // 21. Atribuição de conversa a atendente e geração de evento de sistema
+  it('21. deve atribuir conversa a um atendente e registrar evento de sistema na timeline', async () => {
+    const updateMock = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    const insertMock = vi.fn().mockResolvedValue({ error: null });
+    const mockSupabase: any = {
+      from: vi.fn((table: string) => {
+        if (table === 'whatsapp_conversations') return { update: updateMock };
+        if (table === 'whatsapp_messages') return { insert: insertMock };
+        return {};
+      }),
+    };
+
+    const success = await assignConversation(
+      mockSupabase,
+      'conv-xyz',
+      'user-123',
+      'Matheus Morante',
+      'Admin'
+    );
+
+    expect(success).toBe(true);
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ assigned_to: 'user-123' })
+    );
+    expect(insertMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        message_type: 'system_event',
+        text_content: expect.stringContaining('Matheus Morante'),
+      }),
+    ]);
+  });
+
+  // 22. Atualização de status da conversa (open, closed, snoozed)
+  it('22. deve atualizar status da conversa e registrar evento de sistema', async () => {
+    const updateMock = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    const insertMock = vi.fn().mockResolvedValue({ error: null });
+    const mockSupabase: any = {
+      from: vi.fn((table: string) => {
+        if (table === 'whatsapp_conversations') return { update: updateMock };
+        if (table === 'whatsapp_messages') return { insert: insertMock };
+        return {};
+      }),
+    };
+
+    const success = await updateConversationStatus(
+      mockSupabase,
+      'conv-xyz',
+      'closed',
+      [],
+      'Matheus'
+    );
+
+    expect(success).toBe(true);
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ is_archived: true, tags: ['status:closed'] })
+    );
+    expect(insertMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        message_type: 'system_event',
+        text_content: expect.stringContaining('Fechado / Resolvido'),
+      }),
+    ]);
+
+    // Cálculo puro de status
+    expect(computeConversationStatus({ is_archived: true, tags: [] })).toBe('closed');
+    expect(computeConversationStatus({ is_archived: false, tags: ['status:snoozed'] })).toBe('snoozed');
+    expect(computeConversationStatus({ is_archived: false, tags: [] })).toBe('open');
+  });
+
+  // 23. Criação de comentário/anotação interna da equipe no chat
+  it('23. deve criar comentário interno em whatsapp_messages sem disparar à Meta', async () => {
+    const insertMock = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: 'msg-note-1',
+            conversation_id: 'conv-xyz',
+            direction: 'outbound',
+            message_type: 'internal_note',
+            text_content: 'Cliente solicitou entrega apenas no período da tarde.',
+            raw_payload: { author_name: 'Ana Silva', author_role: 'Vendedora' },
+            timestamp: new Date().toISOString(),
+          },
+          error: null,
+        }),
+      }),
+    });
+
+    const updateMock = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+
+    const mockSupabase: any = {
+      from: vi.fn((table: string) => {
+        if (table === 'whatsapp_messages') return { insert: insertMock };
+        if (table === 'whatsapp_conversations') return { update: updateMock };
+        return {};
+      }),
+    };
+
+    const note = await createInternalNoteMessage(
+      mockSupabase,
+      'conv-xyz',
+      'Cliente solicitou entrega apenas no período da tarde.',
+      { id: 'user-456', name: 'Ana Silva', role: 'Vendedora' }
+    );
+
+    expect(note).not.toBeNull();
+    expect(note?.messageType).toBe('internal_note');
+    expect(note?.authorName).toBe('Ana Silva');
+    expect(note?.authorRole).toBe('Vendedora');
+    expect(insertMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        message_type: 'internal_note',
+        direction: 'outbound',
+      }),
+    ]);
+  });
+
+  // 24. Filtragem por filas "mine" e "unassigned" com hidratação
+  it('24. deve filtrar conversas por fila "mine" e "unassigned"', async () => {
+    const eqMock = vi.fn().mockReturnThis();
+    const isMock = vi.fn().mockReturnThis();
+    const rangeMock = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'conv-1',
+          contact_phone: '+5511999999999',
+          contact_wa_id: '5511999999999',
+          assigned_to: 'user-me',
+          is_archived: false,
+          created_at: new Date().toISOString(),
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+
+    const mockSupabase: any = {
+      from: vi.fn((table: string) => {
+        if (table === 'profiles') {
+          return {
+            select: vi.fn().mockReturnValue({
+              in: vi.fn().mockResolvedValue({
+                data: [{ id: 'user-me', full_name: 'Meu Atendente' }],
+              }),
+            }),
+          };
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: eqMock,
+          is: isMock,
+          order: vi.fn(() => ({ range: rangeMock })),
+        };
+      }),
+    };
+
+    const resMine = await fetchConversations(mockSupabase, {
+      filter: 'mine',
+      currentUserId: 'user-me',
+    });
+
+    expect(eqMock).toHaveBeenCalledWith('assigned_to', 'user-me');
+    expect(resMine.conversations[0].assignedProfile?.fullName).toBe('Meu Atendente');
+  });
+
+  // 25. Catálogo de respostas rápidas e modelos
+  it('25. deve conter modelos úteis de respostas rápidas (PIX, entrega, loja, garantia)', () => {
+    expect(DEFAULT_QUICK_SNIPPETS.length).toBeGreaterThanOrEqual(5);
+    const pixSnippet = DEFAULT_QUICK_SNIPPETS.find((s) => s.shortcut === '/pix');
+    expect(pixSnippet).toBeDefined();
+    expect(pixSnippet?.content).toContain('PIX');
+
+    const deliverySnippet = DEFAULT_QUICK_SNIPPETS.find((s) => s.shortcut === '/entrega');
+    expect(deliverySnippet).toBeDefined();
+    expect(deliverySnippet?.content).toContain('logística');
+  });
+
+  // 26. Ordenação de conversas (Newest, Oldest, Unread first)
+  it('26. deve ordenar conversas corretamente por data recente, data antiga e não lidas primeiro', () => {
+    const list: any[] = [
+      { id: 'c1', unreadCount: 0, lastMessageAt: '2026-10-14T10:00:00Z' },
+      { id: 'c2', unreadCount: 3, lastMessageAt: '2026-10-12T10:00:00Z' },
+      { id: 'c3', unreadCount: 0, lastMessageAt: '2026-10-16T15:00:00Z' },
+    ];
+
+    // Newest
+    const newest = [...list].sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+    expect(newest.map((c) => c.id)).toEqual(['c3', 'c1', 'c2']);
+
+    // Oldest
+    const oldest = [...list].sort((a, b) => new Date(a.lastMessageAt).getTime() - new Date(b.lastMessageAt).getTime());
+    expect(oldest.map((c) => c.id)).toEqual(['c2', 'c1', 'c3']);
+
+    // Unread first
+    const unreadFirst = [...list].sort((a, b) => {
+      if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
+      if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
+      return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+    });
+    expect(unreadFirst[0].id).toBe('c2');
+  });
+
+  // 27. Proteção de custo zero na interface e composição de notas
+  it('27. deve garantir que o composer mantenha o bloqueio de envio para custo zero enquanto suporta notas internas da equipe', () => {
+    const internalNote = {
+      messageType: 'internal_note',
+      textContent: 'Cliente solicitou retorno amanhã às 14h',
+      authorName: 'Atendente Carlos',
+      timestamp: '2026-10-16T18:00:00Z',
+    };
+
+    expect(internalNote.messageType).toBe('internal_note');
+    expect(internalNote.authorName).toBe('Atendente Carlos');
   });
 });

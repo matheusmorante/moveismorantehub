@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, parse } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useSalesReport } from './hooks/useSalesReport';
-import { SaleItem } from './utils/salesReportCalculations';
-import { fetchFromERP } from './services/salesReportApiService';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { erpReportPrepareFormSchema } from '../../../../../../shared-utils/salesReportFormSchemas';
+import { mappedCsvItems } from './utils/reportCsvInput';
 import ReportConfigModal from './modals/ReportConfigModal';
 
 const SalesOrderReports = () => {
@@ -12,13 +13,21 @@ const SalesOrderReports = () => {
   const {
     calculateABC,
     loading,
-    setLoading,
+    error, sessionKey, fetchReportItems,
     savedReports,
     saveReport,
     listSavedReports,
     deleteReport,
   } = useSalesReport();
 
+  const [creating, setCreating] = useState(false);
+  const [validationError, setValidationError] = useState('');
+  const creatingRef = useRef(false);
+  const sessionRef = useRef(sessionKey); sessionRef.current = sessionKey;
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  const form = useZodForm(erpReportPrepareFormSchema, { name: '', source: 'erp', config: {}, csvData: [] });
+  const busy = loading || creating;
   // UI States
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -30,121 +39,28 @@ const SalesOrderReports = () => {
   }, []);
 
   useEffect(() => {
-    listSavedReports();
-  }, []);
+    void listSavedReports();
+  }, [listSavedReports, sessionKey]);
 
   const handleCreateReport = async (data: any) => {
-    setLoading(true);
+    if (creatingRef.current) return false;
+    creatingRef.current = true; setCreating(true); setValidationError('');
+    const submittedSession = sessionKey;
     try {
-      let items: SaleItem[] = [];
-      if (data.source === 'erp') {
-        items = await fetchFromERP();
-      } else {
-        if (!data.csvData || data.csvData.length === 0) {
-          alert('Selecione um arquivo CSV primeiro.');
-          setLoading(false);
-          return;
-        }
-        const parseNum = (val: any) => {
-          if (typeof val === 'number') return val;
-          if (!val) return 0;
-          // Lidar com R$ 1.234,56 ou 1,234.56
-          let str = val.toString().replace(/[^\d.,-]/g, '');
-          if (str.includes(',') && str.includes('.')) {
-            if (str.lastIndexOf(',') > str.lastIndexOf('.'))
-              str = str.replace(/\./g, '').replace(',', '.');
-            else str = str.replace(/,/g, '');
-          } else if (str.includes(',')) {
-            str = str.replace(',', '.');
-          }
-          const parsed = parseFloat(str);
-          return isNaN(parsed) ? 0 : parsed;
-        };
-
-        items = data.csvData
-          .filter((row: any) => {
-            // Ignorar linhas que sejam exatamente o cabeçalho (comum em alguns exports)
-            const prodVal = row[data.config.product];
-            return prodVal && prodVal !== data.config.product && prodVal !== 'Nome do Produto';
-          })
-          .map((row: any) => {
-            const dateStr = row[data.config.date];
-            let date = new Date();
-            try {
-              if (dateStr?.includes('/')) {
-                const parts = dateStr.split('/');
-                if (parts.length === 2) {
-                  // Formato MM/AAAA
-                  date = parse(dateStr, 'MM/yyyy', new Date());
-                } else if (parts[0].length === 4) {
-                  // Formato AAAA-MM-DD
-                  date = new Date(dateStr);
-                } else {
-                  // Formato DD/MM/AAAA
-                  date = parse(dateStr.split(' ')[0], 'dd/MM/yyyy', new Date());
-                }
-              } else {
-                date = new Date(dateStr);
-              }
-            } catch (e) {
-              console.error('Erro ao converter data:', dateStr, e);
-            }
-
-            const qty = parseNum(row[data.config.quantity]);
-            const sVal = parseNum(row[data.config.salesValue]);
-            const cost = parseNum(row[data.config.cost]);
-            const profit =
-              data.config.profit && row[data.config.profit]
-                ? parseNum(row[data.config.profit])
-                : sVal - cost * qty;
-
-            return {
-              date,
-              product: row[data.config.product] || 'N/A',
-              supplier: row[data.config.supplier] || 'N/A',
-              quantity: qty,
-              cost: cost,
-              salesValue: sVal,
-              profit: profit,
-            };
-          });
-      }
-
-      if (items.length === 0) {
-        alert(
-          'Nenhum dado encontrado no CSV. Verifique se o arquivo está correto e se o mapeamento de colunas foi realizado.'
-        );
-        setLoading(false);
-        return;
-      }
-
-      const reportData = calculateABC(items, data.config.abcBasis, true);
-      if (!reportData || reportData.results.length === 0) {
-        const totalParsed = items.length;
-        alert(
-          `A análise resultou em zero resultados úteis (de ${totalParsed} itens). Isso geralmente acontece quando as colunas de 'Valor de Venda' ou 'Lucro' mapeadas contêm apenas texto ou zeros. Por favor, revise o mapeamento.`
-        );
-        setLoading(false);
-        return;
-      }
-
-      const newReport = await saveReport(
-        data.name || `Relatório ${format(new Date(), 'dd/MM')}`,
-        data.source,
-        data.config,
-        reportData
-      );
-
-      setIsConfigModalOpen(false);
-      if (newReport?.id) {
-        navigate(`/sales-order/reports/${newReport.id}`);
-      }
-    } catch (error) {
-      console.error(error);
-      alert('Erro ao processar dados.');
-    } finally {
-      setLoading(false);
-    }
+      return await form.validateAndRun(data, async parsed => {
+        const items = parsed.source === 'erp' ? await fetchReportItems(parsed.config) : mappedCsvItems(parsed.csvData, parsed.config);
+        if (!mountedRef.current || sessionRef.current !== submittedSession || items === false) return false;
+        if (!items.length) { setValidationError('Nenhum dado encontrado. Confira a origem e o mapeamento do relatório.'); return false; }
+        const reportData = calculateABC(items, parsed.config.abcBasis, true, parsed.config);
+        if (!reportData.results.length) { setValidationError('A análise não encontrou resultados úteis. Confira os valores e o mapeamento.'); return false; }
+        const saved = await saveReport(parsed.name, parsed.source, parsed.config, reportData);
+        if (!mountedRef.current || sessionRef.current !== submittedSession || !saved) return false;
+        setIsConfigModalOpen(false); navigate(`/sales-order/reports/${saved.id}`); return true;
+      }, errors => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados do relatório.'));
+    } catch (failure) {
+      if (mountedRef.current && sessionRef.current === submittedSession) setValidationError(failure instanceof Error ? failure.message : 'Não foi possível preparar o relatório.');
+      return false;
+    } finally { creatingRef.current = false; if (mountedRef.current) setCreating(false); }
   };
 
   return (
@@ -170,6 +86,8 @@ const SalesOrderReports = () => {
         </button>
       </header>
 
+      {(validationError || error) && <p role="alert" className="text-red-600">{validationError || error} <button onClick={() => void listSavedReports()} disabled={busy}>Carregar relatórios</button></p>}
+      {busy && <p role="status" className="text-indigo-600">Consultando e confirmando o relatório...</p>}
       <section>
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3">
@@ -221,9 +139,9 @@ const SalesOrderReports = () => {
                           </button>
                           <div className="h-px bg-slate-50 dark:bg-slate-800"></div>
                           <button
-                            onClick={() => {
-                              if (confirm('Deseja realmente excluir este relatório?'))
-                                deleteReport(report.id);
+                            disabled={busy}
+                            onClick={async () => {
+                              if (confirm('Deseja realmente excluir este relatório?') && await deleteReport(report.id)) setOpenMenuId(null);
                             }}
                             className="w-full flex items-center gap-3 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                           >
@@ -266,9 +184,9 @@ const SalesOrderReports = () => {
 
       <ReportConfigModal
         isOpen={isConfigModalOpen}
-        onClose={() => setIsConfigModalOpen(false)}
+        onClose={() => { if (!creatingRef.current) setIsConfigModalOpen(false); }}
         onSave={handleCreateReport}
-        loading={loading}
+        loading={busy}
       />
     </div>
   );

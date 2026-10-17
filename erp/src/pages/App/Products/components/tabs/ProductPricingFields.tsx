@@ -50,9 +50,11 @@ export function ProductPricingFields({
             className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 h-6 ${validationErrors.unitPrice ? 'text-red-500 dark:text-red-400' : 'text-slate-400'}`}
           >
             <span>Preço de Venda</span>
-            <span className="text-red-500 ml-0.5" aria-hidden="true">
-              *
-            </span>
+            {!formData.hasVariations && (
+              <span className="text-red-500 ml-0.5" aria-hidden="true">
+                *
+              </span>
+            )}
           </label>
           <CurrencyInput
             id="product-unit-price-input"

@@ -28,6 +28,7 @@ import { MobileProductVariationActionsMenu } from './MobileProductVariationActio
 import { MobileProductVariationList } from './MobileProductVariationList';
 import { StockOriginBadge } from './StockOriginBadge';
 import { MergedBadge } from './MergedBadge';
+import { normalizeVariationSku } from '../domain/productSku';
 
 const normalizeVariationNamePart = (value: string) =>
   value
@@ -239,6 +240,16 @@ export const MobileProductCard: React.FC<Props> = ({
   );
 
   const parentCode = product.code || product.sku || '-';
+  const displaySku = singleVariation
+    ? normalizeVariationSku(
+        singleVariation.sku ||
+          singleVariation.code ||
+          product.sku ||
+          product.code
+      ) ||
+      product.code ||
+      parentCode
+    : product.code || (product.sku ? normalizeVariationSku(product.sku) : '') || parentCode;
 
   return (
     <TouchableOpacity
@@ -271,7 +282,7 @@ export const MobileProductCard: React.FC<Props> = ({
             </TouchableOpacity>
           )}
 
-          <Text style={[styles.codeBadge, dark && styles.darkCodeBadge]}>{parentCode}</Text>
+          <Text style={[styles.codeBadge, dark && styles.darkCodeBadge]}>{displaySku}</Text>
 
           {isDraft && (
             <View style={styles.draftBadge}>

@@ -17,6 +17,12 @@ describe('useProductTechnicalTab', () => {
     { id: '4', name: 'Comprimento', isRequired: false, active: true },
     { id: '5', name: 'Marca', isRequired: false, active: true },
     { id: '6', name: 'Material da estrutura', isRequired: false, active: true },
+    { id: '7', name: 'Quantidade de portas', isRequired: false, active: true },
+    { id: '8', name: 'Tipo de portas', isRequired: false, active: true },
+    { id: '9', name: 'Material das portas', isRequired: false, active: true },
+    { id: '10', name: 'Quantidade de gavetas', isRequired: false, active: true },
+    { id: '11', name: 'Materiais das corrediças', isRequired: false, active: true },
+    { id: '12', name: 'Material das gavetas', isRequired: false, active: true },
   ];
 
   beforeEach(() => {
@@ -165,5 +171,113 @@ describe('useProductTechnicalTab', () => {
       g.fields.map((f) => f.name)
     );
     expect(allFieldNamesAfterClear).toContain('Material da estrutura');
+  });
+
+  it('pesquisa "portas" e adiciona o grupo completo via handleAddTopicGroup', async () => {
+    let currentProduct: Partial<Product> = {
+      technicalValues: {},
+    };
+    const setFormData = vi.fn((updater) => {
+      currentProduct = typeof updater === 'function' ? updater(currentProduct) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useProductTechnicalTab({
+        formData: currentProduct,
+        setFormData,
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      result.current.setCharacteristicSearchTerm('portas');
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+
+    expect(result.current.matchingGroups.length).toBeGreaterThanOrEqual(1);
+    const portaGroup = result.current.matchingGroups.find((g) => g.id === 'portas')!;
+    expect(portaGroup).toBeDefined();
+
+    act(() => {
+      result.current.handleAddGroup(portaGroup);
+    });
+
+    // Todos os campos do grupo de portas foram adicionados
+    expect(result.current.manualFieldNames).toContain('Quantidade de portas');
+    expect(result.current.manualFieldNames).toContain('Tipo de portas');
+    expect(result.current.manualFieldNames).toContain('Material das portas');
+
+    // A busca é limpa após adicionar o grupo
+    expect(result.current.characteristicSearchTerm).toBe('');
+  });
+
+  it('limpa valores dependentes de portas quando a quantidade for alterada para 0', async () => {
+    let currentProduct: Partial<Product> = {
+      technicalValues: {
+        'Quantidade de portas': 2,
+        'Tipo de portas': 'De correr',
+        'Material das portas': 'MDF',
+      },
+    };
+    const setFormData = vi.fn((updater) => {
+      currentProduct = typeof updater === 'function' ? updater(currentProduct) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useProductTechnicalTab({
+        formData: currentProduct,
+        setFormData,
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      result.current.handleTechnicalValueChange('Quantidade de portas', 0);
+    });
+
+    expect(currentProduct.technicalValues?.['Quantidade de portas']).toBe(0);
+    expect(currentProduct.technicalValues?.['Tipo de portas']).toBe('');
+    expect(currentProduct.technicalValues?.['Material das portas']).toBe('');
+  });
+
+  it('limpa valores dependentes de gavetas quando a quantidade for alterada para 0', async () => {
+    let currentProduct: Partial<Product> = {
+      technicalValues: {
+        'Quantidade de gavetas': 3,
+        'Materiais das corrediças': ['Telescópica'],
+        'Material das gavetas': 'MDP',
+      },
+    };
+    const setFormData = vi.fn((updater) => {
+      currentProduct = typeof updater === 'function' ? updater(currentProduct) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useProductTechnicalTab({
+        formData: currentProduct,
+        setFormData,
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      result.current.handleTechnicalValueChange('Quantidade de gavetas', 0);
+    });
+
+    expect(currentProduct.technicalValues?.['Quantidade de gavetas']).toBe(0);
+    expect(currentProduct.technicalValues?.['Materiais das corrediças']).toEqual([]);
+    expect(currentProduct.technicalValues?.['Material das gavetas']).toBe('');
   });
 });

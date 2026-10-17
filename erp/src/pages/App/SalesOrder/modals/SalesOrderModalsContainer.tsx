@@ -65,6 +65,8 @@ export const SalesOrderModalsContainer: React.FC<SalesOrderModalsContainerProps>
     setReturnFiscalSelection,
     duplicatingOrder,
     setDuplicatingOrder,
+    assistanceSourceOrder,
+    setAssistanceSourceOrder,
   } = modals;
 
   const triggerSaveHighlight = (id?: string, order?: Order) => {
@@ -123,6 +125,21 @@ export const SalesOrderModalsContainer: React.FC<SalesOrderModalsContainerProps>
           }}
           onSaveSuccess={(id, order) => {
             setOrderModalType(null);
+            triggerSaveHighlight(id, order);
+          }}
+        />
+      )}
+
+      {assistanceSourceOrder && (
+        <AssistanceOrderModal
+          sourceOrder={assistanceSourceOrder}
+          onClose={() => {
+            setAssistanceSourceOrder(null);
+            orderListRef.current?.refresh();
+            draftsListRef.current?.refresh();
+          }}
+          onSaveSuccess={(id, order) => {
+            setAssistanceSourceOrder(null);
             triggerSaveHighlight(id, order);
           }}
         />

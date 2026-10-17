@@ -93,13 +93,6 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   };
 
   const handleToggleCatalog = () => {
-    if (isParentDraft) {
-      Alert.alert(
-        'Cadastro Pendente',
-        'Este produto é um rascunho. Você deve concluir o cadastramento do produto antes de ativar ou publicar suas variações.'
-      );
-      return;
-    }
     onToggleCatalog(v.id, v.status || 'published');
   };
 

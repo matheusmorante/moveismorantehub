@@ -1,7 +1,6 @@
 import {
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
-  getMissingRequiredCharacteristics,
   getProductCharacteristicAttributes,
   getTechnicalValue,
   hasTechnicalValue,
@@ -119,27 +118,7 @@ export const getMobileVariationRegistrationIssue = (
     };
   }
 
-  const dimensions = getEffectiveVariationDimensions(parent, variation);
-  const missingDimensions = (['width', 'height', 'depth'] as const)
-    .filter((field) => dimensions[field] <= 0)
-    .map((field) => ({ width: 'Largura', height: 'Altura', depth: 'Profundidade' })[field]);
-  if (missingDimensions.length) {
-    return {
-      message: `Informe valores maiores que zero para as dimensões obrigatórias: ${missingDimensions.join(', ')}.`,
-      tab: 'tecnico',
-    };
-  }
 
-  const parentValues = getEffectiveProductTechnicalValues(parent);
-  const missingCharacteristics = getMissingRequiredCharacteristics(
-    getEffectiveVariationTechnicalValues(parentValues, variation)
-  );
-  if (missingCharacteristics.length) {
-    return {
-      message: `Preencha as características obrigatórias da variação: ${missingCharacteristics.join(', ')}.`,
-      tab: 'tecnico',
-    };
-  }
 
   const variationName = String(variation?.name ?? parent?.description ?? '').trim();
   if (variationName.length < 2) {
@@ -152,16 +131,6 @@ export const getMobileVariationRegistrationIssue = (
       : [];
   if (!categoryIds.length) {
     return { message: 'Pelo menos uma categoria deve ser selecionada.', tab: 'identificacao' };
-  }
-  if (
-    !(
-      parent?.mainSupplierId ||
-      parent?.supplierId ||
-      parent?.main_supplier_id ||
-      parent?.supplier_id
-    )
-  ) {
-    return { message: 'Selecione pelo menos um fornecedor.', tab: 'identificacao' };
   }
 
   const price = getMobileEffectiveVariationPrice(parent, variation);

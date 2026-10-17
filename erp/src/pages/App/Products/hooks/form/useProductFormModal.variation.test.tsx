@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useProductFormModal } from './useProductFormModal';
 import type { Product, Variation } from '@/pages/types/product.type';
 
-const mocks = vi.hoisted(() => ({ saveVariation: vi.fn(), draft: vi.fn(), editing: vi.fn(), error: vi.fn() }));
+const mocks = vi.hoisted(() => ({ saveVariation: vi.fn(), draft: vi.fn(), editing: vi.fn(), error: vi.fn(), submit: vi.fn(), editingId: null as string | null }));
 vi.mock('@/pages/utils/productService', () => ({ saveVariation: mocks.saveVariation, physicalDeleteVariation: vi.fn() }));
 vi.mock('@/pages/utils/categoryService', () => ({ fetchGroupsAndCategories: async () => ({ categories: [] }) }));
 vi.mock('@/pages/utils/personService', () => ({ subscribeToPeople: () => () => {} }));
@@ -14,11 +14,11 @@ vi.mock('./useProductFormPricing', () => ({ useProductFormPricing: () => ({}) })
 vi.mock('./useProductFormImages', () => ({ useProductFormImages: () => ({}) }));
 vi.mock('./useProductFormSync', () => ({ useProductFormSync: () => {} }));
 vi.mock('./useProductFormLoad', () => ({ useProductFormLoad: () => {} }));
-vi.mock('./useProductFormSubmit', () => ({ useProductFormSubmit: () => ({ handleSubmit: vi.fn() }) }));
+vi.mock('./useProductFormSubmit', () => ({ useProductFormSubmit: () => ({ handleSubmit: mocks.submit }) }));
 vi.mock('./useProductFormDraft', () => ({ useProductFormDraft: () => ({ autoSaveDraft: mocks.draft, autoSaveStatus: 'idle' }) }));
 vi.mock('./useProductFormVariations', async () => {
   const { useRef } = await import('react');
-  return { useProductFormVariations: () => ({ pendingNewVariationIdRef: useRef<string | null>(null), setEditingVariationId: mocks.editing, editingVariationId: null }) };
+  return { useProductFormVariations: () => ({ pendingNewVariationIdRef: useRef<string | null>(null), setEditingVariationId: mocks.editing, editingVariationId: mocks.editingId }) };
 });
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn(), info: vi.fn() } }));
 
@@ -29,7 +29,7 @@ const mount = (draft = false) => {
   return renderHook(() => useProductFormModal({ isOpen: true, onClose: vi.fn(), product: parent, initialData: parent }));
 };
 afterEach(cleanup);
-beforeEach(() => { vi.clearAllMocks(); mocks.saveVariation.mockResolvedValue(undefined); mocks.draft.mockResolvedValue(true); });
+beforeEach(() => { vi.clearAllMocks(); mocks.editingId = null; mocks.saveVariation.mockResolvedValue(undefined); mocks.draft.mockResolvedValue(true); });
 
 describe('proprietário que recebe a variação concluída', () => {
   it.each([false, true])('bloqueia números inválidos antes da operação; rascunho=%s', async (draft) => {
@@ -82,7 +82,7 @@ describe('proprietário que recebe a variação concluída', () => {
       if (pendingRef) pendingRef.current = pendingId;
       result.current.setFormData((prev) => ({
         ...prev,
-        variations: [{ id: pendingId, name: 'Variação Pendente', sku: 'PEND-01', stock: 0, unitPrice: 100 }],
+        variations: [{ ...variation, id: pendingId, name: 'Variação Pendente', sku: 'PEND-01', stock: 0, unitPrice: 100 }],
       }));
     });
 
@@ -94,5 +94,28 @@ describe('proprietário que recebe a variação concluída', () => {
     expect(pendingRef?.current).toBeNull();
     expect(result.current.formData.variations?.length).toBeGreaterThanOrEqual(1);
     expect(result.current.formData.variations?.[0].id).not.toBe(pendingId);
+  });
+});
+
+describe('propagação do recorte no proprietário do produto', () => {
+  it('does not submit the parent with Ctrl+S while its variation dialog owns the edits', () => {
+    mocks.editingId = 'variation'; mount(); const event = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, cancelable: true }); window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true); expect(mocks.submit).not.toHaveBeenCalled();
+  });
+  const oldUrl = 'https://img.test/original.png', newUrl = 'https://img.test/cropped.webp';
+  const setup = (draft: boolean) => { const hook = mount(draft); act(() => hook.result.current.setFormData((previous) => ({ ...previous, images: [oldUrl], variations: [{ ...variation, images: [oldUrl] }] }))); return hook; };
+  it('confirms the same local product snapshot and all linked image references', async () => {
+    const { result } = setup(false); await act(async () => { expect(await result.current.handleReplaceImageGlobal(oldUrl, newUrl)).toBe(true); });
+    expect(result.current.formData.images).toEqual([newUrl]); expect(result.current.formData.variations![0].images).toEqual([newUrl]); expect(mocks.draft).not.toHaveBeenCalled();
+  });
+  it('awaits the draft receipt before returning to the variation owner', async () => {
+    let resolve!: (value: boolean) => void; mocks.draft.mockReturnValue(new Promise<boolean>((yes) => { resolve = yes; })); const { result } = setup(true); let done = false, pending!: Promise<boolean>;
+    act(() => { pending = result.current.handleReplaceImageGlobal(oldUrl, newUrl).then((value) => { done = true; return value; }); });
+    await waitFor(() => expect(mocks.draft).toHaveBeenCalledOnce()); expect(done).toBe(false); expect(mocks.draft.mock.calls[0][0].images).toEqual([newUrl]);
+    await act(async () => { resolve(true); await pending; }); expect(done).toBe(true);
+  });
+  it('retains the changed draft and reports an unconfirmed persistence result', async () => {
+    mocks.draft.mockResolvedValue(false); const { result } = setup(true);
+    await act(async () => { await expect(result.current.handleReplaceImageGlobal(oldUrl, newUrl)).rejects.toMatchObject({ uncertain: true }); }); expect(result.current.formData.images).toEqual([newUrl]);
   });
 });

@@ -25,7 +25,7 @@ export function PostCard({ post, campaignName, productName, onDelete, onDownload
         className={`relative overflow-hidden bg-slate-950 ${isLandscape ? 'aspect-[4/5]' : post.format === 'STORY_STATUS_9_16' ? 'aspect-[9/16]' : 'aspect-[4/5]'}`}
       >
         <img
-          src={post.image_url ?? post.imageUrl}
+          src={post.imageUrl}
           alt={post.title ?? `Post ${formatLabel}`}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"

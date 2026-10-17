@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { TechnicalCombobox } from './TechnicalCombobox';
+import { YesNoPowerToggle } from './YesNoPowerToggle';
 import {
   isWeightCharacteristicName,
+  isYesNoCharacteristic,
   TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
@@ -30,13 +32,32 @@ export const TechnicalFieldInput: React.FC<Props> = ({
   if (/^(marca|modelo|linha)$/i.test(field.name.trim())) {
     type = 'text_short';
   } else if (
-    /quantidade de (portas?|gavetas?)/i.test(field.name) ||
+    /quantidade de (portas?|gavetas?|p[eé]s?)/i.test(field.name) ||
     /lugar(es)?/i.test(field.name)
   ) {
     type = 'integer';
+  } else if (
+    /corredi[çc]a/i.test(field.name) ||
+    /tipo.*de.*porta/i.test(field.name) ||
+    /tipo.*porta/i.test(field.name)
+  ) {
+    type = 'multi_select';
   } else if (type === 'weight' || isWeightCharacteristicName(field.name)) {
     type = 'decimal';
   }
+
+  if (isYesNoCharacteristic(field)) {
+    return (
+      <YesNoPowerToggle
+        field={field}
+        value={value}
+        disabled={disabled}
+        isInvalid={isInvalid}
+        onChange={onChange}
+      />
+    );
+  }
+
   const maxLength = 120;
   if (type === 'text_short' || type === 'text') {
     const isMarca = /^marca$/i.test(field.name.trim());
@@ -77,6 +98,15 @@ export const TechnicalFieldInput: React.FC<Props> = ({
   }
   if (type === 'integer' || type === 'number') {
     const isLugares = /lugar(es)?/i.test(field.name);
+    const numericDisplayValue = (() => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (typeof value === 'string' && value.trim()) {
+        const match = value.match(/\d+/);
+        if (match) return parseInt(match[0], 10);
+      }
+      return '';
+    })();
+
     return (
       <input
         type="number"
@@ -85,11 +115,15 @@ export const TechnicalFieldInput: React.FC<Props> = ({
         placeholder={
           isLugares
             ? 'Digite o número de quantidades'
-            : /porta|gaveta/i.test(field.name)
+            : /porta/i.test(field.name)
               ? 'Insira a quantidade de portas'
-              : 'Insira um número inteiro'
+              : /gaveta/i.test(field.name)
+                ? 'Insira a quantidade de gavetas'
+                : /p[eé]s?/i.test(field.name)
+                  ? 'Insira a quantidade de pés'
+                  : 'Insira um número inteiro'
         }
-        value={value ?? ''}
+        value={numericDisplayValue}
         disabled={disabled}
         onChange={(e) => {
           if (e.target.value === '') {
@@ -127,20 +161,6 @@ export const TechnicalFieldInput: React.FC<Props> = ({
   }
   if (type === 'percentage') {
     return <PercentageInput value={value} disabled={disabled} onChange={onChange} />;
-  }
-  if (type === 'boolean') {
-    return (
-      <select
-        value={value === true || value === 'true' ? 'true' : value === false || value === 'false' ? 'false' : ''}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value === '' ? '' : event.target.value === 'true')}
-        className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600 dark:text-slate-100"
-      >
-        <option value="">Selecione</option>
-        <option value="true">Sim</option>
-        <option value="false">Não</option>
-      </select>
-    );
   }
   const fieldOptions = field.options || [];
   const usesSimpleChoiceDropdown =
@@ -355,12 +375,22 @@ function ChoiceSearch({
   onChange: (v: any) => void;
 }) {
   const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
   const [debouncedTerm, setDebouncedTerm] = useState('');
   const searchRef = React.useRef<HTMLDivElement>(null);
-  const selected = (Array.isArray(value) ? value : [value].filter(Boolean)).filter(
-    (item) => normalizeSearchTerm(String(item)) !== normalizeSearchTerm('Não se aplica')
-  );
+  const rawArray = Array.isArray(value)
+    ? value
+    : typeof value === 'string' && value.includes('+')
+      ? value.split('+').map((s) => s.trim()).filter(Boolean)
+      : [value].filter(Boolean);
+
+  const selected = rawArray
+    .map((item) => String(item).trim())
+    .filter(
+      (item) => item && normalizeSearchTerm(item) !== normalizeSearchTerm('Não se aplica')
+    );
   const term = normalizeSearchTerm(query);
+
   React.useEffect(() => {
     if (term.length < MIN_CHOICE_SEARCH_CHARACTERS) {
       setDebouncedTerm('');
@@ -374,38 +404,91 @@ function ChoiceSearch({
     return () => window.clearTimeout(timeoutId);
   }, [term]);
 
-  const isSearchReady = term.length >= MIN_CHOICE_SEARCH_CHARACTERS && debouncedTerm === term;
-  const displayValue = query || selected.join(', ');
-  const matchingOptions = useMemo(
-    () =>
-      isSearchReady
-        ? options.filter((option) => normalizeSearchTerm(option.value).includes(debouncedTerm))
-        : [],
-    [options, debouncedTerm, isSearchReady]
-  );
-  const filtered = matchingOptions.slice(0, MAX_CHOICE_SEARCH_RESULTS);
+  const isSearchActive = term.length >= MIN_CHOICE_SEARCH_CHARACTERS && debouncedTerm === term;
+  const matchingOptions = useMemo(() => {
+    if (isSearchActive) {
+      return options.filter((option) => normalizeSearchTerm(option.value).includes(debouncedTerm));
+    }
+    // When not filtering, if multiple or few options, show all available options
+    if (multiple || options.length <= SIMPLE_CHOICE_DROPDOWN_LIMIT) {
+      return options;
+    }
+    return [];
+  }, [options, debouncedTerm, isSearchActive, multiple]);
+
+  const filtered = matchingOptions.slice(0, Math.max(MAX_CHOICE_SEARCH_RESULTS, options.length));
   const isSelected =
     term.length === 0
       ? selected.length > 0
-      : isSearchReady && selected.some((item) => normalizeSearchTerm(item) === debouncedTerm);
+      : isSearchActive && selected.some((item) => normalizeSearchTerm(item) === debouncedTerm);
 
   React.useEffect(() => {
     const closeSuggestions = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) setQuery('');
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setQuery('');
+      }
     };
     document.addEventListener('mousedown', closeSuggestions);
     return () => document.removeEventListener('mousedown', closeSuggestions);
   }, []);
 
+  const inputPlaceholder = multiple
+    ? selected.length > 0
+      ? 'Adicionar mais opções...'
+      : 'Selecione ou pesquise...'
+    : 'Digite pelo menos 2 caracteres para pesquisar...';
+
+  const displayInputValue = multiple ? query : query || selected.join(', ');
+
   return (
-    <div ref={searchRef} className="relative space-y-2">
+    <div ref={searchRef} className="relative space-y-1.5">
+      {multiple && selected.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-1">
+          {selected.map((item) => (
+            <span
+              key={item}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+            >
+              <span>{item}</span>
+              {!disabled && (
+                <button
+                  type="button"
+                  aria-label={`Remover ${item}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(selected.filter((s) => s !== item));
+                  }}
+                  className="hover:text-red-600 transition-colors cursor-pointer"
+                >
+                  <i className="bi bi-x" />
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="relative">
         <input
-          value={displayValue}
+          value={displayInputValue}
           disabled={disabled}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Digite pelo menos 2 caracteres para pesquisar..."
-          className={`w-full border-b-2 bg-transparent py-2 pr-8 text-xs outline-none focus:border-blue-600 ${isSelected ? 'border-emerald-500 text-emerald-700 dark:text-emerald-400' : 'border-slate-300'}`}
+          onFocus={() => {
+            if (!disabled) setIsOpen(true);
+          }}
+          onClick={() => {
+            if (!disabled) setIsOpen(true);
+          }}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            if (!isOpen) setIsOpen(true);
+          }}
+          placeholder={inputPlaceholder}
+          className={`w-full border-b-2 bg-transparent py-2 pr-8 text-xs outline-none focus:border-blue-600 ${
+            isSelected
+              ? 'border-emerald-500 text-emerald-700 dark:text-emerald-400'
+              : 'border-slate-300'
+          }`}
         />
         {isSelected && (
           <i
@@ -414,49 +497,49 @@ function ChoiceSearch({
           />
         )}
       </div>
-      {term.length >= MIN_CHOICE_SEARCH_CHARACTERS && (
-        <div className="absolute left-0 right-0 top-full z-40 mt-1 flex max-h-48 flex-col gap-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-          {!isSearchReady ? (
-            <span className="text-[10px] text-slate-400">Pesquisando...</span>
-          ) : filtered.map((option) =>
-            multiple ? (
-              <label key={option.id || option.value} className="flex items-center gap-1 text-xs">
-                <input
-                  type="checkbox"
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full z-40 mt-1 flex max-h-48 flex-col gap-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-top-1">
+          {filtered.length === 0 ? (
+            <span className="text-[10px] text-slate-400 p-1">Nenhuma opção encontrada.</span>
+          ) : (
+            filtered.map((option) =>
+              multiple ? (
+                <label
+                  key={option.id || option.value}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer text-xs transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    disabled={disabled}
+                    checked={selected.includes(option.value)}
+                    onChange={(event) =>
+                      onChange(
+                        event.target.checked
+                          ? [...selected, option.value]
+                          : selected.filter((selectedValue) => selectedValue !== option.value)
+                      )
+                    }
+                    className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span className="text-slate-700 dark:text-slate-200">{option.value}</span>
+                </label>
+              ) : (
+                <button
+                  key={option.id || option.value}
+                  type="button"
                   disabled={disabled}
-                  checked={selected.includes(option.value)}
-                  onChange={(event) =>
-                    onChange(
-                      event.target.checked
-                        ? [...selected, option.value]
-                        : selected.filter((selectedValue) => selectedValue !== option.value)
-                    )
-                  }
-                />
-                <span>{option.value}</span>
-              </label>
-            ) : (
-              <button
-                key={option.id || option.value}
-                type="button"
-                disabled={disabled}
-                onClick={() => {
-                  onChange(option.value);
-                  setQuery('');
-                }}
-                className="w-full rounded px-1 py-0.5 text-left text-xs hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-slate-800"
-              >
-                {option.value}
-              </button>
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                    setQuery('');
+                  }}
+                  className="w-full rounded px-2 py-1.5 text-left text-xs hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-slate-800"
+                >
+                  {option.value}
+                </button>
+              )
             )
-          )}
-          {isSearchReady && filtered.length === 0 && (
-            <span className="text-[10px] text-slate-400">Nenhuma opção encontrada.</span>
-          )}
-          {isSearchReady && matchingOptions.length > MAX_CHOICE_SEARCH_RESULTS && (
-            <span className="border-t border-slate-100 pt-1 text-[10px] text-slate-400 dark:border-slate-700">
-              Mostrando 5 resultados. Refine a busca para ver outros.
-            </span>
           )}
         </div>
       )}

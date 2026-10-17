@@ -3,10 +3,14 @@ import { useLocation } from 'react-router-dom';
 import { getSettings, AppSettings, subscribeToSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { textPromptFormSchema } from '../../../../shared-utils/assistedFormSchemas';
+import {
+  agentSendFormSchema, agentResponseSchema, agentHistoryFormSchema,
+  agentClearHistoryFormSchema, agentVoicePreferenceFormSchema,
+} from '../../../../shared-utils/agentChatFormSchemas';
+import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { useAuth } from '@/context/AuthContext';
 import { GeminiAgentService } from '@/services/aiAgent/geminiAgentService';
 import {
-  GeminiContent,
   ExecutedToolRecord,
   AgentPageContext,
 } from '@/services/aiAgent/geminiAgentTypes';
@@ -38,10 +42,13 @@ export default function AIChatAssistant({
   mode = 'drawer',
 }: AIChatAssistantProps) {
   const location = useLocation();
+  const { user } = useAuth();
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
 
   const handleClose = () => {
+    requestRef.current?.controller.abort();
+    stopVoice();
     if (controlledOnClose) {
       controlledOnClose();
     } else {
@@ -57,7 +64,7 @@ export default function AIChatAssistant({
     return () => window.removeEventListener('morante:open-agent', handleGlobalOpen);
   }, []);
 
-  const getPageContext = (): AgentPageContext => {
+  const getPageContext = (): AgentPageContext & { currentPath: string } => {
     const path = location.pathname;
     let currentModule = 'Geral';
     if (path.startsWith('/finance')) currentModule = 'Financeiro';
@@ -94,235 +101,269 @@ export default function AIChatAssistant({
   const aiName = settings.aiPrompts?.aiName || 'Seu Lizandro';
   const aiAvatar = settings.aiPrompts?.aiAvatar || '/lizandro.png';
 
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const initial: ChatMessage = {
-      id: 'init',
-      role: 'assistant',
-      content: `Olá! Sou ${aiName}, seu Agente Inteligente do ERP. Posso lançar despesas, receitas, consultar o fluxo de caixa ou tirar dúvidas do sistema. Como posso te ajudar hoje?`,
-      timestamp: new Date(),
-    };
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const now = Date.now();
-        const recent = parsed
-          .filter((m: any) => now - new Date(m.timestamp).getTime() < SEVEN_DAYS_MS)
-          .map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
-        return recent.length > 0 ? recent : [initial];
-      } catch {
-        return [initial];
-      }
-    }
-    return [initial];
+  const initialMessage = (): ChatMessage => ({
+    id: 'init', role: 'assistant',
+    content: `Olá! Sou ${aiName}, seu Agente Inteligente do ERP. Posso lançar despesas, receitas, consultar o fluxo de caixa ou tirar dúvidas do sistema. Como posso te ajudar hoje?`,
+    timestamp: new Date(),
   });
-
-  const [geminiHistory, setGeminiHistory] = useState<GeminiContent[]>(() => {
-    const saved = localStorage.getItem(HISTORY_RAW_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return [];
-      }
+  const [initialCache] = useState(() => {
+    try {
+      const messages = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const history = JSON.parse(localStorage.getItem(HISTORY_RAW_KEY) || '[]');
+      const parsed = agentHistoryFormSchema.parse({ messages, history });
+      const preference = localStorage.getItem('lisandro_auto_speak');
+      if (preference !== null && preference !== 'true' && preference !== 'false') throw new Error('Preferência de voz inválida.');
+      const recent = parsed.messages.filter(m => Date.now() - new Date(m.timestamp).getTime() < SEVEN_DAYS_MS);
+      return { messages: recent.length ? recent.map(m => ({ ...m, timestamp: new Date(m.timestamp) })) : [initialMessage()], history: parsed.history, enabled: preference === 'true', error: '' };
+    } catch {
+      return { messages: [initialMessage()], history: [], enabled: false, error: 'Não foi possível ler o histórico ou a preferência de voz. A conversa fica nesta sessão; limpe o histórico para tentar recuperar a gravação local.' };
     }
-    return [];
   });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-  }, [messages]);
-
-  useEffect(() => {
-    localStorage.setItem(HISTORY_RAW_KEY, JSON.stringify(geminiHistory));
-  }, [geminiHistory]);
-
+  const [messages, setMessages] = useState<ChatMessage[]>(initialCache.messages);
+  const [geminiHistory, setGeminiHistory] = useState(initialCache.history);
   const [input, setInput] = useState('');
-  const inputForm = useZodForm(textPromptFormSchema, { text: input });
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isCallMode, setIsCallMode] = useState(false);
-  const [isAutoSpeakEnabled, setIsAutoSpeakEnabled] = useState(
-    () => localStorage.getItem('lisandro_auto_speak') === 'true'
-  );
-
+  const [isAutoSpeakEnabled, setIsAutoSpeakEnabled] = useState(initialCache.enabled);
+  const [error, setError] = useState(initialCache.error);
+  const inputForm = useZodForm(agentSendFormSchema, { text: input, history: geminiHistory, pageContext: getPageContext() });
+  const historyForm = useZodForm(agentHistoryFormSchema, { messages: [], history: [] });
+  const clearForm = useZodForm(agentClearHistoryFormSchema, { intent: 'clear_history', confirmed: true, autoSpeak: isAutoSpeakEnabled });
+  const preferenceForm = useZodForm(agentVoicePreferenceFormSchema, { enabled: isAutoSpeakEnabled });
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
-  const silenceTimerRef = useRef<any>(null);
+  const speechRef = useRef<{ utterance: SpeechSynthesisUtterance; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const busyRef = useRef(false);
+  const mountedRef = useRef(true);
+  const cacheAvailableRef = useRef(!initialCache.error);
+  const uncertainTextsRef = useRef(new Set<string>());
+  const requestRef = useRef<{ controller: AbortController; scope: string } | null>(null);
+  const scope = JSON.stringify([user?.id, location.pathname, isOpen]);
+  const scopeRef = useRef(scope); scopeRef.current = scope;
+  const inputRef = useRef(input); inputRef.current = input;
+  const callModeRef = useRef(isCallMode); callModeRef.current = isCallMode;
+  const sendRef = useRef<(text?: string) => Promise<unknown>>(async () => {});
+  const updateInput = (value: string) => { inputRef.current = value; setInput(value); };
+  const updateCallMode = (value: boolean) => { callModeRef.current = value; setIsCallMode(value); };
+  const showError = (message: string) => { if (mountedRef.current) { setError(message); toast.error(message); } };
+  const validationError = (errors: Parameters<typeof flattenFormErrors>[0]) => showError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da conversa.');
+  const stopVoice = () => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = null;
+    updateCallMode(false);
+    if (speechRef.current) clearTimeout(speechRef.current.timer);
+    speechRef.current = null;
+    recognitionRef.current?.stop();
+    setIsListening(false);
+    window.speechSynthesis?.cancel();
+  };
 
   useEffect(() => {
-    localStorage.setItem('lisandro_auto_speak', String(isAutoSpeakEnabled));
-  }, [isAutoSpeakEnabled]);
-
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; requestRef.current?.controller.abort(); };
+  }, []);
   useEffect(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.lang = 'pt-BR';
-      recognitionRef.current.interimResults = true;
+    const currentScope = scope;
+    return () => {
+      if (requestRef.current?.scope === currentScope) requestRef.current.controller.abort();
+      if (speechRef.current) clearTimeout(speechRef.current.timer);
+      speechRef.current = null;
+      window.speechSynthesis?.cancel();
+    };
+  }, [scope]);
 
-      recognitionRef.current.onresult = (event: any) => {
-        window.speechSynthesis?.cancel();
-        let interimTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            const transcript = event.results[i][0].transcript;
-            setInput((prev) => {
-              const newText = (prev + ' ' + transcript).trim();
-              if (isCallMode) {
-                if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-                silenceTimerRef.current = setTimeout(() => handleSendMessage(newText), 1200);
-              }
-              return newText;
-            });
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-      };
-
-      recognitionRef.current.onstart = () => {
-        setIsListening(true);
-        window.speechSynthesis?.cancel();
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        if (event.error === 'no-speech') return;
-        setIsListening(false);
-        setIsCallMode(false);
-        toast.error('Erro no microfone ou reconhecimento de voz.');
-      };
-
-      recognitionRef.current.onend = () => {
-        if (isCallMode) {
-          try {
-            recognitionRef.current.start();
-          } catch {
-            /* no-op: intencionalmente silencioso */
-          }
-        } else {
-          setIsListening(false);
-        }
-      };
-    }
-  }, [isCallMode]);
+  // Recognition callbacks always read the current draft/send handler. Cleanup owns
+  // the recognizer and the silence timer; no effects inside React state updaters.
+  useEffect(() => {
+    if (!isOpen) return;
+    const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!Recognition) return;
+    const recognition = new Recognition();
+    recognitionRef.current = recognition;
+    recognition.continuous = true; recognition.lang = 'pt-BR'; recognition.interimResults = true;
+    recognition.onresult = (event: any) => {
+      if (busyRef.current || speechRef.current) return;
+      window.speechSynthesis?.cancel();
+      let text = inputRef.current;
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) text = (text + ' ' + event.results[i][0].transcript).trim();
+      }
+      inputRef.current = text; setInput(text);
+      if (callModeRef.current && text) {
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => { void sendRef.current(inputRef.current); }, 1200);
+      }
+    };
+    recognition.onstart = () => { setIsListening(true); window.speechSynthesis?.cancel(); };
+    recognition.onerror = (event: any) => {
+      if (event.error === 'no-speech') return;
+      callModeRef.current = false; setIsCallMode(false); setIsListening(false);
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      setError('Erro no microfone ou reconhecimento de voz.');
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+      if (callModeRef.current && !busyRef.current && !speechRef.current) {
+        try { recognition.start(); } catch { callModeRef.current = false; setIsCallMode(false); setError('Não foi possível retomar o microfone.'); }
+      }
+    };
+    return () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      recognition.onresult = recognition.onstart = recognition.onerror = recognition.onend = null;
+      recognition.abort?.(); recognition.stop(); recognitionRef.current = null;
+      callModeRef.current = false; setIsCallMode(false); setIsListening(false);
+      window.speechSynthesis?.cancel();
+    };
+  }, [isOpen, location.pathname, user?.id]);
 
   const toggleListening = () => {
-    if (isListening) {
-      setIsCallMode(false);
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    } else {
-      if (!recognitionRef.current) {
-        toast.error('Reconhecimento de voz não suportado neste navegador.');
-        return;
-      }
-      recognitionRef.current.start();
-    }
+    if (busyRef.current) return;
+    if (isListening) { stopVoice(); return; }
+    if (!recognitionRef.current) { showError('Reconhecimento de voz não suportado neste navegador.'); return; }
+    try { recognitionRef.current.start(); } catch { showError('Não foi possível iniciar o microfone.'); }
   };
-
-  const toggleCallMode = () => {
-    if (isCallMode) {
-      setIsCallMode(false);
-      recognitionRef.current?.stop();
-    } else {
-      setIsCallMode(true);
-      setIsAutoSpeakEnabled(true);
-      if (!isListening) recognitionRef.current?.start();
-    }
+  const toggleCallMode = async () => {
+    if (busyRef.current) return;
+    if (isCallMode) { stopVoice(); return; }
+    if (!recognitionRef.current) { showError('Reconhecimento de voz não suportado neste navegador.'); return; }
+    busyRef.current = true;
+    const preferenceScope = scopeRef.current;
+    try {
+      await preferenceForm.validateAndRun({ enabled: true }, ({ enabled }) => {
+        if (scopeRef.current !== preferenceScope || !mountedRef.current) return false;
+        localStorage.setItem('lisandro_auto_speak', String(enabled));
+        if (localStorage.getItem('lisandro_auto_speak') !== String(enabled)) throw new Error('Preferência de voz não confirmada.');
+        setIsAutoSpeakEnabled(enabled); updateCallMode(true);
+        if (!isListening) recognitionRef.current?.start();
+        return true;
+      }, validationError);
+    } catch { updateCallMode(false); setIsListening(false); showError('Não foi possível salvar a preferência de voz ou iniciar o microfone.'); }
+    finally { busyRef.current = false; }
   };
-
   const speak = (text: string) => {
     if (!isAutoSpeakEnabled || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const cleanText = text.replace(/[*#_`]/g, '').trim();
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'pt-BR';
-    utterance.rate = 1.3;
-    utterance.pitch = 0.9;
-
-    const voices = window.speechSynthesis.getVoices();
-    const naturalVoice = voices.find(
-      (v) => v.lang.includes('pt-BR') && (v.name.includes('Daniel') || v.name.includes('Google'))
-    );
-    if (naturalVoice) utterance.voice = naturalVoice;
-
-    window.speechSynthesis.speak(utterance);
-  };
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, isOpen, isLoading]);
-
-  const handleSendMessage = async (textToSend?: string) => {
-    const text = (textToSend || input).trim();
-    if (!text || isLoading) return;
-    return inputForm.validateAndRun({ text }, async ({ text }) => {
-    const userMsg: ChatMessage = {
-      id: `u-${Date.now()}`,
-      role: 'user',
-      content: text,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setInput('');
-    setIsLoading(true);
-
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-
-    const pageCtx = getPageContext();
-
     try {
-      const response = await GeminiAgentService.sendMessage(text, geminiHistory, pageCtx);
-      setGeminiHistory(response.updatedHistory);
-
-      const assistantMsg: ChatMessage = {
-        id: `a-${Date.now()}`,
-        role: 'assistant',
-        content: response.result.answer,
-        timestamp: new Date(),
-        executedTools: response.result.executedTools,
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`]/g, '').trim());
+      utterance.lang = 'pt-BR'; utterance.rate = 1.3; utterance.pitch = 0.9;
+      const naturalVoice = window.speechSynthesis.getVoices().find(v => v.lang.includes('pt-BR') && (v.name.includes('Daniel') || v.name.includes('Google')));
+      if (naturalVoice) utterance.voice = naturalVoice;
+      const speakingScope = scopeRef.current;
+      const finish = (failed = false) => {
+        if (speechRef.current?.utterance !== utterance) return;
+        clearTimeout(speechRef.current.timer); speechRef.current = null;
+        if (!mountedRef.current || scopeRef.current !== speakingScope) return;
+        if (failed) { updateCallMode(false); showError('Resposta recebida, mas a reprodução de voz foi interrompida.'); return; }
+        if (callModeRef.current && !busyRef.current) {
+          try { recognitionRef.current?.start(); } catch { updateCallMode(false); showError('Não foi possível retomar o microfone.'); }
+        }
       };
-
-      setMessages((prev) => [...prev, assistantMsg]);
-      speak(response.result.answer);
-    } catch (err: any) {
-      console.error('Erro no assistente Gemini:', err);
-      const errMsg = err?.message || 'Erro ao processar mensagem com a IA.';
-      toast.error(errMsg);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `err-${Date.now()}`,
-          role: 'assistant',
-          content: `Desculpe, ocorreu um erro: ${errMsg}`,
-          timestamp: new Date(),
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
+      utterance.onend = () => finish(); utterance.onerror = () => finish(true);
+      speechRef.current = { utterance, timer: setTimeout(() => { finish(true); window.speechSynthesis?.cancel(); }, 60_000) };
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      if (speechRef.current) clearTimeout(speechRef.current.timer);
+      speechRef.current = null; updateCallMode(false);
+      showError('Resposta recebida, mas não foi possível reproduzir a voz.');
     }
-    }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, isOpen, isLoading]);
 
-  const handleClearHistory = () => {
-    if (window.confirm('Deseja limpar o histórico da conversa com o assistente?')) {
-      const initial: ChatMessage = {
-        id: 'init',
-        role: 'assistant',
-        content: `Olá! Sou ${aiName}, seu Agente Inteligente do ERP. Posso lançar despesas, receitas, consultar o fluxo de caixa ou tirar dúvidas do sistema. Como posso te ajudar hoje?`,
-        timestamp: new Date(),
-      };
-      setMessages([initial]);
-      setGeminiHistory([]);
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(HISTORY_RAW_KEY);
+  const persistHistory = async (nextMessages: ChatMessage[], history: typeof geminiHistory, isCurrent: () => boolean) => {
+    if (!cacheAvailableRef.current) return;
+    try {
+      await historyForm.validateAndRun({ messages: nextMessages.map(m => ({ ...m, timestamp: m.timestamp.toISOString() })), history }, parsed => {
+        if (!isCurrent()) return false;
+        const messagesJson = JSON.stringify(parsed.messages); const historyJson = JSON.stringify(parsed.history);
+        localStorage.setItem(STORAGE_KEY, messagesJson); localStorage.setItem(HISTORY_RAW_KEY, historyJson);
+        if (localStorage.getItem(STORAGE_KEY) !== messagesJson || localStorage.getItem(HISTORY_RAW_KEY) !== historyJson) throw new Error('Histórico não confirmado.');
+        return true;
+      }, validationError);
+    } catch {
+      cacheAvailableRef.current = false;
+      showError('Resposta recebida. Não foi possível gravar o histórico local; a conversa permanece nesta sessão. Limpe o histórico para recuperar a gravação.');
     }
+  };
+  const handleSendMessage = async (textToSend?: string) => {
+    if (busyRef.current || !isOpen) return;
+    if (!user?.id) { showError('Entre na sua conta antes de consultar o assistente.'); return; }
+    const originalInput = textToSend ?? inputRef.current;
+    const fingerprint = originalInput.trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR');
+    if (uncertainTextsRef.current.has(fingerprint)) { showError('Esta mensagem tem uma ação sem confirmação. Confira o resultado no ERP antes de repetir.'); return; }
+    busyRef.current = true; setIsLoading(true);
+    if (cacheAvailableRef.current) setError('');
+    const request = { controller: new AbortController(), scope: scopeRef.current };
+    requestRef.current = request;
+    const isCurrent = () => mountedRef.current && scopeRef.current === request.scope && !request.controller.signal.aborted;
+    let toolDispatched = false;
+    let success = false;
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    recognitionRef.current?.stop(); setIsListening(false);
+    try {
+      await inputForm.validateAndRun({ text: originalInput, history: geminiHistory, pageContext: getPageContext() }, async parsed => {
+        if (!isCurrent()) return false;
+        const nextMessages: ChatMessage[] = [...messages, { id: crypto.randomUUID(), role: 'user', content: parsed.text, timestamp: new Date() }];
+        setMessages(nextMessages);
+        const expired = Symbol('expired');
+        const rawResponse = await withTimeout<unknown>(GeminiAgentService.sendMessage(parsed.text, parsed.history, parsed.pageContext, {
+          signal: request.controller.signal, isCurrent, onToolDispatch: () => { toolDispatched = true; },
+        }), 90_000, expired, 'conversa do assistente');
+        if (rawResponse === expired) {
+          request.controller.abort();
+          throw Object.assign(new Error('O assistente excedeu o prazo. Confira o resultado das ações iniciadas antes de repetir.'), { knownFailure: !toolDispatched });
+        }
+        if (!isCurrent()) throw Object.assign(new Error('Conversa interrompida. Confira o resultado das ações iniciadas antes de repetir.'), { knownFailure: !toolDispatched });
+        const receipt = agentResponseSchema.safeParse(rawResponse);
+        if (!receipt.success) throw new Error('A resposta do assistente não pôde ser confirmada.');
+        const response = receipt.data;
+        const completed: ChatMessage[] = [...nextMessages, { id: crypto.randomUUID(), role: 'assistant', content: response.result.answer, timestamp: new Date(), executedTools: response.result.executedTools }];
+        setGeminiHistory(response.updatedHistory); setMessages(completed);
+        if (inputRef.current === originalInput) updateInput('');
+        success = true;
+        await persistHistory(completed, response.updatedHistory, isCurrent);
+        if (isCurrent()) speak(response.result.answer);
+        return true;
+      }, validationError);
+    } catch (failure) {
+      request.controller.abort();
+      const knownFailure = failure instanceof Error && 'knownFailure' in failure && failure.knownFailure === true;
+      if (!knownFailure) uncertainTextsRef.current.add(fingerprint);
+      if (mountedRef.current) {
+        updateCallMode(false);
+        const message = failure instanceof Error ? failure.message : 'Não foi possível confirmar a resposta do assistente.';
+        showError(knownFailure ? message : `${message} Confira o resultado das ações no ERP antes de repetir esta mensagem.`);
+      }
+    } finally {
+      if (requestRef.current === request) requestRef.current = null;
+      busyRef.current = false;
+      if (mountedRef.current) {
+        setIsLoading(false);
+        if (success && isCurrent() && callModeRef.current && !speechRef.current) {
+          try { recognitionRef.current?.start(); } catch { updateCallMode(false); showError('Não foi possível retomar o microfone.'); }
+        }
+      }
+    }
+  };
+  sendRef.current = handleSendMessage;
+
+  const handleClearHistory = async () => {
+    if (busyRef.current || !window.confirm('Deseja limpar o histórico da conversa com o assistente?')) return;
+    busyRef.current = true; setIsLoading(true);
+    const clearScope = scopeRef.current;
+    try {
+      await clearForm.validateAndRun({ intent: 'clear_history', confirmed: true, autoSpeak: isAutoSpeakEnabled }, ({ autoSpeak }) => {
+        if (!mountedRef.current || scopeRef.current !== clearScope) return false;
+        localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(HISTORY_RAW_KEY);
+        localStorage.setItem('lisandro_auto_speak', String(autoSpeak));
+        if (localStorage.getItem(STORAGE_KEY) !== null || localStorage.getItem(HISTORY_RAW_KEY) !== null || localStorage.getItem('lisandro_auto_speak') !== String(autoSpeak)) throw new Error('Limpeza não confirmada.');
+        stopVoice(); setMessages([initialMessage()]); setGeminiHistory([]);
+        cacheAvailableRef.current = true; setError('');
+        return true;
+      }, validationError);
+    } catch { cacheAvailableRef.current = false; showError('Não foi possível confirmar a limpeza do histórico local. A conversa foi preservada.'); }
+    finally { busyRef.current = false; if (mountedRef.current) setIsLoading(false); }
   };
 
   const activePageContext = getPageContext();
@@ -373,6 +414,7 @@ export default function AIChatAssistant({
             <div className="flex items-center gap-1.5 relative z-10">
               <button
                 onClick={toggleCallMode}
+                disabled={isLoading}
                 className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl transition-all flex items-center justify-center ${isCallMode ? 'bg-white text-red-600 shadow-lg' : 'bg-white/15 hover:bg-white/25 text-white'}`}
                 title={isCallMode ? 'Desligar Chamada' : 'Iniciar Chamada de Voz'}
               >
@@ -382,6 +424,7 @@ export default function AIChatAssistant({
               </button>
               <button
                 onClick={handleClearHistory}
+                disabled={isLoading}
                 className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-all"
                 title="Limpar histórico da conversa"
               >
@@ -476,7 +519,7 @@ export default function AIChatAssistant({
             ))}
 
             {isLoading && (
-              <div className="flex items-start gap-2 animate-pulse">
+              <div role="status" className="flex items-start gap-2 animate-pulse">
                 <div className="bg-white dark:bg-slate-800 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-2">
                   <div className="flex gap-1">
                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"></div>
@@ -491,13 +534,15 @@ export default function AIChatAssistant({
             )}
           </div>
 
+          {error && <p role="alert" className="px-4 py-2 text-sm text-red-700 dark:text-red-300">{error}</p>}
           {/* Input Footer */}
           <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shrink-0">
             <div className="relative flex items-center gap-2">
               <input
                 type="text"
+                aria-label="Mensagem para o assistente"
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => updateInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder={
                   isListening ? 'Ouvindo você...' : 'Ex: Paguei 230 de gasolina hoje no Pix...'
@@ -509,6 +554,7 @@ export default function AIChatAssistant({
               <div className="absolute right-2 top-1.5 flex gap-1">
                 <button
                   onClick={toggleListening}
+                  disabled={isLoading}
                   className={`p-1.5 rounded-xl transition-all ${
                     isListening && !isCallMode
                       ? 'bg-red-500 text-white animate-bounce'
@@ -522,6 +568,7 @@ export default function AIChatAssistant({
                 </button>
                 <button
                   onClick={() => handleSendMessage()}
+                  aria-label="Enviar mensagem"
                   disabled={!input.trim() || isLoading}
                   className="p-1.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50"
                 >
@@ -565,6 +612,7 @@ export default function AIChatAssistant({
             <div className="flex items-center gap-2 relative z-10">
               <button
                 onClick={toggleCallMode}
+                disabled={isLoading}
                 className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center ${isCallMode ? 'bg-white text-red-600 shadow-lg' : 'bg-white/10 hover:bg-white/20 text-white'}`}
                 title={isCallMode ? 'Desligar Chamada' : 'Iniciar Chamada de Voz'}
               >
@@ -572,8 +620,10 @@ export default function AIChatAssistant({
                   className={`bi ${isCallMode ? 'bi-telephone-fill' : 'bi-telephone'} text-base`}
                 ></i>
               </button>
+              <button onClick={handleClearHistory} disabled={isLoading} title="Limpar histórico da conversa" className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white"><i className="bi bi-trash3" /></button>
               <button
                 onClick={handleClose}
+                title="Fechar assistente"
                 className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
               >
                 <i className="bi bi-dash-lg text-lg"></i>
@@ -659,7 +709,7 @@ export default function AIChatAssistant({
             ))}
 
             {isLoading && (
-              <div className="flex items-start gap-2 animate-pulse">
+              <div role="status" className="flex items-start gap-2 animate-pulse">
                 <div className="bg-white dark:bg-slate-800 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-2">
                   <div className="flex gap-1">
                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"></div>
@@ -674,13 +724,15 @@ export default function AIChatAssistant({
             )}
           </div>
 
+          {error && <p role="alert" className="px-4 py-2 text-sm text-red-700 dark:text-red-300">{error}</p>}
           {/* Input Footer */}
           <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shrink-0">
             <div className="relative flex items-center gap-2">
               <input
                 type="text"
+                aria-label="Mensagem para o assistente"
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => updateInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder={
                   isListening ? 'Ouvindo você...' : 'Ex: Paguei 230 de gasolina hoje no Pix...'
@@ -692,6 +744,7 @@ export default function AIChatAssistant({
               <div className="absolute right-2 top-1.5 flex gap-1">
                 <button
                   onClick={toggleListening}
+                  disabled={isLoading}
                   className={`p-1.5 rounded-xl transition-all ${
                     isListening && !isCallMode
                       ? 'bg-red-500 text-white animate-bounce'
@@ -705,6 +758,7 @@ export default function AIChatAssistant({
                 </button>
                 <button
                   onClick={() => handleSendMessage()}
+                  aria-label="Enviar mensagem"
                   disabled={!input.trim() || isLoading}
                   className="p-1.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50"
                 >

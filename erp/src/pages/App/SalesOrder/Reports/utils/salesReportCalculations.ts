@@ -26,7 +26,7 @@ export interface SaleItem {
 export const calculateABC = (
   items: SaleItem[],
   basis: 'revenue' | 'profit' = 'revenue',
-  returnRaw: boolean = false,
+  _returnRaw: boolean = false,
   config?: any,
   productMappings: Record<string, string> = {},
   forceMonthCount?: number
@@ -127,11 +127,32 @@ export const calculateABC = (
   const safeAvgP = isNaN(avgP) ? 0 : avgP;
   const safeAvgT = isNaN(avgT) ? 0 : avgT;
 
+  const allProductsList = Object.values(productStats).map((s) => {
+    const mProfit = s.profit / (diffMonths || 1);
+    const mTurnover = s.qty / (diffMonths || 1);
+
+    let q: 1 | 2 | 3 | 4 = 4;
+    if (mTurnover >= safeAvgT && mProfit >= safeAvgP) q = 1;
+    else if (mTurnover < safeAvgT && mProfit >= safeAvgP) q = 2;
+    else if (mTurnover >= safeAvgT && mProfit < safeAvgP) q = 3;
+
+    return {
+      product: s.product,
+      supplier: s.supplier,
+      qty: s.qty,
+      rev: s.rev,
+      profit: s.profit,
+      cost: s.qty > 0 ? s.totalCost / s.qty : 0,
+      quadrant: q,
+    };
+  });
+
+
   if (totalBasis === 0 || statsArray.length === 0) {
     return {
       results: [],
       rawResults: [],
-      allProducts: [],
+      allProducts: allProductsList,
       totalProfit: currentTotalProfit,
       monthCount: diffMonths,
       avgProfitPerItem: safeAvgP,
@@ -176,30 +197,11 @@ export const calculateABC = (
     };
   });
 
-  const allProductsList = Object.values(productStats).map((s) => {
-    const mProfit = s.profit / (diffMonths || 1);
-    const mTurnover = s.qty / (diffMonths || 1);
-
-    let q: 1 | 2 | 3 | 4 = 4;
-    if (mTurnover >= safeAvgT && mProfit >= safeAvgP) q = 1;
-    else if (mTurnover < safeAvgT && mProfit >= safeAvgP) q = 2;
-    else if (mTurnover >= safeAvgT && mProfit < safeAvgP) q = 3;
-
-    return {
-      product: s.product,
-      supplier: s.supplier,
-      qty: s.qty,
-      rev: s.rev,
-      profit: s.profit,
-      cost: s.qty > 0 ? s.totalCost / s.qty : 0,
-      quadrant: q,
-    };
-  });
 
   return {
-    results: returnRaw ? [] : finalResults,
+    results: finalResults,
     rawResults: finalResults,
-    allProducts: returnRaw ? [] : allProductsList,
+    allProducts: allProductsList,
     totalProfit: currentTotalProfit,
     monthCount: diffMonths,
     avgProfitPerItem: safeAvgP,

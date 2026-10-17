@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
 import ItemExclusionModal from '../modals/ItemExclusionModal';
 import ProductReferenceModal from '../modals/ProductReferenceModal';
@@ -17,15 +17,13 @@ import {
   ReferenceLine,
   Area,
 } from 'recharts';
-import { format, parse } from 'date-fns';
+import { format } from 'date-fns';
 import { useSalesReport } from '../hooks/useSalesReport';
 import { ABCResult, SaleItem } from '../utils/salesReportCalculations';
-import { fetchFromERP } from '../services/salesReportApiService';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import ReportConfigModal from '../modals/ReportConfigModal';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { reportFiltersFormSchema } from '../modals/reportFormSchemas';
-import { toast } from 'react-toastify';
+import { salesReportViewFormSchema, erpReportPrepareFormSchema, salesReportSaleItemsSchema } from '../../../../../../../shared-utils/salesReportFormSchemas';
+import { mappedCsvItems } from '../utils/reportCsvInput';
 import SupplierPerformanceView from './SupplierPerformanceView';
 
 const ReportView = () => {
@@ -49,7 +47,7 @@ const ReportView = () => {
     setRawResults,
     applyFilters,
     loading,
-    setLoading,
+    error, sessionKey, getReport, getProductMappings, saveReportConfig, fetchReportItems,
     updateReport,
     calculateABC,
     reportStartDate,
@@ -58,7 +56,7 @@ const ReportView = () => {
     setReportEndDate,
     allProducts,
     setAllProducts,
-  } = useSalesReport();
+  } = useSalesReport(id || '', isPublicMode);
 
   const [reportName, setReportName] = useState('');
   const [viewMode, setViewMode] = useState<'product' | 'supplier'>('product');
@@ -73,7 +71,6 @@ const ReportView = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [minProfit, setMinProfit] = useState<number>(0);
   const [maxProfit, setMaxProfit] = useState<number>(0);
-  const { validateAndRun: validateFilters } = useZodForm(reportFiltersFormSchema, { suppliers: selectedSuppliers, minProfit, maxProfit, search: searchTerm });
 
   // Modal Config
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -88,24 +85,28 @@ const ReportView = () => {
   const [isReferenceOpen, setIsReferenceOpen] = useState(false);
   const debounceTimeout = React.useRef<NodeJS.Timeout | null>(null);
 
-  const fetchProductMappings = async () => {
-    const { data, error } = await supabase
-      .from('product_references')
-      .select('master_name, reference_name');
-    if (data) {
-      const map: Record<string, string> = {};
-      data.forEach((r: any) => {
-        map[r.reference_name] = r.master_name;
-      });
-      setProductMappings(map);
-      return map;
-    }
-    return {};
-  };
-
-  useEffect(() => {
-    fetchProductMappings();
-  }, []);
+  const [updating, setUpdating] = useState(false);
+  const [validationError, setValidationError] = useState('');
+  const [filterSaveError, setFilterSaveError] = useState('');
+  const [filterRetry, setFilterRetry] = useState(0);
+  const updateBusyRef = useRef(false);
+  const currentSession = useRef(sessionKey); currentSession.current = sessionKey;
+  const mountedRef = useRef(true);
+  const filterJobRef = useRef<Promise<unknown>>(Promise.resolve());
+  const configRef = useRef(reportConfig); configRef.current = reportConfig;
+  const filterRef = useRef({ suppliers: selectedSuppliers, minProfit, maxProfit, search: searchTerm }); filterRef.current = { suppliers: selectedSuppliers, minProfit, maxProfit, search: searchTerm };
+  const confirmedFiltersRef = useRef('');
+  const { enqueueAndRun: validateView } = useZodForm(salesReportViewFormSchema, { ...filterRef.current, reportType, abcBasis, sortConfig });
+  const updateForm = useZodForm(erpReportPrepareFormSchema, { name: reportName, source: reportSource, config: reportConfig || {}, csvData: [] });
+  const urlRef = useRef(searchParams); urlRef.current = searchParams;
+  const setSearchRef = useRef(setSearchParams); setSearchRef.current = setSearchParams;
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  const fetchProductMappings = useCallback(async () => {
+    const submittedSession = sessionKey; const mappings = await getProductMappings();
+    if (mappings && mountedRef.current && currentSession.current === submittedSession) setProductMappings(mappings);
+    return mappings;
+  }, [getProductMappings, sessionKey]);
+  useEffect(() => { void fetchProductMappings(); }, [fetchProductMappings]);
 
   const supplierAverages = useMemo(() => {
     const map: Record<string, { totalProfit: number; totalQty: number; count: number }> = {};
@@ -190,57 +191,6 @@ const ReportView = () => {
   };
 
   useEffect(() => {
-    if (id) loadReport(id);
-
-    // Sincronização inicial URL -> Estado
-    const type = searchParams.get('type') as 'abc' | 'matrix';
-    if (type) setReportType(type);
-
-    const basis = searchParams.get('basis') as 'revenue' | 'profit';
-    if (basis) setAbcBasis(basis);
-
-    const q = searchParams.get('q');
-    if (q) setSearchTerm(q);
-
-    const s = searchParams.get('s');
-    if (s) setSelectedSuppliers(s.split(',').filter(Boolean));
-
-    const minP = searchParams.get('minP');
-    if (minP) setMinProfit(Number(minP));
-
-    const maxP = searchParams.get('maxP');
-    if (maxP) setMaxProfit(Number(maxP));
-
-    const sortK = searchParams.get('sortK');
-    const sortD = searchParams.get('sortD') as 'asc' | 'desc';
-    if (sortK && sortD) setSortConfig({ key: sortK, direction: sortD });
-  }, [id]);
-
-  // Sincronização contínua Estado -> URL
-  useEffect(() => {
-    const params: any = {};
-    if (reportType !== 'abc') params.type = reportType;
-    if (abcBasis !== 'revenue') params.basis = abcBasis;
-    if (searchTerm) params.q = searchTerm;
-    if (selectedSuppliers.length > 0) params.s = selectedSuppliers.join(',');
-    if (minProfit > 0) params.minP = minProfit.toString();
-    if (maxProfit > 0) params.maxP = maxProfit.toString();
-    if (sortConfig.key !== 'accumulatedPercentage') params.sortK = sortConfig.key;
-    if (sortConfig.direction !== 'desc') params.sortD = sortConfig.direction;
-
-    setSearchParams(params, { replace: true });
-  }, [
-    reportType,
-    abcBasis,
-    searchTerm,
-    selectedSuppliers,
-    minProfit,
-    maxProfit,
-    sortConfig,
-    setSearchParams,
-  ]);
-
-  useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('print') === 'true' && !loading && results.length > 0) {
       const timer = setTimeout(() => {
@@ -250,23 +200,18 @@ const ReportView = () => {
       }, 1000); // Dar um tempo pros gráficos renderizarem
       return () => clearTimeout(timer);
     }
-  }, [location.search, loading, results.length]);
+  }, [location.search, location.pathname, navigate, loading, results.length]);
 
-  const loadReport = async (reportId: string) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('sales_order_reports')
-        .select('*')
-        .eq('id', reportId)
-        .single();
-
-      if (error) throw error;
+  const loadReport = useCallback(async (reportId: string) => {
+    const submittedSession = sessionKey;
+    const data = await getReport(reportId);
+    if (!mountedRef.current || currentSession.current !== submittedSession) return false;
       if (data) {
         const rd = data.report_data;
+        setValidationError(''); setFilterSaveError('');
         setReportName(data.name);
-        setReportSource(data.source);
-        setReportConfig(data.config);
+        if (data.source === 'erp' || data.source === 'csv') setReportSource(data.source);
+        configRef.current = data.config; setReportConfig(data.config);
         const mCount = rd.monthCount || 1;
         let aProfit = rd.avgProfitPerItem || 0;
         let aTurnover = rd.avgTurnoverPerItem || 0;
@@ -341,26 +286,31 @@ const ReportView = () => {
         setTotalProfit(rd.totalProfit);
         setAbcBasis(data.config?.abcBasis || 'revenue');
 
-        // Carregar filtros salvos
-        if (data.config?.filters) {
-          const f = data.config.filters;
-          if (f.suppliers) setSelectedSuppliers(f.suppliers);
-          if (f.minProfit) setMinProfit(f.minProfit);
-          if (f.maxProfit) setMaxProfit(f.maxProfit);
-          if (f.search) setSearchTerm(f.search);
-        }
+        const savedFilters = data.config.filters || {};
+        const params = urlRef.current;
+        const nextFilters = {
+          suppliers: params.has('s') ? (params.get('s') || '').split(',').filter(Boolean) : savedFilters.suppliers || Array.from(new Set(resultsWithMonthly.map((row: any) => row.supplier))) as string[],
+          minProfit: params.has('minP') ? Number(params.get('minP')) : savedFilters.minProfit ?? 0,
+          maxProfit: params.has('maxP') ? Number(params.get('maxP')) : savedFilters.maxProfit ?? 0,
+          search: params.has('q') ? params.get('q') || '' : savedFilters.search || '',
+        };
+        confirmedFiltersRef.current = JSON.stringify({ suppliers: savedFilters.suppliers || nextFilters.suppliers, minProfit: savedFilters.minProfit ?? 0, maxProfit: savedFilters.maxProfit ?? 0, search: savedFilters.search || '' });
+        filterRef.current = nextFilters;
+        setSelectedSuppliers(nextFilters.suppliers); setMinProfit(nextFilters.minProfit); setMaxProfit(nextFilters.maxProfit); setSearchTerm(nextFilters.search);
+        setReportType(params.has('type') ? params.get('type') as 'abc' | 'matrix' : 'abc');
+        setAbcBasis(params.has('basis') ? params.get('basis') as 'revenue' | 'profit' : data.config.abcBasis || 'revenue');
+        setSortConfig({ key: params.get('sortK') || 'accumulatedPercentage', direction: params.get('sortD') as 'asc' | 'desc' || 'asc' });
 
-        if (rd.reportStartDate) setReportStartDate(new Date(rd.reportStartDate));
-        if (rd.reportEndDate) setReportEndDate(new Date(rd.reportEndDate));
+        setReportStartDate(rd.reportStartDate ? new Date(rd.reportStartDate) : null);
+        setReportEndDate(rd.reportEndDate ? new Date(rd.reportEndDate) : null);
       }
-    } catch (e) {
-      console.error(e);
-      alert('Erro ao carregar relatório.');
-      navigate('/sales-order/reports');
-    } finally {
-      setLoading(false);
-    }
-  };
+    return data;
+  }, [getReport, sessionKey, setRawResults, setResults, setMonthCount, setAvgProfitPerItem, setAvgTurnoverPerItem, setAllProducts, setTotalProfit, setReportStartDate, setReportEndDate]);
+  useEffect(() => {
+    setReportName(''); setReportConfig(null); setRawResults([]); setResults([]); setAllProducts([]); setTotalProfit(0);
+    setIsConfigOpen(false); setIsExclusionOpen(false); setIsReferenceOpen(false);
+    if (id) void loadReport(id);
+  }, [id, loadReport, setRawResults, setResults, setAllProducts, setTotalProfit]);
 
   // Garantir recálculo do monthCount se as datas mudarem (correção em tempo real)
   useEffect(() => {
@@ -378,193 +328,91 @@ const ReportView = () => {
         setMonthCount(months);
       }
     }
-  }, [reportStartDate, reportEndDate, monthCount]);
+  }, [reportStartDate, reportEndDate, monthCount, setMonthCount]);
 
   const handleUpdateReport = async (newConfig: any) => {
-    setLoading(true);
+    if (updateBusyRef.current || isPublicMode || !id) return false;
+    updateBusyRef.current = true; setUpdating(true); setValidationError('');
+    const submittedSession = sessionKey;
+    const isCurrent = () => mountedRef.current && currentSession.current === submittedSession;
     try {
-      let items: SaleItem[] = [];
-      const parseNum = (val: any) => {
-        if (typeof val === 'number') return val;
-        if (!val) return 0;
-        // Lidar com R$ 1.234,56 ou 1,234.56
-        let str = val.toString().replace(/[^\d.,-]/g, '');
-        // Se houver vírgula e ponto, assumimos que a vírgula é o separador decimal se for a última
-        if (str.includes(',') && str.includes('.')) {
-          if (str.lastIndexOf(',') > str.lastIndexOf('.'))
-            str = str.replace(/\./g, '').replace(',', '.');
-          else str = str.replace(/,/g, '');
-        } else if (str.includes(',')) {
-          // Apenas vírgula: assumimos decimal
-          str = str.replace(',', '.');
+      await filterJobRef.current;
+      if (!isCurrent()) return false;
+      return await updateForm.validateAndRun({ ...newConfig, config: { ...newConfig.config, filters: filterRef.current } }, async parsed => {
+        const mappings = await fetchProductMappings();
+        if (!isCurrent() || mappings === false) return false;
+        let items: SaleItem[] | false;
+        if (parsed.source === 'erp') items = await fetchReportItems(parsed.config, mappings);
+        else if (parsed.csvData.length) items = mappedCsvItems(parsed.csvData, parsed.config);
+        else {
+          const receipt = salesReportSaleItemsSchema.safeParse(allProducts.map(product => ({
+            date: reportStartDate || reportEndDate || new Date(), product: product.product, supplier: product.supplier || 'N/A',
+            quantity: product.qty, salesValue: product.rev, cost: product.cost, profit: product.profit,
+          })));
+          if (!receipt.success) { setValidationError('O relatório antigo não possui todos os valores de origem. Anexe o CSV para recalcular.'); return false; }
+          items = receipt.data;
         }
-        const parsed = parseFloat(str);
-        return isNaN(parsed) ? 0 : parsed;
-      };
-
-      if (newConfig.source === 'erp') {
-        items = await fetchFromERP();
-      } else {
-        if (newConfig.csvData && newConfig.csvData.length > 0) {
-          items = newConfig.csvData
-            .filter((row: any) => {
-              const prodVal = row[newConfig.config.product];
-              return (
-                prodVal && prodVal !== newConfig.config.product && prodVal !== 'Nome do Produto'
-              );
-            })
-            .map((row: any) => {
-              const dateStr = row[newConfig.config.date];
-              let date = new Date();
-              try {
-                if (dateStr?.includes('/')) {
-                  const parts = dateStr.split('/');
-                  if (parts.length === 2) {
-                    // Formato MM/AAAA
-                    date = parse(dateStr, 'MM/yyyy', new Date());
-                  } else if (parts[0].length === 4) {
-                    // Formato AAAA-MM-DD
-                    date = new Date(dateStr);
-                  } else {
-                    // Formato DD/MM/AAAA
-                    date = parse(dateStr.split(' ')[0], 'dd/MM/yyyy', new Date());
-                  }
-                } else {
-                  date = new Date(dateStr);
-                }
-              } catch (e) {
-                console.error('Erro ao converter data:', dateStr, e);
-              }
-
-              const qty = parseNum(row[newConfig.config.quantity]);
-              const sVal = parseNum(row[newConfig.config.salesValue]);
-              const cost = parseNum(row[newConfig.config.cost]);
-              const profit = parseNum(row[newConfig.config.profit]);
-
-              return {
-                date,
-                product: row[newConfig.config.product] || 'Nome não encontrado',
-                supplier: row[newConfig.config.supplier] || 'S/ Fornecedor',
-                quantity: qty,
-                cost: cost,
-                salesValue: sVal,
-                profit: profit,
-              };
-            });
-        } else if (id) {
-          // Se estivermos editando um relatório CSV sem anexar arquivo, usamos o que já temos em memória
-          items = allProducts;
-        } else {
-          alert('Para processar dados de CSV, você precisa anexar o arquivo.');
-          setLoading(false);
-          return;
-        }
-      }
-
-      if (newConfig.source === 'erp' && items.length === 0) {
-        alert('Nenhum dado encontrado no ERP para o período.');
-        setLoading(false);
-        return;
-      }
-
-      const currentMappings = await fetchProductMappings();
-      const reportData = calculateABC(
-        items,
-        newConfig.config.abcBasis,
-        true,
-        newConfig.config,
-        currentMappings,
-        monthCount // Passamos o monthCount atual para não perder a referência de tempo
-      );
-      if (!reportData || reportData.results.length === 0) {
-        const totalParsed = items.length;
-        alert(
-          `A análise resultou em zero resultados úteis (de ${totalParsed} itens). Verifique se as novas colunas selecionadas contêm valores numéricos válidos (Lucro/Venda).`
-        );
-        setLoading(false);
-        return;
-      }
-
-      setIsConfigOpen(false); // Fechar imediatamente para dar feedback de progresso
-      await updateReport(id!, newConfig.name, newConfig.source, newConfig.config, reportData);
-
-      // Refresh local state
-      setReportName(newConfig.name);
-      setReportSource(newConfig.source);
-      setReportConfig(newConfig.config);
-      setRawResults(reportData.results);
-      setResults(reportData.results);
-      if (reportData.allProducts) setAllProducts(reportData.allProducts);
-      setTotalProfit(reportData.totalProfit || 0);
-      setMonthCount(reportData.monthCount || 1);
-      setAvgProfitPerItem(reportData.avgProfitPerItem || 0);
-      setAvgTurnoverPerItem(reportData.avgTurnoverPerItem || 0);
-      setAbcBasis(newConfig.config.abcBasis);
-
-      if (reportData.reportStartDate) setReportStartDate(reportData.reportStartDate);
-      if (reportData.reportEndDate) setReportEndDate(reportData.reportEndDate);
-
-      alert('Relatório atualizado com sucesso!');
-    } catch (e: any) {
-      console.error('Erro ao atualizar relatório:', e);
-      alert(`Erro crítico ao atualizar: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
+        if (!isCurrent() || items === false) return false;
+        if (!items.length) { setValidationError('Nenhum dado encontrado para recalcular o relatório.'); return false; }
+        const reportData = calculateABC(items, parsed.config.abcBasis, true, parsed.config, mappings, monthCount);
+        const saved = await updateReport(id, parsed.name, parsed.source, parsed.config, reportData);
+        if (!isCurrent() || !saved) return false;
+        setReportName(saved.name); setReportConfig(saved.config); configRef.current = saved.config;
+        setRawResults(saved.report_data.results); setResults(saved.report_data.results); setAllProducts(saved.report_data.allProducts);
+        setTotalProfit(saved.report_data.totalProfit); setMonthCount(saved.report_data.monthCount || 1);
+        setAvgProfitPerItem(saved.report_data.avgProfitPerItem); setAvgTurnoverPerItem(saved.report_data.avgTurnoverPerItem);
+        setReportStartDate(saved.report_data.reportStartDate ? new Date(saved.report_data.reportStartDate) : null); setReportEndDate(saved.report_data.reportEndDate ? new Date(saved.report_data.reportEndDate) : null);
+        confirmedFiltersRef.current = JSON.stringify(parsed.config.filters);
+        setIsConfigOpen(false); setIsExclusionOpen(false); return true;
+      }, errors => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira a configuração.'));
+    } catch (failure) { if (isCurrent()) setValidationError(failure instanceof Error ? failure.message : 'Não foi possível atualizar o relatório.'); return false; }
+    finally { updateBusyRef.current = false; if (mountedRef.current) setUpdating(false); }
   };
 
-  // Auto-save filters
   useEffect(() => {
-    if (!id || !reportConfig) return;
+    let cancelled = false;
+    void validateView({ suppliers: selectedSuppliers, minProfit, maxProfit, search: searchTerm, reportType, abcBasis, sortConfig }, values => {
+      if (cancelled) return;
+      applyFilters(values, reportConfig);
+      const params: Record<string, string> = {};
+      if (values.reportType !== 'abc') params.type = values.reportType;
+      if (values.abcBasis !== 'revenue') params.basis = values.abcBasis;
+      if (values.search) params.q = values.search;
+      if (values.suppliers.length) params.s = values.suppliers.join(',');
+      if (values.minProfit > 0) params.minP = String(values.minProfit);
+      if (values.maxProfit > 0) params.maxP = String(values.maxProfit);
+      if (values.sortConfig.key !== 'accumulatedPercentage') params.sortK = values.sortConfig.key;
+      if (values.sortConfig.direction !== 'desc') params.sortD = values.sortConfig.direction;
+      if (urlRef.current.get('print') === 'true') params.print = 'true';
+      if (new URLSearchParams(params).toString() !== urlRef.current.toString()) setSearchRef.current(params, { replace: true });
+    }, errors => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira os filtros.'));
+    return () => { cancelled = true; };
+  }, [selectedSuppliers, minProfit, maxProfit, searchTerm, reportType, abcBasis, sortConfig, reportConfig, validateView, applyFilters]);
 
-    const saveTimeout = setTimeout(async () => {
-      const newConfig = {
-        ...reportConfig,
-        filters: {
-          suppliers: selectedSuppliers,
-          minProfit,
-          maxProfit,
-          search: searchTerm,
-        },
-      };
-
-      // Apenas salvar se houver mudança real no config
-      if (JSON.stringify(newConfig) !== JSON.stringify(reportConfig)) {
-        await validateFilters(newConfig.filters, async (values) => {
-          const validatedConfig = { ...newConfig, filters: values };
-          const { error } = await supabase.from('sales_order_reports').update({ config: validatedConfig }).eq('id', id);
-          if (error) throw error;
-          setReportConfig(validatedConfig);
-        }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])).catch(() => toast.error('Não foi possível salvar os filtros do relatório.'));
-      }
+  useEffect(() => {
+    if (!id || !reportConfig || isPublicMode || updating) return;
+    const filters = { suppliers: selectedSuppliers, minProfit, maxProfit, search: searchTerm };
+    const signature = JSON.stringify(filters);
+    if (signature === confirmedFiltersRef.current) return;
+    const submittedSession = sessionKey; let cancelled = false;
+    const isCurrent = () => !cancelled && mountedRef.current && currentSession.current === submittedSession;
+    const timer = setTimeout(() => {
+      const job = filterJobRef.current.then(async () => {
+        if (!isCurrent() || updateBusyRef.current) return;
+        const saved = await saveReportConfig(id, { ...configRef.current, filters }, isCurrent);
+        if (!isCurrent()) return;
+        if (!saved) { setFilterSaveError('Não foi possível confirmar o salvamento dos filtros. Os valores digitados foram preservados.'); return; }
+        confirmedFiltersRef.current = signature; configRef.current = saved.config; setReportConfig(saved.config); setFilterSaveError('');
+      });
+      filterJobRef.current = job.catch(() => { if (isCurrent()) setFilterSaveError('Não foi possível salvar os filtros.'); });
     }, 1000);
-
-    return () => clearTimeout(saveTimeout);
-  }, [selectedSuppliers, minProfit, maxProfit, searchTerm, id, validateFilters]);
-
-  useEffect(() => {
-    if (rawResults.length > 0 && selectedSuppliers.length === 0 && !reportConfig?.filters) {
-      const suppliers = Array.from(new Set(rawResults.map((r) => r.supplier)));
-      setSelectedSuppliers(suppliers);
-    }
-  }, [rawResults, reportConfig]);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [id, reportConfig, isPublicMode, updating, sessionKey, selectedSuppliers, minProfit, maxProfit, searchTerm, filterRetry, saveReportConfig]);
 
   const allSuppliers = useMemo(() => {
     const suppliers = Array.from(new Set(allProducts.map((r) => r.supplier)));
     return suppliers.sort();
   }, [allProducts]);
-
-  useEffect(() => {
-    applyFilters(
-      {
-        suppliers: selectedSuppliers,
-        minProfit,
-        maxProfit,
-        search: searchTerm,
-      },
-      reportConfig
-    );
-  }, [selectedSuppliers, minProfit, maxProfit, searchTerm, rawResults, monthCount]);
 
   const scatterData = useMemo(
     () =>
@@ -613,7 +461,7 @@ const ReportView = () => {
     };
   }, [allProducts, selectedSuppliers, reportConfig?.excludedItems]);
 
-  if (loading && !results.length) {
+  if (loading && !reportName) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-10">
         <div className="w-16 h-16 border-4 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin mb-6" />
@@ -886,6 +734,8 @@ const ReportView = () => {
                 `}</style>
       </header>
 
+      {(validationError || filterSaveError || error) && <div role="alert" className="px-6 py-3 text-red-600">{validationError || filterSaveError || error} {filterSaveError ? <button disabled={updating} onClick={() => setFilterRetry(value => value + 1)}>Tentar salvar filtros</button> : <button disabled={loading || updating} onClick={() => id && loadReport(id)}>Carregar relatório</button>}</div>}
+      {(loading || updating) && <p role="status" className="px-6 py-2 text-indigo-600">Consultando e confirmando o relatório...</p>}
       <main className="flex-1 flex overflow-hidden">
         <div className="flex-1 overflow-y-auto p-6 lg:p-10 custom-scrollbar">
           <div className="max-w-[1600px] mx-auto flex flex-col gap-8">
@@ -1810,7 +1660,7 @@ const ReportView = () => {
 
       <ReportConfigModal
         isOpen={isConfigOpen}
-        onClose={() => setIsConfigOpen(false)}
+        onClose={() => { if (!updateBusyRef.current) setIsConfigOpen(false); }}
         onSave={handleUpdateReport}
         initialConfig={reportConfig}
         initialSource={reportSource}
@@ -1822,26 +1672,24 @@ const ReportView = () => {
           profit: r.totalProfit,
           supplier: r.supplier,
         }))}
-        loading={loading}
+        loading={loading || updating}
       />
 
       <ItemExclusionModal
         isOpen={isExclusionOpen}
-        onClose={() => setIsExclusionOpen(false)}
+        onClose={() => { if (!updateBusyRef.current) setIsExclusionOpen(false); }}
         items={allProducts.filter(
           (i) => selectedSuppliers.includes(i.supplier || 'N/A') || selectedSuppliers.length === 0
         )}
         initialExcludedItems={reportConfig?.excludedItems || []}
-        onConfirm={(nextExcluded: string[]) => {
-          setReportConfig((prev: any) => {
-            const nextConfig = { ...prev, excludedItems: nextExcluded };
-            handleUpdateReport({ name: reportName, source: reportSource, config: nextConfig });
-            return nextConfig;
-          });
-        }}
+        onConfirm={(nextExcluded: string[]) => handleUpdateReport({ name: reportName, source: reportSource, config: { ...configRef.current, excludedItems: nextExcluded } })}
+        loading={updating}
+
       />
 
       <ProductReferenceModal
+        readOnly={isPublicMode}
+        contextKey={sessionKey}
         isOpen={isReferenceOpen}
         onClose={() => setIsReferenceOpen(false)}
         availableProducts={rawResults.map((i) => ({ name: i.product, supplier: i.supplier || '' }))}

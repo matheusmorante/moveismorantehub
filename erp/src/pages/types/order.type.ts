@@ -155,6 +155,7 @@ export type OrderAction =
   | 'SEND_GROUP_INVITE'
   | 'PRINT_ASSISTANCE_OS'
   | 'GENERATE_RETURN'
+  | 'GENERATE_ASSISTANCE'
   | 'UNDO_RETURN'
   | 'PRINT_RETURN_OS'
   | 'SEND_RETURN_OS_CUSTOMER'
@@ -185,6 +186,7 @@ export type IsButtonsClicked = {
   sendGroupInvite?: boolean;
   printAssistanceOS?: boolean;
   generateReturn?: boolean;
+  generateAssistance?: boolean;
   undoReturn?: boolean;
   printReturnOS?: boolean;
   sendReturnOSCustomer?: boolean;

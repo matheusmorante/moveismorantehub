@@ -9,7 +9,7 @@ describe('TechnicalFieldRow', () => {
   afterEach(() => {
     cleanup();
   });
-  it('renderiza o campo com nome, unidade e asterisco de obrigatório', () => {
+  it('renderiza o campo com nome e unidade sem asterisco vermelho de cadastro', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f1',
       name: 'Altura',
@@ -30,7 +30,7 @@ describe('TechnicalFieldRow', () => {
     );
 
     expect(screen.getByText('Altura (cm)')).toBeDefined();
-    expect(screen.getByText('*')).toBeDefined();
+    expect(screen.queryByText('*')).toBeNull();
   });
 
   it('exibe botão Gerenciar para campo de Cor e aciona callback', () => {
@@ -130,5 +130,109 @@ describe('TechnicalFieldRow', () => {
     const swapBtn = screen.getByRole('button', { name: /alternar para comprimento/i });
     fireEvent.click(swapBtn);
     expect(onToggleDepthLength).toHaveBeenCalledWith(field);
+  });
+
+  it('desativa campo dependente de portas quando a quantidade de portas for 0 ou vazia, ocultando asterisco e exibindo tooltip explicativo', () => {
+    const field: TechnicalFieldDefinition = {
+      id: 'f-tipo-porta',
+      name: 'Tipo de portas',
+      isRequired: true,
+      options: [{ id: '1', value: 'De correr' }, { id: '2', value: 'De bater' }],
+    };
+
+    const { rerender } = render(
+      <TechnicalFieldRow
+        field={field}
+        formData={{ technicalValues: { 'Quantidade de portas': 0 } }}
+        manualFieldNames={[]}
+        onValueChange={vi.fn()}
+        onOpenAttributeModal={vi.fn()}
+        onToggleDepthLength={vi.fn()}
+        onRemoveManualField={vi.fn()}
+      />
+    );
+
+    // Asterisco ocultado quando desativado
+    expect(screen.queryByLabelText('Obrigatório')).toBeNull();
+
+    // Botão de info no rótulo e overlay no input presentes com a razão
+    const disabledButtons = screen.getAllByRole('button', {
+      name: /Disponível apenas quando Possui portas for Sim/i,
+    });
+    expect(disabledButtons.length).toBe(2);
+    const [infoBtn, overlay] = disabledButtons;
+
+    // Hover na área do campo exibe o tooltip
+    const container = overlay.parentElement!;
+    fireEvent.mouseEnter(container);
+
+    expect(screen.getByRole('tooltip')).toBeDefined();
+    expect(
+      screen.getByText('Disponível apenas quando Possui portas for Sim.')
+    ).toBeDefined();
+
+    // Mouse leave fecha o tooltip
+    fireEvent.mouseLeave(container);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+
+    // Clique no overlay abre o tooltip
+    fireEvent.click(overlay);
+    expect(screen.getByRole('tooltip')).toBeDefined();
+
+    // Clique de novo fecha
+    fireEvent.click(overlay);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+
+    // Clique no infoBtn abre o tooltip
+    fireEvent.click(infoBtn);
+    expect(screen.getByRole('tooltip')).toBeDefined();
+
+    // Quando quantidade de portas for maior que zero (ou Possui portas = Sim), reativa o campo
+    rerender(
+      <TechnicalFieldRow
+        field={field}
+        formData={{ technicalValues: { 'Quantidade de portas': 2 } }}
+        manualFieldNames={[]}
+        onValueChange={vi.fn()}
+        onOpenAttributeModal={vi.fn()}
+        onToggleDepthLength={vi.fn()}
+        onRemoveManualField={vi.fn()}
+      />
+    );
+
+    // Asterisco de cadastro não deve ser exibido para características
+    expect(screen.queryByLabelText('Obrigatório')).toBeNull();
+    // Info btn e overlay desaparecem
+    expect(
+      screen.queryByRole('button', {
+        name: /Disponível apenas quando Possui portas for Sim/i,
+      })
+    ).toBeNull();
+  });
+
+  it('desativa campo Materiais das corrediças quando a quantidade de gavetas for 0', () => {
+    const field: TechnicalFieldDefinition = {
+      id: 'f-corredica',
+      name: 'Materiais das corrediças',
+      isRequired: false,
+      options: [{ id: '1', value: 'Telescópica' }],
+    };
+
+    render(
+      <TechnicalFieldRow
+        field={field}
+        formData={{ technicalValues: { 'Quantidade de gavetas': 0 } }}
+        manualFieldNames={[]}
+        onValueChange={vi.fn()}
+        onOpenAttributeModal={vi.fn()}
+        onToggleDepthLength={vi.fn()}
+        onRemoveManualField={vi.fn()}
+      />
+    );
+
+    const disabledButtons = screen.getAllByRole('button', {
+      name: /Disponível apenas quando Possui gavetas for Sim/i,
+    });
+    expect(disabledButtons.length).toBe(2);
   });
 });

@@ -2,7 +2,33 @@
 
 **Reconciliado com o checkout em 13/10/2026.** A consulta oficial foi restrita às regras e fontes registradas em cada revisão. Use este índice para diferenciar as regras/documentos vigentes dos snapshots históricos. Relatórios datados continuam disponíveis para preservar evidências, mas não substituem o estado atual do código.
 
+> **Regra obrigatória do produto: não existe CC-e no MoranteHub.** Não criar nem restaurar carta de correção, inclusive botão, formulário, modal, rota ou tela de histórico. As correções seguem por **cancelamento fiscal ou estorno fiscal direto da NF**, conforme a elegibilidade vigente. Referências antigas a CC-e são exclusivamente técnicas/de auditoria e não autorizam implementar essa funcionalidade. Ver [política vigente](historico-correcoes-2026-10-16.md#política-de-produto--cc-e-ausente-do-sistema) e [FISCAL-016](invariantes-arquiteturais.md).
+
 ## Referências atuais
+
+- [Desacoplamento de Características Técnicas do Cadastro/ERP e Ocultação para Estoquista — 16/10](historico-correcoes-2026-10-16.md#desacoplamento-de-características-técnicas-do-cadastroerp-e-ocultação-para-estoquista): remoção de asteriscos vermelhos de características técnicas (exigidas apenas no Catálogo Digital), ocultação das abas de características para o perfil estoquista (`isStockistOnly`) no produto pai e nas variações com fallbacks de navegação, condicionamento do asterisco de Preço de Venda a produtos sem variações e desacoplamento de dimensões/características da validação de cadastro de variações (`getVariationRegistrationIssue`). 140 testes mobile e mais de 260 testes ERP aprovados (100%).
+
+- [Relatórios ERP — proprietário, autosave e filhos conferidos16/10](historico-correcoes-2026-10-16.md#relatórios-erp--proprietário-autosave-e-filhos-conferidos):preparação, recibos, fila de filtros, modo público, CSV e referências conferidos, preservando Bling.111 testes/lint sem erros e build ERP completo em1m42s aprovados. ERP123/132 encerrados,9 pendentes; censo adicional/mobile/catálogo continuam abertos.
+
+- [Relatórios Bling — proprietário e composição conferidos16/10](historico-correcoes-2026-10-16.md#relatórios-bling--proprietário-e-composição-conferidos): período/consulta/dados calculados, gravação/exclusão e leitura/filtros com resolvers reais e recibos; falha de página não salva análise parcial.49 testes/lint sem erros e build ERP em1m42s aprovados. ERP122/132 encerrados,10 pendentes no principal; censo adicional/mobile/catálogo continuam abertos.
+
+- [Assistente global — envio, histórico e voz conferidos16/10](historico-correcoes-2026-10-16.md#assistente-global--envio-histórico-e-voz-conferidos): quatro intenções com RHF/resolvers reais, até resposta/recibo local; prazos/contexto, rascunho e falha de cache sem reenviar operação confirmada.45 testes/lint e build ERP em1m35s aprovados. ERP121/132 encerrados,11 pendentes no principal; censo adicional/mobile/catálogo continuam abertos.
+
+- [Modelo de etiqueta — biblioteca de recorte conferida16/10](historico-correcoes-2026-10-16.md#modelo-de-etiqueta--biblioteca-de-recorte-conferida): resolver até leitura/canvas/callback, geometria/prazo/trava e erro; removido atraso fixo.37 testes/lint e build ERP em1m30s aprovados. ERP120/132 encerrados,12 pendentes no principal; biblioteca retida sem reativação.
+
+- [Variações — recorte, envio, propagação e busca conferidos16/10](historico-correcoes-2026-10-16.md#variações--recorte-envio-propagação-e-busca-conferidos): resolver até upload/callback, trava compartilhada, prazo/contexto, erro e repetição sem novo envio após recusa conhecida.137 testes em16 arquivos, lint sem erros e build ERP completo em1m48s aprovados. ERP119/132 encerrados,13 pendentes; censo adicional e mobile/catálogo permanecem em conferência.
+
+- [Replicação e Paridade: Módulo de Produtos ERP → Mobile App — 16/10](historico-correcoes-2026-10-16.md#replicação-e-paridade-módulo-de-produtos-erp--mobile-app): canonicalização da validação de publicação em `shared-utils/catalogPublicationValidation.ts`, desbloqueio do toggle de catálogo para rascunhos com detalhamento de requisitos obrigatórios (`checkEcomLegibility`), exibição do SKU normalizado para variação única (`displaySku`) no card móvel e alinhamento de isenção de fornecedor e dimensões "não se aplica" em `productRegistrationRules.ts`. 139 testes mobile e 20 testes ERP aprovados (100%).
+
+- [Editor de posts e autosave — proprietários conferidos16/10](historico-correcoes-2026-10-16.md#editor-de-posts--busca-seleção-e-template-conferidos): busca/seleção/template até recibo; [fila da biblioteca](historico-correcoes-2026-10-16.md#autosave-de-templates--biblioteca-proprietária-e-fila-conferidas) valida no proprietário antes de gravar e preserva settings/revisões.162 testes em17 arquivos, lint sem erros e build ERP completo em1m37s aprovados. TS305 externos; ERP118/132 encerrados,14 pendentes.
+
+- [Campanhas e modelos — proprietário ativo com recibos conferidos16/10](historico-correcoes-2026-10-16.md#campanhas-e-modelos--proprietário-ativo-com-recibos-conferidos): contratos próprios até recibo/refresh, falha parcial explícita e escolhas/reset locais confirmados.108 testes/lint e build ERP em1m40s aprovados; ERP116/132 encerrados,16 pendentes.
+
+- [Assistência técnica: segregação entre Assistência Avulsa e Assistência Vinculada a Venda Atendida — 16/10](historico-correcoes-2026-10-16.md#assistência-técnica-segregação-entre-assistência-avulsa-e-assistência-vinculada-a-venda-atendida): remoção de busca/toggle de vínculo no formulário avulso ("Pedido de Assistência Avulso"), botão "Nova Assistência Avulsa" na toolbar, nova ação "Gerar Assistência" no menu dos 3 pontinhos para pedidos com status atendido (`fulfilled`, `delivered`, circulação concluída), cabeçalho dinâmico com badge `#código`, card no topo com detalhes da venda e seleção de itens com defeito/quantidade. RHF/Zod presente e zero CC-e; o proprietário agregado continua pendente de conferência até salvamento/recibo, conforme inventário. 17 testes unitários aprovados (100%).
+
+- [Ambientação — biblioteca conferida sem acionador ativo16/10](historico-correcoes-2026-10-16.md#ambientação--biblioteca-conferida-sem-acionador-ativo): sugestão/geração/salvamento/aplicação no resolver até recibo, fallback local confirmado e explícito.56 testes de marketing, lint e build ERP completo em1m30s aprovados; ERP115/132 encerrados,17 pendentes. Biblioteca retida, sem reativação.
+
+- [Biblioteca de artes — upload, consulta e exclusão conferidos16/10](historico-correcoes-2026-10-16.md#biblioteca-de-artes--upload-consulta-e-exclusão-conferidos): resolver até recibo/refresh, contexto/prazos e limpeza parcial explícita.35 testes, lint e build ERP em1m47s aprovados; ERP114/132 encerrados,18 pendentes.
 
 - [WhatsApp nas configurações — snapshot parseado16/10](historico-correcoes-2026-10-16.md#whatsapp-nas-configurações--submissões-com-snapshot-parseado): três intenções até recibo, valores atuais em serviço/headers, trava/prazo/contexto/erro.69 testes conjuntos com Settings e lint aprovados; build ERP final aprovado em 1m48s. Sem envio real.
 
@@ -10,7 +36,7 @@
 
 - [CSOSN de homologação — proprietário conferido16/10](historico-correcoes-2026-10-16.md#csosn-de-homologação--proprietário-conferido): resolver até recibo HML confirmado, prazo/trava/retry/erro;32 testes, lint e build ERP em 1m33s aprovados. ERP110/131 encerrados,21 pendentes.
 
-- [Continuidade final dos formulários16/10](../forms/continuidade-formularios-2026-10-16.md): ERP109/131 itens encerrados,22 pendentes;65 provas ERP,42 móveis e48 catálogo. Builds ERP/Next e TS catálogo aprovados; pendências de voz/live, uploads e demais proprietários preservadas. Inclui retirada definitiva da interface de CC-e por determinação do usuário.
+- [Continuidade final dos formulários16/10](../forms/continuidade-formularios-2026-10-16.md): ERP115/132 itens encerrados,17 pendentes;56 provas de marketing,42 móveis e48 catálogo em seus lotes próprios. Builds ERP/Next e TS catálogo aprovados; pendências de voz/live, uploads e demais proprietários preservadas. Inclui retirada definitiva da interface de CC-e por determinação do usuário.
 
 - [Pedido assistido, lançamento móvel e produto do catálogo — continuação16/10](historico-correcoes-2026-10-16.md#pedido-assistido-lançamento-móvel-e-produto-do-catálogo--continuação): pedido assistido e lançamento manual conferidos; salvamento do catálogo com provas próprias, uploads ainda pendentes. ERP108/131 encerrados,23 pendentes, incluindo retirada de CC-e.
 

@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 import React from 'react';
-import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ManageInboundInvoiceMappingsModal } from './ManageInboundInvoiceMappingsModal';
 import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
+const reviewSignals = vi.hoisted(() => ({ onProcessing: undefined as ((busy: boolean) => void) | undefined }));
 
 vi.mock('@/pages/App/Registrations/shared/modals/PersonFormModal', () => ({ default: () => null }));
 vi.mock('@/components/SupplierAutocomplete', () => ({ default: () => null }));
@@ -27,15 +28,24 @@ vi.mock('../components/InboundInvoiceItemsReview', () => ({
   InboundInvoiceItemsReview: ({
     suggestionsEnabled,
     items,
+    contextKey,
+    onProcessingSuggestionsChange,
   }: {
     suggestionsEnabled: boolean;
     items: { matchedProductId?: string }[];
+    contextKey?: string;
+    onProcessingSuggestionsChange?: (busy: boolean) => void;
   }) => {
+    const [token] = React.useState(() => crypto.randomUUID());
+    reviewSignals.onProcessing = onProcessingSuggestionsChange;
+    React.useEffect(() => () => onProcessingSuggestionsChange?.(false), [onProcessingSuggestionsChange]);
     return (
       <div
         data-testid="review"
         data-enabled={String(suggestionsEnabled)}
         data-linked={String(Boolean(items[0]?.matchedProductId))}
+        data-context={contextKey}
+        data-token={token}
       >
         <button type="button">Remover</button>
       </div>
@@ -49,6 +59,27 @@ const invoice = {
   nfeNumber: '1',
   items: [{ itemNumber: 1, productCode: 'ABC', productDescription: 'Beliche Rubim' }],
 } as InboundInvoice;
+
+it('forwards the invoice identity and blocks closing during a child operation', async () => {
+  vi.mocked(findProductSupplierCodes).mockResolvedValue(new Map()); const onClose = vi.fn();
+  const view = render(<ManageInboundInvoiceMappingsModal isOpen invoice={invoice} onClose={onClose} onSaveSuccess={vi.fn()} />);
+  await waitFor(() => expect(view.getByTestId('review').getAttribute('data-context')).toBe('nota'));
+  act(() => reviewSignals.onProcessing?.(true));
+  expect(view.getByLabelText('Fechar vínculos')).toHaveProperty('disabled', true);
+  expect(view.getByRole('button', { name: 'Remover' }).closest('fieldset')).toHaveProperty('disabled', true);
+  fireEvent.click(view.getByLabelText('Fechar vínculos')); expect(onClose).not.toHaveBeenCalled();
+  act(() => reviewSignals.onProcessing?.(false)); fireEvent.click(view.getByLabelText('Fechar vínculos')); expect(onClose).toHaveBeenCalledOnce();
+});
+
+it('remounts the review owner when changing to another invoice', async () => {
+  vi.mocked(findProductSupplierCodes).mockResolvedValue(new Map());
+  const view = render(<ManageInboundInvoiceMappingsModal isOpen invoice={invoice} onClose={vi.fn()} onSaveSuccess={vi.fn()} />);
+  await waitFor(() => expect(view.getByTestId('review').getAttribute('data-context')).toBe('nota'));
+  const token = view.getByTestId('review').getAttribute('data-token');
+  view.rerender(<ManageInboundInvoiceMappingsModal isOpen invoice={{ ...invoice, id: 'outra-nota' }} onClose={vi.fn()} onSaveSuccess={vi.fn()} />);
+  await waitFor(() => expect(view.getByTestId('review').getAttribute('data-context')).toBe('outra-nota'));
+  expect(view.getByTestId('review').getAttribute('data-token')).not.toBe(token);
+});
 
 it.each([false, true])(
   'mantém as sugestões desabilitadas após consultar os vínculos existentes (encontrado: %s)',

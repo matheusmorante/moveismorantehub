@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { imageFilesFormSchema } from './fileFormSchemas';
+
+export const productImageCropUploadFormSchema = z.object({ file: imageFilesFormSchema.shape.files.element, oldUrl: z.string().min(1, 'A foto de origem não foi identificada.') });
+export const productImageReplacementFormSchema = productImageCropUploadFormSchema.pick({ oldUrl: true }).extend({ newUrl: z.url('A imagem enviada não foi confirmada.').refine((url) => url.startsWith('https://'), 'A imagem enviada precisa de endereço HTTPS.') });
 
 export const createVariationImageSelectionFormSchema = (parentImages: readonly string[], maxSelection: number) =>
   z.object({

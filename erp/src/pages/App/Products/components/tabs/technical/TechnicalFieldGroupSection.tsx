@@ -1,0 +1,139 @@
+import React from 'react';
+import type { Product } from '../../../../../types/product.type';
+import type {
+  CharacteristicGroup,
+  TechnicalFieldDefinition,
+} from '@/pages/utils/technicalValuesService';
+import {
+  isHasDoorsCharacteristic,
+  isHasDrawersCharacteristic,
+  isHasFeetCharacteristic,
+  isHasDoorsActive,
+  isHasDrawersActive,
+  isHasFeetActive,
+} from '@/pages/utils/technicalValuesService';
+import { TechnicalFieldRow } from './TechnicalFieldRow';
+
+export interface TechnicalFieldGroupSectionProps {
+  readonly group: CharacteristicGroup<TechnicalFieldDefinition>;
+  readonly formData: Partial<Product>;
+  readonly manualFieldNames: string[];
+  readonly validationErrors?: Record<string, boolean>;
+  readonly onValueChange: (fieldName: string, value: unknown) => void;
+  readonly onOpenAttributeModal: () => void;
+  readonly onToggleDepthLength: (field: TechnicalFieldDefinition) => void;
+  readonly onRemoveManualField: (fieldName: string) => void;
+}
+
+const DEFAULT_POSSUI_PORTAS: TechnicalFieldDefinition = {
+  id: 'e3f1a001-1111-4000-8000-000000000001',
+  name: 'Possui portas',
+  dataType: 'radio',
+  options: [
+    { id: 'nao', value: 'Não' },
+    { id: 'sim', value: 'Sim' },
+  ],
+  isRequired: false,
+};
+
+const DEFAULT_POSSUI_GAVETAS: TechnicalFieldDefinition = {
+  id: 'e3f1a002-2222-4000-8000-000000000002',
+  name: 'Possui gavetas',
+  dataType: 'radio',
+  options: [
+    { id: 'nao', value: 'Não' },
+    { id: 'sim', value: 'Sim' },
+  ],
+  isRequired: false,
+};
+
+const DEFAULT_POSSUI_PES: TechnicalFieldDefinition = {
+  id: 'a1f3e792-0790-4554-b269-e3b0b707896e',
+  name: 'Possui pés',
+  dataType: 'radio',
+  options: [
+    { id: 'nao', value: 'Não' },
+    { id: 'sim', value: 'Sim' },
+  ],
+  isRequired: false,
+};
+
+/**
+ * Renderiza uma seção temática de características técnicas em grid responsivo.
+ * Quando aplicável a Portas, Gavetas ou Pés, exibe o interruptor mestre ("Possui ...")
+ * e estende os campos dependentes dinamicamente ao ser ligado (Sim).
+ */
+export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProps> = ({
+  group,
+  formData,
+  manualFieldNames,
+  validationErrors,
+  onValueChange,
+  onOpenAttributeModal,
+  onToggleDepthLength,
+  onRemoveManualField,
+}) => {
+  const isPortasGroup = group.title === 'Portas';
+  const isGavetasGroup = group.title === 'Gavetas';
+  const isPesGroup = group.title === 'Pés';
+
+  const effectiveFields = [...group.fields];
+  if (isPortasGroup && !effectiveFields.some((f) => isHasDoorsCharacteristic(f.name))) {
+    effectiveFields.unshift(DEFAULT_POSSUI_PORTAS);
+  }
+  if (isGavetasGroup && !effectiveFields.some((f) => isHasDrawersCharacteristic(f.name))) {
+    effectiveFields.unshift(DEFAULT_POSSUI_GAVETAS);
+  }
+  if (isPesGroup && !effectiveFields.some((f) => isHasFeetCharacteristic(f.name))) {
+    effectiveFields.unshift(DEFAULT_POSSUI_PES);
+  }
+
+  const isDoorsActive = isHasDoorsActive(formData.technicalValues || {});
+  const isDrawersActive = isHasDrawersActive(formData.technicalValues || {});
+  const isFeetActive = isHasFeetActive(formData.technicalValues || {});
+
+  const displayedFields = effectiveFields.filter((field) => {
+    if (isPortasGroup) {
+      if (isHasDoorsCharacteristic(field.name)) return true;
+      return isDoorsActive;
+    }
+    if (isGavetasGroup) {
+      if (isHasDrawersCharacteristic(field.name)) return true;
+      return isDrawersActive;
+    }
+    if (isPesGroup) {
+      if (isHasFeetCharacteristic(field.name)) return true;
+      return isFeetActive;
+    }
+    return true;
+  });
+
+  return (
+    <section
+      aria-labelledby={`technical-group-${group.title}`}
+      className="flex flex-col gap-3"
+    >
+      <h4
+        id={`technical-group-${group.title}`}
+        className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
+      >
+        {group.title}
+      </h4>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,280px))] gap-x-5 gap-y-4">
+        {displayedFields.map((field) => (
+          <TechnicalFieldRow
+            key={field.id}
+            field={field}
+            formData={formData}
+            manualFieldNames={manualFieldNames}
+            validationErrors={validationErrors}
+            onValueChange={onValueChange}
+            onOpenAttributeModal={onOpenAttributeModal}
+            onToggleDepthLength={onToggleDepthLength}
+            onRemoveManualField={onRemoveManualField}
+          />
+        ))}
+      </div>
+    </section>
+  );
+};

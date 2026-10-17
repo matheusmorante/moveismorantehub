@@ -44,6 +44,9 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
     Record<string, { lat: number; lng: number; isPrecision?: boolean }>
   >({});
 
+  const failedGeocodes = useRef<Set<string>>(new Set());
+  const failedRoutes = useRef<Set<string>>(new Set());
+
   // Geocoding effect
   useEffect(() => {
     const geocodeAll = async () => {
@@ -63,13 +66,38 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
             continue;
           }
 
+          // 1.5 Coordenadas já salvas no endereço de entrega ou do cliente
+          const customCoords = order.shipping?.deliveryAddress?.coords;
+          const customerCoords = order.customerData?.fullAddress?.coords;
+          const existingCoords =
+            order.shipping?.useCustomerAddress === false && customCoords && customCoords[0] !== 0
+              ? customCoords
+              : customerCoords && customerCoords[0] !== 0
+                ? customerCoords
+                : null;
+
+          if (existingCoords) {
+            newGeocoded[order.id] = {
+              lng: existingCoords[0],
+              lat: existingCoords[1],
+              isPrecision: true,
+            };
+            changed = true;
+            continue;
+          }
+
+          // Evitar re-tentar endereços não encontrados nesta sessão
+          if (failedGeocodes.current.has(order.id)) {
+            continue;
+          }
+
           // 2. Geocodificação Dinâmica (Google Maps Geocoder)
           const address =
             order.shipping?.useCustomerAddress === false && order.shipping?.deliveryAddress
               ? order.shipping.deliveryAddress
-              : order.customerData.fullAddress;
+              : order.customerData?.fullAddress;
 
-          if (address.street && address.number) {
+          if (address?.street && address?.number) {
             // Respeitar limites do Nominatim (1 req/sec recomendado)
             await new Promise((r) => setTimeout(r, 600));
 
@@ -84,7 +112,9 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
               continue;
             }
           }
-          // Sem fallback genérico de bairro: se não encontrou o endereço exato, não plotar em local arbitrário.
+
+          // Marcar como não encontrado para não consultar a API novamente nesta sessão
+          failedGeocodes.current.add(order.id);
         }
       }
       if (changed) setGeocodedPoints(newGeocoded);
@@ -111,6 +141,8 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
           jitterLng = ((seed % 100) - 50) * 0.0001;
         }
 
+        const info = routeInfo[order.id || ''];
+
         return {
           id: order.id,
           lat: coords.lat + jitterLat,
@@ -120,20 +152,25 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
           isPrecision,
           distance: order.shipping?.distance
             ? `${order.shipping.distance.toFixed(1)} km`
-            : undefined,
+            : info?.distance,
           duration: order.shipping?.durationMinutes
             ? `${order.shipping.durationMinutes} min`
-            : undefined,
+            : info?.duration,
         };
       })
       .filter(Boolean) as RoutePoint[];
-  }, [orders, geocodedPoints]);
+  }, [orders, geocodedPoints, routeInfo]);
 
   // Fetch routing info from Google Maps
   useEffect(() => {
     const fetchAllRoutes = async () => {
       const newInfo: Record<string, { distance: string; duration: string }> = {};
-      const toFetch = points.filter((p) => !p.distance || !p.duration);
+      const toFetch = points.filter((p) => {
+        if (p.distance && p.duration) return false;
+        if (routeInfo[p.id]) return false;
+        if (failedRoutes.current.has(p.id)) return false;
+        return true;
+      });
       if (toFetch.length === 0) return;
 
       for (const p of toFetch) {
@@ -144,12 +181,17 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
               distance: `${route.distanceKm.toFixed(1)} km`,
               duration: `${route.durationMinutes} min`,
             };
+          } else {
+            failedRoutes.current.add(p.id!);
           }
         } catch (e) {
+          failedRoutes.current.add(p.id!);
           console.warn(`Erro ao calcular rota via Google Maps para ${p.id}:`, e);
         }
       }
-      setRouteInfo((prev) => ({ ...prev, ...newInfo }));
+      if (Object.keys(newInfo).length > 0) {
+        setRouteInfo((prev) => ({ ...prev, ...newInfo }));
+      }
     };
 
     if (points.length > 0) {

@@ -27,9 +27,19 @@ export interface AiLimitsConfig {
 export const AI_MODELS = {
   LITE: 'gemini-3.5-flash-lite',
   REASONING: 'gemini-3.8-flash',
+  FLASH_2_5: 'gemini-2.5-flash',
   EMBEDDING: 'gemini-embedding-2',
   IMAGE: 'gemini-2.5-flash-image',
   TTS: 'gemini-3.1-flash-tts',
+} as const;
+
+export const CHARACTERISTICS_AI_LIMITS = {
+  concurrent: 1,
+  perMinute: 2,
+  perHour: 20,
+  perDay: 80,
+  model: AI_MODELS.FLASH_2_5,
+  operation: 'catalog_extract_technical_specs',
 } as const;
 
 export const AI_LIMITS: AiLimitsConfig = {

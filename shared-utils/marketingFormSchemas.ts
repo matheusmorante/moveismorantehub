@@ -52,21 +52,42 @@ export const marketingTemplateFormSchema = z.object({
   editorSettings: z.object({ environmentPrompts: z.record(z.string(), z.string()).optional(), modelProductId: z.string().optional(), photoOverrides: z.record(z.string(), z.string()).optional(), sampleSlogan: z.string().optional() }).passthrough().optional(),
 }).passthrough();
 export const marketingElementSaveFormSchema = z.object({ name: z.string().trim().min(1, 'Informe o nome do modelo.'), layer: marketingLayerFormSchema });
+const ambientationImageSchema = z.url('Selecione uma imagem válida.').refine((value) => /^https:\/\//i.test(value) || /^data:image\/(png|jpeg|webp|gif);base64,[a-z\d+/=\r\n]+$/i.test(value), 'A imagem deve ter um endereço HTTPS ou dados de imagem válidos.');
+export const ambientationPromptFormSchema = z.object({ productName: z.string().trim().min(1, 'Informe o nome do produto.') });
 export const ambientationFormSchema = z.object({
-  productId: z.string().min(1, 'Selecione o produto.'), productName: requiredText, originalImageUrl: z.url('Selecione a imagem do produto.'), prompt: z.string(),
+  productId: z.string().trim().min(1, 'Selecione o produto.'), productName: ambientationPromptFormSchema.shape.productName, originalImageUrl: ambientationImageSchema, prompt: z.string().trim(),
 });
+export const ambientationRecordFormSchema = ambientationFormSchema.pick({ productId: true, originalImageUrl: true }).extend({
+  id: z.uuid('Imagem não identificada.'), variationId: z.string().nullable().optional(), ambientedImageUrl: ambientationImageSchema, promptUsed: z.string().trim().optional(),
+});
+export const ambientationSelectionFormSchema = ambientationRecordFormSchema.pick({ id: true, productId: true, ambientedImageUrl: true });
 export const postUploadFormSchema = z.object({
-  productId: z.string().min(1, 'Selecione o produto.'), campaignId: z.string(), format: z.enum(['FEED_4_5', 'STORY_STATUS_9_16']),
-  file: z.custom<File>((value) => typeof value === 'object' && value !== null && 'type' in value && typeof value.type === 'string' && value.type.startsWith('image/'), 'Selecione uma imagem.'),
+  productId: z.string().trim().min(1, 'Selecione o produto.'), campaignId: z.string().trim(), format: z.enum(['FEED_4_5', 'STORY_STATUS_9_16']),
+  file: imageFilesFormSchema.shape.files.element,
   ratioValid: z.boolean().refine(Boolean, 'A proporção da imagem não corresponde ao formato do post.'),
+  detectedFormat: z.enum(['FEED_4_5', 'STORY_STATUS_9_16']).nullable(),
+}).refine((value) => value.detectedFormat === value.format, { path: ['format'], message: 'O formato escolhido deve corresponder à proporção da imagem.' });
+export const postLibraryFilterFormSchema = z.object({
+  productId: z.string().trim(), campaignId: z.string().trim(), format: z.enum(['', 'FEED_4_5', 'STORY_STATUS_9_16']),
+});
+export const postDeleteFormSchema = z.object({
+  id: z.string().trim().min(1, 'Arte não identificada.'), productId: z.string().trim().min(1, 'Produto não identificado.'),
+  imageStoragePath: z.string().min(1, 'Arquivo não identificado.'),
+}).passthrough().refine((value) => value.imageStoragePath.startsWith(`${value.productId}/${value.id}/`) && !value.imageStoragePath.split('/').some((part) => part === '..'),
+  { path: ['imageStoragePath'], message: 'O arquivo deve pertencer à arte e ao produto selecionados.' });
+export const postDownloadFormSchema = z.object({
+  id: z.string().trim().min(1), format: z.enum(['FEED_4_5', 'STORY_STATUS_9_16']),
+  imageUrl: z.url('A imagem não tem um endereço válido.').refine((url) => url.startsWith('https://'), 'A arte precisa de um endereço HTTPS público.'),
 });
 /** Preserve metadata while making interface payloads compatible with the loose Zod input type. */
-export const marketingTemplateFormValues = (value: Omit<MarketingTemplate, 'id'> & { id?: string }) => ({
+export const marketingTemplateFormValues = (value: Omit<MarketingTemplate, 'id' | 'createdAt' | 'updatedAt'> & { id?: string; createdAt?: string; updatedAt?: string }) => ({
   ...value, layers: value.layers.map((layer) => ({ ...layer })),
   layouts: value.layouts ? Object.fromEntries(Object.entries(value.layouts).map(([format, layout]) => [format, layout ? { ...layout, layers: layout.layers.map((layer) => ({ ...layer })) } : undefined])) : undefined,
   editorSettings: value.editorSettings ? { ...value.editorSettings } : undefined,
 });
+const selectionImageSchema = z.url('Selecione uma imagem válida.').refine((value) => /^(https?:|data:image\/|blob:)/i.test(value), 'Selecione uma imagem válida.');
 export const marketingImageSelectionFormSchema = z.object({
-  productId: z.string().min(1),
-  selection: z.object({ primaryUrl: z.string().optional(), openViewUrl: z.string().nullable().optional(), variationUrls: z.record(z.string(), z.string()).optional() }),
+  productId: z.string().trim().min(1, 'Produto não identificado.'),
+  selection: z.object({ primaryUrl: selectionImageSchema.optional(), openViewUrl: selectionImageSchema.nullable().optional(), variationUrls: z.record(z.string().min(1), selectionImageSchema).optional() }),
 });
+export const marketingImageSelectionResetFormSchema = marketingImageSelectionFormSchema.pick({ productId: true });

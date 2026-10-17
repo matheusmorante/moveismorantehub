@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, SetStateAction } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import {
   Layer,
   MarketingCampaign,
@@ -70,36 +72,47 @@ export function useTemplateWorkspace(campaign: MarketingCampaign | null, format:
   const [state, setState] = useState<{ value: MarketingTemplate; dirty: boolean } | null>(null);
   const [status, setStatus] = useState('Carregando template…');
   const [loading, setLoading] = useState(true);
-  const current = useRef('');
-  const { validateAndRun: validateTemplate } = useZodForm(marketingTemplateFormSchema, marketingTemplateFormValues(compositionTemplate));
+  const current = useRef(''), active = useRef(true), uncertain = useRef(new Set<string>());
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const { user } = useAuth();
+  const source = useRef({ userId: user?.id, campaignId: campaign?.id });
+  if (source.current.userId !== user?.id || source.current.campaignId !== campaign?.id) source.current = { userId: user?.id, campaignId: campaign?.id };
+  const scope = source.current;
+  const campaignSource = useRef(campaign); campaignSource.current = campaign;
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const { enqueueAndRun: validateTemplate } = useZodForm(marketingTemplateFormSchema, marketingTemplateFormValues(compositionTemplate));
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    setLoading(true); setState(null);
     current.current = '';
+    const currentScope = () => alive && active.current && source.current === scope;
+    if (!scope.userId) { setLoading(false); setStatus('Aguarde a confirmação da sessão.'); return; }
+    const selectedCampaign = campaignSource.current;
     setStatus('Carregando template…');
-    templateService
-      .getAll()
+    void withTimeout(templateService.getAll(), 20_000, null, 'Carregar espaço de templates')
       .then((items) => {
-        if (!alive) return;
+        if (!currentScope()) return;
+        if (!Array.isArray(items)) throw new Error('A consulta do template não foi confirmada.');
         const found = items
           .filter(
             (t) =>
               !t.isDefault &&
               !t.name.startsWith('@element/') &&
-              (t.campaignId || null) === (campaign?.id || null)
+              (t.campaignId || null) === (scope.campaignId || null)
           )
           .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
         const value = normalize(
           found || {
             ...compositionTemplate,
             id: crypto.randomUUID(),
-            name: campaign?.name || 'Produto promocional',
-            campaignId: campaign?.id,
+            name: selectedCampaign?.name || 'Produto promocional',
+            campaignId: scope.campaignId,
             isDefault: false,
             editorSettings: {},
             layouts: { '4:5': initialLayout('4:5'), '9:16': initialLayout('9:16') },
           }
         );
+        if (!marketingTemplateFormSchema.safeParse(marketingTemplateFormValues(value)).success) throw new Error('O template carregado possui campos inválidos.');
         setState({ value, dirty: false });
         setLoading(false);
         setStatus(
@@ -108,29 +121,33 @@ export function useTemplateWorkspace(campaign: MarketingCampaign | null, format:
             : 'Salvamento automático ativo.'
         );
       })
-      .catch(() => {
-        if (alive) setStatus('Não foi possível carregar o template.');
-      });
+      .catch((error) => { if (currentScope()) setStatus(error instanceof Error ? error.message : 'Não foi possível carregar o template.'); })
+      .finally(() => { if (currentScope()) setLoading(false); });
     return () => {
       alive = false;
     };
-  }, [campaign?.id]);
+  }, [scope, reloadVersion]);
   useEffect(() => {
     if (!state?.dirty || loading) return;
     const version = state.value.id + ':' + state.value.updatedAt;
     current.current = version;
-    void validateTemplate(marketingTemplateFormValues(state.value), (values) => {
-      scheduleTemplateSave(values as MarketingTemplate, (message) => {
-        if (current.current === version) setStatus(message);
-      });
-    }, (errors) => {
-      if (current.current === version) setStatus(Object.values(flattenFormErrors(errors))[0]);
-    }).catch(() => {
-      if (current.current === version) setStatus('Não foi possível salvar neste navegador. Libere espaço antes de sair.');
-    });
-  }, [state, loading, validateTemplate]);
+    const currentScope = () => active.current && source.current === scope;
+    return scheduleTemplateSave(state.value, async (snapshot) => {
+      if (!currentScope()) return false;
+      if (uncertain.current.has(snapshot.id)) throw new Error('Há um salvamento de template sem confirmação. Confira antes de repetir.');
+      try { return await validateTemplate(marketingTemplateFormValues(snapshot), async (values) => {
+        if (!currentScope()) return false;
+        const saved = await withTimeout(templateService.save(values, { confirm: true, isCurrent: currentScope }), 25_000, null, 'Confirmar autosave do template');
+        if (!currentScope()) return false;
+        if (!saved || saved.id !== values.id || saved.updatedAt !== values.updatedAt || typeof saved.persistedRemotely !== 'boolean') throw Object.assign(new Error('O autosave do template não foi confirmado. Confira antes de repetir.'), { uncertain: true });
+        return saved;
+      }, (errors) => { if (currentScope() && current.current === version) setStatus(Object.values(flattenFormErrors(errors))[0]); }); }
+      catch (error) { if (currentScope() && error && typeof error === 'object' && 'uncertain' in error && error.uncertain) uncertain.current.add(snapshot.id); throw error; }
+    }, (message) => { if (currentScope() && current.current === version) setStatus(message); }, currentScope);
+  }, [state, loading, validateTemplate, scope]);
+
   function change(update: (value: MarketingTemplate) => MarketingTemplate) {
-    if (loading) return;
+    if (loading || !active.current || source.current !== scope || !scope.userId) return;
     setState((previous) => {
       if (!previous) return previous;
       const before = activeTemplate(previous.value, format);
@@ -143,6 +160,7 @@ export function useTemplateWorkspace(campaign: MarketingCampaign | null, format:
       };
       const value = {
         ...previous.value,
+        editorSettings: after.editorSettings,
         layouts: { ...previous.value.layouts, [format]: layout },
         updatedAt: nextTemplateTimestamp(),
       };
@@ -155,6 +173,8 @@ export function useTemplateWorkspace(campaign: MarketingCampaign | null, format:
     canonicalTemplate: canonical,
     loading,
     status,
+    reload: () => setReloadVersion((version) => version + 1),
+    retrySave: () => setState((previous) => previous ? { ...previous, dirty: true, value: { ...previous.value, updatedAt: nextTemplateTimestamp() } } : previous),
     setLayers: (value: SetStateAction<Layer[]>) =>
       change((t) => ({ ...t, layers: typeof value === 'function' ? value(t.layers) : value })),
     setSettings: (patch: Partial<TemplateEditorSettings>) =>

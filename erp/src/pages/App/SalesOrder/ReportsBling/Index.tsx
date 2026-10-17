@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useSalesReport, SaleItem } from './useSalesReport';
+import { useSalesReport } from './useSalesReport';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { reportDateRangeFormSchema } from '../../../../../../shared-utils/scheduleFormSchemas';
+
+const periodLabel = (date: string) => `${date.slice(5, 7)}/${date.slice(2, 4)}`;
 
 const SalesOrderReportsBling = () => {
   const navigate = useNavigate();
@@ -12,12 +14,21 @@ const SalesOrderReportsBling = () => {
     calculateABC,
     fetchFromBling,
     loading,
-    setLoading,
+    error,
+    sessionKey,
     savedReports,
     saveReport,
     listSavedReports,
     deleteReport,
   } = useSalesReport();
+
+  const [creating, setCreating] = useState(false);
+  const [validationError, setValidationError] = useState('');
+  const creatingRef = useRef(false);
+  const currentSession = useRef(sessionKey); currentSession.current = sessionKey;
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const busy = loading || creating;
 
   // UI States
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -34,36 +45,29 @@ const SalesOrderReportsBling = () => {
   }, []);
 
   useEffect(() => {
-    listSavedReports();
-  }, []);
+    void listSavedReports();
+  }, [listSavedReports, sessionKey]);
 
   const handleCreateReport = async () => {
-    return form.validateAndRun(dateRange, async (values) => {
-    setLoading(true);
+    if (creatingRef.current || loading) return false;
+    creatingRef.current = true; setCreating(true); setValidationError('');
+    const submittedSession = sessionKey;
     try {
-      const items = await fetchFromBling(values.start, values.end);
-
-      if (items.length === 0) {
-        alert('Nenhum dado encontrado no Bling para este período.');
-        setLoading(false);
-        return;
-      }
-
-      const reportData = calculateABC(items, 'revenue', true);
-      const reportName = `Análise Bling ${format(new Date(values.start), 'MM/yy')} - ${format(new Date(values.end), 'MM/yy')}`;
-
-      const newReport = await saveReport(reportName, 'bling', {}, reportData);
-
-      if (newReport?.id) {
+      return await form.validateAndRun(dateRange, async values => {
+        const items = await fetchFromBling(values.start, values.end);
+        if (!mounted.current || currentSession.current !== submittedSession) return false;
+        if (items.length === 0) { setValidationError('Nenhum dado encontrado no Bling para este período.'); return false; }
+        const reportData = calculateABC(items, 'revenue', true);
+        const reportName = `Análise Bling ${periodLabel(values.start)} - ${periodLabel(values.end)}`;
+        const newReport = await saveReport(reportName, 'bling', { dateRange: values }, reportData);
+        if (!mounted.current || currentSession.current !== submittedSession || !newReport) return false;
         navigate(`/sales-order/reports-bling/${newReport.id}`);
-      }
-    } catch (error) {
-      console.error(error);
-      alert('Erro ao processar dados do Bling.');
-    } finally {
-      setLoading(false);
-    }
-    }, (errors) => alert(Object.values(flattenFormErrors(errors))[0]));
+        return true;
+      }, errors => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira o período.'));
+    } catch (failure) {
+      if (mounted.current && currentSession.current === submittedSession) setValidationError(failure instanceof Error ? failure.message : 'Não foi possível gerar o relatório.');
+      return false;
+    } finally { creatingRef.current = false; if (mounted.current) setCreating(false); }
   };
 
   return (
@@ -91,6 +95,8 @@ const SalesOrderReportsBling = () => {
             <input
               type="date"
               className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none"
+              aria-label="Início do período"
+              disabled={busy}
               value={dateRange.start}
               onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
             />
@@ -103,16 +109,18 @@ const SalesOrderReportsBling = () => {
             <input
               type="date"
               className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 outline-none"
+              aria-label="Fim do período"
+              disabled={busy}
               value={dateRange.end}
               onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
             />
           </div>
           <button
             onClick={handleCreateReport}
-            disabled={loading}
+            disabled={busy}
             className="px-8 py-4 rounded-[2rem] bg-indigo-600 text-white shadow-xl shadow-indigo-500/20 flex items-center gap-3 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100"
           >
-            {loading ? (
+            {busy ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             ) : (
               <i className="bi bi-clouds-fill text-lg"></i>
@@ -124,6 +132,8 @@ const SalesOrderReportsBling = () => {
         </div>
       </header>
 
+      {(validationError || error) && <p role="alert" className="text-red-600">{validationError || error} {error && <button disabled={busy} onClick={() => void listSavedReports()}>Carregar relatórios</button>}</p>}
+      {busy && <p role="status" className="text-indigo-600">Consultando o Bling e confirmando o relatório...</p>}
       <section>
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3">
@@ -153,6 +163,7 @@ const SalesOrderReportsBling = () => {
                     </div>
                     <div className="relative">
                       <button
+                        aria-label={`Ações do relatório ${report.name}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenMenuId(openMenuId === report.id ? null : report.id);
@@ -177,9 +188,9 @@ const SalesOrderReportsBling = () => {
                           </button>
                           <div className="h-px bg-slate-50 dark:bg-slate-800"></div>
                           <button
-                            onClick={() => {
-                              if (confirm('Deseja realmente excluir este relatório?'))
-                                deleteReport(report.id);
+                            disabled={busy}
+                            onClick={async () => {
+                              if (confirm('Deseja realmente excluir este relatório?') && await deleteReport(report.id)) setOpenMenuId(null);
                             }}
                             className="w-full flex items-center gap-3 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                           >

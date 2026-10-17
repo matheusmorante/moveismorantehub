@@ -5,6 +5,7 @@ import VariationFormModal from '../../modals/VariationFormModal';
 import CategorySearchModal from '../modals/product/CategorySearchModal';
 import ProductConversionModal from '../modals/product/ProductConversionModal';
 import { ProductSaveResultModal } from '../modals/product/ProductSaveResultModal';
+import ProductAiCharacteristicsModal from '../../modals/ProductAiCharacteristicsModal';
 
 interface ProductFormSubModalsProps {
   readonly formData: Partial<Product>;
@@ -18,7 +19,7 @@ interface ProductFormSubModalsProps {
   readonly setIsTestArtifact: (enabled: boolean) => void;
   readonly handleCloseVariationModal: () => void;
   readonly handleSaveVariation: (variation: Variation) => Promise<boolean>;
-  readonly handleReplaceImageGlobal: (oldUrl: string, newUrl: string) => void | Promise<void>;
+  readonly handleReplaceImageGlobal: (oldUrl: string, newUrl: string) => void | boolean | Promise<void | boolean>;
   readonly isCategorySearchOpen: boolean;
   readonly setIsCategorySearchOpen: (open: boolean) => void;
   readonly availableCategories: any[];
@@ -31,6 +32,9 @@ interface ProductFormSubModalsProps {
   readonly onSuccess?: (newProduct: Product) => void | boolean | Promise<void | boolean>;
   readonly onSave?: (savedProduct?: Product) => void | Promise<void>;
   readonly onClose: () => void;
+  readonly isAiCharacteristicsModalOpen?: boolean;
+  readonly setIsAiCharacteristicsModalOpen?: (open: boolean) => void;
+  readonly aiCharacteristicsInitialMode?: 'web_search' | 'descriptive_text';
 }
 
 export const ProductFormSubModals: React.FC<ProductFormSubModalsProps> = ({
@@ -56,6 +60,9 @@ export const ProductFormSubModals: React.FC<ProductFormSubModalsProps> = ({
   onSuccess,
   onSave,
   onClose,
+  isAiCharacteristicsModalOpen = false,
+  setIsAiCharacteristicsModalOpen,
+  aiCharacteristicsInitialMode = 'web_search',
 }) => {
   const currentEditingVariation = variations.editingVariationId
     ? formData.variations?.find(
@@ -113,6 +120,19 @@ export const ProductFormSubModals: React.FC<ProductFormSubModalsProps> = ({
         }
         onCloseForm={onClose}
         setFormData={setFormData}
+      />
+
+      <ProductAiCharacteristicsModal
+        isOpen={isAiCharacteristicsModalOpen}
+        onClose={() => setIsAiCharacteristicsModalOpen?.(false)}
+        formData={formData}
+        setFormData={setFormData}
+        categoryName={
+          availableCategories?.find((cat: any) =>
+            formData.categoryIds?.includes(cat.id)
+          )?.name || (formData as any).category || ''
+        }
+        initialMode={aiCharacteristicsInitialMode}
       />
     </>
   );

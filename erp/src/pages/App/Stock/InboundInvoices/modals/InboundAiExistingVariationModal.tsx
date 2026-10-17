@@ -21,6 +21,7 @@ export interface AiClassification {
 
 interface InboundAiExistingVariationModalProps {
   readonly classifyingItem: InboundInvoiceItem | null;
+  readonly isBusy?: boolean;
   readonly classification: AiClassification | null;
   readonly onConfirm: () => void;
   readonly onDiscardAndCreateNew: () => void;
@@ -29,6 +30,7 @@ interface InboundAiExistingVariationModalProps {
 export function InboundAiExistingVariationModal({
   classifyingItem,
   classification,
+  isBusy = false,
   onConfirm,
   onDiscardAndCreateNew,
 }: InboundAiExistingVariationModalProps) {
@@ -39,11 +41,11 @@ export function InboundAiExistingVariationModal({
   useEffect(() => {
     if (!isVisible) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onDiscardAndCreateNew();
+      if (e.key === 'Escape' && !isBusy) onDiscardAndCreateNew();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isVisible, onDiscardAndCreateNew]);
+  }, [isVisible, isBusy, onDiscardAndCreateNew]);
 
   if (!isVisible || !classifyingItem || !classification) {
     return null;
@@ -59,6 +61,7 @@ export function InboundAiExistingVariationModal({
       <button
         type="button"
         aria-label="Fechar confirmação de variação existente"
+        disabled={isBusy}
         onClick={onDiscardAndCreateNew}
         className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm cursor-default border-0 p-0 m-0 w-full h-full"
       />
@@ -109,6 +112,7 @@ export function InboundAiExistingVariationModal({
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
+            disabled={isBusy}
             onClick={onDiscardAndCreateNew}
             className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
@@ -116,6 +120,7 @@ export function InboundAiExistingVariationModal({
           </button>
           <button
             type="button"
+            disabled={isBusy}
             onClick={onConfirm}
             className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 transition-colors"
           >

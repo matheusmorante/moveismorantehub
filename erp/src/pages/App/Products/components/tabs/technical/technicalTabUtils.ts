@@ -1,5 +1,17 @@
 import { Product } from '../../../../../types/product.type';
-import { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
+import {
+  TechnicalFieldDefinition,
+  getCharacteristicDependencyState,
+  isDoorQuantityCharacteristic,
+  isDrawerQuantityCharacteristic,
+  isFeetQuantityCharacteristic,
+  isHasDoorsActive,
+  isHasDrawersActive,
+  isHasFeetActive,
+  parseDoorQuantityValue,
+  parseDrawerQuantityValue,
+  parseFeetQuantityValue,
+} from '@/pages/utils/technicalValuesService';
 
 export const SYNCED_FIELDS = new Set<keyof Product>([
   'description',
@@ -59,6 +71,8 @@ export interface TechnicalFieldItemState {
   isFieldInvalid: boolean;
   isColorField: boolean;
   isDepthOrLengthField: boolean;
+  isFieldDisabled: boolean;
+  disabledReason?: string;
 }
 
 export const computeTechnicalFieldItemState = (
@@ -114,8 +128,31 @@ export const computeTechnicalFieldItemState = (
   const isNotApplicable = rawValue === 'Não se aplica' || rawValue === 'N/A';
   const isAlwaysApplicable = Boolean(field.isRequired);
   const isApplicable = isAlwaysApplicable || hasSelectedValue;
+
+  const dep = getCharacteristicDependencyState(field.name, formData.technicalValues || {});
+  const isFieldDisabled = dep.isDisabled;
+
+  const isDoorQtyReq = isDoorQuantityCharacteristic(field.name) && isHasDoorsActive(formData.technicalValues || {});
+  const isDrawerQtyReq = isDrawerQuantityCharacteristic(field.name) && isHasDrawersActive(formData.technicalValues || {});
+  const isFeetQtyReq = isFeetQuantityCharacteristic(field.name) && isHasFeetActive(formData.technicalValues || {});
+
+  let isInvalidQty = false;
+  if (isDoorQtyReq) {
+    const qty = parseDoorQuantityValue({ [field.name]: rawValue });
+    isInvalidQty = qty === null || qty <= 0;
+  } else if (isDrawerQtyReq) {
+    const qty = parseDrawerQuantityValue({ [field.name]: rawValue });
+    isInvalidQty = qty === null || qty <= 0;
+  } else if (isFeetQtyReq) {
+    const qty = parseFeetQuantityValue({ [field.name]: rawValue });
+    isInvalidQty = qty === null || qty <= 0;
+  }
+
+  const isRequiredField = Boolean(field.isRequired || isDoorQtyReq || isDrawerQtyReq || isFeetQtyReq);
   const isFieldInvalid = Boolean(
-    field.isRequired && !hasSelectedValue && validationErrors?.technicalValues
+    !isFieldDisabled &&
+      ((isRequiredField && !hasSelectedValue) || isInvalidQty) &&
+      validationErrors?.technicalValues
   );
   const isColorField = norm === 'cor';
   const isDepthOrLengthField = norm.includes('profundidade') || norm.includes('comprimento');
@@ -131,6 +168,8 @@ export const computeTechnicalFieldItemState = (
     isFieldInvalid,
     isColorField,
     isDepthOrLengthField,
+    isFieldDisabled,
+    disabledReason: dep.disabledReason,
   };
 };
 

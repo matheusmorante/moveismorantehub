@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import Order from '@/pages/types/order.type';
 import { OrderHistoryListRef } from '../OrderHistoryList';
 import { canGenerateReturn } from '@/pages/utils/returnPolicy';
+import { canGenerateAssistance } from '@/pages/utils/assistancePolicy';
 import { createSalesOrderDuplicate } from '@/pages/utils/duplicateOrder';
 import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
 import { fetchReturnFiscalEligibility } from '../../FiscalDocuments/services/fiscalOperationDraftService';
@@ -58,6 +59,7 @@ export function useSalesOrderModals({
     returnOrderIndex: number | null;
   } | null>(null);
   const [duplicatingOrder, setDuplicatingOrder] = useState<Order | null>(null);
+  const [assistanceSourceOrder, setAssistanceSourceOrder] = useState<Order | null>(null);
 
   const refreshLists = useCallback(() => {
     orderListRef.current?.refresh();
@@ -68,6 +70,9 @@ export function useSalesOrderModals({
     if (key === 'generateReturn') {
       if (!canGenerateReturn(order)) return;
       setReturningOrder(order);
+    } else if (key === 'generateAssistance' || key === 'GENERATE_ASSISTANCE') {
+      if (!canGenerateAssistance(order)) return;
+      setAssistanceSourceOrder(order);
     } else if (key === 'duplicateOrder') {
       const duplicated = {
         ...createSalesOrderDuplicate(order),
@@ -164,6 +169,8 @@ export function useSalesOrderModals({
     setReturnFiscalSelection,
     duplicatingOrder,
     setDuplicatingOrder,
+    assistanceSourceOrder,
+    setAssistanceSourceOrder,
     refreshLists,
     handleOrderAction,
     handleDirectIssueNfe,

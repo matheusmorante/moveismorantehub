@@ -1,7 +1,9 @@
-import type { z } from 'zod';
-import { ZodForm } from '@/components/forms/ZodForm';
-import { productReferenceFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
-import React, { useState, useEffect, useMemo } from 'react';
+import { z } from 'zod';
+import { useAuth } from '@/context/AuthContext';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { salesReportReferenceRowSchema, salesReportReferenceWriteFormSchema, salesReportReferenceQueryFormSchema } from '../../../../../../../shared-utils/salesReportFormSchemas';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
@@ -13,17 +15,24 @@ interface ProductReference {
 
 interface ProductReferenceModalProps {
   isOpen: boolean;
+  readOnly?: boolean;
+  contextKey?: string;
   onClose: () => void;
   availableProducts: { name: string; supplier: string }[];
 }
 
 const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
   isOpen,
+  readOnly = false,
+  contextKey = '',
   onClose,
   availableProducts,
 }) => {
+  const { user } = useAuth();
   const [references, setReferences] = useState<ProductReference[]>([]);
   const [loading, setLoading] = useState(false);
+  const [queryCount, setQueryCount] = useState(0);
+  const busy = loading || queryCount > 0;
   const [newMaster, setNewMaster] = useState('');
   const [newReference, setNewReference] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,55 +47,73 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
     return availableProducts.filter((p) => !selectedSupplier || p.supplier === selectedSupplier);
   }, [availableProducts, selectedSupplier]);
 
-  useEffect(() => {
-    if (isOpen) fetchReferences();
-  }, [isOpen]);
-
-  const fetchReferences = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('product_references')
-      .select('*')
-      .order('master_name', { ascending: true });
-
-    if (error) {
-      console.error('Erro ao buscar referências:', error);
-    } else {
-      setReferences(data || []);
-    }
-    setLoading(false);
+  const [error, setError] = useState('');
+  const busyRef = useRef(false); const mountedRef = useRef(true);
+  const scope = JSON.stringify([user?.id, contextKey, isOpen, readOnly]);
+  const scopeRef = useRef(scope); scopeRef.current = scope;
+  const uncertainRef = useRef(new Set<string>());
+  const intentRef = useRef<{ signature: string; id: string } | null>(null);
+  const writeForm = useZodForm(salesReportReferenceWriteFormSchema, { intent: 'add', id: '00000000-0000-4000-8000-000000000000', masterName: newMaster, referenceName: newReference });
+  const { enqueueAndRun: validateQuery } = useZodForm(salesReportReferenceQueryFormSchema, { intent: 'list' });
+  const invalid = (errors: Parameters<typeof flattenFormErrors>[0]) => setError(Object.values(flattenFormErrors(errors))[0] || 'Confira a referência.');
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  const fetchReferences = useCallback(async () => {
+    const submittedScope = scopeRef.current;
+    try {
+      return await validateQuery({ intent: 'list' }, async () => {
+        if (!mountedRef.current || scopeRef.current !== submittedScope) return false;
+        setQueryCount(count => count + 1);
+        let response;
+        try { response = await withTimeout(supabase.from('product_references').select('*').order('master_name', { ascending: true }), 15_000, null, 'Consultar referências do relatório'); }
+        finally { if (mountedRef.current) setQueryCount(count => Math.max(0, count - 1)); }
+        if (!mountedRef.current || scopeRef.current !== submittedScope) return false;
+        if (!response || response.error) throw new Error(response?.error?.message || 'A consulta de referências excedeu o prazo.');
+        const receipt = z.array(salesReportReferenceRowSchema).safeParse(response.data);
+        if (!receipt.success) throw new Error('O servidor retornou referências inválidas.');
+        setReferences(receipt.data); return true;
+      });
+    } catch (failure) { if (mountedRef.current && scopeRef.current === submittedScope) setError(failure instanceof Error ? failure.message : 'Não foi possível consultar as referências.'); return false; }
+  }, [validateQuery]);
+  useEffect(() => { if (isOpen) { setReferences([]); setError(''); void fetchReferences(); } }, [isOpen, scope, fetchReferences]);
+  const writeReference = async (command: z.input<typeof salesReportReferenceWriteFormSchema>) => {
+    if (busyRef.current) return false;
+    if (!user?.id || readOnly) { setError('Entre com uma conta autorizada para alterar referências.'); return false; }
+    if (uncertainRef.current.has(scope)) { setError('Existe uma alteração de referência sem confirmação. Confira o registro antes de repetir.'); return false; }
+    busyRef.current = true; setLoading(true); setError('');
+    const submittedScope = scope; const isCurrent = () => mountedRef.current && scopeRef.current === submittedScope;
+    let dispatched = false;
+    try {
+      return await writeForm.validateAndRun(command, async parsed => {
+        if (!isCurrent()) return false;
+        dispatched = true;
+        const response = await withTimeout(parsed.intent === 'add' ? supabase.from('product_references').insert([{ id: parsed.id, master_name: parsed.masterName, reference_name: parsed.referenceName }]).select().single() : supabase.from('product_references').delete().eq('id', parsed.id).select('id'), 20_000, null, 'Gravar referência do relatório');
+        if (!response) throw new Error('O servidor não confirmou a referência no prazo. Confira antes de repetir.');
+        if (response.error) throw Object.assign(new Error(response.error.message), { knownFailure: /^(22|23|42)/.test(response.error.code || '') || /^PGRST20[0-5]$/.test(response.error.code || '') });
+        if (parsed.intent === 'add') {
+          const receipt = salesReportReferenceRowSchema.safeParse(response.data);
+          if (!receipt.success || receipt.data.id !== parsed.id || receipt.data.master_name !== parsed.masterName || receipt.data.reference_name !== parsed.referenceName) throw new Error('O recibo não corresponde à referência enviada.');
+          if (!isCurrent()) return false;
+          setReferences(rows => [...rows.filter(row => row.id !== parsed.id), receipt.data]); setNewReference(''); intentRef.current = null;
+        } else {
+          const receipt = z.array(z.object({ id: z.uuid() })).safeParse(response.data);
+          if (!receipt.success || receipt.data.length !== 1 || receipt.data[0].id !== parsed.id) throw new Error('A exclusão da referência não foi confirmada.');
+          if (!isCurrent()) return false;
+          setReferences(rows => rows.filter(row => row.id !== parsed.id));
+        }
+        if (!await fetchReferences() && isCurrent()) setError('Referência confirmada. Não foi possível atualizar a lista; tente carregar novamente.');
+        return true;
+      }, invalid);
+    } catch (failure) {
+      if (dispatched && !(failure instanceof Error && 'knownFailure' in failure && failure.knownFailure === true)) uncertainRef.current.add(submittedScope);
+      if (isCurrent()) setError(failure instanceof Error ? failure.message : 'Não foi possível confirmar a referência.'); return false;
+    } finally { busyRef.current = false; if (mountedRef.current) setLoading(false); }
   };
-
-  const handleAdd = async ({ masterName: newMaster, referenceName: newReference }: z.output<typeof productReferenceFormSchema>) => {
-    if (!newMaster || !newReference) return;
-
-    setLoading(true);
-    const { error } = await supabase
-      .from('product_references')
-      .insert([{ master_name: newMaster, reference_name: newReference }]);
-
-    if (error) {
-      alert('Erro ao adicionar referência: ' + error.message);
-    } else {
-      setNewReference('');
-      fetchReferences();
-    }
-    setLoading(false);
+  const handleAdd = async (event: React.FormEvent) => {
+    event.preventDefault(); const signature = JSON.stringify([scope, newMaster, newReference]);
+    if (intentRef.current?.signature !== signature) intentRef.current = { signature, id: crypto.randomUUID() };
+    return writeReference({ intent: 'add', id: intentRef.current.id, masterName: newMaster, referenceName: newReference });
   };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Deseja excluir esta referência?')) return;
-
-    setLoading(true);
-    const { error } = await supabase.from('product_references').delete().eq('id', id);
-
-    if (error) {
-      alert('Erro ao excluir: ' + error.message);
-    } else {
-      fetchReferences();
-    }
-    setLoading(false);
-  };
+  const handleDelete = (id: string) => { if (confirm('Deseja excluir esta referência?')) return writeReference({ intent: 'delete', id, confirmed: true }); };
 
   const normSearch = normalizeSearchTerm(searchTerm);
   const filteredReferences = references.filter(
@@ -110,13 +137,17 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
             </span>
           </div>
           <button
-            onClick={onClose}
+            aria-label="Fechar referências"
+            disabled={busy}
+            onClick={() => { if (!busyRef.current) onClose(); }}
             className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-955 flex items-center justify-center text-slate-500 hover:text-red-500 transition-all"
           >
             <i className="bi bi-x-lg text-xl"></i>
           </button>
         </div>
 
+        {error && <p role="alert" className="px-8 py-2 text-red-600">{error} <button disabled={busy} onClick={() => void fetchReferences()}>Carregar referências</button></p>}
+        {busy && <p role="status" className="px-8 py-2 text-indigo-600">Consultando e confirmando as referências...</p>}
         <div className="p-8 bg-slate-50/50 dark:bg-slate-955 border-b border-slate-100 dark:border-slate-800">
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
@@ -146,8 +177,7 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
               </div>
             </div>
 
-            <ZodForm schema={productReferenceFormSchema} values={{ masterName: newMaster, referenceName: newReference }}
-              onValid={handleAdd}
+            <form onSubmit={handleAdd}
               className="flex flex-wrap gap-4 items-end bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm"
             >
               <div className="flex-1 min-w-[200px]">
@@ -178,7 +208,7 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
               </div>
               <button
                 type="submit"
-                disabled={loading || !newMaster || !newReference}
+                disabled={busy || readOnly}
                 className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-indigo-500/20 active:scale-95"
               >
                 <i className="bi bi-plus-circle-fill mr-2"></i> Vincular
@@ -189,7 +219,7 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
                   <option key={p.name} value={p.name} />
                 ))}
               </datalist>
-            </ZodForm>
+            </form>
           </div>
         </div>
 
@@ -243,6 +273,8 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
                     </div>
                   </div>
                   <button
+                    disabled={busy || readOnly}
+                    aria-label={`Excluir referência ${ref.reference_name}`}
                     onClick={() => handleDelete(ref.id)}
                     className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-300 hover:text-red-500 hover:shadow-md transition-all sm:opacity-0 group-hover:opacity-100"
                   >

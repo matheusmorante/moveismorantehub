@@ -1,6 +1,8 @@
 import { erpAgentTools } from './geminiToolDeclarations';
 import { GeminiToolDispatcher } from './geminiToolDispatcher';
 import { GeminiClient } from './geminiClient';
+import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { agentContentSchema } from '../../../../shared-utils/agentChatFormSchemas';
 import {
   GeminiContent,
   GeminiPart,
@@ -12,6 +14,16 @@ import {
 // Orquestrador conversacional do Agente Lizandro com Function Calling nativo
 
 const MAX_TOOL_ITERATIONS = 5;
+
+export interface AgentRequestOptions {
+  signal?: AbortSignal;
+  isCurrent?: () => boolean;
+  onToolDispatch?: () => void;
+}
+
+export class AgentRequestError extends Error {
+  constructor(message: string, public readonly knownFailure: boolean) { super(message); }
+}
 
 export class GeminiAgentService {
   public static buildSystemInstruction(pageContext?: AgentPageContext): string {
@@ -120,76 +132,110 @@ SUAS REGRAS FUNDAMENTAIS:
   public static async sendMessage(
     userMessage: string,
     history: GeminiContent[] = [],
-    pageContext?: AgentPageContext
+    pageContext?: AgentPageContext,
+    options: AgentRequestOptions = {},
   ): Promise<{ result: AgentExecutionResult; updatedHistory: GeminiContent[] }> {
-    const executedTools: ExecutedToolRecord[] = [];
-    const conversation: GeminiContent[] = [...history];
-
-    conversation.push({
-      role: 'user',
-      parts: [{ text: userMessage }],
-    });
-
-    let iterations = 0;
-    const systemInstruction = {
-      parts: [{ text: this.buildSystemInstruction(pageContext) }],
+    let toolDispatched = false;
+    const startedAt = Date.now();
+    const checkCurrent = () => {
+      if (options.signal?.aborted || options.isCurrent?.() === false || Date.now() - startedAt >= 90_000) {
+        throw new AgentRequestError('Consulta interrompida. Confira o resultado das ações já iniciadas antes de repetir.', !toolDispatched);
+      }
     };
-
-    while (iterations < MAX_TOOL_ITERATIONS) {
-      iterations++;
-
-      const apiResponse = await GeminiClient.generateContent({
-        systemInstruction,
-        contents: conversation,
-        tools: erpAgentTools,
-        toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
-        temperature: 0.1,
+    const wait = async <T,>(operation: () => Promise<T>, timeoutMs: number): Promise<T> => {
+      checkCurrent();
+      const expired = Symbol('expired');
+      let onAbort!: () => void;
+      const aborted = new Promise<never>((_, reject) => {
+        onAbort = () => reject(new AgentRequestError('Consulta interrompida. Confira o resultado das ações já iniciadas antes de repetir.', !toolDispatched));
+        options.signal?.addEventListener('abort', onAbort, { once: true });
       });
-
-      const candidate = apiResponse.candidates?.[0];
-      const modelContent = candidate?.content;
-
-      if (!modelContent || !modelContent.parts || modelContent.parts.length === 0) {
-        return {
-          result: { answer: 'Não obtive uma resposta compreensível da IA.', executedTools },
-          updatedHistory: conversation,
-        };
-      }
-
-      conversation.push(modelContent);
-
-      const functionCalls = modelContent.parts
-        .filter((p) => Boolean(p.functionCall))
-        .map((p) => p.functionCall!);
-
-      if (functionCalls.length === 0) {
-        const textParts = modelContent.parts.map((p) => p.text || '').filter(Boolean);
-        const finalAnswer = textParts.join('\n').trim();
-        return {
-          result: { answer: finalAnswer || 'Ação concluída com sucesso.', executedTools },
-          updatedHistory: conversation,
-        };
-      }
-
-      const responseParts: GeminiPart[] = [];
-      for (const call of functionCalls) {
-        const execution = await GeminiToolDispatcher.execute(call);
-        executedTools.push(execution.record);
-        responseParts.push({ functionResponse: execution.functionResponse });
-      }
+      try {
+        const result = await withTimeout<unknown>(Promise.race([operation(), aborted]), Math.min(timeoutMs, 90_000 - (Date.now() - startedAt)), expired, 'assistente ERP');
+        if (result === expired) throw new AgentRequestError('A resposta do assistente excedeu o prazo. Confira as ações já iniciadas antes de repetir.', !toolDispatched);
+        checkCurrent();
+        return result as T;
+      } finally { options.signal?.removeEventListener('abort', onAbort); }
+    };
+    try {
+      const executedTools: ExecutedToolRecord[] = [];
+      const conversation: GeminiContent[] = [...history];
 
       conversation.push({
         role: 'user',
-        parts: responseParts,
+        parts: [{ text: userMessage }],
       });
-    }
 
-    return {
-      result: {
-        answer: 'Operação concluída com limite de iterações atingido.',
-        executedTools,
-      },
-      updatedHistory: conversation,
-    };
+      let iterations = 0;
+      const systemInstruction = {
+        parts: [{ text: this.buildSystemInstruction(pageContext) }],
+      };
+
+      while (iterations < MAX_TOOL_ITERATIONS) {
+        iterations++;
+
+        const apiResponse = await wait(() => GeminiClient.generateContent({
+          systemInstruction,
+          contents: conversation,
+          tools: erpAgentTools,
+          toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
+          temperature: 0.1,
+        }), 30_000);
+
+        const candidate = apiResponse.candidates?.[0];
+        const modelContent = candidate?.content;
+
+        if (!modelContent || !modelContent.parts || modelContent.parts.length === 0) {
+          return {
+            result: { answer: 'Não obtive uma resposta compreensível da IA.', executedTools },
+            updatedHistory: conversation,
+          };
+        }
+
+        const contentReceipt = agentContentSchema.safeParse(modelContent);
+        if (!contentReceipt.success) throw new Error('A IA retornou uma resposta inválida.');
+        const parsedContent = contentReceipt.data;
+        conversation.push(parsedContent);
+
+        const functionCalls = parsedContent.parts
+          .filter((p) => Boolean(p.functionCall))
+          .map((p) => p.functionCall!);
+
+        if (functionCalls.length === 0) {
+          const textParts = modelContent.parts.map((p) => p.text || '').filter(Boolean);
+          const finalAnswer = textParts.join('\n').trim();
+          return {
+            result: { answer: finalAnswer || 'O assistente não enviou uma resposta em texto. Confira as ações exibidas.', executedTools },
+            updatedHistory: conversation,
+          };
+        }
+
+        const responseParts: GeminiPart[] = [];
+        for (const call of functionCalls) {
+          checkCurrent();
+          toolDispatched = true;
+          options.onToolDispatch?.();
+          const execution = await wait(() => GeminiToolDispatcher.execute(call), 20_000);
+          executedTools.push(execution.record);
+          responseParts.push({ functionResponse: execution.functionResponse });
+        }
+
+        conversation.push({
+          role: 'user',
+          parts: responseParts,
+        });
+      }
+
+      return {
+        result: {
+          answer: 'Consulta interrompida: limite de iterações atingido. Confira as ações exibidas antes de continuar.',
+          executedTools,
+        },
+        updatedHistory: conversation,
+      };
+    } catch (error) {
+      if (error instanceof AgentRequestError) throw error;
+      throw new AgentRequestError(error instanceof Error ? error.message : 'Falha ao consultar o assistente.', !toolDispatched);
+    }
   }
 }

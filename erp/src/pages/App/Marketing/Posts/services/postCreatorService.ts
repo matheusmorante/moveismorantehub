@@ -1,4 +1,5 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import {
   CampaignElementModel,
   ElementModel,
@@ -85,31 +86,58 @@ function storePreviews(previews: PostPreviewCache[]) {
   }
 }
 
+export type PostWriteOptions = { confirm?: boolean; isCurrent?: () => boolean };
+async function confirmedWrite(query: PromiseLike<any>, expected: Record<string, unknown>, options: PostWriteOptions, label: string, removing = false) {
+  if (options.isCurrent && !options.isCurrent()) throw Object.assign(new Error('A campanha ou a sessão mudou. Reabra a operação.'), { knownFailure: true });
+  let result;
+  try { result = await withTimeout(query, 20_000, null, label); }
+  catch { throw Object.assign(new Error(label + ' não foi confirmado. Confira antes de repetir.'), { uncertain: true }); }
+  if (!result) throw Object.assign(new Error(label + ' não foi confirmado. Confira antes de repetir.'), { uncertain: true });
+  if (result.error) {
+    const knownFailure = /^(22|23|42)/.test(result.error.code || '') || /^PGRST20[0-5]$/.test(result.error.code || '');
+    throw Object.assign(new Error(result.error.message || label + ' recusado pelo servidor.'), { knownFailure, uncertain: !knownFailure });
+  }
+  const row = removing ? result.data?.length === 1 && result.data[0] : result.data;
+  const matches = row && Object.entries(expected).every(([key, value]) => {
+    if (value === undefined) return true;
+    if (key.endsWith('_at')) return Date.parse(row[key]) === Date.parse(String(value));
+    if (key === 'reference_files') {
+      const fields = (references: any) => Array.isArray(references) ? references.map((item) => [item.id, item.name, item.fileUrl, item.mimeType]) : null;
+      return JSON.stringify(fields(row[key])) === JSON.stringify(fields(value));
+    }
+    return row[key] === value;
+  });
+  if (!matches) throw Object.assign(new Error('O recibo de ' + label.toLowerCase() + ' não corresponde à operação. Confira antes de repetir.'), { uncertain: true });
+  if (options.isCurrent && !options.isCurrent()) throw Object.assign(new Error('O contexto mudou durante a operação. Confira o resultado antes de repetir.'), { uncertain: true });
+}
+function cacheConfirmed(write: () => void) { try { write(); } catch { /* O recibo remoto permanece válido quando o cache local está indisponível. */ } }
+
 export const postCreatorService = {
-  async globalGuidelines(): Promise<string> {
+  async globalGuidelines(options: { confirm?: boolean } = {}): Promise<string> {
     try {
       const { data, error } = await supabase
         .from('post_creator_global_rules')
         .select('guidelines')
         .eq('id', true)
         .maybeSingle();
-      if (!error && data?.guidelines) return data.guidelines;
-    } catch {
-      /* fallback */
-    }
+      if (!error && typeof data?.guidelines === 'string') return data.guidelines;
+      if (options.confirm && (error || data !== null)) throw new Error('A consulta das regras não foi confirmada.');
+    } catch (error) { if (options.confirm) throw error; }
     return (
       localStorage.getItem('morante_post_creator_global_guidelines') || defaultGlobalGuidelines
     );
   },
-  async saveGlobalGuidelines(guidelines: string): Promise<void> {
+  async saveGlobalGuidelines(guidelines: string, options: PostWriteOptions = {}): Promise<void> {
+    const payload = { id: true, guidelines, updated_at: now() };
+    if (options.confirm) {
+      await confirmedWrite(supabase.from('post_creator_global_rules').upsert(payload).select().single(), payload, options, 'Salvar regras globais');
+      cacheConfirmed(() => localStorage.setItem('morante_post_creator_global_guidelines', guidelines));
+      return;
+    }
     localStorage.setItem('morante_post_creator_global_guidelines', guidelines);
-    await supabase
-      .from('post_creator_global_rules')
-      .upsert({ id: true, guidelines, updated_at: now() })
-      .then(() => undefined)
-      .catch(() => undefined);
+    await supabase.from('post_creator_global_rules').upsert(payload).then(() => undefined, () => undefined);
   },
-  async campaigns(): Promise<PostCampaign[]> {
+  async campaigns(options: { confirm?: boolean } = {}): Promise<PostCampaign[]> {
     try {
       const { data, error } = await supabase
         .from('post_creator_campaigns')
@@ -117,6 +145,7 @@ export const postCreatorService = {
         .order('created_at', { ascending: false });
       if (!error && data) {
         const values = data.map(campaignFromRow);
+        if (options.confirm) { const merged = [...values.map((item) => ({ ...item, persistedRemotely: true })), ...localPostCreator.campaigns().filter((item) => item.persistedRemotely !== true && !values.some((remote) => remote.id === item.id)).map((item) => ({ ...item, persistedRemotely: false }))]; cacheConfirmed(() => writeLocal('campaigns', merged)); return merged; }
         if (!values.length)
           await supabase.from('post_creator_campaigns').upsert({
             id: fallbackCampaign.id,
@@ -129,13 +158,12 @@ export const postCreatorService = {
         writeLocal('campaigns', values.length ? values : [fallbackCampaign]);
         return values.length ? values : [fallbackCampaign];
       }
-    } catch {
-      /* fallback */
-    }
+      if (options.confirm) throw new Error('A consulta das campanhas não foi confirmada.');
+    } catch (error) { if (options.confirm) throw error; }
     const values = localPostCreator.campaigns();
     return values.length ? values : [fallbackCampaign];
   },
-  async saveCampaign(value: Partial<PostCampaign>): Promise<PostCampaign> {
+  async saveCampaign(value: Partial<PostCampaign>, options: PostWriteOptions = {}): Promise<PostCampaign> {
     const existing = localPostCreator.campaigns().find((item) => item.id === value.id);
     const saved: PostCampaign = {
       ...fallbackCampaign,
@@ -146,48 +174,27 @@ export const postCreatorService = {
       updatedAt: now(),
       createdAt: existing?.createdAt || now(),
     };
-    writeLocal('campaigns', [
-      saved,
-      ...localPostCreator.campaigns().filter((item) => item.id !== saved.id),
-    ]);
-    await supabase
-      .from('post_creator_campaigns')
-      .upsert({
-        id: saved.id,
-        name: saved.name,
-        description: saved.description,
-        general_guidelines: saved.generalGuidelines,
-        active: saved.active,
-        created_at: saved.createdAt,
-        updated_at: saved.updatedAt,
-      })
-      .then(() => undefined)
-      .catch(() => undefined);
+    const cache = () => writeLocal('campaigns', [saved, ...localPostCreator.campaigns().filter((item) => item.id !== saved.id)]);
+    const payload = { id: saved.id, name: saved.name, description: saved.description, general_guidelines: saved.generalGuidelines, active: saved.active, created_at: saved.createdAt, updated_at: saved.updatedAt };
+    if (options.confirm) {
+      await confirmedWrite(supabase.from('post_creator_campaigns').upsert(payload).select().single(), payload, options, 'Salvar campanha'); saved.persistedRemotely = true; cacheConfirmed(cache);
+    } else { cache(); await supabase.from('post_creator_campaigns').upsert(payload).then(() => undefined, () => undefined); }
     return saved;
   },
-  async removeCampaign(id: string): Promise<void> {
-    writeLocal(
-      'campaigns',
-      localPostCreator.campaigns().filter((item) => item.id !== id)
-    );
-    writeLocal(
-      'links',
-      localPostCreator.links().filter((item) => item.campaignId !== id)
-    );
-    await supabase
-      .from('post_creator_campaigns')
-      .delete()
-      .eq('id', id)
-      .then(() => undefined)
-      .catch(() => undefined);
+  async removeCampaign(id: string, options: PostWriteOptions = {}): Promise<void> {
+    const cache = () => { writeLocal('campaigns', localPostCreator.campaigns().filter((item) => item.id !== id)); writeLocal('links', localPostCreator.links().filter((item) => item.campaignId !== id)); };
+    if (options.confirm) {
+      await confirmedWrite(supabase.from('post_creator_campaigns').delete().eq('id', id).select('id'), { id }, options, 'Excluir campanha', true); cacheConfirmed(cache);
+    } else { cache(); await supabase.from('post_creator_campaigns').delete().eq('id', id).then(() => undefined, () => undefined); }
   },
-  async models(): Promise<ElementModel[]> {
+  async models(options: { confirm?: boolean } = {}): Promise<ElementModel[]> {
     const local = localPostCreator.models();
     try {
       const { data, error } = await supabase
         .from('post_creator_element_models')
         .select('*')
         .order('created_at', { ascending: false });
+      if (options.confirm && !error && Array.isArray(data)) { const values = data.map(modelFromRow); const merged = [...values.map((item) => ({ ...item, persistedRemotely: true })), ...local.filter((item) => item.persistedRemotely !== true && !values.some((remote) => remote.id === item.id)).map((item) => ({ ...item, persistedRemotely: false }))]; cacheConfirmed(() => writeLocal('models', merged)); return merged; }
       if (!error && data && data.length > 0) {
         const values = data.map(modelFromRow);
         // Combinar: modelos do banco têm precedência, mas modelos locais que não estão no banco são preservados
@@ -195,44 +202,27 @@ export const postCreatorService = {
         writeLocal('models', merged);
         return merged;
       }
-    } catch {
-      /* fallback */
-    }
+      if (options.confirm) throw new Error('A consulta dos modelos não foi confirmada.');
+    } catch (error) { if (options.confirm) throw error; }
     return local;
   },
-  async saveModel(value: ElementModel): Promise<ElementModel> {
-    const saved = { ...value, updatedAt: now(), createdAt: value.createdAt || now() };
-    const current = localPostCreator.models();
-    writeLocal('models', [saved, ...current.filter((item) => item.id !== saved.id)]);
-    await supabase
-      .from('post_creator_element_models')
-      .upsert({
-        id: saved.id,
-        name: saved.name,
-        element_type: saved.elementType,
-        content_kind: saved.contentKind,
-        opportunity_id: saved.opportunityId || null,
-        prompt: saved.prompt,
-        reference_files: saved.referenceFiles,
-        generated_asset_url: saved.generatedAssetUrl,
-        generation_input_hash: saved.generationInputHash,
-        generation_version: saved.generationVersion,
-        status: saved.status,
-        created_at: saved.createdAt,
-        updated_at: saved.updatedAt,
-      })
-      .then(() => undefined)
-      .catch(() => undefined);
+  async saveModel(value: ElementModel, options: PostWriteOptions = {}): Promise<ElementModel> {
+    const saved: ElementModel = { ...value, updatedAt: now(), createdAt: value.createdAt || now() };
+    const cache = () => writeLocal('models', [saved, ...localPostCreator.models().filter((item) => item.id !== saved.id)]);
+    const payload = { id: saved.id, name: saved.name, element_type: saved.elementType, content_kind: saved.contentKind, opportunity_id: saved.opportunityId || null, prompt: saved.prompt, reference_files: saved.referenceFiles, generated_asset_url: saved.generatedAssetUrl, generation_input_hash: saved.generationInputHash, generation_version: saved.generationVersion, status: saved.status, created_at: saved.createdAt, updated_at: saved.updatedAt };
+    if (options.confirm) {
+      await confirmedWrite(supabase.from('post_creator_element_models').upsert(payload).select().single(), payload, options, 'Salvar modelo'); saved.persistedRemotely = true; cacheConfirmed(cache);
+    } else { cache(); await supabase.from('post_creator_element_models').upsert(payload).then(() => undefined, () => undefined); }
     return saved;
   },
-  async links(campaignId: string): Promise<CampaignElementModel[]> {
+  async links(campaignId: string, options: { confirm?: boolean } = {}): Promise<CampaignElementModel[]> {
     const local = localPostCreator.links().filter((item) => item.campaignId === campaignId);
     try {
       const { data, error } = await supabase
         .from('post_creator_campaign_element_models')
         .select('*')
         .eq('campaign_id', campaignId);
-      if (!error && data && data.length > 0) {
+      if (!error && data && (data.length > 0 || options.confirm)) {
         const values = data.map((row: any) => ({
           campaignId: row.campaign_id,
           elementModelId: row.element_model_id,
@@ -251,15 +241,15 @@ export const postCreatorService = {
           ),
         ];
         const others = localPostCreator.links().filter((item) => item.campaignId !== campaignId);
+        if (options.confirm) { const confirmed = [...values.map((item) => ({ ...item, persistedRemotely: true })), ...local.filter((item) => item.persistedRemotely !== true && !values.some((remote) => remote.elementModelId === item.elementModelId && remote.elementType === item.elementType)).map((item) => ({ ...item, active: false, persistedRemotely: false }))]; cacheConfirmed(() => writeLocal('links', [...others, ...confirmed])); return confirmed; }
         writeLocal('links', [...others, ...merged]);
         return merged;
       }
-    } catch {
-      /* fallback */
-    }
+      if (options.confirm) throw new Error('A consulta dos vínculos não foi confirmada.');
+    } catch (error) { if (options.confirm) throw error; }
     return local;
   },
-  async linkModel(link: CampaignElementModel): Promise<void> {
+  async linkModel(link: CampaignElementModel, options: PostWriteOptions = {}): Promise<void> {
     const next = [
       ...localPostCreator
         .links()
@@ -269,20 +259,12 @@ export const postCreatorService = {
         ),
       link,
     ];
-    writeLocal('links', next);
-    await supabase
-      .from('post_creator_campaign_element_models')
-      .upsert({
-        campaign_id: link.campaignId,
-        element_model_id: link.elementModelId,
-        element_type: link.elementType,
-        opportunity_id: link.opportunityId || null,
-        active: link.active,
-        created_at: link.createdAt,
-      })
-      .then(() => undefined)
-      .catch(() => undefined);
+    const payload = { campaign_id: link.campaignId, element_model_id: link.elementModelId, element_type: link.elementType, opportunity_id: link.opportunityId || null, active: link.active, created_at: link.createdAt };
+    if (options.confirm) {
+      await confirmedWrite(supabase.from('post_creator_campaign_element_models').upsert(payload).select().single(), payload, options, 'Vincular modelo'); next[next.length - 1] = { ...link, persistedRemotely: true }; cacheConfirmed(() => writeLocal('links', next));
+    } else { writeLocal('links', next); await supabase.from('post_creator_campaign_element_models').upsert(payload).then(() => undefined, () => undefined); }
   },
+
   async activate(
     campaignId: string,
     elementType: ElementType,
@@ -308,14 +290,13 @@ export const postCreatorService = {
       disable = opportunityId
         ? disable.eq('opportunity_id', opportunityId)
         : disable.is('opportunity_id', null);
-    await disable.then(() => undefined).catch(() => undefined);
+    await disable.then(() => undefined, () => undefined);
     await supabase
       .from('post_creator_campaign_element_models')
       .update({ active: true })
       .eq('campaign_id', campaignId)
       .eq('element_model_id', modelId)
-      .then(() => undefined)
-      .catch(() => undefined);
+      .then(() => undefined, () => undefined);
   },
   async unlink(campaignId: string, modelId: string): Promise<void> {
     writeLocal(
@@ -329,8 +310,7 @@ export const postCreatorService = {
       .delete()
       .eq('campaign_id', campaignId)
       .eq('element_model_id', modelId)
-      .then(() => undefined)
-      .catch(() => undefined);
+      .then(() => undefined, () => undefined);
   },
   async previewHistory(
     campaignId: string,

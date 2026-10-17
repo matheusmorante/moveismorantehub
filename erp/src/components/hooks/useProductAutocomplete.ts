@@ -44,7 +44,7 @@ export function useProductAutocomplete({
   const generation = useRef(0), renderedGeneration = generation.current;
   const context = JSON.stringify([query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds, disabled]);
   const latest = useRef({ context, localProducts }); latest.current = { context, localProducts };
-  const { validateValues } = useZodForm(productAutocompleteFormSchema, { query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds });
+  const { enqueueAndRun } = useZodForm(productAutocompleteFormSchema, { query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds: allowedProductKinds ? [...allowedProductKinds] : undefined });
   const setQuery = (next: string) => {
     generation.current += 1; changeQuery(next); setSuggestions([]); setSearchError(''); setIsLoading(next.trim().length >= 3 && !disabled);
   };
@@ -90,10 +90,8 @@ export function useProductAutocomplete({
 
       if (active) setIsLoading(true);
       try {
-        const values = await validateValues({ query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds }, (errors) => {
-          if (active) setSearchError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da busca.');
-        });
-        if (!values || !active) return;
+        await enqueueAndRun({ query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds: allowedProductKinds ? [...allowedProductKinds] : undefined }, async (values) => {
+        if (!active) return;
         const { query: trimmed, supplierId: parsedSupplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds } = values;
         const words = trimmed.split(/\s+/).filter((w) => w.length > 0);
         const productsData = localProducts !== undefined
@@ -179,6 +177,7 @@ export function useProductAutocomplete({
         if (active) {
           setSuggestions(items.slice(0, 15));
         }
+        }, (errors) => { if (active) setSearchError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da busca.'); });
       } catch {
         if (active) setSearchError('Não foi possível buscar produtos. Consulte novamente.');
       } finally {
@@ -204,7 +203,7 @@ export function useProductAutocomplete({
     localProducts,
     refreshKey,
     disabled,
-    validateValues,
+    enqueueAndRun,
   ]);
 
   const handleQueryChange = (val: string) => {

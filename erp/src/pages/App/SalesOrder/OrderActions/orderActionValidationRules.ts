@@ -2,6 +2,7 @@ import Order, { IsButtonsClicked } from '../../../types/order.type';
 import { buttons } from './orderActionsConfig';
 import { validateOrder } from '../../../utils/validations';
 import { canGenerateReturn } from '../../../utils/returnPolicy';
+import { canGenerateAssistance } from '../../../utils/assistancePolicy';
 
 export const DEFAULT_CLICKED_BUTTONS: IsButtonsClicked = {
   printReceipt: false,
@@ -34,6 +35,7 @@ export function filterVisibleOrderActionButtons(
   return buttons.filter((btn) => {
     if (btn.orderTypes && !btn.orderTypes.includes(orderType)) return false;
     if (btn.key === 'generateReturn' && !canGenerateReturn(order)) return false;
+    if (btn.key === 'generateAssistance' && !canGenerateAssistance(order)) return false;
 
     if (context === 'form') {
       if (
@@ -42,6 +44,8 @@ export function filterVisibleOrderActionButtons(
           'PRINT_PRODUCT_LABEL',
           'DUPLICATE_ORDER',
           'GENERATE_SALE_FROM_BUDGET',
+          'GENERATE_RETURN',
+          'GENERATE_ASSISTANCE',
         ].includes(btn.action)
       ) {
         return false;

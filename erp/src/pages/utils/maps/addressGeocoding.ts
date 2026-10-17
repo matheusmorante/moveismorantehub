@@ -13,7 +13,43 @@ export interface GeocodeResponse {
   isPrecision: boolean;
 }
 
-export const geocodeCache = new Map<string, GeocodeResponse>();
+const STORAGE_KEY = 'morante_geocode_cache_v2';
+
+const loadPersistedGeocodeCache = (): Map<string, GeocodeResponse> => {
+  const map = new Map<string, GeocodeResponse>();
+  if (typeof window === 'undefined' || !window.localStorage) return map;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(([k, v]) => {
+          if (k && v && Array.isArray(v.coords)) map.set(k, v);
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('[addressGeocoding] Falha ao carregar cache do localStorage:', e);
+  }
+  return map;
+};
+
+export const geocodeCache = loadPersistedGeocodeCache();
+
+let persistTimer: any = null;
+export const schedulePersistGeocodeCache = () => {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    try {
+      const entries = Array.from(geocodeCache.entries()).slice(-500);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    } catch (e) {
+      console.warn('[addressGeocoding] Falha ao persistir cache no localStorage:', e);
+    }
+  }, 1000);
+};
+
 export const geocodeRequests = new Map<
   string,
   { promise: Promise<GeocodeResponse | null>; failureReason: string }
@@ -57,6 +93,7 @@ export const getGeocodeRequestKey = (address: any): string => {
 export const seedGeocodeCache = (query: string, result: GeocodeResponse): void => {
   if (query && result) {
     geocodeCache.set(query.trim(), result);
+    schedulePersistGeocodeCache();
   }
 };
 
@@ -332,6 +369,7 @@ export const geocodeAddressUncached = async (
       // Alimenta o cache com a query primária e com a query de sucesso
       candidateQueries.forEach((q) => geocodeCache.set(q, result));
       if (r.formatted_address) geocodeCache.set(r.formatted_address, result);
+      schedulePersistGeocodeCache();
 
       return result;
     }

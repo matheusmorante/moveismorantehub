@@ -39,6 +39,7 @@ import {
 } from './useInboundInvoiceClassification';
 
 export interface UseInboundInvoiceItemsReviewParams {
+  contextKey?: string;
   items: InboundInvoiceItem[];
   supplierId?: string;
   suppliers: Person[];
@@ -51,6 +52,7 @@ export interface UseInboundInvoiceItemsReviewParams {
 export const INBOUND_SUGGESTIONS_FEATURE_ENABLED = true;
 
 export function useInboundInvoiceItemsReview({
+  contextKey,
   items,
   supplierId,
   suppliers,
@@ -86,10 +88,7 @@ export function useInboundInvoiceItemsReview({
   const individualInFlight = useRef(false), individualActive = useRef(true);
   useEffect(() => { individualActive.current = true; return () => { individualActive.current = false; }; }, []);
 
-  useEffect(() => {
-    onProcessingSuggestionsChange?.(acceptingSuggestion !== null || removingLink !== null || individualBusy);
-    return () => onProcessingSuggestionsChange?.(false);
-  }, [acceptingSuggestion, removingLink, individualBusy, onProcessingSuggestionsChange]);
+
 
   // Auto-enriquece itens que possuem matchedProductId mas ainda estão sem código ou com nome genérico
   useEffect(() => {
@@ -189,6 +188,7 @@ export function useInboundInvoiceItemsReview({
 
   const {
     preparationError,
+    classificationBusy, classificationError,
     clearPreparationError,
     creationQueue,
     isSuggestingName,
@@ -199,6 +199,7 @@ export function useInboundInvoiceItemsReview({
     discardClassificationAndCreateNew,
     handleCreatedProductFromModal,
   } = useInboundInvoiceProductCreation({
+    contextKey,
     items,
     supplierId,
     onChange,
@@ -218,6 +219,11 @@ export function useInboundInvoiceItemsReview({
     effectiveMarkup,
     setIndividualMarkup: setEffectiveMarkup,
   });
+
+  useEffect(() => {
+    onProcessingSuggestionsChange?.(acceptingSuggestion !== null || removingLink !== null || individualBusy || classificationBusy);
+    return () => onProcessingSuggestionsChange?.(false);
+  }, [acceptingSuggestion, removingLink, individualBusy, classificationBusy, onProcessingSuggestionsChange]);
 
   const requestIndividualCreation = (item: InboundInvoiceItem) => {
     if (individualInFlight.current) return;
@@ -342,6 +348,7 @@ export function useInboundInvoiceItemsReview({
     effectiveMarkup,
     setEffectiveMarkup,
     // Modais e IA
+    classificationBusy, classificationError,
     isPreparingProduct,
     isClassifying,
     classifyingItem,

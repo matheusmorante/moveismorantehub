@@ -5,8 +5,13 @@ import {
   hasVariationOverride,
   isDepthCharacteristic,
   isLengthCharacteristic,
+  getCharacteristicDependencyState,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from '../tabs/technical/TechnicalFieldInput';
+import {
+  DisabledFieldWrapper,
+  DisabledFieldInfoButton,
+} from '../tabs/technical/DisabledFieldWrapper';
 
 export interface ResolvedVariationFieldState {
   isOverridden: boolean;
@@ -103,6 +108,8 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
   onToggleDepthLength,
   onOpenAttributeModal,
 }) => {
+  const [showTooltip, setShowTooltip] = React.useState(false);
+
   const {
     isOverridden,
     effectiveVal,
@@ -113,6 +120,15 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
     variationAttributeValues,
     formDataTechnicalValues
   );
+
+  const combinedValues = {
+    ...parentNormalizedValues,
+    ...variationAttributeValues,
+    ...formDataTechnicalValues,
+  };
+  const dep = getCharacteristicDependencyState(field.name, combinedValues);
+  const isDependencyDisabled = dep.isDisabled;
+  const isActuallyDisabled = isSingleVariation || isInheritedFromParent || isDependencyDisabled;
 
   const isDepthOrLength =
     isDepthCharacteristic(field.name) || isLengthCharacteristic(field.name);
@@ -127,7 +143,7 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
       : 'Profundidade';
 
   const handleSyncToggle = () => {
-    if (isSingleVariation) return;
+    if (isSingleVariation || isDependencyDisabled) return;
     if (isOverridden) {
       onRemoveOverride(field.name);
     } else {
@@ -136,17 +152,27 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
   };
 
   return (
-    <div className="flex flex-col gap-1.5 p-1 transition-all min-w-0">
+    <div
+      className={`flex flex-col gap-1.5 p-1 transition-all min-w-0 ${
+        isDependencyDisabled ? 'opacity-70' : ''
+      }`}
+    >
       <div className="flex items-center justify-between gap-2 min-w-0">
         <label
-          className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 truncate min-w-0"
+          className={`text-[10px] font-black uppercase tracking-widest truncate min-w-0 ${
+            isDependencyDisabled
+              ? 'text-slate-400 dark:text-slate-500'
+              : 'text-slate-600 dark:text-slate-300'
+          }`}
           title={field.name}
         >
           {field.name}
-          {field.isRequired && (
-            <span className="ml-1 text-red-500" aria-label="Obrigatório">
-              *
-            </span>
+          {isDependencyDisabled && (
+            <DisabledFieldInfoButton
+              disabledReason={dep.disabledReason}
+              onClick={() => setShowTooltip((prev) => !prev)}
+              className="ml-1.5"
+            />
           )}
           {field.name.toLowerCase() === 'cor' && (
             <button
@@ -176,17 +202,23 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
           {/* Ícone sync: verde=sincronizado (corrente ligada), cinza=manual (corrente quebrada) */}
           <button
             type="button"
-            disabled={isSingleVariation}
+            disabled={isSingleVariation || isDependencyDisabled}
             onClick={handleSyncToggle}
-            className={`p-1 rounded-lg flex items-center transition-all ${isSingleVariation ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
+            className={`p-1 rounded-lg flex items-center transition-all ${
+              isSingleVariation || isDependencyDisabled
+                ? 'cursor-not-allowed opacity-60'
+                : 'cursor-pointer'
+            } ${
               isOverridden
                 ? 'text-slate-400 hover:text-slate-600'
                 : 'text-emerald-500 hover:text-emerald-600'
             }`}
             title={
-              isOverridden
-                ? 'Manual — clique para sincronizar com o pai'
-                : 'Sincronizado com o pai — clique para personalizar'
+              isDependencyDisabled
+                ? dep.disabledReason
+                : isOverridden
+                  ? 'Manual — clique para sincronizar com o pai'
+                  : 'Sincronizado com o pai — clique para personalizar'
             }
           >
             <i
@@ -207,19 +239,28 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
         </div>
       </div>
 
-      <TechnicalFieldInput
-        field={field}
-        value={
-          effectiveVal !== undefined &&
-          effectiveVal !== null &&
-          effectiveVal !== 'Não se aplica' &&
-          effectiveVal !== 'N/A'
-            ? effectiveVal
-            : ''
-        }
-        disabled={isSingleVariation || isInheritedFromParent}
-        onChange={(selectedVal) => onSetOverride(field.name, selectedVal)}
-      />
+      <DisabledFieldWrapper
+        isDisabled={isDependencyDisabled}
+        disabledReason={dep.disabledReason}
+        showTooltip={showTooltip}
+        onToggleTooltip={() => setShowTooltip((prev) => !prev)}
+        onShowTooltip={() => setShowTooltip(true)}
+        onHideTooltip={() => setShowTooltip(false)}
+      >
+        <TechnicalFieldInput
+          field={field}
+          value={
+            effectiveVal !== undefined &&
+            effectiveVal !== null &&
+            effectiveVal !== 'Não se aplica' &&
+            effectiveVal !== 'N/A'
+              ? effectiveVal
+              : ''
+          }
+          disabled={isActuallyDisabled}
+          onChange={(selectedVal) => onSetOverride(field.name, selectedVal)}
+        />
+      </DisabledFieldWrapper>
     </div>
   );
 };

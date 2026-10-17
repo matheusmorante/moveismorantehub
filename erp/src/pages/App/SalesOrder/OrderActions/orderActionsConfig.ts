@@ -100,6 +100,9 @@ export const actionsMap: Record<OrderAction, (order: Order) => void> = {
   GENERATE_RETURN: (order) => {
     console.log('Iniciando fluxo de devolução para o pedido:', order.id);
   },
+  GENERATE_ASSISTANCE: (order) => {
+    console.log('Iniciando fluxo de assistência para o pedido:', order.id);
+  },
   PRINT_RETURN_OS: (order) => {
     printReturnServiceOrder(order);
   },

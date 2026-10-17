@@ -14,6 +14,8 @@ import {
 } from './orderSearchQueries';
 import {
   fetchOrdersPage,
+  fetchFulfilledSalesOrdersPage,
+  type FetchFulfilledOrdersOptions,
   fetchOrdersForClientFiltering,
   fetchAllOrdersForDashboard,
   fetchRecentOrders,
@@ -44,6 +46,8 @@ export {
   getOrdersCustomerDataOnly,
   fetchOrderById,
   fetchOrdersPage,
+  fetchFulfilledSalesOrdersPage,
+  type FetchFulfilledOrdersOptions,
   fetchOrdersForClientFiltering,
   fetchAllOrdersForDashboard,
   fetchRecentOrders,

@@ -1,123 +1,41 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
-import { ToastContainer, toast } from 'react-toastify';
+import { useState } from 'react';
+import { Outlet } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
 import { useTheme } from './context/ThemeContext';
 import { useAuth } from './context/AuthContext';
-import DesktopNav from './components/layout/DesktopNav';
-import MobileNav from './components/layout/MobileNav';
-import GlobalAutoScroll from './components/shared/GlobalAutoScroll';
-import NotificationBell from './components/shared/NotificationBell';
-import AssistanceOrderModal from './pages/App/SalesOrder/modals/AssistanceOrderModal';
-import { crmIntelligenceService } from './pages/utils/crmIntelligenceService';
-import { redeConciliationService } from '@/pages/services/redeConciliationService';
+import {
+  MenuKey,
+  AppHeader,
+  MobileNav,
+  SupabaseAnomalyBanner,
+  ActiveRoleBanner,
+  useLayoutRoutes,
+  useGlobalAppEvents,
+} from './components/layout';
 import FloatingActionsHub from './components/shared/FloatingActionsHub';
 import AIChatAssistant from './components/shared/AIChatAssistant';
-import AiQuotaHeaderNotice from './components/shared/AiQuotaHeaderNotice';
-import logoMoranteHorizontal from './assets/logo-morante-horizontal.svg';
-import logoMoranteMark from './assets/brand-mark.svg';
-import { roleLabel } from './pages/utils/accessRoles';
+import AssistanceOrderModal from './pages/App/SalesOrder/modals/AssistanceOrderModal';
 
-export type MenuKey =
-  | 'products'
-  | 'stock'
-  | 'salesOrder'
-  | 'fiscal'
-  | 'logistics'
-  | 'registrations'
-  | 'finance'
-  | 'marketing'
-  | 'assembly'
-  | null;
+export type { MenuKey } from './components/layout/types';
 
 export default function AppLayout() {
-  const location = useLocation();
   const [activeMenu, setActiveMenu] = useState<MenuKey>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isAgentOpen, setIsAgentOpen] = useState(false);
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const profileCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { theme, toggleTheme } = useTheme();
-  const { user, profile, logout, isAdmin, activeRoleMode, setActiveRoleMode } = useAuth();
-  const [isAssistanceModalOpen, setIsAssistanceModalOpen] = useState(false);
-  const [assistanceInitialData, setAssistanceInitialData] = useState<any>(null);
-  const [anomaly, setAnomaly] = useState<any>(null);
+  const { theme } = useTheme();
+  const { isAdmin, activeRoleMode, setActiveRoleMode } = useAuth();
 
-  const handleProfileMouseEnter = () => {
-    if (profileCloseTimeoutRef.current) {
-      clearTimeout(profileCloseTimeoutRef.current);
-      profileCloseTimeoutRef.current = null;
-    }
-    setIsProfileMenuOpen(true);
-  };
+  const { isMobileAppView, isTemplateEditor, isCustomerSupport, mainContentClassName } =
+    useLayoutRoutes();
 
-  const handleProfileMouseLeave = () => {
-    if (profileCloseTimeoutRef.current) {
-      clearTimeout(profileCloseTimeoutRef.current);
-    }
-    profileCloseTimeoutRef.current = setTimeout(() => {
-      setIsProfileMenuOpen(false);
-    }, 500);
-  };
-
-  useEffect(() => {
-    const handleOpenAssistance = (e: any) => {
-      setAssistanceInitialData(e.detail);
-      setIsAssistanceModalOpen(true);
-    };
-
-    const handleRegisterDesire = async (e: any) => {
-      try {
-        await crmIntelligenceService.registerProductDesire(e.detail);
-        toast.success(`Desejo registrado: ${e.detail.product_name} ✨`);
-      } catch (err) {
-        toast.error('Erro ao registrar desejo.');
-      }
-    };
-
-    window.addEventListener('OPEN_ASSISTANCE_MODAL', handleOpenAssistance);
-    window.addEventListener('REGISTER_CUSTOMER_DESIRE', handleRegisterDesire);
-
-    return () => {
-      window.removeEventListener('OPEN_ASSISTANCE_MODAL', handleOpenAssistance);
-      window.removeEventListener('REGISTER_CUSTOMER_DESIRE', handleRegisterDesire);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleOpenAgent = () => setIsAgentOpen(true);
-    window.addEventListener('morante:open-agent', handleOpenAgent);
-    return () => window.removeEventListener('morante:open-agent', handleOpenAgent);
-  }, []);
-
-  useEffect(() => {
-    if (!isAdmin) return;
-    const handleAnomaly = (e: any) => setAnomaly(e.detail);
-    window.addEventListener('SUPABASE_ANOMALY', handleAnomaly);
-    return () => window.removeEventListener('SUPABASE_ANOMALY', handleAnomaly);
-  }, [isAdmin]);
-
-  useEffect(() => {
-    // Polling de transações Rede a cada 5 minutos (evita consumo massivo de Egress)
-    const syncInterval = setInterval(() => {
-      redeConciliationService.syncPendingTransactions();
-    }, 300000);
-
-    // Primeira execução imediata
-    redeConciliationService.syncPendingTransactions();
-
-    return () => clearInterval(syncInterval);
-  }, []);
-
-  const isMobileAppView =
-    typeof window !== 'undefined' &&
-    (window.location.search.includes('auth_email') ||
-      window.location.pathname.includes('/mobile') ||
-      Boolean((window as any).ReactNativeWebView));
-  const isTemplateEditor =
-    location.pathname === '/templates/price-label' ||
-    ['/templates/posts', '/marketing/posts', '/marketing'].includes(location.pathname);
-  const isProductsPage =
-    location.pathname === '/products' || location.pathname === '/products/compositions';
+  const {
+    isAgentOpen,
+    setIsAgentOpen,
+    isAssistanceModalOpen,
+    setIsAssistanceModalOpen,
+    assistanceInitialData,
+    anomaly,
+    setAnomaly,
+  } = useGlobalAppEvents({ isAdmin });
 
   return (
     <div className="flex flex-col bg-slate-50 dark:bg-slate-950 min-h-screen font-['Inter',_sans-serif] transition-colors duration-300">
@@ -134,204 +52,20 @@ export default function AppLayout() {
       />
 
       {/* Top Banner Alertas Supabase (Admin Only) */}
-      {isAdmin && anomaly && !isMobileAppView && !isTemplateEditor && (
-        <div
-          className={`w-full ${anomaly.level === 'CRITICAL' ? 'bg-red-600' : 'bg-amber-500'} text-white px-4 py-2 flex items-center justify-between text-xs font-bold animate-slide-down z-[999999]`}
-        >
-          <div className="flex items-center gap-3">
-            <i
-              className={`bi ${anomaly.level === 'CRITICAL' ? 'bi-exclamation-octagon-fill' : 'bi-exclamation-triangle-fill'} text-lg`}
-            ></i>
-            <div>
-              <span className="block font-black uppercase tracking-wide">{anomaly.title}</span>
-              <span className="block opacity-90 font-medium">{anomaly.message}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              to="/settings/supabase-monitor"
-              onClick={() => setAnomaly(null)}
-              className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg transition-colors border border-white/20 backdrop-blur-sm shadow-sm whitespace-nowrap"
-            >
-              Ver Diagnóstico
-            </Link>
-            <button
-              onClick={() => setAnomaly(null)}
-              className="p-1 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <i className="bi bi-x-lg"></i>
-            </button>
-          </div>
-        </div>
+      {isAdmin && !isMobileAppView && !isTemplateEditor && (
+        <SupabaseAnomalyBanner anomaly={anomaly} onDismiss={() => setAnomaly(null)} />
       )}
 
-      {/* Header (Oculto no App Mobile e telas menores para evitar cabeçalho duplo) */}
+      {/* Header (Oculto no App Mobile e editores de template) */}
       {!isMobileAppView && !isTemplateEditor && (
-        <div className="relative z-[99999]">
-          <AiQuotaHeaderNotice />
-          <header
-            className={`w-full glass-header px-4 lg:px-8 xl:px-12 h-14 xl:h-16 flex items-center justify-between z-[99999] shadow-premium transition-all duration-500`}
-          >
-            <div className="flex items-center gap-6 xl:gap-12 h-full">
-              <button
-                className="block min-[1600px]:hidden rounded-xl p-2.5 text-slate-500 shadow-premium-sm transition-all hover:bg-white hover:text-blue-600 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-blue-400"
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              >
-                <i className="bi bi-list text-2xl"></i>
-              </button>
-
-              <Link
-                to="/"
-                className="flex items-center gap-2 lg:gap-3 flex-shrink-0 group h-full overflow-visible"
-              >
-                <picture>
-                  <source media="(max-width: 639px)" srcSet={logoMoranteMark} />
-                  <img
-                    src={logoMoranteHorizontal}
-                    alt="ERP Móveis Morante"
-                    className="h-10 md:h-12 w-auto max-w-[240px] object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-300 pointer-events-auto"
-                  />
-                </picture>
-              </Link>
-
-              <DesktopNav activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
-            </div>
-
-            <div className="flex items-center gap-2 lg:gap-4">
-              <GlobalAutoScroll />
-              <NotificationBell />
-
-              <button
-                onClick={toggleTheme}
-                className="p-2.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-premium-sm"
-                title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
-              >
-                <i
-                  className={`bi ${theme === 'dark' ? 'bi-sun-fill text-amber-500' : 'bi-moon-stars-fill text-blue-600'} text-lg`}
-                ></i>
-              </button>
-
-              {/* User Profile Container com hover seguro (delay de 500ms antes de fechar) */}
-              <div
-                className="relative"
-                onMouseEnter={handleProfileMouseEnter}
-                onMouseLeave={handleProfileMouseLeave}
-              >
-                <button
-                  onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-                  className="flex items-center gap-2 p-1 pl-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 cursor-pointer"
-                >
-                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-md shadow-blue-500/20">
-                    {profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-                  </div>
-                  <div className="hidden md:flex flex-col text-left mr-1">
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight max-w-[120px] truncate">
-                      {profile?.full_name || user?.email?.split('@')[0]}
-                    </span>
-                  </div>
-                  <i
-                    className={`bi bi-chevron-down text-xs text-slate-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-180' : ''}`}
-                  ></i>
-                </button>
-
-                {/* Profile Dropdown */}
-                {isProfileMenuOpen && (
-                  <div
-                    className="absolute right-0 top-full mt-2 w-64 max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-[2rem] shadow-premium-hover border border-slate-100 dark:border-slate-800 p-2 transition-all z-[99999] animate-slide-up"
-                    onMouseEnter={handleProfileMouseEnter}
-                    onMouseLeave={handleProfileMouseLeave}
-                  >
-                    <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-                      <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">
-                        {profile?.full_name || 'Usuário'}
-                      </p>
-                      <p className="text-xs text-slate-400 truncate">{user?.email}</p>
-                      <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                        {isAdmin ? 'Administrador' : 'Colaborador'}
-                      </span>
-                    </div>
-
-                    <div className="p-2 space-y-1">
-                      <Link
-                        to="/profile"
-                        onClick={() => setIsProfileMenuOpen(false)}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                      >
-                        <i className="bi bi-person text-base"></i>
-                        Meu Perfil
-                      </Link>
-
-                      <Link
-                        to="/system-docs"
-                        onClick={() => setIsProfileMenuOpen(false)}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                      >
-                        <i className="bi bi-book-half text-base text-indigo-500"></i>
-                        Documentação do Sistema
-                      </Link>
-
-                      {isAdmin && (
-                        <>
-                          <Link
-                            to="/settings"
-                            onClick={() => setIsProfileMenuOpen(false)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                          >
-                            <i className="bi bi-gear-fill text-base"></i>
-                            Configurações do ERP
-                          </Link>
-                          <Link
-                            to="/acessos-e-usuarios"
-                            onClick={() => setIsProfileMenuOpen(false)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                          >
-                            <i className="bi bi-shield-lock-fill text-base text-blue-500"></i>
-                            Gerenciar Cargos de Usuários
-                          </Link>
-                          <Link
-                            to="/finance/dashboard"
-                            onClick={() => setIsProfileMenuOpen(false)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-all"
-                          >
-                            <i className="bi bi-bank2 text-lg"></i>
-                            Financeiro e Rede
-                          </Link>
-
-                          <a
-                            href="https://drive.google.com/file/d/1UfEAzpIbgAYA6hG-fx7w7Ja73uXEVE74/view?usp=sharing"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => setIsProfileMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all shadow-sm group"
-                          >
-                            <i className="bi bi-android2 text-blue-400"></i>
-                            <span>Baixar App Android</span>
-                          </a>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="h-px bg-slate-100 dark:bg-slate-800 my-2 mx-4"></div>
-
-                    <button
-                      onClick={() => {
-                        setIsProfileMenuOpen(false);
-                        logout();
-                      }}
-                      className="w-full flex items-center gap-4 p-3 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-[1.5rem] transition-all font-bold text-[10px] uppercase tracking-widest cursor-pointer"
-                    >
-                      <i className="bi bi-box-arrow-right text-lg"></i>
-                      Encerrar Sessão
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </header>
-        </div>
+        <AppHeader
+          activeMenu={activeMenu}
+          setActiveMenu={setActiveMenu}
+          onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
+        />
       )}
 
-      {/* Mobile Nav — visível em telas < xl (< 1280px) */}
+      {/* Mobile Nav — visível em telas menores quando aberto */}
       {!isTemplateEditor && (
         <MobileNav
           isOpen={isMobileMenuOpen}
@@ -341,54 +75,28 @@ export default function AppLayout() {
         />
       )}
 
-      {activeRoleMode && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="sticky top-14 xl:top-16 z-[99998] flex items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-4 py-2 text-amber-950 shadow-sm dark:border-amber-800 dark:bg-amber-950/95 dark:text-amber-100 sm:px-6"
-        >
-          <div className="flex min-w-0 items-center gap-2 text-xs font-bold">
-            <i className="bi bi-person-badge-fill shrink-0 text-amber-600 dark:text-amber-300" />
-            <span className="truncate">
-              Modo {roleLabel(activeRoleMode)}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setActiveRoleMode(null)}
-            className="shrink-0 rounded-lg border border-amber-400/70 px-3 py-1.5 text-[11px] font-black transition-colors hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
-          >
-            Sair do modo
-          </button>
-        </div>
-      )}
+      {/* Banner de Simulação de Cargo */}
+      <ActiveRoleBanner
+        activeRoleMode={activeRoleMode}
+        onExitRoleMode={() => setActiveRoleMode(null)}
+      />
 
-      <main
-        className={`flex-1 ${
-          isTemplateEditor
-            ? 'p-0'
-            : isMobileAppView
-              ? 'p-2'
-              : isProductsPage
-                ? 'px-3 sm:px-4 md:px-6 lg:px-6 xl:px-8 pt-0 pb-6 xl:pb-8'
-                : 'p-3 sm:p-4 md:p-6 lg:p-6 xl:p-8'
-        } overflow-x-clip`}
-      >
+      {/* Conteúdo Principal das Rotas */}
+      <main className={`flex-1 ${mainContentClassName} overflow-x-clip`}>
         <Outlet />
       </main>
 
-      {/* Hub de Ações Flutuantes */}
-      <FloatingActionsHub />
+      {/* Hub de Ações Flutuantes (oculto no Atendimento para não sobrepor chat) */}
+      {!isCustomerSupport && <FloatingActionsHub />}
 
-      {/* Agente Geral do ERP — Drawer Lateral Global */}
+      {/* Drawer Lateral Global do Assistente IA */}
       <AIChatAssistant isOpen={isAgentOpen} onClose={() => setIsAgentOpen(false)} mode="drawer" />
 
+      {/* Modal Global de Ordem de Assistência Técnica */}
       {isAssistanceModalOpen && (
         <AssistanceOrderModal
           onClose={() => setIsAssistanceModalOpen(false)}
-          onSaveSuccess={() => {
-            setIsAssistanceModalOpen(false);
-          }}
+          onSaveSuccess={() => setIsAssistanceModalOpen(false)}
           initialData={assistanceInitialData}
         />
       )}

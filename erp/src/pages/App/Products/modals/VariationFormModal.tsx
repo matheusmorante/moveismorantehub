@@ -36,7 +36,7 @@ export interface VariationFormModalProps {
   readonly canMarkTestArtifact?: boolean;
   readonly isTestArtifact?: boolean;
   readonly onTestArtifactChange?: (enabled: boolean) => void;
-  readonly onReplaceImageGlobal?: (oldUrl: string, newUrl: string) => void | Promise<void>;
+  readonly onReplaceImageGlobal?: (oldUrl: string, newUrl: string) => void | boolean | Promise<void | boolean>;
 }
 
 /**
@@ -47,10 +47,12 @@ export interface VariationFormModalProps {
  *   subcomponentes modulares e reutilizáveis (Header, TabsNav, Feedback, Notice, Footer).
  */
 export const VariationFormModal: React.FC<VariationFormModalProps> = (props) => {
+  const { user } = useAuth();
   const guards = useRef(new Map<string, VariationFormOperationGuard>());
   const identity = JSON.stringify([
     props.parentProduct.parentId || props.parentId || props.parentProduct.id,
     props.variation?.id || 'new',
+    user?.id,
   ]);
   if (!guards.current.has(identity)) {
     guards.current.set(identity, { pending: null, error: '' });
@@ -109,12 +111,15 @@ const VariationFormSession: React.FC<
     handleSubmit,
     handleClose,
     handleReplaceImageGlobal,
+    handleCropPhoto,
+    onImageProcessingChange,
   } = useVariationForm({ ...props, isStockistOnly });
 
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (document.querySelector('[data-product-image-cropper]')) return;
         event.preventDefault();
         event.stopImmediatePropagation();
         void handleClose();
@@ -241,6 +246,8 @@ const VariationFormSession: React.FC<
                     )
                   }
                   onReplaceImageGlobal={handleReplaceImageGlobal}
+                  onCropPhoto={handleCropPhoto}
+                  onProcessingChange={onImageProcessingChange}
                 />
               )}
 

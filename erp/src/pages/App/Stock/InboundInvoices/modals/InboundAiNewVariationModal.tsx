@@ -8,6 +8,7 @@ interface InboundAiNewVariationModalProps {
   readonly classification: AiClassification | null;
   readonly finalCost: number;
   readonly effectiveMarkup: string;
+  readonly isBusy?: boolean;
   readonly onChangeMarkup: (value: string) => void;
   readonly onConfirm: () => void;
   readonly onDiscardAndCreateNew: () => void;
@@ -18,6 +19,7 @@ export function InboundAiNewVariationModal({
   classification,
   finalCost,
   effectiveMarkup,
+  isBusy = false,
   onChangeMarkup,
   onConfirm,
   onDiscardAndCreateNew,
@@ -31,11 +33,11 @@ export function InboundAiNewVariationModal({
   useEffect(() => {
     if (!isVisible) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onDiscardAndCreateNew();
+      if (e.key === 'Escape' && !isBusy) onDiscardAndCreateNew();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isVisible, onDiscardAndCreateNew]);
+  }, [isVisible, isBusy, onDiscardAndCreateNew]);
 
   if (!isVisible || !classifyingItem || !classification) {
     return null;
@@ -43,7 +45,7 @@ export function InboundAiNewVariationModal({
 
   const numericMarkup = Number(effectiveMarkup.replace(',', '.'));
   const estimatedPrice =
-    Number.isFinite(numericMarkup) && numericMarkup >= 0
+    effectiveMarkup.trim() && Number.isFinite(numericMarkup) && numericMarkup >= 0
       ? formatCurrency(finalCost * (1 + numericMarkup / 100))
       : 'Informe o acréscimo';
 
@@ -57,6 +59,7 @@ export function InboundAiNewVariationModal({
       <button
         type="button"
         aria-label="Fechar confirmação de nova variação"
+        disabled={isBusy}
         onClick={onDiscardAndCreateNew}
         className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm cursor-default border-0 p-0 m-0 w-full h-full"
       />
@@ -110,6 +113,7 @@ export function InboundAiNewVariationModal({
             min="0"
             step="0.01"
             required
+            disabled={isBusy}
             value={effectiveMarkup}
             onChange={(event) => onChangeMarkup(event.target.value)}
             className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 transition-colors"
@@ -122,13 +126,15 @@ export function InboundAiNewVariationModal({
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
-            onClick={onDiscardAndCreateNew}
+            disabled={isBusy}
+        onClick={onDiscardAndCreateNew}
             className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             Criar como produto independente
           </button>
           <button
             type="button"
+            disabled={isBusy}
             onClick={onConfirm}
             className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white hover:bg-indigo-700 transition-colors"
           >

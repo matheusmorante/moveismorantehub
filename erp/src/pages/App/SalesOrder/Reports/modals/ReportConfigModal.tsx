@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { parseCSV } from '../utils/csvUtils';
+import React, { useState, useEffect, useRef } from 'react';
+import { readReportCsv } from '../utils/reportCsvInput';
+import { salesReportCsvImportFormSchema } from '../../../../../../../shared-utils/salesReportFormSchemas';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { reportConfigFormSchema } from './reportFormSchemas';
 
@@ -16,7 +17,7 @@ interface ColumnMapping {
 interface ReportConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (config: any) => void;
+  onSave: (config: any) => void | boolean | Promise<void | boolean>;
   initialConfig?: any;
   initialSource?: 'erp' | 'csv' | 'bling';
   initialName?: string;
@@ -69,6 +70,15 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
     initialConfig?.profitThreshold || 0
   );
   const [validationError, setValidationError] = useState('');
+  const [reading, setReading] = useState(false);
+  const busyRef = useRef(false);
+  const readerRef = useRef<AbortController | null>(null);
+  const activeRef = useRef(true);
+  const fileForm = useZodForm(salesReportCsvImportFormSchema, { file: undefined as unknown as File, config: {}, productMappings: {} });
+  useEffect(() => {
+    activeRef.current = isOpen;
+    return () => { activeRef.current = false; readerRef.current?.abort(); };
+  }, [isOpen, initialName, initialSource]);
   const form = useZodForm(reportConfigFormSchema, {
     name,
     source,
@@ -83,10 +93,20 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
     },
     csvData,
   });
-  const handleSave = form.submit(async (values) => {
+  const submit = form.submit(async (values) => {
     setValidationError('');
-    await onSave(values);
+    try {
+      const saved = await onSave(values);
+      if (saved === false) setValidationError('O relatório não foi confirmado. Seus dados foram preservados; confira a mensagem da operação.');
+      return saved;
+    }
+    catch (failure) { setValidationError(failure instanceof Error ? failure.message : 'Não foi possível salvar o relatório.'); return false; }
   }, (errors) => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira a configuração do relatório.'));
+  const handleSave = async () => {
+    if (busyRef.current || loading) return;
+    busyRef.current = true;
+    try { return await submit(); } finally { busyRef.current = false; }
+  };
 
   useEffect(() => {
     if (initialSource) setSource(initialSource);
@@ -113,14 +133,19 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
     }
   }, [initialSource, initialName, initialConfig, isOpen]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    e.target.value = '';
+    if (!file || busyRef.current || loading) return;
+    busyRef.current = true; setReading(true); setValidationError('');
+    const controller = new AbortController(); readerRef.current = controller;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const { data, headers: csvHeaders } = parseCSV(text);
+    try {
+      await fileForm.validateAndRun({ file, config: {}, productMappings: {} }, async ({ file }) => {
+      if (!activeRef.current || controller.signal.aborted) return false;
+      const { data, headers: csvHeaders } = await readReportCsv(file, controller.signal);
+      if (!activeRef.current || controller.signal.aborted) return false;
+      if (!csvHeaders.length || !data.length) throw new Error('O CSV não contém dados para análise.');
       setCsvData(data);
       setHeaders(csvHeaders);
 
@@ -139,8 +164,11 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
         });
         setMapping(newMapping);
       }
-    };
-    reader.readAsText(file);
+      return true;
+      }, errors => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira o arquivo CSV.'));
+    } catch (failure) {
+      if (activeRef.current && !controller.signal.aborted) setValidationError(failure instanceof Error ? failure.message : 'Não foi possível ler o CSV.');
+    } finally { busyRef.current = false; if (activeRef.current) setReading(false); }
   };
 
   if (!isOpen) return null;
@@ -154,7 +182,9 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
             Relatório
           </h2>
           <button
-            onClick={onClose}
+            aria-label="Fechar configuração"
+            onClick={() => { if (!busyRef.current && !loading) onClose(); }}
+            disabled={loading || reading || form.formState.isSubmitting}
             className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-955 flex items-center justify-center text-slate-500 hover:text-red-500 transition-all"
           >
             <i className="bi bi-x-lg text-xl"></i>
@@ -214,7 +244,7 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
                       : 'Carregar novo arquivo CSV (Opcional)'}
                   </p>
                 </div>
-                <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
+                <input type="file" className="hidden" accept=".csv" disabled={loading || reading || form.formState.isSubmitting} onChange={handleFileUpload} />
               </label>
 
               <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-955 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800">
@@ -320,10 +350,12 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
           </div>
 
           {validationError && <p role="alert" className="text-sm font-bold text-red-600 dark:text-red-400">{validationError}</p>}
+          {reading && <p role="status" className="text-sm text-indigo-600">Lendo e conferindo o CSV...</p>}
           <button
             type="button"
             onClick={() => void handleSave()}
-            disabled={loading || form.formState.isSubmitting}
+            aria-label="Salvar e Atualizar"
+            disabled={loading || reading || form.formState.isSubmitting}
             className="w-full py-6 mt-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-[2rem] shadow-xl shadow-indigo-500/30 text-[12px] font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-4"
           >
             {loading ? (

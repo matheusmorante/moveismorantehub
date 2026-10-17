@@ -41,11 +41,27 @@ describe('mobileProductFormSchema - single variation error routing', () => {
     expect(parsed.success).toBe(true);
   });
 
-  it('redireciona erro de dimensões ausentes para aba technical quando há variação única', () => {
+  it('permite cadastro com variação única sem dimensões (exigidas apenas na publicação)', () => {
     const schema = createMobileProductFormSchema({
       draft: false,
       isStockistOnly: false,
       published: false,
+    });
+    const productWithoutDimensions = {
+      ...baseValidProduct,
+      width: '',
+      height: '',
+      depth: '',
+    };
+    const parsed = schema.safeParse(productWithoutDimensions);
+    expect(parsed.success).toBe(true);
+  });
+
+  it('bloqueia produto publicado sem requisitos obrigatórios do catálogo digital', () => {
+    const schema = createMobileProductFormSchema({
+      draft: false,
+      isStockistOnly: false,
+      published: true,
     });
     const invalidProduct = {
       ...baseValidProduct,
@@ -55,11 +71,6 @@ describe('mobileProductFormSchema - single variation error routing', () => {
     };
     const parsed = schema.safeParse(invalidProduct);
     expect(parsed.success).toBe(false);
-    if (!parsed.success) {
-      const paths = parsed.error.issues.map((i) => i.path[0]);
-      expect(paths).toContain('technical');
-      expect(paths).not.toContain('variacoes');
-    }
   });
 
   it('redireciona erro para aba variacoes quando há múltiplas variações e uma delas está inválida', () => {

@@ -31,6 +31,7 @@ interface ProductFormTabContentProps {
   readonly scheduleDraftAutoSave: () => void;
   readonly deletingVariationId: string | null;
   readonly handleDeleteVariation: (id: string) => Promise<void>;
+  readonly onOpenAiCharacteristicsModal?: (mode?: 'web_search' | 'descriptive_text') => void;
 }
 
 export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
@@ -56,6 +57,7 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
   scheduleDraftAutoSave,
   deletingVariationId,
   handleDeleteVariation,
+  onOpenAiCharacteristicsModal,
 }) => {
   return (
     <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-3 sm:p-4 lg:p-6">
@@ -70,6 +72,7 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
           validationErrors={validationErrors}
           setValidationErrors={setValidationErrors}
           isGeneratingCategory={ai.isGeneratingCategory}
+          onOpenAiFillModal={onOpenAiCharacteristicsModal}
         />
       )}
 
@@ -96,8 +99,11 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
         <ProductTechnicalTab
           formData={formData}
           setFormData={setFormData}
-          handleImproveDescriptionWithAI={ai.handleImproveDescriptionWithAI}
-          isImprovingDescription={ai.isImprovingDescription}
+          categoryName={
+            availableCategories?.find((cat: any) =>
+              formData.categoryIds?.includes(cat.id)
+            )?.name || (formData as any).category || ''
+          }
           requiredFieldsOnly={isStockistOnly}
           validationErrors={validationErrors}
         />
@@ -107,8 +113,11 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
         <ProductDescriptionTab
           formData={formData}
           setFormData={setFormData}
-          onImprove={ai.handleImproveDescriptionWithAI}
-          improving={ai.isImprovingDescription}
+          categoryName={
+            availableCategories?.find((cat: any) =>
+              formData.categoryIds?.includes(cat.id)
+            )?.name || (formData as any).category || ''
+          }
         />
       )}
 

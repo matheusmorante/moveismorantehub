@@ -1,12 +1,16 @@
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { excludeTestOrders } from '../../../../../../../shared-utils/testArtifactQueries';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { parse } from 'date-fns';
 import { resolveCanonicalVariationReportItems } from '@/pages/utils/variationCanonicalService';
 import { SaleItem } from '../utils/salesReportCalculations';
 
-export const fetchFromERP = async (): Promise<SaleItem[]> => {
+export const fetchFromERP = async (options: { isCurrent?: () => boolean } = {}): Promise<SaleItem[]> => {
+  const checkCurrent = () => { if (options.isCurrent?.() === false) throw Object.assign(new Error('O contexto da consulta do relatório mudou.'), { stopReportLoad: true }); };
+  const expired = () => Object.assign(new Error('A consulta de itens do ERP excedeu o prazo.'), { stopReportLoad: true });
+  checkCurrent();
   try {
-    const { data: itemRows, error: itemError } = await excludeTestOrders(supabase
+    const itemResponse = await withTimeout(excludeTestOrders(supabase
       .from('order_items')
       .select(`
                 id,
@@ -28,7 +32,10 @@ export const fetchFromERP = async (): Promise<SaleItem[]> => {
       .eq('orders.deleted', false)
       .neq('orders.order_type', 'budget')
       .neq('orders.status', 'draft')
-      .neq('orders.status', 'cancelled');
+      .neq('orders.status', 'cancelled'), 15_000, null, 'Consultar itens canônicos do relatório');
+    checkCurrent();
+    if (!itemResponse) throw expired();
+    const { data: itemRows, error: itemError } = itemResponse;
 
     if (!itemError && itemRows && itemRows.length > 0) {
       const items: SaleItem[] = itemRows.map((row: any) => {
@@ -56,16 +63,22 @@ export const fetchFromERP = async (): Promise<SaleItem[]> => {
         };
       });
 
-      return resolveCanonicalVariationReportItems(items);
+      const resolved = await withTimeout(resolveCanonicalVariationReportItems(items), 15_000, null, 'Resolver variações do relatório').catch(failure => { throw Object.assign(failure instanceof Error ? failure : new Error('Falha ao resolver variações.'), { stopReportLoad: true }); });
+      checkCurrent(); if (!resolved) throw expired(); return resolved;
     }
   } catch (err) {
+    checkCurrent();
+    if (err && typeof err === 'object' && 'stopReportLoad' in err) throw err;
     console.warn('Falha ao carregar relatório via order_items, ativando fallback JSONB:', err);
   }
 
-  const { data, error } = await excludeTestOrders(supabase
+  checkCurrent();
+  const fallbackResponse = await withTimeout(excludeTestOrders(supabase
     .from('orders')
     .select('id, status, order_type, deleted, order_data'))
-    .is('order_data->deleted', null);
+    .is('order_data->deleted', null), 15_000, null, 'Consultar relatório no histórico ERP');
+  checkCurrent(); if (!fallbackResponse) throw expired();
+  const { data, error } = fallbackResponse;
 
   if (error) throw error;
 
@@ -108,65 +121,6 @@ export const fetchFromERP = async (): Promise<SaleItem[]> => {
     });
   });
 
-  return resolveCanonicalVariationReportItems(items);
-};
-
-export const fetchSavedReports = async () => {
-  const { data, error } = await supabase
-    .from('sales_order_reports')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data;
-};
-
-export const insertReport = async (
-  name: string,
-  source: 'erp' | 'csv',
-  report_data: any,
-  config: any
-) => {
-  const { data, error } = await supabase
-    .from('sales_order_reports')
-    .insert([
-      {
-        name,
-        type: 'abc_curve',
-        source,
-        report_data,
-        config,
-        created_at: new Date().toISOString(),
-      },
-    ])
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-};
-
-export const updateReportInDb = async (
-  id: string,
-  name: string,
-  source: 'erp' | 'csv',
-  report_data: any,
-  config: any
-) => {
-  const { data, error } = await supabase
-    .from('sales_order_reports')
-    .update({
-      name,
-      source,
-      report_data,
-      config,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
-    .select();
-  if (error) throw error;
-  return data?.[0];
-};
-
-export const deleteReportFromDb = async (id: string) => {
-  const { error } = await supabase.from('sales_order_reports').delete().eq('id', id);
-  if (error) throw error;
+  const resolved = await withTimeout(resolveCanonicalVariationReportItems(items), 15_000, null, 'Resolver histórico do relatório');
+  checkCurrent(); if (!resolved) throw expired(); return resolved;
 };

@@ -200,7 +200,7 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
               className="flex items-center justify-center gap-1.5 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-orange-500/20 transition-all active:scale-95"
             >
               <i className="bi bi-tools text-sm" />
-              <span>Nova Assistência</span>
+              <span>Nova Assistência Avulsa</span>
             </button>
           )}
           {isReturnRoute && (

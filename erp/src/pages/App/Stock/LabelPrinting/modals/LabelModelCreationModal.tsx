@@ -2,12 +2,16 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelCropFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { readImageFile } from '../../../../../../../shared-utils/readImageFile';
+import type { z } from 'zod';
 import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 
 export interface LabelModelCreationModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onApply: (imageDataUrl: string, scale: number) => void;
+  readonly onApply: (imageDataUrl: string, scale: number) => void | boolean | Promise<void | boolean>;
+  readonly contextKey?: string;
 }
 
 export interface CropArea {
@@ -19,10 +23,13 @@ export interface CropArea {
 
 const MIN_CROP = 20;
 
-export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = ({
+export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (props) => props.isOpen ? <LabelModelCreationSession key={JSON.stringify([props.contextKey ?? null])} {...props} /> : null;
+
+const LabelModelCreationSession: React.FC<LabelModelCreationModalProps> = ({
   isOpen,
   onClose,
   onApply,
+  contextKey,
 }) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [scale, setScale] = useState<number>(1);
@@ -34,7 +41,11 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
   );
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
-  const cropForm = useZodForm(labelCropFormSchema, { image: imageSrc || '', scale, crop });
+  const [busy, setBusy] = useState(false), [errorMessage, setErrorMessage] = useState(''), [statusMessage, setStatusMessage] = useState('');
+  const active = useRef(true), pending = useRef<symbol | null>(null), uncertain = useRef(false);
+  const readerController = useRef<AbortController | null>(null), prepared = useRef<{ signature: string; url: string } | null>(null);
+  const source = useRef({ isOpen, contextKey }); if (source.current.isOpen !== isOpen || source.current.contextKey !== contextKey) source.current = { isOpen, contextKey };
+  const cropForm = useZodForm(labelCropFormSchema, { image: imageSrc || '', scale, crop, displayWidth: 0, displayHeight: 0, renderedWidth: 0, renderedHeight: 0, sourceWidth: 0, sourceHeight: 0 });
   const uploadForm = useZodForm(imageFilesFormSchema, { files: [] });
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -42,43 +53,52 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  useEffect(() => { active.current = true; return () => { active.current = false; readerController.current?.abort(); }; }, []);
   useEffect(() => {
-    if (!isOpen) {
-      setImageSrc(null);
-      setPreviewUrl(null);
-      setScale(1);
-      setScaleInput(100);
-      setCrop({ x: 20, y: 20, w: 200, h: 200 });
-    }
-  }, [isOpen]);
+    readerController.current?.abort(); pending.current = null; uncertain.current = false; prepared.current = null;
+    setImageSrc(null); setPreviewUrl(null); setScale(1); setScaleInput(100); setCrop({ x: 20, y: 20, w: 200, h: 200 }); setImgNaturalSize({ w: 0, h: 0 }); setDragging(null); setDragStart(null); setErrorMessage(''); setStatusMessage(''); setBusy(false);
+  }, [isOpen, contextKey]);
+  const close = useCallback(() => { if (!pending.current) onClose(); }, [onClose]);
+  useEffect(() => {
+    if (!isOpen) return;
+    const keydown = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); close(); } };
+    window.addEventListener('keydown', keydown, true); return () => window.removeEventListener('keydown', keydown, true);
+  }, [isOpen, close]);
+  const invalid = (errors: Parameters<typeof flattenFormErrors>[0]) => { const message = Object.values(flattenFormErrors(errors))[0]; setErrorMessage(message); toast.error(message); };
+  const invalidatePreview = () => { prepared.current = null; setPreviewUrl(null); };
 
   // Sync scale slider and number input
   const handleScaleSlider = (val: number) => {
+    if (pending.current) return;
     setScale(val);
     setScaleInput(Math.round(val * 100));
   };
   const handleScaleInput = (val: number) => {
+    if (pending.current) return;
     const clamped = Math.max(10, Math.min(500, val));
     setScale(clamped / 100);
     setScaleInput(clamped);
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const values = await uploadForm.validateValues({ files: [file] }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    if (!values) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const src = ev.target?.result as string;
-      setImageSrc(src);
-      setPreviewUrl(null);
-    };
-    reader.readAsDataURL(values.files[0]);
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]; if (!file || pending.current) return;
+    event.target.value = '';
+    const token = Symbol('read'), scope = source.current, current = () => active.current && source.current === scope && scope.isOpen;
+    pending.current = token; setBusy(true); setErrorMessage(''); setStatusMessage('Lendo a imagem do modelo...');
+    const controller = new AbortController(); readerController.current = controller;
+    try { await uploadForm.validateAndRun({ files: [file] }, async (values) => {
+      const result = await readImageFile(values.files[0], controller.signal);
+      if (!current()) return false;
+      const image = labelCropFormSchema.shape.image.safeParse(result); if (!image.success) throw new Error('O arquivo não contém uma imagem válida.');
+      setImageSrc(image.data); setImgNaturalSize({ w: 0, h: 0 }); invalidatePreview(); return true;
+    }, (errors) => { if (current()) invalid(errors); }); }
+    catch (error) { if (current()) setErrorMessage(error instanceof Error ? error.message : 'Não foi possível ler a imagem.'); }
+    finally { if (pending.current === token) pending.current = null; if (current()) { setBusy(false); setStatusMessage(''); } }
   };
 
   // Crop dragging logic
   const onMouseDownMove = (e: React.MouseEvent) => {
+    if (pending.current) return;
     e.preventDefault();
     e.stopPropagation();
     setDragging('move');
@@ -94,7 +114,8 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
 
   const onMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!dragging || !dragStart || !containerRef.current) return;
+      if (!dragging || !dragStart || !containerRef.current || pending.current) return;
+      prepared.current = null; setPreviewUrl(null);
       const dx = e.clientX - dragStart.mx;
       const dy = e.clientY - dragStart.my;
       const bounds = containerRef.current.getBoundingClientRect();
@@ -123,66 +144,41 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
     setDragStart(null);
   }, []);
 
-  // Generate cropped image on canvas
-  const generateCroppedImage = useCallback(() => {
-    if (!imageSrc || !imgRef.current || !canvasRef.current || !containerRef.current) return;
-    const img = imgRef.current;
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-
-    const renderedW = img.clientWidth;
-    const renderedH = img.clientHeight;
-    const naturalW = imgNaturalSize.w || img.naturalWidth || renderedW;
-    const naturalH = imgNaturalSize.h || img.naturalHeight || renderedH;
-
-    const offsetLeft = (container.clientWidth - renderedW) / 2;
-    const offsetTop = (container.clientHeight - renderedH) / 2;
-
-    const cropInImgX = Math.max(0, crop.x - offsetLeft);
-    const cropInImgY = Math.max(0, crop.y - offsetTop);
-    const cropInImgW = Math.min(renderedW - cropInImgX, crop.w);
-    const cropInImgH = Math.min(renderedH - cropInImgY, crop.h);
-
-    const scaleX = naturalW / renderedW;
-    const scaleY = naturalH / renderedH;
-
-    const sx = cropInImgX * scaleX;
-    const sy = cropInImgY * scaleY;
-    const sw = cropInImgW * scaleX;
-    const sh = cropInImgH * scaleY;
-
-    canvas.width = Math.max(1, Math.round(sw));
-    canvas.height = Math.max(1, Math.round(sh));
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const nativeImg = new Image();
-    nativeImg.crossOrigin = 'anonymous';
-    nativeImg.onload = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(nativeImg, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/png');
-      setPreviewUrl(dataUrl);
-    };
-    nativeImg.src = imageSrc;
-  }, [imageSrc, crop, imgNaturalSize]);
-
-  const handleApply = async () => cropForm.validateAndRun({ image: imageSrc || previewUrl || '', scale, crop }, (values) => {
-    if (!previewUrl && imageSrc) {
-      generateCroppedImage();
-      setTimeout(() => {
-        if (canvasRef.current) {
-          const dataUrl = canvasRef.current.toDataURL('image/png');
-          onApply(dataUrl, values.scale);
-          onClose();
-        }
-      }, 100);
-    } else if (previewUrl) {
-      onApply(previewUrl, values.scale);
-      onClose();
-    }
-  }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+  const renderCrop = (values: z.output<typeof labelCropFormSchema>): string => {
+    const canvas = canvasRef.current, image = imgRef.current; if (!canvas || !image) throw new Error('A imagem ainda não está disponível.');
+    const signature = JSON.stringify(values); if (prepared.current?.signature === signature) return prepared.current.url;
+    const left = (values.displayWidth - values.renderedWidth) / 2, top = (values.displayHeight - values.renderedHeight) / 2;
+    const x = Math.max(0, values.crop.x - left), y = Math.max(0, values.crop.y - top);
+    const width = Math.min(values.renderedWidth, values.crop.x + values.crop.w - left) - x, height = Math.min(values.renderedHeight, values.crop.y + values.crop.h - top) - y;
+    const scaleX = values.sourceWidth / values.renderedWidth, scaleY = values.sourceHeight / values.renderedHeight;
+    canvas.width = Math.max(1, Math.round(width * scaleX)); canvas.height = Math.max(1, Math.round(height * scaleY));
+    const context = canvas.getContext('2d'); if (!context) throw new Error('Não foi possível preparar o recorte.');
+    context.clearRect(0, 0, canvas.width, canvas.height); context.drawImage(image, x * scaleX, y * scaleY, width * scaleX, height * scaleY, 0, 0, canvas.width, canvas.height);
+    const result = canvas.toDataURL('image/png'); if (!/^data:image\/png;base64,.+/.test(result)) throw new Error('A imagem recortada não foi confirmada.');
+    prepared.current = { signature, url: result }; return result;
+  };
+  const runCrop = async (apply: boolean) => {
+    if (pending.current) return;
+    if (apply && uncertain.current) { setErrorMessage('Há uma aplicação sem confirmação. Confira antes de repetir.'); return; }
+    const token = Symbol('crop'), scope = source.current, current = () => active.current && source.current === scope && scope.isOpen;
+    pending.current = token; setBusy(true); setErrorMessage(''); setStatusMessage(apply ? 'Preparando e aplicando o modelo...' : 'Preparando a prévia do recorte...');
+    const image = imgRef.current, container = containerRef.current;
+    const values = { image: imageSrc || '', scale, crop, displayWidth: container?.clientWidth || 0, displayHeight: container?.clientHeight || 0, renderedWidth: image?.clientWidth || 0, renderedHeight: image?.clientHeight || 0, sourceWidth: imgNaturalSize.w, sourceHeight: imgNaturalSize.h };
+    let applying = false;
+    try { await cropForm.validateAndRun(values, async (parsed) => {
+      if (!current()) return false;
+      const result = renderCrop(parsed); setPreviewUrl(result);
+      if (!apply) return true;
+      applying = true;
+      const confirmed = await withTimeout(Promise.resolve(onApply(result, parsed.scale)).then((value) => value !== false), 30_000, null, 'Aplicar modelo de etiqueta');
+      if (!current()) return false;
+      if (confirmed === null) throw new Error('A aplicação do modelo não foi confirmada. Confira antes de repetir.');
+      if (!confirmed) { applying = false; throw new Error('O modelo não foi aplicado. Tente novamente.'); }
+      onClose(); return true;
+    }, (errors) => { if (current()) invalid(errors); }); }
+    catch (error) { if (current()) { if (applying && (!error || typeof error !== 'object' || !('knownFailure' in error) || !error.knownFailure)) uncertain.current = true; setErrorMessage(error instanceof Error ? error.message : 'Não foi possível aplicar o recorte.'); } }
+    finally { if (pending.current === token) pending.current = null; if (current()) { setBusy(false); setStatusMessage(''); } }
+  };
 
   if (!isOpen) return null;
 
@@ -192,14 +188,14 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
       aria-modal="true"
       aria-labelledby="label-model-creation-title"
       onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
+        if (e.key === 'Escape') { e.stopPropagation(); close(); }
       }}
       className="fixed inset-0 z-[400] flex items-center justify-center p-4"
     >
       <button
         type="button"
         className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm border-0 cursor-default"
-        onClick={onClose}
+        disabled={busy} onClick={close}
         aria-label="Fechar criador de modelo de etiqueta"
       />
       <div className="relative bg-white dark:bg-slate-900 w-full max-w-2xl max-h-[92vh] rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden">
@@ -219,7 +215,7 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
           </div>
           <button
             type="button"
-            onClick={onClose}
+            disabled={busy} onClick={close}
             aria-label="Fechar"
             className="p-2 text-slate-400 hover:text-red-500 transition-colors"
           >
@@ -227,7 +223,9 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 space-y-6">
+        <fieldset disabled={busy} className="min-w-0 flex-1 overflow-y-auto p-8 space-y-6">
+          {errorMessage && <p role="alert" className="text-sm text-red-600">{errorMessage}</p>}
+          {statusMessage && <p role="status"><i className="bi bi-arrow-repeat animate-spin inline-block mr-2" aria-hidden="true" />{statusMessage}</p>}
           {/* Upload Zone */}
           {!imageSrc ? (
             <button
@@ -258,6 +256,8 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
                   <button
                     type="button"
                     onClick={() => {
+                      if (pending.current) return; invalidatePreview();
+                      setImgNaturalSize({ w: 0, h: 0 });
                       setImageSrc(null);
                       setPreviewUrl(null);
                     }}
@@ -267,7 +267,7 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
                   </button>
                   <button
                     type="button"
-                    onClick={generateCroppedImage}
+                    onClick={() => void runCrop(false)}
                     className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors px-3 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-lg"
                   >
                     <i className="bi bi-crop" /> Pré-visualizar Recorte
@@ -292,7 +292,10 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
                   onLoad={(e) => {
                     const img = e.target as HTMLImageElement;
                     setImgNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+                    const bounds = containerRef.current;
+                    if (bounds) setCrop((previous) => { const w = Math.min(previous.w, bounds.clientWidth), h = Math.min(previous.h, bounds.clientHeight); return { x: Math.max(0, Math.min(previous.x, bounds.clientWidth - w)), y: Math.max(0, Math.min(previous.y, bounds.clientHeight - h)), w, h }; });
                   }}
+                  onError={() => { setImgNaturalSize({ w: 0, h: 0 }); setErrorMessage('Não foi possível carregar a imagem. Escolha outro arquivo.'); }}
                   draggable={false}
                 />
 
@@ -333,6 +336,7 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
 
           <input
             ref={fileInputRef}
+            aria-label="Imagem do modelo de etiqueta"
             type="file"
             accept="image/*"
             className="hidden"
@@ -348,6 +352,7 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
                 </span>
                 <div className="flex items-center gap-1">
                   <input
+                    aria-label="Escala do modelo em porcentagem"
                     type="number"
                     min={10}
                     max={500}
@@ -393,21 +398,21 @@ export const LabelModelCreationModal: React.FC<LabelModelCreationModalProps> = (
 
           {/* Hidden canvas for export */}
           <canvas ref={canvasRef} className="hidden" />
-        </div>
+        </fieldset>
 
         {/* Footer */}
         <div className="px-8 py-5 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between shrink-0">
           <button
             type="button"
-            onClick={onClose}
+            disabled={busy} onClick={close}
             className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors"
           >
             Cancelar
           </button>
           <button
             type="button"
-            onClick={handleApply}
-            disabled={!imageSrc}
+            onClick={() => void runCrop(true)}
+            disabled={!imageSrc || busy || uncertain.current}
             className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
           >
             <i className="bi bi-check-lg" />

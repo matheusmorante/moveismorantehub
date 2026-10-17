@@ -168,7 +168,10 @@ export function useProductFormModal({
   }, [isService, activeTab]);
 
   useEffect(() => {
-    if (isStockistOnly && (activeTab === 'ecommerce' || activeTab === 'description')) {
+    if (
+      isStockistOnly &&
+      (activeTab === 'ecommerce' || activeTab === 'technical' || activeTab === 'description')
+    ) {
       setActiveTab('geral');
     }
   }, [isStockistOnly, activeTab]);
@@ -343,6 +346,7 @@ export function useProductFormModal({
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
+        if (variations.editingVariationId) return;
         handleSubmit();
       }
     };
@@ -471,17 +475,18 @@ export function useProductFormModal({
     [autoSaveDraft, isDraftProduct, pendingNewVariationIdRef, setEditingVariationId, validateSavedVariation]
   );
 
-  const handleReplaceImageGlobal = useCallback(
-    (oldUrl: string, newUrl: string) => {
-      setFormData((prev) => {
-        const next = replaceProductImageGlobally(prev, oldUrl, newUrl);
-        latestFormDataRef.current = next;
-        return next;
-      });
-      scheduleDraftAutoSave();
-    },
-    [scheduleDraftAutoSave]
-  );
+  const handleReplaceImageGlobal = useCallback(async (oldUrl: string, newUrl: string) => {
+    const current = latestFormDataRef.current;
+    const next = replaceProductImageGlobally(current, oldUrl, newUrl);
+    const available = [...(current.images || []), ...(current.variations || []).flatMap((item) => item.images || [])];
+    if (!available.includes(oldUrl) && !available.includes(newUrl)) throw Object.assign(new Error('A foto de origem mudou. Reabra o recorte.'), { knownFailure: true });
+    latestFormDataRef.current = next; setFormData(next);
+    if (isDraftProduct) {
+      if (draftSaveTimerRef.current) { clearTimeout(draftSaveTimerRef.current); draftSaveTimerRef.current = null; }
+      if (!await autoSaveDraft(next)) throw Object.assign(new Error('O produto mantém a foto alterada, mas o rascunho não foi confirmado. Confira antes de repetir.'), { uncertain: true });
+    }
+    return true;
+  }, [autoSaveDraft, isDraftProduct]);
 
   const handleDeleteVariation = useCallback(
     async (variationId: string) => {

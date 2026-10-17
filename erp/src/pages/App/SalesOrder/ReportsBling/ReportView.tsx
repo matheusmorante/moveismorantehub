@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
 import ItemExclusionModal from '../Reports/modals/ItemExclusionModal';
 import ProductReferenceModal from '../Reports/modals/ProductReferenceModal';
 import {
@@ -19,13 +19,13 @@ import {
 } from 'recharts';
 import { format, parse } from 'date-fns';
 import { useSalesReport, ABCResult, SaleItem } from './useSalesReport';
-import { supabase } from '@/pages/utils/supabaseConfig';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { blingReportEditorFormSchema, salesReportViewFormSchema } from '../../../../../../shared-utils/salesReportFormSchemas';
 import ReportConfigModal from '../Reports/modals/ReportConfigModal';
 import SupplierPerformanceView from '../Reports/components/SupplierPerformanceView';
 
 const ReportViewBling = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const isPublicMode = location.pathname.startsWith('/public/');
@@ -40,11 +40,13 @@ const ReportViewBling = () => {
     setAvgTurnoverPerItem,
     results,
     setResults,
-    rawResults,
     setRawResults,
     applyFilters,
     loading,
-    setLoading,
+    error,
+    sessionKey,
+    getReport,
+    getProductMappings,
     updateReport,
     fetchFromBling,
     calculateABC,
@@ -54,7 +56,7 @@ const ReportViewBling = () => {
     setReportEndDate,
     allProducts,
     setAllProducts,
-  } = useSalesReport();
+  } = useSalesReport(id || '', isPublicMode);
 
   const [reportName, setReportName] = useState('');
   const [viewMode, setViewMode] = useState<'product' | 'supplier'>('product');
@@ -80,24 +82,20 @@ const ReportViewBling = () => {
   const [isExclusionOpen, setIsExclusionOpen] = useState(false);
   const [isReferenceOpen, setIsReferenceOpen] = useState(false);
 
-  const fetchProductMappings = async () => {
-    const { data } = await supabase
-      .from('product_references')
-      .select('master_name, reference_name');
-    if (data) {
-      const map: Record<string, string> = {};
-      data.forEach((r: any) => {
-        map[r.reference_name] = r.master_name;
-      });
-      setProductMappings(map);
-      return map;
-    }
-    return {};
-  };
-
+  const [updating, setUpdating] = useState(false);
+  const [validationError, setValidationError] = useState('');
+  const updateBusyRef = useRef(false);
+  const pendingRefreshRef = useRef<{ key: string; id: string } | null>(null);
+  const currentSession = useRef(sessionKey); currentSession.current = sessionKey;
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const updateForm = useZodForm(blingReportEditorFormSchema, { id: id || '', name: reportName, source: 'bling', config: reportConfig || {} });
+  const viewForm = useZodForm(salesReportViewFormSchema, { suppliers: selectedSuppliers, minProfit, maxProfit, search: searchTerm, reportType, abcBasis, sortConfig });
+  const { enqueueAndRun: validateView } = viewForm;
   useEffect(() => {
-    fetchProductMappings();
-  }, []);
+    const submittedSession = sessionKey;
+    void getProductMappings().then(mappings => { if (mappings && mounted.current && currentSession.current === submittedSession) setProductMappings(mappings); });
+  }, [getProductMappings, sessionKey]);
 
   const handleShareWhatsApp = () => {
     const REAL_URL = 'https://morantehub.vercel.app';
@@ -144,33 +142,12 @@ const ReportViewBling = () => {
     );
   };
 
-  useEffect(() => {
-    if (id) loadReport(id);
-  }, [id]);
-
-  useEffect(() => {
-    const params: any = {};
-    if (reportType !== 'abc') params.type = reportType;
-    if (abcBasis !== 'revenue') params.basis = abcBasis;
-    if (searchTerm) params.q = searchTerm;
-    if (selectedSuppliers.length > 0) params.s = selectedSuppliers.join(',');
-    if (minProfit > 0) params.minP = minProfit.toString();
-    if (maxProfit > 0) params.maxP = maxProfit.toString();
-    if (sortConfig.key !== 'accumulatedPercentage') params.sortK = sortConfig.key;
-    if (sortConfig.direction !== 'desc') params.sortD = sortConfig.direction;
-    setSearchParams(params, { replace: true });
-  }, [reportType, abcBasis, searchTerm, selectedSuppliers, minProfit, maxProfit, sortConfig]);
-
-  const loadReport = async (reportId: string) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('sales_order_reports')
-        .select('*')
-        .eq('id', reportId)
-        .single();
-      if (error) throw error;
+  const loadReport = useCallback(async (reportId: string) => {
+    const submittedSession = sessionKey;
+    const data = await getReport(reportId);
+    if (!mounted.current || currentSession.current !== submittedSession) return false;
       if (data) {
+        setValidationError('');
         const rd = data.report_data;
         setReportName(data.name);
         setReportSource(data.source);
@@ -200,53 +177,58 @@ const ReportViewBling = () => {
         if (rd.reportStartDate) setReportStartDate(new Date(rd.reportStartDate));
         if (rd.reportEndDate) setReportEndDate(new Date(rd.reportEndDate));
       }
-    } catch (e) {
-      console.error(e);
-      navigate('/sales-order/reports-bling');
-    } finally {
-      setLoading(false);
-    }
-  };
+    return data;
+  }, [getReport, sessionKey, setRawResults, setResults, setMonthCount, setAvgProfitPerItem, setAvgTurnoverPerItem, setAllProducts, setTotalProfit, setReportStartDate, setReportEndDate]);
+  useEffect(() => { setReportName(''); if (id) void loadReport(id); }, [id, loadReport]);
 
   const handleUpdateReport = async (newConfig: any) => {
-    setLoading(true);
+    if (updateBusyRef.current || isPublicMode) return false;
+    updateBusyRef.current = true; setUpdating(true); setValidationError('');
+    const submittedSession = sessionKey;
     try {
-      let items: SaleItem[] = [];
-      if (newConfig.source === 'bling') {
-        // Para simplificar no BETA, pegamos as datas do config ou default 1 mês
-        items = await fetchFromBling();
-      } else {
-        alert('Este módulo é exclusivo para relatórios Bling.');
-        return;
-      }
-
-      const currentMappings = await fetchProductMappings();
-      const reportData = calculateABC(
-        items,
-        newConfig.config.abcBasis,
-        true,
-        newConfig.config,
-        currentMappings,
-        monthCount
-      );
-
-      setIsConfigOpen(false);
-      await updateReport(id!, newConfig.name, newConfig.source, newConfig.config, reportData);
-      loadReport(id!);
-      alert('Relatório atualizado com sucesso!');
-    } catch (e: any) {
-      alert(`Erro ao atualizar: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
+      return await updateForm.validateAndRun({ ...newConfig, id: id || '' }, async parsed => {
+        const refreshKey = JSON.stringify([submittedSession, parsed]);
+        const finishRefresh = async (reportId: string) => {
+          const refreshed = await loadReport(reportId);
+          if (!mounted.current || currentSession.current !== submittedSession) return false;
+          if (!refreshed) { setValidationError('Relatório salvo, mas a visualização não pôde ser atualizada. Carregue novamente; não é preciso salvar outra vez.'); return false; }
+          pendingRefreshRef.current = null; setIsConfigOpen(false); return true;
+        };
+        if (pendingRefreshRef.current?.key === refreshKey) return finishRefresh(pendingRefreshRef.current.id);
+        const range = parsed.config.dateRange;
+        const items: SaleItem[] = await fetchFromBling(range?.start, range?.end);
+        const mappings = await getProductMappings();
+        if (!mounted.current || currentSession.current !== submittedSession || mappings === false) return false;
+        const reportData = calculateABC(items, parsed.config.abcBasis, true, parsed.config, mappings, monthCount);
+        const saved = await updateReport(parsed.id, parsed.name, parsed.source, parsed.config, reportData);
+        if (!mounted.current || currentSession.current !== submittedSession || !saved) return false;
+        pendingRefreshRef.current = { key: refreshKey, id: saved.id };
+        return finishRefresh(saved.id);
+      }, errors => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira a configuração do relatório.'));
+    } catch (failure) {
+      if (mounted.current && currentSession.current === submittedSession) setValidationError(failure instanceof Error ? failure.message : 'Não foi possível atualizar o relatório.');
+      return false;
+    } finally { updateBusyRef.current = false; if (mounted.current) setUpdating(false); }
   };
 
   useEffect(() => {
-    applyFilters(
-      { suppliers: selectedSuppliers, minProfit, maxProfit, search: searchTerm },
-      reportConfig
-    );
-  }, [selectedSuppliers, minProfit, maxProfit, searchTerm, rawResults]);
+    let cancelled = false;
+    void validateView({ suppliers: selectedSuppliers, minProfit, maxProfit, search: searchTerm, reportType, abcBasis, sortConfig }, values => {
+      if (cancelled) return;
+      applyFilters(values, reportConfig);
+      const params: Record<string, string> = {};
+      if (values.reportType !== 'abc') params.type = values.reportType;
+      if (values.abcBasis !== 'revenue') params.basis = values.abcBasis;
+      if (values.search) params.q = values.search;
+      if (values.suppliers.length) params.s = values.suppliers.join(',');
+      if (values.minProfit > 0) params.minP = String(values.minProfit);
+      if (values.maxProfit > 0) params.maxP = String(values.maxProfit);
+      if (values.sortConfig.key !== 'accumulatedPercentage') params.sortK = values.sortConfig.key;
+      if (values.sortConfig.direction !== 'desc') params.sortD = values.sortConfig.direction;
+      if (new URLSearchParams(params).toString() !== searchParams.toString()) setSearchParams(params, { replace: true });
+    }, errors => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira os filtros.'));
+    return () => { cancelled = true; };
+  }, [selectedSuppliers, minProfit, maxProfit, searchTerm, reportType, abcBasis, sortConfig, reportConfig, setSearchParams, searchParams, validateView, applyFilters]);
 
   const chartData = useMemo(() => {
     let accValor = 0;
@@ -265,11 +247,11 @@ const ReportViewBling = () => {
     });
   }, [results, abcBasis, monthCount]);
 
-  if (loading && !results.length) {
+  if (loading && !reportName) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center">
         <div className="w-16 h-16 border-4 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin mb-6" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <p role="status" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
           Processando Bling API...
         </p>
       </div>
@@ -361,6 +343,8 @@ const ReportViewBling = () => {
         </div>
       </header>
 
+      {(validationError || error) && <p role="alert" className="px-6 py-3 text-red-600">{validationError || error} <button onClick={() => id && loadReport(id)} disabled={loading || updating}>Carregar novamente</button></p>}
+      {(loading || updating) && <p role="status" className="px-6 py-3 text-indigo-600">Consultando e confirmando o relatório...</p>}
       <main className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar">
         <div className="max-w-[1600px] mx-auto flex flex-col gap-8">
           {viewMode === 'product' ? (
@@ -454,7 +438,8 @@ const ReportViewBling = () => {
       {isConfigOpen && (
         <ReportConfigModal
           isOpen={isConfigOpen}
-          onClose={() => setIsConfigOpen(false)}
+          onClose={() => { if (!updateBusyRef.current) setIsConfigOpen(false); }}
+          loading={loading || updating}
           onSave={handleUpdateReport}
           initialName={reportName}
           initialSource={reportSource}

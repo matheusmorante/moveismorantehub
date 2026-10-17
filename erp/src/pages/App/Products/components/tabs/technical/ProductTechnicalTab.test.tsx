@@ -71,4 +71,20 @@ describe('ProductTechnicalTab Component', () => {
       await screen.findByText(/nenhuma especificação técnica cadastrada no sistema/i)
     ).toBeDefined();
   });
+
+  it('não exibe botões de preenchimento com IA na aba de características (migrados para aba inicial)', () => {
+    vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockResolvedValue([]);
+
+    render(
+      <ProductTechnicalTab
+        formData={{ technicalValues: {} }}
+        setFormData={vi.fn()}
+        isAdministrator={true}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Preencher Características com IA/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Aperfeiçoar com IA/i })).toBeNull();
+  });
 });
+

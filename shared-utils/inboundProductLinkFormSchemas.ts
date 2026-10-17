@@ -55,6 +55,26 @@ export function createInboundProductPreparationCommandSchema(itemNumbers: readon
   });
 }
 export type InboundProductPreparationCommand = z.output<ReturnType<typeof createInboundProductPreparationCommandSchema>>;
+export const inboundItemClassificationSchema = z.object({
+  decision: z.enum(['EXISTING_VARIATION', 'NEW_VARIATION_OF_EXISTING_PRODUCT', 'NEW_PRODUCT', 'UNSURE']),
+  matchedProductId: z.string().nullable(), matchedVariationId: z.string().nullable(), normalizedParentName: z.string(),
+  extractedAttributes: z.object({ color: z.string().nullable(), measure: z.string().nullable(), material: z.string().nullable() }),
+  confidence: z.number().min(0).max(1), reasons: z.array(z.string()),
+});
+export function createInboundClassificationCommandSchema(itemNumbers: readonly number[]) {
+  return createInboundProductPreparationCommandSchema(itemNumbers).safeExtend({
+    intent: z.enum(['existing', 'family', 'independent']), classification: inboundItemClassificationSchema.optional(),
+  }).superRefine((values, ctx) => {
+    const expected = values.intent === 'existing' ? 'EXISTING_VARIATION' : 'NEW_VARIATION_OF_EXISTING_PRODUCT';
+    if (values.intent !== 'independent' && (values.classification?.decision !== expected || !values.classification?.matchedProductId?.trim())) {
+      ctx.addIssue({ code: 'custom', path: ['classification'], message: 'A sugestão de vínculo mudou. Analise o item novamente.' });
+    }
+    if (values.intent === 'family') {
+      if (values.markup === undefined) ctx.addIssue({ code: 'custom', path: ['markup'], message: 'Informe o acréscimo para cadastrar a nova variação.' });
+      if (!values.item.productCode) ctx.addIssue({ code: 'custom', path: ['item', 'productCode'], message: 'O item não possui código do fornecedor para vincular.' });
+    }
+  });
+}
 export const inboundProductTitleSchema = z.object({ title: z.string().trim().min(1, 'A preparação não retornou um nome válido para o produto.') });
 
 export function createInboundProductLinkSchema(itemNumbers: readonly number[]) {

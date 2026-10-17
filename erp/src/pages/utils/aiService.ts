@@ -29,6 +29,12 @@ export const aiService = {
   suggestPrices: aiProductCatalogService.suggestPrices.bind(aiProductCatalogService),
   improveProductDescription:
     aiProductCatalogService.improveProductDescription.bind(aiProductCatalogService),
+  extractProductCharacteristicsWithAI:
+    aiProductCatalogService.extractProductCharacteristicsWithAI.bind(aiProductCatalogService),
+  extractFromDescriptiveTextWithAI:
+    aiProductCatalogService.extractFromDescriptiveTextWithAI.bind(aiProductCatalogService),
+  generateDescriptionFromInformativeText:
+    aiProductCatalogService.generateDescriptionFromInformativeText.bind(aiProductCatalogService),
 
   // 2. Dados fiscais complementares (NCM é selecionado pelo catálogo por tokens)
   generateFiscalData: aiFiscalClassificationService.generateFiscalData.bind(

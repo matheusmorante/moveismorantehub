@@ -1,11 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { postLibraryFilterFormSchema, postDeleteFormSchema, postDownloadFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
+import { submittedSearchFormSchema } from '../../../../../../../../shared-utils/lookupFormSchemas';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { PostCampaign } from '../../types/postCreator';
 import {
   ProductPost,
   ProductPostFormat,
-  productPostFormatLabel,
 } from '../../types/postSpecification';
 import { productPostsService } from '../../services/productPostsService';
 import { PostCard } from './PostCard';
@@ -46,98 +50,110 @@ export function PostsLibraryPage({
   const [productNames, setProductNames] = useState<Record<string, string>>({});
   const campaignMap = Object.fromEntries(campaigns.map((c) => [c.id, c.name]));
 
+  const [errorMessage, setErrorMessage] = useState('');
+  const [cleanupPending, setCleanupPending] = useState<ProductPost[]>([]);
+  const active = useRef(true), deleting = useRef(false), uncertain = useRef(new Set<string>());
+  const { user } = useAuth();
+  const actor = useRef({ id: user?.id });
+  if (actor.current.id !== user?.id) actor.current = { id: user?.id };
+  const source = useRef({ actor: actor.current, productId: filterProductId, campaignId: filterCampaignId, format: filterFormat });
+  if (source.current.actor !== actor.current || source.current.productId !== filterProductId || source.current.campaignId !== filterCampaignId || source.current.format !== filterFormat) source.current = { actor: actor.current, productId: filterProductId, campaignId: filterCampaignId, format: filterFormat };
+  const querySequence = useRef(0), searchSequence = useRef(0);
+  const postsSource = useRef(posts), namesSource = useRef(productNames), cleanupSource = useRef(cleanupPending);
+  postsSource.current = posts; namesSource.current = productNames; cleanupSource.current = cleanupPending;
+  const { enqueueAndRun: queryPosts } = useZodForm(postLibraryFilterFormSchema, { productId: filterProductId, campaignId: filterCampaignId, format: filterFormat });
+  const { enqueueAndRun: searchProducts } = useZodForm(submittedSearchFormSchema, { search: productSearch });
+  const deleteForm = useZodForm(postDeleteFormSchema, { id: '', productId: '', imageStoragePath: '' });
+  const downloadForm = useZodForm(postDownloadFormSchema, { id: '', format: 'FEED_4_5', imageUrl: '' });
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  useEffect(() => { setFilterProductId(initialProductId || ''); setFilterProductName(initialProductName || ''); setUploadOpen(false); setProductSuggestions([]); setProductSearch(''); }, [initialProductId, initialProductName]);
+  useEffect(() => { setPosts([]); setProductNames({}); setCleanupPending([]); setErrorMessage(''); }, [user?.id]);
   const loadPosts = useCallback(async () => {
+    if (!user?.id) { setLoading(false); setErrorMessage('Aguarde a confirmação da sessão.'); return false; }
+    const sequence = ++querySequence.current, scope = source.current;
+    const current = () => active.current && source.current === scope && sequence === querySequence.current;
     setLoading(true);
     try {
-      const results = await productPostsService.listPosts({
-        productId: filterProductId || undefined,
-        campaignId: filterCampaignId || undefined,
-        format: filterFormat || undefined,
-      });
-      setPosts(results);
-
-      // Carregar nomes dos produtos que ainda não temos
-      const missingIds = [...new Set(results.map((p) => p.productId))].filter(
-        (id) => !productNames[id]
-      );
-      if (missingIds.length > 0) {
-        const { data } = await supabase
-          .from('products')
-          .select('id, name, description')
-          .in('id', missingIds);
-        if (data) {
-          setProductNames((prev) => ({
-            ...prev,
-            ...Object.fromEntries(
-              data.map((p: any) => [p.id, p.name ?? p.description ?? 'Produto'])
-            ),
-          }));
+      return await queryPosts({ productId: filterProductId, campaignId: filterCampaignId, format: filterFormat }, async (values) => {
+        if (!current()) return false;
+        const results = await withTimeout(productPostsService.listPosts({ productId: values.productId || undefined, campaignId: values.campaignId || undefined, format: values.format || undefined }), 15_000, null, 'Consultar biblioteca de posts');
+        if (!current()) return false;
+        if (!Array.isArray(results)) throw new Error('A consulta da biblioteca não foi confirmada. Tente novamente.');
+        setPosts(results); setErrorMessage('');
+        const missingIds = [...new Set(results.map((post) => post.productId))].filter((id) => !namesSource.current[id]);
+        if (missingIds.length) {
+          const names = await withTimeout(supabase.from('products').select('id, name, description').in('id', missingIds), 15_000, null, 'Nomes dos produtos da biblioteca');
+          if (!current()) return false;
+          if (names?.data) setProductNames((previous) => ({ ...previous, ...Object.fromEntries(names.data.map((product: any) => [product.id, product.name ?? product.description ?? 'Produto'])) }));
         }
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao carregar a biblioteca.');
-    } finally {
-      setLoading(false);
-    }
-  }, [filterProductId, filterCampaignId, filterFormat, productNames]);
-
-  useEffect(() => {
-    void loadPosts();
-  }, [filterProductId, filterCampaignId, filterFormat]); // eslint-disable-line react-hooks/exhaustive-deps
+        return true;
+      }, (errors) => { if (current()) setErrorMessage(Object.values(flattenFormErrors(errors))[0]); });
+    } catch (error) { if (current()) { const message = error instanceof Error ? error.message : 'Erro ao carregar a biblioteca.'; setErrorMessage(message); toast.error(message); } return false; }
+    finally { if (current()) setLoading(false); }
+  }, [filterProductId, filterCampaignId, filterFormat, queryPosts, user?.id]);
+  const latestLoad = useRef(loadPosts); latestLoad.current = loadPosts;
+  useEffect(() => { void loadPosts(); }, [loadPosts]);
 
   const handleSearchProducts = useCallback(async (query: string): Promise<ProductOption[]> => {
-    const { data } = await supabase
-      .from('products')
-      .select('id, name, description, slug')
-      .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
-      .eq('is_draft', false)
-      .limit(10);
-    return (data ?? []).map((p: any) => ({
-      id: p.id,
-      name: p.name ?? p.description ?? 'Produto',
-      slug: p.slug ?? '',
-    }));
-  }, []);
-
-  const handleProductSearch = async (q: string) => {
-    setProductSearch(q);
-    if (!q.trim()) {
-      setProductSuggestions([]);
-      return;
-    }
-    const results = await handleSearchProducts(q);
-    setProductSuggestions(results);
+    const scope = actor.current;
+    if (!scope.id) throw new Error('Aguarde a confirmação da sessão.');
+    const current = () => active.current && actor.current === scope;
+    const results = await searchProducts({ search: query }, async (values) => {
+      if (!current()) return [];
+      const result = await withTimeout(supabase.from('products').select('id, name, description, slug').ilike('name', '%' + values.search + '%').eq('is_draft', false).limit(10), 15_000, null, 'Buscar produto da biblioteca');
+      if (!current()) return [];
+      if (!result || result.error || !Array.isArray(result.data)) throw new Error('A busca de produtos não foi confirmada. Tente novamente.');
+      return result.data.map((product: any) => ({ id: product.id, name: product.name ?? product.description ?? 'Produto', slug: product.slug ?? '' }));
+    }, (errors) => { if (current()) setErrorMessage(Object.values(flattenFormErrors(errors))[0]); });
+    return results || [];
+  }, [searchProducts]);
+  const handleProductSearch = async (query: string) => {
+    const sequence = ++searchSequence.current, scope = actor.current;
+    setProductSearch(query); setProductSuggestions([]);
+    if (!query.trim()) return;
+    try { const results = await handleSearchProducts(query); if (active.current && actor.current === scope && sequence === searchSequence.current) setProductSuggestions(results); }
+    catch (error) { if (active.current && actor.current === scope && sequence === searchSequence.current) setErrorMessage(error instanceof Error ? error.message : 'Erro ao buscar produto.'); }
   };
 
   const handleDelete = async (post: ProductPost) => {
-    if (!confirm('Excluir esta arte da Biblioteca? A ação não pode ser desfeita.')) return;
-    setDeletingId(post.id);
+    if (deleting.current) return;
+    if (!user?.id) { setErrorMessage('Aguarde a confirmação da sessão.'); return; }
+    if (uncertain.current.has(post.id)) { setErrorMessage('Há uma exclusão sem confirmação. Confira a biblioteca antes de repetir.'); return; }
+    deleting.current = true; setDeletingId(post.id); setErrorMessage('');
+    const scope = actor.current, current = () => active.current && actor.current === scope;
     try {
-      await productPostsService.deletePost(post);
-      toast.success('Post removido da Biblioteca.');
-      void loadPosts();
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao excluir o post.');
-    } finally {
-      setDeletingId(undefined);
-    }
+      await deleteForm.validateAndRun({ ...post }, async (values) => {
+        const cleanup = cleanupSource.current.find((item) => item.id === values.id);
+        const selected = cleanup || postsSource.current.find((item) => item.id === values.id);
+        if (!selected || selected.productId !== values.productId || selected.imageStoragePath !== values.imageStoragePath) throw new Error('A arte selecionada mudou. Atualize a biblioteca.');
+        if (!cleanup && !confirm('Excluir esta arte da Biblioteca? A ação não pode ser desfeita.')) return false;
+        await productPostsService.deletePost(values as unknown as ProductPost, { recordAlreadyDeleted: Boolean(cleanup), isCurrent: current });
+        if (!current()) return false;
+        setCleanupPending((previous) => previous.filter((item) => item.id !== values.id));
+        setPosts((previous) => previous.filter((item) => item.id !== values.id));
+        toast.success('Post removido da Biblioteca.'); await latestLoad.current(); return true;
+      }, (errors) => { if (current()) setErrorMessage(Object.values(flattenFormErrors(errors))[0]); });
+    } catch (error) {
+      if (error && typeof error === 'object' && 'recordDeleted' in error && error.recordDeleted && current()) {
+        setCleanupPending((previous) => previous.some((item) => item.id === post.id) ? previous : [...previous, post]);
+        setPosts((previous) => previous.filter((item) => item.id !== post.id));
+      } else if (error && typeof error === 'object' && 'uncertain' in error && error.uncertain) uncertain.current.add(post.id);
+      if (current()) { const message = error instanceof Error ? error.message : 'Erro ao excluir a arte.'; setErrorMessage(message); toast.error(message); }
+    } finally { deleting.current = false; if (active.current) setDeletingId(undefined); }
   };
+  const handleDownload = async (post: ProductPost) => downloadForm.validateAndRun(post, (values) => {
+    const link = document.createElement('a'); link.href = values.imageUrl; link.download = 'post-' + values.format.toLowerCase() + '-' + values.id.slice(0, 8) + '.webp'; link.target = '_blank'; link.rel = 'noopener'; link.click();
+  }, (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0]));
 
-  const handleDownload = (post: ProductPost) => {
-    const link = document.createElement('a');
-    link.href = post.imageUrl;
-    link.download = `post-${post.format.toLowerCase()}-${post.id.slice(0, 8)}.webp`;
-    link.target = '_blank';
-    link.click();
-  };
-
-  const totalByFormat = {
-    feed: posts.filter((p) => p.format === 'FEED_4_5').length,
-    story: posts.filter((p) => p.format === 'STORY_STATUS_9_16').length,
-  };
+  const totalByFormat = { feed: posts.filter((post) => post.format === 'FEED_4_5').length, story: posts.filter((post) => post.format === 'STORY_STATUS_9_16').length };
 
   return (
     <div className="space-y-5">
+      {errorMessage && <p role="alert" className="text-sm text-red-300">{errorMessage}</p>}
+      {loading && <p role="status">Consultando biblioteca de posts...</p>}
+      {errorMessage && !deletingId && <button type="button" onClick={() => void loadPosts()}>Tentar atualizar biblioteca</button>}
+      {deletingId && <p role="status">Confirmando exclusão da arte...</p>}
+      {cleanupPending.map((post) => <button type="button" key={post.id} disabled={Boolean(deletingId)} onClick={() => void handleDelete(post)}>Tentar limpar arquivo pendente</button>)}
       {/* Filtros */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
         {/* Busca de produto */}
@@ -191,6 +207,7 @@ export function PostsLibraryPage({
         <div className="min-w-[160px]">
           <label className="mb-1 block text-xs font-semibold text-slate-400">Campanha</label>
           <select
+            aria-label="Filtrar campanha"
             value={filterCampaignId}
             onChange={(e) => setFilterCampaignId(e.target.value)}
             className="w-full rounded-lg bg-slate-800 px-3 py-2 text-sm text-white outline-none ring-1 ring-slate-700 focus:ring-indigo-500"
@@ -210,6 +227,7 @@ export function PostsLibraryPage({
         <div className="min-w-[150px]">
           <label className="mb-1 block text-xs font-semibold text-slate-400">Formato</label>
           <select
+            aria-label="Filtrar formato"
             value={filterFormat}
             onChange={(e) => setFilterFormat(e.target.value as ProductPostFormat | '')}
             className="w-full rounded-lg bg-slate-800 px-3 py-2 text-sm text-white outline-none ring-1 ring-slate-700 focus:ring-indigo-500"

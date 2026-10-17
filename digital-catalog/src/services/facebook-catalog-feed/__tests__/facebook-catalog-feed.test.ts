@@ -170,7 +170,7 @@ test('mapProductsToFeedRows outputs strictly SKUs as id and ignores invalid/inac
         },
       ],
     },
-    // 2. Produto simples sem variações
+    // 2. Produto sem variações publicadas (todas ocultas ou ausentes) - NÃO deve entrar no feed
     {
       id: 'p-uuid-balcao',
       code: '000131',
@@ -180,7 +180,15 @@ test('mapProductsToFeedRows outputs strictly SKUs as id and ignores invalid/inac
       status: 'published',
       active: true,
       images: ['https://pub-r2.dev/balcao.jpg'],
-      product_variations: [],
+      product_variations: [
+        {
+          id: 'v-uuid-balcao-hidden',
+          sku: '000131-01',
+          name: 'Balcão Branco',
+          status: 'hidden',
+          active: true,
+        },
+      ],
     },
     // 3. Produto inativo (não deve entrar)
     {
@@ -201,8 +209,9 @@ test('mapProductsToFeedRows outputs strictly SKUs as id and ignores invalid/inac
     origin: 'https://moveismorante.com.br',
   });
 
-  // Deve conter 2 linhas: 1 variação publicada + 1 produto simples
-  assert.equal(rows.length, 2);
+  // Deve conter estritamente 1 linha: apenas a variação publicada
+  // Produtos pai e produtos sem variações publicadas nunca devem ser emitidos
+  assert.equal(rows.length, 1);
 
   // Linha 1: variação com SKU
   assert.equal(rows[0][0], '000224-02');
@@ -210,9 +219,7 @@ test('mapProductsToFeedRows outputs strictly SKUs as id and ignores invalid/inac
   assert.ok(rows[0][2].startsWith('Frete grátis para Curitiba'));
   assert.equal(rows[0][8], '1649.00 BRL');
 
-  // Linha 2: produto simples com SKU (NÃO UUID!)
-  assert.equal(rows[1][0], '000131');
-  assert.notEqual(rows[1][0], 'p-uuid-balcao');
-  assert.equal(rows[1][1], 'Balcão para Pia de 1,20m');
-  assert.equal(rows[1][8], '499.00 BRL');
+  // Garante que o código do produto pai 000131 NÃO está presente em nenhuma linha
+  const hasParentCode = rows.some((r) => r[0] === '000131' || r[0] === '000224');
+  assert.equal(hasParentCode, false);
 });

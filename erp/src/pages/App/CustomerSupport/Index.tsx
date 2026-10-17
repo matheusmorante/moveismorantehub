@@ -1,185 +1,144 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { WhatsAppConversation, WhatsAppMessage, ConversationFilter } from './types';
-import {
-  fetchConversations,
-  fetchConversationMessages,
-  markConversationAsRead,
-  toggleArchiveConversation,
-  mapRowToConversation,
-  mapRowToMessage,
-} from '@/pages/utils/customerSupport/customerSupportService';
 import { getMonthlyUsage, FreeTierUsageInfo } from '@/pages/utils/customerSupport/freeTierTracker';
-import { ConversationSidebar } from './components/ConversationSidebar';
-import { ChatArea } from './components/ChatArea';
-import { CustomerInfoPanel } from './components/CustomerInfoPanel';
-import { EmptyChatState } from './components/EmptyChatState';
-import { UsageConsumptionModal } from './components/UsageConsumptionModal';
+import { useAuth } from '@/context/AuthContext';
+import {
+  useCustomerSupportConversations,
+  useCustomerSupportMessages,
+  useCustomerSupportActions,
+} from './hooks';
+import {
+  NavigationRail,
+  InboxSidebar,
+  ConversationSidebar,
+  ChatArea,
+  CustomerInfoPanel,
+  ActivityTimelineDrawer,
+  EmptyChatState,
+  UsageConsumptionModal,
+} from './components';
 
 export default function CustomerSupport() {
-  const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
-  const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
-  const [filter, setFilter] = useState<ConversationFilter>('all');
-  const [search, setSearch] = useState('');
+  const { user, profile } = useAuth();
   const [usageInfo, setUsageInfo] = useState<FreeTierUsageInfo | null>(null);
-
-  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(true);
+  const [isInboxSidebarOpen, setIsInboxSidebarOpen] = useState(true);
+  const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
 
-  // Referência para conversas ativas para Realtime
-  const selectedConvIdRef = useRef<string | null>(null);
-  selectedConvIdRef.current = selectedConversation?.id || null;
+  // 1. Gerenciamento de conversas, filtros, busca e sincronização Realtime
+  const {
+    conversations,
+    setConversations,
+    selectedConversation,
+    setSelectedConversation,
+    filter,
+    setFilter,
+    sortOrder,
+    setSortOrder,
+    search,
+    setSearch,
+    isLoadingConversations,
+    isRealtimeConnected,
+    loadConversations,
+    totalAll,
+    unreadCountTotal,
+    mineCountTotal,
+    unassignedCountTotal,
+  } = useCustomerSupportConversations({ userId: user?.id });
 
-  // 1. Carrega conversas do banco
-  const loadConversations = useCallback(async () => {
-    setIsLoadingConversations(true);
-    try {
-      const res = await fetchConversations(supabase, {
-        filter,
-        search,
-        page: 1,
-        pageSize: 50,
-      });
-      setConversations(res.conversations);
+  // 2. Gerenciamento de mensagens da conversa selecionada e canal Realtime
+  const { messages, setMessages, isLoadingMessages } = useCustomerSupportMessages({
+    selectedConversation,
+    onClearUnread: (convId) => {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c))
+      );
+    },
+  });
 
-      // Mantém conversa selecionada atualizada
-      if (selectedConvIdRef.current) {
-        const found = res.conversations.find((c) => c.id === selectedConvIdRef.current);
-        if (found) setSelectedConversation(found);
-      }
-    } finally {
-      setIsLoadingConversations(false);
-    }
-  }, [filter, search]);
+  // 3. Operações e ações de atendimento (status, atribuição, notas internas)
+  const currentUserName = profile?.full_name || user?.email || 'Atendente';
+  const {
+    handleToggleArchive,
+    handleConversationUpdated,
+    handleAssignConversation,
+    handleUpdateStatus,
+    handleAddInternalNote,
+  } = useCustomerSupportActions({
+    selectedConversation,
+    setSelectedConversation,
+    setConversations,
+    setMessages,
+    currentUserName,
+    currentUserId: user?.id,
+    currentUserRole: profile?.role,
+  });
 
-  // 2. Carrega uso mensal da franquia gratuita
+  // 4. Franquia gratuita da Meta Cloud API
   const loadUsage = useCallback(async () => {
     const info = await getMonthlyUsage(supabase);
     setUsageInfo(info);
   }, []);
 
   useEffect(() => {
-    loadConversations();
     loadUsage();
-  }, [loadConversations, loadUsage]);
-
-  // 3. Ao selecionar uma conversa, carrega mensagens e zera não lidas
-  const handleSelectConversation = async (conv: WhatsAppConversation) => {
-    setSelectedConversation(conv);
-    setIsLoadingMessages(true);
-
-    try {
-      if (conv.unreadCount > 0) {
-        await markConversationAsRead(supabase, conv.id);
-        setConversations((prev) =>
-          prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c))
-        );
-      }
-
-      const msgs = await fetchConversationMessages(supabase, conv.id);
-      setMessages(msgs);
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  };
-
-  // 4. Sincronização Reativa via Supabase Realtime
-  useEffect(() => {
-    // Canal para mudanças nas conversas
-    const conversationsChannel = supabase
-      .channel('whatsapp-conversations-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'whatsapp_conversations' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newConv = mapRowToConversation(payload.new);
-            setConversations((prev) => [newConv, ...prev.filter((c) => c.id !== newConv.id)]);
-          } else if (payload.eventType === 'UPDATE') {
-            const updated = mapRowToConversation(payload.new);
-            setConversations((prev) =>
-              prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
-            );
-            if (selectedConvIdRef.current === updated.id) {
-              setSelectedConversation((prev) => (prev ? { ...prev, ...updated } : null));
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    // Canal para novas mensagens da conversa aberta
-    const messagesChannel = supabase
-      .channel('whatsapp-messages-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'whatsapp_messages' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newMsg = mapRowToMessage(payload.new);
-            if (selectedConvIdRef.current === newMsg.conversationId) {
-              setMessages((prev) => {
-                if (prev.some((m) => m.id === newMsg.id || (m.apiMessageId && m.apiMessageId === newMsg.apiMessageId))) {
-                  return prev;
-                }
-                return [...prev, newMsg];
-              });
-            }
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedMsg = mapRowToMessage(payload.new);
-            if (selectedConvIdRef.current === updatedMsg.conversationId) {
-              setMessages((prev) =>
-                prev.map((m) => (m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m))
-              );
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(conversationsChannel);
-      supabase.removeChannel(messagesChannel);
-    };
-  }, []);
-
-  const handleToggleArchive = async () => {
-    if (!selectedConversation) return;
-    const ok = await toggleArchiveConversation(
-      supabase,
-      selectedConversation.id,
-      selectedConversation.isArchived
-    );
-    if (ok) {
-      const nextArchived = !selectedConversation.isArchived;
-      const updated = { ...selectedConversation, isArchived: nextArchived };
-      setSelectedConversation(updated);
-      setConversations((prev) =>
-        prev.map((c) => (c.id === updated.id ? updated : c))
-      );
-    }
-  };
-
-  const handleConversationUpdated = (partial: Partial<WhatsAppConversation>) => {
-    if (!selectedConversation) return;
-    const updated = { ...selectedConversation, ...partial };
-    setSelectedConversation(updated);
-    setConversations((prev) =>
-      prev.map((c) => (c.id === updated.id ? updated : c))
-    );
-  };
+  }, [loadUsage]);
 
   return (
-    <div className="flex h-[calc(100vh-64px)] w-full overflow-hidden bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
-      {/* 1. Barra Lateral de Conversas (Mobile: oculta se houver conversa selecionada) */}
-      <div className={`h-full ${selectedConversation ? 'hidden md:flex' : 'flex w-full md:w-auto'}`}>
+    <div className="flex h-full w-full overflow-hidden bg-white dark:bg-slate-900 select-none">
+      {/* Coluna 1: Barra Vertical de Navegação (~56-60px) */}
+      <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+        <NavigationRail
+          activeFilter={filter}
+          onFilterChange={setFilter}
+          unreadCountTotal={unreadCountTotal}
+          mineCountTotal={mineCountTotal}
+          unassignedCountTotal={unassignedCountTotal}
+          usageInfo={usageInfo}
+          onOpenUsageModal={() => setIsUsageModalOpen(true)}
+          isLoading={isLoadingConversations}
+          onRefresh={loadConversations}
+          isRealtimeConnected={isRealtimeConnected}
+          isInboxSidebarOpen={isInboxSidebarOpen}
+          onToggleInboxSidebar={() => setIsInboxSidebarOpen((prev) => !prev)}
+        />
+      </div>
+
+      {/* Coluna 2: Barra de Pastas e Filas "Inbox" (~230px) — Recolhível */}
+      <div
+        className={`${
+          selectedConversation
+            ? isInboxSidebarOpen
+              ? 'hidden xl:flex'
+              : 'hidden'
+            : isInboxSidebarOpen
+              ? 'hidden sm:flex'
+              : 'hidden'
+        }`}
+      >
+        <InboxSidebar
+          activeFilter={filter}
+          onFilterChange={setFilter}
+          totalAll={totalAll}
+          totalMine={mineCountTotal}
+          totalUnassigned={unassignedCountTotal}
+          totalUnread={unreadCountTotal}
+          isOpen={isInboxSidebarOpen}
+          onToggleCollapse={() => setIsInboxSidebarOpen(false)}
+        />
+      </div>
+
+      {/* Coluna 3: Lista de Conversas (~350px) — No mobile, esconde se houver conversa aberta */}
+      <div
+        className={`h-full ${
+          selectedConversation ? 'hidden md:flex' : 'flex w-full md:w-auto'
+        }`}
+      >
         <ConversationSidebar
           conversations={conversations}
           selectedConversation={selectedConversation}
-          onSelectConversation={handleSelectConversation}
+          onSelectConversation={setSelectedConversation}
           filter={filter}
           onFilterChange={setFilter}
           search={search}
@@ -188,29 +147,51 @@ export default function CustomerSupport() {
           onOpenUsageModal={() => setIsUsageModalOpen(true)}
           isLoading={isLoadingConversations}
           onRefresh={loadConversations}
+          currentUserId={user?.id}
+          sortOrder={sortOrder}
+          onSortChange={setSortOrder}
         />
       </div>
 
-      {/* 2. Área Central de Conversa / Chat */}
+      {/* Coluna 4: Área Principal do Chat (Flex-1) */}
       {selectedConversation ? (
-        <div className="flex-1 flex h-full min-w-0">
+        <div className="flex-1 flex h-full min-w-0 relative">
           <ChatArea
             conversation={selectedConversation}
             messages={messages}
             isLoadingMessages={isLoadingMessages}
             onBackMobile={() => setSelectedConversation(null)}
             isInfoPanelOpen={isInfoPanelOpen}
-            onToggleInfoPanel={() => setIsInfoPanelOpen((prev) => !prev)}
+            onToggleInfoPanel={() => {
+              setIsInfoPanelOpen((prev) => !prev);
+              if (!isInfoPanelOpen) setIsTimelineOpen(false);
+            }}
+            isTimelineOpen={isTimelineOpen}
+            onToggleTimeline={() => {
+              setIsTimelineOpen((prev) => !prev);
+              if (!isTimelineOpen) setIsInfoPanelOpen(false);
+            }}
             onToggleArchive={handleToggleArchive}
+            onAssign={handleAssignConversation}
+            onUpdateStatus={handleUpdateStatus}
+            onAddInternalNote={handleAddInternalNote}
           />
 
-          {/* 3. Painel Lateral Direito com Informações e Pedidos */}
+          {/* Coluna 5: Painel Contextual do ERP (Dados do Cliente e Pedidos) */}
           <CustomerInfoPanel
             conversation={selectedConversation}
             messages={messages}
             isOpen={isInfoPanelOpen}
             onClose={() => setIsInfoPanelOpen(false)}
             onConversationUpdated={handleConversationUpdated}
+          />
+
+          {/* Linha do Tempo / Histórico de Atividades (Ativado via botão 🕒 do cabeçalho) */}
+          <ActivityTimelineDrawer
+            conversation={selectedConversation}
+            messages={messages}
+            isOpen={isTimelineOpen}
+            onClose={() => setIsTimelineOpen(false)}
           />
         </div>
       ) : (
@@ -219,7 +200,7 @@ export default function CustomerSupport() {
         </div>
       )}
 
-      {/* Modal de Consumo de Franquia Gratuita */}
+      {/* Modal de Consumo da Franquia Meta */}
       <UsageConsumptionModal
         isOpen={isUsageModalOpen}
         onClose={() => setIsUsageModalOpen(false)}

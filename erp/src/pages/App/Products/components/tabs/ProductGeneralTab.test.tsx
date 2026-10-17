@@ -104,4 +104,35 @@ describe('ProductGeneralTab product name field', () => {
     // Asterisco obrigatório deve estar presente para salvados
     expect(oppContainer?.querySelector('.text-red-500')).toBeTruthy();
   });
+
+  it('renderiza o botão de estrelinha e o botão de texto descritivo no topo da aba', () => {
+    const mockOpenAi = vi.fn();
+    render(
+      <ProductGeneralTab
+        onOpenCategorySearch={vi.fn()}
+        isService={false}
+        formData={{ name: 'Mesa Capri' }}
+        setFormData={vi.fn()}
+        availableCategories={[]}
+        onOpenAiFillModal={mockOpenAi}
+      />
+    );
+
+    // Botão de estrelinha (apenas ícone)
+    const starBtn = screen.getByRole('button', { name: /Preencher cadastro com IA/i });
+    expect(starBtn).toBeTruthy();
+    expect(starBtn.querySelector('.bi-stars')).toBeTruthy();
+
+    starBtn.click();
+    expect(mockOpenAi).toHaveBeenCalledWith('web_search');
+
+    // Botão com texto descritivo
+    const textBtn = screen.getByRole('button', { name: /Preencher via texto descritivo/i });
+    expect(textBtn).toBeTruthy();
+    expect(textBtn.textContent).toContain('Texto descritivo');
+
+    textBtn.click();
+    expect(mockOpenAi).toHaveBeenCalledWith('descriptive_text');
+  });
 });
+

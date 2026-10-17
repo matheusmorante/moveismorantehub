@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useZodForm } from '@/hooks/useZodForm';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { blingReportFetchFormSchema, blingReportPageSchema } from '../../../../../../shared-utils/salesReportFormSchemas';
+import { useSavedSalesReports } from '../Reports/hooks/useSavedSalesReports';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { format, parse } from 'date-fns';
+const requestError = (message: string, knownFailure = true) => Object.assign(new Error(message), { knownFailure });
 
 export interface ABCResult {
   product: string;
@@ -26,13 +30,12 @@ export interface SaleItem {
   profit: number;
 }
 
-export const useSalesReport = () => {
+export const useSalesReport = (contextKey = 'list', readOnly = false) => {
   const [loading, setLoading] = useState(false);
   const [rawResults, setRawResults] = useState<ABCResult[]>([]);
   const [results, setResults] = useState<ABCResult[]>([]);
   const [totalProfit, setTotalProfit] = useState(0);
   const [monthCount, setMonthCount] = useState(0);
-  const [savedReports, setSavedReports] = useState<any[]>([]);
 
   // Matriz de Giro e Lucro
   const [avgProfitPerItem, setAvgProfitPerItem] = useState(0);
@@ -40,6 +43,11 @@ export const useSalesReport = () => {
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [reportStartDate, setReportStartDate] = useState<Date | null>(null);
   const [reportEndDate, setReportEndDate] = useState<Date | null>(null);
+
+  const { loading: persistenceLoading, error, sessionKey, savedReports, saveReport, updateReport, deleteReport, listSavedReports, getReport, getProductMappings, begin, invalid, showError, scopeRef, mountedRef } = useSavedSalesReports(
+    { results: rawResults, allProducts, totalProfit, monthCount, avgProfitPerItem, avgTurnoverPerItem, reportStartDate, reportEndDate }, contextKey, readOnly,
+  );
+  const fetchForm = useZodForm(blingReportFetchFormSchema, {});
 
   const calculateABC = (
     items: SaleItem[],
@@ -112,10 +120,10 @@ export const useSalesReport = () => {
           1
         : 1);
 
-    setMonthCount(diffMonths);
-    setTotalProfit(currentTotalProfit);
-    setReportStartDate(minDate);
-    setReportEndDate(maxDate);
+    if (!returnRaw) {
+      setMonthCount(diffMonths); setTotalProfit(currentTotalProfit);
+      setReportStartDate(minDate); setReportEndDate(maxDate);
+    }
 
     const statsArray = Object.values(productStats).filter(
       (s) => !excludedItems.includes(s.product)
@@ -151,12 +159,10 @@ export const useSalesReport = () => {
     const safeAvgP = isNaN(avgP) ? 0 : avgP;
     const safeAvgT = isNaN(avgT) ? 0 : avgT;
 
-    setAvgProfitPerItem(safeAvgP);
-    setAvgTurnoverPerItem(safeAvgT);
+    if (!returnRaw) { setAvgProfitPerItem(safeAvgP); setAvgTurnoverPerItem(safeAvgT); }
 
     if (totalBasis === 0 || statsArray.length === 0) {
-      setResults([]);
-      setRawResults([]);
+      if (!returnRaw) { setResults([]); setRawResults([]); }
       return {
         results: [],
         totalProfit: currentTotalProfit,
@@ -240,7 +246,7 @@ export const useSalesReport = () => {
     };
   };
 
-  const applyFilters = (
+  const applyFilters = useCallback((
     filters: {
       suppliers: string[];
       minProfit?: number;
@@ -286,194 +292,55 @@ export const useSalesReport = () => {
     });
 
     setResults(updatedWithQuadrants);
-  };
+  }, [rawResults]);
 
-  const fetchFromBling = async (startDate?: string, endDate?: string): Promise<SaleItem[]> => {
-    setLoading(true);
+  const { validateAndRun: validateFetch } = fetchForm;
+  const fetchFromBling = useCallback(async (startDate?: string, endDate?: string): Promise<SaleItem[]> => {
+    const requestScope = scopeRef.current;
+    const range = startDate !== undefined || endDate !== undefined ? { start: startDate || '', end: endDate || '' } : undefined;
+    const finish = begin();
     try {
-      const items: SaleItem[] = [];
-      let page = 1;
-      let hasMore = true;
-
-      // Busca os produtos primeiro para pegar o custo (Bling v3 não retorna custo no pedido de venda por padrão com facilidade)
-      // Na verdade, no v3 /pedidos/vendas o item vem com valor e custo se disponível.
-
-      while (hasMore) {
-        const params: any = {
-          pagina: page,
-          limite: 100,
-          dataInicial: startDate,
-          dataFinal: endDate,
-        };
-
-        console.log(`Buscando todos os pedidos (Sem filtro de situação) Pág ${page}:`, params);
-
-        const { data, error } = await supabase.functions.invoke('bling-proxy', {
-          body: {
-            endpoint: '/pedidos/vendas',
-            params,
-          },
-        });
-
-        if (error) {
-          alert(`Erro na API do Bling: ${error.message}`);
-          hasMore = false;
-          break;
+      const result = await validateFetch({ range }, async parsed => {
+        const items: SaleItem[] = []; const startedAt = Date.now();
+        for (let page = 1; page <= 50; page++) {
+          if (!mountedRef.current || scopeRef.current !== requestScope) throw requestError('O contexto da consulta mudou.');
+          const remaining = 90_000 - (Date.now() - startedAt);
+          if (remaining <= 0) throw requestError('A busca no Bling excedeu o prazo. Reduza o período e tente novamente.');
+          const response = await withTimeout(supabase.functions.invoke('bling-proxy', { body: {
+            endpoint: '/pedidos/vendas', params: { pagina: page, limite: 100, dataInicial: parsed.range?.start, dataFinal: parsed.range?.end },
+          } }), Math.min(15_000, remaining), null, 'Buscar página do relatório Bling');
+          if (!mountedRef.current || scopeRef.current !== requestScope) throw requestError('O contexto da consulta mudou.');
+          if (!response) throw requestError('A busca no Bling excedeu o prazo. Reduza o período e tente novamente.');
+          if (response.error) throw requestError(response.error.message || 'A API do Bling recusou a consulta.');
+          const receipt = blingReportPageSchema.safeParse(response.data);
+          if (!receipt.success) throw requestError('O Bling retornou uma página inválida. Nenhum relatório foi gravado.');
+          for (const order of receipt.data.data) {
+            if (order.situacao?.id !== 6 && order.situacao?.id !== 9) continue;
+            const date = order.data ? new Date(order.data) : new Date();
+            if (!Number.isFinite(date.getTime())) throw requestError('O Bling retornou uma data de venda inválida.');
+            for (const item of order.itens || []) {
+              const salesValue = item.valor * item.quantidade;
+              items.push({ date, product: item.descricao || 'Sem Descrição', supplier: 'Bling API', quantity: item.quantidade, cost: item.custo, salesValue, profit: salesValue - item.custo * item.quantidade });
+            }
+          }
+          if (receipt.data.data.length < 100) return items;
         }
-
-        if (!data.data || data.data.length === 0) {
-          if (page === 1)
-            alert(
-              `Bling não retornou NENHUM pedido entre ${startDate} e ${endDate}. Verifique se as datas de venda no Bling estão dentro deste intervalo.`
-            );
-          hasMore = false;
-          break;
-        }
-
-        // Filtrar apenas pedidos atendidos (6) ou enviados (9) localmente
-        const atendidos = data.data.filter(
-          (o: any) => o.situacao?.id === 6 || o.situacao?.id === 9
-        );
-
-        atendidos.forEach((order: any) => {
-          const orderDate = order.data ? new Date(order.data) : new Date();
-          order.itens?.forEach((item: any) => {
-            const qty = Number(item.quantidade) || 0;
-            const salesVal = (Number(item.valor) || 0) * qty;
-            const cost = Number(item.custo) || 0;
-            const profit = salesVal - cost * qty;
-
-            items.push({
-              date: orderDate,
-              product: item.descricao || 'Sem Descrição',
-              supplier: 'Bling API',
-              quantity: qty,
-              cost: cost,
-              salesValue: salesVal,
-              profit: profit,
-            });
-          });
-        });
-
-        if (data.data.length < 100) hasMore = false;
-        else page++;
-
-        if (page > 50) hasMore = false;
-      }
-
-      console.log(`Total de itens processados: ${items.length}`);
-
-      return items;
-    } catch (e) {
-      console.error('Erro ao buscar do Bling:', e);
-      throw e;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveReport = async (
-    name: string,
-    source: 'erp' | 'csv' | 'bling',
-    config: any,
-    manualData?: any
-  ) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('sales_order_reports')
-        .insert([
-          {
-            name,
-            type: 'abc_curve_bling',
-            source,
-            report_data: manualData || {
-              results: rawResults,
-              allProducts,
-              totalProfit,
-              monthCount,
-              avgProfitPerItem,
-              avgTurnoverPerItem,
-              reportStartDate,
-              reportEndDate,
-            },
-            config,
-            created_at: new Date().toISOString(),
-          },
-        ])
-        .select()
-        .single();
-      if (error) throw error;
-      await listSavedReports();
-      return data;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateReport = async (
-    id: string,
-    name: string,
-    source: 'erp' | 'csv' | 'bling',
-    config: any,
-    manualData?: any
-  ) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('sales_order_reports')
-        .update({
-          name,
-          source,
-          report_data: manualData || {
-            results: rawResults,
-            allProducts,
-            totalProfit,
-            monthCount,
-            avgProfitPerItem,
-            avgTurnoverPerItem,
-            reportStartDate,
-            reportEndDate,
-          },
-          config,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select();
-      if (error) throw error;
-      await listSavedReports();
-      return data?.[0];
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const listSavedReports = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('sales_order_reports')
-        .select('*')
-        .eq('type', 'abc_curve_bling')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setSavedReports(data || []);
-    } catch (e) {
-      console.error('Erro ao listar relatórios Bling', e);
-    }
-  };
-
-  const deleteReport = async (id: string) => {
-    try {
-      const { error } = await supabase.from('sales_order_reports').delete().eq('id', id);
-      if (error) throw error;
-      await listSavedReports();
-    } catch (e) {
-      console.error(e);
-    }
-  };
+        throw requestError('O período ultrapassou o limite de páginas do relatório. Reduza o intervalo para obter todos os dados.');
+      }, invalid);
+      if (result === false) throw requestError('Não foi possível iniciar a consulta. Confira o período ou aguarde a consulta atual.');
+      return result;
+    } catch (failure) {
+      if (scopeRef.current === requestScope) showError(failure instanceof Error ? failure.message : 'Não foi possível consultar o Bling.');
+      throw failure;
+    } finally { finish(); }
+  }, [begin, invalid, showError, validateFetch, mountedRef, scopeRef]);
 
   return {
-    loading,
+    loading: loading || persistenceLoading,
+    error,
+    sessionKey,
+    getReport,
+    getProductMappings,
     setLoading,
     results,
     rawResults,

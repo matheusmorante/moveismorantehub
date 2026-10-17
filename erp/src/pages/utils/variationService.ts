@@ -31,7 +31,6 @@ const inferAttributeDataType = (name: string, value?: VariationType['dataType'])
       'tipo de pés',
       'material de pés',
       'material dos pés',
-      'tipo de puxador',
       'material dos puxadores',
       'acabamento',
       'cor',
@@ -40,6 +39,8 @@ const inferAttributeDataType = (name: string, value?: VariationType['dataType'])
     ].includes(normalizedName)
   )
     return 'radio' as const;
+  if (['tipo de puxador', 'tipo(s) de puxador'].includes(normalizedName))
+    return 'multi_select' as const;
   if (
     [
       'quantidade de gavetas',

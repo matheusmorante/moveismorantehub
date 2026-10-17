@@ -1,7 +1,8 @@
 import React from 'react';
+import { InboundAiExistingVariationModal } from './InboundAiExistingVariationModal';
+import { InboundAiNewVariationModal } from './InboundAiNewVariationModal';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import type { AiClassification } from '../hooks/useInboundInvoiceClassification';
-import { formatCurrency } from '@/pages/utils/formatters';
 import { itemCostWithAdditionalCosts } from '@/pages/utils/inboundNfe/inboundItemCosts';
 
 interface InboundClassificationModalsProps {
@@ -10,6 +11,8 @@ interface InboundClassificationModalsProps {
   classifyingItem: InboundInvoiceItem | null;
   aiClassification: AiClassification | null;
   effectiveMarkup: string;
+  isBusy?: boolean;
+  error?: string;
   onEffectiveMarkupChange: (markup: string) => void;
   onConfirmExistingVariation: () => void;
   onConfirmNewVariation: () => void;
@@ -22,20 +25,18 @@ export const InboundClassificationModals: React.FC<InboundClassificationModalsPr
   classifyingItem,
   aiClassification,
   effectiveMarkup,
+  isBusy = false,
+  error = '',
   onEffectiveMarkupChange,
   onConfirmExistingVariation,
   onConfirmNewVariation,
   onDiscardAndCreateNew,
 }) => {
   const finalCost = classifyingItem ? itemCostWithAdditionalCosts(classifyingItem) : 0;
-  const parsedMarkup = Number(effectiveMarkup.replace(',', '.'));
-  const estimatedPrice =
-    effectiveMarkup.trim() && Number.isFinite(parsedMarkup)
-      ? formatCurrency(finalCost * (1 + parsedMarkup / 100))
-      : 'Informe o acréscimo';
-
   return (
     <>
+      {error && <p role="alert" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000007] max-w-xl rounded-xl bg-rose-50 p-4 text-sm text-rose-800 shadow-lg">{error}</p>}
+      {isBusy && <p role="status" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[1000007] rounded-xl bg-white p-4 text-sm text-indigo-700 shadow-lg"><i className="bi bi-arrow-repeat animate-spin mr-2" />Confirmando a classificação e o vínculo...</p>}
       {/* Modal: Preparando formulário */}
       {isPreparingProduct && (
         <div className="fixed inset-0 z-[1000006] flex items-center justify-center bg-slate-950/60 p-4">
@@ -69,150 +70,16 @@ export const InboundClassificationModals: React.FC<InboundClassificationModalsPr
         </div>
       )}
 
-      {/* Modal: EXISTING_VARIATION — confirmar vínculo com variação já existente */}
-      {!isClassifying && aiClassification?.decision === 'EXISTING_VARIATION' && classifyingItem && (
-        <div className="fixed inset-0 z-[1000005] flex items-center justify-center bg-slate-950/60 p-4">
-          <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
-            <div className="flex items-center gap-2">
-              <i className="bi bi-stars text-indigo-500" />
-              <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
-                Variação já existe no ERP
-              </h3>
-            </div>
-            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-              A IA identificou que este item já está cadastrado como uma variação existente.
-            </p>
-            <div className="mt-4 space-y-1 rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-950">
-              <p className="font-bold text-slate-700 dark:text-slate-200">
-                Item da NF: {classifyingItem.productDescription}
-              </p>
-              <p className="text-slate-500">
-                Produto sugerido:{' '}
-                <b className="text-emerald-700 dark:text-emerald-300">
-                  {aiClassification.normalizedParentName || '—'}
-                </b>
-              </p>
-              {aiClassification.extractedAttributes.color && (
-                <p className="text-slate-500">
-                  Cor detectada: <b>{aiClassification.extractedAttributes.color}</b>
-                </p>
-              )}
-              {aiClassification.extractedAttributes.measure && (
-                <p className="text-slate-500">
-                  Medida detectada: <b>{aiClassification.extractedAttributes.measure}</b>
-                </p>
-              )}
-              <p className="text-slate-400">
-                Confiança: {Math.round(aiClassification.confidence * 100)}%
-              </p>
-              {aiClassification.reasons.length > 0 && (
-                <ul className="mt-1 list-disc pl-4 text-slate-400">
-                  {aiClassification.reasons.map((r: string, i: number) => (
-                    <li key={i}>{r}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={onDiscardAndCreateNew}
-                className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Criar como produto novo
-              </button>
-              <button
-                type="button"
-                onClick={onConfirmExistingVariation}
-                className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 cursor-pointer"
-              >
-                Vincular à variação existente
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
+      {!isClassifying && <InboundAiExistingVariationModal
+        classifyingItem={classifyingItem} classification={aiClassification} isBusy={isBusy}
+        onConfirm={onConfirmExistingVariation} onDiscardAndCreateNew={onDiscardAndCreateNew}
+      />}
 
-      {/* Modal: NEW_VARIATION_OF_EXISTING_PRODUCT — criar variação dentro do produto pai */}
-      {!isClassifying &&
-        aiClassification?.decision === 'NEW_VARIATION_OF_EXISTING_PRODUCT' &&
-        classifyingItem && (
-          <div className="fixed inset-0 z-[1000005] flex items-center justify-center bg-slate-950/60 p-4">
-            <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
-              <div className="flex items-center gap-2">
-                <i className="bi bi-diagram-2 text-indigo-500" />
-                <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
-                  Nova variação em produto pai existente
-                </h3>
-              </div>
-              <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-                A IA identificou que este item deve ser cadastrado como variação de um produto pai
-                existente.
-              </p>
-              <div className="mt-4 space-y-1 rounded-xl bg-indigo-50 p-3 text-xs dark:bg-indigo-950/30">
-                <p className="font-bold text-slate-700 dark:text-slate-200">
-                  Item da NF: {classifyingItem.productDescription}
-                </p>
-                <p className="text-slate-600 dark:text-slate-300">
-                  Produto pai sugerido:{' '}
-                  <b className="text-indigo-700 dark:text-indigo-300">
-                    {aiClassification.normalizedParentName || '—'}
-                  </b>
-                </p>
-                {aiClassification.extractedAttributes.color && (
-                  <p className="text-slate-500">
-                    Cor da nova variação: <b>{aiClassification.extractedAttributes.color}</b>
-                  </p>
-                )}
-                {aiClassification.extractedAttributes.measure && (
-                  <p className="text-slate-500">
-                    Medida: <b>{aiClassification.extractedAttributes.measure}</b>
-                  </p>
-                )}
-                {aiClassification.extractedAttributes.material && (
-                  <p className="text-slate-500">
-                    Material: <b>{aiClassification.extractedAttributes.material}</b>
-                  </p>
-                )}
-                <p className="text-slate-400">
-                  Confiança: {Math.round(aiClassification.confidence * 100)}%
-                </p>
-              </div>
-              <label className="mt-4 block text-xs font-black text-slate-600 dark:text-slate-300">
-                Acréscimo sobre o custo final (%)
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required
-                  value={effectiveMarkup}
-                  onChange={(event) => onEffectiveMarkupChange(event.target.value)}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-                />
-              </label>
-              <p className="mt-2 text-xs text-slate-500">
-                Custo final unitário: <b>{formatCurrency(finalCost)}</b> · Preço estimado:{' '}
-                <b>{estimatedPrice}</b>
-              </p>
-              <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={onDiscardAndCreateNew}
-                  className="rounded-lg px-3 py-2 text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                >
-                  Criar como produto independente
-                </button>
-                <button
-                  type="button"
-                  onClick={onConfirmNewVariation}
-                  className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white hover:bg-indigo-700 cursor-pointer"
-                >
-                  Cadastrar variação no produto pai
-                </button>
-              </div>
-            </section>
-          </div>
-        )}
+      {!isClassifying && <InboundAiNewVariationModal
+        classifyingItem={classifyingItem} classification={aiClassification} finalCost={finalCost}
+        effectiveMarkup={effectiveMarkup} onChangeMarkup={onEffectiveMarkupChange}
+        isBusy={isBusy} onConfirm={onConfirmNewVariation} onDiscardAndCreateNew={onDiscardAndCreateNew}
+      />}
     </>
   );
 };

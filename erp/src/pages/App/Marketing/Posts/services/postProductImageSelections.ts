@@ -1,3 +1,5 @@
+import { marketingImageSelectionFormSchema } from '../../../../../../../shared-utils/marketingFormSchemas';
+
 export interface ProductImageSelectionState {
   primaryUrl?: string;
   openViewUrl?: string | null;
@@ -11,7 +13,8 @@ export function getProductImageSelection(productId: string): ProductImageSelecti
   try {
     const raw = localStorage.getItem(`${STORAGE_PREFIX}${productId}`);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const result = marketingImageSelectionFormSchema.safeParse({ productId, selection: JSON.parse(raw) });
+    return result.success ? result.data.selection : null;
   } catch {
     return null;
   }
@@ -21,19 +24,22 @@ export function saveProductImageSelection(
   productId: string,
   selection: ProductImageSelectionState
 ): void {
-  if (!productId) return;
+  if (!productId) throw new Error('Produto não identificado.');
   try {
-    localStorage.setItem(`${STORAGE_PREFIX}${productId}`, JSON.stringify(selection));
-  } catch (err) {
-    console.warn('[postProductImageSelections] Falha ao persistir seleção local:', err);
+    const serialized = JSON.stringify(selection);
+    localStorage.setItem(`${STORAGE_PREFIX}${productId}`, serialized);
+    if (localStorage.getItem(`${STORAGE_PREFIX}${productId}`) !== serialized) throw new Error();
+  } catch {
+    throw new Error('A seleção não foi salva neste navegador. Tente novamente.');
   }
 }
 
 export function clearProductImageSelection(productId: string): void {
-  if (!productId) return;
+  if (!productId) throw new Error('Produto não identificado.');
   try {
     localStorage.removeItem(`${STORAGE_PREFIX}${productId}`);
-  } catch (err) {
-    console.warn('[postProductImageSelections] Falha ao limpar seleção local:', err);
+    if (localStorage.getItem(`${STORAGE_PREFIX}${productId}`) !== null) throw new Error();
+  } catch {
+    throw new Error('A seleção salva não foi removida. Tente novamente.');
   }
 }

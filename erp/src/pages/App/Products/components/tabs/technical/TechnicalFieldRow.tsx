@@ -3,6 +3,10 @@ import type { Product } from '../../../../../types/product.type';
 import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
 import {
+  DisabledFieldWrapper,
+  DisabledFieldInfoButton,
+} from './DisabledFieldWrapper';
+import {
   computeTechnicalFieldItemState,
   normalizeTechnicalName,
 } from './technicalTabUtils';
@@ -28,12 +32,16 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   onToggleDepthLength,
   onRemoveManualField,
 }) => {
+  const [showTooltip, setShowTooltip] = React.useState(false);
+
   const {
     rawValue,
     isManual,
     isFieldInvalid,
     isColorField,
     isDepthOrLengthField,
+    isFieldDisabled,
+    disabledReason,
   } = computeTechnicalFieldItemState(field, formData, manualFieldNames, validationErrors);
 
   const normName = normalizeTechnicalName(field.name);
@@ -48,24 +56,29 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   return (
     <div
       id={`technical-field-${field.name}`}
-      className="flex w-[280px] max-w-full flex-col gap-1.5 p-1 transition-all"
+      className={`flex w-[280px] max-w-full flex-col gap-1.5 p-1 transition-all ${
+        isFieldDisabled ? 'opacity-70' : ''
+      }`}
     >
       <div className="flex w-full items-center justify-between gap-2">
         <label
           className={`min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
             isFieldInvalid
               ? 'text-red-600 dark:text-red-400'
-              : 'text-slate-600 dark:text-slate-300'
+              : isFieldDisabled
+                ? 'text-slate-400 dark:text-slate-500'
+                : 'text-slate-600 dark:text-slate-300'
           }`}
         >
           <span>
             {field.name}
             {field.unit ? ` (${field.unit})` : ''}
           </span>
-          {field.isRequired && (
-            <span className="text-red-500" aria-label="Obrigatório">
-              *
-            </span>
+          {isFieldDisabled && (
+            <DisabledFieldInfoButton
+              disabledReason={disabledReason}
+              onClick={() => setShowTooltip((prev) => !prev)}
+            />
           )}
         </label>
         <div className="flex items-center gap-1.5">
@@ -108,20 +121,30 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
         </div>
       </div>
 
-      <TechnicalFieldInput
-        field={field}
-        value={
-          rawValue !== undefined &&
-          rawValue !== null &&
-          rawValue !== 'Não se aplica' &&
-          rawValue !== 'N/A'
-            ? rawValue
-            : ''
-        }
-        isInvalid={isFieldInvalid}
-        disabled={false}
-        onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
-      />
+      <DisabledFieldWrapper
+        isDisabled={isFieldDisabled}
+        disabledReason={disabledReason}
+        showTooltip={showTooltip}
+        onToggleTooltip={() => setShowTooltip((prev) => !prev)}
+        onShowTooltip={() => setShowTooltip(true)}
+        onHideTooltip={() => setShowTooltip(false)}
+      >
+        <TechnicalFieldInput
+          field={field}
+          value={
+            rawValue !== undefined &&
+            rawValue !== null &&
+            rawValue !== 'Não se aplica' &&
+            rawValue !== 'N/A'
+              ? rawValue
+              : ''
+          }
+          isInvalid={isFieldInvalid}
+          disabled={isFieldDisabled}
+          onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
+        />
+      </DisabledFieldWrapper>
     </div>
   );
 };
+

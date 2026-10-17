@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { productImageCropUploadFormSchema } from '../../../../../../../../shared-utils/productImageFormSchemas';
+import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import VariationParentImagesSelectModal from '../../modals/variations/VariationParentImagesSelectModal';
 import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
 import ProductImage from '@/components/ProductImage';
@@ -12,7 +15,9 @@ interface VariationPhotosTabProps {
   readonly parentImages: readonly string[];
   readonly isSingleVariation?: boolean;
   readonly onChangeImages: (images: string[]) => void;
-  readonly onReplaceImageGlobal?: (oldUrl: string, newUrl: string) => void | Promise<void>;
+  readonly onReplaceImageGlobal?: (oldUrl: string, newUrl: string) => void | boolean | Promise<void | boolean>;
+  readonly onCropPhoto?: (file: File, oldUrl: string) => Promise<void | boolean>;
+  readonly onProcessingChange?: (pending: boolean) => boolean | void;
 }
 
 export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
@@ -21,11 +26,18 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
   isSingleVariation = false,
   onChangeImages,
   onReplaceImageGlobal,
+  onCropPhoto,
+  onProcessingChange,
 }) => {
   const [isSelectModalOpen, setIsSelectModalOpen] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
   const [croppingIndex, setCroppingIndex] = useState<number | null>(null);
+  const active = useRef(true), operation = useRef(false), uncertain = useRef(false), savedFiles = useRef(new WeakMap<File, string>());
+  const imagesSource = useRef(images); imagesSource.current = images;
+  const [errorMessage, setErrorMessage] = useState('');
+  const fileForm = useZodForm(productImageCropUploadFormSchema, { oldUrl: '', file: undefined as unknown as File });
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
 
   const handleRemoveImage = (indexToRemove: number) => {
     const next = images.filter((_, idx) => idx !== indexToRemove);
@@ -33,27 +45,36 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
   };
 
   const handleCropPhoto = async (file: File) => {
-    if (croppingIndex === null) return;
-    const index = croppingIndex;
-    const oldUrl = images[index];
+    if (croppingIndex === null || operation.current || uncertain.current) return false;
+    const oldUrl = images[croppingIndex]; operation.current = true; setErrorMessage('');
+    const current = () => active.current && imagesSource.current.includes(oldUrl);
     try {
-      const newUrl = await uploadOptimizedProductImage(file);
-      if (onReplaceImageGlobal) {
-        await onReplaceImageGlobal(oldUrl, newUrl);
-      } else {
-        const next = replaceImageUrlAcrossList(images, oldUrl, newUrl);
-        onChangeImages(next);
-      }
-      setCroppingIndex(null);
-      toast.success('Foto recortada em 1:1 e atualizada!');
+      const result = onCropPhoto ? await onCropPhoto(file, oldUrl) : await fileForm.validateAndRun({ file, oldUrl }, async (values) => {
+        let newUrl = savedFiles.current.get(values.file);
+        if (!newUrl) {
+          const url = await withTimeout(uploadOptimizedProductImage(values.file, { isCurrent: current }), 55_000, null, 'Enviar recorte');
+          if (!url) throw Object.assign(new Error('O envio não foi confirmado. Confira antes de repetir.'), { uncertain: true });
+          newUrl = url; savedFiles.current.set(values.file, url);
+        }
+        if (!current()) return false;
+        if (onReplaceImageGlobal) {
+          const applied = await withTimeout(Promise.resolve(onReplaceImageGlobal(values.oldUrl, newUrl)).then((value) => value !== false), 30_000, null, 'Aplicar recorte');
+          if (applied === null) throw Object.assign(new Error('A aplicação não foi confirmada. Confira antes de repetir.'), { uncertain: true });
+          if (!applied) throw Object.assign(new Error('A foto não foi aplicada. Tente novamente.'), { knownFailure: true });
+        } else onChangeImages(replaceImageUrlAcrossList(imagesSource.current, values.oldUrl, newUrl));
+        return true;
+      }, (errors) => { throw Object.assign(new Error(Object.values(flattenFormErrors(errors))[0]), { knownFailure: true }); });
+      if (!active.current || result === false) return false;
+      setCroppingIndex(null); toast.success('Foto recortada e aplicada.'); return true;
     } catch (error) {
-      console.error('Erro ao recortar imagem da variação:', error);
-      toast.error('Erro ao processar e salvar o recorte da imagem.');
-    }
+      if (active.current) { if (error && typeof error === 'object' && 'uncertain' in error && error.uncertain) uncertain.current = true; setErrorMessage(error instanceof Error ? error.message : 'Não foi possível aplicar o recorte.'); }
+      throw error;
+    } finally { operation.current = false; }
   };
 
   return (
     <div className="space-y-4 animate-in fade-in duration-350">
+      {errorMessage && <p role="alert" className="text-sm text-red-600">{errorMessage}</p>}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-1.5 h-6">
@@ -226,6 +247,8 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
       {croppingIndex !== null && images[croppingIndex] && (
         <SquareImageCropper
           imageUrl={images[croppingIndex]}
+          portal
+          onProcessingChange={onProcessingChange}
           onCancel={() => setCroppingIndex(null)}
           onConfirm={handleCropPhoto}
         />

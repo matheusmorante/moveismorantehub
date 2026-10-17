@@ -14,12 +14,13 @@ vi.mock('@/services/apiMonitoring/apiUsageTracker', () => ({
   ApiUsageTracker: { record: usageRecord },
 }));
 
-import { autoCalculateRouteDistance, searchAddressSuggestions } from '../maps';
+import { autoCalculateRouteDistance, searchAddressSuggestions, clearRouteCache } from '../maps';
 import { calculateFreightByDistance } from '../shippingPricing';
 
 describe('fluxo de endereço e logística com Google Maps', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearRouteCache();
     getSettings.mockReturnValue({
       googleMapsApiKey: 'test-google-maps-key',
       storeOriginCoords: [-49.17, -25.35],
@@ -419,5 +420,60 @@ describe('fluxo de endereço e logística com Google Maps', () => {
     // Não deve conter '150, 150'
     expect(executedQueries[0]).not.toContain('150, 150');
     expect(executedQueries[0]).toContain('Rua Presidente Faria, 150');
+  });
+
+  it('armazena a rota em cache por 24h e evita chamadas repetidas à Routes API para o mesmo destino', async () => {
+    let computeRoutesCalls = 0;
+    const maps = {
+      places: {},
+      Geocoder: class {
+        geocode(_req: any, callback: (results: unknown[], status: string) => void) {
+          callback(
+            [{ geometry: { location: { lng: () => -49.30, lat: () => -25.40 } } }],
+            'OK'
+          );
+        }
+      },
+      importLibrary: vi.fn(async () => ({
+        Route: {
+          computeRoutes: vi.fn(async () => {
+            computeRoutesCalls += 1;
+            return {
+              routes: [
+                {
+                  distanceMeters: 10000,
+                  durationMillis: 1200000,
+                  path: [
+                    { lng: -49.17, lat: -25.35 },
+                    { lng: -49.30, lat: -25.40 },
+                  ],
+                },
+              ],
+            };
+          }),
+        },
+      })),
+    };
+    (globalThis as any).window = { google: { maps } };
+
+    const address = {
+      street: 'Rua de Teste Cache',
+      number: '123',
+      neighborhood: 'Bairro',
+      city: 'Curitiba',
+      state: 'PR',
+      coords: [-49.30, -25.40] as [number, number],
+    };
+
+    // Primeira chamada: deve chamar computeRoutes
+    const firstResult = await autoCalculateRouteDistance(address);
+    expect(firstResult).not.toBeNull();
+    expect(computeRoutesCalls).toBe(1);
+
+    // Segunda chamada sequencial com o mesmo destino: DEVE vir do cache sem nova chamada à Routes API
+    const secondResult = await autoCalculateRouteDistance(address);
+    expect(secondResult).not.toBeNull();
+    expect(secondResult?.distanceKm).toBe(10);
+    expect(computeRoutesCalls).toBe(1);
   });
 });

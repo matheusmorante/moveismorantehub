@@ -24,6 +24,7 @@ export interface AiRequestOptions {
   thinkingBudget?: 'low' | 'medium' | 'high';
   jsonMode?: boolean;
   bypassDeduplication?: boolean;
+  tools?: any[];
 }
 
 export interface AiResponse<T = any> {

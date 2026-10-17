@@ -25,6 +25,7 @@ interface ProductGeneralTabProps {
   readonly validationErrors?: Record<string, boolean>;
   readonly setValidationErrors?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   readonly isGeneratingCategory?: boolean;
+  readonly onOpenAiFillModal?: (mode?: 'web_search' | 'descriptive_text') => void;
 }
 
 const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
@@ -37,6 +38,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
   validationErrors = {},
   setValidationErrors,
   isGeneratingCategory = false,
+  onOpenAiFillModal,
 }) => {
   const { opportunities } = useProductOpportunities();
 
@@ -106,6 +108,40 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
 
   return (
     <div className="mx-auto grid w-full max-w-7xl min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      {/* Barra Superior de Preenchimento com IA */}
+      <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-500/15 dark:via-amber-500/5 border border-amber-200/60 dark:border-amber-800/60">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+            <i className="bi bi-stars text-amber-500 text-sm animate-pulse" />
+            <span>Preenchimento com IA</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Botão de Estrelinha (somente ícone de estrelinha) */}
+          <button
+            type="button"
+            onClick={() => onOpenAiFillModal?.('web_search')}
+            title="Preencher cadastro usando Nome, Marca e Modelo (Pesquisa na Web)"
+            aria-label="Preencher cadastro com IA"
+            className="w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-xs hover:shadow-md flex items-center justify-center transition-all cursor-pointer active:scale-95"
+          >
+            <i className="bi bi-stars text-base" />
+          </button>
+
+          {/* Botão com texto descritivo */}
+          <button
+            type="button"
+            onClick={() => onOpenAiFillModal?.('descriptive_text')}
+            title="Preencher cadastro a partir de um texto descritivo ou ficha técnica"
+            aria-label="Preencher via texto descritivo"
+            className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer active:scale-95"
+          >
+            <i className="bi bi-file-text text-amber-500" />
+            <span>Texto descritivo</span>
+          </button>
+        </div>
+      </div>
+
       {/* Title Section (Agrupados na mesma linha em 2 colunas) */}
       <div className="md:col-span-2 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
         {/* Nome do Produto */}

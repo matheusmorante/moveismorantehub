@@ -298,16 +298,19 @@ export async function POST(req: Request) {
         });
       }
     } else {
-      const mappedData = mapProductToMeta(product, parentImage, additionalImages);
-      mappedData.product_type = productType;
-      mappedData.custom_label_0 = productType;
-      mappedData.item_group_id = '';
-
+      // No MoranteHub, apenas variações são itens de venda.
+      // Se um produto não possui variações, nenhum item deve ser cadastrado na Meta como vendável.
+      // Remove preventivamente qualquer código pai ou id que possa ter sido enviado anteriormente.
       const parentSku = String(product.code || product.sku || '').trim() || String(product.id);
+      if (parentSku) {
+        requests.push({
+          method: 'DELETE',
+          retailer_id: parentSku,
+        });
+      }
       requests.push({
-        method: 'UPDATE',
-        retailer_id: parentSku,
-        data: mappedData,
+        method: 'DELETE',
+        retailer_id: String(product.id),
       });
     }
 

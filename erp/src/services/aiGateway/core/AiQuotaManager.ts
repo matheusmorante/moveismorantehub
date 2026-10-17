@@ -1,6 +1,6 @@
 import { supabase } from '../../../pages/utils/supabaseConfig';
 import { AiCategory, AiErrorCode } from '../types/aiGatewayTypes';
-import { AI_LIMITS } from '../config/aiLimitsConfig';
+import { AI_LIMITS, CHARACTERISTICS_AI_LIMITS } from '../config/aiLimitsConfig';
 
 export interface QuotaReserveResult {
   allowed: boolean;
@@ -122,12 +122,6 @@ export class AiQuotaManager {
 
       if (globalRes.error || categoryRes.error) {
         const error = globalRes.error || categoryRes.error;
-        if (
-          typeof window !== 'undefined' &&
-          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ) {
-          return { allowed: true, usedToday: 0, limitToday: categoryConfig.perDay };
-        }
         console.error(
           '[AiQuotaManager] FAIL CLOSED: Erro de banco ao consultar cotas:',
           error?.message
@@ -144,12 +138,6 @@ export class AiQuotaManager {
 
       // 2. Validar Limite Global Diário
       if (globalTodayCount >= globalConfig.perDay) {
-        if (
-          typeof window !== 'undefined' &&
-          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ) {
-          return { allowed: true, usedToday: globalTodayCount, limitToday: globalConfig.perDay };
-        }
         return {
           allowed: false,
           errorCode: 'AI_DAILY_LIMIT_REACHED',
@@ -161,16 +149,6 @@ export class AiQuotaManager {
 
       // 3. Validar Limite da Categoria Diária
       if (categoryTodayCount >= categoryConfig.perDay) {
-        if (
-          typeof window !== 'undefined' &&
-          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ) {
-          return {
-            allowed: true,
-            usedToday: categoryTodayCount,
-            limitToday: categoryConfig.perDay,
-          };
-        }
         return {
           allowed: false,
           errorCode: 'AI_DAILY_LIMIT_REACHED',
@@ -240,24 +218,13 @@ export class AiQuotaManager {
       }
 
       // 5. Reservar cota com registro atômico de pré-alocação com custo estimado persistido
-      await supabase.from('api_usage_logs').insert([
-        {
-          provider: 'gemini',
-          service: categoryConfig.model,
-          operation: 'pre_allocation_reservation',
-          units: 1,
-          status: 'SUCCESS',
-          http_status: 200,
-          module_source: category,
-          cost_estimated: unitCost,
-          environment:
-            typeof window !== 'undefined' && window.location.hostname === 'localhost'
-              ? 'development'
-              : 'production',
-          request_id: `pre_alloc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      await this.recordPreAllocation({
+        service: categoryConfig.model,
+        operation: 'pre_allocation_reservation',
+        moduleSource: category,
+        costEstimated: unitCost,
+        prefix: 'pre_alloc',
+      });
 
       return {
         allowed: true,
@@ -273,4 +240,183 @@ export class AiQuotaManager {
       };
     }
   }
+
+  /**
+   * Consulta o consumo atual da extração de características (hoje e na última hora)
+   */
+  public static async getCharacteristicsUsageStats(): Promise<{
+    usedToday: number;
+    limitToday: number;
+    usedHour: number;
+    limitHour: number;
+  }> {
+    const limitHour = CHARACTERISTICS_AI_LIMITS.perHour;
+    const limitToday = CHARACTERISTICS_AI_LIMITS.perDay;
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const startOfDay = `${today}T00:00:00.000Z`;
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+      const [dayRes, hourRes] = await Promise.all([
+        supabase
+          .from('api_usage_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('provider', 'gemini')
+          .eq('operation', CHARACTERISTICS_AI_LIMITS.operation)
+          .eq('status', 'SUCCESS')
+          .gte('created_at', startOfDay),
+        supabase
+          .from('api_usage_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('provider', 'gemini')
+          .eq('operation', CHARACTERISTICS_AI_LIMITS.operation)
+          .eq('status', 'SUCCESS')
+          .gte('created_at', oneHourAgo),
+      ]);
+
+      return {
+        usedToday: dayRes.count || 0,
+        limitToday,
+        usedHour: hourRes.count || 0,
+        limitHour,
+      };
+    } catch {
+      return {
+        usedToday: 0,
+        limitToday,
+        usedHour: 0,
+        limitHour,
+      };
+    }
+  }
+
+  /**
+   * Reserva atômica para a extração de características com trava estrita de 20 req/hora.
+   * REGRA FAIL-CLOSED: Qualquer erro de comunicação com o banco bloqueia preventivamente.
+   */
+  public static async reserveCharacteristicsQuota(): Promise<QuotaReserveResult> {
+    const limitHour = CHARACTERISTICS_AI_LIMITS.perHour;
+    const limitToday = CHARACTERISTICS_AI_LIMITS.perDay;
+    const operation = CHARACTERISTICS_AI_LIMITS.operation;
+    const model = CHARACTERISTICS_AI_LIMITS.model;
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const startOfDay = `${today}T00:00:00.000Z`;
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+      // 1. Consultar consumo hoje e na última hora de forma atômica
+      const [dayRes, hourRes] = await Promise.all([
+        supabase
+          .from('api_usage_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('provider', 'gemini')
+          .eq('operation', operation)
+          .eq('status', 'SUCCESS')
+          .gte('created_at', startOfDay),
+        supabase
+          .from('api_usage_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('provider', 'gemini')
+          .eq('operation', operation)
+          .eq('status', 'SUCCESS')
+          .gte('created_at', oneHourAgo),
+      ]);
+
+      if (dayRes.error || hourRes.error) {
+        const error = dayRes.error || hourRes.error;
+        console.error(
+          '[AiQuotaManager] FAIL CLOSED: Erro de banco ao consultar cotas de características:',
+          error?.message
+        );
+        return {
+          allowed: false,
+          errorCode: 'AI_FAIL_CLOSED_BLOCKED',
+          errorMessage:
+            'FAIL CLOSED: Erro de comunicação com o sistema de cotas. Requisição bloqueada preventivamente por segurança.',
+        };
+      }
+
+      const usedHour = hourRes.count || 0;
+      const usedToday = dayRes.count || 0;
+
+      // 2. Trava da janela deslizante de 1 hora (20 requisições/hora)
+      if (usedHour >= limitHour) {
+        return {
+          allowed: false,
+          errorCode: 'AI_HOURLY_LIMIT_REACHED',
+          errorMessage: `Limite de segurança atingido: já foram realizadas ${usedHour}/${limitHour} requisições de preenchimento com IA na última hora. Aguarde alguns minutos para novas tentativas.`,
+          usedToday,
+          limitToday,
+        };
+      }
+
+      // 3. Trava diária (80 requisições/dia)
+      if (usedToday >= limitToday) {
+        return {
+          allowed: false,
+          errorCode: 'AI_DAILY_LIMIT_REACHED',
+          errorMessage: `Limite diário atingido: ${usedToday}/${limitToday} requisições de preenchimento com IA utilizadas hoje. A cota será renovada amanhã.`,
+          usedToday,
+          limitToday,
+        };
+      }
+
+      // 4. Registrar pré-alocação atômica no api_usage_logs
+      await this.recordPreAllocation({
+        service: model,
+        operation,
+        moduleSource: 'characteristics_ai',
+        costEstimated: 0.05,
+        prefix: 'char_quota',
+      });
+
+      return {
+        allowed: true,
+        usedToday: usedToday + 1,
+        limitToday,
+      };
+    } catch (e: any) {
+      console.error('[AiQuotaManager] FAIL CLOSED EXCEPTION:', e);
+      return {
+        allowed: false,
+        errorCode: 'AI_FAIL_CLOSED_BLOCKED',
+        errorMessage:
+          'FAIL CLOSED: Falha inesperada ao validar cota. Requisição bloqueada por segurança.',
+      };
+    }
+  }
+
+  /**
+   * Helper privado para registro atômico de pré-alocação no log de consumo (DRY)
+   */
+  private static async recordPreAllocation(params: {
+    service: string;
+    operation: string;
+    moduleSource: string;
+    costEstimated: number;
+    prefix: string;
+  }): Promise<void> {
+    const isDev =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+    await supabase.from('api_usage_logs').insert([
+      {
+        provider: 'gemini',
+        service: params.service,
+        operation: params.operation,
+        units: 1,
+        status: 'SUCCESS',
+        http_status: 200,
+        module_source: params.moduleSource,
+        cost_estimated: params.costEstimated,
+        environment: isDev ? 'development' : 'production',
+        request_id: `${params.prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+  }
 }
+

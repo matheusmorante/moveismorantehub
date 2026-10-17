@@ -135,25 +135,23 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     expect(mocks.saveProduct).toHaveBeenCalledTimes(2);
   });
 
-  it('reclama no produto pai (aba Características) e não abre a variação quando o produto tem apenas 1 variação', async () => {
+  it('reclama no produto pai (aba Estoque e Precificação) e não abre a variação quando o produto tem apenas 1 variação', async () => {
     const { result, variations, setActiveTab } = renderSubmit({
       ...complete,
-      height: 0,
-      technicalValues: { ...complete.technicalValues, Altura: '' },
+      variations: [{ ...complete.variations![0], unitPrice: 0, syncUnitPrice: false }],
     });
     await act(async () => { expect(await result.current.handleSubmit(false)).toBe(false); });
     expect(mocks.saveProduct).not.toHaveBeenCalled();
     expect(variations.setEditingVariationId).not.toHaveBeenCalled();
-    expect(setActiveTab).toHaveBeenCalledWith('technical');
+    expect(setActiveTab).toHaveBeenCalledWith('estoque');
   });
   it('bloqueia a conclusão e abre a variação específica quando há mais de uma variação', async () => {
     const var2 = {
       ...complete.variations![0],
       id: 'v2',
       sku: '001-02',
-      height: 0,
-      syncHeight: false,
-      technicalValues: { Altura: '' },
+      unitPrice: 0,
+      syncUnitPrice: false,
     };
     const { result, variations, setActiveTab } = renderSubmit({
       ...complete,
@@ -163,6 +161,20 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     expect(mocks.saveProduct).not.toHaveBeenCalled();
     expect(variations.setEditingVariationId).toHaveBeenCalledWith('v2');
     expect(setActiveTab).toHaveBeenCalledWith('variacoes');
+  });
+  it('permite cadastrar produto pai e variação sem características ou dimensões (requisito exclusivo de catálogo digital)', async () => {
+    const { result } = renderSubmit({
+      ...complete,
+      height: 0,
+      technicalValues: {},
+      variations: [{
+        ...complete.variations![0],
+        height: 0,
+        technicalValues: {},
+      }],
+    });
+    await act(async () => { expect(await result.current.handleSubmit(false)).toBe(true); });
+    expect(mocks.saveProduct).toHaveBeenCalled();
   });
   it('bloqueia uma variação sem preço próprio mesmo com outra variação válida', async () => {
     const invalid = { ...complete.variations![0], id: 'v2', sku: '001-02', unitPrice: 0, syncUnitPrice: false };

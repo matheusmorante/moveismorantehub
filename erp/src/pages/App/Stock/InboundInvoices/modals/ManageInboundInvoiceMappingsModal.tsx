@@ -29,6 +29,7 @@ export function ManageInboundInvoiceMappingsModal({
   const [invoice, setInvoice] = useState<InboundInvoice | null>(initialInvoice);
   const [suppliers, setSuppliers] = useState<Person[]>([]);
   const [newSupplier, setNewSupplier] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
   const [saving, setSaving] = useState(false), [loading, setLoading] = useState(false), [errorMessage, setErrorMessage] = useState('');
   const [loadRevision, setLoadRevision] = useState(0);
   const inFlight = useRef(false), activeRef = useRef(true), uncertain = useRef(new Set<string>());
@@ -131,10 +132,10 @@ export function ManageInboundInvoiceMappingsModal({
   if (!isOpen || !invoice) return null;
 
   const hasMatchedProducts = invoice.items.some((item) => Boolean(item.matchedProductId || item.compositionLinks?.length));
-  const close = () => { if (!inFlight.current) onClose(); };
+  const close = () => { if (!inFlight.current && !reviewBusy) onClose(); };
 
   const persistInvoice = async (nextInvoice: InboundInvoice) => {
-    if (inFlight.current) return false;
+    if (inFlight.current || reviewBusy) return false;
     if (uncertain.current.has(nextInvoice.id)) { setErrorMessage('Há uma alteração sem confirmação nesta nota. Recarregue e confira os vínculos antes de repetir.'); return false; }
     inFlight.current = true;
     setSaving(true); setErrorMessage('');
@@ -196,7 +197,7 @@ export function ManageInboundInvoiceMappingsModal({
   return (
     <>
       <div className="fixed inset-0 z-[1000002] flex items-center justify-center p-3">
-        <button type="button" aria-label="Fechar vínculos" disabled={saving} className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs" onClick={close} />
+        <button type="button" aria-label="Fechar vínculos" disabled={saving || reviewBusy} className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs" onClick={close} />
         <section role="dialog" aria-modal="true" aria-label="Gerenciar vínculos da nota" className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900 animate-in fade-in zoom-in-95">
           <header className="flex items-center justify-between border-b p-5 dark:border-slate-800">
             <div>
@@ -208,7 +209,7 @@ export function ManageInboundInvoiceMappingsModal({
             <button
               type="button"
               aria-label="Fechar janela"
-              disabled={saving}
+              disabled={saving || reviewBusy}
               onClick={close}
               className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
@@ -220,7 +221,7 @@ export function ManageInboundInvoiceMappingsModal({
             {errorMessage && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">{errorMessage}</p>}
             {(loading || saving) && <p role="status" className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300"><i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" />{saving ? 'Salvando e confirmando vínculos...' : 'Consultando fornecedores e vínculos...'}</p>}
             {errorMessage && !saving && <button type="button" onClick={() => { setErrorMessage(''); setLoadRevision((value) => value + 1); }}>Consultar novamente</button>}
-            <fieldset disabled={saving} className="space-y-5">
+            <fieldset disabled={saving || reviewBusy} className="space-y-5">
             {/* Seção Fornecedor */}
             <section className="rounded-2xl border p-4 dark:border-slate-800">
               <h3 className="text-xs font-black uppercase text-slate-500">Fornecedor</h3>
@@ -276,6 +277,9 @@ export function ManageInboundInvoiceMappingsModal({
 
             {/* Revisão de Itens e Vínculos */}
             <InboundInvoiceItemsReview
+              key={invoice.id}
+              contextKey={invoice.id}
+              onProcessingSuggestionsChange={setReviewBusy}
               suggestionsEnabled={false}
               items={invoice.items}
               supplierId={invoice.supplierId}

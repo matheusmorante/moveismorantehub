@@ -110,20 +110,34 @@ export const DIMENSIONS_SORT_ORDER: Readonly<Record<string, number>> = {
 
 /** Sequência canônica de exibição das portas */
 export const DOORS_SORT_ORDER: Readonly<Record<string, number>> = {
-  'quantidade de portas': 1,
-  'tipo de portas': 2,
-  'material das portas': 3,
+  'possui portas': 1,
+  'possui porta': 1,
+  'quantidade de portas': 2,
+  'quantidade de porta': 2,
+  'tipo de portas': 3,
+  'tipo de porta': 3,
+  'material das portas': 4,
+  'material da porta': 4,
 };
 
 /** Sequência canônica de exibição das gavetas */
 export const DRAWERS_SORT_ORDER: Readonly<Record<string, number>> = {
-  'quantidade de gavetas': 1,
-  'tipo/material da corrediça': 2,
-  'tipo de corrediça': 2,
-  'material da corrediça': 2,
-  corrediça: 2,
-  'material das gavetas': 3,
-  'gavetas com chave': 4,
+  'possui gavetas': 1,
+  'possui gaveta': 1,
+  'quantidade de gavetas': 2,
+  'quantidade de gaveta': 2,
+  'materiais das corrediças': 3,
+  'material das corrediças': 3,
+  'material da corrediça': 3,
+  'tipo/material da corrediça': 3,
+  'tipo/material das corrediças': 3,
+  'tipo de corrediça': 3,
+  'tipo de corrediças': 3,
+  corrediça: 3,
+  corrediças: 3,
+  'material das gavetas': 4,
+  'material da gaveta': 4,
+  'gavetas com chave': 5,
 };
 
 /** Sequência canônica de exibição das prateleiras */

@@ -2,13 +2,31 @@
 
 ## Estado vigente
 
-Migração global em andamento. ERP: **112/131 itens conferidos ou encerrados (85,5%), 19 pendentes**. A contagem inclui retirada de CC-e e bibliotecas retidas sem consumidor; não são 112 formulários ativos migrados. Mobile e catálogo têm inventário próprio de arquivos candidatos, sem denominador global de proprietários comprovado.
+Migração global em andamento. ERP: **123/132 itens conferidos ou encerrados (93,2%), 9 pendentes**. A contagem inclui retirada de CC-e e bibliotecas retidas sem consumidor; não são 123 formulários ativos migrados. Mobile e catálogo têm inventário próprio de arquivos candidatos, sem denominador global de proprietários comprovado.
 
 **CC-e não é funcionalidade do MoranteHub**, inclusive tela dedicada de histórico. A política vinculante está em `AGENTS.md`, FISCAL-016 e no [registro fiscal](../fiscal/historico-correcoes-2026-10-16.md#política-de-produto--cc-e-ausente-do-sistema). Cancelamento/estorno continuam conforme elegibilidade vigente; critérios de circulação não foram alterados por inferência. Registros antigos de auditoria não autorizam reintroduzir interface ou emissão de CC-e.
+
+Relatórios ERP e filhos conferidos no agregado (Index/View/hook):111 testes em oito arquivos, lint sem erros (nove avisos anteriores) e build ERP completo em1m42s aprovados. Persistência compartilhada com Bling manteve suas regressões; autosave confirma filtros sem regravar análise e não escreve em modo público. CSV/recibos/referências/callbacks têm contratos reais e prazos. TS312 externos, sem aprovação global. [Arquivos, causa e limites](../fiscal/historico-correcoes-2026-10-16.md#relatórios-erp--proprietário-autosave-e-filhos-conferidos).
+
+Relatórios Bling conferidos no agregado:49 testes em três arquivos, lint sem erros (34 avisos anteriores) e build ERP completo em1m42s aprovados; TS296 externos. Consultas paginadas não gravam resultado parcial, proprietário de gravação exige recibo e falha só no refresh não repete o efeito. Rotas reais de criação/lista/leitura exercitadas; configuração da View continua retida sem acionador, sem nova UI. [Arquivos, causa e limites](../fiscal/historico-correcoes-2026-10-16.md#relatórios-bling--proprietário-e-composição-conferidos).
+
+Assistente global ativo conferido: quatro intenções com resolver real, envio por texto/voz e histórico atual, prazos/guardas, cache confirmado e erro visível.45 testes em quatro arquivos, lint sem erros/avisos e build ERP completo em1m35s aprovados; TS294 externos. [Arquivos, causa e limites](../fiscal/historico-correcoes-2026-10-16.md#assistente-global--envio-histórico-e-voz-conferidos). A operação já enviada por ferramenta pode continuar após aborto; não houve chamada real.
 
 Continuação adicional: [CSOSN de homologação conferido](../fiscal/historico-correcoes-2026-10-16.md#csosn-de-homologação--proprietário-conferido), com32 testes e build final ERP em1m33s. A configuração permanece exclusiva de ambiente2/modelo55/CRT1.
 
 Continuação de Settings/WhatsApp: [registro atual](../fiscal/historico-correcoes-2026-10-16.md#whatsapp-nas-configurações--submissões-com-snapshot-parseado),69 testes locais, lint limpo e build ERP final em 1m48s aprovados. Nenhuma mensagem/configuração real alterada.
+
+Continuação da biblioteca de artes: [registro atual](../fiscal/historico-correcoes-2026-10-16.md#biblioteca-de-artes--upload-consulta-e-exclusão-conferidos),35 testes/lint/build ERP em1m47s aprovados; TS303 externos. Página proprietária antes ausente acrescentada ao denominador; upload/consulta/exclusão conferidos. Editor/ambientação mantêm pendências próprias.
+
+Continuação da ambientação: [biblioteca retida e conferida](../fiscal/historico-correcoes-2026-10-16.md#ambientação--biblioteca-conferida-sem-acionador-ativo), sem consumidor ativo localizado.21 provas novas e56 no conjunto de marketing; lint e build ERP completo em1m30s aprovados; TS303 externos. Sem geração real ou reativação da biblioteca.
+
+Continuação da página ativa de campanhas/modelos: [recibos e falha parcial conferidos](../fiscal/historico-correcoes-2026-10-16.md#campanhas-e-modelos--proprietário-ativo-com-recibos-conferidos),108 provas/lint e build ERP completo em1m40s aprovados; TS292 fora do lote. Editor/autosave de templates permanece pendente.
+
+Continuação do editor de posts e da biblioteca de autosave: [editor](../fiscal/historico-correcoes-2026-10-16.md#editor-de-posts--busca-seleção-e-template-conferidos), [proprietário/fila](../fiscal/historico-correcoes-2026-10-16.md#autosave-de-templates--biblioteca-proprietária-e-fila-conferidas).162 testes/lint sem erros e build ERP completo em1m37s aprovados; TS305 externos. Autosave retido sem acionador ativo; assistência e demais caminhos continuam pendentes.
+
+Continuação de variações: [recorte/envio/propagação e busca conferidos](../fiscal/historico-correcoes-2026-10-16.md#variações--recorte-envio-propagação-e-busca-conferidos).137 testes/lint sem erros e build ERP completo em1m48s aprovados; TS294 externos. Este checkpoint encerra o agregado após os caminhos antes pendentes; não encerra o censo adicional ou a migração global.
+
+Continuação da biblioteca de modelo de etiqueta: [registro](../fiscal/historico-correcoes-2026-10-16.md#modelo-de-etiqueta--biblioteca-de-recorte-conferida),37 testes/lint e build ERP em1m30s aprovados; TS294 fora do lote. Sem consumidor ativo localizado, sem reativação e sem encerramento global.
 
 ## Causas e correções desta continuação
 

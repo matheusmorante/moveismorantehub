@@ -24,6 +24,14 @@ describe('sales order modal imports and actions', () => {
     expect(mocks.prepare).not.toHaveBeenCalled();
   });
 
+  it('uses canGenerateAssistance policy when triggering generateAssistance', () => {
+    const { result } = setup();
+    act(() => result.current.handleOrderAction('generateAssistance', { ...order, status: 'draft' }));
+    expect(result.current.assistanceSourceOrder).toBeNull();
+    act(() => result.current.handleOrderAction('generateAssistance', order));
+    expect(result.current.assistanceSourceOrder).toBe(order);
+  });
+
   it('prepares the selected environment once and opens the emission form without transmitting', async () => {
     let finish!: (order: Order) => void;
     mocks.prepare.mockImplementationOnce(() => new Promise<Order>((resolve) => { finish = resolve; }));

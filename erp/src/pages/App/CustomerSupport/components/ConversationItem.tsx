@@ -46,15 +46,15 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
     conversation.contactName ||
     formatPhoneForDisplay(conversation.contactPhone);
 
-  const formattedPhone = formatPhoneForDisplay(conversation.contactPhone);
   const timeFormatted = formatTimeAgo(conversation.lastMessageAt);
   const careWindow = whatsappSupportGuard.calculateCareWindow(conversation.lastCustomerMessageAt);
 
   const isCustomerLinked = Boolean(conversation.customerId);
   const hasOrders = (conversation.orders?.length || 0) > 0;
   const isAmbiguous = conversation.customerLinkStatus === 'ambiguous';
+  const currentStatus = conversation.status || (conversation.isArchived ? 'closed' : 'open');
 
-  // Iniciais para o avatar
+  // Iniciais para o avatar do contato
   const initials = displayName
     .split(' ')
     .filter(Boolean)
@@ -62,92 +62,134 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
     .map((w) => w[0].toUpperCase())
     .join('');
 
+  // Atendente atribuído (avatar no canto inferior direito do item como no print)
+  const assignedName = conversation.assignedProfile?.fullName;
+  const assignedInitials = assignedName
+    ? assignedName
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0].toUpperCase())
+        .join('')
+    : null;
+
   return (
     <div
       onClick={() => onSelect(conversation)}
-      className={`relative flex items-center gap-3 p-3.5 cursor-pointer border-b border-slate-100 dark:border-slate-800/60 transition-all duration-200 select-none ${
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect(conversation);
+        }
+      }}
+      className={`relative mx-2 my-1.5 p-3 rounded-2xl cursor-pointer transition-all duration-150 select-none flex items-center gap-3 ${
         isSelected
-          ? 'bg-blue-50/70 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500'
-          : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+          ? 'bg-white dark:bg-slate-800/90 border-2 border-blue-500 shadow-md ring-2 ring-blue-500/20'
+          : 'bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 shadow-xs'
       }`}
     >
-      {/* Avatar do Contato */}
+      {/* Avatar do Contato (48px) com Badge do Canal WhatsApp */}
       <div className="relative shrink-0">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 text-sm shadow-sm border border-slate-200/60 dark:border-slate-700">
-          {initials || <i className="bi bi-person text-lg text-slate-400"></i>}
+        <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 text-xs shadow-xs border border-slate-200/60 dark:border-slate-700">
+          {initials || <i className="bi bi-person text-base text-slate-400"></i>}
         </div>
 
-        {/* Indicador da Janela de 24h (Ponto Verde ou Âmbar) */}
+        {/* Badge do WhatsApp com indicador de canal */}
         <span
-          title={
-            careWindow.isOpen
-              ? `Janela de 24h ativa (${careWindow.remainingHours}h restantes)`
-              : 'Janela de 24h expirada'
-          }
-          className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 ${
-            careWindow.isOpen ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-600'
-          }`}
-        />
+          title="Canal WhatsApp"
+          className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] border-2 border-white dark:border-slate-900 shadow-xs"
+        >
+          <i className="bi bi-whatsapp"></i>
+        </span>
       </div>
 
       {/* Conteúdo da Conversa */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-1 mb-1">
-          <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        {/* Linha 1: Nome e Horário */}
+        <div className="flex items-center justify-between gap-1 mb-0.5">
+          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
             {displayName}
           </h4>
-          <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0 font-medium">
+          <span
+            className={`text-[11px] font-medium shrink-0 ${
+              conversation.unreadCount > 0
+                ? 'text-blue-600 dark:text-blue-400 font-bold'
+                : 'text-slate-400 dark:text-slate-500'
+            }`}
+          >
             {timeFormatted}
           </span>
         </div>
 
+        {/* Linha 2: Ponto de Canal/Status + Prévia da Última Mensagem + Contador de Não Lidas */}
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex-1 leading-snug">
-            {conversation.lastMessageText || 'Nova conversa iniciada'}
-          </p>
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                conversation.unreadCount > 0 ? 'bg-amber-500' : 'bg-blue-500'
+              }`}
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate leading-snug">
+              {conversation.lastMessageText || 'Conversa iniciada'}
+            </p>
+          </div>
 
-          {/* Badge de Mensagens Não Lidas */}
+          {/* Badge de Mensagens Não Lidas estilo CRM (pílula azul como no print de referência) */}
           {conversation.unreadCount > 0 && (
-            <span className="shrink-0 min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-emerald-500 text-white text-[10px] font-bold shadow-sm animate-pulse">
+            <span className="shrink-0 min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-blue-600 text-white text-[11px] font-black shadow-xs">
               {conversation.unreadCount}
             </span>
           )}
         </div>
 
-        {/* Badges de Identificação Comercial */}
-        <div className="flex items-center gap-1.5 mt-1.5 overflow-x-hidden">
-          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
-            {formattedPhone}
-          </span>
+        {/* Linha 3: Identificadores de Status e Atendente Responsável */}
+        <div className="flex items-center justify-between gap-1 mt-2">
+          <div className="flex items-center gap-1.5 overflow-hidden flex-wrap">
+            {/* Status da Conversa (Closed / Snoozed como no print) */}
+            {currentStatus === 'closed' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold border border-emerald-300 dark:border-emerald-800">
+                <i className="bi bi-check-circle-fill text-[9px] text-emerald-600"></i>
+                Closed
+              </span>
+            ) : currentStatus === 'snoozed' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 text-[10px] font-bold border border-amber-300 dark:border-amber-800">
+                <i className="bi bi-alarm-fill text-[9px] text-amber-600"></i>
+                Snoozed
+              </span>
+            ) : null}
 
-          {isCustomerLinked ? (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[9px] font-semibold border border-blue-200 dark:border-blue-800">
-              <i className="bi bi-person-check-fill text-[9px]"></i>
-              Cliente ERP
-            </span>
-          ) : isAmbiguous ? (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[9px] font-semibold border border-amber-200 dark:border-amber-800">
-              <i className="bi bi-exclamation-triangle-fill text-[9px]"></i>
-              Ambiguidade
-            </span>
+            {isCustomerLinked && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-semibold border border-blue-200/60 dark:border-blue-800/60">
+                <i className="bi bi-person-check-fill text-[9px]"></i>
+                ERP
+              </span>
+            )}
+
+            {hasOrders && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[10px] font-semibold border border-purple-200/60 dark:border-purple-800/60">
+                <i className="bi bi-bag-fill text-[9px]"></i>
+                Pedidos
+              </span>
+            )}
+          </div>
+
+          {/* Avatar do Atendente Responsável (Canto inferior direito do card como no print) */}
+          {assignedInitials ? (
+            <div
+              title={`Atribuído a: ${assignedName}`}
+              className="w-5 h-5 rounded-full bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center text-[9px] font-bold shrink-0 shadow-xs border border-white dark:border-slate-800"
+            >
+              {assignedInitials}
+            </div>
           ) : (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-medium">
-              Não identificado
-            </span>
-          )}
-
-          {hasOrders && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[9px] font-semibold border border-purple-200 dark:border-purple-800">
-              <i className="bi bi-bag-fill text-[9px]"></i>
-              Pedidos
-            </span>
-          )}
-
-          {conversation.isArchived && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-medium">
-              <i className="bi bi-archive-fill text-[8px]"></i>
-              Arquivada
-            </span>
+            <div
+              title="Sem atendente atribuído (Fila geral)"
+              className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center text-[9px] shrink-0"
+            >
+              <i className="bi bi-person-dash"></i>
+            </div>
           )}
         </div>
       </div>

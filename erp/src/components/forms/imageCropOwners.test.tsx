@@ -9,7 +9,7 @@ import { rectangularImageCropFormSchema, squareImageCropFormSchema } from '../..
 const mocks = vi.hoisted(() => ({ compress: vi.fn(), error: vi.fn(), draw: vi.fn(), createUrl: vi.fn() }));
 vi.mock('@/pages/utils/imageUtils', () => ({ compressImageToFile: mocks.compress }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error } }));
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.compress.mockImplementation(async (file: File) => file);
@@ -26,6 +26,12 @@ beforeEach(() => {
 const image = () => new File(['image'], 'photo.png', { type: 'image/png' });
 
 describe('crop form owners', () => {
+  it('bounds loading a remote crop source without leaving the cropper spinning indefinitely', async () => {
+    vi.useFakeTimers(); vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {}))); const cancel = vi.fn();
+    render(<SquareImageCropper imageUrl="https://images.example/photo.png" onCancel={cancel} onConfirm={vi.fn()} />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_001); }); expect(screen.getByText('Falha ao carregar a imagem original')).toBeTruthy(); expect(screen.getByRole('button', { name: 'Concluir e Salvar' })).toHaveProperty('disabled', true);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' })); expect(cancel).toHaveBeenCalledOnce();
+  });
   it('rejects out-of-bounds, non-finite geometry and unsupported padding in shared contracts', () => {
     const bounds = { displayWidth: 800, displayHeight: 200, sourceWidth: 1600, sourceHeight: 400 };
     expect(rectangularImageCropFormSchema.safeParse({ ...bounds, files: [image()], selection: { x: 790, y: 0, width: 20, height: 20 } }).success).toBe(false);

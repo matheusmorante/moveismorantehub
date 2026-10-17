@@ -13,6 +13,8 @@ interface AddressVerificationMapProps {
     cep?: string;
     complement?: string;
     observation?: string;
+    coords?: [number, number];
+    placeId?: string;
   };
 }
 
@@ -20,7 +22,7 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const marker = useRef<maplibregl.Marker | null>(null);
-  const { street, number, neighborhood, city } = address;
+  const { street, number, neighborhood, city, coords: directCoords, placeId } = address;
 
   const settings = getSettings();
   const originLongitude = settings.storeOriginCoords?.[0] ?? -49.16948;
@@ -36,6 +38,20 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
   // Geocodifica para posicionar o marcador. O cálculo de rota/frete ocorre após
   // selecionar/salvar o endereço do cliente ou por ação explícita no pedido.
   useEffect(() => {
+    // Se as coordenadas exatas já foram resolvidas pelo autocomplete do Places ou GPS, utiliza diretamente sem chamar Geocoding API
+    if (
+      Array.isArray(directCoords) &&
+      directCoords.length === 2 &&
+      Number.isFinite(directCoords[0]) &&
+      Number.isFinite(directCoords[1]) &&
+      (directCoords[0] !== 0 || directCoords[1] !== 0)
+    ) {
+      setCoords([Number(directCoords[0]), Number(directCoords[1])]);
+      setIsPrecision(true);
+      setLoading(false);
+      return;
+    }
+
     if (!street || !city) {
       setCoords(null);
       setIsPrecision(false);
@@ -45,7 +61,7 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const geoResult = await geocodeAddress({ street, number, neighborhood, city });
+        const geoResult = await geocodeAddress({ street, number, neighborhood, city, placeId });
         if (geoResult) {
           setCoords(geoResult.coords);
           setIsPrecision(geoResult.isPrecision);
@@ -61,7 +77,7 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [street, number, neighborhood, city]);
+  }, [street, number, neighborhood, city, directCoords, placeId]);
 
   // Map initialization
   useEffect(() => {

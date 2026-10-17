@@ -7,7 +7,11 @@ import type { Product, Variation } from '@/pages/types/product.type';
 import { invalidateTechnicalFieldDefinitionsCache } from '../services/technicalFieldService';
 import { createProductVariationFormSchema, productVariationDraftSchema } from '../../../../../../shared-utils/productVariationValidation';
 
-const mocks = vi.hoisted(() => ({ saveVariation: vi.fn(), fetchProductsPage: vi.fn(), response: vi.fn(), success: vi.fn(), error: vi.fn(), profile: { role: 'admin' } as { role: string } }));
+const mocks = vi.hoisted(() => ({ cachedParents: [] as Product[], updateParent: vi.fn(), upload: vi.fn(), compress: vi.fn(), saveVariation: vi.fn(), fetchProductsPage: vi.fn(), response: vi.fn(), success: vi.fn(), error: vi.fn(), profile: { role: 'admin' } as { role: string } }));
+vi.mock('@/pages/utils/productService/productLocalCache', () => ({ getLocalProducts: () => mocks.cachedParents }));
+vi.mock('@/pages/utils/productService/productMutationService', () => ({ updateProduct: mocks.updateParent }));
+vi.mock('../components/tabs/images/productImageUpload', () => ({ uploadOptimizedProductImage: mocks.upload }));
+vi.mock('@/pages/utils/imageUtils', () => ({ compressImageToFile: mocks.compress }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: mocks.profile }) }));
 vi.mock('react-toastify', () => ({ toast: { success: mocks.success, error: mocks.error, warn: vi.fn() } }));
 vi.mock('@/pages/utils/productService', () => ({ saveVariation: mocks.saveVariation, fetchProductsPage: mocks.fetchProductsPage, generateVariationSku: () => '001-01', parseVariationImages: (_raw: unknown, images: string[] | undefined) => images || [] }));
@@ -34,7 +38,7 @@ const mount = (value = variation, product = parent, extras: Record<string, unkno
 };
 const tab = (name: string) => fireEvent.click(screen.getByRole('tab', { name }));
 const submit = () => fireEvent.click(screen.getByRole('button', { name: 'Salvar Alterações' }));
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 beforeEach(() => {
   vi.clearAllMocks(); invalidateTechnicalFieldDefinitionsCache(); mocks.profile = { role: 'admin' }; mocks.saveVariation.mockResolvedValue(undefined);
   mocks.response.mockImplementation((table: string) => ({ data: table === 'attributes' ? fields : table === 'product_images' ? parent.images?.map((image_url) => ({ image_url })) : [], error: null }));
@@ -194,5 +198,72 @@ describe('composição real do formulário de variações', () => {
     { comboItems: [{ productId: 'banco', description: 'Banco', quantity: 0, unitPrice: 0, stock: 0 }] },
   ])('conclusão recusa atributos duplicados/componentes com quantidade zero: %j', (change) => {
     const result = createProductVariationFormSchema(parent).safeParse({ ...variation, ...change }); expect(result.success).toBe(false);
+  });
+});
+
+describe('recorte com modal, proprietário e cropper reais', () => {
+  const url = 'https://img.test/recortada.webp';
+  const deferred = () => { let resolve!: (value: any) => void; const promise = new Promise<any>((yes) => { resolve = yes; }); return { promise, resolve }; };
+  beforeEach(() => {
+    mocks.cachedParents = [parent]; mocks.updateParent.mockResolvedValue(undefined);
+    mocks.upload.mockResolvedValue(url); mocks.compress.mockImplementation(async (file: File) => file);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob(['image'], { type: 'image/png' }) }));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:crop-source'); vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(300); vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(300);
+    vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(800); vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(800);
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn(), fillRect: vi.fn() } as any);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => callback(new Blob(['crop'], { type: 'image/webp' })));
+  });
+  const openCrop = async () => {
+    tab('Fotos vinculadas'); fireEvent.click(screen.getByTitle('Recortar foto em 1:1'));
+    const image = await screen.findByAltText('Recorte do produto'); fireEvent.load(image);
+    const finish = screen.getByRole('button', { name: 'Concluir e Salvar' }); await waitFor(() => expect(finish).toHaveProperty('disabled', false)); return finish;
+  };
+  it('holds the owner lock through compression, upload and awaited global application', async () => {
+    const upload = deferred(), replacement = deferred(); mocks.upload.mockReturnValue(upload.promise); const apply = vi.fn(() => replacement.promise); const view = mount(variation, parent, { onReplaceImageGlobal: apply });
+    const finish = await openCrop(), previousSource = screen.getByAltText('Foto 1').getAttribute('src'); fireEvent.click(finish); await waitFor(() => expect(mocks.upload).toHaveBeenCalledOnce());
+    expect(screen.getByRole('button', { name: 'Salvando...' })).toHaveProperty('disabled', true);
+    fireEvent.keyDown(window, { key: 'Escape' }); expect(view.onClose).not.toHaveBeenCalled(); expect(screen.getByAltText('Recorte do produto')).toBeTruthy();
+    await act(async () => { upload.resolve(url); }); await waitFor(() => expect(apply).toHaveBeenCalledWith(variation.images![0], url));
+    expect(screen.getByAltText('Foto 1').getAttribute('src')).toBe(previousSource);
+    await act(async () => { replacement.resolve(true); }); await waitFor(() => expect(screen.queryByAltText('Recorte do produto')).toBeNull());
+    expect(screen.getByAltText('Foto 1').getAttribute('src')).toContain('/recortada'); submit(); await waitFor(() => expect(view.onSave).toHaveBeenCalledOnce()); expect(view.onSave.mock.calls[0][0].images).toEqual([url]);
+  });
+  it('retries a refused application with the same prepared file and upload receipt', async () => {
+    const apply = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true); mount(variation, parent, { onReplaceImageGlobal: apply }); const finish = await openCrop(), previousSource = screen.getByAltText('Foto 1').getAttribute('src');
+    fireEvent.click(finish); await waitFor(() => expect(apply).toHaveBeenCalledOnce()); await waitFor(() => expect(finish).toHaveProperty('disabled', false));
+    expect(screen.getByAltText('Foto 1').getAttribute('src')).toBe(previousSource); fireEvent.click(finish);
+    await waitFor(() => expect(apply).toHaveBeenCalledTimes(2)); await waitFor(() => expect(screen.queryByAltText('Recorte do produto')).toBeNull()); expect(mocks.upload).toHaveBeenCalledOnce(); expect(mocks.compress).toHaveBeenCalledOnce();
+  });
+  it('blocks replay and final save after an uncertain upload timeout', async () => {
+    const apply = vi.fn(); mocks.upload.mockReturnValue(new Promise(() => {})); mount(variation, parent, { onReplaceImageGlobal: apply }); const finish = await openCrop(); vi.useFakeTimers();
+    await act(async () => { fireEvent.click(finish); await vi.advanceTimersByTimeAsync(55_001); });
+    expect(apply).not.toHaveBeenCalled(); expect(screen.getByRole('button', { name: 'Salvar Alterações' })).toHaveProperty('disabled', true);
+    fireEvent.click(finish); expect(mocks.upload).toHaveBeenCalledOnce(); expect(screen.getAllByRole('alert').some((node) => /não foi confirmado/.test(node.textContent || ''))).toBe(true);
+  });
+  it('discards an old upload when the selected variation changes', async () => {
+    const upload = deferred(); mocks.upload.mockReturnValue(upload.promise); const apply = vi.fn(); const view = mount(variation, parent, { onReplaceImageGlobal: apply }); fireEvent.click(await openCrop());
+    await waitFor(() => expect(mocks.upload).toHaveBeenCalledOnce()); view.rerender(<VariationFormModal {...view.props} variation={parent.variations![1]} />);
+    await act(async () => { upload.resolve(url); }); expect(apply).not.toHaveBeenCalled(); expect(view.onClose).not.toHaveBeenCalled(); expect(screen.queryByAltText('Recorte do produto')).toBeNull();
+  });
+  it('lets Escape cancel only the idle cropper', async () => {
+    const view = mount(); await openCrop(); fireEvent.keyDown(window, { key: 'Escape' }); expect(screen.queryByAltText('Recorte do produto')).toBeNull(); expect(view.onClose).not.toHaveBeenCalled(); expect(mocks.upload).not.toHaveBeenCalled();
+  });
+  it('awaits the parent service contract when no local aggregate callback is supplied', async () => {
+    const saved = deferred(); mocks.updateParent.mockReturnValue(saved.promise); mount(); fireEvent.click(await openCrop()); await waitFor(() => expect(mocks.updateParent).toHaveBeenCalledOnce());
+    expect(mocks.updateParent).toHaveBeenCalledWith(parent.id, expect.objectContaining({ images: [url, parent.images![1]] }));
+    expect(mocks.updateParent.mock.calls[0][1].variations.every((item: Variation) => item.images?.includes(url))).toBe(true);
+    expect(screen.getByAltText('Recorte do produto')).toBeTruthy(); await act(async () => { saved.resolve(undefined); }); await waitFor(() => expect(screen.queryByAltText('Recorte do produto')).toBeNull()); expect(screen.getByAltText('Foto 1').getAttribute('src')).toContain('/recortada');
+  });
+  it('bounds compression while the owner remains locked and preserves the original photo', async () => {
+    mocks.compress.mockReturnValue(new Promise(() => {})); mount(variation, parent, { onReplaceImageGlobal: vi.fn() }); const finish = await openCrop(), previousSource = screen.getByAltText('Foto 1').getAttribute('src'); vi.useFakeTimers();
+    await act(async () => { fireEvent.click(finish); await vi.advanceTimersByTimeAsync(15_001); });
+    expect(mocks.upload).not.toHaveBeenCalled(); expect(screen.getByAltText('Foto 1').getAttribute('src')).toBe(previousSource); expect(screen.getByRole('button', { name: 'Salvar Alterações' })).toHaveProperty('disabled', false);
+    expect(screen.getByRole('alert').textContent).toMatch(/preparação do recorte demorou/);
+  });
+  it('bounds an uncertain application without resending the image', async () => {
+    const apply = vi.fn().mockReturnValue(new Promise(() => {})); mount(variation, parent, { onReplaceImageGlobal: apply }); const finish = await openCrop(); vi.useFakeTimers();
+    await act(async () => { fireEvent.click(finish); await vi.advanceTimersByTimeAsync(30_001); });
+    expect(mocks.upload).toHaveBeenCalledOnce(); expect(apply).toHaveBeenCalledOnce(); expect(screen.getByRole('button', { name: 'Salvar Alterações' })).toHaveProperty('disabled', true); fireEvent.click(finish); expect(mocks.upload).toHaveBeenCalledOnce();
   });
 });

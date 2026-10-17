@@ -11,6 +11,7 @@ import {
   removeVariationOverride,
   groupTechnicalFields,
   isDepthCharacteristic,
+  mergeCharacteristicGroups,
 } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
 import { AttributeManagementModal } from '../modals/attributes/AttributeManagementModal';
@@ -214,9 +215,14 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   }, [requiredFieldsOnly, normalizedSearchTerm, normalizedDebouncedSearchTerm, searchableOptionalFields]);
 
   const fieldGroups = useMemo(
-    () => [...requiredFieldGroups, ...groupTechnicalFields(selectedOptionalFields)],
+    () =>
+      mergeCharacteristicGroups([
+        ...requiredFieldGroups,
+        ...groupTechnicalFields(selectedOptionalFields),
+      ]),
     [requiredFieldGroups, selectedOptionalFields]
   );
+
 
   const handleSetOverride = (fieldName: string, value: any) => {
     const currentOverrides = formData.technicalValues || {};

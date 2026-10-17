@@ -9,6 +9,7 @@ import { InboundIndividualProductModal } from '../modals/InboundIndividualProduc
 import { QuickRegisterVariationModal } from '../modals/QuickRegisterVariationModal';
 
 interface InboundInvoiceItemsReviewProps {
+  contextKey?: string;
   items: InboundInvoiceItem[];
   supplierId?: string;
   suppliers: Person[];
@@ -41,7 +42,7 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
 
         {review.linkError && <p role="alert" className="px-5 py-3 text-sm text-rose-700 dark:text-rose-300">{review.linkError}</p>}
         {review.linkBusy && <p role="status" className="flex items-center gap-2 px-5 py-3 text-sm text-blue-700 dark:text-blue-300"><i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" />Confirmando a alteração do vínculo...</p>}
-        <fieldset disabled={review.linkBusy} className="divide-y divide-slate-100 dark:divide-slate-800">
+        <fieldset disabled={review.linkBusy || review.classificationBusy} className="divide-y divide-slate-100 dark:divide-slate-800">
           {items.map((item) => (
             <InboundInvoiceItemRow
               key={item.itemNumber}
@@ -86,6 +87,8 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
       />
 
       <InboundClassificationModals
+        isBusy={review.classificationBusy}
+        error={review.classificationError}
         isPreparingProduct={review.isPreparingProduct && !review.individualBusy}
         isClassifying={review.isClassifying && !review.individualBusy}
         classifyingItem={review.classifyingItem}

@@ -1,5 +1,5 @@
 import { AiCategory, AiRequestOptions, AiResponse } from './types/aiGatewayTypes';
-import { AI_LIMITS, AI_MODELS } from './config/aiLimitsConfig';
+import { AI_LIMITS, AI_MODELS, CHARACTERISTICS_AI_LIMITS } from './config/aiLimitsConfig';
 import { AiDeduplicator } from './core/AiDeduplicator';
 import { AiConcurrencyLimiter } from './core/AiConcurrencyLimiter';
 import { AiCircuitBreaker } from './core/AiCircuitBreaker';
@@ -151,7 +151,11 @@ export class AiGateway {
     const executionPromise = (async (): Promise<AiResponse<T>> => {
       try {
         // 4. Reserva Atômica de Cota (Pre-Allocation + FAIL CLOSED)
-        const quota = await AiQuotaManager.reserveQuota(category);
+        const isCharacteristicsOp = operation === CHARACTERISTICS_AI_LIMITS.operation;
+        const quota = isCharacteristicsOp
+          ? await AiQuotaManager.reserveCharacteristicsQuota()
+          : await AiQuotaManager.reserveQuota(category);
+
         if (!quota.allowed) {
           AiCircuitBreaker.recordError(category, quota.errorMessage || 'Quota blocked');
           return {
@@ -159,24 +163,27 @@ export class AiGateway {
             errorCode: quota.errorCode || 'AI_DAILY_LIMIT_REACHED',
             errorMessage: quota.errorMessage,
             userFriendlyMessage:
-              category === 'TTS'
+              quota.errorMessage ||
+              (category === 'TTS'
                 ? 'Limite diário de voz de IA atingido (30/dia). Ativando voz nativa.'
-                : 'Limite de uso de IA atingido. Novas gerações estarão disponíveis amanhã.',
+                : 'Limite de uso de IA atingido. Novas gerações estarão disponíveis amanhã.'),
             category,
-            modelUsed: categoryConfig.model,
+            modelUsed: isCharacteristicsOp ? CHARACTERISTICS_AI_LIMITS.model : categoryConfig.model,
           };
         }
 
         // 5. Determinar modelo efetivo
         const effectiveModel =
           options.model ||
-          (options.tier === 'reasoning'
-            ? AI_MODELS.REASONING
-            : options.tier === 'embedding'
-              ? AI_MODELS.EMBEDDING
-              : options.tier === 'lite'
-                ? AI_MODELS.LITE
-                : categoryConfig.model);
+          (isCharacteristicsOp
+            ? CHARACTERISTICS_AI_LIMITS.model
+            : options.tier === 'reasoning'
+              ? AI_MODELS.REASONING
+              : options.tier === 'embedding'
+                ? AI_MODELS.EMBEDDING
+                : options.tier === 'lite'
+                  ? AI_MODELS.LITE
+                  : categoryConfig.model);
 
         // 6. Chamada de Produção Proxied ao Gemini HTTP Backend
         const rawResult = await this.callGeminiApiProxied<T>(
@@ -186,7 +193,8 @@ export class AiGateway {
           operation,
           options.moduleSource,
           options.thinkingBudget,
-          options.jsonMode
+          options.jsonMode,
+          options.tools
         );
 
         AiCircuitBreaker.recordSuccess(category);
@@ -233,7 +241,8 @@ export class AiGateway {
     operation = 'unknown_ai_op',
     moduleSource?: string,
     thinkingBudget?: 'low' | 'medium' | 'high',
-    jsonMode?: boolean
+    jsonMode?: boolean,
+    tools?: any[]
   ): Promise<T> {
     const callId = AiLatencyTracker.startCall(operation, model, category);
     const resolvedModule = moduleSource || inferModuleFromOperation(operation);
@@ -311,6 +320,7 @@ export class AiGateway {
       requestBody = {
         contents,
         ...(Object.keys(generationConfig).length ? { generationConfig } : {}),
+        ...(tools && tools.length ? { tools } : {}),
       };
     }
 
@@ -369,10 +379,14 @@ export class AiGateway {
           costEstimated = Number(
             ((promptTokens * 0.00000075 + candidateTokens * 0.00000375) * usdRate).toFixed(4)
           );
+        } else if (model.includes('2.5-flash')) {
+          costEstimated = Number(
+            ((promptTokens * 0.0000003 + candidateTokens * 0.0000025) * usdRate).toFixed(4)
+          );
         } else {
           // gemini-3.5-flash-lite (padrão)
           costEstimated = Number(
-            ((promptTokens * 0.0000003 + candidateTokens * 0.0000025) * usdRate).toFixed(4)
+            ((promptTokens * 0.0000001 + candidateTokens * 0.0000004) * usdRate).toFixed(4)
           );
         }
         if (costEstimated <= 0 && units > 0) {

@@ -68,13 +68,6 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       );
       return;
     }
-    if (isDraft) {
-      Alert.alert(
-        'Produto em Rascunho',
-        'Termine o cadastramento deste produto para poder publicá-lo no Catálogo.'
-      );
-      return;
-    }
     if (onToggleCatalog) {
       onToggleCatalog();
     }

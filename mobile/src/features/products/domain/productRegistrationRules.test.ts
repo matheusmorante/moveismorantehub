@@ -141,7 +141,7 @@ describe('productRegistrationRules', () => {
         variation,
         [variation]
       )
-    ).toMatchObject({ tab: 'tecnico' });
+    ).toBeNull();
   });
 
   it('bloqueia preço promocional igual ou acima do preço efetivo', () => {
@@ -196,5 +196,33 @@ describe('productRegistrationRules', () => {
         },
       })
     ).toBe(false);
+  });
+
+  it('não bloqueia cadastro de variação por fornecedor ausente no rascunho do pai', () => {
+    const parentWithoutSupplier = { ...parent, mainSupplierId: '', supplierId: '' };
+    expect(
+      getMobileVariationRegistrationIssue(parentWithoutSupplier, variation, [variation])
+    ).toBeNull();
+  });
+
+  it('não exige dimensão técnica marcada explicitamente como Não se aplica', () => {
+    const withNonApplicableDimension = {
+      ...parent,
+      width: 0,
+      height: 0,
+      depth: 0,
+      technicalValues: {
+        Cor: 'Azul',
+        Modelo: 'Padrão',
+        Marca: 'Morante',
+        'Material da estrutura': 'Madeira',
+        Largura: '80',
+        Altura: '180',
+        Profundidade: 'Não se aplica',
+      },
+    };
+    expect(
+      getMobileVariationRegistrationIssue(withNonApplicableDimension, variation, [variation])
+    ).toBeNull();
   });
 });

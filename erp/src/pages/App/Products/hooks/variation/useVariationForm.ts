@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { productImageCropUploadFormSchema, productImageReplacementFormSchema } from '../../../../../../../shared-utils/productImageFormSchemas';
+import { uploadOptimizedProductImage } from '../../components/tabs/images/productImageUpload';
 import { createProductVariationSubmissionSchema } from '../../../../../../../shared-utils/productVariationValidation';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import type { Product, Variation } from '@/pages/types/product.type';
 import { saveVariation } from '@/pages/utils/productService';
-import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
 import { toast } from 'react-toastify';
 import { useVariationPricing } from './useVariationPricing';
 import type { VariationTabId, VariationFormOperationGuard } from './variationForm.types';
@@ -37,7 +38,7 @@ export interface UseVariationFormOptions {
   onSuccess?: () => void;
   onSave?: (updatedVariation: Variation) => void | boolean | Promise<void | boolean>;
   isStockistOnly?: boolean;
-  onReplaceImageGlobal?: (oldUrl: string, newUrl: string) => void | Promise<void>;
+  onReplaceImageGlobal?: (oldUrl: string, newUrl: string) => void | boolean | Promise<void | boolean>;
   operationGuard?: VariationFormOperationGuard;
 }
 
@@ -236,6 +237,15 @@ export function useVariationForm({
     }
   }, [identity, isOpen, isStockistOnly, isDraft]);
 
+  useEffect(() => {
+    if (
+      isStockistOnly &&
+      (activeTab === 'fotos' || activeTab === 'tecnico' || activeTab === 'descricao')
+    ) {
+      setActiveTab('identificacao');
+    }
+  }, [isStockistOnly, activeTab]);
+
   const handleChange = <K extends keyof Variation>(field: K, value: Variation[K]) => {
     updateFormData((prev) => (prev ? { ...prev, [field]: value } : null));
   };
@@ -334,9 +344,10 @@ export function useVariationForm({
           setError(message);
           toast.error(message);
           const fields = Object.keys(flattened).map((field) => field.replace(/^variation_/, ''));
-          const tab = ['identificacao', 'tecnico', 'estoque', 'compostos'].find((value) =>
-            fields.includes(value)
-          );
+          const availableTabs = isStockistOnly
+            ? ['identificacao', 'estoque', 'compostos']
+            : ['identificacao', 'tecnico', 'estoque', 'compostos'];
+          const tab = availableTabs.find((value) => fields.includes(value));
           const hasComboError = fields.some((field) => field.startsWith('comboItems'));
           const hasAttributeError = fields.some((field) => field.startsWith('attributes'));
           setActiveTab(
@@ -367,52 +378,73 @@ export function useVariationForm({
     }
   };
 
-  const handleReplaceImageGlobal = useCallback(
-    async (oldUrl: string, newUrl: string) => {
-      if (!session.active || session.lock || session.completed || guard.error) {
-        throw new Error('O contexto da variação mudou. Reabra as fotos antes de substituir a imagem.');
+  const imageProcessing = useRef(false), uploadedImages = useRef(new WeakMap<File, string>());
+  const cropUploadForm = useZodForm(productImageCropUploadFormSchema, { oldUrl: '', file: undefined as unknown as File });
+  const replacementForm = useZodForm(productImageReplacementFormSchema, { oldUrl: '', newUrl: '' });
+  const onImageProcessingChange = useCallback((pending: boolean) => {
+    if (pending) {
+      if (!session.active || session.lock || session.completed || guard.error) return false;
+      imageProcessing.current = true; session.lock = true; setLoading(true); setError(''); return true;
+    }
+    if (imageProcessing.current) { imageProcessing.current = false; session.lock = false; if (session.active) setLoading(false); }
+    return true;
+  }, [session, guard, setLoading, setError]);
+  const handleReplaceImageGlobal = useCallback(async (oldUrl: string, newUrl: string) => {
+    const ownsLock = !imageProcessing.current;
+    if (ownsLock && !onImageProcessingChange(true)) throw Object.assign(new Error('Aguarde a operação da variação.'), { knownFailure: true });
+    const current = () => session.active && !guard.error;
+    let writing = false;
+    try { return await replacementForm.validateAndRun({ oldUrl, newUrl }, async (values) => {
+      if (!current()) return false;
+      const currentImages = formData?.images?.length ? formData.images : allParentImages.length ? allParentImages : parentProduct.images || [];
+      if (!currentImages.includes(values.oldUrl) && !currentImages.includes(values.newUrl)) throw Object.assign(new Error('A foto de origem mudou. Reabra o recorte.'), { knownFailure: true });
+      const parentIdentity = parentProduct.parentId || parentId || parentProduct.id;
+      const cachedParent = !onReplaceImageGlobal ? getLocalProducts().find((item) => String(item.id).toLowerCase() === String(parentIdentity).toLowerCase()) : undefined;
+      if (!onReplaceImageGlobal && !cachedParent) throw Object.assign(new Error('O produto pai não está disponível. Reabra o cadastro antes de substituir a foto.'), { knownFailure: true });
+      writing = true; guard.pending = session.token;
+      const result = await withTimeout(Promise.resolve(onReplaceImageGlobal
+        ? onReplaceImageGlobal(values.oldUrl, values.newUrl)
+        : updateProduct(String(parentIdentity), (() => { const updated = replaceProductImageGlobally(cachedParent!, values.oldUrl, values.newUrl); return { images: updated.images, variations: updated.variations }; })())).then((value) => value !== false), 30_000, null, 'Aplicar foto recortada');
+      if (!current()) return false;
+      if (result === null) throw Object.assign(new Error('A substituição da foto não foi confirmada. Confira antes de repetir.'), { uncertain: true });
+      if (!result) throw Object.assign(new Error('A foto não foi aplicada. Tente novamente.'), { knownFailure: true });
+      setFormData((previous) => previous ? { ...previous, images: replaceImageUrlAcrossList(previous.images?.length ? previous.images : currentImages, values.oldUrl, values.newUrl) } : previous);
+      setAllParentImages((previous) => replaceImageUrlAcrossList(previous, values.oldUrl, values.newUrl)); return true;
+    }, (errors) => { throw Object.assign(new Error(Object.values(flattenFormErrors(errors))[0]), { knownFailure: true }); }); }
+    catch (error) {
+      if (session.active) {
+        if (writing && (!error || typeof error !== 'object' || !('knownFailure' in error) || !error.knownFailure)) guard.error ||= 'A substituição da foto pode ter sido aplicada. Confira o produto antes de repetir.';
+        setError(error instanceof Error ? error.message : 'Não foi possível aplicar a foto.');
       }
-
-      setFormData((prev) => {
-        if (!prev) return prev;
-        const currentImages =
-          prev.images && prev.images.length > 0
-            ? prev.images
-            : (allParentImages.length > 0 ? allParentImages : parentProduct?.images || []).slice(
-                0,
-                MAX_VARIATION_IMAGES
-              );
-        const updated = replaceImageUrlAcrossList(currentImages, oldUrl, newUrl);
-        return { ...prev, images: updated };
-      });
-
-      setAllParentImages((prev) => replaceImageUrlAcrossList(prev, oldUrl, newUrl));
-
-      if (onReplaceImageGlobal) {
-        await onReplaceImageGlobal(oldUrl, newUrl);
-      } else {
-        const realParentId = parentProduct?.parentId || parentId || parentProduct?.id;
-        if (realParentId) {
-          try {
-            const localProducts = getLocalProducts();
-            const parent = localProducts.find(
-              (p) => String(p.id).toLowerCase() === String(realParentId).toLowerCase()
-            );
-            if (parent) {
-              const updatedParent = replaceProductImageGlobally(parent, oldUrl, newUrl);
-              await updateProduct(realParentId, {
-                images: updatedParent.images,
-                variations: updatedParent.variations,
-              });
-            }
-          } catch (err) {
-            console.warn('[VariationForm] Falha ao sincronizar substituição global no produto pai:', err);
-          }
-        }
+      throw error;
+    } finally { if (guard.pending === session.token) guard.pending = null; if (ownsLock) onImageProcessingChange(false); }
+  }, [formData, allParentImages, parentProduct, parentId, onReplaceImageGlobal, session, guard, setAllParentImages, replacementForm, onImageProcessingChange, setError]);
+  const handleCropPhoto = async (file: File, oldUrl: string) => {
+    const ownsLock = !imageProcessing.current;
+    if (ownsLock && !onImageProcessingChange(true)) throw Object.assign(new Error('Aguarde a operação da variação.'), { knownFailure: true });
+    const current = () => session.active && !guard.error;
+    try { return await cropUploadForm.validateAndRun({ file, oldUrl }, async (values) => {
+      if (!current()) return false;
+      const currentImages = formData?.images?.length ? formData.images : allParentImages.length ? allParentImages : parentProduct.images || [];
+      if (!currentImages.includes(values.oldUrl)) throw Object.assign(new Error('A foto de origem mudou. Reabra o recorte.'), { knownFailure: true });
+      let url = uploadedImages.current.get(values.file);
+      if (!url) {
+        guard.pending = session.token;
+        const result = await withTimeout(uploadOptimizedProductImage(values.file, { isCurrent: current }), 55_000, null, 'Enviar foto recortada');
+        if (!current()) return false;
+        if (!result) throw Object.assign(new Error('O envio da foto não foi confirmado. Confira antes de repetir.'), { uncertain: true });
+        url = result; uploadedImages.current.set(values.file, url);
       }
-    },
-    [allParentImages, parentProduct, parentId, onReplaceImageGlobal, session, guard, setAllParentImages]
-  );
+      return await handleReplaceImageGlobal(values.oldUrl, url);
+    }, (errors) => { throw Object.assign(new Error(Object.values(flattenFormErrors(errors))[0]), { knownFailure: true }); }); }
+    catch (error) {
+      if (session.active) {
+        if (error && typeof error === 'object' && 'uncertain' in error && error.uncertain) guard.error ||= 'O envio ou a substituição da foto não foi confirmado. Confira antes de repetir.';
+        setError(error instanceof Error ? error.message : 'Não foi possível salvar o recorte.');
+      }
+      throw error;
+    } finally { if (guard.pending === session.token) guard.pending = null; if (ownsLock) onImageProcessingChange(false); }
+  };
 
   return {
     handleClose,
@@ -446,5 +478,7 @@ export function useVariationForm({
     updateCost,
     handleSubmit,
     handleReplaceImageGlobal,
+    handleCropPhoto,
+    onImageProcessingChange,
   };
 }

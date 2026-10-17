@@ -1,12 +1,64 @@
 import { callGeminiDirect } from './aiDirectClient';
+import { aiProductCharacteristicsService } from './aiProductCharacteristicsService';
+import type {
+  ProductAiCharacteristicsContext,
+  ProductAiDescriptiveTextContext,
+  ProductAiSuggestedCharacteristics,
+} from '../../../../../shared-utils/productAiFormSchemas';
 
+/**
+ * Utilitário interno para extração segura de texto a partir de possíveis retornos JSON da IA
+ */
+function extractDescriptionText(rawResponse: string): string {
+  let cleanText = rawResponse.trim();
+  if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(cleanText);
+      const extracted =
+        parsed.product_description ||
+        parsed.improvedDescription ||
+        parsed.description ||
+        parsed.text ||
+        parsed.content;
+      if (extracted && typeof extracted === 'string') {
+        cleanText = extracted.trim();
+      }
+    } catch (err) {
+      console.warn('[aiProductCatalogService] Falha no parse JSON de descrição:', err);
+    }
+  }
+  return cleanText;
+}
+
+/**
+ * Sanitiza e decodifica JSON envolto em blocos markdown ou texto adicional
+ */
+function parseJsonSafe<T>(rawText: string, fallback: T): T {
+  try {
+    const cleaned = rawText
+      .trim()
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/, '')
+      .trim();
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    return JSON.parse(match ? match[0] : cleaned);
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Serviço de IA para Catálogo de Produtos: títulos, descrições, cores, combos e precificação.
+ * As tarefas complexas de visão e extração de características técnicas são delegadas ao aiProductCharacteristicsService.
+ */
 export const aiProductCatalogService = {
   async generateDescription(productData: {
     productName: string;
     category: string;
     unitPrice: number;
     promptTemplate?: string;
-  }) {
+  }): Promise<{ description: string }> {
     if (!productData.productName) throw new Error('Nome do produto é obrigatório');
     const prompt = `Gere uma descrição profissional para venda do produto abaixo para o catálogo da loja:
 Produto: ${productData.productName}
@@ -21,32 +73,9 @@ Retorne apenas o texto da descrição, sem títulos markdown ou saudações.`;
         moduleSource: 'products',
         operation: 'catalog_generate_description',
       });
-      let cleanText = textResponse.trim();
-      if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
-        try {
-          const parsed = JSON.parse(cleanText);
-          const extracted =
-            parsed.product_description ||
-            parsed.improvedDescription ||
-            parsed.description ||
-            parsed.text ||
-            parsed.content;
-          if (extracted && typeof extracted === 'string') {
-            cleanText = extracted.trim();
-          }
-        } catch (err) {
-          console.warn(
-            '[aiProductCatalogService.generateDescription] Falha no parse JSON de descrição:',
-            err
-          );
-        }
-      }
-      return { description: cleanText };
+      return { description: extractDescriptionText(textResponse) };
     } catch (error) {
-      console.warn(
-        '[aiProductCatalogService.generateDescription] Falha ao gerar descrição:',
-        error
-      );
+      console.warn('[aiProductCatalogService.generateDescription] Falha ao gerar descrição:', error);
       return { description: '' };
     }
   },
@@ -55,7 +84,7 @@ Retorne apenas o texto da descrição, sem títulos markdown ou saudações.`;
     description: string;
     material?: string;
     differential?: string;
-  }) {
+  }): Promise<{ title: string }> {
     if (!data.description) throw new Error('Título base/descrição é obrigatório');
     const prompt = `Você é um especialista em SEO e títulos para e-commerce e catálogo de móveis.
 Gere um título atraente, claro e otimizado (em LETRAS MAIÚSCULAS) para o seguinte item:
@@ -72,13 +101,7 @@ Nenhum texto fora do JSON.`;
         moduleSource: 'products',
         operation: 'catalog_marketplace_title',
       });
-      const clean = textResponse
-        .trim()
-        .replace(/^```json/, '')
-        .replace(/^```/, '')
-        .replace(/```$/, '')
-        .trim();
-      const parsed = JSON.parse(clean);
+      const parsed = parseJsonSafe(textResponse, { title: data.description });
       return { title: String(parsed.title || data.description).toUpperCase() };
     } catch {
       return { title: data.description.toUpperCase() };
@@ -107,18 +130,13 @@ Nenhum texto adicional fora do JSON.`;
         moduleSource: 'products',
         operation: 'catalog_extract_color',
       });
-      const match = textResponse.match(/\{[\s\S]*\}/);
-      const cleanJson = match ? match[0] : textResponse.trim();
-      const parsed = JSON.parse(cleanJson);
+      const parsed = parseJsonSafe(textResponse, { color: null });
       if (parsed.color && typeof parsed.color === 'string' && parsed.color.trim()) {
         return parsed.color.trim();
       }
       return null;
     } catch (error) {
-      console.warn(
-        '[aiProductCatalogService.extractProductColor] Falha na chamada do Gemini:',
-        error
-      );
+      console.warn('[aiProductCatalogService.extractProductColor] Falha na chamada do Gemini:', error);
       return null;
     }
   },
@@ -133,7 +151,7 @@ Nenhum texto adicional fora do JSON.`;
     colors?: string;
     notIncluded?: string;
     type: 'whatsapp' | 'ecommerce';
-  }) {
+  }): Promise<{ description: string }> {
     const isWhatsapp = data.type === 'whatsapp';
     const prompt = `Você é um redator de vendas para Móveis Morante.
 Escreva uma descrição atraente do produto para envio via ${isWhatsapp ? 'WhatsApp' : 'Catálogo Online'}.
@@ -155,27 +173,7 @@ Retorne apenas o texto da descrição.`;
         moduleSource: 'products',
         operation: 'catalog_product_description',
       });
-      let cleanText = textResponse.trim();
-      if (cleanText.startsWith('{') && cleanText.endsWith('}')) {
-        try {
-          const parsed = JSON.parse(cleanText);
-          const extracted =
-            parsed.product_description ||
-            parsed.improvedDescription ||
-            parsed.description ||
-            parsed.text ||
-            parsed.content;
-          if (extracted && typeof extracted === 'string') {
-            cleanText = extracted.trim();
-          }
-        } catch (err) {
-          console.warn(
-            '[aiProductCatalogService.generateProductDescription] Falha no parse JSON:',
-            err
-          );
-        }
-      }
-      return { description: cleanText };
+      return { description: extractDescriptionText(textResponse) };
     } catch (error) {
       console.warn(
         '[aiProductCatalogService.generateProductDescription] Falha ao gerar descrição:',
@@ -185,7 +183,7 @@ Retorne apenas o texto da descrição.`;
     }
   },
 
-  async generateComboName(items: string) {
+  async generateComboName(items: string): Promise<{ name: string }> {
     const prompt = `Crie um nome comercial chamativo para um conjunto/combo composto pelos itens: ${items}.
 Retorne APENAS o JSON: {"name": "NOME DO COMBO"}`;
 
@@ -195,13 +193,7 @@ Retorne APENAS o JSON: {"name": "NOME DO COMBO"}`;
         moduleSource: 'products',
         operation: 'catalog_combo_name',
       });
-      const clean = textResponse
-        .trim()
-        .replace(/^```json/, '')
-        .replace(/^```/, '')
-        .replace(/```$/, '')
-        .trim();
-      const parsed = JSON.parse(clean);
+      const parsed = parseJsonSafe(textResponse, { name: `COMBO ${items.toUpperCase()}` });
       return { name: parsed.name };
     } catch {
       return { name: `COMBO ${items.toUpperCase()}` };
@@ -225,22 +217,22 @@ Retorne APENAS um JSON no formato:
   "high": { "price": número, "margin": porcentagem_numérica }
 }`;
 
+    const c = data.costPrice;
+    const defaultFallback = {
+      low: { price: Number((c * 1.3).toFixed(2)), margin: 30 },
+      medium: { price: Number((c * 1.5).toFixed(2)), margin: 50 },
+      high: { price: Number((c * 1.8).toFixed(2)), margin: 80 },
+    };
+
     try {
       const textResponse = await callGeminiDirect(prompt, true, {
         tier: 'lite',
         moduleSource: 'products',
         operation: 'catalog_suggest_prices',
       });
-      const match = textResponse.match(/\{[\s\S]*\}/);
-      const clean = match ? match[0] : textResponse.trim();
-      return JSON.parse(clean);
+      return parseJsonSafe(textResponse, defaultFallback);
     } catch {
-      const c = data.costPrice;
-      return {
-        low: { price: Number((c * 1.3).toFixed(2)), margin: 30 },
-        medium: { price: Number((c * 1.5).toFixed(2)), margin: 50 },
-        high: { price: Number((c * 1.8).toFixed(2)), margin: 80 },
-      };
+      return defaultFallback;
     }
   },
 
@@ -333,4 +325,73 @@ REGRAS FINAIS:
       throw new Error(error.message || 'Falha ao gerar nova descrição.', { cause: error });
     }
   },
+
+  /**
+   * Delega para o serviço de extração de características técnicas especializadas
+   */
+  extractProductCharacteristicsWithAI: (
+    context: ProductAiCharacteristicsContext
+  ): Promise<ProductAiSuggestedCharacteristics> =>
+    aiProductCharacteristicsService.extractProductCharacteristicsWithAI(context),
+
+  extractFromDescriptiveTextWithAI: (
+    context: ProductAiDescriptiveTextContext
+  ): Promise<ProductAiSuggestedCharacteristics> =>
+    aiProductCharacteristicsService.extractFromDescriptiveTextWithAI(context),
+
+  /**
+   * Gera uma descrição comercial e estruturada a partir de um texto informativo/anotações livres
+   */
+  async generateDescriptionFromInformativeText(data: {
+    productName: string;
+    informativeText: string;
+    brand?: string;
+    model?: string;
+    categoryName?: string;
+  }): Promise<{ description: string }> {
+    const prompt = `Você é um redator expert em e-commerce de móveis e decoração no Brasil, especializado em textos persuasivos de alta conversão.
+Sua missão é gerar uma descrição comercial elegante, atraente e vendedora para o produto a partir das informações e anotações brutas fornecidas abaixo.
+
+══════════════════════════════════════════════════════════════════
+DADOS BASE DO PRODUTO:
+- Nome do Produto: ${data.productName}
+- Marca / Fabricante: ${data.brand || 'Não informada'}
+- Modelo / Linha: ${data.model || 'Não informado'}
+- Categoria: ${data.categoryName || 'Móveis'}
+
+TEXTO INFORMATIVO / ANOTAÇÕES BRUTAS:
+"${data.informativeText}"
+══════════════════════════════════════════════════════════════════
+
+ESTRUTURA OBRIGATÓRIA DA RESPOSTA:
+1. PRIMEIRO PARÁGRAFO: Envolvente e persuasivo, apresentando o produto pelo nome e destacando seus diferenciais e conforto/beleza no ambiente.
+2. Uma linha vazia.
+3. A linha "Características:" (obrigatória caso haja detalhes, materiais ou funções nas anotações).
+4. Lista das características identificadas (materiais, estrutura, portas, gavetas, acabamento, etc.), sem asteriscos e sem hífens no início de cada linha.
+5. Uma linha vazia (caso haja medidas informadas).
+6. A linha "Dimensões:" seguida de Altura, Largura, Profundidade e Peso (apenas o que foi informado no texto).
+
+REGRAS:
+- Retorne apenas o texto da descrição gerada, sem blocos markdown (\`\`\`), sem saudações e sem comentários fora da descrição.
+- Use exclusivamente dados presentes no texto informativo ou inferíveis do tipo de móvel sem inventar especificações técnicas inexistentes.`;
+
+    try {
+      const textResponse = await callGeminiDirect(prompt, false, {
+        tier: 'lite',
+        moduleSource: 'products',
+        operation: 'catalog_generate_description_informative',
+      });
+      if (!textResponse.trim()) {
+        throw new Error('A IA retornou uma resposta vazia. Tente novamente com mais detalhes.');
+      }
+      return { description: extractDescriptionText(textResponse) };
+    } catch (error: any) {
+      console.error('[aiProductCatalogService.generateDescriptionFromInformativeText] Erro:', error);
+      throw new Error(
+        error.message || 'Falha ao gerar descrição a partir do texto informativo.',
+        { cause: error }
+      );
+    }
+  },
 };
+

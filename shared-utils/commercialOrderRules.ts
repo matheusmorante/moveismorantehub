@@ -134,10 +134,14 @@ export const validateOrder = (
 
     const hasRegularItems = items.length > 0;
     const hasAssistanceItems = Boolean(order.assistanceItems?.length);
-    if (!hasRegularItems && !hasAssistanceItems) {
-      errors['items_summary'] = isAssistance
-        ? 'O pedido de assistência deve conter pelo menos um item.'
-        : 'O pedido/orçamento deve conter pelo menos um produto.';
+    const isLinkedAssistance =
+      isAssistance && Boolean(order.linkedOrderId && order.linkedOrderId.trim() !== '');
+
+    if (!isAssistance && !hasRegularItems) {
+      errors['items_summary'] = 'O pedido/orçamento deve conter pelo menos um produto.';
+    } else if (isLinkedAssistance && !hasRegularItems && !hasAssistanceItems) {
+      errors['items_summary'] =
+        'Como há um pedido vinculado, selecione pelo menos um item do pedido original ou adicione uma peça/serviço.';
     }
   }
 

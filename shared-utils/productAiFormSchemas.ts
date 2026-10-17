@@ -53,3 +53,83 @@ const priceTierSchema = z.object({ price: z.number().nonnegative(), margin: z.nu
 export const productAiPriceResultsSchema = z.object({
   low: priceTierSchema.optional(), medium: priceTierSchema.optional(), high: priceTierSchema.optional(),
 }).refine((value) => Boolean(value.low || value.medium || value.high));
+
+export const productAiCharacteristicsModalFormSchema = z.object({
+  additionalInfo: z.string().max(3000, 'Texto adicional não pode exceder 3000 caracteres.').optional().default(''),
+});
+
+export type ProductAiCharacteristicsModalFormValues = z.infer<typeof productAiCharacteristicsModalFormSchema>;
+
+export const productAiCharacteristicsContextSchema = z.object({
+  productName: z.string().trim().min(2, 'Informe o nome do produto antes de preencher as características.'),
+  brand: z.string().trim().min(1, 'Informe a marca do produto antes de preencher com IA.'),
+  model: z.string().trim().min(1, 'Informe o modelo do produto antes de preencher com IA.'),
+  categoryName: z.string().optional().default(''),
+  description: z.string().optional().default(''),
+  additionalInfo: z.string().optional().default(''),
+  images: z.array(z.string()).optional().default([]),
+  availableAttributes: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    dataType: z.string().optional(),
+    options: z.array(z.string()).optional(),
+  })).optional().default([]),
+});
+
+export type ProductAiCharacteristicsContext = z.infer<typeof productAiCharacteristicsContextSchema>;
+
+export const productAiSuggestedCharacteristicsSchema = z.object({
+  identifiedProduct: z.object({
+    name: z.string().optional(),
+    brand: z.string().optional(),
+    model: z.string().optional(),
+    confidence: z.enum(['alta', 'media', 'baixa']).default('alta'),
+    sources: z.array(z.object({
+      title: z.string(),
+      uri: z.string().optional(),
+    })).optional(),
+    divergences: z.string().optional(),
+  }).optional(),
+  technicalValues: z.record(z.string(), technicalValue),
+  itemConfidence: z.record(z.string(), z.enum(['alta', 'media', 'baixa'])).optional(),
+  height: z.union([z.number(), z.string()]).optional(),
+  width: z.union([z.number(), z.string()]).optional(),
+  depth: z.union([z.number(), z.string()]).optional(),
+  weight: z.union([z.number(), z.string()]).optional(),
+  description: z.string().optional(),
+  reasoning: z.string().optional(),
+  sources: z.array(z.object({
+    title: z.string(),
+    uri: z.string().optional(),
+  })).optional(),
+});
+
+export type ProductAiSuggestedCharacteristics = z.infer<typeof productAiSuggestedCharacteristicsSchema>;
+
+export const productAiDescriptiveTextFormSchema = z.object({
+  descriptiveText: z
+    .string()
+    .trim()
+    .min(5, 'Cole ou digite a descrição ou especificações do produto (mínimo 5 caracteres).'),
+  additionalInfo: z.string().optional().default(''),
+});
+
+export type ProductAiDescriptiveTextFormValues = z.infer<typeof productAiDescriptiveTextFormSchema>;
+
+export const productAiDescriptiveTextContextSchema = z.object({
+  descriptiveText: z.string().trim().min(5),
+  currentName: z.string().optional().default(''),
+  currentBrand: z.string().optional().default(''),
+  currentModel: z.string().optional().default(''),
+  categoryName: z.string().optional().default(''),
+  additionalInfo: z.string().optional().default(''),
+  availableAttributes: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    dataType: z.string().optional(),
+    options: z.array(z.string()).optional(),
+  })).optional().default([]),
+});
+
+export type ProductAiDescriptiveTextContext = z.infer<typeof productAiDescriptiveTextContextSchema>;
+

@@ -8,7 +8,8 @@ interface ItemExclusionModalProps {
   onClose: () => void;
   items: any[];
   initialExcludedItems: string[];
-  onConfirm: (excludedItems: string[]) => void;
+  onConfirm: (excludedItems: string[]) => void | boolean | Promise<void | boolean>;
+  loading?: boolean;
 }
 
 const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
@@ -17,14 +18,18 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
   items,
   initialExcludedItems,
   onConfirm,
+  loading = false,
 }) => {
   const [localExcludedItems, setLocalExcludedItems] = useState<string[]>(initialExcludedItems);
   const [validationError, setValidationError] = useState('');
   const form = useZodForm(itemExclusionFormSchema, { excludedItems: localExcludedItems });
-  const handleConfirm = form.submit((values) => {
+  const handleConfirm = form.submit(async (values) => {
     setValidationError('');
-    onConfirm(values.excludedItems);
-    onClose();
+    try {
+      if (await onConfirm(values.excludedItems) !== false) onClose();
+      else setValidationError('As exclusões não foram confirmadas. A seleção foi preservada.');
+    }
+    catch (failure) { setValidationError(failure instanceof Error ? failure.message : 'Não foi possível confirmar as exclusões.'); }
   }, (errors) => setValidationError(Object.values(flattenFormErrors(errors))[0] || 'Confira os itens excluídos.'));
 
   // Sincronizar estado local quando o modal abrir
@@ -111,7 +116,8 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
             </span>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => { if (!loading && !form.formState.isSubmitting) onClose(); }}
+            disabled={loading || form.formState.isSubmitting}
             className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-500 hover:text-red-500 transition-all"
           >
             <i className="bi bi-x-lg text-xl"></i>
@@ -312,7 +318,7 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
           <button
             type="button"
             onClick={() => void handleConfirm()}
-            disabled={form.formState.isSubmitting}
+            disabled={loading || form.formState.isSubmitting}
             className="w-full py-4 bg-slate-900 dark:bg-indigo-600 hover:opacity-90 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-indigo-500/10"
           >
             Concluído ({items.length - localExcludedItems.length} itens inclusos)

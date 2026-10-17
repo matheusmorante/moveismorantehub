@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { PostCampaign } from '../types/postCreator';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { postCampaignDeleteFormSchema } from '../../../../../../../shared-utils/postManagerFormSchemas';
 import { marketingCampaignFormSchema } from '../../../../../../../shared-utils/campaignFormSchemas';
 import { toast } from 'react-toastify';
 import type { z } from 'zod';
@@ -23,11 +24,15 @@ export function CampaignManagerModal({
   const [editing, setEditing] = useState<Partial<PostCampaign>>();
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const initialEdit = useRef(true);
+  const initialEdit = useRef(true), active = useRef(true), submissionRequested = useRef(false), deleting = useRef(false);
+  const editingSource = useRef(editing); editingSource.current = editing;
+  const deleteForm = useZodForm(postCampaignDeleteFormSchema, { id: '' });
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const values = { ...editing, name: editing?.name || '' };
   const form = useZodForm(marketingCampaignFormSchema, values);
   const { enqueueAndRun } = form;
   const persist = useCallback(async (data: z.output<typeof marketingCampaignFormSchema>, closeAfterSave = false) => {
+    if (!active.current || !editingSource.current || editingSource.current.id !== data.id) return;
     setBusy(true);
     onSavingChange(true);
     setSaveError('');
@@ -56,6 +61,18 @@ export function CampaignManagerModal({
     const timeout = window.setTimeout(() => void enqueueAndRun(snapshot, (data) => persistRef.current(data), (errors) => setSaveError(Object.values(flattenFormErrors(errors))[0])), 700);
     return () => window.clearTimeout(timeout);
   }, [editing, enqueueAndRun]);
+  const remove = async (id: string) => {
+    if (busy || deleting.current || submissionRequested.current) return;
+    deleting.current = true; setBusy(true); setSaveError(''); onSavingChange(true);
+    try { await deleteForm.validateAndRun({ id }, async (values) => {
+      if (!active.current) return false;
+      const selected = campaigns.find((item) => item.id === values.id); if (!selected) throw new Error('A campanha selecionada mudou. Atualize a lista.');
+      if (!window.confirm('Excluir a campanha "' + selected.name + '"?')) return false;
+      await onRemove(values.id); return true;
+    }, (errors) => setSaveError(Object.values(flattenFormErrors(errors))[0])); }
+    catch (error) { if (active.current) setSaveError(error instanceof Error ? error.message : 'Não foi possível excluir a campanha.'); }
+    finally { deleting.current = false; if (active.current) setBusy(false); onSavingChange(false); }
+  };
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 text-white shadow-2xl">
@@ -66,14 +83,15 @@ export function CampaignManagerModal({
               Crie, edite, desative ou exclua campanhas.
             </p>
           </div>
-          <button onClick={onClose}>✕</button>
+          <button disabled={busy} onClick={() => { if (!busy && !submissionRequested.current && !deleting.current) onClose(); }}>✕</button>
         </header>
         <div className="max-h-[65vh] overflow-auto p-5">
           {saveError && <p role="alert" className="mb-3 text-sm text-red-300">{saveError}</p>}
           {editing ? (
-            <form noValidate onSubmit={form.submit((data) => persist(data, true), (errors) => {
-              toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a campanha.');
-            }, true)} className="space-y-3">
+            <form noValidate onSubmit={(event) => {
+              event.preventDefault(); if (submissionRequested.current || deleting.current) return; submissionRequested.current = true;
+              void form.submit((data) => persist(data, true), (errors) => { toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a campanha.'); }, true)(event).finally(() => { submissionRequested.current = false; });
+            }} className="space-y-3">
               <label className="block text-xs">
                 Nome
                 <input
@@ -109,7 +127,8 @@ export function CampaignManagerModal({
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setEditing(undefined)}
+                  disabled={busy}
+                  onClick={() => { if (!submissionRequested.current) setEditing(undefined); }}
                   className="px-3 py-2 text-xs"
                 >
                   Cancelar
@@ -138,20 +157,19 @@ export function CampaignManagerModal({
                   >
                     <div>
                       <b className="text-sm">{campaign.name}</b>
+                      {campaign.persistedRemotely === false && <p className="text-xs text-amber-300">Rascunho salvo somente neste navegador.</p>}
                       <p className="text-xs text-slate-400">
                         {campaign.active ? 'Ativa' : 'Desativada'}
                         {campaign.description ? ` · ${campaign.description}` : ''}
                       </p>
                     </div>
                     <div className="flex gap-2 text-xs">
-                      <button onClick={() => setEditing(campaign)} className="text-indigo-300">
+                      <button disabled={busy} onClick={() => setEditing(campaign)} className="text-indigo-300">
                         Editar
                       </button>
                       <button
-                        onClick={() => {
-                          if (window.confirm(`Excluir a campanha "${campaign.name}"?`))
-                            void onRemove(campaign.id);
-                        }}
+                        disabled={busy}
+                        onClick={() => void remove(campaign.id)}
                         className="text-rose-300"
                       >
                         Excluir

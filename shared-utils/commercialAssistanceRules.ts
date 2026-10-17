@@ -21,7 +21,7 @@ export const validateAssistanceOrder = (
     errors['customer_phone'] = 'Telefone é obrigatório.';
   }
 
-  if (!order.assistanceDescription) {
+  if (!order.assistanceDescription || !order.assistanceDescription.trim()) {
     errors['assistanceDescription'] = 'Descrição do serviço é obrigatória.';
   }
 
@@ -34,11 +34,18 @@ export const validateAssistanceOrder = (
     if (!order.scheduledTime) errors['shipping_time'] = 'Horário é obrigatório.';
   }
 
-  const hasRegularItems = (order.items || []).some((item) => !!item.productId);
+  // Vínculo com pedido original é estritamente opcional.
+  // Quando o pedido original não se encontra no ERP (ou o operador opta por não vincular),
+  // a assistência é tratada como avulsa e não deve exigir seleção de pedido original nem de seus itens.
+  const isLinked = Boolean(order.linkedOrderId && order.linkedOrderId.trim() !== '');
+  const hasRegularItems = (order.items || []).some(
+    (item) => !!item.productId || Boolean(item.description?.trim())
+  );
   const hasAssistanceItems = (order.assistanceItems || []).length > 0;
-  if (!hasRegularItems && !hasAssistanceItems) {
+
+  if (isLinked && !hasAssistanceItems && !hasRegularItems) {
     errors['items_summary'] =
-      'Selecione pelo menos um item do pedido original ou adicione uma peça/serviço avulso.';
+      'Como há um pedido vinculado, selecione pelo menos um item do pedido original ou adicione uma peça/serviço.';
   }
 
   return errors;

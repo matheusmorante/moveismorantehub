@@ -31,6 +31,7 @@ export interface ElementModelReference {
   mimeType: string;
 }
 export interface ElementModel {
+  persistedRemotely?: boolean;
   id: string;
   name: string;
   elementType: ElementType;
@@ -48,6 +49,7 @@ export interface ElementModel {
 }
 
 export interface CampaignElementModel {
+  persistedRemotely?: boolean;
   campaignId: string;
   elementModelId: string;
   elementType: ElementType;
@@ -57,6 +59,7 @@ export interface CampaignElementModel {
 }
 
 export interface PostCampaign {
+  persistedRemotely?: boolean;
   id: string;
   name: string;
   description?: string;

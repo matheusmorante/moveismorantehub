@@ -364,7 +364,16 @@ export const labelPrintSelectionFormSchema = z.object({
     unitPrice: z.number().optional(), images: z.array(z.string()).optional(), labelQty: labelQuantity,
   }).passthrough()).min(1, 'Selecione um produto.'),
 });
-export const labelCropFormSchema = z.object({ image: z.string().min(1, 'Selecione uma imagem.'), scale: z.number().min(0.1).max(5), crop: z.object({ x: z.number().nonnegative(), y: z.number().nonnegative(), w: z.number().min(20), h: z.number().min(20) }) });
+const labelCropDimension = z.number().positive('Aguarde o carregamento da imagem.');
+export const labelCropFormSchema = z.object({
+  image: z.string().startsWith('data:image/', 'Selecione uma imagem válida.'), scale: z.number().min(0.1).max(5),
+  crop: z.object({ x: z.number().nonnegative(), y: z.number().nonnegative(), w: z.number().min(20), h: z.number().min(20) }),
+  displayWidth: labelCropDimension, displayHeight: labelCropDimension, renderedWidth: labelCropDimension, renderedHeight: labelCropDimension, sourceWidth: labelCropDimension, sourceHeight: labelCropDimension,
+}).superRefine((value, context) => {
+  const { crop, displayWidth, displayHeight, renderedWidth, renderedHeight } = value;
+  const left = (displayWidth - renderedWidth) / 2, top = (displayHeight - renderedHeight) / 2;
+  if (crop.x + crop.w > displayWidth || crop.y + crop.h > displayHeight || Math.min(renderedWidth, crop.x + crop.w - left) <= Math.max(0, crop.x - left) || Math.min(renderedHeight, crop.y + crop.h - top) <= Math.max(0, crop.y - top)) context.addIssue({ code: 'custom', path: ['crop'], message: 'O recorte deve ficar dentro da área visível e incluir parte da imagem.' });
+});
 export const labelDataFillFormSchema = z.object({ title: z.string(), normalPrice: z.string(), promoPrice: z.string(), centsText: z.string(), currencySymbol: z.string(), installments: z.string() });
 const labelQueueItem = z.object({
   name: z.string().optional(), price: z.string().optional(), promoPrice: z.string().optional(), sku: z.string().optional(),

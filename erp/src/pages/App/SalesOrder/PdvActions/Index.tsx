@@ -58,6 +58,7 @@ const OrderActions = ({ order }: { order: Order }) => {
 
           if (btn.key === 'generateReturn' && (hasReturn || !canGenerateReturn(order)))
             return false;
+          if (btn.key === 'generateAssistance') return false;
           if (btn.key === 'undoReturn') return false;
 
           return true;

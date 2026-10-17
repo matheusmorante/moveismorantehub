@@ -44,18 +44,16 @@ describe('requisitos existentes para concluir uma variação', () => {
       depth: 50,
     });
   });
-  it.each([
-    ['width', 'Largura'],
-    ['height', 'Altura'],
-    ['depth', 'Profundidade'],
-  ] as const)('bloqueia %s inválida quando a característica está ligada', (field, name) => {
+  it('não bloqueia cadastro de variação por ausência de características ou dimensões (requisitos do catálogo digital)', () => {
     expect(
       getVariationRegistrationIssue(parent, {
         ...variation,
-        [field]: NaN,
-        technicalValues: { ...variation.technicalValues, [name]: '' },
+        width: 0,
+        height: 0,
+        depth: 0,
+        technicalValues: {},
       })
-    ).toMatchObject({ tab: 'tecnico' });
+    ).toBeNull();
   });
   it('ignora dimensões sem valor quando suas características estão desligadas', () => {
     const disabledDimensions = {
@@ -94,19 +92,11 @@ describe('requisitos existentes para concluir uma variação', () => {
     expect(getVariationRegistrationIssue(parent, technical)).toBeNull();
     expect(resolveVariationDimensions(parent, technical).width).toBe(80.5);
   });
-  it('bloqueia característica obrigatória Cor vazia', () => {
+  it('permite variação sem característica Cor no cadastro (obrigatória apenas no catálogo digital)', () => {
     expect(
       getVariationRegistrationIssue(parent, {
         ...variation,
         technicalValues: { ...variation.technicalValues, Cor: '' },
-      })?.message
-    ).toContain('Cor');
-  });
-  it('permite característica opcional Material da estrutura vazia', () => {
-    expect(
-      getVariationRegistrationIssue(parent, {
-        ...variation,
-        technicalValues: { ...variation.technicalValues, 'Material da estrutura': '' },
       })
     ).toBeNull();
   });
