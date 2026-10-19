@@ -59,7 +59,7 @@ export const extractProductAiPrerequisites = (
   const hasDescription = description.length > 0;
   const hasBrand = brand.length > 0;
   const hasModel = model.length > 0;
-  const isPrerequisitesMet = hasName && hasBrand && hasModel;
+  const isPrerequisitesMet = hasName;
 
   return {
     productName,

@@ -84,21 +84,27 @@ describe('CFOP configurável das operações fiscais', () => {
     expect(originalItemCfop(source.lines[0].productXml)).toBe('5102');
   });
 
-  it('oferece somente os CFOPs alternativos da orientação da SEFA/PR quando falta mapa inverso', () => {
+  it('oferece o CFOP inverso canônico validado e não utiliza CFOP genérico como fallback', () => {
     expect(getEstornoCfopOptions('5102')).toEqual([
-      { value: '5949', label: '5.949 · outra saída não especificada' },
-      { value: '6949', label: '6.949 · outra saída não especificada' },
-      { value: '7949', label: '7.949 · outra saída não especificada' },
+      { value: '1202', label: '1.202 · CFOP inverso da operação' },
     ]);
+    expect(getEstornoCfopOptions('6102')).toEqual([
+      { value: '2202', label: '2.202 · CFOP inverso da operação' },
+    ]);
+    // CFOP não mapeado retorna lista vazia (sem fallback genérico 5949/6949/7949)
+    expect(getEstornoCfopOptions('5999')).toEqual([]);
     expect(
       getEstornoCfopOptions('5102', { inverseCfopMappings: { '5102': '1102' } })
-    ).toEqual([{ value: '1102', label: '1.102 · CFOP inverso configurado' }]);
+    ).toEqual([{ value: '1102', label: '1.102 · CFOP inverso da operação' }]);
   });
 
-  it('sem mapa, com mapa inválido ou após mudança de config, não troca CFOP confirmado', () => {
-    expect(suggestEstornoCfop('5102')).toBeNull();
+  it('determina CFOP canônico, respeita sobreposição de configuração e falha fechado para não mapeado', () => {
+    expect(suggestEstornoCfop('5102')).toBe('1202');
+    expect(suggestEstornoCfop('6102')).toBe('2202');
+    expect(suggestEstornoCfop('5999')).toBeNull();
+    // Inversão inválida (mesmo prefixo de saída) deve falhar fechado
     expect(suggestEstornoCfop('5102', { inverseCfopMappings: { '5102': '5102' } })).toBeNull();
-    expect(() => confirmedOperationCfop(null, suggestEstornoCfop('5102'))).toThrow(/não mapeado/);
+    expect(() => confirmedOperationCfop(null, suggestEstornoCfop('5999'))).toThrow(/não mapeado/);
     expect(
       confirmedOperationCfop(
         '1102',

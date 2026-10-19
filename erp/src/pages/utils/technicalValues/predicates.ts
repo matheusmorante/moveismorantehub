@@ -181,7 +181,8 @@ export const isFeetQuantityCharacteristic = (name: string): boolean =>
   /quantidade\s+de\s+p[eé]s?/i.test(name.trim());
 
 export const isFeetDependentCharacteristic = (name: string): boolean =>
-  /p[eé]s?/i.test(name) && !isHasFeetCharacteristic(name);
+  (/(?:^|[^a-z0-9])p[eé]s?(?=$|[^a-z0-9])/i.test(name) || /rod[ií]zios?/i.test(name)) &&
+  !isHasFeetCharacteristic(name);
 
 export const parseFeetQuantityValue = (values: Record<string, any> = {}): number | null => {
   for (const [key, val] of Object.entries(values)) {

@@ -190,30 +190,13 @@ export const SellerInput: FC<SellerInputProps> = ({
                       setFilterText(sellerName);
                       setIsOpen(false);
                     }}
-                    className={`flex items-center justify-between p-2.5 rounded-xl transition-all text-left w-full ${
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left w-full ${
                       isSelected
                         ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-bold'
                         : 'hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
-                      >
-                        <i className="bi bi-person-fill text-sm" />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-bold truncate">{e.fullName}</span>
-                        <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-tight">
-                          {e.nickname && (
-                            <span className={isSelected ? 'text-emerald-600' : 'text-blue-500'}>
-                              @{e.nickname}
-                            </span>
-                          )}
-                          {e.position && <span>• {e.position}</span>}
-                        </div>
-                      </div>
-                    </div>
+                    <span className="text-xs font-bold truncate">{e.fullName}</span>
                     {isSelected && (
                       <i className="bi bi-check-lg text-emerald-600 dark:text-emerald-400 text-base ml-2 shrink-0" />
                     )}

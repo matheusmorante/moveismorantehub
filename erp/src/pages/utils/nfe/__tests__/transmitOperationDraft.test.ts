@@ -84,7 +84,7 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
     originalQuantity: 2,
     grossValue: 200,
     discountValue: 0,
-    cfop: '5949',
+    cfop: '1202',
   });
   const state = {
     draft: {
@@ -143,7 +143,7 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
         quantity: kind === 'estorno' ? 2 : 1,
         gross_value: kind === 'estorno' ? 200 : 100,
         discount_value: 0,
-        reviewed_cfop: kind === 'estorno' ? '5949' : '1202',
+        reviewed_cfop: '1202',
         reviewed_product_xml: kind === 'estorno' ? estornoProduct : reviewedProduct,
         reviewed_taxes_xml: reviewedTaxes,
       },
@@ -1385,4 +1385,51 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
       }
     }
   );
+
+  it('permite prévia do XML do estorno a administradores sem reservar número nem transmitir à SEFAZ', async () => {
+    const { db, state } = createDatabase('estorno');
+    mocks.createClient.mockReturnValue(db);
+    mocks.authorizeFiscalOperator.mockResolvedValue({ ok: true, userId: 'admin-1', isAdministrator: true });
+    const handler = await getHandler();
+    const res = createResponse();
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer admin-token' },
+        body: { draftId: state.draft.id, previewOnly: true },
+      } as any,
+      res.response
+    );
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({
+      success: true,
+      preview: true,
+    });
+    expect(typeof res.body.xml).toBe('string');
+    expect(res.body.xml).toContain('<NFe');
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+    expect(state.rpcCalls.some(call => call.name === 'prepare_nfe_operation_attempt')).toBe(false);
+  });
+
+  it('bloqueia prévia do XML para operadores sem privilégio de administrador', async () => {
+    const { db, state } = createDatabase('estorno');
+    mocks.createClient.mockReturnValue(db);
+    mocks.authorizeFiscalOperator.mockResolvedValue({ ok: true, userId: 'user-1', isAdministrator: false });
+    const handler = await getHandler();
+    const res = createResponse();
+    await handler(
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, previewOnly: true },
+      } as any,
+      res.response
+    );
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({
+      success: false,
+      code: 'FISCAL_XML_PREVIEW_ADMIN_REQUIRED',
+    });
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
 });

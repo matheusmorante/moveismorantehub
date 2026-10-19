@@ -47,20 +47,20 @@ describe('ProductAiCharacteristicsModal Component', () => {
     cleanup();
   });
 
-  it('desabilita o botão Consultar com IA no Modo 1 se Nome, Marca ou Modelo estiverem faltando', () => {
+  it('habilita o botão Consultar com IA no Modo 1 quando só o nome estiver preenchido', () => {
     render(
       <ProductAiCharacteristicsModal
         isOpen={true}
         onClose={vi.fn()}
-        formData={{ name: 'Guarda Roupa' }} // falta marca e modelo
+        formData={{ name: 'Guarda Roupa' }} // marca, modelo, categoria e fotos são opcionais
         setFormData={vi.fn()}
         availableAttributes={defaultAvailableAttributes}
       />
     );
 
     const submitBtn = screen.getByRole('button', { name: /Consultar com IA/i }) as HTMLButtonElement;
-    expect(submitBtn.disabled).toBe(true);
-    expect(screen.getByText(/Preencha os campos obrigatórios/i)).toBeDefined();
+    expect(submitBtn.disabled).toBe(false);
+    expect(screen.queryByText(/Preencha os campos obrigatórios/i)).toBeNull();
   });
 
   it('habilita o botão Consultar com IA quando Nome, Marca e Modelo estiverem preenchidos, mesmo SEM Categoria', () => {

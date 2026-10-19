@@ -6,8 +6,16 @@ import {
 import { getFiscalCancellationPolicy } from './fiscalCancellationPolicy.js';
 import { getAuthorizedAt } from './nfeEventRules.js';
 
-import { ORDER_EDIT_CCE_DISABLED_REASON } from '../../../../../shared-utils/fiscalCorrectionPolicy';
-export { ORDER_EDIT_CCE_DISABLED_REASON } from '../../../../../shared-utils/fiscalCorrectionPolicy';
+import {
+  ORDER_EDIT_CCE_DISABLED_REASON,
+  FISCAL_CORRECTION_POLICY_NOTICE,
+  FISCAL_CORRECTION_RULES,
+} from '../../../../../shared-utils/fiscalCorrectionPolicy';
+export {
+  ORDER_EDIT_CCE_DISABLED_REASON,
+  FISCAL_CORRECTION_POLICY_NOTICE,
+  FISCAL_CORRECTION_RULES,
+} from '../../../../../shared-utils/fiscalCorrectionPolicy';
 
 /** Replacement affects the complete original invoice; the commercial sale stays scheduled. */
 export function getOrderEditFiscalPolicy(

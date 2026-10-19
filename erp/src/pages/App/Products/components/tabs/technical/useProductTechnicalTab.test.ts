@@ -139,7 +139,7 @@ describe('useProductTechnicalTab', () => {
     );
     expect(allFieldNamesBeforeSearch).toContain('Material da estrutura');
 
-    // Digita pesquisa por outro termo que não tem a ver com estrutura (ex: 'Comprimento')
+    // Busca por outro termo sem adicionar esse campo à ficha
     act(() => {
       result.current.setCharacteristicSearchTerm('Comprimento');
     });
@@ -149,7 +149,7 @@ describe('useProductTechnicalTab', () => {
       g.fields.map((f) => f.name)
     );
     expect(allFieldNamesDuringSearch).toContain('Material da estrutura');
-    expect(allFieldNamesDuringSearch).toContain('Comprimento');
+    expect(allFieldNamesDuringSearch).not.toContain('Comprimento');
 
     // Altera a pesquisa para outro termo (ex: 'inexistente')
     act(() => {
@@ -161,6 +161,7 @@ describe('useProductTechnicalTab', () => {
     );
     // Campo preenchido CONTINUA visível!
     expect(allFieldNamesDuringOtherSearch).toContain('Material da estrutura');
+    expect(allFieldNamesDuringOtherSearch).not.toContain('Comprimento');
 
     // Limpa a pesquisa
     act(() => {

@@ -18,6 +18,7 @@ type Props = {
   value: any;
   disabled?: boolean;
   isInvalid?: boolean;
+  compact?: boolean;
   onChange: (value: any) => void;
 };
 
@@ -26,6 +27,7 @@ export const TechnicalFieldInput: React.FC<Props> = ({
   value,
   disabled,
   isInvalid,
+  compact = false,
   onChange,
 }) => {
   let type = field.dataType || 'list';
@@ -53,6 +55,7 @@ export const TechnicalFieldInput: React.FC<Props> = ({
         value={value}
         disabled={disabled}
         isInvalid={isInvalid}
+        compact={compact}
         onChange={onChange}
       />
     );

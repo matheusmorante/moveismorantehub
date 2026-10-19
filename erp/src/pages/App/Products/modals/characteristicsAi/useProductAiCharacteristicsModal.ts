@@ -101,7 +101,7 @@ export const useProductAiCharacteristicsModal = ({
   // Disparo Modo 1: Pesquisa na Web
   const handleStartWebSearch = async (values: ProductAiCharacteristicsModalFormValues) => {
     if (!prerequisites.isPrerequisitesMet) {
-      toast.warning('Preencha os campos obrigatórios (Nome do produto, Marca e Modelo) para consultar com IA.');
+      toast.warning('Informe o nome do produto para consultar com IA.');
       return;
     }
     if (isBlocked) {

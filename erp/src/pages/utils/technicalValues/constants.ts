@@ -6,7 +6,7 @@ export const REQUIRED_CHARACTERISTICS_TOPIC = 'Características principais';
 
 export const CHARACTERISTIC_TOPICS: ReadonlyArray<{ title: string; matches: RegExp }> = [
   {
-    title: 'Medidas e peso',
+    title: 'Dimensões e Peso',
     matches:
       /\b(altura|largura|profundidade|comprimento|espessura|assento)\b|\bpeso\b(?!.*(prateleira|gaveta))/i,
   },

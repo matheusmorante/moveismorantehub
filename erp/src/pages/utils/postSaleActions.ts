@@ -1,4 +1,24 @@
-import Order from '../types/order.type';
+import Order, { IsButtonsClicked, IsButtonsStale } from '../types/order.type';
+
+export const POST_SALE_ACTION_KEYS_TO_REFRESH_AFTER_EDIT: Array<keyof IsButtonsClicked> = [
+  'printReceipt',
+  'printPromissoryNote',
+  'printWarrantyTerm',
+  'printShippingOrder',
+  'sendShippingOrder',
+  'sendCustomerOrder',
+  'sendCustomerOrderDirectApi',
+];
+
+export const getPostSaleActionsStaleAfterEdit = (
+  order: Pick<Order, 'isButtonsClicked' | 'isButtonsStale'>
+): IsButtonsStale => {
+  const staleActions = { ...order.isButtonsStale };
+  POST_SALE_ACTION_KEYS_TO_REFRESH_AFTER_EDIT.forEach((key) => {
+    if (order.isButtonsClicked?.[key]) staleActions[key] = true;
+  });
+  return staleActions;
+};
 
 export const POST_SALE_ACTION_KEYS = new Set([
   'printShippingOrder',

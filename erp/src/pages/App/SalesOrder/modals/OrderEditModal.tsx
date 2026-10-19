@@ -25,13 +25,7 @@ import ItemMovementChangeConfirmModal, {
 } from './ItemMovementChangeConfirmModal';
 import ProductReconciliationItems from '../components/ProductReconciliationItems';
 import ConfirmModal from '@/components/shared/ConfirmModal';
-import {
-  auditFiscalOrderEdit,
-  confirmFiscalOrderEdit as commitFiscalOrderEdit,
-  resumeFiscalOrderEdit,
-  type FiscalOrderEditReplacement,
-  type FiscalOrderEditAudit,
-} from '@/pages/utils/nfe/orderEditFiscalService';
+import { useOrderEditFiscalFlow } from './order-edit-modal';
 import OrderEditFiscalContinuation from './OrderEditFiscalContinuation';
 import {
   applyImportedOrderDataToForm,
@@ -39,6 +33,7 @@ import {
 } from './orderEditJsonHelpers';
 import { OrderEditModalHeader } from './OrderEditModalHeader';
 import { FiscalOrderEditConfirmDialog } from './FiscalOrderEditConfirmDialog';
+import { getPostSaleActionsStaleAfterEdit } from '@/pages/utils/postSaleActions';
 
 interface OrderEditModalProps {
   order?: Order;
@@ -110,40 +105,7 @@ const OrderEditModal = ({
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
   const [pendingUpdate, setPendingUpdate] = useState<Order | null>(null);
   const [isReconciliationConfirmationOpen, setIsReconciliationConfirmationOpen] = useState(false);
-  const [pendingFiscalEdit, setPendingFiscalEdit] = useState<{
-    requestId: string;
-    order: Order;
-    audit: FiscalOrderEditAudit;
-  } | null>(null);
-  const [isFiscalEditConfirmationOpen, setIsFiscalEditConfirmationOpen] = useState(false);
-  const [isConfirmingFiscalEdit, setIsConfirmingFiscalEdit] = useState(false);
-  const [pendingFiscalReplacements, setPendingFiscalReplacements] = useState<
-    FiscalOrderEditReplacement[]
-  >([]);
-  const [fiscalContinuationOrder, setFiscalContinuationOrder] = useState<Order | null>(null);
 
-  useEffect(() => {
-    if (!effectiveOrder?.id) return;
-    let isCurrent = true;
-    void resumeFiscalOrderEdit(effectiveOrder.id)
-      .then(({ replacements, order: currentOrder }) => {
-        if (isCurrent) {
-          setPendingFiscalReplacements(replacements);
-          setFiscalContinuationOrder(replacements.length ? currentOrder : null);
-        }
-      })
-      .catch((error) => {
-        if (isCurrent)
-          toast.error(
-            error instanceof Error
-              ? error.message
-              : 'Não foi possível conferir a pendência fiscal.'
-          );
-      });
-    return () => {
-      isCurrent = false;
-    };
-  }, [effectiveOrder?.id]);
 
   const applyOrderData = useCallback(
     (orderData: any) => {
@@ -227,85 +189,22 @@ const OrderEditModal = ({
     [effectiveOrder, onSaveSuccess, onClose]
   );
 
-  const saveWithFiscalAudit = useCallback(
-    async (updatedOrder: Order): Promise<string | false> => {
-      const targetOrderId = effectiveOrder?.id;
-      if (!targetOrderId) return false;
-      setIsSavingOrder(true);
-      try {
-        const result = await validateEditedOrder(
-          updatedOrder as unknown as z.input<typeof editSchema>,
-          async (validatedData) => {
-            const validated = validatedData as unknown as Order;
-            try {
-              const audit = await auditFiscalOrderEdit(targetOrderId, validated);
-              if (audit.status === 'blocked') {
-                toast.error(audit.error || 'A edição fiscal exige revisão antes de salvar.');
-                return false;
-              }
-              if (audit.status === 'confirmation_required') {
-                if (!audit.orderUpdatedAt || !audit.documents.length) {
-                  toast.error(
-                    'A conferência fiscal retornou incompleta; o pedido permanece sem alteração.'
-                  );
-                  return false;
-                }
-                setPendingFiscalEdit({ requestId: crypto.randomUUID(), order: validated, audit });
-                setIsFiscalEditConfirmationOpen(true);
-                return false;
-              }
-              if (!audit.orderUpdatedAt) {
-                toast.error(
-                  'Não foi possível fixar a versão atual do pedido; nenhuma alteração foi salva.'
-                );
-                return false;
-              }
-              return await persistUpdate(validated, audit.orderUpdatedAt);
-            } catch (error) {
-              toast.error(
-                error instanceof Error
-                  ? error.message
-                  : 'Não foi possível conferir as notas autorizadas do pedido.'
-              );
-              return false;
-            }
-          },
-          (errors) => {
-            toast.error(Object.values(flattenFormErrors(errors))[0]);
-          }
-        );
-        return result || false;
-      } finally {
-        setIsSavingOrder(false);
-      }
-    },
-    [effectiveOrder?.id, persistUpdate, validateEditedOrder]
-  );
-
-  const confirmFiscalOrderEdit = useCallback(async () => {
-    if (!pendingFiscalEdit || !effectiveOrder?.id || isConfirmingFiscalEdit) return;
-    setIsConfirmingFiscalEdit(true);
-    try {
-      const committed = await commitFiscalOrderEdit({
-        requestId: pendingFiscalEdit.requestId,
-        orderId: effectiveOrder.id,
-        proposedOrder: pendingFiscalEdit.order,
-        audit: pendingFiscalEdit.audit,
-      });
-      setPendingFiscalEdit(null);
-      setIsFiscalEditConfirmationOpen(false);
-      setPendingFiscalReplacements(committed.replacements);
-      setFiscalContinuationOrder(committed.order);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'A confirmação não foi concluída; o pedido permanece inalterado até a reversão fiscal.'
-      );
-    } finally {
-      setIsConfirmingFiscalEdit(false);
-    }
-  }, [effectiveOrder?.id, isConfirmingFiscalEdit, pendingFiscalEdit]);
+  const {
+    pendingFiscalEdit,
+    isFiscalEditConfirmationOpen,
+    isConfirmingFiscalEdit,
+    pendingFiscalReplacements,
+    fiscalContinuationOrder,
+    saveWithFiscalAudit,
+    confirmFiscalOrderEdit,
+    closeFiscalConfirmation,
+  } = useOrderEditFiscalFlow({
+    effectiveOrder,
+    validateEditedOrder,
+    persistUpdate,
+    editSchema,
+    setIsSavingOrder,
+  });
 
   const handleUpdate = useCallback(
     async (e?: React.MouseEvent) => {
@@ -562,11 +461,12 @@ const OrderEditModal = ({
         <FiscalOrderEditConfirmDialog
           audit={pendingFiscalEdit.audit}
           isConfirmingFiscalEdit={isConfirmingFiscalEdit}
-          onCancel={() => {
-            setIsFiscalEditConfirmationOpen(false);
-            setPendingFiscalEdit(null);
-          }}
+          onCancel={closeFiscalConfirmation}
           onConfirm={() => void confirmFiscalOrderEdit()}
+          onNavigateToReturns={() => {
+            closeFiscalConfirmation();
+            navigate('/sales-order?module=returns');
+          }}
         />
       )}
     </div>

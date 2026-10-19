@@ -965,6 +965,56 @@ function getFiscalFormRules(context, scenario = {}) {
 }
 
 // erp/src/pages/utils/nfe/fiscalCfopResolution.ts
+var OUTBOUND_TO_INBOUND_CFOP_MAP = {
+  // --- Operações internas (5xxx -> 1xxx) ---
+  "5102": "1202",
+  // Venda mercadoria adquirida/recebida terceiros -> Devolução/estorno venda mercadoria terceiros
+  "5104": "1202",
+  // Venda fora do estabelecimento -> Devolução/estorno venda terceiros
+  "5101": "1201",
+  // Venda produção do estabelecimento -> Devolução/estorno venda produção
+  "5405": "1411",
+  // Venda mercadoria terceiros com ST -> Devolução venda com ST
+  "5403": "1411",
+  // Venda mercadoria terceiros com ST substituto -> Devolução venda com ST
+  "5152": "1202",
+  // Transferência de mercadoria adquirida de terceiros
+  "5910": "1910",
+  // Remessa bonificação/doação/brinde -> Entrada bonificação/doação/brinde
+  "5912": "1913",
+  // Remessa demonstração -> Retorno demonstração
+  "5914": "1913",
+  // Remessa exposição/feira -> Retorno exposição/feira
+  "5915": "1916",
+  // Remessa conserto/reparo -> Retorno conserto/reparo
+  "5949": "1949",
+  // Outra saída não especificada -> Outra entrada não especificada
+  // --- Operações interestaduais (6xxx -> 2xxx) ---
+  "6102": "2202",
+  // Venda mercadoria terceiros fora do Estado -> Devolução venda terceiros fora do Estado
+  "6108": "2202",
+  // Venda mercadoria terceiros a não contribuinte fora do Estado -> Devolução venda terceiros fora do Estado
+  "6101": "2201",
+  // Venda produção do estabelecimento fora do Estado -> Devolução venda produção fora do Estado
+  "6107": "2201",
+  // Venda produção a não contribuinte fora do Estado -> Devolução venda produção fora do Estado
+  "6404": "2411",
+  // Venda com ST retido anteriormente fora do Estado -> Devolução venda com ST fora do Estado
+  "6403": "2411",
+  // Venda com ST substituto fora do Estado -> Devolução venda com ST fora do Estado
+  "6152": "2202",
+  // Transferência interestadual
+  "6910": "2910",
+  // Remessa bonificação interestadual -> Entrada bonificação interestadual
+  "6912": "2913",
+  // Remessa demonstração interestadual -> Retorno demonstração interestadual
+  "6914": "2913",
+  // Remessa exposição interestadual -> Retorno exposição interestadual
+  "6915": "2916",
+  // Remessa conserto interestadual -> Retorno conserto interestadual
+  "6949": "2949"
+  // Outra saída interestadual -> Outra entrada interestadual
+};
 var ESTORNO_FALLBACK_CFOPS = ["5949", "6949", "7949"];
 function normalizeCfop(value) {
   const code = String(value || "").replace(/\D/g, "");
@@ -975,17 +1025,27 @@ function originalItemCfop(productXml) {
 }
 function suggestEstornoCfop(originalCfop, config) {
   if (!originalCfop || !/^[56]\d{3}$/.test(originalCfop)) return null;
-  const mapped = normalizeCfop(config?.inverseCfopMappings?.[originalCfop]);
   const requiredEntryPrefix = originalCfop[0] === "5" ? "1" : "2";
-  return mapped?.startsWith(requiredEntryPrefix) ? mapped : null;
+  const configured = config?.inverseCfopMappings?.[originalCfop];
+  if (configured !== void 0) {
+    const normalized = normalizeCfop(configured);
+    return normalized?.startsWith(requiredEntryPrefix) ? normalized : null;
+  }
+  const canonical = OUTBOUND_TO_INBOUND_CFOP_MAP[originalCfop];
+  if (canonical?.startsWith(requiredEntryPrefix)) return canonical;
+  return null;
 }
 function getEstornoCfopOptions(originalCfop, config) {
   const inverse = suggestEstornoCfop(originalCfop, config);
-  if (inverse) return [{ value: inverse, label: `${inverse.slice(0, 1)}.${inverse.slice(1)} \xB7 CFOP inverso configurado` }];
-  return ESTORNO_FALLBACK_CFOPS.map((value) => ({
-    value,
-    label: `${value.slice(0, 1)}.${value.slice(1)} \xB7 outra sa\xEDda n\xE3o especificada`
-  }));
+  if (inverse) {
+    return [
+      {
+        value: inverse,
+        label: `${inverse.slice(0, 1)}.${inverse.slice(1)} \xB7 CFOP inverso da opera\xE7\xE3o`
+      }
+    ];
+  }
+  return [];
 }
 
 // erp/src/pages/utils/nfe/fiscalOperationXml.ts
@@ -2684,7 +2744,7 @@ async function hasPendingOrderEditEstorno(db, orderId, documentId, environment) 
 }
 
 // api/nfe/operation-draft/draftValidation.ts
-function validateDraftPreconditions(draft, automaticReturnWorker, productionConfirmed) {
+function validateDraftPreconditions(draft, automaticReturnWorker, productionConfirmed, previewOnly) {
   if (automaticReturnWorker && (draft.operation_kind !== "return" || !draft.return_order_id)) {
     return {
       status: 403,
@@ -2704,13 +2764,19 @@ function validateDraftPreconditions(draft, automaticReturnWorker, productionConf
       error: "A SEFAZ rejeitou esta tentativa. Revise o motivo antes de iniciar uma nova opera\xE7\xE3o fiscal."
     };
   }
-  if (!["ready", "transmitting", "unknown"].includes(draft.status)) {
+  if (!previewOnly && !["ready", "transmitting", "unknown"].includes(draft.status)) {
     return {
       status: 409,
       error: "Conclua e salve a revis\xE3o fiscal antes de transmitir."
     };
   }
-  if (!automaticReturnWorker && environment === 1 && draft.status === "ready" && productionConfirmed !== true) {
+  if (previewOnly && !["draft", "ready", "transmitting", "unknown"].includes(draft.status)) {
+    return {
+      status: 409,
+      error: "Rascunho em estado incompat\xEDvel com a pr\xE9via."
+    };
+  }
+  if (!automaticReturnWorker && !previewOnly && environment === 1 && draft.status === "ready" && productionConfirmed !== true) {
     return {
       status: 400,
       error: "Confirme explicitamente a transmiss\xE3o deste documento em Produ\xE7\xE3o."
@@ -3122,6 +3188,14 @@ async function handler(req, res) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(draftId)) {
     return res.status(400).json({ success: false, error: "Rascunho fiscal inv\xE1lido." });
   }
+  const previewOnly = req.body?.previewOnly === true;
+  if (previewOnly && !fiscalAuthorization.isAdministrator) {
+    return res.status(403).json({
+      success: false,
+      code: "FISCAL_XML_PREVIEW_ADMIN_REQUIRED",
+      error: "Somente administradores podem visualizar a pr\xE9via do XML fiscal."
+    });
+  }
   let reservedNfeNumber;
   try {
     const { data: draft, error: draftError } = await db.from("nfe_operation_drafts").select("*").eq("id", draftId).maybeSingle();
@@ -3131,9 +3205,19 @@ async function handler(req, res) {
     const draftPreconditions = validateDraftPreconditions(
       draft,
       automaticReturnWorker,
-      req.body?.productionConfirmed
+      req.body?.productionConfirmed,
+      previewOnly
     );
     if (draftPreconditions.earlyAuthorized) {
+      if (previewOnly) {
+        return res.status(200).json({
+          success: true,
+          preview: true,
+          xml: draft.signed_xml || draft.generated_xml || "",
+          documentId: draft.document_id,
+          accessKey: draft.access_key
+        });
+      }
       return res.status(200).json({
         success: true,
         status: "authorized",
@@ -3308,6 +3392,14 @@ async function handler(req, res) {
     }
     const certificate = extractCertificateAndKey(pfx, password || "");
     if (draft.status === "transmitting" || draft.status === "unknown") {
+      if (previewOnly && draft.signed_xml) {
+        return res.status(200).json({
+          success: true,
+          preview: true,
+          xml: draft.signed_xml,
+          accessKey: draft.access_key
+        });
+      }
       return reconcileStoredDraftAttempt({
         res,
         db,
@@ -3523,6 +3615,16 @@ async function handler(req, res) {
           sourceOperationType,
           sourceDestinationIndicator
         });
+        if (previewOnly) {
+          return res.status(200).json({
+            success: true,
+            preview: true,
+            xml: signedXml,
+            accessKey,
+            nfeNumber,
+            series
+          });
+        }
         let prepared = null;
         try {
           prepared = await db.rpc("prepare_nfe_operation_attempt", {

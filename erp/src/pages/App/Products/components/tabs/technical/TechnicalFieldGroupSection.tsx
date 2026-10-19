@@ -76,6 +76,7 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
   const isPortasGroup = group.title === 'Portas';
   const isGavetasGroup = group.title === 'Gavetas';
   const isPesGroup = group.title === 'Pés';
+  const isDimensionsGroup = group.title === 'Dimensões e Peso';
 
   const effectiveFields = [...group.fields];
   if (isPortasGroup && !effectiveFields.some((f) => isHasDoorsCharacteristic(f.name))) {
@@ -108,32 +109,45 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
     return true;
   });
 
+  const fieldGrid = (
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,280px))] gap-x-5 gap-y-4">
+      {displayedFields.map((field) => (
+        <TechnicalFieldRow
+          key={field.id}
+          field={field}
+          formData={formData}
+          manualFieldNames={manualFieldNames}
+          validationErrors={validationErrors}
+          onValueChange={onValueChange}
+          onOpenAttributeModal={onOpenAttributeModal}
+          onToggleDepthLength={onToggleDepthLength}
+          onRemoveManualField={onRemoveManualField}
+        />
+      ))}
+    </div>
+  );
+
+  const headingClassName =
+    'flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2';
+
+  if (isDimensionsGroup) {
+    return (
+      <details aria-labelledby={`technical-group-${group.title}`} className="group flex flex-col gap-3">
+        <summary id={`technical-group-${group.title}`} className={`${headingClassName} cursor-pointer`}>
+          <i className="bi bi-chevron-right transition-transform group-open:rotate-90" aria-hidden="true" />
+          {group.title}
+        </summary>
+        {fieldGrid}
+      </details>
+    );
+  }
+
   return (
-    <section
-      aria-labelledby={`technical-group-${group.title}`}
-      className="flex flex-col gap-3"
-    >
-      <h4
-        id={`technical-group-${group.title}`}
-        className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
-      >
+    <section aria-labelledby={`technical-group-${group.title}`} className="flex flex-col gap-3">
+      <h4 id={`technical-group-${group.title}`} className={headingClassName}>
         {group.title}
       </h4>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,280px))] gap-x-5 gap-y-4">
-        {displayedFields.map((field) => (
-          <TechnicalFieldRow
-            key={field.id}
-            field={field}
-            formData={formData}
-            manualFieldNames={manualFieldNames}
-            validationErrors={validationErrors}
-            onValueChange={onValueChange}
-            onOpenAttributeModal={onOpenAttributeModal}
-            onToggleDepthLength={onToggleDepthLength}
-            onRemoveManualField={onRemoveManualField}
-          />
-        ))}
-      </div>
+      {fieldGrid}
     </section>
   );
 };

@@ -100,9 +100,10 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
           formData={formData}
           setFormData={setFormData}
           categoryName={
-            availableCategories?.find((cat: any) =>
-              formData.categoryIds?.includes(cat.id)
-            )?.name || (formData as any).category || ''
+            availableCategories
+              ?.filter((cat: any) => formData.categoryIds?.includes(cat.id))
+              .map((cat: any) => cat.name)
+              .join(' ') || (formData as any).category || ''
           }
           requiredFieldsOnly={isStockistOnly}
           validationErrors={validationErrors}

@@ -12,6 +12,7 @@ export interface WarrantyTermModalProps {
   order: Order;
   isOpen?: boolean;
   onClose: () => void;
+  onActionComplete?: () => void | Promise<void>;
   isAdministrator?: boolean;
 }
 
@@ -26,6 +27,7 @@ export const WarrantyTermModal: React.FC<WarrantyTermModalProps> = ({
   order,
   isOpen = true,
   onClose,
+  onActionComplete,
   isAdministrator: propIsAdmin,
 }) => {
   const auth = useAuth();
@@ -61,13 +63,15 @@ export const WarrantyTermModal: React.FC<WarrantyTermModalProps> = ({
   const version = currentRecord?.document_version || 1;
 
   const onValidSubmit = async (data: WarrantyActionFormData) => {
+    let actionCompleted = false;
     if (data.action === 'print') {
-      await handlePrint();
+      actionCompleted = await handlePrint();
     } else if (data.action === 'send_whatsapp') {
-      await handleSendWhatsApp();
+      actionCompleted = await handleSendWhatsApp();
     } else if (data.action === 'send_direct_cloud_api') {
-      await handleSendDirectCloudApi();
+      actionCompleted = await handleSendDirectCloudApi();
     }
+    if (actionCompleted) await onActionComplete?.();
   };
 
   return (

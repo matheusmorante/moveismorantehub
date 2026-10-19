@@ -39,11 +39,12 @@ function renderReview(kind: 'return' | 'estorno') {
 }
 
 describe('apresentação legível da revisão fiscal', () => {
-  it.each(['return', 'estorno'] as const)('%s usa as seis abas da nota normal e mantém controles fiscais sem XML aberto', kind => {
-    const { onReviewChange, onLineCfopChange } = renderReview(kind);
+  it.each(['return', 'estorno'] as const)('%s usa as seis abas da nota normal e exibe CFOP calculado sem edição manual nem XML aberto', kind => {
+    const { onReviewChange } = renderReview(kind);
     expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Resumo', 'Cliente', 'Itens', 'Pagamento', 'Transporte', 'Eventos']);
     expect(screen.queryByRole('region', { name: 'XML da revisão fiscal' })).toBeNull();
     expect(screen.queryByLabelText('Destinatário (XML)')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Ver XML/i })).toBeNull();
     fireEvent.click(screen.getByLabelText('Revisei totais, valores e referências fiscais da operação.'));
     expect(onReviewChange).toHaveBeenCalledWith('totals_confirmed', true);
 
@@ -56,8 +57,10 @@ describe('apresentação legível da revisão fiscal', () => {
     expect(screen.getByText('NCM 94036000')).toBeTruthy();
     expect(screen.getByText('CFOP 1202')).toBeTruthy();
     expect(screen.getByText('CST/CSOSN 102')).toBeTruthy();
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '1201' } });
-    expect(onLineCfopChange).toHaveBeenCalledWith(0, '1201');
+    // CFOP is read-only badge, no select or manual input
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.getByTestId('draft-line-cfop-0').textContent).toBe('1202');
+
     fireEvent.click(screen.getByRole('tab', { name: 'Pagamento' }));
     expect(screen.getByText('Sem pagamento')).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: 'Transporte' }));
@@ -69,25 +72,11 @@ describe('apresentação legível da revisão fiscal', () => {
     expect(document.body.textContent).not.toContain('<dest>');
   });
 
-  it.each(['return', 'estorno'] as const)('%s só exibe blocos XML por ação explícita e conserva suas permissões', kind => {
-    const { onLineTaxesChange, onReviewChange } = renderReview(kind);
-    fireEvent.click(screen.getByRole('button', { name: 'Ver XML da revisão' }));
-    expect((screen.getByLabelText('Produto 1 (XML somente leitura)') as HTMLTextAreaElement).readOnly).toBe(true);
-    const taxes = screen.getByLabelText('Tributos do item 1 (XML)') as HTMLTextAreaElement;
-    const recipient = screen.getByLabelText('Destinatário (XML)') as HTMLTextAreaElement;
-    expect(taxes.value).toBe(taxesXml);
-    expect(taxes.readOnly).toBe(kind === 'return');
-    expect(recipient.readOnly).toBe(kind === 'return');
-    if (kind === 'estorno') {
-      fireEvent.change(taxes, { target: { value: '<imposto />' } });
-      expect(onLineTaxesChange).toHaveBeenCalledWith(0, '<imposto />');
-      fireEvent.change(recipient, { target: { value: '<dest />' } });
-      expect(onReviewChange).toHaveBeenCalledWith('recipient_xml', '<dest />');
-    }
-    fireEvent.click(screen.getByRole('button', { name: 'Ocultar XML da revisão' }));
-    expect(screen.queryByLabelText('Destinatário (XML)')).toBeNull();
-    expect(review.recipient_xml).toContain('Cliente da revisão');
-    expect(reviewedLines[0].taxes_xml).toBe(taxesXml);
+  it.each(['return', 'estorno'] as const)('%s não renderiza campos de XML inline no corpo da revisão', (kind) => {
+    renderReview(kind);
+    expect(screen.queryByRole('button', { name: /XML da revisão/i })).toBeNull();
+    expect(screen.queryByLabelText(/XML/i)).toBeNull();
+    expect(screen.queryByRole('region', { name: /XML/i })).toBeNull();
   });
 
   it('apresenta os valores da revisão proporcional sem reescrever os fragmentos nem usar a quantidade original', () => {

@@ -12,7 +12,8 @@ export type FiscalOrderEditDocument = {
   id: string;
   model: string;
   environment: 1 | 2;
-  action: 'cancel' | 'estorno';
+  action: 'cancel' | 'estorno' | 'blocked' | 'return' | 'manual_review' | string;
+  reason?: string;
   changes: FiscalOrderEditChange[];
 };
 

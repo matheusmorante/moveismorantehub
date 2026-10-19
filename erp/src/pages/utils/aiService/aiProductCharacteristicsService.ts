@@ -63,6 +63,9 @@ export async function convertImageUrlsToInlineData(
  * Constrói o prompt para extração técnica com diretrizes de busca e visão
  */
 export function buildCharacteristicsPrompt(context: ProductAiCharacteristicsContext): string {
+  const brand = context.brand || 'Não informada';
+  const model = context.model || 'Não informado';
+  const category = context.categoryName || 'Não informada';
   const attributesPrompt = (context.availableAttributes || [])
     .map((attr) => {
       const optionsText =
@@ -77,11 +80,11 @@ export function buildCharacteristicsPrompt(context: ProductAiCharacteristicsCont
 Sua missão é pesquisar na internet e identificar com máximo rigor técnico e evidências reais as características do produto abaixo.
 
 ══════════════════════════════════════════════════════════════════
-DADOS BASE DO PRODUTO:
+IDENTIFICAÇÃO DO PRODUTO:
 - Nome do Produto: ${context.productName}
-- Marca / Fabricante: ${context.brand}
-- Modelo / Linha: ${context.model}
-- Categoria do Produto: ${context.categoryName || 'Não informada (pesquisar livremente pelo produto)'}
+- Marca / Fabricante: ${brand}
+- Modelo / Linha: ${model}
+- Categoria do Produto: ${category}
 - Descrição Atual: ${context.description || 'Não informada'}
 - Informações Adicionais Fornecidas: ${context.additionalInfo || 'Nenhuma'}
 ══════════════════════════════════════════════════════════════════
@@ -89,15 +92,17 @@ DADOS BASE DO PRODUTO:
 DIRETRIZES DE PESQUISA E ANÁLISE (OBRIGATÓRIAS):
 1. PESQUISA NA WEB:
    - Utilize a ferramenta Google Search para pesquisar a ficha técnica deste móvel.
-   - Priorize SEMPRE o site oficial do fabricante ("${context.brand}").
-   - Procure fichas técnicas, manuais de montagem e especificações oficiais do modelo "${context.model}".
+   - O nome do produto é o único dado de identificação obrigatório. Use marca, linha/modelo, categoria, descrição e fotos como referências adicionais somente quando estiverem disponíveis.
+   - Priorize o site oficial da marca "${brand}" quando a marca estiver informada; sem marca, pesquise pelo nome e demais dados disponíveis.
+   - Procure fichas técnicas e manuais oficiais do modelo "${model}" quando houver modelo informado; sem modelo, identifique o produto usando as outras referências disponíveis.
    - Se o site do fabricante não possuir todas as informações, consulte fontes secundárias confiáveis (grandes marketplaces, lojas especializadas).
-   - Verifique rigorosamente a correspondência entre nome, marca e modelo.
+   - Verifique a correspondência entre o nome e cada referência opcional que estiver preenchida. Não trate campos vazios como critérios de pesquisa.
+   - Se marca ou modelo não estiverem informados e não puderem ser confirmados por fontes confiáveis ou pelas fotos, omita esses dados identificados em vez de inventá-los.
    - Identifique possíveis versões e variações do produto.
    - Jamais misture características de modelos semelhantes. Não considere produtos semelhantes como correspondência exata sem evidência sólida.
    - Se houver divergências relevantes entre as fontes consultadas (ex: medidas divergentes ou material divergente), detalhe no campo "divergences".
 
-2. ANÁLISE DE IMAGEM: Inspecione atentamente as fotos fornecidas:
+2. ANÁLISE DE IMAGEM: Se houver fotos fornecidas, inspecione-as atentamente:
    - Tipo(s) de puxador: diferencie com rigor puxador "Cava" (usinagem/fenda no próprio MDF), perfil "Passante" (perfil de alumínio contínuo na borda), perfil "Perfilado" (pequena aba de sobrepor pontual), "Alça", etc. Se portas inferiores forem cava e superiores forem passante ou perfilado, inclua AMBOS na lista.
    - Quantidade e tipo de portas (ex: 2 portas, 3 portas, 4 portas, bater, basculante, correr).
    - Gavetas e corrediças (ex: telescópica, metálica).
@@ -119,8 +124,8 @@ Retorne APENAS um objeto JSON no seguinte formato:
 {
   "identifiedProduct": {
     "name": "Nome oficial identificado do produto",
-    "brand": "${context.brand}",
-    "model": "${context.model}",
+    "brand": "Marca identificada ou string vazia se não confirmada",
+    "model": "Modelo ou linha identificados ou string vazia se não confirmados",
     "confidence": "alta",
     "sources": [
       { "title": "Site Oficial ou Fonte", "uri": "https://..." }

@@ -200,7 +200,56 @@ function getFiscalCancellationPolicy(input) {
 }
 
 // erp/src/pages/utils/nfe/fiscalCfopResolution.ts
-var ESTORNO_FALLBACK_CFOPS = ["5949", "6949", "7949"];
+var OUTBOUND_TO_INBOUND_CFOP_MAP = {
+  // --- Operações internas (5xxx -> 1xxx) ---
+  "5102": "1202",
+  // Venda mercadoria adquirida/recebida terceiros -> Devolução/estorno venda mercadoria terceiros
+  "5104": "1202",
+  // Venda fora do estabelecimento -> Devolução/estorno venda terceiros
+  "5101": "1201",
+  // Venda produção do estabelecimento -> Devolução/estorno venda produção
+  "5405": "1411",
+  // Venda mercadoria terceiros com ST -> Devolução venda com ST
+  "5403": "1411",
+  // Venda mercadoria terceiros com ST substituto -> Devolução venda com ST
+  "5152": "1202",
+  // Transferência de mercadoria adquirida de terceiros
+  "5910": "1910",
+  // Remessa bonificação/doação/brinde -> Entrada bonificação/doação/brinde
+  "5912": "1913",
+  // Remessa demonstração -> Retorno demonstração
+  "5914": "1913",
+  // Remessa exposição/feira -> Retorno exposição/feira
+  "5915": "1916",
+  // Remessa conserto/reparo -> Retorno conserto/reparo
+  "5949": "1949",
+  // Outra saída não especificada -> Outra entrada não especificada
+  // --- Operações interestaduais (6xxx -> 2xxx) ---
+  "6102": "2202",
+  // Venda mercadoria terceiros fora do Estado -> Devolução venda terceiros fora do Estado
+  "6108": "2202",
+  // Venda mercadoria terceiros a não contribuinte fora do Estado -> Devolução venda terceiros fora do Estado
+  "6101": "2201",
+  // Venda produção do estabelecimento fora do Estado -> Devolução venda produção fora do Estado
+  "6107": "2201",
+  // Venda produção a não contribuinte fora do Estado -> Devolução venda produção fora do Estado
+  "6404": "2411",
+  // Venda com ST retido anteriormente fora do Estado -> Devolução venda com ST fora do Estado
+  "6403": "2411",
+  // Venda com ST substituto fora do Estado -> Devolução venda com ST fora do Estado
+  "6152": "2202",
+  // Transferência interestadual
+  "6910": "2910",
+  // Remessa bonificação interestadual -> Entrada bonificação interestadual
+  "6912": "2913",
+  // Remessa demonstração interestadual -> Retorno demonstração interestadual
+  "6914": "2913",
+  // Remessa exposição interestadual -> Retorno exposição interestadual
+  "6915": "2916",
+  // Remessa conserto interestadual -> Retorno conserto interestadual
+  "6949": "2949"
+  // Outra saída interestadual -> Outra entrada interestadual
+};
 function normalizeCfop(value) {
   const code = String(value || "").replace(/\D/g, "");
   return /^\d{4}$/.test(code) ? code : null;
@@ -210,17 +259,27 @@ function originalItemCfop(productXml) {
 }
 function suggestEstornoCfop(originalCfop, config) {
   if (!originalCfop || !/^[56]\d{3}$/.test(originalCfop)) return null;
-  const mapped = normalizeCfop(config?.inverseCfopMappings?.[originalCfop]);
   const requiredEntryPrefix = originalCfop[0] === "5" ? "1" : "2";
-  return mapped?.startsWith(requiredEntryPrefix) ? mapped : null;
+  const configured = config?.inverseCfopMappings?.[originalCfop];
+  if (configured !== void 0) {
+    const normalized = normalizeCfop(configured);
+    return normalized?.startsWith(requiredEntryPrefix) ? normalized : null;
+  }
+  const canonical = OUTBOUND_TO_INBOUND_CFOP_MAP[originalCfop];
+  if (canonical?.startsWith(requiredEntryPrefix)) return canonical;
+  return null;
 }
 function getEstornoCfopOptions(originalCfop, config) {
   const inverse = suggestEstornoCfop(originalCfop, config);
-  if (inverse) return [{ value: inverse, label: `${inverse.slice(0, 1)}.${inverse.slice(1)} \xB7 CFOP inverso configurado` }];
-  return ESTORNO_FALLBACK_CFOPS.map((value) => ({
-    value,
-    label: `${value.slice(0, 1)}.${value.slice(1)} \xB7 outra sa\xEDda n\xE3o especificada`
-  }));
+  if (inverse) {
+    return [
+      {
+        value: inverse,
+        label: `${inverse.slice(0, 1)}.${inverse.slice(1)} \xB7 CFOP inverso da opera\xE7\xE3o`
+      }
+    ];
+  }
+  return [];
 }
 
 // shared-utils/fiscalIdentifiers.ts
@@ -827,8 +886,9 @@ function suggestReturnCfopForSourceItem(originalCfop, taxesXml, configuredCfop) 
   const options = getReturnCfopOptionsForSourceItem(originalCfop, taxesXml);
   const configured = String(configuredCfop || "").replace(/\D/g, "");
   if (configured && options.some((option) => option.value === configured)) return configured;
+  const isInterstate = originalCfop.startsWith("6");
   const sourceDefinition = getCfopDefinition(originalCfop);
-  const defaultCode = isSourceTaxedWithSt(taxesXml, originalCfop) ? "1411" : sourceDefinition?.merchandiseOrigin === "own_production" ? "1201" : "1202";
+  const defaultCode = isSourceTaxedWithSt(taxesXml, originalCfop) ? isInterstate ? "2411" : "1411" : sourceDefinition?.merchandiseOrigin === "own_production" ? isInterstate ? "2201" : "1201" : isInterstate ? "2202" : "1202";
   return options.some((option) => option.value === defaultCode) ? defaultCode : null;
 }
 var PAYMENT_WITHOUT_PAYMENT = [{ value: "90", label: "Sem pagamento" }];

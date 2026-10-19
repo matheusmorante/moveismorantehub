@@ -62,8 +62,8 @@ export type ProductAiCharacteristicsModalFormValues = z.infer<typeof productAiCh
 
 export const productAiCharacteristicsContextSchema = z.object({
   productName: z.string().trim().min(2, 'Informe o nome do produto antes de preencher as características.'),
-  brand: z.string().trim().min(1, 'Informe a marca do produto antes de preencher com IA.'),
-  model: z.string().trim().min(1, 'Informe o modelo do produto antes de preencher com IA.'),
+  brand: z.string().trim().optional().default(''),
+  model: z.string().trim().optional().default(''),
   categoryName: z.string().optional().default(''),
   description: z.string().optional().default(''),
   additionalInfo: z.string().optional().default(''),

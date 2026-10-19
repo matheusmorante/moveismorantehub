@@ -85,24 +85,26 @@ export function useWarrantyModalState({
     }
   };
 
-  const handlePrint = async () => {
+  const handlePrint = async (): Promise<boolean> => {
     try {
       const { record, pdf } = await ensureDocumentReady();
       const targetUrl = pdf?.pdfUrl || record.file_url;
       if (targetUrl) {
         printWarrantyTermDocument(targetUrl);
+        return true;
       } else {
         toast.error('URL do documento não disponível para impressão.');
       }
     } catch (err: any) {
       toast.error(err.message || 'Erro ao preparar impressão do termo.');
     }
+    return false;
   };
 
-  const handleSendWhatsApp = async () => {
+  const handleSendWhatsApp = async (): Promise<boolean> => {
     if (!customer?.phone) {
       toast.error('Cliente sem telefone cadastrado no pedido.');
-      return;
+      return false;
     }
 
     setActionLoading('Enviando Termo de Garantia pelo WhatsApp...');
@@ -120,17 +122,19 @@ export function useWarrantyModalState({
         toast.warning(res.message);
       }
       await loadData();
+      return res.success;
     } catch (err: any) {
       toast.error(err.message || 'Falha ao enviar documento pelo WhatsApp.');
+      return false;
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleSendDirectCloudApi = async () => {
+  const handleSendDirectCloudApi = async (): Promise<boolean> => {
     if (!customer?.phone) {
       toast.error('Cliente sem telefone cadastrado no pedido.');
-      return;
+      return false;
     }
 
     setActionLoading('Preparando Termo de Garantia...');
@@ -145,8 +149,10 @@ export function useWarrantyModalState({
       if (success) {
         await loadData();
       }
+      return success;
     } catch (err: any) {
       toast.error(err.message || 'Falha ao processar envio do documento.');
+      return false;
     } finally {
       setActionLoading(null);
     }

@@ -24,41 +24,14 @@ export interface GetDisplayedOptionalFieldsParams {
  */
 export const getDisplayedOptionalFields = ({
   requiredFieldsOnly,
-  optionalFields,
-  allTechnicalFields,
   filledOrManualOptionalFields,
-  normalizedSearchTerm,
 }: GetDisplayedOptionalFieldsParams): TechnicalFieldDefinition[] => {
   if (requiredFieldsOnly) {
     return [];
   }
 
-  if (!normalizedSearchTerm) {
-    return [...optionalFields];
-  }
-
-  // Quando há pesquisa ativa:
-  // 1. Mantém SEMPRE visíveis todos os campos preenchidos/selecionados
-  const visibleMap = new Map<string, TechnicalFieldDefinition>();
-  filledOrManualOptionalFields.forEach((f) => visibleMap.set(f.name, f));
-
-  // 2. Adiciona campos opcionais aplicáveis que coincidem com o termo pesquisado
-  optionalFields.forEach((f) => {
-    if (normalizeSearchTerm(f.name).includes(normalizedSearchTerm)) {
-      visibleMap.set(f.name, f);
-    }
-  });
-
-  // 3. Adiciona características globais do catálogo que coincidem com a busca
-  allTechnicalFields.forEach((f) => {
-    if (!f.isRequired && normalizeSearchTerm(f.name).includes(normalizedSearchTerm)) {
-      if (!visibleMap.has(f.name)) {
-        visibleMap.set(f.name, f);
-      }
-    }
-  });
-
-  return Array.from(visibleMap.values());
+  // Campos opcionais entram na ficha somente após seleção/preenchimento ou adição pela busca.
+  return [...filledOrManualOptionalFields];
 };
 
 /**

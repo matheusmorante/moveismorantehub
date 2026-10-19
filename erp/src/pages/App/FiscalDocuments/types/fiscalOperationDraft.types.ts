@@ -136,3 +136,13 @@ export interface OperationDraftTransmissionResult {
   protocolNumber?: string;
   xMotivo?: string;
 }
+
+export interface OperationDraftPreviewResult {
+  success: boolean;
+  preview: boolean;
+  xml: string;
+  accessKey?: string;
+  nfeNumber?: number;
+  series?: string;
+  error?: string;
+}

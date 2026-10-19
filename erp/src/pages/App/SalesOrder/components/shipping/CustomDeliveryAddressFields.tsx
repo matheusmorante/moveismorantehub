@@ -224,8 +224,6 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
             label="Ponto de Referência / Observação de Entrega"
             value={shipping.deliveryAddress?.observation || ''}
             onValueChange={(val) => updateDeliveryAddress('observation', val)}
-            tableName="orders"
-            columnName="observation"
             placeholder="Ex: Casa verde em frente a padaria..."
             icon="bi-geo-alt"
             className="bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30"

@@ -1,6 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type {
   DraftPayload,
+  OperationDraftPreviewResult,
   OperationDraftTransmissionResult,
   ReviewData,
   ReviewedLine,
@@ -330,6 +331,36 @@ export async function transmitFiscalOperationDraft(input: {
     'POST',
     input,
     parseTransmissionResult
+  );
+}
+
+function parsePreviewResult(payload: Record<string, unknown>): OperationDraftPreviewResult {
+  if (typeof payload.xml !== 'string' || !payload.xml) {
+    throw new Error(
+      typeof payload.error === 'string'
+        ? payload.error
+        : 'A prévia do XML fiscal não foi gerada.'
+    );
+  }
+  return {
+    success: payload.success === true,
+    preview: payload.preview === true,
+    xml: payload.xml,
+    accessKey: typeof payload.accessKey === 'string' ? payload.accessKey : undefined,
+    nfeNumber: typeof payload.nfeNumber === 'number' ? payload.nfeNumber : undefined,
+    series: typeof payload.series === 'string' ? payload.series : undefined,
+    error: typeof payload.error === 'string' ? payload.error : undefined,
+  };
+}
+
+export async function previewFiscalOperationDraft(input: {
+  draftId: string;
+}): Promise<OperationDraftPreviewResult> {
+  return requestFiscalApi(
+    '/api/nfe/transmit-operation-draft',
+    'POST',
+    { draftId: input.draftId, previewOnly: true },
+    parsePreviewResult
   );
 }
 

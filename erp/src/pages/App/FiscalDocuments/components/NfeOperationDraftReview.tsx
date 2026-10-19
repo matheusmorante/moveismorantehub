@@ -24,35 +24,9 @@ interface NfeOperationDraftReviewProps {
   isProduction: boolean;
   productionConfirmed: boolean;
   onProductionConfirmedChange: (confirmed: boolean) => void;
-  onLineCfopChange: (index: number, cfop: string) => void;
-  onLineTaxesChange: (index: number, taxesXml: string) => void;
+  onLineCfopChange?: (index: number, cfop: string) => void;
+  onLineTaxesChange?: (index: number, taxesXml: string) => void;
   onReviewChange: (key: keyof ReviewData, value: string | boolean) => void;
-}
-
-interface XmlReviewFieldProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  rows?: number;
-  readOnly?: boolean;
-}
-
-function XmlReviewField({ label, value, onChange, rows = 4, readOnly = false }: XmlReviewFieldProps) {
-  return (
-    <label className="block space-y-1.5">
-      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-        {label}
-      </span>
-      <textarea
-        readOnly={readOnly}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        rows={rows}
-        spellCheck={false}
-        className="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-[10px] text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-      />
-    </label>
-  );
 }
 
 export function NfeOperationDraftReview({
@@ -62,12 +36,9 @@ export function NfeOperationDraftReview({
   isProduction,
   productionConfirmed,
   onProductionConfirmedChange,
-  onLineCfopChange,
-  onLineTaxesChange,
   onReviewChange,
 }: NfeOperationDraftReviewProps) {
   const [activeTab, setActiveTab] = useState<DetailTab>('general');
-  const [showXml, setShowXml] = useState(false);
   const parsed = useMemo(() => parseFiscalOperationReview(review, reviewedLines), [review, reviewedLines]);
   const isReturn = payload.draft.operation_kind === 'return';
   const formRules = getFiscalFormRules(isReturn ? 'return' : 'estorno', {
@@ -82,9 +53,6 @@ export function NfeOperationDraftReview({
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-semibold text-slate-500">Rascunho de {isReturn ? 'devolução fiscal' : 'estorno fiscal'} · NF-e modelo 55 · Entrada</p>
-        <button type="button" onClick={() => setShowXml(value => !value)} aria-expanded={showXml} className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold dark:border-slate-700">
-          {showXml ? 'Ocultar XML da revisão' : 'Ver XML da revisão'}
-        </button>
       </div>
       <IssuedFiscalDocumentDetailsTabList activeTab={activeTab} onChange={setActiveTab} />
       <section role="tabpanel" id={`issued-fiscal-panel-${activeTab}`} aria-labelledby={`issued-fiscal-tab-${activeTab}`} className="space-y-4">
@@ -153,46 +121,30 @@ export function NfeOperationDraftReview({
                   {Number(line.gross_value).toFixed(2)} · desconto R$ {Number(line.discount_value).toFixed(2)}
                 </p>
               </div>
-          {formRules.context === 'return' || line.allowedCfops?.length ? (
-            <label className="flex items-center gap-2 text-[10px] font-black uppercase">
-                  {isReturn ? 'CFOP de devolução' : 'CFOP do estorno'}
-                  <select
-                    value={reviewedLines[index]?.cfop || ''}
-                    required={formRules.requiredFields.includes('cfop')}
-                    aria-required={formRules.requiredFields.includes('cfop')}
-                    onChange={(event) => onLineCfopChange(index, event.target.value)}
-                    disabled={!line.allowedCfops?.length}
-                    className="max-w-64 rounded-lg border border-slate-300 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-950"
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  {isReturn ? 'CFOP de devolução' : 'CFOP de estorno'}:
+                </span>
+                {reviewedLines[index]?.cfop ? (
+                  <span
+                    data-testid={`draft-line-cfop-${index}`}
+                    className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-xs font-bold text-slate-800 dark:bg-slate-800 dark:text-slate-100"
                   >
-                    <option value="">
-                      {isReturn ? 'Selecione CFOP permitido' : 'Selecione o inverso ou CFOP alternativo'}
-                    </option>
-                    {(line.allowedCfops || []).map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-              ) : (
-                <label className="flex items-center gap-2 text-[10px] font-black uppercase">
-                  CFOP
-                  <input
-                    value={reviewedLines[index]?.cfop || ''}
-                    onChange={(event) =>
-                      onLineCfopChange(index, event.target.value.replace(/\D/g, '').slice(0, 4))
-                    }
-                    inputMode="numeric"
-                    placeholder="CFOP de entrada"
-                    className="w-32 rounded-lg border border-slate-300 bg-white p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950"
-                  />
-                </label>
-              )}
+                    {reviewedLines[index].cfop}
+                  </span>
+                ) : (
+                  <span
+                    data-testid={`draft-line-cfop-unresolved-${index}`}
+                    className="inline-flex items-center rounded-lg bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+                  >
+                    CFOP não determinado (transmissão bloqueada)
+                  </span>
+                )}
+              </div>
             </div>
-            {!isReturn && (
-              <p className="text-[10px] text-slate-500">
-                  CFOP original {line.originalCfop || 'não identificado'} · use o inverso configurado;
-                sem mapeamento, escolha 5.949, 6.949 ou 7.949 conforme o cenário e confirme com a revisão fiscal.
-              </p>
-            )}
+            <p className="text-[10px] text-slate-500">
+              CFOP original {line.originalCfop || 'não identificado'} · determinado automaticamente pela operação fiscal.
+            </p>
           </article>
         ))}
       </section>}
@@ -285,18 +237,6 @@ export function NfeOperationDraftReview({
         </div>}
       </section>}
       </section>
-
-      {showXml && <section className="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700" aria-label="XML da revisão fiscal">
-        <p className="text-xs text-slate-500">Blocos técnicos do rascunho em revisão. O XML completo assinado fica disponível nos detalhes do documento emitido.</p>
-        {reviewedLines.map((line, index) => <div key={line.draft_line_id} className="space-y-2">
-          <XmlReviewField label={`Produto ${index + 1} (XML somente leitura)`} value={line.product_xml} readOnly onChange={() => undefined} />
-          <XmlReviewField label={`Tributos do item ${index + 1} (XML)`} value={line.taxes_xml} readOnly={formRules.taxReviewMode === 'source_zero_only_until_matrix'} onChange={value => onLineTaxesChange(index, value)} />
-        </div>)}
-        {isFieldVisible('recipient') && <XmlReviewField label="Destinatário (XML)" value={review.recipient_xml} readOnly={isFieldReadOnly('recipient')} onChange={value => onReviewChange('recipient_xml', value)} />}
-        {isFieldVisible('totals') && <XmlReviewField label="Totais (XML)" value={review.totals_xml} readOnly={isFieldReadOnly('totals')} onChange={value => onReviewChange('totals_xml', value)} />}
-        {isFieldVisible('transport') && <XmlReviewField label="Transporte (XML)" value={review.transport_xml} readOnly={isFieldReadOnly('transport')} onChange={value => onReviewChange('transport_xml', value)} />}
-        {isFieldVisible('payment') && <XmlReviewField label="Pagamento (XML)" value={review.payment_xml} readOnly={isFieldReadOnly('payment')} onChange={value => onReviewChange('payment_xml', value)} />}
-      </section>}
 
       {isProduction && isFieldVisible('productionConfirmation') && (
         <label className="flex items-start gap-2 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100">

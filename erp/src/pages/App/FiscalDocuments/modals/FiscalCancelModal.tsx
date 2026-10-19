@@ -112,12 +112,15 @@ export const FiscalCancelModal: React.FC<FiscalCancelModalProps> = ({
         </div>
 
         <div className="space-y-2">
+          <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2 text-[10px] text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+            <strong>Política de Correção Fiscal:</strong> O ERP impede a alteração direta de notas autorizadas e não utiliza CC-e. Correções antes da circulação seguem por cancelamento fiscal (no prazo) ou estorno fiscal finalidade 3 (fora do prazo, com operação não ocorrida). Mercadoria entregue ou retirada exige devolução fiscal. A nota original permanece registrada de forma imutável com XML e protocolo.
+          </div>
           <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
             {isOperationDocument
               ? 'Esta ação solicita somente o cancelamento fiscal da nota selecionada. O pedido de devolução comercial recebido, a venda original e os movimentos de estoque permanecem preservados. A nota só muda para cancelada após confirmação fiscal válida da SEFAZ.'
               : isCancelAction
               ? 'O fluxo de cancelamento comercial do pedido será aplicado e, após o commit do pedido e do estoque, o serviço fiscal central solicitará o cancelamento fiscal à SEFAZ. A nota só muda para cancelada após confirmação fiscal válida.'
-              : 'A política central identificou que o prazo normal de cancelamento fiscal expirou. O pedido receberá o cancelamento comercial e o sistema abrirá um rascunho de estorno fiscal para revisão; nenhum evento será transmitido nesta etapa.'}
+              : 'A política central identificou que o prazo normal de cancelamento fiscal expirou. O pedido receberá o cancelamento comercial e o sistema abrirá um rascunho de estorno fiscal (finalidade 3) para revisão; nenhum evento será transmitido nesta etapa. O estorno não é substituto universal da CC-e e aplica-se exclusivamente quando a operação não ocorreu.'}
           </p>
 
           {isCancelAction && (

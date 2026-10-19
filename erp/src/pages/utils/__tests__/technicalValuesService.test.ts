@@ -634,7 +634,7 @@ describe('technicalValuesService', () => {
       expect(depDrawerPositive.isDisabled).toBe(false);
 
       // Característica independente
-      const depOther = getCharacteristicDependencyState('Material da estrutura', {
+      const depOther = getCharacteristicDependencyState('Possui Espelho', {
         'Quantidade de portas': 0,
       });
       expect(depOther.isDependent).toBe(false);

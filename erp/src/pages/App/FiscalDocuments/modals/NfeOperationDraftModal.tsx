@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { AuthContext } from '@/context/AuthContext';
 import type { NfeOperationDraftModalProps } from '../types/fiscalOperationDraft.types';
 import { useNfeOperationDraft } from '../hooks/useNfeOperationDraft';
 import { NfeOperationDraftSetup } from '../components/NfeOperationDraftSetup';
 import { NfeOperationDraftReview } from '../components/NfeOperationDraftReview';
+
 export default function NfeOperationDraftModal({
   sourceDocument,
   initialDraftId,
@@ -12,6 +14,9 @@ export default function NfeOperationDraftModal({
   onClose,
   onAuthorized,
 }: NfeOperationDraftModalProps) {
+  const auth = useContext(AuthContext);
+  const canPreviewXml = Boolean(auth?.isRealAdministrator && !auth?.activeRoleMode);
+
   const {
     kind,
     setKind,
@@ -34,6 +39,10 @@ export default function NfeOperationDraftModal({
     preparing,
     savingReview,
     transmitting,
+    xmlPreview,
+    isXmlPreviewOpen,
+    loadingPreview,
+    hasUnresolvedCfop,
     error,
     notice,
     retryAllowed,
@@ -42,6 +51,8 @@ export default function NfeOperationDraftModal({
     updateLineCfop,
     updateReview,
     saveFiscalReview,
+    handlePreviewXml,
+    closeXmlPreview,
     transmitOrReconcile,
     canPrepare,
   } = useNfeOperationDraft({ sourceDocument, initialDraftId, mode, returnOrderId: initialReturnOrderId, onAuthorized });
@@ -110,14 +121,6 @@ export default function NfeOperationDraftModal({
               isProduction={isProduction}
               productionConfirmed={productionConfirmed}
               onProductionConfirmedChange={setProductionConfirmed}
-              onLineCfopChange={updateLineCfop}
-              onLineTaxesChange={(index, taxesXml) =>
-                setReviewedLines((items) =>
-                  items.map((item, itemIndex) =>
-                    itemIndex === index ? { ...item, taxes_xml: taxesXml } : item
-                  )
-                )
-              }
               onReviewChange={updateReview}
             />
           )}
@@ -166,12 +169,34 @@ export default function NfeOperationDraftModal({
             >
               {savingReview ? 'Salvando revisão…' : 'Salvar revisão fiscal'}
             </button>
+            {canPreviewXml && (
+              <button
+                type="button"
+                data-testid="nfe-preview-xml-button"
+                onClick={() => void handlePreviewXml()}
+                disabled={
+                  loadingPreview ||
+                  preparing ||
+                  savingReview ||
+                  transmitting ||
+                  refreshRequired ||
+                  hasUnresolvedCfop ||
+                  payload.draft.status === 'transmitting' ||
+                  payload.draft.status === 'unknown'
+                }
+                aria-busy={loadingPreview}
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                {loadingPreview ? 'Preparando prévia…' : 'Prévia do XML'}
+              </button>
+            )}
             <button
               type="button"
               onClick={transmitOrReconcile}
               disabled={
                 transmitting ||
                 savingReview ||
+                hasUnresolvedCfop ||
                 (!refreshRequired && isProduction && !productionConfirmed && (payload.draft.status === 'ready' || retryAllowed)) ||
                 ['draft', 'rejected', 'authorized'].includes(payload.draft.status)
               }
@@ -190,6 +215,38 @@ export default function NfeOperationDraftModal({
           </footer>
         )}
       </div>
+
+      {canPreviewXml && isXmlPreviewOpen && xmlPreview && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Prévia do XML fiscal"
+          data-testid="nfe-xml-preview-dialog"
+          className="fixed inset-0 z-[1000001] flex items-center justify-center bg-slate-950/60 p-3 sm:p-6"
+        >
+          <section className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl dark:bg-slate-900">
+            <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Prévia do XML — ainda não transmitido
+              </h2>
+              <button
+                type="button"
+                data-testid="nfe-xml-preview-close"
+                onClick={closeXmlPreview}
+                className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Fechar
+              </button>
+            </header>
+            <pre
+              data-testid="nfe-xml-preview-content"
+              className="min-h-0 overflow-auto whitespace-pre-wrap break-all p-4 font-mono text-xs text-slate-800 dark:text-slate-200"
+            >
+              {xmlPreview.xml}
+            </pre>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

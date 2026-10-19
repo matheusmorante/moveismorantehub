@@ -232,7 +232,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     id: string;
     model: string;
     environment: 1 | 2;
-    action: 'cancel' | 'estorno';
+    action: string;
+    reason?: string;
     changes: Array<{ field: string; expected: unknown; actual: unknown }>;
   }>;
   try {
@@ -240,13 +241,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const changes = await loadAuditedChanges(db, order, document, proposedOrderData);
       if (changes.length) {
         const policy = getOrderEditFiscalPolicy(order, document);
-        if (policy.action !== 'cancel' && policy.action !== 'estorno')
-          return res.status(409).json({ status: 'blocked', error: policy.reason || 'Esta nota exige revisão fiscal.' });
+        if (policy.action !== 'cancel' && policy.action !== 'estorno') {
+          return res.status(200).json({
+            status: 'blocked',
+            error: policy.reason || 'Esta nota exige revisão fiscal.',
+            orderUpdatedAt: order.updated_at,
+            changes,
+            documents: [
+              {
+                id: document.id,
+                model: String(document.modelo),
+                environment: Number(document.ambiente) as 1 | 2,
+                action: policy.action,
+                reason: policy.reason,
+                changes,
+              },
+            ],
+          });
+        }
         documents.push({
           id: document.id,
           model: String(document.modelo),
           environment: Number(document.ambiente) as 1 | 2,
           action: policy.action,
+          reason: policy.reason,
           changes,
         });
       }

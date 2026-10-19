@@ -68,6 +68,7 @@ export interface TechnicalFieldItemState {
   isNotApplicable: boolean;
   isAlwaysApplicable: boolean;
   isApplicable: boolean;
+  isRequiredField: boolean;
   isFieldInvalid: boolean;
   isColorField: boolean;
   isDepthOrLengthField: boolean;
@@ -180,6 +181,7 @@ export const computeTechnicalFieldItemState = (
     isNotApplicable,
     isAlwaysApplicable,
     isApplicable,
+    isRequiredField,
     isFieldInvalid,
     isColorField,
     isDepthOrLengthField,

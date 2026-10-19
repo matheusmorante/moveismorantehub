@@ -99,6 +99,7 @@ export type Order = {
   isRegisteredInBling?: boolean;
   isStockChecked?: boolean;
   isButtonsClicked?: IsButtonsClicked;
+  isButtonsStale?: IsButtonsStale;
   returnOrderId?: string;
   returnKind?: 'partial' | 'complete';
   /** Forma física de retorno; persistida no order_data existente. */
@@ -206,6 +207,8 @@ export type IsButtonsClicked = {
   generateSaleFromBudget?: boolean;
   issueNfe?: boolean;
 };
+
+export type IsButtonsStale = Partial<Record<keyof IsButtonsClicked, boolean>>;
 
 export type VisibilitySettings = {
   id: boolean;

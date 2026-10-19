@@ -1,5 +1,5 @@
 import React from 'react';
-import Order from '../../../types/order.type';
+import Order, { IsButtonsClicked } from '../../../types/order.type';
 import { buttons } from './orderActionsConfig';
 import { updateOrder } from '../../../utils/orderHistoryService';
 import { NfeEmissionModal } from './NfeEmissionModal';
@@ -10,7 +10,7 @@ import PromissoryNoteModal from './PromissoryNoteModal';
 import { useAuth } from '@/context/AuthContext';
 import { fetchOrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeService';
 import type { OrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeRules';
-import { getAvailablePostOrderActions } from './postOrderActionsHelpers';
+import { DELIVERY_ACTION_KEYS, getAvailablePostOrderActions } from './postOrderActionsHelpers';
 import { PostOrderActionGridButton } from './components/PostOrderActionGridButton';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import PickupIcon from '@/components/shared/PickupIcon';
@@ -74,31 +74,51 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   const [clickedButtons, setClickedButtons] = React.useState<Record<string, boolean>>(
     order.isButtonsClicked || {}
   );
+  const [staleButtons, setStaleButtons] = React.useState<Order['isButtonsStale']>(
+    order.isButtonsStale || {}
+  );
+  const isDeliveryInfoStale = [...DELIVERY_ACTION_KEYS].some((key) =>
+    staleButtons?.[key as keyof IsButtonsClicked]
+  );
 
-  const handleExecuteAction = async (key: string, action: (typeof buttons)[number]['action']) => {
+  const handleMarkActionCompleted = async (key: keyof IsButtonsClicked) => {
     setClickedButtons((prev) => ({ ...prev, [key]: true }));
+    const nextStaleButtons = { ...order.isButtonsStale };
+    delete nextStaleButtons[key];
+    setStaleButtons(nextStaleButtons);
+    if (!order.id) return;
+
+    const clicked = {
+      ...(order.isButtonsClicked || {}),
+      [key]: true,
+    } as Order['isButtonsClicked'];
+    order.isButtonsClicked = clicked;
+    order.isButtonsStale = nextStaleButtons;
+    try {
+      await updateOrder(
+        order.id,
+        {
+          isButtonsClicked: clicked,
+          isButtonsStale: nextStaleButtons,
+          ...(key === 'sendCustomerReviews' ? { reviewRequested: true } : {}),
+        },
+        order,
+        undefined,
+        { metadataOnly: true }
+      );
+    } catch (err: unknown) {
+      console.error('Erro ao salvar o estado da ação pós-venda:', err);
+    }
+  };
+
+  const handleExecuteAction = async (
+    key: keyof IsButtonsClicked,
+    action: (typeof buttons)[number]['action']
+  ) => {
     try {
       const module = await import('./orderActionsConfig');
-      if (module.actionsMap[action]) {
-        module.actionsMap[action](order);
-      }
-      if (order.id) {
-        const clicked = {
-          ...(order.isButtonsClicked || {}),
-          [key]: true,
-        } as Order['isButtonsClicked'];
-        order.isButtonsClicked = clicked;
-        await updateOrder(
-          order.id,
-          {
-            isButtonsClicked: clicked,
-            ...(key === 'sendCustomerReviews' ? { reviewRequested: true } : {}),
-          },
-          order,
-          undefined,
-          { metadataOnly: true }
-        );
-      }
+      if (module.actionsMap[action]) module.actionsMap[action](order);
+      await handleMarkActionCompleted(key);
     } catch (err: unknown) {
       console.error('Erro ao executar ação pós-venda:', err);
     }
@@ -194,7 +214,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                 type="button"
                 title={deliveryModalLabel}
                 onClick={() => setIsDeliveryModalOpen(true)}
-                className={`flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all relative min-h-[100px] hover:-translate-y-1 hover:shadow-lg ${isPickupOrder ? 'text-purple-600 bg-purple-50 dark:bg-purple-900/20' : 'text-orange-600 bg-orange-50 dark:bg-orange-900/20'}`}
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all relative min-h-[100px] hover:-translate-y-1 hover:shadow-lg ${isDeliveryInfoStale ? 'text-[#3b1900] bg-amber-400 hover:bg-amber-300 border-amber-500 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40' : `border-slate-100 dark:border-slate-800 ${isPickupOrder ? 'text-purple-600 bg-purple-50 dark:bg-purple-900/20' : 'text-orange-600 bg-orange-50 dark:bg-orange-900/20'}`}`}
               >
                 {isPickupOrder ? (
                   <PickupIcon className="mb-2 h-7 w-7" />
@@ -212,6 +232,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                 btn={btn}
                 order={order}
                 isClicked={Boolean(clickedButtons[btn.key])}
+                isStale={Boolean(staleButtons?.[btn.key])}
                 isNfeIssued={isNfeIssued}
                 isAdministrator={isAdministrator}
                 onIssueNfeClick={() => {
@@ -253,6 +274,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
             isOpen={Boolean(warrantyTermOrder)}
             order={warrantyTermOrder || order}
             onClose={() => setWarrantyTermOrder(null)}
+            onActionComplete={() => handleMarkActionCompleted('printWarrantyTerm')}
             isAdministrator={isAdministrator}
           />
           <PromissoryNoteModal
@@ -264,6 +286,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
             isOpen={isDeliveryModalOpen}
             order={order}
             clickedButtons={clickedButtons}
+            staleButtons={staleButtons || {}}
             onClose={() => setIsDeliveryModalOpen(false)}
             onExecuteAction={handleExecuteAction}
             isAdministrator={isAdministrator}

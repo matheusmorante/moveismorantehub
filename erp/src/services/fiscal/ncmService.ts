@@ -27,7 +27,8 @@ class NcmService {
 
       const { data, error } = await supabase.rpc('search_ncms', {
         search_term: cleanSearchTerm,
-        max_results: maxResults,
+        // Amplia a busca para que códigos indisponíveis não ocupem o limite antes do filtro.
+        max_results: Math.max(maxResults * 10, 100),
       });
 
       if (error) {
@@ -35,7 +36,24 @@ class NcmService {
         throw error;
       }
 
-      return (data || []) as NcmSearchResult[];
+      const candidates = (data || []) as NcmSearchResult[];
+      const codes = [...new Set(candidates.map(({ code }) => code))];
+      if (codes.length === 0) return [];
+
+      const { data: usableNcms, error: catalogError } = await supabase
+        .from('ncms')
+        .select('code')
+        .in('code', codes)
+        .eq('active', true)
+        .eq('is_active', true);
+
+      if (catalogError) {
+        console.error('Erro ao filtrar NCMs vigentes e ativos na loja:', catalogError);
+        throw catalogError;
+      }
+
+      const usableCodes = new Set((usableNcms || []).map(({ code }) => code));
+      return candidates.filter(({ code }) => usableCodes.has(code)).slice(0, maxResults);
     } catch (error) {
       console.error('Erro no NcmService.searchNcms.', error);
       throw error;

@@ -33,13 +33,13 @@ export const CharacteristicsPrerequisitesCard: React.FC<CharacteristicsPrerequis
       <div>
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-            Campos Obrigatórios (Mínimo para busca)
+            Campo Obrigatório
           </span>
           <span className="text-[10px] font-semibold text-slate-400">
             Obrigatório
           </span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+        <div className="grid grid-cols-1 gap-2 text-xs">
           <div className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
             <i
               className={`bi ${hasName ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}
@@ -49,23 +49,6 @@ export const CharacteristicsPrerequisitesCard: React.FC<CharacteristicsPrerequis
             </span>
           </div>
 
-          <div className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
-            <i
-              className={`bi ${hasBrand ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}
-            />
-            <span className="text-slate-700 dark:text-slate-300 truncate">
-              Marca: <strong>{hasBrand ? brand : 'Faltando'}</strong>
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
-            <i
-              className={`bi ${hasModel ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-circle-fill text-amber-500'}`}
-            />
-            <span className="text-slate-700 dark:text-slate-300 truncate">
-              Modelo: <strong>{hasModel ? model : 'Faltando'}</strong>
-            </span>
-          </div>
         </div>
       </div>
 
@@ -79,7 +62,25 @@ export const CharacteristicsPrerequisitesCard: React.FC<CharacteristicsPrerequis
             Opcionais
           </span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+          <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-100/50 dark:bg-slate-800/30 border border-slate-200/40 dark:border-slate-700/40">
+            <i
+              className={`bi ${hasBrand ? 'bi-check-circle-fill text-emerald-500' : 'bi-dash-circle text-slate-400'}`}
+            />
+            <span className="text-slate-700 dark:text-slate-300 truncate">
+              Marca: <strong>{hasBrand ? brand : 'Não informada'}</strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-100/50 dark:bg-slate-800/30 border border-slate-200/40 dark:border-slate-700/40">
+            <i
+              className={`bi ${hasModel ? 'bi-check-circle-fill text-emerald-500' : 'bi-dash-circle text-slate-400'}`}
+            />
+            <span className="text-slate-700 dark:text-slate-300 truncate">
+              Linha/Modelo: <strong>{hasModel ? model : 'Não informado'}</strong>
+            </span>
+          </div>
+
           <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-100/50 dark:bg-slate-800/30 border border-slate-200/40 dark:border-slate-700/40">
             <i
               className={`bi ${hasCategory ? 'bi-check-circle-fill text-emerald-500' : 'bi-dash-circle text-slate-400'}`}
@@ -113,7 +114,7 @@ export const CharacteristicsPrerequisitesCard: React.FC<CharacteristicsPrerequis
         <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
           <i className="bi bi-exclamation-triangle-fill shrink-0" />
           <span>
-            Preencha os campos obrigatórios (Nome, Marca e Modelo) na ficha do produto para iniciar a análise com IA.
+            Informe o nome do produto na ficha para iniciar a análise com IA. Marca, linha/modelo, categoria e fotos são opcionais e ajudam a identificar melhor o produto.
           </span>
         </div>
       )}

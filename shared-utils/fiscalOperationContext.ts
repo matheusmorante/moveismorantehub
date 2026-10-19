@@ -140,12 +140,13 @@ export function suggestReturnCfopForSourceItem(
   const options = getReturnCfopOptionsForSourceItem(originalCfop, taxesXml);
   const configured = String(configuredCfop || '').replace(/\D/g, '');
   if (configured && options.some((option) => option.value === configured)) return configured;
+  const isInterstate = originalCfop.startsWith('6');
   const sourceDefinition = getCfopDefinition(originalCfop);
   const defaultCode = isSourceTaxedWithSt(taxesXml, originalCfop)
-    ? '1411'
+    ? (isInterstate ? '2411' : '1411')
     : sourceDefinition?.merchandiseOrigin === 'own_production'
-      ? '1201'
-      : '1202';
+      ? (isInterstate ? '2201' : '1201')
+      : (isInterstate ? '2202' : '1202');
   return options.some((option) => option.value === defaultCode) ? defaultCode : null;
 }
 

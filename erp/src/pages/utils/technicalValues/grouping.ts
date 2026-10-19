@@ -14,7 +14,6 @@ import {
 } from './constants';
 import {
   normalizeCharacteristicName,
-  isWeightCharacteristicName,
   isPrimaryCharacteristicName,
 } from './predicates';
 import type { CharacteristicGroup } from './types';
@@ -35,28 +34,20 @@ export const groupCharacteristicsByTopic = <
   const otherFields: T[] = [];
 
   fields.forEach((field) => {
-    const isSpecialTopic = /\b(portas?|gavetas?|corredi[çc]as?|p[eé]s?|rod[ií]zios?)\b/i.test(field.name);
-    if (
-      !isSpecialTopic &&
-      !isWeightCharacteristicName(field.name) &&
-      (field.isRequired === true || isPrimaryCharacteristicName(field.name))
-    ) {
-      requiredCharacteristicFields.push(field);
-      return;
-    }
-
-    if (field.isCustom === true) {
-      otherFields.push(field);
-      return;
-    }
     const topic = CHARACTERISTIC_TOPICS.find((candidate) => candidate.matches.test(field.name));
     if (topic) {
       const groupedFields = groups.get(topic.title) || [];
       groupedFields.push(field);
       groups.set(topic.title, groupedFields);
-    } else {
-      otherFields.push(field);
+      return;
     }
+
+    if (field.isRequired === true || isPrimaryCharacteristicName(field.name)) {
+      requiredCharacteristicFields.push(field);
+      return;
+    }
+
+    otherFields.push(field);
   });
 
   return [
@@ -67,7 +58,7 @@ export const groupCharacteristicsByTopic = <
       const groupedFields = groups.get(topic.title);
       if (!groupedFields?.length) return [];
 
-      if (topic.title === 'Medidas e peso' || topic.title === 'Dimensões e peso') {
+      if (topic.title === 'Dimensões e Peso') {
         groupedFields.sort((a, b) => getDimensionSortRank(a.name) - getDimensionSortRank(b.name));
       } else if (topic.title === 'Portas') {
         groupedFields.sort((a, b) => {

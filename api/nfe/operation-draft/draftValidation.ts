@@ -37,7 +37,8 @@ export type SourceDocumentRecord = {
 export function validateDraftPreconditions(
   draft: DraftRecord,
   automaticReturnWorker: boolean,
-  productionConfirmed?: boolean
+  productionConfirmed?: boolean,
+  previewOnly?: boolean
 ): { error?: string; status?: number; earlyAuthorized?: boolean } {
   if (automaticReturnWorker && (draft.operation_kind !== 'return' || !draft.return_order_id)) {
     return {
@@ -63,15 +64,23 @@ export function validateDraftPreconditions(
     };
   }
 
-  if (!['ready', 'transmitting', 'unknown'].includes(draft.status)) {
+  if (!previewOnly && !['ready', 'transmitting', 'unknown'].includes(draft.status)) {
     return {
       status: 409,
       error: 'Conclua e salve a revisão fiscal antes de transmitir.',
     };
   }
 
+  if (previewOnly && !['draft', 'ready', 'transmitting', 'unknown'].includes(draft.status)) {
+    return {
+      status: 409,
+      error: 'Rascunho em estado incompatível com a prévia.',
+    };
+  }
+
   if (
     !automaticReturnWorker &&
+    !previewOnly &&
     environment === 1 &&
     draft.status === 'ready' &&
     productionConfirmed !== true

@@ -28,7 +28,7 @@ describe('technicalSearchUtils', () => {
       expect(result).toEqual([]);
     });
 
-    it('retorna todas as características opcionais da categoria quando não há busca', () => {
+    it('não exibe características opcionais até serem selecionadas ou adicionadas', () => {
       const optional = [mockAllFields[2], mockAllFields[3]];
       const result = getDisplayedOptionalFields({
         requiredFieldsOnly: false,
@@ -37,10 +37,10 @@ describe('technicalSearchUtils', () => {
         filledOrManualOptionalFields: [],
         normalizedSearchTerm: '',
       });
-      expect(result).toEqual(optional);
+      expect(result).toEqual([]);
     });
 
-    it('mantém campos preenchidos visíveis mesmo quando não correspondem ao termo de busca', () => {
+    it('mantém campos preenchidos e não adiciona resultados da busca sem seleção', () => {
       const filled = [mockAllFields[2]]; // Material da estrutura
       const optional = [mockAllFields[2], mockAllFields[3]];
       const result = getDisplayedOptionalFields({
@@ -53,7 +53,7 @@ describe('technicalSearchUtils', () => {
 
       const names = result.map((f) => f.name);
       expect(names).toContain('Material da estrutura');
-      expect(names).toContain('Acabamento');
+      expect(names).not.toContain('Acabamento');
     });
   });
 

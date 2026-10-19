@@ -21,7 +21,7 @@ export const ProductAiModeTabs: React.FC<ProductAiModeTabsProps> = ({
         }`}
       >
         <i className="bi bi-globe2" />
-        <span>1. Pesquisar na Web (Nome, Marca e Modelo)</span>
+        <span>1. Pesquisar na Web (Nome do Produto)</span>
       </button>
       <button
         type="button"

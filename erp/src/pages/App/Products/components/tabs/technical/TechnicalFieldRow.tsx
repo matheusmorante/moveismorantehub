@@ -10,6 +10,7 @@ import {
   computeTechnicalFieldItemState,
   normalizeTechnicalName,
 } from './technicalTabUtils';
+import { isYesNoCharacteristic } from '@/pages/utils/technicalValuesService';
 
 export interface TechnicalFieldRowProps {
   readonly field: TechnicalFieldDefinition;
@@ -37,6 +38,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   const {
     rawValue,
     isManual,
+    isRequiredField,
     isFieldInvalid,
     isColorField,
     isDepthOrLengthField,
@@ -45,6 +47,10 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   } = computeTechnicalFieldItemState(field, formData, manualFieldNames, validationErrors);
 
   const normName = normalizeTechnicalName(field.name);
+  const isYesNoField = isYesNoCharacteristic(field);
+  const displayName = /^retr[aá]til\??$/i.test(field.name.trim()) ? 'É Retrátil?' : field.name;
+  const isOpenClosedSofaDepth =
+    normName === 'profundidade aberto' || normName === 'profundidade fechado';
   const toggleDepthLengthTooltip = normName.includes('profundidade')
     ? normName.includes('total')
       ? 'Alternar para Comprimento total'
@@ -56,11 +62,11 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   return (
     <div
       id={`technical-field-${field.name}`}
-      className={`flex w-[280px] max-w-full flex-col gap-1.5 p-1 transition-all ${
+      className={`flex w-[280px] max-w-full ${isYesNoField ? 'flex-row items-center justify-between gap-3' : 'flex-col gap-1.5'} p-1 transition-all ${
         isFieldDisabled ? 'opacity-70' : ''
       }`}
     >
-      <div className="flex w-full items-center justify-between gap-2">
+      <div className={`flex items-center justify-between gap-2 ${isYesNoField ? 'min-w-0 flex-1' : 'w-full'}`}>
         <label
           className={`min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
             isFieldInvalid
@@ -71,8 +77,13 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
           }`}
         >
           <span>
-            {field.name}
+            {displayName}
             {field.unit ? ` (${field.unit})` : ''}
+            {isRequiredField && !isFieldDisabled && (
+              <span className="ml-1 text-red-500" aria-hidden="true">
+                *
+              </span>
+            )}
           </span>
           {isFieldDisabled && (
             <DisabledFieldInfoButton
@@ -95,7 +106,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               </button>
             </span>
           )}
-          {isDepthOrLengthField && (
+          {isDepthOrLengthField && !isOpenClosedSofaDepth && (
             <button
               type="button"
               title={toggleDepthLengthTooltip}
@@ -121,29 +132,32 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
         </div>
       </div>
 
-      <DisabledFieldWrapper
-        isDisabled={isFieldDisabled}
-        disabledReason={disabledReason}
-        showTooltip={showTooltip}
-        onToggleTooltip={() => setShowTooltip((prev) => !prev)}
-        onShowTooltip={() => setShowTooltip(true)}
-        onHideTooltip={() => setShowTooltip(false)}
-      >
-        <TechnicalFieldInput
-          field={field}
-          value={
-            rawValue !== undefined &&
-            rawValue !== null &&
-            rawValue !== 'Não se aplica' &&
-            rawValue !== 'N/A'
-              ? rawValue
-              : ''
-          }
-          isInvalid={isFieldInvalid}
-          disabled={isFieldDisabled}
-          onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
-        />
-      </DisabledFieldWrapper>
+      <div className={isYesNoField ? 'shrink-0' : 'w-full'}>
+        <DisabledFieldWrapper
+          isDisabled={isFieldDisabled}
+          disabledReason={disabledReason}
+          showTooltip={showTooltip}
+          onToggleTooltip={() => setShowTooltip((prev) => !prev)}
+          onShowTooltip={() => setShowTooltip(true)}
+          onHideTooltip={() => setShowTooltip(false)}
+        >
+          <TechnicalFieldInput
+            field={field}
+            value={
+              rawValue !== undefined &&
+              rawValue !== null &&
+              rawValue !== 'Não se aplica' &&
+              rawValue !== 'N/A'
+                ? rawValue
+                : ''
+            }
+            isInvalid={isFieldInvalid}
+            disabled={isFieldDisabled}
+            compact={isYesNoField}
+            onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
+          />
+        </DisabledFieldWrapper>
+      </div>
     </div>
   );
 };

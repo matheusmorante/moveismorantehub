@@ -8,6 +8,7 @@ import {
 } from '../../../../../../shared-utils/fiscalOperationFormSchemas';
 import type {
   DraftPayload,
+  OperationDraftPreviewResult,
   ReviewData,
   ReviewedLine,
   SourceDocument,
@@ -17,6 +18,7 @@ import {
   createFiscalOperationDraft,
   fetchLinkedReturnOrders,
   loadFiscalOperationDraft,
+  previewFiscalOperationDraft,
   saveFiscalOperationDraftReview,
   transmitFiscalOperationDraft,
 } from '../services/fiscalOperationDraftService';
@@ -55,6 +57,9 @@ export function useNfeOperationDraft({
   const [preparing, setPreparing] = useState(false);
   const [savingReview, setSavingReview] = useState(false);
   const [transmitting, setTransmitting] = useState(false);
+  const [xmlPreview, setXmlPreview] = useState<OperationDraftPreviewResult | null>(null);
+  const [isXmlPreviewOpen, setIsXmlPreviewOpen] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [retryAllowed, setRetryAllowed] = useState(false);
@@ -225,9 +230,81 @@ export function useNfeOperationDraft({
     }
   };
 
+  const hasUnresolvedCfop = Boolean(
+    payload &&
+      (reviewedLines.length === 0 ||
+        reviewedLines.some((line) => !line.cfop || !/^\d{4}$/.test(line.cfop)))
+  );
+
+  const closeXmlPreview = useCallback(() => {
+    setIsXmlPreviewOpen(false);
+  }, []);
+
+  const handlePreviewXml = async () => {
+    if (operationInFlight.current || refreshRequired) return;
+    if (!draftId) return;
+
+    if (hasUnresolvedCfop) {
+      setError(
+        'A prévia do XML e a transmissão estão bloqueadas porque há itens sem CFOP válido determinado.'
+      );
+      return;
+    }
+
+    operationInFlight.current = true;
+    try {
+      setLoadingPreview(true);
+      setError('');
+      setNotice('');
+
+      if (review) {
+        const isValid = await reviewForm.validateAndRun(
+          reviewValues,
+          async (validated) => {
+            const result = await saveFiscalOperationDraftReview(validated);
+            setPayload((current) =>
+              current ? { ...current, draft: { ...current.draft, status: result.status } } : current
+            );
+            return true;
+          },
+          (errors) => {
+            setError(Object.values(flattenFormErrors(errors))[0] || 'Revisão fiscal inválida.');
+            return false;
+          }
+        );
+        if (!isValid) return;
+      }
+
+      const result = await withTimeout(
+        previewFiscalOperationDraft({ draftId }),
+        30000,
+        null,
+        'geração da prévia do XML fiscal'
+      );
+      if (!result) {
+        throw new Error('A geração da prévia do XML excedeu o tempo limite.');
+      }
+      setXmlPreview(result);
+      setIsXmlPreviewOpen(true);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Não foi possível gerar a prévia do XML fiscal.'
+      );
+    } finally {
+      setLoadingPreview(false);
+      operationInFlight.current = false;
+    }
+  };
+
   const transmitOrReconcile = async () => {
     if (operationInFlight.current) return;
     if (!draftId) return;
+    if (hasUnresolvedCfop) {
+      setError('A transmissão está bloqueada porque há itens sem CFOP válido determinado.');
+      return;
+    }
     operationInFlight.current = true;
     try {
       return await transmissionForm.validateAndRun(transmissionValues, async (validated) => {
@@ -307,6 +384,10 @@ export function useNfeOperationDraft({
     preparing,
     savingReview,
     transmitting,
+    xmlPreview,
+    isXmlPreviewOpen,
+    loadingPreview,
+    hasUnresolvedCfop,
     error,
     notice,
     retryAllowed,
@@ -315,6 +396,8 @@ export function useNfeOperationDraft({
     updateLineCfop,
     updateReview,
     saveFiscalReview,
+    handlePreviewXml,
+    closeXmlPreview,
     transmitOrReconcile,
     canPrepare,
   };

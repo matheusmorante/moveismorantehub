@@ -2164,13 +2164,30 @@ async function handler(req, res) {
       const changes = await loadAuditedChanges(db, order, document, proposedOrderData);
       if (changes.length) {
         const policy = getOrderEditFiscalPolicy(order, document);
-        if (policy.action !== "cancel" && policy.action !== "estorno")
-          return res.status(409).json({ status: "blocked", error: policy.reason || "Esta nota exige revis\xE3o fiscal." });
+        if (policy.action !== "cancel" && policy.action !== "estorno") {
+          return res.status(200).json({
+            status: "blocked",
+            error: policy.reason || "Esta nota exige revis\xE3o fiscal.",
+            orderUpdatedAt: order.updated_at,
+            changes,
+            documents: [
+              {
+                id: document.id,
+                model: String(document.modelo),
+                environment: Number(document.ambiente),
+                action: policy.action,
+                reason: policy.reason,
+                changes
+              }
+            ]
+          });
+        }
         documents.push({
           id: document.id,
           model: String(document.modelo),
           environment: Number(document.ambiente),
           action: policy.action,
+          reason: policy.reason,
           changes
         });
       }

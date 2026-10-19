@@ -35,6 +35,7 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
   const [coords, setCoords] = useState<[number, number] | null>(null);
   const [isPrecision, setIsPrecision] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [webGlError, setWebGlError] = useState(false);
   // Geocodifica para posicionar o marcador. O cálculo de rota/frete ocorre após
   // selecionar/salvar o endereço do cliente ou por ação explícita no pedido.
   useEffect(() => {
@@ -81,24 +82,30 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
 
   // Map initialization
   useEffect(() => {
-    if (!mapContainer.current) return;
+    if (!mapContainer.current || webGlError) return;
 
     if (!map.current) {
-      map.current = new maplibregl.Map({
-        container: mapContainer.current,
-        style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-        center: [storeOrigin[0], storeOrigin[1]],
-        zoom: 12,
-        attributionControl: false,
-      });
+      try {
+        map.current = new maplibregl.Map({
+          container: mapContainer.current,
+          style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+          center: [storeOrigin[0], storeOrigin[1]],
+          zoom: 12,
+          attributionControl: false,
+        });
 
-      map.current.on('load', () => {
-        if (!map.current) return;
-        // Store marker
-        new maplibregl.Marker({ color: '#2563eb' })
-          .setLngLat([storeOrigin[0], storeOrigin[1]])
-          .addTo(map.current);
-      });
+        map.current.on('load', () => {
+          if (!map.current) return;
+          // Store marker
+          new maplibregl.Marker({ color: '#2563eb' })
+            .setLngLat([storeOrigin[0], storeOrigin[1]])
+            .addTo(map.current);
+        });
+      } catch (e) {
+        console.warn('[AddressVerificationMap] WebGL context creation failed:', e);
+        setWebGlError(true);
+        return;
+      }
     }
 
     return () => {
@@ -107,7 +114,7 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
         map.current = null;
       }
     };
-  }, [storeOrigin]);
+  }, [storeOrigin, webGlError]);
 
   // Update dynamic marker and view
   useEffect(() => {
@@ -137,19 +144,35 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
 
   return (
     <div className="relative w-full h-[200px] md:h-[250px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-inner group">
-      <div ref={mapContainer} className="w-full h-full" />
-
-      {loading && (
-        <div className="absolute inset-0 bg-white/40 dark:bg-slate-900/40 backdrop-blur-[1px] flex items-center justify-center z-10">
-          <div className="w-6 h-6 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      {webGlError ? (
+        <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex flex-col items-center justify-center gap-2 text-center px-4">
+          <i className="bi bi-map text-2xl text-slate-400 dark:text-slate-500" />
+          <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+            Mapa indisponível neste ambiente
+          </p>
+          {street && (
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              {[street, number, neighborhood, city].filter(Boolean).join(', ')}
+            </p>
+          )}
         </div>
-      )}
+      ) : (
+        <>
+          <div ref={mapContainer} className="w-full h-full" />
 
-      {(!isPrecision || !coords) && !loading && street && (
-        <div className="absolute top-3 left-3 right-3 bg-red-500 text-white px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-center shadow-lg animate-fade-in z-10">
-          <i className="bi bi-exclamation-triangle-fill mr-2" />
-          {!coords ? 'Endereço não localizado' : 'Rua não encontrada - Marcador no Bairro/Cidade'}
-        </div>
+          {loading && (
+            <div className="absolute inset-0 bg-white/40 dark:bg-slate-900/40 backdrop-blur-[1px] flex items-center justify-center z-10">
+              <div className="w-6 h-6 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+
+          {(!isPrecision || !coords) && !loading && street && (
+            <div className="absolute top-3 left-3 right-3 bg-red-500 text-white px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-center shadow-lg animate-fade-in z-10">
+              <i className="bi bi-exclamation-triangle-fill mr-2" />
+              {!coords ? 'Endereço não localizado' : 'Rua não encontrada - Marcador no Bairro/Cidade'}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -102,6 +102,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ success: false, error: 'Rascunho fiscal inválido.' });
   }
 
+  const previewOnly = req.body?.previewOnly === true;
+  if (previewOnly && !fiscalAuthorization.isAdministrator) {
+    return res.status(403).json({
+      success: false,
+      code: 'FISCAL_XML_PREVIEW_ADMIN_REQUIRED',
+      error: 'Somente administradores podem visualizar a prévia do XML fiscal.',
+    });
+  }
+
   let reservedNfeNumber: number | undefined;
   try {
     const { data: draft, error: draftError } = await db
@@ -117,9 +126,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const draftPreconditions = validateDraftPreconditions(
       draft,
       automaticReturnWorker,
-      req.body?.productionConfirmed
+      req.body?.productionConfirmed,
+      previewOnly
     );
     if (draftPreconditions.earlyAuthorized) {
+      if (previewOnly) {
+        return res.status(200).json({
+          success: true,
+          preview: true,
+          xml: draft.signed_xml || draft.generated_xml || '',
+          documentId: draft.document_id,
+          accessKey: draft.access_key,
+        });
+      }
       return res.status(200).json({
         success: true,
         status: 'authorized',
@@ -367,6 +386,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const certificate = extractCertificateAndKey(pfx, password || '');
 
     if (draft.status === 'transmitting' || draft.status === 'unknown') {
+      if (previewOnly && draft.signed_xml) {
+        return res.status(200).json({
+          success: true,
+          preview: true,
+          xml: draft.signed_xml,
+          accessKey: draft.access_key,
+        });
+      }
       return reconcileStoredDraftAttempt({
         res,
         db,
@@ -623,6 +650,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           sourceOperationType,
           sourceDestinationIndicator,
         });
+
+        if (previewOnly) {
+          return res.status(200).json({
+            success: true,
+            preview: true,
+            xml: signedXml,
+            accessKey,
+            nfeNumber,
+            series,
+          });
+        }
+
         let prepared = null;
         try {
           prepared = await db.rpc('prepare_nfe_operation_attempt', {

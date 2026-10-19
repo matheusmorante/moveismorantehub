@@ -7,6 +7,7 @@ interface DeliveryInfoActionButtonsProps {
   readonly isPickup: boolean;
   readonly isAdministrator: boolean;
   readonly clickedButtons: Record<string, boolean>;
+  readonly staleButtons: Order['isButtonsStale'];
   readonly onExecuteAction: (
     key: keyof IsButtonsClicked,
     action: OrderAction
@@ -18,12 +19,27 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
   isPickup,
   isAdministrator,
   clickedButtons,
+  staleButtons,
   onExecuteAction,
 }) => {
   const isCustomerOrderClicked = Boolean(clickedButtons['sendCustomerOrder']);
   const isDirectApiClicked = Boolean(clickedButtons['sendCustomerOrderDirectApi']);
   const isShippingOrderClicked = Boolean(clickedButtons['sendShippingOrder']);
   const isPrintShippingOrderClicked = Boolean(clickedButtons['printShippingOrder']);
+  const isCustomerOrderStale = isCustomerOrderClicked && Boolean(staleButtons?.['sendCustomerOrder']);
+  const isDirectApiStale =
+    isDirectApiClicked && Boolean(staleButtons?.['sendCustomerOrderDirectApi']);
+  const isShippingOrderStale = isShippingOrderClicked && Boolean(staleButtons?.['sendShippingOrder']);
+  const isPrintShippingOrderStale =
+    isPrintShippingOrderClicked && Boolean(staleButtons?.['printShippingOrder']);
+  const staleClasses =
+    'text-[#3b1900] bg-amber-400 hover:bg-amber-300 border-amber-500 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40';
+  const statusClasses = (isClicked: boolean, isStale: boolean) =>
+    isStale
+      ? 'border-amber-600 ring-2 ring-amber-400 ring-offset-2 dark:ring-offset-slate-900'
+      : isClicked
+        ? 'border-emerald-500 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900'
+        : 'border-slate-100 dark:border-slate-800';
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -32,11 +48,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
         type="button"
         onClick={() => onExecuteAction('sendCustomerOrder', 'SEND_CUSTOMER_ORDER')}
         title="Enviar confirmação e dados da entrega para o cliente pelo WhatsApp"
-        className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left relative text-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/20 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/30 hover:-translate-y-0.5 hover:shadow-md ${
-          isCustomerOrderClicked
-            ? 'border-emerald-500 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900'
-            : 'border-slate-100 dark:border-slate-800'
-        }`}
+        className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left relative ${isCustomerOrderStale ? staleClasses : 'text-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/20 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/30'} hover:-translate-y-0.5 hover:shadow-md ${statusClasses(isCustomerOrderClicked, isCustomerOrderStale)}`}
       >
         <div className="w-11 h-11 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-sm text-2xl">
           <i className="bi bi-whatsapp"></i>
@@ -51,7 +63,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
               : 'Enviar entrega para o WhatsApp do cliente'}
           </span>
         </div>
-        {isCustomerOrderClicked && (
+        {isCustomerOrderClicked && !isCustomerOrderStale && (
           <div className="absolute top-2 right-2 bg-emerald-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-in zoom-in duration-300">
             <i className="bi bi-check text-sm font-black"></i>
           </div>
@@ -74,12 +86,8 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
           className={`w-full flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left relative ${
             !isAdministrator
               ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800/40 dark:border-slate-800'
-              : 'text-[#3b1900] bg-amber-400 hover:bg-amber-300 border-amber-500 shadow-sm dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40 hover:-translate-y-0.5 hover:shadow-md'
-          } ${
-            isDirectApiClicked
-              ? 'border-emerald-500 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900'
-              : ''
-          }`}
+              : `${isDirectApiStale ? staleClasses : 'text-[#3b1900] bg-amber-400 hover:bg-amber-300 border-amber-500 shadow-sm dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40'} hover:-translate-y-0.5 hover:shadow-md`
+          } ${isAdministrator ? statusClasses(isDirectApiClicked, isDirectApiStale) : ''}`}
         >
           <div className="w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-[#3b1900] dark:text-amber-300 flex items-center justify-center shrink-0 shadow-sm text-2xl">
             <i className="bi bi-whatsapp"></i>
@@ -100,7 +108,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
               {!isAdministrator && ' (Apenas Administrador)'}
             </span>
           </div>
-          {isDirectApiClicked && (
+          {isDirectApiClicked && !isDirectApiStale && (
             <div className="absolute top-2 right-2 bg-emerald-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-in zoom-in duration-300">
               <i className="bi bi-check text-sm font-black"></i>
             </div>
@@ -122,11 +130,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
         type="button"
         onClick={() => onExecuteAction('sendShippingOrder', 'SEND_SHIPPING_ORDER')}
         title="Enviar detalhes da entrega para o grupo da equipe pelo WhatsApp"
-        className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left relative text-orange-600 bg-orange-50/70 dark:bg-orange-950/20 hover:bg-orange-100/80 dark:hover:bg-orange-900/30 hover:-translate-y-0.5 hover:shadow-md ${
-          isShippingOrderClicked
-            ? 'border-emerald-500 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900'
-            : 'border-slate-100 dark:border-slate-800'
-        }`}
+        className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left relative ${isShippingOrderStale ? staleClasses : 'text-orange-600 bg-orange-50/70 dark:bg-orange-950/20 hover:bg-orange-100/80 dark:hover:bg-orange-900/30'} hover:-translate-y-0.5 hover:shadow-md ${statusClasses(isShippingOrderClicked, isShippingOrderStale)}`}
       >
         <div className="w-11 h-11 rounded-xl bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 shadow-sm text-2xl">
           <i className="bi bi-truck"></i>
@@ -141,7 +145,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
               : 'Enviar dados de entrega para a equipe'}
           </span>
         </div>
-        {isShippingOrderClicked && (
+        {isShippingOrderClicked && !isShippingOrderStale && (
           <div className="absolute top-2 right-2 bg-emerald-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-in zoom-in duration-300">
             <i className="bi bi-check text-sm font-black"></i>
           </div>
@@ -153,11 +157,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
         type="button"
         onClick={() => onExecuteAction('printShippingOrder', 'PRINT_SHIPPING_ORDER')}
         title="Imprimir pedido com as informações da entrega"
-        className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left relative text-blue-600 bg-blue-50/70 dark:bg-blue-950/20 hover:bg-blue-100/80 dark:hover:bg-blue-900/30 hover:-translate-y-0.5 hover:shadow-md ${
-          isPrintShippingOrderClicked
-            ? 'border-emerald-500 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900'
-            : 'border-slate-100 dark:border-slate-800'
-        }`}
+        className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left relative ${isPrintShippingOrderStale ? staleClasses : 'text-blue-600 bg-blue-50/70 dark:bg-blue-950/20 hover:bg-blue-100/80 dark:hover:bg-blue-900/30'} hover:-translate-y-0.5 hover:shadow-md ${statusClasses(isPrintShippingOrderClicked, isPrintShippingOrderStale)}`}
       >
         <div className="w-11 h-11 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-sm text-2xl">
           <i className="bi bi-printer-fill"></i>
@@ -170,7 +170,7 @@ export const DeliveryInfoActionButtons: React.FC<DeliveryInfoActionButtonsProps>
             Imprimir documento com dados da entrega e itens
           </span>
         </div>
-        {isPrintShippingOrderClicked && (
+        {isPrintShippingOrderClicked && !isPrintShippingOrderStale && (
           <div className="absolute top-2 right-2 bg-emerald-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-in zoom-in duration-300">
             <i className="bi bi-check text-sm font-black"></i>
           </div>

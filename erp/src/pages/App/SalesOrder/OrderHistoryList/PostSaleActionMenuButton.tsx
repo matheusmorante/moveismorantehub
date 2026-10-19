@@ -1,6 +1,10 @@
 import React, { useContext } from 'react';
 import Order from '../../../types/order.type';
-import { canOpenPostSaleActions, POST_SALE_ACTION_KEYS } from '../../../utils/postSaleActions';
+import {
+  canOpenPostSaleActions,
+  POST_SALE_ACTION_KEYS,
+  POST_SALE_ACTION_KEYS_TO_REFRESH_AFTER_EDIT,
+} from '../../../utils/postSaleActions';
 import PostOrderActionsModal from '../OrderActions/PostOrderActionsModal';
 import { AuthContext } from '@/context/AuthContext';
 
@@ -22,6 +26,9 @@ const PostSaleActionMenuButton = ({
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const authContext = useContext(AuthContext);
   const isAdministrator = Boolean(authContext?.isAdministrator);
+  const hasStalePostSaleAction = POST_SALE_ACTION_KEYS_TO_REFRESH_AFTER_EDIT.some(
+    (key) => order.isButtonsStale?.[key]
+  );
 
   if (!canOpenPostSaleActions(order)) return null;
 
@@ -35,7 +42,7 @@ const PostSaleActionMenuButton = ({
           else setIsModalOpen(true);
           onCloseMenu();
         }}
-        className="flex items-center gap-3 w-full p-2.5 rounded-xl text-emerald-600 transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/30 group/item cursor-pointer text-left"
+        className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all group/item cursor-pointer text-left ${hasStalePostSaleAction ? 'text-[#3b1900] bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/50' : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'}`}
         title="Abrir ações pós-venda"
       >
         <i className="bi bi-clipboard-check text-lg shrink-0" />

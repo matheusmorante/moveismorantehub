@@ -27,7 +27,7 @@ const getSearchInsertionIndex = (
 export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   formData,
   setFormData,
-  categoryName: _categoryName = '',
+  categoryName = '',
   isAdministrator: _isAdministratorProp,
   requiredFieldsOnly = false,
   validationErrors,
@@ -55,6 +55,7 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   } = useProductTechnicalTab({
     formData,
     setFormData,
+    categoryName,
     requiredFieldsOnly,
   });
 
@@ -107,26 +108,6 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
             {fieldGroups.length > 0 && searchInsertionIndex >= fieldGroups.length && searchControl}
           </div>
         )}
-      </div>
-
-      {/* Descrição Detalhada do Produto */}
-      <div className="flex flex-col gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
-        <label
-          htmlFor="field-product-description"
-          className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 flex items-center gap-2 cursor-pointer"
-        >
-          <i className="bi bi-file-text text-blue-600" aria-hidden="true" />
-          <span>Descrição Detalhada</span>
-        </label>
-        <textarea
-          id="field-product-description"
-          rows={10}
-          aria-label="Descrição detalhada do produto"
-          value={formData.description || ''}
-          onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-          placeholder="Escreva a descrição detalhada do produto, diferenciais, especificações técnicas..."
-          className="w-full p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-transparent outline-none text-xs font-semibold resize-y dark:text-slate-200 focus:border-blue-600 dark:focus:border-blue-400 transition-all min-h-[180px]"
-        />
       </div>
 
       <AttributeManagementModal

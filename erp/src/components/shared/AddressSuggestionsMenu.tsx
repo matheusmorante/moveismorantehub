@@ -48,21 +48,16 @@ export const AddressSuggestionsMenu: React.FC<AddressSuggestionsMenuProps> = ({
             key={i}
             type="button"
             onClick={() => onSelect(s)}
-            className="w-full text-left px-4 py-3 hover:bg-blue-50/70 dark:hover:bg-blue-950/40 transition-all flex items-start gap-3 text-slate-700 dark:text-slate-200 group/item"
+            className="w-full text-left px-4 py-2.5 hover:bg-blue-50/70 dark:hover:bg-blue-950/40 transition-all flex flex-col text-slate-700 dark:text-slate-200 group/item"
           >
-            <div className="w-6 h-6 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
-              <i className="bi bi-signpost-2 text-xs" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover/item:text-blue-600 dark:group-hover/item:text-blue-400 transition-colors leading-snug">
-                {mainText || singleLineText}
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover/item:text-blue-600 dark:group-hover/item:text-blue-400 transition-colors leading-snug">
+              {mainText || singleLineText}
+            </p>
+            {subText && (
+              <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 leading-tight mt-0.5">
+                {subText}
               </p>
-              {subText && (
-                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 leading-tight mt-0.5">
-                  {subText}
-                </p>
-              )}
-            </div>
+            )}
           </button>
         );
       })}

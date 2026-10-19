@@ -10,6 +10,7 @@ interface DeliveryInfoModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly clickedButtons: Record<string, boolean>;
+  readonly staleButtons: Order['isButtonsStale'];
   readonly onExecuteAction: (
     key: keyof IsButtonsClicked,
     action: OrderAction
@@ -22,6 +23,7 @@ export const DeliveryInfoModal: React.FC<DeliveryInfoModalProps> = ({
   isOpen,
   onClose,
   clickedButtons,
+  staleButtons,
   onExecuteAction,
   isAdministrator = false,
 }) => {
@@ -97,6 +99,7 @@ export const DeliveryInfoModal: React.FC<DeliveryInfoModalProps> = ({
             isPickup={isPickup}
             isAdministrator={isAdministrator}
             clickedButtons={clickedButtons}
+            staleButtons={staleButtons}
             onExecuteAction={onExecuteAction}
           />
         </div>
