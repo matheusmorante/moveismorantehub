@@ -53,6 +53,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     environment,
     setEnvironment,
     isSubmitting,
+    isRestoringAttempt,
     isPreparingPreview,
     isRestartingHml,
     isSavingAcquisitionPurpose,
@@ -96,7 +97,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     setFreightContractResponsible,
     thirdPartyTransporter,
     setThirdPartyTransporter,
-  } = useNfeEmission(emissionOrder, (result: NfeEmissionResult) => {
+  } = useNfeEmission(isOpen ? emissionOrder : null, (result: NfeEmissionResult) => {
     onSuccess?.(result);
     onClose();
   });
@@ -181,7 +182,9 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
 
   const isPreparingInitialData = isLoadingFiscalData || isLoadingCustomerType;
   const isPreparingNfe = isPreparingInitialData;
-  const preparationMessage = isLoadingFiscalData
+  const preparationMessage = isRestoringAttempt
+    ? 'Conferindo tentativas fiscais anteriores…'
+    : isLoadingFiscalData
     ? 'Carregando dados do cliente e dos produtos…'
     : 'Confirmando os dados fiscais do cliente…';
   const isLocked = Boolean(
@@ -199,7 +202,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
       : selectedModel === '55'
         ? 'NF-e · modelo 55 necessária'
         : 'Modelo fiscal a definir';
-  const numberPreviewContext = `Prévia informativa · Série ${nfeNumberSequence.series ?? '—'} · ${environment === 2 ? 'Homologação' : 'Produção'}`;
+  const numberPreviewContext = `${emissionResult?.pending && emissionResult.nfeNumber ? 'Número reservado na tentativa pendente' : 'Prévia informativa'} · Série ${emissionResult?.pending ? emissionResult.series ?? nfeNumberSequence.series ?? '—' : nfeNumberSequence.series ?? '—'} · ${environment === 2 ? 'Homologação' : 'Produção'}`;
 
   const itemsTotal = (nfeItems.length ? nfeItems : order.items || [])
     .filter((it) => it.itemType !== 'service')

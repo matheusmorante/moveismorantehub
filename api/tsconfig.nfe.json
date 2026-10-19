@@ -6,9 +6,11 @@
     "baseUrl": "../erp",
     "types": ["node"]
   },
+  "files": ["../erp/src/vite-env.d.ts"],
   "include": [
     "nfe/emit.ts",
     "nfe/consult.ts",
+    "nfe/cancel.ts",
     "nfe/reserve-number.ts",
     "nfe/cce.ts",
     "nfe/fiscalDatabaseTypes.ts",

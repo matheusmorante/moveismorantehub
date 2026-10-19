@@ -1,6 +1,7 @@
 import https from 'node:https';
 import { rootCertificates } from 'node:tls';
 import { X509Certificate } from 'node:crypto';
+import { inspect } from 'node:util';
 import forge from 'node-forge';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { extractCertificateAndKey } from '../../../../../../api/nfe/nfeSigner';
@@ -64,6 +65,35 @@ const params = () => ({
 });
 
 describe('transporte fiscal padrão Node mTLS', () => {
+  it.each(['axios', 'deadline', 'frozen'])(
+    'erro %s não carrega segredos para logs, JSON ou causas', async scenario => {
+      const sentinel = 'TEST_AUT_PRIVATE_TRANSPORT_SENTINEL';
+      const original = Object.assign(new Error(sentinel), {
+        name: 'AxiosError', code: 'ERR_BAD_RESPONSE',
+        config: { httpsAgent: { options: { key: privateKeyPem, cert: certPem } },
+          headers: { Authorization: sentinel }, data: sentinel },
+        request: { rawHeaders: sentinel },
+        response: { status: 503, data: sentinel, headers: { Authorization: sentinel } },
+        cause: Object.assign(new Error(sentinel), { code: 'ECONNRESET', config: { password: sentinel } }),
+      });
+      if (scenario === 'frozen') Object.freeze(original);
+      if (scenario === 'deadline') vi.spyOn(AbortSignal, 'timeout').mockReturnValue(AbortSignal.abort());
+      mocks.post.mockRejectedValueOnce(original);
+      let caught: unknown;
+      try { await sendSoapToSefaz(params()); } catch (error) { caught = error; }
+      expect(caught).toBeInstanceOf(Error);
+      for (const rendered of [JSON.stringify(caught), inspect(caught, { depth: null, showHidden: true })]) {
+        for (const secret of [sentinel, privateKeyPem, certPem]) expect(rendered.includes(secret)).toBe(false);
+      }
+      expect(sefazTransportDiagnostic(caught)).toMatchObject({
+        code: scenario === 'deadline' ? 'ETIMEDOUT' : 'ERR_BAD_RESPONSE',
+        model: '65', environment: 2, timeoutMs: 25000,
+        hostname: 'homologacao.nfce.sefa.pr.gov.br',
+      });
+      expect(mocks.post).toHaveBeenCalledTimes(1);
+    }
+  );
+
   it.each([
     '<consSitNFe><tpAmb>1</tpAmb></consSitNFe>',
     '<NFe><ide><tpAmb>2</tpAmb><mod>55</mod></ide></NFe>',
@@ -72,6 +102,19 @@ describe('transporte fiscal padrão Node mTLS', () => {
       code: 'SEFAZ_ENVIRONMENT_MODEL_MISMATCH',
     });
     expect(mocks.post).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['alert unknown ca', 'PEER_UNKNOWN_CA', 'TLS_FAILURE'],
+    ['alert certificate expired', 'PEER_CERTIFICATE_EXPIRED', 'TLS_FAILURE'],
+    ['alert bad certificate', 'PEER_BAD_CERTIFICATE', 'MTLS_CLIENT_CERTIFICATE'],
+    ['alert handshake failure', 'PEER_HANDSHAKE_FAILURE', 'TLS_FAILURE'],
+  ])('preserva a classificação TLS sanitizada %s', async (message, tlsReason, category) => {
+    mocks.post.mockRejectedValueOnce(Object.assign(new Error(message + ' TEST_AUT_PRIVATE_MESSAGE'), { code: 'EPROTO' }));
+    let caught: unknown;
+    try { await sendSoapToSefaz(params()); } catch (error) { caught = error; }
+    expect(sefazTransportDiagnostic(caught)).toMatchObject({ code: 'EPROTO', tlsReason, category });
+    expect(inspect(caught, { depth: null, showHidden: true }).includes('TEST_AUT_PRIVATE_MESSAGE')).toBe(false);
+    expect(mocks.post).toHaveBeenCalledTimes(1);
   });
   it('bloqueia XML HML em endpoint de produção', async () => {
     await expect(
@@ -200,8 +243,11 @@ describe('transporte fiscal padrão Node mTLS', () => {
   ])('preserva %s sem repetir o POST', async (code) => {
     const error = Object.assign(new Error('PRIVATE_KEY PRIVATE_XML'), { code });
     mocks.post.mockRejectedValueOnce(error);
-    await expect(sendSoapToSefaz(params())).rejects.toBe(error);
-    const diagnostic = sefazTransportDiagnostic(error);
+    let caught: unknown;
+    try { await sendSoapToSefaz(params()); } catch (value) { caught = value; }
+    expect(caught).not.toBe(error);
+    expect(caught).toMatchObject({ code });
+    const diagnostic = sefazTransportDiagnostic(caught);
     expect(diagnostic).toMatchObject({
       code,
       timeoutMs: 25000,

@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { TLSSocket } from 'node:tls';
 import { performance } from 'node:perf_hooks';
 import { createSefazHttpsAgent } from './sefazHttpsAgent';
-import type { SefazTransportContext } from './sefazTransportDiagnostic';
+import { SefazTransportError, type SefazTransportContext } from './sefazTransportDiagnostic';
 import { simulateFiscalE2eSoap } from './sefazE2eSimulator';
 
 export interface SefazSoapParams {
@@ -129,12 +129,7 @@ export async function sendSoapToSefaz(params: SefazSoapParams): Promise<string> 
       : error;
     context.durationMs = Math.round(performance.now() - startedAt);
     if (axios.isAxiosError(transportError) && transportError.response) context.phase = 'response';
-    if (transportError && typeof transportError === 'object' && Object.isExtensible(transportError))
-      Object.defineProperty(transportError, 'sefazTransportContext', {
-        value: context,
-        configurable: true,
-      });
-    throw transportError;
+    throw new SefazTransportError(transportError, context);
   } finally {
     httpsAgent.destroy();
   }

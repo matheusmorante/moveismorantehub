@@ -2,7 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import Person from '../../types/person.type';
 import { TABLE_NAME, mapFromDB } from './personMapper';
 import { syncMissingEmployeesFromProfiles } from './personSyncService';
-import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import { isIdentifiedTestArtifact, readTestArtifactIdentity, type TestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
 import {
   isTestOperator,
   isTestOperatorVisibleToUser,
@@ -66,6 +66,12 @@ export const isTestPerson = (person: any): boolean => {
   if (/^\s*(?:TEST_AUT_|playwright\.test)/i.test(name)) return true;
   if (/^\s*TEST_AUT_/i.test(String(person.id || ''))) return true;
   return false;
+};
+
+const matchesPersonQueryContext = (person: Person, testContext?: TestArtifactIdentity): boolean => {
+  if (!testContext) return !isTestPerson(person);
+  const identity = readTestArtifactIdentity(person);
+  return identity?.runId === testContext.runId && identity.ownerId === testContext.ownerId;
 };
 
 const mapAndSortPeople = (
@@ -246,9 +252,11 @@ export const preloadPersonById = async (id: string): Promise<Person | null> => {
 export const searchPeople = async (
   query: string,
   collectionName: string,
-  limit = 30
+  limit = 30,
+  testContext?: TestArtifactIdentity
 ): Promise<Person[]> => {
   if (!query || query.trim().length < 2) return [];
+  if (testContext && collectionName !== 'customers') return [];
 
   let peopleQuery = supabase.from(TABLE_NAME).select(PERSON_QUERY_COLUMNS).or('deleted.eq.false,deleted.is.null');
 
@@ -266,6 +274,11 @@ export const searchPeople = async (
   peopleQuery = peopleQuery.or(
     `full_name.ilike.${searchTerm},social_name.ilike.${searchTerm},cpf_cnpj.ilike.${searchTerm},phone.ilike.${searchTerm},email.ilike.${searchTerm}`
   );
+  if (testContext) {
+    peopleQuery = peopleQuery.eq('full_address->testArtifact->>is_test', 'true')
+      .eq('full_address->testArtifact->>runId', testContext.runId)
+      .eq('full_address->testArtifact->>ownerId', testContext.ownerId);
+  }
   try {
     const currentUserEmail = collectionName === 'employees' ? await getCurrentUserEmail() : '';
     const { data, error } = await peopleQuery
@@ -274,7 +287,7 @@ export const searchPeople = async (
     if (error || !data) return [];
     return data
       .map(mapFromDB)
-      .filter((person) => !isTestPerson(person))
+      .filter((person) => matchesPersonQueryContext(person, testContext))
       .filter(
         (person) =>
           collectionName !== 'employees' ||
@@ -286,7 +299,8 @@ export const searchPeople = async (
   }
 };
 
-export const getRecentPeople = async (collectionName: string, limit = 20): Promise<Person[]> => {
+export const getRecentPeople = async (collectionName: string, limit = 20, testContext?: TestArtifactIdentity): Promise<Person[]> => {
+  if (testContext && collectionName !== 'customers') return [];
   let peopleQuery = supabase.from(TABLE_NAME).select(PERSON_QUERY_COLUMNS).or('deleted.eq.false,deleted.is.null');
 
   if (collectionName === 'employees') {
@@ -298,6 +312,11 @@ export const getRecentPeople = async (collectionName: string, limit = 20): Promi
   } else {
     peopleQuery = peopleQuery.or(`person_type.ilike.suppliers,person_type.ilike.supplier`);
   }
+  if (testContext) {
+    peopleQuery = peopleQuery.eq('full_address->testArtifact->>is_test', 'true')
+      .eq('full_address->testArtifact->>runId', testContext.runId)
+      .eq('full_address->testArtifact->>ownerId', testContext.ownerId);
+  }
   try {
     const currentUserEmail = collectionName === 'employees' ? await getCurrentUserEmail() : '';
     const { data, error } = await peopleQuery
@@ -306,7 +325,7 @@ export const getRecentPeople = async (collectionName: string, limit = 20): Promi
     if (error || !data) return [];
     return data
       .map(mapFromDB)
-      .filter((person) => !isTestPerson(person))
+      .filter((person) => matchesPersonQueryContext(person, testContext))
       .filter(
         (person) =>
           collectionName !== 'employees' ||

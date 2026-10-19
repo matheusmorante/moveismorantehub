@@ -12,6 +12,7 @@ import {
 import {
   reconcileNormalSale,
   recoverNormalSale,
+  describeActiveNormalSaleConflict,
   transmitPreparedOutbound,
 } from '../../../../../../api/nfe/normal-sale/outboundAttempt';
 
@@ -479,6 +480,50 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     await Promise.all([emitFromPreview(d, c, prepared), emitFromPreview(d, c, prepared)]);
     expect(d.attempts).toHaveLength(1);
     expect(d.snapshots).toHaveLength(1);
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+  });
+  it.each([1, 2] as const)('identifies the original active attempt for a losing request in environment %s without sending again', async (environment) => {
+    const d = database();
+    const original = command(environment, environment === 2);
+    mocks.send.mockRejectedValueOnce(new Error('ETIMEDOUT'));
+    const first = await emit(d, original);
+    const losing = await emit(d, { ...original, emissionRequestId: 'a19b3e63-6f84-45ea-8c5f-39476d709a3d' });
+    expect(losing.status).toBe(409);
+    expect(losing.body).toMatchObject({
+      pending: true,
+      databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT',
+      documentId: first.body.documentId,
+      emissionRequestId: original.emissionRequestId,
+      accessKey: first.body.accessKey,
+      nfeNumber: first.body.nfeNumber,
+      environment,
+      numberReserved: false,
+      sefazContacted: false,
+    });
+    expect(losing.body.error).toBe('Já existe uma tentativa fiscal em andamento para este pedido. Consulte a tentativa original antes de continuar.');
+    expect(d.attempts).toHaveLength(1);
+    expect(d.snapshots).toHaveLength(1);
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+  });
+  it('does not select a conflicting attempt from another order, environment, issuer or an ambiguous set', async () => {
+    const d = database();
+    mocks.send.mockRejectedValueOnce(new Error('ETIMEDOUT'));
+    await emit(d);
+    const scope = { orderId: command().orderId, environment: 1 as const };
+    for (const [candidate, issuer] of [
+      [{ ...scope, orderId: 'TEST_UNIT_OTHER' }, '12345678000195'],
+      [{ ...scope, environment: 2 as const }, '12345678000195'],
+      [scope, '98765432000198'],
+    ] as const) {
+      const missing = await describeActiveNormalSaleConflict(d.db, candidate, issuer);
+      expect(missing.status).toBe(503);
+      expect(missing.body).toMatchObject({ pending: true, code: 'FISCAL_RECOVERY_UNAVAILABLE', numberReserved: false });
+      expect(missing.body).not.toHaveProperty('documentId');
+    }
+    d.attempts.push({ ...d.attempts[0], document_id: 'TEST_UNIT_AMBIGUOUS' });
+    const ambiguous = await describeActiveNormalSaleConflict(d.db, scope, '12345678000195');
+    expect(ambiguous.status).toBe(503);
+    expect(ambiguous.body).not.toHaveProperty('documentId');
     expect(mocks.send).toHaveBeenCalledTimes(1);
   });
   it('timeout after sending records reconciliation and never automatically resends', async () => {

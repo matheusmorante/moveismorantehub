@@ -3,6 +3,7 @@ import CustomerData from '@/pages/types/customerData.type';
 import Person from '@/pages/types/person.type';
 import { getRecentPeople, searchPeople } from '@/pages/utils/personService';
 import { toTitleCase } from '@/pages/utils/formatters';
+import { getTestArtifactContext } from '../../../../../../../shared-utils/testArtifactContext';
 import {
   canSearchCustomers,
   getCustomerSearchQuery,
@@ -26,6 +27,7 @@ interface UseCustomerSelectionParams {
   setCustomerData: React.Dispatch<React.SetStateAction<CustomerData>>;
   marketingOrigin?: string;
   setMarketingOrigin?: (origin: string) => void;
+  isTestMode?: boolean;
 }
 
 export function useCustomerSelection({
@@ -33,7 +35,13 @@ export function useCustomerSelection({
   setCustomerData,
   marketingOrigin,
   setMarketingOrigin,
+  isTestMode = false,
 }: UseCustomerSelectionParams) {
+  const context = isTestMode ? getTestArtifactContext() : null;
+  const runId = context?.runId, ownerId = context?.ownerId, scenarioKey = context?.scenarioKey;
+  const testContext = useMemo(() => runId && ownerId
+    ? { runId, ownerId, ...(scenarioKey ? { scenarioKey } : {}) } : undefined,
+  [runId, ownerId, scenarioKey]);
   const [customers, setCustomers] = useState<Person[]>([]);
   const [searchTerm, setSearchTerm] = useState(customerData.fullName || '');
   const [isOpen, setIsOpen] = useState(false);
@@ -51,18 +59,24 @@ export function useCustomerSelection({
 
   // Carregar recentes ao montar
   useEffect(() => {
-    getRecentPeople('customers', 20).then((data) => {
-      setCustomers(data.filter((customer) => customer.active && !customer.deleted));
+    let active = true;
+    setCustomers([]);
+    if (isTestMode && !testContext) return;
+    getRecentPeople('customers', 20, testContext).then((data) => {
+      if (active) setCustomers(data.filter((customer) => customer.active && !customer.deleted));
     });
-  }, []);
+    return () => { active = false; };
+  }, [isTestMode, testContext]);
 
   // Busca com debounce ao digitar
   useEffect(() => {
-    if (!searchTerm.trim() || searchTerm.trim().length < 2) return;
+    if (!searchTerm.trim() || searchTerm.trim().length < 2 || (isTestMode && !testContext)) return;
+    let active = true;
 
     const delay = setTimeout(async () => {
       try {
-        const found = await searchPeople(searchTerm, 'customers', 20);
+        const found = await searchPeople(searchTerm, 'customers', 20, testContext);
+        if (!active) return;
         setCustomers((prev) => {
           const combined = [...prev, ...found.filter((c) => c.active && !c.deleted)];
           return Array.from(new Map(combined.map((p) => [p.id, p])).values());
@@ -72,8 +86,8 @@ export function useCustomerSelection({
       }
     }, 300);
 
-    return () => clearTimeout(delay);
-  }, [searchTerm]);
+    return () => { active = false; clearTimeout(delay); };
+  }, [searchTerm, isTestMode, testContext]);
 
   useEffect(() => {
     if (!isOpen) setSearchTerm(customerData.fullName || '');

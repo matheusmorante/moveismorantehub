@@ -45,7 +45,7 @@ export interface BodyRowViewProps {
   shouldShowStockOrigin: boolean;
   shouldHideHandling: boolean;
   isLinkedProduct: boolean;
-  isTemporaryProduct: boolean;
+  showTemporaryProductLabel: boolean;
   itemHasError: boolean;
   error?: string;
   handlingError?: string | boolean;
@@ -76,7 +76,7 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
   isService,
   shouldShowStockOrigin,
   isLinkedProduct,
-  isTemporaryProduct,
+  showTemporaryProductLabel,
   itemHasError,
   error,
   handlingError,
@@ -186,7 +186,7 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
     >
       {/* Linha 1: Cabeçalho do Card */}
       <div className="flex items-start justify-between gap-2.5">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="w-5 h-5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center text-[10px] font-bold">
             #{idx + 1}
           </span>
@@ -204,9 +204,9 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
               <i className="bi bi-check-circle-fill" /> Vinculado
             </span>
           )}
-          {isTemporaryProduct && (
-            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-900/40">
-              <i className="bi bi-clock-history" /> Temporário
+          {showTemporaryProductLabel && (
+            <span className="inline-flex max-w-full flex-wrap items-center gap-1 text-[9px] leading-tight font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-900/40">
+              <i className="bi bi-clock-history" /> Temporário — Pendente de conciliação
             </span>
           )}
         </div>
@@ -258,8 +258,8 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
             allowedProductKinds={STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']}
             includeDeactivated
             placeholder="Digite para buscar um produto..."
-            isTemporary={isTemporaryProduct}
-            inputEndAdornment={isTemporaryProduct ? <TemporaryProductWarning /> : undefined}
+            isTemporary={showTemporaryProductLabel}
+            inputEndAdornment={showTemporaryProductLabel ? <TemporaryProductWarning /> : undefined}
             isSelected={isLinkedProduct}
             className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500/20' : ''}
           />

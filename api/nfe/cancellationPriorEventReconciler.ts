@@ -11,7 +11,7 @@ import { extractCertificateAndKey } from './nfeSigner';
 
 export interface PriorCancellationEvent {
   id: string;
-  status: string;
+  status: 'transmitting' | 'registered' | 'rejected' | 'unknown';
   cstat: string | null;
   xmotivo: string | null;
   protocol_number: string | null;
@@ -26,7 +26,7 @@ export interface ReconcilePriorEventParams {
     ambiente: number;
     chave_acesso: string;
     modelo: string;
-    numero_protocolo?: string | null;
+    numero_protocolo: string | null;
   };
   priorEvent: PriorCancellationEvent;
   pfxBase64?: string;

@@ -19,3 +19,6 @@
 *.eot binary
 *.pfx binary
 *.p12 binary
+
+# Preserve official fiscal XSD bytes and their published whitespace verbatim.
+api/nfe/schemas/**/*.xsd -text -whitespace

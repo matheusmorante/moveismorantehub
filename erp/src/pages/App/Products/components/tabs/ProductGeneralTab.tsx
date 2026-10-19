@@ -345,7 +345,9 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 })
                 .map((opp) => (
                   <option key={opp.id} value={opp.id}>
-                    {opp.name}
+                    {/últimas?\s+unidades?/i.test(opp.name) && !/mostru[aá]rio/i.test(opp.name)
+                      ? 'Mega Liquidação - Última Unidade'
+                      : opp.name}
                   </option>
                 ))}
             </select>

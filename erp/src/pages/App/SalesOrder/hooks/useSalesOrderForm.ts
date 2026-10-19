@@ -91,6 +91,7 @@ export const useSalesOrderForm = (
   const [isButtonsClicked, setIsButtonsClicked] = useState<Order['isButtonsClicked']>(undefined);
   const [currentStep, setCurrentStep] = useState(1);
   const [testModeFields, setTestModeFields] = useState<Pick<Order, 'is_test' | 'testArtifact'>>({});
+  const [fiscalContext, setFiscalContext] = useState<Order['fiscalContext']>();
   const isTestMode = testModeFields.is_test === true;
   const schedulingSessionRef = useRef<SchedulingSessionMemory | null>(null);
   const prevDeliveryMethodRef = useRef(shipping.deliveryMethod);
@@ -149,6 +150,7 @@ export const useSalesOrderForm = (
       currentStep,
       isTestMode,
       testModeFields,
+      fiscalContext,
     };
   });
 
@@ -261,6 +263,9 @@ export const useSalesOrderForm = (
       setStatus(loadedStatus);
       setOrderType(order.orderType || 'sale');
       setTestModeFields(loadedTestFields);
+      const loadedFiscalContext = order.fiscalContext ? { ...order.fiscalContext } : undefined;
+      setFiscalContext(loadedFiscalContext);
+      latestState.current.fiscalContext = loadedFiscalContext;
       latestState.current.testModeFields = loadedTestFields;
       latestState.current.isTestMode = loadedTestFields.is_test === true;
       setAssistanceItems(order.assistanceItems || []);
@@ -330,6 +335,7 @@ export const useSalesOrderForm = (
       assistanceCost,
       linkedOrderId,
       isButtonsClicked,
+      fiscalContext,
       ...testModeFields,
     };
   }, [
@@ -353,6 +359,7 @@ export const useSalesOrderForm = (
     isButtonsClicked,
     orderType,
     testModeFields,
+    fiscalContext,
   ]);
 
   const isValidForCompletion = useMemo(

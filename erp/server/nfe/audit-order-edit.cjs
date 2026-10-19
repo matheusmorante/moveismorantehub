@@ -746,7 +746,9 @@ function compareTaxGroup(mismatches, itemNumber, tax, actualContainer) {
   if (tax.group === "ICMS") {
     expectedFields.add("orig");
     if (tax.codeSystem === "CST" && tax.code === "00")
-      ["modBC", "vBC", "pICMS", "vICMS"].forEach((field) => expectedFields.add(field));
+      ["modBC", "vBC", "pICMS", "vICMS"].forEach((field) => {
+        expectedFields.add(field);
+      });
     else if (tax.codeSystem === "CSOSN") {
       const icmsValue = tax.values.vICMS;
       if (typeof icmsValue === "number" && icmsValue !== 0)
@@ -881,7 +883,7 @@ function assertNfeSignature(xml, expectedCertificatePem) {
     getCertFromKeyInfo: import_xml_crypto.SignedXml.getCertFromKeyInfo,
     ...expectedCertificatePem ? { publicCert: expectedCertificatePem } : {}
   });
-  verifier.loadSignature(signature);
+  verifier.loadSignature(signature.toString());
   if (!verifier.checkSignature(xml))
     throw new Error("A assinatura XMLDSig n\xE3o confere com o conte\xFAdo final do XML fiscal.");
 }
@@ -1324,15 +1326,14 @@ function resolveNormalSalePayments(params) {
   }
   if (billingParts.length > 120)
     throw new Error("A condi\xE7\xE3o a prazo excede o limite fiscal de 120 parcelas.");
-  const billingInstallments = modelDecision.model === "55" && billingParts.length > 0 ? billingParts.sort((left, right) => {
-    if (!left.dueDate) return right.dueDate ? 1 : 0;
-    if (!right.dueDate) return -1;
-    return left.dueDate.localeCompare(right.dueDate);
-  }).map((part, index) => ({
-    number: String(index + 1).padStart(3, "0"),
-    ...part.dueDate ? { dueDate: part.dueDate } : {},
-    amount: part.amountCents / 100
-  })) : void 0;
+  const billingInstallments = (
+    // cobr is optional; a partial schedule cannot describe the full deferred balance.
+    modelDecision.model === "55" && billingParts.length > 0 && billingParts.every((part) => part.dueDate) ? billingParts.sort((left, right) => left.dueDate.localeCompare(right.dueDate)).map((part, index) => ({
+      number: String(index + 1).padStart(3, "0"),
+      dueDate: part.dueDate,
+      amount: part.amountCents / 100
+    })) : void 0
+  );
   return { payments, payment, billingInstallments };
 }
 

@@ -65,6 +65,7 @@ export const buildSalesOrderSnapshot = (
     assistanceCost: s.assistanceCost,
     linkedOrderId: s.linkedOrderId || undefined,
     isButtonsClicked: s.isButtonsClicked,
+    fiscalContext: s.fiscalContext,
     ...s.testModeFields,
   };
 };

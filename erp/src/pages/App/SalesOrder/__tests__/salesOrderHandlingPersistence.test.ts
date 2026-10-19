@@ -4,6 +4,28 @@ import { renderHook, act } from '@testing-library/react';
 import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
 import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
 import Order from '@/pages/types/order.type';
+import { createSalesOrderDuplicate } from '@/pages/utils/duplicateOrder';
+import { resolveOrderFiscalModel } from '../../../../../../shared-utils/fiscalDocumentModel';
+
+it.each([false, true])('preserva o contexto fiscal ao carregar edição/cópia (cópia=%s)', async (duplicate) => {
+  mockSaveOrder.mockClear();
+  mockSaveOrder.mockResolvedValue('saved-context-order');
+  const source = {
+    id: 'fiscal-context-source', status: 'draft', orderType: 'sale',
+    fiscalContext: { acquisitionPurpose: 'use_consumption', finalConsumer: true, otherFiscalRequirement: true },
+    shipping: { deliveryMethod: 'pickup' }, items: [], payments: [],
+  } as unknown as Order;
+  const { result } = renderHook(() => useSalesOrderForm());
+  act(() => result.current.actions.loadOrderForEditing(duplicate ? createSalesOrderDuplicate(source) : source));
+  expect(result.current.state.currentOrder.fiscalContext).toEqual(source.fiscalContext);
+  await act(async () => { await result.current.actions.handleSaveOrder(); });
+  expect(mockSaveOrder).toHaveBeenCalled();
+  const saved = mockSaveOrder.mock.calls.at(-1)![0];
+  expect(saved.fiscalContext).toEqual(source.fiscalContext);
+  expect(resolveOrderFiscalModel(saved, { issuerUf: 'PR' })).toMatchObject({ status: 'ready', model: '55' });
+  act(() => result.current.actions.loadOrderForEditing({ ...source, fiscalContext: undefined }));
+  expect(result.current.state.currentOrder.fiscalContext).toBeUndefined();
+});
 
 const { mockSaveOrder } = vi.hoisted(() => ({ mockSaveOrder: vi.fn() }));
 

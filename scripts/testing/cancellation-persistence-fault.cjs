@@ -53,14 +53,25 @@ function isConfirmedHmlAuthorization(body, draftId) {
   } catch { return false; }
 }
 
-function createPersistenceFaultFetch(originalFetch, { origin, documentId, mode = 'cancellation', onWrite = () => {} }) {
+function createPersistenceFaultFetch(originalFetch, { origin, documentId, mode = 'cancellation', onWrite = () => {}, onPrepared = () => {} }) {
   let failed = false;
   return async (input, init) => {
     const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
-    const rpc = mode === 'authorization' ? 'persist_authorized_nfe_operation_draft' : 'persist_nfe_cancellation_result';
+    const rpc = mode === 'preparation' ? 'prepare_nfe_operation_attempt' : mode === 'authorization' ? 'persist_authorized_nfe_operation_draft' : 'persist_nfe_cancellation_result';
     if (url.origin === origin && url.pathname === `/rest/v1/rpc/${rpc}` && typeof init?.body === 'string') {
       let body;
       try { body = JSON.parse(init.body); } catch { /* Forward untouched. */ }
+      if (mode === 'preparation' && body?.p_draft_id === documentId) {
+        if (!/^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/.test(body.p_access_key || '') ||
+            !body.p_signed_xml?.includes('<tpAmb>2</tpAmb>') || !body.p_signed_xml?.includes(`Id="NFe${body.p_access_key}"`)) {
+          throw new Error('OWNED_HML_PREPARATION_REQUIRED');
+        }
+        onPrepared(body);
+        onWrite({ at: new Date().toISOString(), injected: true, phase: 'preparation-captured-before-rpc',
+          documentId, environment: 2, accessKey: body.p_access_key,
+          signedXmlHash: createHash('sha256').update(body.p_signed_xml).digest('hex') });
+        return new Response(JSON.stringify({ code: 'NFH_PREPARATION_CAPTURED', message: 'Controlled local audit: preparation captured before PostgreSQL; no transmission.' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+      }
       const matches = mode === 'authorization' ? isConfirmedHmlAuthorization(body, documentId) :
         body?.p_document_id === documentId && body.p_environment === 2 && body.p_status === 'registered' && ['135', '155'].includes(String(body.p_cstat));
       if (matches) {
@@ -77,13 +88,71 @@ function createPersistenceFaultFetch(originalFetch, { origin, documentId, mode =
   };
 }
 
+function createTransportFaultPost(originalPost, { sourceAccessKey, onEvent = () => {} }) {
+  let hiddenAuthorization = null;
+  let consultationBlocked = false;
+  let transmissionStarted = false;
+  const namespace = 'http://www.portalfiscal.inf.br/nfe';
+  const { DOMParser } = require('../../erp/node_modules/@xmldom/xmldom');
+  const parse = xml => {
+    if (typeof xml !== 'string' || /<!DOCTYPE/i.test(xml)) throw new Error('INVALID_XML');
+    return new DOMParser({ onError() { throw new Error('INVALID_XML'); } }).parseFromString(xml, 'text/xml');
+  };
+  const values = (doc, tag) => Array.from(doc.getElementsByTagNameNS(namespace, tag), node => node.textContent);
+  const timeout = () => Object.assign(new Error('Controlled local HML transport interruption.'), { code: 'ETIMEDOUT' });
+  return async (url, envelope, config) => {
+    const endpoint = new URL(url);
+    if (endpoint.origin !== 'https://homologacao.nfe.sefa.pr.gov.br') throw new Error('HML_55_ENDPOINT_REQUIRED');
+    const payload = parse(envelope);
+    if (values(payload, 'tpAmb').some(value => value !== '2')) throw new Error('HML_PAYLOAD_REQUIRED');
+    const note = payload.getElementsByTagNameNS(namespace, 'infNFe');
+    if (note.length === 1) {
+      if (transmissionStarted || values(payload, 'mod').join() !== '55' ||
+          values(payload, 'finNFe').join() !== '4' || values(payload, 'tpNF').join() !== '0' ||
+          values(payload, 'chaveAcesso').join() !== sourceAccessKey) throw new Error('OWNED_SINGLE_RETURN_TRANSMISSION_REQUIRED');
+      const accessKey = note[0].getAttribute('Id')?.replace(/^NFe/, '');
+      if (!/^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/.test(accessKey || '')) throw new Error('HML_KEY_REQUIRED');
+      transmissionStarted = true;
+      onEvent({ at: new Date().toISOString(), phase: 'real-transmission-started', environment: 2, accessKey });
+      const response = await originalPost(url, envelope, config);
+      const reply = parse(response.data);
+      const protocols = reply.getElementsByTagNameNS(namespace, 'infProt');
+      if (protocols.length !== 1) return response;
+      const protocol = protocols[0];
+      const field = tag => protocol.getElementsByTagNameNS(namespace, tag)[0]?.textContent;
+      if (field('cStat') !== '100' || field('tpAmb') !== '2' || field('chNFe') !== accessKey ||
+          !/^\d{15}$/.test(field('nProt') || '')) return response;
+      hiddenAuthorization = accessKey;
+      onEvent({ at: new Date().toISOString(), phase: 'real-authorization-response-hidden',
+        environment: 2, accessKey, cStat: '100', protocol: field('nProt'),
+        responseHash: createHash('sha256').update(response.data).digest('hex') });
+      throw timeout();
+    }
+    if (hiddenAuthorization &&
+        values(payload, 'xServ').join() === 'CONSULTAR' && values(payload, 'chNFe').join() === hiddenAuthorization) {
+      if (!consultationBlocked) {
+        consultationBlocked = true;
+        onEvent({ at: new Date().toISOString(), phase: 'immediate-consultation-outage', environment: 2, accessKey: hiddenAuthorization });
+        throw timeout();
+      }
+      onEvent({ at: new Date().toISOString(), phase: 'recovery-consultation-started', environment: 2, accessKey: hiddenAuthorization });
+      const response = await originalPost(url, envelope, config);
+      onEvent({ at: new Date().toISOString(), phase: 'recovery-consultation-completed', environment: 2,
+        accessKey: hiddenAuthorization, responseHash: createHash('sha256').update(response.data).digest('hex') });
+      return response;
+    }
+    throw new Error('SCOPED_TRANSPORT_OPERATION_REQUIRED');
+  };
+}
+
 async function main() {
   const root = path.resolve(__dirname, '../..');
   const runtime = require(path.join(root, 'erp/node_modules/dotenv')).parse(fs.readFileSync(path.join(root, 'erp/.env.local')));
   for (const [key, value] of Object.entries(runtime)) if (!process.env[key]) process.env[key] = value;
   if (process.env.MORANTE_ENV_SOURCE !== 'vercel-development' || process.env.VERCEL_ENV !== 'development') throw new Error('DEVELOPMENT_REQUIRED');
   const [documentId, runId, ownerId, mode = 'cancellation'] = process.argv.slice(2);
-  if (!['cancellation', 'authorization'].includes(mode)) throw new Error('FAULT_MODE_REQUIRED');
+  if (!['cancellation', 'authorization', 'transport', 'preparation'].includes(mode)) throw new Error('FAULT_MODE_REQUIRED');
+  const authorizationMode = mode !== 'cancellation';
   if (![documentId, runId, ownerId].every(value => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || ''))) throw new Error('IDENTITY_REQUIRED');
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const ref = fs.readFileSync(path.join(root, 'supabase/.temp/project-ref'), 'utf8').trim();
@@ -93,33 +162,41 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(10000) }) },
   });
-  const draft = await db.from('nfe_operation_drafts').select('id,document_id,original_document_id,environment,status,operation_kind,return_order_id,access_key,signed_xml').eq(mode === 'authorization' ? 'id' : 'document_id', documentId).single();
+  const draft = await db.from('nfe_operation_drafts').select('id,document_id,original_document_id,environment,status,operation_kind,return_order_id,access_key,signed_xml').eq(authorizationMode ? 'id' : 'document_id', documentId).single();
   if (draft.error) throw new Error('TARGET_READ_FAILED');
-  const doc = await db.from('nfe_documents').select('id,ambiente,status,document_type').eq('id', mode === 'authorization' ? draft.data.original_document_id : documentId).single();
+  const doc = await db.from('nfe_documents').select('id,ambiente,status,document_type,modelo,chave_acesso').eq('id', authorizationMode ? draft.data.original_document_id : documentId).single();
   if (doc.error) throw new Error('TARGET_READ_FAILED');
   const order = await db.from('orders').select('id,status,order_data').eq('id', draft.data.return_order_id).single();
   if (order.error) throw new Error('ORDER_READ_FAILED');
-  (mode === 'authorization' ? assertOwnedAuthorizationTarget : assertOwnedTarget)(doc.data, draft.data, order.data, { documentId, runId, ownerId });
-  const proof = { startedAt: new Date().toISOString(), projectRef: ref, documentId, runId, ownerId, environment: 2, mode, writes: [] };
-  const evidence = path.join(root, `output/playwright/nfh-${mode}-persistence-fault-server.json`);
+  (authorizationMode ? assertOwnedAuthorizationTarget : assertOwnedTarget)(doc.data, draft.data, order.data, { documentId, runId, ownerId });
+  if (mode === 'transport' && doc.data.modelo !== '55') throw new Error('OWNED_MODEL_55_SOURCE_REQUIRED');
+  const proof = { startedAt: new Date().toISOString(), projectRef: ref, documentId, runId, ownerId, environment: 2, mode, writes: [], transportEvents: [] };
+  const evidence = path.join(root, mode === 'transport' ? 'output/playwright/nfh-transport-fault-server.json' : `output/playwright/nfh-${mode}-persistence-fault-server.json`);
   const saveProof = () => fs.writeFileSync(evidence, JSON.stringify(proof, null, 2));
   const originalFetch = global.fetch;
-  global.fetch = createPersistenceFaultFetch(originalFetch, { origin: new URL(url).origin, documentId, mode,
-    onWrite: event => { proof.writes.push(event); saveProof(); } });
+  if (mode === 'transport') {
+    const axios = require('axios');
+    axios.post = createTransportFaultPost(axios.post.bind(axios), { sourceAccessKey: doc.data.chave_acesso,
+      onEvent: event => { proof.transportEvents.push(event); saveProof(); } });
+  } else {
+    global.fetch = createPersistenceFaultFetch(originalFetch, { origin: new URL(url).origin, documentId, mode,
+      onPrepared: args => fs.writeFileSync(path.join(root, 'scratch/nfh-operation-preparation-args.json'), JSON.stringify(args, null, 2)),
+      onWrite: event => { proof.writes.push(event); saveProof(); } });
+  }
   const { server: fiscalServer } = require('../local-fiscal-dev-server.cjs');
   const bridge = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
-    const route = mode === 'authorization' ? '/api/nfe/transmit-operation-draft' : '/api/nfe/cancel';
+    const route = authorizationMode ? '/api/nfe/transmit-operation-draft' : '/api/nfe/cancel';
     if (req.method !== 'POST' || req.url !== route) { res.writeHead(403); res.end(); return; }
     let raw = '';
     req.on('data', chunk => { raw += chunk; });
     req.on('end', () => {
       let body;
       try { body = JSON.parse(raw); } catch { /* Rejected below. */ }
-      if (body?.[mode === 'authorization' ? 'draftId' : 'documentId'] !== documentId || body.productionConfirmed !== false) { res.writeHead(403); res.end(); return; }
+      if (body?.[authorizationMode ? 'draftId' : 'documentId'] !== documentId || body.productionConfirmed !== false) { res.writeHead(403); res.end(); return; }
       const replay = new PassThrough();
       Object.assign(replay, { url: req.url, method: req.method, headers: req.headers, socket: req.socket });
       fiscalServer.emit('request', replay, res);
@@ -130,4 +207,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(() => { console.error('LOCAL_PERSISTENCE_FAULT_PREFLIGHT_FAILED'); process.exitCode = 1; });
-module.exports = { assertOwnedTarget, assertOwnedAuthorizationTarget, createPersistenceFaultFetch };
+module.exports = { assertOwnedTarget, assertOwnedAuthorizationTarget, createPersistenceFaultFetch, createTransportFaultPost };

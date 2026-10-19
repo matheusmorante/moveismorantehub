@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { CatalogProductImage } from '@/components/ui/CatalogProductImage';
-import { ShoppingCart, Pencil, Flame } from 'lucide-react';
+import { ShoppingCart, Pencil, Flame, Zap } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -123,6 +123,13 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
   const isSalvados =
     product.opportunity?.slug === 'salvado' ||
     product.opportunity?.name?.toLowerCase()?.includes('salvado');
+  const isMegaLiquidacaoLastUnit =
+    /últimas?\s+unidades?/i.test(product.opportunity?.name || '') &&
+    !/mostru[aá]rio/i.test(product.opportunity?.name || '');
+  const isMegaLiquidacao =
+    isMegaLiquidacaoLastUnit ||
+    product.opportunity?.slug === 'liquidacao' ||
+    product.opportunity?.name?.toLowerCase()?.includes('liquida');
   const opportunityBadgeBackground = product.opportunity
     ? getOpportunityTitleColor({
         name: product.opportunity.name,
@@ -156,17 +163,31 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
             <Badge
               className={cn(
                 'absolute top-[2px] right-2 font-black px-2 py-0.5 rounded-lg shadow-lg z-10 text-[9px] uppercase tracking-tighter border border-white/20 flex items-center gap-0.5',
-                isSalvados ? 'bg-orange-500 text-white border-orange-600/20' : 'text-white',
+                isSalvados
+                  ? 'bg-orange-500 text-white border-orange-600/20'
+                  : isMegaLiquidacao
+                    ? isMegaLiquidacaoLastUnit
+                      ? 'bg-amber-400 text-black border-red-600'
+                      : 'bg-amber-400 text-black border-amber-500/20'
+                    : 'text-white',
                 getAnimationClass(product.opportunity.badge_animation || style.opportunity_emphasis)
               )}
               style={
-                isSalvados || opportunityBadgeBackground === 'inherit'
+                isSalvados || isMegaLiquidacao || opportunityBadgeBackground === 'inherit'
                   ? undefined
                   : { backgroundColor: opportunityBadgeBackground }
               }
             >
               {isSalvados && <Flame className="h-2.5 w-2.5 shrink-0 text-white fill-white" />}
-              {product.opportunity.name}
+              {isMegaLiquidacao && <Zap className="h-2.5 w-2.5 shrink-0 fill-current text-black" />}
+              {isMegaLiquidacaoLastUnit ? (
+                <span className="flex flex-col items-start normal-case tracking-normal leading-[1.05]">
+                  <span className="text-black">Mega Liquidação</span>
+                  <span className="text-red-600">Última Unidade</span>
+                </span>
+              ) : (
+                product.opportunity.name
+              )}
             </Badge>
           )}
 

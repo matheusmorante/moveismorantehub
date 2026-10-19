@@ -20,7 +20,7 @@ interface AuthorizedDocument {
 export function matchesConsultedDocument(
   response: string,
   doc: Pick<AuthorizedDocument, 'ambiente' | 'chave_acesso' | 'numero_protocolo'>,
-  currentStatus: '100' | '101' = '100'
+  currentStatus: '100' | '101' | '217' = '100'
 ): boolean {
   try {
     if (/<!DOCTYPE|<!ENTITY/i.test(response)) return false;
@@ -42,6 +42,9 @@ export function matchesConsultedDocument(
       return children.length === 1 ? children[0].textContent?.trim() : undefined;
     };
     const protocols = result.getElementsByTagNameNS('*', 'infProt');
+    if (currentStatus === '217') return protocols.length === 0 &&
+      directValue(result, 'tpAmb') === String(doc.ambiente) &&
+      directValue(result, 'chNFe') === doc.chave_acesso && directValue(result, 'cStat') === '217';
     return protocols.length === 1 && [result, protocols[0]].every((element) =>
       directValue(element, 'tpAmb') === String(doc.ambiente) &&
       directValue(element, 'chNFe') === doc.chave_acesso

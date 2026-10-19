@@ -13,6 +13,7 @@ interface Props {
   marketingOrigin?: string;
   setMarketingOrigin?: (origin: string) => void;
   isBudget?: boolean;
+  isTestMode?: boolean;
 }
 
 const CustomerDataInputs: React.FC<Props> = ({
@@ -21,6 +22,7 @@ const CustomerDataInputs: React.FC<Props> = ({
   errors,
   marketingOrigin,
   setMarketingOrigin,
+  isTestMode = false,
 }) => {
   const {
     wrapperRef,
@@ -47,6 +49,7 @@ const CustomerDataInputs: React.FC<Props> = ({
     setCustomerData,
     marketingOrigin,
     setMarketingOrigin,
+    isTestMode,
   });
 
   const hasError = !isFinalConsumer && Boolean(errors.customer_fullName || errors.customer_phone);

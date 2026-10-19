@@ -16,7 +16,7 @@ export interface SefazTransportContext {
 }
 
 /** Whitelisted diagnostics only: never serialize Axios request/config, certificates or SOAP. */
-export function sefazTransportDiagnostic(error: unknown) {
+function buildSefazTransportDiagnostic(error: unknown, contextOverride?: SefazTransportContext) {
   const item = error && typeof error === 'object' ? (error as Record<string, any>) : {};
   const allowed = [
     'EPROTO',
@@ -90,7 +90,7 @@ export function sefazTransportDiagnostic(error: unknown) {
   const name = ['Error', 'AxiosError', 'TypeError', 'SystemError'].includes(item.name)
     ? item.name
     : 'Error';
-  const context = item.sefazTransportContext || {};
+  const context = contextOverride || item.sefazTransportContext || {};
   let endpoint: string | undefined;
   let hostname: string | undefined;
   try {
@@ -179,4 +179,24 @@ export function sefazTransportDiagnostic(error: unknown) {
       : {}),
     ...(causes.length ? { cause: causes } : {}),
   };
+}
+
+/** Keep only the whitelist at the transport boundary, including when a caller logs the Error. */
+export class SefazTransportError extends Error {
+  readonly code: string;
+  readonly diagnostic: ReturnType<typeof buildSefazTransportDiagnostic>;
+
+  constructor(error: unknown, context: SefazTransportContext) {
+    const diagnostic = buildSefazTransportDiagnostic(error, context);
+    super(diagnostic.message);
+    this.name = diagnostic.name;
+    this.code = diagnostic.code;
+    this.diagnostic = diagnostic;
+  }
+}
+
+export function sefazTransportDiagnostic(error: unknown) {
+  return error instanceof SefazTransportError
+    ? error.diagnostic
+    : buildSefazTransportDiagnostic(error);
 }

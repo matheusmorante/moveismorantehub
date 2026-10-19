@@ -47,6 +47,33 @@ const metadata = (a: Attempt) => ({
   numberReserved: true,
 });
 
+/** A losing request reports the existing intent; this lookup never reserves or transmits. */
+export async function describeActiveNormalSaleConflict(
+  db: OutboundDatabase,
+  command: Pick<FiscalEmissionCommand, 'orderId' | 'environment'>,
+  issuerCnpj: string
+): Promise<OutboundResult> {
+  const active = await db.from('nfe_outbound_attempts').select('*')
+    .eq('order_id', command.orderId)
+    .eq('environment', command.environment)
+    .eq('issuer_cnpj', issuerCnpj)
+    .in('state', ['prepared', 'transmitting', 'reconciling', 'authorized']);
+  if (active.error || active.data?.length !== 1)
+    return outboundFailure(
+      503,
+      'FISCAL_RECOVERY_UNAVAILABLE',
+      'Já existe uma tentativa fiscal para este pedido, mas não foi possível identificá-la com segurança. Atualize a consulta antes de continuar.',
+      { pending: true, orderId: command.orderId, environment: command.environment, numberReserved: false, sefazContacted: false }
+    );
+  const attempt = active.data[0];
+  return outboundFailure(
+    409,
+    'ALREADY_ACTIVE_FISCAL_ATTEMPT',
+    'Já existe uma tentativa fiscal em andamento para este pedido. Consulte a tentativa original antes de continuar.',
+    { ...metadata(attempt), state: attempt.state, databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT', pending: true, numberReserved: false, sefazContacted: false }
+  );
+}
+
 export function productionTransmissionGate(
   environment: 1 | 2,
   confirmed: boolean

@@ -75,6 +75,7 @@ interface KpiRowProps {
     grossMargin: number;
     totalCmv: number;
     cmvPartial: boolean;
+    paidTrafficSalesValue: number;
   };
   prevStats: {
     totalSales: number;
@@ -82,6 +83,7 @@ interface KpiRowProps {
     avgTicket: number;
     totalProfit: number;
     grossMargin: number;
+    paidTrafficSalesValue: number;
   };
 }
 
@@ -99,9 +101,10 @@ const KpiRow: React.FC<KpiRowProps> = ({ stats, prevStats }) => {
   const tCount = calcTrend(stats.saleCount, prevStats.saleCount);
   const tTicket = calcTrend(stats.avgTicket, prevStats.avgTicket);
   const tProfit = calcTrend(stats.totalProfit, prevStats.totalProfit);
+  const tPaidTraffic = calcTrend(stats.paidTrafficSalesValue, prevStats.paidTrafficSalesValue);
 
   return (
-    <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:gap-4 sm:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:gap-4 sm:grid-cols-3 xl:grid-cols-7">
       <KpiCard
         id="kpi-faturamento"
         title="Faturamento"
@@ -111,6 +114,16 @@ const KpiRow: React.FC<KpiRowProps> = ({ stats, prevStats }) => {
         iconBg="bg-blue-50 dark:bg-blue-950/40"
         trend={tSales.trend}
         trendValue={tSales.value}
+      />
+      <KpiCard
+        id="kpi-faturamento-trafego-pago"
+        title="Faturamento tráfego pago"
+        value={formatCurrency(stats.paidTrafficSalesValue)}
+        icon="bi-megaphone-fill"
+        color="text-orange-600"
+        iconBg="bg-orange-50 dark:bg-orange-950/40"
+        trend={tPaidTraffic.trend}
+        trendValue={tPaidTraffic.value}
       />
       <KpiCard
         id="kpi-vendas"

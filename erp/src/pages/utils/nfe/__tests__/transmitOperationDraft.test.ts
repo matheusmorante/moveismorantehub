@@ -64,10 +64,16 @@ const originalProduct =
   '<prod><cProd>SKU-1</cProd><xProd>Cadeira</xProd><NCM>94017900</NCM><CFOP>5102</CFOP><qCom>2.0000</qCom><qTrib>2.0000</qTrib><vUnCom>100.0000</vUnCom><vProd>200.00</vProd></prod>';
 const authReply =
   '<retEnviNFe><cStat>104</cStat><xMotivo>Lote processado</xMotivo><protNFe><infProt><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo><nProt>141260000123456</nProt><dhRecbto>2026-09-26T12:00:00-03:00</dhRecbto></infProt></protNFe></retEnviNFe>';
-const rejectedReply =
-  '<retEnviNFe><cStat>104</cStat><xMotivo>Lote processado</xMotivo><protNFe><infProt><cStat>539</cStat><xMotivo>Duplicidade de NF-e</xMotivo></infProt></protNFe></retEnviNFe>';
-const notFoundReply =
-  '<retConsSitNFe><cStat>217</cStat><xMotivo>NF-e não consta na base</xMotivo></retConsSitNFe>';
+function authorizationReplyFromRequest({ xmlPayload }: { xmlPayload: string }) {
+  const key = xmlPayload.match(/Id="NFe([A-Z0-9]{44})"/)?.[1];
+  const environment = xmlPayload.match(/<tpAmb>([12])<\/tpAmb>/)?.[1];
+  if (!key || !environment) throw new Error('Transmissão de teste sem identidade');
+  return authReply
+    .replace('<retEnviNFe>', `<retEnviNFe xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>${environment}</tpAmb>`)
+    .replace('<infProt>', `<infProt><tpAmb>${environment}</tpAmb><chNFe>${key}</chNFe>`);
+}
+const identifiedNotFoundReply = (key: string, environment = 1) =>
+  `<retConsSitNFe xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>${environment}</tpAmb><chNFe>${key}</chNFe><cStat>217</cStat><xMotivo>NF-e não consta na base</xMotivo></retConsSitNFe>`;
 const uncertainReply =
   '<retConsSitNFe><cStat>105</cStat><xMotivo>Lote em processamento</xMotivo></retConsSitNFe>';
 
@@ -108,6 +114,8 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
             : '',
       },
       reviewed_at: '2026-09-26T12:00:00.000Z',
+      updated_at: '2026-09-26T12:00:00.000Z',
+      transmitted_at: null as string | null,
       access_key: null as string | null,
       signed_xml: null as string | null,
       document_id: null as string | null,
@@ -209,6 +217,8 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
       },
     ],
     rpcCalls: [] as Array<{ name: string; args: Record<string, unknown> }>,
+    failStart: false,
+    loseStartResponse: false,
   };
 
   const from = (table: string) => {
@@ -216,6 +226,7 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
     let idFilter: string | null = null;
     let statusFilter: string | null = null;
     let statusIn: string[] | null = null;
+    let versionFilter: string | null = null;
     const resultForTable = () =>
       table === 'nfe_operation_drafts'
         ? state.draft
@@ -239,16 +250,20 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
                         ? state.draftAllocationLinks
                         : null;
     const queryResult = () => {
-      if (!patch) return { data: resultForTable(), error: null };
+      if (!patch) return { data: structuredClone(resultForTable()), error: null };
       if (
         table !== 'nfe_operation_drafts' ||
         idFilter !== state.draft.id ||
         (statusFilter && state.draft.status !== statusFilter) ||
+        (versionFilter && state.draft.updated_at !== versionFilter) ||
         (statusIn && !statusIn.includes(state.draft.status))
       )
         return { data: null, error: null };
+      if (patch.transmitted_at && !patch.status && state.failStart)
+        return { data: null, error: { message: 'Início não confirmado' } };
       Object.assign(state.draft, patch);
-      return { data: { id: state.draft.id }, error: null };
+      if (patch.transmitted_at && !patch.status && state.loseStartResponse) throw new Error('Resposta do início perdida');
+      return { data: { id: state.draft.id, updated_at: state.draft.updated_at }, error: null };
     };
     const builder: any = {
       select: () => builder,
@@ -259,6 +274,7 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
       eq: (column: string, value: string) => {
         if (column === 'id') idFilter = value;
         if (column === 'status') statusFilter = value;
+        if (column === 'updated_at') versionFilter = value;
         return builder;
       },
       in: (column: string, values: string[]) => {
@@ -285,7 +301,16 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
     from,
     rpc: async (name: string, args: Record<string, unknown>) => {
       state.rpcCalls.push({ name, args });
-      if (name === 'reserve_next_nfe_number') return { data: 701, error: null };
+      if (name === 'peek_nfe_outbound_number') return { data: 701, error: null };
+      if (name === 'prepare_nfe_operation_attempt') {
+        if (state.draft.status !== 'ready') return {
+          data: { created: false, draftId: state.draft.id, status: state.draft.status, accessKey: state.draft.access_key }, error: null,
+        };
+        Object.assign(state.draft, { status: 'transmitting', access_key: args.p_access_key,
+          signed_xml: args.p_signed_xml, transmitted_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+        return { data: { created: true, draftId: state.draft.id, status: 'transmitting',
+          accessKey: args.p_access_key, number: Number(String(args.p_access_key).slice(25, 34)), updatedAt: state.draft.updated_at }, error: null };
+      }
       if (name === 'persist_authorized_nfe_operation_draft') {
         state.draft.status = 'authorized';
         state.draft.document_id = String(args.p_document_id);
@@ -453,11 +478,12 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
 
   it('só persiste no RPC transacional após autorização com chave/protocolo SEFAZ', async () => {
     const { db, state } = createDatabase();
+    const reviewedVersion = state.draft.updated_at;
     mocks.validateNfeAgainstOfficialSchema.mockImplementation(async (xml: string) => {
       if (!xml.includes('<Signature')) throw new Error('O XSD oficial exige assinatura digital.');
     });
     mocks.createClient.mockReturnValue(db);
-    mocks.sendSoapToSefaz.mockResolvedValue(authReply);
+    mocks.sendSoapToSefaz.mockImplementation(authorizationReplyFromRequest);
     const handler = await getHandler();
     const res = createResponse();
     await handler(
@@ -494,10 +520,16 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     expect(transmittedXml).toContain(state.draft.signed_xml!.replace(/^<\?xml[^?]*\?>/, ''));
     expect(state.draft.access_key).toMatch(/^\d{44}$/);
     expect(state.rpcCalls.map((call) => call.name)).toEqual([
-      'reserve_next_nfe_number',
+      'peek_nfe_outbound_number',
+      'prepare_nfe_operation_attempt',
       'persist_authorized_nfe_operation_draft',
     ]);
-    const persist = state.rpcCalls[1].args;
+    const prepared = state.rpcCalls[1].args;
+    expect(prepared.p_expected_updated_at).toBe(reviewedVersion);
+    expect(prepared.p_expected_review_data).toEqual(state.draft.review_data);
+    expect(prepared.p_expected_lines).toEqual(state.lines);
+    expect(prepared.p_signed_xml).toBe(state.draft.signed_xml);
+    const persist = state.rpcCalls[2].args;
     expect(persist.p_access_key).toBe(state.draft.access_key);
     expect(persist.p_signed_xml).toBe(state.draft.signed_xml);
     expect((persist.p_items as Array<Record<string, unknown>>)[0].item_number).toBe(1);
@@ -509,7 +541,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
   it('revalida o pedido cancelado e prepara uma NF-e de estorno modelo 55 após o prazo', async () => {
     const { db, state } = createDatabase('estorno');
     mocks.createClient.mockReturnValue(db);
-    mocks.sendSoapToSefaz.mockResolvedValue(authReply);
+    mocks.sendSoapToSefaz.mockImplementation(authorizationReplyFromRequest);
     const handler = await getHandler();
     const res = createResponse();
 
@@ -540,7 +572,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
   it('aceita NFC-e do Paraná como origem do estorno e transmite somente a NFE modelo 55 revisada', async () => {
     const { db, state } = createNfceEstornoDatabase();
     mocks.createClient.mockReturnValue(db);
-    mocks.sendSoapToSefaz.mockResolvedValue(authReply);
+    mocks.sendSoapToSefaz.mockImplementation(authorizationReplyFromRequest);
     const handler = await getHandler();
     const res = createResponse();
 
@@ -767,7 +799,14 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
   it('registra rejeição sem chamar a RPC de autorização', async () => {
     const { db, state } = createDatabase();
     mocks.createClient.mockReturnValue(db);
-    mocks.sendSoapToSefaz.mockResolvedValue(rejectedReply);
+    let identifiedRejection = '';
+    mocks.sendSoapToSefaz.mockImplementation(input => {
+      identifiedRejection = authorizationReplyFromRequest(input)
+        .replace('<cStat>100', '<cStat>434')
+        .replace('<xMotivo>Autorizado o uso da NF-e', '<xMotivo>Rejeição de validação fiscal')
+        .replace(/<nProt>.*?<\/nProt>|<dhRecbto>.*?<\/dhRecbto>/g, '');
+      return identifiedRejection;
+    });
     const handler = await getHandler();
     const res = createResponse();
     await handler(
@@ -785,7 +824,8 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     expect(
       state.rpcCalls.some((call) => call.name === 'persist_authorized_nfe_operation_draft')
     ).toBe(false);
-    expect(state.draft.sefaz_response_xml).toBe(rejectedReply);
+    expect(state.draft.sefaz_response_xml).toBe(identifiedRejection);
+    expect(res.body.cStat).toBe('434');
   });
 
   it('bloqueia retransmissão após 217 quando o XML armazenado não passa no XSD', async () => {
@@ -814,7 +854,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     expect(state.draft.status).toBe('ready');
   });
 
-  it('não transmite XML inválido e informa que a reserva de número foi consumida', async () => {
+  it('bloqueia XML inválido antes de reservar número ou gravar a tentativa', async () => {
     const { db, state } = createDatabase();
     mocks.createClient.mockReturnValue(db);
     mocks.validateNfeAgainstOfficialSchema.mockRejectedValue(
@@ -832,18 +872,97 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     );
 
     expect(res.statusCode).toBe(422);
-    expect(res.body).toMatchObject({ numberReserved: true, reservedNumber: 701 });
-    expect(res.body.error).toContain('nenhuma transmissão foi feita');
+    expect(res.body).toMatchObject({ numberReserved: false });
+    expect(state.rpcCalls.filter(call => call.name !== 'peek_nfe_outbound_number')).toEqual([]);
     expect(state.draft.status).toBe('ready');
     expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
   });
+
+  it('duas requisições do mesmo rascunho só transmitem a preparação vencedora', async () => {
+    const { db, state } = createDatabase();
+    const rpc = db.rpc;
+    let arrivals = 0;
+    let release!: () => void;
+    const bothPrepared = new Promise<void>(resolve => { release = resolve; });
+    db.rpc = async (name, args) => {
+      if (name === 'peek_nfe_outbound_number') {
+        if (++arrivals === 2) release();
+        await bothPrepared;
+      }
+      return rpc(name, args);
+    };
+    mocks.createClient.mockReturnValue(db);
+    mocks.sendSoapToSefaz.mockImplementation(authorizationReplyFromRequest);
+    const handler = await getHandler();
+    const results = [createResponse(), createResponse()];
+    await Promise.all(results.map(res => handler({ method: 'POST',
+      headers: { authorization: 'Bearer user-token' },
+      body: { draftId: state.draft.id, productionConfirmed: true } } as any, res.response)));
+
+    expect(results.map(res => res.statusCode).sort()).toEqual([200, 409]);
+    expect(results.find(res => res.statusCode === 409)?.body.pending).toBe(true);
+    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+    expect(state.rpcCalls.filter(call => call.name === 'prepare_nfe_operation_attempt')).toHaveLength(2);
+    expect(state.rpcCalls.filter(call => call.name === 'persist_authorized_nfe_operation_draft')).toHaveLength(1);
+    expect(state.rpcCalls.some(call => call.name === 'reserve_next_nfe_number')).toBe(false);
+  });
+
+  it('reprepara o XML após conflito de sequência antes de qualquer transmissão', async () => {
+    const { db, state } = createDatabase();
+    const rpc = db.rpc;
+    let preparationCount = 0;
+    db.rpc = async (name, args) => {
+      if (name === 'peek_nfe_outbound_number' && preparationCount) return { data: 702, error: null };
+      if (name === 'prepare_nfe_operation_attempt' && ++preparationCount === 1)
+        return { data: null, error: { message: 'FISCAL_SEQUENCE_CHANGED' } };
+      return rpc(name, args);
+    };
+    mocks.createClient.mockReturnValue(db);
+    mocks.sendSoapToSefaz.mockImplementation(authorizationReplyFromRequest);
+    const handler = await getHandler();
+    const res = createResponse();
+    await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+      body: { draftId: state.draft.id, productionConfirmed: true } } as any, res.response);
+
+    expect(res.statusCode).toBe(200);
+    expect(state.draft.access_key?.slice(25, 34)).toBe('000000702');
+    expect(mocks.signNfeXml).toHaveBeenCalledTimes(2);
+    expect(mocks.validateNfeAgainstOfficialSchema).toHaveBeenCalledTimes(2);
+    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['lost-response', 'changed-review', 'missing-migration'])(
+    'falha de preparação %s mantém a transmissão bloqueada', async failure => {
+      const { db, state } = createDatabase();
+      const rpc = db.rpc;
+      db.rpc = async (name, args) => {
+        if (name !== 'prepare_nfe_operation_attempt') return rpc(name, args);
+        if (failure === 'lost-response') {
+          await rpc(name, args);
+          throw new Error('Resposta da gravação perdida');
+        }
+        return { data: null, error: { message: failure === 'changed-review'
+          ? 'FISCAL_DRAFT_CHANGED' : 'Could not find the function public.prepare_nfe_operation_attempt' } };
+      };
+      mocks.createClient.mockReturnValue(db);
+      const handler = await getHandler();
+      const res = createResponse();
+      await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true } } as any, res.response);
+
+      expect(res.body).toMatchObject({ success: false, pending: true });
+      expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+      expect(state.draft.status).toBe(failure === 'lost-response' ? 'transmitting' : 'ready');
+      if (failure === 'lost-response') expect(state.draft.access_key).toMatch(/^\d{44}$/);
+    }
+  );
 
   it('timeout nunca retransmite automaticamente; libera somente após consulta cStat 217', async () => {
     const { db, state } = createDatabase();
     mocks.createClient.mockReturnValue(db);
     mocks.sendSoapToSefaz.mockImplementation(({ xmlPayload }: { xmlPayload: string }) =>
       xmlPayload.includes('<xServ>CONSULTAR</xServ>')
-        ? Promise.resolve(notFoundReply)
+        ? Promise.resolve(identifiedNotFoundReply(state.draft.access_key!))
         : Promise.reject(new Error('timeout'))
     );
     const handler = await getHandler();
@@ -866,6 +985,7 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
       state.rpcCalls.some((call) => call.name === 'persist_authorized_nfe_operation_draft')
     ).toBe(false);
 
+    state.draft.transmitted_at = new Date(Date.now() - 31_000).toISOString();
     const second = createResponse();
     await handler(
       {
@@ -893,7 +1013,8 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     expect(unconfirmedRetry.body.error).toContain('Produção');
     expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(3);
 
-    mocks.sendSoapToSefaz.mockResolvedValue(authReply);
+    mocks.sendSoapToSefaz.mockImplementation(authorizationReplyFromRequest);
+    const previousTransmissionTime = state.draft.transmitted_at;
     const confirmedRetry = createResponse();
     await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
       body: { draftId: state.draft.id, productionConfirmed: true } } as any, confirmedRetry.response);
@@ -901,7 +1022,9 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
     expect(confirmedRetry.body.status).toBe('authorized');
     expect(state.draft.access_key).toBe(attemptedAccessKey);
     expect(state.draft.signed_xml).toBe(attemptedSignedXml);
-    expect(state.rpcCalls.filter((call) => call.name === 'reserve_next_nfe_number')).toHaveLength(1);
+    expect(state.draft.transmitted_at).not.toBe(previousTransmissionTime);
+    expect(state.rpcCalls.filter((call) => call.name === 'prepare_nfe_operation_attempt')).toHaveLength(1);
+    expect(state.rpcCalls.some((call) => call.name === 'reserve_next_nfe_number')).toBe(false);
     expect(mocks.sendSoapToSefaz.mock.calls.filter(([input]) => !input.xmlPayload.includes('<xServ>CONSULTAR</xServ>'))).toHaveLength(2);
   });
 
@@ -931,4 +1054,335 @@ describe('endpoint de transmissão do rascunho fiscal (SEFAZ simulada)', () => {
       state.rpcCalls.some((call) => call.name === 'persist_authorized_nfe_operation_draft')
     ).toBe(false);
   });
+
+  it.each(['transmitting', 'unknown'].flatMap(status => [0, 29_999, 30_000, 31_000].map(age => ({ status, age }))))(
+    'consulta217 respeita a idade da tentativa $status/$age ms', async ({ status, age }) => {
+      const { db, state } = createDatabase();
+      const now = Date.parse('2026-10-18T12:00:00Z');
+      state.draft.status = status;
+      state.draft.access_key = '4'.repeat(44);
+      state.draft.signed_xml = '<NFe><Signature/></NFe>';
+      state.draft.transmitted_at = new Date(now - age).toISOString();
+      mocks.createClient.mockReturnValue(db);
+      mocks.sendSoapToSefaz.mockResolvedValue(identifiedNotFoundReply(state.draft.access_key));
+      const handler = await getHandler();
+      const res = createResponse();
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(now);
+      try {
+        await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+          body: { draftId: state.draft.id, productionConfirmed: false } } as any, res.response);
+      } finally { clock.mockRestore(); }
+      expect(res.statusCode).toBe(age < 30_000 ? 202 : 409);
+      expect(res.body.retryAllowed).toBe(age < 30_000 ? undefined : true);
+      expect(state.draft.status).toBe(age < 30_000 ? status : 'ready');
+      expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+      expect(state.rpcCalls).toEqual([]);
+    }
+  );
+
+  it.each([null, 'invalid-date', '2026-10-18T12:01:00Z'])(
+    'consulta217 não libera tentativa com instante ausente/inválido/futuro (%s)', async transmittedAt => {
+      const { db, state } = createDatabase();
+      state.draft.status = 'unknown';
+      state.draft.access_key = '4'.repeat(44);
+      state.draft.signed_xml = '<NFe><Signature/></NFe>';
+      state.draft.transmitted_at = transmittedAt;
+      mocks.createClient.mockReturnValue(db);
+      mocks.sendSoapToSefaz.mockResolvedValue(identifiedNotFoundReply(state.draft.access_key));
+      const handler = await getHandler();
+      const res = createResponse();
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-18T12:00:00Z'));
+      try {
+        await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+          body: { draftId: state.draft.id, productionConfirmed: false } } as any, res.response);
+      } finally { clock.mockRestore(); }
+      expect(res.body).toMatchObject({ success: false, pending: true });
+      expect(res.body.retryAllowed).toBeUndefined();
+      expect(state.draft.status).toBe('unknown');
+    }
+  );
+
+  it('consulta iniciada antes da janela não libera217 mesmo quando termina depois dela', async () => {
+    const { db, state } = createDatabase();
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    state.draft.status = 'transmitting';
+    state.draft.access_key = '4'.repeat(44);
+    state.draft.signed_xml = '<NFe><Signature/></NFe>';
+    state.draft.transmitted_at = new Date(now).toISOString();
+    mocks.createClient.mockReturnValue(db);
+    const handler = await getHandler();
+    const res = createResponse();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now);
+    mocks.sendSoapToSefaz.mockImplementation(async () => {
+      clock.mockReturnValue(now + 31_000);
+      return identifiedNotFoundReply(state.draft.access_key!);
+    });
+    try {
+      await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: false } } as any, res.response);
+    } finally { clock.mockRestore(); }
+    expect(res.statusCode).toBe(202);
+    expect(state.draft.status).toBe('transmitting');
+  });
+
+  it('consulta217 obsoleta não sobrescreve uma transmissão concorrente mais recente', async () => {
+    const { db, state } = createDatabase();
+    state.draft.status = 'unknown';
+    state.draft.access_key = '4'.repeat(44);
+    state.draft.signed_xml = '<NFe><Signature/></NFe>';
+    state.draft.transmitted_at = new Date(Date.now() - 60_000).toISOString();
+    mocks.createClient.mockReturnValue(db);
+    mocks.sendSoapToSefaz.mockImplementation(async () => {
+      Object.assign(state.draft, { status: 'transmitting', updated_at: new Date().toISOString() });
+      return identifiedNotFoundReply(state.draft.access_key!);
+    });
+    const handler = await getHandler();
+    const res = createResponse();
+    await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+      body: { draftId: state.draft.id, productionConfirmed: false } } as any, res.response);
+    expect(res.body).toMatchObject({ success: false, pending: true });
+    expect(res.body.retryAllowed).toBeUndefined();
+    expect(state.draft.status).toBe('transmitting');
+  });
+
+  it.each(['key', 'environment', 'missing-environment', 'duplicate', 'malformed'])(
+    'consulta217 com identidade %s não libera outra tentativa', async mismatch => {
+      const { db, state } = createDatabase();
+      state.draft.status = 'unknown';
+      state.draft.access_key = '4'.repeat(44);
+      state.draft.signed_xml = '<NFe><Signature/></NFe>';
+      state.draft.transmitted_at = new Date(Date.now() - 60_000).toISOString();
+      const valid = identifiedNotFoundReply(state.draft.access_key);
+      const invalid = mismatch === 'key' ? valid.replace(state.draft.access_key, '5'.repeat(44))
+        : mismatch === 'environment' ? valid.replace('<tpAmb>1', '<tpAmb>2')
+        : mismatch === 'missing-environment' ? valid.replace('<tpAmb>1</tpAmb>', '')
+        : mismatch === 'duplicate' ? '<root>' + valid + valid + '</root>'
+        : valid.replace('</retConsSitNFe>', '');
+      mocks.createClient.mockReturnValue(db);
+      mocks.sendSoapToSefaz.mockResolvedValue(invalid);
+      const handler = await getHandler();
+      const res = createResponse();
+      await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: false } } as any, res.response);
+      expect(res.body).toMatchObject({ success: false, pending: true });
+      expect(res.body.retryAllowed).toBeUndefined();
+      expect(state.draft.status).toBe('unknown');
+    }
+  );
+
+  it.each(['matching', 'root-key', 'protocol-key', 'environment', 'duplicate-protocol'])(
+    'consulta100 confirma a identidade antes de persistir (%s)', async scenario => {
+      const { db, state } = createDatabase();
+      mocks.createClient.mockReturnValue(db);
+      mocks.sendSoapToSefaz.mockImplementation(({ xmlPayload }: { xmlPayload: string }) =>
+        xmlPayload.includes('<xServ>CONSULTAR</xServ>') ? Promise.resolve(uncertainReply) : Promise.reject(new Error('timeout')));
+      const handler = await getHandler();
+      const first = createResponse();
+      await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true } } as any, first.response);
+      expect(first.body.pending).toBe(true);
+      const key = state.draft.access_key!;
+      const signed = state.draft.signed_xml;
+      const protocol = `<protNFe><infProt><tpAmb>1</tpAmb><chNFe>${scenario === 'protocol-key' ? '5'.repeat(44) : key}</chNFe><cStat>100</cStat><nProt>141260000123456</nProt><dhRecbto>2026-09-26T12:00:00-03:00</dhRecbto></infProt></protNFe>`;
+      const query = `<retConsSitNFe xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>${scenario === 'environment' ? 2 : 1}</tpAmb><chNFe>${scenario === 'root-key' ? '5'.repeat(44) : key}</chNFe><cStat>100</cStat>${protocol}${scenario === 'duplicate-protocol' ? protocol : ''}</retConsSitNFe>`;
+      mocks.sendSoapToSefaz.mockResolvedValue(query);
+      const result = createResponse();
+      await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: false } } as any, result.response);
+      expect(result.statusCode).toBe(scenario === 'matching' ? 200 : 202);
+      expect(state.draft.status).toBe(scenario === 'matching' ? 'authorized' : 'unknown');
+      expect(state.draft.access_key).toBe(key);
+      expect(state.draft.signed_xml).toBe(signed);
+      expect(state.rpcCalls.filter(call => call.name === 'persist_authorized_nfe_operation_draft')).toHaveLength(scenario === 'matching' ? 1 : 0);
+      expect(mocks.sendSoapToSefaz.mock.calls.filter(([input]) => !input.xmlPayload.includes('<xServ>CONSULTAR</xServ>'))).toHaveLength(1);
+    }
+  );
+
+  it('resposta atrasada da preparação não transmite uma versão superada da tentativa', async () => {
+    const { db, state } = createDatabase();
+    const rpc = db.rpc;
+    db.rpc = async (name, args) => {
+      const response = await rpc(name, args);
+      if (name === 'prepare_nfe_operation_attempt') {
+        state.draft.updated_at = new Date(Date.parse(state.draft.updated_at) + 1000).toISOString();
+      }
+      return response;
+    };
+    mocks.createClient.mockReturnValue(db);
+    const handler = await getHandler();
+    const res = createResponse();
+    await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+      body: { draftId: state.draft.id, productionConfirmed: true } } as any, res.response);
+    expect(res.statusCode).toBe(503);
+    expect(res.body).toMatchObject({ success: false, pending: true });
+    expect(state.draft.status).toBe('transmitting');
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+  });
+
+  it.each(['failStart', 'loseStartResponse'] as const)('início de transmissão não confirmado (%s) não envia SOAP', async failure => {
+    const { db, state } = createDatabase();
+    state[failure] = true;
+    mocks.createClient.mockReturnValue(db);
+    const handler = await getHandler();
+    const res = createResponse();
+    await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+      body: { draftId: state.draft.id, productionConfirmed: true } } as any, res.response);
+    expect(res.statusCode).toBe(503);
+    expect(res.body).toMatchObject({ success: false, pending: true });
+    expect(state.draft.status).toBe('transmitting');
+    expect(state.draft.access_key).toMatch(/^\d{44}$/);
+    expect(state.draft.signed_xml).toBeTruthy();
+    expect(mocks.sendSoapToSefaz).not.toHaveBeenCalled();
+    expect(state.rpcCalls.some(call => call.name === 'persist_authorized_nfe_operation_draft')).toBe(false);
+  });
+  it.each(['key', 'root-environment', 'protocol-environment', 'missing-key', 'duplicate-protocol',
+    'duplicate-result', 'namespace', 'malformed', 'doctype', 'root-status', 'invalid-date', 'missing-date'])(
+    'autorização direta divergente mantém pendência sem persistir (%s)', async scenario => {
+      const { db, state } = createDatabase();
+      mocks.createClient.mockReturnValue(db);
+      mocks.sendSoapToSefaz.mockImplementation(input => {
+        const reply = authorizationReplyFromRequest(input);
+        const protocol = reply.match(/<protNFe>[\s\S]*?<\/protNFe>/)![0];
+        switch (scenario) {
+          case 'key': return reply.replace(state.draft.access_key!, sourceKey);
+          case 'root-environment': return reply.replace('<tpAmb>1', '<tpAmb>2');
+          case 'protocol-environment': return reply.replace('<infProt><tpAmb>1', '<infProt><tpAmb>2');
+          case 'missing-key': return reply.replace(/<chNFe>[\s\S]*?<\/chNFe>/, '');
+          case 'duplicate-protocol': return reply.replace(protocol, protocol + protocol);
+          case 'duplicate-result': return `<responses>${reply}${reply}</responses>`;
+          case 'namespace': return reply.replace('http://www.portalfiscal.inf.br/nfe', 'urn:untrusted');
+          case 'malformed': return reply.replace('</retEnviNFe>', '');
+          case 'doctype': return '<!DOCTYPE retEnviNFe [<!ENTITY nfh "unused">]>' + reply;
+          case 'root-status': return reply.replace('<cStat>104', '<cStat>105');
+          case 'invalid-date': return reply.replace('2026-09-26T12:00:00-03:00', 'invalid-date');
+          case 'missing-date': return reply.replace(/<dhRecbto>.*?<\/dhRecbto>/, '');
+          default: throw new Error('Cenário não configurado');
+        }
+      });
+      const handler = await getHandler();
+      const res = createResponse();
+      await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true } } as any, res.response);
+      expect(res.statusCode).toBe(202);
+      expect(res.body).toMatchObject({ success: false, pending: true, reconciliationRequired: true,
+        accessKey: state.draft.access_key });
+      expect(state.draft.status).toBe('transmitting');
+      expect(state.draft.signed_xml).toBeTruthy();
+      expect(state.rpcCalls.some(call => call.name === 'persist_authorized_nfe_operation_draft')).toBe(false);
+      expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it.each(['', '<html>Bad Gateway</html>', '<soap:Fault>Unavailable</soap:Fault>',
+    '<retEnviNFe><cStat>104</cStat><protNFe><infProt><cStat>100</cStat></infProt></protNFe></retEnviNFe>',
+    '<retEnviNFe><cStat>104</cStat><protNFe><infProt><cStat>539</cStat>',
+    '<retConsSitNFe><cStat>217</cStat></retConsSitNFe>'])(
+    'resposta de transmissão inconclusiva não vira rejeição definitiva (%s)', async reply => {
+      const { db, state } = createDatabase();
+      mocks.createClient.mockReturnValue(db);
+      mocks.sendSoapToSefaz.mockResolvedValueOnce(reply).mockResolvedValue(uncertainReply);
+      const handler = await getHandler();
+      const res = createResponse();
+      await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true } } as any, res.response);
+      expect(res.statusCode).toBe(202);
+      expect(res.body).toMatchObject({ success: false, pending: true });
+      expect(state.draft.status).toBe('unknown');
+      expect(state.draft.access_key).toBeTruthy();
+      expect(state.draft.signed_xml).toBeTruthy();
+      expect(state.rpcCalls.some(call => call.name === 'persist_authorized_nfe_operation_draft')).toBe(false);
+      expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(2);
+      expect(mocks.sendSoapToSefaz.mock.calls[1][0].xmlPayload).toContain('<xServ>CONSULTAR</xServ>');
+    }
+  );
+
+  it.each(['539', '108', '109', '999', 'rejection-key', 'rejection-environment', 'rejection-duplicate'])(
+    'retorno %s exige consulta em vez de declarar rejeição definitiva', async scenario => {
+      const { db, state } = createDatabase();
+      mocks.createClient.mockReturnValue(db);
+      mocks.sendSoapToSefaz.mockImplementationOnce(input => {
+        const reply = authorizationReplyFromRequest(input).replace('<cStat>100', `<cStat>${scenario.startsWith('rejection-') ? '434' : scenario}`);
+        if (scenario === 'rejection-key') return reply.replace(state.draft.access_key!, sourceKey);
+        if (scenario === 'rejection-environment') return reply.replace('<tpAmb>1', '<tpAmb>2');
+        if (scenario === 'rejection-duplicate') return `<responses>${reply}${reply}</responses>`;
+        return reply;
+      }).mockResolvedValue(uncertainReply);
+      const handler = await getHandler();
+      const res = createResponse();
+      await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true } } as any, res.response);
+      expect(res.statusCode).toBe(202);
+      expect(res.body).toMatchObject({ success: false, pending: true });
+      expect(state.draft.status).toBe('unknown');
+      expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(2);
+      expect(mocks.sendSoapToSefaz.mock.calls[1][0].xmlPayload).toContain('<xServ>CONSULTAR</xServ>');
+    }
+  );
+
+  it('registra rejeição de lote identificada sem protocolo por item', async () => {
+    const { db, state } = createDatabase();
+    mocks.createClient.mockReturnValue(db);
+    mocks.sendSoapToSefaz.mockResolvedValue('<retEnviNFe xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>1</tpAmb><cStat>215</cStat><xMotivo>Falha no schema XML</xMotivo></retEnviNFe>');
+    const handler = await getHandler();
+    const res = createResponse();
+    await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+      body: { draftId: state.draft.id, productionConfirmed: true } } as any, res.response);
+    expect(res.statusCode).toBe(422);
+    expect(res.body).toMatchObject({ pending: false, status: 'rejected', cStat: '215' });
+    expect(state.draft.status).toBe('rejected');
+    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejeição tardia não declara rejeitada uma tentativa com versão mais recente', async () => {
+    const { db, state } = createDatabase();
+    mocks.createClient.mockReturnValue(db);
+    mocks.sendSoapToSefaz.mockImplementation(input => {
+      state.draft.updated_at = new Date(Date.parse(state.draft.updated_at) + 1000).toISOString();
+      state.draft.status = 'unknown';
+      return authorizationReplyFromRequest(input).replace('<cStat>100', '<cStat>434');
+    });
+    const handler = await getHandler();
+    const res = createResponse();
+    await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+      body: { draftId: state.draft.id, productionConfirmed: true } } as any, res.response);
+    expect(res.statusCode).toBe(503);
+    expect(res.body).toMatchObject({ success: false, pending: true, reconciliationRequired: true });
+    expect(res.body.status).not.toBe('rejected');
+    expect(state.draft.status).toBe('unknown');
+    expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['empty', 'unrelated-id', 'object', 'error', 'throw', 'lost-commit-response'])(
+    'confirmação de gravação %s mantém pendência em vez de declarar conclusão', async scenario => {
+      const { db, state } = createDatabase();
+      const rpc = db.rpc;
+      db.rpc = async (name, args) => {
+        if (name !== 'persist_authorized_nfe_operation_draft') return rpc(name, args);
+        if (scenario === 'lost-commit-response') await rpc(name, args);
+        else state.rpcCalls.push({ name, args });
+        if (scenario === 'throw' || scenario === 'lost-commit-response') throw new Error('Resposta RPC perdida');
+        if (scenario === 'error') return { data: null, error: { message: 'Gravação não confirmada' } };
+        return { data: scenario === 'empty' ? null : scenario === 'object' ? { id: state.draft.id } : sourceKey,
+          error: null };
+      };
+      mocks.createClient.mockReturnValue(db);
+      mocks.sendSoapToSefaz.mockImplementation(authorizationReplyFromRequest);
+      const handler = await getHandler();
+      const res = createResponse();
+      await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+        body: { draftId: state.draft.id, productionConfirmed: true } } as any, res.response);
+      expect(res.statusCode).toBe(503);
+      expect(res.body).toMatchObject({ pending: true, reconciliationRequired: true, accessKey: state.draft.access_key });
+      expect(res.body.status).not.toBe('authorized');
+      expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+      if (scenario === 'lost-commit-response') {
+        const recovered = createResponse();
+        await handler({ method: 'POST', headers: { authorization: 'Bearer user-token' },
+          body: { draftId: state.draft.id, productionConfirmed: false } } as any, recovered.response);
+        expect(recovered.statusCode).toBe(200);
+        expect(recovered.body.documentId).toBe(state.draft.id);
+        expect(mocks.sendSoapToSefaz).toHaveBeenCalledTimes(1);
+      }
+    }
+  );
 });

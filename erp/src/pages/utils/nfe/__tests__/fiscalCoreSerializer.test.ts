@@ -177,6 +177,41 @@ const identity = {
 };
 
 describe('Fiscal Core e serializer de NF-e 55', () => {
+  it('emite fatura completa reconciliada com parcelas reais e aceita o XSD após assinatura', async () => {
+    const resolved = resolveFiscalDocument(snapshot, rules);
+    if (resolved.status !== 'ready') throw new Error('Fixture inválida');
+    const document = structuredClone(resolved.document);
+    document.payments = [{ methodCode: '17', amount: 100, paymentIndicator: '1', decision }];
+    document.billingInstallments = [
+      { number: '001', dueDate: '2026-10-01', amount: 60 },
+      { number: '002', dueDate: '2026-10-30', amount: 40 },
+    ];
+    const xml = serializeFiscalDocument(snapshot, document, rules, identity);
+    expect(xml).toContain('<cobr><fat><nFat>700</nFat><vOrig>100.00</vOrig><vLiq>100.00</vLiq></fat>');
+    expect(xml).toContain('<dup><nDup>001</nDup><dVenc>2026-10-01</dVenc><vDup>60.00</vDup></dup>');
+    await expect(validateUnsignedNfeStructure(xml)).resolves.toBeUndefined();
+    const pair = forge.pki.rsa.generateKeyPair({ bits: 2048, workers: 0 });
+    const signed = signNfeXml(xml, forge.pki.privateKeyToPem(pair.privateKey), Buffer.from('certificado sintético').toString('base64'));
+    await expect(validateNfeAgainstOfficialSchema(signed)).resolves.toBeUndefined();
+  });
+  it.each([
+    [{ number: '001', amount: 100 }],
+    [{ number: '001', amount: 100, dueDate: '2026-09-29' }],
+    [{ number: '001', amount: 100, dueDate: '2026-09-30' }],
+    [{ number: '001', amount: 100, dueDate: '2036-10-01' }],
+    [{ number: '2', amount: 100, dueDate: '2026-10-01' }],
+    [
+      { number: '001', amount: 50, dueDate: '2026-10-02' },
+      { number: '002', amount: 50, dueDate: '2026-10-01' },
+    ],
+  ])('bloqueia cobrança inválida antes de transmitir (%j)', (...installments) => {
+    const resolved = resolveFiscalDocument(snapshot, rules);
+    if (resolved.status !== 'ready') throw new Error('Fixture inválida');
+    const document = structuredClone(resolved.document);
+    document.payments = [{ methodCode: '17', amount: 100, paymentIndicator: '1', decision }];
+    document.billingInstallments = installments;
+    expect(() => serializeFiscalDocument(snapshot, document, rules, identity)).toThrow(/duplicata|vencimento|cobrança/i);
+  });
   it.each(['vICMSST', 'vFCP', 'vFCPST', 'vCredICMSSN'])('recusa %s sem implementação em vez de omitir o imposto do XML', (field) => {
     const resolved = resolveFiscalDocument(snapshot, rules);
     if (resolved.status !== 'ready') throw new Error('Fixture inválida');

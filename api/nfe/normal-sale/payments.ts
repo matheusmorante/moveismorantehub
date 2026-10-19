@@ -205,16 +205,13 @@ export function resolveNormalSalePayments(params: {
   if (billingParts.length > 120)
     throw new Error('A condição a prazo excede o limite fiscal de 120 parcelas.');
   const billingInstallments =
-    modelDecision.model === '55' && billingParts.length > 0
+    // cobr is optional; a partial schedule cannot describe the full deferred balance.
+    modelDecision.model === '55' && billingParts.length > 0 && billingParts.every((part) => part.dueDate)
       ? billingParts
-          .sort((left, right) => {
-            if (!left.dueDate) return right.dueDate ? 1 : 0;
-            if (!right.dueDate) return -1;
-            return left.dueDate.localeCompare(right.dueDate);
-          })
+          .sort((left, right) => left.dueDate!.localeCompare(right.dueDate!))
           .map((part, index) => ({
             number: String(index + 1).padStart(3, '0'),
-            ...(part.dueDate ? { dueDate: part.dueDate } : {}),
+            dueDate: part.dueDate!,
             amount: part.amountCents / 100,
           }))
       : undefined;

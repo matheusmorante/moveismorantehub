@@ -63,6 +63,13 @@ const BodyRow: React.FC<Props> = ({
   const isTemporaryProduct = Boolean(
     !isService && item.description?.trim() && (!item.productId || nonStockOrigin)
   );
+  const showTemporaryProductLabel = Boolean(
+    shouldShowStockOrigin &&
+      !item.isComboItem &&
+      item.condition === 'novo' &&
+      item.description?.trim() &&
+      !item.productId?.trim()
+  );
 
   const errorKey = `item_${idx}_description`;
   const error = errors[errorKey];
@@ -177,7 +184,7 @@ const BodyRow: React.FC<Props> = ({
     isService,
     shouldShowStockOrigin,
     isLinkedProduct,
-    isTemporaryProduct,
+    showTemporaryProductLabel,
     itemHasError,
     error,
     handlingError,

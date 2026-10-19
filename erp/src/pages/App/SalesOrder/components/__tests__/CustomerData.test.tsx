@@ -5,6 +5,8 @@ import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 import CustomerDataInputs from '../CustomerData';
 import CustomerData from '@/pages/types/customerData.type';
 import Person from '@/pages/types/person.type';
+import { getRecentPeople, searchPeople } from '@/pages/utils/personService';
+import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../../shared-utils/testArtifactContext';
 
 const mockPeople: Person[] = [
   {
@@ -52,6 +54,7 @@ vi.mock('@/pages/App/Registrations/shared/modals/PersonFormModal', () => ({
 describe('CustomerDataInputs Component', () => {
   afterEach(() => {
     cleanup();
+    clearTestArtifactContext();
   });
 
   const emptyCustomer: CustomerData = {
@@ -69,6 +72,46 @@ describe('CustomerDataInputs Component', () => {
       city: '',
     },
   };
+
+  it('uses the authenticated test context only while test mode is enabled', async () => {
+    const identity = { runId: '702b921e-fd31-488d-925e-560602a65510', ownerId: 'eccde09e-72d8-4efe-a387-eb34114dea39' };
+    bindTestArtifactContext(identity);
+    const props = { customerData: emptyCustomer, setCustomerData: vi.fn(), errors: {}, isPickup: false };
+    const view = render(<CustomerDataInputs {...props} isTestMode />);
+    await act(async () => {});
+    expect(getRecentPeople).toHaveBeenLastCalledWith('customers', 20, identity);
+    vi.useFakeTimers();
+    try {
+      fireEvent.change(screen.getByPlaceholderText('Busque pelo nome ou telefone...'), { target: { value: 'Cliente teste' } });
+      await act(async () => { await vi.advanceTimersByTimeAsync(301); });
+      expect(searchPeople).toHaveBeenLastCalledWith('Cliente teste', 'customers', 20, identity);
+      view.rerender(<CustomerDataInputs {...props} isTestMode={false} />);
+      await act(async () => {});
+      expect(getRecentPeople).toHaveBeenLastCalledWith('customers', 20, undefined);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not fall back to operational customers when test mode has no context', async () => {
+    clearTestArtifactContext();
+    render(<CustomerDataInputs customerData={emptyCustomer} setCustomerData={vi.fn()} errors={{}} isPickup={false} isTestMode />);
+    await act(async () => {});
+    expect(getRecentPeople).not.toHaveBeenCalled();
+    expect(searchPeople).not.toHaveBeenCalled();
+  });
+
+  it('ignores a late result from the previous test context after switching mode', async () => {
+    bindTestArtifactContext({ runId: '702b921e-fd31-488d-925e-560602a65510', ownerId: 'eccde09e-72d8-4efe-a387-eb34114dea39' });
+    let resolvePrevious!: (value: Person[]) => void;
+    vi.mocked(getRecentPeople).mockImplementationOnce(() => new Promise((resolve) => { resolvePrevious = resolve; }));
+    const props = { customerData: emptyCustomer, setCustomerData: vi.fn(), errors: {}, isPickup: false };
+    const view = render(<CustomerDataInputs {...props} isTestMode />);
+    view.rerender(<CustomerDataInputs {...props} isTestMode={false} />);
+    await act(async () => { resolvePrevious([{ ...mockPeople[0], id: 'late', fullName: 'Cliente antigo' }]); });
+    fireEvent.change(screen.getByPlaceholderText('Busque pelo nome ou telefone...'), { target: { value: 'Cliente antigo' } });
+    expect(screen.queryByRole('button', { name: /Cliente Antigo/i })).toBeNull();
+  });
 
   it('renderiza o campo de busca de cliente e o botão de consumidor final', async () => {
     await act(async () => {

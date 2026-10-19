@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   getProductsFiscalData: vi.fn(),
   getSession: vi.fn(),
   findDocument: vi.fn(),
+  pendingAttempt: vi.fn(),
   abandonAttempt: vi.fn(),
   clearRequest: vi.fn(),
   setReplacementSource: vi.fn(),
@@ -46,6 +47,9 @@ vi.mock('@/context/AuthContext', () => ({
 }));
 vi.mock('@/pages/utils/nfe/csosnConfigurationService', () => ({
   prepareHmlItemCsosns: mocks.prepare,
+}));
+vi.mock('@/pages/utils/nfe/nfeEmissionRequestState', () => ({
+  findPendingFiscalEmission: mocks.pendingAttempt,
 }));
 vi.mock('@/pages/utils/nfe/nfeService', () => ({
   emitNfeForOrder: (...args: any[]) => {
@@ -122,6 +126,7 @@ describe('preenchimento dos itens da NF-e', () => {
     vi.resetAllMocks();
     clearFiscalEmissionDrafts();
     mocks.profileRole = 'administrator';
+    mocks.pendingAttempt.mockResolvedValue(null);
     mocks.prepareOrderSnapshot.mockImplementation(async (currentOrder: any) => currentOrder);
     mocks.preview.mockResolvedValue({
       success: true,
@@ -169,15 +174,16 @@ describe('preenchimento dos itens da NF-e', () => {
   });
 
   async function requestXmlPreview(): Promise<void> {
+    await prepareNfeEmission();
     const button = screen.getByTestId('nfe-emit-button') as HTMLButtonElement;
-    await waitFor(() => expect(button.disabled).toBe(false));
     await act(async () => { fireEvent.click(button); });
   }
 
   async function prepareNfeEmission(): Promise<void> {
-    await waitFor(() =>
-      expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false)
-    );
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: 'Emitir nota fiscal de saída' }).getAttribute('aria-busy')).toBe('false');
+      expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false);
+    });
   }
   const order: any = {
     id: 'synthetic-order',
@@ -199,6 +205,65 @@ describe('preenchimento dos itens da NF-e', () => {
       },
     ],
   };
+  it('restaura a tentativa durável ao reabrir e consulta sem emitir', async () => {
+    mocks.pendingAttempt.mockResolvedValue({
+      documentId: 'pending-document', orderId: order.id, environment: 2,
+      emissionRequestId: 'original-request', nfeNumber: 654, series: '1', model: '65',
+    });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: false, pending: true }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useNfeEmission(order));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    expect(result.current.emissionResult).toMatchObject({ pending: true, documentId: 'pending-document', nfeNumber: 654 });
+    expect(result.current.numberPreview).toBe('654');
+    await act(async () => { await result.current.handleEmit(false); });
+    expect(mocks.emit).not.toHaveBeenCalled();
+    await act(async () => { await result.current.handleReconcile(); });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ documentId: 'pending-document' });
+    expect(mocks.emit).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia emissão durante a leitura inicial e após falha de restauração', async () => {
+    let rejectLookup!: (error: Error) => void;
+    mocks.pendingAttempt.mockImplementation(() => new Promise((_, reject) => { rejectLookup = reject; }));
+    const { result } = renderHook(() => useNfeEmission(order));
+    await act(async () => { await result.current.handleEmit(false); });
+    expect(mocks.emit).not.toHaveBeenCalled();
+    expect(result.current.isLoadingFiscalData).toBe(true);
+    await act(async () => { rejectLookup(new Error('Não foi possível conferir as tentativas fiscais.')); });
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    expect(result.current.emissionResult).toMatchObject({ success: false, pending: true });
+    await act(async () => { await result.current.handleEmit(false); });
+    expect(mocks.emit).not.toHaveBeenCalled();
+  });
+
+  it.each(['pedido', 'ambiente'])('descarta a resposta anterior ao trocar %s', async context => {
+    let completeLookup!: (value: unknown) => void;
+    mocks.pendingAttempt.mockImplementationOnce(() => new Promise(resolve => { completeLookup = resolve; }));
+    const { result, rerender } = renderHook(({ id }) => useNfeEmission({ ...order, id }), { initialProps: { id: 'old-order' } });
+    if (context === 'pedido') rerender({ id: 'new-order' });
+    else await act(async () => { result.current.setEnvironment(1); });
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    await act(async () => { completeLookup({ documentId: 'old-document', orderId: 'old-order', environment: 2 }); });
+    expect(result.current.emissionResult).toBeNull();
+  });
+
+  it('consulta novamente ao fechar e reabrir o mesmo pedido sem remontar o modal', async () => {
+    const { rerender } = render(<NfeEmissionModal isOpen={false} order={order} onClose={vi.fn()} />);
+    expect(mocks.pendingAttempt).not.toHaveBeenCalled();
+    rerender(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    await prepareNfeEmission();
+    rerender(<NfeEmissionModal isOpen={false} order={order} onClose={vi.fn()} />);
+    mocks.pendingAttempt.mockResolvedValue({ documentId: 'pending-document', orderId: order.id,
+      environment: 2, nfeNumber: 654, series: '1', model: '65' });
+    rerender(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId('nfe-consult-pending-footer-button')).toBeTruthy());
+    expect(screen.queryByTestId('nfe-emit-button')).toBeNull();
+    expect(screen.getByText(/Número reservado na tentativa pendente/)).toBeTruthy();
+    expect(mocks.pendingAttempt).toHaveBeenCalledTimes(2);
+    expect(mocks.emit).not.toHaveBeenCalled();
+  });
+
   it('bloqueia prévia e emissão de revenda para não contribuinte antes do serviço fiscal', async () => {
     const invalid = { ...order, id: 'resale-non-taxpayer',
       fiscalContext: { acquisitionPurpose: 'resale', finalConsumer: false, recipientIeIndicator: '9' },
@@ -360,15 +425,43 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(result.current.acquisitionPurpose).toBe('fixed_asset');
   });
 
+  it('a espera de prontidão não termina enquanto a preparação fiscal está pendente', async () => {
+    let finishPreparation!: (value: Array<{ itemNumber: number; csosn: string; source: string }>) => void;
+    const preparation = new Promise<Array<{ itemNumber: number; csosn: string; source: string }>>(resolve => { finishPreparation = resolve; });
+    mocks.prepare.mockReturnValue(preparation);
+    mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
+    render(<NfeEmissionModal isOpen initialEnvironment={2} order={{ ...order, id: 'delayed-fiscal-preparation' }} onClose={vi.fn()} />);
+    await waitFor(() => expect(mocks.prepare).toHaveBeenCalled());
+    const dialog = screen.getByRole('dialog', { name: 'Emitir nota fiscal de saída' });
+    expect(dialog.getAttribute('aria-busy')).toBe('true');
+    expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false);
+    let ready = false;
+    const readiness = prepareNfeEmission().then(() => { ready = true; });
+    try {
+      await act(async () => { await new Promise<void>(resolve => setTimeout(resolve, 0)); });
+      expect(ready).toBe(false);
+      fireEvent.click(screen.getByTestId('nfe-emit-button'));
+      expect(mocks.emit).not.toHaveBeenCalled();
+      expect(mocks.toast).toHaveBeenCalledWith('Aguarde a preparação fiscal dos itens antes de emitir.');
+      await act(async () => { finishPreparation([{ itemNumber: 1, csosn: '103', source: 'default' }, { itemNumber: 2, csosn: '103', source: 'default' }]); });
+      await readiness;
+      expect(dialog.getAttribute('aria-busy')).toBe('false');
+      expect(mocks.emit).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByTestId('nfe-emit-button'));
+      await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
+    } finally {
+      await act(async () => { finishPreparation([]); await preparation; });
+      await readiness;
+    }
+  });
+
   it('permite emitir diretamente e oferece prévia do XML somente ao administrador', async () => {
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
     const { unmount } = render(
       <NfeEmissionModal isOpen order={{ ...order, id: 'direct-emission-without-preview' }} onClose={vi.fn()} />
     );
     expect(screen.getByTestId('nfe-preview-xml-button')).toBeTruthy();
-    await waitFor(() =>
-      expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false)
-    );
+    await prepareNfeEmission();
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));
     expect(mocks.preview).not.toHaveBeenCalled();
@@ -379,9 +472,7 @@ describe('preenchimento dos itens da NF-e', () => {
     render(
       <NfeEmissionModal isOpen order={{ ...order, id: 'preview-hidden-for-manager' }} onClose={vi.fn()} />
     );
-    await waitFor(() =>
-      expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false)
-    );
+    await prepareNfeEmission();
     expect(screen.queryByTestId('nfe-preview-xml-button')).toBeNull();
   });
   it.each([
@@ -1419,14 +1510,12 @@ describe('preenchimento dos itens da NF-e', () => {
     } as any;
 
     render(<NfeEmissionModal isOpen order={pickupOrder} onClose={vi.fn()} />);
-    expect(screen.getByText('Carregando dados do cliente e dos produtos…')).toBeTruthy();
+    expect(screen.getByText('Conferindo tentativas fiscais anteriores…')).toBeTruthy();
     expect(document.querySelector('[aria-busy="true"]')).toBeTruthy();
     expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false);
     expect(mocks.getProductsFiscalData).not.toHaveBeenCalled();
 
-    await waitFor(() =>
-      expect(screen.queryByText('Carregando dados do cliente e dos produtos…')).toBeNull()
-    );
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Emitir nota fiscal de saída' }).getAttribute('aria-busy')).toBe('false'));
     fireEvent.click(screen.getByRole('tab', { name: 'Informações do Cliente' }));
     expect(screen.getByLabelText('CPF')).toBeTruthy();
     expect(

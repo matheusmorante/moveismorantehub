@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { assertOwnedTarget, assertOwnedAuthorizationTarget, createPersistenceFaultFetch } = require('./cancellation-persistence-fault.cjs');
+const { assertOwnedTarget, assertOwnedAuthorizationTarget, createPersistenceFaultFetch, createTransportFaultPost } = require('./cancellation-persistence-fault.cjs');
 
 test('only an owned authorized HML return can start the local fault harness', () => {
   const expected = { documentId: 'doc', runId: 'run', ownerId: 'owner' };
@@ -69,4 +69,75 @@ test('authorization fault accepts inner 100 only with matching HML key/protocol 
   assert.equal(writes[0].protocol, protocol);
   assert.equal(JSON.stringify(writes).includes(response), false);
   assert.equal(JSON.stringify(writes).includes(signed), false);
+});
+
+test('transport audit hides only a matching real HML 100 then interrupts its immediate consultation', async () => {
+  const sourceAccessKey = '41261044512248000107550010000007231353083330';
+  const accessKey = '41261044512248000107550010000007261251476486';
+  const endpoint = 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4';
+  const note = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${accessKey}"><ide><tpAmb>2</tpAmb><mod>55</mod><finNFe>4</finNFe><tpNF>0</tpNF></ide><det><DFeReferenciado><chaveAcesso>${sourceAccessKey}</chaveAcesso></DFeReferenciado></det></infNFe></NFe></soap:Body></soap:Envelope>`;
+  const reply = `<retEnviNFe xmlns="http://www.portalfiscal.inf.br/nfe"><protNFe><infProt><tpAmb>2</tpAmb><chNFe>${accessKey}</chNFe><cStat>100</cStat><nProt>141260000000001</nProt></infProt></protNFe></retEnviNFe>`;
+  const consultation = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>2</tpAmb><xServ>CONSULTAR</xServ><chNFe>${accessKey}</chNFe></consSitNFe>`;
+  let sent = 0;
+  const events = [];
+  const post = createTransportFaultPost(async () => { sent++; return { data: reply }; }, { sourceAccessKey, onEvent: event => events.push(event) });
+  await assert.rejects(post(endpoint.replace('homologacao.', ''), note, {}), /HML_55_ENDPOINT_REQUIRED/);
+  await assert.rejects(post(endpoint, note.replace('<tpAmb>2', '<tpAmb>1'), {}), /HML_PAYLOAD_REQUIRED/);
+  await assert.rejects(post(endpoint, note.replace(sourceAccessKey, '4'.repeat(44)), {}), /OWNED_SINGLE_RETURN_TRANSMISSION_REQUIRED/);
+  assert.equal(sent, 0);
+  await assert.rejects(post(endpoint, note, {}), { code: 'ETIMEDOUT' });
+  await assert.rejects(post(endpoint.replace('NFeAutorizacao4', 'NFeConsultaProtocolo4'), consultation, {}), { code: 'ETIMEDOUT' });
+  await assert.rejects(post(endpoint, note, {}), /OWNED_SINGLE_RETURN_TRANSMISSION_REQUIRED/);
+  assert.equal(sent, 1);
+  assert.deepEqual(events.map(event => event.phase), ['real-transmission-started', 'real-authorization-response-hidden', 'immediate-consultation-outage']);
+  assert.equal(events[1].accessKey, accessKey);
+  assert.equal(events[1].protocol, '141260000000001');
+  await assert.rejects(post(endpoint, consultation.replace(accessKey, '4'.repeat(44)), {}), /SCOPED_TRANSPORT_OPERATION_REQUIRED/);
+  assert.deepEqual(await post(endpoint.replace('NFeAutorizacao4', 'NFeConsultaProtocolo4'), consultation, {}), { data: reply });
+  assert.equal(sent, 2);
+  assert.deepEqual(events.slice(-2).map(event => event.phase), ['recovery-consultation-started', 'recovery-consultation-completed']);
+  assert.equal(JSON.stringify(events).includes(reply), false);
+});
+
+test('transport audit never changes an unrelated authorization reply into a matching result', async () => {
+  const sourceAccessKey = '41261044512248000107550010000007231353083330';
+  const accessKey = '41261044512248000107550010000007261251476486';
+  const note = `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${accessKey}"><tpAmb>2</tpAmb><mod>55</mod><finNFe>4</finNFe><tpNF>0</tpNF><chaveAcesso>${sourceAccessKey}</chaveAcesso></infNFe></NFe>`;
+  const reply = { data: '<retEnviNFe xmlns="http://www.portalfiscal.inf.br/nfe"><cStat>105</cStat></retEnviNFe>' };
+  const events = [];
+  const post = createTransportFaultPost(async () => reply, { sourceAccessKey, onEvent: event => events.push(event) });
+  assert.equal(await post('https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4', note, {}), reply);
+  assert.deepEqual(events.map(event => event.phase), ['real-transmission-started']);
+});
+
+test('transport audit blocks a second transmission while the first network response is still pending', async () => {
+  const sourceAccessKey = '41261044512248000107550010000007231353083330';
+  const accessKey = '41261044512248000107550010000007261251476486';
+  const note = `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${accessKey}"><tpAmb>2</tpAmb><mod>55</mod><finNFe>4</finNFe><tpNF>0</tpNF><chaveAcesso>${sourceAccessKey}</chaveAcesso></infNFe></NFe>`;
+  let release;
+  let sent = 0;
+  const post = createTransportFaultPost(() => { sent++; return new Promise(resolve => { release = resolve; }); }, { sourceAccessKey });
+  const endpoint = 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4';
+  const first = post(endpoint, note, {});
+  await assert.rejects(post(endpoint, note, {}), /OWNED_SINGLE_RETURN_TRANSMISSION_REQUIRED/);
+  release({ data: '<retEnviNFe xmlns="http://www.portalfiscal.inf.br/nfe"><cStat>105</cStat></retEnviNFe>' });
+  await first;
+  assert.equal(sent, 1);
+});
+
+test('preparation capture stops the owned HML RPC without forwarding it to PostgreSQL', async () => {
+  const key = '41261044512248000107550010000007261251476486';
+  const body = { p_draft_id: 'draft', p_access_key: key,
+    p_signed_xml: `<NFe><infNFe Id="NFe${key}"><tpAmb>2</tpAmb></infNFe></NFe>` };
+  let forwarded = 0;
+  let captured;
+  const wrapped = createPersistenceFaultFetch(async () => { forwarded++; return new Response('{}'); }, {
+    origin: 'https://test.supabase.co', documentId: 'draft', mode: 'preparation', onPrepared: args => { captured = args; },
+  });
+  const endpoint = 'https://test.supabase.co/rest/v1/rpc/prepare_nfe_operation_attempt';
+  assert.equal((await wrapped(endpoint, { body: JSON.stringify(body) })).status, 503);
+  assert.deepEqual(captured, body);
+  assert.equal(forwarded, 0);
+  await assert.rejects(wrapped(endpoint, { body: JSON.stringify({ ...body, p_signed_xml: body.p_signed_xml.replace('<tpAmb>2', '<tpAmb>1') }) }), /OWNED_HML_PREPARATION_REQUIRED/);
+  assert.equal(forwarded, 0);
 });

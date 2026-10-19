@@ -41,7 +41,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   isService,
   shouldShowStockOrigin,
   isLinkedProduct,
-  isTemporaryProduct,
+  showTemporaryProductLabel,
   error,
   handlingError,
   assemblyResponsibleRequired,
@@ -108,8 +108,8 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
               allowedProductKinds={STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']}
               includeDeactivated
               placeholder="Busque ou digite um produto..."
-              isTemporary={isTemporaryProduct}
-              inputEndAdornment={isTemporaryProduct ? <TemporaryProductWarning /> : undefined}
+              isTemporary={showTemporaryProductLabel}
+              inputEndAdornment={showTemporaryProductLabel ? <TemporaryProductWarning /> : undefined}
               isSelected={isLinkedProduct}
               className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500' : ''}
             />

@@ -7,6 +7,12 @@ beforeAll(() => vi.stubGlobal('DOMParser', DOMParser));
 afterAll(() => vi.unstubAllGlobals());
 
 describe('FiscalDocuments - fiscalXmlParser', () => {
+  it('apresenta PIX não integrado sem presumir equipamento POS', () => {
+    const parsed = parseFiscalXmlDetails(`<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe><ide><mod>65</mod></ide><total><ICMSTot><vNF>100.00</vNF></ICMSTot></total><pag><detPag><indPag>1</indPag><tPag>17</tPag><vPag>100.00</vPag><card><tpIntegra>2</tpIntegra></card></detPag></pag></infNFe></NFe>`);
+    expect(parsed?.payments).toHaveLength(1);
+    expect(parsed?.payments?.[0]?.card?.integration).toBe('Não integrado');
+    expect(parsed?.payments?.[0]?.value).toBe('100.00');
+  });
   it('retorna null para string vazia ou inválida', () => {
     expect(parseFiscalXmlDetails('')).toBeNull();
     expect(parseFiscalXmlDetails('not an xml')).toBeNull();
@@ -321,7 +327,7 @@ describe('FiscalDocuments - fiscalXmlParser', () => {
       value: '2300.00',
       card: {
         brand: 'Visa',
-        integration: 'TEF / Integrado',
+        integration: 'Integrado',
         authorization: '987654',
       },
     });

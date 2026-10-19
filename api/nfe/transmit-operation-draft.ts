@@ -40,6 +40,8 @@ import {
 } from '../../erp/src/pages/utils/nfe/fiscalCfopResolution';
 import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
+import { isUncertainAuthorization } from './normal-sale/attemptPolicy';
+import { matchesSefazTransmissionResponse } from './authorizationResponseIdentity';
 import {
   type Environment,
   asFiscalSettings,
@@ -467,177 +469,194 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let accessKey = draft.access_key;
     let signedXml = draft.signed_xml;
-    let nfeNumber: number;
-    let series: string;
+    let nfeNumber = 0;
+    let series = '';
+    let transmissionVersion = '';
 
     if (!accessKey || !signedXml) {
-      const issuedAt = brazilTimestamp(new Date());
-      const sourceAuthorizedAt = getAuthorizedAt(String(validatedSource.xml_protocolo || ''), '');
-      const fiscalPeriod = (value: string) => value.match(/^(\d{4}-\d{2})/)?.[1] || '';
-      const periodAdjustmentText = String(review.period_adjustment_text || '').trim();
-      if (
-        draft.operation_kind === 'estorno' &&
-        (review.apportionment_review_confirmed !== true ||
-          !fiscalPeriod(sourceAuthorizedAt) ||
-          !fiscalPeriod(issuedAt) ||
-          (fiscalPeriod(issuedAt) !== fiscalPeriod(sourceAuthorizedAt) &&
-            Array.from(periodAdjustmentText).length < 15))
-      ) {
-        return res.status(409).json({
-          success: false,
-          error:
-            'Confirme a revisão do período de apuração e informe diferenças/acréscimos do art. 298, §2º, ou justifique por que não se aplicam.',
-        });
-      }
-      const responsibleTechnician = getResponsibleTechnicianConfig(process.env, environment);
-      if (!responsibleTechnician) {
-        return res.status(503).json({
-          success: false,
-          error:
-            'Configuração obrigatória de responsável técnico/CSRT da NF-e indisponível no servidor.',
-        });
-      }
-      const municipalityCode = String(settings.companyCMun || '').trim();
-      if (!/^\d{7}$/.test(municipalityCode)) {
-        return res.status(503).json({
-          success: false,
-          error: 'Código IBGE do município do estabelecimento inválido na configuração fiscal.',
-        });
-      }
+      for (let preparation = 0; preparation < 3; preparation++) {
+        const issuedAt = brazilTimestamp(new Date());
+        const sourceAuthorizedAt = getAuthorizedAt(String(validatedSource.xml_protocolo || ''), '');
+        const fiscalPeriod = (value: string) => value.match(/^(\d{4}-\d{2})/)?.[1] || '';
+        const periodAdjustmentText = String(review.period_adjustment_text || '').trim();
+        if (
+          draft.operation_kind === 'estorno' &&
+          (review.apportionment_review_confirmed !== true ||
+            !fiscalPeriod(sourceAuthorizedAt) ||
+            !fiscalPeriod(issuedAt) ||
+            (fiscalPeriod(issuedAt) !== fiscalPeriod(sourceAuthorizedAt) &&
+              Array.from(periodAdjustmentText).length < 15))
+        ) {
+          return res.status(409).json({
+            success: false,
+            error:
+              'Confirme a revisão do período de apuração e informe diferenças/acréscimos do art. 298, §2º, ou justifique por que não se aplicam.',
+          });
+        }
+        const responsibleTechnician = getResponsibleTechnicianConfig(process.env, environment);
+        if (!responsibleTechnician) {
+          return res.status(503).json({
+            success: false,
+            error:
+              'Configuração obrigatória de responsável técnico/CSRT da NF-e indisponível no servidor.',
+          });
+        }
+        const municipalityCode = String(settings.companyCMun || '').trim();
+        if (!/^\d{7}$/.test(municipalityCode)) {
+          return res.status(503).json({
+            success: false,
+            error: 'Código IBGE do município do estabelecimento inválido na configuração fiscal.',
+          });
+        }
 
-      const sequence = resolveNfeSequenceSettings(settings, '55', environment);
-      series = sequence.series;
-      const minimumNumber = sequence.minimumNumber;
-      const { data: reservedNumber, error: numberError } = await db.rpc('reserve_next_nfe_number', {
-        p_modelo: '55',
-        p_serie: series,
-        p_ambiente: environment,
-        p_numero_minimo: minimumNumber,
-      });
-      if (numberError || typeof reservedNumber !== 'number' || reservedNumber < 1) {
-        return res.status(503).json({
-          success: false,
-          error: 'Não foi possível reservar número fiscal seguro para o rascunho.',
+        const sequence = resolveNfeSequenceSettings(settings, '55', environment);
+        series = sequence.series;
+        const minimumNumber = sequence.minimumNumber;
+        const { data: suggestedNumber, error: numberError } = await db.rpc('peek_nfe_outbound_number', {
+          p_issuer_cnpj: String(validatedSource.chave_acesso).slice(6, 20),
+          p_model: '55',
+          p_series: series,
+          p_environment: environment,
+          p_minimum: minimumNumber,
         });
-      }
-      nfeNumber = reservedNumber;
-      reservedNfeNumber = reservedNumber;
-      const generatedKey = generateNfeAccessKey({
-        ufCode: '41',
-        yearMonth: `${issuedAt.slice(2, 4)}${issuedAt.slice(5, 7)}`,
-        cnpj: String(settings.companyCnpj || ''),
-        model: '55',
-        series,
-        number: nfeNumber,
-        emissionType: '1',
-      });
-      accessKey = generatedKey.accessKey;
-      const baseXml = buildReviewedFiscalOperationXml({
-        kind: draft.operation_kind === 'estorno' ? 'estorno' : 'return',
-        returnMethod:
-          draft.operation_kind === 'return' &&
-          returnFiscalContext &&
-          'context' in returnFiscalContext
-            ? returnFiscalContext.context.returnOrder.returnMethod || undefined
-            : undefined,
-        returnScenario:
-          draft.operation_kind === 'return' &&
-          returnFiscalContext &&
-          'context' in returnFiscalContext
-            ? returnFiscalContext.context.operationContext
-            : undefined,
-        environment,
-        originalEnvironment: environment,
-        originalStatus: environment === 1 ? 'autorizada' : 'homologada',
-        originalProtocol: String(validatedSource.numero_protocolo),
-        originalAccessKey: String(validatedSource.chave_acesso),
-        accessKey,
-        randomCode: generatedKey.randomCode,
-        checkDigit: generatedKey.checkDigit,
-        nfeNumber,
-        series,
-        issuedAt,
-        settings,
-        natureOfOperation: draft.nature_of_operation,
-        originalOperationType:
-          draft.operation_kind === 'estorno' ? (sourceOperationType as 0 | 1) : undefined,
-        destinationIndicator:
-          draft.operation_kind === 'estorno'
-            ? (sourceDestinationIndicator as 1 | 2 | 3)
-            : undefined,
-        recipientXml: String(review.recipient_xml || ''),
-        totalsXml: String(review.totals_xml || ''),
-        transportXml: String(review.transport_xml || ''),
-        paymentXml: String(review.payment_xml || ''),
-        reason: String(review.reason || draft.reason || ''),
-        periodAdjustmentText,
-        lines: lines.map((line) => {
-          const original = originalById.get(line.original_document_item_id);
-          if (!original) {
-            throw new Error(`Item original ${line.fiscal_item_number} não encontrado.`);
-          }
-          return {
-            originalItemNumber: Number(original.item_number),
-            originalProductCode: original.product_code,
-            originalDescription: original.description,
-            originalNcm: readTag(String(original.product_xml), 'NCM') || undefined,
-            originalCfop: originalItemCfop(original.product_xml) || undefined,
-            originalTaxesXml: original.taxes_xml,
-            originalUnitValue: Number(original.unit_value),
-            billedQuantity: Number(original.billed_quantity),
-            originalGrossValue: Number(original.gross_value),
-            originalDiscountValue: Number(original.discount_value),
-            quantity: Number(line.quantity),
-            grossValue: Number(line.gross_value),
-            discountValue: Number(line.discount_value),
-            cfop: String(line.reviewed_cfop),
-            productXml: String(line.reviewed_product_xml),
-            taxesXml: String(line.reviewed_taxes_xml),
-          };
-        }),
-      });
-
-      const xml = appendResponsibleTechnician(baseXml, accessKey, responsibleTechnician)
-        .replace(/>\s+</g, '><')
-        .trim();
-      await validateUnsignedNfeStructure(xml);
-      signedXml = signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64);
-      await validateNfeAgainstOfficialSchema(signedXml);
-      assertDraftXmlMatchesReview({
-        signedXml,
-        certificatePem: certificate.certPem,
-        draft,
-        review,
-        lines: lines as Array<Record<string, unknown>>,
-        originalById,
-        sourceAccessKey: String(validatedSource.chave_acesso),
-        environment,
-        accessKey,
-        series,
-        number: nfeNumber,
-        sourceOperationType,
-        sourceDestinationIndicator,
-      });
-      const { data: claimed, error: claimError } = await db
-        .from('nfe_operation_drafts')
-        .update({
-          status: 'transmitting',
-          access_key: accessKey,
-          signed_xml: signedXml,
-          transmitted_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', draft.id)
-        .eq('status', 'ready')
-        .select('id')
-        .maybeSingle();
-
-      if (claimError || !claimed) {
-        return res.status(409).json({
-          success: false,
-          pending: true,
-          error: 'Outro processo alterou este rascunho. Consulte a chave/estado antes de repetir.',
+        if (numberError || typeof suggestedNumber !== 'number' || suggestedNumber < 1) {
+          return res.status(503).json({
+            success: false,
+            numberReserved: false,
+            error: 'Não foi possível consultar a sequência fiscal para preparar o rascunho.',
+          });
+        }
+        nfeNumber = suggestedNumber;
+        const generatedKey = generateNfeAccessKey({
+          ufCode: '41',
+          yearMonth: `${issuedAt.slice(2, 4)}${issuedAt.slice(5, 7)}`,
+          cnpj: String(settings.companyCnpj || ''),
+          model: '55',
+          series,
+          number: nfeNumber,
+          emissionType: '1',
         });
+        accessKey = generatedKey.accessKey;
+        const baseXml = buildReviewedFiscalOperationXml({
+          kind: draft.operation_kind === 'estorno' ? 'estorno' : 'return',
+          returnMethod:
+            draft.operation_kind === 'return' &&
+            returnFiscalContext &&
+            'context' in returnFiscalContext
+              ? returnFiscalContext.context.returnOrder.returnMethod || undefined
+              : undefined,
+          returnScenario:
+            draft.operation_kind === 'return' &&
+            returnFiscalContext &&
+            'context' in returnFiscalContext
+              ? returnFiscalContext.context.operationContext
+              : undefined,
+          environment,
+          originalEnvironment: environment,
+          originalStatus: environment === 1 ? 'autorizada' : 'homologada',
+          originalProtocol: String(validatedSource.numero_protocolo),
+          originalAccessKey: String(validatedSource.chave_acesso),
+          accessKey,
+          randomCode: generatedKey.randomCode,
+          checkDigit: generatedKey.checkDigit,
+          nfeNumber,
+          series,
+          issuedAt,
+          settings,
+          natureOfOperation: String(draft.nature_of_operation || ''),
+          originalOperationType:
+            draft.operation_kind === 'estorno' ? (sourceOperationType as 0 | 1) : undefined,
+          destinationIndicator:
+            draft.operation_kind === 'estorno'
+              ? (sourceDestinationIndicator as 1 | 2 | 3)
+              : undefined,
+          recipientXml: String(review.recipient_xml || ''),
+          totalsXml: String(review.totals_xml || ''),
+          transportXml: String(review.transport_xml || ''),
+          paymentXml: String(review.payment_xml || ''),
+          reason: String(review.reason || draft.reason || ''),
+          periodAdjustmentText,
+          lines: lines.map((line) => {
+            const original = originalById.get(line.original_document_item_id);
+            if (!original) {
+              throw new Error(`Item original ${line.fiscal_item_number} não encontrado.`);
+            }
+            return {
+              originalItemNumber: Number(original.item_number),
+              originalProductCode: original.product_code,
+              originalDescription: original.description,
+              originalNcm: readTag(String(original.product_xml), 'NCM') || undefined,
+              originalCfop: originalItemCfop(original.product_xml) || undefined,
+              originalTaxesXml: original.taxes_xml,
+              originalUnitValue: Number(original.unit_value),
+              billedQuantity: Number(original.billed_quantity),
+              originalGrossValue: Number(original.gross_value),
+              originalDiscountValue: Number(original.discount_value),
+              quantity: Number(line.quantity),
+              grossValue: Number(line.gross_value),
+              discountValue: Number(line.discount_value),
+              cfop: String(line.reviewed_cfop),
+              productXml: String(line.reviewed_product_xml),
+              taxesXml: String(line.reviewed_taxes_xml),
+            };
+          }),
+        });
+
+        const xml = appendResponsibleTechnician(baseXml, accessKey, responsibleTechnician)
+          .replace(/>\s+</g, '><')
+          .trim();
+        await validateUnsignedNfeStructure(xml);
+        signedXml = signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64);
+        await validateNfeAgainstOfficialSchema(signedXml);
+        assertDraftXmlMatchesReview({
+          signedXml,
+          certificatePem: certificate.certPem,
+          draft,
+          review,
+          lines: lines as Array<Record<string, unknown>>,
+          originalById,
+          sourceAccessKey: String(validatedSource.chave_acesso),
+          environment,
+          accessKey,
+          series,
+          number: nfeNumber,
+          sourceOperationType,
+          sourceDestinationIndicator,
+        });
+        let prepared = null;
+        try {
+          prepared = await db.rpc('prepare_nfe_operation_attempt', {
+            p_draft_id: draft.id,
+            p_expected_updated_at: draft.updated_at,
+            p_expected_review_data: review,
+            p_expected_lines: lines,
+            p_signed_xml: signedXml,
+            p_access_key: accessKey,
+            p_minimum_number: minimumNumber,
+          });
+        } catch {
+          return res.status(503).json({
+            success: false,
+            pending: true,
+            error: 'A gravação da tentativa não foi confirmada. Atualize a situação fiscal antes de repetir; nenhuma transmissão foi iniciada por esta requisição.',
+          });
+        }
+        const { data: claimed, error: claimError } = prepared;
+        if (claimError?.message?.includes('FISCAL_SEQUENCE_CHANGED') && preparation < 2) continue;
+
+        if (claimError || claimed?.created !== true || claimed.draftId !== draft.id
+            || claimed.accessKey !== accessKey || claimed.number !== nfeNumber || !claimed.updatedAt) {
+          return res.status(409).json({
+            success: false,
+            pending: true,
+            error: claimError?.message?.includes('FISCAL_SEQUENCE_CHANGED')
+              ? 'A numeração mudou durante a preparação. Atualize a situação fiscal antes de repetir.'
+              : 'A preparação não foi confirmada ou outro processo alterou este rascunho. Atualize a situação fiscal antes de repetir.',
+          });
+        }
+        reservedNfeNumber = nfeNumber;
+        transmissionVersion = claimed.updatedAt;
+        break;
       }
     } else {
       nfeNumber = Number(accessKey.slice(25, 34));
@@ -669,10 +688,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       const { data: claimed, error: claimError } = await db
         .from('nfe_operation_drafts')
-        .update({ status: 'transmitting', updated_at: new Date().toISOString() })
+        .update({ status: 'transmitting', transmitted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
         .eq('id', draft.id)
         .eq('status', 'ready')
-        .select('id')
+        .eq('access_key', accessKey)
+        .eq('updated_at', draft.updated_at)
+        .select('id,updated_at')
         .maybeSingle();
 
       if (claimError || !claimed) {
@@ -682,8 +703,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: 'Outro processo iniciou o rascunho. Consulte o estado antes de repetir.',
         });
       }
+      transmissionVersion = claimed.updated_at;
     }
 
+    if (!accessKey || !signedXml) throw new Error('Tentativa fiscal sem chave/XML confirmados.');
     assertDraftXmlMatchesReview({
       signedXml,
       certificatePem: certificate.certPem,
@@ -693,7 +716,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       originalById,
       sourceAccessKey: String(validatedSource.chave_acesso),
       environment,
-      accessKey: accessKey!,
+      accessKey,
       series,
       number: nfeNumber,
       sourceOperationType,
@@ -701,6 +724,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     const batchXml = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${Date.now().toString().slice(-15)}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
+    // A delayed preparation response must not send after another session changed the attempt.
+    try {
+      const now = new Date().toISOString();
+      const { data: started, error: startError } = await db.from('nfe_operation_drafts')
+        .update({ transmitted_at: now, updated_at: now })
+        .eq('id', draft.id).eq('status', 'transmitting').eq('access_key', accessKey)
+        .eq('updated_at', transmissionVersion).select('id,updated_at').maybeSingle();
+      if (startError || !started) throw new Error('TRANSMISSION_START_NOT_CONFIRMED');
+      transmissionVersion = started.updated_at;
+    } catch {
+      return res.status(503).json({ success: false, pending: true, accessKey,
+        error: 'Não foi possível confirmar o início desta transmissão. Atualize a situação fiscal antes de repetir.' });
+    }
     let sefazXml: string;
     try {
       sefazXml = await sendSoapToSefaz({
@@ -715,6 +751,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('nfe_operation_drafts')
         .update({ status: 'unknown', updated_at: new Date().toISOString() })
         .eq('id', draft.id)
+        .eq('updated_at', transmissionVersion)
         .eq('status', 'transmitting');
       console.error(
         '[NF-e Draft] Conexão de autorização interrompida:',
@@ -740,12 +777,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         lines,
         environment,
         responseXml: sefazXml,
-        authorizedAccessKey: accessKey!,
-        authorizedSignedXml: signedXml!,
+        authorizedAccessKey: accessKey,
+        authorizedSignedXml: signedXml,
       });
     }
 
-    if (authorization.pending || authorization.cStat === '204') {
+    if (isUncertainAuthorization(authorization.cStat, authorization.pending) ||
+        !matchesSefazTransmissionResponse(sefazXml, { accessKey, environment })) {
       await db
         .from('nfe_operation_drafts')
         .update({
@@ -754,6 +792,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', draft.id)
+        .eq('updated_at', transmissionVersion)
         .eq('status', 'transmitting');
       return reconcileStoredDraftAttempt({
         res,
@@ -766,7 +805,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const { error: rejectionSyncError } = await db
+    const { data: rejectedDraft, error: rejectionSyncError } = await db
       .from('nfe_operation_drafts')
       .update({
         status: 'rejected',
@@ -774,14 +813,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', draft.id)
-      .eq('status', 'transmitting');
-    if (rejectionSyncError) {
-      console.error('[NF-e Draft] Rejeição SEFAZ não persistida:', rejectionSyncError.message);
+      .eq('updated_at', transmissionVersion)
+      .eq('status', 'transmitting')
+      .select('id')
+      .maybeSingle();
+    if (rejectionSyncError || !rejectedDraft) {
+      return res.status(503).json({
+        success: false, pending: true, reconciliationRequired: true, accessKey,
+        error: 'O retorno fiscal não foi confirmado na tentativa atual. Atualize a situação antes de continuar; não retransmita.',
+      });
     }
-    return res.status(authorization.pending ? 202 : 422).json({
+    return res.status(422).json({
       success: false,
-      pending: authorization.pending,
-      status: rejectionSyncError ? 'unknown' : 'rejected',
+      pending: false,
+      status: 'rejected',
       cStat: authorization.cStat,
       xMotivo: authorization.xMotivo,
       error: authorization.xMotivo || 'A SEFAZ não autorizou o documento.',
@@ -795,7 +840,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const schemaFailure = message.startsWith('XML da NF-e não passou pelo schema oficial');
     return res.status(schemaFailure ? 422 : 500).json({
       success: false,
-      ...(reservedNfeNumber ? { numberReserved: true, reservedNumber: reservedNfeNumber } : {}),
+      ...(reservedNfeNumber ? { numberReserved: true, reservedNumber: reservedNfeNumber } : { numberReserved: false }),
       error:
         schemaFailure && reservedNfeNumber
           ? `${message} O número ${reservedNfeNumber} já foi consumido pela sequência; nenhuma transmissão foi feita. Uma nova tentativa reservará outro número.`

@@ -95,6 +95,7 @@ const SalesOrderFormSection = ({
                   marketingOrigin={state.marketingOrigin}
                   setMarketingOrigin={actions.setMarketingOrigin}
                   isBudget={isBudget}
+                  isTestMode={state.isTestMode}
                 />
               </SectionCard>
             </div>

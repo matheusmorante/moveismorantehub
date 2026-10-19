@@ -17,6 +17,8 @@ import {
   fetchPersons,
   PERSON_QUERY_COLUMNS,
   preloadPersonById,
+  searchPeople,
+  getRecentPeople,
   subscribeToPeople,
 } from './personQueryService';
 
@@ -25,6 +27,40 @@ afterEach(() => {
 });
 
 describe('person query projection', () => {
+  it.each(['search', 'recent'] as const)('selects only canonical customers from the requested test run before pagination (%s)', async (kind) => {
+    const identity = { runId: '702b921e-fd31-488d-925e-560602a65510', ownerId: 'eccde09e-72d8-4efe-a387-eb34114dea39' };
+    const person = (id: string, metadata?: object) => ({ id, fullAddress: { testArtifact: metadata } });
+    const own = person('owned', { is_test: true, ...identity });
+    const chain: any = {
+      select: vi.fn(() => chain), or: vi.fn(() => chain), eq: vi.fn(() => chain), order: vi.fn(() => chain),
+      limit: vi.fn().mockResolvedValue({ data: [
+        own, person('operational'),
+        person('other-run', { is_test: true, ...identity, runId: '18f29e44-f7f1-4caa-b640-5fdffbc0047a' }),
+        person('other-owner', { is_test: true, ...identity, ownerId: '11111111-1111-4111-8111-111111111111' }),
+        person('invalid-marker', { is_test: 'true', ...identity }),
+      ], error: null }),
+    };
+    mocks.from.mockReturnValue(chain);
+    const result = kind === 'search'
+      ? await searchPeople('Cliente', 'customers', 20, identity)
+      : await getRecentPeople('customers', 20, identity);
+    expect(result).toEqual([own]);
+    expect(chain.eq).toHaveBeenCalledWith('full_address->testArtifact->>is_test', 'true');
+    expect(chain.eq).toHaveBeenCalledWith('full_address->testArtifact->>runId', identity.runId);
+    expect(chain.eq).toHaveBeenCalledWith('full_address->testArtifact->>ownerId', identity.ownerId);
+  });
+
+  it.each(['search', 'recent'] as const)('keeps test customers hidden in an ordinary query (%s)', async (kind) => {
+    const normal = { id: 'operational' };
+    const chain: any = {
+      select: vi.fn(() => chain), or: vi.fn(() => chain), eq: vi.fn(() => chain), order: vi.fn(() => chain),
+      limit: vi.fn().mockResolvedValue({ data: [normal, { id: 'test', fullAddress: { testArtifact: { is_test: true } } }], error: null }),
+    };
+    mocks.from.mockReturnValue(chain);
+    expect(kind === 'search' ? await searchPeople('Cliente', 'customers') : await getRecentPeople('customers')).toEqual([normal]);
+    expect(chain.eq).not.toHaveBeenCalled();
+  });
+
   it('reuses an in-flight customer read by ID', async () => {
     let resolvePerson: ((value: { data: { id: string }; error: null }) => void) | undefined;
     const queryResult = new Promise<{ data: { id: string }; error: null }>((resolve) => {

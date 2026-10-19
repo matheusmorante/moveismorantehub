@@ -1671,6 +1671,114 @@ function signFiscalEventXml(xml, privateKeyPem, certDerBase64, elementName) {
 var import_axios = __toESM(require("axios"));
 var import_node_perf_hooks = require("node:perf_hooks");
 
+// api/nfe/sefazTransportDiagnostic.ts
+function buildSefazTransportDiagnostic(error, contextOverride) {
+  const item = error && typeof error === "object" ? error : {};
+  const allowed = [
+    "EPROTO",
+    "ECONNRESET",
+    "ECONNABORTED",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "ERR_BAD_RESPONSE",
+    "ERR_BAD_REQUEST",
+    "ERR_CANCELED",
+    "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+    "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
+    "CERT_HAS_EXPIRED",
+    "DEPTH_ZERO_SELF_SIGNED_CERT",
+    "SELF_SIGNED_CERT_IN_CHAIN",
+    "ERR_TLS_CERT_ALTNAME_INVALID",
+    "A1_KEY_MISMATCH",
+    "A1_CERTIFICATE_EXPIRED",
+    "SEFAZ_SOAP_FAULT",
+    "SEFAZ_ENDPOINT_INVALID"
+  ];
+  const safeCode = (value) => typeof value === "string" && (allowed.includes(value) || /^(?:ERR_(?:SSL|TLS|OSSL)_[A-Z0-9_]{1,64}|UND_ERR_[A-Z0-9_]{1,64})$/.test(value)) ? value : "UNKNOWN_TRANSPORT_ERROR";
+  const code = typeof item.response?.data === "string" && /<(?:[\w-]+:)?Fault\b/i.test(item.response.data) ? "SEFAZ_SOAP_FAULT" : safeCode(item.code);
+  const status = item.response?.status;
+  const message = typeof item.message === "string" ? item.message.toLowerCase() : "";
+  const tlsReason = message.includes("alert unknown ca") ? "PEER_UNKNOWN_CA" : message.includes("alert certificate expired") ? "PEER_CERTIFICATE_EXPIRED" : message.includes("alert bad certificate") ? "PEER_BAD_CERTIFICATE" : message.includes("alert handshake failure") ? "PEER_HANDSHAKE_FAILURE" : void 0;
+  const category = code === "SEFAZ_SOAP_FAULT" ? "SOAP_FAULT" : ["A1_KEY_MISMATCH", "A1_CERTIFICATE_EXPIRED"].includes(code) || tlsReason === "PEER_BAD_CERTIFICATE" ? "MTLS_CLIENT_CERTIFICATE" : [
+    "ETIMEDOUT",
+    "ECONNABORTED",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT",
+    "UND_ERR_BODY_TIMEOUT"
+  ].includes(code) ? "TIMEOUT" : code === "ECONNRESET" ? "SOCKET_RESET" : ["ENOTFOUND", "EAI_AGAIN"].includes(code) ? "DNS_FAILURE" : ["ECONNREFUSED"].includes(code) ? "TCP_FAILURE" : code === "EPROTO" || /^(?:ERR_(?:SSL|TLS|OSSL)_|CERT_|UNABLE_|DEPTH_|SELF_SIGNED)/.test(code) ? "TLS_FAILURE" : Number.isInteger(status) ? "HTTP_ERROR" : "TRANSPORT_UNKNOWN";
+  const name = ["Error", "AxiosError", "TypeError", "SystemError"].includes(item.name) ? item.name : "Error";
+  const context = contextOverride || item.sefazTransportContext || {};
+  let endpoint;
+  let hostname;
+  try {
+    const url = new URL(context.endpoint);
+    if (url.protocol === "https:" && [
+      "nfe.sefa.pr.gov.br",
+      "nfce.sefa.pr.gov.br",
+      "homologacao.nfe.sefa.pr.gov.br",
+      "homologacao.nfce.sefa.pr.gov.br"
+    ].includes(url.hostname) && /^\/(?:nfe|nfce)\/[A-Za-z0-9]+$/.test(url.pathname)) {
+      endpoint = `${url.origin}${url.pathname}`;
+      hostname = url.hostname;
+    }
+  } catch {
+  }
+  const errno = typeof item.errno === "number" && Number.isInteger(item.errno) ? item.errno : allowed.includes(item.errno) ? item.errno : void 0;
+  const syscall = ["getaddrinfo", "connect", "read", "write", "send", "recv"].includes(item.syscall) ? item.syscall : void 0;
+  const causes = [];
+  let cause = item.cause;
+  for (let depth = 0; cause && typeof cause === "object" && depth < 2; depth++) {
+    causes.push({
+      code: safeCode(cause.code),
+      ...Number.isInteger(cause.errno) ? { errno: cause.errno } : {},
+      ...["getaddrinfo", "connect", "read", "write"].includes(cause.syscall) ? { syscall: cause.syscall } : {}
+    });
+    cause = cause.cause;
+  }
+  const peer = context.peerCertificate || {};
+  const safeCN = (value) => typeof value === "string" && /^[\w .,*()/:-]{1,160}$/.test(value) ? value : void 0;
+  const safeDate = (value) => typeof value === "string" && value.length <= 40 && Number.isFinite(Date.parse(value)) ? value : void 0;
+  const peerCertificate = {
+    subjectCN: safeCN(peer.subjectCN),
+    issuerCN: safeCN(peer.issuerCN),
+    validFrom: safeDate(peer.validFrom),
+    validTo: safeDate(peer.validTo),
+    fingerprint256: typeof peer.fingerprint256 === "string" && /^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/i.test(peer.fingerprint256) ? peer.fingerprint256 : void 0
+  };
+  return {
+    name,
+    code,
+    category,
+    message: `${category}: ${tlsReason || code}`,
+    ...Number.isInteger(status) && status >= 100 && status <= 599 ? { httpStatus: status } : {},
+    ...tlsReason ? { tlsReason } : {},
+    ...errno !== void 0 ? { errno } : {},
+    ...syscall ? { syscall } : {},
+    ...endpoint ? { endpoint, hostname } : {},
+    ...["dns", "connect", "tls", "request", "response"].includes(context.phase) ? { phase: context.phase } : {},
+    ...context.tlsProtocol === "TLSv1.2" || context.tlsProtocol === "TLSv1.3" ? { tlsProtocol: context.tlsProtocol } : {},
+    ...["55", "65"].includes(context.model) ? { model: context.model } : {},
+    ...[1, 2].includes(context.environment) ? { environment: context.environment } : {},
+    ...Object.values(peerCertificate).some((value) => value !== void 0) ? { peerCertificate } : {},
+    ...Number.isFinite(context.durationMs) && context.durationMs >= 0 ? { durationMs: Math.min(Math.round(context.durationMs), 6e5) } : {},
+    ...Number.isFinite(context.timeoutMs) && context.timeoutMs > 0 ? { timeoutMs: Math.min(Math.round(context.timeoutMs), 6e5) } : {},
+    ...causes.length ? { cause: causes } : {}
+  };
+}
+var SefazTransportError = class extends Error {
+  code;
+  diagnostic;
+  constructor(error, context) {
+    const diagnostic = buildSefazTransportDiagnostic(error, context);
+    super(diagnostic.message);
+    this.name = diagnostic.name;
+    this.code = diagnostic.code;
+    this.diagnostic = diagnostic;
+  }
+};
+
 // api/nfe/sefazE2eSimulator.ts
 var OPERATIONAL_SUPABASE_REFS = /* @__PURE__ */ new Set([
   "hkoxhourxwlddgsfdgws",
@@ -1823,12 +1931,7 @@ async function sendSoapToSefaz(params) {
     }) : error;
     context.durationMs = Math.round(import_node_perf_hooks.performance.now() - startedAt);
     if (import_axios.default.isAxiosError(transportError) && transportError.response) context.phase = "response";
-    if (transportError && typeof transportError === "object" && Object.isExtensible(transportError))
-      Object.defineProperty(transportError, "sefazTransportContext", {
-        value: context,
-        configurable: true
-      });
-    throw transportError;
+    throw new SefazTransportError(transportError, context);
   } finally {
     httpsAgent.destroy();
   }
@@ -2176,6 +2279,61 @@ function getSupabaseSecretKey() {
   return process.env.SUPABASE_SECRET_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.SUPABASE_SERVICE_KEY?.trim() || process.env.service_role?.trim();
 }
 
+// api/nfe/normal-sale/attemptPolicy.ts
+function isUncertainAuthorization(cStat, pending) {
+  return pending || !/^\d{3}$/.test(cStat) || ["100", "103", "104", "105", "108", "109", "204", "539", "999"].includes(cStat);
+}
+
+// api/nfe/authorizationResponseIdentity.ts
+var import_xmldom4 = require("@xmldom/xmldom");
+function readSefazResult(response) {
+  try {
+    if (/<!DOCTYPE|<!ENTITY/i.test(response)) return null;
+    let invalidXml = false;
+    const xml = new import_xmldom4.DOMParser({ errorHandler(level, message) {
+      if (level === "warning" && String(message).includes("errorHandler") && String(message).includes("deprecated")) return;
+      invalidXml = true;
+    } }).parseFromString(response, "text/xml");
+    if (invalidXml) return null;
+    const namespace2 = "http://www.portalfiscal.inf.br/nfe";
+    const results = [
+      ...Array.from(xml.getElementsByTagNameNS("*", "retEnviNFe")),
+      ...Array.from(xml.getElementsByTagNameNS("*", "retConsSitNFe"))
+    ];
+    const protocols = xml.getElementsByTagNameNS("*", "infProt");
+    if (results.length !== 1 || protocols.length > 1) return null;
+    const result = results[0];
+    const protocol = protocols[0];
+    if (result.namespaceURI !== namespace2 || protocol && (protocol.namespaceURI !== namespace2 || protocol.parentNode?.localName !== "protNFe" || protocol.parentNode.namespaceURI !== namespace2 || protocol.parentNode.parentNode !== result)) return null;
+    const directValue = (element, name) => {
+      const children2 = Array.from(element.childNodes).filter(
+        (node) => node.nodeType === 1 && "localName" in node && node.localName === name
+      );
+      const child2 = children2[0];
+      return children2.length === 1 && child2 && "namespaceURI" in child2 && child2.namespaceURI === namespace2 ? child2.textContent?.trim() : void 0;
+    };
+    return { result, protocol, directValue };
+  } catch {
+    return null;
+  }
+}
+function matchesSefazAuthorization(response, expected) {
+  const parsed = readSefazResult(response);
+  if (!parsed?.protocol || !/^\d{15}$/.test(expected.protocolNumber)) return false;
+  const { result, protocol, directValue } = parsed;
+  const consultation = result.localName === "retConsSitNFe";
+  return directValue(result, "cStat") === (consultation ? "100" : "104") && directValue(result, "tpAmb") === String(expected.environment) && (!consultation || directValue(result, "chNFe") === expected.accessKey) && directValue(protocol, "cStat") === "100" && directValue(protocol, "tpAmb") === String(expected.environment) && directValue(protocol, "chNFe") === expected.accessKey && directValue(protocol, "nProt") === expected.protocolNumber && Number.isFinite(Date.parse(directValue(protocol, "dhRecbto") || ""));
+}
+function matchesSefazTransmissionResponse(response, expected) {
+  const parsed = readSefazResult(response);
+  if (!parsed) return false;
+  const { result, protocol, directValue } = parsed;
+  const batchStatus = directValue(result, "cStat") || "";
+  if (result.localName !== "retEnviNFe" || directValue(result, "tpAmb") !== String(expected.environment) || !/^\d{3}$/.test(batchStatus)) return false;
+  if (!protocol) return !["100", "104"].includes(batchStatus);
+  return batchStatus === "104" && /^\d{3}$/.test(directValue(protocol, "cStat") || "") && directValue(protocol, "tpAmb") === String(expected.environment) && directValue(protocol, "chNFe") === expected.accessKey;
+}
+
 // erp/src/pages/utils/nfe/invoiceLineSnapshot.ts
 var decodeXml = (value) => value.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
 var childText = (xml, tag) => {
@@ -2216,10 +2374,10 @@ function parseAuthorizedInvoiceLines(xml) {
 }
 
 // api/nfe/fiscalXmlAudit.ts
-var import_xmldom4 = require("@xmldom/xmldom");
+var import_xmldom5 = require("@xmldom/xmldom");
 var import_xml_crypto2 = require("xml-crypto");
 function createStrictXmlParser(parseErrors) {
-  return new import_xmldom4.DOMParser({
+  return new import_xmldom5.DOMParser({
     errorHandler: (level, message) => {
       if (level === "warning" && String(message).includes("errorHandler") && String(message).includes("deprecated"))
         return;
@@ -2260,7 +2418,7 @@ function assertNfeSignature(xml, expectedCertificatePem) {
     getCertFromKeyInfo: import_xml_crypto2.SignedXml.getCertFromKeyInfo,
     ...expectedCertificatePem ? { publicCert: expectedCertificatePem } : {}
   });
-  verifier.loadSignature(signature);
+  verifier.loadSignature(signature.toString());
   if (!verifier.checkSignature(xml))
     throw new Error("A assinatura XMLDSig n\xE3o confere com o conte\xFAdo final do XML fiscal.");
 }
@@ -2648,6 +2806,38 @@ function validateEstornoItems(params) {
   return null;
 }
 
+// api/nfe/consultAuthorizedDocument.ts
+var import_xmldom6 = require("@xmldom/xmldom");
+function matchesConsultedDocument(response, doc, currentStatus = "100") {
+  try {
+    if (/<!DOCTYPE|<!ENTITY/i.test(response)) return false;
+    const errors = [];
+    const xml = new import_xmldom6.DOMParser({
+      errorHandler: (level, message) => {
+        if (level === "warning" && String(message).includes("errorHandler") && String(message).includes("deprecated")) return;
+        errors.push(String(message));
+      }
+    }).parseFromString(response, "text/xml");
+    if (!xml || errors.length) return false;
+    const results = xml.getElementsByTagNameNS("*", "retConsSitNFe");
+    if (results.length !== 1) return false;
+    const result = results[0];
+    const directValue = (element, name) => {
+      const children2 = Array.from(element.childNodes).filter(
+        (node) => node.nodeType === 1 && "localName" in node && node.localName === name
+      );
+      return children2.length === 1 ? children2[0].textContent?.trim() : void 0;
+    };
+    const protocols = result.getElementsByTagNameNS("*", "infProt");
+    if (currentStatus === "217") return protocols.length === 0 && directValue(result, "tpAmb") === String(doc.ambiente) && directValue(result, "chNFe") === doc.chave_acesso && directValue(result, "cStat") === "217";
+    return protocols.length === 1 && [result, protocols[0]].every(
+      (element) => directValue(element, "tpAmb") === String(doc.ambiente) && directValue(element, "chNFe") === doc.chave_acesso
+    ) && directValue(result, "cStat") === currentStatus && directValue(protocols[0], "cStat") === "100" && directValue(protocols[0], "nProt") === doc.numero_protocolo;
+  } catch {
+    return false;
+  }
+}
+
 // api/nfe/operation-draft/draftPersistence.ts
 async function consultDraftKey(accessKey, environment, certificate) {
   const queryXml = `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${environment}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${accessKey}</chNFe></consSitNFe>`;
@@ -2673,31 +2863,48 @@ async function persistDraftAuthorized(params) {
   } = params;
   const authorization = parseSefazAuthorization(responseXml);
   const protocolNumber = authorization.protocolNumber;
-  if (!authorization.authorized || !protocolNumber || !/^\d{15}$/.test(protocolNumber)) {
-    throw new Error("Consulta n\xE3o confirmou autoriza\xE7\xE3o e protocolo v\xE1lido da NF-e.");
+  if (!authorization.authorized || !protocolNumber || !matchesSefazAuthorization(responseXml, {
+    accessKey: authorizedAccessKey,
+    environment,
+    protocolNumber
+  })) {
+    return res.status(202).json({
+      success: false,
+      pending: true,
+      reconciliationRequired: true,
+      accessKey: authorizedAccessKey,
+      error: "A resposta recebida n\xE3o confirma a identidade e o protocolo desta nota. Consulte a mesma tentativa; n\xE3o retransmita."
+    });
   }
   const itemSnapshot = getPersistableItems(authorizedSignedXml, lines);
-  const { data: documentId, error: persistError } = await db.rpc(
-    "persist_authorized_nfe_operation_draft",
-    {
-      p_draft_id: draft.id,
-      p_document_id: draft.document_id || draft.id,
-      p_number: Number(authorizedAccessKey.slice(25, 34)),
-      p_series: String(Number(authorizedAccessKey.slice(22, 25))),
-      p_access_key: authorizedAccessKey,
-      p_signed_xml: authorizedSignedXml,
-      p_sefaz_response_xml: responseXml,
-      p_protocol_number: protocolNumber,
-      p_protocol_date: authorization.protocolDate ? new Date(authorization.protocolDate).toISOString() : null,
-      p_status: environment === 1 ? "autorizada" : "homologada",
-      p_status_reason: authorization.xMotivo || "Autorizada pela SEFAZ.",
-      p_items: itemSnapshot
-    }
-  );
-  if (persistError || !documentId) {
+  const expectedDocumentId = draft.document_id || draft.id;
+  let documentId = null;
+  let persistenceConfirmed = false;
+  try {
+    const result = await db.rpc(
+      "persist_authorized_nfe_operation_draft",
+      {
+        p_draft_id: draft.id,
+        p_document_id: expectedDocumentId,
+        p_number: Number(authorizedAccessKey.slice(25, 34)),
+        p_series: String(Number(authorizedAccessKey.slice(22, 25))),
+        p_access_key: authorizedAccessKey,
+        p_signed_xml: authorizedSignedXml,
+        p_sefaz_response_xml: responseXml,
+        p_protocol_number: protocolNumber,
+        p_protocol_date: authorization.protocolDate ? new Date(authorization.protocolDate).toISOString() : null,
+        p_status: environment === 1 ? "autorizada" : "homologada",
+        p_status_reason: authorization.xMotivo || "Autorizada pela SEFAZ.",
+        p_items: itemSnapshot
+      }
+    );
+    documentId = result.data;
+    persistenceConfirmed = !result.error && documentId === expectedDocumentId;
+  } catch {
+  }
+  if (!persistenceConfirmed || documentId !== expectedDocumentId) {
     console.error(
-      "[NF-e Draft] SEFAZ autorizou, mas a RPC de persist\xEAncia falhou:",
-      persistError?.message || "sem id"
+      "[NF-e Draft] SEFAZ autorizou, mas a persist\xEAncia local n\xE3o foi confirmada."
     );
     return res.status(503).json({
       success: true,
@@ -2759,12 +2966,35 @@ async function reconcileStoredDraftAttempt(params) {
   const {
     res,
     db,
-    draft,
+    draft: requestedDraft,
     lines,
     environment,
     certificate,
     allowRetryAfterNotFound
   } = params;
+  const { data: draft, error: draftError } = await db.from("nfe_operation_drafts").select("*").eq("id", requestedDraft.id).maybeSingle();
+  if (draftError || !draft || draft.environment !== environment || draft.original_document_id !== requestedDraft.original_document_id || draft.return_order_id !== requestedDraft.return_order_id) {
+    return res.status(503).json({
+      success: false,
+      pending: true,
+      error: "N\xE3o foi poss\xEDvel confirmar a tentativa fiscal atual. Atualize a situa\xE7\xE3o antes de repetir."
+    });
+  }
+  if (draft.status === "authorized" && draft.document_id) {
+    return res.status(200).json({
+      success: true,
+      status: "authorized",
+      documentId: draft.document_id,
+      accessKey: draft.access_key
+    });
+  }
+  if (!["transmitting", "unknown"].includes(draft.status)) {
+    return res.status(409).json({
+      success: false,
+      pending: true,
+      error: "A tentativa fiscal mudou durante a consulta. Atualize a situa\xE7\xE3o antes de continuar."
+    });
+  }
   if (!draft.access_key || !draft.signed_xml) {
     return res.status(409).json({
       success: false,
@@ -2773,6 +3003,7 @@ async function reconcileStoredDraftAttempt(params) {
     });
   }
   let queryXml;
+  const consultationStartedAt = Date.now();
   try {
     queryXml = await consultDraftKey(draft.access_key, environment, certificate);
   } catch (error) {
@@ -2790,6 +3021,19 @@ async function reconcileStoredDraftAttempt(params) {
   const situation = parseSefazNfeSituation(queryXml);
   const recoveryDecision = decideOperationDraftRecovery(situation.cStat, situation.state);
   if (recoveryDecision === "authorized") {
+    const protocol = draft.protocol_number || parseSefazAuthorization(queryXml).protocolNumber;
+    if (!/^\d{15}$/.test(protocol || "") || !matchesConsultedDocument(queryXml, {
+      ambiente: environment,
+      chave_acesso: draft.access_key,
+      numero_protocolo: protocol || null
+    })) {
+      return res.status(202).json({
+        success: false,
+        pending: true,
+        accessKey: draft.access_key,
+        error: "A resposta da consulta n\xE3o confirma a chave, o ambiente e o protocolo desta nota. Consulte novamente."
+      });
+    }
     return persistDraftAuthorized({
       res,
       db,
@@ -2802,7 +3046,28 @@ async function reconcileStoredDraftAttempt(params) {
     });
   }
   if (recoveryDecision === "confirmed_not_found" && allowRetryAfterNotFound) {
-    const { data: ready, error } = await db.from("nfe_operation_drafts").update({ status: "ready", updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", draft.id).in("status", ["transmitting", "unknown"]).select("id").maybeSingle();
+    if (!matchesConsultedDocument(queryXml, {
+      ambiente: environment,
+      chave_acesso: draft.access_key,
+      numero_protocolo: null
+    }, "217")) {
+      return res.status(202).json({
+        success: false,
+        pending: true,
+        accessKey: draft.access_key,
+        error: "A resposta da consulta n\xE3o corresponde \xE0 chave e ao ambiente desta nota. A tentativa foi preservada."
+      });
+    }
+    const transmittedAt = Date.parse(draft.transmitted_at || "");
+    if (!Number.isFinite(transmittedAt) || consultationStartedAt - transmittedAt < 3e4) {
+      return res.status(202).json({
+        success: false,
+        pending: true,
+        accessKey: draft.access_key,
+        error: "A transmiss\xE3o ainda pode estar em andamento. Aguarde e consulte novamente; nenhuma repeti\xE7\xE3o foi liberada."
+      });
+    }
+    const { data: ready, error } = await db.from("nfe_operation_drafts").update({ status: "ready", updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", draft.id).eq("access_key", draft.access_key).eq("updated_at", draft.updated_at).in("status", ["transmitting", "unknown"]).select("id").maybeSingle();
     if (error || !ready) {
       return res.status(503).json({
         success: false,
@@ -3132,142 +3397,162 @@ async function handler(req, res) {
     }
     let accessKey = draft.access_key;
     let signedXml = draft.signed_xml;
-    let nfeNumber;
-    let series;
+    let nfeNumber = 0;
+    let series = "";
+    let transmissionVersion = "";
     if (!accessKey || !signedXml) {
-      const issuedAt = brazilTimestamp(/* @__PURE__ */ new Date());
-      const sourceAuthorizedAt = getAuthorizedAt(String(validatedSource.xml_protocolo || ""), "");
-      const fiscalPeriod = (value) => value.match(/^(\d{4}-\d{2})/)?.[1] || "";
-      const periodAdjustmentText = String(review.period_adjustment_text || "").trim();
-      if (draft.operation_kind === "estorno" && (review.apportionment_review_confirmed !== true || !fiscalPeriod(sourceAuthorizedAt) || !fiscalPeriod(issuedAt) || fiscalPeriod(issuedAt) !== fiscalPeriod(sourceAuthorizedAt) && Array.from(periodAdjustmentText).length < 15)) {
-        return res.status(409).json({
-          success: false,
-          error: "Confirme a revis\xE3o do per\xEDodo de apura\xE7\xE3o e informe diferen\xE7as/acr\xE9scimos do art. 298, \xA72\xBA, ou justifique por que n\xE3o se aplicam."
+      for (let preparation = 0; preparation < 3; preparation++) {
+        const issuedAt = brazilTimestamp(/* @__PURE__ */ new Date());
+        const sourceAuthorizedAt = getAuthorizedAt(String(validatedSource.xml_protocolo || ""), "");
+        const fiscalPeriod = (value) => value.match(/^(\d{4}-\d{2})/)?.[1] || "";
+        const periodAdjustmentText = String(review.period_adjustment_text || "").trim();
+        if (draft.operation_kind === "estorno" && (review.apportionment_review_confirmed !== true || !fiscalPeriod(sourceAuthorizedAt) || !fiscalPeriod(issuedAt) || fiscalPeriod(issuedAt) !== fiscalPeriod(sourceAuthorizedAt) && Array.from(periodAdjustmentText).length < 15)) {
+          return res.status(409).json({
+            success: false,
+            error: "Confirme a revis\xE3o do per\xEDodo de apura\xE7\xE3o e informe diferen\xE7as/acr\xE9scimos do art. 298, \xA72\xBA, ou justifique por que n\xE3o se aplicam."
+          });
+        }
+        const responsibleTechnician = getResponsibleTechnicianConfig(process.env, environment);
+        if (!responsibleTechnician) {
+          return res.status(503).json({
+            success: false,
+            error: "Configura\xE7\xE3o obrigat\xF3ria de respons\xE1vel t\xE9cnico/CSRT da NF-e indispon\xEDvel no servidor."
+          });
+        }
+        const municipalityCode = String(settings.companyCMun || "").trim();
+        if (!/^\d{7}$/.test(municipalityCode)) {
+          return res.status(503).json({
+            success: false,
+            error: "C\xF3digo IBGE do munic\xEDpio do estabelecimento inv\xE1lido na configura\xE7\xE3o fiscal."
+          });
+        }
+        const sequence = resolveNfeSequenceSettings(settings, "55", environment);
+        series = sequence.series;
+        const minimumNumber = sequence.minimumNumber;
+        const { data: suggestedNumber, error: numberError } = await db.rpc("peek_nfe_outbound_number", {
+          p_issuer_cnpj: String(validatedSource.chave_acesso).slice(6, 20),
+          p_model: "55",
+          p_series: series,
+          p_environment: environment,
+          p_minimum: minimumNumber
         });
-      }
-      const responsibleTechnician = getResponsibleTechnicianConfig(process.env, environment);
-      if (!responsibleTechnician) {
-        return res.status(503).json({
-          success: false,
-          error: "Configura\xE7\xE3o obrigat\xF3ria de respons\xE1vel t\xE9cnico/CSRT da NF-e indispon\xEDvel no servidor."
+        if (numberError || typeof suggestedNumber !== "number" || suggestedNumber < 1) {
+          return res.status(503).json({
+            success: false,
+            numberReserved: false,
+            error: "N\xE3o foi poss\xEDvel consultar a sequ\xEAncia fiscal para preparar o rascunho."
+          });
+        }
+        nfeNumber = suggestedNumber;
+        const generatedKey = generateNfeAccessKey({
+          ufCode: "41",
+          yearMonth: `${issuedAt.slice(2, 4)}${issuedAt.slice(5, 7)}`,
+          cnpj: String(settings.companyCnpj || ""),
+          model: "55",
+          series,
+          number: nfeNumber,
+          emissionType: "1"
         });
-      }
-      const municipalityCode = String(settings.companyCMun || "").trim();
-      if (!/^\d{7}$/.test(municipalityCode)) {
-        return res.status(503).json({
-          success: false,
-          error: "C\xF3digo IBGE do munic\xEDpio do estabelecimento inv\xE1lido na configura\xE7\xE3o fiscal."
+        accessKey = generatedKey.accessKey;
+        const baseXml = buildReviewedFiscalOperationXml({
+          kind: draft.operation_kind === "estorno" ? "estorno" : "return",
+          returnMethod: draft.operation_kind === "return" && returnFiscalContext && "context" in returnFiscalContext ? returnFiscalContext.context.returnOrder.returnMethod || void 0 : void 0,
+          returnScenario: draft.operation_kind === "return" && returnFiscalContext && "context" in returnFiscalContext ? returnFiscalContext.context.operationContext : void 0,
+          environment,
+          originalEnvironment: environment,
+          originalStatus: environment === 1 ? "autorizada" : "homologada",
+          originalProtocol: String(validatedSource.numero_protocolo),
+          originalAccessKey: String(validatedSource.chave_acesso),
+          accessKey,
+          randomCode: generatedKey.randomCode,
+          checkDigit: generatedKey.checkDigit,
+          nfeNumber,
+          series,
+          issuedAt,
+          settings,
+          natureOfOperation: String(draft.nature_of_operation || ""),
+          originalOperationType: draft.operation_kind === "estorno" ? sourceOperationType : void 0,
+          destinationIndicator: draft.operation_kind === "estorno" ? sourceDestinationIndicator : void 0,
+          recipientXml: String(review.recipient_xml || ""),
+          totalsXml: String(review.totals_xml || ""),
+          transportXml: String(review.transport_xml || ""),
+          paymentXml: String(review.payment_xml || ""),
+          reason: String(review.reason || draft.reason || ""),
+          periodAdjustmentText,
+          lines: lines.map((line) => {
+            const original = originalById.get(line.original_document_item_id);
+            if (!original) {
+              throw new Error(`Item original ${line.fiscal_item_number} n\xE3o encontrado.`);
+            }
+            return {
+              originalItemNumber: Number(original.item_number),
+              originalProductCode: original.product_code,
+              originalDescription: original.description,
+              originalNcm: readTag2(String(original.product_xml), "NCM") || void 0,
+              originalCfop: originalItemCfop(original.product_xml) || void 0,
+              originalTaxesXml: original.taxes_xml,
+              originalUnitValue: Number(original.unit_value),
+              billedQuantity: Number(original.billed_quantity),
+              originalGrossValue: Number(original.gross_value),
+              originalDiscountValue: Number(original.discount_value),
+              quantity: Number(line.quantity),
+              grossValue: Number(line.gross_value),
+              discountValue: Number(line.discount_value),
+              cfop: String(line.reviewed_cfop),
+              productXml: String(line.reviewed_product_xml),
+              taxesXml: String(line.reviewed_taxes_xml)
+            };
+          })
         });
-      }
-      const sequence = resolveNfeSequenceSettings(settings, "55", environment);
-      series = sequence.series;
-      const minimumNumber = sequence.minimumNumber;
-      const { data: reservedNumber, error: numberError } = await db.rpc("reserve_next_nfe_number", {
-        p_modelo: "55",
-        p_serie: series,
-        p_ambiente: environment,
-        p_numero_minimo: minimumNumber
-      });
-      if (numberError || typeof reservedNumber !== "number" || reservedNumber < 1) {
-        return res.status(503).json({
-          success: false,
-          error: "N\xE3o foi poss\xEDvel reservar n\xFAmero fiscal seguro para o rascunho."
+        const xml = appendResponsibleTechnician(baseXml, accessKey, responsibleTechnician).replace(/>\s+</g, "><").trim();
+        await validateUnsignedNfeStructure(xml);
+        signedXml = signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64);
+        await validateNfeAgainstOfficialSchema(signedXml);
+        assertDraftXmlMatchesReview({
+          signedXml,
+          certificatePem: certificate.certPem,
+          draft,
+          review,
+          lines,
+          originalById,
+          sourceAccessKey: String(validatedSource.chave_acesso),
+          environment,
+          accessKey,
+          series,
+          number: nfeNumber,
+          sourceOperationType,
+          sourceDestinationIndicator
         });
-      }
-      nfeNumber = reservedNumber;
-      reservedNfeNumber = reservedNumber;
-      const generatedKey = generateNfeAccessKey({
-        ufCode: "41",
-        yearMonth: `${issuedAt.slice(2, 4)}${issuedAt.slice(5, 7)}`,
-        cnpj: String(settings.companyCnpj || ""),
-        model: "55",
-        series,
-        number: nfeNumber,
-        emissionType: "1"
-      });
-      accessKey = generatedKey.accessKey;
-      const baseXml = buildReviewedFiscalOperationXml({
-        kind: draft.operation_kind === "estorno" ? "estorno" : "return",
-        returnMethod: draft.operation_kind === "return" && returnFiscalContext && "context" in returnFiscalContext ? returnFiscalContext.context.returnOrder.returnMethod || void 0 : void 0,
-        returnScenario: draft.operation_kind === "return" && returnFiscalContext && "context" in returnFiscalContext ? returnFiscalContext.context.operationContext : void 0,
-        environment,
-        originalEnvironment: environment,
-        originalStatus: environment === 1 ? "autorizada" : "homologada",
-        originalProtocol: String(validatedSource.numero_protocolo),
-        originalAccessKey: String(validatedSource.chave_acesso),
-        accessKey,
-        randomCode: generatedKey.randomCode,
-        checkDigit: generatedKey.checkDigit,
-        nfeNumber,
-        series,
-        issuedAt,
-        settings,
-        natureOfOperation: draft.nature_of_operation,
-        originalOperationType: draft.operation_kind === "estorno" ? sourceOperationType : void 0,
-        destinationIndicator: draft.operation_kind === "estorno" ? sourceDestinationIndicator : void 0,
-        recipientXml: String(review.recipient_xml || ""),
-        totalsXml: String(review.totals_xml || ""),
-        transportXml: String(review.transport_xml || ""),
-        paymentXml: String(review.payment_xml || ""),
-        reason: String(review.reason || draft.reason || ""),
-        periodAdjustmentText,
-        lines: lines.map((line) => {
-          const original = originalById.get(line.original_document_item_id);
-          if (!original) {
-            throw new Error(`Item original ${line.fiscal_item_number} n\xE3o encontrado.`);
-          }
-          return {
-            originalItemNumber: Number(original.item_number),
-            originalProductCode: original.product_code,
-            originalDescription: original.description,
-            originalNcm: readTag2(String(original.product_xml), "NCM") || void 0,
-            originalCfop: originalItemCfop(original.product_xml) || void 0,
-            originalTaxesXml: original.taxes_xml,
-            originalUnitValue: Number(original.unit_value),
-            billedQuantity: Number(original.billed_quantity),
-            originalGrossValue: Number(original.gross_value),
-            originalDiscountValue: Number(original.discount_value),
-            quantity: Number(line.quantity),
-            grossValue: Number(line.gross_value),
-            discountValue: Number(line.discount_value),
-            cfop: String(line.reviewed_cfop),
-            productXml: String(line.reviewed_product_xml),
-            taxesXml: String(line.reviewed_taxes_xml)
-          };
-        })
-      });
-      const xml = appendResponsibleTechnician(baseXml, accessKey, responsibleTechnician).replace(/>\s+</g, "><").trim();
-      await validateUnsignedNfeStructure(xml);
-      signedXml = signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64);
-      await validateNfeAgainstOfficialSchema(signedXml);
-      assertDraftXmlMatchesReview({
-        signedXml,
-        certificatePem: certificate.certPem,
-        draft,
-        review,
-        lines,
-        originalById,
-        sourceAccessKey: String(validatedSource.chave_acesso),
-        environment,
-        accessKey,
-        series,
-        number: nfeNumber,
-        sourceOperationType,
-        sourceDestinationIndicator
-      });
-      const { data: claimed, error: claimError } = await db.from("nfe_operation_drafts").update({
-        status: "transmitting",
-        access_key: accessKey,
-        signed_xml: signedXml,
-        transmitted_at: (/* @__PURE__ */ new Date()).toISOString(),
-        updated_at: (/* @__PURE__ */ new Date()).toISOString()
-      }).eq("id", draft.id).eq("status", "ready").select("id").maybeSingle();
-      if (claimError || !claimed) {
-        return res.status(409).json({
-          success: false,
-          pending: true,
-          error: "Outro processo alterou este rascunho. Consulte a chave/estado antes de repetir."
-        });
+        let prepared = null;
+        try {
+          prepared = await db.rpc("prepare_nfe_operation_attempt", {
+            p_draft_id: draft.id,
+            p_expected_updated_at: draft.updated_at,
+            p_expected_review_data: review,
+            p_expected_lines: lines,
+            p_signed_xml: signedXml,
+            p_access_key: accessKey,
+            p_minimum_number: minimumNumber
+          });
+        } catch {
+          return res.status(503).json({
+            success: false,
+            pending: true,
+            error: "A grava\xE7\xE3o da tentativa n\xE3o foi confirmada. Atualize a situa\xE7\xE3o fiscal antes de repetir; nenhuma transmiss\xE3o foi iniciada por esta requisi\xE7\xE3o."
+          });
+        }
+        const { data: claimed, error: claimError } = prepared;
+        if (claimError?.message?.includes("FISCAL_SEQUENCE_CHANGED") && preparation < 2) continue;
+        if (claimError || claimed?.created !== true || claimed.draftId !== draft.id || claimed.accessKey !== accessKey || claimed.number !== nfeNumber || !claimed.updatedAt) {
+          return res.status(409).json({
+            success: false,
+            pending: true,
+            error: claimError?.message?.includes("FISCAL_SEQUENCE_CHANGED") ? "A numera\xE7\xE3o mudou durante a prepara\xE7\xE3o. Atualize a situa\xE7\xE3o fiscal antes de repetir." : "A prepara\xE7\xE3o n\xE3o foi confirmada ou outro processo alterou este rascunho. Atualize a situa\xE7\xE3o fiscal antes de repetir."
+          });
+        }
+        reservedNfeNumber = nfeNumber;
+        transmissionVersion = claimed.updatedAt;
+        break;
       }
     } else {
       nfeNumber = Number(accessKey.slice(25, 34));
@@ -3295,7 +3580,7 @@ async function handler(req, res) {
         sourceOperationType,
         sourceDestinationIndicator
       });
-      const { data: claimed, error: claimError } = await db.from("nfe_operation_drafts").update({ status: "transmitting", updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", draft.id).eq("status", "ready").select("id").maybeSingle();
+      const { data: claimed, error: claimError } = await db.from("nfe_operation_drafts").update({ status: "transmitting", transmitted_at: (/* @__PURE__ */ new Date()).toISOString(), updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", draft.id).eq("status", "ready").eq("access_key", accessKey).eq("updated_at", draft.updated_at).select("id,updated_at").maybeSingle();
       if (claimError || !claimed) {
         return res.status(409).json({
           success: false,
@@ -3303,7 +3588,9 @@ async function handler(req, res) {
           error: "Outro processo iniciou o rascunho. Consulte o estado antes de repetir."
         });
       }
+      transmissionVersion = claimed.updated_at;
     }
+    if (!accessKey || !signedXml) throw new Error("Tentativa fiscal sem chave/XML confirmados.");
     assertDraftXmlMatchesReview({
       signedXml,
       certificatePem: certificate.certPem,
@@ -3320,6 +3607,19 @@ async function handler(req, res) {
       sourceDestinationIndicator
     });
     const batchXml = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${Date.now().toString().slice(-15)}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
+    try {
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      const { data: started, error: startError } = await db.from("nfe_operation_drafts").update({ transmitted_at: now, updated_at: now }).eq("id", draft.id).eq("status", "transmitting").eq("access_key", accessKey).eq("updated_at", transmissionVersion).select("id,updated_at").maybeSingle();
+      if (startError || !started) throw new Error("TRANSMISSION_START_NOT_CONFIRMED");
+      transmissionVersion = started.updated_at;
+    } catch {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        accessKey,
+        error: "N\xE3o foi poss\xEDvel confirmar o in\xEDcio desta transmiss\xE3o. Atualize a situa\xE7\xE3o fiscal antes de repetir."
+      });
+    }
     let sefazXml;
     try {
       sefazXml = await sendSoapToSefaz({
@@ -3330,7 +3630,7 @@ async function handler(req, res) {
         privateKeyPem: certificate.privateKeyPem
       });
     } catch (error) {
-      await db.from("nfe_operation_drafts").update({ status: "unknown", updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", draft.id).eq("status", "transmitting");
+      await db.from("nfe_operation_drafts").update({ status: "unknown", updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", draft.id).eq("updated_at", transmissionVersion).eq("status", "transmitting");
       console.error(
         "[NF-e Draft] Conex\xE3o de autoriza\xE7\xE3o interrompida:",
         error instanceof Error ? error.message : "erro desconhecido"
@@ -3358,12 +3658,12 @@ async function handler(req, res) {
         authorizedSignedXml: signedXml
       });
     }
-    if (authorization.pending || authorization.cStat === "204") {
+    if (isUncertainAuthorization(authorization.cStat, authorization.pending) || !matchesSefazTransmissionResponse(sefazXml, { accessKey, environment })) {
       await db.from("nfe_operation_drafts").update({
         status: "unknown",
         sefaz_response_xml: sefazXml,
         updated_at: (/* @__PURE__ */ new Date()).toISOString()
-      }).eq("id", draft.id).eq("status", "transmitting");
+      }).eq("id", draft.id).eq("updated_at", transmissionVersion).eq("status", "transmitting");
       return reconcileStoredDraftAttempt({
         res,
         db,
@@ -3374,18 +3674,24 @@ async function handler(req, res) {
         allowRetryAfterNotFound: false
       });
     }
-    const { error: rejectionSyncError } = await db.from("nfe_operation_drafts").update({
+    const { data: rejectedDraft, error: rejectionSyncError } = await db.from("nfe_operation_drafts").update({
       status: "rejected",
       sefaz_response_xml: sefazXml,
       updated_at: (/* @__PURE__ */ new Date()).toISOString()
-    }).eq("id", draft.id).eq("status", "transmitting");
-    if (rejectionSyncError) {
-      console.error("[NF-e Draft] Rejei\xE7\xE3o SEFAZ n\xE3o persistida:", rejectionSyncError.message);
+    }).eq("id", draft.id).eq("updated_at", transmissionVersion).eq("status", "transmitting").select("id").maybeSingle();
+    if (rejectionSyncError || !rejectedDraft) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        reconciliationRequired: true,
+        accessKey,
+        error: "O retorno fiscal n\xE3o foi confirmado na tentativa atual. Atualize a situa\xE7\xE3o antes de continuar; n\xE3o retransmita."
+      });
     }
-    return res.status(authorization.pending ? 202 : 422).json({
+    return res.status(422).json({
       success: false,
-      pending: authorization.pending,
-      status: rejectionSyncError ? "unknown" : "rejected",
+      pending: false,
+      status: "rejected",
       cStat: authorization.cStat,
       xMotivo: authorization.xMotivo,
       error: authorization.xMotivo || "A SEFAZ n\xE3o autorizou o documento."
@@ -3399,7 +3705,7 @@ async function handler(req, res) {
     const schemaFailure = message.startsWith("XML da NF-e n\xE3o passou pelo schema oficial");
     return res.status(schemaFailure ? 422 : 500).json({
       success: false,
-      ...reservedNfeNumber ? { numberReserved: true, reservedNumber: reservedNfeNumber } : {},
+      ...reservedNfeNumber ? { numberReserved: true, reservedNumber: reservedNfeNumber } : { numberReserved: false },
       error: schemaFailure && reservedNfeNumber ? `${message} O n\xFAmero ${reservedNfeNumber} j\xE1 foi consumido pela sequ\xEAncia; nenhuma transmiss\xE3o foi feita. Uma nova tentativa reservar\xE1 outro n\xFAmero.` : message
     });
   }

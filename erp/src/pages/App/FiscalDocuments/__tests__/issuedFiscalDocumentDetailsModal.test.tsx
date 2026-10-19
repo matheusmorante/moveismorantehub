@@ -501,7 +501,7 @@ describe('IssuedFiscalDocumentDetailsModal', () => {
             value: '2300.00',
             card: {
               brand: 'Visa',
-              integration: 'TEF / Integrado',
+              integration: 'Integrado',
               authorization: '987654',
             },
           },
@@ -571,7 +571,7 @@ describe('IssuedFiscalDocumentDetailsModal', () => {
     expect(screen.getByText('Cartão de crédito')).toBeTruthy();
     expect(screen.getByText('Bandeira:')).toBeTruthy();
     expect(screen.getByText('Visa')).toBeTruthy();
-    expect(screen.getByText(/TEF \/ Integrado/)).toBeTruthy();
+    expect(screen.getByText(/^Integrado$/)).toBeTruthy();
     expect(screen.getByText('987654')).toBeTruthy();
     expect(screen.getByText('Troco em dinheiro')).toBeTruthy();
     expect(screen.getByText(/50,00/)).toBeTruthy();

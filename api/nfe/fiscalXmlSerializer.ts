@@ -229,24 +229,12 @@ export function serializeFiscalDocument(
       );
     })
     .join('')}${t.change ? tag('vTroco', money(t.change)) : ''}</pag>`;
-  const billing =
-    document.model === '55' && document.billingInstallments?.length
-      ? `<cobr>${document.billingInstallments
-          .map((installment) => {
-            if (!/^\d{1,60}$/.test(installment.number))
-              throw new Error('Número da duplicata inválido.');
-            if (!Number.isFinite(installment.amount) || installment.amount <= 0)
-              throw new Error('Valor da duplicata inválido.');
-            return (
-              `<dup>${tag('nDup', installment.number)}` +
-              `${installment.dueDate ? tag('dVenc', dateOnly(installment.dueDate, 'Data de vencimento')) : ''}` +
-              `${tag('vDup', money(installment.amount))}</dup>`
-            );
-          })
-          .join('')}</cobr>`
-      : '';
-  if (billing) {
-    const billingCents = document.billingInstallments!.reduce(
+  let billing = '';
+  if (document.model === '55' && document.billingInstallments?.length) {
+    const installments = document.billingInstallments;
+    if (installments.length > 120)
+      throw new Error('A cobrança excede o limite fiscal de 120 parcelas.');
+    const billingCents = installments.reduce(
       (sum, installment) => sum + Math.round(installment.amount * 100),
       0
     );
@@ -257,6 +245,24 @@ export function serializeFiscalDocument(
     );
     if (billingCents !== deferredCents)
       throw new Error('As duplicatas não correspondem aos valores informados a prazo.');
+    const emissionDate = identity.issuedAt.slice(0, 10);
+    const lastDueDate = `${Number(emissionDate.slice(0, 4)) + 10}${emissionDate.slice(4)}`;
+    let previousDueDate = emissionDate;
+    const duplicates = installments.map((installment, index) => {
+      if (installment.number !== String(index + 1).padStart(3, '0'))
+        throw new Error('Número da duplicata deve ter três algarismos sequenciais.');
+      if (!Number.isFinite(installment.amount) || installment.amount <= 0)
+        throw new Error('Valor da duplicata inválido.');
+      const dueDate = dateOnly(installment.dueDate || '', 'Data de vencimento da duplicata');
+      if (dueDate < previousDueDate || dueDate > lastDueDate)
+        throw new Error('Data de vencimento da duplicata deve respeitar a emissão, a ordem das parcelas e o limite de dez anos.');
+      if (installments.length === 1 && dueDate === emissionDate)
+        throw new Error('A cobrança com parcela única não deve ter vencimento na data da emissão.');
+      previousDueDate = dueDate;
+      return `<dup>${tag('nDup', installment.number)}${tag('dVenc', dueDate)}${tag('vDup', money(installment.amount))}</dup>`;
+    }).join('');
+    const netBilling = money(billingCents / 100);
+    billing = `<cobr><fat>${tag('nFat', identity.number)}${tag('vOrig', netBilling)}${tag('vLiq', netBilling)}</fat>${duplicates}</cobr>`;
   }
   const transporter = operation.transporter;
   if (

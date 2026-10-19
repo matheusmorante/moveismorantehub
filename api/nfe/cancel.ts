@@ -100,6 +100,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
     const doc = docValidation.doc;
+    const cancellationDocument = {
+      id: doc.id,
+      ambiente: Number(doc.ambiente),
+      chave_acesso: doc.chave_acesso,
+    };
 
     // 2. Consulta de eventos de cancelamento prévios (110111)
     const { data: priorEvents, error: priorError } = await supabase
@@ -124,9 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const reconciliation = await reconcilePriorCancellationEvent({
         supabase,
         doc: {
-          id: doc.id,
-          ambiente: Number(doc.ambiente),
-          chave_acesso: doc.chave_acesso,
+          ...cancellationDocument,
           modelo: String(doc.modelo),
           numero_protocolo: doc.numero_protocolo,
         },
@@ -285,7 +288,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     } catch {
       // Falha de transporte deixa o evento reservado intacto em estado pendente/incerto
-      await persistCancellationResult(supabase, doc, event.id, '');
+      await persistCancellationResult(supabase, cancellationDocument, event.id, '');
       return res.status(502).json({
         success: false,
         pending: true,
@@ -294,7 +297,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 10. Persistência transacional do resultado e retorno ao cliente
-    const persisted = await persistCancellationResult(supabase, doc, event.id, responseXml);
+    const persisted = await persistCancellationResult(supabase, cancellationDocument, event.id, responseXml);
     return res.status(persisted.status).json(persisted.body);
   } catch (error: any) {
     console.error(

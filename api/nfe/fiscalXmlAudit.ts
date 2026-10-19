@@ -224,7 +224,7 @@ function compareTaxGroup(
   if (tax.group === 'ICMS') {
     expectedFields.add('orig');
     if (tax.codeSystem === 'CST' && tax.code === '00')
-      ['modBC', 'vBC', 'pICMS', 'vICMS'].forEach((field) => expectedFields.add(field));
+      ['modBC', 'vBC', 'pICMS', 'vICMS'].forEach((field) => { expectedFields.add(field); });
     else if (tax.codeSystem === 'CSOSN') {
       const icmsValue = tax.values.vICMS;
       if (typeof icmsValue === 'number' && icmsValue !== 0)
@@ -387,7 +387,7 @@ export function assertNfeSignature(xml: string, expectedCertificatePem?: string)
     getCertFromKeyInfo: SignedXml.getCertFromKeyInfo,
     ...(expectedCertificatePem ? { publicCert: expectedCertificatePem } : {}),
   });
-  verifier.loadSignature(signature);
+  verifier.loadSignature(signature.toString());
   if (!verifier.checkSignature(xml))
     throw new Error('A assinatura XMLDSig não confere com o conteúdo final do XML fiscal.');
 }

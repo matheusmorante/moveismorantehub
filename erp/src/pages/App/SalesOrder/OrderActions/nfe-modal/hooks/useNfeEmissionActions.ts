@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import type Item from '@/pages/types/items.type';
 import type Order from '@/pages/types/order.type';
+import { findPendingFiscalEmission } from '@/pages/utils/nfe/nfeEmissionRequestState';
 import type { FiscalAcquisitionPurpose } from '@/pages/types/order.type';
 import {
   HML_INTERSTATE_MATRIX_NOT_APPROVED,
@@ -143,6 +144,10 @@ export function useNfeEmissionActions({
     operationOwner.current = { orderId: order?.id, environment, operatorId };
   }
   const orderId = order?.id;
+  const [restoration, setRestoration] = useState<{ owner: object; loading: boolean; error?: string } | null>(null);
+  const isRestoringAttempt = Boolean(orderId && canOperateFiscal &&
+    (!restoration || restoration.owner !== operationOwner.current || restoration.loading));
+  const attemptRestorationError = restoration?.owner === operationOwner.current ? restoration.error : undefined;
   useEffect(() => {
     setEmissionResult(null);
     setXmlPreview(null);
@@ -150,7 +155,31 @@ export function useNfeEmissionActions({
     setFiscalFieldError(null);
     setIsRestartingHml(false);
     lastEmissionProductionConfirmation.current = false;
-  }, [orderId, environment, operatorId]);
+    const owner = operationOwner.current;
+    let current = true;
+    if (!orderId || !canOperateFiscal) {
+      setRestoration({ owner, loading: false });
+      return;
+    }
+    setRestoration({ owner, loading: true });
+    void findPendingFiscalEmission(String(orderId), environment).then(attempt => {
+      if (!current || operationOwner.current !== owner) return;
+      if (attempt) setEmissionResult({
+        ...attempt, success: false, pending: true, numberReserved: true,
+        databaseReason: 'ALREADY_ACTIVE_FISCAL_ATTEMPT',
+        error: 'Já existe uma tentativa fiscal em andamento para este pedido. Consulte a tentativa original antes de continuar.',
+      });
+      setRestoration({ owner, loading: false });
+    }).catch(error => {
+      if (!current || operationOwner.current !== owner) return;
+      const message = safeFiscalIssueMessage(error instanceof Error ? error.message : '',
+        'Não foi possível conferir as tentativas fiscais anteriores. Feche e reabra a emissão para consultar novamente.');
+      setEmissionResult({ success: false, pending: true, orderId: String(orderId), environment,
+        error: message, technicalDetails: { apiCode: 'FISCAL_RECOVERY_UNAVAILABLE' } });
+      setRestoration({ owner, loading: false, error: message });
+    });
+    return () => { current = false; };
+  }, [orderId, environment, operatorId, canOperateFiscal]);
   useEffect(() => () => {
     operationOwner.current = { ...operationOwner.current };
   }, []);
@@ -219,6 +248,13 @@ export function useNfeEmissionActions({
     }
     if (!order) {
       toast.error('O pedido não está disponível para emissão fiscal.');
+      return;
+    }
+
+    if (isRestoringAttempt || attemptRestorationError || (emissionResult?.pending && !isRetry)) {
+      toast.info(attemptRestorationError || (isRestoringAttempt
+        ? 'Aguarde a conferência das tentativas fiscais anteriores.'
+        : 'Consulte a tentativa fiscal em andamento antes de continuar.'));
       return;
     }
 
@@ -650,6 +686,8 @@ export function useNfeEmissionActions({
 
   return {
     isSubmitting,
+    isRestoringAttempt,
+    attemptRestorationError,
     isPreparingPreview,
     isRestartingHml,
     emissionResult,

@@ -212,6 +212,117 @@ function signFiscalEventXml(xml, privateKeyPem, certDerBase64, elementName) {
 var import_axios = __toESM(require("axios"));
 var import_node_perf_hooks = require("node:perf_hooks");
 
+// api/nfe/sefazTransportDiagnostic.ts
+function buildSefazTransportDiagnostic(error, contextOverride) {
+  const item = error && typeof error === "object" ? error : {};
+  const allowed = [
+    "EPROTO",
+    "ECONNRESET",
+    "ECONNABORTED",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "ERR_BAD_RESPONSE",
+    "ERR_BAD_REQUEST",
+    "ERR_CANCELED",
+    "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+    "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
+    "CERT_HAS_EXPIRED",
+    "DEPTH_ZERO_SELF_SIGNED_CERT",
+    "SELF_SIGNED_CERT_IN_CHAIN",
+    "ERR_TLS_CERT_ALTNAME_INVALID",
+    "A1_KEY_MISMATCH",
+    "A1_CERTIFICATE_EXPIRED",
+    "SEFAZ_SOAP_FAULT",
+    "SEFAZ_ENDPOINT_INVALID"
+  ];
+  const safeCode = (value) => typeof value === "string" && (allowed.includes(value) || /^(?:ERR_(?:SSL|TLS|OSSL)_[A-Z0-9_]{1,64}|UND_ERR_[A-Z0-9_]{1,64})$/.test(value)) ? value : "UNKNOWN_TRANSPORT_ERROR";
+  const code = typeof item.response?.data === "string" && /<(?:[\w-]+:)?Fault\b/i.test(item.response.data) ? "SEFAZ_SOAP_FAULT" : safeCode(item.code);
+  const status = item.response?.status;
+  const message = typeof item.message === "string" ? item.message.toLowerCase() : "";
+  const tlsReason = message.includes("alert unknown ca") ? "PEER_UNKNOWN_CA" : message.includes("alert certificate expired") ? "PEER_CERTIFICATE_EXPIRED" : message.includes("alert bad certificate") ? "PEER_BAD_CERTIFICATE" : message.includes("alert handshake failure") ? "PEER_HANDSHAKE_FAILURE" : void 0;
+  const category = code === "SEFAZ_SOAP_FAULT" ? "SOAP_FAULT" : ["A1_KEY_MISMATCH", "A1_CERTIFICATE_EXPIRED"].includes(code) || tlsReason === "PEER_BAD_CERTIFICATE" ? "MTLS_CLIENT_CERTIFICATE" : [
+    "ETIMEDOUT",
+    "ECONNABORTED",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT",
+    "UND_ERR_BODY_TIMEOUT"
+  ].includes(code) ? "TIMEOUT" : code === "ECONNRESET" ? "SOCKET_RESET" : ["ENOTFOUND", "EAI_AGAIN"].includes(code) ? "DNS_FAILURE" : ["ECONNREFUSED"].includes(code) ? "TCP_FAILURE" : code === "EPROTO" || /^(?:ERR_(?:SSL|TLS|OSSL)_|CERT_|UNABLE_|DEPTH_|SELF_SIGNED)/.test(code) ? "TLS_FAILURE" : Number.isInteger(status) ? "HTTP_ERROR" : "TRANSPORT_UNKNOWN";
+  const name = ["Error", "AxiosError", "TypeError", "SystemError"].includes(item.name) ? item.name : "Error";
+  const context = contextOverride || item.sefazTransportContext || {};
+  let endpoint;
+  let hostname;
+  try {
+    const url = new URL(context.endpoint);
+    if (url.protocol === "https:" && [
+      "nfe.sefa.pr.gov.br",
+      "nfce.sefa.pr.gov.br",
+      "homologacao.nfe.sefa.pr.gov.br",
+      "homologacao.nfce.sefa.pr.gov.br"
+    ].includes(url.hostname) && /^\/(?:nfe|nfce)\/[A-Za-z0-9]+$/.test(url.pathname)) {
+      endpoint = `${url.origin}${url.pathname}`;
+      hostname = url.hostname;
+    }
+  } catch {
+  }
+  const errno = typeof item.errno === "number" && Number.isInteger(item.errno) ? item.errno : allowed.includes(item.errno) ? item.errno : void 0;
+  const syscall = ["getaddrinfo", "connect", "read", "write", "send", "recv"].includes(item.syscall) ? item.syscall : void 0;
+  const causes = [];
+  let cause = item.cause;
+  for (let depth = 0; cause && typeof cause === "object" && depth < 2; depth++) {
+    causes.push({
+      code: safeCode(cause.code),
+      ...Number.isInteger(cause.errno) ? { errno: cause.errno } : {},
+      ...["getaddrinfo", "connect", "read", "write"].includes(cause.syscall) ? { syscall: cause.syscall } : {}
+    });
+    cause = cause.cause;
+  }
+  const peer = context.peerCertificate || {};
+  const safeCN = (value) => typeof value === "string" && /^[\w .,*()/:-]{1,160}$/.test(value) ? value : void 0;
+  const safeDate = (value) => typeof value === "string" && value.length <= 40 && Number.isFinite(Date.parse(value)) ? value : void 0;
+  const peerCertificate = {
+    subjectCN: safeCN(peer.subjectCN),
+    issuerCN: safeCN(peer.issuerCN),
+    validFrom: safeDate(peer.validFrom),
+    validTo: safeDate(peer.validTo),
+    fingerprint256: typeof peer.fingerprint256 === "string" && /^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/i.test(peer.fingerprint256) ? peer.fingerprint256 : void 0
+  };
+  return {
+    name,
+    code,
+    category,
+    message: `${category}: ${tlsReason || code}`,
+    ...Number.isInteger(status) && status >= 100 && status <= 599 ? { httpStatus: status } : {},
+    ...tlsReason ? { tlsReason } : {},
+    ...errno !== void 0 ? { errno } : {},
+    ...syscall ? { syscall } : {},
+    ...endpoint ? { endpoint, hostname } : {},
+    ...["dns", "connect", "tls", "request", "response"].includes(context.phase) ? { phase: context.phase } : {},
+    ...context.tlsProtocol === "TLSv1.2" || context.tlsProtocol === "TLSv1.3" ? { tlsProtocol: context.tlsProtocol } : {},
+    ...["55", "65"].includes(context.model) ? { model: context.model } : {},
+    ...[1, 2].includes(context.environment) ? { environment: context.environment } : {},
+    ...Object.values(peerCertificate).some((value) => value !== void 0) ? { peerCertificate } : {},
+    ...Number.isFinite(context.durationMs) && context.durationMs >= 0 ? { durationMs: Math.min(Math.round(context.durationMs), 6e5) } : {},
+    ...Number.isFinite(context.timeoutMs) && context.timeoutMs > 0 ? { timeoutMs: Math.min(Math.round(context.timeoutMs), 6e5) } : {},
+    ...causes.length ? { cause: causes } : {}
+  };
+}
+var SefazTransportError = class extends Error {
+  code;
+  diagnostic;
+  constructor(error, context) {
+    const diagnostic = buildSefazTransportDiagnostic(error, context);
+    super(diagnostic.message);
+    this.name = diagnostic.name;
+    this.code = diagnostic.code;
+    this.diagnostic = diagnostic;
+  }
+};
+function sefazTransportDiagnostic(error) {
+  return error instanceof SefazTransportError ? error.diagnostic : buildSefazTransportDiagnostic(error);
+}
+
 // api/nfe/sefazE2eSimulator.ts
 var OPERATIONAL_SUPABASE_REFS = /* @__PURE__ */ new Set([
   "hkoxhourxwlddgsfdgws",
@@ -364,12 +475,7 @@ async function sendSoapToSefaz(params) {
     }) : error;
     context.durationMs = Math.round(import_node_perf_hooks.performance.now() - startedAt);
     if (import_axios.default.isAxiosError(transportError) && transportError.response) context.phase = "response";
-    if (transportError && typeof transportError === "object" && Object.isExtensible(transportError))
-      Object.defineProperty(transportError, "sefazTransportContext", {
-        value: context,
-        configurable: true
-      });
-    throw transportError;
+    throw new SefazTransportError(transportError, context);
   } finally {
     httpsAgent.destroy();
   }
@@ -420,103 +526,6 @@ async function withNfeEmissionStage(stage, operation, attributes = {}) {
 
 // api/nfe/emit.ts
 var import_node_crypto11 = require("node:crypto");
-
-// api/nfe/sefazTransportDiagnostic.ts
-function sefazTransportDiagnostic(error) {
-  const item = error && typeof error === "object" ? error : {};
-  const allowed = [
-    "EPROTO",
-    "ECONNRESET",
-    "ECONNABORTED",
-    "ECONNREFUSED",
-    "ETIMEDOUT",
-    "ENOTFOUND",
-    "EAI_AGAIN",
-    "ERR_BAD_RESPONSE",
-    "ERR_BAD_REQUEST",
-    "ERR_CANCELED",
-    "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
-    "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
-    "CERT_HAS_EXPIRED",
-    "DEPTH_ZERO_SELF_SIGNED_CERT",
-    "SELF_SIGNED_CERT_IN_CHAIN",
-    "ERR_TLS_CERT_ALTNAME_INVALID",
-    "A1_KEY_MISMATCH",
-    "A1_CERTIFICATE_EXPIRED",
-    "SEFAZ_SOAP_FAULT",
-    "SEFAZ_ENDPOINT_INVALID"
-  ];
-  const safeCode = (value) => typeof value === "string" && (allowed.includes(value) || /^(?:ERR_(?:SSL|TLS|OSSL)_[A-Z0-9_]{1,64}|UND_ERR_[A-Z0-9_]{1,64})$/.test(value)) ? value : "UNKNOWN_TRANSPORT_ERROR";
-  const code = typeof item.response?.data === "string" && /<(?:[\w-]+:)?Fault\b/i.test(item.response.data) ? "SEFAZ_SOAP_FAULT" : safeCode(item.code);
-  const status = item.response?.status;
-  const message = typeof item.message === "string" ? item.message.toLowerCase() : "";
-  const tlsReason = message.includes("alert unknown ca") ? "PEER_UNKNOWN_CA" : message.includes("alert certificate expired") ? "PEER_CERTIFICATE_EXPIRED" : message.includes("alert bad certificate") ? "PEER_BAD_CERTIFICATE" : message.includes("alert handshake failure") ? "PEER_HANDSHAKE_FAILURE" : void 0;
-  const category = code === "SEFAZ_SOAP_FAULT" ? "SOAP_FAULT" : ["A1_KEY_MISMATCH", "A1_CERTIFICATE_EXPIRED"].includes(code) || tlsReason === "PEER_BAD_CERTIFICATE" ? "MTLS_CLIENT_CERTIFICATE" : [
-    "ETIMEDOUT",
-    "ECONNABORTED",
-    "UND_ERR_CONNECT_TIMEOUT",
-    "UND_ERR_HEADERS_TIMEOUT",
-    "UND_ERR_BODY_TIMEOUT"
-  ].includes(code) ? "TIMEOUT" : code === "ECONNRESET" ? "SOCKET_RESET" : ["ENOTFOUND", "EAI_AGAIN"].includes(code) ? "DNS_FAILURE" : ["ECONNREFUSED"].includes(code) ? "TCP_FAILURE" : code === "EPROTO" || /^(?:ERR_(?:SSL|TLS|OSSL)_|CERT_|UNABLE_|DEPTH_|SELF_SIGNED)/.test(code) ? "TLS_FAILURE" : Number.isInteger(status) ? "HTTP_ERROR" : "TRANSPORT_UNKNOWN";
-  const name = ["Error", "AxiosError", "TypeError", "SystemError"].includes(item.name) ? item.name : "Error";
-  const context = item.sefazTransportContext || {};
-  let endpoint;
-  let hostname;
-  try {
-    const url = new URL(context.endpoint);
-    if (url.protocol === "https:" && [
-      "nfe.sefa.pr.gov.br",
-      "nfce.sefa.pr.gov.br",
-      "homologacao.nfe.sefa.pr.gov.br",
-      "homologacao.nfce.sefa.pr.gov.br"
-    ].includes(url.hostname) && /^\/(?:nfe|nfce)\/[A-Za-z0-9]+$/.test(url.pathname)) {
-      endpoint = `${url.origin}${url.pathname}`;
-      hostname = url.hostname;
-    }
-  } catch {
-  }
-  const errno = typeof item.errno === "number" && Number.isInteger(item.errno) ? item.errno : allowed.includes(item.errno) ? item.errno : void 0;
-  const syscall = ["getaddrinfo", "connect", "read", "write", "send", "recv"].includes(item.syscall) ? item.syscall : void 0;
-  const causes = [];
-  let cause = item.cause;
-  for (let depth = 0; cause && typeof cause === "object" && depth < 2; depth++) {
-    causes.push({
-      code: safeCode(cause.code),
-      ...Number.isInteger(cause.errno) ? { errno: cause.errno } : {},
-      ...["getaddrinfo", "connect", "read", "write"].includes(cause.syscall) ? { syscall: cause.syscall } : {}
-    });
-    cause = cause.cause;
-  }
-  const peer = context.peerCertificate || {};
-  const safeCN = (value) => typeof value === "string" && /^[\w .,*()/:-]{1,160}$/.test(value) ? value : void 0;
-  const safeDate = (value) => typeof value === "string" && value.length <= 40 && Number.isFinite(Date.parse(value)) ? value : void 0;
-  const peerCertificate = {
-    subjectCN: safeCN(peer.subjectCN),
-    issuerCN: safeCN(peer.issuerCN),
-    validFrom: safeDate(peer.validFrom),
-    validTo: safeDate(peer.validTo),
-    fingerprint256: typeof peer.fingerprint256 === "string" && /^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/i.test(peer.fingerprint256) ? peer.fingerprint256 : void 0
-  };
-  return {
-    name,
-    code,
-    category,
-    message: `${category}: ${tlsReason || code}`,
-    ...Number.isInteger(status) && status >= 100 && status <= 599 ? { httpStatus: status } : {},
-    ...tlsReason ? { tlsReason } : {},
-    ...errno !== void 0 ? { errno } : {},
-    ...syscall ? { syscall } : {},
-    ...endpoint ? { endpoint, hostname } : {},
-    ...["dns", "connect", "tls", "request", "response"].includes(context.phase) ? { phase: context.phase } : {},
-    ...context.tlsProtocol === "TLSv1.2" || context.tlsProtocol === "TLSv1.3" ? { tlsProtocol: context.tlsProtocol } : {},
-    ...["55", "65"].includes(context.model) ? { model: context.model } : {},
-    ...[1, 2].includes(context.environment) ? { environment: context.environment } : {},
-    ...Object.values(peerCertificate).some((value) => value !== void 0) ? { peerCertificate } : {},
-    ...Number.isFinite(context.durationMs) && context.durationMs >= 0 ? { durationMs: Math.min(Math.round(context.durationMs), 6e5) } : {},
-    ...Number.isFinite(context.timeoutMs) && context.timeoutMs > 0 ? { timeoutMs: Math.min(Math.round(context.timeoutMs), 6e5) } : {},
-    ...causes.length ? { cause: causes } : {}
-  };
-}
 
 // erp/src/pages/utils/nfe/sefazResponseParser.ts
 function firstTag(xml, tag2) {
@@ -2452,7 +2461,9 @@ function compareTaxGroup(mismatches, itemNumber, tax, actualContainer) {
   if (tax.group === "ICMS") {
     expectedFields.add("orig");
     if (tax.codeSystem === "CST" && tax.code === "00")
-      ["modBC", "vBC", "pICMS", "vICMS"].forEach((field) => expectedFields.add(field));
+      ["modBC", "vBC", "pICMS", "vICMS"].forEach((field) => {
+        expectedFields.add(field);
+      });
     else if (tax.codeSystem === "CSOSN") {
       const icmsValue = tax.values.vICMS;
       if (typeof icmsValue === "number" && icmsValue !== 0)
@@ -2587,7 +2598,7 @@ function assertNfeSignature(xml, expectedCertificatePem) {
     getCertFromKeyInfo: import_xml_crypto2.SignedXml.getCertFromKeyInfo,
     ...expectedCertificatePem ? { publicCert: expectedCertificatePem } : {}
   });
-  verifier.loadSignature(signature);
+  verifier.loadSignature(signature.toString());
   if (!verifier.checkSignature(xml))
     throw new Error("A assinatura XMLDSig n\xE3o confere com o conte\xFAdo final do XML fiscal.");
 }
@@ -3067,15 +3078,12 @@ function serializeFiscalDocument(snapshot, document, ruleSet, identity) {
       requireCode(payment.card.integrationType, /^[12]$/, "Integra\xE7\xE3o cart\xE3o")
     ) + (payment.card.acquirerCnpj ? tag("CNPJ", requireCode(payment.card.acquirerCnpj, /^[A-Z0-9]{12}[0-9]{2}$/, "CNPJ adquirente")) : "") + (payment.card.brand ? tag("tBand", requireCode(payment.card.brand, /^\d{2}$/, "Bandeira")) : "") + (payment.card.authorization ? tag("cAut", payment.card.authorization) : "") + "</card>" : ""}</detPag>`;
   }).join("")}${t.change ? tag("vTroco", money(t.change)) : ""}</pag>`;
-  const billing = document.model === "55" && document.billingInstallments?.length ? `<cobr>${document.billingInstallments.map((installment) => {
-    if (!/^\d{1,60}$/.test(installment.number))
-      throw new Error("N\xFAmero da duplicata inv\xE1lido.");
-    if (!Number.isFinite(installment.amount) || installment.amount <= 0)
-      throw new Error("Valor da duplicata inv\xE1lido.");
-    return `<dup>${tag("nDup", installment.number)}${installment.dueDate ? tag("dVenc", dateOnly(installment.dueDate, "Data de vencimento")) : ""}${tag("vDup", money(installment.amount))}</dup>`;
-  }).join("")}</cobr>` : "";
-  if (billing) {
-    const billingCents = document.billingInstallments.reduce(
+  let billing = "";
+  if (document.model === "55" && document.billingInstallments?.length) {
+    const installments = document.billingInstallments;
+    if (installments.length > 120)
+      throw new Error("A cobran\xE7a excede o limite fiscal de 120 parcelas.");
+    const billingCents = installments.reduce(
       (sum, installment) => sum + Math.round(installment.amount * 100),
       0
     );
@@ -3085,6 +3093,24 @@ function serializeFiscalDocument(snapshot, document, ruleSet, identity) {
     );
     if (billingCents !== deferredCents)
       throw new Error("As duplicatas n\xE3o correspondem aos valores informados a prazo.");
+    const emissionDate = identity.issuedAt.slice(0, 10);
+    const lastDueDate = `${Number(emissionDate.slice(0, 4)) + 10}${emissionDate.slice(4)}`;
+    let previousDueDate = emissionDate;
+    const duplicates = installments.map((installment, index) => {
+      if (installment.number !== String(index + 1).padStart(3, "0"))
+        throw new Error("N\xFAmero da duplicata deve ter tr\xEAs algarismos sequenciais.");
+      if (!Number.isFinite(installment.amount) || installment.amount <= 0)
+        throw new Error("Valor da duplicata inv\xE1lido.");
+      const dueDate = dateOnly(installment.dueDate || "", "Data de vencimento da duplicata");
+      if (dueDate < previousDueDate || dueDate > lastDueDate)
+        throw new Error("Data de vencimento da duplicata deve respeitar a emiss\xE3o, a ordem das parcelas e o limite de dez anos.");
+      if (installments.length === 1 && dueDate === emissionDate)
+        throw new Error("A cobran\xE7a com parcela \xFAnica n\xE3o deve ter vencimento na data da emiss\xE3o.");
+      previousDueDate = dueDate;
+      return `<dup>${tag("nDup", installment.number)}${tag("dVenc", dueDate)}${tag("vDup", money(installment.amount))}</dup>`;
+    }).join("");
+    const netBilling = money(billingCents / 100);
+    billing = `<cobr><fat>${tag("nFat", identity.number)}${tag("vOrig", netBilling)}${tag("vLiq", netBilling)}</fat>${duplicates}</cobr>`;
   }
   const transporter = operation.transporter;
   if (transporter && (!transporter.name || !isValidRecipientTaxId(transporter.cnpj || transporter.cpf || "") || (transporter.cnpj ? normalizeRecipientTaxId(transporter.cnpj).length !== 14 : false) || (transporter.cpf ? normalizeRecipientTaxId(transporter.cpf).length !== 11 : false)))
@@ -3264,6 +3290,23 @@ var metadata = (a) => ({
   environment: a.environment,
   numberReserved: true
 });
+async function describeActiveNormalSaleConflict(db, command, issuerCnpj) {
+  const active = await db.from("nfe_outbound_attempts").select("*").eq("order_id", command.orderId).eq("environment", command.environment).eq("issuer_cnpj", issuerCnpj).in("state", ["prepared", "transmitting", "reconciling", "authorized"]);
+  if (active.error || active.data?.length !== 1)
+    return outboundFailure(
+      503,
+      "FISCAL_RECOVERY_UNAVAILABLE",
+      "J\xE1 existe uma tentativa fiscal para este pedido, mas n\xE3o foi poss\xEDvel identific\xE1-la com seguran\xE7a. Atualize a consulta antes de continuar.",
+      { pending: true, orderId: command.orderId, environment: command.environment, numberReserved: false, sefazContacted: false }
+    );
+  const attempt = active.data[0];
+  return outboundFailure(
+    409,
+    "ALREADY_ACTIVE_FISCAL_ATTEMPT",
+    "J\xE1 existe uma tentativa fiscal em andamento para este pedido. Consulte a tentativa original antes de continuar.",
+    { ...metadata(attempt), state: attempt.state, databaseReason: "ALREADY_ACTIVE_FISCAL_ATTEMPT", pending: true, numberReserved: false, sefazContacted: false }
+  );
+}
 function productionTransmissionGate(environment, confirmed) {
   if (environment === 1 && !confirmed)
     return outboundFailure(
@@ -4762,15 +4805,14 @@ function resolveNormalSalePayments(params) {
   }
   if (billingParts.length > 120)
     throw new Error("A condi\xE7\xE3o a prazo excede o limite fiscal de 120 parcelas.");
-  const billingInstallments = modelDecision.model === "55" && billingParts.length > 0 ? billingParts.sort((left, right) => {
-    if (!left.dueDate) return right.dueDate ? 1 : 0;
-    if (!right.dueDate) return -1;
-    return left.dueDate.localeCompare(right.dueDate);
-  }).map((part, index) => ({
-    number: String(index + 1).padStart(3, "0"),
-    ...part.dueDate ? { dueDate: part.dueDate } : {},
-    amount: part.amountCents / 100
-  })) : void 0;
+  const billingInstallments = (
+    // cobr is optional; a partial schedule cannot describe the full deferred balance.
+    modelDecision.model === "55" && billingParts.length > 0 && billingParts.every((part) => part.dueDate) ? billingParts.sort((left, right) => left.dueDate.localeCompare(right.dueDate)).map((part, index) => ({
+      number: String(index + 1).padStart(3, "0"),
+      dueDate: part.dueDate,
+      amount: part.amountCents / 100
+    })) : void 0
+  );
   return { payments, payment, billingInstallments };
 }
 
@@ -5650,6 +5692,8 @@ async function emitNormalSale(db, command, candidate, appSettings, actorId) {
         const recovery = await recoverNormalSale(db, command);
         if (recovery) return recovery;
         const reason = saved.error?.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || "FISCAL_PREPARATION_FAILED";
+        if (reason === "ALREADY_ACTIVE_FISCAL_ATTEMPT")
+          return await describeActiveNormalSaleConflict(db, command, resolved.document.issuer.cnpj);
         if (!saved.error?.code && (!reason || reason === "FISCAL_PREPARATION_FAILED"))
           return outboundFailure(
             503,
@@ -5664,7 +5708,7 @@ async function emitNormalSale(db, command, candidate, appSettings, actorId) {
             }
           );
         return outboundFailure(
-          reason === "IDEMPOTENCY_KEY_REUSED" || reason === "ALREADY_ACTIVE_FISCAL_ATTEMPT" ? 409 : 503,
+          reason === "IDEMPOTENCY_KEY_REUSED" ? 409 : 503,
           reason,
           reason === "FISCAL_SOURCE_CHANGED" ? "Os dados do pedido, produtos ou cliente foram alterados durante a prepara\xE7\xE3o. Atualize os dados fiscais e tente novamente." : saved.error?.message || "A prepara\xE7\xE3o fiscal n\xE3o foi conclu\xEDda. Atualize os dados ou consulte a tentativa original.",
           { numberReserved: false, sefazContacted: false, pending: false }

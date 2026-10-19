@@ -131,6 +131,9 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 select-none min-w-0 w-full">
             {(formData.images || []).map((url, index) => {
               const borderClass = 'border-slate-200 dark:border-slate-800';
+              const isLinkedToVariation = (formData.variations || []).some((variation) =>
+                (variation.images || []).includes(url)
+              );
               return (
                 // biome-ignore lint/a11y/noStaticElementInteractions: item de galeria arrastavel
                 <div
@@ -157,6 +160,17 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     alt={`Foto ${index + 1}`}
                     className="object-cover w-full h-full pointer-events-none"
                   />
+
+                  {!isLinkedToVariation && (
+                    <span
+                      className="absolute top-2 right-2 z-20 text-amber-500 drop-shadow-md"
+                      title="Nenhuma variação está usando esta foto."
+                      aria-label="Nenhuma variação está usando esta foto."
+                      role="img"
+                    >
+                      <i className="bi bi-exclamation-triangle-fill text-lg" aria-hidden="true" />
+                    </span>
+                  )}
 
                   {replacingIndex === index && (
                     <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-1 z-30 text-white">

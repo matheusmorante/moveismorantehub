@@ -106,6 +106,40 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     )
   );
   afterAll(() => vi.unstubAllGlobals());
+  it.each([
+    [{ method: 'Pix', status: 'Pendente', amount: 379 }],
+    [
+      { method: 'Pix', status: 'Pendente', amount: 200, dueDate: '2026-10-05' },
+      { method: 'Dinheiro', status: 'Pendente', amount: 179 },
+    ],
+    [{ method: 'Promissória', status: 'Pendente', amount: 379, installments: 3 }],
+  ])('preserva pagamentos pendentes sem inventar duplicatas com datas incompletas (%j)', async (...payments) => {
+    const facts = makeFacts();
+    facts.order.data.payments = payments;
+    const original = structuredClone(facts);
+    const rules = await createNormalSaleRuleSet(facts);
+    const result = resolveFiscalDocument(facts, rules);
+    if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
+    expect(result.document.model).toBe('55');
+    expect(result.document.billingInstallments).toBeUndefined();
+    expect(result.document.payments.every((payment) => payment.paymentIndicator === '1')).toBe(true);
+    expect(result.document.payments.reduce((sum, payment) => sum + payment.amount, 0)).toBe(379);
+    expect(facts).toEqual(original);
+  });
+  it('mantém toda a cobrança quando os vencimentos reais estão completos e ordena as parcelas', async () => {
+    const facts = makeFacts();
+    facts.order.data.payments = [
+      { method: 'Pix', status: 'Pendente', amount: 179, dueDate: '2026-10-10' },
+      { method: 'Dinheiro', status: 'Pendente', amount: 200, dueDate: '2026-10-05' },
+    ];
+    const rules = await createNormalSaleRuleSet(facts);
+    const result = resolveFiscalDocument(facts, rules);
+    if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
+    expect(result.document.billingInstallments).toEqual([
+      { number: '001', dueDate: '2026-10-05', amount: 200 },
+      { number: '002', dueDate: '2026-10-10', amount: 179 },
+    ]);
+  });
   it('bloqueia saída interna não final para destinatário não contribuinte antes de determinar a nota', async () => {
     const facts = makeFacts();
     facts.emissionRequest.recipientIeIndicator = '9';

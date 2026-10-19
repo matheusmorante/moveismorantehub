@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { CatalogProductImage } from '@/components/ui/CatalogProductImage';
-import { ChevronLeft, ChevronRight, X, Flame } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Flame, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface ProductGalleryProps {
@@ -31,6 +31,9 @@ export function ProductGallery({
 
   const thumbsRef = useRef<HTMLDivElement>(null);
   const totalImages = displayImages.length;
+  const isMegaLiquidacaoLastUnit =
+    /últimas?\s+unidades?/i.test(productOpportunities?.name || '') &&
+    !/mostru[aá]rio/i.test(productOpportunities?.name || '');
 
   const updateScrollBtns = useCallback(() => {
     const el = thumbsRef.current;
@@ -87,13 +90,23 @@ export function ProductGallery({
           )}
           {productOpportunities && (
             <Badge
-              className={`absolute top-4 left-4 ${productOpportunities.badge_color || 'bg-accent'} text-white font-bold px-4 py-1 text-[10px] sm:text-xs shadow-lg pointer-events-none flex items-center gap-1`}
+              className={`absolute top-4 left-4 ${isMegaLiquidacaoLastUnit ? 'bg-amber-400 border border-red-600 text-black' : `${productOpportunities.badge_color || 'bg-accent'} text-white`} font-bold px-4 py-1 text-[10px] sm:text-xs shadow-lg pointer-events-none flex items-center gap-1`}
             >
               {(productOpportunities.slug === 'salvado' ||
                 productOpportunities.name?.toLowerCase()?.includes('salvado')) && (
                 <Flame className="h-3 w-3 shrink-0" />
               )}
-              {productOpportunities.name}
+              {isMegaLiquidacaoLastUnit ? (
+                <>
+                  <Zap className="h-3 w-3 shrink-0 fill-current text-black" />
+                  <span className="flex flex-col items-start normal-case leading-[1.05]">
+                    <span className="text-black">Mega Liquidação</span>
+                    <span className="text-red-600">Última Unidade</span>
+                  </span>
+                </>
+              ) : (
+                productOpportunities.name
+              )}
             </Badge>
           )}
         </button>

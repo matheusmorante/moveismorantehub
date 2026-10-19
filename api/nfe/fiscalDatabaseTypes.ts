@@ -230,6 +230,30 @@ export type FiscalDatabase = {
     };
     Views: Record<string, never>;
     Functions: {
+      finalize_fiscal_order_edit: {
+        Args: { p_replacement_id: string };
+        Returns: Record<string, unknown>;
+      };
+      prepare_nfe_operation_attempt: {
+        Args: {
+          p_draft_id: string;
+          p_expected_updated_at: string;
+          p_expected_review_data: Record<string, unknown>;
+          p_expected_lines: Record<string, unknown>[];
+          p_signed_xml: string;
+          p_access_key: string;
+          p_minimum_number: number;
+        };
+        Returns: {
+          created: boolean;
+          draftId: string;
+          status: string;
+          accessKey: string | null;
+          documentId?: string | null;
+          number?: number;
+          updatedAt?: string;
+        };
+      };
       peek_nfe_outbound_number: {
         Args: {
           p_issuer_cnpj: string;

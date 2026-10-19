@@ -304,8 +304,8 @@ export function getCardBrandLabel(brand?: string | number | null): string {
 
 export function getCardIntegrationLabel(integration?: string | number | null): string {
   const code = String(integration ?? '').trim();
-  if (code === '1') return 'TEF / Integrado';
-  if (code === '2') return 'Maquininha (POS manual)';
+  if (code === '1') return 'Integrado';
+  if (code === '2') return 'Não integrado';
   return '';
 }
 

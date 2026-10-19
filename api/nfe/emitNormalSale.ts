@@ -20,6 +20,7 @@ import {
   type OutboundDatabase,
   type OutboundResult,
   outboundFailure,
+  describeActiveNormalSaleConflict,
   productionTransmissionGate,
   reconcileNormalSale,
   recoverNormalSale,
@@ -306,6 +307,8 @@ export async function emitNormalSale(
         if (recovery) return recovery;
         const reason =
           saved.error?.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || 'FISCAL_PREPARATION_FAILED';
+        if (reason === 'ALREADY_ACTIVE_FISCAL_ATTEMPT')
+          return await describeActiveNormalSaleConflict(db, command, resolved.document.issuer.cnpj);
         if (!saved.error?.code && (!reason || reason === 'FISCAL_PREPARATION_FAILED'))
           return outboundFailure(
             503,
@@ -320,9 +323,7 @@ export async function emitNormalSale(
             }
           );
         return outboundFailure(
-          reason === 'IDEMPOTENCY_KEY_REUSED' || reason === 'ALREADY_ACTIVE_FISCAL_ATTEMPT'
-            ? 409
-            : 503,
+          reason === 'IDEMPOTENCY_KEY_REUSED' ? 409 : 503,
           reason,
           reason === 'FISCAL_SOURCE_CHANGED'
             ? 'Os dados do pedido, produtos ou cliente foram alterados durante a preparação. Atualize os dados fiscais e tente novamente.'

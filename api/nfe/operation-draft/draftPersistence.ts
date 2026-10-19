@@ -8,6 +8,8 @@ import { parseSefazAuthorization } from '../../../erp/src/pages/utils/nfe/sefazR
 import type { FiscalDatabase } from '../fiscalDatabaseTypes';
 import { getNfeServiceEndpoint } from '../fiscalEnvironmentPolicy';
 import { sendSoapToSefaz } from '../sefazClient';
+import { matchesConsultedDocument } from '../consultAuthorizedDocument';
+import { matchesSefazAuthorization } from '../authorizationResponseIdentity';
 import type { DraftRecord } from './draftValidation';
 import { type Environment, getPersistableItems } from './draftXmlAudit';
 
@@ -55,35 +57,48 @@ export async function persistDraftAuthorized(params: {
 
   const authorization = parseSefazAuthorization(responseXml);
   const protocolNumber = authorization.protocolNumber;
-  if (!authorization.authorized || !protocolNumber || !/^\d{15}$/.test(protocolNumber)) {
-    throw new Error('Consulta não confirmou autorização e protocolo válido da NF-e.');
+  if (!authorization.authorized || !protocolNumber || !matchesSefazAuthorization(responseXml, {
+    accessKey: authorizedAccessKey, environment, protocolNumber,
+  })) {
+    return res.status(202).json({
+      success: false, pending: true, reconciliationRequired: true, accessKey: authorizedAccessKey,
+      error: 'A resposta recebida não confirma a identidade e o protocolo desta nota. Consulte a mesma tentativa; não retransmita.',
+    });
   }
 
   const itemSnapshot = getPersistableItems(authorizedSignedXml, lines);
-  const { data: documentId, error: persistError } = await db.rpc(
-    'persist_authorized_nfe_operation_draft',
-    {
-      p_draft_id: draft.id,
-      p_document_id: draft.document_id || draft.id,
-      p_number: Number(authorizedAccessKey.slice(25, 34)),
-      p_series: String(Number(authorizedAccessKey.slice(22, 25))),
-      p_access_key: authorizedAccessKey,
-      p_signed_xml: authorizedSignedXml,
-      p_sefaz_response_xml: responseXml,
-      p_protocol_number: protocolNumber,
-      p_protocol_date: authorization.protocolDate
-        ? new Date(authorization.protocolDate).toISOString()
-        : null,
-      p_status: environment === 1 ? 'autorizada' : 'homologada',
-      p_status_reason: authorization.xMotivo || 'Autorizada pela SEFAZ.',
-      p_items: itemSnapshot,
-    }
-  );
+  const expectedDocumentId = draft.document_id || draft.id;
+  let documentId: string | null = null;
+  let persistenceConfirmed = false;
+  try {
+    const result = await db.rpc(
+      'persist_authorized_nfe_operation_draft',
+      {
+        p_draft_id: draft.id,
+        p_document_id: expectedDocumentId,
+        p_number: Number(authorizedAccessKey.slice(25, 34)),
+        p_series: String(Number(authorizedAccessKey.slice(22, 25))),
+        p_access_key: authorizedAccessKey,
+        p_signed_xml: authorizedSignedXml,
+        p_sefaz_response_xml: responseXml,
+        p_protocol_number: protocolNumber,
+        p_protocol_date: authorization.protocolDate
+          ? new Date(authorization.protocolDate).toISOString()
+          : null,
+        p_status: environment === 1 ? 'autorizada' : 'homologada',
+        p_status_reason: authorization.xMotivo || 'Autorizada pela SEFAZ.',
+        p_items: itemSnapshot,
+      }
+    );
+    documentId = result.data;
+    persistenceConfirmed = !result.error && documentId === expectedDocumentId;
+  } catch {
+    // A lost RPC response does not prove rollback. Reconcile the same attempt.
+  }
 
-  if (persistError || !documentId) {
+  if (!persistenceConfirmed || documentId !== expectedDocumentId) {
     console.error(
-      '[NF-e Draft] SEFAZ autorizou, mas a RPC de persistência falhou:',
-      persistError?.message || 'sem id'
+      '[NF-e Draft] SEFAZ autorizou, mas a persistência local não foi confirmada.'
     );
     return res.status(503).json({
       success: true,
@@ -166,12 +181,30 @@ export async function reconcileStoredDraftAttempt(params: {
   const {
     res,
     db,
-    draft,
+    draft: requestedDraft,
     lines,
     environment,
     certificate,
     allowRetryAfterNotFound,
   } = params;
+
+  // A prior read can predate reservation, timeout marking or another session.
+  const { data: draft, error: draftError } = await db.from('nfe_operation_drafts')
+    .select('*').eq('id', requestedDraft.id).maybeSingle();
+  if (draftError || !draft || draft.environment !== environment ||
+      draft.original_document_id !== requestedDraft.original_document_id ||
+      draft.return_order_id !== requestedDraft.return_order_id) {
+    return res.status(503).json({ success: false, pending: true,
+      error: 'Não foi possível confirmar a tentativa fiscal atual. Atualize a situação antes de repetir.' });
+  }
+  if (draft.status === 'authorized' && draft.document_id) {
+    return res.status(200).json({ success: true, status: 'authorized',
+      documentId: draft.document_id, accessKey: draft.access_key });
+  }
+  if (!['transmitting', 'unknown'].includes(draft.status)) {
+    return res.status(409).json({ success: false, pending: true,
+      error: 'A tentativa fiscal mudou durante a consulta. Atualize a situação antes de continuar.' });
+  }
 
   if (!draft.access_key || !draft.signed_xml) {
     return res.status(409).json({
@@ -183,6 +216,7 @@ export async function reconcileStoredDraftAttempt(params: {
   }
 
   let queryXml: string;
+  const consultationStartedAt = Date.now();
   try {
     queryXml = await consultDraftKey(draft.access_key, environment, certificate);
   } catch (error) {
@@ -202,6 +236,13 @@ export async function reconcileStoredDraftAttempt(params: {
   const recoveryDecision = decideOperationDraftRecovery(situation.cStat, situation.state);
 
   if (recoveryDecision === 'authorized') {
+    const protocol = draft.protocol_number || parseSefazAuthorization(queryXml).protocolNumber;
+    if (!/^\d{15}$/.test(protocol || '') || !matchesConsultedDocument(queryXml, {
+      ambiente: environment, chave_acesso: draft.access_key, numero_protocolo: protocol || null,
+    })) {
+      return res.status(202).json({ success: false, pending: true, accessKey: draft.access_key,
+        error: 'A resposta da consulta não confirma a chave, o ambiente e o protocolo desta nota. Consulte novamente.' });
+    }
     return persistDraftAuthorized({
       res,
       db,
@@ -215,10 +256,24 @@ export async function reconcileStoredDraftAttempt(params: {
   }
 
   if (recoveryDecision === 'confirmed_not_found' && allowRetryAfterNotFound) {
+    if (!matchesConsultedDocument(queryXml, {
+      ambiente: environment, chave_acesso: draft.access_key, numero_protocolo: null,
+    }, '217')) {
+      return res.status(202).json({ success: false, pending: true, accessKey: draft.access_key,
+        error: 'A resposta da consulta não corresponde à chave e ao ambiente desta nota. A tentativa foi preservada.' });
+    }
+    const transmittedAt = Date.parse(draft.transmitted_at || '');
+    // SOAP can remain in flight for 25s. A query started earlier is not absence proof.
+    if (!Number.isFinite(transmittedAt) || consultationStartedAt - transmittedAt < 30_000) {
+      return res.status(202).json({ success: false, pending: true, accessKey: draft.access_key,
+        error: 'A transmissão ainda pode estar em andamento. Aguarde e consulte novamente; nenhuma repetição foi liberada.' });
+    }
     const { data: ready, error } = await db
       .from('nfe_operation_drafts')
       .update({ status: 'ready', updated_at: new Date().toISOString() })
       .eq('id', draft.id)
+      .eq('access_key', draft.access_key)
+      .eq('updated_at', draft.updated_at)
       .in('status', ['transmitting', 'unknown'])
       .select('id')
       .maybeSingle();

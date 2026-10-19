@@ -39,7 +39,9 @@ export default function TemporaryProductWarning() {
           onMouseLeave={closeSoon}
           className="space-y-2 rounded-2xl border border-amber-200 bg-white p-4 text-xs leading-relaxed text-slate-600 shadow-xl dark:border-amber-800 dark:bg-slate-900 dark:text-slate-300"
         >
-          <p className="font-bold text-amber-700 dark:text-amber-400">Produto sem cadastro</p>
+          <p className="font-bold text-amber-700 dark:text-amber-400">
+            Temporário — Pendente de conciliação
+          </p>
           <p>
             Este item foi informado sem vínculo com um produto cadastrado. Enquanto estiver assim,
             ele não gerará movimentação de estoque ao atender a venda.

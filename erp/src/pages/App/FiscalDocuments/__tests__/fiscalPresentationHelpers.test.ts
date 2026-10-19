@@ -212,8 +212,8 @@ describe('FiscalDocuments - fiscalPresentationHelpers', () => {
       expect(getCardBrandLabel('99')).toBe('Outros');
       expect(getCardBrandLabel('')).toBe('');
 
-      expect(getCardIntegrationLabel('1')).toBe('TEF / Integrado');
-      expect(getCardIntegrationLabel('2')).toBe('Maquininha (POS manual)');
+      expect(getCardIntegrationLabel('1')).toBe('Integrado');
+      expect(getCardIntegrationLabel('2')).toBe('Não integrado');
       expect(getCardIntegrationLabel('')).toBe('');
     });
   });

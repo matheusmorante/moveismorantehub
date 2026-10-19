@@ -1,6 +1,8 @@
 import type Order from '@/pages/types/order.type';
 import { parseFiscalItemSelections } from '../../../../../shared-utils/fiscalItemSelections';
 import { supabase } from '../supabaseConfig';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { isFiscalNumber } from '../../../../../shared-utils/fiscalNumbering';
 
 export const fiscalEmissionRequestIds = new Map<string, string>();
 export const fiscalReplacementSources = new Map<string, string>();
@@ -14,6 +16,39 @@ export const fiscalReplacementSourceStorageKey = (requestKey: string): string =>
 
 export const fiscalSupersedingStorageKey = (requestKey: string, requestId: string): string =>
   `nfe-emission-supersedes:${requestKey}:${requestId}`;
+
+/** Read-only recovery also works in a new browser session without local storage. */
+export async function findPendingFiscalEmission(orderId: string, environment: 1 | 2) {
+  const query = supabase.from('nfe_documents')
+    .select('id,order_id,ambiente,document_type,status,emission_request_id,chave_acesso,numero_nfe,serie,modelo')
+    .eq('order_id', orderId)
+    .eq('ambiente', environment)
+    .eq('document_type', 'outbound')
+    .in('status', ['pendente', 'processando'])
+    .limit(2);
+  const result = await withTimeout(
+    query.then(({ data, error }) => ({ data, failed: Boolean(error) })),
+    10_000, { data: null, failed: true }, 'fiscal-pending-attempt-lookup'
+  );
+  if (result.failed || !result.data)
+    throw new Error('Não foi possível conferir as tentativas fiscais anteriores. Feche e reabra a emissão para consultar novamente.');
+  if (result.data.length > 1)
+    throw new Error('Há mais de uma tentativa fiscal pendente para este pedido. Confira as notas fiscais antes de continuar.');
+  const document = result.data[0];
+  if (!document) return null;
+  const number = Number(document.numero_nfe);
+  const model = String(document.modelo);
+  if (!document.id || document.order_id !== orderId || Number(document.ambiente) !== environment ||
+      document.document_type !== 'outbound' || !['pendente', 'processando'].includes(document.status || '') ||
+      !isFiscalNumber(number) || !document.serie || !['55', '65'].includes(model))
+    throw new Error('Não foi possível confirmar a identidade da tentativa fiscal pendente. Confira as notas fiscais antes de continuar.');
+  return {
+    documentId: document.id, orderId, environment,
+    emissionRequestId: document.emission_request_id || undefined,
+    accessKey: document.chave_acesso || undefined,
+    nfeNumber: number, series: String(document.serie), model: model as '55' | '65',
+  };
+}
 
 /**
  * Limpa o identificador e os metadados de substituição da tentativa fiscal em memória e no localStorage.
