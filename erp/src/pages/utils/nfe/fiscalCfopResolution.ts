@@ -38,6 +38,41 @@ export const OUTBOUND_TO_INBOUND_CFOP_MAP: Readonly<Record<string, string>> = {
   '6949': '2949', // Outra saída interestadual -> Outra entrada interestadual
 };
 
+/**
+ * Mapeamento canônico de saída para CFOP de estorno fiscal de entrada (finNFe=3, NF-e de Ajuste).
+ * Conforme MOC NF-e Regra de Validação 328 e RICMS/PR art. 298:
+ * Notas de ajuste/estorno (finNFe=3) não podem utilizar CFOPs de devolução (1.2xx / 2.2xx).
+ * Devem utilizar 1949 (operações internas) ou 2949 (operações interestaduais).
+ */
+export const OUTBOUND_TO_ESTORNO_INBOUND_CFOP_MAP: Readonly<Record<string, string>> = {
+  // Operações internas (5xxx -> 1949): Estorno de venda/saída conforme art. 298 RICMS/PR
+  '5101': '1949',
+  '5102': '1949',
+  '5104': '1949',
+  '5403': '1949',
+  '5405': '1949',
+  '5152': '1949',
+  '5910': '1949',
+  '5912': '1949',
+  '5914': '1949',
+  '5915': '1949',
+  '5949': '1949',
+
+  // Operações interestaduais (6xxx -> 2949): Estorno de saída interestadual
+  '6101': '2949',
+  '6102': '2949',
+  '6107': '2949',
+  '6108': '2949',
+  '6403': '2949',
+  '6404': '2949',
+  '6152': '2949',
+  '6910': '2949',
+  '6912': '2949',
+  '6914': '2949',
+  '6915': '2949',
+  '6949': '2949',
+};
+
 export const ESTORNO_FALLBACK_CFOPS = ['5949', '6949', '7949'] as const;
 
 export const DEFAULT_RETURN_CFOP = '1202';
@@ -52,8 +87,9 @@ export function originalItemCfop(productXml: string): string | null {
 }
 
 /**
- * Determina o CFOP de entrada correspondente à operação original.
- * Prioriza mapeamento específico em configurações; caso ausente, aplica o mapa canônico validado.
+ * Determina o CFOP de entrada correspondente ao estorno da operação original (finNFe=3).
+ * Prioriza mapeamento específico em configurações; caso ausente, aplica o mapa de estorno (1949/2949),
+ * evitando a Rejeição 328 da SEFAZ (que proíbe CFOPs de devolução em notas de ajuste).
  * Retorna null quando não houver correspondência legal válida (não utiliza CFOP genérico).
  */
 export function suggestEstornoCfop(
@@ -69,7 +105,7 @@ export function suggestEstornoCfop(
     return normalized?.startsWith(requiredEntryPrefix) ? normalized : null;
   }
 
-  const canonical = OUTBOUND_TO_INBOUND_CFOP_MAP[originalCfop];
+  const canonical = OUTBOUND_TO_ESTORNO_INBOUND_CFOP_MAP[originalCfop];
   if (canonical?.startsWith(requiredEntryPrefix)) return canonical;
 
   return null;
@@ -84,7 +120,7 @@ export function getEstornoCfopOptions(
     return [
       {
         value: inverse,
-        label: `${inverse.slice(0, 1)}.${inverse.slice(1)} · CFOP inverso da operação`,
+        label: `${inverse.slice(0, 1)}.${inverse.slice(1)} · Estorno fiscal (art. 298)`,
       },
     ];
   }

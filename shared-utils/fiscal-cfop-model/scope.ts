@@ -1,4 +1,4 @@
-import type { FiscalCfopScope } from './catalog';
+import type { FiscalCfopScope } from './types';
 
 export interface FiscalCfopOrderScopeInput {
   issuerUf?: string | null;

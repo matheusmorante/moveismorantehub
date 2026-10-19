@@ -2,16 +2,26 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
 import {
   sendMetaCatalogBatch,
-  mapProductToMeta,
-  normalizeMetaImageUrl,
-  formatDecimalPrice,
-  stripHtml,
-  MetaBatchRequest,
+  type MetaBatchRequest,
 } from '@/services/meta-catalog';
-import { isSlugIdentifier } from '@/services/facebook-catalog-feed/feed-helpers';
+import {
+  resolveProductTypeTaxonomy,
+  resolveSortedImages,
+  buildParentDeleteRequests,
+  buildVariationBatchRequests,
+  buildSimpleProductRequest,
+  DEFAULT_SYNC_SETTINGS,
+} from '../facebook-catalog/sync/syncBatchBuilder';
 
 export const dynamic = 'force-dynamic';
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://moveismorante.com.br';
+
+/**
+ * POST /api/catalog/sync-batch
+ * Sincroniza um produto individual com a Meta Catalog API (CREATE | UPDATE | DELETE).
+ * Controlador fino — toda lógica de montagem de lote fica em syncBatchBuilder.
+ */
 export async function POST(req: Request) {
   try {
     const { productId, action } = await req.json();
@@ -23,7 +33,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Se for DELETE explícito, busca possíveis variações para remover todos os retailer_ids associados
+    // ── DELETE explícito ───────────────────────────────────────────────────
     if (action === 'DELETE') {
       const { data: parentProduct } = await supabase
         .from('products')
@@ -36,43 +46,21 @@ export async function POST(req: Request) {
         .select('id, sku')
         .eq('product_id', productId);
 
-      const requests: MetaBatchRequest[] = [];
-      const parentCode = parentProduct?.code ? String(parentProduct.code).trim() : '';
-      if (parentCode) {
-        requests.push({
-          method: 'DELETE',
-          retailer_id: parentCode,
-        });
-      }
-      // Garante remoção caso tenha sido persistido no Meta via UUID anteriormente
-      requests.push({
-        method: 'DELETE',
-        retailer_id: String(productId),
-      });
+      const requests: MetaBatchRequest[] = [
+        ...buildParentDeleteRequests(productId, parentProduct?.code ?? null),
+      ];
 
-      if (variations && variations.length > 0) {
-        for (const v of variations) {
-          const varSku = v.sku ? String(v.sku).trim() : '';
-          if (varSku) {
-            requests.push({
-              method: 'DELETE',
-              retailer_id: varSku,
-            });
-          }
-          if (v.id) {
-            requests.push({
-              method: 'DELETE',
-              retailer_id: String(v.id),
-            });
-          }
-        }
+      for (const v of variations ?? []) {
+        const varSku = v.sku ? String(v.sku).trim() : '';
+        if (varSku) requests.push({ method: 'DELETE', retailer_id: varSku });
+        if (v.id) requests.push({ method: 'DELETE', retailer_id: String(v.id) });
       }
 
       const result = await sendMetaCatalogBatch(requests);
       return NextResponse.json(result);
     }
 
-    // Para CREATE ou UPDATE, buscar dados completos com relações
+    // ── CREATE / UPDATE ────────────────────────────────────────────────────
     const { data: product, error: productError } = await supabase
       .from('products')
       .select(
@@ -88,239 +76,77 @@ export async function POST(req: Request) {
       );
     }
 
-    // Se o produto foi despublicado, rascunho ou excluído logicamente, remova do Meta Catalog
+    // Produto despublicado/excluído → DELETE de todos os identificadores
     if (product.status !== 'published' || product.deleted_at || product.deleted || product.is_draft) {
-      const requests: MetaBatchRequest[] = [];
-      const parentCode = product.code ? String(product.code).trim() : '';
-      if (parentCode) {
-        requests.push({
-          method: 'DELETE',
-          retailer_id: parentCode,
-        });
+      const requests: MetaBatchRequest[] = [
+        ...buildParentDeleteRequests(productId, product.code),
+      ];
+      for (const v of product.product_variations ?? []) {
+        const varSku = v.sku ? String(v.sku).trim() : '';
+        if (varSku) requests.push({ method: 'DELETE', retailer_id: varSku });
+        if (v.id) requests.push({ method: 'DELETE', retailer_id: String(v.id) });
       }
-      requests.push({
-        method: 'DELETE',
-        retailer_id: String(productId),
-      });
-
-      if (product.product_variations && product.product_variations.length > 0) {
-        for (const v of product.product_variations) {
-          const varSku = v.sku ? String(v.sku).trim() : '';
-          if (varSku) {
-            requests.push({
-              method: 'DELETE',
-              retailer_id: varSku,
-            });
-          }
-          if (v.id) {
-            requests.push({
-              method: 'DELETE',
-              retailer_id: String(v.id),
-            });
-          }
-        }
-      }
-
       const result = await sendMetaCatalogBatch(requests);
       return NextResponse.json(result);
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://moveismorante.com.br';
-    const origin = appUrl.replace(/\/$/, '');
-
-    // Imagens ordenadas
-    const sortedImages = [...(product.product_images || [])].sort(
-      (a, b) => (b.is_main ? 1 : -1) - (a.is_main ? 1 : -1)
-    );
-    const allImages = sortedImages.map((img: any) => img.image_url).filter(Boolean);
-    const parentImage = allImages[0] || '';
-    const additionalImages = allImages.slice(1);
-
-    // Categorias
-    const parentCategories =
-      product.product_categories
-        ?.map((pc: any) => pc.categories)
-        .filter((cat: any) => cat && cat.type === 'category')
-        .map((cat: any) => cat.name)
-        .filter(Boolean) || [];
-
-    const environments =
-      product.product_categories
-        ?.map((pc: any) => pc.categories)
-        .filter((cat: any) => cat && cat.type === 'environment')
-        .map((cat: any) => cat.name)
-        .filter(Boolean) || [];
-
-    let productType = '';
-    if (environments.length > 0 && parentCategories.length > 0) {
-      productType = `${environments[0]} > ${parentCategories[0]}`;
-    } else if (parentCategories.length > 0) {
-      productType = parentCategories[0];
-    } else if (environments.length > 0) {
-      productType = environments[0];
-    } else {
-      productType = 'Móveis';
-    }
-
+    const origin = APP_URL.replace(/\/$/, '');
+    const productType = resolveProductTypeTaxonomy(product.product_categories ?? []);
+    const { mainImage, additionalImages } = resolveSortedImages(product.product_images ?? []);
     const opp = Array.isArray(product.opportunities)
       ? product.opportunities[0]
       : product.opportunities;
-    const oppName = opp?.name ? String(opp.name).trim() : '';
+    const opportunityName = opp?.name ? String(opp.name).trim() : '';
 
-    const variations = product.product_variations || [];
-    const hasVariations = variations.length > 0;
+    const variations: any[] = product.product_variations ?? [];
     const requests: MetaBatchRequest[] = [];
 
-    if (hasVariations) {
+    if (variations.length > 0) {
       // O pai nunca é vendido diretamente quando há variações
-      const parentCode = product.code ? String(product.code).trim() : '';
-      if (parentCode) {
-        requests.push({ method: 'DELETE', retailer_id: parentCode });
-      }
-      requests.push({ method: 'DELETE', retailer_id: String(product.id) });
+      requests.push(...buildParentDeleteRequests(productId, product.code));
 
-      for (const v of variations) {
-        const isPublished =
+      const visibleVariations = variations.filter(
+        (v: any) =>
           v.status !== 'hidden' &&
-          (v.status === 'published' || (!v.status && product.status === 'published'));
+          (v.status === 'published' || (!v.status && product.status === 'published'))
+      );
 
-        const rawVarSku = String(v.sku || '').trim();
-        const varSku =
-          (!isSlugIdentifier(rawVarSku) && rawVarSku ? rawVarSku : '') ||
-          (product.code
-            ? `${product.code}-${String(variations.indexOf(v) + 1).padStart(2, '0')}`
-            : String(v.id));
-
-        if (!isPublished) {
-          requests.push({
-            method: 'DELETE',
-            retailer_id: varSku,
-          });
-          if (v.id) {
-            requests.push({
-              method: 'DELETE',
-              retailer_id: String(v.id),
-            });
-          }
-          continue;
-        }
-
-        const isParentPrice = v.use_parent_price !== false;
-        const isParentPromo = v.use_parent_promo_price !== false;
-        const isParentDesc = v.use_parent_description !== false;
-        const varPrice = isParentPrice ? product.price || product.unit_price : v.price || product.price;
-        const varPromo = isParentPromo ? product.promo_price : v.promo_price;
-        const varDesc = isParentDesc ? product.description : v.description || product.description;
-
-        let color = '';
-        let size = '';
-        if (Array.isArray(v.attributes)) {
-          const corAttr = v.attributes.find(
-            (a: any) => a && (a.name?.toLowerCase() === 'cor' || a.key?.toLowerCase() === 'cor')
-          );
-          if (corAttr) color = String(corAttr.value || corAttr.option || '').trim();
-
-          const tamAttr = v.attributes.find(
-            (a: any) => a && (a.name?.toLowerCase() === 'tamanho' || a.key?.toLowerCase() === 'tamanho')
-          );
-          if (tamAttr) size = String(tamAttr.value || tamAttr.option || '').trim();
-        } else if (v.attributes && typeof v.attributes === 'object') {
-          color = String(v.attributes.Cor || v.attributes.cor || '').trim();
-          size = String(v.attributes.Tamanho || v.attributes.tamanho || '').trim();
-        }
-
-        // O nome enviado para a Meta deve ser exclusivamente o nome da variação
-        let varName = String(v.name || '').trim();
-        if (!varName) {
-          const suffixParts: string[] = [];
-          if (color) suffixParts.push(color);
-          if (size) suffixParts.push(size);
-          varName = suffixParts.length > 0 ? `${product.name} - ${suffixParts.join(' / ')}` : String(product.name).trim();
-        }
-
-        if (!color && /branco/i.test(varName)) {
-          color = 'Branco';
-        }
-
-        const descParts: string[] = [];
-        if (opp?.observations) {
-          descParts.push(`***Aviso Importante (${oppName || opp.name}): ${opp.observations}***`);
-        }
-        if (varDesc) descParts.push(varDesc);
-        const desc = stripHtml(descParts.join('\n\n'));
-
-        let varImage = normalizeMetaImageUrl(parentImage);
-        let varAdditional = additionalImages.map(normalizeMetaImageUrl).filter(Boolean).join(',');
-
-        if (v.image_url) {
-          const varImagesList = String(v.image_url).split(',').map((u: any) => u.trim()).filter(Boolean);
-          if (varImagesList.length > 0) {
-            varImage = normalizeMetaImageUrl(varImagesList[0]);
-            varAdditional = varImagesList.slice(1).map(normalizeMetaImageUrl).filter(Boolean).join(',');
-          }
-        }
-
-        const regularPrice = Number(varPrice || 0);
-        const promoPrice = varPromo ? Number(varPromo) : 0;
-        const hasPromo = promoPrice > 0 && promoPrice < regularPrice;
-        const currentPrice = hasPromo ? promoPrice : regularPrice;
-        const oldPriceFormatted = hasPromo ? formatDecimalPrice(regularPrice) : undefined;
-
-        const isStockAvailable = v.stock === null || v.stock === undefined || Number(v.stock) > 0;
-        const quantityToSell = v.stock !== null && v.stock !== undefined ? Math.max(0, Number(v.stock)) : 1;
-        const retailerId = varSku;
-
-        requests.push({
-          method: 'UPDATE',
-          retailer_id: retailerId,
-          data: {
-            id: retailerId,
-            title: varName,
-            description: desc,
-            link: `${origin}/produto/${product.slug}?var=${v.id}`,
-            image_link: varImage,
-            additional_image_link: varAdditional || undefined,
-            availability: isStockAvailable ? 'in stock' : 'out of stock',
-            price: `${regularPrice.toFixed(2)} BRL`,
-            sale_price: hasPromo ? `${promoPrice.toFixed(2)} BRL` : undefined,
-            brand: 'Móveis Morante',
-            condition: product.is_salvado ? 'refurbished' : 'new',
-            color: color || undefined,
-            size: size || undefined,
-            material: product.material || undefined,
-            item_group_id: '',
-            quantity_to_sell_on_facebook: quantityToSell,
-            product_type: productType,
-            custom_label_0: productType,
-            custom_label_1: formatDecimalPrice(currentPrice),
-            custom_label_2: oldPriceFormatted,
-            custom_label_3: oppName || undefined,
-          },
-        });
-      }
-    } else {
-      // No MoranteHub, apenas variações são itens de venda.
-      // Se um produto não possui variações, nenhum item deve ser cadastrado na Meta como vendável.
-      // Remove preventivamente qualquer código pai ou id que possa ter sido enviado anteriormente.
-      const parentSku = String(product.code || product.sku || '').trim() || String(product.id);
-      if (parentSku) {
-        requests.push({
-          method: 'DELETE',
-          retailer_id: parentSku,
-        });
-      }
-      requests.push({
-        method: 'DELETE',
-        retailer_id: String(product.id),
+      const varRequests = buildVariationBatchRequests({
+        product,
+        variations,
+        visibleVariations,
+        origin,
+        productType,
+        mainImage,
+        additionalImages,
+        settings: DEFAULT_SYNC_SETTINGS,
+        opportunityName,
+        opp,
+        globalDescPrefix: '',
       });
+      requests.push(...varRequests);
+    } else {
+      // Produto simples sem variações
+      const req = buildSimpleProductRequest({
+        product,
+        origin,
+        productType,
+        mainImage,
+        additionalImages,
+        settings: DEFAULT_SYNC_SETTINGS,
+        opportunityName,
+        opp,
+        globalDescPrefix: '',
+      });
+      if (req) requests.push(req);
     }
 
     const result = await sendMetaCatalogBatch(requests);
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[MetaCatalogSyncBatch] Erro:', error);
     return NextResponse.json(
-      { error: error.message || 'Erro interno do servidor.' },
+      { error: (error as Error).message || 'Erro interno do servidor.' },
       { status: 500 }
     );
   }

@@ -84,7 +84,7 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
     originalQuantity: 2,
     grossValue: 200,
     discountValue: 0,
-    cfop: '1202',
+    cfop: '1949',
   });
   const state = {
     draft: {
@@ -143,7 +143,7 @@ function createDatabase(kind: 'return' | 'estorno' = 'return') {
         quantity: kind === 'estorno' ? 2 : 1,
         gross_value: kind === 'estorno' ? 200 : 100,
         discount_value: 0,
-        reviewed_cfop: '1202',
+        reviewed_cfop: kind === 'estorno' ? '1949' : '1202',
         reviewed_product_xml: kind === 'estorno' ? estornoProduct : reviewedProduct,
         reviewed_taxes_xml: reviewedTaxes,
       },

@@ -86,33 +86,33 @@ describe('CFOP configurável das operações fiscais', () => {
 
   it('oferece o CFOP inverso canônico validado e não utiliza CFOP genérico como fallback', () => {
     expect(getEstornoCfopOptions('5102')).toEqual([
-      { value: '1202', label: '1.202 · CFOP inverso da operação' },
+      { value: '1949', label: '1.949 · Estorno fiscal (art. 298)' },
     ]);
     expect(getEstornoCfopOptions('6102')).toEqual([
-      { value: '2202', label: '2.202 · CFOP inverso da operação' },
+      { value: '2949', label: '2.949 · Estorno fiscal (art. 298)' },
     ]);
     // CFOP não mapeado retorna lista vazia (sem fallback genérico 5949/6949/7949)
     expect(getEstornoCfopOptions('5999')).toEqual([]);
     expect(
-      getEstornoCfopOptions('5102', { inverseCfopMappings: { '5102': '1102' } })
-    ).toEqual([{ value: '1102', label: '1.102 · CFOP inverso da operação' }]);
+      getEstornoCfopOptions('5102', { inverseCfopMappings: { '5102': '1949' } })
+    ).toEqual([{ value: '1949', label: '1.949 · Estorno fiscal (art. 298)' }]);
   });
 
   it('determina CFOP canônico, respeita sobreposição de configuração e falha fechado para não mapeado', () => {
-    expect(suggestEstornoCfop('5102')).toBe('1202');
-    expect(suggestEstornoCfop('6102')).toBe('2202');
+    expect(suggestEstornoCfop('5102')).toBe('1949');
+    expect(suggestEstornoCfop('6102')).toBe('2949');
     expect(suggestEstornoCfop('5999')).toBeNull();
     // Inversão inválida (mesmo prefixo de saída) deve falhar fechado
     expect(suggestEstornoCfop('5102', { inverseCfopMappings: { '5102': '5102' } })).toBeNull();
     expect(() => confirmedOperationCfop(null, suggestEstornoCfop('5999'))).toThrow(/não mapeado/);
     expect(
       confirmedOperationCfop(
-        '1102',
+        '1949',
         suggestEstornoCfop('5102', {
-          inverseCfopMappings: { '5102': '1202' },
+          inverseCfopMappings: { '5102': '1949' },
         })
       )
-    ).toBe('1102');
+    ).toBe('1949');
     expect(() => confirmedOperationCfop(null, suggestReturnCfop())).toThrow(/Confirme/);
   });
 });

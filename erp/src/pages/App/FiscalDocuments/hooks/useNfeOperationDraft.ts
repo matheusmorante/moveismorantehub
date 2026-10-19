@@ -70,7 +70,7 @@ export function useNfeOperationDraft({
     originalDocumentId: sourceDocument?.id || '',
     returnOrderId: kind === 'return' ? fixedReturnOrderId || returnOrderId || null : null,
     environment: sourceDocument?.ambiente || 2,
-    reason: review?.reason || reason,
+    reason: review?.reason || payload?.draft.reason || reason,
     operationDidNotOccur,
     goodsDidNotCirculate,
   };
@@ -134,6 +134,12 @@ export function useNfeOperationDraft({
     setDraftId(data.draft.id);
     setReviewedLines(reviewState.reviewedLines);
     setReview(reviewState.review);
+    if (data.draft.operation_kind === 'estorno') {
+      setKind('estorno');
+      setOperationDidNotOccur(true);
+      setGoodsDidNotCirculate(true);
+      if (data.draft.reason) setReason(data.draft.reason);
+    }
     if (reviewState.error) setError(reviewState.error);
     setNotice(reviewState.notice);
   }, []);

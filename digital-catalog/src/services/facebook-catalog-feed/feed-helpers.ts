@@ -2,7 +2,7 @@ import {
   normalizeMetaImageUrl,
   stripHtml,
   formatDecimalPrice,
-} from '../meta-catalog';
+} from '../meta-catalog/formatting';
 import { RawCatalogProduct, RawProductVariation } from './types';
 
 export { normalizeMetaImageUrl, stripHtml, formatDecimalPrice };
