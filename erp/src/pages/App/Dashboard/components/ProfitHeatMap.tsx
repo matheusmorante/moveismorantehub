@@ -16,6 +16,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
   const [metric, setMetric] = useState<MetricType>('value');
   const [opacity, setOpacity] = useState(0.8);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [webGlError, setWebGlError] = useState(false);
 
   // Converte ordens em GeoJSON para MapLibre (usando coordenadas salvas ou centróides de bairros/cidades)
   const geoJsonData = useMemo(() => {
@@ -69,13 +70,22 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    map.current = new maplibregl.Map({
-      container: mapContainer.current,
-      style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-      center: [-49.2671, -25.429], // Curitiba
-      zoom: 11,
-      attributionControl: false,
-    });
+    let mapInstance: maplibregl.Map;
+    try {
+      mapInstance = new maplibregl.Map({
+        container: mapContainer.current,
+        style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+        center: [-49.2671, -25.429], // Curitiba
+        zoom: 11,
+        attributionControl: false,
+      });
+    } catch (e) {
+      console.warn('[ProfitHeatMap] WebGL context creation failed:', e);
+      setWebGlError(true);
+      return;
+    }
+
+    map.current = mapInstance;
 
     map.current.on('load', () => {
       if (!map.current) return;
@@ -207,7 +217,16 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
       </div>
 
       <div className="relative h-[600px] w-full rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-inner z-0">
-        <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+        {webGlError ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-100 dark:bg-slate-900 rounded-2xl">
+            <i className="bi bi-map text-4xl text-slate-300 dark:text-slate-600" />
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
+              Mapa indisponível neste ambiente
+            </p>
+          </div>
+        ) : (
+          <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+        )}
 
         {/* Legend Overlay */}
         <div className="absolute bottom-6 right-6 z-10 bg-white/10 dark:bg-slate-900/40 backdrop-blur-md p-4 rounded-2xl border border-white/10 pointer-events-none">

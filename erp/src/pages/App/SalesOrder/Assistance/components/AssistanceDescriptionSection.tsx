@@ -37,8 +37,6 @@ const AssistanceDescriptionSection: React.FC<AssistanceDescriptionSectionProps> 
         required
         value={description}
         onValueChange={(val: string) => setDescription(val)}
-        tableName="orders"
-        columnName="assistanceDescription"
         placeholder="Descreva o problema ou solicitação..."
         icon="bi-wrench"
         error={!!errors.assistanceDescription}

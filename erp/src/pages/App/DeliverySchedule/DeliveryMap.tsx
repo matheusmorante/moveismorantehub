@@ -36,6 +36,8 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
     [settings.storeOriginCoords?.[0], settings.storeOriginCoords?.[1]]
   ); // [lng, lat] calibrado na loja física
 
+  const [webGlError, setWebGlError] = useState<boolean>(false);
+
   const [routeInfo, setRouteInfo] = useState<
     Record<string, { distance: string; duration: string }>
   >({});
@@ -205,14 +207,22 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
 
     // 1. Initial Map Setup (Once)
     if (!map.current) {
-      map.current = new maplibregl.Map({
-        container: mapContainer.current,
-        style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-        center: [storeOrigin[0], storeOrigin[1]],
-        zoom: 12,
-        attributionControl: false,
-      });
+      let mapInstance: maplibregl.Map;
+      try {
+        mapInstance = new maplibregl.Map({
+          container: mapContainer.current,
+          style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+          center: [storeOrigin[0], storeOrigin[1]],
+          zoom: 12,
+          attributionControl: false,
+        });
+      } catch (e) {
+        console.warn('[DeliveryMap] WebGL context creation failed:', e);
+        setWebGlError(true);
+        return;
+      }
 
+      map.current = mapInstance;
       map.current.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
       // Add store marker on initial load
@@ -391,7 +401,16 @@ export default function DeliveryMap({ orders, onOrderClick, onOrderEdit }: Deliv
 
   return (
     <div className="h-[450px] sm:h-[600px] md:h-[700px] w-full rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl relative animate-fade-in">
-      <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+      {webGlError ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-100 dark:bg-slate-900">
+          <i className="bi bi-map text-4xl text-slate-300 dark:text-slate-600" />
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
+            Mapa indisponível neste ambiente
+          </p>
+        </div>
+      ) : (
+        <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+      )}
     </div>
   );
 }

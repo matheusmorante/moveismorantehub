@@ -15,6 +15,7 @@ const FreightCalculation = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [loading, setLoading] = useState(false);
+  const [webGlError, setWebGlError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [calculation, setCalculation] = useState<{ route: RouteResult; freight: number } | null>(null);
   const [searchText, setSearchText] = useState('');
@@ -69,13 +70,20 @@ const FreightCalculation = () => {
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    const map = new maplibregl.Map({
-      container: mapContainer.current,
-      style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-      center: origin,
-      zoom: 12,
-      attributionControl: false,
-    });
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container: mapContainer.current,
+        style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+        center: origin,
+        zoom: 12,
+        attributionControl: false,
+      });
+    } catch (e) {
+      console.warn('[OrderRouteMap] WebGL context creation failed:', e);
+      setWebGlError(true);
+      return;
+    }
 
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
@@ -142,6 +150,7 @@ const FreightCalculation = () => {
       if (mapRef.current) mapRef.current.remove();
     };
   }, [routeResult, origin]);
+
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950">
@@ -280,7 +289,16 @@ const FreightCalculation = () => {
         </div>
 
         <div className="flex-1 relative">
-          <div ref={mapContainer} className="w-full h-full" />
+          {webGlError ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-100 dark:bg-slate-900 rounded-2xl">
+              <i className="bi bi-map text-4xl text-slate-300 dark:text-slate-600" />
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                Mapa indisponível neste ambiente
+              </p>
+            </div>
+          ) : (
+            <div ref={mapContainer} className="w-full h-full" />
+          )}
         </div>
       </div>
     </div>

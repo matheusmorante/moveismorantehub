@@ -96,6 +96,7 @@ const RegionalHeatmap = ({ orders = [] }: RegionalHeatmapProps) => {
   const [metric, setMetric] = useState<MetricType>('value');
   const [opacity, setOpacity] = useState(0.8);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [webGlError, setWebGlError] = useState(false);
 
   const geoJsonData = useMemo(() => {
     const features: any[] = [];
@@ -165,14 +166,22 @@ const RegionalHeatmap = ({ orders = [] }: RegionalHeatmapProps) => {
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    map.current = new maplibregl.Map({
-      container: mapContainer.current,
-      style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-      center: [-49.2671, -25.429], // Centralizado em Curitiba conforme pedido
-      zoom: 11,
-      attributionControl: false,
-    });
+    let mapInstance: maplibregl.Map;
+    try {
+      mapInstance = new maplibregl.Map({
+        container: mapContainer.current,
+        style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+        center: [-49.2671, -25.429], // Centralizado em Curitiba conforme pedido
+        zoom: 11,
+        attributionControl: false,
+      });
+    } catch (e) {
+      console.warn('[RegionalHeatmap] WebGL context creation failed:', e);
+      setWebGlError(true);
+      return;
+    }
 
+    map.current = mapInstance;
     map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
 
     map.current.on('load', () => {
@@ -343,10 +352,19 @@ const RegionalHeatmap = ({ orders = [] }: RegionalHeatmapProps) => {
         </div>
       )}
 
-      <div
-        ref={mapContainer}
-        className="flex-1 w-full filter grayscale-[0.2] brightness-110 contrast-110"
-      />
+      {webGlError ? (
+        <div className="flex-1 w-full flex flex-col items-center justify-center gap-3 bg-slate-100 dark:bg-slate-900">
+          <i className="bi bi-map text-4xl text-slate-300 dark:text-slate-600" />
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
+            Mapa indisponível neste ambiente
+          </p>
+        </div>
+      ) : (
+        <div
+          ref={mapContainer}
+          className="flex-1 w-full filter grayscale-[0.2] brightness-110 contrast-110"
+        />
+      )}
 
       <style
         dangerouslySetInnerHTML={{

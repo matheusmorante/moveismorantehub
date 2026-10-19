@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { getSettings } from '@/pages/utils/settingsService';
@@ -14,6 +14,7 @@ const MapRoute = ({ destinationCoords, routeGeoJSON, className = '', onIdle }: M
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const storeMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const [webGlError, setWebGlError] = useState(false);
 
   const settings = getSettings();
   const origin: [number, number] = settings.storeOriginCoords;
@@ -23,14 +24,21 @@ const MapRoute = ({ destinationCoords, routeGeoJSON, className = '', onIdle }: M
 
     // Initialize map only once
     if (!mapRef.current) {
-      const map = new maplibregl.Map({
-        container: mapContainer.current,
-        style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-        center: destinationCoords,
-        zoom: 12,
-        attributionControl: false,
-        preserveDrawingBuffer: true,
-      });
+      let map: maplibregl.Map;
+      try {
+        map = new maplibregl.Map({
+          container: mapContainer.current,
+          style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+          center: destinationCoords,
+          zoom: 12,
+          attributionControl: false,
+          preserveDrawingBuffer: true,
+        });
+      } catch (e) {
+        console.warn('[MapRoute] WebGL context creation failed:', e);
+        setWebGlError(true);
+        return;
+      }
 
       mapRef.current = map;
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
@@ -143,7 +151,16 @@ const MapRoute = ({ destinationCoords, routeGeoJSON, className = '', onIdle }: M
     <div
       className={`w-full h-full min-h-[300px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm relative z-0 ${className}`}
     >
-      <div ref={mapContainer} style={{ width: '100%', height: '100%', minHeight: '300px' }} />
+      {webGlError ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-100 dark:bg-slate-900">
+          <i className="bi bi-map text-4xl text-slate-300 dark:text-slate-600" />
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
+            Mapa indisponível neste ambiente
+          </p>
+        </div>
+      ) : (
+        <div ref={mapContainer} style={{ width: '100%', height: '100%', minHeight: '300px' }} />
+      )}
     </div>
   );
 };
