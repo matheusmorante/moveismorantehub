@@ -8,6 +8,7 @@ import {
   checkMetaBatchStatus,
   MetaBatchRequest,
 } from '@/services/meta-catalog';
+import { isSlugIdentifier } from '@/services/facebook-catalog-feed/feed-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -340,8 +341,9 @@ export async function POST(request: Request) {
             promoVarPrice = 0;
           }
 
+          const rawVarSku = String(v.sku || '').trim();
           const varSku =
-            String(v.sku || '').trim() ||
+            (!isSlugIdentifier(rawVarSku) && rawVarSku ? rawVarSku : '') ||
             (p.code
               ? `${p.code}-${String(visibleVariations.indexOf(v) + 1).padStart(2, '0')}`
               : String(v.id));
@@ -415,8 +417,12 @@ export async function POST(request: Request) {
           promoParentPrice = 0;
         }
 
-        const finalParentImage = normalizeMetaImageUrl(parentImage);
-        const parentSku = String(p.code || p.sku || '').trim() || String(p.id);
+        const rawParentCode = String(p.code || '').trim();
+        const rawParentSku = String(p.sku || '').trim();
+        const parentSku =
+          (!isSlugIdentifier(rawParentCode) && rawParentCode ? rawParentCode : '') ||
+          (!isSlugIdentifier(rawParentSku) && rawParentSku ? rawParentSku : '') ||
+          String(p.id);
         const retailerId = parentSku;
 
         // Meta exige preço estritamente positivo e imagem válida

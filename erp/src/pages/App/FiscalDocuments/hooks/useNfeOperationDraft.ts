@@ -46,8 +46,8 @@ export function useNfeOperationDraft({
   const [returnOrders, setReturnOrders] = useState<ReturnOrderOption[]>([]);
   const [returnOrderId, setReturnOrderId] = useState('');
   const [reason, setReason] = useState('');
-  const [operationDidNotOccur, setOperationDidNotOccur] = useState(false);
-  const [goodsDidNotCirculate, setGoodsDidNotCirculate] = useState(false);
+  const [operationDidNotOccur, setOperationDidNotOccur] = useState(() => mode === 'estorno');
+  const [goodsDidNotCirculate, setGoodsDidNotCirculate] = useState(() => mode === 'estorno');
   const [draftId, setDraftId] = useState('');
   const [payload, setPayload] = useState<DraftPayload | null>(null);
   const [review, setReview] = useState<ReviewData | null>(null);
@@ -96,7 +96,13 @@ export function useNfeOperationDraft({
   }), transmissionValues);
 
   useEffect(() => {
-    if (mode) setKind(mode);
+    if (mode) {
+      setKind(mode);
+      if (mode === 'estorno') {
+        setOperationDidNotOccur(true);
+        setGoodsDidNotCirculate(true);
+      }
+    }
     if (fixedReturnOrderId) setReturnOrderId(fixedReturnOrderId);
   }, [mode, fixedReturnOrderId]);
 

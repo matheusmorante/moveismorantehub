@@ -45,7 +45,7 @@ export interface MetaCatalogVariationSource {
   price?: number | string | null;
   promo_price?: number | string | null;
   stock?: number | null;
-  attributes?: any;
+  attributes?: unknown;
   use_parent_price?: boolean | null;
   use_parent_promo_price?: boolean | null;
   use_parent_name?: boolean | null;
@@ -85,44 +85,7 @@ export interface MetaCatalogItem {
   productId?: string;
 }
 
-export function resolveProductType(product: {
-  product_categories?: Array<{
-    categories?: { name?: string | null; type?: string | null } | null;
-  }> | null;
-  group_name?: string | null;
-  groupName?: string | null;
-}): string {
-  const parentCategories =
-    product.product_categories
-      ?.map((pc) => pc.categories)
-      .filter((cat) => cat && cat.type === 'category')
-      .map((cat) => cat?.name)
-      .filter(Boolean) || [];
-
-  const environments =
-    product.product_categories
-      ?.map((pc) => pc.categories)
-      .filter((cat) => cat && cat.type === 'environment')
-      .map((cat) => cat?.name)
-      .filter(Boolean) || [];
-
-  if (environments.length > 0 && parentCategories.length > 0) {
-    return `${environments[0]} > ${parentCategories[0]}`;
-  } else if (parentCategories.length > 0) {
-    return String(parentCategories[0]);
-  } else if (environments.length > 0) {
-    return String(environments[0]);
-  }
-
-  const group = product.groupName || product.group_name;
-  if (group && group !== 'Furniture') {
-    return group;
-  }
-
-  return 'Móveis';
-}
-
-const globalPrefix = `🚚📦 Entrega rápida (1 a 5 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete
+export const META_CATALOG_GLOBAL_PREFIX = `🚚📦 Entrega rápida (1 a 5 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete
 
 💳 Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito
 
@@ -158,14 +121,129 @@ Móveis Morante
 
 ____________________________________`;
 
+/**
+ * Resolve a taxonomia do produto para a Meta: "Ambiente > Categoria"
+ */
+export function resolveProductType(product: {
+  product_categories?: Array<{
+    categories?: { name?: string | null; type?: string | null } | null;
+  }> | null;
+  group_name?: string | null;
+  groupName?: string | null;
+}): string {
+  const relations = product.product_categories || [];
+
+  const parentCategories = relations
+    .map((pc) => pc.categories)
+    .filter((cat): cat is { name: string; type: string } => Boolean(cat && cat.type === 'category'))
+    .map((cat) => cat.name)
+    .filter(Boolean);
+
+  const environments = relations
+    .map((pc) => pc.categories)
+    .filter((cat): cat is { name: string; type: string } => Boolean(cat && cat.type === 'environment'))
+    .map((cat) => cat.name)
+    .filter(Boolean);
+
+  if (environments.length > 0 && parentCategories.length > 0) {
+    return `${environments[0]} > ${parentCategories[0]}`;
+  }
+  if (parentCategories.length > 0) {
+    return String(parentCategories[0]);
+  }
+  if (environments.length > 0) {
+    return String(environments[0]);
+  }
+
+  const group = product.groupName || product.group_name;
+  if (group && group !== 'Furniture') {
+    return group;
+  }
+
+  return 'Móveis';
+}
+
+/**
+ * Detecta se uma string é um slug em vez de um SKU canônico.
+ */
+export function isSlugSku(val: string | null | undefined): boolean {
+  if (!val) return false;
+  const s = String(val).trim();
+  if (s === '01-7bdb15') return true;
+  if (/^[a-z0-9]+(-[a-z0-9]+){2,}$/.test(s) && /[a-z]/.test(s)) {
+    if (!/^(sku|default|cod)-/i.test(s)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Extrai atributos de Cor e Tamanho da variação.
+ */
+export function extractVariationAttributes(attributes: unknown): { color: string; size: string } {
+  let color = '';
+  let size = '';
+
+  if (Array.isArray(attributes)) {
+    const corAttr = attributes.find(
+      (a: any) =>
+        a &&
+        (a.name?.toLowerCase() === 'cor' ||
+          a.key?.toLowerCase() === 'cor' ||
+          a.attribute_name?.toLowerCase() === 'cor')
+    );
+    if (corAttr) color = String(corAttr.value || corAttr.option || '').trim();
+
+    const tamAttr = attributes.find(
+      (a: any) =>
+        a &&
+        (a.name?.toLowerCase() === 'tamanho' ||
+          a.key?.toLowerCase() === 'tamanho' ||
+          a.attribute_name?.toLowerCase() === 'tamanho')
+    );
+    if (tamAttr) size = String(tamAttr.value || tamAttr.option || '').trim();
+  } else if (attributes && typeof attributes === 'object') {
+    const record = attributes as Record<string, unknown>;
+    color = String(record.Cor || record.cor || '').trim();
+    size = String(record.Tamanho || record.tamanho || '').trim();
+  }
+
+  return { color, size };
+}
+
+/**
+ * Constrói a descrição combinando prefixo comercial, aviso de oportunidade e texto base.
+ */
+export function buildDescription(
+  parentTitle: string,
+  baseDescription: string | null | undefined,
+  opportunity?: MetaCatalogOpportunitySource | null
+): string {
+  const parts: string[] = [META_CATALOG_GLOBAL_PREFIX];
+
+  if (opportunity?.observations) {
+    const oppLabel = opportunity.name ? ` (${opportunity.name})` : '';
+    parts.push(`***Aviso Importante${oppLabel}: ${opportunity.observations}***`);
+  }
+
+  const content = baseDescription || parentTitle;
+  if (content) parts.push(content);
+
+  return parts.join('\n\n');
+}
+
+/**
+ * Constrói a lista final de itens do catálogo Meta a partir dos produtos e variações elegíveis.
+ */
 export function buildMetaCatalogItems(
   products: readonly MetaCatalogProductSource[],
   variations: readonly MetaCatalogVariationSource[],
   opportunities: readonly MetaCatalogOpportunitySource[]
 ): MetaCatalogItem[] {
-  const oppMap: Record<string, MetaCatalogOpportunitySource> = {};
+  const oppMap = new Map<string, MetaCatalogOpportunitySource>();
   opportunities.forEach((opportunity) => {
-    oppMap[opportunity.id] = opportunity;
+    oppMap.set(opportunity.id, opportunity);
   });
 
   const allItems: MetaCatalogItem[] = [];
@@ -180,12 +258,19 @@ export function buildMetaCatalogItems(
       continue;
     }
 
+    // Exclui produtos desativados (active: false), exceto salvados que têm active: false por definição
+    const isSalvado = parent.is_salvado === true || parent.product_kind === 'salvado';
+    if (!isSalvado && parent.active === false) {
+      continue;
+    }
+
     const isParentPublished = parent.status === 'published';
     const parentVariations = variations.filter(
       (variation) =>
         variation.product_id === parent.id &&
         variation.status !== 'hidden' &&
         variation.status !== 'draft' &&
+        (isSalvado || variation.active !== false) &&
         (variation.status === 'published' || (!variation.status && isParentPublished))
     );
     const hasPublishedVars = parentVariations.some((v) => v.status === 'published');
@@ -193,23 +278,15 @@ export function buildMetaCatalogItems(
     if (!isParentPublished && !hasPublishedVars) {
       continue;
     }
+
     const parentTitle =
       parent.name ||
       parent.title ||
       (parent.description ? parent.description.split('\n')[0] : 'Produto Morante');
 
-    const descriptionParts: string[] = [globalPrefix];
-    const opportunity = parent.opportunity_id ? oppMap[parent.opportunity_id] : null;
-    if (opportunity?.observations) {
-      descriptionParts.push(
-        `***Aviso Importante (${opportunity.name}): ${opportunity.observations}***`
-      );
-    }
-
+    const opportunity = parent.opportunity_id ? oppMap.get(parent.opportunity_id) : null;
     const baseDescription = parent.whatsapp_description || parent.description || parentTitle;
-    if (baseDescription) descriptionParts.push(baseDescription);
-
-    const fullDescription = descriptionParts.join('\n\n');
+    const fullDescription = buildDescription(parentTitle, baseDescription, opportunity);
     const productType = resolveProductType(parent);
     const parentCondition =
       parent.condition === 'usado' || parent.condition === 'used'
@@ -221,29 +298,9 @@ export function buildMetaCatalogItems(
 
     if (parentVariations.length > 0) {
       for (const variation of parentVariations) {
-        let color = variation.color || '';
-        let size = variation.size || '';
-        if (Array.isArray(variation.attributes)) {
-          const corAttr = variation.attributes.find(
-            (a: any) =>
-              a &&
-              (a.name?.toLowerCase() === 'cor' ||
-                a.key?.toLowerCase() === 'cor' ||
-                a.attribute_name?.toLowerCase() === 'cor')
-          );
-          if (corAttr) color = String(corAttr.value || corAttr.option || '').trim();
-          const tamAttr = variation.attributes.find(
-            (a: any) =>
-              a &&
-              (a.name?.toLowerCase() === 'tamanho' ||
-                a.key?.toLowerCase() === 'tamanho' ||
-                a.attribute_name?.toLowerCase() === 'tamanho')
-          );
-          if (tamAttr) size = String(tamAttr.value || tamAttr.option || '').trim();
-        } else if (variation.attributes && typeof variation.attributes === 'object') {
-          color = String(variation.attributes.Cor || variation.attributes.cor || '').trim();
-          size = String(variation.attributes.Tamanho || variation.attributes.tamanho || '').trim();
-        }
+        const { color: attrColor, size: attrSize } = extractVariationAttributes(variation.attributes);
+        const color = variation.color || attrColor || '';
+        const size = variation.size || attrSize || '';
 
         const fallbackVariationTitle = [color, size].filter(Boolean).join(' / ');
         const variationTitle =
@@ -289,8 +346,9 @@ export function buildMetaCatalogItems(
 
         const varLink = `https://moveismorante.com.br/produto/${parentSlug}?var=${variation.id}`;
 
+        const rawVarSku = String(variation.sku || variation.code || '').trim();
         const varSku =
-          String(variation.sku || variation.code || '').trim() ||
+          (!isSlugSku(rawVarSku) && rawVarSku ? rawVarSku : '') ||
           (parent.code
             ? `${parent.code}-${String(parentVariations.indexOf(variation) + 1).padStart(2, '0')}`
             : variation.id);
@@ -332,7 +390,12 @@ export function buildMetaCatalogItems(
       }
 
       const prodLink = `https://moveismorante.com.br/produto/${parentSlug}`;
-      const parentSku = String(parent.code || parent.sku || '').trim() || parent.id;
+      const rawParentCode = String(parent.code || '').trim();
+      const rawParentSku = String(parent.sku || '').trim();
+      const parentSku =
+        (!isSlugSku(rawParentCode) && rawParentCode ? rawParentCode : '') ||
+        (!isSlugSku(rawParentSku) && rawParentSku ? rawParentSku : '') ||
+        parent.id;
 
       allItems.push({
         id: parent.id,

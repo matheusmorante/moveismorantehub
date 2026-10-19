@@ -120,7 +120,7 @@ test('resolveEffectivePrice correctly handles normal, promo and zero-regular fal
   assert.equal(p4.isValid, false);
 });
 
-test('resolveVariationSku and resolveParentProductSku strictly prioritize product SKU', () => {
+test('resolveVariationSku and resolveParentProductSku strictly prioritize product SKU and reject slugs', () => {
   // Variação com SKU existente
   const varWithSku = { id: 'v-uuid-1', sku: '000224-02' };
   assert.equal(resolveVariationSku(varWithSku, '000224', 1), '000224-02');
@@ -129,9 +129,30 @@ test('resolveVariationSku and resolveParentProductSku strictly prioritize produc
   const varWithoutSku = { id: 'v-uuid-2', sku: null };
   assert.equal(resolveVariationSku(varWithoutSku, '000224', 0), '000224-01');
 
+  // Variação onde SKU era um slug legado -> DEVE ser rejeitado e usar SKU padrão
+  const varWithSlugSku = {
+    id: 'v-uuid-3',
+    sku: 'armario-aereo-florenca-3-portas-120-100-mdf-canary',
+  };
+  assert.equal(resolveVariationSku(varWithSlugSku, '000213', 0), '000213-01');
+
+  // Variação com slug 01-7bdb15 -> DEVE ser rejeitado e usar SKU padrão
+  const varWithHexSlug = { id: 'v-uuid-4', sku: '01-7bdb15' };
+  assert.equal(resolveVariationSku(varWithHexSlug, '004013', 0), '004013-01');
+
   // Produto pai com code
   const parentWithCode: RawCatalogProduct = { id: 'p-uuid-1', code: '000131', name: 'Balcao', slug: 'balcao' };
   assert.equal(resolveParentProductSku(parentWithCode), '000131');
+
+  // Produto pai cujo sku era slug
+  const parentWithSlugSku: RawCatalogProduct = {
+    id: 'p-uuid-2',
+    code: '000213',
+    sku: 'armario-aereo-florenca',
+    name: 'Armario',
+    slug: 'armario-aereo-florenca',
+  };
+  assert.equal(resolveParentProductSku(parentWithSlugSku), '000213');
 });
 
 test('mapProductsToFeedRows outputs strictly SKUs as id and ignores invalid/inactive items', () => {
@@ -222,6 +243,78 @@ test('mapProductsToFeedRows outputs strictly SKUs as id and ignores invalid/inac
   // Garante que o código do produto pai 000131 NÃO está presente em nenhuma linha
   const hasParentCode = rows.some((r) => r[0] === '000131' || r[0] === '000224');
   assert.equal(hasParentCode, false);
+});
+
+test('mapProductsToFeedRows exclui produtos e variações com active: false mesmo com status published (bug desincronização)', () => {
+  const settings: MetaCatalogSettings = {
+    globalDescriptionPrefix: '',
+    columnMappings: { brand: 'Móveis Morante', gender: 'unisex' },
+  };
+
+  const products: RawCatalogProduct[] = [
+    // Produto pai desativado (active: false) mas status 'published' — NÃO deve entrar
+    {
+      id: 'p-uuid-desativado',
+      code: '000368',
+      name: 'Balcão para Pia Jk 1º Linha 3 Gavetas',
+      slug: 'balcao-para-pia-jk-1-linha-3-gavetas',
+      price: 449,
+      status: 'published',
+      active: false,   // ← foi desativado, status ficou desincronizado
+      is_salvado: false,
+      images: ['https://pub-r2.dev/balcao.jpg'],
+      product_variations: [
+        {
+          id: '8cc6f2e9-e2e6-433a-9adb-f403353642f5',
+          sku: '000368-01',
+          name: 'Balcão para Pia Jk 1º Linha 3 Gavetas',
+          status: 'published',
+          active: false,  // ← variação também desativada
+        },
+      ],
+    },
+    // Produto com variação active: false — a variação NÃO deve entrar
+    {
+      id: 'p-uuid-misto',
+      code: '000100',
+      name: 'Produto Misto',
+      slug: 'produto-misto',
+      price: 300,
+      status: 'published',
+      active: true,
+      images: ['https://pub-r2.dev/misto.jpg'],
+      product_variations: [
+        {
+          id: 'v-uuid-var-ativa',
+          sku: '000100-01',
+          name: 'Variação Ativa',
+          status: 'published',
+          active: true,
+        },
+        {
+          id: 'v-uuid-var-inativa',
+          sku: '000100-02',
+          name: 'Variação Inativa',
+          status: 'published',
+          active: false, // ← desativada deve ser excluída
+        },
+      ],
+    },
+  ];
+
+  const rows = mapProductsToFeedRows({
+    products,
+    settings,
+    origin: 'https://moveismorante.com.br',
+  });
+
+  // Só a variação ativa do produto misto deve aparecer
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0][0], '000100-01');
+
+  // Nenhuma entrada do produto desativado (000368) deve aparecer
+  const has368 = rows.some((r) => String(r[0]).includes('000368'));
+  assert.equal(has368, false);
 });
 
 test('mapProductsToFeedRows includes published variations of salvados even if active is false', () => {

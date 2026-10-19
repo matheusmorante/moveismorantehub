@@ -20,8 +20,8 @@ const OrderPrintStyles = () => {
                     border-radius: 0.75rem !important;
                 }
                 .header-logo-container {
-                    width: 11rem !important;
-                    height: 3.25rem !important;
+                    width: 12rem !important;
+                    height: 6rem !important;
                     padding: 0.15rem 0.4rem !important;
                     border-radius: 0.5rem !important;
                     margin: 0 !important;

@@ -14,7 +14,7 @@ describe('computeVariationName', () => {
         { name: 'Quantidade de portas', value: '6 portas' },
         { name: 'Quantidade de gavetas', value: '2 gavetas' },
       ])
-    ).toBe('Guarda-Roupa - 6 Portas 2 Gavetas');
+    ).toBe('Guarda-Roupa 6 Portas 2 Gavetas');
   });
 
   it('omite somente atributos marcados como ocultos no nome', () => {
@@ -24,12 +24,12 @@ describe('computeVariationName', () => {
         { name: 'Quantidade de portas', value: '6 portas', showName: false },
         { name: 'Quantidade de gavetas', value: '2 gavetas', showName: true },
       ])
-    ).toBe('Guarda-Roupa - Branco 2 Gavetas');
+    ).toBe('Guarda-Roupa Branco 2 Gavetas');
   });
 
   it('mantém atributos legados visíveis quando showName não existe', () => {
     expect(computeVariationName('Cômoda', [{ name: 'Cor', value: 'Branco' }])).toBe(
-      'Cômoda - Branco'
+      'Cômoda Branco'
     );
   });
 

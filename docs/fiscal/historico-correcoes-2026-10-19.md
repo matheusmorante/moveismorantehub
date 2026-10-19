@@ -4,6 +4,43 @@
 
 ---
 
+## 7. Fix: "Confirme operação não realizada e ausência de circulação" no estorno — estado inicial incorreto
+
+### Problema
+Ao abrir o modal de estorno fiscal com um rascunho já existente (`mode='estorno'` + `initialDraftId`), a mensagem de erro **"Confirme operação não realizada e ausência de circulação para preparar o estorno fiscal."** aparecia mesmo com todos os checkboxes de revisão marcados, e o botão "Transmitir NF-e revisada" permanecia desabilitado.
+
+### Causa Raiz
+`useNfeOperationDraft.ts` inicializava `operationDidNotOccur` e `goodsDidNotCirculate` como `false` independentemente do modo. O schema `fiscalOperationPreparationFormSchema` valida os dois flags como pré-requisito para `kind === 'estorno'`, fazendo `canPrepare = false`. O botão de transmissão usa `canPrepare` indiretamente — quando o setup de confirmação não passou, o `preparationValues` falha e a validação de transmissão bloqueia.
+
+Quando `mode === 'estorno'` (modal aberto diretamente para revisar/transmitir um rascunho existente), as confirmações já ocorreram ao criar o rascunho originalmente. Não faz sentido pedir confirmação novamente, mas o estado local não refletia isso.
+
+### Arquivos Modificados
+
+| Arquivo | Linha | Alteração |
+|---|---|---|
+| `erp/src/pages/App/FiscalDocuments/hooks/useNfeOperationDraft.ts` | 49-50 | `useState(false)` → `useState(() => mode === 'estorno')` para ambos os flags |
+| `erp/src/pages/App/FiscalDocuments/hooks/useNfeOperationDraft.ts` | 98-107 | `useEffect` que sincroniza `mode` agora também seta os flags para `true` quando `mode === 'estorno'` |
+
+### Solução Técnica
+```ts
+// Antes:
+const [operationDidNotOccur, setOperationDidNotOccur] = useState(false);
+const [goodsDidNotCirculate, setGoodsDidNotCirculate] = useState(false);
+
+// Depois:
+const [operationDidNotOccur, setOperationDidNotOccur] = useState(() => mode === 'estorno');
+const [goodsDidNotCirculate, setGoodsDidNotCirculate] = useState(() => mode === 'estorno');
+```
+
+Quando o modal abre no modo estorno (rascunho já existe), os flags já iniciam `true`, passando o schema de preparação e desbloqueando o botão de transmissão.
+
+### Testes
+- `FiscalDocuments/__tests__/` — 158/158 ✅
+- `nfe/__tests__/transmitOperationDraft.test.ts` — 87/87 ✅
+- Nenhuma regressão detectada.
+
+---
+
 ## 1. Modularização do AuthContext (Auth Feature)
 
 ### Problema

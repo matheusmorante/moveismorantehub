@@ -8,6 +8,7 @@ import {
   stripHtml,
   MetaBatchRequest,
 } from '@/services/meta-catalog';
+import { isSlugIdentifier } from '@/services/facebook-catalog-feed/feed-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -183,8 +184,9 @@ export async function POST(req: Request) {
           v.status !== 'hidden' &&
           (v.status === 'published' || (!v.status && product.status === 'published'));
 
+        const rawVarSku = String(v.sku || '').trim();
         const varSku =
-          String(v.sku || '').trim() ||
+          (!isSlugIdentifier(rawVarSku) && rawVarSku ? rawVarSku : '') ||
           (product.code
             ? `${product.code}-${String(variations.indexOf(v) + 1).padStart(2, '0')}`
             : String(v.id));

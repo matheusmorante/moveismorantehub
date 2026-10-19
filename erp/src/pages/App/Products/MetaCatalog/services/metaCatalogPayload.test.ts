@@ -238,4 +238,65 @@ describe('buildMetaCatalogItems', () => {
       url: 'https://moveismorante.com.br/produto/guarda-roupa-paris-queima-dos-salvados?var=var-preto',
     });
   });
+
+  it('rejeita identificador em formato slug e resolve estritamente para o SKU oficial derivado do parent.code', () => {
+    const product: MetaCatalogProductSource = {
+      id: 'prod-slug-test',
+      code: '000213',
+      name: 'Armário Aéreo Florença 3 Portas 1,20 100% MDF',
+      slug: 'armario-aereo-florenca-3-portas-120-100-mdf',
+      status: 'published',
+      active: true,
+      deleted: false,
+      deleted_at: null,
+      price: 349,
+      images: ['armario.jpg'],
+    };
+
+    const variations: MetaCatalogVariationSource[] = [
+      {
+        id: 'var-uuid-canary',
+        product_id: 'prod-slug-test',
+        sku: 'armario-aereo-florenca-3-portas-120-100-mdf-canary', // <-- slug legado
+        name: 'Armário Aéreo Florença 3 Portas 1,20 100% MDF Canary',
+        status: 'published',
+        active: true,
+      },
+    ];
+
+    const items = buildMetaCatalogItems([product], variations, []);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].code).toBe('000213-01');
+    expect(items[0].code).not.toContain('armario-aereo');
+  });
+
+  it('exclui produtos desativados (active: false) mesmo com status published quando não forem salvados', () => {
+    const product: MetaCatalogProductSource = {
+      id: 'prod-inativo',
+      code: '000368',
+      name: 'Balcão para Pia Jk 1º Linha 3 Gavetas',
+      status: 'published',
+      active: false,
+      is_salvado: false,
+      deleted: false,
+      deleted_at: null,
+      price: 449,
+      images: ['balcao.jpg'],
+    };
+
+    const variations: MetaCatalogVariationSource[] = [
+      {
+        id: 'var-1',
+        product_id: 'prod-inativo',
+        sku: '000368-01',
+        name: 'Balcão para Pia Jk 1º Linha 3 Gavetas',
+        status: 'published',
+        active: false,
+      },
+    ];
+
+    const items = buildMetaCatalogItems([product], variations, []);
+    expect(items).toHaveLength(0);
+  });
 });

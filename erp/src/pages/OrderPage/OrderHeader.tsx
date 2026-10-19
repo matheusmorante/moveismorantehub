@@ -1,6 +1,6 @@
 import { formatToBRDate } from '../utils/formatters';
 import { formatOrderCode } from '../utils/orderCode';
-import logoMorante from '../../assets/logo-morante-horizontal.svg';
+import logoMorante from '../../assets/logo-morante.svg';
 
 interface OrderHeaderProps {
   order: any;
@@ -31,7 +31,7 @@ const OrderHeader = ({ order, isBudget }: OrderHeaderProps) => {
       className={`order-print-header flex justify-between items-center px-3 py-1.5 rounded-xl mb-1.5 ${headerColor} text-white print-exact-bg shadow-sm`}
     >
       <div className="flex items-center">
-        <div className="header-logo-container w-44 sm:w-48 h-12 sm:h-13 bg-white rounded-lg p-1 border-0 shadow-none flex items-center justify-center shrink-0">
+        <div className="header-logo-container w-48 h-24 bg-white rounded-lg p-1 border-0 shadow-none flex items-center justify-center shrink-0">
           <img
             src={logoMorante}
             alt="Móveis Morante"

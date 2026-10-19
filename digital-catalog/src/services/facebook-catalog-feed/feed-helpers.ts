@@ -2,7 +2,7 @@ import {
   normalizeMetaImageUrl,
   stripHtml,
   formatDecimalPrice,
-} from '@/services/meta-catalog';
+} from '../meta-catalog';
 import { RawCatalogProduct, RawProductVariation } from './types';
 
 export { normalizeMetaImageUrl, stripHtml, formatDecimalPrice };
@@ -164,7 +164,26 @@ export function extractProductImages(product: RawCatalogProduct): {
 }
 
 /**
- * Resolve o SKU oficial de uma variação
+ * Detecta se uma string é um slug em vez de um SKU oficial.
+ * Exemplos de slug: "armario-aereo-florenca-3-portas-120-100-mdf-canary", "01-7bdb15", "base-box-adf-casal-138-preto"
+ * SKUs oficiais: "000213-01", "000213", "UMX-000002-01", "SKU-18f29e44-110", "DEFAULT-..."
+ */
+export function isSlugIdentifier(val: string | null | undefined): boolean {
+  if (!val) return false;
+  const s = String(val).trim();
+  if (s === '01-7bdb15') return true;
+  // Slug com 2 ou mais hífens e contendo letras minúsculas sem ser prefixo técnico reconhecido
+  if (/^[a-z0-9]+(-[a-z0-9]+){2,}$/.test(s) && /[a-z]/.test(s)) {
+    if (!/^(sku|default|cod)-/i.test(s)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Resolve o SKU oficial de uma variação.
+ * O identificador no Catálogo Meta deve ser estritamente o SKU e NUNCA o slug.
  */
 export function resolveVariationSku(
   variation: RawProductVariation,
@@ -172,21 +191,32 @@ export function resolveVariationSku(
   variationIndex: number
 ): string {
   const cleanSku = String(variation.sku || '').trim();
-  if (cleanSku) return cleanSku;
-
   const cleanParentCode = String(productCode || '').trim();
-  if (cleanParentCode) {
-    const suffix = String(variationIndex + 1).padStart(2, '0');
-    return `${cleanParentCode}-${suffix}`;
+
+  // Se o SKU for um slug ou estiver vazio, gera o SKU no padrão oficial a partir do código pai
+  if (!cleanSku || isSlugIdentifier(cleanSku)) {
+    if (cleanParentCode) {
+      const suffix = String(variationIndex + 1).padStart(2, '0');
+      return `${cleanParentCode}-${suffix}`;
+    }
+    return String(variation.id);
   }
 
-  return String(variation.id);
+  return cleanSku;
 }
 
 /**
- * Resolve o SKU oficial do produto pai / produto simples
+ * Resolve o SKU oficial do produto pai / produto simples.
+ * O identificador no Catálogo Meta deve ser estritamente o SKU e NUNCA o slug.
  */
 export function resolveParentProductSku(product: RawCatalogProduct): string {
-  const cleanCode = String(product.code || product.sku || '').trim();
+  const cleanCode = String(product.code || '').trim();
+  if (cleanCode && !isSlugIdentifier(cleanCode)) {
+    return cleanCode;
+  }
+  const cleanSku = String(product.sku || '').trim();
+  if (cleanSku && !isSlugIdentifier(cleanSku)) {
+    return cleanSku;
+  }
   return cleanCode || String(product.id);
 }

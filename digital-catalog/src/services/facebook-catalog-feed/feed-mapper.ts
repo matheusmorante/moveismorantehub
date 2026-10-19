@@ -144,6 +144,12 @@ export function mapProductsToFeedRows(options: MapProductsOptions): string[][] {
       continue;
     }
 
+    // Exclui produtos desativados (active: false), exceto salvados que têm active: false por definição
+    const isSalvado = product.is_salvado === true || product.product_kind === 'salvado';
+    if (!isSalvado && product.active === false) {
+      continue;
+    }
+
     const isParentPublished = product.status === 'published';
 
     // Suporte a variações relacionais e variações legadas em JSON
@@ -152,6 +158,7 @@ export function mapProductsToFeedRows(options: MapProductsOptions): string[][] {
       variationsList = product.product_variations.filter(
         (v) =>
           v.status !== 'hidden' &&
+          (isSalvado || v.active !== false) &&
           (v.status === 'published' || (!v.status && isParentPublished))
       );
     } else if (product.variations) {
@@ -163,6 +170,7 @@ export function mapProductsToFeedRows(options: MapProductsOptions): string[][] {
       variationsList = rawVars.filter(
         (v) =>
           v.status !== 'hidden' &&
+          (isSalvado || v.active !== false) &&
           (v.status === 'published' || (!v.status && isParentPublished))
       );
     }
