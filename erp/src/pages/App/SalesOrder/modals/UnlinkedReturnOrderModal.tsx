@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Undo2 } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { toast } from 'react-toastify';
 import CustomerData from '@/pages/types/customerData.type';
 import Item from '@/pages/types/items.type';
@@ -9,6 +9,8 @@ import { calcItemsSummary } from '@/pages/utils/calculations';
 import { saveOrder } from '@/pages/utils/orderHistoryService';
 import CustomerSearchModal from './CustomerSearchModal';
 import ReturnCollectionSection from '../OrderActions/ReturnCollectionSection';
+import ReturnOrderFormBase from '../components/ReturnOrderFormBase';
+import ReturnOrderFormFooter from '../components/ReturnOrderFormFooter';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import ReturnItemsTable from '../components/ReturnItemsTable';
 import ReturnFormTabs, { ReturnFormTab } from '../components/ReturnFormTabs';
@@ -60,10 +62,11 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<ReturnFormTab>('items');
+  const [returnPaymentMethod, setReturnPaymentMethod] = useState('');
+  const [activeTab, setActiveTab] = useState<ReturnFormTab>('customer');
   const itemsSummary = calcItemsSummary(items);
   const total = itemsSummary.itemsTotalValue;
-  const form = useZodForm(unlinkedReturnFormSchema, { customer: { ...customer }, items, collectAtAddress, scheduling, observations });
+  const form = useZodForm(unlinkedReturnFormSchema, { customer: { ...customer }, items, returnPaymentMethod, collectAtAddress, scheduling, observations });
 
   React.useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -75,7 +78,7 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
 
   const saveReturn = async () => {
     const validItems = items.filter((item) => item.description.trim() || item.productId);
-    await form.validateAndRun({ customer: { ...customer }, items: validItems, collectAtAddress,
+    await form.validateAndRun({ customer: { ...customer }, items: validItems, returnPaymentMethod, collectAtAddress,
       scheduling: collectAtAddress ? scheduling : { ...EMPTY_SCHEDULING, notInformed: true }, observations }, async (validatedValues) => {
       const populatedItems = (validatedValues.items as Item[]).map((item) => ({
         ...item,
@@ -97,6 +100,7 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
         returnedTotalAmount: summary.itemsTotalValue,
         originalSoldTotal: summary.itemsTotalValue,
         returnKind: 'complete',
+        returnPaymentMethod: validatedValues.returnPaymentMethod,
         observation: validatedValues.observations.join('\n'),
         collectionObservation: validatedValues.collectAtAddress ? validatedValues.observations.join('\n') : undefined,
         itemsSummary: summary,
@@ -132,38 +136,63 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[999999] flex items-stretch justify-center bg-slate-900/60 p-0 backdrop-blur-sm xl:items-center xl:p-4"
-      onClick={onClose}
+    <ReturnOrderFormBase
+      title="Gerar pedido de devolução avulsa"
+      onClose={onClose}
+      footer={
+        <ReturnOrderFormFooter
+          total={total}
+          itemCount={items.length}
+          relationshipLabel="Sem vínculo com venda"
+          submitLabel="Gerar pedido de devolução avulsa"
+          submitStatusLabel={submitting ? 'Processando...' : undefined}
+          disabled={submitting || !items.length}
+          submitting={submitting}
+          onClose={onClose}
+          onSubmit={saveReturn}
+        />
+      }
+      overlays={
+        <>
+          {customerSearchOpen && (
+            <CustomerSearchModal
+              initialSearch={customerSearchTerm}
+              onClose={() => setCustomerSearchOpen(false)}
+              onSelect={(selected) => {
+                setCustomer(selected);
+                setCustomerSearchTerm(selected.fullName);
+                setCustomerSearchOpen(false);
+              }}
+              onAddNew={() => {
+                setCustomerSearchOpen(false);
+                setNewCustomerOpen(true);
+              }}
+            />
+          )}
+          <PersonFormModal
+            isOpen={newCustomerOpen}
+            onClose={() => setNewCustomerOpen(false)}
+            collectionName="customers"
+            title="Cliente"
+            onSuccess={(person) => {
+              const selected = {
+                id: person.id,
+                fullName: person.fullName || person.tradeName || '',
+                phone: person.phone || '',
+                noPhone: person.noPhone || false,
+                fullAddress: person.fullAddress || EMPTY_CUSTOMER.fullAddress,
+                additionalContacts: person.additionalContacts || [],
+              };
+              setCustomer(selected);
+              setCustomerSearchTerm(selected.fullName);
+              setNewCustomerOpen(false);
+            }}
+          />
+        </>
+      }
     >
-      <div
-        className="flex h-full w-full max-w-none flex-col overflow-hidden border border-slate-100 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900 xl:h-auto xl:max-h-[90vh] xl:max-w-2xl xl:rounded-3xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="flex shrink-0 items-center justify-between border-b border-slate-50 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-900/30">
-              <Undo2 className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-black uppercase tracking-tight text-slate-800 dark:text-white">
-                Gerar pedido de devolução
-              </h2>
-              <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                Sem venda vinculada
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            <i className="bi bi-x-lg text-lg" />
-          </button>
-        </header>
-        <div className="custom-scrollbar flex-1 space-y-6 overflow-y-auto p-6">
-          <section>
+          <ReturnFormTabs activeTab={activeTab} onChange={setActiveTab} variant="unlinked" />
+          {activeTab === 'customer' && <section className="space-y-6">
             <div className="mb-3 flex items-center justify-between">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                 Cliente *
@@ -189,24 +218,12 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
                   setCustomerSearchOpen(canSearchCustomers(value));
                 }}
                 placeholder="Digite ao menos 2 caracteres para buscar"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm font-bold outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950"
+                className={`w-full rounded-none border-0 border-b-2 bg-slate-50 py-3 pl-11 pr-11 text-sm font-bold outline-none dark:bg-slate-950 ${customer.fullName ? 'border-emerald-500 text-emerald-700 focus:border-emerald-600 dark:text-emerald-400' : 'border-slate-200 text-slate-700 focus:border-blue-500 dark:border-slate-700 dark:text-slate-200'}`}
               />
               {customer.fullName && (
-                <span className="mt-2 block text-[10px] font-black uppercase tracking-widest text-emerald-600">
-                  <i className="bi bi-check-circle-fill mr-1" />
-                  Cliente selecionado
-                </span>
+                <Check aria-label="Cliente selecionado" className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-emerald-600" />
               )}
             </div>
-          </section>
-          <ReturnFormTabs activeTab={activeTab} onChange={setActiveTab} />
-          {activeTab === 'items' ? (
-            <ReturnItemsTable
-              items={items}
-              setItems={setItems}
-              deliveryMethod={collectAtAddress ? 'delivery' : 'pickup'}
-            />
-          ) : (
             <ReturnCollectionSection
               collectAtAddress={collectAtAddress}
               onCollectChange={setCollectAtAddress}
@@ -217,85 +234,37 @@ const UnlinkedReturnOrderModal = ({ onClose, onSaveSuccess }: Props) => {
               observations={observations}
               onObservationsChange={setObservations}
             />
+          </section>}
+          {activeTab === 'items' && (
+            <ReturnItemsTable
+              items={items}
+              setItems={setItems}
+              deliveryMethod={collectAtAddress ? 'delivery' : 'pickup'}
+            />
           )}
-        </div>
-        <footer className="shrink-0 border-t border-slate-100 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-6 flex items-center justify-between px-2">
-            <div>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
-                Total da devolução
-              </span>
-              <div className="text-2xl font-black text-amber-600">
-                R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          {activeTab === 'payment' && (
+            <section className="space-y-4">
+              <div>
+                <h3 className="text-sm font-black text-slate-800 dark:text-white">Forma do estorno do pagamento</h3>
+                <p className="mt-1 text-xs text-slate-500">Selecione como o valor da devolução será estornado.</p>
               </div>
-            </div>
-            <div className="text-right text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
-              {items.length} itens selecionados
-              <span className="mt-1 block text-[9px] text-slate-400">Sem vínculo com venda</span>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="flex-1 rounded-2xl border border-slate-200 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-800"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={saveReturn}
-              disabled={submitting || !items.length}
-              className="flex flex-1 items-center justify-center gap-3 rounded-2xl bg-amber-600 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white shadow-xl shadow-amber-500/20 transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-            >
-              {submitting ? (
-                'Processando...'
-              ) : (
-                <>
-                  <Undo2 className="h-4 w-4" />
-                  Gerar pedido de devolução
-                </>
-              )}
-            </button>
-          </div>
-        </footer>
-      </div>
-      {customerSearchOpen && (
-        <CustomerSearchModal
-          initialSearch={customerSearchTerm}
-          onClose={() => setCustomerSearchOpen(false)}
-          onSelect={(selected) => {
-            setCustomer(selected);
-            setCustomerSearchTerm(selected.fullName);
-            setCustomerSearchOpen(false);
-          }}
-          onAddNew={() => {
-            setCustomerSearchOpen(false);
-            setNewCustomerOpen(true);
-          }}
-        />
-      )}
-      <PersonFormModal
-        isOpen={newCustomerOpen}
-        onClose={() => setNewCustomerOpen(false)}
-        collectionName="customers"
-        title="Cliente"
-        onSuccess={(person) => {
-          const selected = {
-            id: person.id,
-            fullName: person.fullName || person.tradeName || '',
-            phone: person.phone || '',
-            noPhone: person.noPhone || false,
-            fullAddress: person.fullAddress || EMPTY_CUSTOMER.fullAddress,
-            additionalContacts: person.additionalContacts || [],
-          };
-          setCustomer(selected);
-          setCustomerSearchTerm(selected.fullName);
-          setNewCustomerOpen(false);
-        }}
-      />
-    </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {(['Estorno de crédito', 'Pix', 'Dinheiro'] as const).map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    aria-pressed={returnPaymentMethod === method}
+                    onClick={() => setReturnPaymentMethod(method)}
+                    className={`min-h-16 rounded-2xl border px-4 py-3 text-sm font-bold transition ${returnPaymentMethod === method ? 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/15 dark:bg-emerald-950/30 dark:text-emerald-400' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}
+                  >
+                    {method}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500">Valor do estorno: R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </section>
+          )}
+    </ReturnOrderFormBase>
   );
 };
 

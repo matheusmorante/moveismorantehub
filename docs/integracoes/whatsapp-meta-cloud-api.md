@@ -147,10 +147,11 @@ O sistema possui integração ponta a ponta com Webhook e Realtime:
   * Botão: **"Enviar para o cliente diretamente (Cloud WhatsApp)"** em **cor amarela** (`bg-amber-400 text-[#3b1900]`), com ícone do WhatsApp (`bi bi-whatsapp`) e rótulo **BETA**.
   * Apenas administradores podem acionar o disparo direto; desativado com tooltip explicativo para os demais usuários.
   * O modal não exibe campos de resumo da entrega, permitindo acesso direto e limpo às ações de envio.
-* **No Modal de Visualização do Termo de Garantia (`WarrantyTermModal`):**
-  * Botão: **"Enviar diretamente (Cloud WhatsApp)"** na barra inferior (`WarrantyReaderFooter`), em **cor amarela** (`bg-amber-400 text-[#3b1900]`) com ícone do WhatsApp e rótulo **BETA**.
+* **No Modal de Ações do Termo de Garantia (`WarrantyTermModal`):**
+  * Botão: **"Enviar para o cliente diretamente (Cloud WhatsApp)"** em **cor amarela** (`bg-amber-400 text-[#3b1900]`) com ícone do WhatsApp e rótulo **BETA**.
   * Envia o PDF oficial gerado e assinado digitalmente com SHA-256 como anexo oficial (`type: 'document'`) via WhatsApp Cloud API.
   * Acompanha o feedback visual completo com toast em espera, rastreamento assíncrono via Webhooks e confirmação final de entrega ou erro.
-  * O botão tradicional **"Enviar pelo WhatsApp"** permanece disponível em verde para abertura rápida via WhatsApp Web (`wa.me`).
+  * O botão tradicional **"Enviar para o Cliente"** permanece disponível em verde para abertura rápida via WhatsApp Web (`wa.me`).
+  * Não há tela de prévia visual pesada, permitindo acesso direto e ágil às ações de impressão e envio do documento.
 
 

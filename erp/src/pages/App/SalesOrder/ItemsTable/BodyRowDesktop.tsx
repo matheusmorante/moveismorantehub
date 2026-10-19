@@ -37,12 +37,15 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   onSelectProduct,
   handleSelectService,
   handleStockOriginChange,
+  handleHandlingChange,
   isService,
   shouldShowStockOrigin,
   isLinkedProduct,
   isTemporaryProduct,
   error,
   handlingError,
+  assemblyResponsibleRequired,
+  assemblyResponsibleError,
   stockOriginError,
   serviceProductLink,
 }) => {
@@ -188,11 +191,11 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                   const val = e.target.value;
                   if (!val) return;
                   if (item.handlingType === val) return;
-                  onChange(idx, 'handlingType', val);
+                  handleHandlingChange(val);
                 }}
               >
                 <option value="" disabled className="dark:bg-slate-900">
-                  Manuseio...
+                  Selecione
                 </option>
                 {(() => {
                   const options =
@@ -220,6 +223,35 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                   );
                 })()}
               </select>
+              {assemblyResponsibleRequired && (
+                <div className="mt-2">
+                  <label className="mb-1 block text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    Responsável pela montagem <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    aria-label="Responsável pela montagem"
+                    aria-required="true"
+                    aria-invalid={Boolean(assemblyResponsibleError)}
+                    required
+                    className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1 text-[10px] font-bold outline-none transition-colors dark:text-slate-300 ${
+                      assemblyResponsibleError
+                        ? 'border-red-500 focus:border-red-500'
+                        : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'
+                    }`}
+                    value={item.assemblyResponsible || ''}
+                    onChange={(e) => onChange(idx, 'assemblyResponsible', e.target.value)}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="Nossa equipe">Nossa equipe</option>
+                    <option value="Montador terceirizado">Montador terceirizado</option>
+                  </select>
+                  {assemblyResponsibleError && (
+                    <span className="mt-1 block text-[9px] text-red-600 dark:text-red-400">
+                      {assemblyResponsibleError}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </td>

@@ -4,12 +4,10 @@ import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { productListFormSchema } from '../../../../../shared-utils/listingFormSchemas';
 import { validateCatalogPublication } from '../../../../../shared-utils/catalogPublicationValidation';
 import {
-  canShowMobileTestProducts,
   resolveAppliedMobileProductSearch,
   resolveMobileProductStatusFilter,
 } from '../domain/mobileProductListFilters';
 import { getMobileEffectiveVariationPrice } from '../domain/productRegistrationRules';
-import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
   deleteMobileProduct,
@@ -22,8 +20,7 @@ const ITEMS_PER_PAGE = 15;
 
 export function useMobileProducts(
   mode: 'standard' | 'composition' = 'standard',
-  enabled = true,
-  isAdministrator = false
+  enabled = true
 ) {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(enabled);
@@ -33,7 +30,6 @@ export function useMobileProducts(
   const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'draft'>('all');
   const [showDeactivated, setShowDeactivated] = useState(true);
-  const [showTestProducts, setShowTestProducts] = useState(false);
   const [showMergedProducts, setShowMergedProducts] = useState(false);
   const [generalTypeFilter, setGeneralTypeFilter] = useState<'all' | 'product' | 'service'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
@@ -43,15 +39,6 @@ export function useMobileProducts(
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const { validateValues: validateList } = useZodForm(productListFormSchema, { page: currentPage, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated });
-  const showTestProductsForCurrentRole = canShowMobileTestProducts(
-    isAdministrator,
-    showTestProducts
-  );
-
-  useEffect(() => {
-    if (!isAdministrator && showTestProducts) setShowTestProducts(false);
-  }, [isAdministrator, showTestProducts]);
-
   useEffect(() => {
     const nextSearch = resolveAppliedMobileProductSearch(searchTerm, appliedSearchTerm);
     if (nextSearch === appliedSearchTerm) return;
@@ -138,7 +125,6 @@ export function useMobileProducts(
     categoryFilter,
     catalogStatusFilter,
     generalTypeFilter,
-    showTestProducts,
     showDeactivated,
     showMergedProducts,
     mode,
@@ -338,13 +324,8 @@ export function useMobileProducts(
   };
 
   const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
-  const hasTestProducts = products.some(isTestProduct);
-  const visibleProducts = showTestProductsForCurrentRole
-    ? products
-    : products.filter((product) => !isTestProduct(product));
-
   return {
-    products: visibleProducts,
+    products,
     loading,
     loadError,
     refreshing,
@@ -354,8 +335,6 @@ export function useMobileProducts(
     categoryFilter,
     catalogStatusFilter,
     generalTypeFilter,
-    showTestProducts: showTestProductsForCurrentRole,
-    hasTestProducts,
     showMergedProducts,
     currentPage,
     totalItems,
@@ -367,7 +346,6 @@ export function useMobileProducts(
     setCategoryFilter,
     setCatalogStatusFilter,
     setGeneralTypeFilter,
-    setShowTestProducts,
     setShowMergedProducts,
     onToggleMergedProducts: () => setShowMergedProducts((prev) => !prev),
     setCurrentPage,

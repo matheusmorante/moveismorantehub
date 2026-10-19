@@ -4,6 +4,7 @@ import {
   PostOrderButtonConfig,
   resolvePostOrderButtonColorClass,
 } from '../postOrderActionsHelpers';
+import ReturnIcon from '@/components/shared/ReturnIcon';
 
 interface PostOrderActionGridButtonProps {
   readonly btn: PostOrderButtonConfig;
@@ -79,7 +80,11 @@ export const PostOrderActionGridButton: React.FC<PostOrderActionGridButtonProps>
           : `${baseColor} hover:-translate-y-1 hover:shadow-lg border-slate-100 dark:border-slate-800`
       } ${isClicked ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
     >
-      <i className={`bi ${btn.icon} text-2xl mb-2`}></i>
+      {btn.icon === 'bi-arrow-return-left' ? (
+        <ReturnIcon className="mb-2 h-8 w-8" />
+      ) : (
+        <i className={`bi ${btn.icon} text-2xl mb-2`} />
+      )}
       <div className="flex flex-col items-center gap-1">
         <span className="text-[10px] font-black uppercase tracking-widest text-center">
           {typeof btn.label === 'function' ? btn.label(order) : btn.label}

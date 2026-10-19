@@ -15,6 +15,7 @@ interface Props {
   paused: boolean;
   muted: boolean;
   remainingMs: number;
+  busy?: boolean;
   onPause: () => void;
   onMute: () => void;
   onEnd: () => void;
@@ -25,6 +26,7 @@ export const GeminiLiveOrb: React.FC<Props> = ({
   paused,
   muted,
   remainingMs,
+  busy = false,
   onPause,
   onMute,
   onEnd,
@@ -69,6 +71,7 @@ export const GeminiLiveOrb: React.FC<Props> = ({
             accessibilityLabel={paused ? 'Retomar conversa' : 'Pausar conversa'}
             style={styles.control}
             onPress={onPause}
+            disabled={busy}
           >
             {paused ? <Play color="white" size={18} /> : <Pause color="white" size={18} />}
           </TouchableOpacity>
@@ -76,6 +79,7 @@ export const GeminiLiveOrb: React.FC<Props> = ({
             accessibilityLabel={muted ? 'Ativar microfone' : 'Silenciar microfone'}
             style={styles.control}
             onPress={onMute}
+            disabled={busy}
           >
             {muted ? <MicOff color="white" size={18} /> : <Mic color="white" size={18} />}
           </TouchableOpacity>

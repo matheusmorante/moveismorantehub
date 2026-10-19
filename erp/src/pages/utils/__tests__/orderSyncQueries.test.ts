@@ -119,6 +119,7 @@ describe('fetchOrdersPage', () => {
     expect(options).toEqual({ count: 'exact' });
     expect(columns).toContain('items, order_data');
     expect(columns).toContain('order_items(');
+    expect(columns).toMatch(/order_items\(\s*id, item_index,/);
     expect(columns).toContain('item_snapshot');
     expect(columns).toContain('original_total_value');
     expect(columns).toContain('order_payments(payment_method, amount, fee, fee_type, status, installments)');

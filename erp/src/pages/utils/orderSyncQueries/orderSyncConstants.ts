@@ -12,7 +12,7 @@ export const ORDER_LIST_COLUMNS = `
   linked_order_id, returned_total_amount, original_sold_total, return_kind,
   created_at, updated_at, items, order_data,
   order_items(
-    id, product_id, variation_id, code, description, quantity, unit_price,
+    id, item_index, product_id, variation_id, code, description, quantity, unit_price,
     unit_discount, discount_type, cost_price, condition, handling_type,
     observation, is_temporary_product, item_snapshot, returned_quantity,
     returned_unit_price, returned_total_value, original_unit_price, original_total_value
@@ -26,7 +26,7 @@ export const DASHBOARD_ORDERS_COLUMNS = `
     deleted, deleted_at, created_at, updated_at,
     is_test:order_data->>is_test, test_environment:order_data->>test_environment,
     test_run_id:order_data->>testRunId,
-    order_items(id, order_id, product_id, variation_id, description, quantity, unit_price, unit_discount, cost_price, handling_type, is_temporary_product)
+    order_items(id, order_id, item_index, product_id, variation_id, description, quantity, unit_price, unit_discount, cost_price, handling_type, is_temporary_product)
 `;
 
 export const RECENT_DASHBOARD_ORDERS_COLUMNS = `

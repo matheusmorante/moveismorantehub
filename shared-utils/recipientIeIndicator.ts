@@ -16,10 +16,15 @@ export function resolveEffectiveRecipientIeIndicator(input: {
 
 export function getRecipientIeIndicatorConsistencyError(
   indicator: unknown,
-  ie: unknown
+  ie: unknown,
+  finalConsumer?: boolean
 ): string | null {
   if (indicator !== '1' && indicator !== '2' && indicator !== '9') {
     return 'Selecione uma situação válida para a Inscrição Estadual do destinatário.';
+  }
+
+  if (indicator === '9' && finalConsumer === false) {
+    return 'Destinatário não contribuinte exige operação com consumidor final. Revise a finalidade da compra ou a situação fiscal do cliente antes de emitir.';
   }
 
   const rawIe = typeof ie === 'string' ? ie.trim() : '';

@@ -31,7 +31,7 @@ const returnDocument = (
 });
 
 describe('OrderFiscalOperationBadge NFD', () => {
-  it('counts fiscal documents and opens their individual details and actions', () => {
+  it('opens the fiscal document represented by the clicked NFD badge directly', () => {
     const onOpenDocument = vi.fn();
     render(
       <MemoryRouter>
@@ -44,20 +44,16 @@ describe('OrderFiscalOperationBadge NFD', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /NFD · 2 notas fiscais.*Estados mistos/i }));
+    expect(screen.getByRole('button', { name: /NFD1 · 901 · Autorizada/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /NFD2 · 902 · Cancelada/i })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /NFD1 · 901 · Autorizada/i }));
 
-    expect(screen.getByRole('dialog')).toBeTruthy();
-    expect(screen.getByText('NFD 901 · Série 1')).toBeTruthy();
-    expect(screen.getByText('NFD 902 · Série 1')).toBeTruthy();
-    expect(screen.getByText('#301')).toBeTruthy();
-    expect(
-      screen.getAllByText(
-        (_text, element) => element?.textContent?.replace(/\u00a0/g, ' ') === 'R$ 1.250,50'
-      )
-    ).toHaveLength(2);
-
-    fireEvent.click(screen.getAllByRole('button', { name: /Abrir XML\/DANFE e ações fiscais/i })[0]);
     expect(onOpenDocument).toHaveBeenCalledWith('nfd-1', 2);
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /NFD2 · 902 · Cancelada/i }));
+    expect(onOpenDocument).toHaveBeenLastCalledWith('nfd-2', 2);
+    expect(onOpenDocument).toHaveBeenCalledTimes(2);
   });
 
   it('does not show NFD when there are no persisted return documents', () => {

@@ -1,7 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import type { LabelConfig } from '../utils/LabelConstants';
-import bwipjs from 'bwip-js';
 import { PriceLabelArtItem } from './PriceLabelArtItem';
+import { LabelBarcode } from './label-item/LabelBarcode';
+import { QRCodeCanvas, QRPreviewPlaceholder } from './label-item/LabelQRCode';
+import {
+  formatLabelPrice,
+  formatPrice,
+  getAlignment,
+  getVAlignment,
+} from './label-item/labelItemUtils';
+import { LabelIdentificationLayout } from './label-item/LabelIdentificationLayout';
 
 export interface LabelItemProps {
   readonly config: LabelConfig;
@@ -16,104 +24,9 @@ export interface LabelItemProps {
   readonly previewMode?: boolean;
 }
 
-const Barcode: React.FC<{ text: string; height?: number }> = ({ text, height = 15 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    if (canvasRef.current && text) {
-      try {
-        const trimmedText = text.trim();
-        const isNumeric = /^\d+$/.test(trimmedText);
-        const isEanCompatible =
-          isNumeric && (trimmedText.length === 12 || trimmedText.length === 13);
-        const bcidType = isEanCompatible ? 'ean13' : 'code128';
-
-        bwipjs.toCanvas(canvasRef.current, {
-          bcid: bcidType,
-          text: trimmedText,
-          scale: 3,
-          height: height,
-          includetext: true,
-          textxalign: 'center',
-          backgroundcolor: 'ffffff',
-        });
-        setError(false);
-      } catch (e: unknown) {
-        console.error('Barcode error:', e);
-        setError(true);
-      }
-    }
-  }, [text, height]);
-
-  if (error)
-    return (
-      <div className="text-[10px] font-black text-rose-500 uppercase px-2 py-1 bg-rose-50 rounded italic">
-        Formato Inválido
-      </div>
-    );
-  return <canvas ref={canvasRef} style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />;
-};
-
-const QRCodeCanvas: React.FC<{ text: string }> = ({ text }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    if (canvasRef.current && text) {
-      try {
-        bwipjs.toCanvas(canvasRef.current, {
-          bcid: 'qrcode',
-          text: text.trim(),
-          scale: 3,
-          backgroundcolor: 'ffffff',
-        });
-        setError(false);
-      } catch (e: unknown) {
-        console.error('QRCode error:', e);
-        setError(true);
-      }
-    }
-  }, [text]);
-
-  if (error)
-    return (
-      <div className="text-[10px] font-black text-rose-500 uppercase px-2 py-1 bg-rose-50 rounded italic">
-        Formato Inválido
-      </div>
-    );
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{ maxWidth: '100%', height: 'auto', maxHeight: '100%', display: 'block' }}
-    />
-  );
-};
-
-const QRPreviewPlaceholder = () => (
-  <div
-    aria-label="Espaço reservado para o QR Code"
-    title="O QR Code real será gerado ao imprimir"
-    style={{
-      width: '30mm',
-      height: '30mm',
-      border: '1px solid #94a3b8',
-      background: '#ffffff',
-      color: '#64748b',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      boxSizing: 'border-box',
-    }}
-  >
-    <i className="bi bi-qr-code" aria-hidden="true" style={{ fontSize: '10mm' }} />
-  </div>
-);
-
 export const LabelItem: React.FC<LabelItemProps> = ({
   config,
   image,
-  index,
   scale,
   rotation,
   hideBleedBorder,
@@ -124,25 +37,6 @@ export const LabelItem: React.FC<LabelItemProps> = ({
 }) => {
   const activeScale = scale ?? config.imageScale ?? 1;
   const isRound = config.type === 'round';
-  const formatPrice = (price?: string | number) => {
-    if (!price) return '';
-    const p = String(price);
-    if (p.includes('R$')) return p;
-    const clean = p.replace(/\D/g, '');
-    const val = parseInt(clean) / 100;
-    return isNaN(val) ? '' : val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
-  const formatLabelPrice = (priceStr: string, isEffectivelySplit: boolean) => {
-    if (!priceStr) return '';
-    const unified = formatPrice(priceStr);
-    if (!isEffectivelySplit) return unified;
-    return unified.replace('R$', '').replace(',00', '').trim();
-  };
-  const getAlignment = (align?: string) =>
-    align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start';
-  const getVAlignment = (valign?: string) =>
-    valign === 'middle' ? 'center' : valign === 'bottom' ? 'flex-end' : 'flex-start';
-
   const isPriceLabel = config.category === 'precos';
 
   const bleedStyle: React.CSSProperties = {
@@ -192,8 +86,9 @@ export const LabelItem: React.FC<LabelItemProps> = ({
   const priceStr = hasPromo ? config.promoPrice || '' : config.price || '';
   const priceDigits = priceStr.replace(/\D/g, '').length;
   let dynamicFontSize = config.nameFontSize || 10;
-  if (priceDigits > 5)
+  if (priceDigits > 5) {
     dynamicFontSize = Math.max(6, (config.nameFontSize || 10) - (priceDigits - 5) * 1.5);
+  }
   const safeExtraFields = Array.isArray((config as any).extraFields)
     ? (config as any).extraFields
     : [];
@@ -351,7 +246,7 @@ export const LabelItem: React.FC<LabelItemProps> = ({
             zIndex: 5,
           }}
         >
-          <Barcode text={barcodeText} />
+          <LabelBarcode text={barcodeText} />
         </div>
       );
     }
@@ -412,97 +307,11 @@ export const LabelItem: React.FC<LabelItemProps> = ({
         {isAdvancedPriceMode && !isBlank && !hideContent ? (
           <PriceLabelArtItem config={config} />
         ) : config.category === 'identificacao' && !isBlank && !hideContent ? (
-          <div
-            style={{
-              display: 'flex',
-              width: '100%',
-              height: '100%',
-              padding: '4mm',
-              boxSizing: 'border-box',
-              backgroundColor: 'white',
-              alignItems: 'center',
-            }}
-          >
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                paddingRight: '4mm',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  color: 'black',
-                  lineHeight: 1.2,
-                  maxHeight: '3.6em',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 3,
-                  WebkitBoxOrient: 'vertical',
-                }}
-              >
-                {config.text || config.name || ''}
-              </div>
-              <div
-                style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold', marginTop: '6px' }}
-              >
-                SKU
-              </div>
-              <div style={{ fontSize: '12px', color: 'black', fontWeight: 'bold' }}>
-                {config.sku ||
-                  config.barcode ||
-                  config.code ||
-                  (config as any).variationId ||
-                  (config as any).productId ||
-                  ''}
-              </div>
-            </div>
-            <div
-              style={{
-                width: '36mm',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <div
-                style={{
-                  width: '30mm',
-                  height: '30mm',
-                  backgroundColor: 'white',
-                  padding: '2mm',
-                  boxSizing: 'border-box',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {previewMode ? (
-                  <QRPreviewPlaceholder />
-                ) : (
-                  <QRCodeCanvas
-                    text={
-                      uuid
-                        ? `MH:L:${uuid}|${config.sku || config.barcode || config.code || (config as any).variationId || (config as any).productId || ''}`
-                        : config.sku ||
-                          config.barcode ||
-                          config.code ||
-                          (config as any).variationId ||
-                          (config as any).productId ||
-                          ''
-                    }
-                  />
-                )}
-              </div>
-            </div>
-          </div>
+          <LabelIdentificationLayout
+            config={config}
+            previewMode={previewMode}
+            uuid={uuid}
+          />
         ) : (
           !hasImage && !isLogoOnly && !hideContent && !isBlank && elements.map(renderModularElement)
         )}

@@ -10,7 +10,7 @@ export const userDocumentation: DocumentationSection[] = [
       'Use Rascunho apenas enquanto preenche. Ao cadastrar um pedido válido, ele passa a Agendado.',
       'Pedido Agendado, Entregue ou Retirado pode ser editado. Se item ou quantidade mudar, confirme o resumo antes de salvar para ajustar somente a movimentação daquele item.',
       'Cancelamento é definitivo: estorna as saídas e exige a criação de outro pedido caso a venda precise ser refeita.',
-      'Devolução vinculada nasce de venda Entregue ou Retirada. Na tela Devoluções, use Nova devolução sem venda vinculada para registrar cliente e itens sem relacionar uma venda.',
+      'Devolução vinculada nasce de venda Entregue ou Retirada. Na tela Devoluções, use Nova Devolução avulsa para registrar cliente e itens sem relacionar uma venda.',
     ],
     flow: [
       { title: 'Preencher', detail: 'Inclua cliente, itens, pagamento e agendamento.' },

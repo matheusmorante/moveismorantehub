@@ -519,6 +519,35 @@ var CFOP_BY_CODE = new Map(
   CANONICAL_CFOPS.map((def) => [def.code, def])
 );
 
+// shared-utils/fiscalOperationContext.ts
+var RETURN_TAX_MATRIX_REQUIRED_MESSAGE = "Este cen\xE1rio de devolu\xE7\xE3o ainda n\xE3o tem matriz tribut\xE1ria aprovada no ERP. A emiss\xE3o permanece bloqueada sem alterar ou zerar os dados tribut\xE1rios da NF-e original.";
+function hasNonZeroTaxAmount(xml, excludeCommercialTotals = false) {
+  const commercialTotals = /* @__PURE__ */ new Set([
+    "vProd",
+    "vFrete",
+    "vSeg",
+    "vDesc",
+    "vOutro",
+    "vNF",
+    "vNFTot"
+  ]);
+  const valuePattern = /<(?:[\w.-]+:)?(v[a-z][\w.-]*|q(?:bc|selo)[\w.-]*)\b[^>]*>\s*([+-]?(?:\d+)(?:\.\d+)?)\s*<\/(?:[\w.-]+:)?\1>/gi;
+  for (const match of xml.matchAll(valuePattern)) {
+    if (excludeCommercialTotals && commercialTotals.has(match[1])) continue;
+    const numericValue = Number(match[2]);
+    if (!Number.isFinite(numericValue) || Math.abs(numericValue) > 1e-7) return true;
+  }
+  return false;
+}
+function validateReturnTaxScenario(sourceInvoiceXml, sourceTaxesXml) {
+  if (hasNonZeroTaxAmount(sourceTaxesXml)) return RETURN_TAX_MATRIX_REQUIRED_MESSAGE;
+  const totals = sourceInvoiceXml.match(
+    /<(?:[\w.-]+:)?total\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?total>/i
+  )?.[0];
+  if (totals && hasNonZeroTaxAmount(totals, true)) return RETURN_TAX_MATRIX_REQUIRED_MESSAGE;
+  return null;
+}
+
 // erp/src/pages/utils/nfe/fiscalOperationXml.ts
 var namespace = "http://www.portalfiscal.inf.br/nfe";
 function parseBlock(xml, expected) {
@@ -730,6 +759,22 @@ function buildFiscalOperationDraftReviewState(data) {
   }
   return { reviewedLines, review, error, notice };
 }
+function buildAutomaticReturnDraftReviewState(data) {
+  const state = buildFiscalOperationDraftReviewState(data);
+  if (state.error) return state;
+  if (data.draft.operation_kind !== "return" || data.source.modelo !== "55" || !state.reviewedLines.length) {
+    return { ...state, error: "A opera\xE7\xE3o exige revis\xE3o fiscal manual." };
+  }
+  for (const [index, line] of state.reviewedLines.entries()) {
+    const original = data.lines[index];
+    if (!original.allowedCfops?.some((option) => option.value === line.cfop)) {
+      return { ...state, error: "O CFOP exige revis\xE3o fiscal manual." };
+    }
+    const taxError = validateReturnTaxScenario(data.reviewTemplate.totals_xml, original.originalTaxesXml) || validateReturnTaxScenario(state.review.totals_xml, line.taxes_xml);
+    if (taxError) return { ...state, error: taxError };
+  }
+  return { ...state, review: { ...state.review, item_taxes_confirmed: true, totals_confirmed: true } };
+}
 
 // api/nfe/automaticReturnFiscalWorker.ts
 var AutomaticReturnFiscalApiError = class extends Error {
@@ -757,7 +802,7 @@ async function transmitDraft(request, draftId, environment) {
   }
   return "blocked";
 }
-async function processAutomaticReturnFiscalJob(returnOrderId, request, buildReviewState = buildFiscalOperationDraftReviewState) {
+async function processAutomaticReturnFiscalJob(returnOrderId, request, buildReviewState = buildAutomaticReturnDraftReviewState) {
   try {
     const rawEligibility = await request(
       "/api/nfe/return-fiscal-eligibility?returnOrderId=" + encodeURIComponent(returnOrderId),
@@ -945,37 +990,50 @@ async function handler(req, res) {
   const job = Array.isArray(jobs) ? jobs[0] : null;
   if (!job) return res.status(200).json({ processed: 0 });
   const requestFiscalApi = async (path2, method, body) => {
-    let response;
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 45e3);
     try {
-      response = await fetch(new URL(path2, baseUrl), {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          [AUTOMATIC_RETURN_WORKER_SECRET_HEADER]: process.env.NFE_RETURN_AUTO_WORKER_SECRET || ""
-        },
-        ...body ? { body: JSON.stringify(body) } : {}
-      });
-    } catch {
-      throw new AutomaticReturnFiscalApiError("fiscal_api_unreachable", true);
+      let response;
+      try {
+        response = await fetch(new URL(path2, baseUrl), {
+          method,
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
+            [AUTOMATIC_RETURN_WORKER_SECRET_HEADER]: process.env.NFE_RETURN_AUTO_WORKER_SECRET || ""
+          },
+          ...body ? { body: JSON.stringify(body) } : {}
+        });
+      } catch {
+        throw new AutomaticReturnFiscalApiError(
+          controller.signal.aborted ? "fiscal_api_timeout" : "fiscal_api_unreachable",
+          true
+        );
+      }
+      let payload;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new AutomaticReturnFiscalApiError(
+          controller.signal.aborted ? "fiscal_api_timeout" : "fiscal_api_response_invalid",
+          controller.signal.aborted || response.status >= 500
+        );
+      }
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        throw new AutomaticReturnFiscalApiError("fiscal_api_response_invalid", response.status >= 500);
+      }
+      const result2 = payload;
+      const isRecoverable = result2.pending === true || result2.retryAllowed === true || result2.reconciliationRequired === true;
+      if (!response.ok && !isRecoverable) {
+        throw new AutomaticReturnFiscalApiError(
+          response.status >= 500 || response.status === 429 ? "fiscal_api_unavailable" : "fiscal_api_rejected",
+          response.status >= 500 || response.status === 429
+        );
+      }
+      return result2;
+    } finally {
+      clearTimeout(deadline);
     }
-    let payload;
-    try {
-      payload = await response.json();
-    } catch {
-      throw new AutomaticReturnFiscalApiError("fiscal_api_response_invalid", response.status >= 500);
-    }
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-      throw new AutomaticReturnFiscalApiError("fiscal_api_response_invalid", response.status >= 500);
-    }
-    const result2 = payload;
-    const isRecoverable = result2.pending === true || result2.retryAllowed === true || result2.reconciliationRequired === true;
-    if (!response.ok && !isRecoverable) {
-      throw new AutomaticReturnFiscalApiError(
-        response.status >= 500 || response.status === 429 ? "fiscal_api_unavailable" : "fiscal_api_rejected",
-        response.status >= 500 || response.status === 429
-      );
-    }
-    return result2;
   };
   const result = await processAutomaticReturnFiscalJob(
     String(job.return_order_id || ""),

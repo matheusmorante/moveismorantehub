@@ -1,5 +1,7 @@
 import { supabase } from '../../../services/supabaseClient';
 import { OrderRepository } from '../../../repositories/OrderRepository';
+import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 
 const ORDER_LIST_VIEW_COLUMNS = [
   'id',
@@ -26,11 +28,12 @@ const ORDER_LIST_VIEW_COLUMNS = [
   'item_handling',
 ].join(',');
 
-import {
+import type {
   MobileOrderListItem,
   MobileFiscalBadgeStatuses,
   FiscalBadgeStatus,
   FiscalDocumentStatusRow,
+  MobileOrderType,
 } from '../domain/types';
 
 export type { MobileOrderListItem, MobileFiscalBadgeStatuses, FiscalBadgeStatus };
@@ -304,35 +307,39 @@ const toListItem = (row: any): MobileOrderListItem => {
   };
 };
 
-const isBudgetRow = (row: any): boolean =>
-  String(
-    row?.order_type || row?.order_data?.orderType || row?.order_data?.order_type || ''
-  ).toLowerCase() === 'budget';
-
 const isHiddenRow = (row: any): boolean =>
-  isBudgetRow(row) || Boolean(row?.deleted || row?.order_data?.deleted);
+  Boolean(row?.deleted || row?.order_data?.deleted);
 
 export const fetchMobileOrdersPage = async ({
   page,
   pageSize,
   search,
   status,
+  orderType = 'sale',
 }: {
   page: number;
   pageSize: number;
   search: string;
   status: string;
+  orderType?: MobileOrderType;
 }): Promise<{ items: MobileOrderListItem[]; total: number }> => {
   const firstRow = (page - 1) * pageSize;
   const lastRow = firstRow + pageSize - 1;
 
   // 1. Tenta buscar da view otimizada order_list_items caso ela esteja disponível
   try {
-    let query = supabase
-      .from('order_list_items')
-      .select(ORDER_LIST_VIEW_COLUMNS, { count: 'exact' })
-      .neq('order_type', 'budget')
-      .order('created_at', { ascending: false });
+    let query = excludeTestOrders(
+      supabase
+        .from('order_list_items')
+        .select(ORDER_LIST_VIEW_COLUMNS, { count: 'exact' })
+        .order('created_at', { ascending: false })
+    );
+
+    if (orderType === 'sale') {
+      query = query.not('order_type', 'in', '(budget,assistance,return)');
+    } else {
+      query = query.eq('order_type', orderType);
+    }
 
     const term = search.trim().replace(/[,%()]/g, '');
     if (term) {
@@ -349,14 +356,13 @@ export const fetchMobileOrdersPage = async ({
     if (status === 'rascunhos') query = query.or('status.ilike.%draft%,status.ilike.%rascunh%');
     if (status === 'retiradas')
       query = query.or('delivery_method.ilike.%pickup%,delivery_method.ilike.%retirada%');
-    if (status === 'assistencias') query = query.eq('order_type', 'assistance');
-    if (status === 'devolucoes') query = query.eq('order_type', 'return');
-
     query = query.range(firstRow, lastRow);
 
     const { data, count, error } = await query;
     if (!error && data) {
-      const visibleRows = data.filter((row: any) => !isHiddenRow(row));
+      const visibleRows = data.filter(
+        (row: any) => !isHiddenRow(row) && !isIdentifiedTestArtifact(row)
+      );
       const items = visibleRows.map(toListItem);
       await cacheOrders(items);
       return {
@@ -369,14 +375,21 @@ export const fetchMobileOrdersPage = async ({
   }
 
   // 2. Fallback resiliente direto na tabela orders oficial (sempre existente e populada)
-  let query = supabase
-    .from('orders')
-    .select(
-      'id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, deleted, order_data',
-      { count: 'exact' }
-    )
-    .neq('order_type', 'budget')
-    .order('created_at', { ascending: false });
+  let query = excludeTestOrders(
+    supabase
+      .from('orders')
+      .select(
+        'id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, deleted, order_data',
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false })
+  );
+
+  if (orderType === 'sale') {
+    query = query.not('order_type', 'in', '(budget,assistance,return)');
+  } else {
+    query = query.eq('order_type', orderType);
+  }
 
   const term = search.trim().replace(/[,%()]/g, '');
   if (term) {
@@ -393,16 +406,14 @@ export const fetchMobileOrdersPage = async ({
     query = query.or(
       'order_data->shipping->>deliveryMethod.ilike.%pickup%,order_data->shipping->>deliveryMethod.ilike.%retirada%'
     );
-  if (status === 'assistencias') query = query.eq('order_type', 'assistance');
-  if (status === 'devolucoes') query = query.eq('order_type', 'return');
-
-
   query = query.range(firstRow, lastRow);
 
   const { data, count, error } = await query;
   if (error) throw error;
 
-  const visibleRows = (data || []).filter((row: any) => !isHiddenRow(row));
+  const visibleRows = (data || []).filter(
+    (row: any) => !isHiddenRow(row) && !isIdentifiedTestArtifact(row)
+  );
   return {
     items: await cacheOrders(visibleRows.map(toListItem)),
     total: Math.max(0, (count || 0) - ((data || []).length - visibleRows.length)),
@@ -414,7 +425,7 @@ async function cacheOrders(items: MobileOrderListItem[]): Promise<MobileOrderLis
   // enquanto a migração SQLite ainda está inicializando no primeiro carregamento.
   try {
     await Promise.all(
-      items.map((item) =>
+      items.filter((item) => !isIdentifiedTestArtifact(item.order_data)).map((item) =>
         OrderRepository.saveLocal({
           id: item.id,
           status: item.status,

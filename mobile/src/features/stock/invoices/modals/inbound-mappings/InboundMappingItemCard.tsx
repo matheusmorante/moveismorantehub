@@ -4,8 +4,10 @@ import { Link2, Plus, Search, Trash2 } from 'lucide-react-native';
 import type { CompositionLink, InboundScorerProduct, MappingItem, ProductSuggestion } from './types';
 import { amount, formatMoney, landedUnitCost } from './inboundCostUtils';
 import { styles } from './inboundMappings.styles';
+import { InboundItemFiscalDetails } from './InboundItemFiscalDetails';
+import { InboundItemSuggestionsCard } from './InboundItemSuggestionsCard';
 
-interface InboundMappingItemCardProps {
+export interface InboundMappingItemCardProps {
   item: MappingItem;
   supplierId: string;
   isDarkMode: boolean;
@@ -104,135 +106,14 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
         </Text>
       </TouchableOpacity>
 
-      {isExpanded ? (
-        <View style={[styles.detailsPanel, isDarkMode && styles.detailsPanelDark]}>
-          <Text style={[styles.detailsTitle, isDarkMode && styles.textDark]}>
-            Dados fiscais e financeiros
-          </Text>
-          <Text style={[styles.detailsSubtitle, isDarkMode && styles.muted]}>
-            Valores do item
-          </Text>
-          {[
-            ['Mercadoria', amount(item.unitCost), amount(item.totalCost)],
-            [
-              'Desconto',
-              amount(item.discountValue) / quantity,
-              amount(item.discountValue),
-            ],
-            ['Frete', amount(item.freightValue) / quantity, amount(item.freightValue)],
-            ['IPI', amount(item.ipiValue) / quantity, amount(item.ipiValue)],
-            [
-              'Seguro',
-              amount(item.insuranceValue) / quantity,
-              amount(item.insuranceValue),
-            ],
-            [
-              'Outras despesas acessórias',
-              amount(item.otherExpensesValue) / quantity,
-              amount(item.otherExpensesValue),
-            ],
-            [
-              'Valor final',
-              (amount(item.totalCost) +
-                amount(item.ipiValue) +
-                amount(item.freightValue) +
-                amount(item.insuranceValue) +
-                amount(item.otherExpensesValue) -
-                amount(item.discountValue)) /
-                quantity,
-              amount(item.totalCost) +
-                amount(item.ipiValue) +
-                amount(item.freightValue) +
-                amount(item.insuranceValue) +
-                amount(item.otherExpensesValue) -
-                amount(item.discountValue),
-            ],
-          ].map(([label, unitValue, totalValue]) => (
-            <View key={String(label)} style={styles.detailLine}>
-              <Text
-                style={[
-                  styles.muted,
-                  String(label) === 'Valor final' && styles.detailEmphasis,
-                ]}
-              >
-                {String(label)}
-              </Text>
-              <Text style={[styles.detailValue, isDarkMode && styles.textDark]}>
-                {String(label) === 'Desconto'
-                  ? `− ${formatMoney(Number(unitValue))} / − ${formatMoney(Number(totalValue))}`
-                  : `${formatMoney(Number(unitValue))} / ${formatMoney(Number(totalValue))}`}
-              </Text>
-            </View>
-          ))}
-          <Text style={[styles.detailsSubtitle, isDarkMode && styles.muted]}>
-            Classificação fiscal
-          </Text>
-          {[
-            ['EAN', item.ean || item.eanTrib],
-            ['NCM', item.ncm],
-            ['CEST', item.cest],
-            ['CFOP', item.cfop],
-          ].map(([label, value]) => (
-            <View key={String(label)} style={styles.detailLine}>
-              <Text style={styles.muted}>{label}</Text>
-              <Text style={[styles.detailValue, isDarkMode && styles.textDark]}>
-                {String(value || '—')}
-              </Text>
-            </View>
-          ))}
-          <Text style={[styles.detailsSubtitle, isDarkMode && styles.muted]}>
-            Tributos extraídos da NF-e
-          </Text>
-          {[
-            ['ICMS', item.icmsCst, item.icmsPercent, item.icmsValue],
-            ['ICMS ST', null, item.icmsStPercent, item.icmsStValue],
-            ['IPI', item.ipiCst, item.ipiPercent, item.ipiValue],
-            ['PIS', item.pisCst, item.pisPercent, item.pisValue],
-            ['COFINS', item.cofinsCst, item.cofinsPercent, item.cofinsValue],
-            ['IBS', item.ibsCst, null, item.ibsValue],
-            ['CBS', item.cbsCst, null, item.cbsValue],
-            ['FCP', null, null, item.fcpValue],
-            ['FCP ST', null, null, item.fcpStValue],
-          ].map(([label, cst, percent, value]) => (
-            <View key={String(label)} style={styles.detailLine}>
-              <Text style={styles.muted}>{label}</Text>
-              <Text style={[styles.detailValue, isDarkMode && styles.textDark]}>
-                {[
-                  cst,
-                  percent !== undefined ? `${Number(percent || 0).toFixed(2)}%` : null,
-                  formatMoney(amount(value)),
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || '—'}
-              </Text>
-            </View>
-          ))}
-          <View style={styles.detailLine}>
-            <Text style={styles.muted}>Origem ICMS · base ICMS / ST</Text>
-            <Text style={[styles.detailValue, isDarkMode && styles.textDark]}>
-              {[
-                item.icmsOrigem || '—',
-                formatMoney(amount(item.icmsBaseValue)),
-                formatMoney(amount(item.icmsStBaseValue)),
-              ].join(' · ')}
-            </Text>
-          </View>
-          <View style={styles.detailLine}>
-            <Text style={styles.muted}>Total de tributos</Text>
-            <Text style={[styles.detailValue, isDarkMode && styles.textDark]}>
-              {formatMoney(amount(item.totalTaxes))}
-            </Text>
-          </View>
-          <View style={styles.detailLine}>
-            <Text style={styles.muted}>Custos adicionais rateados</Text>
-            <Text style={[styles.detailValue, isDarkMode && styles.textDark]}>
-              {formatMoney(
-                amount(item.totalAdditionalCosts ?? item.allocatedAdditionalCosts)
-              )}
-            </Text>
-          </View>
-        </View>
-      ) : null}
+      <InboundItemFiscalDetails
+        item={item}
+        quantity={quantity}
+        totalLandedCost={totalLandedCost}
+        isDarkMode={isDarkMode}
+        isExpanded={isExpanded}
+        onToggleExpand={onToggleExpand}
+      />
 
       <View style={[styles.linkSection, isDarkMode && styles.linkSectionDark]}>
         <View style={styles.linkHeader}>
@@ -349,57 +230,17 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
                     <Text style={styles.registerButtonText}>Cadastrar produto</Text>
                   </TouchableOpacity>
                 ) : null}
-                {!isComposition &&
-                itemSuggestions.length > 0 &&
-                !isDismissedSuggestion ? (
-                  <View
-                    style={[
-                      styles.suggestionCard,
-                      isDarkMode && styles.suggestionCardDark,
-                    ]}
-                  >
-                    <Text style={styles.suggestionEyebrow}>
-                      Sugestão automática · confirme antes de vincular
-                    </Text>
-                    {itemSuggestions.map((candidate, index) => (
-                      <View
-                        key={`${candidate.productId}:${candidate.variationId || ''}`}
-                        style={styles.suggestionRow}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[styles.itemName, isDarkMode && styles.textDark]}
-                          >
-                            {candidate.name}
-                          </Text>
-                          <Text style={styles.muted}>
-                            SKU: {candidate.sku || '—'} · Venda:{' '}
-                            {formatMoney(amount(candidate.sellingPrice))} · Confiança{' '}
-                            {candidate.confidence}%
-                            {index === 0 ? ' · Melhor correspondência' : ''}
-                          </Text>
-                          {candidate.divergences.length ? (
-                            <Text style={styles.error}>{candidate.divergences[0]}</Text>
-                          ) : null}
-                        </View>
-                        <TouchableOpacity
-                          disabled={saving}
-                          onPress={() => onLinkProduct(candidate)}
-                          style={styles.suggestionLinkButton}
-                        >
-                          <Link2 size={15} color="#fff" />
-                          <Text style={styles.suggestionLinkText}>Vincular</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                    <TouchableOpacity
-                      onPress={onDismissSuggestions}
-                      style={styles.ignoreButton}
-                    >
-                      <Text style={styles.muted}>Ignorar sugestões</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
+
+                <InboundItemSuggestionsCard
+                  isComposition={isComposition}
+                  itemSuggestions={itemSuggestions}
+                  isDismissedSuggestion={isDismissedSuggestion}
+                  isDarkMode={isDarkMode}
+                  saving={saving}
+                  onLinkProduct={onLinkProduct}
+                  onDismissSuggestions={onDismissSuggestions}
+                />
+
                 <View style={[styles.searchBox, isDarkMode && styles.searchBoxDark]}>
                   <Search size={17} color="#94a3b8" />
                   <TextInput

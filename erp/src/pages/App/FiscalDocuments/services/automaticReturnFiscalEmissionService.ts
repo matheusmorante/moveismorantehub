@@ -1,5 +1,5 @@
 import {
-  buildFiscalOperationDraftReviewState,
+  buildAutomaticReturnDraftReviewState,
 } from '../utils/fiscalOperationDraftReview';
 import {
   createFiscalOperationDraft,
@@ -108,7 +108,7 @@ export async function automaticallyTransmitReturnFiscalDocuments(
         throw new Error('O rascunho fiscal não está disponível para transmissão automática.');
       }
 
-      const review = buildFiscalOperationDraftReviewState(draft);
+      const review = buildAutomaticReturnDraftReviewState(draft);
       const hasInvalidCfop = review.reviewedLines.some((line, index) => {
         const draftLine = draft.lines[index];
         return (
@@ -131,14 +131,14 @@ export async function automaticallyTransmitReturnFiscalDocuments(
         draftId,
         productionConfirmed: draft.source.ambiente === 1,
       });
-      if (transmission.success === true) {
-        result.authorizedDocuments += 1;
-      } else if (
+      if (
         transmission.pending === true ||
         transmission.reconciliationRequired === true ||
         transmission.retryAllowed === true
       ) {
         result.pendingDocuments += 1;
+      } else if (transmission.success === true) {
+        result.authorizedDocuments += 1;
       } else {
         failure(result);
       }

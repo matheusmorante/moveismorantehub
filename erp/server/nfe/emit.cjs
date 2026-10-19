@@ -2008,53 +2008,52 @@ var CLIENT_AUTHORITY_FIELDS = [
   "fiscalSnapshotId",
   "fiscalSnapshotHash"
 ];
-function parseFiscalEmissionCommand(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    return { error: "Dados da solicita\xE7\xE3o fiscal inv\xE1lidos." };
-  const body = value;
-  if (CLIENT_AUTHORITY_FIELDS.some((field) => field in body))
-    return { error: "Modelo, s\xE9rie, n\xFAmero, chave e XML devem ser determinados no servidor." };
-  const allowedFields = /* @__PURE__ */ new Set([
-    "orderId",
-    "environment",
-    "emissionRequestId",
-    "supersedesDocumentId",
-    "productionConfirmed",
-    "requestedNumber",
-    "itemCsosnOverrides",
-    "itemFiscalSelections",
-    "recipientTaxId",
-    "recipientIe",
-    "recipientIeIndicator",
-    "finalConsumer",
-    "deliveryByIssuer",
-    "cardNotIntegrated",
-    "transporter",
-    "freightMode",
-    "hasTransport",
-    "transportResponsible",
-    "freightContractResponsible",
-    "previewOnly",
-    "previewProof"
-  ]);
-  if (Object.keys(body).some((field) => !allowedFields.has(field)))
-    return { error: "A solicita\xE7\xE3o cont\xE9m campos que n\xE3o pertencem ao comando de emiss\xE3o." };
-  const orderId = typeof body.orderId === "string" ? body.orderId.trim() : "";
-  const environment = Number(body.environment);
-  const emissionRequestId = typeof body.emissionRequestId === "string" ? body.emissionRequestId : "";
-  const supersedesDocumentId = typeof body.supersedesDocumentId === "string" ? body.supersedesDocumentId : void 0;
-  if (!orderId || ![1, 2].includes(environment) || environment === 1 && orderId.startsWith("TEST_AUT_") || !UUID_PATTERN.test(emissionRequestId) || supersedesDocumentId !== void 0 && !UUID_PATTERN.test(supersedesDocumentId) || supersedesDocumentId !== void 0 && environment !== 2 || body.productionConfirmed !== void 0 && typeof body.productionConfirmed !== "boolean")
-    return { error: "Pedido, ambiente ou chave de idempot\xEAncia inv\xE1lidos." };
-  if (body.previewOnly !== void 0 && typeof body.previewOnly !== "boolean")
-    return { error: "Indicador de pr\xE9via fiscal inv\xE1lido." };
-  let previewProof;
-  if (body.previewProof !== void 0) {
-    if (!body.previewProof || typeof body.previewProof !== "object" || Array.isArray(body.previewProof))
-      return { error: "V\xEDnculo da pr\xE9via fiscal inv\xE1lido." };
-    const proof = body.previewProof;
-    if (Object.keys(proof).some((key) => !["fingerprint", "capturedAt", "issuedAt", "model", "series", "number", "accessKey"].includes(key)) || typeof proof.fingerprint !== "string" || !/^[0-9a-f]{64}$/.test(proof.fingerprint) || typeof proof.capturedAt !== "string" || !Number.isFinite(Date.parse(proof.capturedAt)) || typeof proof.issuedAt !== "string" || !Number.isFinite(Date.parse(proof.issuedAt)) || proof.model !== "55" && proof.model !== "65" || typeof proof.series !== "string" || !/^\d{1,3}$/.test(proof.series) || typeof proof.number !== "number" || !Number.isInteger(proof.number) || proof.number < 1 || proof.number > 999999999 || typeof proof.accessKey !== "string" || !ACCESS_KEY_PATTERN.test(proof.accessKey))
-      return { error: "V\xEDnculo da pr\xE9via fiscal incompleto ou inv\xE1lido." };
-    previewProof = {
+var ALLOWED_COMMAND_FIELDS = /* @__PURE__ */ new Set([
+  "orderId",
+  "environment",
+  "emissionRequestId",
+  "supersedesDocumentId",
+  "productionConfirmed",
+  "requestedNumber",
+  "itemCsosnOverrides",
+  "itemFiscalSelections",
+  "recipientTaxId",
+  "recipientIe",
+  "recipientIeIndicator",
+  "finalConsumer",
+  "deliveryByIssuer",
+  "cardNotIntegrated",
+  "transporter",
+  "freightMode",
+  "hasTransport",
+  "transportResponsible",
+  "freightContractResponsible",
+  "previewOnly",
+  "previewProof"
+]);
+var PROOF_ALLOWED_KEYS = /* @__PURE__ */ new Set([
+  "fingerprint",
+  "capturedAt",
+  "issuedAt",
+  "model",
+  "series",
+  "number",
+  "accessKey"
+]);
+function parsePreviewProofPayload(raw, previewOnly) {
+  if (raw === void 0) return {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { error: "V\xEDnculo da pr\xE9via fiscal inv\xE1lido." };
+  }
+  const proof = raw;
+  if (Object.keys(proof).some((key) => !PROOF_ALLOWED_KEYS.has(key)) || typeof proof.fingerprint !== "string" || !/^[0-9a-f]{64}$/.test(proof.fingerprint) || typeof proof.capturedAt !== "string" || !Number.isFinite(Date.parse(proof.capturedAt)) || typeof proof.issuedAt !== "string" || !Number.isFinite(Date.parse(proof.issuedAt)) || proof.model !== "55" && proof.model !== "65" || typeof proof.series !== "string" || !/^\d{1,3}$/.test(proof.series) || typeof proof.number !== "number" || !Number.isInteger(proof.number) || proof.number < 1 || proof.number > 999999999 || typeof proof.accessKey !== "string" || !ACCESS_KEY_PATTERN.test(proof.accessKey)) {
+    return { error: "V\xEDnculo da pr\xE9via fiscal incompleto ou inv\xE1lido." };
+  }
+  if (previewOnly === true) {
+    return { error: "Uma pr\xE9via nova n\xE3o pode reutilizar a prova de outra pr\xE9via." };
+  }
+  return {
+    proof: {
       fingerprint: proof.fingerprint,
       capturedAt: proof.capturedAt,
       issuedAt: proof.issuedAt,
@@ -2062,12 +2061,36 @@ function parseFiscalEmissionCommand(value) {
       series: proof.series,
       number: proof.number,
       accessKey: proof.accessKey
-    };
+    }
+  };
+}
+function parseTransporterPayload(raw) {
+  if (raw === void 0) return {};
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return { error: "Dados do transportador inv\xE1lidos." };
   }
-  if (body.previewOnly === true && previewProof)
-    return { error: "Uma pr\xE9via nova n\xE3o pode reutilizar a prova de outra pr\xE9via." };
-  if (body.requestedNumber !== void 0 && (typeof body.requestedNumber !== "number" || !Number.isInteger(body.requestedNumber) || body.requestedNumber < 1 || body.requestedNumber > 999999999))
-    return { error: "Informe um n\xFAmero de nota fiscal inteiro entre 1 e 999999999." };
+  const t = raw;
+  const name = typeof t.name === "string" ? t.name.trim() : "";
+  const isCnpj = typeof t.cnpj === "string";
+  const doc = normalizeRecipientTaxId(
+    isCnpj ? String(t.cnpj) : typeof t.cpf === "string" ? t.cpf : ""
+  );
+  if (!name) return { error: "Raz\xE3o social ou nome do transportador \xE9 obrigat\xF3rio." };
+  if (!isValidRecipientTaxId(doc) || (isCnpj ? doc.length !== 14 : doc.length !== 11)) {
+    return { error: "CPF ou CNPJ v\xE1lido do transportador \xE9 obrigat\xF3rio." };
+  }
+  return {
+    transporter: {
+      name,
+      ...isCnpj ? { cnpj: doc } : { cpf: doc },
+      ...typeof t.ie === "string" && t.ie.trim() ? { ie: t.ie.trim().replace(/\D/g, "") } : {},
+      ...typeof t.address === "string" && t.address.trim() ? { address: t.address.trim() } : {},
+      ...typeof t.city === "string" && t.city.trim() ? { city: t.city.trim() } : {},
+      ...typeof t.uf === "string" && t.uf.trim() ? { uf: t.uf.trim().toUpperCase() } : {}
+    }
+  };
+}
+function parseItemSelectionsAndOverrides(body) {
   let itemCsosnOverrides;
   try {
     itemCsosnOverrides = parseItemCsosnOverrides(body.itemCsosnOverrides);
@@ -2078,31 +2101,76 @@ function parseFiscalEmissionCommand(value) {
   try {
     itemFiscalSelections = parseFiscalItemSelections(body.itemFiscalSelections);
     for (const [key, code] of Object.entries(itemCsosnOverrides)) {
-      if (itemFiscalSelections[key] && itemFiscalSelections[key].csosn !== code)
+      if (itemFiscalSelections[key] && itemFiscalSelections[key].csosn !== code) {
         throw new Error(`Escolhas conflitantes de CSOSN no item ${key}.`);
+      }
     }
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Sele\xE7\xF5es fiscais inv\xE1lidas." };
   }
+  return { itemCsosnOverrides, itemFiscalSelections };
+}
+function validateTransportRules(body) {
+  if (body.hasTransport !== void 0 && typeof body.hasTransport !== "boolean") {
+    return { error: "O indicador de transporte deve ser Sim ou N\xE3o." };
+  }
+  if (body.transportResponsible !== void 0 && !["OWN_COMPANY", "CUSTOMER", "THIRD_PARTY"].includes(String(body.transportResponsible))) {
+    return { error: "Respons\xE1vel pelo transporte inv\xE1lido." };
+  }
+  if (body.freightContractResponsible !== void 0 && !["SENDER", "RECIPIENT", "THIRD_PARTY"].includes(String(body.freightContractResponsible))) {
+    return { error: "Respons\xE1vel pela contrata\xE7\xE3o do frete inv\xE1lido." };
+  }
+  if (body.hasTransport === false) {
+    if (body.transportResponsible && body.transportResponsible !== "NONE") {
+      return { error: "Transporte desligado n\xE3o admite respons\xE1vel por transporte." };
+    }
+    if (body.freightMode && body.freightMode !== "9") {
+      return { error: "Transporte desligado exige modalidade 9 (sem frete)." };
+    }
+    if (body.transporter) {
+      return { error: "Transporte desligado n\xE3o admite dados de transportador." };
+    }
+  }
+  let freightMode;
+  if (body.freightMode !== void 0) {
+    if (typeof body.freightMode !== "string" || !/^[012349]$/.test(body.freightMode)) {
+      return { error: "Modalidade do frete inv\xE1lida." };
+    }
+    freightMode = body.freightMode;
+  }
+  return { freightMode };
+}
+function parseFiscalEmissionCommand(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return { error: "Dados da solicita\xE7\xE3o fiscal inv\xE1lidos." };
+  const body = value;
+  if (CLIENT_AUTHORITY_FIELDS.some((field) => field in body))
+    return { error: "Modelo, s\xE9rie, n\xFAmero, chave e XML devem ser determinados no servidor." };
+  if (Object.keys(body).some((field) => !ALLOWED_COMMAND_FIELDS.has(field)))
+    return { error: "A solicita\xE7\xE3o cont\xE9m campos que n\xE3o pertencem ao comando de emiss\xE3o." };
+  const orderId = typeof body.orderId === "string" ? body.orderId.trim() : "";
+  const environment = Number(body.environment);
+  const emissionRequestId = typeof body.emissionRequestId === "string" ? body.emissionRequestId : "";
+  const supersedesDocumentId = typeof body.supersedesDocumentId === "string" ? body.supersedesDocumentId : void 0;
+  if (!orderId || ![1, 2].includes(environment) || environment === 1 && orderId.startsWith("TEST_AUT_") || !UUID_PATTERN.test(emissionRequestId) || supersedesDocumentId !== void 0 && !UUID_PATTERN.test(supersedesDocumentId) || supersedesDocumentId !== void 0 && environment !== 2 || body.productionConfirmed !== void 0 && typeof body.productionConfirmed !== "boolean")
+    return { error: "Pedido, ambiente ou chave de idempot\xEAncia inv\xE1lidos." };
+  if (body.previewOnly !== void 0 && typeof body.previewOnly !== "boolean")
+    return { error: "Indicador de pr\xE9via fiscal inv\xE1lido." };
+  const proofResult = parsePreviewProofPayload(body.previewProof, body.previewOnly === true);
+  if ("error" in proofResult) return { error: proofResult.error };
+  const previewProof = proofResult.proof;
+  if (body.requestedNumber !== void 0 && (typeof body.requestedNumber !== "number" || !Number.isInteger(body.requestedNumber) || body.requestedNumber < 1 || body.requestedNumber > 999999999))
+    return { error: "Informe um n\xFAmero de nota fiscal inteiro entre 1 e 999999999." };
+  const itemsResult = parseItemSelectionsAndOverrides(body);
+  if ("error" in itemsResult) return { error: itemsResult.error };
+  const { itemCsosnOverrides, itemFiscalSelections } = itemsResult;
   const recipientTaxId = body.recipientTaxId;
   if (body.cardNotIntegrated !== void 0 && typeof body.cardNotIntegrated !== "boolean")
     return { error: "Confirme a integra\xE7\xE3o do cart\xE3o." };
   if (body.deliveryByIssuer !== void 0 && typeof body.deliveryByIssuer !== "boolean")
     return { error: "Entrega pr\xF3pria deve ser Sim ou N\xE3o." };
-  if (body.hasTransport !== void 0 && typeof body.hasTransport !== "boolean")
-    return { error: "O indicador de transporte deve ser Sim ou N\xE3o." };
-  if (body.transportResponsible !== void 0 && !["OWN_COMPANY", "CUSTOMER", "THIRD_PARTY"].includes(String(body.transportResponsible)))
-    return { error: "Respons\xE1vel pelo transporte inv\xE1lido." };
-  if (body.freightContractResponsible !== void 0 && !["SENDER", "RECIPIENT", "THIRD_PARTY"].includes(String(body.freightContractResponsible)))
-    return { error: "Respons\xE1vel pela contrata\xE7\xE3o do frete inv\xE1lido." };
-  if (body.hasTransport === false) {
-    if (body.transportResponsible && body.transportResponsible !== "NONE")
-      return { error: "Transporte desligado n\xE3o admite respons\xE1vel por transporte." };
-    if (body.freightMode && body.freightMode !== "9")
-      return { error: "Transporte desligado exige modalidade 9 (sem frete)." };
-    if (body.transporter)
-      return { error: "Transporte desligado n\xE3o admite dados de transportador." };
-  }
+  const transportRules = validateTransportRules(body);
+  if (transportRules.error) return { error: transportRules.error };
   if (body.finalConsumer !== void 0 && typeof body.finalConsumer !== "boolean")
     return { error: "Consumidor final deve ser Sim ou N\xE3o." };
   if (recipientTaxId !== void 0 && (typeof recipientTaxId !== "string" || recipientTaxId !== "" && !isValidRecipientTaxId(recipientTaxId)))
@@ -2113,34 +2181,10 @@ function parseFiscalEmissionCommand(value) {
   const recipientIe = body.recipientIe;
   if (recipientIe !== void 0 && typeof recipientIe !== "string")
     return { error: "Inscri\xE7\xE3o Estadual do destinat\xE1rio deve ser um texto v\xE1lido." };
-  let transporter;
-  if (body.transporter !== void 0) {
-    if (typeof body.transporter !== "object" || body.transporter === null)
-      return { error: "Dados do transportador inv\xE1lidos." };
-    const t = body.transporter;
-    const name = typeof t.name === "string" ? t.name.trim() : "";
-    const isCnpj = typeof t.cnpj === "string";
-    const doc = normalizeRecipientTaxId(
-      isCnpj ? String(t.cnpj) : typeof t.cpf === "string" ? t.cpf : ""
-    );
-    if (!name) return { error: "Raz\xE3o social ou nome do transportador \xE9 obrigat\xF3rio." };
-    if (!isValidRecipientTaxId(doc) || (isCnpj ? doc.length !== 14 : doc.length !== 11))
-      return { error: "CPF ou CNPJ v\xE1lido do transportador \xE9 obrigat\xF3rio." };
-    transporter = {
-      name,
-      ...isCnpj ? { cnpj: doc } : { cpf: doc },
-      ...typeof t.ie === "string" && t.ie.trim() ? { ie: t.ie.trim().replace(/\D/g, "") } : {},
-      ...typeof t.address === "string" && t.address.trim() ? { address: t.address.trim() } : {},
-      ...typeof t.city === "string" && t.city.trim() ? { city: t.city.trim() } : {},
-      ...typeof t.uf === "string" && t.uf.trim() ? { uf: t.uf.trim().toUpperCase() } : {}
-    };
-  }
-  let freightMode;
-  if (body.freightMode !== void 0) {
-    if (typeof body.freightMode !== "string" || !/^[012349]$/.test(body.freightMode))
-      return { error: "Modalidade do frete inv\xE1lida." };
-    freightMode = body.freightMode;
-  }
+  const transporterResult = parseTransporterPayload(body.transporter);
+  if ("error" in transporterResult) return { error: transporterResult.error };
+  const transporter = transporterResult.transporter;
+  const freightMode = transportRules.freightMode;
   return {
     command: {
       orderId,
@@ -2998,7 +3042,8 @@ function serializeFiscalDocument(snapshot, document, ruleSet, identity) {
   if (!["1", "2", "9"].includes(document.recipient.ieIndicator) || document.recipient.ieIndicator === "1" && !document.recipient.ie)
     throw new Error("Condi\xE7\xE3o de contribuinte do destinat\xE1rio incompleta.");
   const effectivePresence = operation.presence;
-  const ide = `<ide>${tag("cUF", "41")}${tag("cNF", key.slice(35, 43))}${tag("natOp", operation.natureOfOperation)}${tag("mod", document.model)}${tag("serie", identity.series)}${tag("nNF", identity.number)}${tag("dhEmi", identity.issuedAt)}${tag("tpNF", "1")}${tag("idDest", operation.destination)}${tag("cMunFG", document.issuer.municipalityCode)}${tag("tpImp", document.model === "65" ? "4" : "1")}${tag("tpEmis", "1")}${tag("cDV", key[43])}${tag("tpAmb", document.environment)}${tag("finNFe", operation.purpose)}${tag("indFinal", operation.finalConsumer)}${tag("indPres", effectivePresence)}${tag("procEmi", "0")}${tag("verProc", "MoranteHub_1.0")}</ide>`;
+  const intermediaryIndicator = document.model === "55" && ["2", "3", "4", "9"].includes(effectivePresence) ? tag("indIntermed", "0") : "";
+  const ide = `<ide>${tag("cUF", "41")}${tag("cNF", key.slice(35, 43))}${tag("natOp", operation.natureOfOperation)}${tag("mod", document.model)}${tag("serie", identity.series)}${tag("nNF", identity.number)}${tag("dhEmi", identity.issuedAt)}${tag("tpNF", "1")}${tag("idDest", operation.destination)}${tag("cMunFG", document.issuer.municipalityCode)}${tag("tpImp", document.model === "65" ? "4" : "1")}${tag("tpEmis", "1")}${tag("cDV", key[43])}${tag("tpAmb", document.environment)}${tag("finNFe", operation.purpose)}${tag("indFinal", operation.finalConsumer)}${tag("indPres", effectivePresence)}${intermediaryIndicator}${tag("procEmi", "0")}${tag("verProc", "MoranteHub_1.0")}</ide>`;
   const issuer = `<emit>${tag("CNPJ", document.issuer.cnpj)}${tag("xNome", document.issuer.name)}${addressXml(document.issuer.address, "enderEmit")}${tag("IE", document.issuer.ie)}${tag("CRT", document.issuer.crt)}</emit>`;
   const recipient = !recipientDoc && document.model === "65" ? "" : `<dest>${recipientDoc ? tag(recipientDoc.length === 11 ? "CPF" : "CNPJ", recipientDoc) : ""}${tag("xNome", getHomologationRecipientName({
     model: document.model,
@@ -4400,6 +4445,7 @@ function determineNormalSaleItems(params) {
     composition,
     selections,
     expectedCfop,
+    isNonTaxpayerInterstate = false,
     snapshotScope,
     contribution,
     modelDecision,
@@ -4408,7 +4454,7 @@ function determineNormalSaleItems(params) {
     freight
   } = params;
   const catalog = obj(obj(snapshot.fiscalInputs).products);
-  const allowedSavedCfops = ["5102", "6102", "6108"];
+  const allowedSavedCfops = ["5101", "5102", "6101", "6102", "6107", "6108"];
   const commercialUnits = [];
   const traces = composition.products.map(({ item }, index) => {
     const selected = selections[String(index + 1)];
@@ -4433,10 +4479,11 @@ function determineNormalSaleItems(params) {
       productFiscal.hasSt,
       productFiscal.isSt
     ].find((value) => typeof value === "boolean");
-    if (expectedCfop === "5102" && (ownProduction || hasSt === true))
+    if (hasSt === true)
       throw new Error(
-        "Venda normal interna de produ\xE7\xE3o pr\xF3pria ou com ST exige matriz fiscal espec\xEDfica aprovada."
+        "Venda normal interna com ST exige matriz fiscal espec\xEDfica aprovada."
       );
+    const itemExpectedCfop = snapshotScope.scope === "internal" ? ownProduction ? "5101" : "5102" : isNonTaxpayerInterstate ? ownProduction ? "6107" : "6108" : ownProduction ? "6101" : "6102";
     for (const fiscal of [saved, productFiscal]) {
       if (fiscal.cfop && !allowedSavedCfops.includes(fiscal.cfop) || ["icmsPercent", "pisPercent", "cofinsPercent", "ipiPercent"].some(
         (field) => Number(fiscal[field] || 0) !== 0
@@ -4453,9 +4500,9 @@ function determineNormalSaleItems(params) {
       throw new Error(
         `CFOP ${selected.cfop} pertence a presta\xE7\xE3o de servi\xE7o (ISSQN) e n\xE3o pode ser aplicado a venda de mercadoria.`
       );
-    if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn) || selected.cfop !== expectedCfop)
+    if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn) || selected.cfop !== itemExpectedCfop)
       throw new Error(
-        `CSOSN ou CFOP escolhido exige matriz fiscal espec\xEDfica (esperado CFOP ${expectedCfop} para opera\xE7\xE3o ${snapshotScope.scope === "internal" ? "interna" : "interestadual"}); nenhuma escolha foi substitu\xEDda.`
+        `CSOSN ou CFOP escolhido exige matriz fiscal espec\xEDfica (esperado CFOP ${itemExpectedCfop} para opera\xE7\xE3o ${snapshotScope.scope === "internal" ? "interna" : "interestadual"}); nenhuma escolha foi substitu\xEDda.`
       );
     const isSupportedContributionCst = (cst) => !cst || cst === contribution.pis.cst || cst === "49" || cst === "99";
     if (!isSupportedContributionCst(saved.pisCst) || !isSupportedContributionCst(saved.cofinsCst) || !isSupportedContributionCst(productFiscal.pisCst) || !isSupportedContributionCst(productFiscal.cofinsCst))
@@ -4735,9 +4782,12 @@ function resolveEffectiveRecipientIeIndicator(input) {
   }
   return String(input.ie ?? "").trim() ? "1" : "9";
 }
-function getRecipientIeIndicatorConsistencyError(indicator, ie) {
+function getRecipientIeIndicatorConsistencyError(indicator, ie, finalConsumer) {
   if (indicator !== "1" && indicator !== "2" && indicator !== "9") {
     return "Selecione uma situa\xE7\xE3o v\xE1lida para a Inscri\xE7\xE3o Estadual do destinat\xE1rio.";
+  }
+  if (indicator === "9" && finalConsumer === false) {
+    return "Destinat\xE1rio n\xE3o contribuinte exige opera\xE7\xE3o com consumidor final. Revise a finalidade da compra ou a situa\xE7\xE3o fiscal do cliente antes de emitir.";
   }
   const rawIe = typeof ie === "string" ? ie.trim() : "";
   const digits2 = rawIe.replace(/\D/g, "");
@@ -4849,6 +4899,7 @@ function validateNormalSaleRecipientRequirements(params) {
     personType,
     ieIndicator,
     recipientIe,
+    finalConsumer,
     facts,
     shippingData,
     operationDestination
@@ -4870,7 +4921,11 @@ function validateNormalSaleRecipientRequirements(params) {
   if (cpfCnpj && !recipientTaxIdMatchesPersonType(cpfCnpj, personType)) {
     throw new Error(`CPF/CNPJ do destinat\xE1rio inv\xE1lido para o tipo ${personType}.`);
   }
-  const ieConsistencyError = getRecipientIeIndicatorConsistencyError(ieIndicator, recipientIe);
+  const ieConsistencyError = getRecipientIeIndicatorConsistencyError(
+    ieIndicator,
+    recipientIe,
+    model === "55" ? finalConsumer : void 0
+  );
   if (ieConsistencyError) {
     throw new Error(ieConsistencyError);
   }
@@ -5053,7 +5108,7 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
       "INTERSTATE_OPERATION",
       "RESALE",
       "VALUE_LIMIT"
-    ].includes(reason) && !(reason === "OTHER_FISCAL_REQUIREMENT" && ieIndicator === "1" && contextData.otherFiscalRequirement !== true)
+    ].includes(reason) && !(reason === "OTHER_FISCAL_REQUIREMENT" && (ieIndicator === "1" || contextData.otherFiscalRequirement === true))
   )) {
     throw new Error(
       `${modelDecision.reason} Esta opera\xE7\xE3o exige matriz tribut\xE1ria espec\xEDfica aprovada.`
@@ -5101,6 +5156,7 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
     personType,
     ieIndicator,
     recipientIe,
+    finalConsumer: modelDecision.finalConsumer,
     facts,
     shippingData,
     operationDestination: operationScope.destination
@@ -5160,6 +5216,7 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         composition,
         selections,
         expectedCfop,
+        isNonTaxpayerInterstate,
         snapshotScope,
         contribution,
         modelDecision,
@@ -5387,13 +5444,15 @@ async function emitNormalSale(db, command, candidate, appSettings, actorId) {
     );
     let rules = await createNormalSaleRuleSet(facts);
     const preflight = resolveFiscalDocument(facts, rules);
-    if (preflight.status !== "ready")
+    if (preflight.status !== "ready") {
+      console.error("[PREFLIGHT BLOCKERS]", JSON.stringify(preflight.blockers));
       return outboundFailure(
         422,
         "FISCAL_DETERMINATION_REQUIRED",
         "O pedido n\xE3o passou pela determina\xE7\xE3o fiscal.",
         { blockers: preflight.blockers, numberReserved: false, sefazContacted: false }
       );
+    }
     validateParanaIssuerIe(preflight.document.issuer.ie);
     const model = preflight.document.model;
     const inputs = obj(facts.fiscalInputs);

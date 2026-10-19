@@ -87,6 +87,26 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 xl:p-8 custom-scrollbar">
           <div className="space-y-6 sm:space-y-8">
+            {/* Avisos importantes sobre o pedido */}
+            {order.observation && (
+              <section>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600 dark:text-red-400 mb-3 flex items-center gap-2">
+                  <i className="bi bi-megaphone-fill text-red-500" /> Avisos importantes sobre o pedido
+                </h3>
+                <div className="flex flex-wrap gap-2.5 p-4 sm:p-5 bg-red-50/40 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl transition-colors duration-300">
+                  {splitNoticeTags(order.observation).map((tag: string, idx: number) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-white dark:bg-slate-900 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 shadow-sm shadow-red-100/50 dark:shadow-none"
+                    >
+                      <i className="bi bi-exclamation-circle-fill text-[11px] text-red-500" />
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* 1. Cliente, Endereço e Agendamento */}
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:gap-8">
               <CustomerSection
@@ -106,7 +126,6 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
                       fullAddress={
                         order.shipping?.deliveryAddress || order.customerData?.fullAddress
                       }
-                      destinationCoords={order.shipping?.destinationCoords}
                       distance={order.shipping?.distance}
                       durationMinutes={order.shipping?.durationMinutes}
                       deliveryResponsibleName={
@@ -150,32 +169,13 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
               totalValue={order.paymentsSummary?.totalOrderValue || 0}
             />
 
-            {/* 4. Pagamentos (acima de observações) */}
+            {/* 4. Pagamentos */}
             <PaymentDetails
               payments={order.payments}
               totalPaid={order.paymentsSummary?.totalAmountPaid}
               amountRemaining={order.paymentsSummary?.amountRemaining}
             />
 
-            {/* 5. Observações Importantes */}
-            {order.observation && (
-              <section>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600 dark:text-red-400 mb-3 flex items-center gap-2">
-                  <i className="bi bi-megaphone-fill text-red-500" /> Observações Importantes
-                </h3>
-                <div className="flex flex-wrap gap-2.5 p-4 sm:p-5 bg-red-50/40 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl transition-colors duration-300">
-                  {splitNoticeTags(order.observation).map((tag: string, idx: number) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black bg-white dark:bg-slate-900 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 shadow-sm shadow-red-100/50 dark:shadow-none"
-                    >
-                      <i className="bi bi-exclamation-circle-fill text-[11px] text-red-500" />
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            )}
           </div>
         </div>
 

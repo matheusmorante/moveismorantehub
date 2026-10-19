@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Order from '@/pages/types/order.type';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import SmartAIFillModal from './SmartAIFillModal';
+import PickupIcon from '@/components/shared/PickupIcon';
+import DeliveryTruckIcon from '@/components/shared/DeliveryTruckIcon';
 
 interface FormHeaderProps {
   currentOrder?: Order | null;
@@ -66,7 +68,7 @@ const FormHeader = ({
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
-              <i className="bi bi-truck text-xs" /> Entrega
+              <DeliveryTruckIcon className="h-3 w-3" /> Entrega
             </button>
             <button
               type="button"
@@ -77,7 +79,7 @@ const FormHeader = ({
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
-              <i className="bi bi-shop text-xs" /> Retirada
+              <PickupIcon white={deliveryMethod === 'pickup'} className="h-3 w-3" /> Retirada
             </button>
           </div>
 

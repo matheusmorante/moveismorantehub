@@ -10,6 +10,7 @@ const orderItemSchema = z.object({
   quantity: z.number().nonnegative('A quantidade não pode ser negativa.'),
   unitPrice: z.number().nonnegative('O preço do item não pode ser negativo.'),
   unitDiscount: z.number().nonnegative().default(0),
+  assemblyResponsible: z.enum(['Nossa equipe', 'Montador terceirizado', '']).optional(),
   discountType: z.enum(['fixed', 'percentage']).default('fixed'),
 }).passthrough().superRefine((item, ctx) => {
   const limit = item.discountType === 'percentage' ? 100 : item.unitPrice;
@@ -30,6 +31,9 @@ export const createOrderDomainSchema = (requiredFields: CommercialRequiredFields
   items: z.array(orderItemSchema).default([]),
   shipping: z.object({
     deliveryMethod: z.enum(['delivery', 'pickup']),
+    callBeforeDelivery: z.boolean().optional(),
+    bringCardMachine: z.boolean().optional(),
+    callOnArrival: z.boolean().optional(),
     distance: z.number().optional(), value: z.number().nonnegative().default(0),
   }).passthrough().optional(),
   payments: z.array(z.object({
@@ -41,6 +45,39 @@ export const createOrderDomainSchema = (requiredFields: CommercialRequiredFields
   if (value.status !== 'draft') {
     if (!value.date.trim()) ctx.addIssue({ code: 'custom', path: ['date'], message: 'A data do pedido é obrigatória.' });
     if (!value.seller.trim()) ctx.addIssue({ code: 'custom', path: ['seller'], message: 'Selecione o atendente responsável.' });
+    if (
+      value.orderType === 'sale' &&
+      value.shipping?.deliveryMethod === 'delivery' &&
+      value.shipping.callBeforeDelivery === undefined
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['shipping', 'callBeforeDelivery'],
+        message: 'Selecione se é necessário ligar antes da entrega.',
+      });
+    }
+    if (
+      value.orderType === 'sale' &&
+      value.shipping?.deliveryMethod === 'delivery' &&
+      value.shipping.bringCardMachine === undefined
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['shipping', 'bringCardMachine'],
+        message: 'Selecione se é necessário levar máquina de cartão.',
+      });
+    }
+    if (
+      value.orderType === 'sale' &&
+      value.shipping?.deliveryMethod === 'delivery' &&
+      value.shipping.callOnArrival === undefined
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['shipping', 'callOnArrival'],
+        message: 'Selecione se é necessário ligar ao chegar.',
+      });
+    }
     value.items.forEach((item, index) => {
       if (item.quantity <= 0) ctx.addIssue({ code: 'custom', path: ['items', index, 'quantity'], message: 'A quantidade deve ser maior que zero.' });
     });
@@ -68,6 +105,7 @@ export const createAssistanceOrderFormSchema = (requiredFields: CommercialRequir
   orderType: z.literal('assistance'),
   status: z.enum(['draft', 'scheduled', 'fulfilled', 'cancelled']),
   date: z.string(), seller: z.string().trim(), assistanceDescription: z.string().trim(),
+  observation: z.string().optional(),
   assistanceCost: z.number().nonnegative(), assistanceServiceValue: z.number().nonnegative(),
   items: z.array(orderItemSchema),
   linkedOrderId: z.string().optional(),
@@ -78,7 +116,7 @@ export const createAssistanceOrderFormSchema = (requiredFields: CommercialRequir
   customerData: z.object({
     fullName: z.string().trim(), phone: z.string().trim(), noPhone: z.boolean().optional(),
     fullAddress: z.object({
-      cep: z.string().optional(), street: z.string().optional(), number: z.string().optional(), neighborhood: z.string().optional(), city: z.string().optional(), state: z.string().optional(),
+      cep: z.string().optional(), street: z.string().optional(), number: z.string().optional(), complement: z.string().optional(), observation: z.string().optional(), neighborhood: z.string().optional(), city: z.string().optional(), state: z.string().optional(),
     }).passthrough().optional(),
   }).passthrough(),
   shipping: z.object({

@@ -4,15 +4,14 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   Alert,
-  Platform,
 } from 'react-native';
 import { CameraView, Camera } from 'expo-camera';
 import { X } from 'lucide-react-native';
 import { playInventoryCountSound } from '../../../../services/inventoryCountSound';
-import { recognizeText } from 'expo-mlkit-ocr';
-import { extractNfeAccessKey } from '../../invoices/utils/accessKey';
+import { styles } from './inventory-scanner/inventoryScanner.styles';
+import { recognizeAccessKeyFromCamera } from './inventory-scanner/inventoryScannerOcr';
+import { InventoryScannerFeedbackView } from './inventory-scanner/InventoryScannerFeedbackView';
 
 interface Props {
   isDarkMode: boolean;
@@ -84,8 +83,9 @@ export const InventoryScannerScreen: React.FC<Props> = ({
       continuous &&
       data === recentScanRef.current.data &&
       Date.now() - recentScanRef.current.at < 1500
-    )
+    ) {
       return;
+    }
     processingRef.current = true;
     setScanned(true);
     try {
@@ -136,31 +136,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
     if (!cameraRef.current || isReadingText) return;
     setIsReadingText(true);
     try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 1,
-        base64: Platform.OS === 'web',
-      });
-      if (!photo?.uri) throw new Error('A câmera não retornou a imagem.');
-      let text: string;
-      if (Platform.OS === 'web') {
-        if (!photo.base64) throw new Error('A câmera não retornou a imagem para leitura.');
-        const { createWorker, PSM } = await import('tesseract.js');
-        const worker = await createWorker('eng');
-        try {
-          await worker.setParameters({
-            tessedit_char_whitelist: '0123456789',
-            tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
-          });
-          ({
-            data: { text },
-          } = await worker.recognize(`data:image/jpeg;base64,${photo.base64}`));
-        } finally {
-          await worker.terminate();
-        }
-      } else {
-        ({ text } = await recognizeText(photo.uri));
-      }
-      const key = extractNfeAccessKey(text);
+      const key = await recognizeAccessKeyFromCamera(cameraRef.current);
       if (!key) {
         Alert.alert('Chave não reconhecida', 'Enquadre os 44 dígitos impressos e tente novamente.');
         return;
@@ -243,49 +219,13 @@ export const InventoryScannerScreen: React.FC<Props> = ({
         <View style={styles.footer}>
           <Text style={styles.footerText}>{description}</Text>
           {continuous && (
-            <>
-              {lastFeedback && (
-                <View
-                  style={[
-                    styles.feedback,
-                    lastFeedback.kind === 'error'
-                      ? styles.feedbackError
-                      : lastFeedback.kind === 'warning'
-                        ? styles.feedbackWarning
-                        : styles.feedbackSuccess,
-                  ]}
-                >
-                  <Text style={styles.feedbackTitle}>
-                    {lastFeedback.kind === 'success' ? 'ÚLTIMA CONTAGEM' : lastFeedback.title}
-                  </Text>
-                  {lastFeedback.kind === 'success' && (
-                    <Text style={styles.feedbackText}>{lastFeedback.title}</Text>
-                  )}
-                  {lastFeedback.sku && (
-                    <Text style={styles.feedbackText}>SKU: {lastFeedback.sku}</Text>
-                  )}
-                  {lastFeedback.supplier && (
-                    <Text style={styles.feedbackText}>Fornecedor: {lastFeedback.supplier}</Text>
-                  )}
-                  {lastFeedback.quantity !== undefined && (
-                    <Text style={styles.feedbackText}>
-                      Quantidade contada: {lastFeedback.quantity}
-                    </Text>
-                  )}
-                  {lastFeedback.message && (
-                    <Text style={styles.feedbackText}>{lastFeedback.message}</Text>
-                  )}
-                </View>
-              )}
-              <Text style={styles.sessionText}>
-                {unitsRead} {unitsRead === 1 ? 'unidade contada' : 'unidades contadas'} ·{' '}
-                {productsRead.size}{' '}
-                {productsRead.size === 1 ? 'produto contado' : 'produtos contados'}
-              </Text>
-              <TouchableOpacity style={styles.finishButton} onPress={onClose} disabled={scanned}>
-                <Text style={styles.finishButtonText}>FINALIZAR LEITURA</Text>
-              </TouchableOpacity>
-            </>
+            <InventoryScannerFeedbackView
+              lastFeedback={lastFeedback}
+              unitsRead={unitsRead}
+              productsReadCount={productsRead.size}
+              scanned={scanned}
+              onClose={onClose}
+            />
           )}
           {accessKeyMode && (
             <TouchableOpacity
@@ -303,135 +243,3 @@ export const InventoryScannerScreen: React.FC<Props> = ({
     </View>
   );
 };
-
-const { width } = Dimensions.get('window');
-const frameSize = width * 0.7;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    backgroundColor: '#000',
-  },
-  containerDark: {
-    backgroundColor: '#0f172a',
-  },
-  text: {
-    textAlign: 'center',
-    color: '#0f172a',
-    fontSize: 16,
-  },
-  textDark: {
-    color: '#f8fafc',
-  },
-  button: {
-    marginTop: 16,
-    alignSelf: 'center',
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    paddingTop: 48,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  subtitle: { color: '#cbd5e1', fontSize: 12, marginTop: 2, textAlign: 'center' },
-  scannerArea: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scannerFrame: {
-    width: frameSize,
-    height: frameSize,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    borderRadius: 16,
-    backgroundColor: 'transparent',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  scannerFrameSuccess: {
-    borderColor: '#22c55e',
-    borderWidth: 3,
-    shadowColor: '#22c55e',
-    shadowOpacity: 0.6,
-  },
-  scannerFrameError: {
-    borderColor: '#f87171',
-    borderWidth: 3,
-    shadowColor: '#f87171',
-    shadowOpacity: 0.5,
-  },
-  scannerFrameWarning: {
-    borderColor: '#facc15',
-    borderWidth: 3,
-    shadowColor: '#facc15',
-    shadowOpacity: 0.5,
-  },
-  footer: {
-    padding: 24,
-    paddingBottom: 80,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-  },
-  footerText: {
-    color: '#ffffff',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  feedback: { width: '100%', borderRadius: 12, padding: 12, marginTop: 14 },
-  feedbackError: { backgroundColor: '#7f1d1d' },
-  feedbackWarning: { backgroundColor: '#78350f' },
-  feedbackSuccess: { backgroundColor: '#064e3b' },
-  feedbackTitle: { color: '#fff', fontSize: 11, fontWeight: '800' },
-  feedbackText: { color: '#fff', fontSize: 13, marginTop: 3 },
-  sessionText: { color: '#fff', fontSize: 12, marginTop: 12, fontWeight: '700' },
-  finishButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 24,
-    marginTop: 12,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  finishButtonText: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  captureButton: {
-    marginTop: 16,
-    backgroundColor: '#2563eb',
-    paddingVertical: 13,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-  },
-  captureButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-});

@@ -229,6 +229,7 @@ export interface FiscalDocumentEventSummary {
 }
 
 export interface FiscalOperationDraftSummary {
+  sourceDocument?: import('./fiscalOperationDraft.types').SourceDocument;
   id: string;
   operation_kind: 'estorno' | 'return';
   environment: 1 | 2;

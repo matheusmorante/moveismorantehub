@@ -33,6 +33,12 @@ type Shipping = {
   routeGeoJSON?: any; // GeoJSON geometry from routing API
   autoCalculateValue?: boolean;
   useCustomerAddress?: boolean;
+  /** Indica se é necessário ligar para o cliente antes da entrega. */
+  callBeforeDelivery?: boolean;
+  /** Indica se a equipe deve levar máquina de cartão para a entrega. */
+  bringCardMachine?: boolean;
+  /** Indica se é necessário ligar para o cliente ao chegar no endereço. */
+  callOnArrival?: boolean;
   /** Snapshot do endereço efetivamente usado quando o pedido foi salvo. */
   deliveryAddress?: FullAddress;
   deliveryResponsibles?: Array<{ id?: string; name: string; role?: string }>;

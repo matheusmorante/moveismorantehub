@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import type {
   DraftPayload,
   ReviewData,
@@ -6,8 +6,16 @@ import type {
 } from '../types/fiscalOperationDraft.types';
 import {
   getFiscalFormRules,
-  getFiscalFormXmlDefaults,
 } from '../../../../../../shared-utils/fiscalOperationContext';
+import {
+  IssuedFiscalDocumentDetailsTabList,
+  IssuedFiscalDocumentCustomerTab,
+  IssuedFiscalDocumentItemsTab,
+  IssuedFiscalDocumentTransportTab,
+  IssuedFiscalDocumentPaymentTab,
+  type DetailTab,
+} from './IssuedFiscalDocumentDetailsTabs';
+import { parseFiscalOperationReview } from '../utils/parseFiscalOperationReview';
 
 interface NfeOperationDraftReviewProps {
   payload: DraftPayload;
@@ -26,15 +34,17 @@ interface XmlReviewFieldProps {
   value: string;
   onChange: (value: string) => void;
   rows?: number;
+  readOnly?: boolean;
 }
 
-function XmlReviewField({ label, value, onChange, rows = 4 }: XmlReviewFieldProps) {
+function XmlReviewField({ label, value, onChange, rows = 4, readOnly = false }: XmlReviewFieldProps) {
   return (
     <label className="block space-y-1.5">
       <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
         {label}
       </span>
       <textarea
+        readOnly={readOnly}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
@@ -56,31 +66,41 @@ export function NfeOperationDraftReview({
   onLineTaxesChange,
   onReviewChange,
 }: NfeOperationDraftReviewProps) {
+  const [activeTab, setActiveTab] = useState<DetailTab>('general');
+  const [showXml, setShowXml] = useState(false);
+  const parsed = useMemo(() => parseFiscalOperationReview(review, reviewedLines), [review, reviewedLines]);
   const isReturn = payload.draft.operation_kind === 'return';
   const formRules = getFiscalFormRules(isReturn ? 'return' : 'estorno', {
     ...(payload.returnOrder?.operationContext || {
       returnMethod: payload.returnOrder?.returnMethod || undefined,
     }),
   });
-  const formXmlDefaults = getFiscalFormXmlDefaults(formRules);
   const isFieldVisible = (field: string) =>
     formRules.visibleFields.includes('all') || formRules.visibleFields.includes(field);
   const isFieldReadOnly = (field: string) => formRules.readOnlyFields.includes(field);
   return (
     <>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-slate-500">Rascunho de {isReturn ? 'devolução fiscal' : 'estorno fiscal'} · NF-e modelo 55 · Entrada</p>
+        <button type="button" onClick={() => setShowXml(value => !value)} aria-expanded={showXml} className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold dark:border-slate-700">
+          {showXml ? 'Ocultar XML da revisão' : 'Ver XML da revisão'}
+        </button>
+      </div>
+      <IssuedFiscalDocumentDetailsTabList activeTab={activeTab} onChange={setActiveTab} />
+      <section role="tabpanel" id={`issued-fiscal-panel-${activeTab}`} aria-labelledby={`issued-fiscal-tab-${activeTab}`} className="space-y-4">
       {isReturn && formRules.availability !== 'READY' && (
         <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
           <b>{formRules.blockCategory}</b>: {formRules.blockReason}
         </div>
       )}
-      <section className="grid gap-3 sm:grid-cols-3">
+      {activeTab === 'general' && <section className="grid gap-3 sm:grid-cols-3">
         {isFieldVisible('operation') && (
         <div className="rounded-xl bg-slate-100 p-3 text-xs dark:bg-slate-800">
           <b>Operação</b>
           <p className="mt-1">
             {payload.draft.operation_kind === 'estorno'
-              ? 'Estorno · finNFe 3 · tpNF entrada'
-              : 'Devolução · finNFe 4 · tpNF entrada'}
+              ? 'Estorno fiscal · Nota de ajuste · Entrada'
+              : 'Devolução fiscal de mercadoria · Entrada'}
             {' '}· modelo {formRules.allowedModels.join(', ')}
           </p>
         </div>
@@ -108,9 +128,14 @@ export function NfeOperationDraftReview({
               : 'Nenhuma movimentação de estoque.'}
           </p>
         </div>}
-      </section>
+      </section>}
 
-      {isFieldVisible('items') && <section className="space-y-3">
+      {activeTab === 'customer' && <IssuedFiscalDocumentCustomerTab parsed={parsed} />}
+      {activeTab === 'transport' && <IssuedFiscalDocumentTransportTab parsed={parsed} />}
+      {activeTab === 'payment' && <IssuedFiscalDocumentPaymentTab parsed={parsed} />}
+      {activeTab === 'events' && <div role="status" className="rounded-2xl border border-slate-200 p-4 text-sm dark:border-slate-700">{({ draft: 'Rascunho em elaboração.', ready: 'Revisão salva. Aguardando transmissão.', authorized: 'Operação autorizada pela SEFAZ.', cancelled: 'Rascunho cancelado.', rejected: 'Tentativa rejeitada. Confira o retorno fiscal.', unknown: 'Resultado sem confirmação. Consulte a mesma tentativa.', transmitting: 'Transmissão em andamento ou aguardando confirmação.' } as Record<string, string>)[payload.draft.status] || 'Consulte a situação da operação fiscal.'}</div>}
+      {activeTab === 'items' && isFieldVisible('items') && <section className="space-y-3">
+        <IssuedFiscalDocumentItemsTab parsed={parsed} />
         <h3 className="text-xs font-black uppercase tracking-wider">Itens e CFOP por item</h3>
         {payload.lines.map((line, index) => (
           <article
@@ -168,40 +193,11 @@ export function NfeOperationDraftReview({
                 sem mapeamento, escolha 5.949, 6.949 ou 7.949 conforme o cenário e confirme com a revisão fiscal.
               </p>
             )}
-            <div className="grid gap-2 sm:grid-cols-2">
-              <details>
-                <summary className="cursor-pointer text-[10px] font-bold text-slate-600">
-                  XML do produto gerado (NCM, descrição e preço preservados)
-                </summary>
-                <pre className="mt-2 max-h-36 overflow-auto rounded-lg bg-slate-950 p-2 text-[9px] text-slate-200">
-                  {reviewedLines[index]?.product_xml}
-                </pre>
-              </details>
-              {formRules.taxReviewMode === 'source_zero_only_until_matrix' ? (
-                <div className="space-y-1 text-[10px] font-bold">
-                  <span>Classificação tributária original (somente leitura; a matriz atual do ERP cobre apenas cenários sem bases/valores tributários)</span>
-                  <pre className="max-h-36 overflow-auto rounded-lg border border-slate-300 bg-slate-50 p-2 font-mono text-[9px] dark:border-slate-700 dark:bg-slate-950">
-                    {reviewedLines[index]?.taxes_xml}
-                  </pre>
-                </div>
-              ) : (
-                <label className="block space-y-1 text-[10px] font-bold">
-                  <span>Tributos proporcionais — revise antes de confirmar</span>
-                  <textarea
-                    value={reviewedLines[index]?.taxes_xml || ''}
-                    onChange={(event) => onLineTaxesChange(index, event.target.value)}
-                    rows={5}
-                    spellCheck={false}
-                    className="w-full rounded-lg border border-slate-300 bg-slate-50 p-2 font-mono text-[9px] dark:border-slate-700 dark:bg-slate-950"
-                  />
-                </label>
-              )}
-            </div>
           </article>
         ))}
       </section>}
 
-      <section className="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+      {activeTab === 'general' && <section className="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
         <h3 className="text-xs font-black uppercase tracking-wider">Dados adicionais</h3>
         {isFieldVisible('natureOfOperation') && <label className="block space-y-1 text-[10px] font-bold">
           Natureza da operação
@@ -234,63 +230,6 @@ export function NfeOperationDraftReview({
             />
           </label>
         )}
-        <div className="grid gap-3 md:grid-cols-2">
-          {isFieldVisible('recipient') && isFieldReadOnly('recipient') ? (
-            <div className="block space-y-1.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Destinatário vinculado à NF-e original (somente leitura)</span>
-              <pre className="max-h-36 overflow-auto rounded-xl border border-slate-300 bg-slate-100 p-3 font-mono text-[10px] text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">{review.recipient_xml}</pre>
-            </div>
-          ) : isFieldVisible('recipient') ? (
-            <XmlReviewField
-              label="Destinatário (XML revisável)"
-              value={review.recipient_xml}
-              onChange={(value) => onReviewChange('recipient_xml', value)}
-            />
-          ) : null}
-          {isFieldVisible('totals') && isFieldReadOnly('totals') ? (
-            <div className="block space-y-1.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Totais fiscais recalculados (somente leitura)</span>
-              <pre className="max-h-36 overflow-auto rounded-xl border border-slate-300 bg-slate-100 p-3 font-mono text-[10px] text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">{review.totals_xml}</pre>
-            </div>
-          ) : isFieldVisible('totals') ? (
-            <XmlReviewField
-              label="Totais (revise tributos e valores)"
-              value={review.totals_xml}
-              onChange={(value) => onReviewChange('totals_xml', value)}
-            />
-          ) : null}
-          {isFieldVisible('transport') && isFieldReadOnly('transport') ? (
-            <div className="space-y-2">
-              <div className="block space-y-1.5">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Transporte do retorno físico confirmado</span>
-                <div className="rounded-xl border border-slate-300 bg-slate-100 p-3 text-xs dark:border-slate-700 dark:bg-slate-950">
-                  {formRules.allowedTransportModes.map((option) => option.label).join(', ')} · <code>{formXmlDefaults?.transportXml || 'bloqueado'}</code>
-                </div>
-              </div>
-              <div className="block space-y-1.5">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Pagamento fiscal</span>
-                <div className="rounded-xl border border-slate-300 bg-slate-100 p-3 text-xs dark:border-slate-700 dark:bg-slate-950">
-                  {formRules.allowedPaymentOptions.map((option) => option.label).join(', ')} · <code>{formXmlDefaults?.paymentXml || 'bloqueado'}</code>
-                </div>
-              </div>
-            </div>
-          ) : isFieldVisible('transport') && isFieldVisible('payment') ? (
-            <>
-              <XmlReviewField
-                label="Transporte"
-                value={review.transport_xml}
-                onChange={(value) => onReviewChange('transport_xml', value)}
-                rows={3}
-              />
-              <XmlReviewField
-                label="Pagamento"
-                value={review.payment_xml}
-                onChange={(value) => onReviewChange('payment_xml', value)}
-                rows={3}
-              />
-            </>
-          ) : null}
-        </div>
         {isFieldVisible('additionalInformation') && isFieldReadOnly('additionalInformation') && (
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-[10px] dark:border-slate-700 dark:bg-slate-950">
             <b>Observação fiscal fixa da devolução</b>
@@ -344,7 +283,20 @@ export function NfeOperationDraftReview({
             </>
           )}
         </div>}
+      </section>}
       </section>
+
+      {showXml && <section className="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700" aria-label="XML da revisão fiscal">
+        <p className="text-xs text-slate-500">Blocos técnicos do rascunho em revisão. O XML completo assinado fica disponível nos detalhes do documento emitido.</p>
+        {reviewedLines.map((line, index) => <div key={line.draft_line_id} className="space-y-2">
+          <XmlReviewField label={`Produto ${index + 1} (XML somente leitura)`} value={line.product_xml} readOnly onChange={() => undefined} />
+          <XmlReviewField label={`Tributos do item ${index + 1} (XML)`} value={line.taxes_xml} readOnly={formRules.taxReviewMode === 'source_zero_only_until_matrix'} onChange={value => onLineTaxesChange(index, value)} />
+        </div>)}
+        {isFieldVisible('recipient') && <XmlReviewField label="Destinatário (XML)" value={review.recipient_xml} readOnly={isFieldReadOnly('recipient')} onChange={value => onReviewChange('recipient_xml', value)} />}
+        {isFieldVisible('totals') && <XmlReviewField label="Totais (XML)" value={review.totals_xml} readOnly={isFieldReadOnly('totals')} onChange={value => onReviewChange('totals_xml', value)} />}
+        {isFieldVisible('transport') && <XmlReviewField label="Transporte (XML)" value={review.transport_xml} readOnly={isFieldReadOnly('transport')} onChange={value => onReviewChange('transport_xml', value)} />}
+        {isFieldVisible('payment') && <XmlReviewField label="Pagamento (XML)" value={review.payment_xml} readOnly={isFieldReadOnly('payment')} onChange={value => onReviewChange('payment_xml', value)} />}
+      </section>}
 
       {isProduction && isFieldVisible('productionConfirmation') && (
         <label className="flex items-start gap-2 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100">

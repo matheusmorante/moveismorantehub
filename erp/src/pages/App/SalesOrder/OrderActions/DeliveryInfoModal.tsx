@@ -3,6 +3,7 @@ import Order, { OrderAction, IsButtonsClicked } from '../../../types/order.type'
 import { formatOrderCode } from '../../../utils/orderCode';
 import { DeliveryInfoActionButtons } from './components/DeliveryInfoActionButtons';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import PickupIcon from '@/components/shared/PickupIcon';
 
 interface DeliveryInfoModalProps {
   readonly order: Order;
@@ -64,8 +65,8 @@ export const DeliveryInfoModal: React.FC<DeliveryInfoModalProps> = ({
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 flex items-center justify-center shadow-sm">
-              <i className={`bi ${isPickup ? 'bi-shop' : 'bi-truck'} text-xl`}></i>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${isPickup ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400' : 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400'}`}>
+              {isPickup ? <PickupIcon className="h-5 w-5" /> : <i className="bi bi-truck text-xl" />}
             </div>
             <div>
               <h3

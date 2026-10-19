@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Order, { AssistanceItem } from '@/pages/types/order.type';
+import type Item from '@/pages/types/items.type';
 import useItems from './useItems';
 import useShipping from './useShipping';
 import usePaymentsData from './usePayments';
@@ -27,8 +28,41 @@ import {
 import { buildSalesOrderSnapshot, prepareOrderForFormEditing } from './orderFormSnapshot';
 import { useOrderFormSubmission } from './useOrderFormSubmission';
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
+import { requiresAssemblyResponsible } from '../../../../../../shared-utils/commercialOrderRules';
 
 export { parseStorageDateToLocal };
+
+type DeliveryMethod = Shipping['deliveryMethod'];
+type RememberedItemHandling = {
+  itemIdentity: string;
+  handlingType: string;
+  assemblyResponsible?: Item['assemblyResponsible'];
+};
+type ItemHandlingByDeliveryMethod = Record<
+  string,
+  Partial<Record<DeliveryMethod, RememberedItemHandling>>
+>;
+
+const getItemHandlingCacheKey = (item: Item, index: number) =>
+  item.orderItemId || `item-${index}`;
+
+const getItemHandlingIdentity = (item: Item) =>
+  JSON.stringify([
+    item.fiscalSnapshotProductId || item.productId || '',
+    item.fiscalSnapshotVariationId || item.variationId || '',
+    item.description.trim(),
+    item.condition || '',
+  ]);
+
+const getRememberedItemHandling = (
+  cache: ItemHandlingByDeliveryMethod,
+  item: Item,
+  index: number,
+  method: DeliveryMethod
+) => {
+  const remembered = cache[getItemHandlingCacheKey(item, index)]?.[method];
+  return remembered?.itemIdentity === getItemHandlingIdentity(item) ? remembered : undefined;
+};
 
 export const useSalesOrderForm = (
   initialDeliveryMethod?: 'delivery' | 'pickup',
@@ -60,6 +94,21 @@ export const useSalesOrderForm = (
   const isTestMode = testModeFields.is_test === true;
   const schedulingSessionRef = useRef<SchedulingSessionMemory | null>(null);
   const prevDeliveryMethodRef = useRef(shipping.deliveryMethod);
+  const itemHandlingByDeliveryMethodRef = useRef<ItemHandlingByDeliveryMethod>({});
+
+  const rememberItemHandlings = useCallback((method: DeliveryMethod, currentItems: Item[]) => {
+    currentItems.forEach((item, index) => {
+      const key = getItemHandlingCacheKey(item, index);
+      itemHandlingByDeliveryMethodRef.current[key] = {
+        ...itemHandlingByDeliveryMethodRef.current[key],
+        [method]: {
+          itemIdentity: getItemHandlingIdentity(item),
+          handlingType: item.handlingType || '',
+          assemblyResponsible: item.assemblyResponsible || '',
+        },
+      };
+    });
+  }, []);
 
   const itemsSummary = calcItemsSummary(items);
   const paymentsSummary = calcPaymentsSummary(payments, itemsSummary, shipping.value);
@@ -107,6 +156,10 @@ export const useSalesOrderForm = (
     useOrderDistanceCalculator(shipping, customerData, setShipping);
 
   const { handleSelectProduct, handleItemChange } = useOrderProductSelection(items, setItems);
+
+  useEffect(() => {
+    rememberItemHandlings(shipping.deliveryMethod, items);
+  }, [items, rememberItemHandlings, shipping.deliveryMethod]);
 
   const getOrderData = useCallback(
     (newStatus?: Order['status']): Order =>
@@ -176,6 +229,9 @@ export const useSalesOrderForm = (
         formattedDate,
       } = prepareOrderForFormEditing(order);
 
+      itemHandlingByDeliveryMethodRef.current = {};
+      rememberItemHandlings(normalizedShipping.deliveryMethod, normalizedItems);
+
       // Rascunhos existentes continuam salvando alterações automaticamente.
       setIsDraftAutoSaveEnabled(!isExistingOrder || loadedStatus === 'draft');
 
@@ -223,6 +279,7 @@ export const useSalesOrderForm = (
       setIsDraftAutoSaveEnabled,
       generateCodeForCopyOrNew,
       cancelPendingDistanceCalculation,
+      rememberItemHandlings,
     ]
   );
 
@@ -379,9 +436,58 @@ export const useSalesOrderForm = (
     setTestModeFields(fields);
   }, []);
 
+  const setDeliveryMethod = useCallback(
+    (method: DeliveryMethod) => {
+      if (method === shipping.deliveryMethod) return;
+
+      rememberItemHandlings(shipping.deliveryMethod, items);
+      const nextItems = items.map((item, index) => {
+        if (item.itemType === 'service' || item.isComboItem) return item;
+
+        const remembered = getRememberedItemHandling(
+          itemHandlingByDeliveryMethodRef.current,
+          item,
+          index,
+          method
+        );
+        const handlingType = remembered?.handlingType || '';
+        const assemblyResponsible = requiresAssemblyResponsible(handlingType, method)
+          ? remembered?.assemblyResponsible || ''
+          : '';
+
+        return { ...item, handlingType, assemblyResponsible };
+      });
+      const firstHandling =
+        nextItems.find((item) => item.handlingType?.trim())?.handlingType || '';
+
+      setItems(nextItems);
+      setShipping((previous) => ({
+        ...previous,
+        deliveryMethod: method,
+        orderType: firstHandling,
+      }));
+      setErrors((previous) => {
+        const next = { ...previous };
+        Object.keys(next).forEach((key) => {
+          if (
+            key.startsWith('shipping_') ||
+            /^item_\d+_(handlingType|assemblyResponsible)$/.test(key)
+          ) {
+            delete next[key];
+          }
+        });
+        return next;
+      });
+    },
+    [items, rememberItemHandlings, setErrors, setItems, setShipping, shipping.deliveryMethod]
+  );
+
   const actions = useMemo(
     () => ({
-      setItems,
+      setItems: (nextItems: React.SetStateAction<Item[]>) => {
+        if (Array.isArray(nextItems)) itemHandlingByDeliveryMethodRef.current = {};
+        setItems(nextItems);
+      },
       setShipping: (val: React.SetStateAction<Shipping>) => {
         setShipping(val);
         setErrors((prev) => {
@@ -392,6 +498,7 @@ export const useSalesOrderForm = (
           return next;
         });
       },
+      setDeliveryMethod,
       setPayments,
       setCustomerData: (val: React.SetStateAction<CustomerData>) => {
         const nextCustomer = typeof val === 'function' ? val(customerData) : val;
@@ -491,6 +598,7 @@ export const useSalesOrderForm = (
     [
       setItems,
       setShipping,
+      setDeliveryMethod,
       setPayments,
       setCustomerData,
       customerData,

@@ -30,7 +30,8 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var order_cancellation_policy_exports = {};
 __export(order_cancellation_policy_exports, {
   default: () => handler,
-  evaluateDocumentEligibility: () => evaluateDocumentEligibility
+  evaluateDocumentEligibility: () => evaluateDocumentEligibility,
+  evaluateOperationDocumentEligibility: () => evaluateOperationDocumentEligibility
 });
 module.exports = __toCommonJS(order_cancellation_policy_exports);
 
@@ -248,10 +249,630 @@ function getFiscalCancellationPolicy(input) {
   };
 }
 
+// api/nfe/fiscalXmlAudit.ts
+var import_xmldom = require("@xmldom/xmldom");
+var import_xml_crypto = require("xml-crypto");
+
+// shared-utils/fiscal-cfop-model/catalog.ts
+var CFOP_CATALOG_BASE = [
+  // --- SAÍDAS INTERNAS (5.xxx) ---
+  {
+    code: "5102",
+    description: "Venda de mercadoria adquirida ou recebida de terceiros",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55", "65"],
+    active: true,
+    isOwnProduction: false,
+    isSt: false,
+    notes: "Opera\xE7\xE3o padr\xE3o de venda varejo/com\xE9rcio no Paran\xE1."
+  },
+  {
+    code: "5101",
+    description: "Venda de produ\xE7\xE3o do estabelecimento",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55", "65"],
+    active: true,
+    isOwnProduction: true,
+    isSt: false,
+    notes: "Venda de m\xF3veis e itens fabricados no estabelecimento no Paran\xE1."
+  },
+  {
+    code: "5405",
+    description: "Venda de mercadoria adquirida de terceiros com ST (Substitu\xEDdo)",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55", "65"],
+    active: true,
+    isOwnProduction: false,
+    isSt: true,
+    notes: "Mercadoria com ICMS ST retido anteriormente (CSOSN 500) no Paran\xE1."
+  },
+  {
+    code: "5403",
+    description: "Venda de mercadoria de terceiros sujeita a ST na condi\xE7\xE3o de substituto tribut\xE1rio",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55", "65"],
+    active: true,
+    isOwnProduction: false,
+    isSt: true,
+    notes: "Venda de mercadoria de terceiros em opera\xE7\xE3o com ST, na condi\xE7\xE3o de contribuinte substituto."
+  },
+  {
+    code: "5104",
+    description: "Venda de mercadoria adquirida de terceiros efetuada fora do estabelecimento",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55", "65"],
+    active: true,
+    isOwnProduction: false,
+    isSt: false,
+    notes: "Venda realizada fora do estabelecimento (ex: entrega externa/feiras)."
+  },
+  {
+    code: "5152",
+    description: "Transfer\xEAncia de mercadoria adquirida ou recebida de terceiros",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isTransfer: true,
+    notes: "Transfer\xEAncia entre filiais/dep\xF3sitos dentro do Paran\xE1."
+  },
+  {
+    code: "5202",
+    description: "Devolu\xE7\xE3o de compra para comercializa\xE7\xE3o",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isReturn: true,
+    notes: "Devolu\xE7\xE3o de compra a fornecedor dentro do Paran\xE1."
+  },
+  {
+    code: "5411",
+    description: "Devolu\xE7\xE3o de compra para comercializa\xE7\xE3o com ST",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isReturn: true,
+    isSt: true,
+    notes: "Devolu\xE7\xE3o de mercadoria com ST a fornecedor no Paran\xE1."
+  },
+  {
+    code: "5910",
+    description: "Remessa em bonifica\xE7\xE3o, doa\xE7\xE3o ou brinde",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isShipment: true,
+    notes: "Brindes ou bonifica\xE7\xF5es no Paran\xE1."
+  },
+  {
+    code: "5912",
+    description: "Remessa para demonstra\xE7\xE3o",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isShipment: true,
+    notes: "Remessa para demonstra\xE7\xE3o no Paran\xE1."
+  },
+  {
+    code: "5914",
+    description: "Remessa para exposi\xE7\xE3o ou feira",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isShipment: true,
+    notes: "Remessa para showroom/feira no Paran\xE1."
+  },
+  {
+    code: "5915",
+    description: "Remessa para conserto ou reparo",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isShipment: true,
+    notes: "Remessa para assist\xEAncia t\xE9cnica/conserto no Paran\xE1."
+  },
+  {
+    code: "5949",
+    description: "Outra sa\xEDda de mercadoria ou presta\xE7\xE3o de servi\xE7o n\xE3o especificado",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    notes: "Outras sa\xEDdas n\xE3o especificadas dentro do Paran\xE1."
+  },
+  {
+    code: "5933",
+    description: "Presta\xE7\xE3o de servi\xE7o tributado pelo ISSQN dentro do Estado",
+    direction: "outbound",
+    scope: "internal",
+    itemType: "service",
+    allowedModels: ["55"],
+    active: true,
+    notes: "Exclusivo para servi\xE7o sujeito a ISSQN. Proibido para venda de mercadoria."
+  },
+  // --- SAÍDAS INTERESTADUAIS (6.xxx) ---
+  {
+    code: "6102",
+    description: "Venda de mercadoria adquirida ou recebida de terceiros para fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isOwnProduction: false,
+    isSt: false,
+    notes: "Classifica\xE7\xE3o de venda interestadual de terceiros; n\xE3o aprova a tributa\xE7\xE3o do cen\xE1rio."
+  },
+  {
+    code: "6101",
+    description: "Venda de produ\xE7\xE3o do estabelecimento para fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isOwnProduction: true,
+    isSt: false,
+    notes: "Venda de produ\xE7\xE3o pr\xF3pria entregue em outra UF."
+  },
+  {
+    code: "6108",
+    description: "Venda de mercadoria adquirida de terceiros destinada a n\xE3o contribuinte",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isOwnProduction: false,
+    stApplicability: "scenario_dependent",
+    notes: "CFOP de venda a n\xE3o contribuinte; aplicabilidade e tributos dependem do cen\xE1rio e da matriz aprovada."
+  },
+  {
+    code: "6107",
+    description: "Venda de produ\xE7\xE3o do estabelecimento destinada a n\xE3o contribuinte",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isOwnProduction: true,
+    isSt: false,
+    notes: "Produ\xE7\xE3o pr\xF3pria para n\xE3o contribuinte em outra UF."
+  },
+  {
+    code: "6404",
+    description: "Venda de mercadoria sujeita a ST com imposto retido anteriormente",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isOwnProduction: false,
+    isSt: true,
+    notes: "Mercadoria com ST retido vendida para fora do Estado."
+  },
+  {
+    code: "6403",
+    description: "Venda de mercadoria de terceiros sujeita a ST na condi\xE7\xE3o de substituto tribut\xE1rio para fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isOwnProduction: false,
+    isSt: true,
+    notes: "Venda interestadual de mercadoria de terceiros com ST, na condi\xE7\xE3o de contribuinte substituto."
+  },
+  {
+    code: "6152",
+    description: "Transfer\xEAncia de mercadoria adquirida de terceiros para fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isTransfer: true,
+    notes: "Transfer\xEAncia entre estabelecimentos em UFs distintas."
+  },
+  {
+    code: "6202",
+    description: "Devolu\xE7\xE3o de compra para comercializa\xE7\xE3o para fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isReturn: true,
+    notes: "Devolu\xE7\xE3o a fornecedor localizado em outra UF."
+  },
+  {
+    code: "6411",
+    description: "Devolu\xE7\xE3o de compra para comercializa\xE7\xE3o com ST para fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isReturn: true,
+    isSt: true,
+    notes: "Devolu\xE7\xE3o de mercadoria com ST a fornecedor em outra UF."
+  },
+  {
+    code: "6910",
+    description: "Remessa em bonifica\xE7\xE3o, doa\xE7\xE3o ou brinde para fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isShipment: true,
+    notes: "Brindes ou bonifica\xE7\xF5es fora do Paran\xE1."
+  },
+  {
+    code: "6912",
+    description: "Remessa para demonstra\xE7\xE3o para fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isShipment: true,
+    notes: "Demonstra\xE7\xE3o em outra UF."
+  },
+  {
+    code: "6914",
+    description: "Remessa para exposi\xE7\xE3o ou feira para fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isShipment: true,
+    notes: "Exposi\xE7\xE3o ou feira em outra UF."
+  },
+  {
+    code: "6915",
+    description: "Remessa para conserto ou reparo para fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isShipment: true,
+    notes: "Envio para conserto em outra UF."
+  },
+  {
+    code: "6949",
+    description: "Outra sa\xEDda de mercadoria ou presta\xE7\xE3o de servi\xE7o n\xE3o especificado fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    notes: "Outras sa\xEDdas interestaduais n\xE3o especificadas."
+  },
+  {
+    code: "6933",
+    description: "Presta\xE7\xE3o de servi\xE7o tributado pelo ISSQN para fora do Estado",
+    direction: "outbound",
+    scope: "interstate",
+    itemType: "service",
+    allowedModels: ["55"],
+    active: true,
+    notes: "Exclusivo para servi\xE7o sujeito a ISSQN. Proibido para venda de mercadoria."
+  },
+  // --- ENTRADAS INTERNAS (1.xxx) ---
+  {
+    code: "1202",
+    description: "Devolu\xE7\xE3o de venda de mercadoria adquirida ou recebida de terceiros",
+    direction: "inbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isReturn: true,
+    notes: "Entrada por devolu\xE7\xE3o de cliente dentro do Paran\xE1."
+  },
+  {
+    code: "1201",
+    description: "Devolu\xE7\xE3o de venda de produ\xE7\xE3o do estabelecimento",
+    direction: "inbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isReturn: true,
+    isOwnProduction: true,
+    notes: "Entrada por devolu\xE7\xE3o de venda de produ\xE7\xE3o pr\xF3pria no Paran\xE1."
+  },
+  {
+    code: "1411",
+    description: "Devolu\xE7\xE3o de venda de mercadoria adquirida de terceiros com ST",
+    direction: "inbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isReturn: true,
+    isSt: true,
+    notes: "Entrada devolu\xE7\xE3o de mercadoria com ST no Paran\xE1."
+  },
+  {
+    code: "1949",
+    description: "Outra entrada de mercadoria ou presta\xE7\xE3o de servi\xE7o n\xE3o especificada",
+    direction: "inbound",
+    scope: "internal",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    notes: "Entradas diversas / estorno conforme RICMS/PR art. 298."
+  },
+  // --- ENTRADAS INTERESTADUAIS (2.xxx) ---
+  {
+    code: "2202",
+    description: "Devolu\xE7\xE3o de venda de mercadoria adquirida de terceiros fora do Estado",
+    direction: "inbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isReturn: true,
+    notes: "Entrada por devolu\xE7\xE3o de cliente localizado em outra UF."
+  },
+  {
+    code: "2201",
+    description: "Devolu\xE7\xE3o de venda de produ\xE7\xE3o do estabelecimento fora do Estado",
+    direction: "inbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isReturn: true,
+    isOwnProduction: true,
+    notes: "Entrada por devolu\xE7\xE3o de cliente de outra UF para produ\xE7\xE3o pr\xF3pria."
+  },
+  {
+    code: "2411",
+    description: "Devolu\xE7\xE3o de venda de mercadoria com ST fora do Estado",
+    direction: "inbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    isReturn: true,
+    isSt: true,
+    notes: "Entrada devolu\xE7\xE3o de mercadoria com ST de outra UF."
+  },
+  {
+    code: "2949",
+    description: "Outra entrada de mercadoria ou presta\xE7\xE3o de servi\xE7o n\xE3o especificada de fora do Estado",
+    direction: "inbound",
+    scope: "interstate",
+    itemType: "product",
+    allowedModels: ["55"],
+    active: true,
+    notes: "Outras entradas interestaduais n\xE3o especificadas."
+  }
+];
+var CFOP_SEMANTICS = {
+  "5102": { operationType: "sale", merchandiseOrigin: "third_party" },
+  "5101": { operationType: "sale", merchandiseOrigin: "own_production" },
+  "5405": { operationType: "sale", merchandiseOrigin: "third_party" },
+  "5403": { operationType: "sale", merchandiseOrigin: "third_party" },
+  "5104": { operationType: "sale_outside_establishment", merchandiseOrigin: "third_party" },
+  "5152": { operationType: "transfer", merchandiseOrigin: "third_party" },
+  "5202": { operationType: "supplier_return", merchandiseOrigin: "third_party" },
+  "5411": { operationType: "supplier_return", merchandiseOrigin: "third_party" },
+  "5910": { operationType: "bonus_donation_gift", merchandiseOrigin: "not_applicable" },
+  "5912": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
+  "5914": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
+  "5915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
+  "5949": { operationType: "other", merchandiseOrigin: "not_applicable" },
+  "5933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  "6102": { operationType: "sale", merchandiseOrigin: "third_party" },
+  "6101": { operationType: "sale", merchandiseOrigin: "own_production" },
+  "6108": { operationType: "sale_to_non_taxpayer", merchandiseOrigin: "third_party" },
+  "6107": { operationType: "sale_to_non_taxpayer", merchandiseOrigin: "own_production" },
+  "6404": { operationType: "sale", merchandiseOrigin: "third_party" },
+  "6403": { operationType: "sale", merchandiseOrigin: "third_party" },
+  "6152": { operationType: "transfer", merchandiseOrigin: "third_party" },
+  "6202": { operationType: "supplier_return", merchandiseOrigin: "third_party" },
+  "6411": { operationType: "supplier_return", merchandiseOrigin: "third_party" },
+  "6910": { operationType: "bonus_donation_gift", merchandiseOrigin: "not_applicable" },
+  "6912": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
+  "6914": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
+  "6915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
+  "6949": { operationType: "other", merchandiseOrigin: "not_applicable" },
+  "6933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  "1202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
+  "1201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
+  "1411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
+  "1949": { operationType: "other", merchandiseOrigin: "not_applicable" },
+  "2202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
+  "2201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
+  "2411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
+  "2949": { operationType: "other", merchandiseOrigin: "not_applicable" }
+};
+if (CFOP_CATALOG_BASE.length !== Object.keys(CFOP_SEMANTICS).length) {
+  throw new Error("Cat\xE1logo CFOP sem classifica\xE7\xE3o sem\xE2ntica completa.");
+}
+if (new Set(CFOP_CATALOG_BASE.map((item) => item.code)).size !== CFOP_CATALOG_BASE.length) {
+  throw new Error("Cat\xE1logo CFOP cont\xE9m c\xF3digo duplicado.");
+}
+var CANONICAL_CFOPS = CFOP_CATALOG_BASE.map((item) => {
+  const semantics = CFOP_SEMANTICS[item.code];
+  if (!semantics) throw new Error(`CFOP ${item.code} sem natureza ou origem classificada.`);
+  return { ...item, ...semantics };
+});
+var CFOP_BY_CODE = new Map(
+  CANONICAL_CFOPS.map((def) => [def.code, def])
+);
+
+// api/nfe/cancellationPreflight.ts
+function validateCancellationDocumentRecord(doc, productionConfirmed) {
+  if (!["outbound", "return", "estorno"].includes(String(doc.document_type)))
+    return {
+      ok: false,
+      status: 409,
+      error: "Somente uma NF-e de sa\xEDda, devolu\xE7\xE3o ou estorno pode receber este evento de cancelamento."
+    };
+  if (["return", "estorno"].includes(String(doc.document_type)) && String(doc.modelo) !== "55")
+    return {
+      ok: false,
+      status: 409,
+      error: "Cancelamento fiscal de NF-e de devolu\xE7\xE3o ou estorno exige modelo 55."
+    };
+  if (!["autorizada", "homologada"].includes(doc.status))
+    return {
+      ok: false,
+      status: 409,
+      error: "Somente documento autorizado pode receber evento de cancelamento."
+    };
+  if (!["55", "65"].includes(String(doc.modelo)) || ![1, 2].includes(Number(doc.ambiente)) || doc.status !== (Number(doc.ambiente) === 2 ? "homologada" : "autorizada") || !ACCESS_KEY_PATTERN.test(String(doc.chave_acesso || ""))) {
+    return {
+      ok: false,
+      status: 409,
+      error: "Modelo, ambiente ou chave de acesso do documento inv\xE1lidos."
+    };
+  }
+  if (Number(doc.ambiente) === 1 && !productionConfirmed) {
+    return {
+      ok: false,
+      status: 400,
+      error: "Confirme explicitamente o cancelamento em Produ\xE7\xE3o."
+    };
+  }
+  if (!/^\d{15}$/.test(String(doc.numero_protocolo || "")) || !doc.xml_nfe) {
+    return {
+      ok: false,
+      status: 409,
+      error: "A nota n\xE3o cont\xE9m XML autorizado e protocolo original v\xE1lidos para referenciar o evento."
+    };
+  }
+  return { ok: true, doc };
+}
+async function validateOperationCancellationContext(params) {
+  const { supabase, doc, viaOrderEdit } = params;
+  if (!["return", "estorno"].includes(String(doc.document_type)) || String(doc.modelo) !== "55") {
+    return { ok: false, status: 409, error: "Esta valida\xE7\xE3o exige NF-e modelo 55 de devolu\xE7\xE3o ou estorno." };
+  }
+  if (viaOrderEdit) return {
+    ok: false,
+    status: 409,
+    error: "Substitui\xE7\xE3o por edi\xE7\xE3o de pedido aplica-se apenas \xE0 NF-e de venda original."
+  };
+  if (!doc.original_document_id) return {
+    ok: false,
+    status: 409,
+    error: "A NF-e de devolu\xE7\xE3o ou estorno n\xE3o possui v\xEDnculo com o documento fiscal original."
+  };
+  if (doc.document_type === "return") {
+    if (!doc.related_return_order_id) return {
+      ok: false,
+      status: 409,
+      error: "A NF-e de devolu\xE7\xE3o n\xE3o possui v\xEDnculo com o pedido de devolu\xE7\xE3o comercial."
+    };
+    const { data: returnOrder, error } = await supabase.from("orders").select("id,status,order_type,linked_order_id,order_data").eq("id", doc.related_return_order_id).maybeSingle();
+    if (error || !returnOrder || String(returnOrder.order_type || "").toLowerCase() !== "return") {
+      return {
+        ok: false,
+        status: 409,
+        error: "N\xE3o foi poss\xEDvel validar o pedido de devolu\xE7\xE3o comercial vinculado \xE0 NF-e de devolu\xE7\xE3o."
+      };
+    }
+  }
+  if (doc.document_type === "estorno") {
+    const { data: activeReplacement, error } = await supabase.from("nfe_order_edit_replacements").select("id,status").eq("original_document_id", doc.original_document_id).eq("environment", doc.ambiente).eq("reversal_kind", "estorno").in("status", ["ready_to_reissue", "replacement_prepared", "completed"]).maybeSingle();
+    if (error) return {
+      ok: false,
+      status: 503,
+      error: "N\xE3o foi poss\xEDvel verificar substitui\xE7\xF5es fiscais vinculadas ao estorno."
+    };
+    if (activeReplacement) return {
+      ok: false,
+      status: 409,
+      auditFailure: true,
+      error: "Esta NF-e de estorno j\xE1 comp\xF5e uma substitui\xE7\xE3o fiscal de edi\xE7\xE3o aplicada ou conclu\xEDda e n\xE3o pode ser cancelada isoladamente."
+    };
+  }
+  const policy = getFiscalCancellationPolicy({
+    model: "55",
+    authorizedAt: getAuthorizedAt(String(doc.xml_protocolo || ""), ""),
+    status: String(doc.status),
+    environment: Number(doc.ambiente),
+    goodsCirculated: false,
+    operationDidNotOccur: true,
+    issuerUf: String(doc.chave_acesso || "").slice(0, 2) === "41" ? "PR" : "",
+    now: params.now
+  });
+  if (policy.action !== "cancel") return {
+    ok: false,
+    status: 409,
+    auditFailure: true,
+    error: policy.reason || "Prazo de cancelamento da NF-e (168 horas no Paran\xE1) ultrapassado."
+  };
+  return { ok: true };
+}
+
 // api/nfe/order-cancellation-policy.ts
 var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
 var serviceKey = getSupabaseSecretKey() || "";
 var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function cancellationAttemptBlock(priorEvent, now) {
+  if (priorEvent?.status === "registered" || priorEvent?.status === "unknown") return {
+    action: "reconcile",
+    reason: "A situa\xE7\xE3o da tentativa de cancelamento precisa ser consultada na SEFAZ antes de qualquer nova a\xE7\xE3o."
+  };
+  if (priorEvent?.status === "transmitting") {
+    const requestedAt = new Date(priorEvent.requested_at || "").getTime();
+    if (!Number.isFinite(requestedAt) || now - requestedAt < 3e4) return {
+      action: "pending",
+      reason: "H\xE1 uma tentativa de cancelamento em processamento. Aguarde antes de repetir."
+    };
+    return { action: "reconcile", reason: "A tentativa anterior n\xE3o foi confirmada. Consulte a SEFAZ antes de qualquer nova a\xE7\xE3o." };
+  }
+  return null;
+}
+async function evaluateOperationDocumentEligibility(db, document, priorEvent, now) {
+  const authorizedAt = getAuthorizedAt(document?.xml_protocolo || "", "");
+  const base = {
+    orderId: document?.order_id || null,
+    authorizedAt,
+    deadline: getCancellationWindow(String(document?.modelo || ""), authorizedAt, now).deadline?.toISOString() || null
+  };
+  const blocked = (reason, action = "none") => ({ ...base, canProceed: false, action, reason });
+  const record = validateCancellationDocumentRecord(document, true);
+  if (!record.ok) return blocked(record.error || "Documento fiscal inv\xE1lido.");
+  const attempt = cancellationAttemptBlock(priorEvent, now);
+  if (attempt) return blocked(attempt.reason, attempt.action);
+  const context = await validateOperationCancellationContext({ supabase: db, doc: document, viaOrderEdit: false, now });
+  if (!context.ok) return blocked(context.error || "N\xE3o foi poss\xEDvel validar o v\xEDnculo fiscal.");
+  return { ...base, canProceed: true, action: "cancel", reason: null };
+}
 function evaluateDocumentEligibility(document, order, priorEvent, now, authorizedDocumentCount = 1) {
   const authorizationDateFor = (candidate) => getAuthorizedAt(candidate?.xml_protocolo || "", "");
   const deadlineFor = (candidate) => {
@@ -308,24 +929,8 @@ function evaluateDocumentEligibility(document, order, priorEvent, now, authorize
     );
   if (!["cancelled", "cancelado"].includes(orderStatus) && !canCancelOrderDirectly({ ...order, status: orderStatus }))
     return blocked("O estado atual do pedido n\xE3o permite cancelamento comercial.", "blocked");
-  if (priorEvent?.status === "registered" || priorEvent?.status === "unknown")
-    return blocked(
-      "A situa\xE7\xE3o da tentativa de cancelamento precisa ser consultada na SEFAZ antes de qualquer nova a\xE7\xE3o.",
-      "reconcile"
-    );
-  if (priorEvent?.status === "transmitting") {
-    const requestedAt = new Date(priorEvent.requested_at || "").getTime();
-    const attemptAge = now - requestedAt;
-    if (!Number.isFinite(requestedAt) || attemptAge < 3e4)
-      return blocked(
-        "H\xE1 uma tentativa de cancelamento em processamento. Aguarde antes de repetir.",
-        "pending"
-      );
-    return blocked(
-      "A tentativa anterior n\xE3o foi confirmada. Consulte a SEFAZ antes de qualquer nova a\xE7\xE3o.",
-      "reconcile"
-    );
-  }
+  const attempt = cancellationAttemptBlock(priorEvent, now);
+  if (attempt) return blocked(attempt.reason, attempt.action);
   const policy = getFiscalCancellationPolicy({
     model: String(document.modelo),
     authorizedAt: authorizationDateFor(document),
@@ -363,7 +968,7 @@ async function handler(req, res) {
     if (!documentIds.length || documentIds.length > 30 || documentIds.some((id) => !uuid.test(id)))
       return res.status(400).json({ error: "Lista de documentos inv\xE1lida." });
     const { data: documents2, error: documentsError2 } = await db.from("nfe_documents").select(
-      "id,order_id,document_type,status,ambiente,modelo,chave_acesso,xml_protocolo,numero_protocolo,created_at"
+      "id,order_id,document_type,status,ambiente,modelo,chave_acesso,xml_nfe,xml_protocolo,numero_protocolo,created_at,original_document_id,related_return_order_id"
     ).in("id", documentIds);
     if (documentsError2)
       return res.status(503).json({ error: "N\xE3o foi poss\xEDvel validar as notas fiscais." });
@@ -399,11 +1004,11 @@ async function handler(req, res) {
     }
     const now = Date.now();
     const eligibility = Object.fromEntries(
-      documentIds.map((id) => {
+      await Promise.all(documentIds.map(async (id) => {
         const document = documentsById.get(id);
         return [
           id,
-          evaluateDocumentEligibility(
+          ["return", "estorno"].includes(String(document?.document_type)) ? await evaluateOperationDocumentEligibility(db, document, latestEvents.get(id), now) : evaluateDocumentEligibility(
             document,
             document?.order_id ? ordersById.get(String(document.order_id)) : null,
             latestEvents.get(id),
@@ -411,7 +1016,7 @@ async function handler(req, res) {
             document?.order_id ? authorizedCounts.get(String(document.order_id)) || 0 : 0
           )
         ];
-      })
+      }))
     );
     return res.status(200).json({ documents: eligibility });
   }
@@ -579,6 +1184,7 @@ async function handler(req, res) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  evaluateDocumentEligibility
+  evaluateDocumentEligibility,
+  evaluateOperationDocumentEligibility
 });
 //# sourceMappingURL=order-cancellation-policy.cjs.map

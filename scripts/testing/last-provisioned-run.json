@@ -1,0 +1,37 @@
+{
+  "runId": "702b921e-fd31-488d-925e-560602a65510",
+  "scenarios": {
+    "nfce65_pickup": {
+      "orderId": "899b141d-217c-4a12-bd7c-177e83ceeddf",
+      "runId": "702b921e-fd31-488d-925e-560602a65510",
+      "scenarioKey": "nfce65_pickup",
+      "customerName": "Morantehub Hml NFC-e 65 Retirada 702b921e",
+      "expectedModel": "65",
+      "deliveryMethod": "pickup"
+    },
+    "nfce65_delivery": {
+      "orderId": "0573497a-8e96-47be-a486-e1c5b522b15c",
+      "runId": "702b921e-fd31-488d-925e-560602a65510",
+      "scenarioKey": "nfce65_delivery",
+      "customerName": "Morantehub Hml NFC-e 65 Entrega 702b921e",
+      "expectedModel": "65",
+      "deliveryMethod": "delivery"
+    },
+    "nfe55_sale": {
+      "orderId": "4518fd62-5778-4acb-b730-d0331685ad64",
+      "runId": "702b921e-fd31-488d-925e-560602a65510",
+      "scenarioKey": "nfe55_sale",
+      "customerName": "Morantehub Hml NF-e 55 Venda 702b921e",
+      "expectedModel": "55",
+      "deliveryMethod": "pickup"
+    },
+    "nfe55_delivery_own_transport": {
+      "orderId": "bd6ddd13-d41b-4011-8c93-5a90bcedb2e9",
+      "runId": "702b921e-fd31-488d-925e-560602a65510",
+      "scenarioKey": "nfe55_delivery_own_transport",
+      "customerName": "Morantehub Hml NF-e 55 Proprio 702b921e",
+      "expectedModel": "55",
+      "deliveryMethod": "delivery"
+    }
+  }
+}

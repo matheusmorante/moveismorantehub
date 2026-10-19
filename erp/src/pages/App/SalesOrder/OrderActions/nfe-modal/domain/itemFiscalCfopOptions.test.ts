@@ -111,4 +111,67 @@ describe('resolveNfeItemCfopOptions', () => {
     expect(getRecipientIeIndicatorConsistencyError('9', '123456789')).toBeNull();
     expect(getRecipientIeIndicatorConsistencyError('9', 'X')).toContain('indIEDest=9');
   });
+
+  it('mantém não contribuinte com IE como consumidor final e não transforma sua condição fiscal', () => {
+    expect(getRecipientIeIndicatorConsistencyError('9', '123456789', false)).toContain('consumidor final');
+    expect(getRecipientIeIndicatorConsistencyError('9', '123456789', true)).toBeNull();
+    expect(getRecipientIeIndicatorConsistencyError('1', '123456789', false)).toBeNull();
+    expect(getRecipientIeIndicatorConsistencyError('2', '', false)).toBeNull();
+  });
+
+  it('aprova CFOP 5102 para mercadoria de terceiros em operação interna normal', () => {
+    const internalDecision = resolveNfeItemCfopOptions({
+      item: baseItem,
+      operationScope: {
+        scope: 'internal',
+        destination: '1',
+        issuerUf: 'PR',
+        operationUf: 'PR',
+      },
+      environment: 2,
+      model: '65',
+      issuerRegime: '1',
+      recipientIeIndicator: '9',
+      recipientIe: '',
+      finalConsumer: true,
+      recipientPersonType: 'PF',
+      presence: '1',
+      effectiveAt: '2026-10-07T12:00:00.000Z',
+    });
+
+    expect(internalDecision.defaultCfop).toBe('5102');
+    expect(enabledCfops(internalDecision)).toContain('5102');
+  });
+
+  it('aprova CFOP 5101 para produção própria em operação interna normal', () => {
+    const internalOwnProduction = resolveNfeItemCfopOptions({
+      item: {
+        ...baseItem,
+        fiscal: {
+          ...baseItem.fiscal,
+          merchandiseOrigin: 'own_production',
+          isOwnProduction: true,
+        },
+      },
+      operationScope: {
+        scope: 'internal',
+        destination: '1',
+        issuerUf: 'PR',
+        operationUf: 'PR',
+      },
+      environment: 2,
+      model: '65',
+      issuerRegime: '1',
+      recipientIeIndicator: '9',
+      recipientIe: '',
+      finalConsumer: true,
+      recipientPersonType: 'PF',
+      presence: '1',
+      effectiveAt: '2026-10-07T12:00:00.000Z',
+    });
+
+    expect(internalOwnProduction.defaultCfop).toBe('5101');
+    expect(enabledCfops(internalOwnProduction)).toContain('5101');
+  });
 });
+

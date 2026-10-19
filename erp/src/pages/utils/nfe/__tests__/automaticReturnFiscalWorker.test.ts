@@ -177,4 +177,36 @@ describe('processAutomaticReturnFiscalJob', () => {
       errorCode: 'fiscal_api_unreachable',
     });
   });
+
+  it('saves the real automatic review with confirmations required by the installed RPC', async () => {
+    const request = vi.fn(async (path: string, method: string, body?: Record<string, unknown>) => {
+      if (path.startsWith('/api/nfe/return-fiscal-eligibility')) return {
+        eligible: true, hasAuthorizedOriginal: true,
+        sources: [{ state: 'draft', draftId, source: { id: originalDocumentId, ambiente: 2 } }],
+      };
+      if (path.includes('/api/nfe/operation-drafts?id=')) return {
+        draft: { operation_kind: 'return', return_order_id: returnOrderId, environment: 2, status: 'draft' },
+        source: { id: originalDocumentId, ambiente: 2, modelo: '55' },
+        returnOrder: { id: returnOrderId },
+        lines: [{ id: 'line', quantity: 1, originalQuantity: 2, gross_value: 100, discount_value: 0,
+          originalProductXml: '<prod><CFOP>5102</CFOP><qCom>2.0000</qCom><qTrib>2.0000</qTrib><vProd>200.00</vProd></prod>',
+          originalTaxesXml: '<imposto><ICMS><ICMSSN102><orig>0</orig><CSOSN>102</CSOSN></ICMSSN102></ICMS></imposto>',
+          suggestedCfop: '1202', allowedCfops: [{ value: '1202' }] }],
+        reviewTemplate: { recipient_xml: '<dest/>', totals_xml: '<total><ICMSTot><vProd>200.00</vProd><vDesc>0.00</vDesc><vFrete>0.00</vFrete><vOutro>0.00</vOutro><vNF>200.00</vNF></ICMSTot></total>', transport_xml: '<transp/>', payment_xml: '<pag/>' },
+      };
+      if (method === 'PUT') {
+        const review = body?.reviewData as Record<string, unknown>;
+        if (review.item_taxes_confirmed !== true || review.totals_confirmed !== true) {
+          throw new AutomaticReturnFiscalApiError('fiscal_api_rejected', false);
+        }
+        return { status: 'ready' };
+      }
+      if (path === '/api/nfe/transmit-operation-draft') return { success: true, status: 'authorized' };
+      throw new Error('Unexpected request');
+    });
+    expect(await processAutomaticReturnFiscalJob(returnOrderId, request)).toEqual({ status: 'authorized', errorCode: null });
+    expect(request).toHaveBeenCalledWith('/api/nfe/operation-drafts', 'PUT', expect.objectContaining({
+      reviewData: expect.objectContaining({ item_taxes_confirmed: true, totals_confirmed: true }),
+    }));
+  });
 });

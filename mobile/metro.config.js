@@ -3,6 +3,11 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 config.watchFolders = [...(config.watchFolders || []), path.resolve(__dirname, '../shared-utils')];
+// Shared schemas outside the app resolve dependencies from the mobile installation.
+config.resolver.nodeModulesPaths = [...new Set([
+  path.resolve(__dirname, 'node_modules'),
+  ...(config.resolver.nodeModulesPaths || []),
+])];
 // expo-sqlite loads this asset from its web worker; Metro must serve WASM as an asset.
 config.resolver.assetExts = [...new Set([...config.resolver.assetExts, 'wasm'])];
 

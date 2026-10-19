@@ -7,6 +7,7 @@ import {
   ItemMovementDisplay,
   getOrderItemsMovementList,
 } from './inventoryBadgeContent';
+import { getNonStockOrigin } from '../../../utils/saleInventoryRules';
 
 const MovementWarning = ({ tooltip }: { tooltip: string }) => (
   <span
@@ -101,8 +102,6 @@ interface InventoryBadgePopoverProps {
   isReturn: boolean;
   hasMovement: boolean;
   isReversed?: boolean;
-  isPartialReturn?: boolean;
-  isFullReturn?: boolean;
   order?: Order;
   onClose: () => void;
   onMouseEnter: () => void;
@@ -122,7 +121,12 @@ export const InventoryBadgePopover = ({
 }: InventoryBadgePopoverProps) => {
   if (typeof document === 'undefined') return null;
 
-  const itemsMovement = getOrderItemsMovementList(order, hasMovement, isReversed, isReturn);
+  const itemsMovement = getOrderItemsMovementList(order, hasMovement, isReversed, isReturn).filter(
+    (_, index) => {
+      const item = order?.items?.[index];
+      return item && item.itemType !== 'service' && !getNonStockOrigin(item);
+    }
+  );
   const hasLinkedReturn = !isReturn && Boolean(order?.returnOrderId);
 
   return createPortal(
@@ -154,7 +158,7 @@ export const InventoryBadgePopover = ({
           </div>
           <div>
             <h4 className="text-xs font-black tracking-tight text-slate-800 dark:text-slate-100">
-              {isReturn ? 'Estoque (Devolução)' : 'Estoque (Venda)'}
+              {isReturn ? 'Movimentação (Devolução)' : 'Movimentação (Venda)'}
             </h4>
             <span
               className={`text-[9px] font-black uppercase tracking-wider ${content.statusTextColor}`}
@@ -177,15 +181,18 @@ export const InventoryBadgePopover = ({
       <p className="mt-2.5 text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300 shrink-0">
         {content.explanation}
       </p>
+      <p className="mt-1 text-[10px] font-medium leading-relaxed text-slate-500 dark:text-slate-400 shrink-0">
+        A conferência considera somente produtos convencionais; usados, salvados e serviços ficam fora.
+      </p>
 
-      {/* Lista com Todos os Itens do Pedido */}
+      {/* Lista de itens convencionais */}
       {itemsMovement.length > 0 && (
         <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-col min-h-0">
           <div
             className={`grid gap-2 mb-2 shrink-0 ${hasLinkedReturn ? 'grid-cols-[minmax(0,1fr)_92px_92px]' : 'grid-cols-[minmax(0,1fr)_92px]'}`}
           >
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Itens da {isReturn ? 'Devolução' : 'Venda'} ({itemsMovement.length})
+              Itens convencionais da {isReturn ? 'devolução' : 'venda'} ({itemsMovement.length})
             </span>
             <span className="text-center text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               {isReturn ? 'Entrada' : 'Saída'}

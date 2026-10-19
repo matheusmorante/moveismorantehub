@@ -1,4 +1,4 @@
-import type { InboundScorerProduct } from '../utils/inboundDeterministicScorer';
+import type { InboundScorerProduct } from '../../utils/inboundDeterministicScorer';
 
 export type MappingItem = {
   itemNumber: number;

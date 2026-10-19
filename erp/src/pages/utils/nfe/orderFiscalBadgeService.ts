@@ -46,7 +46,7 @@ interface RelatedOrderRow {
 }
 
 const DOCUMENT_SELECT =
-  'id,order_id,status,document_type,ambiente,created_at,numero_nfe,serie,modelo,valor_total';
+  'id,order_id,related_return_order_id,status,document_type,ambiente,created_at,numero_nfe,serie,modelo,valor_total';
 
 const loadScopedBadgeSupplement = async (
   orderIds: readonly string[],
@@ -88,11 +88,17 @@ const loadScopedBadgeSupplement = async (
   const scopedOrderIds = [
     ...new Set([...orderIds, ...relatedReturns.map((row) => String(row.id))]),
   ];
-  const { data: rows, error: documentsError } = await supabase
+  const { data: directRows, error: documentsError } = await supabase
     .from('nfe_documents')
     .select(DOCUMENT_SELECT)
     .in('order_id', scopedOrderIds);
   if (documentsError) throw documentsError;
+  const { data: relatedRows, error: relatedDocumentsError } = await supabase
+    .from('nfe_documents').select(DOCUMENT_SELECT)
+    .in('related_return_order_id', scopedOrderIds);
+  if (relatedDocumentsError) throw relatedDocumentsError;
+  const rows = [...new Map([...(directRows || []), ...(relatedRows || [])]
+    .map(row => [row.id, row])).values()];
 
   const returnDocumentIds = [
     ...new Set(
@@ -136,10 +142,13 @@ const loadScopedBadgeSupplement = async (
 
   const returnOrderById = new Map(relatedReturns.map((row) => [String(row.id), row]));
   const documents = (rows || []).map((row) => {
-    const returnOrder = returnOrderById.get(String(row.order_id || ''));
+    const returnOrderId = row.document_type === 'return'
+      ? row.related_return_order_id || row.order_id : row.order_id;
+    const returnOrder = returnOrderById.get(String(returnOrderId || ''));
     const isReturnDocument = row.document_type === 'return';
     const document: BadgeDocumentRow = {
       ...row,
+      order_id: returnOrderId,
       issuedAt:
         isReturnDocument && row.id
           ? getAuthorizedAt(authorizationXmlByDocumentId.get(String(row.id)) || '', '') || null

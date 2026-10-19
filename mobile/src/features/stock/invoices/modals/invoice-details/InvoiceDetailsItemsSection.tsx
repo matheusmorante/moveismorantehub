@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { CloudDownload } from 'lucide-react-native';
-import type { InvoiceDetail } from '../../types/stock.types';
+import type { InvoiceDetail } from '../../../types/stock.types';
 import { money } from './invoiceDetailsFormatters';
 import { styles } from './invoiceDetailsModal.styles';
 

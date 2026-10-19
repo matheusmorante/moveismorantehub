@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { validateNfeEmission } from '../services/nfeValidationService';
 import type Order from '@/pages/types/order.type';
+import { nfeEmissionFormSchema } from '../../../../../../../../shared-utils/nfeEmissionFormValidation';
 
 vi.mock('@/pages/utils/settingsService', () => ({
   getSettings: () => ({ companyUF: 'PR' }),
@@ -42,6 +43,17 @@ describe('nfeValidationService', () => {
       finalConsumer: true,
     },
   };
+
+  it('executa a consistência de consumidor final no schema real de submissão', () => {
+    const values = { issuerUf: 'PR', order: { ...baseOrder, fiscalContext: { finalConsumer: false } }, currentModel: '55' as const,
+      deliveryMethod: 'pickup' as const, recipientTaxId: '12345678909', recipientIeIndicator: '9' as const,
+      recipientIe: '', finalConsumer: false, nfeItems: baseOrder.items as any,
+      isLoadingFiscalData: false, fiscalPreparationError: null };
+    const blocked = nfeEmissionFormSchema.safeParse(values);
+    expect(blocked.success).toBe(false);
+    if (!blocked.success) expect(blocked.error.issues[0].message).toContain('consumidor final');
+    expect(nfeEmissionFormSchema.safeParse({ ...values, order: baseOrder, finalConsumer: true }).success).toBe(true);
+  });
 
   it('valida com sucesso uma emissão com dados fiscais completos', () => {
     const result = validateNfeEmission({

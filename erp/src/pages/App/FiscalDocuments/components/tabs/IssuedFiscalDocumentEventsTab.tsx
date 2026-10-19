@@ -30,7 +30,7 @@ export function IssuedFiscalDocumentEventsTab({
           Nenhum evento registrado
         </p>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Este documento fiscal não possui cartas de correção, manifestações ou cancelamento fiscal averbados na SEFAZ.
+          Este documento fiscal não possui eventos ou tentativas registrados.
         </p>
       </div>
     );
@@ -58,6 +58,17 @@ export function IssuedFiscalDocumentEventsTab({
             const draftTitle = isEstorno
               ? 'Rascunho de NF-e de Estorno Fiscal (Modelo 55)'
               : 'Rascunho de Devolução Fiscal';
+            const operationLabel = isEstorno ? 'estorno fiscal' : 'devolução fiscal';
+            const draftStatusLabel = ({ draft: 'Em elaboração', ready: 'Pronto para transmissão',
+              authorized: 'Autorizado', cancelled: 'Cancelado', transmitting: 'Em transmissão',
+              unknown: 'Confirmação pendente', rejected: 'Rejeitado' } as Record<string, string>)[draft.status] || draft.status;
+            const draftDescription = draft.status === 'cancelled'
+              ? `Este rascunho de ${operationLabel} está cancelado. Consulte os eventos e documentos vinculados antes de preparar uma nova emissão.`
+              : draft.status === 'authorized'
+                ? `A NF-e de ${operationLabel} vinculada a este rascunho foi autorizada. Consulte o XML e o protocolo próprios do documento.`
+                : ['transmitting', 'unknown'].includes(draft.status)
+                  ? 'Há uma tentativa fiscal pendente de confirmação. Consulte a mesma chave antes de qualquer nova transmissão.'
+                  : `Este rascunho de ${operationLabel} está vinculado ao documento original. A elegibilidade, os itens, CFOPs e tributos precisam ser conferidos antes da transmissão fiscal.`;
 
             return (
               <div
@@ -81,7 +92,7 @@ export function IssuedFiscalDocumentEventsTab({
                   </div>
 
                   <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-bold uppercase text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300">
-                    {draft.status === 'draft' ? 'Em Elaboração' : draft.status === 'ready' ? 'Pronto para Transmissão' : draft.status}
+                    {draftStatusLabel}
                   </span>
                 </div>
 
@@ -98,7 +109,7 @@ export function IssuedFiscalDocumentEventsTab({
 
                 <div className="mt-2.5 rounded-lg border border-amber-200 bg-amber-50/80 p-2.5 text-[11px] text-[#3b1900] dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
                   <i className="bi bi-info-circle-fill mr-1.5" />
-                  Como o cancelamento fiscal direto pela SEFAZ ultrapassou o prazo legal da NFC-e (limite de 30 minutos no Paraná), a regularização desta operação comercial deve ser concluída emitindo esta NF-e de Estorno Fiscal.
+                  {draftDescription}
                 </div>
               </div>
             );
@@ -141,8 +152,8 @@ export function IssuedFiscalDocumentEventsTab({
               statusLower === 'error';
 
             const title =
-              isCancel && isRejected
-                ? 'Tentativa de Cancelamento Fiscal de NF-e'
+              isCancel
+                ? isRejected ? 'Tentativa de Cancelamento Fiscal de NF-e' : 'Cancelamento fiscal de NF-e'
                 : getFiscalEventLabel(eventType);
 
             const rejectionReason =

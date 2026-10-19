@@ -48,6 +48,7 @@ export const OrderOptionsMenu = ({
     right: number;
   }>({ top: 'auto', bottom: 'auto', right: 0 });
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  React.useEffect(() => { setShowMenu(false); }, [order.id, order.status]);
 
   const isDraft = order.status === 'draft';
   const isCancelled = order.status === 'cancelled';

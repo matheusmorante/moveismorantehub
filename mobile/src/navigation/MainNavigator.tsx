@@ -58,6 +58,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
 
   const assemblySubTab: 'internal' | 'outside' = 'internal';
   const [deliveriesSubTab, setDeliveriesSubTab] = useState<'today' | 'map'>('today');
+  const activeTab = currentTab === 'agente' && !isAdmin ? 'entregas' : currentTab;
 
   const handleTabChange = (newTab: string, url: string) => {
     if (newTab === 'configuracoes') {
@@ -72,9 +73,9 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
   };
 
   const headerTitle =
-    currentTab === 'entregas' || currentTab === 'montagens'
+    activeTab === 'entregas' || activeTab === 'montagens'
       ? 'Operações'
-      : currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma'
+      : activeTab === 'agenda' || activeTab === 'logistica' || activeTab === 'cronograma'
         ? 'Agenda'
         : (
             {
@@ -86,7 +87,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
               estoque: 'Estoque',
               relatorios: 'Relatórios',
             } as Record<string, string>
-          )[currentTab] || 'Morante';
+          )[activeTab] || 'Morante';
 
   const handleSelectNotificationOrderWrapper = async (order: any) => {
     if (!order?.__notificationOrderReference) {
@@ -125,23 +126,23 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
       />
       <OfflineSyncBar isDarkMode={isDarkMode} />
 
-      {currentTab === 'agente' ? (
+      {activeTab === 'agente' ? (
         <GlobalAgentScreen isDarkMode={isDarkMode} userProfile={userProfile} />
-      ) : currentTab === 'financeiro' && canSeeFinance ? (
+      ) : activeTab === 'financeiro' && canSeeFinance ? (
         <FinanceHubScreen isDarkMode={isDarkMode} userProfile={userProfile} />
-      ) : currentTab === 'pedidos' ? (
+      ) : activeTab === 'pedidos' ? (
         <NativeOrdersScreen
           isDarkMode={isDarkMode}
           isAdmin={isAdmin}
           onSelectOrder={setAppSelectedOrder}
         />
-      ) : currentTab === 'produtos' && canSeeProducts ? (
+      ) : activeTab === 'produtos' && canSeeProducts ? (
         <NativeProductsScreen
           isDarkMode={isDarkMode}
           userProfile={userProfile}
           onLaunchStock={() => setCurrentTab('estoque')}
         />
-      ) : currentTab === 'entregas' ? (
+      ) : activeTab === 'entregas' ? (
         <DeliveriesHubScreen
           isDarkMode={isDarkMode}
           isAdmin={isAdmin}
@@ -149,7 +150,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
           initialTab={deliveriesSubTab}
           onSelectOrder={setAppSelectedOrder}
         />
-      ) : currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma' ? (
+      ) : activeTab === 'agenda' || activeTab === 'logistica' || activeTab === 'cronograma' ? (
         <NativeLogisticsScreen
           isDarkMode={isDarkMode}
           isAdmin={isAdmin}
@@ -160,20 +161,20 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
             setCurrentTab('entregas');
           }}
         />
-      ) : currentTab === 'montagens' ? (
+      ) : activeTab === 'montagens' ? (
         <NativeAssembliesScreen
           isDarkMode={isDarkMode}
           initialSubTab={assemblySubTab}
           onSelectOrder={setAppSelectedOrder}
         />
-      ) : currentTab === 'configuracoes' ? (
+      ) : activeTab === 'configuracoes' ? (
         <NativeSettingsScreen
           isDarkMode={isDarkMode}
           setIsDarkMode={setIsDarkMode}
           isAdmin={isAdmin}
           onBack={() => setCurrentTab('entregas')}
         />
-      ) : currentTab === 'estoque' ? (
+      ) : activeTab === 'estoque' ? (
         <NativeStockScreen isDarkMode={isDarkMode} userProfile={userProfile} />
       ) : canSeeReports ? (
         <NativeReportsScreen isDarkMode={isDarkMode} />
@@ -188,7 +189,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
       {/* Navegação Inferior Nativa */}
       <NativeBottomNav
         isDarkMode={isDarkMode}
-        currentTab={currentTab}
+        currentTab={activeTab}
         canSeeReports={canSeeReports}
         canSeeProducts={canSeeProducts}
         canSeeFinance={canSeeFinance}

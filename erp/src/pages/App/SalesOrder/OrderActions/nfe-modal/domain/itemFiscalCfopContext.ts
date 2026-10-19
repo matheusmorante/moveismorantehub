@@ -49,7 +49,9 @@ export function resolveItemFiscalCfopContext(params: {
       itemType: 'product',
       operationType: 'sale',
     }).valid;
-    return isScopeCompatible && candidate === suggestedInitialCfop
+    return isScopeCompatible &&
+      (candidate === suggestedInitialCfop ||
+        (operationScope.destination === '1' && ['5101', '5102'].includes(candidate)))
       ? candidate
       : '';
   };

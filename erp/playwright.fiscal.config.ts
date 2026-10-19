@@ -96,7 +96,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:5173',
     ...devices['Desktop Chrome'],
-    headless: false,
+    headless: process.env.PLAYWRIGHT_HEADLESS === 'true' ? true : false,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

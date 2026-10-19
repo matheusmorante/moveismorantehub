@@ -121,8 +121,7 @@ export async function createNormalSaleRuleSet(
         ].includes(reason) &&
         !(
           reason === 'OTHER_FISCAL_REQUIREMENT' &&
-          ieIndicator === '1' &&
-          contextData.otherFiscalRequirement !== true
+          (ieIndicator === '1' || contextData.otherFiscalRequirement === true)
         )
     )
   ) {
@@ -180,6 +179,7 @@ export async function createNormalSaleRuleSet(
     personType,
     ieIndicator,
     recipientIe,
+    finalConsumer: modelDecision.finalConsumer,
     facts,
     shippingData,
     operationDestination: operationScope.destination,
@@ -264,6 +264,7 @@ export async function createNormalSaleRuleSet(
         composition,
         selections,
         expectedCfop,
+        isNonTaxpayerInterstate,
         snapshotScope,
         contribution,
         modelDecision,

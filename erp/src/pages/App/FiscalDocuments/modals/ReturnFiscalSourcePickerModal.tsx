@@ -40,6 +40,11 @@ export function ReturnFiscalSourcePickerModal({
         </header>
 
         <main className="space-y-3 overflow-y-auto p-5">
+          {eligibility.eligible && eligibility.reason && (
+            <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              {eligibility.reason}
+            </div>
+          )}
           {!eligibility.eligible && (
             <div role="alert" className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
               {eligibility.reason || 'A devolução não está elegível para emissão fiscal.'}

@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Plus, Search, X } from 'lucide-react-native';
-import { ProductFormScreen } from '../../../products/screens/ProductFormScreen';
+import { ProductFormScreen } from '../../../../products/screens/ProductFormScreen';
 import type { MappingItem } from './types';
 import { styles } from './inboundMappings.styles';
 

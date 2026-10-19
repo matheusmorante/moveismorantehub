@@ -3,6 +3,7 @@ import documentDetails from '../../server/nfe/document-details.cjs';
 import itemDefaults from '../../server/nfe/item-defaults.cjs';
 import orderCancellationPolicy from '../../server/nfe/order-cancellation-policy.cjs';
 import orderFiscalBadges from '../../server/nfe/order-fiscal-badges.cjs';
+import returnFiscalEligibility from '../../server/nfe/return-fiscal-eligibility.cjs';
 
 type Handler = (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
 const unwrap = (handler: Handler): Handler =>
@@ -12,6 +13,7 @@ const handlers: Record<string, Handler> = {
   'item-defaults': unwrap(itemDefaults),
   'order-cancellation-policy': unwrap(orderCancellationPolicy),
   'order-fiscal-badges': unwrap(orderFiscalBadges),
+  'return-fiscal-eligibility': unwrap(returnFiscalEligibility),
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

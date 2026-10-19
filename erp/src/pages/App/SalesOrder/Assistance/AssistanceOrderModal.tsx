@@ -17,14 +17,17 @@ import {
 import { useAssistanceOrderForm } from './hooks/useAssistanceOrderForm';
 import type { AssistanceOrderModalProps } from './types/assistance.types';
 
-const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
-  const { onClose: _onClose } = props;
+const AssistanceOrderContent: React.FC<AssistanceOrderModalProps> = (props) => {
   const {
     isEditing,
     loading,
     autoSaving,
     operationError,
     saveBlocked,
+    hasSavedFinal,
+    linkedOrderLoading,
+    linkedOrderError,
+    retryLinkedOrder,
     handleClose,
     customerData,
     setCustomerData,
@@ -69,6 +72,9 @@ const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
     <div
       className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-[3px] animate-fade-in"
       onClick={handleClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Formulário de assistência"
     >
       <div
         className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up border-t sm:border border-slate-100 dark:border-slate-800"
@@ -81,6 +87,7 @@ const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
           linkedOrderCode={currentLinkedOrder ? formatOrderCode(currentLinkedOrder) : undefined}
           onClose={handleClose}
           autoSaving={autoSaving}
+          isBusy={loading || autoSaving}
         />
 
         <form
@@ -97,6 +104,9 @@ const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
               <span>{operationError}</span>
             </div>
           )}
+          {linkedOrderError && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">{linkedOrderError} <button type="button" onClick={retryLinkedOrder} disabled={loading} className="underline">Consultar venda novamente</button></p>}
+          {(loading || autoSaving || linkedOrderLoading) && <p role="status" className="text-sm text-slate-600 dark:text-slate-300"><i className="bi bi-arrow-repeat animate-spin mr-2" />{loading ? 'Confirmando salvamento da assistência...' : autoSaving ? 'Salvando rascunho da assistência...' : 'Consultando a venda vinculada...'}</p>}
+          <fieldset disabled={loading || saveBlocked || hasSavedFinal} className="contents">
           {/* Card do Pedido Original e Itens (apenas quando for assistência vinculada) */}
           {isLinked && currentLinkedOrder && (
             <AssistanceLinkedOrderSection
@@ -157,17 +167,19 @@ const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
             />
           </div>
 
+          </fieldset>
           {/* Ações do formulário */}
           <AssistanceActions
             onClose={handleClose}
             isLoading={loading}
             isEditing={isEditing}
-            saveBlocked={saveBlocked}
+            saveBlocked={saveBlocked || linkedOrderLoading}
+            autoSaving={autoSaving}
           />
         </form>
       </div>
 
-      {isProductSearchOpen && (
+      {isProductSearchOpen && !loading && !saveBlocked && !hasSavedFinal && (
         <ProductSearchModal
           onClose={() => setIsProductSearchOpen(false)}
           onSelect={(p, v) => {
@@ -190,7 +202,7 @@ const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
         />
       )}
 
-      {isCustomerSearchOpen && (
+      {isCustomerSearchOpen && !loading && !saveBlocked && !hasSavedFinal && (
         <CustomerSearchModal
           onClose={() => setIsCustomerSearchOpen(false)}
           onSelect={(c) => {
@@ -202,5 +214,9 @@ const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => {
     </div>
   );
 };
+
+const AssistanceOrderModal: React.FC<AssistanceOrderModalProps> = (props) => (
+  <AssistanceOrderContent key={JSON.stringify([props.order, props.sourceOrder, props.initialData])} {...props} />
+);
 
 export default AssistanceOrderModal;

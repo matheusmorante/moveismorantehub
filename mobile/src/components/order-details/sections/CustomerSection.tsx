@@ -107,7 +107,7 @@ export function CustomerSection({ customer, seller, dark }: CustomerSectionProps
 
       {customerObservation ? (
         <View style={[styles.observationBox, dark && styles.observationBoxDark]}>
-          <Text style={styles.observationTitle}>OBSERVAÇÕES DO CLIENTE</Text>
+          <Text style={styles.observationTitle}>AVISOS DO CLIENTE</Text>
           <Text style={[styles.observationText, dark && styles.light]}>{customerObservation}</Text>
         </View>
       ) : null}

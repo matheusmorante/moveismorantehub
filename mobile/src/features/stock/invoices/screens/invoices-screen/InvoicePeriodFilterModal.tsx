@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { X } from 'lucide-react-native';
-import type { InvoiceDateFilterMode } from '../../types/stock.types';
+import type { InvoiceDateFilterMode } from '../../../types/stock.types';
 import { styles } from './invoicesScreen.styles';
 
 export const periodOptions: Array<{ value: InvoiceDateFilterMode; label: string }> = [

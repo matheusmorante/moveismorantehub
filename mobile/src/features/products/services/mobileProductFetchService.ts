@@ -1,4 +1,5 @@
 import { restoreProductDraftSnapshot } from '../../../../../shared-utils/productDraftSnapshot';
+import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import { supabase } from '../../../services/supabaseClient';
 import { buildMobileProductSearchTerms } from '../domain/mobileProductSearch';
 
@@ -20,7 +21,7 @@ const escapePostgrestValue = (value: string) => value.replace(/[%(),]/g, ' ').tr
 const MOBILE_PRODUCT_LIST_COLUMNS =
   '*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)';
 const MOBILE_PRODUCT_SUMMARY_COLUMNS =
-  'id, name, description, code, category, brand, condition, unit_price, price, promo_price, cost_price, stock, unit, active, status, item_type, is_draft, product_categories(category_id), product_variations(sku, active, merged_to_variation_id)';
+  'id, name, title, description, code, sku, category, brand, condition, unit_price, price, promo_price, cost_price, stock, unit, active, status, item_type, is_draft, is_test, observations, technical_specs, product_categories(category_id), product_variations(*)';
 
 export const fetchMobileProductsPage = async (
   page: number,
@@ -36,7 +37,8 @@ export const fetchMobileProductsPage = async (
       .select(options?.summaryOnly ? MOBILE_PRODUCT_SUMMARY_COLUMNS : MOBILE_PRODUCT_LIST_COLUMNS, {
         count: 'exact',
       })
-      .eq('deleted', false);
+      .eq('deleted', false)
+      .or('is_test.is.null,is_test.eq.false');
 
     if (options?.itemType === 'composition') {
       query = query.eq('item_type', 'composition');
@@ -144,9 +146,11 @@ export const fetchMobileProductsPage = async (
       return { data: [], total: 0 };
     }
 
+    const visibleData = (data || []).filter((product: any) => !isTestProduct(product));
+    const visibleTotal = Math.max(0, (count || 0) - ((data || []).length - visibleData.length));
     const categoryIds = Array.from(
       new Set(
-        (data || []).flatMap((product: any) =>
+        visibleData.flatMap((product: any) =>
           (product.product_categories || [])
             .map((relation: any) => relation.category_id)
             .filter(Boolean)
@@ -166,7 +170,7 @@ export const fetchMobileProductsPage = async (
     }
 
     if (options?.summaryOnly) {
-      const summaries = (data || [])
+      const summaries = visibleData
         .filter((product: any) => {
           if (options?.includeMerged === true) return true;
           const rawVars = product.product_variations || [];
@@ -231,10 +235,10 @@ export const fetchMobileProductsPage = async (
         };
       });
 
-      return { data: summaries, total: count || 0 };
+      return { data: summaries, total: visibleTotal };
     }
 
-    const formatted = (data || []).map((p: any) => {
+    const formatted = visibleData.map((p: any) => {
       const parentCode = p.code || p.sku || '000000';
       const orderedImageRows = Array.isArray(p.product_images)
         ? [...p.product_images].sort(
@@ -459,7 +463,7 @@ export const fetchMobileProductsPage = async (
         ? formatted
         : formatted.filter((prod: any) => !prod.isMerged);
 
-    return { data: filteredFormatted, total: count || 0 };
+    return { data: filteredFormatted, total: visibleTotal };
   } catch (err) {
     if (options?.throwOnError) throw err;
     console.error('[MobileProductService] Exceção ao buscar produtos:', err);

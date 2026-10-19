@@ -13,6 +13,7 @@ import {
 interface ScheduledTimeCardsSectionProps {
   baseId: string;
   isScheduleReadOnly: boolean;
+  isRequired: boolean;
   effectiveTimeMode: TimeScheduleMode;
   timeError?: string;
   customTimeValue: string;
@@ -26,6 +27,7 @@ interface ScheduledTimeCardsSectionProps {
 export const ScheduledTimeCardsSection = ({
   baseId,
   isScheduleReadOnly,
+  isRequired,
   effectiveTimeMode,
   timeError,
   customTimeValue,
@@ -64,7 +66,7 @@ export const ScheduledTimeCardsSection = ({
             timeError ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'
           }`}
         >
-          Horário programado
+          Horário programado {isRequired && <span className="text-red-500">*</span>}
         </span>
       </div>
 

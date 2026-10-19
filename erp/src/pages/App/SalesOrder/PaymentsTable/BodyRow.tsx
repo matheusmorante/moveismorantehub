@@ -20,6 +20,7 @@ interface Props {
   idx: number;
   isMobile?: boolean;
   errors: ValidationErrors;
+  deliveryMethod?: 'delivery' | 'pickup';
 }
 
 const BodyRow = ({
@@ -32,6 +33,7 @@ const BodyRow = ({
   idx,
   isMobile,
   errors,
+  deliveryMethod = 'delivery',
 }: Props) => {
   const statusError = errors[`payment_${idx}_status`];
   const methodError = errors[`payment_${idx}_method`];
@@ -154,6 +156,9 @@ const BodyRow = ({
           {/* Header: Method & Delete */}
           <div className="flex justify-between items-center gap-2">
             <div className="flex-1 relative" ref={dropdownRef}>
+              <label className="mb-1 block text-[9px] font-black uppercase text-slate-400">
+                Forma de pagamento <span className="text-red-500">*</span>
+              </label>
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -263,7 +268,9 @@ const BodyRow = ({
                     Selecionar status...
                   </option>
                   <option value="Pago">Pago</option>
-                  <option value="Pendente">Pendente - na entrega ou retirada</option>
+                  <option value="Pendente">
+                    Pendente - na {deliveryMethod === 'delivery' ? 'entrega' : 'retirada'}
+                  </option>
                   <option value="Verificar">Verificar</option>
                   {payment.status &&
                     !['Pago', 'Pendente', 'Verificar'].includes(payment.status) && (
@@ -435,7 +442,9 @@ const BodyRow = ({
               Status...
             </option>
             <option value="Pago">Pago</option>
-            <option value="Pendente">Pendente - na entrega ou retirada</option>
+            <option value="Pendente">
+              Pendente - na {deliveryMethod === 'delivery' ? 'entrega' : 'retirada'}
+            </option>
             <option value="Verificar">Verificar</option>
             {payment.status && !['Pago', 'Pendente', 'Verificar'].includes(payment.status) && (
               <option value={payment.status}>{payment.status}</option>

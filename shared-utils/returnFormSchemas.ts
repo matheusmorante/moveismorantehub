@@ -17,6 +17,7 @@ const collectionFields = {
 export const unlinkedReturnFormSchema = z.object({
   customer: z.object({ fullName: z.string().trim().min(1, 'Informe o cliente da devolução.') }).passthrough(),
   items: z.array(returnedItemSchema).min(1, 'Adicione pelo menos um item devolvido.'),
+  returnPaymentMethod: z.enum(['Estorno de crédito', 'Pix', 'Dinheiro'], { error: 'Selecione a forma de estorno do pagamento.' }),
   ...collectionFields,
 });
 export const createLinkedReturnFormSchema = (sold: ReturnQuantityItem[], prior: ReturnQuantityRecord[]) => z.object({

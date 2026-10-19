@@ -28,58 +28,25 @@ export function useWarrantyModalState({
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
   const [currentRecord, setCurrentRecord] = React.useState<WarrantyTermRecord | null>(null);
   const [currentPdf, setCurrentPdf] = React.useState<GeneratedWarrantyPdf | null>(null);
-  const [activePage, setActivePage] = React.useState<number>(1);
-  const [zoomLevel, setZoomLevel] = React.useState<number>(100);
-  const totalPages = 3;
-
-  const mainScrollRef = React.useRef<HTMLElement | null>(null);
-  const pageRefs = React.useRef<Record<number, HTMLElement | null>>({});
-  const activePageRef = React.useRef(activePage);
-  activePageRef.current = activePage;
 
   const customer = order.customerData;
 
   // Travar o scroll da página de trás (body e html) com contagem de referências
   useBodyScrollLock(isOpen);
 
-  const handlePageChange = React.useCallback(
-    (targetPage: number) => {
-      if (targetPage < 1 || targetPage > totalPages) return;
-      setActivePage(targetPage);
-
-      const targetEl = pageRefs.current[targetPage];
-      const scrollContainer = mainScrollRef.current;
-      if (targetEl && scrollContainer) {
-        const containerTop = scrollContainer.getBoundingClientRect().top;
-        const elementTop = targetEl.getBoundingClientRect().top;
-        const offset = elementTop - containerTop + scrollContainer.scrollTop - 20;
-
-        scrollContainer.scrollTo({
-          top: Math.max(0, offset),
-          behavior: 'smooth',
-        });
-      }
-    },
-    [totalPages]
-  );
-
-  // Navegação e fechamento por teclado (Escape, ArrowRight, ArrowLeft)
+  // Fechamento por teclado (Escape)
   React.useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
-      } else if (e.key === 'ArrowRight') {
-        handlePageChange(activePageRef.current + 1);
-      } else if (e.key === 'ArrowLeft') {
-        handlePageChange(activePageRef.current - 1);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, handlePageChange]);
+  }, [isOpen, onClose]);
 
   const loadData = React.useCallback(async () => {
     if (!order?.id) return;
@@ -185,22 +152,10 @@ export function useWarrantyModalState({
     }
   };
 
-  const zoomFactor = zoomLevel / 100;
-  const pageBaseWidth = 840; // Largura base da folha A4 em pixels no zoom 100%
-  const currentSheetWidth = `${pageBaseWidth * zoomFactor}px`;
-
   return {
     actionLoading,
     currentRecord,
     currentPdf,
-    activePage,
-    zoomLevel,
-    setZoomLevel,
-    totalPages,
-    mainScrollRef,
-    pageRefs,
-    currentSheetWidth,
-    handlePageChange,
     handlePrint,
     handleSendWhatsApp,
     handleSendDirectCloudApi,

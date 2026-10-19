@@ -2,7 +2,7 @@ import type Order from '@/pages/types/order.type';
 import type CustomerData from '@/pages/types/customerData.type';
 import type Item from '@/pages/types/items.type';
 import type { AssistanceItem } from '@/pages/types/order.type';
-import type { Scheduling } from '@/pages/types/shipping.type';
+type Scheduling = NonNullable<Order['shipping']>['scheduling'];
 
 export interface AssistanceOrderModalProps {
   order?: Order;
@@ -11,7 +11,7 @@ export interface AssistanceOrderModalProps {
     matchedProductId?: string;
   };
   onClose: () => void;
-  onSaveSuccess: (orderId: string, orderData: Order) => void;
+  onSaveSuccess: (orderId: string, orderData: Order) => void | boolean | Promise<void | boolean>;
 }
 
 export interface AssistanceFormState {

@@ -118,7 +118,7 @@ export function OrderDeliveryStartFooter({
   if (onStart) {
     return (
       <TouchableOpacity onPress={onStart} style={styles.startButton} activeOpacity={0.85}>
-        <DeliveryFlowIcon size={24} color="#ffffff" />
+        <DeliveryFlowIcon size={36} color="#ffffff" />
         <Text style={styles.text}>Iniciar fluxo de entrega</Text>
       </TouchableOpacity>
     );

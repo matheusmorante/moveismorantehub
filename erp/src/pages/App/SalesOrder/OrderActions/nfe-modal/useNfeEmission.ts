@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'react-toastify';
+
 import { useAuth } from '@/context/AuthContext';
 import type Order from '@/pages/types/order.type';
 import type { FiscalAcquisitionPurpose } from '@/pages/types/order.type';
 import { hasFiscalOperationRole } from '@/pages/utils/nfe/fiscalAuthorization';
 import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
-import { updateOrder } from '@/pages/utils/orderHistoryService';
+
 import { getSettings } from '@/pages/utils/settingsService';
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { nfeAcquisitionPurposeFormSchema, nfeEmissionDraftFormSchema } from '../../../../../../../shared-utils/nfeEmissionFormValidation';
+
 import { resolveFiscalCfopOrderScope } from '../../../../../../../shared-utils/fiscalCfopModel';
 import { resolveOrderFiscalModel } from '../../../../../../../shared-utils/fiscalDocumentModel';
 import type { DeliveryMethod } from '../../../../../../../shared-utils/fiscalTransportModel';
@@ -18,7 +17,7 @@ import { useNfeItemEnrichment } from './hooks/useNfeItemEnrichment';
 import { useNfeRecipientTaxId } from './hooks/useNfeRecipientTaxId';
 import { useNfeSequencePreview } from './hooks/useNfeSequencePreview';
 import { useNfeTransport } from './hooks/useNfeTransport';
-import { saveNfeDraftToDatabase } from './services/nfeDraftService';
+import { useNfePreparationForms } from './hooks/useNfePreparationForms';
 import {
   clearFiscalEmissionDrafts,
   type FiscalFieldError,
@@ -45,6 +44,7 @@ export function useNfeEmission(
   const { profile } = useAuth();
   const canOperateFiscal = hasFiscalOperationRole(profile);
   const [environment, setEnvironment] = useState<1 | 2>(DEFAULT_NFE_ENVIRONMENT);
+  const fiscalOperationLock = useRef(false);
   const issuerUf = getSettings().companyUF;
   const operationScope = order
     ? resolveFiscalCfopOrderScope({
@@ -62,10 +62,6 @@ export function useNfeEmission(
     );
   const acquisitionPurpose =
     savedAcquisitionPurpose ?? initialAcquisitionPurpose(order, requiresExplicitAcquisitionPurpose);
-  const [isSavingAcquisitionPurpose, setIsSavingAcquisitionPurpose] = useState(false);
-  const purposeSaveInProgress = useRef(false);
-  const draftSaveInProgress = useRef(false);
-  const purposeForm = useZodForm(nfeAcquisitionPurposeFormSchema, { orderId: order?.id || '', purpose: acquisitionPurpose || 'use_consumption' });
   const finalConsumer = acquisitionPurpose === null ? undefined : acquisitionPurpose !== 'resale';
 
   const deliveryMethod: DeliveryMethod =
@@ -115,7 +111,15 @@ export function useNfeEmission(
     recipientIeIndicator,
     model: modelDecision?.status === 'ready' ? modelDecision.model : undefined,
   });
-  const draftForm = useZodForm(nfeEmissionDraftFormSchema, { order: order as Order, recipientTaxId, nfeItems, environment });
+  const {
+    handleAcquisitionPurposeChange, handleSaveDraft, isSavingAcquisitionPurpose,
+    isSavingPreparation, preparationSaveError, preparationSaveBlocked, canUsePreparation,
+  } = useNfePreparationForms({
+    order, environment, operatorId: profile?.id, canOperateFiscal,
+    acquisitionPurpose, recipientTaxId, nfeItems, isLoadingFiscalData,
+    onPurposeSaved: setSavedAcquisitionPurpose,
+    isFiscalOperationActive: () => fiscalOperationLock.current,
+  });
 
   // 2. Transporte
   const {
@@ -134,38 +138,6 @@ export function useNfeEmission(
     setSavedAcquisitionPurpose(order?.fiscalContext?.acquisitionPurpose ?? null);
   }, [order?.id, order?.fiscalContext?.acquisitionPurpose]);
 
-  const handleAcquisitionPurposeChange = async (purpose: FiscalAcquisitionPurpose) => {
-    if (purposeSaveInProgress.current) return;
-    if (!order?.id) {
-      toast.error('Salve o pedido antes de registrar a finalidade da compra.');
-      return;
-    }
-    purposeSaveInProgress.current = true;
-    setIsSavingAcquisitionPurpose(true);
-    try {
-      await purposeForm.validateAndRun(
-        { orderId: order.id, purpose },
-        async (validated) => {
-          await updateOrder(validated.orderId, {
-            fiscalContext: {
-              ...order.fiscalContext,
-              acquisitionPurpose: validated.purpose,
-              finalConsumer: validated.purpose !== 'resale',
-            },
-          });
-          setSavedAcquisitionPurpose(validated.purpose);
-          return true;
-        },
-        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])
-      );
-    } catch {
-      toast.error('Não foi possível salvar a finalidade da compra no pedido.');
-    } finally {
-      purposeSaveInProgress.current = false;
-      setIsSavingAcquisitionPurpose(false);
-    }
-  };
-
   // 3. Sequência Numérica
   const {
     numberPreview,
@@ -181,6 +153,7 @@ export function useNfeEmission(
   const {
     isSubmitting,
     isPreparingPreview,
+    isRestartingHml,
     emissionResult,
     xmlPreview,
     isXmlPreviewOpen,
@@ -195,14 +168,19 @@ export function useNfeEmission(
     handleAbandonHmlTlsAttempt,
     handlePrintDanfe,
   } = useNfeEmissionActions({
+    fiscalOperationLock,
+    canUsePreparation,
     order,
     environment,
     canOperateFiscal,
+    operatorId: profile?.id,
     modelDecision,
     currentModel,
     deliveryMethod,
     requiresExplicitAcquisitionPurpose,
     isSavingAcquisitionPurpose,
+    isSavingPreparation,
+    preparationSaveError,
     acquisitionPurpose,
     finalConsumer,
     nfeItems,
@@ -221,21 +199,6 @@ export function useNfeEmission(
     setManualNumberInput,
   });
 
-  const handleSaveDraft = async () => {
-    if (purposeSaveInProgress.current || draftSaveInProgress.current) return;
-    if (!order?.id || isLoadingFiscalData) return;
-    draftSaveInProgress.current = true;
-    try {
-      await draftForm.validateAndRun({ order, recipientTaxId, nfeItems, environment },
-        (data) => saveNfeDraftToDatabase(data.order, data.recipientTaxId, data.nfeItems, data.environment),
-        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
-    } catch {
-      toast.error('Não foi possível salvar os dados fiscais do rascunho no pedido.');
-    } finally {
-      draftSaveInProgress.current = false;
-    }
-  };
-
   return {
     acquisitionPurpose,
     handleAcquisitionPurposeChange,
@@ -247,7 +210,11 @@ export function useNfeEmission(
     setEnvironment,
     isSubmitting,
     isPreparingPreview,
+    isRestartingHml,
     isSavingAcquisitionPurpose,
+    isSavingPreparation,
+    preparationSaveError,
+    preparationSaveBlocked,
     numberPreview,
     nfeNumberSequence,
     isLoadingNfeNumber,

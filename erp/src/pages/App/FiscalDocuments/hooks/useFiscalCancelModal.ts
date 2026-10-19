@@ -54,7 +54,7 @@ export function useFiscalCancelModal({
   const handleConfirmCancel = async (eligibility?: CancellationEligibility) => {
     if (submissionInFlight.current) return;
     if (!selectedDoc) return;
-    if (!eligibility?.canProceed || !selectedDoc.order_id) {
+    if (!eligibility?.canProceed || (!selectedDoc.order_id && !['return', 'estorno'].includes(String(selectedDoc.document_type)))) {
       toast.error(eligibility?.reason || 'Não foi possível validar o pedido vinculado.');
       return;
     }
@@ -77,7 +77,9 @@ export function useFiscalCancelModal({
 
           commercialCommitted = result.commercialCommitted;
 
-          if (result.action === 'failed') {
+          if (result.action === 'reconcile') {
+            toast.warning(result.error || 'Cancelamento fiscal pendente de confirmação. Consulte a SEFAZ antes de nova ação.');
+          } else if (result.action === 'failed') {
             toast.warning(
               `Pedido cancelado e estoque atualizado. Falha na tentativa de cancelamento fiscal: ${result.error || 'consulte a NF no pedido.'}`
             );
@@ -107,7 +109,7 @@ export function useFiscalCancelModal({
               );
             } else {
               toast.success(
-                `Cancelamento da NF-e #${selectedDoc.numero_nfe} registrado pela SEFAZ${fiscalEvidence ? ` · ${fiscalEvidence}` : ''}${result.xMotivo ? ` · ${result.xMotivo}` : ''}`
+                `Cancelamento fiscal da NF-e #${selectedDoc.numero_nfe} registrado pela SEFAZ${fiscalEvidence ? ` · ${fiscalEvidence}` : ''}${result.xMotivo ? ` · ${result.xMotivo}` : ''}`
               );
             }
           } else if (result.action === 'estorno' && result.draftId) {
@@ -122,7 +124,7 @@ export function useFiscalCancelModal({
         } catch (error: unknown) {
           const prefix = commercialCommitted
             ? 'Pedido e estoque foram cancelados; o tratamento fiscal ficou pendente: '
-            : 'Não foi possível concluir o cancelamento: ';
+            : 'Não foi possível concluir o cancelamento fiscal: ';
           const message =
             error instanceof Error && error.message ? error.message : 'Falha inesperada.';
           toast.error(prefix + message);

@@ -10,9 +10,16 @@ type Props = {
   setPayments: React.Dispatch<React.SetStateAction<Payment[]>>;
   summary: PaymentsSummary;
   errors: ValidationErrors;
+  deliveryMethod?: 'delivery' | 'pickup';
 };
 
-const PaymentsTable = ({ payments, setPayments, summary, errors }: Props) => {
+const PaymentsTable = ({
+  payments,
+  setPayments,
+  summary,
+  errors,
+  deliveryMethod = 'delivery',
+}: Props) => {
   const { width } = useWindowSize();
   const isMobile = width < 1280;
 
@@ -25,6 +32,7 @@ const PaymentsTable = ({ payments, setPayments, summary, errors }: Props) => {
           summary={summary}
           isMobile={isMobile}
           errors={errors}
+          deliveryMethod={deliveryMethod}
         />
 
         <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
@@ -48,7 +56,7 @@ const PaymentsTable = ({ payments, setPayments, summary, errors }: Props) => {
       <thead className="bg-slate-50/50 dark:bg-slate-800/40">
         <tr>
           <th className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-            Pagamento
+            Pagamento <span className="text-red-500">*</span>
           </th>
           <th className="px-4 py-3 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[120px]">
             Valor
@@ -74,6 +82,7 @@ const PaymentsTable = ({ payments, setPayments, summary, errors }: Props) => {
         summary={summary}
         isMobile={isMobile}
         errors={errors}
+        deliveryMethod={deliveryMethod}
       />
       <Footer summary={summary} isMobile={isMobile} />
     </table>

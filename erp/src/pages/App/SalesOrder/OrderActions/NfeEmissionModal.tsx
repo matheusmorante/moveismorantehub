@@ -54,7 +54,11 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     setEnvironment,
     isSubmitting,
     isPreparingPreview,
+    isRestartingHml,
     isSavingAcquisitionPurpose,
+    isSavingPreparation,
+    preparationSaveError,
+    preparationSaveBlocked,
     numberPreview,
     nfeNumberSequence,
     isLoadingNfeNumber,
@@ -278,7 +282,9 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
             <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-amber-600/30 border-t-amber-600 dark:border-amber-400/30 dark:border-t-amber-400" />
             <div>
               <p className="font-bold">
-                {emissionResult?.pending || isFiscalIssueModalOpen
+                {isRestartingHml
+                  ? 'Encerrando e conferindo a tentativa anterior em homologação…'
+                  : emissionResult?.pending || isFiscalIssueModalOpen
                   ? 'Consultando a SEFAZ…'
                   : `Transmitindo ${isNfce ? 'NFC-e' : 'NF-e'} para a SEFAZ (${environment === 1 ? 'Produção' : 'Homologação'})…`}
               </p>
@@ -287,6 +293,18 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {(isSavingPreparation || preparationSaveError) && (
+        <div
+          role={preparationSaveError ? 'alert' : 'status'}
+          aria-live="polite"
+          data-testid="nfe-preparation-save-status"
+          className="mx-3 mt-2 flex shrink-0 items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-xs font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 sm:mx-6"
+        >
+          {isSavingPreparation && <span aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-amber-600/30 border-t-amber-600" />}
+          <span>{preparationSaveError || 'Salvando e conferindo os dados fiscais do pedido…'}</span>
         </div>
       )}
 
@@ -306,7 +324,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         numberPreviewContext={numberPreviewContext}
         nfeNumberError={nfeNumberError}
         isSubmitting={isSubmitting}
-        isLocked={isLocked}
+        isLocked={isLocked || isSavingAcquisitionPurpose || preparationSaveBlocked}
         emissionResult={emissionResult}
         retryNumber={retryNumber}
         setRetryNumber={setRetryNumber}
@@ -351,7 +369,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
       />
 
       <NfeEmissionFooter
-        isOperationIncomplete={isSavingAcquisitionPurpose || finalConsumer === undefined}
+        isOperationIncomplete={isSavingPreparation || Boolean(preparationSaveError) || finalConsumer === undefined}
         invoiceTotal={invoiceTotal}
         environment={environment}
         isNfce={isNfce}

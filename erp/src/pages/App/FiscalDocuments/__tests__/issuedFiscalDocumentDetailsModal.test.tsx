@@ -122,7 +122,69 @@ const emissionResult = {
 
 const order = { id: 'order-7001', orderNumber: 7001 } as Order;
 
+vi.mock('../modals/NfeOperationDraftModal', () => ({ default: (props: any) => <div role="dialog" aria-label="Revisão fiscal">{props.sourceDocument.id} {props.initialDraftId}<button onClick={props.onClose}>Fechar revisão</button></div> }));
+
 describe('IssuedFiscalDocumentDetailsModal', () => {
+  it.each(['estorno', 'return'] as const)('mostra o XML do %s selecionado somente por solicitação, sem trocar pela origem nem alterar as abas', async operation_kind => {
+    const xml = `<NFe><infNFe Id="${operation_kind}-selecionado" /></NFe>`;
+    const issued = { ...fiscalDetails, document: { ...fiscalDetails.document, document_type: operation_kind, xml_nfe: xml } };
+    vi.mocked(fetchFiscalDocumentDetails).mockResolvedValueOnce(issued);
+    vi.mocked(createDanfeShareFile).mockResolvedValueOnce(new File(['danfe'], 'DANFE.png', { type: 'image/png' }));
+    const onClose = vi.fn();
+    render(<IssuedFiscalDocumentDetailsModal documentId={issued.document.id} onClose={onClose} />);
+    await screen.findByText('VENDA DE MERCADORIA');
+    expect(screen.queryByRole('textbox')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Cliente' }));
+    const openXml = screen.getByRole('button', { name: 'Ver XML' });
+    openXml.focus();
+    fireEvent.click(openXml);
+    const field = screen.getByRole('textbox', { name: 'XML completo do documento fiscal' }) as HTMLTextAreaElement;
+    expect(field.value).toBe(xml);
+    expect(field.readOnly).toBe(true);
+    const closeXml = screen.getByRole('button', { name: 'Fechar XML' });
+    expect(document.activeElement).toBe(closeXml);
+    fireEvent.keyDown(closeXml, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(field);
+    fireEvent.keyDown(field, { key: 'Tab' });
+    expect(document.activeElement).toBe(closeXml);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(document.activeElement).toBe(openXml);
+    expect(screen.getByRole('tab', { name: 'Cliente' }).getAttribute('aria-selected')).toBe('true');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(downloadXml).not.toHaveBeenCalled();
+    expect(issued.document.xml_nfe).toBe(xml);
+  });
+  it('identifica o rascunho sem exportar a nota original e abre a revisão existente', async () => {
+    const sourceDocument = { id: 'source-647', order_id: 'sale', modelo: '65' as const, ambiente: 2 as const, numero_nfe: 647, serie: '1', chave_acesso: fiscalDetails.document.chave_acesso };
+    vi.mocked(fetchFiscalDocumentDetails).mockResolvedValueOnce({
+      document: { ...fiscalDetails.document, id: 'draft-647', numero_nfe: 0, serie: '', chave_acesso: '', modelo: '55', status: 'pendente', document_type: 'estorno', xml_nfe: null, xml_protocolo: null, numero_protocolo: null },
+      events: [], parsedXml: null,
+      operationDrafts: [{ id: 'draft-647', operation_kind: 'estorno', environment: 2, status: 'draft', created_at: fiscalDetails.document.created_at, sourceDocument }],
+    });
+    render(<IssuedFiscalDocumentDetailsModal documentId="draft-647" onClose={vi.fn()} />);
+    await screen.findByText('Rascunho em revisão');
+    expect(screen.getByText(/Documento de origem: NFC-e nº 647/)).toBeTruthy();
+    expect(screen.queryByText('VENDA DE MERCADORIA')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Imprimir DANFE' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Baixar XML' })).toBeNull();
+    expect(createDanfeShareFile).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar estorno fiscal' }));
+    expect(screen.getByRole('dialog', { name: 'Revisão fiscal' }).textContent).toContain('source-647 draft-647');
+  });
+  it.each(['estorno', 'return'] as const)('libera arquivos do %s autorizado mesmo quando documento e rascunho usam o mesmo UUID', async operation_kind => {
+    const issued = { ...fiscalDetails, document: { ...fiscalDetails.document, document_type: operation_kind },
+      operationDrafts: [{ id: fiscalDetails.document.id, operation_kind, environment: 2, status: 'authorized', created_at: fiscalDetails.document.created_at }],
+    };
+    vi.mocked(fetchFiscalDocumentDetails).mockResolvedValueOnce(issued);
+    vi.mocked(createDanfeShareFile).mockResolvedValueOnce(new File(['danfe'], 'DANFE.png', { type: 'image/png' }));
+    render(<IssuedFiscalDocumentDetailsModal documentId={issued.document.id} onClose={vi.fn()} />);
+    const share = await screen.findByRole('button', { name: /Compartilhar DANFE/ });
+    expect((share as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByRole('button', { name: /Baixar XML/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Revisar estorno fiscal|Revisar devolução fiscal/ })).toBeNull();
+    expect(createDanfeShareFile).toHaveBeenCalledWith(issued.document);
+  });
   it('mostra abas somente leitura com os dados fiscais persistidos no XML', async () => {
     vi.mocked(fetchFiscalDocumentDetails).mockResolvedValueOnce(fiscalDetails);
     vi.mocked(createDanfeShareFile).mockResolvedValueOnce(

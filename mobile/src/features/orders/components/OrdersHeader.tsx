@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { RefreshCw, Search, X } from 'lucide-react-native';
+import { ArrowLeft, RefreshCw, Search, X } from 'lucide-react-native';
+import type { MobileOrderType } from '../domain/types';
 
 type Props = {
   dark: boolean;
@@ -10,18 +11,20 @@ type Props = {
   onSelectStatus?: (status: string) => void;
   onRefresh: () => void;
   totalOrders?: number;
+  title?: string;
+  onBack?: () => void;
+  orderType?: MobileOrderType;
 };
 
-const STATUS_FILTERS = [
+const SALES_STATUS_FILTERS = [
   { id: 'all', label: 'Todos' },
   { id: 'agendados', label: 'Agendados' },
   { id: 'concluidos', label: 'Atendidos' },
   { id: 'cancelados', label: 'Cancelados' },
   { id: 'retiradas', label: 'Retiradas' },
-  { id: 'assistencias', label: 'Assistências' },
-  { id: 'devolucoes', label: 'Devoluções' },
   { id: 'rascunhos', label: 'Rascunhos' },
 ];
+const OTHER_STATUS_FILTERS = SALES_STATUS_FILTERS.filter((item) => item.id !== 'retiradas');
 
 
 export function OrdersHeader({
@@ -32,12 +35,26 @@ export function OrdersHeader({
   onSelectStatus,
   onRefresh,
   totalOrders,
+  title = 'Pedidos de Venda',
+  onBack,
+  orderType = 'sale',
 }: Props) {
+  const statusFilters = orderType === 'sale' ? SALES_STATUS_FILTERS : OTHER_STATUS_FILTERS;
+
   return (
     <View style={styles.container}>
       <View style={styles.top}>
         <View style={styles.titleRow}>
-          <Text style={[styles.title, dark && styles.light]}>Pedidos de Venda</Text>
+          {onBack ? (
+            <TouchableOpacity
+              onPress={onBack}
+              style={styles.back}
+              accessibilityLabel="Voltar para Pedidos"
+            >
+              <ArrowLeft size={18} color={dark ? '#f8fafc' : '#334155'} />
+            </TouchableOpacity>
+          ) : null}
+          <Text style={[styles.title, dark && styles.light]}>{title}</Text>
           {totalOrders !== undefined ? (
             <View style={[styles.countBadge, dark && styles.countBadgeDark]}>
               <Text style={styles.countText}>{totalOrders}</Text>
@@ -84,7 +101,7 @@ export function OrdersHeader({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filtersContainer}
       >
-        {STATUS_FILTERS.map((item) => {
+        {statusFilters.map((item) => {
           const isActive = statusFilter === item.id;
           return (
             <TouchableOpacity
@@ -129,6 +146,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  back: {
+    padding: 4,
   },
   title: {
     fontSize: 18,

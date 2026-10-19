@@ -32,6 +32,8 @@ import { offlineStorageService } from '../../../services/offline/offlineStorageS
 import { TodayDeliveriesScreen } from './TodayDeliveriesScreen';
 import { PERIOD_OPTIONS } from '../components/LogisticsPeriodModal';
 import { LogisticsOrderCard } from '../components/LogisticsOrderCard';
+import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 
 interface Props {
   isDarkMode: boolean;
@@ -81,20 +83,22 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     try {
       const cached = await offlineStorageService.getWorkingSet<any[]>('logistics_orders');
       if (cached?.data && orders.length === 0) {
-        setOrders(cached.data);
+        setOrders(cached.data.filter((order) => !isIdentifiedTestArtifact(order)));
         setLoading(false);
       }
 
-      const { data, error } = await supabase
-        .from('orders')
-        .select('id, status, created_at, order_data')
-        .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
-        .order('created_at', { ascending: false })
-        .limit(300);
+      const query = excludeTestOrders(
+        supabase
+          .from('orders')
+          .select('id, status, created_at, order_data')
+          .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
+      );
+      const { data, error } = await query.order('created_at', { ascending: false }).limit(300);
 
       if (!error && data) {
-        setOrders(data);
-        await offlineStorageService.cacheWorkingSet('logistics_orders', data);
+        const visibleOrders = data.filter((order) => !isIdentifiedTestArtifact(order));
+        setOrders(visibleOrders);
+        await offlineStorageService.cacheWorkingSet('logistics_orders', visibleOrders);
       }
     } catch (err) {
       console.warn('[NativeLogistics] Erro ao buscar cronograma logístico:', err);

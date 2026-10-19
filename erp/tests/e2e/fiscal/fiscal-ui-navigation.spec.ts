@@ -85,7 +85,7 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
       const productDialog = page.locator('[role="dialog"][aria-labelledby="product-form-title"]');
       await expect(productDialog).toBeVisible({ timeout: 15000 });
       await expect(
-        productDialog.getByPlaceholder('Digite o nome interno do produto (ex: SOFA 3 LUG)...')
+        productDialog.getByPlaceholder(/Digite o nome (?:interno )?do produto/i)
       ).toBeVisible({ timeout: 15000 });
       await expect(productDialog.getByRole('tab', { name: 'Tributário / NF' })).toBeVisible({ timeout: 15000 });
       await productDialog.getByRole('button', { name: 'Fechar formulário', exact: true }).click();
@@ -128,7 +128,7 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
       await page.getByRole('button', { name: 'Novo Produto' }).click();
       const dialog = page.locator('[role="dialog"][aria-labelledby="product-form-title"]');
       await expect(dialog).toBeVisible({ timeout: 15000 });
-      await expect(dialog.getByPlaceholder('Digite o nome interno do produto (ex: SOFA 3 LUG)...')).toBeVisible({ timeout: 15000 });
+      await expect(dialog.getByPlaceholder(/Digite o nome (?:interno )?do produto/i)).toBeVisible({ timeout: 15000 });
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
         .toBe(true);
@@ -163,6 +163,7 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
     }
 
     await page.setViewportSize({ width: 1920, height: 1080 });
+    page.on('console', (msg) => console.log('[PAGE CONSOLE]', msg.text()));
     await signInThroughUi(page);
     await page.goto('/sales-order');
     const customerSearch = page.getByPlaceholder('Buscar pedido pelo nome do cliente (mín. 3 caracteres)...');
@@ -257,14 +258,19 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
     const protocol = (await details.locator('dt:has-text("Protocolo SEFAZ") + dd').innerText()).trim();
     expect(protocol).toMatch(/^\d{15}$/);
 
-    const db = createClient(process.env.VITE_SUPABASE_URL || '', process.env.VITE_SUPABASE_ANON_KEY || '', {
+    const dbKey = process.env.SUPABASE_SECRET_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const db = createClient(process.env.VITE_SUPABASE_URL || '', dbKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const login = await db.auth.signInWithPassword({
-      email: operatorEmail,
-      password: operatorPassword,
-    });
-    if (login.error || !login.session) throw new Error('Não foi possível validar o documento fiscal persistido.');
+    if (!process.env.SUPABASE_SECRET_KEY) {
+      const login = await db.auth.signInWithPassword({
+        email: operatorEmail,
+        password: operatorPassword,
+      });
+      if (login.error || !login.session) {
+        throw new Error(`Não foi possível autenticar para validar persistência: ${login.error?.message || 'Sem sessão'}`);
+      }
+    }
     const { data: documents, error: documentsError } = await db.from('nfe_documents')
       .select('id,order_id,modelo,ambiente,status,chave_acesso,numero_protocolo,xml_nfe,xml_protocolo,fiscal_snapshot_id')
       .eq('order_id', orderId)
@@ -314,6 +320,3 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
     await details.getByRole('button', { name: 'Fechar', exact: true }).first().click();
   });
 });
-
-
-\r\n

@@ -1,7 +1,15 @@
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+const dotenv = require('dotenv');
 const projectRoot = path.resolve(__dirname, '../..');
+const erpEnvPath = path.join(projectRoot, 'erp/.env.local');
+if (fs.existsSync(erpEnvPath)) {
+  const parsed = dotenv.parse(fs.readFileSync(erpEnvPath));
+  for (const [key, value] of Object.entries(parsed)) {
+    if (!process.env[key]) process.env[key] = value;
+  }
+}
 const mode = process.argv[2];
 const rawArgs = process.argv.slice(3);
 

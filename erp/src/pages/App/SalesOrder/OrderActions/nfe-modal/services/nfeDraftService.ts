@@ -8,13 +8,12 @@ import {
   ORDER_ITEM_FISCAL_SNAPSHOT_VERSION,
 } from '../../../../../../../../shared-utils/orderItemFiscalSnapshot';
 
-export async function saveNfeDraftToDatabase(
-  order: Order | null,
+export function buildNfeDraftChanges(
+  order: Order,
   recipientTaxId: string,
   nfeItems: NfeItemWithFiscal[],
   environment: 1 | 2 = 1
-): Promise<void> {
-  if (!order?.id) return;
+): Partial<Order> {
   // Homologation-only recipient IDs stay in the modal and are never persisted.
   const itemsNeedBackfill = (order.items || []).some(
     (item) => item.itemType !== 'service' && !hasFiscalItemSnapshot(item)
@@ -36,7 +35,6 @@ export async function saveNfeDraftToDatabase(
           ...(item.variationId ? { fiscalSnapshotVariationId: item.variationId } : {}),
         };
       });
-  const updatedAt = (order as Order & { updatedAt?: string }).updatedAt;
   const changes: Partial<Order> = {
     ...(updatedItems ? { items: updatedItems } : {}),
     ...(environment === 1 && recipientTaxId.trim()
@@ -64,10 +62,15 @@ export async function saveNfeDraftToDatabase(
       },
     },
   };
-  await updateOrder(
-    String(order.id),
-    changes,
-    order,
-    updatedAt
-  );
+  return changes;
+}
+
+export async function saveNfeDraftToDatabase(
+  order: Order | null,
+  recipientTaxId: string,
+  nfeItems: NfeItemWithFiscal[],
+  environment: 1 | 2 = 1
+): Promise<void> {
+  if (!order?.id) return;
+  await updateOrder(String(order.id), buildNfeDraftChanges(order, recipientTaxId, nfeItems, environment), order, order.updatedAt);
 }

@@ -71,3 +71,11 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 * Campos filhos pertencem ao formulário proprietário. Preservar contratos distintos de rascunho, finalização, baixa, cancelamento e consulta; um rascunho pode estar incompleto.
 * Erros devem impedir o efeito e ser apresentados na interface. Valores parseados seguem para a operação; regras de permissões, contexto, banco e fiscal continuam no backend.
 * Registrar a cobertura e os caminhos ainda pendentes no inventário de migração; não declarar conclusão global enquanto houver caminhos sem conferência.
+
+---
+
+## 6. Navegação do Aplicativo: Módulos e Filtros Separados
+
+* A aba global **Pedidos** do aplicativo deve abrir um menu de módulos equivalente à hierarquia de Vendas do ERP, incluindo Pedidos de Venda, Orçamentos, Assistências e Devoluções.
+* Ao entrar em um módulo, a lista e a consulta devem ficar limitadas ao tipo selecionado. A tela **Pedidos de Venda** deve exibir somente filtros de status da venda; Assistências, Devoluções e Orçamentos são módulos próprios, nunca filtros da lista de vendas.
+* Preservar essa hierarquia ao criar ou revisar a navegação mobile; não juntar tipos de operação diferentes em uma única lista de filtros.

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Bot } from 'lucide-react-native';
 import { FinancialCategory } from '../../../services/mobileFinanceService';
 import { AssistantEmptyState } from './AssistantEmptyState';
@@ -66,22 +66,20 @@ export const FinancialAiChatView: React.FC<Props> = ({
                 isDarkMode={isDarkMode}
               />
               {chat.timelineCards
-                .filter(
-                  (card) => card.afterMessageId === msg.id && card.cardState !== 'NEEDS_INPUT'
-                )
+                .filter((card) => card.afterMessageId === msg.id)
                 .map((card) => (
                   <FinancialTimelineCard
                     key={card.id}
                     entry={card}
-                    active={
-                      card.cardState === 'READY_TO_CONFIRM' ||
+                    active={!chat.registering && !chat.loading && !chat.mediaBusy && !chat.utilityBusy && (
+                      card.cardState === 'NEEDS_INPUT' || card.cardState === 'READY_TO_CONFIRM' ||
                       card.cardState === 'SAVING' ||
                       card.cardState === 'ERROR'
-                    }
+                    )}
                     categories={categories}
                     isDarkMode={isDarkMode}
                     onConfirm={(intent) => void chat.handleConfirmTimelineCard(card.id, intent)}
-                    onSelectCandidate={chat.handleSelectCandidate}
+                    onSelectCandidate={(candidate) => { void chat.handleSelectTimelineCandidate(card.id, candidate); }}
                   />
                 ))}
             </React.Fragment>
@@ -99,11 +97,14 @@ export const FinancialAiChatView: React.FC<Props> = ({
           </View>
         ) : null}
       </ScrollView>
+      {chat.mediaError ? <Text accessibilityRole="alert" style={{ color: isDarkMode ? '#fca5a5' : '#b91c1c', padding: 12 }}>{chat.mediaError}</Text> : null}
+      {chat.mediaBusy ? <View style={{ padding: 12, flexDirection: 'row', gap: 8 }}><ActivityIndicator size="small" /><Text style={{ color: isDarkMode ? '#cbd5e1' : '#475569' }}>Aguardando confirmação do controle de voz...</Text></View> : null}
+      {chat.utilityBusy ? <View style={{ padding: 12, flexDirection: 'row', gap: 8 }}><ActivityIndicator size="small" /><Text style={{ color: isDarkMode ? '#cbd5e1' : '#475569' }}>Atualizando a conversa...</Text></View> : null}
 
       {/* Barra de entrada com Voice Mode e envio de mensagem */}
       <FinancialChatInputBar
         inputText={chat.inputText}
-        loading={chat.loading}
+        loading={chat.loading || chat.registering || chat.mediaBusy || chat.utilityBusy}
         isDarkMode={isDarkMode}
         onChangeInputText={chat.setInputText}
         onSendMessage={chat.handleSendMessage}
@@ -115,6 +116,7 @@ export const FinancialAiChatView: React.FC<Props> = ({
           paused={chat.liveState === 'paused'}
           muted={chat.liveState === 'muted'}
           remainingMs={chat.liveQuota?.remainingMs ?? 30 * 60 * 1000}
+          busy={chat.mediaBusy || chat.liveState === 'connecting'}
           onPause={chat.handleToggleLivePause}
           onMute={chat.handleToggleLiveMute}
           onEnd={chat.handleEndLive}

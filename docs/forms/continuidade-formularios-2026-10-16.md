@@ -2,7 +2,9 @@
 
 ## Estado vigente
 
-Migração global em andamento. ERP: **132/132 itens conferidos ou encerrados (100%), 0 pendentes** no inventário principal. Inclui encerramento dos proprietários de assistência técnica (`AssistanceOrderModal`), edição de pedido (`OrderEditModal`), movimentação de estoque dormente (`InventoryMoveEditModal`) e emissão/rascunho de NF-e (`NfeEmissionModal`/`useNfeEmission`), além da retirada de CC-e e bibliotecas retidas sem consumidor. Mobile e catálogo têm inventário próprio de arquivos candidatos, sem denominador global de proprietários comprovado.
+Migração global em andamento. ERP: **130/132 itens conferidos ou encerrados (98,5%), dois reabertos no inventário principal** após auditoria dos formulários de notas de saída em 18/10. Fila de autosave e emissão/consulta até o resultado passaram em 142 testes; finalidade e retomada HML seguem em conferência. O recorte inclui CC-e retirada e bibliotecas retidas, sem representar conclusão global dos formulários operacionais. Censo adicional ERP, mobile e catálogo continuam em auditoria. [Provas e pendências](../fiscal/historico-correcoes-2026-10-18.md#nf-de-saída--fila-dos-rascunhos-fiscais).
+
+Conferência da assistência em 18/10: 54 testes em seis arquivos, lint sem erros (três avisos) e build do frontend ERP em 1m45s aprovados. TypeScript global: 359 diagnósticos fora dos arquivos conferidos. [Causa, arquivos e limites](../fiscal/historico-correcoes-2026-10-18.md#assistência--contexto-e-confirmação-do-proprietário).
 
 **CC-e não é funcionalidade do MoranteHub**, inclusive tela dedicada de histórico. A política vinculante está em `AGENTS.md`, FISCAL-016 e no [registro fiscal](../fiscal/historico-correcoes-2026-10-16.md#política-de-produto--cc-e-ausente-do-sistema). Cancelamento/estorno continuam conforme elegibilidade vigente; critérios de circulação não foram alterados por inferência. Registros antigos de auditoria não autorizam reintroduzir interface ou emissão de CC-e.
 

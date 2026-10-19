@@ -25,7 +25,7 @@ export function ReturnNfeActionMenuButton({
     if (order.orderType !== 'return' || !order.id) return;
     setEligibility(null);
     setError('');
-    void fetchReturnFiscalEligibility(order.id)
+    void fetchReturnFiscalEligibility(order.id, { reviewCancelled: true })
       .then((result) => {
         if (active) setEligibility(result);
       })

@@ -261,13 +261,19 @@ export function resolveNfeItemCfopOptions(params: ResolveOptionsParams) {
     };
   }
 
+  const isInternalOwnProduction = merchandiseOrigin === 'own_production';
+  const isInternalThirdParty = merchandiseOrigin === 'third_party';
   const internalRuleAllowed =
     operationScope.scope === 'internal' &&
     itemType === 'product' &&
     issuerRegime === '1' &&
-    merchandiseOrigin === 'third_party' &&
+    (isInternalThirdParty || isInternalOwnProduction) &&
     hasSt !== true;
-  const expectedCfop = internalRuleAllowed ? '5102' : '';
+  const expectedCfop = internalRuleAllowed
+    ? isInternalOwnProduction
+      ? '5101'
+      : '5102'
+    : '';
   const internalReason = internalRuleAllowed
     ? ''
     : `A regra de venda normal interna não aprova CFOP para CRT=${issuerRegime || 'não informado'}, origem=${merchandiseOrigin ? formatMerchandiseOrigin(merchandiseOrigin) : 'não informada'} e ST=${formatBoolean(hasSt)}.`;

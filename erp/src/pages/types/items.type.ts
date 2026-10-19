@@ -22,6 +22,7 @@ export type Item = {
   unitDiscount: number;
   discountType: DiscountType;
   handlingType: string;
+  assemblyResponsible?: 'Nossa equipe' | 'Montador terceirizado' | '';
   observation?: string;
   condition?: 'novo' | 'usado' | 'salvado' | '';
   deliveryMethod?: 'delivery' | 'pickup';

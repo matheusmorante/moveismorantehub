@@ -30,6 +30,12 @@ export const applyImportedOrderDataToForm = (migrated: any, actions: FormActions
   if (migrated.marketingOrigin) actions.setMarketingOrigin(migrated.marketingOrigin);
 
   if (migrated.shipping) {
+    if (
+      migrated.shipping.deliveryMethod === 'delivery' ||
+      migrated.shipping.deliveryMethod === 'pickup'
+    ) {
+      actions.setDeliveryMethod(migrated.shipping.deliveryMethod);
+    }
     actions.setShipping((prev) => ({
       ...prev,
       ...migrated.shipping,
@@ -64,6 +70,7 @@ export const applyImportedOrderDataToForm = (migrated: any, actions: FormActions
       costPrice: typeof item.costPrice === 'number' ? item.costPrice : 0,
       condition: item.condition || 'novo',
       handlingType: item.handlingType || '',
+      assemblyResponsible: item.assemblyResponsible || '',
     }));
     actions.setItems(mappedItems);
   }
@@ -139,7 +146,7 @@ export const getNewOrderHeaderTheme = ({
   const iconBadgeBg = isBudget
     ? 'bg-indigo-600 shadow-indigo-500/20'
     : isReturn
-      ? 'bg-amber-600 shadow-amber-500/20'
+      ? 'bg-transparent shadow-none'
       : isPickup
         ? 'bg-purple-600 shadow-purple-500/20'
         : 'bg-emerald-600 shadow-emerald-500/20';
@@ -149,8 +156,8 @@ export const getNewOrderHeaderTheme = ({
     : isReturn
       ? 'bi-arrow-return-left'
       : isPickup
-        ? 'bi-shop'
-        : 'bi-truck';
+        ? 'pickup-parcel'
+        : 'delivery-truck';
 
   const titleColor = isBudget
     ? 'text-indigo-900 dark:text-indigo-100'
@@ -163,7 +170,7 @@ export const getNewOrderHeaderTheme = ({
   const titleText = isBudget
     ? 'Novo Orçamento'
     : isReturn
-      ? 'Nova devolução sem venda vinculada'
+      ? 'Nova Devolução avulsa'
       : 'Novo Pedido';
 
   return { containerBg, iconBadgeBg, iconClass, titleColor, titleText };

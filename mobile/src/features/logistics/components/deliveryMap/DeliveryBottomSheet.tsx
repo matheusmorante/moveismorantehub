@@ -49,6 +49,14 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
 
   const isPending = item.status === 'pending';
   const isInProgress = item.isCurrent;
+  const orderStatus = String(
+    item.order?.status || item.order?.order_data?.status || ''
+  ).toLowerCase();
+  const canStartDelivery =
+    item.activityType === 'delivery' &&
+    isPending &&
+    /agendad|scheduled/.test(orderStatus);
+  const canContinueDelivery = item.activityType === 'delivery' && isInProgress;
 
   // Extrair observações separadas por linhas para criar rótulos individuais
   const obsList =
@@ -239,7 +247,7 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
             ) : (
               <>
                 {/* Botão de Ação Primária: Iniciar ou Continuar (Topo) */}
-                {isPending ? (
+                {canStartDelivery ? (
                   <TouchableOpacity
                     style={[styles.primaryActionBtn, { backgroundColor: '#2563eb' }]}
                     onPress={handleStartAndNavigate}
@@ -248,7 +256,7 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
                     <Play size={16} color="#ffffff" fill="#ffffff" />
                     <Text style={styles.primaryActionText}>INICIAR ETAPAS DA ENTREGA</Text>
                   </TouchableOpacity>
-                ) : (
+                ) : canContinueDelivery ? (
                   <TouchableOpacity
                     style={[styles.primaryActionBtn, { backgroundColor: '#2563eb' }]}
                     onPress={handleOpenNav}
@@ -257,7 +265,7 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
                     <Play size={16} color="#ffffff" fill="#ffffff" />
                     <Text style={styles.primaryActionText}>CONTINUAR ETAPAS DA ENTREGA</Text>
                   </TouchableOpacity>
-                )}
+                ) : null}
 
                 {/* Botão Secundário: Detalhes do Pedido (Embaixo) */}
                 <TouchableOpacity

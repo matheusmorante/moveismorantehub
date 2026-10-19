@@ -1,4 +1,6 @@
 import { supabase } from '../supabaseClient';
+import { excludeTestOrders } from '../../../../shared-utils/testArtifactQueries';
+import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
 import { isAssemblyInternalType, isAssemblyOutsideType } from '../../utils/aiSummaryHelper';
 
 export type MobileOperationKind =
@@ -253,16 +255,18 @@ export async function searchOperations(input: OrderDeliverySearchInput) {
   const selectedLimit = normalizeLimit(input.limite);
   const candidateLimit =
     kind === 'montagem' || kind === 'todas' || input.status ? 300 : Math.max(selectedLimit * 4, 40);
-  let query = supabase
-    .from('orders')
-    .select(
-      'id, order_number, order_index, status, order_type, customer_name, total_amount, created_at, updated_at, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, delivery_status, deleted, order_data, items'
-    )
-    .or('deleted.is.null,deleted.eq.false')
-    .order(input.dataInicio || input.dataFim ? 'scheduled_date' : 'updated_at', {
-      ascending: Boolean(input.dataInicio || input.dataFim),
-    })
-    .limit(candidateLimit);
+  let query = excludeTestOrders(
+    supabase
+      .from('orders')
+      .select(
+        'id, order_number, order_index, status, order_type, customer_name, total_amount, created_at, updated_at, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, delivery_status, deleted, order_data, items'
+      )
+      .or('deleted.is.null,deleted.eq.false')
+      .order(input.dataInicio || input.dataFim ? 'scheduled_date' : 'updated_at', {
+        ascending: Boolean(input.dataInicio || input.dataFim),
+      })
+      .limit(candidateLimit)
+  );
 
   const databaseKind =
     kind === 'venda'
@@ -300,6 +304,7 @@ export async function searchOperations(input: OrderDeliverySearchInput) {
         })
       : [];
   const results = (data || [])
+    .filter((row: Record<string, any>) => !isIdentifiedTestArtifact(row))
     .map((row: Record<string, any>) => {
       const assemblies = getAssemblyKinds(row, options);
       return { row, assemblies };
@@ -333,7 +338,7 @@ export async function getOrderDeliveryDetails(
     .or('deleted.is.null,deleted.eq.false')
     .maybeSingle();
   if (error) throw error;
-  if (!row) return null;
+  if (!row || isIdentifiedTestArtifact(row)) return null;
 
   const data = asRecord(row.order_data);
   const customer = asRecord(data.customerData);

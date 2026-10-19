@@ -1,8 +1,8 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { X } from 'lucide-react-native';
-import type { InvoiceDetail } from '../../types/stock.types';
-import { formatInvoiceDate } from '../utils/invoiceList';
+import type { InvoiceDetail } from '../../../types/stock.types';
+import { formatInvoiceDate } from '../../utils/invoiceList';
 import { styles } from './invoiceDetailsModal.styles';
 
 interface InvoiceDetailsHeaderProps {

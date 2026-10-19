@@ -3,7 +3,7 @@ import type Order from '@/pages/types/order.type';
 import type CustomerData from '@/pages/types/customerData.type';
 import type Item from '@/pages/types/items.type';
 import type { AssistanceItem } from '@/pages/types/order.type';
-import type { Scheduling } from '@/pages/types/shipping.type';
+type Scheduling = NonNullable<Order['shipping']>['scheduling'];
 import { toast } from 'react-toastify';
 import { subscribeToOrders, fetchOrderById, saveOrder } from '@/pages/utils/orderHistoryService';
 import { getSettings } from '@/pages/utils/settingsService';
@@ -22,6 +22,8 @@ const EMPTY_CUSTOMER: CustomerData = {
     cep: '',
     street: '',
     number: '',
+    complement: '',
+    observation: '',
     neighborhood: '',
     city: '',
     state: '',
@@ -127,32 +129,32 @@ export const useAssistanceOrderForm = ({
     return () => unsubscribe();
   }, [initialData, isEditing, sourceOrder]);
 
-  // Resolve linked order details
+  const [linkedOrderLoading, setLinkedOrderLoading] = useState(false);
+  const [linkedOrderError, setLinkedOrderError] = useState('');
+  const [lookupRevision, setLookupRevision] = useState(0);
+  const lookupForm = useZodForm(assistanceLinkedOrderLookupSchema, { orderId: linkedOrderId });
+  const lookupRunner = useRef(lookupForm.validateValues); lookupRunner.current = lookupForm.validateValues;
   useEffect(() => {
-    let isCurrent = true;
-    if (linkedOrderId) {
-      if (sourceOrder && sourceOrder.id === linkedOrderId) {
-        setSelectedLinkedOrder(sourceOrder);
-        return;
-      }
-      if (selectedLinkedOrder?.id === linkedOrderId) return;
-      const found = saleOrders.find((o) => o.id === linkedOrderId);
-      if (found) {
-        setSelectedLinkedOrder(found);
-      } else {
-        Promise.resolve(fetchOrderById(linkedOrderId))
-          .then((ord) => {
-            if (isCurrent && ord) setSelectedLinkedOrder(ord);
-          })
-          .catch(() => {});
-      }
-    } else {
-      setSelectedLinkedOrder(null);
-    }
-    return () => {
-      isCurrent = false;
-    };
-  }, [linkedOrderId, saleOrders, selectedLinkedOrder?.id, sourceOrder]);
+    let accepting = true;
+    const isCurrent = () => accepting && active.current;
+    setLinkedOrderError('');
+    const available = sourceOrder?.id === linkedOrderId ? sourceOrder : saleOrders.find(item => item.id === linkedOrderId);
+    if (!linkedOrderId) { setSelectedLinkedOrder(null); setLinkedOrderLoading(false); return; }
+    if (available) { setSelectedLinkedOrder(available); setLinkedOrderLoading(false); return; }
+    if (selectedLinkedOrder?.id === linkedOrderId) { setLinkedOrderLoading(false); return; }
+    setSelectedLinkedOrder(null); setLinkedOrderLoading(true);
+    void (async () => {
+      const values = await lookupRunner.current({ orderId: linkedOrderId }, errors => { if (isCurrent()) setLinkedOrderError(Object.values(flattenFormErrors(errors))[0] || 'Confira a venda vinculada.'); });
+      if (!values || !isCurrent()) return false;
+      const found = await withTimeout(fetchOrderById(values.orderId), 15_000, null, 'assistencia:consultar-venda-vinculada');
+      if (!isCurrent()) return false;
+      if (!found || found.id !== values.orderId) throw new Error('A venda vinculada não foi encontrada ou não respondeu no prazo. Confira o vínculo e consulte novamente.');
+      setLinkedOrderId(values.orderId); setSelectedLinkedOrder(found); return true;
+    })().catch(() => { if (isCurrent()) setLinkedOrderError('Não foi possível consultar a venda vinculada. Tente novamente.'); })
+      .finally(() => { if (isCurrent()) setLinkedOrderLoading(false); });
+    return () => { accepting = false; };
+  }, [linkedOrderId, saleOrders, selectedLinkedOrder?.id, sourceOrder, lookupRevision]);
+  const retryLinkedOrder = () => { if (!writeInFlight.current && !manualPending.current) setLookupRevision(value => value + 1); };
 
   const currentLinkedOrder = useMemo(() => {
     if (sourceOrder && (!linkedOrderId || sourceOrder.id === linkedOrderId)) {
@@ -335,6 +337,7 @@ export const useAssistanceOrderForm = ({
 
   const handleSaveBase = async () => {
     if (manualPending.current || uncertain.current || !active.current) return false;
+    if (isLinked && linkedOrderId && !currentLinkedOrder) { setOperationError('Aguarde a consulta da venda vinculada ou consulte novamente antes de finalizar.'); return false; }
     manualPending.current = true; ++autosaveRevision.current;
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     const snapshot = getOrderData(false);
@@ -349,6 +352,7 @@ export const useAssistanceOrderForm = ({
     isEditing,
     loading,
     autoSaving, operationError, saveBlocked, hasSavedFinal, handleClose,
+    linkedOrderLoading, linkedOrderError, retryLinkedOrder,
     customerData,
     setCustomerData,
     seller,

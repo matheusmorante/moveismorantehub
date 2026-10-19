@@ -84,13 +84,15 @@ export async function emitNormalSale(
     );
     let rules = await createNormalSaleRuleSet(facts);
     const preflight = resolveFiscalDocument(facts, rules);
-    if (preflight.status !== 'ready')
+    if (preflight.status !== 'ready') {
+      console.error('[PREFLIGHT BLOCKERS]', JSON.stringify(preflight.blockers));
       return outboundFailure(
         422,
         'FISCAL_DETERMINATION_REQUIRED',
         'O pedido não passou pela determinação fiscal.',
         { blockers: preflight.blockers, numberReserved: false, sefazContacted: false }
       );
+    }
     validateParanaIssuerIe(preflight.document.issuer.ie);
     const model = preflight.document.model;
     // Keep exactly the shared scenario decision that PostgreSQL re-reads under lock.

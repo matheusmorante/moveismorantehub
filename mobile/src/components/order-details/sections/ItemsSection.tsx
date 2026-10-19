@@ -3,6 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { DollarSign, FileText } from 'lucide-react-native';
 import { SectionCard, SectionHeader } from './SectionCard';
 import { OrderItemChip } from '../../orders/OrderItemChip';
+import { StockOriginBadge } from '../../../features/products/components/StockOriginBadge';
+import { isAssemblyInternalType, isAssemblyOutsideType } from '../../../utils/aiSummaryHelper';
 
 interface ItemsSectionProps {
   items: any[];
@@ -41,6 +43,24 @@ export function ItemsSection({
         />
         <View style={styles.itemsListContainer}>
           {(items || []).map((item: any, index: number) => {
+            const handlingType = String(
+              item.handlingType || item.handling || item.manuseio || item.handling_type || ''
+            ).trim();
+            const rawStockOrigin = String(
+              item.stockOrigin ||
+                item.stock_origin ||
+                item.productKind ||
+                item.product_kind ||
+                item.condition ||
+                (item.is_salvado ? 'salvado' : 'normal')
+            ).toLocaleLowerCase('pt-BR');
+            const stockOriginKind = rawStockOrigin.includes('salvad')
+              ? 'salvado'
+              : rawStockOrigin.includes('usad')
+                ? 'usado'
+                : 'normal';
+            const isOutside = isAssemblyOutsideType(handlingType, handlingOptions);
+            const isInternal = isAssemblyInternalType(handlingType, handlingOptions);
             const qty = Number(item.quantity || item.qty || 1);
             const unitPrice = Number(item.unitPrice || 0);
             const unitDiscount = Number(item.unitDiscount || 0);
@@ -64,6 +84,44 @@ export function ItemsSection({
               <View key={index} style={[styles.itemCard, dark && styles.itemCardDark]}>
                 <View style={styles.itemInfo}>
                   <OrderItemChip item={item} handlingOptions={handlingOptions} dark={dark} />
+                  {(handlingType || item.itemType !== 'service') && (
+                    <View style={styles.itemLabels}>
+                      {item.itemType !== 'service' && (
+                        <StockOriginBadge
+                          product={{ productKind: stockOriginKind }}
+                          dark={dark}
+                          size="xs"
+                        />
+                      )}
+                      {handlingType ? (
+                        <View
+                          style={[
+                            styles.handlingBadge,
+                            isOutside
+                              ? styles.handlingOutside
+                              : isInternal
+                                ? styles.handlingInternal
+                                : styles.handlingDefault,
+                            dark && styles.handlingBadgeDark,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.handlingText,
+                              isOutside
+                                ? styles.handlingOutsideText
+                                : isInternal
+                                  ? styles.handlingInternalText
+                                  : styles.handlingDefaultText,
+                              dark && styles.handlingTextDark,
+                            ]}
+                          >
+                            {handlingType}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.priceContainer}>
@@ -153,6 +211,24 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   itemInfo: { flex: 1, gap: 4 },
+  itemLabels: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  handlingBadge: {
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    borderWidth: 1,
+    borderRadius: 9999,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  handlingBadgeDark: { backgroundColor: '#1e293b', borderColor: '#475569' },
+  handlingOutside: { backgroundColor: '#fee2e2', borderColor: '#fca5a5' },
+  handlingInternal: { backgroundColor: '#fef3c7', borderColor: '#fcd34d' },
+  handlingDefault: { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' },
+  handlingText: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase' },
+  handlingTextDark: { color: '#cbd5e1' },
+  handlingOutsideText: { color: '#b91c1c' },
+  handlingInternalText: { color: '#b45309' },
+  handlingDefaultText: { color: '#1e3a8a' },
   priceContainer: { alignItems: 'flex-end', justifyContent: 'center', gap: 1 },
   price: { fontSize: 13, fontWeight: '900', color: '#16a34a' },
   financialCard: {

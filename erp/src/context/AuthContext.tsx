@@ -50,6 +50,41 @@ export interface Profile {
 
 const PROFILE_COLUMNS = 'id,email,role,roles,full_name,position,phone,address';
 
+const CACHE_KEY_PREFIX = 'morantehub_auth_profile_';
+
+function getCachedProfile(userId: string): Profile | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const raw = localStorage.getItem(`${CACHE_KEY_PREFIX}${userId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.id === userId && parsed.role) {
+      return parsed as Profile;
+    }
+  } catch (e) {
+    // Ignore storage parse errors
+  }
+  return null;
+}
+
+function setCachedProfile(userId: string, profile: Profile): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(`${CACHE_KEY_PREFIX}${userId}`, JSON.stringify(profile));
+  } catch (e) {
+    // Ignore storage write errors
+  }
+}
+
+function clearCachedProfile(userId: string): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.removeItem(`${CACHE_KEY_PREFIX}${userId}`);
+  } catch (e) {
+    // Ignore storage removal errors
+  }
+}
+
 export type PasswordCredentialStatus = 'idle' | 'checking' | 'required' | 'configured' | 'error';
 
 interface AuthContextType {
@@ -153,25 +188,109 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isMasterEmail = isMasterEmailCheck(userEmail);
       const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
 
-      const { data: existingProfile } = await withTimeout(
+      // 1. Proativamente renova o token se expirado ou prestes a expirar (< 60s)
+      try {
+        if (typeof supabase?.auth?.getSession === 'function') {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const currentSession = sessionData?.session;
+          const nowSeconds = Math.floor(Date.now() / 1000);
+          if (
+            currentSession?.expires_at &&
+            currentSession.expires_at - nowSeconds < 60 &&
+            typeof supabase.auth?.refreshSession === 'function'
+          ) {
+            console.log('[Auth] Token expirado ou próximo do vencimento. Renovando sessão preventivamente...');
+            await supabase.auth.refreshSession();
+          }
+        }
+      } catch (tokenCheckErr) {
+        console.warn('[Auth] Aviso ao verificar renovação preventiva de token:', tokenCheckErr);
+      }
+
+      // 2. Busca o perfil no banco com proteção de timeout
+      let queryResult = await withTimeout(
         supabase
           .from('profiles')
           .select(PROFILE_COLUMNS)
           .eq('id', user.id)
           .maybeSingle(),
         6000,
-        { data: null, error: null } as any,
+        { data: null, error: { message: 'timeout' } } as any,
         'profiles.select'
       );
-      let data: Profile | null = existingProfile;
 
+      // 3. Se a consulta falhou por token/JWT expirado ou não autorizado (401), tenta refresh e repete
+      const isAuthError =
+        queryResult?.error &&
+        (queryResult.error.message?.includes('JWT') ||
+          queryResult.error.message?.includes('token') ||
+          queryResult.error.message?.includes('expired') ||
+          queryResult.error.code === 'PGRST301' ||
+          (queryResult.error as any).status === 401);
+
+      if (isAuthError && typeof supabase?.auth?.refreshSession === 'function') {
+        console.log('[Auth] Erro de autenticação no select de profiles. Renovando sessão e tentando novamente...');
+        try {
+          const { error: refreshErr } = await supabase.auth.refreshSession();
+          if (!refreshErr) {
+            queryResult = await withTimeout(
+              supabase
+                .from('profiles')
+                .select(PROFILE_COLUMNS)
+                .eq('id', user.id)
+                .maybeSingle(),
+              6000,
+              { data: null, error: { message: 'timeout' } } as any,
+              'profiles.select.retry'
+            );
+          }
+        } catch (rErr) {
+          console.warn('[Auth] Falha ao tentar renovar sessão após erro de auth:', rErr);
+        }
+      }
+
+      let data: Profile | null = queryResult?.data || null;
+
+      // 4. Se a consulta retornou ERRO (não 0 registros, mas falha de rede/timeout/banco/auth):
+      if (queryResult?.error && !data) {
+        console.warn('[Auth] Erro ao carregar perfil do banco:', queryResult.error);
+        const cached = getCachedProfile(user.id);
+        if (cached) {
+          console.log('[Auth] Recuperando perfil do cache local após falha transitória de consulta');
+          profileResolvedUserIdRef.current = user.id;
+          setProfile(cached);
+          return cached;
+        }
+
+        if (isMasterEmail) {
+          const masterProfile: Profile = {
+            id: user.id,
+            email: user.email || '',
+            role: 'administrator',
+            roles: ['administrator'],
+            full_name: googleName || 'Matheus Morante',
+          };
+          profileResolvedUserIdRef.current = user.id;
+          setProfile(masterProfile);
+          setCachedProfile(user.id, masterProfile);
+          return masterProfile;
+        }
+
+        // NÃO atribuir 'pending'! Se o perfil não pôde ser verificado por erro transitório ou falta de token,
+        // retorna null para continuar em sincronização e não exibir falsamente o modal de aprovação.
+        return null;
+      }
+
+      // 5. Perfil genuinamente não existe no banco (query completou com sucesso sem erro, mas 0 linhas)
       if (!data) {
         console.log('[Auth] Perfil não encontrado no banco. Criando registro...');
-        const assignedRole: UserRole = 'pending';
+        const assignedRole: UserRole = isMasterEmail ? 'administrator' : 'pending';
+        const assignedRoles: UserRole[] = [assignedRole];
         const newProfile: Profile = {
           id: user.id,
           email: user.email || '',
           role: assignedRole,
+          roles: assignedRoles,
           full_name:
             googleName ||
             user.email?.split('@')[0] ||
@@ -198,7 +317,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Garante que o usuário logado via Google sincronize seu colaborador na tabela people (1 por e-mail)
-      if (userEmail && syncEmployee) {
+      if (userEmail && syncEmployee && data) {
         try {
           const { data: existingEmps } = await withTimeout(
             supabase
@@ -240,8 +359,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               '[Auth] Criando colaborador para novo usuário logado via Google:',
               userEmail
             );
-            const defaultRole: UserRole = data?.role || 'pending';
-            const defaultRoles: UserRole[] = data?.roles?.length ? data.roles : [defaultRole];
+            const defaultRole: UserRole = isMasterEmail ? 'administrator' : (data?.role || 'pending');
+            const defaultRoles: UserRole[] = isMasterEmail ? ['administrator'] : (data?.roles?.length ? data.roles : [defaultRole]);
 
             await supabase.from('people').insert([
               {
@@ -272,25 +391,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      const resolvedProfile = data as Profile;
-      profileResolvedUserIdRef.current = user.id;
-      setProfile(resolvedProfile);
-      return resolvedProfile;
+      if (data) {
+        const resolvedProfile = data as Profile;
+        profileResolvedUserIdRef.current = user.id;
+        setProfile(resolvedProfile);
+        setCachedProfile(user.id, resolvedProfile);
+        return resolvedProfile;
+      }
+      return null;
     } catch (err) {
       console.error('[Auth] Error fetching profile:', err);
       const userEmail = (user.email || '').toLowerCase().trim();
       const isMasterEmail = isMasterEmailCheck(userEmail);
 
-      const pendingProfile: Profile = {
-        id: user.id,
-        email: user.email || '',
-        role: 'pending',
-        full_name:
-          user.user_metadata?.full_name || (isMasterEmail ? 'Matheus Morante' : 'Usuário Pendente'),
-      };
-      profileResolvedUserIdRef.current = user.id;
-      setProfile(pendingProfile);
-      return pendingProfile;
+      const cached = getCachedProfile(user.id);
+      if (cached) {
+        profileResolvedUserIdRef.current = user.id;
+        setProfile(cached);
+        return cached;
+      }
+
+      if (isMasterEmail) {
+        const masterProfile: Profile = {
+          id: user.id,
+          email: user.email || '',
+          role: 'administrator',
+          roles: ['administrator'],
+          full_name: user.user_metadata?.full_name || 'Matheus Morante',
+        };
+        profileResolvedUserIdRef.current = user.id;
+        setProfile(masterProfile);
+        setCachedProfile(user.id, masterProfile);
+        return masterProfile;
+      }
+
+      return null;
     }
   };
 

@@ -276,6 +276,14 @@ export async function fetchFiscalDocumentDetails(
         reason: typeof d.reason === 'string' ? d.reason : null,
         created_at: String(d.created_at),
         updated_at: typeof d.updated_at === 'string' ? d.updated_at : undefined,
+        sourceDocument: isRecord(d.sourceDocument) && typeof d.sourceDocument.id === 'string'
+          && (d.sourceDocument.order_id === null || typeof d.sourceDocument.order_id === 'string')
+          && ['55', '65'].includes(String(d.sourceDocument.modelo))
+          && [1, 2].includes(Number(d.sourceDocument.ambiente))
+          && typeof d.sourceDocument.numero_nfe === 'number'
+          && typeof d.sourceDocument.serie === 'string' && typeof d.sourceDocument.chave_acesso === 'string'
+          ? d.sourceDocument as unknown as import('../types/fiscalOperationDraft.types').SourceDocument
+          : undefined,
       }))
     : undefined;
 

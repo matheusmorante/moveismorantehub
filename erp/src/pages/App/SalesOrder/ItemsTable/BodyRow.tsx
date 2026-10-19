@@ -8,6 +8,7 @@ import { useBodyRowPricing } from './useBodyRowPricing';
 import { BodyRowMobile } from './BodyRowMobile';
 import { BodyRowDesktop } from './BodyRowDesktop';
 import { useSettings, getSettings } from '@/pages/utils/settingsService';
+import { requiresAssemblyResponsible } from '../../../../../../shared-utils/commercialOrderRules';
 
 interface Props {
   item: Item;
@@ -67,9 +68,18 @@ const BodyRow: React.FC<Props> = ({
   const error = errors[errorKey];
   const handlingErrorKey = `item_${idx}_handlingType`;
   const handlingError = !isService && errors[handlingErrorKey];
+  const assemblyResponsibleRequired =
+    !shouldHideHandling &&
+    !item.isComboItem &&
+    requiresAssemblyResponsible(item.handlingType, deliveryMethod);
+  const assemblyResponsibleError = assemblyResponsibleRequired
+    ? errors[`item_${idx}_assemblyResponsible`]
+    : undefined;
   const stockOriginErrorKey = `item_${idx}_stockOrigin`;
   const stockOriginError = !isService && errors[stockOriginErrorKey];
-  const itemHasError = Boolean(error || handlingError || stockOriginError);
+  const itemHasError = Boolean(
+    error || handlingError || stockOriginError || assemblyResponsibleError
+  );
 
   const handleStockOriginChange = (rawCondition: string) => {
     const condition = rawCondition as Item['condition'];
@@ -83,6 +93,15 @@ const BodyRow: React.FC<Props> = ({
       return;
     }
     onBatchChange(idx, { condition: condition || '', isTemporaryProduct: item.isTemporaryProduct });
+  };
+
+  const handleHandlingChange = (handlingType: string) => {
+    onBatchChange(idx, {
+      handlingType,
+      ...(!requiresAssemblyResponsible(handlingType, deliveryMethod)
+        ? { assemblyResponsible: '' }
+        : {}),
+    });
   };
 
   const linkableProductItems = productItems.filter((product) =>
@@ -154,6 +173,7 @@ const BodyRow: React.FC<Props> = ({
     onSelectProduct,
     handleSelectService,
     handleStockOriginChange,
+    handleHandlingChange,
     isService,
     shouldShowStockOrigin,
     isLinkedProduct,
@@ -161,6 +181,8 @@ const BodyRow: React.FC<Props> = ({
     itemHasError,
     error,
     handlingError,
+    assemblyResponsibleRequired,
+    assemblyResponsibleError,
     stockOriginError,
     serviceProductLink,
   };

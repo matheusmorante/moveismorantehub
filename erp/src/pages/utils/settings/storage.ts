@@ -55,6 +55,12 @@ export const getSettings = (): AppSettings => {
 
 const settingsSubscribers = new Set<(settings: AppSettings) => void>();
 let settingsRevision = 0;
+let lastRemoteRevision = -1;
+let lastRemoteSnapshot: string | null = null;
+const canonicalSettings = (value: unknown): string => JSON.stringify(value, (_key, entry) =>
+  entry && typeof entry === 'object' && !Array.isArray(entry)
+    ? Object.fromEntries(Object.entries(entry).sort(([left], [right]) => left.localeCompare(right)))
+    : entry);
 
 export const notifySettingsSubscribers = (settings: AppSettings) => {
   settingsRevision++;
@@ -95,16 +101,24 @@ export const subscribeToSettings = (callback: (settings: AppSettings) => void, o
     .single(), 15_000, null, 'configuracoes:consultar')
     .then((response) => {
       if (!active) return;
-      if (revision !== settingsRevision) {
-        options?.onRemoteLoad({ confirmed: false, message: 'A configuração mudou durante a consulta. Carregue novamente antes de editar.' });
-        return;
-      }
       const { data, error } = response || {};
       if (data && !error) {
         const settingsFromCloud = data.data as any;
         const migrated = migrateSettings(settingsFromCloud);
         const mergedSettings = deepMerge(defaults, migrated);
+        const remoteSnapshot = canonicalSettings(mergedSettings);
+        if (revision !== settingsRevision) {
+          // Another subscriber may have just published this same remote read.
+          // A write or a different response must still invalidate the older read.
+          const sameRemoteRead = settingsRevision === lastRemoteRevision && remoteSnapshot === lastRemoteSnapshot;
+          options?.onRemoteLoad({ confirmed: sameRemoteRead, ...(!sameRemoteRead && {
+            message: 'A configuração mudou durante a consulta. Carregue novamente antes de editar.',
+          }) });
+          return;
+        }
         try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(mergedSettings)); } catch { /* The remote read remains authoritative when cache is unavailable. */ }
+        lastRemoteSnapshot = remoteSnapshot;
+        lastRemoteRevision = settingsRevision + 1;
         notifySettingsSubscribers(mergedSettings);
         options?.onRemoteLoad({ confirmed: true });
       } else {

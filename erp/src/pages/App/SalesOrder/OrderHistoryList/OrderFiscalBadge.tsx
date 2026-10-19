@@ -1,7 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { OrderFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
-import { binaryOrderBadgeClass } from './orderBadgeStyles';
+import {
+  binaryOrderBadgeClass,
+  orderBadgeIndicatorClass,
+  orderBadgeIndicatorColorClass,
+  orderBadgeIndicatorIconClass,
+} from './orderBadgeStyles';
 
 interface BadgeConfig {
   label: string;
@@ -125,9 +130,9 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
         {presentation.icon ? (
           <span
             aria-hidden="true"
-            className={`absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white dark:border-slate-900 ${presentation.iconBadgeClassName}`}
+            className={`${orderBadgeIndicatorClass} ${orderBadgeIndicatorColorClass(presentation.icon, presentation.iconBadgeClassName || '')}`}
           >
-            <i className={`bi ${presentation.icon} text-[9px]`} />
+            <i className={`bi ${presentation.icon} ${orderBadgeIndicatorIconClass}`} />
           </span>
         ) : null}
       </>

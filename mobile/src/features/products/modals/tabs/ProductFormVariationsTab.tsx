@@ -35,7 +35,7 @@ import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
 import { ProductFormCompositionTab } from './ProductFormCompositionTab';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MergedBadge } from '../components/MergedBadge';
+import { MergedBadge } from '../../components/MergedBadge';
 
 type VariationTabId = 'identificacao' | 'tecnico' | 'descricao' | 'fotos' | 'compostos' | 'estoque';
 

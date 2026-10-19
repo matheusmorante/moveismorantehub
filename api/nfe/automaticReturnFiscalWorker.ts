@@ -1,4 +1,4 @@
-import { buildFiscalOperationDraftReviewState } from '../../erp/src/pages/App/FiscalDocuments/utils/fiscalOperationDraftReview';
+import { buildAutomaticReturnDraftReviewState } from '../../erp/src/pages/App/FiscalDocuments/utils/fiscalOperationDraftReview';
 import type { DraftPayload } from '../../erp/src/pages/App/FiscalDocuments/types/fiscalOperationDraft.types';
 
 type FiscalApiMethod = 'GET' | 'POST' | 'PUT';
@@ -84,7 +84,7 @@ async function transmitDraft(
 export async function processAutomaticReturnFiscalJob(
   returnOrderId: string,
   request: AutomaticReturnFiscalApi,
-  buildReviewState = buildFiscalOperationDraftReviewState
+  buildReviewState = buildAutomaticReturnDraftReviewState
 ): Promise<AutomaticReturnFiscalJobResult> {
   try {
     const rawEligibility = await request(

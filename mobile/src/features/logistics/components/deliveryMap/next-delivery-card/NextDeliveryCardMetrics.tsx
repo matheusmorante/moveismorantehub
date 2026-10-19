@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Navigation, Clock, Package } from 'lucide-react-native';
-import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
+import { DeliveryRouteItem } from '../../../hooks/useDeliveryRoute';
 import { styles } from './nextDeliveryCard.styles';
 
 interface Props {

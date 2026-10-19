@@ -56,7 +56,7 @@ export const buttons: OrderButton[] = [
     action: 'PRINT_WARRANTY_TERM',
     label: 'Termo de garantia',
     color: 'text-emerald-700 hover:bg-emerald-50',
-    tooltip: 'Visualizar, imprimir ou enviar o Termo de Garantia do pedido',
+    tooltip: 'Imprimir ou enviar o Termo de Garantia do pedido',
     orderTypes: ['sale', 'showroom'],
   },
   {

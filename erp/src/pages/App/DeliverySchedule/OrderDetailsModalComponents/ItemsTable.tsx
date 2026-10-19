@@ -1,18 +1,19 @@
 import { Drill } from '@/components/shared/DrillIcon';
 import { getSettings } from '@/pages/utils/settingsService';
-import { UnregisteredProductIndicator } from '@/pages/App/SalesOrder/components/UnregisteredProductIndicator';
+import { getNonStockOrigin } from '@/pages/utils/saleInventoryRules';
 
-const getOpportunityLabel = (item: any) => {
-  const opportunity = item.opportunityName || item.opportunity?.name || item.opportunity;
-  if (typeof opportunity === 'string' && opportunity.trim()) {
-    const trimmed = opportunity.trim();
-    if (/^salvado$/i.test(trimmed)) return 'Queima dos Salvados';
-    return trimmed;
-  }
-  if (item.condition === 'salvado' || item.is_salvado) {
-    return 'Queima dos Salvados';
-  }
-  return null;
+const getStockOriginLabel = (item: any) => {
+  if (item.itemType === 'service') return null;
+  const rawOrigin = String(
+    getNonStockOrigin(item) ||
+      item.stockOrigin ||
+      item.stock_origin ||
+      item.productKind ||
+      item.product_kind ||
+      (item.is_salvado ? 'salvado' : '')
+  ).toLocaleLowerCase('pt-BR');
+  const origin = rawOrigin.includes('salvad') ? 'salvado' : rawOrigin.includes('usad') ? 'usado' : null;
+  return origin === 'salvado' ? 'Salvados' : origin === 'usado' ? 'Usados' : 'Convencional';
 };
 
 export const ItemsTable = ({ items }: { items: any[] }) => (
@@ -40,11 +41,7 @@ export const ItemsTable = ({ items }: { items: any[] }) => (
         </thead>
         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
           {items?.map((item: any, idx: number) => {
-            const opportunityLabel = getOpportunityLabel(item);
-            const isUnregisteredProduct =
-              !item.isAssistanceItem &&
-              item.itemType !== 'service' &&
-              (!item.productId?.trim() || item.isTemporaryProduct);
+            const stockOriginLabel = getStockOriginLabel(item);
             const qty = Number(item.quantity) || 1;
             const unitPrice = Number(item.unitPrice) || 0;
             const rawDiscount = Number(item.unitDiscount) || 0;
@@ -70,7 +67,6 @@ export const ItemsTable = ({ items }: { items: any[] }) => (
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                       {item.description}
                     </span>
-                    {isUnregisteredProduct && <UnregisteredProductIndicator />}
                   </div>
                   {item.variationLabel && (
                     <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
@@ -78,17 +74,9 @@ export const ItemsTable = ({ items }: { items: any[] }) => (
                     </span>
                   )}
                   <div className="flex flex-wrap gap-2 items-center mt-1">
-                    {item.condition &&
-                      item.condition !== 'novo' &&
-                      item.condition !== 'salvado' && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-900/30">
-                          {item.condition}
-                        </span>
-                      )}
-                    {opportunityLabel && (
-                      <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border border-amber-300 dark:border-amber-700/80">
-                        <i className="bi bi-fire text-amber-600 dark:text-amber-400" />{' '}
-                        {opportunityLabel}
+                    {stockOriginLabel && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+                        {stockOriginLabel}
                       </span>
                     )}
                     {item.isAssistanceItem && (

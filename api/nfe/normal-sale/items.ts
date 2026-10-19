@@ -18,7 +18,8 @@ export function determineNormalSaleItems(params: {
   snapshot: FiscalSnapshotCandidate;
   composition: ReturnType<typeof composeServiceFiscalValues>;
   selections: Record<string, any>;
-  expectedCfop: string;
+  expectedCfop?: string;
+  isNonTaxpayerInterstate?: boolean;
   snapshotScope: FiscalCfopOrderScope;
   contribution: ResolvedSimplesNormalSaleContribution;
   modelDecision: ReadyFiscalModelDecision;
@@ -31,6 +32,7 @@ export function determineNormalSaleItems(params: {
     composition,
     selections,
     expectedCfop,
+    isNonTaxpayerInterstate = false,
     snapshotScope,
     contribution,
     modelDecision,
@@ -39,7 +41,7 @@ export function determineNormalSaleItems(params: {
     freight,
   } = params;
   const catalog = obj(obj(snapshot.fiscalInputs).products);
-  const allowedSavedCfops = ['5102', '6102', '6108'];
+  const allowedSavedCfops = ['5101', '5102', '6101', '6102', '6107', '6108'];
   const commercialUnits: string[] = [];
   const traces: FiscalDecisionTrace[] = composition.products.map(({ item }, index) => {
     const selected = selections[String(index + 1)];
@@ -72,10 +74,16 @@ export function determineNormalSaleItems(params: {
       productFiscal.hasSt,
       productFiscal.isSt,
     ].find((value) => typeof value === 'boolean');
-    if (expectedCfop === '5102' && (ownProduction || hasSt === true))
+    if (hasSt === true)
       throw new Error(
-        'Venda normal interna de produção própria ou com ST exige matriz fiscal específica aprovada.'
+        'Venda normal interna com ST exige matriz fiscal específica aprovada.'
       );
+    const itemExpectedCfop =
+      snapshotScope.scope === 'internal'
+        ? (ownProduction ? '5101' : '5102')
+        : isNonTaxpayerInterstate
+          ? (ownProduction ? '6107' : '6108')
+          : (ownProduction ? '6101' : '6102');
     for (const fiscal of [saved, productFiscal]) {
       if (
         (fiscal.cfop && !allowedSavedCfops.includes(fiscal.cfop)) ||
@@ -95,9 +103,9 @@ export function determineNormalSaleItems(params: {
       throw new Error(
         `CFOP ${selected.cfop} pertence a prestação de serviço (ISSQN) e não pode ser aplicado a venda de mercadoria.`
       );
-    if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn) || selected.cfop !== expectedCfop)
+    if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn) || selected.cfop !== itemExpectedCfop)
       throw new Error(
-        `CSOSN ou CFOP escolhido exige matriz fiscal específica (esperado CFOP ${expectedCfop} para operação ${snapshotScope.scope === 'internal' ? 'interna' : 'interestadual'}); nenhuma escolha foi substituída.`
+        `CSOSN ou CFOP escolhido exige matriz fiscal específica (esperado CFOP ${itemExpectedCfop} para operação ${snapshotScope.scope === 'internal' ? 'interna' : 'interestadual'}); nenhuma escolha foi substituída.`
       );
     const isSupportedContributionCst = (cst?: string) =>
       !cst || cst === contribution.pis.cst || cst === '49' || cst === '99';

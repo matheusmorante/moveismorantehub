@@ -50,7 +50,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
   onLaunchStock,
 }) => {
   const [screenMode, setScreenMode] = useState<'standard' | 'composition' | 'categories'>(mode);
-  const { canUseProductPermission, userProfile, isAdmin } = useAuth();
+  const { canUseProductPermission, userProfile } = useAuth();
   const isStockistOnly = isStockistOnlyProductProfile(userProfile);
   const canViewCatalog = canUseProductPermission('viewProducts');
   const canEditProducts = canUseProductPermission('productConfig');
@@ -80,8 +80,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const productsHook = useMobileProducts(
     activeMode === 'composition' ? 'composition' : 'standard',
-    activeMode !== 'categories' && availableModes.includes(activeMode),
-    isAdmin
+    activeMode !== 'categories' && availableModes.includes(activeMode)
   );
 
   const [categories, setCategories] = useState<any[]>([]);
@@ -260,16 +259,12 @@ export const NativeProductsScreen: React.FC<Props> = ({
             categoryFilter={productsHook.categoryFilter}
             catalogStatusFilter={productsHook.catalogStatusFilter}
             generalTypeFilter={productsHook.generalTypeFilter}
-            showTestProducts={productsHook.showTestProducts}
-            hasTestProducts={productsHook.hasTestProducts}
-            canToggleTestProducts={isAdmin}
             showMergedProducts={productsHook.showMergedProducts}
             onToggleMergedProducts={productsHook.onToggleMergedProducts}
             onStatusFilterChange={productsHook.setStatusFilter}
             onCategoryFilterChange={productsHook.setCategoryFilter}
             onCatalogStatusFilterChange={productsHook.setCatalogStatusFilter}
             onGeneralTypeFilterChange={productsHook.setGeneralTypeFilter}
-            onToggleTestProducts={() => productsHook.setShowTestProducts((value) => !value)}
             showDeactivated={productsHook.showDeactivated}
             onToggleDeactivated={() => productsHook.setShowDeactivated((value) => !value)}
           />

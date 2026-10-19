@@ -1,6 +1,9 @@
 import React from 'react';
 import OrderStepper from '../components/OrderStepper';
 import { getNewOrderHeaderTheme } from './newSaleOrderHelpers';
+import ReturnIcon from '@/components/shared/ReturnIcon';
+import PickupIcon from '@/components/shared/PickupIcon';
+import DeliveryTruckIcon from '@/components/shared/DeliveryTruckIcon';
 
 interface NewSaleOrderHeaderProps {
   isScrolled: boolean;
@@ -38,7 +41,15 @@ export const NewSaleOrderHeader = ({
           <div
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-md transition-all sm:h-10 sm:w-10 sm:rounded-xl ${theme.iconBadgeBg}`}
           >
-            <i className={`bi ${theme.iconClass} text-white text-xs sm:text-base`} />
+            {theme.iconClass === 'bi-arrow-return-left' ? (
+              <ReturnIcon className="h-6 w-6 sm:h-8 sm:w-8" />
+            ) : isPickup ? (
+              <PickupIcon white className="h-6 w-6 sm:h-8 sm:w-8" />
+            ) : theme.iconClass === 'delivery-truck' ? (
+              <DeliveryTruckIcon className="h-6 w-6 text-white sm:h-8 sm:w-8" />
+            ) : (
+              <i className={`bi ${theme.iconClass} text-white text-xs sm:text-base`} />
+            )}
           </div>
           <div className="min-w-0">
             <div className="flex min-w-0 items-center gap-1 sm:gap-2">

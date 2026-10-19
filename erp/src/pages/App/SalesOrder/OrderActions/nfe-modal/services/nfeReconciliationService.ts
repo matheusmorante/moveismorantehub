@@ -10,6 +10,7 @@ import {
 import type Order from '@/pages/types/order.type';
 import type Item from '@/pages/types/items.type';
 import type { NfeItemWithFiscal } from '../NfeItemsSection';
+import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 
 export interface SefazConsultOutcome {
   state: 'authorized' | 'rejected' | 'not_found' | 'error' | 'pending';
@@ -198,8 +199,10 @@ export async function executeAbandonHmlTlsAttempt(
   environment: 1 | 2,
   documentId: string,
   emissionRequestId: string,
-  nfeItems: NfeItemWithFiscal[]
-): Promise<void> {
+  nfeItems: NfeItemWithFiscal[],
+  isCurrent: () => boolean = () => true
+): Promise<boolean> {
+  if (!isCurrent()) return false;
   const orderWithFiscalItems: Order = {
     ...order,
     items: [
@@ -209,12 +212,15 @@ export async function executeAbandonHmlTlsAttempt(
   };
 
   const fiscalChoices = buildFiscalItemSelectionPayload(orderWithFiscalItems);
-  const result = await abandonUntransmittedHmlAttempt(
+  const result = await withTimeout(abandonUntransmittedHmlAttempt(
     String(order.id),
     documentId,
     emissionRequestId,
     fiscalChoices
-  );
+  ), 30_000, null, 'nfe:encerrar-tentativa-hml');
+
+  if (!isCurrent()) return false;
+  if (!result) throw new Error('O encerramento da tentativa não foi confirmado no prazo. Consulte a situação antes de tentar outra emissão.');
 
   if (!result.success) {
     throw new Error(result.error);
@@ -222,4 +228,5 @@ export async function executeAbandonHmlTlsAttempt(
 
   clearFiscalEmissionRequest(String(order.id), environment);
   setFiscalEmissionReplacementSource(String(order.id), environment, documentId);
+  return true;
 }

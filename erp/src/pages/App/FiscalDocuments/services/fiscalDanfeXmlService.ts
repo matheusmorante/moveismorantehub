@@ -10,6 +10,8 @@ import { parseSefazAuthorization } from '@/pages/utils/nfe/sefazResponseParser';
 import type Order from '@/pages/types/order.type';
 import { parseFiscalXmlDetails } from '../utils/fiscalXmlParser';
 import type { NfeDocumentRecord } from '../types/fiscalDocuments.types';
+import { buildAuthorizedNfeDownloadXml } from '@/pages/utils/nfe/authorizedNfeXml';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 function createDanfeFallbackOrder(document: NfeDocumentRecord): Order {
   const total = document.valor_total || 0;
@@ -133,7 +135,6 @@ export async function createDanfeShareFile(doc: NfeDocumentRecord): Promise<File
     width: '900px',
     height: '1200px',
     border: '0',
-    visibility: 'hidden',
   });
 
   try {
@@ -148,8 +149,8 @@ export async function createDanfeShareFile(doc: NfeDocumentRecord): Promise<File
         { once: true }
       );
     });
-    document.body.appendChild(iframe);
     iframe.srcdoc = generateDanfeHtml(danfeData);
+    document.body.appendChild(iframe);
     await loaded;
 
     const frameDocument = iframe.contentDocument;
@@ -194,24 +195,33 @@ export async function createDanfeShareFile(doc: NfeDocumentRecord): Promise<File
 
 export async function downloadXml(doc: NfeDocumentRecord): Promise<void> {
   let xml = doc.xml_nfe;
-  if (!xml) {
-    const { data, error } = await supabase
+  let protocolXml = doc.xml_protocolo;
+  const requiresProtocol = ['autorizada', 'homologada', 'cancelada'].includes(doc.status);
+  if (!xml || (requiresProtocol && !protocolXml && !/<(?:\w+:)?nfeProc\b/.test(xml))) {
+    const response = await withTimeout(supabase
       .from('nfe_documents')
-      .select('xml_nfe')
+      .select('xml_nfe,xml_protocolo')
       .eq('id', doc.id)
-      .maybeSingle();
+      .maybeSingle(), 15_000, null, 'fiscal:download-xml');
+    if (!response) throw new Error('Não foi possível carregar o XML e seu protocolo. Tente novamente.');
+    const { data, error } = response;
     if (error) throw error;
-    xml = data?.xml_nfe || undefined;
+    xml ||= data?.xml_nfe || undefined;
+    protocolXml ||= data?.xml_protocolo || null;
   }
   if (!xml) {
     throw new Error('XML não disponível para este documento.');
   }
+  if (requiresProtocol) xml = buildAuthorizedNfeDownloadXml({
+    signedXml: xml, protocolXml, accessKey: doc.chave_acesso || '',
+    environment: doc.ambiente, protocolNumber: doc.numero_protocolo,
+  });
 
   const blob = new Blob([xml], { type: 'application/xml;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.setAttribute('download', `NFe_${doc.chave_acesso || doc.numero_nfe}.xml`);
+  link.setAttribute('download', requiresProtocol ? `${doc.chave_acesso}-procNFe.xml` : `NFe_${doc.chave_acesso || doc.numero_nfe}.xml`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

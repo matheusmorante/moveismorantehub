@@ -7,6 +7,11 @@ import {
 } from '../fiscalIssuePresentation';
 
 describe('mensagens fiscais para a interface', () => {
+  it('explica a rejeição 696 também para uma saída interna', () => {
+    const issue = getFiscalIssuePresentation({ code: 'HML_SEFAZ_REJECTED', cStat: '696' });
+    expect(issue.description.toLowerCase()).toContain('consumidor final');
+    expect(issue.description.toLowerCase()).not.toContain('interestadual');
+  });
   it('explica uma falha TLS em linguagem simples e recomenda consultar a tentativa', () => {
     const presentation = getFiscalIssuePresentation({
       code: 'HML_TRANSMISSION_UNCERTAIN',

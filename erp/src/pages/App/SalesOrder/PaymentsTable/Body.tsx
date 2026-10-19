@@ -10,9 +10,10 @@ interface Props {
   summary: PaymentsSummary;
   isMobile?: boolean;
   errors: ValidationErrors;
+  deliveryMethod?: 'delivery' | 'pickup';
 }
 
-const Body = ({ payments, setPayments, summary, isMobile, errors }: Props) => {
+const Body = ({ payments, setPayments, summary, isMobile, errors, deliveryMethod }: Props) => {
   const changeFee = (idx: number, fee: number, feeType: 'fixed' | 'percentage') => {
     setPayments((prev: Payment[]) => {
       const newPayments = [...prev];
@@ -53,6 +54,7 @@ const Body = ({ payments, setPayments, summary, isMobile, errors }: Props) => {
       idx={idx}
       isMobile={isMobile}
       errors={errors}
+      deliveryMethod={deliveryMethod}
     />
   ));
 

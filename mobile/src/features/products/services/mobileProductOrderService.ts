@@ -1,4 +1,6 @@
 import { supabase } from '../../../services/supabaseClient';
+import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 
 export interface LinkedProductOrder {
   id: string;
@@ -27,20 +29,24 @@ export const fetchLinkedProductOrders = async (
     )
   );
   if (quantities.size === 0) return [];
-  const { data: orders, error } = await supabase
-    .from('orders')
-    .select('id, order_number, created_at, customer_name, order_type, deleted')
-    .in('id', [...quantities.keys()])
-    .eq('deleted', false)
-    .neq('order_type', 'budget')
-    .order('created_at', { ascending: false });
+  const { data: orders, error } = await excludeTestOrders(
+    supabase
+      .from('orders')
+      .select('id, order_number, created_at, customer_name, order_type, deleted, order_data')
+      .in('id', [...quantities.keys()])
+      .eq('deleted', false)
+      .neq('order_type', 'budget')
+      .order('created_at', { ascending: false })
+  );
   if (error) throw error;
-  return (orders || []).map((order: any) => ({
-    id: String(order.id),
-    orderNumber: order.order_number || String(order.id),
-    date: order.created_at,
-    customer: order.customer_name || 'Cliente não informado',
-    quantity: quantities.get(String(order.id)) || 0,
-    type: order.order_type || 'sale',
-  }));
+  return (orders || [])
+    .filter((order: any) => !isIdentifiedTestArtifact(order))
+    .map((order: any) => ({
+      id: String(order.id),
+      orderNumber: order.order_number || String(order.id),
+      date: order.created_at,
+      customer: order.customer_name || 'Cliente não informado',
+      quantity: quantities.get(String(order.id)) || 0,
+      type: order.order_type || 'sale',
+    }));
 };

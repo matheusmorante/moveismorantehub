@@ -12,6 +12,7 @@ import {
 } from '../../erp/src/pages/utils/nfe/cancellationEligibility';
 import { canCancelOrderDirectly } from '../../erp/src/pages/utils/orderStatusTransitionRules';
 import { getFiscalCancellationPolicy } from '../../erp/src/pages/utils/nfe/fiscalCancellationPolicy';
+import { validateCancellationDocumentRecord, validateOperationCancellationContext } from './cancellationPreflight';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -19,6 +20,34 @@ const supabaseUrl =
   'https://hkoxhourxwlddgsfdgws.supabase.co';
 const serviceKey = getSupabaseSecretKey() || '';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function cancellationAttemptBlock(priorEvent: any, now: number) {
+  if (priorEvent?.status === 'registered' || priorEvent?.status === 'unknown') return {
+    action: 'reconcile', reason: 'A situação da tentativa de cancelamento precisa ser consultada na SEFAZ antes de qualquer nova ação.',
+  };
+  if (priorEvent?.status === 'transmitting') {
+    const requestedAt = new Date(priorEvent.requested_at || '').getTime();
+    if (!Number.isFinite(requestedAt) || now - requestedAt < 30_000) return {
+      action: 'pending', reason: 'Há uma tentativa de cancelamento em processamento. Aguarde antes de repetir.',
+    };
+    return { action: 'reconcile', reason: 'A tentativa anterior não foi confirmada. Consulte a SEFAZ antes de qualquer nova ação.' };
+  }
+  return null;
+}
+
+export async function evaluateOperationDocumentEligibility(db: any, document: any, priorEvent: any, now: number) {
+  const authorizedAt = getAuthorizedAt(document?.xml_protocolo || '', '');
+  const base = { orderId: document?.order_id || null, authorizedAt,
+    deadline: getCancellationWindow(String(document?.modelo || ''), authorizedAt, now).deadline?.toISOString() || null };
+  const blocked = (reason: string, action = 'none') => ({ ...base, canProceed: false, action, reason });
+  const record = validateCancellationDocumentRecord(document, true);
+  if (!record.ok) return blocked(record.error || 'Documento fiscal inválido.');
+  const attempt = cancellationAttemptBlock(priorEvent, now);
+  if (attempt) return blocked(attempt.reason, attempt.action);
+  const context = await validateOperationCancellationContext({ supabase: db, doc: document, viaOrderEdit: false, now });
+  if (!context.ok) return blocked(context.error || 'Não foi possível validar o vínculo fiscal.');
+  return { ...base, canProceed: true, action: 'cancel', reason: null };
+}
 
 export function evaluateDocumentEligibility(
   document: any,
@@ -95,24 +124,8 @@ export function evaluateDocumentEligibility(
   )
     return blocked('O estado atual do pedido não permite cancelamento comercial.', 'blocked');
 
-  if (priorEvent?.status === 'registered' || priorEvent?.status === 'unknown')
-    return blocked(
-      'A situação da tentativa de cancelamento precisa ser consultada na SEFAZ antes de qualquer nova ação.',
-      'reconcile'
-    );
-  if (priorEvent?.status === 'transmitting') {
-    const requestedAt = new Date(priorEvent.requested_at || '').getTime();
-    const attemptAge = now - requestedAt;
-    if (!Number.isFinite(requestedAt) || attemptAge < 30_000)
-      return blocked(
-        'Há uma tentativa de cancelamento em processamento. Aguarde antes de repetir.',
-        'pending'
-      );
-    return blocked(
-      'A tentativa anterior não foi confirmada. Consulte a SEFAZ antes de qualquer nova ação.',
-      'reconcile'
-    );
-  }
+  const attempt = cancellationAttemptBlock(priorEvent, now);
+  if (attempt) return blocked(attempt.reason, attempt.action);
 
   const policy = getFiscalCancellationPolicy({
     model: String(document.modelo),
@@ -159,7 +172,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: documents, error: documentsError } = await db
       .from('nfe_documents')
       .select(
-        'id,order_id,document_type,status,ambiente,modelo,chave_acesso,xml_protocolo,numero_protocolo,created_at'
+        'id,order_id,document_type,status,ambiente,modelo,chave_acesso,xml_nfe,xml_protocolo,numero_protocolo,created_at,original_document_id,related_return_order_id'
       )
       .in('id', documentIds);
     if (documentsError)
@@ -217,11 +230,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const now = Date.now();
     const eligibility = Object.fromEntries(
-      documentIds.map((id) => {
+      await Promise.all(documentIds.map(async (id) => {
         const document = documentsById.get(id);
         return [
           id,
-          evaluateDocumentEligibility(
+          ['return', 'estorno'].includes(String(document?.document_type))
+          ? await evaluateOperationDocumentEligibility(db, document, latestEvents.get(id), now)
+          : evaluateDocumentEligibility(
             document,
             document?.order_id ? ordersById.get(String(document.order_id)) : null,
             latestEvents.get(id),
@@ -229,7 +244,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             document?.order_id ? authorizedCounts.get(String(document.order_id)) || 0 : 0
           ),
         ];
-      })
+      }))
     );
     return res.status(200).json({ documents: eligibility });
   }

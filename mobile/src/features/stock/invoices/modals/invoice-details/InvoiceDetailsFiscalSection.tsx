@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import type { InvoiceDetail } from '../../types/stock.types';
+import type { InvoiceDetail } from '../../../types/stock.types';
 import { fiscalDate, money } from './invoiceDetailsFormatters';
 import { styles } from './invoiceDetailsModal.styles';
 

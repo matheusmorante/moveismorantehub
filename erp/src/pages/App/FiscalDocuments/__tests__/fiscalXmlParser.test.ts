@@ -1,6 +1,10 @@
-// @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+// @vitest-environment node
+import { afterAll, beforeAll, describe, it, expect, vi } from 'vitest';
+import { DOMParser } from '@xmldom/xmldom';
 import { parseFiscalXmlDetails } from '../utils/fiscalXmlParser';
+
+beforeAll(() => vi.stubGlobal('DOMParser', DOMParser));
+afterAll(() => vi.unstubAllGlobals());
 
 describe('FiscalDocuments - fiscalXmlParser', () => {
   it('retorna null para string vazia ou inválida', () => {

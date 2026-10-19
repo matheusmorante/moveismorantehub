@@ -3,6 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatDateTime } from '@/pages/utils/formatters';
 import Order from '../../../types/order.type';
 import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';
+import ReturnIcon from '@/components/shared/ReturnIcon';
 
 interface StatusHistoryEntry {
   id: string;
@@ -102,7 +103,8 @@ const OrderStatusTimeline = ({ orderId, order = {} }: Props) => {
             >
               {/* Icon Circle */}
               <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg transition-transform group-hover:scale-110
+                className={`w-12 h-12 flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${
+                  config.color === 'orange' ? '' : `rounded-2xl shadow-lg
                                 ${
                                   config.color === 'blue'
                                     ? 'bg-blue-600 shadow-blue-200 dark:shadow-none'
@@ -114,9 +116,13 @@ const OrderStatusTimeline = ({ orderId, order = {} }: Props) => {
                                         ? 'bg-red-600 shadow-red-200 dark:shadow-none'
                                         : 'bg-slate-600 shadow-slate-200 dark:shadow-none'
                                 }
-                            `}
+                            `}`}
               >
-                <i className={`bi ${config.icon} text-white text-xl`} />
+                {config.icon === 'bi-arrow-return-left' ? (
+                  <ReturnIcon className="h-8 w-8" />
+                ) : (
+                  <i className={`bi ${config.icon} text-white text-xl`} />
+                )}
               </div>
 
               <div className="flex flex-col">

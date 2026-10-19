@@ -28,9 +28,12 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   findDocument: vi.fn(),
   abandonAttempt: vi.fn(),
+  clearRequest: vi.fn(),
   setReplacementSource: vi.fn(),
   buildFiscalChoices: vi.fn(),
   updateOrder: vi.fn(),
+  fetchOrderById: vi.fn(),
+  persistedOrders: new Map<string, any>(),
   prepareOrderSnapshot: vi.fn(),
   profileRole: 'administrator' as string,
 }));
@@ -53,7 +56,7 @@ vi.mock('@/pages/utils/nfe/nfeService', () => ({
   getNextNfeNumberPreview: mocks.nextNumber,
   getCachedFiscalNumberPreview: vi.fn(() => null),
   updateFiscalNumberPreviewCache: vi.fn(),
-  clearFiscalEmissionRequest: vi.fn(),
+  clearFiscalEmissionRequest: mocks.clearRequest,
   abandonUntransmittedHmlAttempt: mocks.abandonAttempt,
   setFiscalEmissionReplacementSource: mocks.setReplacementSource,
   buildFiscalItemSelectionPayload: mocks.buildFiscalChoices,
@@ -75,7 +78,17 @@ vi.mock('@/pages/utils/nfe/orderFiscalBadgeService', () => ({
 vi.mock('@/pages/utils/nfeEmissionSnapshotService', () => ({
   prepareOrderFiscalSnapshotForEmission: mocks.prepareOrderSnapshot,
 }));
-vi.mock('@/pages/utils/orderHistoryService', () => ({ updateOrder: mocks.updateOrder }));
+vi.mock('@/pages/utils/orderHistoryService', () => ({
+  updateOrder: async (...args: any[]) => {
+    const [id, changes, source] = args;
+    const known = mocks.persistedOrders.get(id) || source || { id, items: [] };
+    const previous = { ...known, updatedAt: known.updatedAt || '2026-10-01T00:00:00Z' };
+    if (!mocks.persistedOrders.has(id)) mocks.persistedOrders.set(id, previous);
+    await mocks.updateOrder(...args);
+    mocks.persistedOrders.set(id, { ...previous, ...changes, id, updatedAt: new Date(Date.parse(previous.updatedAt || '2026-10-01T00:00:00Z') + 1000).toISOString() });
+  },
+  fetchOrderById: mocks.fetchOrderById,
+}));
 vi.mock('./NcmSelect', () => ({
   NcmSelect: ({
     id,
@@ -131,6 +144,8 @@ describe('preenchimento dos itens da NF-e', () => {
     });
     mocks.nextNumber.mockResolvedValue(102);
     mocks.updateOrder.mockResolvedValue(undefined);
+    mocks.persistedOrders.clear();
+    mocks.fetchOrderById.mockImplementation(async (id: string) => structuredClone(mocks.persistedOrders.get(id) || null));
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'synthetic-test-token' } },
       error: null,
@@ -168,7 +183,7 @@ describe('preenchimento dos itens da NF-e', () => {
     id: 'synthetic-order',
     fiscalContext: { finalConsumer: false },
     shipping: { deliveryMethod: 'pickup' },
-    customerData: { cpfCnpj: '12345678909' },
+    customerData: { cpfCnpj: '12345678909', ieIndicator: '1', ie: '1234567890' },
     items: [
       {
         quantity: 1,
@@ -184,12 +199,173 @@ describe('preenchimento dos itens da NF-e', () => {
       },
     ],
   };
-  it('permite emitir diretamente e não exibe o botão de prévia do XML', async () => {
+  it('bloqueia prévia e emissão de revenda para não contribuinte antes do serviço fiscal', async () => {
+    const invalid = { ...order, id: 'resale-non-taxpayer',
+      fiscalContext: { acquisitionPurpose: 'resale', finalConsumer: false, recipientIeIndicator: '9' },
+      customerData: { cpfCnpj: '12345678909', ieIndicator: '9', ie: '' } };
+    const { result } = renderHook(() => useNfeEmission(invalid));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    await act(async () => result.current.handlePreviewXml());
+    await act(async () => result.current.handleEmit());
+    expect(mocks.preview).not.toHaveBeenCalled();
+    expect(mocks.emit).not.toHaveBeenCalled();
+    expect(mocks.toast).toHaveBeenCalledWith(expect.stringContaining('consumidor final'));
+  });
+  it('preserva em fila o último rascunho quando outro salvamento ainda está pendente', async () => {
+    let finishFirst!: () => void;
+    mocks.updateOrder.mockImplementationOnce(() => new Promise<void>((resolve) => { finishFirst = resolve; }));
+    const { result } = renderHook(() => useNfeEmission({ ...order, id: 'queued-outbound-draft' }));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    act(() => result.current.handleUpdateItemFiscal(0, { ncm: '94035000' }));
+    let first!: Promise<void>;
+    act(() => { first = result.current.handleSaveDraft(); });
+    await waitFor(() => expect(mocks.updateOrder).toHaveBeenCalledTimes(1));
+    act(() => result.current.handleUpdateItemFiscal(0, { ncm: '94036000' }));
+    let second!: Promise<void>;
+    act(() => { second = result.current.handleSaveDraft(); });
+    expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
+    await act(async () => { finishFirst(); await Promise.all([first, second]); });
+    expect(mocks.updateOrder).toHaveBeenCalledTimes(2);
+    const [firstChanges, lastChanges] = mocks.updateOrder.mock.calls.map((call) => call[1]);
+    const environment = String(result.current.environment);
+    expect(firstChanges.nfeDraft[environment].items[0].fiscal.ncm).toBe('94035000');
+    expect(lastChanges.nfeDraft[environment].items[0].fiscal.ncm).toBe('94036000');
+    expect(mocks.updateOrder.mock.calls.every((call) => call[4]?.metadataOnly === true)).toBe(true);
+  });
+
+  it('valida cada rascunho da fila e mantém a edição válida depois de um CPF inválido', async () => {
+    let finishFirst!: () => void;
+    mocks.updateOrder.mockImplementationOnce(() => new Promise<void>((resolve) => { finishFirst = resolve; }));
+    const { result } = renderHook(() => useNfeEmission({ ...order, id: 'validated-outbound-queue', customerData: { personType: 'PF', cpfCnpj: '52998224725' } }));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    act(() => result.current.setEnvironment(1));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    let first!: Promise<void>;
+    act(() => { first = result.current.handleSaveDraft(); });
+    await waitFor(() => expect(mocks.updateOrder).toHaveBeenCalledTimes(1));
+    act(() => result.current.setRecipientTaxId('11111111111'));
+    let invalid!: Promise<void>;
+    act(() => { invalid = result.current.handleSaveDraft(); });
+    act(() => result.current.setRecipientTaxId('11144477735'));
+    let last!: Promise<void>;
+    act(() => { last = result.current.handleSaveDraft(); });
+    await act(async () => { finishFirst(); await Promise.all([first, invalid, last]); });
+    expect(mocks.updateOrder).toHaveBeenCalledTimes(2);
+    expect(mocks.updateOrder.mock.calls[1][1].customerData.cpfCnpj).toBe('11144477735');
+    expect(mocks.toast).toHaveBeenCalled();
+  });
+
+  it('descarta o rascunho ainda na fila quando o proprietário muda de pedido', async () => {
+    let finishFirst!: () => void;
+    mocks.updateOrder.mockImplementationOnce(() => new Promise<void>((resolve) => { finishFirst = resolve; }));
+    const { result, rerender } = renderHook(({ id }) => useNfeEmission({ ...order, id }), { initialProps: { id: 'old-outbound-draft' } });
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    let first!: Promise<void>;
+    act(() => { first = result.current.handleSaveDraft(); });
+    await waitFor(() => expect(mocks.updateOrder).toHaveBeenCalledTimes(1));
+    let queued!: Promise<void>;
+    act(() => { queued = result.current.handleSaveDraft(); });
+    rerender({ id: 'new-outbound-draft' });
+    await act(async () => { finishFirst(); await Promise.all([first, queued]); });
+    expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
+    expect(mocks.updateOrder.mock.calls[0][0]).toBe('old-outbound-draft');
+  });
+
+  it.each(['ambiente', 'desmontagem', 'ida e volta'])(
+    'descarta autosave obsoleto na fila após %s', async (transition) => {
+      let finishFirst!: () => void;
+      mocks.updateOrder.mockImplementationOnce(() => new Promise<void>((resolve) => { finishFirst = resolve; }));
+      const { result, rerender, unmount } = renderHook(({ id }) => useNfeEmission({ ...order, id }), { initialProps: { id: 'draft-context-a' } });
+      await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+      let first!: Promise<void>;
+      act(() => { first = result.current.handleSaveDraft(); });
+      await waitFor(() => expect(mocks.updateOrder).toHaveBeenCalledTimes(1));
+      let queued!: Promise<void>;
+      act(() => { queued = result.current.handleSaveDraft(); });
+      if (transition === 'ambiente') {
+        act(() => result.current.setEnvironment(result.current.environment === 1 ? 2 : 1));
+      } else if (transition === 'desmontagem') {
+        unmount();
+      } else {
+        rerender({ id: 'draft-context-b' });
+        rerender({ id: 'draft-context-a' });
+      }
+      await act(async () => { finishFirst(); await Promise.all([first, queued]); });
+      expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it('continua a fila de rascunhos após uma falha de persistência sem repetir o envio falho', async () => {
+    let rejectFirst!: (reason: Error) => void;
+    mocks.updateOrder.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { rejectFirst = reject; }));
+    const { result } = renderHook(() => useNfeEmission({ ...order, id: 'failed-outbound-queue' }));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    act(() => result.current.handleUpdateItemFiscal(0, { ncm: '94035000' }));
+    let first!: Promise<void>;
+    act(() => { first = result.current.handleSaveDraft(); });
+    await waitFor(() => expect(mocks.updateOrder).toHaveBeenCalledTimes(1));
+    act(() => result.current.handleUpdateItemFiscal(0, { ncm: '94036000' }));
+    let queued!: Promise<void>;
+    act(() => { queued = result.current.handleSaveDraft(); });
+    await act(async () => { rejectFirst(new Error('synthetic rejected save')); await Promise.all([first, queued]); });
+    expect(mocks.updateOrder).toHaveBeenCalledTimes(2);
+    expect(mocks.updateOrder.mock.calls[1][1].nfeDraft[String(result.current.environment)].items[0].fiscal.ncm).toBe('94036000');
+    expect(mocks.toast).toHaveBeenCalledWith('Não foi possível salvar os dados fiscais do rascunho no pedido.');
+  });
+
+  it('não aplica finalidade antiga ao trocar o pedido durante a gravação', async () => {
+    let finish!: () => void;
+    mocks.updateOrder.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    const { result, rerender } = renderHook(({ id, purpose }) => useNfeEmission({ ...order, id, fiscalContext: { acquisitionPurpose: purpose } }), { initialProps: { id: 'purpose-old', purpose: 'use_consumption' as 'use_consumption' | 'fixed_asset' } });
+    let pending!: Promise<void>;
+    await act(async () => { pending = result.current.handleAcquisitionPurposeChange('resale'); });
+    expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
+    rerender({ id: 'purpose-new', purpose: 'fixed_asset' });
+    await act(async () => { finish(); await pending; });
+    expect(result.current.acquisitionPurpose).toBe('fixed_asset');
+  });
+
+  it.each(['rascunho', 'finalidade'])('serializa finalidade e rascunho quando %s começa primeiro', async (firstKind) => {
+    let finish!: () => void;
+    mocks.updateOrder.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    const { result } = renderHook(() => useNfeEmission({ ...order, id: 'preparation-shared-queue' }));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    let first!: Promise<void>;
+    await act(async () => { first = firstKind === 'rascunho' ? result.current.handleSaveDraft() : result.current.handleAcquisitionPurposeChange('fixed_asset'); });
+    let second!: Promise<void>;
+    await act(async () => { second = firstKind === 'rascunho' ? result.current.handleAcquisitionPurposeChange('fixed_asset') : result.current.handleSaveDraft(); });
+    const concurrentCalls = mocks.updateOrder.mock.calls.length;
+    await act(async () => { finish(); await Promise.all([first, second]); });
+    expect(concurrentCalls).toBe(1);
+    expect(mocks.updateOrder).toHaveBeenCalledTimes(2);
+    expect(result.current.acquisitionPurpose).toBe('fixed_asset');
+  });
+
+  it('limita a espera da finalidade sem aceitar a confirmação tardia', async () => {
+    let finish!: () => void;
+    mocks.updateOrder.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+    const { result } = renderHook(() => useNfeEmission({ ...order, id: 'purpose-timeout', fiscalContext: { acquisitionPurpose: 'fixed_asset' } }));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    let pending!: Promise<void>;
+    try {
+      await act(async () => { pending = result.current.handleAcquisitionPurposeChange('resale'); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+      expect(result.current.isSavingAcquisitionPurpose).toBe(false);
+      expect(result.current.acquisitionPurpose).toBe('fixed_asset');
+    } finally {
+      await act(async () => { finish(); await pending; });
+      vi.useRealTimers();
+    }
+    expect(result.current.acquisitionPurpose).toBe('fixed_asset');
+  });
+
+  it('permite emitir diretamente e oferece prévia do XML somente ao administrador', async () => {
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
     const { unmount } = render(
       <NfeEmissionModal isOpen order={{ ...order, id: 'direct-emission-without-preview' }} onClose={vi.fn()} />
     );
-    expect(screen.queryByTestId('nfe-preview-xml-button')).toBeNull();
+    expect(screen.getByTestId('nfe-preview-xml-button')).toBeTruthy();
     await waitFor(() =>
       expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false)
     );
@@ -411,6 +587,102 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(mocks.getProductsFiscalData).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { documentId: '   ' },
+    { documentId: 'current-attempt', orderId: 'another-order' },
+    { documentId: 'current-attempt', environment: 1 },
+  ])('bloqueia consulta de tentativa incompatível antes de acessar a API: %j', async (identity) => {
+    mocks.emit.mockResolvedValue({ success: false, pending: true, environment: 2, ...identity });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: false, pending: true }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useNfeEmission(order));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    await act(async () => result.current.handleEmit());
+    expect(result.current.emissionResult?.pending).toBe(true);
+    mocks.toast.mockClear();
+    await act(async () => { await result.current.handleReconcile(); });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mocks.toast).toHaveBeenCalled();
+    expect(result.current.emissionResult?.pending).toBe(true);
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+  });
+
+  it('encaminha à consulta a identidade parseada pelo resolver real', async () => {
+    mocks.emit.mockResolvedValue({ success: false, pending: true, environment: 2, documentId: '  current-attempt  ' });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: false, pending: true }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useNfeEmission(order));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    await act(async () => result.current.handleEmit());
+    await act(async () => { await result.current.handleReconcile(); });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ documentId: 'current-attempt' });
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+  });
+
+  it('mantém a consulta pendente após timeout e ignora a autorização que chega atrasada', async () => {
+    let completeFetch!: (response: unknown) => void;
+    mocks.emit.mockResolvedValue({ success: false, pending: true, environment: 2, documentId: 'timeout-query' });
+    const fetchMock = vi.fn(() => new Promise((resolve) => { completeFetch = resolve; }));
+    vi.stubGlobal('fetch', fetchMock);
+    const onSuccess = vi.fn();
+    const { result } = renderHook(() => useNfeEmission(order, onSuccess));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    await act(async () => result.current.handleEmit());
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      let query!: ReturnType<typeof result.current.handleReconcile>;
+      await act(async () => { query = result.current.handleReconcile(); });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await act(async () => { await vi.advanceTimersByTimeAsync(30_000); await query; });
+      expect(result.current.isSubmitting).toBe(false);
+      expect(result.current.emissionResult).toMatchObject({ pending: true, success: false });
+      await act(async () => { completeFetch({ ok: true, json: async () => ({ success: true, state: 'authorized', protocolNumber: 'late-protocol' }) }); });
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(result.current.emissionResult).toMatchObject({ pending: true, success: false });
+      expect(mocks.emit).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignora a consulta do pedido anterior e não fecha o novo proprietário', async () => {
+    let completeFetch!: (response: unknown) => void;
+    mocks.emit.mockResolvedValue({ success: false, pending: true, environment: 2, documentId: 'previous-owner-query' });
+    const fetchMock = vi.fn(() => new Promise((resolve) => { completeFetch = resolve; }));
+    vi.stubGlobal('fetch', fetchMock);
+    const onSuccess = vi.fn();
+    const { result, rerender } = renderHook(({ id }) => useNfeEmission({ ...order, id }, onSuccess), { initialProps: { id: 'query-owner-a' } });
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    await act(async () => result.current.handleEmit());
+    let query!: ReturnType<typeof result.current.handleReconcile>;
+    await act(async () => { query = result.current.handleReconcile(); });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    rerender({ id: 'query-owner-b' });
+    await act(async () => {
+      completeFetch({ ok: true, json: async () => ({ success: true, state: 'authorized', protocolNumber: 'old-query-protocol' }) });
+      await query;
+    });
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(result.current.emissionResult).toBeNull();
+    expect(result.current.isSubmitting).toBe(false);
+  });
+
+  it('ignora o retorno da emissão iniciada pelo pedido anterior', async () => {
+    let completeEmission!: (response: unknown) => void;
+    mocks.emit.mockImplementationOnce(() => new Promise((resolve) => { completeEmission = resolve; }));
+    const onSuccess = vi.fn();
+    const { result, rerender } = renderHook(({ id }) => useNfeEmission({ ...order, id }, onSuccess), { initialProps: { id: 'emission-owner-a' } });
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    let emission!: Promise<void>;
+    await act(async () => { emission = result.current.handleEmit(); });
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+    rerender({ id: 'emission-owner-b' });
+    await act(async () => { completeEmission({ success: true, environment: 2 }); await emission; });
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(result.current.emissionResult).toBeNull();
+    expect(result.current.isSubmitting).toBe(false);
+  });
+
   it('localiza a intenção com resposta perdida e consulta sem outra emissão', async () => {
     mocks.emit.mockResolvedValue({
       success: false,
@@ -450,6 +722,65 @@ describe('preenchimento dos itens da NF-e', () => {
       documentId: 'durable-document',
     });
   });
+  it.each([
+    { orderId: 'different-order' }, { environment: 1 }, { documentId: '   ' }, { pending: true }, { success: true },
+  ])('valida a retomada HML antes de arquivar ou limpar a tentativa: %j', async (override) => {
+    mocks.emit.mockResolvedValue({ success: false, pending: false, environment: 2, orderId: order.id, documentId: 'restart-doc', emissionRequestId: 'restart-request', hmlCanAbandonTlsFailure: true, ...override });
+    const { result } = renderHook(() => useNfeEmission(order));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    await act(async () => result.current.handleEmit());
+    await act(async () => result.current.handleStartFreshHmlEmission());
+    expect(mocks.abandonAttempt).not.toHaveBeenCalled();
+    expect(mocks.clearRequest).not.toHaveBeenCalled();
+    expect(mocks.setReplacementSource).not.toHaveBeenCalled();
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+  });
+
+  it('bloqueia retomada HML com dados novos inválidos antes do arquivamento', async () => {
+    mocks.emit.mockResolvedValue({ success: false, pending: false, environment: 2, documentId: 'restart-doc', emissionRequestId: 'restart-request', hmlCanAbandonTlsFailure: true });
+    const { result } = renderHook(() => useNfeEmission(order));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    await act(async () => result.current.handleEmit());
+    act(() => result.current.handleUpdateItemFiscal(0, { ncm: '' }));
+    await act(async () => result.current.handleStartFreshHmlEmission());
+    expect(mocks.abandonAttempt).not.toHaveBeenCalled();
+    expect(mocks.clearRequest).not.toHaveBeenCalled();
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+  });
+
+  it('usa identidades parseadas e impede duplo envio na retomada HML', async () => {
+    let finish!: () => void;
+    mocks.abandonAttempt.mockImplementationOnce(() => new Promise((resolve) => { finish = () => resolve({ success: true, alreadyAbandoned: false }); }));
+    mocks.emit.mockResolvedValue({ success: false, pending: false, environment: 2, documentId: '  restart-doc  ', emissionRequestId: '  restart-request  ', hmlCanAbandonTlsFailure: true });
+    const { result } = renderHook(() => useNfeEmission(order));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    await act(async () => result.current.handleEmit());
+    let first!: Promise<void>;
+    await act(async () => { first = result.current.handleStartFreshHmlEmission(); });
+    await act(async () => result.current.handleStartFreshHmlEmission());
+    expect(mocks.abandonAttempt).toHaveBeenCalledTimes(1);
+    expect(mocks.abandonAttempt.mock.calls[0].slice(0, 3)).toEqual([order.id, 'restart-doc', 'restart-request']);
+    await act(async () => { finish(); await first; });
+    expect(mocks.emit).toHaveBeenCalledTimes(2);
+  });
+
+  it('não limpa nem retransmite HML após trocar o pedido durante o arquivamento', async () => {
+    let finish!: () => void;
+    mocks.abandonAttempt.mockImplementationOnce(() => new Promise((resolve) => { finish = () => resolve({ success: true, alreadyAbandoned: false }); }));
+    mocks.emit.mockResolvedValue({ success: false, pending: false, environment: 2, documentId: 'restart-doc', emissionRequestId: 'restart-request', hmlCanAbandonTlsFailure: true });
+    const { result, rerender } = renderHook(({ id }) => useNfeEmission({ ...order, id }), { initialProps: { id: 'restart-old' } });
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    await act(async () => result.current.handleEmit());
+    let pending!: Promise<void>;
+    await act(async () => { pending = result.current.handleStartFreshHmlEmission(); });
+    rerender({ id: 'restart-new' });
+    await act(async () => { finish(); await pending; });
+    expect(mocks.clearRequest).not.toHaveBeenCalled();
+    expect(mocks.setReplacementSource).not.toHaveBeenCalled();
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+    expect(result.current.emissionResult).toBeNull();
+  });
+
   it('preserva a tentativa TLS, depois da ação explícita inicia uma nova emissão vinculada', async () => {
     const requestId = 'd81628e1-7874-42cf-9ae2-fcfd551903e3';
     mocks.emit
@@ -1301,7 +1632,7 @@ describe('preenchimento dos itens da NF-e', () => {
         acquisitionPurpose: 'use_consumption',
         finalConsumer: true,
       },
-    });
+    }, expect.objectContaining({ id: unspecifiedOrder.id }), undefined, { metadataOnly: true });
     expect(screen.getByText(/NF-e · modelo 55 necessária/)).toBeTruthy();
     expect(purpose.className).toContain('border-0');
     expect(purpose.className).toContain('border-b-2');
@@ -1459,7 +1790,7 @@ describe('preenchimento dos itens da NF-e', () => {
       ...order,
       id: 'delivery-temporary-tax-id',
       shipping: { deliveryMethod: 'delivery', deliveryAddress: { state: 'PR' } },
-      customerData: { fullName: 'Cliente', personType: 'PF' },
+      customerData: { fullName: 'Cliente', personType: 'PF', ieIndicator: '1', ie: '1234567890' },
     };
     const original = structuredClone(deliveryOrder);
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
@@ -1653,7 +1984,8 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(mocks.emit).not.toHaveBeenCalled();
   });
 
-  it('informa exatamente o CFOP faltante, abre a sanfona do item e destaca o campo com erro', async () => {
+  it('restaura o CFOP determinado pela matriz após limpar a busca e transmite o valor resolvido', async () => {
+    mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
     const orderMissingCfop: any = {
       ...order,
       id: 'missing-cfop-order',
@@ -1670,25 +2002,24 @@ describe('preenchimento dos itens da NF-e', () => {
 
     render(<NfeEmissionModal isOpen order={orderMissingCfop} onClose={vi.fn()} />);
 
+    await prepareNfeEmission();
+
     // Na interface, o usuário limpa o CFOP do item
     fireEvent.click(screen.getByRole('tab', { name: 'Itens' }));
     // Abre a sanfona de campos fiscais
     const expandButtons = screen.getAllByTitle('Ver / editar CFOP, CSOSN, Origem e CEST');
     fireEvent.click(expandButtons[0]);
-    const cfopSelect = document.getElementById('nfe-item-cfop-0') as HTMLSelectElement;
+    const cfopSelect = document.getElementById('nfe-item-cfop-0') as HTMLInputElement;
     fireEvent.change(cfopSelect, { target: { value: '' } });
 
     expect((screen.getByTestId('nfe-emit-button') as HTMLButtonElement).disabled).toBe(false);
     await requestXmlPreview();
 
-    expect(mocks.toast).toHaveBeenCalledWith('Selecione o CFOP do produto "ESTANTE DE LIVROS".');
-    expect(mocks.emit).not.toHaveBeenCalled();
-
-    await waitFor(() => {
-      const cfopSelect = document.getElementById('nfe-item-cfop-0');
-      expect(cfopSelect).toBeTruthy();
-      expect(cfopSelect?.className).toContain('border-rose-500');
-    });
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+    expect(mocks.emit.mock.calls[0][0].items[0].fiscal.cfop).toBe('5101');
+    fireEvent.blur(cfopSelect);
+    await waitFor(() => expect(cfopSelect.value).toBe('5101'));
+    expect(mocks.toast).not.toHaveBeenCalledWith(expect.stringContaining('Selecione o CFOP'));
   });
 
   it('exibe o CSOSN 103 por padrão e permite edição manual', async () => {

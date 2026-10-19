@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { View, Text, ScrollView } from 'react-native';
 import PagerView from '../../../components/Pager';
 
 import { StockSummaryScreen } from '../overview/StockSummaryScreen';
@@ -11,22 +10,14 @@ import { InvoicesScreen } from '../invoices';
 import { ReceiptsScreen } from '../receipts/ReceiptsScreen';
 import { SuppliersScreen } from '../suppliers/SuppliersScreen';
 import { UnavailabilitiesScreen } from '../unavailabilities';
+import { TABS } from './native-stock-screen/nativeStockScreen.types';
+import { styles } from './native-stock-screen/nativeStockScreen.styles';
+import { StockModuleTabBar } from './native-stock-screen/StockModuleTabBar';
 
 interface Props {
   isDarkMode: boolean;
   userProfile?: any;
 }
-
-const TABS = [
-  { key: 'summary', title: 'Resumo' },
-  { key: 'moves', title: 'Movimentações' },
-  { key: 'inventory', title: 'Inventário' },
-  { key: 'purchases', title: 'Pedidos' },
-  { key: 'invoices', title: 'NF Entrada' },
-  { key: 'receipts', title: 'Recebimentos' },
-  { key: 'suppliers', title: 'Fornecedores' },
-  { key: 'unavailabilities', title: 'Indisponíveis' },
-];
 
 export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) => {
   const [tabIndex, setTabIndex] = useState(0);
@@ -86,99 +77,19 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
   };
 
   const renderModuleHeader = () => (
-    <View style={[styles.header, isDarkMode && styles.headerDark]}>
-      <View>
-        <View style={styles.tabsRow}>
-          <View style={styles.tabArrowSlot}>
-            {tabsScrollEdges.left && (
-              <TouchableOpacity
-                style={[styles.tabArrow, isDarkMode && styles.tabArrowDark]}
-                onPress={() => scrollTabs(-1)}
-                accessibilityRole="button"
-                accessibilityLabel="Rolar abas para a esquerda"
-                hitSlop={6}
-              >
-                <ChevronLeft size={18} color={isDarkMode ? '#e2e8f0' : '#2563eb'} />
-              </TouchableOpacity>
-            )}
-          </View>
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.tabsScrollView}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabsContainer}
-            onLayout={({ nativeEvent }) => {
-              const width = nativeEvent.layout.width;
-              setTabWidth(width / 3);
-              updateTabsScrollMetrics({ viewport: width });
-            }}
-            onContentSizeChange={(content) => updateTabsScrollMetrics({ content })}
-            onScroll={({ nativeEvent }) =>
-              updateTabsScrollMetrics({ offset: nativeEvent.contentOffset.x })
-            }
-            scrollEventThrottle={32}
-          >
-            {TABS.map((tab, idx) => {
-              const isActive = idx === tabIndex;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  style={[
-                    styles.tabBtn,
-                    { width: tabWidth },
-                    isActive && styles.tabBtnActive,
-                    isActive && isDarkMode && styles.tabBtnActiveDark,
-                  ]}
-                  onLayout={({ nativeEvent }) => {
-                    tabLayouts.current[idx] = {
-                      x: nativeEvent.layout.x,
-                      width: nativeEvent.layout.width,
-                    };
-                    if (idx === tabIndex) requestAnimationFrame(() => scrollTabIntoView(idx));
-                  }}
-                  onPress={() => handleTabPress(idx)}
-                  testID={`tab-${tab.key}`}
-                >
-                  <Text
-                    style={[
-                      styles.tabText,
-                      isDarkMode && styles.tabTextDark,
-                      isActive && styles.tabTextActive,
-                      isActive && isDarkMode && styles.tabTextActiveDark,
-                    ]}
-                  >
-                    {tab.title}
-                  </Text>
-                  {isActive && (
-                    <View
-                      style={[styles.activeIndicator, isDarkMode && styles.activeIndicatorDark]}
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          <View style={styles.tabArrowSlot}>
-            {tabsScrollEdges.right && (
-              <TouchableOpacity
-                style={[
-                  styles.tabArrow,
-                  styles.tabArrowActive,
-                  isDarkMode && styles.tabArrowActiveDark,
-                ]}
-                onPress={() => scrollTabs(1)}
-                accessibilityRole="button"
-                accessibilityLabel="Rolar abas para a direita"
-                hitSlop={6}
-              >
-                <ChevronRight size={18} color={isDarkMode ? '#ffffff' : '#2563eb'} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </View>
-    </View>
+    <StockModuleTabBar
+      isDarkMode={isDarkMode}
+      tabIndex={tabIndex}
+      tabWidth={tabWidth}
+      setTabWidth={setTabWidth}
+      onTabPress={handleTabPress}
+      scrollViewRef={scrollViewRef}
+      tabLayouts={tabLayouts}
+      scrollTabIntoView={scrollTabIntoView}
+      updateTabsScrollMetrics={updateTabsScrollMetrics}
+      tabsScrollEdges={tabsScrollEdges}
+      scrollTabs={scrollTabs}
+    />
   );
 
   const renderContent = (index: number) => {
@@ -287,87 +198,3 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  containerDark: {
-    backgroundColor: '#0f172a',
-  },
-  header: {
-    paddingTop: 0,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  headerDark: {
-    backgroundColor: '#0f172a',
-    borderBottomColor: '#1e293b',
-  },
-  textMutedDark: { color: '#94a3b8' },
-  tabsRow: { flexDirection: 'row', alignItems: 'center', minHeight: 36 },
-  tabsContainer: {
-    paddingHorizontal: 2,
-    alignItems: 'stretch',
-  },
-  tabsScrollView: { flex: 1, alignSelf: 'stretch' },
-  tabArrowSlot: { width: 40, alignItems: 'center', justifyContent: 'center' },
-  tabArrow: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 0,
-    backgroundColor: '#eff6ff',
-    elevation: 2,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-  },
-  tabArrowDark: { backgroundColor: '#1e293b' },
-  tabArrowActive: { backgroundColor: '#dbeafe' },
-  tabArrowActiveDark: { backgroundColor: '#1d4ed8' },
-  tabBtn: {
-    width: 78,
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 1,
-    paddingHorizontal: 2,
-    paddingVertical: 0,
-    position: 'relative',
-    borderRadius: 12,
-  },
-  tabBtnActive: { backgroundColor: '#eff6ff' },
-  tabBtnActiveDark: { backgroundColor: '#172554' },
-  tabText: {
-    fontSize: 11,
-    color: '#64748b',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  tabTextDark: { color: '#94a3b8' },
-  tabTextActive: {
-    color: '#2563eb',
-    fontWeight: '800',
-  },
-  tabTextActiveDark: { color: '#60a5fa' },
-  activeIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    left: 16,
-    right: 16,
-    height: 3,
-    backgroundColor: '#2563eb',
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
-  },
-  activeIndicatorDark: { backgroundColor: '#60a5fa' },
-  pager: { flex: 1 },
-  page: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});

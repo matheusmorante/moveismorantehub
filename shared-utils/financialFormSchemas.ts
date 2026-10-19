@@ -9,6 +9,15 @@ const financialFields = {
 const financialDate = z.iso.date({ error: 'Informe uma data válida.' });
 const paymentStatus = z.enum(['pending', 'paid', 'cancelled', 'overdue']);
 const optionalIntentDate = z.union([z.literal(''), financialDate]).nullish();
+export const financialCandidateSelectionFormSchema = z.object({
+  cardId: z.string().trim().min(1, 'Identifique a movimentação antes de escolher a conta.').optional(),
+  candidate: z.object({
+    id: z.string().trim().min(1, 'Conta não identificada.'),
+    amount: financialFields.amount,
+    description: z.string().trim().nullish(), counterparty: z.string().trim().nullish(),
+    due_date: optionalIntentDate, date: optionalIntentDate,
+  }).passthrough(),
+});
 export const financialIntentDraftFormSchema = z.object({
   intentType: z.enum(['SINGLE_TRANSACTION', 'RECURRING', 'PAYABLE_BILL', 'INSTALLMENT', 'MATCH_EXISTING', 'QUERY_OR_UPDATE']).optional(),
   type: z.enum(['income', 'expense']).nullish(), description: z.string().nullish(),
@@ -19,6 +28,9 @@ export const financialIntentDraftFormSchema = z.object({
   paymentMethod: z.string().nullish(), notes: z.string().nullish(),
   installmentList: z.array(z.object({ number: z.number().int().positive(), amount: z.number().positive(), dueDate: optionalIntentDate })).nullish(),
 }).passthrough();
+export const financialPreparedIntentFormSchema = financialIntentDraftFormSchema.extend({
+  type: z.enum(['income', 'expense']), description: financialFields.description, amount: financialFields.amount,
+});
 export const financialIntentEditFormSchema = z.object({
   description: financialFields.description, supplier: z.string(), totalAmount: financialFields.amount,
   totalAmountInput: z.string().refine((value) => !value || /^\d+(?:[.,]\d+)?$/.test(value.trim()), 'Informe um valor válido.'),

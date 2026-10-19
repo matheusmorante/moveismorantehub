@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { AttributeDataType, default as VariationType } from '../erp/src/pages/types/variation.type';
-import { normalizeAttributeDataType } from '../erp/src/pages/utils/attributeDataType';
+import { normalizeAttributeDataType } from './attributeDataType';
 
 export type CharacteristicFormData = Pick<VariationType, 'name' | 'options' | 'active'> & {
   dataType: NonNullable<VariationType['dataType']>;

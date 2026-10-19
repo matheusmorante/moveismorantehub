@@ -160,6 +160,61 @@ describe('Fiscal operation RHF submission paths', () => {
     expect(mocks.save).toHaveBeenCalledWith({ draftId, reviewData: review, lines: [unchangedLine] });
   });
 
+  it('requires a read of the same draft after response loss, without resending or saving review', async () => {
+    const { result, onAuthorized } = await loadedDraft('ready');
+    act(() => result.current.setProductionConfirmed(true));
+    mocks.transmit.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await act(async () => { await result.current.transmitOrReconcile(); });
+    expect(result.current.refreshRequired).toBe(true);
+    expect(result.current.error).toContain('Atualize a situação fiscal');
+    await act(async () => { await result.current.saveFiscalReview(); });
+    expect(mocks.save).not.toHaveBeenCalled();
+    mocks.load.mockResolvedValueOnce(payload('authorized'));
+    act(() => result.current.setProductionConfirmed(false));
+    await act(async () => { await result.current.transmitOrReconcile(); });
+    expect(mocks.transmit).toHaveBeenCalledTimes(1);
+    expect(mocks.load).toHaveBeenLastCalledWith(draftId);
+    expect(result.current.refreshRequired).toBe(false);
+    expect(result.current.payload?.draft.status).toBe('authorized');
+    expect(onAuthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps an inconclusive result locked for refresh if reading fails or returns a different identity', async () => {
+    const { result, onAuthorized } = await loadedDraft('ready');
+    act(() => result.current.setProductionConfirmed(true));
+    await act(async () => { await result.current.transmitOrReconcile(); });
+    expect(result.current.refreshRequired).toBe(true);
+    mocks.load.mockRejectedValueOnce(new Error('Leitura indisponível'));
+    await act(async () => { await result.current.transmitOrReconcile(); });
+    expect(result.current.refreshRequired).toBe(true);
+    mocks.load.mockResolvedValueOnce({ ...payload('authorized'), draft: { ...payload('authorized').draft, id: lineId } });
+    await act(async () => { await result.current.transmitOrReconcile(); });
+    expect(result.current.refreshRequired).toBe(true);
+    expect(result.current.error).toContain('identidade');
+    expect(mocks.transmit).toHaveBeenCalledTimes(1);
+    expect(onAuthorized).not.toHaveBeenCalled();
+  });
+
+  it('ends an unresponsive transmission at 45 seconds and requires a read before any further action', async () => {
+    const { result, onAuthorized } = await loadedDraft('ready');
+    act(() => result.current.setProductionConfirmed(true));
+    mocks.transmit.mockImplementationOnce(() => new Promise(() => {}));
+    vi.useFakeTimers();
+    try {
+      let operation!: Promise<unknown>;
+      await act(async () => { operation = result.current.transmitOrReconcile(); });
+      expect(result.current.transmitting).toBe(true);
+      await act(async () => { await vi.advanceTimersByTimeAsync(45000); await operation; });
+      expect(result.current.transmitting).toBe(false);
+      expect(result.current.refreshRequired).toBe(true);
+      expect(result.current.retryAllowed).toBe(false);
+      expect(mocks.transmit).toHaveBeenCalledTimes(1);
+      expect(onAuthorized).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('requires saved estorno confirmations before persisting a review', async () => {
     const { result } = await loadedDraft('draft');
     act(() => result.current.updateReview('apportionment_review_confirmed', false));
@@ -197,6 +252,22 @@ describe('Fiscal operation RHF submission paths', () => {
 
 describe('Fiscal cancellation RHF submission paths', () => {
   const document = { ...source, status: 'autorizada', created_at: '', updated_at: '' } as NfeDocumentRecord;
+  it('valida a justificativa da NFD sem pedido comercial e encaminha incerteza sem declarar venda cancelada', async () => {
+    const onSuccess = vi.fn(async () => {});
+    const { result } = renderHook(() => useFiscalCancelModal({ onSuccess, onEstornoTrigger: vi.fn() }));
+    const nfd = { ...document, document_type: 'return', ambiente: 2, status: 'homologada', order_id: null } as NfeDocumentRecord;
+    act(() => result.current.openCancel(nfd, { canProceed: true, action: 'cancel' }));
+    act(() => result.current.setCancelReason('curta'));
+    await act(async () => { await result.current.handleConfirmCancel({ canProceed: true, action: 'cancel' }); });
+    expect(mocks.cancel).not.toHaveBeenCalled();
+    mocks.cancel.mockResolvedValueOnce({ action: 'reconcile', commercialCommitted: false, reconciliationRequired: true });
+    act(() => result.current.setCancelReason('  Revisão fiscal da NFD para reemissão.  '));
+    await act(async () => { await result.current.handleConfirmCancel({ canProceed: true, action: 'cancel' }); });
+    expect(mocks.cancel).toHaveBeenCalledWith({ document: nfd, reason: '  Revisão fiscal da NFD para reemissão.  ', isCancelEvent: true, productionConfirmed: false });
+    expect(mocks.toast.warning).toHaveBeenCalledWith('Cancelamento fiscal pendente de confirmação. Consulte a SEFAZ antes de nova ação.');
+    expect(mocks.toast.success).not.toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
   it('holds one lock across cancel and estorno while the service is pending and allows retry after failure', async () => {
     let fail!: (reason: Error) => void;
     mocks.cancel.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
@@ -213,7 +284,7 @@ describe('Fiscal cancellation RHF submission paths', () => {
     act(() => result.current.openCancel({ ...document, id: 'another-document' }, { canProceed: true, action: 'cancel' }));
     expect(result.current.selectedDoc?.id).toBe(document.id);
     await act(async () => { fail(new Error('Falha simulada')); await first; });
-    expect(mocks.toast.error).toHaveBeenCalledWith('Não foi possível concluir o cancelamento: Falha simulada');
+    expect(mocks.toast.error).toHaveBeenCalledWith('Não foi possível concluir o cancelamento fiscal: Falha simulada');
     expect(result.current.isCanceling).toBe(false);
     expect(onSuccess).not.toHaveBeenCalled();
     await act(async () => { await result.current.handleConfirmCancel({ canProceed: true, action: 'cancel' }); });

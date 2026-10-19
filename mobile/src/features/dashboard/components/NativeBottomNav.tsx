@@ -123,7 +123,9 @@ export const NativeBottomNav: React.FC<Props> = ({
   ];
 
   // Filtra apenas abas visíveis para o perfil do usuário
-  const visibleTabs = (customTabs || allTabs).filter((t) => t.visible !== false);
+  const visibleTabs = (customTabs || allTabs)
+    .filter((t) => t.visible !== false)
+    .map((tab) => (tab.key === 'agente' ? { ...tab, disabled: !isAdmin } : tab));
 
   const hasOverflow = visibleTabs.length > 5;
   const primaryTabs = hasOverflow ? visibleTabs.slice(0, 4) : visibleTabs;
@@ -175,14 +177,18 @@ export const NativeBottomNav: React.FC<Props> = ({
                   handleTabChange(tab.key, tab.url);
                 }
               }}
-              accessibilityLabel={isAgent ? 'Assistente' : tab.label}
+              accessibilityRole="button"
+              accessibilityLabel={isAgent ? 'Assistente, beta' : tab.label}
             >
               {isAgent ? (
-                <View style={styles.agentAvatarPrimaryFrame}>
-                  <Image
-                    source={require('../../../../assets/lizandro-small.png')}
-                    style={styles.agentAvatarPrimary}
-                  />
+                <View style={styles.agentPrimaryContent}>
+                  <View style={styles.agentAvatarPrimaryFrame}>
+                    <Image
+                      source={require('../../../../assets/lizandro-small.png')}
+                      style={styles.agentAvatarPrimary}
+                    />
+                  </View>
+                  <Text style={styles.agentBetaLabel}>BETA</Text>
                 </View>
               ) : (
                 <IconComponent
@@ -268,9 +274,11 @@ export const NativeBottomNav: React.FC<Props> = ({
                       style={[
                         styles.sheetItem,
                         isDarkMode && styles.sheetItemDark,
+                        tab.disabled && styles.disabledItem,
                         active &&
                           (isDarkMode ? styles.sheetItemActiveDark : styles.sheetItemActive),
                       ]}
+                      disabled={tab.disabled}
                       onPress={() => {
                         setShowMoreSheet(false);
                         handleTabChange(tab.key, tab.url);
@@ -301,15 +309,22 @@ export const NativeBottomNav: React.FC<Props> = ({
                           />
                         </View>
                       )}
-                      <Text
-                        style={[
-                          styles.sheetItemLabel,
-                          isDarkMode && styles.sheetTextDark,
-                          active && styles.sheetItemLabelActive,
-                        ]}
-                      >
-                        {tab.label}
-                      </Text>
+                      <View style={styles.sheetItemTitleRow}>
+                        <Text
+                          style={[
+                            styles.sheetItemLabel,
+                            isDarkMode && styles.sheetTextDark,
+                            active && styles.sheetItemLabelActive,
+                          ]}
+                        >
+                          {tab.label}
+                        </Text>
+                        {tab.key === 'agente' ? (
+                          <View style={styles.agentBetaBadge}>
+                            <Text style={styles.agentBetaBadgeText}>BETA</Text>
+                          </View>
+                        ) : null}
+                      </View>
                       <ChevronRight
                         size={18}
                         color={active ? '#2563eb' : isDarkMode ? '#64748b' : '#94a3b8'}
@@ -364,9 +379,9 @@ const styles = StyleSheet.create({
     borderRadius: 17,
   },
   agentAvatarPrimaryFrame: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 2.5,
     borderColor: '#2563eb',
     overflow: 'hidden',
@@ -376,7 +391,41 @@ const styles = StyleSheet.create({
   agentAvatarPrimary: {
     width: '100%',
     height: '100%',
-    borderRadius: 24,
+    borderRadius: 19,
+  },
+  agentPrimaryContent: {
+    alignItems: 'center',
+    gap: 1,
+  },
+  agentBetaLabel: {
+    fontSize: 8,
+    lineHeight: 9,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    color: '#eab308',
+  },
+  agentBetaBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  agentBetaBadgeText: {
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '900',
+    color: '#92400e',
+  },
+  sheetItemTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  disabledItem: {
+    opacity: 0.45,
   },
   navItemActive: {},
   navText: {

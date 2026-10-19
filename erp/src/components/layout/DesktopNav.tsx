@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { canPerform } from '../../pages/utils/permissionService';
 import { getProfileRoles } from '../../pages/utils/accessRoles';
 import { canSeeFinanceModuleBeta, canUseFinanceModule } from '../../pages/utils/permissionConfig';
+import ReturnIcon from '../shared/ReturnIcon';
 
 import { MenuKey } from '../../AppLayout';
 
@@ -53,9 +54,13 @@ const DropdownItem = ({
     <div className="flex items-center justify-between w-full group">
       <div className="flex items-center gap-3">
         <div className="w-6 h-6 flex items-center justify-center shrink-0">
-          <i
-            className={`${icon} text-[15px] text-blue-500 dark:text-blue-400 transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-300`}
-          ></i>
+          {icon === 'bi-arrow-return-left' ? (
+            <ReturnIcon className="h-6 w-6" />
+          ) : (
+            <i
+              className={`${icon} text-[15px] text-blue-500 dark:text-blue-400 transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-300`}
+            />
+          )}
         </div>
         <div className="flex flex-col text-left">
           <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center gap-2">

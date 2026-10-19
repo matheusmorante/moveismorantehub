@@ -107,22 +107,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(authorization.status).json({ error: authorization.message });
     fiscalOperatorId = authorization.userId;
   }
-  const { data: visibleOrder, error: visibleOrderError } = await userDb
-    .from('orders')
-    .select('id')
-    .eq('id', orderId)
-    .maybeSingle();
-  if (visibleOrderError)
-    return res.status(503).json({ error: 'Não foi possível validar o acesso ao pedido.' });
-  if (!visibleOrder) return res.status(403).json({ error: 'Pedido indisponível para esta sessão.' });
-
-  const { data: order, error: orderError } = await db
+  const { data: order, error: orderError } = await userDb
     .from('orders')
     .select('id,order_type,status,order_data,updated_at,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method')
     .eq('id', orderId)
     .maybeSingle();
-  if (orderError || !order)
+  if (orderError)
     return res.status(503).json({ error: 'Não foi possível carregar o pedido atual.' });
+  if (!order) return res.status(403).json({ error: 'Pedido indisponível para esta sessão.' });
   if (!['sale', 'showroom'].includes(String(order.order_type || order.order_data?.orderType || 'sale')))
     return res.status(409).json({ error: 'A auditoria de edição fiscal está disponível para vendas.' });
 

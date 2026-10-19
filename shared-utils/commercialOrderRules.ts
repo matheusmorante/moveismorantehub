@@ -11,11 +11,21 @@ export type { ValidationErrors } from './commercialSchedulingRules';
 export * from './commercialShippingRules';
 export { validateAssistanceOrder, validateReviews };
 
+const ASSEMBLY_RESPONSIBLE_HANDLINGS = new Set([
+  'De mostruário > Desmontagem do mostruário > Montagem na entrega',
+  'Na caixa > Montagem no local da entrega',
+]);
+
+export const requiresAssemblyResponsible = (handlingType?: string, deliveryMethod?: string) =>
+  deliveryMethod === 'delivery' && ASSEMBLY_RESPONSIBLE_HANDLINGS.has(handlingType?.trim() || '');
+
 export const validateItems = (
   items: Item[],
   isBudget: boolean = false,
   isReturn: boolean = false,
-  requireStockOrigin: boolean = false
+  requireStockOrigin: boolean = false,
+  requireAssemblyResponsible: boolean = false,
+  deliveryMethod?: string
 ): ValidationErrors => {
   const errors: ValidationErrors = {};
   if (!items || !Array.isArray(items)) return errors;
@@ -29,6 +39,15 @@ export const validateItems = (
     const isService = item.itemType === 'service';
     if (!hideHandling && !isService && (!item.handlingType || item.handlingType.trim() === '')) {
       errors[`item_${idx}_handlingType`] = 'O manuseio do item e obrigatorio.';
+    }
+    if (
+      requireAssemblyResponsible &&
+      !isService &&
+      !item.isComboItem &&
+      requiresAssemblyResponsible(item.handlingType, deliveryMethod) &&
+      !item.assemblyResponsible
+    ) {
+      errors[`item_${idx}_assemblyResponsible`] = 'Selecione o responsável pela montagem.';
     }
     if (
       requireStockOrigin &&
@@ -121,7 +140,14 @@ export const validateOrder = (
     ['scheduled', 'fulfilled'].includes(order.status || '') && !isBudget && !isReturn;
 
   const errors: ValidationErrors = {
-    ...validateItems(items, isBudget, isReturn, requireStockOrigin),
+    ...validateItems(
+      items,
+      isBudget,
+      isReturn,
+      requireStockOrigin,
+      order.orderType === 'sale',
+      order.shipping?.deliveryMethod
+    ),
     ...(!isBudget ? validateCustomerData(order.customerData, isPickup, requiredFields) : {}),
     ...validateSeller(order.seller),
   };

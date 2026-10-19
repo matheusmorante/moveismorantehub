@@ -363,6 +363,178 @@ const CLIENT_AUTHORITY_FIELDS = [
   'fiscalSnapshotHash',
 ] as const;
 
+const ALLOWED_COMMAND_FIELDS = new Set([
+  'orderId',
+  'environment',
+  'emissionRequestId',
+  'supersedesDocumentId',
+  'productionConfirmed',
+  'requestedNumber',
+  'itemCsosnOverrides',
+  'itemFiscalSelections',
+  'recipientTaxId',
+  'recipientIe',
+  'recipientIeIndicator',
+  'finalConsumer',
+  'deliveryByIssuer',
+  'cardNotIntegrated',
+  'transporter',
+  'freightMode',
+  'hasTransport',
+  'transportResponsible',
+  'freightContractResponsible',
+  'previewOnly',
+  'previewProof',
+]);
+
+const PROOF_ALLOWED_KEYS = new Set([
+  'fingerprint',
+  'capturedAt',
+  'issuedAt',
+  'model',
+  'series',
+  'number',
+  'accessKey',
+]);
+
+function parsePreviewProofPayload(
+  raw: unknown,
+  previewOnly?: boolean
+): { proof?: FiscalPreviewProof } | { error: string } {
+  if (raw === undefined) return {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { error: 'Vínculo da prévia fiscal inválido.' };
+  }
+  const proof = raw as Record<string, unknown>;
+  if (
+    Object.keys(proof).some((key) => !PROOF_ALLOWED_KEYS.has(key)) ||
+    typeof proof.fingerprint !== 'string' ||
+    !/^[0-9a-f]{64}$/.test(proof.fingerprint) ||
+    typeof proof.capturedAt !== 'string' ||
+    !Number.isFinite(Date.parse(proof.capturedAt)) ||
+    typeof proof.issuedAt !== 'string' ||
+    !Number.isFinite(Date.parse(proof.issuedAt)) ||
+    (proof.model !== '55' && proof.model !== '65') ||
+    typeof proof.series !== 'string' ||
+    !/^\d{1,3}$/.test(proof.series) ||
+    typeof proof.number !== 'number' ||
+    !Number.isInteger(proof.number) ||
+    proof.number < 1 ||
+    proof.number > 999999999 ||
+    typeof proof.accessKey !== 'string' ||
+    !ACCESS_KEY_PATTERN.test(proof.accessKey)
+  ) {
+    return { error: 'Vínculo da prévia fiscal incompleto ou inválido.' };
+  }
+  if (previewOnly === true) {
+    return { error: 'Uma prévia nova não pode reutilizar a prova de outra prévia.' };
+  }
+  return {
+    proof: {
+      fingerprint: proof.fingerprint,
+      capturedAt: proof.capturedAt,
+      issuedAt: proof.issuedAt,
+      model: proof.model,
+      series: proof.series,
+      number: proof.number,
+      accessKey: proof.accessKey,
+    },
+  };
+}
+
+function parseTransporterPayload(
+  raw: unknown
+): { transporter?: FiscalTransporter } | { error: string } {
+  if (raw === undefined) return {};
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return { error: 'Dados do transportador inválidos.' };
+  }
+  const t = raw as Record<string, unknown>;
+  const name = typeof t.name === 'string' ? t.name.trim() : '';
+  const isCnpj = typeof t.cnpj === 'string';
+  const doc = normalizeRecipientTaxId(
+    isCnpj ? String(t.cnpj) : typeof t.cpf === 'string' ? t.cpf : ''
+  );
+  if (!name) return { error: 'Razão social ou nome do transportador é obrigatório.' };
+  if (!isValidRecipientTaxId(doc) || (isCnpj ? doc.length !== 14 : doc.length !== 11)) {
+    return { error: 'CPF ou CNPJ válido do transportador é obrigatório.' };
+  }
+  return {
+    transporter: {
+      name,
+      ...(isCnpj ? { cnpj: doc } : { cpf: doc }),
+      ...(typeof t.ie === 'string' && t.ie.trim() ? { ie: t.ie.trim().replace(/\D/g, '') } : {}),
+      ...(typeof t.address === 'string' && t.address.trim() ? { address: t.address.trim() } : {}),
+      ...(typeof t.city === 'string' && t.city.trim() ? { city: t.city.trim() } : {}),
+      ...(typeof t.uf === 'string' && t.uf.trim() ? { uf: t.uf.trim().toUpperCase() } : {}),
+    },
+  };
+}
+
+function parseItemSelectionsAndOverrides(body: Record<string, unknown>): {
+  itemCsosnOverrides: Record<string, string>;
+  itemFiscalSelections: FiscalItemSelections;
+} | { error: string } {
+  let itemCsosnOverrides: Record<string, string>;
+  try {
+    itemCsosnOverrides = parseItemCsosnOverrides(body.itemCsosnOverrides);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Escolhas de CSOSN inválidas.' };
+  }
+  let itemFiscalSelections: FiscalItemSelections;
+  try {
+    itemFiscalSelections = parseFiscalItemSelections(body.itemFiscalSelections);
+    for (const [key, code] of Object.entries(itemCsosnOverrides)) {
+      if (itemFiscalSelections[key] && itemFiscalSelections[key].csosn !== code) {
+        throw new Error(`Escolhas conflitantes de CSOSN no item ${key}.`);
+      }
+    }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Seleções fiscais inválidas.' };
+  }
+  return { itemCsosnOverrides, itemFiscalSelections };
+}
+
+function validateTransportRules(body: Record<string, unknown>): {
+  error?: string;
+  freightMode?: '0' | '1' | '2' | '3' | '4' | '9';
+} {
+  if (body.hasTransport !== undefined && typeof body.hasTransport !== 'boolean') {
+    return { error: 'O indicador de transporte deve ser Sim ou Não.' };
+  }
+  if (
+    body.transportResponsible !== undefined &&
+    !['OWN_COMPANY', 'CUSTOMER', 'THIRD_PARTY'].includes(String(body.transportResponsible))
+  ) {
+    return { error: 'Responsável pelo transporte inválido.' };
+  }
+  if (
+    body.freightContractResponsible !== undefined &&
+    !['SENDER', 'RECIPIENT', 'THIRD_PARTY'].includes(String(body.freightContractResponsible))
+  ) {
+    return { error: 'Responsável pela contratação do frete inválido.' };
+  }
+  if (body.hasTransport === false) {
+    if (body.transportResponsible && body.transportResponsible !== 'NONE') {
+      return { error: 'Transporte desligado não admite responsável por transporte.' };
+    }
+    if (body.freightMode && body.freightMode !== '9') {
+      return { error: 'Transporte desligado exige modalidade 9 (sem frete).' };
+    }
+    if (body.transporter) {
+      return { error: 'Transporte desligado não admite dados de transportador.' };
+    }
+  }
+  let freightMode: '0' | '1' | '2' | '3' | '4' | '9' | undefined;
+  if (body.freightMode !== undefined) {
+    if (typeof body.freightMode !== 'string' || !/^[012349]$/.test(body.freightMode)) {
+      return { error: 'Modalidade do frete inválida.' };
+    }
+    freightMode = body.freightMode as '0' | '1' | '2' | '3' | '4' | '9';
+  }
+  return { freightMode };
+}
+
 export function parseFiscalEmissionCommand(
   value: unknown
 ): { command: FiscalEmissionCommand } | { error: string } {
@@ -373,30 +545,7 @@ export function parseFiscalEmissionCommand(
   if (CLIENT_AUTHORITY_FIELDS.some((field) => field in body))
     return { error: 'Modelo, série, número, chave e XML devem ser determinados no servidor.' };
 
-  const allowedFields = new Set([
-    'orderId',
-    'environment',
-    'emissionRequestId',
-    'supersedesDocumentId',
-    'productionConfirmed',
-    'requestedNumber',
-    'itemCsosnOverrides',
-    'itemFiscalSelections',
-    'recipientTaxId',
-    'recipientIe',
-    'recipientIeIndicator',
-    'finalConsumer',
-    'deliveryByIssuer',
-    'cardNotIntegrated',
-    'transporter',
-    'freightMode',
-    'hasTransport',
-    'transportResponsible',
-    'freightContractResponsible',
-    'previewOnly',
-    'previewProof',
-  ]);
-  if (Object.keys(body).some((field) => !allowedFields.has(field)))
+  if (Object.keys(body).some((field) => !ALLOWED_COMMAND_FIELDS.has(field)))
     return { error: 'A solicitação contém campos que não pertencem ao comando de emissão.' };
 
   const orderId = typeof body.orderId === 'string' ? body.orderId.trim() : '';
@@ -418,34 +567,10 @@ export function parseFiscalEmissionCommand(
 
   if (body.previewOnly !== undefined && typeof body.previewOnly !== 'boolean')
     return { error: 'Indicador de prévia fiscal inválido.' };
-  let previewProof: FiscalPreviewProof | undefined;
-  if (body.previewProof !== undefined) {
-    if (!body.previewProof || typeof body.previewProof !== 'object' || Array.isArray(body.previewProof))
-      return { error: 'Vínculo da prévia fiscal inválido.' };
-    const proof = body.previewProof as Record<string, unknown>;
-    if (
-      Object.keys(proof).some((key) => !['fingerprint', 'capturedAt', 'issuedAt', 'model', 'series', 'number', 'accessKey'].includes(key)) ||
-      typeof proof.fingerprint !== 'string' || !/^[0-9a-f]{64}$/.test(proof.fingerprint) ||
-      typeof proof.capturedAt !== 'string' || !Number.isFinite(Date.parse(proof.capturedAt)) ||
-      typeof proof.issuedAt !== 'string' || !Number.isFinite(Date.parse(proof.issuedAt)) ||
-      (proof.model !== '55' && proof.model !== '65') ||
-      typeof proof.series !== 'string' || !/^\d{1,3}$/.test(proof.series) ||
-      typeof proof.number !== 'number' || !Number.isInteger(proof.number) || proof.number < 1 || proof.number > 999999999 ||
-      typeof proof.accessKey !== 'string' || !ACCESS_KEY_PATTERN.test(proof.accessKey)
-    )
-      return { error: 'Vínculo da prévia fiscal incompleto ou inválido.' };
-    previewProof = {
-      fingerprint: proof.fingerprint,
-      capturedAt: proof.capturedAt,
-      issuedAt: proof.issuedAt,
-      model: proof.model,
-      series: proof.series,
-      number: proof.number,
-      accessKey: proof.accessKey,
-    };
-  }
-  if (body.previewOnly === true && previewProof)
-    return { error: 'Uma prévia nova não pode reutilizar a prova de outra prévia.' };
+
+  const proofResult = parsePreviewProofPayload(body.previewProof, body.previewOnly === true);
+  if ('error' in proofResult) return { error: proofResult.error };
+  const previewProof = proofResult.proof;
 
   if (
     body.requestedNumber !== undefined &&
@@ -456,47 +581,19 @@ export function parseFiscalEmissionCommand(
   )
     return { error: 'Informe um número de nota fiscal inteiro entre 1 e 999999999.' };
 
-  let itemCsosnOverrides: Record<string, string>;
-  try {
-    itemCsosnOverrides = parseItemCsosnOverrides(body.itemCsosnOverrides);
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Escolhas de CSOSN inválidas.' };
-  }
-  let itemFiscalSelections: FiscalItemSelections;
-  try {
-    itemFiscalSelections = parseFiscalItemSelections(body.itemFiscalSelections);
-    for (const [key, code] of Object.entries(itemCsosnOverrides)) {
-      if (itemFiscalSelections[key] && itemFiscalSelections[key].csosn !== code)
-        throw new Error(`Escolhas conflitantes de CSOSN no item ${key}.`);
-    }
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Seleções fiscais inválidas.' };
-  }
+  const itemsResult = parseItemSelectionsAndOverrides(body);
+  if ('error' in itemsResult) return { error: itemsResult.error };
+  const { itemCsosnOverrides, itemFiscalSelections } = itemsResult;
+
   const recipientTaxId = body.recipientTaxId;
   if (body.cardNotIntegrated !== undefined && typeof body.cardNotIntegrated !== 'boolean')
     return { error: 'Confirme a integração do cartão.' };
   if (body.deliveryByIssuer !== undefined && typeof body.deliveryByIssuer !== 'boolean')
     return { error: 'Entrega própria deve ser Sim ou Não.' };
-  if (body.hasTransport !== undefined && typeof body.hasTransport !== 'boolean')
-    return { error: 'O indicador de transporte deve ser Sim ou Não.' };
-  if (
-    body.transportResponsible !== undefined &&
-    !['OWN_COMPANY', 'CUSTOMER', 'THIRD_PARTY'].includes(String(body.transportResponsible))
-  )
-    return { error: 'Responsável pelo transporte inválido.' };
-  if (
-    body.freightContractResponsible !== undefined &&
-    !['SENDER', 'RECIPIENT', 'THIRD_PARTY'].includes(String(body.freightContractResponsible))
-  )
-    return { error: 'Responsável pela contratação do frete inválido.' };
-  if (body.hasTransport === false) {
-    if (body.transportResponsible && body.transportResponsible !== 'NONE')
-      return { error: 'Transporte desligado não admite responsável por transporte.' };
-    if (body.freightMode && body.freightMode !== '9')
-      return { error: 'Transporte desligado exige modalidade 9 (sem frete).' };
-    if (body.transporter)
-      return { error: 'Transporte desligado não admite dados de transportador.' };
-  }
+
+  const transportRules = validateTransportRules(body);
+  if (transportRules.error) return { error: transportRules.error };
+
   if (body.finalConsumer !== undefined && typeof body.finalConsumer !== 'boolean')
     return { error: 'Consumidor final deve ser Sim ou Não.' };
   if (
@@ -517,35 +614,12 @@ export function parseFiscalEmissionCommand(
   if (recipientIe !== undefined && typeof recipientIe !== 'string')
     return { error: 'Inscrição Estadual do destinatário deve ser um texto válido.' };
 
-  let transporter: FiscalTransporter | undefined;
-  if (body.transporter !== undefined) {
-    if (typeof body.transporter !== 'object' || body.transporter === null)
-      return { error: 'Dados do transportador inválidos.' };
-    const t = body.transporter as Record<string, unknown>;
-    const name = typeof t.name === 'string' ? t.name.trim() : '';
-    const isCnpj = typeof t.cnpj === 'string';
-    const doc = normalizeRecipientTaxId(
-      isCnpj ? String(t.cnpj) : typeof t.cpf === 'string' ? t.cpf : ''
-    );
-    if (!name) return { error: 'Razão social ou nome do transportador é obrigatório.' };
-    if (!isValidRecipientTaxId(doc) || (isCnpj ? doc.length !== 14 : doc.length !== 11))
-      return { error: 'CPF ou CNPJ válido do transportador é obrigatório.' };
-    transporter = {
-      name,
-      ...(isCnpj ? { cnpj: doc } : { cpf: doc }),
-      ...(typeof t.ie === 'string' && t.ie.trim() ? { ie: t.ie.trim().replace(/\D/g, '') } : {}),
-      ...(typeof t.address === 'string' && t.address.trim() ? { address: t.address.trim() } : {}),
-      ...(typeof t.city === 'string' && t.city.trim() ? { city: t.city.trim() } : {}),
-      ...(typeof t.uf === 'string' && t.uf.trim() ? { uf: t.uf.trim().toUpperCase() } : {}),
-    };
-  }
+  const transporterResult = parseTransporterPayload(body.transporter);
+  if ('error' in transporterResult) return { error: transporterResult.error };
+  const transporter = transporterResult.transporter;
 
-  let freightMode: '0' | '1' | '2' | '3' | '4' | '9' | undefined;
-  if (body.freightMode !== undefined) {
-    if (typeof body.freightMode !== 'string' || !/^[012349]$/.test(body.freightMode))
-      return { error: 'Modalidade do frete inválida.' };
-    freightMode = body.freightMode as '0' | '1' | '2' | '3' | '4' | '9';
-  }
+  const freightMode = transportRules.freightMode;
+
   return {
     command: {
       orderId,

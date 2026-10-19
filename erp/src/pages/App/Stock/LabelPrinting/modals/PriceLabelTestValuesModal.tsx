@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelPreviewDigitFormSchema } from '../../../../../../../shared-utils/labelArtworkFormSchemas';
+import { PriceLabelDigitSlider } from './price-label-test-values';
 
 export interface PriceLabelTestValuesModalProps {
   isOpen: boolean;
@@ -89,6 +90,30 @@ const PriceLabelTestValuesForm: React.FC<PriceLabelTestValuesModalProps> = ({
     }).catch(() => { if (isCurrent()) setError('Não foi possível aplicar o dígito da prévia.'); });
   };
 
+  const dezenaSliders = [
+    { field: 'testDezenaD1' as const, label: '1º Dígito', ariaLabel: 'Dezena: 1º dígito', value: testDezenaD1 },
+    { field: 'testDezenaD2' as const, label: '2º Dígito', ariaLabel: 'Dezena: 2º dígito', value: testDezenaD2 },
+  ];
+
+  const centenaSliders = [
+    { field: 'testCentenaD1' as const, label: '1º Dígito', ariaLabel: 'Centena: 1º dígito', value: testCentenaD1 },
+    { field: 'testCentenaD2' as const, label: '2º Dígito', ariaLabel: 'Centena: 2º dígito', value: testCentenaD2 },
+    { field: 'testCentenaD3' as const, label: '3º Dígito', ariaLabel: 'Centena: 3º dígito', value: testCentenaD3 },
+  ];
+
+  const milharSliders = [
+    { field: 'testMilharD1' as const, label: '1º D', ariaLabel: 'Milhar: 1º dígito', value: testMilharD1 },
+    { field: 'testMilharD2' as const, label: '2º D', ariaLabel: 'Milhar: 2º dígito', value: testMilharD2 },
+    { field: 'testMilharD3' as const, label: '3º D', ariaLabel: 'Milhar: 3º dígito', value: testMilharD3 },
+    { field: 'testMilharD4' as const, label: '4º D', ariaLabel: 'Milhar: 4º dígito', value: testMilharD4 },
+  ];
+
+  const normalSliders = [
+    { field: 'testNormalD1' as const, label: '1º Dígito', ariaLabel: 'Preço anterior: 1º dígito', value: testNormalD1 },
+    { field: 'testNormalD2' as const, label: '2º Dígito', ariaLabel: 'Preço anterior: 2º dígito', value: testNormalD2 },
+    { field: 'testNormalD3' as const, label: '3º Dígito', ariaLabel: 'Preço anterior: 3º dígito', value: testNormalD3 },
+  ];
+
   return (
     <div
       role="dialog"
@@ -141,45 +166,22 @@ const PriceLabelTestValuesForm: React.FC<PriceLabelTestValuesModalProps> = ({
                   Dezena:
                 </span>
                 <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
-                  {testDezenaD1}
-                  {testDezenaD2}
+                  {testDezenaD1}{testDezenaD2}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    1º Dígito: {testDezenaD1}
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testDezenaD1}
-                    onChange={(e) => changeDigit('testDezenaD1', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Dezena: 1º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-purple-600 cursor-pointer"
+                {dezenaSliders.map((slider) => (
+                  <PriceLabelDigitSlider
+                    key={slider.field}
+                    label={slider.label}
+                    value={slider.value}
+                    ariaLabel={slider.ariaLabel}
+                    ariaInvalid={Boolean(error)}
+                    ariaDescribedBy={error ? errorId : undefined}
+                    accentColorClass="accent-purple-600"
+                    onChange={(val) => changeDigit(slider.field, val)}
                   />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    2º Dígito: {testDezenaD2}
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testDezenaD2}
-                    onChange={(e) => changeDigit('testDezenaD2', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Dezena: 2º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-purple-600 cursor-pointer"
-                  />
-                </div>
+                ))}
               </div>
             </div>
 
@@ -190,63 +192,22 @@ const PriceLabelTestValuesForm: React.FC<PriceLabelTestValuesModalProps> = ({
                   Centena:
                 </span>
                 <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
-                  {testCentenaD1}
-                  {testCentenaD2}
-                  {testCentenaD3}
+                  {testCentenaD1}{testCentenaD2}{testCentenaD3}
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    1º Dígito: {testCentenaD1}
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testCentenaD1}
-                    onChange={(e) => changeDigit('testCentenaD1', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Centena: 1º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-purple-600 cursor-pointer"
+                {centenaSliders.map((slider) => (
+                  <PriceLabelDigitSlider
+                    key={slider.field}
+                    label={slider.label}
+                    value={slider.value}
+                    ariaLabel={slider.ariaLabel}
+                    ariaInvalid={Boolean(error)}
+                    ariaDescribedBy={error ? errorId : undefined}
+                    accentColorClass="accent-purple-600"
+                    onChange={(val) => changeDigit(slider.field, val)}
                   />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    2º Dígito: {testCentenaD2}
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testCentenaD2}
-                    onChange={(e) => changeDigit('testCentenaD2', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Centena: 2º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-purple-600 cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    3º Dígito: {testCentenaD3}
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testCentenaD3}
-                    onChange={(e) => changeDigit('testCentenaD3', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Centena: 3º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-purple-600 cursor-pointer"
-                  />
-                </div>
+                ))}
               </div>
             </div>
 
@@ -257,72 +218,23 @@ const PriceLabelTestValuesForm: React.FC<PriceLabelTestValuesModalProps> = ({
                   Milhar:
                 </span>
                 <span className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-lg">
-                  {testMilharD1}.{testMilharD2}
-                  {testMilharD3}
-                  {testMilharD4}
+                  {testMilharD1}.{testMilharD2}{testMilharD3}{testMilharD4}
                 </span>
               </div>
               <div className="grid grid-cols-4 gap-2">
-                <div>
-                  <span className="text-[9px] font-bold text-slate-400">1º D: {testMilharD1}</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testMilharD1}
-                    onChange={(e) => changeDigit('testMilharD1', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Milhar: 1º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-purple-600 cursor-pointer"
+                {milharSliders.map((slider) => (
+                  <PriceLabelDigitSlider
+                    key={slider.field}
+                    label={slider.label}
+                    value={slider.value}
+                    ariaLabel={slider.ariaLabel}
+                    ariaInvalid={Boolean(error)}
+                    ariaDescribedBy={error ? errorId : undefined}
+                    accentColorClass="accent-purple-600"
+                    labelSizeClass="text-[9px]"
+                    onChange={(val) => changeDigit(slider.field, val)}
                   />
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-slate-400">2º D: {testMilharD2}</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testMilharD2}
-                    onChange={(e) => changeDigit('testMilharD2', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Milhar: 2º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-purple-600 cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-slate-400">3º D: {testMilharD3}</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testMilharD3}
-                    onChange={(e) => changeDigit('testMilharD3', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Milhar: 3º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-purple-600 cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <span className="text-[9px] font-bold text-slate-400">4º D: {testMilharD4}</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testMilharD4}
-                    onChange={(e) => changeDigit('testMilharD4', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Milhar: 4º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-purple-600 cursor-pointer"
-                  />
-                </div>
+                ))}
               </div>
             </div>
           </div>
@@ -340,63 +252,22 @@ const PriceLabelTestValuesForm: React.FC<PriceLabelTestValuesModalProps> = ({
                   Valor Antigo R$:
                 </span>
                 <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-lg">
-                  R$ {testNormalD1}
-                  {testNormalD2}
-                  {testNormalD3},00
+                  R$ {testNormalD1}{testNormalD2}{testNormalD3},00
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    1º Dígito: {testNormalD1}
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testNormalD1}
-                    onChange={(e) => changeDigit('testNormalD1', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Preço anterior: 1º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-emerald-600 cursor-pointer"
+                {normalSliders.map((slider) => (
+                  <PriceLabelDigitSlider
+                    key={slider.field}
+                    label={slider.label}
+                    value={slider.value}
+                    ariaLabel={slider.ariaLabel}
+                    ariaInvalid={Boolean(error)}
+                    ariaDescribedBy={error ? errorId : undefined}
+                    accentColorClass="accent-emerald-600"
+                    onChange={(val) => changeDigit(slider.field, val)}
                   />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    2º Dígito: {testNormalD2}
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testNormalD2}
-                    onChange={(e) => changeDigit('testNormalD2', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Preço anterior: 2º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-emerald-600 cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    3º Dígito: {testNormalD3}
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="9"
-                    value={testNormalD3}
-                    onChange={(e) => changeDigit('testNormalD3', e.currentTarget.valueAsNumber)}
-                    step="1"
-                    aria-label="Preço anterior: 3º dígito"
-                    aria-invalid={Boolean(error)}
-                    aria-describedby={error ? errorId : undefined}
-                    className="w-full accent-emerald-600 cursor-pointer"
-                  />
-                </div>
+                ))}
               </div>
             </div>
           </div>

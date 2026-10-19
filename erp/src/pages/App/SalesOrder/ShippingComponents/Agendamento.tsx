@@ -384,6 +384,7 @@ const Agendamento = ({
             <ScheduledDateCardsSection
               baseId={baseId}
               isScheduleReadOnly={isScheduleReadOnly}
+              isRequired={!isScheduleReadOnly}
               effectiveDateMode={effectiveDateMode}
               dateError={dateError}
               customDateValue={customDateValue}
@@ -397,6 +398,7 @@ const Agendamento = ({
             <ScheduledTimeCardsSection
               baseId={baseId}
               isScheduleReadOnly={isScheduleReadOnly}
+              isRequired={!isScheduleReadOnly}
               effectiveTimeMode={effectiveTimeMode}
               timeError={timeError}
               customTimeValue={customTimeValue}

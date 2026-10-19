@@ -1,0 +1,46 @@
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  backBtn: { padding: 4 },
+  headerTitle: { fontSize: 18, fontWeight: '800' },
+  card: { padding: 20, borderRadius: 16, borderWidth: 1 },
+  title: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
+  subtitle: { fontSize: 14, lineHeight: 20 },
+  summaryBox: { padding: 16, borderRadius: 12, gap: 12, borderWidth: 1 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 16 },
+  diffItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  footer: { padding: 16, paddingBottom: 32, borderTopWidth: 1 },
+  confirmBtn: {
+    backgroundColor: '#10b981',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  confirmBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 16 },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  warningTitle: { fontSize: 14, fontWeight: '800', marginBottom: 2 },
+  warningDesc: { fontSize: 12, lineHeight: 18 },
+});

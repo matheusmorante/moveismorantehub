@@ -1,7 +1,7 @@
 import type Order from '@/pages/types/order.type';
 import type Item from '@/pages/types/items.type';
 import type CustomerData from '@/pages/types/customerData.type';
-import type { Scheduling } from '@/pages/types/shipping.type';
+type Scheduling = NonNullable<Order['shipping']>['scheduling'];
 import type { AssistanceItem } from '@/pages/types/order.type';
 
 export interface BuildAssistancePayloadOptions {

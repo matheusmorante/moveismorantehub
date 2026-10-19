@@ -2,6 +2,7 @@ import React from 'react';
 import OrderCustomerSearchBar from '../OrderHistoryList/OrderCustomerSearchBar';
 import ShowTestDataToggle from '@/components/shared/ShowTestDataToggle';
 import { VisibilitySettings } from '../../../types/order.type';
+import ReturnIcon from '@/components/shared/ReturnIcon';
 
 const TABLE_VISIBILITY_COLUMNS: ReadonlyArray<{
   key: keyof VisibilitySettings;
@@ -214,8 +215,8 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
               onClick={() => onCreateOrder('return')}
               className="flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-amber-500/20 transition-all active:scale-95"
             >
-              <i className="bi bi-arrow-return-left text-sm" />
-              <span>Nova devolução sem venda vinculada</span>
+              <ReturnIcon white className="h-5 w-5" />
+              <span>Nova Devolução avulsa</span>
             </button>
           )}
           {!isBudgetRoute && !isAssistanceRoute && !isReturnRoute && (

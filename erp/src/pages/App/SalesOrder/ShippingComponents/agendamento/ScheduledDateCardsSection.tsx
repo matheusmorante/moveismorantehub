@@ -23,6 +23,7 @@ import {
 interface ScheduledDateCardsSectionProps {
   baseId: string;
   isScheduleReadOnly: boolean;
+  isRequired: boolean;
   effectiveDateMode: DateScheduleMode;
   dateError?: string;
   customDateValue: string;
@@ -36,6 +37,7 @@ interface ScheduledDateCardsSectionProps {
 export const ScheduledDateCardsSection = ({
   baseId,
   isScheduleReadOnly,
+  isRequired,
   effectiveDateMode,
   dateError,
   customDateValue,
@@ -76,7 +78,7 @@ export const ScheduledDateCardsSection = ({
             dateError ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'
           }`}
         >
-          Data programada
+          Data programada {isRequired && <span className="text-red-500">*</span>}
         </span>
       </div>
 

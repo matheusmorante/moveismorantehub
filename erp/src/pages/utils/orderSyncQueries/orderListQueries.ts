@@ -5,6 +5,7 @@ import { mapOrderFromDatabase } from '../orderMapper';
 import { TABLE_NAME, ORDER_LIST_COLUMNS } from './orderSyncConstants';
 import { FetchFulfilledOrdersOptions } from './orderSyncTypes';
 import { isValidOrderRow, enrichOrdersWithPeopleOrigins } from './orderPeopleEnrichment';
+import { enrichLinkedReturnMovements } from './orderReturnMovementSummary';
 
 export const fetchOrdersPage = async (
   page: number = 1,
@@ -83,43 +84,7 @@ export const fetchOrdersPage = async (
 
   const rawOrders = (data || []).filter(isValidOrderRow).map(mapOrderFromDatabase);
 
-  const returnOrderIds = rawOrders
-    .filter((order) => order.orderType !== 'return')
-    .map((order) => order.returnOrderId)
-    .filter((id): id is string => Boolean(id));
-
-  if (returnOrderIds.length > 0) {
-    const { data: returnRows, error: returnError } = await supabase
-      .from(TABLE_NAME)
-      .select('id, order_data')
-      .in('id', returnOrderIds);
-
-    if (returnError) {
-      console.warn(
-        '[OrdersService] Não foi possível carregar o estado das devoluções vinculadas:',
-        returnError
-      );
-    } else {
-      const returnMovementById = new Map(
-        (returnRows || []).map((row: any) => [
-          String(row.id),
-          {
-            status: row.order_data?.status,
-            stockProcessed: Boolean(row.order_data?.returnStockProcessed),
-            stockReversed: Boolean(row.order_data?.returnStockReversed),
-            items: row.order_data?.items || [],
-            movedProductIds: row.order_data?.movedProductIds || [],
-          },
-        ])
-      );
-
-      rawOrders.forEach((order) => {
-        if (order.returnOrderId) {
-          order.linkedReturnMovement = returnMovementById.get(order.returnOrderId);
-        }
-      });
-    }
-  }
+  await enrichLinkedReturnMovements(rawOrders);
 
   const enrichedOrders = await enrichOrdersWithPeopleOrigins(rawOrders);
   return { orders: enrichedOrders, total: count || 0 };

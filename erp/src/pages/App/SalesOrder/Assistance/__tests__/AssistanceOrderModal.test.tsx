@@ -2,9 +2,10 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, cleanup } from '@testing-library/react';
 import AssistanceOrderModal from '../AssistanceOrderModal';
 import type Order from '@/pages/types/order.type';
+import { saveOrder } from '@/pages/utils/orderHistoryService';
 
 // Mock dependencies
 vi.mock('@/pages/utils/supabaseConfig', () => ({
@@ -88,12 +89,67 @@ vi.mock('react-toastify', () => ({
 }));
 
 describe('AssistanceOrderModal', () => {
+  it('reinicia os campos ao trocar a assistência no mesmo modal', () => {
+    const common = { status: 'draft', orderType: 'assistance', customerData: { fullName: 'Cliente', phone: '', noPhone: true }, items: [] } as any;
+    const callbacks = { onClose: vi.fn(), onSaveSuccess: vi.fn() };
+    const view = render(<AssistanceOrderModal {...callbacks} order={{ ...common, id: 'ast-a', assistanceDescription: 'Serviço A' }} />);
+    expect(screen.getByDisplayValue('Serviço A')).toBeInTheDocument();
+    view.rerender(<AssistanceOrderModal {...callbacks} order={{ ...common, id: 'ast-b', assistanceDescription: 'Serviço B' }} />);
+    expect(screen.getByDisplayValue('Serviço B')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Serviço A')).toBeNull();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(saveOrder).mockReset().mockResolvedValue('new-ast-id');
   });
 
   afterEach(() => {
     cleanup();
+  });
+
+  it('bloqueia campos e todos os fechamentos enquanto a gravação está pendente', async () => {
+    let resolve!: (id: string) => void; vi.mocked(saveOrder).mockReturnValue(new Promise(done => { resolve = done; }));
+    const order = { id: 'ast-1', status: 'draft', customerData: { fullName: 'Cliente', phone: '', noPhone: true }, items: [], assistanceDescription: 'Consertar sofá' } as any;
+    const onClose = vi.fn(); render(<AssistanceOrderModal order={order} onClose={onClose} onSaveSuccess={vi.fn()} />);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    expect(saveOrder).toHaveBeenCalledTimes(1);
+    expect(screen.getByDisplayValue('Consertar sofá').closest('fieldset')).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled(); expect(screen.getByRole('button', { name: 'Fechar formulário de assistência' })).toBeDisabled();
+    fireEvent.keyDown(window, { key: 'Escape' }); fireEvent.click(screen.getByRole('dialog', { name: 'Formulário de assistência' })); expect(onClose).not.toHaveBeenCalled();
+    await act(async () => { resolve('ast-1'); }); expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('mantém campos confirmados bloqueados e repete apenas o callback após falha do painel', async () => {
+    vi.mocked(saveOrder).mockResolvedValue('ast-1'); const onSaveSuccess = vi.fn().mockRejectedValueOnce(new Error('Painel indisponível')).mockResolvedValue(true); const onClose = vi.fn();
+    const order = { id: 'ast-1', status: 'draft', customerData: { fullName: 'Cliente', phone: '', noPhone: true }, items: [], assistanceDescription: 'Consertar sofá' } as any;
+    render(<AssistanceOrderModal order={order} onClose={onClose} onSaveSuccess={onSaveSuccess} />);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    expect(screen.getByRole('alert').textContent).toContain('Assistência já gravada'); expect(screen.getByDisplayValue('Consertar sofá').closest('fieldset')).toHaveProperty('disabled', true);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    expect(saveOrder).toHaveBeenCalledTimes(1); expect(onSaveSuccess).toHaveBeenCalledTimes(2); expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('não fecha a nova assistência quando o salvamento da anterior responde depois da troca', async () => {
+    let resolve!: (id: string) => void; vi.mocked(saveOrder).mockReturnValueOnce(new Promise(done => { resolve = done; })).mockResolvedValue('ast-b');
+    const common = { status: 'draft', customerData: { fullName: 'Cliente', phone: '', noPhone: true }, items: [] } as any; const onClose = vi.fn(); const onSaveSuccess = vi.fn();
+    const view = render(<AssistanceOrderModal order={{ ...common, id: 'ast-a', assistanceDescription: 'Serviço A' }} onClose={onClose} onSaveSuccess={onSaveSuccess} />);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    view.rerender(<AssistanceOrderModal order={{ ...common, id: 'ast-b', assistanceDescription: 'Serviço B' }} onClose={onClose} onSaveSuccess={onSaveSuccess} />);
+    await act(async () => { resolve('ast-a'); }); expect(onClose).not.toHaveBeenCalled(); expect(onSaveSuccess).not.toHaveBeenCalled(); expect(screen.getByDisplayValue('Serviço B')).toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    expect(vi.mocked(saveOrder).mock.calls[1][0]).toMatchObject({ id: 'ast-b', assistanceDescription: 'Serviço B' }); expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('leva o endereço editado no autocomplete ao proprietário e limpa a localização anterior', async () => {
+    vi.mocked(saveOrder).mockResolvedValue('ast-1');
+    const order = { id: 'ast-1', status: 'draft', items: [], assistanceDescription: 'Consertar sofá', customerData: { fullName: 'Cliente', phone: '', noPhone: true, fullAddress: { street: 'Rua Antiga', number: '10', city: 'Curitiba', state: 'PR', coords: [-49, -25], placeId: 'old-place' } } } as any;
+    render(<AssistanceOrderModal order={order} onClose={vi.fn()} onSaveSuccess={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('Buscar Endereço / CEP'), { target: { value: 'Rua Nova' } });
+    expect(screen.getByTestId('Logradouro')).toHaveValue('Rua Nova');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Atualizar Assistência' })); });
+    const address = vi.mocked(saveOrder).mock.calls[0][0].customerData.fullAddress;
+    expect(address.street).toBe('Rua Nova'); expect(address.coords).toBeUndefined(); expect(address.placeId).toBe('');
   });
 
   it('renderiza o modal de nova assistência avulsa sem seção de vínculo de venda e com título correto', () => {

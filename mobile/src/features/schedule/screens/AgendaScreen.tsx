@@ -16,7 +16,6 @@ import {
   Calendar as CalendarIcon,
   Plus,
   Truck,
-  Package,
   RefreshCw,
   ChevronRight,
   MapPin,
@@ -24,6 +23,7 @@ import {
   Tag,
 } from 'lucide-react-native';
 import { MobileDrill } from '../../../components/shared/MobileDrill';
+import PickupIcon from '../../../components/shared/PickupIcon';
 import { supabase } from '../../../services/supabaseClient';
 import { fetchCalendarEvents, CalendarEvent } from '../../../services/scheduleEventsService';
 import { CreateEventModal } from '../components/CreateEventModal';
@@ -103,6 +103,15 @@ export const AgendaScreen: React.FC<Props> = ({
       const shipping = orderData.shipping || order.shipping || {};
       const customer = orderData.customerData || order.customer || {};
       const orderItems = orderData.items || order.items || [];
+      const observation =
+        orderData.observation ?? orderData.observations ?? order.observation ?? order.observations;
+      const observationLabels =
+        typeof observation === 'string'
+          ? observation
+              .split(/\r?\n|•|;/)
+              .map((notice: string) => notice.trim())
+              .filter(Boolean)
+          : [];
       const dDate =
         getOperationalScheduleDate(order) ||
         order.delivery_date ||
@@ -138,6 +147,7 @@ export const AgendaScreen: React.FC<Props> = ({
           order.client_name ||
           `Pedido #${orderData.orderIndex || order.orderIndex || order.order_number}`,
         subtitle: formatFullAddress(shipping, customer),
+        observationLabels,
         order,
       });
     });
@@ -296,7 +306,7 @@ export const AgendaScreen: React.FC<Props> = ({
                     </View>
                   ) : item.kind === 'pickup' ? (
                     <View style={[styles.kindBadge, { backgroundColor: '#f3e8ff' }]}>
-                      <Package size={14} color="#7c3aed" />
+                      <PickupIcon size={18} color="#7c3aed" />
                     </View>
                   ) : item.kind === 'assembly' ? (
                     <View style={[styles.kindBadge, { backgroundColor: '#fef3c7' }]}>
@@ -316,6 +326,20 @@ export const AgendaScreen: React.FC<Props> = ({
                   <Text style={[styles.itemSub, isDarkMode && styles.subtitleDark]}>
                     {item.subtitle}
                   </Text>
+                  {item.observationLabels?.length ? (
+                    <View style={styles.observationLabels}>
+                      {item.observationLabels.map((notice: string, index: number) => (
+                        <View
+                          key={`${index}-${notice}`}
+                          style={[styles.observationLabel, isDarkMode && styles.observationLabelDark]}
+                        >
+                          <Text style={[styles.observationLabelText, isDarkMode && styles.observationLabelTextDark]}>
+                            {notice}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
 
                 {isOrder ? (
@@ -484,5 +508,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748b',
     marginTop: 2,
+  },
+  observationLabels: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
+  observationLabel: {
+    maxWidth: '100%',
+    backgroundColor: '#fee2e2',
+    borderColor: '#fca5a5',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  observationLabelDark: {
+    backgroundColor: '#7f1d1d',
+    borderColor: '#991b1b',
+  },
+  observationLabelText: {
+    fontSize: 10,
+    fontWeight: '800',
+    lineHeight: 14,
+    color: '#b91c1c',
+    flexShrink: 1,
+  },
+  observationLabelTextDark: {
+    color: '#fef2f2',
   },
 });

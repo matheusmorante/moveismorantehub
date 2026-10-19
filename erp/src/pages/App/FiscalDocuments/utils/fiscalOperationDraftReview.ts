@@ -9,6 +9,7 @@ import type {
   ReviewData,
   ReviewedLine,
 } from '../types/fiscalOperationDraft.types';
+import { validateReturnTaxScenario } from '../../../../../../shared-utils/fiscalOperationContext';
 
 export interface FiscalOperationDraftReviewState {
   reviewedLines: ReviewedLine[];
@@ -115,4 +116,23 @@ export function buildFiscalOperationDraftReviewState(
   }
 
   return { reviewedLines, review, error, notice };
+}
+
+/** Automatic returns confirm only the supported matrix; manual review keeps its explicit checkboxes. */
+export function buildAutomaticReturnDraftReviewState(data: DraftPayload): FiscalOperationDraftReviewState {
+  const state = buildFiscalOperationDraftReviewState(data);
+  if (state.error) return state;
+  if (data.draft.operation_kind !== 'return' || data.source.modelo !== '55' || !state.reviewedLines.length) {
+    return { ...state, error: 'A operação exige revisão fiscal manual.' };
+  }
+  for (const [index, line] of state.reviewedLines.entries()) {
+    const original = data.lines[index];
+    if (!original.allowedCfops?.some(option => option.value === line.cfop)) {
+      return { ...state, error: 'O CFOP exige revisão fiscal manual.' };
+    }
+    const taxError = validateReturnTaxScenario(data.reviewTemplate.totals_xml, original.originalTaxesXml) ||
+      validateReturnTaxScenario(state.review.totals_xml, line.taxes_xml);
+    if (taxError) return { ...state, error: taxError };
+  }
+  return { ...state, review: { ...state.review, item_taxes_confirmed: true, totals_confirmed: true } };
 }

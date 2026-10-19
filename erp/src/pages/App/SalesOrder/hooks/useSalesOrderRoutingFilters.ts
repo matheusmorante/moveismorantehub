@@ -243,12 +243,13 @@ export function useSalesOrderRoutingFilters({
     });
   };
 
+  const isTestArtifactSession = Boolean(import.meta.env.VITE_TEST_ARTIFACT_RUN_ID);
   const [showTestOrders, setShowTestOrders] = useState(false);
   useEffect(() => {
-    if (!isAdministrator) setShowTestOrders(false);
-  }, [isAdministrator]);
+    if (!isAdministrator && !isTestArtifactSession) setShowTestOrders(false);
+  }, [isAdministrator, isTestArtifactSession]);
 
-  const showTestOrdersForCurrentRole = isAdministrator && showTestOrders;
+  const showTestOrdersForCurrentRole = (isAdministrator || isTestArtifactSession) && showTestOrders;
 
   const activeFilters = useMemo(
     () => ({

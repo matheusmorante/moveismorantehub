@@ -47,6 +47,8 @@ const command = (environment: 1 | 2 = 1, finalConsumer = false): FiscalEmissionC
   emissionRequestId: requestId,
   productionConfirmed: environment === 1,
   finalConsumer,
+  recipientIeIndicator: finalConsumer ? '9' : '1',
+  recipientIe: finalConsumer ? '' : '1234567890',
   itemFiscalSelections: {
     '1': { ncm: '94036000', cfop: '5102', origem: '0', cest: '', csosn: '102' },
   },
@@ -93,6 +95,8 @@ const facts = (c: FiscalEmissionCommand): FiscalSnapshotCandidate => ({
     id: c.emissionRequestId,
     environment: c.environment,
     finalConsumer: c.finalConsumer,
+    recipientIeIndicator: c.recipientIeIndicator,
+    recipientIe: c.recipientIe,
     itemFiscalSelections: c.itemFiscalSelections,
   },
 });
@@ -405,6 +409,19 @@ afterEach(() => {
 });
 
 describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
+  it.each([true, false])('blocks non-final sales to non-contributors before numbering (previewOnly=%s)', async (previewOnly) => {
+    const d = database();
+    const invalidCommand = { ...command(2, false), recipientIeIndicator: '9' as const, recipientIe: '', previewOnly };
+    const result = await emitNormalSale(d.db, invalidCommand, facts(invalidCommand), {}, 'TEST_UNIT_ACTOR');
+
+    expect(result.body).toMatchObject({ success: false, numberReserved: false, sefazContacted: false });
+    expect(result.body.error).toContain('consumidor final');
+    expect(d.rpc).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(d.attempts).toHaveLength(0);
+    expect(d.documents).toHaveLength(0);
+  });
+
   it.each([1, 2] as const)(
     'prepares and authorizes both models in environment %s with own decisions',
     async (environment) => {

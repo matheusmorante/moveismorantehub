@@ -106,6 +106,9 @@ async function authorizeFiscalOperator(client, authorizationHeader) {
   }
 }
 
+// shared-utils/fiscalIdentifiers.ts
+var ACCESS_KEY_PATTERN = /^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/;
+
 // api/nfe/document-details.ts
 var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
 var serviceKey = getSupabaseSecretKey() || "";
@@ -129,7 +132,10 @@ async function handler(req, res) {
   const { data: document, error: documentError } = await db.from("nfe_documents").select(
     "id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,motivo_status,numero_protocolo,xml_nfe,xml_protocolo,valor_total,destinatario_nome,destinatario_documento,created_at,updated_at,document_type"
   ).eq("id", documentId).maybeSingle();
+  if (documentError)
+    return res.status(503).json({ success: false, error: "N\xE3o foi poss\xEDvel carregar os detalhes fiscais." });
   let fiscalDoc = document;
+  let sourceDocument = void 0;
   let operationDrafts = [];
   let events = [];
   if (!fiscalDoc) {
@@ -139,35 +145,48 @@ async function handler(req, res) {
     if (!draft)
       return res.status(404).json({ success: false, error: "Documento fiscal n\xE3o encontrado." });
     if (draft.document_id) {
-      const { data: issuedDoc } = await db.from("nfe_documents").select(
+      const { data: issuedDoc, error: issuedDocError } = await db.from("nfe_documents").select(
         "id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,motivo_status,numero_protocolo,xml_nfe,xml_protocolo,valor_total,destinatario_nome,destinatario_documento,created_at,updated_at,document_type"
       ).eq("id", draft.document_id).maybeSingle();
-      if (issuedDoc) {
-        fiscalDoc = issuedDoc;
-      }
+      if (issuedDocError || !issuedDoc)
+        return res.status(503).json({ success: false, error: "N\xE3o foi poss\xEDvel conferir o documento fiscal vinculado ao rascunho." });
+      fiscalDoc = issuedDoc;
     }
     if (!fiscalDoc) {
       let originalDoc = null;
       if (draft.original_document_id) {
-        const { data: orig } = await db.from("nfe_documents").select("*").eq("id", draft.original_document_id).maybeSingle();
+        const { data: orig, error: originalError } = await db.from("nfe_documents").select("*").eq("id", draft.original_document_id).maybeSingle();
+        if (originalError || !orig)
+          return res.status(503).json({ success: false, error: "N\xE3o foi poss\xEDvel conferir o documento fiscal de origem." });
         originalDoc = orig;
       }
       const draftStatus = String(draft.status || "").toLowerCase();
-      const isAuthorized = draftStatus === "authorized";
-      const status = isAuthorized ? draft.environment === 2 ? "homologada" : "autorizada" : draftStatus === "ready" ? "preparada" : draftStatus === "rejected" ? "rejeitada" : "pendente";
+      if (draftStatus === "authorized")
+        return res.status(503).json({ success: false, error: "A autoriza\xE7\xE3o fiscal precisa ser reconciliada com o documento emitido." });
+      const status = draftStatus === "rejected" ? "rejeitada" : draftStatus === "cancelled" ? "cancelada" : "pendente";
+      const accessKey = typeof draft.access_key === "string" && ACCESS_KEY_PATTERN.test(draft.access_key) ? draft.access_key : "";
+      if (originalDoc) sourceDocument = {
+        id: originalDoc.id,
+        order_id: originalDoc.order_id,
+        modelo: originalDoc.modelo,
+        ambiente: originalDoc.ambiente,
+        numero_nfe: originalDoc.numero_nfe,
+        serie: originalDoc.serie,
+        chave_acesso: originalDoc.chave_acesso
+      };
       fiscalDoc = {
         id: draft.id,
         order_id: originalDoc?.order_id || null,
-        numero_nfe: originalDoc?.numero_nfe || 0,
-        serie: "1",
-        chave_acesso: draft.access_key || (draft.original_access_key ? `ESTORNO-${draft.original_access_key}` : originalDoc?.chave_acesso ? `ESTORNO-${originalDoc.chave_acesso}` : ""),
+        numero_nfe: accessKey ? Number(accessKey.slice(25, 34)) : 0,
+        serie: accessKey ? String(Number(accessKey.slice(22, 25))) : "",
+        chave_acesso: accessKey,
         modelo: "55",
         ambiente: draft.environment === 1 ? 1 : 2,
         status,
         motivo_status: draft.reason || "Nota Fiscal de Estorno (Modelo 55) preparada para regulariza\xE7\xE3o",
         numero_protocolo: draft.protocol_number || null,
-        xml_nfe: draft.signed_xml || draft.generated_xml || originalDoc?.xml_nfe || null,
-        xml_protocolo: draft.sefaz_response_xml || originalDoc?.xml_protocolo || null,
+        xml_nfe: draft.signed_xml || draft.generated_xml || null,
+        xml_protocolo: draft.sefaz_response_xml || null,
         valor_total: originalDoc?.valor_total || 0,
         destinatario_nome: originalDoc?.destinatario_nome || "Consumidor",
         destinatario_documento: originalDoc?.destinatario_documento || null,
@@ -184,7 +203,8 @@ async function handler(req, res) {
         status: draft.status,
         reason: draft.reason,
         created_at: draft.created_at,
-        updated_at: draft.updated_at
+        updated_at: draft.updated_at,
+        sourceDocument
       }
     ];
     const targetIds = [draft.id, draft.original_document_id, draft.document_id].filter(Boolean);

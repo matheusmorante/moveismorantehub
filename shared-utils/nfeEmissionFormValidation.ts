@@ -19,6 +19,7 @@ import {
 import { z } from 'zod';
 import type { NfeItemWithFiscal } from '../erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/NfeItemsSection';
 import type { FiscalFieldError } from '../erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/types/nfeEmission.types';
+import { getRecipientIeIndicatorConsistencyError, resolveEffectiveRecipientIeIndicator } from './recipientIeIndicator';
 
 export interface ValidationParams {
   issuerUf?: string;
@@ -26,6 +27,9 @@ export interface ValidationParams {
   currentModel: '55' | '65';
   deliveryMethod: DeliveryMethod;
   recipientTaxId: string;
+  recipientIe?: string;
+  recipientIeIndicator?: '1' | '2' | '9';
+  finalConsumer?: boolean;
   nfeItems: NfeItemWithFiscal[];
   isLoadingFiscalData: boolean;
   fiscalPreparationError: string | null;
@@ -45,6 +49,9 @@ export const nfeEmissionFormSchema = z.object({
   currentModel: z.enum(['55', '65']),
   deliveryMethod: z.enum(['delivery', 'pickup']),
   recipientTaxId: z.string(),
+  recipientIe: z.string().optional(),
+  recipientIeIndicator: z.enum(['1', '2', '9']).optional(),
+  finalConsumer: z.boolean().optional(),
   nfeItems: z.array(z.custom<NfeItemWithFiscal>((value) => Boolean(value && typeof value === 'object'), 'Item fiscal inválido.')),
   isLoadingFiscalData: z.boolean(),
   fiscalPreparationError: z.string().nullable(),
@@ -61,6 +68,26 @@ export const nfeAcquisitionPurposeFormSchema = z.object({
   orderId: z.string().min(1, 'Salve o pedido antes de registrar a finalidade da compra.'),
   purpose: z.enum(['resale', 'use_consumption', 'fixed_asset']),
 });
+
+export const nfeEmissionConsultFormSchema = z.object({
+  orderId: z.string().trim().min(1, 'O pedido não está disponível para consulta fiscal.'),
+  environment: z.union([z.literal(1), z.literal(2)]),
+  documentId: z.string().trim().min(1, 'A identidade do documento fiscal está vazia.').optional(),
+  emissionRequestId: z.string().trim().min(1, 'A identidade da tentativa fiscal está vazia.').optional(),
+  resultOrderId: z.string().trim().min(1).optional(),
+  resultEnvironment: z.union([z.literal(1), z.literal(2)]).optional(),
+}).superRefine((value, ctx) => {
+  if (!value.documentId && !value.emissionRequestId) {
+    ctx.addIssue({ code: 'custom', path: ['documentId'], message: 'A consulta exige a identidade da mesma tentativa fiscal.' });
+  }
+  if (value.resultOrderId !== undefined && value.resultOrderId !== value.orderId) {
+    ctx.addIssue({ code: 'custom', path: ['resultOrderId'], message: 'A tentativa fiscal pertence a outro pedido. Reabra a emissão do pedido correto.' });
+  }
+  if (value.resultEnvironment !== undefined && value.resultEnvironment !== value.environment) {
+    ctx.addIssue({ code: 'custom', path: ['resultEnvironment'], message: 'A tentativa fiscal pertence a outro ambiente. Consulte no ambiente original.' });
+  }
+});
+
 export const nfeEmissionDraftFormSchema = z.object({
   order: nfeEmissionFormSchema.shape.order.refine((value) => Boolean(value.id), 'Salve o pedido antes de registrar o rascunho fiscal.'),
   recipientTaxId: z.string(), nfeItems: nfeEmissionFormSchema.shape.nfeItems,
@@ -69,6 +96,23 @@ export const nfeEmissionDraftFormSchema = z.object({
   if (value.environment !== 1 || !value.recipientTaxId.trim()) return;
   const message = getRecipientTaxIdValidationMessage(value.recipientTaxId, value.order.customerData?.personType);
   if (message) ctx.addIssue({ code: 'custom', path: ['recipientTaxId'], message });
+});
+
+export const nfeHmlRestartFormSchema = z.object({
+  identity: nfeEmissionConsultFormSchema,
+  emission: nfeEmissionFormSchema,
+  kind: z.enum(['tls_untransmitted', 'confirmed_not_found']),
+  previousSuccess: z.boolean().refine((value) => !value, 'Uma nota autorizada não pode iniciar outra tentativa por este fluxo.'),
+  previousPending: z.boolean().refine((value) => !value, 'Consulte a tentativa pendente antes de iniciar outra emissão.'),
+  canAbandonTls: z.boolean(),
+  needsNewEmission: z.boolean(),
+}).superRefine((value, ctx) => {
+  if (value.identity.environment !== 2 || value.identity.orderId !== String(value.emission.order.id)) {
+    ctx.addIssue({ code: 'custom', path: ['identity'], message: 'A retomada exige a mesma tentativa e pedido em homologação.' });
+  }
+  if (value.kind === 'tls_untransmitted' ? !value.canAbandonTls || !value.identity.documentId || !value.identity.emissionRequestId : !value.needsNewEmission) {
+    ctx.addIssue({ code: 'custom', path: ['kind'], message: 'A tentativa ainda não permite nova emissão. Consulte a situação fiscal antes de continuar.' });
+  }
 });
 
 export function validateNfeEmission(params: ValidationParams): ValidationResult {
@@ -186,6 +230,24 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
         toastError: specificInvalidMessage,
       };
     }
+  }
+
+  if (currentModel === '55') {
+    const recipientIe = params.recipientIe ?? order.customerData?.ie;
+    const indicator = resolveEffectiveRecipientIeIndicator({
+      selected: params.recipientIeIndicator,
+      persisted: order.fiscalContext?.recipientIeIndicator,
+      customer: order.customerData?.ieIndicator,
+      ie: recipientIe,
+    });
+    const message = getRecipientIeIndicatorConsistencyError(
+      indicator, recipientIe, params.finalConsumer ?? order.fiscalContext?.finalConsumer
+    );
+    if (message) return {
+      valid: false,
+      fiscalFieldError: { tab: 'customer', fieldId: 'nfe-recipient-ie-indicator', message },
+      toastError: message,
+    };
   }
 
   if (isLoadingFiscalData || !nfeItems.length) {

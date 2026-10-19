@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import {
   fiscalOperationPreparationFormSchema,
   createFiscalOperationReviewFormSchema,
@@ -57,6 +58,7 @@ export function useNfeOperationDraft({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [retryAllowed, setRetryAllowed] = useState(false);
+  const [refreshRequired, setRefreshRequired] = useState(false);
 
   const preparationValues = {
     kind,
@@ -84,8 +86,8 @@ export function useNfeOperationDraft({
   const transmissionValues = { draftId, productionConfirmed };
   const transmissionForm = useZodForm(createFiscalOperationTransmissionFormSchema({
     environment: payload?.draft.environment || sourceDocument?.ambiente || 2,
-    status: payload?.draft.status || '',
-    retryAllowed,
+    status: refreshRequired ? 'unknown' : payload?.draft.status || '',
+    retryAllowed: refreshRequired ? false : retryAllowed,
   }), transmissionValues);
 
   useEffect(() => {
@@ -196,7 +198,7 @@ export function useNfeOperationDraft({
   };
 
   const saveFiscalReview = async () => {
-    if (operationInFlight.current) return;
+    if (operationInFlight.current || refreshRequired) return;
     if (!review || !draftId) return;
     operationInFlight.current = true;
     try {
@@ -233,14 +235,29 @@ export function useNfeOperationDraft({
         setError('');
         setNotice('');
         try {
-          const result = await transmitFiscalOperationDraft(validated);
+          if (refreshRequired) {
+            const loaded = await withTimeout(loadFiscalOperationDraft(validated.draftId), 15000, null, 'atualização da situação fiscal');
+            if (!loaded) throw new Error('Não foi possível atualizar a situação fiscal. Consulte novamente antes de transmitir.');
+            if (loaded.draft.id !== validated.draftId || loaded.source.id !== sourceDocument?.id || loaded.draft.environment !== sourceDocument?.ambiente) {
+              throw new Error('A atualização fiscal retornou identidade incompatível com esta operação.');
+            }
+            applyDraft(loaded);
+            setRetryAllowed(false);
+            setRefreshRequired(false);
+            if (loaded.draft.status === 'authorized') onAuthorized();
+            return;
+          }
+          const result = await withTimeout(transmitFiscalOperationDraft(validated), 45000, null, 'transmissão ou consulta fiscal');
+          if (!result) throw new Error('A operação fiscal excedeu o prazo de confirmação.');
           if (result.retryAllowed) {
             setRetryAllowed(true);
             setNotice(result.error || 'A consulta confirmou que a chave não está localizada.');
           } else if (result.pending) {
             setRetryAllowed(false);
+            setRefreshRequired(true);
             setNotice(result.error || 'Situação pendente. Consulte novamente; não retransmita.');
           } else if (result.success) {
+            setRefreshRequired(result.reconciliationRequired === true);
             setNotice(
               result.reconciliationRequired
                 ? result.error || 'Documento autorizado; a situação local precisa ser reconciliada.'
@@ -251,10 +268,12 @@ export function useNfeOperationDraft({
             setError(result.xMotivo || result.error || 'A SEFAZ não autorizou o documento.');
           }
         } catch (cause) {
+          setRetryAllowed(false);
+          setRefreshRequired(true);
           setError(
-            cause instanceof Error
+            refreshRequired && cause instanceof Error
               ? cause.message
-              : 'Falha de rede. Consulte a situação antes de tentar novamente.'
+              : 'Não foi possível confirmar o resultado da operação. Atualize a situação fiscal antes de tentar novamente; a nota pode ter sido autorizada.'
           );
         } finally {
           setTransmitting(false);
@@ -291,6 +310,7 @@ export function useNfeOperationDraft({
     error,
     notice,
     retryAllowed,
+    refreshRequired,
     prepareDraft,
     updateLineCfop,
     updateReview,

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Calendar, ChevronDown, FilePlus2, ReceiptText, Search, X } from 'lucide-react-native';
-import { SefazSyncStatusBadge } from '../components/SefazSyncStatusBadge';
-import type { InvoiceDateFilter } from '../../types/stock.types';
+import { SefazSyncStatusBadge } from '../../components/SefazSyncStatusBadge';
+import type { InvoiceDateFilter } from '../../../types/stock.types';
 import { styles } from './invoicesScreen.styles';
 
 interface InvoicesPageHeaderProps {

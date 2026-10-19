@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { NfeItemWithFiscal, NfeItemFiscal } from './NfeItemsSection';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { NcmSelect } from './NcmSelect';
@@ -31,6 +31,12 @@ export const NfeItemRow: React.FC<Props> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [cfopSearch, setCfopSearch] = useState<string | null>(null);
   const [activeCfopReason, setActiveCfopReason] = useState<string | null>(null);
+  const advancedChanged = useRef(false);
+  const saveAdvancedChanges = () => {
+    if (!advancedChanged.current) return;
+    advancedChanged.current = false;
+    onUpdateFiscalBlur?.();
+  };
   const values = composeServiceFiscalValues([item]).products[0];
   const itemTotal = (values.vProdCents - values.vDescCents) / 100;
   const cleanNcm = (item.fiscal?.ncm || '').replace(/\D/g, '');
@@ -189,10 +195,12 @@ export const NfeItemRow: React.FC<Props> = ({
                 const selectedOption = visibleCfopOptions.find((option) => option.value === value);
 
                 if (value === '') {
+                  if (selectedCfop !== value) advancedChanged.current = true;
                   if (hasCfopError && onClearFieldError) onClearFieldError();
                   onUpdateFiscal('cfop', '');
                   setCfopSearch('');
                 } else if (selectedOption && !selectedOption.disabled) {
+                  if (selectedCfop !== selectedOption.value) advancedChanged.current = true;
                   if (hasCfopError && onClearFieldError) onClearFieldError();
                   onUpdateFiscal('cfop', selectedOption.value);
                   setCfopSearch(null);
@@ -207,6 +215,7 @@ export const NfeItemRow: React.FC<Props> = ({
                 const nextTarget = event.relatedTarget;
                 const optionsList = event.currentTarget.parentElement?.querySelector('ul');
                 if (nextTarget instanceof Node && optionsList?.contains(nextTarget)) return;
+                saveAdvancedChanges();
                 setTimeout(() => setCfopSearch(null), 200);
               }}
               placeholder="Buscar código ou descrição"
@@ -265,6 +274,7 @@ export const NfeItemRow: React.FC<Props> = ({
                     onMouseDown={(e) => {
                       e.preventDefault();
                       if (!cf.disabled) {
+                        if (selectedCfop !== cf.value) advancedChanged.current = true;
                         if (hasCfopError && onClearFieldError) onClearFieldError();
                         onUpdateFiscal('cfop', cf.value);
                         setCfopSearch(null);
@@ -363,7 +373,9 @@ export const NfeItemRow: React.FC<Props> = ({
               id={`nfe-item-csosn-${itemIndex}`}
               aria-label="CSOSN"
               value={item.fiscal?.cst || '103'}
+              onBlur={saveAdvancedChanges}
               onChange={(e) => {
+                advancedChanged.current = true;
                 if (hasCstError && onClearFieldError) onClearFieldError();
                 onUpdateFiscal('cst', e.target.value);
               }}
@@ -399,7 +411,9 @@ export const NfeItemRow: React.FC<Props> = ({
               id={`nfe-item-origem-${itemIndex}`}
               aria-label="Origem fiscal"
               value={item.fiscal?.origem || ''}
+              onBlur={saveAdvancedChanges}
               onChange={(e) => {
+                advancedChanged.current = true;
                 if (hasOrigemError && onClearFieldError) onClearFieldError();
                 onUpdateFiscal('origem', e.target.value);
               }}
@@ -428,7 +442,11 @@ export const NfeItemRow: React.FC<Props> = ({
               id={`nfe-item-cest-${itemIndex}`}
               aria-label="CEST"
               value={item.fiscal?.cest || ''}
-              onChange={(e) => onUpdateFiscal('cest', e.target.value)}
+              onBlur={saveAdvancedChanges}
+              onChange={(e) => {
+                advancedChanged.current = true;
+                onUpdateFiscal('cest', e.target.value);
+              }}
               className="w-full px-2.5 py-1.5 text-xs font-bold rounded-none border-0 border-b-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-600 dark:focus:border-blue-500"
             >
               {CEST_OPTIONS.map((c) => (

@@ -282,39 +282,41 @@ const OrderHistoryRow = ({
               </span>
               <OrderCancellationFailureNotice state={fiscalCancellationState} />
               <div className="flex flex-wrap items-center gap-1">
-                <OrderFiscalBadge
-                  status={fiscalBadgeStatus}
-                  loading={fiscalBadgeLoading}
-                  documentId={fiscalDocumentId}
-                  onOpenDocument={onViewFiscalDocument}
-                  onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-                />
-                <OrderFiscalBadge
-                  variant="homologation"
-                  status={fiscalHmlBadgeStatus}
-                  loading={fiscalBadgeLoading}
-                  documentId={fiscalHmlDocumentId}
-                  onOpenDocument={onViewFiscalDocument}
-                  onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-                />
-                <OrderFiscalOperationBadge
-                  kind="estorno"
-                  status={fiscalEstornoBadgeStatus}
-                  documentId={fiscalEstornoDocumentId}
-                  draftId={fiscalEstornoDraftId}
-                  environment={fiscalEstornoEnvironment}
-                  onOpenDocument={onViewFiscalDocument}
-                />
                 {order.orderType !== 'return' && (
-                  <OrderFiscalOperationBadge
-                    kind="devolucao"
-                    status={fiscalDevolucaoBadgeStatus}
-                    documentId={fiscalDevolucaoDocumentId}
-                    environment={fiscalDevolucaoEnvironment}
-                    documents={fiscalDevolucaoDocuments}
-                    onOpenDocument={onViewFiscalDocument}
-                  />
+                  <>
+                    <OrderFiscalBadge
+                      status={fiscalBadgeStatus}
+                      loading={fiscalBadgeLoading}
+                      documentId={fiscalDocumentId}
+                      onOpenDocument={onViewFiscalDocument}
+                      onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+                    />
+                    <OrderFiscalBadge
+                      variant="homologation"
+                      status={fiscalHmlBadgeStatus}
+                      loading={fiscalBadgeLoading}
+                      documentId={fiscalHmlDocumentId}
+                      onOpenDocument={onViewFiscalDocument}
+                      onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+                    />
+                    <OrderFiscalOperationBadge
+                      kind="estorno"
+                      status={fiscalEstornoBadgeStatus}
+                      documentId={fiscalEstornoDocumentId}
+                      draftId={fiscalEstornoDraftId}
+                      environment={fiscalEstornoEnvironment}
+                      onOpenDocument={onViewFiscalDocument}
+                    />
+                  </>
                 )}
+                <OrderFiscalOperationBadge
+                  kind="devolucao"
+                  status={fiscalDevolucaoBadgeStatus}
+                  documentId={fiscalDevolucaoDocumentId}
+                  environment={fiscalDevolucaoEnvironment}
+                  documents={fiscalDevolucaoDocuments}
+                  onOpenDocument={onViewFiscalDocument}
+                />
                 <OrderOperationalBadges
                   order={order}
                   showTrash={showTrash}
@@ -323,7 +325,6 @@ const OrderHistoryRow = ({
                   onStatusUpdate={onStatusUpdate}
                   onBlingUpdate={onBlingUpdate}
                   onStockCheckUpdate={onStockCheckUpdate}
-                  layout="row"
                 />
                 <OrderAssemblyBadges
                   hasAssemblyDepot={hasAssemblyDepot}

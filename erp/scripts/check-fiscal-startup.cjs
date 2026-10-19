@@ -29,6 +29,7 @@ async function check() {
     'inbound-manifestation': 'operations',
     cancel: 'operations',
     'return-capacity': 'operations',
+    'return-fiscal-eligibility': 'auxiliary',
     'operation-drafts': 'operations',
     'transmit-operation-draft': 'operations',
     'automatic-return-transmission-worker': 'operations',

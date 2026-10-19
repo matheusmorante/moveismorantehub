@@ -51,7 +51,7 @@ const sameStateNonTaxpayerFinalConsumer =
   '<NFe><infNFe><ide><indFinal>1</indFinal></ide><emit><CRT>1</CRT></emit><dest><UF>PR</UF><indIEDest>9</indIEDest></dest></infNFe></NFe>';
 
 describe('regras fiscais centralizadas da NF-e de devolução', () => {
-  it('prepara cada devolução somente com suas próprias alocações da NF-e original', async () => {
+  it.each([false, true])('prepara cada devolução com suas próprias alocações e emitente raiz (fiscalDefaults presente: %s)', async withDefaults => {
     const firstReturnId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
     const siblingReturnId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2';
     const source = authorizedSource();
@@ -106,7 +106,7 @@ describe('regras fiscais centralizadas da NF-e de devolução', () => {
               ? returnOrder
               : table === 'nfe_documents'
                 ? source
-                : { data: { companyUF: 'PR', companyCnpj, companyCRT: companyTaxRegime } },
+                : { data: { companyUF: 'PR', companyCnpj, companyCRT: companyTaxRegime, ...(withDefaults ? { fiscalDefaults: { returnCfop: '1202' } } : {}) } },
             error: null,
           }),
           then: (resolve: (value: unknown) => unknown, reject: (error: unknown) => unknown) => {
@@ -192,8 +192,12 @@ describe('regras fiscais centralizadas da NF-e de devolução', () => {
     };
 
     expect(validateAuthorizedOutboundNfe(nfceSource, orderId, 1)).toBe(
-      MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE
+      'A emissão de NF-e de devolução com origem em NFC-e modelo 65 ainda não é suportada pelo MoranteHub. A devolução comercial pode ser registrada; a correção fiscal exige revisão.'
     );
+    expect(validateAuthorizedOutboundNfe({ ...nfceSource, status: 'cancelada' }, orderId, 1))
+      .toBe(MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE);
+    expect(validateAuthorizedOutboundNfe(nfceSource, orderId, 2))
+      .toBe(MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE);
     expect(
       validateAuthorizedOutboundNfe(nfceSource, orderId, 1, { allowNfceSource: true })
     ).toBeNull();

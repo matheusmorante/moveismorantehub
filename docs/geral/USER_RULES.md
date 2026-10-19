@@ -10,3 +10,4 @@
 6. **Alinhamento em Ambiguidades**: Pergunte diretamente ao usuário caso surja qualquer dúvida de ambiguidade ou entendimento nas instruções ou materiais apresentados.
 7. **Persistência de Regras**: Sempre mantenha as regras ativas salvas em arquivo do projeto.
 8. **Idioma**: Comunicação exclusivamente em Português Brasileiro (pt-BR).
+9. **Navegação de Pedidos no Aplicativo**: A aba inferior global **Pedidos** deve abrir um menu com módulos separados (Pedidos de Venda, Orçamentos, Assistências e Devoluções), seguindo a hierarquia do ERP. Cada lista deve consultar apenas o tipo selecionado; filtros de status da tela Pedidos de Venda não podem incluir Assistências, Devoluções ou Orçamentos como se fossem status.

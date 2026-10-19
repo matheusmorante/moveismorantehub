@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { canPerform } from '../../pages/utils/permissionService';
 import { getProfileRoles } from '../../pages/utils/accessRoles';
 import { canSeeFinanceModuleBeta, canUseFinanceModule } from '../../pages/utils/permissionConfig';
+import ReturnIcon from '../shared/ReturnIcon';
 
 interface MobileNavProps {
   isOpen: boolean;
@@ -589,7 +590,11 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                           onClick={() => handleLink(link.to as string)}
                           className="w-full flex items-center gap-3 px-4 py-2.5 max-[480px]:px-3 max-[480px]:py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100 transition-all text-sm font-semibold text-left"
                         >
-                          <i className={`bi ${link.icon} text-base ${link.iconColor}`}></i>
+                          {link.to === '/returns' ? (
+                            <ReturnIcon className="h-6 w-6" />
+                          ) : (
+                            <i className={`bi ${link.icon} text-base ${link.iconColor}`}></i>
+                          )}
                           <span className={link.shortLabel ? 'max-[480px]:hidden' : ''}>
                             {link.label}
                           </span>

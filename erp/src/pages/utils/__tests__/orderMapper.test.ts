@@ -3,6 +3,24 @@ import { mapOrderFromDatabase, OrderDatabaseRow } from '../orderMapper';
 import { hasGoodsCirculated } from '../nfe/cancellationEligibility';
 
 describe('orderMapper - Normalização e Fallback Seguro', () => {
+  it('preserva a posição comercial pelos índices normalizados sem reordenar a resposta ou o snapshot', () => {
+    const first = { id: 'line-first', item_index: 1, product_id: 'product-first', description: 'Primeiro', quantity: 3, unit_price: 100 };
+    const second = { id: 'line-second', item_index: 2, product_id: 'product-second', description: 'Segundo', quantity: 1, unit_price: 100 };
+    const row: OrderDatabaseRow = {
+      id: 'ordered-sale', order_type: 'sale', status: 'fulfilled',
+      order_items: Object.freeze([Object.freeze(second), Object.freeze(first)]) as unknown as any[],
+      order_data: { items: [{ productId: 'snapshot-first' }, { productId: 'snapshot-second' }] },
+    };
+    const snapshotBefore = JSON.stringify(row.order_data);
+
+    const mapped = mapOrderFromDatabase(row);
+
+    expect(mapped.items.map((item) => item.productId)).toEqual(['product-first', 'product-second']);
+    expect(mapped.items.findIndex((item) => item.productId === 'product-first')).toBe(0);
+    expect(row.order_items?.map((item) => item.id)).toEqual(['line-second', 'line-first']);
+    expect(JSON.stringify(row.order_data)).toBe(snapshotBefore);
+  });
+
   it('deve priorizar colunas físicas normalizadas como Master quando preenchidas', () => {
     const row: OrderDatabaseRow = {
       id: 'ord-001',

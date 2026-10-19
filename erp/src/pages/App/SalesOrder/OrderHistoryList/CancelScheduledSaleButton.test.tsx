@@ -46,6 +46,17 @@ describe('consulta e confirmação de cancelamento na página', () => {
     expect(screen.queryByRole('dialog')).toBeNull(); expect(screen.getByRole('alert').textContent).toContain('incompletas');
   });
 
+  it.each([
+    { action: 'cancel', hasAuthorizedInvoice: true, environment: 2, model: '55', reason: null },
+    { action: 'batch', hasAuthorizedInvoice: true, operations: [{ action: 'cancel', documentId: 'nf-1', environment: 2, model: '55', reason: null }] },
+  ])('abre a confirmação para uma decisão fiscal válida sem motivo adicional ($action)', async decision => {
+    fetchMock.mockResolvedValue(response(decision));
+    const options = props(); render(<CancelScheduledSaleButton {...options} />); await open();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(options.onStatusUpdate).not.toHaveBeenCalled();
+  });
+
   it('não duplica consulta e descarta a resposta de outra venda', async () => {
     const pending = deferred<unknown>(); fetchMock.mockReturnValue(pending.promise); const options = props(); const view = render(<CancelScheduledSaleButton {...options} />);
     await open(); fireEvent.click(screen.getByRole('button', { name: 'Consultando...' })); expect(fetchMock).toHaveBeenCalledTimes(1);

@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
+import { isIdentifiedTestArtifact, readTestArtifactIdentity } from '../../shared-utils/testArtifactPolicy.js';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -59,14 +60,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!source || source.order_type !== 'sale')
       return res.status(409).json({ success: false, error: 'Venda original não encontrada.' });
     const data = source.order_data || {};
-    const hasTestMetadata = Boolean(data.is_test || data.test_environment || data.testRunId);
+    const hasTestMetadata = isIdentifiedTestArtifact(data) || Boolean(data.testArtifact || data.test_environment || data.testRunId);
     const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const isHmlTest =
+    const identity = readTestArtifactIdentity(data);
+    const canonicalHmlTest = data.is_test === true && data.testArtifact?.is_test === true
+      && uuid.test(String(data.testArtifact.runId || ''))
+      && identity?.ownerId === fiscalAuthorization.userId.toLowerCase();
+    const legacyHmlTest = !data.testArtifact &&
       data.is_test === true &&
       data.test_environment === 'homologation' &&
       typeof data.testRunId === 'string' &&
       uuid.test(data.testRunId.trim()) &&
       uuid.test(String(source.id));
+    const isHmlTest = canonicalHmlTest || legacyHmlTest;
     if (hasTestMetadata && !isHmlTest)
       return res
         .status(409)

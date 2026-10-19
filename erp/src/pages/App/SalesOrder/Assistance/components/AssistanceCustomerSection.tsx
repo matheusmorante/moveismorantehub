@@ -1,5 +1,5 @@
 import React from 'react';
-import { changeAddressField } from '@/../../shared-utils/addressSelection';
+import { changeAddressField, mergeAddressSelection } from '@/../../shared-utils/addressSelection';
 import { PatternFormat as PatternFormatBase } from 'react-number-format';
 const PatternFormat = PatternFormatBase as any;
 
@@ -137,17 +137,13 @@ const AssistanceCustomerSection: React.FC<AssistanceCustomerSectionProps> = ({
 
         <AddressAutocompleteInput
           label="Buscar Endereço / CEP"
-          onSelectAddress={(data) => {
+          value={customerData.fullAddress?.street || ''}
+          addressValue={customerData.fullAddress}
+          onChange={(value) => updateAddress('street', value)}
+          onSelectAddress={(data, baseline) => {
             setCustomerData((prev) => ({
               ...prev,
-              fullAddress: {
-                ...prev.fullAddress,
-                cep: data.cep || prev.fullAddress?.cep || '',
-                street: data.street || prev.fullAddress?.street || '',
-                neighborhood: data.neighborhood || prev.fullAddress?.neighborhood || '',
-                city: data.city || prev.fullAddress?.city || '',
-                state: data.state || prev.fullAddress?.state || '',
-              },
+              fullAddress: mergeAddressSelection(prev.fullAddress, data, baseline),
             }));
           }}
           placeholder="Digite a rua ou CEP para autocompletar..."

@@ -2,6 +2,11 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import Person from '../../types/person.type';
 import { TABLE_NAME, mapFromDB } from './personMapper';
 import { syncMissingEmployeesFromProfiles } from './personSyncService';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import {
+  isTestOperator,
+  isTestOperatorVisibleToUser,
+} from '../../../../../shared-utils/testOperatorVisibility';
 
 export const PERSON_QUERY_COLUMNS =
   'id, person_type, person_type_pf_pj, full_name, social_name, nickname, cpf_cnpj, rg_ie, ie_indicator, email, phone, address, observation, active, is_draft, deleted, deleted_at, position, lead_time, marketing_origin, stock_origins, created_at, updated_at';
@@ -43,8 +48,41 @@ const fetchAllPeopleRows = async (collectionName: string, includeDeleted: boolea
   }
 };
 
-const mapAndSortPeople = (collectionName: string, peopleData: any[]): Person[] => {
+const getCurrentUserEmail = async (): Promise<string> => {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.user?.email?.trim().toLowerCase() || '';
+  } catch {
+    return '';
+  }
+};
+
+export const isTestPerson = (person: any): boolean => {
+  if (!person) return false;
+  if (isTestOperator(person)) return false;
+  if (isIdentifiedTestArtifact(person)) return true;
+  const name = person.fullName || person.tradeName || person.name || '';
+  if (/\[?\s*HML\s*NF\s*TEST\b/i.test(name)) return true;
+  if (/^\s*(?:TEST_AUT_|playwright\.test)/i.test(name)) return true;
+  if (/^\s*TEST_AUT_/i.test(String(person.id || ''))) return true;
+  return false;
+};
+
+const mapAndSortPeople = (
+  collectionName: string,
+  peopleData: any[],
+  includeDeleted = false,
+  currentUserEmail = ''
+): Person[] => {
   let people = peopleData.map(mapFromDB);
+
+  if (!includeDeleted) {
+    people = people.filter((p) => !isTestPerson(p));
+  }
+
+  if (collectionName === 'employees') {
+    people = people.filter((person) => isTestOperatorVisibleToUser(person, currentUserEmail));
+  }
 
   if (collectionName === 'employees') {
     const uniqueMap = new Map<string, Person>();
@@ -79,7 +117,8 @@ export const subscribeToPeople = (
   includeDeleted = false
 ) => {
   const fetchAll = async (force = false) => {
-    const cacheKey = `${collectionName}_${includeDeleted}`;
+    const currentUserEmail = collectionName === 'employees' ? await getCurrentUserEmail() : '';
+    const cacheKey = `${collectionName}_${includeDeleted}_${currentUserEmail}`;
 
     if (!force && peopleCache[cacheKey]) {
       if (Date.now() - peopleCache[cacheKey].timestamp < 300000) {
@@ -104,7 +143,7 @@ export const subscribeToPeople = (
       }
 
       const rows = await fetchAllPeopleRows(collectionName, includeDeleted);
-      return mapAndSortPeople(collectionName, rows);
+      return mapAndSortPeople(collectionName, rows, includeDeleted, currentUserEmail);
     })();
 
     peopleCache[cacheKey] = { ...peopleCache[cacheKey], promise: fetchPromise };
@@ -151,7 +190,8 @@ export const fetchPersons = async (
     }
 
     const rows = await fetchAllPeopleRows(collectionName, includeDeleted);
-    return mapAndSortPeople(collectionName, rows);
+    const currentUserEmail = collectionName === 'employees' ? await getCurrentUserEmail() : '';
+    return mapAndSortPeople(collectionName, rows, includeDeleted, currentUserEmail);
   } catch (e) {
     console.error('Erro ao buscar pessoas em personService:', e);
     if (options.throwOnError) throw e;
@@ -227,11 +267,19 @@ export const searchPeople = async (
     `full_name.ilike.${searchTerm},social_name.ilike.${searchTerm},cpf_cnpj.ilike.${searchTerm},phone.ilike.${searchTerm},email.ilike.${searchTerm}`
   );
   try {
+    const currentUserEmail = collectionName === 'employees' ? await getCurrentUserEmail() : '';
     const { data, error } = await peopleQuery
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error || !data) return [];
-    return data.map(mapFromDB);
+    return data
+      .map(mapFromDB)
+      .filter((person) => !isTestPerson(person))
+      .filter(
+        (person) =>
+          collectionName !== 'employees' ||
+          isTestOperatorVisibleToUser(person, currentUserEmail)
+      );
   } catch (e) {
     console.error('Erro ao buscar pessoas no searchPeople:', e);
     return [];
@@ -251,11 +299,19 @@ export const getRecentPeople = async (collectionName: string, limit = 20): Promi
     peopleQuery = peopleQuery.or(`person_type.ilike.suppliers,person_type.ilike.supplier`);
   }
   try {
+    const currentUserEmail = collectionName === 'employees' ? await getCurrentUserEmail() : '';
     const { data, error } = await peopleQuery
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error || !data) return [];
-    return data.map(mapFromDB);
+    return data
+      .map(mapFromDB)
+      .filter((person) => !isTestPerson(person))
+      .filter(
+        (person) =>
+          collectionName !== 'employees' ||
+          isTestOperatorVisibleToUser(person, currentUserEmail)
+      );
   } catch (e) {
     console.error('Erro ao buscar pessoas recentes:', e);
     return [];

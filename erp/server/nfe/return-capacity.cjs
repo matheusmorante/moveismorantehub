@@ -145,6 +145,52 @@ async function authorizeFiscalOperator(client, authorizationHeader) {
   }
 }
 
+// shared-utils/testArtifactPolicy.ts
+var record = (value) => value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
+function normalizeTestRunId(value) {
+  if (typeof value !== "string") return null;
+  const uuid = value.replace(/^TEST_AUT_/i, "").toLowerCase();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(uuid) ? uuid : null;
+}
+function normalizeTestArtifactScenarioKey(value) {
+  if (typeof value !== "string") return null;
+  const scenarioKey = value.trim().toLowerCase();
+  return /^[a-z][a-z0-9_-]{2,63}$/.test(scenarioKey) ? scenarioKey : null;
+}
+function artifactData(value) {
+  const row = record(value);
+  const data = record(row.order_data ?? row.orderData ?? value);
+  let metadata = data.testArtifact ?? record(data.technical_specs ?? data.technicalSpecs).testArtifact ?? record(data.full_address ?? data.fullAddress).testArtifact ?? record(data.address).testArtifact ?? record(data.attributes).testArtifact;
+  if (metadata === void 0) {
+    for (const note of [data.notes, data.observation]) {
+      if (typeof note !== "string") continue;
+      try {
+        metadata = record(JSON.parse(note)).testArtifact;
+      } catch {
+      }
+      if (metadata !== void 0) break;
+    }
+  }
+  return metadata === void 0 ? data : record(metadata);
+}
+function isIdentifiedTestArtifact(value) {
+  const data = artifactData(value);
+  const row = record(value);
+  const root = record(row.order_data ?? row.orderData ?? value);
+  if (root.is_test === true || root.is_test === "true" || root.isTest === true || root.isTest === "true") return true;
+  return data.is_test === true || data.is_test === "true" || data.isTest === true || data.isTest === "true";
+}
+function readTestArtifactIdentity(value) {
+  const data = artifactData(value);
+  if (data.is_test !== true) return null;
+  const runId = normalizeTestRunId(data.runId ?? data.testRunId ?? data.test_run_id);
+  const owner = data.ownerId ?? data.testOwnerId;
+  const ownerId = typeof owner === "string" && !/^TEST_AUT_/i.test(owner) ? normalizeTestRunId(owner) : null;
+  const rawScenarioKey = data.scenarioKey ?? data.scenario_key;
+  const scenarioKey = rawScenarioKey === void 0 ? null : normalizeTestArtifactScenarioKey(rawScenarioKey);
+  return runId && ownerId ? { runId, ownerId, ...scenarioKey ? { scenarioKey } : {} } : null;
+}
+
 // api/nfe/return-capacity.ts
 var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
 var serviceKey = getSupabaseSecretKey() || "";
@@ -173,9 +219,12 @@ async function handler(req, res) {
     if (!source || source.order_type !== "sale")
       return res.status(409).json({ success: false, error: "Venda original n\xE3o encontrada." });
     const data = source.order_data || {};
-    const hasTestMetadata = Boolean(data.is_test || data.test_environment || data.testRunId);
+    const hasTestMetadata = isIdentifiedTestArtifact(data) || Boolean(data.testArtifact || data.test_environment || data.testRunId);
     const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const isHmlTest = data.is_test === true && data.test_environment === "homologation" && typeof data.testRunId === "string" && uuid.test(data.testRunId.trim()) && uuid.test(String(source.id));
+    const identity = readTestArtifactIdentity(data);
+    const canonicalHmlTest = data.is_test === true && data.testArtifact?.is_test === true && uuid.test(String(data.testArtifact.runId || "")) && identity?.ownerId === fiscalAuthorization.userId.toLowerCase();
+    const legacyHmlTest = !data.testArtifact && data.is_test === true && data.test_environment === "homologation" && typeof data.testRunId === "string" && uuid.test(data.testRunId.trim()) && uuid.test(String(source.id));
+    const isHmlTest = canonicalHmlTest || legacyHmlTest;
     if (hasTestMetadata && !isHmlTest)
       return res.status(409).json({ success: false, error: "Identifica\xE7\xE3o do ambiente de teste incompleta." });
     const environment = isHmlTest ? 2 : 1;

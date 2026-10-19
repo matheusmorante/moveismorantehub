@@ -4,7 +4,7 @@ const { mkdir, writeFile } = require('node:fs/promises');
 
 const root = resolve(__dirname, '../..');
 const outdir = resolve(root, 'erp/server/nfe');
-const routes = ['emit', 'consult', 'document-details', 'item-defaults', 'cancel', 'return-capacity',
+const routes = ['emit', 'consult', 'document-details', 'item-defaults', 'cancel', 'return-capacity', 'return-fiscal-eligibility',
   'operation-drafts', 'transmit-operation-draft', 'cce', 'reserve-number', 'order-cancellation-policy',
   'order-fiscal-badges', 'inbound-manifestation', 'audit-order-edit', 'automatic-return-transmission-worker'];
 
@@ -14,8 +14,11 @@ async function main() {
   // External packages keep their own module metadata and native/WASM assets.
   await build({
     absWorkingDir: root,
-    entryPoints: Object.fromEntries(routes.map((name) => [name, `api/nfe/${name}.ts`])),
-    outdir,
+    entryPoints: {
+      ...Object.fromEntries(routes.map((name) => [`nfe/${name}`, `api/nfe/${name}.ts`])),
+      'testing/test-artifact-operator': 'erp/api/testing/test-artifact-operator.ts',
+    },
+    outdir: resolve(root, 'erp/server'),
     outExtension: { '.js': '.cjs' },
     bundle: true,
     platform: 'node',

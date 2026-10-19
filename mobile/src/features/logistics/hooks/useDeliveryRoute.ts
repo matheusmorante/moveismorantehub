@@ -15,6 +15,8 @@ import {
   getOperationActivityPresentation,
   type OperationActivityType,
 } from '../../schedule/utils/operationActivity';
+import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 export { checkOutOfOrderRisk } from '../utils/deliveryRouteRisk';
 
 export interface DeliveryRouteItem {
@@ -63,19 +65,20 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
       // 1. Tenta carregar do cache local primeiro para exibição offline instantânea
       const cached = await offlineStorageService.getWorkingSet<any[]>('logistics_orders');
       if (cached?.data && orders.length === 0) {
-        setOrders(cached.data);
+        setOrders(cached.data.filter((order) => !isIdentifiedTestArtifact(order)));
         setLoading(false);
       }
 
       // 2. Busca do Supabase
-      const { data, error } = await supabase
-        .from('orders')
-        .select('id, status, created_at, updated_at, order_data')
-        .order('created_at', { ascending: false });
+      const query = excludeTestOrders(
+        supabase.from('orders').select('id, status, created_at, updated_at, order_data')
+      );
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (!error && data) {
-        setOrders(data);
-        await offlineStorageService.cacheWorkingSet('logistics_orders', data);
+        const visibleOrders = data.filter((order) => !isIdentifiedTestArtifact(order));
+        setOrders(visibleOrders);
+        await offlineStorageService.cacheWorkingSet('logistics_orders', visibleOrders);
       }
     } catch (err) {
       console.warn('[useDeliveryRoute] Erro ao buscar pedidos (usando cache):', err);

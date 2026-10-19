@@ -67,11 +67,14 @@ export const isStockEligibleSaleItem = (item?: Item): item is Item & { productId
       item.itemType !== 'service'
   );
 
+/** Itens que participam da conferência de movimentação física do estoque. */
+const isConventionalStockItem = (item?: Item): item is Item =>
+  Boolean(item && !getNonStockOrigin(item) && item.itemType !== 'service');
+
 /**
- * Verifica se apenas alguns itens do pedido tiveram movimentação de saída gerada (parcial).
- * Ocorre quando há movimentação processada, mas nem todos os itens do pedido geraram saída
- * (ex: pedido com itens temporários ou de serviço misturados com produtos cadastrados,
- * ou saída gerada para apenas parte dos itens).
+ * Verifica se apenas alguns produtos convencionais tiveram movimentação efetiva.
+ * Itens usados, salvados e serviços não participam da conferência; produto convencional
+ * sem cadastro conta como pendente quando ao menos outro produto convencional foi movido.
  */
 export const isPartialSaleStockMovement = (
   order: Order,
@@ -88,48 +91,27 @@ export const isPartialSaleStockMovement = (
 
   if (!hasMovement) return false;
 
-  if (order.orderType === 'return') {
-    return order.returnKind === 'partial';
-  }
-
   const items = order.items || [];
   if (items.length === 0) return false;
 
-  const eligibleItems = items.filter(isStockEligibleSaleItem);
-  const hasIneligibleItem = items.some((it) => !isStockEligibleSaleItem(it));
+  const conventionalItems = items.filter(isConventionalStockItem);
+  if (conventionalItems.length === 0) return false;
 
-  // Se o pedido possui itens não elegíveis (temporários sem cadastro ou serviços),
-  // e pelo menos um item gerou saída, a saída é parcial.
-  if (hasIneligibleItem && eligibleItems.length > 0) {
-    return true;
-  }
-
-  // Se tem apenas 1 item e ele não é elegível (ex: temporário), mas o pedido foi marcado com saída:
-  if (items.length === 1 && hasIneligibleItem) {
-    return true;
-  }
-
-  // Se foram informados os produtos que de fato tiveram saída registrada no banco
+  // IDs informados representam os produtos com movimentação efetiva no banco.
   if (movedProductIds) {
     const movedSet = Array.isArray(movedProductIds)
       ? new Set(movedProductIds.map(String))
       : movedProductIds;
-
-    // Se há registro de movimentações no banco
-    if (movedSet.size > 0) {
-      // Verifica se todos os itens elegíveis foram movimentados
-      const allEligibleMoved =
-        eligibleItems.length > 0 && eligibleItems.every((it) => movedSet.has(String(it.productId)));
-      if (allEligibleMoved && !hasIneligibleItem) {
-        return false; // Saída 100% completa! Não é parcial!
-      }
-      return true; // Nem todos os itens foram movimentados -> Parcial!
-    }
-  }
-
-  // Se todos os itens são elegíveis para estoque e não há itens sem cadastro:
-  if (eligibleItems.length === items.length && eligibleItems.length > 0) {
-    return false; // Saída completa!
+    const movedConventionalItems = conventionalItems.filter(
+      (item) =>
+        Boolean(item.productId?.trim()) &&
+        !item.isTemporaryProduct &&
+        movedSet.has(String(item.productId))
+    );
+    return (
+      movedConventionalItems.length > 0 &&
+      movedConventionalItems.length < conventionalItems.length
+    );
   }
 
   return Boolean(order.isPartialStockProcessed);

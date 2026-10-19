@@ -7,7 +7,7 @@ import {
   saveFiscalOperationDraftReview,
   transmitFiscalOperationDraft,
 } from './fiscalOperationDraftService';
-import { buildFiscalOperationDraftReviewState } from '../utils/fiscalOperationDraftReview';
+import { buildAutomaticReturnDraftReviewState } from '../utils/fiscalOperationDraftReview';
 import {
   automaticallyTransmitReturnFiscalDocuments,
   getAutomaticReturnFiscalEmissionNotice,
@@ -22,7 +22,7 @@ vi.mock('./fiscalOperationDraftService', () => ({
 }));
 
 vi.mock('../utils/fiscalOperationDraftReview', () => ({
-  buildFiscalOperationDraftReviewState: vi.fn(),
+  buildAutomaticReturnDraftReviewState: vi.fn(),
 }));
 
 const source = (id: string, ambiente: 1 | 2) => ({
@@ -140,7 +140,7 @@ describe('transmissão automática da NF-e de devolução', () => {
     vi.mocked(loadFiscalOperationDraft).mockResolvedValue(draft('draft-hml', 2));
     vi.mocked(saveFiscalOperationDraftReview).mockResolvedValue({ status: 'ready' });
     vi.mocked(transmitFiscalOperationDraft).mockResolvedValue({ success: true });
-    vi.mocked(buildFiscalOperationDraftReviewState).mockImplementation((payload) => ({
+    vi.mocked(buildAutomaticReturnDraftReviewState).mockImplementation((payload) => ({
       ...reviewState,
       reviewedLines: reviewState.reviewedLines.map((line) => ({
         ...line,
@@ -223,9 +223,10 @@ describe('transmissão automática da NF-e de devolução', () => {
     });
   });
 
-  it('não retransmite tentativa incerta nem repete automaticamente quando a SEFAZ não confirma', async () => {
+  it.each([false, true])('não declara autorização quando a gravação está pendente (success=%s)', async success => {
     vi.mocked(fetchReturnFiscalEligibility).mockResolvedValue(eligibility());
     vi.mocked(transmitFiscalOperationDraft).mockResolvedValue({
+      success,
       pending: true,
       reconciliationRequired: true,
     });
@@ -241,7 +242,7 @@ describe('transmissão automática da NF-e de devolução', () => {
 
   it('para a emissão automática quando CFOP exige revisão fiscal', async () => {
     vi.mocked(fetchReturnFiscalEligibility).mockResolvedValue(eligibility());
-    vi.mocked(buildFiscalOperationDraftReviewState).mockReturnValue({
+    vi.mocked(buildAutomaticReturnDraftReviewState).mockReturnValue({
       ...reviewState,
       error: 'O CFOP exige revisão manual.',
     });

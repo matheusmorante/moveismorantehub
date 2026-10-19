@@ -6,6 +6,7 @@ import type Shipping from './Shipping.type';
 
 export type OrderType = 'sale' | 'assistance' | 'showroom' | 'budget' | 'return';
 export type ReturnMethod = 'store_delivery' | 'store_collection';
+export type ReturnPaymentMethod = 'Estorno de crédito' | 'Pix' | 'Dinheiro';
 export type FiscalAcquisitionPurpose = 'resale' | 'use_consumption' | 'fixed_asset';
 
 export type AssistanceItem = {
@@ -102,6 +103,8 @@ export type Order = {
   returnKind?: 'partial' | 'complete';
   /** Forma física de retorno; persistida no order_data existente. */
   returnMethod?: ReturnMethod;
+  /** Forma escolhida para estornar o pagamento de uma devolução comercial avulsa. */
+  returnPaymentMethod?: ReturnPaymentMethod;
   returnStockProcessed?: boolean;
   stockReversed?: boolean;
   returnStockReversed?: boolean;
@@ -113,6 +116,8 @@ export type Order = {
   /** Estado da entrada de estoque do pedido de devolução vinculado. Usado apenas para consulta na venda original. */
   linkedReturnMovement?: {
     status?: string;
+    /** Derived only from linked receipts; does not overwrite the persisted sale snapshot. */
+    returnKind?: 'complete' | 'partial';
     stockProcessed?: boolean;
     stockReversed?: boolean;
     items?: Item[];

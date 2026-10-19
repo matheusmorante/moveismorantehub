@@ -5,6 +5,8 @@ import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import { parseFiscalXmlDetails } from '../utils/fiscalXmlParser';
 import { fetchFiscalDocumentDetails } from '../services/fiscalDocumentsService';
 import { FiscalDocumentStatusBadge } from '../components/FiscalDocumentStatusBadge';
+import { FiscalXmlViewer } from '../components/FiscalXmlViewer';
+import NfeOperationDraftModal from './NfeOperationDraftModal';
 import {
   IssuedFiscalDocumentDetailsTabList,
   IssuedFiscalDocumentDetailsTabPanel,
@@ -60,6 +62,8 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
   const [shareFile, setShareFile] = useState<File | null>(null);
   const [shareFileError, setShareFileError] = useState('');
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [reviewingDraft, setReviewingDraft] = useState(false);
+  const [showXml, setShowXml] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -76,11 +80,13 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
     setLoadError('');
     setShareFile(null);
     setShareFileError('');
+    setShowXml(false);
     void fetchFiscalDocumentDetails(documentId)
       .then((loaded) => {
         if (!active) return;
         setDetails(loaded);
         setIsLoading(false);
+        if (loaded.operationDrafts?.some(draft => draft.id === loaded.document.id && draft.sourceDocument)) return;
         void createDanfeShareFile(loaded.document)
           .then((file) => {
             if (active) setShareFile(file);
@@ -105,6 +111,8 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
     [details?.parsedXml, emissionResult?.xml, document?.xml_nfe]
   );
   const visibleDocument = details?.document || document;
+  const storedXml = visibleDocument?.xml_nfe || emissionResult?.xml || '';
+  const operationDraft = details?.operationDrafts?.find(draft => draft.id === visibleDocument?.id && draft.sourceDocument);
   const model = visibleDocument?.modelo || emissionResult?.model || '55';
   const environment =
     visibleDocument?.ambiente || emissionResult?.environment || initialEnvironment || 1;
@@ -122,6 +130,8 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
   const documentNumberLabel =
     visibleDocumentNumber && visibleDocumentNumber > 0
       ? `nº ${visibleDocumentNumber}`
+      : operationDraft
+      ? '(Rascunho fiscal)'
       : isEstorno
       ? '(Rascunho de Ajuste)'
       : '—';
@@ -199,6 +209,16 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
     toast.info('Este navegador não compartilha arquivos diretamente. O DANFE foi baixado; anexe-o no WhatsApp.');
   };
 
+  if (reviewingDraft && operationDraft?.sourceDocument) return (
+    <NfeOperationDraftModal
+      sourceDocument={operationDraft.sourceDocument}
+      initialDraftId={operationDraft.id}
+      mode={operationDraft.operation_kind}
+      onClose={() => setReviewingDraft(false)}
+      onAuthorized={() => { setReviewingDraft(false); setReloadVersion(version => version + 1); }}
+    />
+  );
+
   return (
     <div className={`fixed inset-0 z-[1000000] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm ${fullScreen ? 'p-0' : 'p-0 md:p-4'}`}>
       <button type="button" aria-label="Fechar detalhes da nota fiscal" className="absolute inset-0 cursor-default" onClick={onClose} />
@@ -217,10 +237,12 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
               <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${environment === 2 ? 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'}`}>
                 {environment === 2 ? 'Homologação' : 'Produção'}
               </span>
-              <FiscalDocumentStatusBadge status={status} />
+              {operationDraft && ['draft', 'ready'].includes(operationDraft.status)
+                ? <span className="text-xs font-bold text-amber-700 dark:text-amber-300">Rascunho em revisão</span>
+                : <FiscalDocumentStatusBadge status={status} />}
             </div>
             <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-              {title} {documentNumberLabel} · Série {visibleDocument?.serie || emissionResult?.series || '1'}
+              {title} {documentNumberLabel}{!operationDraft || visibleDocumentNumber ? ` · Série ${visibleDocument?.serie || emissionResult?.series || '1'}` : ''}
               {orderNumber ? ` · Pedido #${orderNumber}` : ''}
             </p>
           </div>
@@ -255,13 +277,24 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
           ) : (
             <>
               {loadError && <p role="alert" className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">{loadError}</p>}
-              <IssuedFiscalDocumentDetailsTabPanel activeTab={activeTab} emissionResult={emissionResult} fallbackDocument={document} details={details} parsed={parsed} />
+              {operationDraft && !visibleDocument?.xml_nfe && activeTab !== 'events' ? (
+                <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                  <p>Rascunho fiscal aguardando revisão. Os dados do documento serão exibidos após a geração do seu próprio XML.</p>
+                  {operationDraft.sourceDocument && <p className="mt-2">Documento de origem: {operationDraft.sourceDocument.modelo === '65' ? 'NFC-e' : 'NF-e'} nº {operationDraft.sourceDocument.numero_nfe} · {operationDraft.environment === 2 ? 'Homologação' : 'Produção'}.</p>}
+                  {operationDraft.reason && <p className="mt-2">{operationDraft.reason}</p>}
+                </div>
+              ) : <IssuedFiscalDocumentDetailsTabPanel activeTab={activeTab} emissionResult={emissionResult} fallbackDocument={document} details={details} parsed={parsed} />}
             </>
           )}
         </main>
 
         <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-3 py-3 dark:border-slate-800 dark:bg-slate-950 sm:px-6">
           <div className="flex flex-wrap gap-2">
+            {operationDraft?.sourceDocument && <button type="button" onClick={() => setReviewingDraft(true)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-800">{operationDraft.operation_kind === 'estorno' ? 'Revisar estorno fiscal' : 'Revisar devolução fiscal'}</button>}
+            {!operationDraft && <>
+            <button type="button" onClick={() => setShowXml(true)} disabled={isLoading || !storedXml} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+              <i className="bi bi-code-slash" /> Ver XML
+            </button>
             <button type="button" onClick={() => void handlePrintDanfe()} disabled={(!details && !document) || isLoading} className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4">
               <i className="bi bi-printer-fill" /> Imprimir DANFE
             </button>
@@ -269,14 +302,16 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
               <i className="bi bi-filetype-xml" /> Baixar XML
             </button>
             <button type="button" onClick={handleShareDanfe} disabled={!shareFile} title={shareFile ? 'Escolha WhatsApp no menu de compartilhamento do dispositivo' : shareFileError || 'Preparando o arquivo do DANFE'} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4">
-              <i className="bi bi-share-fill" /> {shareFile ? 'Compartilhar DANFE' : 'Preparando DANFE…'}
+              <i className="bi bi-share-fill" /> {shareFile ? 'Compartilhar DANFE' : shareFileError ? 'DANFE indisponível' : 'Preparando DANFE…'}
             </button>
+            </>}
           </div>
           <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white">
             Fechar
           </button>
         </footer>
       </section>
+      {showXml && storedXml && <FiscalXmlViewer xml={storedXml} onClose={() => setShowXml(false)} />}
     </div>
   );
 };

@@ -44,6 +44,7 @@ export type {
   MobileFiscalBadgeStatuses,
   FiscalDocumentStatusRow,
   MobileOrderStatusFilter,
+  MobileOrderType,
   OrderPresentationInput,
 } from './domain/types';
 

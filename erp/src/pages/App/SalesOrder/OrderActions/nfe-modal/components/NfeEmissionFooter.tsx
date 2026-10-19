@@ -137,6 +137,25 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
         {!emissionResult?.success && !emissionResult?.pending ? (
           isSpecialHmlConflictState ? null : (
             <>
+              {canPreviewXml && onPreview && (
+                <button
+                  type="button"
+                  data-testid="nfe-preview-xml-button"
+                  onClick={onPreview}
+                  disabled={
+                    isSubmitting ||
+                    isPreparingPreview ||
+                    isLoadingFiscalData ||
+                    isLoadingCustomerType ||
+                    isOperationIncomplete ||
+                    hasBlockingPreparationFailure
+                  }
+                  aria-busy={isPreparingPreview}
+                  className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  {isPreparingPreview ? 'Preparando prévia…' : 'Prévia do XML'}
+                </button>
+              )}
               <button
                 type="button"
                 data-testid="nfe-emit-button"

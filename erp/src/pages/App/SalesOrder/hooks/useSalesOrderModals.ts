@@ -95,7 +95,7 @@ export function useSalesOrderModals({
     } else if (key === 'issueNfe' || key === 'ISSUE_NFE') {
       setNfeChoiceOrder(order);
     } else if (key === 'openReturnNfe' && order.orderType === 'return' && order.id) {
-      void fetchReturnFiscalEligibility(order.id)
+      void fetchReturnFiscalEligibility(order.id, { reviewCancelled: true })
         .then((eligibility) => setReturnFiscalEligibility(eligibility))
         .catch((cause) => {
           setReturnFiscalEligibility({

@@ -40,6 +40,7 @@ export interface BodyRowViewProps {
   onSelectProduct: (idx: number, product: Product, variation?: Variation) => void;
   handleSelectService: (service: Service) => void;
   handleStockOriginChange: (rawCondition: string) => void;
+  handleHandlingChange: (handlingType: string) => void;
   isService: boolean;
   shouldShowStockOrigin: boolean;
   shouldHideHandling: boolean;
@@ -48,6 +49,8 @@ export interface BodyRowViewProps {
   itemHasError: boolean;
   error?: string;
   handlingError?: string | boolean;
+  assemblyResponsibleRequired: boolean;
+  assemblyResponsibleError?: string;
   stockOriginError?: string | boolean;
   serviceProductLink: React.ReactNode;
 }
@@ -69,6 +72,7 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
   onSelectProduct,
   handleSelectService,
   handleStockOriginChange,
+  handleHandlingChange,
   isService,
   shouldShowStockOrigin,
   isLinkedProduct,
@@ -76,6 +80,8 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
   itemHasError,
   error,
   handlingError,
+  assemblyResponsibleRequired,
+  assemblyResponsibleError,
   stockOriginError,
   serviceProductLink,
 }) => {
@@ -291,11 +297,11 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
                 onChange={(e) => {
                   const val = e.target.value;
                   if (!val || item.handlingType === val) return;
-                  onChange(idx, 'handlingType', val);
+                  handleHandlingChange(val);
                 }}
               >
                 <option value="" disabled className="dark:bg-slate-900">
-                  Manuseio...
+                  Selecione
                 </option>
                 {(() => {
                   const options =
@@ -326,6 +332,36 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
               {handlingError && (
                 <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
                   {handlingError}
+                </span>
+              )}
+            </div>
+          )}
+
+          {assemblyResponsibleRequired && (
+            <div className="min-w-[180px] flex-1 sm:flex-initial">
+              <label className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Responsável pela montagem <span className="text-red-500">*</span>
+              </label>
+              <select
+                aria-label="Responsável pela montagem"
+                aria-required="true"
+                aria-invalid={Boolean(assemblyResponsibleError)}
+                required
+                className={`w-full rounded-xl border bg-slate-50/70 px-3 py-1.5 text-xs font-bold text-slate-700 outline-none transition-all dark:bg-slate-800/40 dark:text-slate-200 ${
+                  assemblyResponsibleError
+                    ? 'border-red-500 focus:border-red-500'
+                    : 'border-slate-200 focus:border-blue-500 dark:border-slate-700'
+                }`}
+                value={item.assemblyResponsible || ''}
+                onChange={(e) => onChange(idx, 'assemblyResponsible', e.target.value)}
+              >
+                <option value="">Selecione</option>
+                <option value="Nossa equipe">Nossa equipe</option>
+                <option value="Montador terceirizado">Montador terceirizado</option>
+              </select>
+              {assemblyResponsibleError && (
+                <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
+                  {assemblyResponsibleError}
                 </span>
               )}
             </div>

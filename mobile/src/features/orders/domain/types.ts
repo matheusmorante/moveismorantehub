@@ -52,9 +52,9 @@ export type MobileOrderStatusFilter =
   | 'concluidos'
   | 'cancelados'
   | 'rascunhos'
-  | 'retiradas'
-  | 'assistencias'
-  | 'devolucoes';
+  | 'retiradas';
+
+export type MobileOrderType = 'sale' | 'budget' | 'assistance' | 'return';
 
 export interface OrderPresentationInput {
   status?: string | null;

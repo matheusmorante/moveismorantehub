@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import SalesOrderFormSection from '../components/SalesOrderFormSection';
+import OrderSavingOverlay from '../components/OrderSavingOverlay';
 import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
 import Order from '@/pages/types/order.type';
 import {
@@ -67,6 +68,7 @@ const OrderEditModal = ({
   const id = orderId || paramId;
   const [loadedOrder, setLoadedOrder] = useState<Order | null>(null);
   const [isLoadingOrder, setIsLoadingOrder] = useState(!!id && !order);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   const effectiveOrder = order || loadedOrder;
   const onClose = useCallback(() => {
@@ -229,48 +231,53 @@ const OrderEditModal = ({
     async (updatedOrder: Order): Promise<string | false> => {
       const targetOrderId = effectiveOrder?.id;
       if (!targetOrderId) return false;
-      const result = await validateEditedOrder(
-        updatedOrder as unknown as z.input<typeof editSchema>,
-        async (validatedData) => {
-          const validated = validatedData as unknown as Order;
-          try {
-            const audit = await auditFiscalOrderEdit(targetOrderId, validated);
-            if (audit.status === 'blocked') {
-              toast.error(audit.error || 'A edição fiscal exige revisão antes de salvar.');
-              return false;
-            }
-            if (audit.status === 'confirmation_required') {
-              if (!audit.orderUpdatedAt || !audit.documents.length) {
+      setIsSavingOrder(true);
+      try {
+        const result = await validateEditedOrder(
+          updatedOrder as unknown as z.input<typeof editSchema>,
+          async (validatedData) => {
+            const validated = validatedData as unknown as Order;
+            try {
+              const audit = await auditFiscalOrderEdit(targetOrderId, validated);
+              if (audit.status === 'blocked') {
+                toast.error(audit.error || 'A edição fiscal exige revisão antes de salvar.');
+                return false;
+              }
+              if (audit.status === 'confirmation_required') {
+                if (!audit.orderUpdatedAt || !audit.documents.length) {
+                  toast.error(
+                    'A conferência fiscal retornou incompleta; o pedido permanece sem alteração.'
+                  );
+                  return false;
+                }
+                setPendingFiscalEdit({ requestId: crypto.randomUUID(), order: validated, audit });
+                setIsFiscalEditConfirmationOpen(true);
+                return false;
+              }
+              if (!audit.orderUpdatedAt) {
                 toast.error(
-                  'A conferência fiscal retornou incompleta; o pedido permanece sem alteração.'
+                  'Não foi possível fixar a versão atual do pedido; nenhuma alteração foi salva.'
                 );
                 return false;
               }
-              setPendingFiscalEdit({ requestId: crypto.randomUUID(), order: validated, audit });
-              setIsFiscalEditConfirmationOpen(true);
-              return false;
-            }
-            if (!audit.orderUpdatedAt) {
+              return await persistUpdate(validated, audit.orderUpdatedAt);
+            } catch (error) {
               toast.error(
-                'Não foi possível fixar a versão atual do pedido; nenhuma alteração foi salva.'
+                error instanceof Error
+                  ? error.message
+                  : 'Não foi possível conferir as notas autorizadas do pedido.'
               );
               return false;
             }
-            return await persistUpdate(validated, audit.orderUpdatedAt);
-          } catch (error) {
-            toast.error(
-              error instanceof Error
-                ? error.message
-                : 'Não foi possível conferir as notas autorizadas do pedido.'
-            );
-            return false;
+          },
+          (errors) => {
+            toast.error(Object.values(flattenFormErrors(errors))[0]);
           }
-        },
-        (errors) => {
-          toast.error(Object.values(flattenFormErrors(errors))[0]);
-        }
-      );
-      return result || false;
+        );
+        return result || false;
+      } finally {
+        setIsSavingOrder(false);
+      }
     },
     [effectiveOrder?.id, persistUpdate, validateEditedOrder]
   );
@@ -584,6 +591,7 @@ const OrderEditModal = ({
       onClick={onClose}
     >
       {renderContent()}
+      {(isSavingOrder || form.state.isSaving) && <OrderSavingOverlay />}
       <style
         dangerouslySetInnerHTML={{
           __html: `

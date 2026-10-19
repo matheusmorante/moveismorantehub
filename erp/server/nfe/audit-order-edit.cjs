@@ -1957,6 +1957,7 @@ var buildOrderPersistencePayload = (order) => {
   }
   const sanitizedOrder = { ...order };
   delete sanitizedOrder.updatedAt;
+  delete sanitizedOrder.linkedReturnMovement;
   if (sanitizedOrder.date && /^\d{2}\/\d{2}\/\d{4}/.test(sanitizedOrder.date)) {
     const [d, m, y] = sanitizedOrder.date.slice(0, 10).split("/");
     sanitizedOrder.date = `${y}-${m}-${d}T12:00:00.000Z`;
@@ -2047,13 +2048,10 @@ async function handler(req, res) {
       return res.status(authorization.status).json({ error: authorization.message });
     fiscalOperatorId = authorization.userId;
   }
-  const { data: visibleOrder, error: visibleOrderError } = await userDb.from("orders").select("id").eq("id", orderId).maybeSingle();
-  if (visibleOrderError)
-    return res.status(503).json({ error: "N\xE3o foi poss\xEDvel validar o acesso ao pedido." });
-  if (!visibleOrder) return res.status(403).json({ error: "Pedido indispon\xEDvel para esta sess\xE3o." });
-  const { data: order, error: orderError } = await db.from("orders").select("id,order_type,status,order_data,updated_at,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method").eq("id", orderId).maybeSingle();
-  if (orderError || !order)
+  const { data: order, error: orderError } = await userDb.from("orders").select("id,order_type,status,order_data,updated_at,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method").eq("id", orderId).maybeSingle();
+  if (orderError)
     return res.status(503).json({ error: "N\xE3o foi poss\xEDvel carregar o pedido atual." });
+  if (!order) return res.status(403).json({ error: "Pedido indispon\xEDvel para esta sess\xE3o." });
   if (!["sale", "showroom"].includes(String(order.order_type || order.order_data?.orderType || "sale")))
     return res.status(409).json({ error: "A auditoria de edi\xE7\xE3o fiscal est\xE1 dispon\xEDvel para vendas." });
   const currentData = order.order_data || {};

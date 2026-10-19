@@ -10,7 +10,7 @@ type Observation = {
 
 const splitObservation = (observation: Observation): Observation[] =>
   observation.text
-    .split(/[;\n]+/)
+    .split(/[;\n•]+/)
     .map((text) => text.trim())
     .filter(Boolean)
     .map((text) => ({ ...observation, text }));
@@ -22,7 +22,7 @@ export function buildOrderObservations(order: any): Observation[] {
   const address = shipping.deliveryAddress || shipping.address || customer.address || {};
   const candidates: Observation[] = [
     {
-      title: 'Observação do pedido',
+      title: 'Aviso do pedido',
       text:
         order.observation ||
         data.observation ||
@@ -49,7 +49,7 @@ export function buildOrderObservations(order: any): Observation[] {
       type: 'delivery',
     },
     {
-      title: 'Observação do cliente',
+      title: 'Aviso do cliente',
       text: customer.notes || customer.observation || '',
       type: 'customer',
     },
@@ -76,16 +76,17 @@ export function OrderObservationLabels({
     <View style={[styles.container, dark && styles.dark]}>
       <View style={styles.heading}>
         <AlertCircle size={16} color={dark ? '#fca5a5' : '#dc2626'} />
-        <Text style={[styles.title, dark && styles.titleDark]}>Observações do pedido</Text>
+        <Text style={[styles.title, dark && styles.titleDark]}>
+          Avisos importantes sobre o pedido
+        </Text>
       </View>
-      <Text style={styles.labels}>
+      <View style={styles.labels}>
         {observations.map((item, index) => (
-          <React.Fragment key={`${item.type}-${index}`}>
-            {index > 0 ? ' ' : null}
-            <Text style={[styles.label, dark && styles.labelDark]}>{item.text}</Text>
-          </React.Fragment>
+          <View key={`${item.type}-${index}`} style={[styles.label, dark && styles.labelDark]}>
+            <Text style={[styles.labelText, dark && styles.labelTextDark]}>{item.text}</Text>
+          </View>
         ))}
-      </Text>
+      </View>
     </View>
   );
 }
@@ -103,21 +104,23 @@ const styles = StyleSheet.create({
   heading: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   title: { fontSize: 11, fontWeight: '900', color: '#dc2626', textTransform: 'uppercase' },
   titleDark: { color: '#fca5a5' },
-  labels: { fontSize: 12, lineHeight: 32 },
+  labels: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   label: {
     maxWidth: '100%',
-    minWidth: 0,
-    flexShrink: 1,
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#fecaca',
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 7,
+  },
+  labelDark: { backgroundColor: '#0f172a', borderColor: '#7f1d1d' },
+  labelText: {
     fontSize: 12,
     fontWeight: '800',
     color: '#991b1b',
     lineHeight: 17,
+    flexShrink: 1,
   },
-  labelDark: { backgroundColor: '#0f172a', borderColor: '#7f1d1d', color: '#f8fafc' },
+  labelTextDark: { color: '#f8fafc' },
 });

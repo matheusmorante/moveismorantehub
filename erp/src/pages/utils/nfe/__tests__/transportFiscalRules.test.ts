@@ -13,7 +13,7 @@ import {
   resolveDefaultTransport,
 } from '../../../../../../shared-utils/fiscalTransportModel';
 
-const makeFacts = (): FiscalSnapshotCandidate => ({
+const makeFacts = (finalConsumer = true): FiscalSnapshotCandidate => ({
   schemaVersion: 1,
   capturedAt: '2026-09-30T13:00:00Z',
   order: {
@@ -78,7 +78,9 @@ const makeFacts = (): FiscalSnapshotCandidate => ({
   emissionRequest: {
     id: 'f19b3e63-6f84-45ea-8c5f-39476d709a3d',
     environment: 2,
-    finalConsumer: true,
+    finalConsumer,
+    recipientIeIndicator: finalConsumer ? '9' : '1',
+    recipientIe: finalConsumer ? '' : '1234567890',
     hasTransport: true,
     transportResponsible: 'OWN_COMPANY',
     itemFiscalSelections: {
@@ -207,8 +209,7 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
     expect(res.isEmitterTransporter).toBe(false);
     expect(res.requiresTransporterData).toBe(false);
 
-    const facts = makeFacts();
-    facts.emissionRequest.finalConsumer = false; // Força modelo 55
+    const facts = makeFacts(false);
     facts.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };
     facts.order.data.payments = [{ method: 'Pix', amount: 349 }];
     facts.emissionRequest.hasTransport = true;
@@ -253,8 +254,7 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
     expect(res.allowsEditHasTransport).toBe(false);
     expect(res.derivedReason).toBe('Definido automaticamente: pedido com entrega.');
 
-    const facts = makeFacts();
-    facts.emissionRequest.finalConsumer = false;
+    const facts = makeFacts(false);
     facts.emissionRequest.hasTransport = true;
     facts.emissionRequest.transportResponsible = 'OWN_COMPANY';
     facts.order.data.shipping = { value: 30, deliveryMethod: 'delivery' };
@@ -302,8 +302,7 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
     expect(res.modFrete).toBe('0');
     expect(res.requiresTransporterData).toBe(true);
 
-    const facts = makeFacts();
-    facts.emissionRequest.finalConsumer = false;
+    const facts = makeFacts(false);
     facts.emissionRequest.hasTransport = true;
     facts.emissionRequest.transportResponsible = 'THIRD_PARTY';
     facts.emissionRequest.freightContractResponsible = 'SENDER';
@@ -484,8 +483,7 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
   // 13. Serializer gera XML correto
   it('13. Serializer gera tags transp e transporta estritamente corretas', async () => {
     // Teste com NF-e 55 + retirada (modFrete = 4)
-    const facts55 = makeFacts();
-    facts55.emissionRequest.finalConsumer = false;
+    const facts55 = makeFacts(false);
     facts55.emissionRequest.hasTransport = true;
     facts55.emissionRequest.transportResponsible = 'CUSTOMER';
     facts55.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };

@@ -19,7 +19,11 @@ export function mapOrderItemsAndSummary(
   // Itens: Prioridade absoluta para tabela normalizada order_items, depois row.items (coluna JSONB), e fallback para rawLegacy.items
   let items: any[] = [];
   if (Array.isArray(row.order_items) && row.order_items.length > 0) {
-    items = row.order_items.map((item: any) => {
+    const orderedItems = [...row.order_items];
+    if (orderedItems.every((item) => item.item_index != null)) {
+      orderedItems.sort((a, b) => Number(a.item_index) - Number(b.item_index));
+    }
+    items = orderedItems.map((item: any) => {
       const snapshot = item.item_snapshot || {};
       return {
         ...snapshot,

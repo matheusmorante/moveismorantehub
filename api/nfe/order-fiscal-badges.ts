@@ -8,7 +8,7 @@ const serviceKey = getSupabaseSecretKey() || '';
 const anonKey = getSupabaseAnonKey();
 const orderIdPattern = /^[A-Za-z0-9_-]{1,100}$/;
 const documentSelect =
-  'id,order_id,status,document_type,ambiente,created_at,numero_nfe,serie,modelo,valor_total';
+  'id,order_id,related_return_order_id,status,document_type,ambiente,created_at,numero_nfe,serie,modelo,valor_total';
 
 type ReturnOrderRow = {
   id: string;
@@ -82,12 +82,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     returnOrdersById.set(String(row.id), row as ReturnOrderRow);
   const returnOrders = Array.from(returnOrdersById.values());
   const scopedOrderIds = [...new Set([...orderIds, ...returnOrders.map((order) => String(order.id))])];
-  const { data: documents, error: documentsError } = await userDb
+  const { data: directDocuments, error: documentsError } = await userDb
     .from('nfe_documents')
     .select(documentSelect)
     .in('order_id', scopedOrderIds);
   if (documentsError)
     return res.status(503).json({ error: 'Não foi possível consultar os documentos fiscais.' });
+  const { data: relatedDocuments, error: relatedDocumentsError } = await userDb
+    .from('nfe_documents').select(documentSelect)
+    .in('related_return_order_id', scopedOrderIds);
+  if (relatedDocumentsError)
+    return res.status(503).json({ error: 'Não foi possível consultar as notas das devoluções.' });
+  const documents = [...new Map([...(directDocuments || []), ...(relatedDocuments || [])]
+    .map(document => [document.id, document])).values()];
 
   const returnDocumentIds = [
     ...new Set(
@@ -130,10 +137,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const returnOrderById = new Map(returnOrders.map((order) => [String(order.id), order]));
   const compactDocuments = (documents || []).map((document) => {
-    const returnOrder = returnOrderById.get(String(document.order_id || ''));
+    const returnOrderId = document.document_type === 'return'
+      ? document.related_return_order_id || document.order_id : document.order_id;
+    const returnOrder = returnOrderById.get(String(returnOrderId || ''));
     return {
       id: document.id,
-      order_id: document.order_id,
+      order_id: returnOrderId,
       status: document.status,
       document_type: document.document_type,
       ambiente: document.ambiente,
@@ -149,7 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ...(document.document_type === 'return'
         ? {
             returnOrderCode:
-              returnOrder?.order_index || returnOrder?.id || document.order_id || null,
+              returnOrder?.order_index || returnOrder?.id || returnOrderId || null,
             itemQuantity: document.id
               ? itemQuantityByDocumentId.get(String(document.id))
               : undefined,

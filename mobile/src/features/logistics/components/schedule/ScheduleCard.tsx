@@ -6,13 +6,12 @@ import {
   MapPin,
   Clock,
   Play,
-  ArrowRight,
+  Eye,
   Truck,
 } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
-import { DeliveryFlowIcon } from '../../../../components/shared/DeliveryFlowIcon';
 import { isAssemblyInternalType, isAssemblyOutsideType } from '../../../../utils/aiSummaryHelper';
 
 interface Props {
@@ -56,8 +55,6 @@ export const ScheduleCard: React.FC<Props> = ({
       items.some((entry: any) =>
         isAssemblyInternalType(entry?.handlingType || entry?.handling, handlingOptions)
       ));
-  const observationCount = item.observationCount ?? 0;
-
   // Informações de pagamento
   const financial = oData.financial || item.order?.financial || {};
   const pendingAmount = Number(financial.remainingAmount || financial.pendingBalance || 0);
@@ -148,25 +145,12 @@ export const ScheduleCard: React.FC<Props> = ({
         </View>
       ) : null}
 
-      {/* Quantidade de itens e observações operacionais */}
+      {/* Quantidade de itens */}
       <View style={styles.metricsRow}>
         <Text style={[styles.productsCountText, isDarkMode && styles.textMuted]}>
           📦 {item.itemsCount} {item.itemsCount === 1 ? 'item' : 'itens'}
         </Text>
-        {observationCount > 0 && (
-          <Text style={styles.observationsCountText}>
-            • {observationCount} {observationCount === 1 ? 'observação' : 'observações'}
-          </Text>
-        )}
       </View>
-
-      {item.observations ? (
-        <View style={[styles.observationsBox, isDarkMode && styles.observationsBoxDark]}>
-          <Text style={[styles.observationText, isDarkMode && styles.textMuted]}>
-            {item.observations}
-          </Text>
-        </View>
-      ) : null}
 
       {/* Botões de Ação do Card */}
       <View style={styles.actionsRow}>
@@ -174,17 +158,18 @@ export const ScheduleCard: React.FC<Props> = ({
           style={styles.startBtn}
           onPress={(e) => {
             e.stopPropagation?.();
-            onStartDelivery(item);
+            if (item.activityType === 'delivery') onViewOrder(item);
+            else onStartDelivery(item);
           }}
           activeOpacity={0.85}
         >
           {item.activityType === 'delivery' ? (
-            <DeliveryFlowIcon size={18} color="#ffffff" />
+            <Eye size={18} color="#ffffff" />
           ) : (
             <Play size={14} color="#ffffff" fill="#ffffff" />
           )}
           <Text style={styles.startBtnText}>
-            {item.activityType === 'delivery' ? 'INICIAR FLUXO DE ENTREGA' : 'VER ATIVIDADE'}
+            {item.activityType === 'delivery' ? 'VER DETALHES' : 'VER ATIVIDADE'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -364,11 +349,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#64748b',
   },
-  observationsCountText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#dc2626',
-  },
   durationText: {
     fontSize: 11,
     fontWeight: '800',
@@ -474,22 +454,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     color: '#15803d',
-  },
-  observationText: {
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '600',
-    color: '#475569',
-    flexShrink: 1,
-  },
-  observationsBox: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 12,
-  },
-  observationsBoxDark: {
-    backgroundColor: '#0f172a',
   },
   fullOrderBtn: {
     flexDirection: 'row',

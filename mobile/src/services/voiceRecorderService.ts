@@ -1,9 +1,12 @@
 import {
-  AudioRecorder,
+  AudioModule,
+  type AudioRecorder,
   RecordingPresets,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
 } from 'expo-audio';
+import { withTimeout } from '../../../shared-utils/withTimeout';
+import { Platform } from 'react-native';
 
 export interface VoiceRecorderCallbacks {
   onSpeechResult: (transcript: string) => void;
@@ -15,12 +18,16 @@ export interface VoiceRecorderCallbacks {
 let activeSpeechRecognition: any = null;
 let activeRecording: AudioRecorder | null = null;
 let activeMediaStream: any = null;
+let generation = 0;
 
 /**
  * Solicita permissões de microfone e inicia a escuta/gravação de voz com Speech-to-Text.
  */
 export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Promise<boolean> {
-  await stopVoiceRecording();
+  const owner = ++generation;
+  const isCurrent = () => owner === generation;
+  await stopActiveRecording();
+  if (!isCurrent()) return false;
 
   const windowObj = typeof window !== 'undefined' ? (window as any) : null;
   const SpeechRecognitionClass = windowObj?.SpeechRecognition || windowObj?.webkitSpeechRecognition;
@@ -33,8 +40,10 @@ export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Pr
   ) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!isCurrent()) { stream.getTracks().forEach(track => track.stop()); return false; }
       activeMediaStream = stream;
     } catch (err: any) {
+      if (!isCurrent()) return false;
       console.warn('[VoiceRecorder] getUserMedia negado ou não suportado:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         callbacks.onError?.(
@@ -57,10 +66,12 @@ export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Pr
       recognition.interimResults = true;
 
       recognition.onstart = () => {
+        if (!isCurrent()) return;
         callbacks.onRecordingStart?.();
       };
 
       recognition.onresult = (event: any) => {
+        if (!isCurrent()) return;
         let finalTranscript = '';
         let interimTranscript = '';
 
@@ -81,6 +92,7 @@ export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Pr
       };
 
       recognition.onerror = (event: any) => {
+        if (!isCurrent()) return;
         console.warn('[VoiceRecorder] Erro SpeechRecognition:', event.error);
         if (event.error === 'not-allowed') {
           callbacks.onError?.('Acesso ao microfone negado pelo navegador.');
@@ -94,6 +106,7 @@ export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Pr
       };
 
       recognition.onend = () => {
+        if (!isCurrent()) return;
         callbacks.onRecordingEnd?.();
         activeSpeechRecognition = null;
         if (activeMediaStream) {
@@ -102,7 +115,7 @@ export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Pr
               track.enabled = false;
               track.stop();
             });
-          } catch {}
+          } catch { /* A plataforma pode já ter liberado o recurso durante o encerramento. */ }
           activeMediaStream = null;
         }
       };
@@ -117,7 +130,7 @@ export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Pr
             track.enabled = false;
             track.stop();
           });
-        } catch {}
+        } catch { /* A plataforma pode já ter liberado o recurso durante o encerramento. */ }
         activeMediaStream = null;
       }
 
@@ -130,6 +143,7 @@ export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Pr
   // 3. Fallback via expo-audio para ambiente React Native nativo (iOS / Android)
   try {
     const permission = await requestRecordingPermissionsAsync();
+    if (!isCurrent()) return false;
     if (!permission.granted) {
       callbacks.onError?.('Permissão de microfone negada nas configurações do aplicativo.');
       return false;
@@ -140,14 +154,22 @@ export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Pr
       playsInSilentMode: true,
     });
 
-    const recording = new AudioRecorder(RecordingPresets.HIGH_QUALITY);
-    await recording.prepareToRecordAsync();
-    recording.record();
-
-    activeRecording = recording;
-    callbacks.onRecordingStart?.();
-    return true;
+    if (!isCurrent()) return false;
+    const module = AudioModule as typeof AudioModule & { AudioRecorderWeb?: typeof AudioRecorder };
+    const Recorder = Platform.OS === 'web' ? module.AudioRecorderWeb : module.AudioRecorder;
+    if (!Recorder) throw new Error('O gravador de áudio não está disponível nesta plataforma.');
+    const { android, ios, web, ...common } = RecordingPresets.HIGH_QUALITY;
+    const recording = new Recorder({ ...common, ...(Platform.OS === 'ios' ? ios : Platform.OS === 'android' ? android : web) });
+    try {
+      await recording.prepareToRecordAsync();
+      if (!isCurrent()) return false;
+      recording.record();
+      activeRecording = recording;
+      callbacks.onRecordingStart?.();
+      return true;
+    } finally { if (activeRecording !== recording) recording.release(); }
   } catch (err: any) {
+    if (!isCurrent()) return false;
     console.warn('[VoiceRecorder] Erro expo-audio recording:', err);
     callbacks.onError?.('Não foi possível iniciar a gravação no dispositivo.');
     return false;
@@ -158,11 +180,16 @@ export async function startVoiceRecording(callbacks: VoiceRecorderCallbacks): Pr
  * Para a gravação ou escuta de voz ativa e encerra estritamente todos os streams de mídia e tracks do navegador.
  */
 export async function stopVoiceRecording(): Promise<string | null> {
+  ++generation;
+  return stopActiveRecording();
+}
+
+async function stopActiveRecording(): Promise<string | null> {
   if (activeSpeechRecognition) {
     try {
       activeSpeechRecognition.abort();
       activeSpeechRecognition.stop();
-    } catch {}
+    } catch { /* A plataforma pode já ter liberado o recurso durante o encerramento. */ }
     activeSpeechRecognition = null;
   }
 
@@ -172,20 +199,17 @@ export async function stopVoiceRecording(): Promise<string | null> {
         track.enabled = false;
         track.stop();
       });
-    } catch {}
+    } catch { /* A plataforma pode já ter liberado o recurso durante o encerramento. */ }
     activeMediaStream = null;
   }
 
   if (activeRecording) {
+    const recording = activeRecording; activeRecording = null;
     try {
-      await activeRecording.stop();
-      const uri = activeRecording.uri;
-      activeRecording.release();
-      activeRecording = null;
-      return uri;
-    } catch {
-      activeRecording = null;
-    }
+      const stopped = await withTimeout(recording.stop().then(() => true), 5000, false, 'voz:encerrar-gravacao-nativa');
+      if (!stopped) throw new Error('O gravador não confirmou o encerramento no prazo.');
+      return recording.uri;
+    } finally { recording.release(); }
   }
 
   return null;

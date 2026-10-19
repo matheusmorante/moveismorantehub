@@ -15,6 +15,8 @@ import { OrderOptionsMenu } from './OrderOptionsMenu';
 import { OrderFiscalBadge } from './OrderFiscalBadge';
 import { OrderFiscalOperationBadge } from './OrderFiscalOperationBadge';
 import { OrderCancellationFailureNotice } from './OrderCancellationFailureNotice';
+import PickupIcon from '@/components/shared/PickupIcon';
+import DeliveryTruckIcon from '@/components/shared/DeliveryTruckIcon';
 import type {
   OrderFiscalBadgeStatus,
   OrderFiscalCancellationState,
@@ -248,39 +250,41 @@ const OrderHistoryCard = ({
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">
-          <OrderFiscalBadge
-            status={fiscalBadgeStatus}
-            loading={fiscalBadgeLoading}
-            documentId={fiscalDocumentId}
-            onOpenDocument={onViewFiscalDocument}
-            onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-          />
-          <OrderFiscalBadge
-            variant="homologation"
-            status={fiscalHmlBadgeStatus}
-            loading={fiscalBadgeLoading}
-            documentId={fiscalHmlDocumentId}
-            onOpenDocument={onViewFiscalDocument}
-            onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-          />
-          <OrderFiscalOperationBadge
-            kind="estorno"
-            status={fiscalEstornoBadgeStatus}
-            documentId={fiscalEstornoDocumentId}
-            draftId={fiscalEstornoDraftId}
-            environment={fiscalEstornoEnvironment}
-            onOpenDocument={onViewFiscalDocument}
-          />
           {order.orderType !== 'return' && (
-            <OrderFiscalOperationBadge
-              kind="devolucao"
-              status={fiscalDevolucaoBadgeStatus}
-              documentId={fiscalDevolucaoDocumentId}
-              environment={fiscalDevolucaoEnvironment}
-              documents={fiscalDevolucaoDocuments}
-              onOpenDocument={onViewFiscalDocument}
-            />
+            <>
+              <OrderFiscalBadge
+                status={fiscalBadgeStatus}
+                loading={fiscalBadgeLoading}
+                documentId={fiscalDocumentId}
+                onOpenDocument={onViewFiscalDocument}
+                onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+              />
+              <OrderFiscalBadge
+                variant="homologation"
+                status={fiscalHmlBadgeStatus}
+                loading={fiscalBadgeLoading}
+                documentId={fiscalHmlDocumentId}
+                onOpenDocument={onViewFiscalDocument}
+                onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+              />
+              <OrderFiscalOperationBadge
+                kind="estorno"
+                status={fiscalEstornoBadgeStatus}
+                documentId={fiscalEstornoDocumentId}
+                draftId={fiscalEstornoDraftId}
+                environment={fiscalEstornoEnvironment}
+                onOpenDocument={onViewFiscalDocument}
+              />
+            </>
           )}
+          <OrderFiscalOperationBadge
+            kind="devolucao"
+            status={fiscalDevolucaoBadgeStatus}
+            documentId={fiscalDevolucaoDocumentId}
+            environment={fiscalDevolucaoEnvironment}
+            documents={fiscalDevolucaoDocuments}
+            onOpenDocument={onViewFiscalDocument}
+          />
           <div
             className={`flex items-center gap-1.5 flex-wrap justify-end ${isCancelled ? 'opacity-70 pointer-events-none' : ''}`}
             onClick={isCancelled ? undefined : (e) => e.stopPropagation()}
@@ -293,7 +297,6 @@ const OrderHistoryCard = ({
               onStatusUpdate={onStatusUpdate}
               onBlingUpdate={onBlingUpdate}
               onStockCheckUpdate={onStockCheckUpdate}
-              layout="card"
             />
             <OrderAssemblyBadges
               hasAssemblyDepot={hasAssemblyDepot}
@@ -391,9 +394,13 @@ const OrderHistoryCard = ({
               <div
                 className={`flex items-center justify-end gap-1.5 font-bold ${sched?.pendingScheduling ? 'text-slate-400 dark:text-slate-500' : 'text-blue-500 dark:text-blue-400'}`}
               >
-                <i
-                  className={`bi ${sched?.pendingScheduling ? 'bi-clock-history text-orange-500' : 'bi-truck'} text-[11px]`}
-                />
+                {sched?.pendingScheduling ? (
+                  <i className="bi bi-clock-history text-[11px] text-orange-500" />
+                ) : order.shipping?.deliveryMethod === 'pickup' ? (
+                  <PickupIcon className="h-3 w-3" />
+                ) : (
+                  <DeliveryTruckIcon className="h-3 w-3" />
+                )}
                 <span className="text-[10px]">
                   {sched?.pendingScheduling
                     ? 'PENDENTE'

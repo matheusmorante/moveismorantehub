@@ -16,6 +16,12 @@ export function applyImportedOrderDataToForm(orderData: any, formActions: any): 
     formActions.setOrderDate(parseStorageDateToLocal(migrated.date));
   }
   if (migrated.shipping) {
+    if (
+      migrated.shipping.deliveryMethod === 'delivery' ||
+      migrated.shipping.deliveryMethod === 'pickup'
+    ) {
+      formActions.setDeliveryMethod(migrated.shipping.deliveryMethod);
+    }
     formActions.setShipping((prev: any) => ({
       ...prev,
       ...migrated.shipping,

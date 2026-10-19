@@ -10,6 +10,7 @@ import {
 } from './automaticReturnWorkerAuthorization';
 import {
   MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE,
+  getReturnIssuerSettings,
   resolveFiscalReturnMethod,
   validateAuthorizedOutboundNfe,
   validateSupportedReturnEntryScenario,
@@ -31,13 +32,6 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
-}
-
-function getCompanyFiscalSettings(value: unknown): Record<string, unknown> {
-  const root = asRecord(value);
-  const nested = Object.keys(asRecord(root.data)).length ? asRecord(root.data) : root;
-  const fiscalDefaults = asRecord(nested.fiscalDefaults);
-  return Object.keys(fiscalDefaults).length ? fiscalDefaults : nested;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -62,6 +56,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     : await authorizeFiscalOperator(db, req.headers.authorization);
   if (!fiscalAuthorization.ok)
     return res.status(fiscalAuthorization.status).json({ error: fiscalAuthorization.message });
+  // A cancelled fiscal document may open a fresh human review, never an automatic reissue.
+  const reviewCancelled = !automaticReturnWorker && req.query.reviewCancelled === 'true';
 
   try {
     const [{ data: returnOrder, error: returnError }, { data: settingsRow, error: settingsError }] =
@@ -145,7 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (sourceError || linesError || returnDocumentsError || draftsError)
       throw sourceError || linesError || returnDocumentsError || draftsError;
 
-    const fiscalSettings = getCompanyFiscalSettings(settingsRow?.data);
+    const fiscalSettings = getReturnIssuerSettings(settingsRow);
     const companyUf = String(fiscalSettings.companyUF || '');
     const companyTaxRegime = String(fiscalSettings.companyCRT || '');
     const companyCnpj = normalizeFiscalIdentifier(String(fiscalSettings.companyCnpj || ''));
@@ -219,10 +215,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
       }
 
-      const returnedDocument = (returnDocuments || []).find(
+      const sourceReturnDocuments = (returnDocuments || []).filter(
         (document) => document.original_document_id === sourceId && document.document_type === 'return'
       );
-      const existingDraft = (drafts || []).find((draft) => draft.original_document_id === sourceId);
+      const isCancelledDocument = (document: { status: string }) => ['cancelada', 'cancelled'].includes(document.status);
+      const activeReturnDocument = sourceReturnDocuments.find((document) => !isCancelledDocument(document));
+      const cancelledReturnDocument = sourceReturnDocuments.find(isCancelledDocument);
+      const sourceDrafts = (drafts || []).filter((draft) => draft.original_document_id === sourceId);
+      const returnedDocument = activeReturnDocument || (reviewCancelled ? undefined : cancelledReturnDocument);
+      const existingDraft = sourceDrafts.find((draft) => draft.status !== 'cancelled') ||
+        (reviewCancelled ? undefined : sourceDrafts[0]);
+      if (!blockReason && reviewCancelled && cancelledReturnDocument && !activeReturnDocument &&
+        (sourceAllocations.some((allocation) => allocation.fiscal_return_document_id) ||
+          sourceDrafts.some((draft) => draft.status === 'authorized'))) {
+        blockReason = 'O cancelamento fiscal precisa reconciliar o rascunho e liberar as alocações antes de uma nova revisão.';
+      }
       let state: 'ready' | 'draft' | 'rejected' | 'pending' | 'authorized' | 'cancelled' | 'blocked' =
         blockReason ? 'blocked' : 'ready';
       if (!blockReason && returnedDocument) {
@@ -233,7 +240,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             : 'blocked';
         if (state === 'blocked') blockReason = 'A NF-e de devolução vinculada exige reconciliação fiscal.';
       } else if (!blockReason && existingDraft) {
-        state = ['transmitting', 'unknown'].includes(existingDraft.status)
+        state = existingDraft.status === 'cancelled'
+          ? 'cancelled'
+          : ['transmitting', 'unknown'].includes(existingDraft.status)
           ? 'pending'
           : existingDraft.status === 'rejected'
             ? 'rejected'
@@ -273,6 +282,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const eligible = sourceGroups.some((group) =>
       ['ready', 'draft', 'rejected', 'pending', 'authorized'].includes(group.state)
     );
+    const reviewingCancelled = reviewCancelled && sourceGroups.some((group) =>
+      ['ready', 'draft', 'rejected'].includes(group.state) && (returnDocuments || []).some((document) =>
+        document.original_document_id === group.source?.id && ['cancelada', 'cancelled'].includes(document.status)));
     return res.status(200).json({
       eligible,
       returnOrderId,
@@ -280,10 +292,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       linkedSaleOrderId,
       hasAuthorizedOriginal,
       reason: eligible
-        ? null
-        : hasAuthorizedOriginal
-          ? sourceGroups.find((group) => group.blockReason)?.blockReason || 'A NF-e de devolução vinculada está cancelada; uma nova emissão exige revisão fiscal.'
-          : MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE,
+        ? reviewingCancelled
+          ? 'Uma NF-e anterior está cancelada. A nova emissão exige revisão fiscal e não altera o retorno físico já confirmado.'
+          : null
+        : sourceGroups.find((group) => group.blockReason)?.blockReason || (hasAuthorizedOriginal
+          ? 'A NF-e de devolução vinculada está cancelada; uma nova emissão exige revisão fiscal.'
+          : MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE),
       sources: sourceGroups,
     });
   } catch (error: unknown) {

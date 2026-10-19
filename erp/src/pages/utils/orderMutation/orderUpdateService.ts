@@ -173,18 +173,27 @@ export const executeUpdateOrder = async (
       merged.orderNumber = newIndex;
     }
 
-    if (!options.metadataOnly && !isStatusOnlyUpdate) {
-      merged = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(merged as Order));
-    }
-
-    if (
+    const shouldEnsureFiscalSnapshots =
       !options.metadataOnly &&
       ['draft', 'scheduled'].includes(previousOrderData?.status) &&
       ['draft', 'scheduled'].includes(merged.status) &&
       Object.hasOwn(cleanUpdates, 'items') &&
-      Array.isArray(merged.items)
-    ) {
-      merged.items = await ensureOrderItemsHaveFiscalSnapshots(merged.items, merged.nfeData);
+      Array.isArray(merged.items);
+
+    if (!options.metadataOnly && !isStatusOnlyUpdate) {
+      const sanitizedOrder = removeNonStockItemLinks(merged as Order);
+      if (shouldEnsureFiscalSnapshots) {
+        const [orderWithCustomerSnapshot, itemsWithFiscalSnapshots] = await Promise.all([
+          resolveOrderCustomerSnapshot(sanitizedOrder),
+          ensureOrderItemsHaveFiscalSnapshots(
+            sanitizedOrder.items || [],
+            sanitizedOrder.nfeData
+          ),
+        ]);
+        merged = { ...orderWithCustomerSnapshot, items: itemsWithFiscalSnapshots };
+      } else {
+        merged = await resolveOrderCustomerSnapshot(sanitizedOrder);
+      }
     }
     if (merged.id) delete merged.id;
 
@@ -218,8 +227,33 @@ export const executeUpdateOrder = async (
     }
 
     const updatePayload: Record<string, unknown> = buildOrderPersistencePayload(merged);
+    if (options.metadataOnly) {
+      // Fiscal drafts must not persist normalized customer/address/item values
+      // over unrelated fields of the original commercial snapshot.
+      if (!persistedOrderDataSnapshot) {
+        const original = await withTimeout(
+          supabase.from(TABLE_NAME).select('order_data').eq('id', id).maybeSingle(),
+          15_000, null, 'pedido:conferir-snapshot-metadados'
+        );
+        if (original && !original.error && original.data?.order_data
+          && typeof original.data.order_data === 'object' && !Array.isArray(original.data.order_data)) {
+          persistedOrderDataSnapshot = original.data.order_data as Record<string, unknown>;
+        }
+      }
+      if (!persistedOrderDataSnapshot) {
+        throw new Error('Não foi possível conferir o snapshot original do pedido. Reabra a preparação fiscal antes de salvar.');
+      }
+      updatePayload.order_data = { ...persistedOrderDataSnapshot, ...cleanUpdates };
+      if (!Object.hasOwn(cleanUpdates, 'items') && Array.isArray(persistedOrderDataSnapshot.items)) {
+        merged.items = persistedOrderDataSnapshot.items;
+        updatePayload.items = persistedOrderDataSnapshot.items;
+      }
+      if (!Object.hasOwn(cleanUpdates, 'payments') && Array.isArray(persistedOrderDataSnapshot.payments)) {
+        merged.payments = persistedOrderDataSnapshot.payments;
+      }
+    }
     if (isStatusOnlyUpdate) {
-      updatePayload.order_data = await resolveStatusOnlyOrderDataSnapshot(
+      const statusSnapshot = await resolveStatusOnlyOrderDataSnapshot(
         id,
         currentOrder,
         merged,
@@ -234,6 +268,14 @@ export const executeUpdateOrder = async (
           if (parsed.data.orderId !== id || parsed.data.returnMethod !== (currentOrder?.returnMethod ?? 'store_collection')) throw new Error('A devolução comercial mudou. Reabra a confirmação.');
         } : undefined,
       );
+      updatePayload.order_data = statusSnapshot;
+      if (Array.isArray(statusSnapshot.items)) {
+        merged.items = statusSnapshot.items;
+        updatePayload.items = statusSnapshot.items;
+      }
+      if (Array.isArray(statusSnapshot.payments)) {
+        merged.payments = statusSnapshot.payments;
+      }
     }
 
     const { rpcName, rpcArguments } = buildUpdateOrderRpcCall(

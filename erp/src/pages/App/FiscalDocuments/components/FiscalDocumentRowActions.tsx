@@ -172,8 +172,10 @@ export const FiscalDocumentRowActions: React.FC<FiscalDocumentRowActionsProps> =
       )}
 
       {canOperateFiscal &&
-        fiscalDocument.order_id &&
-        fiscalDocument.document_type === 'outbound' &&
+        (fiscalDocument.document_type === 'outbound'
+          ? Boolean(fiscalDocument.order_id)
+          : ['return', 'estorno'].includes(String(fiscalDocument.document_type)) &&
+            fiscalDocument.modelo === '55' && cancellationEligibility?.action === 'cancel') &&
         cancellationEligibility?.canProceed && (
           <button
             type="button"
@@ -186,7 +188,7 @@ export const FiscalDocumentRowActions: React.FC<FiscalDocumentRowActionsProps> =
             }`}
           >
             {cancellationEligibility.action === 'cancel'
-              ? 'Cancelar NF-e'
+              ? 'Cancelamento fiscal da NF-e'
               : 'Aplicar política fiscal (estorno)'}
           </button>
         )}

@@ -1,7 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import Order from '../../../types/order.type';
 import Item from '../../../types/items.type';
-import { getOrderItemsMovementList } from './inventoryBadgeContent';
+import { getInventoryBadgeContent, getOrderItemsMovementList } from './inventoryBadgeContent';
+
+describe('estoque no pedido cancelado', () => {
+  it.each([false, true])('mostra ausência de movimento ativo sem inventar reversão histórica (%s)', isReturn => {
+    const content = getInventoryBadgeContent({ isReturn, hasMovement: false, isCancelled: true, isPartialMovement: false });
+    expect(content.title).toContain(isReturn ? 'Sem entrada' : 'Sem saída');
+    expect(content.title).toContain('cancelada');
+    expect(content.title).not.toMatch(/ainda|estornada/);
+  });
+  it('preserva a indicação de movimento ativo ou reversão comprovada', () => {
+    const state = { isReturn: false, isCancelled: true, isPartialMovement: false };
+    expect(getInventoryBadgeContent({ ...state, hasMovement: true }).title).toBe('Saída de estoque registrada pela venda');
+    expect(getInventoryBadgeContent({ ...state, hasMovement: false, isReversed: true }).title).toBe('Saída de estoque estornada');
+    expect(getInventoryBadgeContent({ ...state, isCancelled: false, hasMovement: false }).title).toBe('Saída de estoque ainda não registrada');
+  });
+});
 
 describe('getOrderItemsMovementList', () => {
   const itemCadastrado: Item = {

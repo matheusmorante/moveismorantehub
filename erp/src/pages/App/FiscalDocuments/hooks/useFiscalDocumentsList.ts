@@ -115,6 +115,11 @@ export function useFiscalDocumentsList(canViewFiscal: boolean) {
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (!canViewFiscal) return;
+    if (pageIndex === 0 && search === searchInput) {
+      void fiscalDocumentsQuery.refetch();
+      return;
+    }
     setPageIndex(0);
     setSearch(searchInput);
   };

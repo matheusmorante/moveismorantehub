@@ -15,6 +15,15 @@ import { originalItemCfop } from '../../erp/src/pages/utils/nfe/fiscalCfopResolu
 export const MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE =
   'Não é possível emitir NF-e de devolução porque este pedido não possui NF-e de saída autorizada.';
 
+export function getReturnIssuerSettings(value: unknown): Record<string, unknown> {
+  const root = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const settings = root.data && typeof root.data === 'object'
+    ? root.data as Record<string, unknown> : root;
+  const legacy = settings.fiscalDefaults && typeof settings.fiscalDefaults === 'object'
+    ? settings.fiscalDefaults as Record<string, unknown> : {};
+  return { ...legacy, ...settings };
+}
+
 export interface OriginalOutboundNfeProof {
   id: string;
   order_id: string | null;
@@ -122,12 +131,11 @@ export function validateAuthorizedOutboundNfe(
   expectedEnvironment?: 1 | 2,
   options: { allowNfceSource?: boolean } = {}
 ): string | null {
-  const allowedSourceModels = options.allowNfceSource ? ['55', '65'] : ['55'];
   if (
     !source ||
     source.document_type !== 'outbound' ||
     source.order_id !== linkedSaleOrderId ||
-    !allowedSourceModels.includes(String(source.modelo)) ||
+    !['55', '65'].includes(String(source.modelo)) ||
     ![1, 2].includes(Number(source.ambiente)) ||
     (expectedEnvironment !== undefined && Number(source.ambiente) !== expectedEnvironment) ||
     source.status !== (Number(source.ambiente) === 1 ? 'autorizada' : 'homologada') ||
@@ -170,6 +178,9 @@ export function validateAuthorizedOutboundNfe(
     return MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE;
   }
 
+  if (String(source.modelo) === '65' && !options.allowNfceSource) {
+    return 'A emissão de NF-e de devolução com origem em NFC-e modelo 65 ainda não é suportada pelo MoranteHub. A devolução comercial pode ser registrada; a correção fiscal exige revisão.';
+  }
   return null;
 }
 
@@ -256,15 +267,10 @@ export async function loadReturnFiscalSourceContext(
   );
   if (authorizationError) return { error: authorizationError };
 
-  const settingsData = settings?.data && typeof settings.data === 'object'
-    ? (settings.data as Record<string, unknown>)
-    : {};
-  const fiscalDefaults = settingsData.fiscalDefaults && typeof settingsData.fiscalDefaults === 'object'
-    ? (settingsData.fiscalDefaults as Record<string, unknown>)
-    : settingsData;
-  const companyUf = String(fiscalDefaults.companyUF || '');
-  const companyCnpj = normalizeFiscalIdentifier(String(fiscalDefaults.companyCnpj || ''));
-  const taxRegime = String(fiscalDefaults.companyCRT || '');
+  const issuerSettings = getReturnIssuerSettings(settings);
+  const companyUf = String(issuerSettings.companyUF || '');
+  const companyCnpj = normalizeFiscalIdentifier(String(issuerSettings.companyCnpj || ''));
+  const taxRegime = String(issuerSettings.companyCRT || '');
   if (companyCnpj.length !== 14) {
     return { error: 'CNPJ do estabelecimento ausente na configuração fiscal do servidor.' };
   }

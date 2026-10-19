@@ -140,6 +140,12 @@ export function serializeFiscalDocument(
   )
     throw new Error('Condição de contribuinte do destinatário incompleta.');
   const effectivePresence = operation.presence;
+  // NT 2020.006 (B25c): NF-e 55 não presencial (indPres 2, 3, 4 ou 9) exige indIntermed.
+  // O ERP só vende em canal próprio, portanto 0 = operação sem intermediador.
+  const intermediaryIndicator =
+    document.model === '55' && ['2', '3', '4', '9'].includes(effectivePresence)
+      ? tag('indIntermed', '0')
+      : '';
   const ide =
     `<ide>${tag('cUF', '41')}${tag('cNF', key.slice(35, 43))}` +
     `${tag('natOp', operation.natureOfOperation)}${tag('mod', document.model)}` +
@@ -149,6 +155,7 @@ export function serializeFiscalDocument(
     `${tag('tpImp', document.model === '65' ? '4' : '1')}${tag('tpEmis', '1')}${tag('cDV', key[43])}` +
     `${tag('tpAmb', document.environment)}${tag('finNFe', operation.purpose)}` +
     `${tag('indFinal', operation.finalConsumer)}${tag('indPres', effectivePresence)}` +
+    `${intermediaryIndicator}` +
     `${tag('procEmi', '0')}${tag('verProc', 'MoranteHub_1.0')}</ide>`;
   const issuer =
     `<emit>${tag('CNPJ', document.issuer.cnpj)}` +

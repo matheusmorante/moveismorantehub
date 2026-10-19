@@ -6,6 +6,7 @@ import Order from '@/pages/types/order.type';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
 import SalesOrderFormSection from '../components/SalesOrderFormSection';
+import OrderSavingOverlay from '../components/OrderSavingOverlay';
 import SellerSearchModal from '../modals/SellerSearchModal';
 import { NewSaleOrderHeader } from './NewSaleOrderHeader';
 import {
@@ -177,21 +178,7 @@ const NewSaleOrder = ({
         className="relative bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {form.state.isSaving && (
-          <div
-            className="absolute inset-0 z-[120] flex flex-col items-center justify-center gap-3 bg-slate-950/30 backdrop-blur-[1px]"
-            aria-live="polite"
-            aria-busy="true"
-          >
-            <div className="flex items-center gap-3 rounded-2xl bg-white px-5 py-4 text-sm font-black text-slate-800 shadow-2xl dark:bg-slate-900 dark:text-white">
-              <i className="bi bi-arrow-repeat animate-spin text-lg text-emerald-600" />
-              Salvando pedido com segurança…
-            </div>
-            <span className="text-xs font-bold text-white">
-              O formulário permanecerá aberto até a confirmação.
-            </span>
-          </div>
-        )}
+        {form.state.isSaving && <OrderSavingOverlay />}
 
         <NewSaleOrderHeader
           isScrolled={isScrolled}

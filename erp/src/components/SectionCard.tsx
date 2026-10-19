@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface SectionCardProps {
-  icon: string;
+  icon: string | React.ReactNode;
   iconBg: string;
   title: string;
   subtitle?: string;
@@ -31,9 +31,11 @@ const SectionCard = ({
         <div
           className={`${compactHeader ? 'w-7 h-7 sm:w-8 sm:h-8 rounded-xl' : 'w-10 h-10 sm:w-11 sm:h-11 rounded-[1rem]'} ${iconBg} flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-500 shrink-0`}
         >
-          <i
-            className={`${icon} text-white ${compactHeader ? 'text-xs sm:text-sm' : 'text-lg sm:text-xl'}`}
-          />
+          {typeof icon === 'string' ? (
+            <i className={`${icon} text-white ${compactHeader ? 'text-xs sm:text-sm' : 'text-lg sm:text-xl'}`} />
+          ) : (
+            icon
+          )}
         </div>
         <div>
           <h3

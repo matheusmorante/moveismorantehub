@@ -2,6 +2,7 @@ import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
+import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers.js';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -36,7 +37,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     )
     .eq('id', documentId)
     .maybeSingle();
+  if (documentError)
+    return res.status(503).json({ success: false, error: 'Não foi possível carregar os detalhes fiscais.' });
   let fiscalDoc: any = document;
+  let sourceDocument: any = undefined;
   let operationDrafts: any[] = [];
   let events: any[] = [];
 
@@ -56,59 +60,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ success: false, error: 'Documento fiscal não encontrado.' });
 
     if (draft.document_id) {
-      const { data: issuedDoc } = await db
+      const { data: issuedDoc, error: issuedDocError } = await db
         .from('nfe_documents')
         .select(
           'id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,motivo_status,numero_protocolo,xml_nfe,xml_protocolo,valor_total,destinatario_nome,destinatario_documento,created_at,updated_at,document_type'
         )
         .eq('id', draft.document_id)
         .maybeSingle();
-      if (issuedDoc) {
-        fiscalDoc = issuedDoc;
-      }
+      if (issuedDocError || !issuedDoc)
+        return res.status(503).json({ success: false, error: 'Não foi possível conferir o documento fiscal vinculado ao rascunho.' });
+      fiscalDoc = issuedDoc;
     }
 
     if (!fiscalDoc) {
       let originalDoc: any = null;
       if (draft.original_document_id) {
-        const { data: orig } = await db
+        const { data: orig, error: originalError } = await db
           .from('nfe_documents')
           .select('*')
           .eq('id', draft.original_document_id)
           .maybeSingle();
+        if (originalError || !orig)
+          return res.status(503).json({ success: false, error: 'Não foi possível conferir o documento fiscal de origem.' });
         originalDoc = orig;
       }
 
       const draftStatus = String(draft.status || '').toLowerCase();
-      const isAuthorized = draftStatus === 'authorized';
-      const status = isAuthorized
-        ? (draft.environment === 2 ? 'homologada' : 'autorizada')
-        : draftStatus === 'ready'
-        ? 'preparada'
-        : draftStatus === 'rejected'
+      if (draftStatus === 'authorized')
+        return res.status(503).json({ success: false, error: 'A autorização fiscal precisa ser reconciliada com o documento emitido.' });
+      const status = draftStatus === 'rejected'
         ? 'rejeitada'
+        : draftStatus === 'cancelled'
+        ? 'cancelada'
         : 'pendente';
+      const accessKey = typeof draft.access_key === 'string' && ACCESS_KEY_PATTERN.test(draft.access_key)
+        ? draft.access_key : '';
+      if (originalDoc) sourceDocument = {
+        id: originalDoc.id, order_id: originalDoc.order_id, modelo: originalDoc.modelo,
+        ambiente: originalDoc.ambiente, numero_nfe: originalDoc.numero_nfe,
+        serie: originalDoc.serie, chave_acesso: originalDoc.chave_acesso,
+      };
 
       fiscalDoc = {
         id: draft.id,
         order_id: originalDoc?.order_id || null,
-        numero_nfe: originalDoc?.numero_nfe || 0,
-        serie: '1',
-        chave_acesso:
-          draft.access_key ||
-          (draft.original_access_key
-            ? `ESTORNO-${draft.original_access_key}`
-            : originalDoc?.chave_acesso
-            ? `ESTORNO-${originalDoc.chave_acesso}`
-            : ''),
+        numero_nfe: accessKey ? Number(accessKey.slice(25, 34)) : 0,
+        serie: accessKey ? String(Number(accessKey.slice(22, 25))) : '',
+        chave_acesso: accessKey,
         modelo: '55',
         ambiente: draft.environment === 1 ? 1 : 2,
         status,
         motivo_status:
           draft.reason || 'Nota Fiscal de Estorno (Modelo 55) preparada para regularização',
         numero_protocolo: draft.protocol_number || null,
-        xml_nfe: draft.signed_xml || draft.generated_xml || originalDoc?.xml_nfe || null,
-        xml_protocolo: draft.sefaz_response_xml || originalDoc?.xml_protocolo || null,
+        xml_nfe: draft.signed_xml || draft.generated_xml || null,
+        xml_protocolo: draft.sefaz_response_xml || null,
         valor_total: originalDoc?.valor_total || 0,
         destinatario_nome: originalDoc?.destinatario_nome || 'Consumidor',
         destinatario_documento: originalDoc?.destinatario_documento || null,
@@ -127,6 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         reason: draft.reason,
         created_at: draft.created_at,
         updated_at: draft.updated_at,
+        sourceDocument,
       },
     ];
 

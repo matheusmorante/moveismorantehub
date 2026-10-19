@@ -4,15 +4,17 @@ import { orderListFormSchema } from '../../../../../shared-utils/listingFormSche
 import { Alert } from 'react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { OrderRepository } from '../../../repositories/OrderRepository';
+import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import {
   fetchMobileOrderFiscalBadgeStatuses,
   fetchMobileOrdersPage,
-  MobileOrderListItem,
 } from '../services/mobileOrderListService';
+import type { MobileOrderListItem } from '../services/mobileOrderListService';
+import type { MobileOrderType } from '../domain/types';
 
 const ITEMS_PER_PAGE = 15;
 
-export function useMobileOrders() {
+export function useMobileOrders(orderType: MobileOrderType = 'sale') {
   const [orders, setOrders] = useState<MobileOrderListItem[]>([]);
   const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,9 +37,11 @@ export function useMobileOrders() {
           try {
             const cached = (await OrderRepository.list()).filter(
               (order) =>
-                order.orderType !== 'budget' &&
-                order.orderData?.orderType !== 'budget' &&
-                order.orderData?.order_type !== 'budget'
+                (order.orderType ||
+                  order.orderData?.orderType ||
+                  order.orderData?.order_type ||
+                  'sale') === orderType &&
+                !isIdentifiedTestArtifact(order.orderData)
             );
             if (cached.length > 0) {
               const localItems = cached.map((order) => {
@@ -82,6 +86,7 @@ export function useMobileOrders() {
             pageSize: ITEMS_PER_PAGE,
             search: values.search,
             status: values.status,
+            orderType,
           }),
           supabase.from('settings').select('*').limit(1),
         ]);
@@ -141,7 +146,7 @@ export function useMobileOrders() {
         setRefreshing(false);
       }
     },
-    [currentPage, searchTerm, statusFilter, validateList]
+    [currentPage, orderType, searchTerm, statusFilter, validateList]
   );
 
   useEffect(() => {

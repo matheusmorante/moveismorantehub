@@ -89,7 +89,7 @@ var supabaseUrl = getSupabaseUrl();
 var serviceKey = getSupabaseSecretKey() || "";
 var anonKey = getSupabaseAnonKey();
 var orderIdPattern = /^[A-Za-z0-9_-]{1,100}$/;
-var documentSelect = "id,order_id,status,document_type,ambiente,created_at,numero_nfe,serie,modelo,valor_total";
+var documentSelect = "id,order_id,related_return_order_id,status,document_type,ambiente,created_at,numero_nfe,serie,modelo,valor_total";
 async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "OPTIONS,POST");
@@ -129,9 +129,13 @@ async function handler(req, res) {
     returnOrdersById.set(String(row.id), row);
   const returnOrders = Array.from(returnOrdersById.values());
   const scopedOrderIds = [.../* @__PURE__ */ new Set([...orderIds, ...returnOrders.map((order) => String(order.id))])];
-  const { data: documents, error: documentsError } = await userDb.from("nfe_documents").select(documentSelect).in("order_id", scopedOrderIds);
+  const { data: directDocuments, error: documentsError } = await userDb.from("nfe_documents").select(documentSelect).in("order_id", scopedOrderIds);
   if (documentsError)
     return res.status(503).json({ error: "N\xE3o foi poss\xEDvel consultar os documentos fiscais." });
+  const { data: relatedDocuments, error: relatedDocumentsError } = await userDb.from("nfe_documents").select(documentSelect).in("related_return_order_id", scopedOrderIds);
+  if (relatedDocumentsError)
+    return res.status(503).json({ error: "N\xE3o foi poss\xEDvel consultar as notas das devolu\xE7\xF5es." });
+  const documents = [...new Map([...directDocuments || [], ...relatedDocuments || []].map((document) => [document.id, document])).values()];
   const returnDocumentIds = [
     ...new Set(
       (documents || []).filter((document) => document.document_type === "return" && document.id).map((document) => String(document.id))
@@ -164,10 +168,11 @@ async function handler(req, res) {
   }
   const returnOrderById = new Map(returnOrders.map((order) => [String(order.id), order]));
   const compactDocuments = (documents || []).map((document) => {
-    const returnOrder = returnOrderById.get(String(document.order_id || ""));
+    const returnOrderId = document.document_type === "return" ? document.related_return_order_id || document.order_id : document.order_id;
+    const returnOrder = returnOrderById.get(String(returnOrderId || ""));
     return {
       id: document.id,
-      order_id: document.order_id,
+      order_id: returnOrderId,
       status: document.status,
       document_type: document.document_type,
       ambiente: document.ambiente,
@@ -178,7 +183,7 @@ async function handler(req, res) {
       valor_total: document.valor_total,
       issuedAt: document.id && document.document_type === "return" ? getAuthorizedAt(authorizationXmlByDocumentId.get(String(document.id)) || "", "") || null : null,
       ...document.document_type === "return" ? {
-        returnOrderCode: returnOrder?.order_index || returnOrder?.id || document.order_id || null,
+        returnOrderCode: returnOrder?.order_index || returnOrder?.id || returnOrderId || null,
         itemQuantity: document.id ? itemQuantityByDocumentId.get(String(document.id)) : void 0
       } : {}
     };

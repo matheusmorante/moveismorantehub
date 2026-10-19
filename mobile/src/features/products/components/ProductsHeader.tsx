@@ -43,14 +43,10 @@ interface Props {
   categoryFilter: string;
   catalogStatusFilter: 'all' | 'published' | 'hidden';
   generalTypeFilter?: 'all' | 'product' | 'service';
-  showTestProducts?: boolean;
-  hasTestProducts?: boolean;
-  canToggleTestProducts?: boolean;
   onStatusFilterChange: (value: 'all' | 'active' | 'disabled' | 'draft') => void;
   onCategoryFilterChange: (value: string) => void;
   onCatalogStatusFilterChange: (value: 'all' | 'published' | 'hidden') => void;
   onGeneralTypeFilterChange?: (value: 'all' | 'product' | 'service') => void;
-  onToggleTestProducts?: () => void;
 }
 
 /**
@@ -82,14 +78,10 @@ export function ProductsHeader({
   categoryFilter,
   catalogStatusFilter,
   generalTypeFilter = 'all',
-  showTestProducts = false,
-  hasTestProducts = false,
-  canToggleTestProducts = false,
   onStatusFilterChange,
   onCategoryFilterChange,
   onCatalogStatusFilterChange,
   onGeneralTypeFilterChange,
-  onToggleTestProducts,
 }: Props) {
   const [showMenu, setShowMenu] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -201,10 +193,6 @@ export function ProductsHeader({
         onStatusFilterChange={onStatusFilterChange}
         generalTypeFilter={generalTypeFilter}
         onGeneralTypeFilterChange={onGeneralTypeFilterChange}
-        canToggleTestProducts={canToggleTestProducts}
-        hasTestProducts={hasTestProducts}
-        showTestProducts={showTestProducts}
-        onToggleTestProducts={onToggleTestProducts}
         showMergedProducts={showMergedProducts}
         onToggleMergedProducts={onToggleMergedProducts}
         catalogStatusFilter={catalogStatusFilter}

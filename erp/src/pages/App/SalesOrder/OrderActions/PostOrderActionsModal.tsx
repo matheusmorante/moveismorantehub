@@ -13,6 +13,7 @@ import type { OrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBad
 import { getAvailablePostOrderActions } from './postOrderActionsHelpers';
 import { PostOrderActionGridButton } from './components/PostOrderActionGridButton';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import PickupIcon from '@/components/shared/PickupIcon';
 
 interface PostOrderActionsModalProps {
   readonly order: Order;
@@ -193,9 +194,13 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                 type="button"
                 title={deliveryModalLabel}
                 onClick={() => setIsDeliveryModalOpen(true)}
-                className="flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all relative min-h-[100px] text-orange-600 bg-orange-50 dark:bg-orange-900/20 hover:-translate-y-1 hover:shadow-lg"
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all relative min-h-[100px] hover:-translate-y-1 hover:shadow-lg ${isPickupOrder ? 'text-purple-600 bg-purple-50 dark:bg-purple-900/20' : 'text-orange-600 bg-orange-50 dark:bg-orange-900/20'}`}
               >
-                <i className={`bi ${isPickupOrder ? 'bi-shop' : 'bi-truck'} text-2xl mb-2`}></i>
+                {isPickupOrder ? (
+                  <PickupIcon className="mb-2 h-7 w-7" />
+                ) : (
+                  <i className="bi bi-truck mb-2 text-2xl" />
+                )}
                 <span className="text-[10px] font-black uppercase tracking-widest text-center">
                   {deliveryModalLabel}
                 </span>

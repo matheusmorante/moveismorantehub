@@ -1,4 +1,6 @@
 import React from 'react';
+import ReturnIcon from '@/components/shared/ReturnIcon';
+import PickupIcon from '@/components/shared/PickupIcon';
 import Order from '../../../types/order.type';
 import {
   stringifyFullAddressWithObservation,
@@ -209,17 +211,13 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
             {/* Selo Primário (Entrega / Retirada / Assistência / Devolução) */}
             {(!isAssembly || (!isAssemblyOutside && !isOnlyInternalAssembly)) && (
               <div
-                className={`flex h-6 w-6 items-center justify-center rounded-md text-white border border-white/20 shadow-2xs ${
+                className={`flex h-6 w-6 items-center justify-center ${order.orderType === 'return' ? '' : `rounded-md text-white border border-white/20 shadow-2xs ${
                   isAssistance
                     ? 'bg-orange-500 border-orange-600'
                     : isPickup
                       ? 'bg-purple-600 border-purple-700'
-                      : (
-                          order.orderType === 'return'
-                            ? 'bg-amber-500 border-amber-600'
-                            : 'bg-emerald-600 border-emerald-700'
-                        )
-                }`}
+                      : 'bg-emerald-600 border-emerald-700'
+                }`}`}
                 title={
                   isAssistance
                     ? 'Assistência Técnica'
@@ -230,9 +228,17 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                         : 'Entrega'
                 }
               >
-                <i
-                  className={`bi ${isAssistance ? 'bi-tools' : isPickup ? 'bi-shop' : (order.orderType === 'return' ? 'bi-arrow-return-left' : 'bi-truck')} text-[11px] text-white`}
-                />
+                {order.orderType === 'return' ? (
+                  <ReturnIcon className="h-6 w-6" />
+                ) : (
+              isAssistance ? (
+                <i className="bi bi-tools text-[11px] text-white" />
+              ) : isPickup ? (
+                <PickupIcon white className="h-3.5 w-3.5" />
+              ) : (
+                <i className="bi bi-truck text-[11px] text-white" />
+              )
+                )}
               </div>
             )}
 

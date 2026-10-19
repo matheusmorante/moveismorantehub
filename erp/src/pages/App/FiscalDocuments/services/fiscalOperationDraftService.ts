@@ -299,9 +299,11 @@ function parseReturnFiscalEligibility(payload: Record<string, unknown>): ReturnF
 }
 
 export async function fetchReturnFiscalEligibility(
-  returnOrderId: string
+  returnOrderId: string,
+  options: { reviewCancelled?: boolean } = {}
 ): Promise<ReturnFiscalEligibility> {
-  const path = '/api/nfe/return-fiscal-eligibility?returnOrderId=' + encodeURIComponent(returnOrderId);
+  const path = '/api/nfe/return-fiscal-eligibility?returnOrderId=' + encodeURIComponent(returnOrderId) +
+    (options.reviewCancelled ? '&reviewCancelled=true' : '');
   return requestFiscalApi(path, 'GET', undefined, parseReturnFiscalEligibility);
 }
 

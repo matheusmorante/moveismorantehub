@@ -112,6 +112,23 @@ export const OrderMenuActiveActions: React.FC<OrderMenuActiveActionsProps> = ({
         </button>
       )}
 
+      {order.id && order.orderType === 'return' && order.status === 'scheduled' &&
+        order.returnMethod === 'store_collection' && !order.deleted && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onStatusUpdate(order.id!, 'fulfilled');
+            onCloseMenu();
+          }}
+          className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-emerald-600 transition-all hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+          title="Conferir o recebimento físico dos itens antes de concluir a coleta"
+        >
+          <i className="bi bi-check-circle-fill text-lg" />
+          <span className="text-xs font-black uppercase tracking-widest">Confirmar coleta</span>
+        </button>
+      )}
+
       <PostSaleActionMenuButton
         order={order}
         onOpen={onShowPostSaleActions}

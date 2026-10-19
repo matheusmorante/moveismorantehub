@@ -6,6 +6,7 @@ import {
   deleteFinancialTransaction,
 } from '../financial/mobileTransactionCrudService';
 import { supabase } from '../supabaseClient';
+import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
 import { ToolExecutionResponse } from './mobileAgentTypes';
 import {
   getOrderDeliveryDetails,
@@ -132,13 +133,17 @@ export const mobileAgentTools = {
         .select('id, full_name, phone, email, full_address, active')
         .eq('person_type', 'customers')
         .eq('deleted', false)
+        .or(
+          'full_address->testArtifact->>is_test.is.null,full_address->testArtifact->>is_test.neq.true'
+        )
         .or(`full_name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`)
         .order('full_name', { ascending: true })
         .limit(limit);
       if (error) throw error;
+      const visiblePeople = (data || []).filter((person) => !isIdentifiedTestArtifact(person));
       return {
         success: true,
-        data: (data || []).map((person) => ({
+        data: visiblePeople.map((person) => ({
           id: person.id,
           nome: person.full_name,
           telefone: person.phone,
@@ -146,7 +151,7 @@ export const mobileAgentTools = {
           cidade: person.full_address?.city || person.full_address?.cidade || null,
           ativo: person.active,
         })),
-        message: `${data?.length || 0} cliente(s) encontrado(s).`,
+        message: `${visiblePeople.length} cliente(s) encontrado(s).`,
       };
     } catch (error: unknown) {
       return {

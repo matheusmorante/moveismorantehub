@@ -46,6 +46,8 @@ export const FinancialChatInputBar: React.FC<Props> = ({
         <TouchableOpacity
           style={styles.voiceModeBtn}
           onPress={onStartLive}
+          disabled={loading}
+          accessibilityState={{ disabled: loading }}
           accessibilityRole="button"
           accessibilityLabel="Voice Mode"
           accessibilityHint="Iniciar conversa por voz Gemini Live"

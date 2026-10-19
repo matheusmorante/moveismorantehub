@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { formatCurrency } from '@/pages/utils/formatters';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
-import { getAuthorizedAt } from '@/pages/utils/nfe/nfeEventRules';
+import { parseSefazAuthorization } from '@/pages/utils/nfe/sefazResponseParser';
 import type {
   FiscalDocumentDetails,
   NfeDocumentRecord,
@@ -38,9 +38,12 @@ export function IssuedFiscalDocumentSummaryTab({
 
   const document = details?.document || fallbackDocument;
   const general = parsed?.general;
-  const authorizedAt = details
-    ? getAuthorizedAt(details.document.xml_protocolo || '', details.document.created_at)
-    : emissionResult?.protocolDate || fallbackDocument?.created_at || '';
+  const authorization = parseSefazAuthorization(document?.xml_protocolo || '');
+  const authorizedAt = ['100', '150'].includes(authorization.cStat) && authorization.protocolNumber
+    ? authorization.protocolDate || ''
+    : !document?.xml_protocolo && emissionResult?.success && emissionResult.protocolNumber
+      ? emissionResult.protocolDate || ''
+      : '';
 
   const total =
     general?.total || (document?.valor_total !== undefined ? String(document.valor_total) : '');

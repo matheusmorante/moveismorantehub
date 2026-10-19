@@ -105,7 +105,7 @@ const REJECTION_COPY: Record<string, string> = {
   '539': 'O número da nota já foi utilizado em outra emissão com chave de acesso diferente.',
   '591': 'O CSOSN informado não é compatível com o regime fiscal do emitente.',
   '600': 'O CSOSN informado não é permitido para esta operação com Não Contribuinte.',
-  '696': 'Operação interestadual com Não Contribuinte exige indicação de Consumidor Final (Sim).',
+  '696': 'Operação de saída com não contribuinte exige indicação de consumidor final. Revise a finalidade da compra e a situação fiscal do destinatário.',
   '725': 'O CFOP informado não é aceito para esta NFC-e.',
   '777': 'A SEFAZ exige o NCM completo do produto.',
   '778': 'O NCM informado para um dos produtos não existe na tabela aceita pela SEFAZ.',

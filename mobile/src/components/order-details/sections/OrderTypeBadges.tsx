@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Package, RotateCcw, Truck, Wrench } from 'lucide-react-native';
+import { RotateCcw, Truck, Wrench } from 'lucide-react-native';
 import { MobileDrill } from '../../shared/MobileDrill';
+import PickupIcon from '../../shared/PickupIcon';
 
 interface OrderTypeBadgesProps {
   assistance?: boolean;
@@ -37,7 +38,7 @@ export function OrderTypeBadges({
         ) : isReturn ? (
           <RotateCcw size={14} color="#fff" />
         ) : pickup ? (
-          <Package size={14} color="#fff" />
+          <PickupIcon size={14} />
         ) : (
           <Truck size={14} color="#fff" />
         )}

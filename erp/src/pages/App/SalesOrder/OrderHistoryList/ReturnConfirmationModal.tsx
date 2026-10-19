@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import ReturnIcon from '@/components/shared/ReturnIcon';
 
 const returnDraftConfirmationSchema = z.object({
   reviewSecondsLeft: z.number().int().min(0).max(0, 'Aguarde a revisão antes de continuar.'),
@@ -83,9 +84,7 @@ const ReturnConfirmationModal = ({ onCancel, onConfirm }: ReturnConfirmationModa
         aria-labelledby="return-confirmation-title"
         className="relative z-10 w-full max-w-lg rounded-2xl border border-amber-200 bg-white p-6 shadow-2xl dark:border-amber-900/70 dark:bg-slate-900"
       >
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-          <i className="bi bi-arrow-return-left text-xl" />
-        </div>
+        <ReturnIcon className="mb-4 h-6 w-6" />
         <h2
           id="return-confirmation-title"
           className="text-base font-black text-slate-800 dark:text-slate-100"

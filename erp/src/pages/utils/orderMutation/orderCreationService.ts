@@ -36,13 +36,17 @@ export const executeSaveOrder = async (
   }
 
   try {
-    let orderToSave = removeNonStockItemLinks(await resolveOrderCustomerSnapshot(order));
-    orderToSave = {
-      ...orderToSave,
-      items: await ensureOrderItemsHaveFiscalSnapshots(
-        orderToSave.items || [],
-        orderToSave.nfeData
+    const sanitizedOrder = removeNonStockItemLinks(order);
+    const [orderWithCustomerSnapshot, itemsWithFiscalSnapshots] = await Promise.all([
+      resolveOrderCustomerSnapshot(sanitizedOrder),
+      ensureOrderItemsHaveFiscalSnapshots(
+        sanitizedOrder.items || [],
+        sanitizedOrder.nfeData
       ),
+    ]);
+    let orderToSave = {
+      ...orderWithCustomerSnapshot,
+      items: itemsWithFiscalSnapshots,
     };
     orderToSave = applyTestArtifactCreateRules(orderToSave);
     delete orderToSave.id;

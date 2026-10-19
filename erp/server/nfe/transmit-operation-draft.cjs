@@ -1928,6 +1928,12 @@ function embeddedNfeXml(xml) {
 
 // api/nfe/returnFiscalRules.ts
 var MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE = "N\xE3o \xE9 poss\xEDvel emitir NF-e de devolu\xE7\xE3o porque este pedido n\xE3o possui NF-e de sa\xEDda autorizada.";
+function getReturnIssuerSettings(value) {
+  const root = value && typeof value === "object" ? value : {};
+  const settings = root.data && typeof root.data === "object" ? root.data : root;
+  const legacy = settings.fiscalDefaults && typeof settings.fiscalDefaults === "object" ? settings.fiscalDefaults : {};
+  return { ...legacy, ...settings };
+}
 function resolveFiscalReturnMethod(orderData) {
   const persistedMethod = String(orderData.returnMethod || "").trim().toLowerCase();
   if (["client_delivered", "client-delivered", "store_delivery"].includes(persistedMethod))
@@ -1945,8 +1951,7 @@ function readXmlTag(xml, name) {
   return xml.match(new RegExp(`<${prefix}${name}\\b[^>]*>([\\s\\S]*?)<\\/${prefix}${name}>`, "i"))?.[1]?.trim() || "";
 }
 function validateAuthorizedOutboundNfe(source, linkedSaleOrderId, expectedEnvironment, options = {}) {
-  const allowedSourceModels = options.allowNfceSource ? ["55", "65"] : ["55"];
-  if (!source || source.document_type !== "outbound" || source.order_id !== linkedSaleOrderId || !allowedSourceModels.includes(String(source.modelo)) || ![1, 2].includes(Number(source.ambiente)) || expectedEnvironment !== void 0 && Number(source.ambiente) !== expectedEnvironment || source.status !== (Number(source.ambiente) === 1 ? "autorizada" : "homologada") || !ACCESS_KEY_PATTERN.test(source.chave_acesso || "") || source.chave_acesso.slice(20, 22) !== String(source.modelo) || source.chave_acesso.slice(22, 25) !== String(Number(source.serie)).padStart(3, "0") || source.chave_acesso.slice(25, 34) !== String(Number(source.numero_nfe)).padStart(9, "0") || source.chave_acesso.slice(6, 20) === "00000000000000" || calculateMod11CheckDigit(source.chave_acesso.slice(0, 43)) !== Number(source.chave_acesso[43]) || !/^\d{15}$/.test(source.numero_protocolo || "")) {
+  if (!source || source.document_type !== "outbound" || source.order_id !== linkedSaleOrderId || !["55", "65"].includes(String(source.modelo)) || ![1, 2].includes(Number(source.ambiente)) || expectedEnvironment !== void 0 && Number(source.ambiente) !== expectedEnvironment || source.status !== (Number(source.ambiente) === 1 ? "autorizada" : "homologada") || !ACCESS_KEY_PATTERN.test(source.chave_acesso || "") || source.chave_acesso.slice(20, 22) !== String(source.modelo) || source.chave_acesso.slice(22, 25) !== String(Number(source.serie)).padStart(3, "0") || source.chave_acesso.slice(25, 34) !== String(Number(source.numero_nfe)).padStart(9, "0") || source.chave_acesso.slice(6, 20) === "00000000000000" || calculateMod11CheckDigit(source.chave_acesso.slice(0, 43)) !== Number(source.chave_acesso[43]) || !/^\d{15}$/.test(source.numero_protocolo || "")) {
     return MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE;
   }
   const authorizationXml = String(source.xml_protocolo || "");
@@ -1960,6 +1965,9 @@ function validateAuthorizedOutboundNfe(source, linkedSaleOrderId, expectedEnviro
   const ide = xmlBlock(infNfe, "ide");
   if (!infNfe || !new RegExp(`\\bId=["']NFe${source.chave_acesso}["']`, "i").test(infNfe) || readXmlTag(ide, "mod") !== String(source.modelo) || readXmlTag(ide, "tpAmb") !== String(source.ambiente) || readXmlTag(ide, "serie") !== String(Number(source.serie)) || readXmlTag(ide, "nNF") !== String(Number(source.numero_nfe)) || readXmlTag(xmlBlock(invoiceXml, "emit"), "CNPJ") !== source.chave_acesso.slice(6, 20)) {
     return MISSING_AUTHORIZED_ORIGINAL_NFE_MESSAGE;
+  }
+  if (String(source.modelo) === "65" && !options.allowNfceSource) {
+    return "A emiss\xE3o de NF-e de devolu\xE7\xE3o com origem em NFC-e modelo 65 ainda n\xE3o \xE9 suportada pelo MoranteHub. A devolu\xE7\xE3o comercial pode ser registrada; a corre\xE7\xE3o fiscal exige revis\xE3o.";
   }
   return null;
 }
@@ -2016,11 +2024,10 @@ async function loadReturnFiscalSourceContext(db, originalDocumentId, returnOrder
     expectedEnvironment
   );
   if (authorizationError) return { error: authorizationError };
-  const settingsData = settings?.data && typeof settings.data === "object" ? settings.data : {};
-  const fiscalDefaults = settingsData.fiscalDefaults && typeof settingsData.fiscalDefaults === "object" ? settingsData.fiscalDefaults : settingsData;
-  const companyUf = String(fiscalDefaults.companyUF || "");
-  const companyCnpj = normalizeFiscalIdentifier(String(fiscalDefaults.companyCnpj || ""));
-  const taxRegime = String(fiscalDefaults.companyCRT || "");
+  const issuerSettings = getReturnIssuerSettings(settings);
+  const companyUf = String(issuerSettings.companyUF || "");
+  const companyCnpj = normalizeFiscalIdentifier(String(issuerSettings.companyCnpj || ""));
+  const taxRegime = String(issuerSettings.companyCRT || "");
   if (companyCnpj.length !== 14) {
     return { error: "CNPJ do estabelecimento ausente na configura\xE7\xE3o fiscal do servidor." };
   }

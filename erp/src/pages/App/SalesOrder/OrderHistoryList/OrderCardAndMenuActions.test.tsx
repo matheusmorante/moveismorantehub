@@ -23,6 +23,32 @@ describe('OrderCardAndMenuActions', () => {
     items: [],
   } as any;
 
+  it.each(['table', 'card'])('abre a confirmação física pelo menu da coleta agendada (%s)', (layout) => {
+    const order = { ...baseOrder, orderType: 'return', returnMethod: 'store_collection' };
+    const props = { order, onEdit: vi.fn(), onDelete: vi.fn(), onRestore: vi.fn(), onPermanentDelete: vi.fn(), onAction: vi.fn(), onStatusUpdate: vi.fn() };
+    render(layout === 'card' ? <MemoryRouter><OrderHistoryCard {...props} /></MemoryRouter> : <OrderOptionsMenu {...props} />);
+    fireEvent.click(screen.getByTitle('Mais ações e opções de envio'));
+    expect(props.onStatusUpdate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar coleta', exact: true }));
+    expect(props.onStatusUpdate).toHaveBeenCalledTimes(1);
+    expect(props.onStatusUpdate).toHaveBeenCalledWith(order.id, 'fulfilled');
+    expect(props.onAction).not.toHaveBeenCalled();
+    expect(document.querySelector('.portal-menu-container')).toBeNull();
+  });
+
+  it.each([
+    { status: 'fulfilled', orderType: 'return', returnMethod: 'store_collection' },
+    { status: 'cancelled', orderType: 'return', returnMethod: 'store_collection' },
+    { status: 'draft', orderType: 'return', returnMethod: 'store_collection' },
+    { status: 'scheduled', orderType: 'return', returnMethod: 'store_delivery' },
+    { status: 'scheduled', orderType: 'return', returnMethod: undefined },
+    { status: 'scheduled', orderType: 'sale', returnMethod: 'store_collection' },
+  ])('não oferece nova confirmação fora da coleta agendada: %j', (state) => {
+    render(<OrderOptionsMenu order={{ ...baseOrder, ...state }} onEdit={vi.fn()} onDelete={vi.fn()} onRestore={vi.fn()} onPermanentDelete={vi.fn()} onAction={vi.fn()} onStatusUpdate={vi.fn()} />);
+    fireEvent.click(screen.getByTitle(state.status === 'cancelled' ? 'Mais opções (Duplicar pedido)' : 'Mais ações e opções de envio'));
+    expect(screen.queryByRole('button', { name: 'Confirmar coleta', exact: true })).toBeNull();
+  });
+
   it('oculta o botão de edição dentro do menu de três pontinhos quando hideEditAction=true', () => {
     render(
       <OrderOptionsMenu
@@ -41,6 +67,17 @@ describe('OrderCardAndMenuActions', () => {
     fireEvent.click(menuButton);
 
     expect(screen.queryByText('Editar Venda')).toBeNull();
+  });
+
+  it('fecha o menu após mudança de status e permite reabrir as opções do pedido cancelado', () => {
+    const props = { order: baseOrder, onEdit: vi.fn(), onDelete: vi.fn(), onRestore: vi.fn(), onPermanentDelete: vi.fn(), onAction: vi.fn(), onStatusUpdate: vi.fn() };
+    const view = render(<OrderOptionsMenu {...props} />);
+    fireEvent.click(screen.getByTitle('Mais ações e opções de envio'));
+    expect(document.querySelector('.portal-menu-container')).toBeTruthy();
+    view.rerender(<OrderOptionsMenu {...props} order={{ ...baseOrder, status: 'cancelled' }} />);
+    expect(document.querySelector('.portal-menu-container')).toBeNull();
+    fireEvent.click(screen.getByTitle('Mais opções (Duplicar pedido)'));
+    expect(screen.getByText('Duplicar Pedido')).toBeTruthy();
   });
 
   it('exibe o botão de edição dentro do menu de três pontinhos quando hideEditAction é falso ou omitido (tabela)', () => {

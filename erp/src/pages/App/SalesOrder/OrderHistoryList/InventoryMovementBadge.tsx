@@ -32,9 +32,6 @@ const InventoryMovementBadge = ({
 
   const resolvedOrderType = orderType || order?.orderType;
   const isReturn = resolvedOrderType === 'return';
-  const linkedReturnKind = !isReturn && order?.returnOrderId ? order.returnKind : undefined;
-  const hasPartialReturn = linkedReturnKind === 'partial';
-  const hasFullReturn = linkedReturnKind === 'complete';
   const isPartialMovement = order
     ? isPartialSaleStockMovement(order, order.movedProductIds)
     : (isPartial ?? false);
@@ -43,29 +40,10 @@ const InventoryMovementBadge = ({
     isReturn,
     hasMovement,
     isReversed,
+    isCancelled: ['cancelled', 'cancelado'].includes(String(order?.status || '').toLowerCase()),
     isPartialMovement,
   });
-  const content = hasFullReturn
-    ? {
-        ...baseContent,
-        title: 'Saída devolvida integralmente',
-        explanation:
-          'Este pedido possui uma devolução total vinculada. Confira abaixo o estado real de movimentação de cada item.',
-        statusLabel: 'Devolução Total',
-        statusTextColor: 'text-red-600 dark:text-red-400',
-        badgeColorClass: 'border-red-700 bg-red-600 text-white hover:bg-red-700',
-      }
-    : hasPartialReturn
-      ? {
-          ...baseContent,
-          title: 'Saída devolvida parcialmente',
-          explanation:
-            'Este pedido possui uma devolução parcial vinculada. Confira abaixo o estado real de movimentação de cada item.',
-          statusLabel: 'Devolução Parcial',
-          statusTextColor: 'text-amber-600 dark:text-amber-400',
-          badgeColorClass: 'border-amber-600 bg-amber-500 text-white hover:bg-amber-600',
-        }
-      : baseContent;
+  const content = baseContent;
 
   const updatePosition = useCallback(() => {
     if (!buttonRef.current) return;
@@ -172,8 +150,6 @@ const InventoryMovementBadge = ({
           isReturn={isReturn}
           hasMovement={hasMovement}
           isReversed={isReversed}
-          isPartialReturn={hasPartialReturn}
-          isFullReturn={hasFullReturn}
           order={order}
           onClose={() => setIsOpen(false)}
           onMouseEnter={() => {

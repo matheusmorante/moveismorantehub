@@ -100,6 +100,7 @@ export function validateNormalSaleRecipientRequirements(params: {
   personType?: 'PF' | 'PJ';
   ieIndicator: string;
   recipientIe: string;
+  finalConsumer: boolean;
   facts: FiscalSnapshotCandidate;
   shippingData: Record<string, any>;
   operationDestination?: string | null;
@@ -111,6 +112,7 @@ export function validateNormalSaleRecipientRequirements(params: {
     personType,
     ieIndicator,
     recipientIe,
+    finalConsumer,
     facts,
     shippingData,
     operationDestination,
@@ -138,7 +140,9 @@ export function validateNormalSaleRecipientRequirements(params: {
     throw new Error(`CPF/CNPJ do destinatário inválido para o tipo ${personType}.`);
   }
 
-  const ieConsistencyError = getRecipientIeIndicatorConsistencyError(ieIndicator, recipientIe);
+  const ieConsistencyError = getRecipientIeIndicatorConsistencyError(
+    ieIndicator, recipientIe, model === '55' ? finalConsumer : undefined
+  );
   if (ieConsistencyError) {
     throw new Error(ieConsistencyError);
   }

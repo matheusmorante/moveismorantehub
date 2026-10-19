@@ -37,6 +37,7 @@ export default function NfeOperationDraftModal({
     error,
     notice,
     retryAllowed,
+    refreshRequired,
     prepareDraft,
     updateLineCfop,
     updateReview,
@@ -156,6 +157,7 @@ export default function NfeOperationDraftModal({
               disabled={
                 savingReview ||
                 transmitting ||
+                refreshRequired ||
                 payload.draft.status === 'transmitting' ||
                 payload.draft.status === 'unknown' ||
                 payload.draft.status === 'authorized'
@@ -170,13 +172,15 @@ export default function NfeOperationDraftModal({
               disabled={
                 transmitting ||
                 savingReview ||
-                (isProduction && !productionConfirmed && (payload.draft.status === 'ready' || retryAllowed)) ||
+                (!refreshRequired && isProduction && !productionConfirmed && (payload.draft.status === 'ready' || retryAllowed)) ||
                 ['draft', 'rejected', 'authorized'].includes(payload.draft.status)
               }
               className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black text-white disabled:opacity-40"
             >
               {transmitting
                 ? 'Consultando/transmitindo…'
+                : refreshRequired
+                  ? 'Atualizar situação fiscal'
                 : retryAllowed
                   ? 'Reenviar a mesma chave e XML'
                   : ['unknown', 'transmitting'].includes(payload.draft.status)

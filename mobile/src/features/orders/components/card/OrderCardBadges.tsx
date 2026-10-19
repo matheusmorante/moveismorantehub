@@ -3,7 +3,6 @@ import { StyleSheet, Text, View } from 'react-native';
 import {
   Calendar,
   Clock,
-  Store,
   Truck,
   Wrench,
   RotateCcw,
@@ -18,6 +17,7 @@ import { MobileDrill } from '../../../../components/shared/MobileDrill';
 import { FiscalBadgeStatus, FiscalOperationBadgeStatus } from '../../domain/types';
 import { StatusConfig } from './orderCardTheme';
 import { OrderCardFiscalBadges } from './OrderCardFiscalBadges';
+import PickupIcon from '../../../../components/shared/PickupIcon';
 
 export interface OrderCardBadgesProps {
   orderType: string;
@@ -90,7 +90,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
         ) : isReturn ? (
           <RotateCcw size={11} color="#ffffff" />
         ) : pickup ? (
-          <Store size={11} color="#ffffff" />
+          <PickupIcon size={14} />
         ) : (
           <Truck size={11} color="#ffffff" />
         )}

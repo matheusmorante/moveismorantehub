@@ -1,4 +1,4 @@
-import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
+import { DeliveryRouteItem } from '../../../hooks/useDeliveryRoute';
 
 export interface RouteListItemProps {
   item: DeliveryRouteItem;

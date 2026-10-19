@@ -95,6 +95,7 @@ export function OrderDetailsBody({
       style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }}
       contentContainerStyle={{ gap: 16, paddingBottom: 160 }}
     >
+      <OrderObservationLabels observations={buildOrderObservations(order)} dark={isDarkMode} />
       <OrderTypeBadges
         isReturn={isReturn}
         assistance={assistance}
@@ -102,8 +103,6 @@ export function OrderDetailsBody({
         internal={internal}
         outside={outside}
       />
-
-      <OrderObservationLabels observations={buildOrderObservations(order)} dark={isDarkMode} />
       <CustomerSection customer={customer} seller={seller} dark={isDarkMode} />
       <AddressSection
         shipping={shipping}

@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import CustomerData from '@/pages/types/customerData.type';
 import Person from '@/pages/types/person.type';
 import Order from '@/pages/types/order.type';
-import { getRecentPeople, searchPeople } from '@/pages/utils/personService';
+import { getRecentPeople, searchPeople, isTestPerson } from '@/pages/utils/personService';
 import { getOrdersByCustomerInfo } from '@/pages/utils/orderSearchQueries';
+import { isTestOrder } from '@/pages/utils/hmlTestData';
 import {
   canSearchCustomers,
   getCustomerSearchQuery,
@@ -101,6 +102,7 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = '' }
 
     // Add from People registry
     people.forEach((p) => {
+      if (isTestPerson(p)) return;
       const name = (p.fullName || p.tradeName || '').trim();
       if (!name) return;
       const key = name.toLowerCase();
@@ -137,6 +139,7 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = '' }
 
     // Enrich from order history
     orders.forEach((o) => {
+      if (isTestOrder(o)) return;
       const name = (o.customerData?.fullName || '').trim();
       if (!name) return;
       const key = name.toLowerCase();

@@ -58,38 +58,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     method: 'GET' | 'POST' | 'PUT',
     body?: Record<string, unknown>
   ): Promise<Record<string, unknown>> => {
-    let response: Response;
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 45_000);
     try {
-      response = await fetch(new URL(path, baseUrl), {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          [AUTOMATIC_RETURN_WORKER_SECRET_HEADER]: process.env.NFE_RETURN_AUTO_WORKER_SECRET || '',
-        },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-      });
-    } catch {
-      throw new AutomaticReturnFiscalApiError('fiscal_api_unreachable', true);
+      let response: Response;
+      try {
+        response = await fetch(new URL(path, baseUrl), {
+          method,
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            [AUTOMATIC_RETURN_WORKER_SECRET_HEADER]: process.env.NFE_RETURN_AUTO_WORKER_SECRET || '',
+          },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+        });
+      } catch {
+        throw new AutomaticReturnFiscalApiError(
+          controller.signal.aborted ? 'fiscal_api_timeout' : 'fiscal_api_unreachable', true
+        );
+      }
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new AutomaticReturnFiscalApiError(
+          controller.signal.aborted ? 'fiscal_api_timeout' : 'fiscal_api_response_invalid',
+          controller.signal.aborted || response.status >= 500
+        );
+      }
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new AutomaticReturnFiscalApiError('fiscal_api_response_invalid', response.status >= 500);
+      }
+      const result = payload as Record<string, unknown>;
+      const isRecoverable =
+        result.pending === true || result.retryAllowed === true || result.reconciliationRequired === true;
+      if (!response.ok && !isRecoverable) {
+        throw new AutomaticReturnFiscalApiError(
+          response.status >= 500 || response.status === 429 ? 'fiscal_api_unavailable' : 'fiscal_api_rejected',
+          response.status >= 500 || response.status === 429
+        );
+      }
+      return result;
+    } finally {
+      clearTimeout(deadline);
     }
-    let payload: unknown;
-    try {
-      payload = await response.json();
-    } catch {
-      throw new AutomaticReturnFiscalApiError('fiscal_api_response_invalid', response.status >= 500);
-    }
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      throw new AutomaticReturnFiscalApiError('fiscal_api_response_invalid', response.status >= 500);
-    }
-    const result = payload as Record<string, unknown>;
-    const isRecoverable =
-      result.pending === true || result.retryAllowed === true || result.reconciliationRequired === true;
-    if (!response.ok && !isRecoverable) {
-      throw new AutomaticReturnFiscalApiError(
-        response.status >= 500 || response.status === 429 ? 'fiscal_api_unavailable' : 'fiscal_api_rejected',
-        response.status >= 500 || response.status === 429
-      );
-    }
-    return result;
   };
 
   const result = await processAutomaticReturnFiscalJob(

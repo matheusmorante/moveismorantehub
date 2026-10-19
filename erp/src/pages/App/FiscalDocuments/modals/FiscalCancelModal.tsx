@@ -39,18 +39,20 @@ export const FiscalCancelModal: React.FC<FiscalCancelModalProps> = ({
   onConfirmCancel,
 }) => {
   const navigate = useNavigate();
+  const titleId = React.useId();
 
   if (!isOpen || !document) return null;
 
   const isCancelAction = eligibility?.action === 'cancel';
+  const isOperationDocument = ['return', 'estorno'].includes(String(document.document_type));
 
   return (
     <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-[99999] animate-in fade-in duration-200">
-      <div className="w-full max-w-xl space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="w-full max-w-xl space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-2 text-red-600 dark:border-slate-800 dark:text-red-400">
           <i className="bi bi-exclamation-octagon-fill text-lg" />
           <div>
-            <h3 className="text-sm font-bold tracking-tight">
+            <h3 id={titleId} className="text-sm font-bold tracking-tight">
               {isCancelAction ? 'Cancelamento fiscal de NF-e' : 'Tratamento de estorno fiscal'}
             </h3>
             <p className="text-[10px] text-slate-500">
@@ -111,7 +113,9 @@ export const FiscalCancelModal: React.FC<FiscalCancelModalProps> = ({
 
         <div className="space-y-2">
           <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
-            {isCancelAction
+            {isOperationDocument
+              ? 'Esta ação solicita somente o cancelamento fiscal da nota selecionada. O pedido de devolução comercial recebido, a venda original e os movimentos de estoque permanecem preservados. A nota só muda para cancelada após confirmação fiscal válida da SEFAZ.'
+              : isCancelAction
               ? 'O fluxo de cancelamento comercial do pedido será aplicado e, após o commit do pedido e do estoque, o serviço fiscal central solicitará o cancelamento fiscal à SEFAZ. A nota só muda para cancelada após confirmação fiscal válida.'
               : 'A política central identificou que o prazo normal de cancelamento fiscal expirou. O pedido receberá o cancelamento comercial e o sistema abrirá um rascunho de estorno fiscal para revisão; nenhum evento será transmitido nesta etapa.'}
           </p>
@@ -124,7 +128,7 @@ export const FiscalCancelModal: React.FC<FiscalCancelModalProps> = ({
               <textarea
                 value={cancelReason}
                 onChange={(event) => onCancelReasonChange(event.target.value)}
-                placeholder="Informe por que a operação não ocorreu."
+                placeholder={isOperationDocument ? 'Informe o motivo do cancelamento fiscal desta nota.' : 'Informe por que a operação não ocorreu.'}
                 rows={3}
                 maxLength={255}
                 className="w-full resize-y rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs outline-none focus:border-red-500 dark:border-slate-800 dark:bg-slate-950"

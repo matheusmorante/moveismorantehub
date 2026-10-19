@@ -13,10 +13,6 @@ interface ProductsHeaderFiltersSheetProps {
   onStatusFilterChange: (value: 'all' | 'active' | 'disabled' | 'draft') => void;
   generalTypeFilter?: 'all' | 'product' | 'service';
   onGeneralTypeFilterChange?: (value: 'all' | 'product' | 'service') => void;
-  canToggleTestProducts?: boolean;
-  hasTestProducts?: boolean;
-  showTestProducts?: boolean;
-  onToggleTestProducts?: () => void;
   showMergedProducts?: boolean;
   onToggleMergedProducts?: () => void;
   catalogStatusFilter: 'all' | 'published' | 'hidden';
@@ -38,10 +34,6 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
   onStatusFilterChange,
   generalTypeFilter = 'all',
   onGeneralTypeFilterChange,
-  canToggleTestProducts,
-  hasTestProducts,
-  showTestProducts,
-  onToggleTestProducts,
   showMergedProducts,
   onToggleMergedProducts,
   catalogStatusFilter,
@@ -118,20 +110,6 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
                 ))}
               </View>
             </>
-          )}
-
-          {mode === 'standard' && canToggleTestProducts && hasTestProducts && (
-            <TouchableOpacity
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: showTestProducts }}
-              onPress={onToggleTestProducts}
-              style={styles.testToggleRow}
-            >
-              <View style={[styles.testCheckbox, showTestProducts && styles.testCheckboxChecked]}>
-                {showTestProducts && <Check size={14} color="#ffffff" />}
-              </View>
-              <Text style={[styles.choiceText, dark && styles.light]}>Mostrar testes</Text>
-            </TouchableOpacity>
           )}
 
           {mode === 'standard' && onToggleMergedProducts && (

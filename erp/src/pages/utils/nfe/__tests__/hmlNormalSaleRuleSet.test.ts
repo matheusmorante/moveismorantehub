@@ -91,6 +91,8 @@ const makeFacts = (): FiscalSnapshotCandidate => ({
     id: 'f19b3e63-6f84-45ea-8c5f-39476d709a3d',
     environment: 2,
     finalConsumer: false,
+    recipientIeIndicator: '1',
+    recipientIe: '1234567890',
     itemFiscalSelections: {
       '1': { ncm: '94034000', cfop: '5102', origem: '2', cest: '', csosn: '103' },
     },
@@ -104,10 +106,18 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     )
   );
   afterAll(() => vi.unstubAllGlobals());
+  it('bloqueia saída interna não final para destinatário não contribuinte antes de determinar a nota', async () => {
+    const facts = makeFacts();
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
+    await expect(createNormalSaleRuleSet(facts)).rejects.toThrow('consumidor final');
+  });
   it.each([false, true])('preserva CNPJ alfanumérico em XML assinado e XSD (consumidor final=%s)', async (finalConsumer) => {
     const facts = makeFacts();
     facts.issuerProfile.companyCnpj = '12ABC34501DE35';
     facts.emissionRequest.finalConsumer = finalConsumer;
+    facts.emissionRequest.recipientIeIndicator = finalConsumer ? '9' : '1';
+    facts.emissionRequest.recipientIe = finalConsumer ? '' : '1234567890';
     facts.emissionRequest.cardNotIntegrated = true;
     facts.emissionRequest.recipientTaxId = '12ABC34501DE35';
     (facts.fiscalInputs!.customer as any).personType = 'PJ';
@@ -131,6 +141,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
         const facts = makeFacts();
         facts.emissionRequest.environment = environment;
         facts.emissionRequest.finalConsumer = finalConsumer;
+    facts.emissionRequest.recipientIeIndicator = finalConsumer ? '9' : '1';
+    facts.emissionRequest.recipientIe = finalConsumer ? '' : '1234567890';
         facts.emissionRequest.cardNotIntegrated = true;
         facts.emissionRequest.itemFiscalSelections!['1'].csosn = '102';
         const rules = await createNormalSaleRuleSet(facts);
@@ -165,6 +177,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
   it('não amplia uma decisão legada 55 para a NFC-e 65, inclusive em homologação', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
     facts.fiscalInputs!.contributionDecision = {
       scope: { model: '55', operation: 'normal_sale', issuerCrt: '1' },
       pis: { cst: '99', base: 0, rate: 0, value: 0 },
@@ -192,6 +206,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
       for (const cpfCnpj of ['12345678909', '12345678000195']) {
         const facts = makeFacts();
         facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
         facts.emissionRequest.deliveryByIssuer = method === 'delivery';
         facts.emissionRequest.cardNotIntegrated = true;
         facts.order.data.shipping = { value: 30, deliveryMethod: method };
@@ -253,6 +269,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
   it('permite NFC-e de entrega própria sem cadastrar transportadora terceirizada', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
     facts.emissionRequest.cardNotIntegrated = true;
     facts.order.data.shipping = { value: 30, deliveryMethod: 'delivery' };
     facts.emissionRequest.recipientTaxId = '12345678909';
@@ -266,6 +284,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
   it('destinatário anônimo é permitido apenas em retirada presencial abaixo do limite de identificação', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
     facts.order.data.shipping = { value: 30, deliveryMethod: 'pickup' };
     facts.order.data.payments = [{ method: 'pix', amount: 379 }];
     (facts.fiscalInputs!.customer as any).cpfCnpj = '';
@@ -341,6 +361,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
   it('bloqueia NFC-e 65 de entrega em domicílio sem CPF/CNPJ mesmo abaixo de R$ 10.000', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
     facts.emissionRequest.deliveryByIssuer = true;
     facts.emissionRequest.cardNotIntegrated = true;
     facts.order.data.shipping = { value: 30, deliveryMethod: 'delivery' };
@@ -354,6 +376,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
   it('exige CPF/CNPJ para NFC-e 65 quando valor total for igual ou superior a R$ 10.000', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
     facts.emissionRequest.deliveryByIssuer = false;
     facts.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };
     (facts.order.data.items as any)[0].unitPrice = 10000;
@@ -368,6 +392,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
   it('permite NFC-e 65 de retirada por R$ 569 sem CPF', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
     facts.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };
     facts.order.data.fiscalContext = { presence: '4' };
     facts.order.data.items = [
@@ -419,6 +445,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
   it('rejeita CPF com dígitos verificadores inválidos e rejeita CPF/CNPJ incompatível com PF/PJ', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
     facts.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };
     (facts.order.data.items as any)[0].unitPrice = 569;
     (facts.order.data.payments as any)[0].amount = 569;
@@ -446,6 +474,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
   it('exige identificação para NFC-e não presencial abaixo de R$ 10.000', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
     facts.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };
     facts.order.data.fiscalContext = { presence: '2' };
     (facts.fiscalInputs!.customer as any).cpfCnpj = '';
@@ -458,6 +488,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
   it('serializa entrega própria NFC-e com CPF/endereço, indPres=4 e modFrete=3 sem dados de terceiro', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
     facts.emissionRequest.cardNotIntegrated = true;
     facts.order.data.shipping = { value: 30, deliveryMethod: 'delivery' };
     facts.emissionRequest.recipientTaxId = '12345678909';
@@ -497,6 +529,8 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
   it('força indPres=4 em pedido de entrega mesmo quando o contexto fiscal traz indPres=1', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
     facts.emissionRequest.cardNotIntegrated = true;
     facts.emissionRequest.recipientTaxId = '12345678909';
     facts.order.data.shipping = { value: 30, deliveryMethod: 'delivery' };

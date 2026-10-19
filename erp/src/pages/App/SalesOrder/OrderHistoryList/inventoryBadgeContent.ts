@@ -7,6 +7,7 @@ export interface InventoryBadgeContentOptions {
   isReturn: boolean;
   hasMovement: boolean;
   isReversed?: boolean;
+  isCancelled?: boolean;
   isPartialMovement: boolean;
 }
 
@@ -39,8 +40,18 @@ export const getInventoryBadgeContent = ({
   isReturn,
   hasMovement,
   isReversed,
+  isCancelled,
   isPartialMovement,
 }: InventoryBadgeContentOptions): InventoryBadgeContentResult => {
+  if (isCancelled && !hasMovement && !isReversed) {
+    return {
+      title: isReturn ? 'Sem entrada de estoque ativa — devolução cancelada' : 'Sem saída de estoque ativa — venda cancelada',
+      explanation: 'O pedido foi cancelado comercialmente e não possui movimentação ativa indicada. O histórico de reversões permanece no estoque; este indicador não presume que houve movimentação anterior.',
+      statusLabel: 'Sem movimentação ativa',
+      statusTextColor: 'text-slate-500 dark:text-slate-400',
+      badgeColorClass: binaryOrderBadgeClass(false),
+    };
+  }
   const title = isReversed
     ? isReturn
       ? 'Entrada de estoque estornada'
@@ -48,7 +59,7 @@ export const getInventoryBadgeContent = ({
     : isPartialMovement && hasMovement
       ? isReturn
         ? 'Entrada parcial de estoque registrada'
-        : 'Saída parcial de estoque (apenas alguns itens geraram saída)'
+        : 'Saída parcial de estoque (apenas alguns produtos convencionais geraram saída)'
       : isReturn
         ? hasMovement
           ? 'Entrada de estoque registrada pela devolução'
@@ -63,14 +74,14 @@ export const getInventoryBadgeContent = ({
       : 'A saída de estoque vinculada a esta venda foi estornada (ex: cancelamento do pedido).'
     : isPartialMovement && hasMovement
       ? isReturn
-        ? 'Esta devolução teve entrada de estoque registrada para apenas parte dos itens devolvidos.'
-        : 'Apenas alguns itens deste pedido tiveram movimentação de saída de estoque gerada. Itens sem cadastro (temporários) ou itens que não geraram movimentação deixam o status de movimentação parcial.'
+        ? 'A entrada de estoque foi registrada para apenas parte dos produtos convencionais devolvidos.'
+        : 'A saída de estoque foi registrada para apenas parte dos produtos convencionais do pedido.'
       : isReturn
         ? hasMovement
           ? 'Esta devolução possui uma entrada de estoque vinculada e efetiva. A entrada foi criada quando a devolução foi concluída.'
           : 'Ainda não há entrada de estoque vinculada a esta devolução. O selo só ficará verde depois que uma entrada real for registrada para os itens devolvidos.'
         : hasMovement
-          ? 'Este pedido possui uma saída de estoque vinculada e efetiva para todos os itens vendidos.'
+          ? 'Este pedido possui uma saída de estoque vinculada e efetiva para todos os produtos convencionais vendidos.'
           : 'Ainda não há saída de estoque vinculada a este pedido. Alterar o status do pedido, por si só, não deixa este selo verde.';
 
   const statusLabel = isReversed

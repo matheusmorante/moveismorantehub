@@ -49,6 +49,8 @@ interface TodaySummaryCardProps {
   periodFilter?: DeliveryPeriodFilter;
 }
 
+const SHOW_AI_SUMMARY_AND_AUDIO = false;
+
 export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   orders,
   onSelectOrder,
@@ -62,6 +64,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   const [totalDuration, setTotalDuration] = useState(0);
 
   useEffect(() => {
+    if (!SHOW_AI_SUMMARY_AND_AUDIO) return;
     const unsub = subscribeSummaryQuota((exceeded) => {
       setIsGeminiQuotaExceeded(exceeded);
     });
@@ -92,6 +95,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   }, []);
 
   useEffect(() => {
+    if (!SHOW_AI_SUMMARY_AND_AUDIO) return;
     let alive = true;
     const todayStr = getLocalDateString(new Date());
     const hasFuture = (orders || []).some((o) => {
@@ -162,6 +166,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   const activeSummaryText = aiSummaryText || defaultSummaryText;
 
   useEffect(() => {
+    if (!SHOW_AI_SUMMARY_AND_AUDIO) return;
     let isMounted = true;
     const mode = periodFilter === 'today' ? 'today' : 'next_days';
 
@@ -188,6 +193,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   }, [periodFilter, ordersFingerprint]);
 
   useEffect(() => {
+    if (!SHOW_AI_SUMMARY_AND_AUDIO) return;
     let alive = true;
     const scope = periodFilter === 'today' ? 'today' : 'next_days';
     const applySummaryRecord = async (record: DeliverySummaryRecord | null) => {
@@ -285,20 +291,22 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
 
   return (
     <Animated.View style={[styles.cardContainer, { opacity: fadeAnim }]}>
-      <View style={styles.headerRow}>
-        <View style={styles.iconBadge}>
-          <Truck size={24} color="#0055ff" />
-        </View>
+      {SHOW_AI_SUMMARY_AND_AUDIO && (
+        <View style={styles.headerRow}>
+          <View style={styles.iconBadge}>
+            <Truck size={24} color="#0055ff" />
+          </View>
 
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.headerTitle}>
-            {periodFilter === 'today' ? 'Operação de Hoje' : 'Operação dos Próximos Dias'}
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            {totalCount} {totalCount === 1 ? 'atividade programada' : 'atividades programadas'}
-          </Text>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.headerTitle}>
+              {periodFilter === 'today' ? 'Operação de Hoje' : 'Operação dos Próximos Dias'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {totalCount} {totalCount === 1 ? 'atividade programada' : 'atividades programadas'}
+            </Text>
+          </View>
         </View>
-      </View>
+      )}
 
       <DeliveryShiftMetricsGrid
         morningCount={morningCount}
@@ -306,75 +314,79 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
         totalCount={totalCount}
       />
 
-      <View
-        style={[
-          styles.resumoBox,
-          isGeminiQuotaExceeded && { borderColor: '#fca5a5', backgroundColor: '#fff1f2' },
-        ]}
-      >
+      {SHOW_AI_SUMMARY_AND_AUDIO && (
         <View
-          style={[styles.resumoIconBox, isGeminiQuotaExceeded && { backgroundColor: '#fee2e2' }]}
+          style={[
+            styles.resumoBox,
+            isGeminiQuotaExceeded && { borderColor: '#fca5a5', backgroundColor: '#fff1f2' },
+          ]}
         >
-          <FileText size={18} color={isGeminiQuotaExceeded ? '#dc2626' : '#0055ff'} />
-        </View>
+          <View
+            style={[styles.resumoIconBox, isGeminiQuotaExceeded && { backgroundColor: '#fee2e2' }]}
+          >
+            <FileText size={18} color={isGeminiQuotaExceeded ? '#dc2626' : '#0055ff'} />
+          </View>
 
-        <View style={{ flex: 1, marginLeft: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.resumoTitle}>
-              {periodFilter === 'today' ? 'Resumo do dia' : 'Resumo dos próximos dias'}
-            </Text>
-            {isGeminiQuotaExceeded && (
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.resumoTitle}>
+                {periodFilter === 'today' ? 'Resumo do dia' : 'Resumo dos próximos dias'}
+              </Text>
+              {isGeminiQuotaExceeded && (
+                <Text
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '800',
+                    color: '#dc2626',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  • Cota Indisponível
+                </Text>
+              )}
+            </View>
+            {isGeminiQuotaExceeded ? (
               <Text
-                style={{
-                  fontSize: 10,
-                  fontWeight: '800',
-                  color: '#dc2626',
-                  textTransform: 'uppercase',
-                }}
+                style={[styles.resumoText, { color: '#dc2626', fontWeight: '700' }]}
+                numberOfLines={4}
               >
-                • Cota Indisponível
+                ⚠ Resumo de IA indisponível no momento por limite de cota de tokens.
+              </Text>
+            ) : (
+              <Text style={styles.resumoText} numberOfLines={4}>
+                {activeSummaryText}
               </Text>
             )}
           </View>
-          {isGeminiQuotaExceeded ? (
-            <Text
-              style={[styles.resumoText, { color: '#dc2626', fontWeight: '700' }]}
-              numberOfLines={4}
-            >
-              ⚠ Resumo de IA indisponível no momento por limite de cota de tokens.
-            </Text>
-          ) : (
-            <Text style={styles.resumoText} numberOfLines={4}>
-              {activeSummaryText}
-            </Text>
-          )}
+
+          <ChevronRight size={18} color="#94a3b8" />
         </View>
+      )}
 
-        <ChevronRight size={18} color="#94a3b8" />
-      </View>
-
-      <AISummaryAudioPlayer
-        isDarkMode={isDarkMode}
-        title={periodFilter === 'today' ? 'Ouvir resumo de hoje' : 'Ouvir resumo dos próximos dias'}
-        text={activeSummaryText}
-        isLoadingText={isGeneratingSummary && !aiSummaryText}
-        isGenerating={isGeneratingAudio || isLoadingNewAudio}
-        loadingMessage={
-          isLoadingNewAudio ? 'Carregando novo áudio do resumo...' : 'Gerando resumo em áudio...'
-        }
-        isQuotaExceeded={isGeminiQuotaExceeded}
-        isSpeaking={isPlayingAudio}
-        isPaused={isPaused}
-        currentTime={currentTime}
-        totalDuration={totalDuration}
-        onToggle={(txt) => handleTogglePlayAudio(txt)}
-        onSeekEnd={(sec) => {
-          setCurrentTime(sec);
-          seekGeminiAudio(sec);
-        }}
-        setCurrentTime={setCurrentTime}
-        formatTime={formatAudioTime}
-      />
+      {SHOW_AI_SUMMARY_AND_AUDIO && (
+        <AISummaryAudioPlayer
+          isDarkMode={isDarkMode}
+          title={periodFilter === 'today' ? 'Ouvir resumo de hoje' : 'Ouvir resumo dos próximos dias'}
+          text={activeSummaryText}
+          isLoadingText={isGeneratingSummary && !aiSummaryText}
+          isGenerating={isGeneratingAudio || isLoadingNewAudio}
+          loadingMessage={
+            isLoadingNewAudio ? 'Carregando novo áudio do resumo...' : 'Gerando resumo em áudio...'
+          }
+          isQuotaExceeded={isGeminiQuotaExceeded}
+          isSpeaking={isPlayingAudio}
+          isPaused={isPaused}
+          currentTime={currentTime}
+          totalDuration={totalDuration}
+          onToggle={(txt) => handleTogglePlayAudio(txt)}
+          onSeekEnd={(sec) => {
+            setCurrentTime(sec);
+            seekGeminiAudio(sec);
+          }}
+          setCurrentTime={setCurrentTime}
+          formatTime={formatAudioTime}
+        />
+      )}
     </Animated.View>
   );
 };

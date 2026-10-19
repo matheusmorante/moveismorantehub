@@ -96,7 +96,7 @@ export const SellerInput: FC<SellerInputProps> = ({
           className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-1.5"
         >
           <i className="bi bi-person-badge text-blue-500 text-xs" />
-          Vendedor
+          Vendedor <span className="text-red-500">*</span>
         </label>
 
         {isAIFilling && (
@@ -130,7 +130,7 @@ export const SellerInput: FC<SellerInputProps> = ({
           placeholder={placeholder}
           className={`w-full bg-transparent px-3 py-3 text-sm font-bold placeholder:text-slate-400 outline-none transition-colors dark:placeholder:text-slate-600 ${
             isSellerSelected
-              ? 'border-2 rounded-xl border-emerald-500 bg-emerald-50/40 text-emerald-700 focus:border-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-500 dark:focus:border-emerald-400'
+              ? 'border-b-2 border-emerald-500 text-emerald-700 focus:border-emerald-600 dark:text-emerald-400 dark:border-emerald-500 dark:focus:border-emerald-400'
               : isAIFilling
                 ? 'border-b-2 border-violet-500 animate-pulse bg-violet-50/20 dark:bg-violet-950/20 text-slate-800 dark:text-slate-100'
                 : 'border-b-2 border-slate-200 text-slate-800 dark:text-slate-100 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500'

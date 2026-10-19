@@ -2,8 +2,9 @@ import { AppState } from 'react-native';
 import { AudioContext, AudioManager, AudioRecorder } from 'react-native-audio-api';
 import { mobileAgentTools } from './aiAgent/mobileToolDeclarations';
 import { MobileToolDispatcher } from './aiAgent/mobileToolDispatcher';
-import type { GeminiContent } from './aiAgent/mobileAgentTypes';
+import type { GeminiContent, ExecutedToolRecord } from './aiAgent/mobileAgentTypes';
 import { supabase } from './supabaseClient';
+import { withTimeout } from '../../../shared-utils/withTimeout';
 
 type Quota = {
   usedMs: number;
@@ -15,10 +16,14 @@ type Quota = {
 type ServerAction = 'status' | 'start' | 'pulse' | 'pause';
 type LiveState = 'connecting' | 'active' | 'paused' | 'muted' | 'ended';
 
-async function quotaRequest(action: ServerAction, sessionId?: string) {
-  const { data, error } = await supabase.functions.invoke('gemini-live-token', {
-    body: { action, sessionId },
+async function quotaRequest(action: ServerAction, sessionId?: string, isCurrent = () => true) {
+  const request = supabase.functions.invoke('gemini-live-token', { body: { action, sessionId } }).then(result => {
+    if (action === 'start' && !isCurrent()) void quotaRequest('pause', sessionId).catch(() => undefined);
+    return result;
   });
+  const result = await withTimeout(request, 10_000, null, 'voz:cota-live');
+  if (!result) throw new Error('A validação da cota de voz excedeu o prazo.');
+  const { data, error } = result;
   if (error) throw new Error('Não foi possível validar a cota do Gemini Live.');
   if (data?.error) throw new Error(data.error);
   return data as { token?: string; model?: string; config?: Record<string, unknown>; quota: Quota };
@@ -51,6 +56,11 @@ export class GeminiLiveSession {
   private closed = false;
   private muted = false;
   private state: LiveState = 'connecting';
+  private generation = 0;
+  private ending: Promise<void> | null = null;
+  // ponytail: replay receipts are scoped to this live session; durable idempotency remains in each backend tool.
+  private toolReceipts = new Map<string, { signature: string; operation: ReturnType<typeof MobileToolDispatcher.execute>; publication: Promise<unknown> | null; recorded: boolean }>();
+  private assertCurrent(generation: number) { if (this.closed || this.generation !== generation) throw new Error('A chamada foi encerrada ou substituída.'); }
 
   constructor(
     private callbacks: {
@@ -58,6 +68,7 @@ export class GeminiLiveSession {
       onTranscript: (role: 'user' | 'assistant', text: string) => void;
       onQuota: (quota: Quota) => void;
       onError: (error: Error) => void;
+      onToolExecuted?: (record: ExecutedToolRecord) => unknown | Promise<unknown>;
     }
   ) {}
 
@@ -67,7 +78,10 @@ export class GeminiLiveSession {
   }
 
   async start() {
-    const permission = await AudioManager.requestRecordingPermissions();
+    if (this.closed) throw new Error('A chamada já foi encerrada.');
+    const generation = ++this.generation;
+    const permission = await withTimeout(AudioManager.requestRecordingPermissions(), 15_000, null, 'voz:permissao-live');
+    this.assertCurrent(generation);
     if (permission !== 'Granted') throw new Error('Permissão de microfone negada.');
     AudioManager.setAudioSessionOptions({
       iosCategory: 'playAndRecord',
@@ -75,20 +89,24 @@ export class GeminiLiveSession {
       iosOptions: ['allowBluetoothHFP', 'defaultToSpeaker'],
     });
     await AudioManager.setAudioSessionActivity(true);
+    this.assertCurrent(generation);
     this.context = new AudioContext({ sampleRate: 24000 });
     this.outputQueue = this.context.createBufferQueueSource();
     this.outputQueue.connect(this.context.destination);
     this.outputQueue.start();
-    await this.openSocket(false);
+    await this.openSocket(false, generation);
+    this.assertCurrent(generation);
     this.appSubscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active' && !this.closed) void this.end();
     });
   }
 
-  private async openSocket(resume: boolean) {
+  private async openSocket(resume: boolean, generation = ++this.generation) {
+    this.assertCurrent(generation);
     const hasResumptionHandle = Boolean(this.resumptionHandle);
     this.setState('connecting');
-    const session = await quotaRequest('start', this.id);
+    const session = await quotaRequest('start', this.id, () => !this.closed && this.generation === generation);
+    this.assertCurrent(generation);
     if (!session.token || !session.model || !session.config)
       throw new Error('O servidor não retornou uma sessão Gemini Live.');
     this.callbacks.onQuota(session.quota);
@@ -103,6 +121,7 @@ export class GeminiLiveSession {
       }, 15000);
       let setupComplete = false;
       socket.onopen = () => {
+        if (this.closed || this.generation !== generation || this.socket !== socket) { clearTimeout(setupTimeout); socket.close(1000, 'stale'); reject(new Error('A chamada foi encerrada.')); return; }
         try {
           socket.send(
             JSON.stringify({
@@ -134,6 +153,7 @@ export class GeminiLiveSession {
         reject(new Error('Falha ao conectar ao Gemini Live.'));
       };
       socket.onmessage = (event) => {
+        if (this.closed || this.generation !== generation || this.socket !== socket) return;
         const raw = String(event.data);
         try {
           if (JSON.parse(raw).setupComplete) {
@@ -145,7 +165,7 @@ export class GeminiLiveSession {
         } catch {
           // The normal handler reports malformed content after setup.
         }
-        void this.handleMessage(raw);
+        void this.handleMessage(raw, generation);
       };
       socket.onclose = () => {
         clearTimeout(setupTimeout);
@@ -153,12 +173,13 @@ export class GeminiLiveSession {
           reject(new Error('Conexão Gemini Live encerrada antes da configuração.'));
           return;
         }
-        if (!this.closed && (this.state === 'active' || this.state === 'muted')) {
+        if (!this.closed && this.generation === generation && this.socket === socket && (this.state === 'active' || this.state === 'muted')) {
           const recorder = this.recorder;
           this.recorder = null;
           recorder?.clearOnAudioReady();
           void recorder?.stop();
           void this.openSocket(true).catch((error) => {
+            if (this.closed) return;
             this.callbacks.onError(
               error instanceof Error ? error : new Error('Não foi possível retomar a sessão Live.')
             );
@@ -167,16 +188,19 @@ export class GeminiLiveSession {
         }
       };
     });
+    this.assertCurrent(generation);
     if (resume && !hasResumptionHandle && this.history.length) {
       socket.send(JSON.stringify({ clientContent: { turns: this.history, turnComplete: false } }));
     }
-    if (!this.muted) await this.startMicrophone();
+    if (!this.muted) await this.startMicrophone(generation);
+    this.assertCurrent(generation);
     this.startQuotaHeartbeat();
     this.armSilenceTimer();
     this.setState(this.muted ? 'muted' : 'active');
   }
 
-  private async startMicrophone() {
+  private async startMicrophone(generation: number) {
+    this.assertCurrent(generation);
     const recorder = new AudioRecorder();
     this.recorder = recorder;
     recorder.onAudioReady(
@@ -205,11 +229,13 @@ export class GeminiLiveSession {
       }
     );
     const started = await recorder.start();
+    this.assertCurrent(generation);
     if (started.status === 'error')
       throw new Error(started.message || 'Não foi possível iniciar o microfone.');
   }
 
-  private async handleMessage(raw: string) {
+  private async handleMessage(raw: string, generation: number) {
+    if (this.closed || this.generation !== generation || this.state === 'paused') return;
     try {
       const data = JSON.parse(raw);
       if (data.setupComplete) return;
@@ -227,13 +253,15 @@ export class GeminiLiveSession {
       );
       if (historyParts.length) this.history.push({ role: 'model', parts: historyParts });
       for (const part of modelContent?.parts || []) {
+        if (this.closed || this.generation !== generation) return;
         if (part.text) this.callbacks.onTranscript('assistant', part.text);
         if (part.inlineData?.data) {
           this.enqueueAudio(part.inlineData.data);
           this.armSilenceTimer();
         }
-        if (part.functionCall) await this.executeTool(part.functionCall);
+        if (part.functionCall) await this.executeTool(part.functionCall, generation);
       }
+      if (this.closed || this.generation !== generation) return;
       const outputText = data.serverContent?.outputTranscription?.text;
       if (outputText) {
         this.callbacks.onTranscript('assistant', outputText);
@@ -242,7 +270,7 @@ export class GeminiLiveSession {
       }
       if (data.serverContent?.interrupted) this.outputQueue?.clearBuffers();
     } catch (error) {
-      this.callbacks.onError(error instanceof Error ? error : new Error('Resposta Live inválida.'));
+      if (!this.closed && this.generation === generation) this.callbacks.onError(error instanceof Error ? error : new Error('Resposta Live inválida.'));
     }
   }
 
@@ -259,10 +287,20 @@ export class GeminiLiveSession {
     this.outputQueue?.enqueueBuffer(buffer);
   }
 
-  private async executeTool(call: { id?: string; name: string; args: Record<string, any> }) {
-    const result = await MobileToolDispatcher.execute({ name: call.name, args: call.args || {} });
+  private async executeTool(call: { id?: string; name: string; args: Record<string, any> }, generation: number) {
+    this.assertCurrent(generation);
+    const signature = JSON.stringify([call.name, call.args || {}]);
+    const existing = call.id ? this.toolReceipts.get(call.id) : undefined;
+    if (existing && existing.signature !== signature) throw new Error('A ferramenta repetiu sua identidade com outros dados. Confira a operação antes de continuar.');
+    const receipt = existing || { signature, operation: MobileToolDispatcher.execute({ name: call.name, args: call.args || {} }), publication: null as Promise<unknown> | null, recorded: false };
+    if (call.id) this.toolReceipts.set(call.id, receipt);
+    const result = await receipt.operation;
+    if (this.closed || this.generation !== generation) return;
+    if (!receipt.publication) receipt.publication = Promise.resolve().then(() => this.callbacks.onToolExecuted?.(result.record));
+    await receipt.publication;
+    if (this.closed || this.generation !== generation) return;
     const response = { output: result.record.result };
-    this.history.push({ role: 'user', parts: [{ functionResponse: result.functionResponse }] });
+    if (!receipt.recorded) { receipt.recorded = true; this.history.push({ role: 'user', parts: [{ functionResponse: result.functionResponse }] }); }
     this.socket?.send(
       JSON.stringify({
         toolResponse: { functionResponses: [{ id: call.id, name: call.name, response }] },
@@ -273,12 +311,15 @@ export class GeminiLiveSession {
   private startQuotaHeartbeat() {
     if (this.pulseTimer) clearInterval(this.pulseTimer);
     this.pulseTimer = setInterval(() => {
+      if (this.closed || this.state === 'paused') return;
       void quotaRequest('pulse', this.id)
         .then((result) => {
+          if (this.closed || this.state === 'paused') return;
           this.callbacks.onQuota(result.quota);
           if (result.quota.remainingMs <= 0 || !result.quota.active) void this.pause();
         })
         .catch((error) => {
+          if (this.closed) return;
           this.callbacks.onError(
             error instanceof Error ? error : new Error('Falha ao atualizar a cota.')
           );
@@ -296,28 +337,29 @@ export class GeminiLiveSession {
 
   async pause() {
     if (this.closed || this.state === 'paused') return;
-    this.stopTimers();
-    this.setState('paused');
-    this.recorder?.clearOnAudioReady();
-    await this.recorder?.stop().catch(() => undefined);
-    this.recorder = null;
+    const generation = ++this.generation;
+    this.stopTimers(); this.setState('paused');
+    const recorder = this.recorder; this.recorder = null; recorder?.clearOnAudioReady();
     this.outputQueue?.pause();
-    this.socket?.close(1000, 'paused');
-    this.socket = null;
-    const result = await quotaRequest('pause', this.id).catch(() => null);
-    if (result) this.callbacks.onQuota(result.quota);
-    this.setState('paused');
+    const socket = this.socket; this.socket = null; socket?.close(1000, 'paused');
+    const [_, result] = await Promise.all([
+      recorder ? withTimeout(recorder.stop().catch(() => undefined), 5000, undefined, 'voz:pausar-microfone') : Promise.resolve(),
+      quotaRequest('pause', this.id).catch(() => null),
+    ]);
+    if (!this.closed && this.generation === generation) { if (result) this.callbacks.onQuota(result.quota); this.setState('paused'); }
   }
 
   async resume() {
     if (this.closed || this.state !== 'paused') return;
+    const generation = ++this.generation;
     await this.context?.resume();
+    this.assertCurrent(generation);
     this.outputQueue?.start();
     try {
-      await this.openSocket(true);
+      await this.openSocket(true, generation);
     } catch (error) {
       await quotaRequest('pause', this.id).catch(() => undefined);
-      this.setState('paused');
+      if (!this.closed && this.generation === generation) this.setState('paused');
       throw error;
     }
   }
@@ -343,25 +385,23 @@ export class GeminiLiveSession {
     this.silenceTimer = null;
   }
 
-  async end() {
-    if (this.closed) return;
-    this.closed = true;
-    this.stopTimers();
-    this.appSubscription?.remove();
-    this.appSubscription = null;
-    this.recorder?.clearOnAudioReady();
-    await this.recorder?.stop().catch(() => undefined);
-    this.recorder = null;
-    this.outputQueue?.stop();
-    this.outputQueue = null;
-    this.socket?.close(1000, 'ended');
-    this.socket = null;
-    await quotaRequest('pause', this.id).catch(() => undefined);
-    await this.context?.close().catch(() => undefined);
-    this.context = null;
-    await AudioManager.setAudioSessionActivity(false).catch(() => undefined);
-    this.setState('ended');
+  end(): Promise<void> {
+    if (this.ending) return this.ending;
+    this.closed = true; ++this.generation; this.stopTimers();
+    this.appSubscription?.remove(); this.appSubscription = null;
+    const recorder = this.recorder; this.recorder = null; recorder?.clearOnAudioReady();
+    this.outputQueue?.stop(); this.outputQueue = null;
+    const socket = this.socket; this.socket = null; socket?.close(1000, 'ended');
+    const context = this.context; this.context = null;
+    this.ending = Promise.allSettled([
+      recorder ? withTimeout(recorder.stop(), 5000, undefined, 'voz:encerrar-microfone-live') : Promise.resolve(),
+      context ? withTimeout(context.close(), 5000, undefined, 'voz:fechar-contexto-audio') : Promise.resolve(),
+      withTimeout(AudioManager.setAudioSessionActivity(false), 5000, undefined, 'voz:desativar-audio'),
+      quotaRequest('pause', this.id),
+    ]).then(() => { this.setState('ended'); });
+    return this.ending;
   }
+
 }
 
 export type { LiveState, Quota };

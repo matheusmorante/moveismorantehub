@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Linking } from 'react-native';
-import { Calendar, Clock, ExternalLink, MapPin, Navigation, Store } from 'lucide-react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { AlertCircle, Calendar, Clock, MapPin, Navigation, Store } from 'lucide-react-native';
 import { SectionCard, SectionHeader } from './SectionCard';
-import { formatFullAddress, formatOrderDate, getLocationMapsUrl } from '../../../utils/orderUtils';
+import { formatFullAddress, formatOrderDate } from '../../../utils/orderUtils';
 
 interface AddressSectionProps {
   shipping: any;
@@ -24,7 +24,6 @@ export function AddressSection({
   const distance = shipping?.distance != null ? Number(shipping.distance).toFixed(1) : null;
   const duration =
     shipping?.durationMinutes != null ? Math.round(Number(shipping.durationMinutes)) : null;
-  const mapsUrl = getLocationMapsUrl(order) || getLocationMapsUrl(customer);
   const address =
     shipping?.deliveryAddress ||
     shipping?.address ||
@@ -34,12 +33,10 @@ export function AddressSection({
   const addressObservation = String(
     address?.observation || address?.observations || address?.notes || ''
   ).trim();
-
-  const openMapsLink = () => {
-    if (mapsUrl) {
-      Linking.openURL(mapsUrl).catch(() => {});
-    }
-  };
+  const addressNotices = addressObservation
+    .split(/[;\n•]+/)
+    .map((notice) => notice.trim())
+    .filter(Boolean);
 
   if (isPickup) {
     return (
@@ -89,18 +86,20 @@ export function AddressSection({
       <Text style={[styles.addressText, dark && styles.light]}>
         {formatFullAddress(shipping, customer)}
       </Text>
-      {addressObservation && (
-        <View style={[styles.observationBox, dark && styles.observationBoxDark]}>
-          <Text style={styles.observationTitle}>OBSERVAÇÃO DO ENDEREÇO</Text>
-          <Text style={[styles.observationText, dark && styles.light]}>{addressObservation}</Text>
+      {addressNotices.length > 0 && (
+        <View style={styles.observationLabels}>
+          <AlertCircle size={16} color={dark ? '#f59e0b' : '#d97706'} />
+          {addressNotices.map((notice, index) => (
+            <View
+              key={`${index}-${notice}`}
+              style={[styles.observationLabel, dark && styles.observationLabelDark]}
+            >
+              <Text style={[styles.observationText, dark && styles.observationTextDark]}>
+                {notice}
+              </Text>
+            </View>
+          ))}
         </View>
-      )}
-
-      {Boolean(mapsUrl) && (
-        <TouchableOpacity onPress={openMapsLink} style={styles.mapsLinkButton} activeOpacity={0.8}>
-          <ExternalLink size={14} color="#dc2626" />
-          <Text style={styles.mapsLinkButtonText}>Abrir Localização no Google Maps</Text>
-        </TouchableOpacity>
       )}
 
       {(distance || duration) && (
@@ -151,35 +150,25 @@ const styles = StyleSheet.create({
   routeText: { fontSize: 12, fontWeight: '800', color: '#2563eb' },
   schedule: { gap: 6, paddingTop: 4 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  mapsLinkButton: {
+  observationLabels: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#fef2f2',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    gap: 6,
+    marginTop: 8,
+  },
+  observationLabel: {
+    maxWidth: '100%',
+    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#fecaca',
-    marginTop: 4,
+    borderColor: '#fcd34d',
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
-  mapsLinkButtonText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#dc2626',
-  },
-  observationBox: {
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    borderRadius: 11,
-    padding: 10,
-    gap: 3,
-  },
-  observationBoxDark: { backgroundColor: '#450a0a', borderColor: '#991b1b' },
-  observationTitle: { fontSize: 9, fontWeight: '900', color: '#dc2626', letterSpacing: 0.5 },
-  observationText: { fontSize: 12, fontWeight: '700', color: '#7f1d1d', lineHeight: 17 },
+  observationLabelDark: { backgroundColor: '#1c1917', borderColor: '#854d0e' },
+  observationText: { fontSize: 12, fontWeight: '800', color: '#92400e', lineHeight: 17 },
+  observationTextDark: { color: '#fde68a' },
   pickupBadge: {
     flexDirection: 'row',
     alignItems: 'center',

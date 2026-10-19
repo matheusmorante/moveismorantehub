@@ -1,5 +1,6 @@
 import { fetchMobileProductsPage } from '../../features/products/services/mobileProductFetchService';
 import { supabase } from '../supabaseClient';
+import { isTestProduct } from '../../../../shared-utils/isTestProduct';
 
 export interface MobileProductSummaryForAgent {
   codigo: string;
@@ -184,7 +185,7 @@ export async function getMobileProductDetails(
     data = fallbackData;
   }
 
-  if (!data) return null;
+  if (!data || isTestProduct(data)) return null;
 
   const rawVars = data.product_variations || [];
   const parentCode = data.code || data.sku || '';

@@ -47,6 +47,48 @@ describe('NfeItemRow', () => {
     expect(screen.getByText('Cadastrado no ERP')).toBeTruthy();
   });
 
+  it.each([
+    { role: 'textbox', name: 'CFOP', field: 'cfop', value: '5101' },
+    { role: 'combobox', name: 'CSOSN', field: 'cst', value: '102' },
+    { role: 'combobox', name: 'Origem fiscal', field: 'origem', value: '1' },
+    { role: 'combobox', name: 'CEST', field: 'cest', value: '2806100' },
+  ])('encaminha o autosave ao sair do campo avançado $name', ({ role, name, field, value }) => {
+    const onUpdateFiscal = vi.fn();
+    const onUpdateFiscalBlur = vi.fn();
+    render(<NfeItemRow item={createItem(false)} itemIndex={0}
+      cfopOptions={[{ value: '5101', label: 'Produção própria' }, { value: '5102', label: 'Terceiros' }]}
+      onUpdateFiscal={onUpdateFiscal} onUpdateFiscalBlur={onUpdateFiscalBlur} />);
+    fireEvent.click(screen.getByTitle('Ver / editar CFOP, CSOSN, Origem e CEST'));
+    const input = screen.getByRole(role, { name, exact: true });
+
+    fireEvent.focus(input);
+    if (field === 'cfop') fireEvent.change(input, { target: { value: '' } });
+    fireEvent.change(input, { target: { value } });
+    expect(onUpdateFiscal).toHaveBeenCalledWith(field, value);
+    fireEvent.blur(input);
+
+    expect(onUpdateFiscalBlur).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { role: 'textbox', name: 'CFOP' },
+    { role: 'combobox', name: 'CSOSN' },
+    { role: 'combobox', name: 'Origem fiscal' },
+    { role: 'combobox', name: 'CEST' },
+  ])('não inicia autosave ao apenas passar pelo campo $name sem editar', ({ role, name }) => {
+    const onUpdateFiscalBlur = vi.fn();
+    render(<NfeItemRow item={createItem(false)} itemIndex={0}
+      cfopOptions={[{ value: '5102', label: 'Terceiros' }]}
+      onUpdateFiscal={vi.fn()} onUpdateFiscalBlur={onUpdateFiscalBlur} />);
+    fireEvent.click(screen.getByTitle('Ver / editar CFOP, CSOSN, Origem e CEST'));
+    const input = screen.getByRole(role, { name, exact: true });
+
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+
+    expect(onUpdateFiscalBlur).not.toHaveBeenCalled();
+  });
+
   it('pede confirmação antes de aplicar o CSOSN novo', () => {
     const onUpdateFiscal = vi.fn();
     render(

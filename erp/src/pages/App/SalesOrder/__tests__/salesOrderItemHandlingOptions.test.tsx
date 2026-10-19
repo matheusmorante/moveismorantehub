@@ -74,7 +74,7 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
     const optionLabels = Array.from(select.options).map((o) => o.textContent?.trim());
 
     // Deve conter placeholder e as 3 opções de entrega
-    expect(optionLabels).toContain('Manuseio...');
+    expect(optionLabels).toContain('Selecione');
     expect(optionLabels).toContain('Na caixa > Montagem no deposito > Entregue montado');
     expect(optionLabels).toContain('Na caixa > Montagem no local da entrega');
     expect(optionLabels).toContain('De mostruário montado > Entregue montado');
@@ -235,7 +235,7 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
 
     let select = screen.getByRole('combobox', { name: 'Manuseio' }) as HTMLSelectElement;
     let optionLabels = Array.from(select.options).map((o) => o.textContent?.trim());
-    expect(optionLabels).toEqual(['Manuseio...']);
+    expect(optionLabels).toEqual(['Selecione']);
 
     unmount();
 
@@ -266,7 +266,7 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
 
     select = screen.getByRole('combobox', { name: 'Manuseio' }) as HTMLSelectElement;
     optionLabels = Array.from(select.options).map((o) => o.textContent?.trim());
-    expect(optionLabels).toEqual(['Manuseio...']);
+    expect(optionLabels).toEqual(['Selecione']);
   });
 
   it('não deve exibir opções de fallback legadas como (Atual) se item contiver montagem, entrega ou sem_manuseio', () => {

@@ -35,6 +35,32 @@ beforeEach(() => {
 afterEach(() => { cleanup(); for (const unsubscribe of unsubscribers.splice(0)) unsubscribe(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('confirmação optativa de configurações e preferência real de etiquetas', () => {
+  it('confirma consultas simultâneas equivalentes sem publicar a mesma leitura duas vezes', async () => {
+    const first = deferred<Response>(), second = deferred<Response>();
+    const settings = changedSettings(), observer = vi.fn(), loaded = [vi.fn(), vi.fn()];
+    transport.read.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    unsubscribers.push(subscribeToSettings(observer, { onRemoteLoad: loaded[0] }));
+    unsubscribers.push(subscribeToSettings(vi.fn(), { onRemoteLoad: loaded[1] }));
+    first.resolve(ack({ id: 'app', data: settings }));
+    await waitFor(() => expect(loaded[0]).toHaveBeenCalledWith({ confirmed: true }));
+    const publications = observer.mock.calls.length;
+    second.resolve(ack({ id: 'app', data: Object.fromEntries(Object.entries(settings).reverse()) as AppSettings }));
+    await waitFor(() => expect(loaded[1]).toHaveBeenCalledWith({ confirmed: true }));
+    expect(observer).toHaveBeenCalledTimes(publications);
+  });
+  it.each(['different-read', 'intervening-write'])('não confirma consulta antiga após %s', async (scenario) => {
+    const first = deferred<Response>(), second = deferred<Response>();
+    const settings = changedSettings(), loaded = [vi.fn(), vi.fn()];
+    transport.read.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    unsubscribers.push(subscribeToSettings(vi.fn(), { onRemoteLoad: loaded[0] }));
+    unsubscribers.push(subscribeToSettings(vi.fn(), { onRemoteLoad: loaded[1] }));
+    first.resolve(ack({ id: 'app', data: settings }));
+    await waitFor(() => expect(loaded[0]).toHaveBeenCalledWith({ confirmed: true }));
+    if (scenario === 'intervening-write') await saveSettings(settings, { confirm: true });
+    second.resolve(ack({ id: 'app', data: scenario === 'different-read' ? { ...settings, companyUF: 'SC' } : settings }));
+    await waitFor(() => expect(loaded[1]).toHaveBeenCalledWith({ confirmed: false, message: expect.stringContaining('mudou') }));
+    expect(getSettings().companyUF).toBe(settings.companyUF);
+  });
   it('reports remote load confirmation even when local cache is unavailable', async () => {
     const settings = changedSettings(), observer = vi.fn(), loaded = vi.fn();
     transport.read.mockResolvedValue({ data: { id: 'app', data: settings }, error: null });

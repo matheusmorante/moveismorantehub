@@ -4,6 +4,10 @@ const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   from: vi.fn(),
   getNextOrderIndex: vi.fn(async () => 123),
+  resolveCustomerSnapshot: vi.fn(async (order: any) => order),
+  ensureFiscalSnapshots: vi.fn(async (items: any[], _nfeData: any, resolveActual?: Function) =>
+    resolveActual ? resolveActual(items, _nfeData) : items
+  ),
   recordHistory: vi.fn(),
   syncCustomer: vi.fn(),
   dispatchNotifications: vi.fn(),
@@ -24,7 +28,7 @@ vi.mock('../../orderCode', () => ({
   resolveOrderIndexForUpdate: () => 123,
 }));
 vi.mock('../../orderSnapshotResolution', () => ({
-  resolveOrderCustomerSnapshot: async (order: unknown) => order,
+  resolveOrderCustomerSnapshot: mocks.resolveCustomerSnapshot,
   buildOrderPersistencePayload: (order: any) => ({
     order_index: Number(order.orderIndex || order.orderNumber || 0) || null,
     order_number: String(order.orderIndex || order.orderNumber || ''),
@@ -33,6 +37,14 @@ vi.mock('../../orderSnapshotResolution', () => ({
     order_data: order,
   }),
 }));
+vi.mock('../../orderFiscalSnapshotService', async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  return {
+    ...actual,
+    ensureOrderItemsHaveFiscalSnapshots: (items: any[], nfeData: any) =>
+      mocks.ensureFiscalSnapshots(items, nfeData, actual.ensureOrderItemsHaveFiscalSnapshots),
+  };
+});
 vi.mock('../orderCrmSyncService', () => ({
   ensureCustomerInCrm: async () => undefined,
   syncCustomerToCrmBackground: mocks.syncCustomer,
@@ -45,6 +57,7 @@ vi.mock('../orderStatusWorkflowService', () => ({ recordOrderStatusHistory: mock
 
 import { executeSaveOrder } from '../orderCreationService';
 import { executeUpdateOrder } from '../orderUpdateService';
+import { setPersistedOrderDataSnapshot } from '../../orderMapper';
 import { bindTestArtifactContext, clearTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
 
 const testIdentity = {
@@ -79,6 +92,11 @@ const splitPayments = [
 describe('cadastro de pedido com estoque atômico', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.resolveCustomerSnapshot.mockImplementation(async (order: any) => order);
+    mocks.ensureFiscalSnapshots.mockImplementation(
+      async (items: any[], nfeData: any, resolveActual?: Function) =>
+        resolveActual ? resolveActual(items, nfeData) : items
+    );
     clearTestArtifactContext();
     const values = new Map<string, string>();
     Object.defineProperty(globalThis, 'sessionStorage', {
@@ -90,6 +108,152 @@ describe('cadastro de pedido com estoque atômico', () => {
       },
     });
     mocks.invalidateQueries.mockResolvedValue(undefined);
+  });
+
+  it('prepara o snapshot do cliente e os snapshots fiscais dos itens em paralelo na criação', async () => {
+    let customerStarted = false;
+    let fiscalStarted = false;
+    let resolveCustomer!: (order: any) => void;
+    let resolveFiscal!: (items: any[]) => void;
+    mocks.resolveCustomerSnapshot.mockImplementation((order: any) => {
+      customerStarted = true;
+      return new Promise((resolve) => { resolveCustomer = resolve; });
+    });
+    mocks.ensureFiscalSnapshots.mockImplementation((items: any[]) => {
+      fiscalStarted = true;
+      return new Promise((resolve) => { resolveFiscal = resolve; });
+    });
+    mocks.rpc.mockResolvedValue({
+      data: { id: 'saved-order', order_data: scheduledSale, order_index: 123 },
+      error: null,
+    });
+
+    const pendingSave = executeSaveOrder(
+      { ...scheduledSale, status: 'draft', orderIndex: 123, customerData: { id: 'customer' } } as any,
+      vi.fn()
+    );
+    const startedInParallel = customerStarted && fiscalStarted;
+    resolveCustomer({ ...scheduledSale, status: 'draft', orderIndex: 123, customerData: { id: 'customer' } });
+    resolveFiscal(scheduledSale.items);
+    await pendingSave;
+
+    expect(startedInParallel).toBe(true);
+  });
+
+  it('prepara o snapshot do cliente e os snapshots fiscais dos itens em paralelo na edição', async () => {
+    let customerStarted = false;
+    let fiscalStarted = false;
+    let resolveCustomer!: (order: any) => void;
+    let resolveFiscal!: (items: any[]) => void;
+    mocks.resolveCustomerSnapshot.mockImplementation((order: any) => {
+      customerStarted = true;
+      return new Promise((resolve) => { resolveCustomer = resolve; });
+    });
+    mocks.ensureFiscalSnapshots.mockImplementation((items: any[]) => {
+      fiscalStarted = true;
+      return new Promise((resolve) => { resolveFiscal = resolve; });
+    });
+    mocks.rpc.mockResolvedValue({ data: { order_data: scheduledSale }, error: null });
+    const current: any = {
+      ...scheduledSale,
+      id: 'order-to-edit',
+      orderIndex: 123,
+      updatedAt: '2026-10-18T12:00:00Z',
+      customerData: { id: 'customer' },
+    };
+
+    const pendingUpdate = executeUpdateOrder(
+      current.id,
+      { items: scheduledSale.items } as any,
+      current,
+      current.updatedAt
+    );
+    const startedInParallel = customerStarted && fiscalStarted;
+    resolveCustomer(current);
+    resolveFiscal(scheduledSale.items);
+    await pendingUpdate;
+
+    expect(startedInParallel).toBe(true);
+  });
+
+  it('preserva snapshot, itens e pagamentos não editados ao salvar metadados fiscais', async () => {
+    const raw = { ...scheduledSale, id: 'pedido-1', payments: splitPayments,
+      items: [{ ...scheduledSale.items[0], id: 'snapshot-item' }],
+      customerData: { id: 'customer', fullName: 'Nome histórico' },
+      shipping: { deliveryMethod: 'pickup', deliveryAddress: { street: 'Endereço histórico' } } };
+    const current: any = { ...raw, updatedAt: '2026-10-18T12:00:00Z',
+      items: [{ ...raw.items[0], id: 'normalized-row-id' }],
+      customerData: { id: 'customer', fullName: 'Nome reidratado' },
+      shipping: { deliveryMethod: 'pickup' } };
+    setPersistedOrderDataSnapshot(current, raw);
+    const nfeDraft = { '2': { items: [{ fiscal: { ncm: '123' } }] } };
+    mocks.rpc.mockResolvedValue({ data: { order_data: { ...raw, nfeDraft } }, error: null });
+
+    await executeUpdateOrder('pedido-1', { nfeDraft } as any, current, current.updatedAt, { metadataOnly: true });
+
+    const [, args] = mocks.rpc.mock.calls[0];
+    expect(args.p_order_payload.order_data).toEqual({ ...raw, nfeDraft });
+    expect(args.p_items).toEqual(raw.items);
+    expect(args.p_payments).toEqual(raw.payments);
+    expect(args.p_expected_updated_at).toBe(current.updatedAt);
+    expect(mocks.dispatchUpdateNotifications).not.toHaveBeenCalled();
+    expect(mocks.syncCustomer).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { previousStatus: 'fulfilled', status: 'scheduled', autoFulfillExempt: true },
+    { previousStatus: 'scheduled', status: 'fulfilled' },
+    { previousStatus: 'scheduled', status: 'cancelled' },
+  ])('preserva linhas e pagamentos originais em mudança apenas de status para $status', async ({ previousStatus, ...changes }) => {
+    const raw = { ...scheduledSale, id: 'pedido-status', status: previousStatus,
+      items: [{ ...scheduledSale.items[0], id: 'snapshot-item', retainedLineAudit: 'original' }],
+      payments: splitPayments };
+    const current: any = { ...raw, updatedAt: '2026-10-18T12:00:00Z',
+      items: [{ ...raw.items[0], id: 'normalized-row-id' }],
+      payments: [{ ...splitPayments[0], id: 'normalized-payment-id' }] };
+    setPersistedOrderDataSnapshot(current, raw);
+    mocks.rpc.mockResolvedValue({ data: { order_data: { ...raw, ...changes } }, error: null });
+
+    await executeUpdateOrder(raw.id, changes as any, current, current.updatedAt);
+
+    const [, args] = mocks.rpc.mock.calls[0];
+    expect(args.p_order_payload.order_data).toEqual({ ...raw, ...changes });
+    expect(args.p_items).toEqual(raw.items);
+    expect(args.p_order_payload.items).toEqual(raw.items);
+    expect(args.p_payments).toEqual(raw.payments);
+  });
+
+  it('consulta o snapshot original quando o proprietário de metadados não possui WeakMap', async () => {
+    const raw = { ...scheduledSale, payments: splitPayments, customRetainedField: { source: 'audit' } };
+    const query: any = { select: () => query, eq: () => query, maybeSingle: async () => ({ data: { order_data: raw }, error: null }) };
+    mocks.from.mockReturnValue(query);
+    mocks.rpc.mockResolvedValue({ data: { order_data: raw }, error: null });
+    const current: any = { ...scheduledSale, id: 'pedido-1', updatedAt: '2026-10-18T12:00:00Z' };
+
+    await executeUpdateOrder('pedido-1', { fiscalContext: { finalConsumer: true } }, current, current.updatedAt, { metadataOnly: true });
+
+    expect(mocks.rpc.mock.calls[0][1].p_order_payload.order_data).toEqual({ ...raw, fiscalContext: { finalConsumer: true } });
+  });
+
+  it('preserva alterações explícitas de itens no backfill fiscal de metadados', async () => {
+    const raw = { ...scheduledSale, payments: splitPayments, retainedAudit: 'original' };
+    const current: any = { ...raw, id: 'pedido-1', updatedAt: '2026-10-18T12:00:00Z' };
+    setPersistedOrderDataSnapshot(current, raw);
+    const items = raw.items.map(item => ({ ...item, fiscal: { ...item.fiscal, ncm: '94036000' } }));
+    mocks.rpc.mockResolvedValue({ data: { order_data: { ...raw, items } }, error: null });
+
+    await executeUpdateOrder('pedido-1', { items }, current, current.updatedAt, { metadataOnly: true });
+
+    expect(mocks.rpc.mock.calls[0][1].p_items).toEqual(items);
+    expect(mocks.rpc.mock.calls[0][1].p_order_payload.order_data).toEqual({ ...raw, items });
+  });
+
+  it('não grava metadados sem conferir o snapshot original', async () => {
+    const query: any = { select: () => query, eq: () => query, maybeSingle: async () => ({ data: null, error: { message: 'offline' } }) };
+    mocks.from.mockReturnValue(query);
+    await expect(executeUpdateOrder('pedido-1', { nfeDraft: {} }, { ...scheduledSale, id: 'pedido-1' } as any, undefined, { metadataOnly: true }))
+      .rejects.toThrow('Não foi possível conferir o snapshot original');
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it('envia o pedido à RPC que também grava as movimentações', async () => {

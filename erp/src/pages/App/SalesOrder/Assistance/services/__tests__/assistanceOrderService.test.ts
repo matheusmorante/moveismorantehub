@@ -16,6 +16,8 @@ describe('assistanceOrderService', () => {
       cep: '80000-000',
       street: 'Rua das Flores',
       number: '10',
+      complement: '',
+      observation: '',
       neighborhood: 'Centro',
       city: 'Curitiba',
       state: 'PR',
@@ -39,7 +41,7 @@ describe('assistanceOrderService', () => {
       fullName: '',
       phone: '',
       noPhone: false,
-      fullAddress: { cep: '', street: '', number: '', neighborhood: '', city: '', state: '' },
+      fullAddress: { cep: '', street: '', number: '', complement: '', observation: '', neighborhood: '', city: '', state: '' },
     };
 
     expect(isAssistanceFormBlank(blankCustomer, '', '', [], [])).toBe(true);
@@ -56,6 +58,7 @@ describe('assistanceOrderService', () => {
       description: 'Regulagem de gavetas',
       observation: 'Cliente prefere atendimento no período da tarde',
       scheduling: {
+        time: '',
         date: '2026-10-25',
         startTime: '14:00',
         endTime: '16:00',
@@ -90,6 +93,7 @@ describe('assistanceOrderService', () => {
       description: 'Troca de tampo danificado',
       observation: '',
       scheduling: {
+        time: '',
         date: '2026-10-26',
         startTime: '10:00',
         endTime: '',
@@ -113,6 +117,6 @@ describe('assistanceOrderService', () => {
 
     expect(payload.linkedOrderId).toBe('sale-1234');
     expect(payload.assistanceItems).toHaveLength(1);
-    expect(payload.assistanceItems[0].description).toBe('Mesa de Jantar');
+    expect(payload.assistanceItems?.[0]?.description).toBe('Mesa de Jantar');
   });
 });

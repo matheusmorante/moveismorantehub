@@ -1,11 +1,15 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import type {
   OrderFiscalOperationBadgeStatus,
   ReturnFiscalDocumentSummary,
 } from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import { resolveReturnFiscalBadgeStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import {
+  orderBadgeIndicatorClass,
+  orderBadgeIndicatorColorClass,
+  orderBadgeIndicatorIconClass,
+} from './orderBadgeStyles';
 
 interface OrderFiscalOperationBadgeProps {
   readonly kind: 'estorno' | 'devolucao';
@@ -43,9 +47,8 @@ const openFiscalDocument = (
 };
 
 const ReturnFiscalBadge: React.FC<
-  Omit<OrderFiscalOperationBadgeProps, 'kind'> & { status: OrderFiscalOperationBadgeStatus }
-> = ({ status, documents = [], onOpenDocument }) => {
-  const [isOpen, setIsOpen] = React.useState(false);
+  Omit<OrderFiscalOperationBadgeProps, 'kind' | 'status'>
+> = ({ documents = [], onOpenDocument }) => {
   const navigate = useNavigate();
   const uniqueDocuments = [
     ...new Map(
@@ -53,12 +56,19 @@ const ReturnFiscalBadge: React.FC<
         .filter((doc) => doc.id && doc.document_type === 'return')
         .map((doc) => [doc.id, doc])
     ).values(),
-  ];
+  ].sort((a, b) => {
+    const createdAtOrder = String(a.created_at || a.issuedAt || '').localeCompare(
+      String(b.created_at || b.issuedAt || '')
+    );
+    return (
+      createdAtOrder ||
+      Number(a.numero_nfe || 0) - Number(b.numero_nfe || 0) ||
+      a.id.localeCompare(b.id)
+    );
+  });
   if (uniqueDocuments.length === 0) return null;
 
-  const count = uniqueDocuments.length;
-  const title = `NFD · ${count} ${count === 1 ? 'nota fiscal' : 'notas fiscais'} de devolução fiscal · ${statusLabel[status] || 'Situação incerta'}`;
-  const presentation =
+  const presentationFor = (status: OrderFiscalOperationBadgeStatus) =>
     status === 'issued'
       ? { color: 'border-emerald-700 bg-emerald-600 text-white', icon: 'bi-check', iconColor: 'bg-emerald-700 text-white' }
       : status === 'cancelled'
@@ -73,136 +83,37 @@ const ReturnFiscalBadge: React.FC<
 
   return (
     <>
-      <button
-        type="button"
-        title={`${title} · Abrir detalhes`}
-        aria-label={`${title} · Abrir detalhes`}
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        className={`relative inline-flex h-6 min-w-8 items-center justify-center rounded-md border px-1.5 text-[9px] font-black leading-none ${presentation.color} cursor-pointer hover:ring-2 hover:ring-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
-        onClick={(event) => {
-          event.stopPropagation();
-          setIsOpen(true);
-        }}
-      >
-        NFD
-        <span
-          aria-hidden="true"
-          className="absolute -left-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-white bg-slate-800 px-0.5 text-[8px] font-bold text-white dark:border-slate-900"
-        >
-          {count}
-        </span>
-        <span
-          aria-hidden="true"
-          className={`absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white dark:border-slate-900 ${presentation.iconColor}`}
-        >
-          <i className={`bi ${presentation.icon} text-[9px]`} />
-        </span>
-      </button>
-
-      {isOpen &&
-        typeof document !== 'undefined' &&
-        createPortal(
-        <div
-          className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/60 p-4"
-          onClick={() => setIsOpen(false)}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="return-fiscal-documents-title"
-            className="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
-              <div>
-                <h2 id="return-fiscal-documents-title" className="text-sm font-bold text-slate-900 dark:text-white">
-                  Notas fiscais de devolução fiscal · {count}
-                </h2>
-                <p className="mt-0.5 text-[11px] text-slate-500">{statusLabel[status] || 'Situação incerta'}</p>
-              </div>
-              <button
-                type="button"
-                aria-label="Fechar detalhes das notas de devolução fiscal"
-                className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                onClick={() => setIsOpen(false)}
+      <div className="flex flex-wrap items-center gap-1">
+        {uniqueDocuments.map((document, index) => {
+          const documentStatus = resolveReturnFiscalBadgeStatus([document]) || 'uncertain';
+          const presentation = presentationFor(documentStatus);
+          const sequenceLabel = `NFD${index + 1}`;
+          const title = `${sequenceLabel} · ${document.numero_nfe || 'sem número'} · ${
+            statusLabel[documentStatus] || 'Situação incerta'
+          }`;
+          return (
+            <button
+              key={document.id}
+              type="button"
+              title={`${title} · Abrir detalhes`}
+              aria-label={`${title} · Abrir detalhes`}
+              className={`relative inline-flex h-6 min-w-8 items-center justify-center rounded-md border px-3.5 text-[9px] font-black leading-none ${presentation.color} cursor-pointer hover:ring-2 hover:ring-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
+              onClick={(event) => {
+                event.stopPropagation();
+                openFiscalDocument(document, onOpenDocument, navigate);
+              }}
+            >
+              <span>{sequenceLabel}</span>
+              <span
+                aria-hidden="true"
+                className={`${orderBadgeIndicatorClass} ${orderBadgeIndicatorColorClass(presentation.icon, presentation.iconColor)}`}
               >
-                <i className="bi bi-x-lg" />
-              </button>
-            </header>
-            <div className="max-h-[calc(85vh-64px)] space-y-3 overflow-y-auto p-4">
-              {uniqueDocuments.map((document) => {
-                const documentStatus = String(document.status || 'Situação incerta');
-                const amount =
-                  document.valor_total == null ? Number.NaN : Number(document.valor_total);
-                const model = document.modelo === '65' ? 'NFC-e 65' : document.modelo === '55' ? 'NF-e 55' : `Modelo ${document.modelo || '—'}`;
-                const returnOrderCode = document.returnOrderCode || document.order_id;
-                return (
-                  <article key={document.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-                          NFD {document.numero_nfe || '—'} · Série {document.serie || '—'}
-                        </h3>
-                        <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">
-                          {model} · {document.ambiente === 2 ? 'Homologação' : 'Produção'} · {documentStatus}
-                        </p>
-                      </div>
-                      <span className="text-[11px] text-slate-500">
-                        {document.issuedAt ? 'Autorização' : 'Registro no ERP'}:{' '}
-                        {formatToBRDate(document.issuedAt || document.created_at)}
-                      </span>
-                    </div>
-                    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] sm:grid-cols-3">
-                      <div>
-                        <dt className="text-slate-500">Pedido de devolução</dt>
-                        <dd>
-                          <button
-                            type="button"
-                            className="font-semibold text-blue-700 hover:underline dark:text-blue-300"
-                            onClick={() => {
-                              setIsOpen(false);
-                              navigate(`/sales-order/edit/${encodeURIComponent(document.order_id)}`);
-                            }}
-                          >
-                            #{returnOrderCode}
-                          </button>
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-500">Valor</dt>
-                        <dd className="font-semibold text-slate-800 dark:text-slate-200">
-                          {Number.isFinite(amount) ? formatCurrency(amount) : '—'}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-500">Quantidade</dt>
-                        <dd className="font-semibold text-slate-800 dark:text-slate-200">
-                          {typeof document.itemQuantity === 'number'
-                            ? `${document.itemQuantity.toLocaleString('pt-BR')} unidades`
-                            : '—'}
-                        </dd>
-                      </div>
-                    </dl>
-                    <button
-                      type="button"
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-blue-200 px-2.5 py-1.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/40"
-                      onClick={() => {
-                        setIsOpen(false);
-                        openFiscalDocument(document, onOpenDocument, navigate);
-                      }}
-                    >
-                      <i className="bi bi-file-earmark-text" />
-                      Abrir XML/DANFE e ações fiscais
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        </div>,
-        document.body
-      )}
+                <i className={`bi ${presentation.icon} ${orderBadgeIndicatorIconClass}`} />
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </>
   );
 };
@@ -210,8 +121,8 @@ const ReturnFiscalBadge: React.FC<
 export const OrderFiscalOperationBadge: React.FC<OrderFiscalOperationBadgeProps> = (props) => {
   const navigate = useNavigate();
   if (props.kind === 'devolucao') {
-    if (!props.status || !props.documents?.length) return null;
-    return <ReturnFiscalBadge status={props.status} documents={props.documents} onOpenDocument={props.onOpenDocument} />;
+    if (!props.documents?.length) return null;
+    return <ReturnFiscalBadge documents={props.documents} onOpenDocument={props.onOpenDocument} />;
   }
 
   const { status, documentId, draftId, environment = 1, onOpenDocument, onOpenDraft } = props;
@@ -280,9 +191,9 @@ export const OrderFiscalOperationBadge: React.FC<OrderFiscalOperationBadgeProps>
       {label}
       <span
         aria-hidden="true"
-        className={`absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-white dark:border-slate-900 ${iconColorClass}`}
+        className={`${orderBadgeIndicatorClass} ${orderBadgeIndicatorColorClass(iconClass, iconColorClass)}`}
       >
-        <i className={`bi ${iconClass} text-[9px]`} />
+        <i className={`bi ${iconClass} ${orderBadgeIndicatorIconClass}`} />
       </span>
     </>
   );

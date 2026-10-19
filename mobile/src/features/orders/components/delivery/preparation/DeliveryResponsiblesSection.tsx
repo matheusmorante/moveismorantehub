@@ -1,14 +1,8 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
-import { Users, UserCheck, Plus, X } from 'lucide-react-native';
-import { DeliveryResponsibleItem } from '../../screens/delivery-preparation/deliveryPreparation.types';
-import { filterUnaddedStaff } from '../../screens/delivery-preparation/deliveryStaffRules';
+import React from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { Users, UserCheck, X } from 'lucide-react-native';
+import { DeliveryResponsibleItem } from '../../../screens/delivery-preparation/deliveryPreparation.types';
+import { filterUnaddedStaff } from '../../../screens/delivery-preparation/deliveryStaffRules';
 import { styles } from './deliveryPreparationStep.styles';
 
 interface Props {
@@ -28,15 +22,6 @@ export const DeliveryResponsiblesSection: React.FC<Props> = ({
   userProfile,
   isDarkMode = false,
 }) => {
-  const [customName, setCustomName] = useState('');
-
-  const handleAddCustom = () => {
-    const trimmed = customName.trim();
-    if (!trimmed) return;
-    onAddResponsible({ name: trimmed, role: 'entregador' });
-    setCustomName('');
-  };
-
   // Sugestões de colaboradores ainda não adicionados
   const unaddedStaff = filterUnaddedStaff(availableStaff, responsibles);
 
@@ -97,7 +82,7 @@ export const DeliveryResponsiblesSection: React.FC<Props> = ({
       {unaddedStaff.length > 0 && (
         <View style={styles.suggestionsContainer}>
           <Text style={[styles.suggestionsLabel, isDarkMode && styles.textMuted]}>
-            Adicionar membro da equipe:
+            Adicionar mais responsáveis pela entrega:
           </Text>
           <ScrollView
             horizontal
@@ -113,7 +98,6 @@ export const DeliveryResponsiblesSection: React.FC<Props> = ({
                 style={[styles.suggestionChip, isDarkMode && styles.suggestionChipDark]}
                 activeOpacity={0.7}
               >
-                <Plus size={12} color="#2563eb" />
                 <Text style={[styles.suggestionText, isDarkMode && styles.textLight]}>
                   {staff.fullName}
                 </Text>
@@ -122,28 +106,6 @@ export const DeliveryResponsiblesSection: React.FC<Props> = ({
           </ScrollView>
         </View>
       )}
-
-      {/* Campo de inserção manual de colaborador/ajudante */}
-      <View style={styles.manualInputRow}>
-        <TextInput
-          placeholder="Adicionar outro responsável..."
-          placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
-          value={customName}
-          onChangeText={setCustomName}
-          onSubmitEditing={handleAddCustom}
-          returnKeyType="done"
-          style={[styles.textInput, isDarkMode && styles.textInputDark]}
-        />
-        <TouchableOpacity
-          onPress={handleAddCustom}
-          disabled={!customName.trim()}
-          style={[styles.addBtn, !customName.trim() && styles.btnDisabled]}
-          activeOpacity={0.8}
-        >
-          <Plus size={15} color="#ffffff" />
-          <Text style={styles.addBtnText}>Adicionar</Text>
-        </TouchableOpacity>
-      </View>
 
       <Text style={[styles.confirmationNotice, isDarkMode && styles.textMuted]}>
         ℹ️ Os responsáveis só serão confirmados no pedido ao iniciar a rota abaixo.

@@ -1,11 +1,13 @@
 import React from 'react';
+import PickupIcon from '@/components/shared/PickupIcon';
 import {
-  stringifyFullAddressWithObservation,
+  stringifyFullAddress,
   formatToBRDate,
   toTitleCase,
 } from '../../../utils/formatters';
 import { getSettings } from '@/pages/utils/settingsService';
 import { getOrderTypeClasses, resolveOrderColor } from '../../../utils/orderTypeColorUtils';
+import { splitNoticeTags } from '@/pages/utils/noticeTags';
 
 type AdditionalContact = { name?: string; phone?: string };
 
@@ -129,7 +131,13 @@ export const OrderTypeLabelsSection = ({
         <div
           className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest ${cls.badge}`}
         >
-          <i className={`bi ${isAssistance ? 'bi-tools' : isPickup ? 'bi-shop' : 'bi-truck'}`} />
+          {isAssistance ? (
+            <i className="bi bi-tools" />
+          ) : isPickup ? (
+            <PickupIcon className="h-4 w-4" />
+          ) : (
+            <i className="bi bi-truck" />
+          )}
           {label}
         </div>
         {handlingModality && (
@@ -147,7 +155,6 @@ import MapRoute from '../../SalesOrder/ShippingComponents/MapRoute';
 
 export const ShippingSection = ({
   fullAddress,
-  destinationCoords,
   distance,
   durationMinutes,
   deliveryResponsibleName,
@@ -155,7 +162,6 @@ export const ShippingSection = ({
   isReadOnly,
 }: {
   fullAddress: any;
-  destinationCoords?: [number, number];
   distance?: number;
   durationMinutes?: number;
   deliveryResponsibleName?: string;
@@ -167,11 +173,38 @@ export const ShippingSection = ({
       <i className="bi bi-geo-alt-fill" /> Endereço de Entrega
     </h3>
 
-    <p
-      className={`text-sm leading-relaxed ${stringifyFullAddressWithObservation(fullAddress) ? 'font-semibold text-slate-700 dark:text-slate-300' : 'font-medium italic text-slate-400 dark:text-slate-500'}`}
-    >
-      {stringifyFullAddressWithObservation(fullAddress) || 'Endereço não informado'}
-    </p>
+    {(() => {
+      const addressText = stringifyFullAddress(fullAddress);
+      const addressNotices = splitNoticeTags(
+        fullAddress?.observation || fullAddress?.observations || fullAddress?.notes || ''
+      );
+
+      return (
+        <>
+          <p
+            className={`text-sm leading-relaxed ${addressText ? 'font-semibold text-slate-700 dark:text-slate-300' : 'font-medium italic text-slate-400 dark:text-slate-500'}`}
+          >
+            {addressText || 'Endereço não informado'}
+          </p>
+          {addressNotices.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2.5">
+              <i
+                className="bi bi-exclamation-circle-fill text-[14px] text-amber-600 dark:text-amber-400"
+                aria-hidden="true"
+              />
+              {addressNotices.map((notice, index) => (
+                <span
+                  key={`${index}-${notice}`}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-black text-amber-800 shadow-sm shadow-amber-100/50 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-300 dark:shadow-none"
+                >
+                  {notice}
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      );
+    })()}
 
     {(distance !== undefined || durationMinutes !== undefined) && (
       <div className="flex items-center gap-5 mt-3">
@@ -197,33 +230,6 @@ export const ShippingSection = ({
         )}
       </div>
     )}
-
-    {(() => {
-      const explicitMapsUrl = (
-        fullAddress?.mapsUrl ||
-        fullAddress?.googleMapsUrl ||
-        fullAddress?.mapsLink ||
-        ''
-      )?.trim();
-      const targetUrl =
-        explicitMapsUrl && explicitMapsUrl.length > 5
-          ? explicitMapsUrl
-          : destinationCoords
-            ? `https://www.google.com/maps/dir/?api=1&destination=${destinationCoords[1]},${destinationCoords[0]}`
-            : null;
-      if (!targetUrl) return null;
-      return (
-        <a
-          href={targetUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors mt-3"
-        >
-          <i className="bi bi-geo-fill" />
-          Ver no Google Maps
-        </a>
-      );
-    })()}
 
     {(deliveryResponsibleName || (deliveryResponsibles && deliveryResponsibles.length > 0)) && (
       <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">

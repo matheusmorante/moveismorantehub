@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import Order from '../../../types/order.type';
 import InventoryMovementBadge from './InventoryMovementBadge';
-import { binaryOrderBadgeClass, warningOrderBadgeClass } from './orderBadgeStyles';
+import { binaryOrderBadgeClass } from './orderBadgeStyles';
 import { isPartialSaleStockMovement } from '@/pages/utils/saleInventoryRules';
+import ReturnIcon from '@/components/shared/ReturnIcon';
 
 interface OrderOperationalBadgesProps {
   order: Order;
@@ -12,7 +13,6 @@ interface OrderOperationalBadgesProps {
   onStatusUpdate: (id: string, newStatus: Order['status']) => void;
   onBlingUpdate?: (id: string, value: boolean) => void;
   onStockCheckUpdate?: (id: string, value: boolean) => void;
-  layout?: 'row' | 'card';
 }
 
 export const OrderOperationalBadges = ({
@@ -23,21 +23,15 @@ export const OrderOperationalBadges = ({
   onStatusUpdate,
   onBlingUpdate,
   onStockCheckUpdate,
-  layout = 'row',
 }: OrderOperationalBadgesProps) => {
   const [showPicker, setShowPicker] = useState(false);
   const isCancelled = order.status === 'cancelled';
   const isAssis = order.orderType === 'assistance';
   const isRet = order.orderType === 'return';
   const isPick = order.shipping?.deliveryMethod === 'pickup';
+  const hasLinkedReturn = !isRet && Boolean(order.returnOrderId);
 
-  const tIcon = isAssis
-    ? 'bi-tools'
-    : isRet
-      ? 'bi-arrow-return-left'
-      : isPick
-        ? 'bi-shop'
-        : 'bi-truck';
+  const tIcon = isAssis ? 'bi-tools' : isRet ? 'bi-arrow-return-left' : isPick ? 'bi-shop' : 'bi-truck';
   const sIcons: Record<string, string> = {
     draft: 'bi-clock',
     scheduled: 'bi-calendar3',
@@ -141,7 +135,7 @@ export const OrderOperationalBadges = ({
                 ? 'bg-slate-400 dark:bg-slate-600 border border-slate-500 dark:border-slate-600'
                 : currentStatus.bg.replace('/10', '').replace('/20', '').replace('-50', '-500')
           } text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
-          title={`Status: ${currentStatus.label} | Tipo: ${isAssis ? 'Assistência' : isRet ? 'Devolução' : isPick ? 'Retirada' : 'Entrega'}`}
+          title={`Status: ${currentStatus.label} | Tipo: ${isRet ? 'Devolução' : isAssis ? 'Assistência' : isPick ? 'Retirada' : 'Entrega'}`}
         >
           <i className={`bi ${sIcon} text-white text-[11px]`} />
         </button>
@@ -182,21 +176,25 @@ export const OrderOperationalBadges = ({
         )}
       </div>
 
-      {/* 5. Transport Type Icon */}
-      <div
-        className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
-          isAssis
-            ? 'bg-orange-500 text-white border-orange-600'
-            : isRet
-              ? 'bg-amber-500 text-white border-amber-600'
+      {/* A própria lista identifica a devolução; o selo fica na venda vinculada. */}
+      {hasLinkedReturn ? (
+        <div className="flex h-6 w-6 items-center justify-center rounded-md border border-orange-600 bg-orange-500 text-white shadow-2xs" title="Devolução vinculada">
+          <ReturnIcon white className="h-5 w-5" />
+        </div>
+      ) : !isRet ? (
+        <div
+          className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
+            isAssis
+              ? 'bg-orange-500 text-white border-orange-600'
               : isPick
                 ? 'bg-purple-600 text-white border-purple-700'
                 : 'bg-emerald-600 text-white border-emerald-700'
-        }`}
-        title={isAssis ? 'Assistência' : isPick ? 'Retirada' : isRet ? 'Devolução' : 'Entrega'}
-      >
-        <i className={`bi ${tIcon} text-[11px] text-white`} />
-      </div>
+          }`}
+          title={isAssis ? 'Assistência' : isPick ? 'Retirada' : 'Entrega'}
+        >
+          <i className={`bi ${tIcon} text-[11px] text-white`} />
+        </div>
+      ) : null}
 
       {/* 6. Stock Processed Indicator */}
       {(order.orderType === 'sale' ||
@@ -219,20 +217,6 @@ export const OrderOperationalBadges = ({
         />
       )}
 
-      {/* 7. Return Status Badge */}
-      {order.returnOrderId && (
-        <div
-          className={`flex h-6 ${layout === 'card' ? 'items-center gap-1 px-2' : 'w-6 items-center justify-center'} rounded-md border shadow-sm ${warningOrderBadgeClass}`}
-          title={`Este pedido possui uma devolução ${order.returnKind === 'complete' ? 'completa' : 'parcial'} vinculada`}
-        >
-          <i className="bi bi-arrow-return-left text-[10px]" />
-          {layout === 'card' && (
-            <span className="text-[9px] font-black uppercase tracking-wider">
-              Devolução {order.returnKind === 'complete' ? 'Total' : 'Parcial'}
-            </span>
-          )}
-        </div>
-      )}
     </div>
   );
 };

@@ -86,13 +86,15 @@ const ItemsTable = ({
 
   return (
     <div className="flex flex-col gap-3 p-0 h-full w-full">
-      <ItemsTableTabsBar
-        activeTab={activeTab}
-        productsCount={productsCount}
-        servicesCount={servicesCount}
-        onSelectTab={setActiveTab}
-        onAddCurrent={handleAddCurrent}
-      />
+      {!isReturn && (
+        <ItemsTableTabsBar
+          activeTab={activeTab}
+          productsCount={productsCount}
+          servicesCount={servicesCount}
+          onSelectTab={setActiveTab}
+          onAddCurrent={handleAddCurrent}
+        />
+      )}
 
       {/* Conteúdo: Modo Cards (telas < 1280px) ou Modo Tabela (telas >= 1280px) */}
       {isCardsView ? (

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Navigation, Eye } from 'lucide-react-native';
-import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
+import { DeliveryRouteItem } from '../../../hooks/useDeliveryRoute';
 import { styles } from './routeListItem.styles';
 
 interface Props {

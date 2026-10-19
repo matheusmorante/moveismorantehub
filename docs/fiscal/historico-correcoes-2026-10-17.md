@@ -984,3 +984,312 @@ Criada subpasta [`mobile/src/features/orders/components/delivery/preparation/`](
    - `deliveryRouteFormSchema.test.ts`: 8 testes aprovados.
 3. **Compatibilidade Total**: Nenhuma interface, contrato de exportação ou rota externa sofreu alteração que quebre compatibilidade com os demais componentes do sistema.
 
+
+## Refatoração Modular e Princípios de Engenharia — Módulo de Estoque e Inventário (ERP e Mobile)
+
+### 1. Problemas Identificados e Diagnóstico Técnico
+- **ERP - `LabelGridModelModal.tsx` (1.303 linhas) e `PriceLabelArtEditorModal.tsx` (1.262 linhas)**: Componentes monólitos de altíssima complexidade no subsistema de impressão de etiquetas que acumulavam orquestração visual, drag & drop de canvas, redimensionamento com snap magnético, serialização e histórico de desfazer/refazer, formatação em lote e mapeamento temático de cores de oportunidade.
+- **ERP - `InboundInvoiceReceiptPickerModal.tsx` (449 linhas)**: Modal de seleção e vinculação de notas fiscais de entrada com regras de filtragem por fornecedor/número/data e renderização de cards aninhados sem desacoplamento de responsabilidades.
+- **Mobile - `PurchasesScreen.tsx` (434 linhas)**: Tela de pedidos de compra do estoque móvel com modal de seleção de fornecedores, filtros de busca, cards com metadados de status e estados de lista misturados a estilos de mais de 100 linhas.
+- **Mobile - `InventoryScannerScreen.tsx` (438 linhas)**: Scanner com câmera, controle de áudio de contagem, temporizadores de borda de feedback, OCR web via worker Tesseract vs mobile nativo MLKit e cards de status da sessão no mesmo arquivo.
+- **Mobile - `InventoryScreen.tsx` (424 linhas)**: Tela principal de inventário auditando estoque com handlers de estorno, reaplicação de ajustes, duplicação e exclusão de rascunhos acoplados ao corpo do componente e paginação.
+- **Mobile - `SuppliersScreen.tsx` (488 linhas), `InvoiceImportModal.tsx` (488 linhas) e `StockMoveCard.tsx` (446 linhas)**: Componentes com estilos extensos e lógica de negócio misturada à visualização.
+
+### 2. Soluções Arquiteturais Implementadas (Clean Code, DRY, SRP, Desacoplamento)
+
+#### A. Impressão de Etiquetas do ERP (`PriceLabelArtEditorModal.tsx` e `LabelGridModelModal.tsx`)
+1. **`usePriceLabelElementFormatting.ts`** criado em [`erp/src/pages/App/Stock/LabelPrinting/modals/price-label-editor/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/price-label-editor/usePriceLabelElementFormatting.ts):
+   - Encapsula histórico de cores, centralização de componentes, seleção de cores com gradiente, mapeamento de temas por oportunidade (`oppColorsMap`), alteração de famílias tipográficas e ajuste em lote de tamanhos de fonte (`handleBatchFontSize`, `handleBatchFontFamily`).
+   - Reduz `PriceLabelArtEditorModal.tsx` em mais de 200 linhas de código imperativo redundante.
+2. **`useLabelGridModelSession.ts` e `useLabelGridModelInteractions.ts`** criados em [`erp/src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/):
+   - `LabelGridModelModal.tsx` reduzido de **1.303 linhas para 437 linhas** (redução de 66%), isolando a máquina de estados da sessão e os cálculos de arrasto/redimensionamento/snap do canvas.
+
+#### B. Seletor de Recebimento de Notas Fiscais no ERP (`InboundInvoiceReceiptPickerModal.tsx`)
+- Reduzido de **449 linhas para 191 linhas**.
+- Criada a subpasta [`erp/src/pages/App/Stock/InboundInvoices/modals/inbound-invoice-picker/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/Stock/InboundInvoices/modals/inbound-invoice-picker/):
+  - `inboundInvoicePickerFilters.ts`: funções puras de filtragem por texto, data e fornecedor.
+  - `InboundInvoiceReceiptFilterBar.tsx`: barra de filtros e busca.
+  - `InboundInvoiceReceiptItem.tsx`: card de item de nota fiscal.
+
+#### C. Pedidos de Compra Mobile (`PurchasesScreen.tsx`)
+- Reduzido de **434 linhas para 148 linhas**.
+- Criada a subpasta [`mobile/src/features/stock/purchases/screens/purchases-screen/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/purchases/screens/purchases-screen/):
+  - `purchasesScreen.styles.ts`: folha de estilo isolada.
+  - `purchasesScreenUtils.ts`: funções puras de formatação (`money`, `date`, `statusMeta`).
+  - `PurchaseCard.tsx`: card de pedido com badge de status e valor total.
+  - `PurchasesListStates.tsx`: estados de carregamento, erro e vazio.
+  - `PurchasesScreenHeader.tsx`: cabeçalho com campo de busca e filtro de fornecedor.
+  - `PurchaseSupplierFilterModal.tsx`: modal dedicado para seleção e busca de fornecedor.
+
+#### D. Scanner e Contagem de Inventário Mobile (`InventoryScannerScreen.tsx`)
+- Reduzido de **438 linhas para 239 linhas**.
+- Criada a subpasta [`mobile/src/features/stock/inventory/screens/inventory-scanner/`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/mobile/src/features/stock/inventory/screens/inventory-scanner/):
+  - `inventoryScanner.styles.ts`: estilos desacoplados do scanner e overlay.
+  - `inventoryScannerOcr.ts`: utilitário isolado de OCR e extração de chave de acesso de NF-e (separação web vs nativo).
+  - `InventoryScannerFeedbackView.tsx`: componente de feedback contínuo da contagem e métricas de sessão.
+
+#### E. Tela Principal de Inventário Mobile (`InventoryScreen.tsx`)
+- Reduzido de **424 linhas para 198 linhas**.
+- Criados:
+  - `mobile/src/features/stock/inventory/hooks/useInventoryScreenActions.ts`: hook customizado encapsulando todo o ciclo de vida e ações operacionais de sessões de inventário (`handleContinueInventory`, `handleDuplicateInventory`, `handleReverseInventory`, `handleApplyAdjustments`, `handleDeleteDraft`).
+  - `mobile/src/features/stock/inventory/screens/inventory-screen/inventoryScreen.styles.ts`.
+  - `mobile/src/features/stock/inventory/screens/inventory-screen/InventoryScreenPageHeader.tsx`.
+  - `mobile/src/features/stock/inventory/screens/inventory-screen/InventoryScreenEmptyState.tsx`.
+
+#### F. Fornecedores, Importação e Movimentação Mobile
+- `SuppliersScreen.tsx` (488 -> 171 linhas) decomposto com `SupplierCard`, `SupplierToolbar`, `SupplierListStates` e estilos isolados.
+- `InvoiceImportModal.tsx` (488 -> 225 linhas) decomposto em `InvoiceImportAccessKeySection` e `InvoiceImportXmlUploadSection`.
+- `StockMoveCard.tsx` (446 -> 263 linhas) desacoplado com `stockMoveCardUtils.ts` e `stockMoveCard.styles.ts`.
+
+#### G. Tela de Revisão Final de Inventário Mobile (`InventoryReviewScreen.tsx`)
+- Reduzido de **404 linhas para 148 linhas**.
+- Criados:
+  - `mobile/src/features/stock/inventory/hooks/useInventoryReconciliation.ts`: hook de consulta em lotes e cálculo da reconciliação de movimentações ocorridas durante a contagem.
+  - `mobile/src/features/stock/inventory/screens/inventory-review/inventoryReview.styles.ts`: estilos dedicados.
+  - `mobile/src/features/stock/inventory/screens/inventory-review/InventoryReviewSummaryCard.tsx`: card de contagem concluída e aviso de não contados.
+  - `mobile/src/features/stock/inventory/screens/inventory-review/InventoryReviewDifferencesList.tsx`: lista de divergências e ajustes.
+
+#### H. Renderizador de Etiqueta ERP (`LabelItem.tsx`)
+- Reduzido de **527 linhas para 260 linhas**.
+- Criada a subpasta `erp/src/pages/App/Stock/LabelPrinting/components/label-item/`:
+  - `LabelBarcode.tsx`: renderização isolada de código de barras via BWIP-JS (EAN-13 e Code 128).
+  - `LabelQRCode.tsx`: renderizador canvas de QR Code e componente de preview placeholder.
+  - `labelItemUtils.ts`: helpers puros de formatação monetária e alinhamento CSS.
+  - `LabelIdentificationLayout.tsx`: layout modular para etiquetas de identificação patrimonial com SKU e QR Code.
+
+#### I. Contêiner Principal de Estoque Mobile (`NativeStockScreen.tsx`)
+- Reduzido de **374 linhas para 198 linhas**.
+- Criada a subpasta `mobile/src/features/stock/overview/native-stock-screen/`:
+  - `nativeStockScreen.styles.ts`: folha de estilo isolada.
+  - `nativeStockScreen.types.ts`: tipagem e constantes de abas do estoque.
+  - `StockModuleTabBar.tsx`: barra de abas navegável com scroll animado, botões de avanço e retrocesso e indicadores de foco.
+
+### 3. Validações e Não-Regressão
+1. **Suíte Completa de Impressão de Etiquetas do ERP**: **397/397 testes aprovados** em 34 arquivos (`src/pages/App/Stock/LabelPrinting`).
+2. **Suíte Móvel Geral (`npm run test:unit:mobile --prefix erp`)**: **352/352 testes aprovados** em 66 arquivos de teste.
+3. **Suíte Móvel de Formulários (`npm run test:unit:mobile-forms --prefix erp`)**: **47/47 testes aprovados** em 5 arquivos de teste.
+4. **Suíte de Inventário Móvel (`stock/inventory`)**: **42/42 testes aprovados** em 7 arquivos de teste.
+5. **Suíte de Pedidos de Compra Móvel (`stock/purchases`)**: **4/4 testes aprovados**.
+6. **Suíte de Notas Fiscais Móvel (`stock/invoices`)**: **14/14 testes aprovados**.
+7. **Suíte de Compras do ERP (`Stock/Purchases`)**: **29/29 testes aprovados** em 4 arquivos.
+8. **Suíte de Recebimentos do ERP (`Stock/Receipts`)**: **36/36 testes aprovados** em 8 arquivos.
+9. **Verificação Mandatória de Invariantes Fiscais**:
+   - **`FISCAL-016` (Zero CC-e)**: Varredura regex `\bcce\b|CC-e|Carta de Corre|cartadecorrecao` executada em todos os arquivos de estoque resultando em 0 correspondências.
+   - **Formulários**: Todos os formulários preservam estritamente o uso de `react-hook-form` com `zodResolver`.
+
+---
+
+## Higienização de Artefatos de Teste e Defesa em Profundidade contra Vazamento de Registros Sintéticos
+
+**Data:** 17/10/2026  
+**Problema identificado e sintomas:**
+1. **Presença de Pessoas de Teste nas Telas Operacionais (`public.people`)**: 24 registros sintéticos (18 clientes e 2 funcionários) estavam gravados na tabela `public.people`. Destes, 17 registros criados em 06/10 e 11/10 (incluindo `[HML NF TEST] 01` a `13`, `Cliente Pr Teste`, `TEST_AUT_NFE_HML_OPERATOR`, `playwright.test`) não possuíam metadado `testArtifact` no JSON e estavam ativos (`active = true, deleted = false`). O serviço de consulta do ERP (`personQueryService.ts` e `CustomerSearchModal.tsx`) não filtrava registros de teste, fazendo com que esses clientes e funcionários fictícios vazassem para a interface operacional da loja (`Cadastros > Clientes`, `Cadastros > Funcionários` e modal de busca de cliente em novas vendas).
+2. **Produtos de Teste Vencidos no Catálogo (`public.products`)**: Os produtos `[HML NF TEST] P1` a `P5` (códigos `NFEHML26P1` a `NFEHML26P5`) foram cadastrados em 06/10 sem `is_test: true` em `technical_specs`, vazando para buscas de catálogo que dependiam exclusivamente do filtro PostgREST `NON_TEST_PRODUCT_ARTIFACT_FILTER`.
+3. **Resíduos de Pedidos Cancelados de Fixtures (`public.orders`)**: 4 pedidos de fixtures de teste (`0dbb970d-...`, `386ef984-...`, `41e80be4-...`, `4d21e2ba-...`) estavam com `status = 'cancelled'` e 0 itens, não tendo sido marcados como excluídos após as execuções de testes sintéticos.
+
+**Causa raiz técnica:**
+- No backend/banco, as factories de testes antigas (anteriores a 12/10) inseriam pessoas e produtos sem preencher a metadata canônica `testArtifact` com `is_test: true`.
+- No frontend, `personQueryService.ts` (`fetchAllPeopleRows`, `mapAndSortPeople`, `searchPeople`, `getRecentPeople`) e `CustomerSearchModal.tsx` confiavam apenas no status de soft delete (`deleted.eq.false,deleted.is.null`), sem implementar a camada de defesa em profundidade por `isIdentifiedTestArtifact` e identificadores canônicos de teste.
+
+**Soluções técnicas implementadas:**
+1. **Higienização Atômica no Supabase Remoto (`hkoxhourxwlddgsfdgws`)**:
+   - **Pessoas (`public.people`)**: Soft-delete executado com sucesso em todos os 24 registros de teste (`deleted = true, active = false, deleted_at = NOW()`), respeitando os invariantes do trigger `guard_test_artifact_record` via contexto de sessão de administrador autenticado (`13eab361-be48-4e49-be4b-4ad79813b812` e `eccde09e-72d8-4efe-a387-eb34114dea39`). Total de clientes/funcionários de teste ativos restantes: **0**.
+   - **Produtos (`public.products` e `product_variations`)**: Soft-delete e inativação de `NFEHML26P1` a `P5`, `004037`, `004039` e `004042` e de todas as suas variações de produto (`deleted = true, active = false`). Total de produtos de teste ativos restantes: **0**.
+   - **Pedidos (`public.orders`)**: Marcação de `deleted = true` para os 4 pedidos de fixture cancelados e vazios. Os 5 pedidos válidos e estruturados da matriz de homologação (`#T-32f63cc6`, `#4347`, `#4348`, `#4349`, `#4350`) foram preservados 100% íntegros com `is_test = true` e dados tributários completos.
+2. **Defesa em Profundidade no Frontend (`personQueryService.ts` e `CustomerSearchModal.tsx`)**:
+   - Criação e exportação da função `isTestPerson` em [`erp/src/pages/utils/personService/personQueryService.ts`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/utils/personService/personQueryService.ts), combinando `isIdentifiedTestArtifact` com expressões regulares de nomes de teste (`[HML NF TEST]`, `TEST_AUT_`, `playwright.test`).
+   - Aplicação do filtro em `mapAndSortPeople` (quando `includeDeleted = false`), `searchPeople` e `getRecentPeople`, impedindo que qualquer registro de teste seja retornado pela API de frontend mesmo se reintroduzido no banco.
+   - Aplicação de `isTestPerson` e `isTestOrder` na montagem do mapa de clientes em [`erp/src/pages/App/SalesOrder/modals/CustomerSearchModal.tsx`](file:///c:/Users/mathe/OneDrive/%C3%81rea%20de%20Trabalho/projetos/morantehub/erp/src/pages/App/SalesOrder/modals/CustomerSearchModal.tsx).
+
+**Validações e Não-Regressão:**
+- **Zero registros de teste ativos**: `SELECT COUNT(*) FROM public.people WHERE ... AND deleted = false` = 0.
+- **Zero produtos de teste ativos**: `SELECT COUNT(*) FROM public.products WHERE ... AND deleted = false` = 0.
+- **Testes Unitários de Pessoas**: `npx vitest run erp/src/pages/utils/personService/personQueryService.test.ts` (6/6 aprovados).
+- **TypeScript Check**: `npx tsc -p api/tsconfig.nfe.json --noEmit` (0 erros) e `npx tsc -p erp/tsconfig.fiscal.json --noEmit` (0 erros).
+- **Suíte Fiscal Startup**: `npm run test:fiscal-startup --prefix erp` (12/12 handlers, WASM e XSD validados com código 0).
+- **Suíte Fiscal Vitest NFE**: 842/842 testes aprovados em 76 arquivos (`src/pages/utils/nfe/`).
+- **Formulários Mobile e Catálogo**: 100/100 testes aprovados (47 mobile + 53 catálogo).
+
+---
+
+## Auditoria Arquitetural e Modularização do Módulo de Estoque — Fase 4
+
+**Data:** 17/10/2026  
+**Problema identificado:**
+Arquivos remanescentes do módulo de Estoque ainda concentravam centenas de linhas de lógica de orquestração mista, estado de drag-and-drop, sliders repetitivos e ações de I/O em componentes de interface:
+1. `mobile/src/features/stock/invoices/modals/InboundInvoiceMappingsModal.tsx` (~806 linhas): misturava ciclo de vida de mapeamento de NF-e de entrada, buscas com debounce para fornecedores, produtos e produtos-pai, sugestões determinísticas e mutações com Zod.
+2. `mobile/src/features/stock/invoices/screens/InvoicesScreen.tsx` (~398 linhas): acumulava métodos imperativos de I/O de XML (FileSystem e Web Blob), chamadas à SEFAZ, deleção e controle de múltiplos diálogos no corpo da tela.
+3. `erp/src/pages/App/Stock/LabelPrinting/components/LabelQueue.tsx` (~451 linhas): misturava lógica de drag-and-drop, leitura assíncrona de arquivos com AbortController e RHF Zod, com um renderizador monolítico de cartões da fila.
+4. `erp/src/pages/App/Stock/LabelPrinting/modals/PriceLabelTestValuesModal.tsx` (~422 linhas): repetia 12 blocos de markup idênticos para sliders de dígitos de dezenas, centenas, milhares e preço anterior ("DE").
+
+**Soluções técnicas implementadas:**
+1. **`InboundInvoiceMappingsModal.tsx` (~806 linhas → ~226 linhas)**:
+   - Criado o hook `useInboundInvoiceMappings.ts` em `mobile/src/features/stock/invoices/modals/inbound-mappings/`.
+   - Isolamento da carga de detalhes da NF com vínculos persistidos, scoring determinístico com cache em memória, timers de busca debouncada e métodos de mutação transacional (`persist`, `chooseSupplier`, `createSupplier`, `linkProduct`, `removeLink`, `toggleLinkMode`, `saveQuickRegisteredProduct`).
+2. **`InvoicesScreen.tsx` (~398 linhas → ~180 linhas)**:
+   - Criado o hook `useInvoiceScreenActions.ts` em `mobile/src/features/stock/invoices/screens/invoices-screen/`.
+   - Encapsulamento de `loadInvoiceDetails`, `downloadInvoiceXml`, `consultSefaz`, `importXml`, `confirmInvoiceDeletion` e `handleFetchXml`, tornando a tela estritamente declarativa.
+3. **`LabelQueue.tsx` (~451 linhas → ~109 linhas)**:
+   - Criada a subpasta `erp/src/pages/App/Stock/LabelPrinting/components/label-queue/`:
+     - `useLabelQueueImageUpload.ts`: hook isolando leitura de imagens com `AbortController`, ciclo de vida do owner e `useZodForm(labelQueueImageUploadFormSchema)`.
+     - `useLabelQueueDragDrop.ts`: hook de controle de arraste e reordenação de itens da fila de impressão.
+     - `LabelQueueEmptyState.tsx`: componente apresentacional de fila vazia.
+     - `LabelQueueCard.tsx`: componente de cartão da fila com miniatura interativa, paginação de fotos do produto, campo de busca de produto, quantidade com step e ajuste de escala de logotipo.
+4. **`PriceLabelTestValuesModal.tsx` (~422 linhas → ~240 linhas)**:
+   - Criada a subpasta `erp/src/pages/App/Stock/LabelPrinting/modals/price-label-test-values/`:
+     - `PriceLabelDigitSlider.tsx`: componente atômico reutilizável para inputs tipo slider (`range`) de dígitos 0-9 com suporte total a acessibilidade WCAG (`aria-label`, `aria-invalid`, `aria-describedby`).
+   - Mapeamento declarativo dos sliders de Dezena, Centena, Milhar e Preço Anterior.
+
+**Validações e Testes Executados:**
+- **Suíte de Impressão de Etiquetas do ERP**: **397/397 testes aprovados** em 34 arquivos (`src/pages/App/Stock/LabelPrinting`).
+- **Suíte Móvel Geral (`npm run test:unit:mobile --prefix erp`)**: **352/352 testes aprovados** em 66 arquivos de teste.
+- **Suíte Móvel de Formulários (`npm run test:unit:mobile-forms --prefix erp`)**: **47/47 testes aprovados** em 5 arquivos de teste.
+- **Suíte de Inventário Móvel (`stock/inventory`)**: **42/42 testes aprovados** em 7 arquivos de teste.
+- **Suíte de Notas Fiscais Móvel (`stock/invoices`)**: **14/14 testes aprovados** em 3 arquivos de teste.
+- **Suíte de Compras do ERP (`Stock/Purchases`)**: **29/29 testes aprovados** em 4 arquivos.
+- **Suíte de Recebimentos do ERP (`Stock/Receipts`)**: **36/36 testes aprovados** em 8 arquivos.
+- **Suíte de Inventário do ERP (`Stock/Inventory`)**: **77/77 testes aprovados** em 13 arquivos.
+- **Testes de Mapeamento de Entrada do ERP**: `ManageInboundInvoiceMappingsModal.test.tsx` (9/9) e `ManageInboundInvoiceMappingsModal.suggestions.test.tsx` (5/5).
+- **Verificação de Invariantes Fiscais**:
+  - `FISCAL-016` (Zero CC-e): 0 ocorrências no diff ou nos módulos auditados.
+  - Formulários com Zod: Todos os formulários operam com `react-hook-form` e `zodResolver`.
+
+---
+
+## Auditoria Arquitetural e Modularização do Módulo de Estoque — Fase 5: Mobile Stock Components, Modals & Barrel Exports
+
+**Data:** 17/10/2026  
+**Problema identificado:**
+No módulo móvel de estoque (`mobile/src/features/stock/`), diversos componentes e modais centrais concentravam lógica de apresentação, handlers de transição de modal, lifecycle de teclado, estilização inline volumosa e mapeamento de eventos em arquivos monolíticos (> 250 a 450 linhas). Além disso, a ausência de arquivos de barril (`index.ts`) em várias subpastas obrigava importações profundas e aumentava o acoplamento interno.
+
+**Soluções técnicas implementadas:**
+1. **Decomposição em Arquitetura Thin Wrapper + Content Presentation Component**:
+   Para cada componente/modal que acumulava responsabilidades de ciclo de vida de modal e renderização profunda, aplicou-se o padrão Thin Wrapper + Content:
+   - `mobile/src/features/stock/inventory/components/InventoryCard.tsx` (Thin Wrapper) + `InventoryCardContent.tsx`
+   - `mobile/src/features/stock/inventory/components/InventoryStagesView.tsx` (Thin Wrapper) + `InventoryStagesViewContent.tsx`
+   - `mobile/src/features/stock/inventory/screens/InventoryOperationScreen.tsx` (Thin Wrapper) + `InventoryOperationScreenContent.tsx`
+   - `mobile/src/features/stock/inventory/modals/InventoryProductSearchModal.tsx` (Thin Wrapper) + `InventoryProductSearchModalContent.tsx`
+   - `mobile/src/features/stock/inventory/screens/InventoryScopeScreen.tsx` (Thin Wrapper) + `InventoryScopeScreenContent.tsx`
+   - `mobile/src/features/stock/invoices/components/InvoiceCard.tsx` (Thin Wrapper) + `InvoiceCardContent.tsx`
+   - `mobile/src/features/stock/invoices/modals/InboundInvoiceMappingsModal.tsx` (Thin Wrapper) + `InboundInvoiceMappingsModalContent.tsx`
+   - `mobile/src/features/stock/invoices/modals/inbound-mappings/InboundMappingItemCard.tsx`: decomposto com extração de `InboundItemFiscalDetails.tsx` (detalhes tributários/fiscais de NF de entrada) e `InboundItemSuggestionsCard.tsx` (sugestões determinísticas de correspondência de produto).
+   - `mobile/src/features/stock/moves/components/StockMoveCard.tsx` (Thin Wrapper) + `StockMoveCardContent.tsx`
+   - `mobile/src/features/stock/moves/modals/InventoryMoveEditModal.tsx` (Thin Wrapper) + `InventoryMoveEditModalContent.tsx`
+   - `mobile/src/features/stock/moves/modals/InventoryMoveDeleteModal.tsx` (Thin Wrapper) + `InventoryMoveDeleteModalContent.tsx`
+   - `mobile/src/features/stock/purchases/PurchaseFormModal.tsx` (Thin Wrapper) + `PurchaseFormModalContent.tsx`
+   - `mobile/src/features/stock/purchases/PurchaseDetailsModal.tsx` (Thin Wrapper) + `PurchaseDetailsModalContent.tsx`
+   - `mobile/src/features/stock/receipts/ReceiptCheckScreen.tsx` (Thin Wrapper) + `ReceiptCheckScreenContent.tsx`
+   - `mobile/src/features/stock/suppliers/SupplierFormModal.tsx` (Thin Wrapper) + `SupplierFormContent.tsx`
+   - `mobile/src/features/stock/suppliers/SupplierPurchaseHistoryModal.tsx` (Thin Wrapper) + `SupplierPurchaseHistoryModalContent.tsx`
+   - `mobile/src/features/stock/unavailabilities/components/UnavailabilityCard.tsx` (Thin Wrapper) + `UnavailabilityCardContent.tsx`
+   - `mobile/src/features/stock/unavailabilities/screens/UnavailabilitiesScreen.tsx` (Thin Wrapper) + `UnavailabilitiesScreenContent.tsx`
+   - `mobile/src/features/stock/unavailabilities/modals/UnavailabilityFormModal.tsx` (Thin Wrapper) + `UnavailabilityFormContent.tsx`
+
+2. **Criação de Barrel Exports (`index.ts`) Padronizados**:
+   Criados arquivos de índice com exportações públicas organizadas em todas as subpastas de estoque móvel:
+   - `mobile/src/features/stock/inventory/components/index.ts`
+   - `mobile/src/features/stock/inventory/modals/index.ts`
+   - `mobile/src/features/stock/invoices/components/index.ts`
+   - `mobile/src/features/stock/invoices/modals/inbound-mappings/index.ts`
+   - `mobile/src/features/stock/moves/components/index.ts`
+   - `mobile/src/features/stock/moves/modals/index.ts`
+   - `mobile/src/features/stock/purchases/index.ts`
+   - `mobile/src/features/stock/receipts/index.ts`
+   - `mobile/src/features/stock/suppliers/index.ts`
+   - `mobile/src/features/stock/unavailabilities/components/index.ts`
+   - `mobile/src/features/stock/unavailabilities/modals/index.ts`
+   - `mobile/src/features/stock/unavailabilities/screens/index.ts`
+
+3. **Invariantes e Conformidade de Produto**:
+   - **`FISCAL-016` (Zero CC-e)**: Rigorosamente mantido. Nenhuma menção ou elemento de interface para Carta de Correção Eletrônica foi adicionado ou reintroduzido.
+   - **Regra de Formulários RHF + Zod**: Todos os formulários continuam utilizando schemas explícitos em `shared-utils` com execução via `validateAndRun` e `useZodForm`.
+
+**Validações e Testes Executados:**
+- **Suíte Móvel Geral (`npm run test:unit:mobile --prefix erp`)**: **352/352 testes aprovados** em 66 arquivos de teste.
+- **Suíte Móvel de Formulários (`npm run test:unit:mobile-forms --prefix erp`)**: **47/47 testes aprovados** em 5 arquivos de teste.
+
+
+
+## Refatoração por princípios de programação (SRP, funções puras, early return) — fiscal/NF-e
+
+**Problema:** `parseFiscalEmissionCommand` (≈220 linhas), a cadeia `if/else` de mensagens de erro em `emitNfeForOrder` e blocos inline em `useNfeEmissionActions` misturavam validação, mapeamento e apresentação, dificultando manutenção.
+
+**Causa raiz:** crescimento incremental sem extração de responsabilidades.
+
+**Arquivos alterados (sem mudança de contrato público, assinaturas ou textos):**
+- `api/nfe/fiscalSnapshot.ts`: constantes `ALLOWED_COMMAND_FIELDS`/`PROOF_ALLOWED_KEYS` e funções `parsePreviewProofPayload`, `parseTransporterPayload`, `parseItemSelectionsAndOverrides`, `validateTransportRules`; `parseFiscalEmissionCommand` apenas orquestra. Mantida a ordem das validações e todas as mensagens.
+- `erp/src/pages/utils/nfe/nfeService.ts`: tabela `EMISSION_CODE_MESSAGES` + função pura `resolveEmissionErrorMessage` (precedência preservada: conflito ativo → mensagem por código → blockers → error → xMotivo → padrão).
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/useNfeEmissionActions.ts`: helpers puros `isUuid` e `buildOrderWithFiscalItems`.
+
+**Validações:** `tsc --noEmit` sem erros nos três arquivos; `npm run build:fiscal` OK (XSD/WASM carregados); testes `src/pages/utils/nfe` + `nfe-modal`: 962/964 aprovados. As 2 falhas (`useNfeEmission.test.tsx`: "permite emitir diretamente…" e "informa exatamente o CFOP faltante…") **são pré-existentes** — reproduzidas idênticas com as alterações revertidas via `git stash`.
+
+**Invariantes:** FISCAL-016 (zero CC-e) preservado; nenhum campo arbitrário injetado em snapshots; nenhuma transmissão à SEFAZ realizada nesta etapa.
+
+## NFH pela interface — matriz de cenários e autorização do modo teste local
+
+- **Problema observado:** os testes reais de navegação e prévia XML de NFC-e 65/retirada passaram, mas o console da interface registrou HTTP 404 ao autorizar o operador de artefatos de teste.
+- **Causa comprovada:** `scripts/local-fiscal-dev-server.cjs` só resolvia `/api/nfe/*`; o bundle local também não incluía `erp/api/testing/test-artifact-operator.ts`. Assim, o fallback não executava a política existente de administrador/identidade em Vercel Development.
+- **Correção:** `erp/scripts/build-fiscal.cjs:21` inclui o handler de autorização no bundle `server/testing`; `scripts/local-fiscal-dev-server.cjs:19` valida o nome do módulo e resolve o bundle exato, e `:61` atende a rota de teste. As regras do handler, ownership, guards e snapshots permanecem preservadas.
+- **Validação inicial:** `npm run build:fiscal --prefix erp` aprovado, 12/12 funções, handlers nativos e XSD/WASM. Playwright visível: navegação desktop, formulários em viewport móvel e prévia NFC-e 65/retirada aprovados (3/3). Demais cenários e reteste da autorização em execução; nenhuma transmissão nesta etapa inicial.
+
+### Cancelamento fiscal elegível bloqueado por motivo nulo
+
+- **Sintoma reproduzido pela UI:** no pedido de teste `d19d63cb-8658-49a9-951b-ddccab98f5da`, com NF-e HML 705, clicar em “Cancelar venda” mostrava “A consulta retornou consequências fiscais incompletas”, sem abrir confirmação.
+- **Causa comprovada:** `/api/nfe/order-cancellation-policy` retornou HTTP 200, `action=cancel`, `hasAuthorizedInvoice=true`, `environment=2`, `model=55` e `reason=null`, representação válida do backend quando não há impedimento. O schema da resposta aceitava somente string/undefined em `reason`, inclusive nas operações em lote.
+- **Arquivos/linhas:** `shared-utils/saleCancellationFormSchemas.ts:5,12,15` normaliza motivo nulo/ausente para undefined sem relaxar ação, ambiente, identificação ou campos obrigatórios; `erp/src/pages/App/SalesOrder/OrderHistoryList/CancelScheduledSaleButton.test.tsx:52` acrescenta regressões da confirmação de documento único e lote com motivo nulo.
+- **Prova local:** 35/35 testes em `CancelScheduledSaleButton`, `orderCancellationPolicyEndpoint` e `orderCancellationEffects` passaram. A confirmação continua aguardando ação do operador; resposta incompleta continua bloqueada; os testes não transmitem à SEFAZ. Reteste visível em andamento.
+- **Reteste do servidor local:** login pelo formulário real e navegação retornaram HTTP 204 na rota de autorização do operador (duas chamadas); o 404 anterior foi eliminado.
+- **Prova real pela interface:** após a correção, o modal abriu “Cancelamento fiscal disponível” com ambiente Homologação. Confirmação comercial/fiscal da NF-e 705 retornou HTTP 200, `success=true`, `cStat=135`, `pending=false`, protocolo `141260000636694`. A lista passou a exibir pedido cancelado, NFH cancelada e saída de estoque revertida; o detalhe/Eventos mostrou `110111` registrado. Evidência visual local: `output/playwright/nfh-705-cancelada.png`. Não houve operação fiscal de Produção.
+- **Regressão do fallback:** `scripts/testing/local-fiscal-dev-server.test.cjs:5` passou em Node, exercitando a rota real com 405 (GET), 401 (POST sem sessão), 403 fora de Development e 404 para nome de módulo com traversal.
+
+### Rascunho de estorno com identidade/XML da origem e revisão inacessível
+
+- **Prova pela interface:** NFC-e HML 647 (`8f236b07-04d5-4578-8cff-52c3e1009d18`, execução `c4ffe068-8423-4aef-acd8-d0269f249e29`, ownership conferido) fora de 30 minutos encaminhou corretamente o cancelamento comercial para `action=estorno`. A transação comercial foi confirmada e `/api/nfe/operation-drafts` retornou sucesso; NFH original preservada e badge NFE de revisão criado. A tentativa anterior feita no runId diferente foi bloqueada pelo guard local sem gravação, conforme consulta posterior do pedido ainda `scheduled`; não foi removido nenhum guard.
+- **Falha reproduzida:** detalhes do rascunho exibiam “NF-e de Estorno Fiscal nº 647”, “VENDA DE MERCADORIA”, finalidade normal e chave artificial `ESTORNO-...`, usando XML/protocolo da NFC-e original. Não havia ação para continuar a revisão nesse modal.
+- **Causa:** `api/nfe/document-details.ts` preenchia os dados fiscais ausentes do rascunho com a identidade e XML da origem. O modal tratava o resultado como documento emitido e preparava seus arquivos de DANFE.
+- **Correção:** detalhes usam somente a chave/numeração/XML/protocolo próprios do rascunho; a origem é uma referência separada. Falhas na leitura de documento já emitido exigem reconciliação em vez de sintetizar autorização. Estados `draft`/`ready` são apresentados como rascunho em revisão, sem exportar o documento de origem. “Revisar estorno fiscal” abre o modal existente, mantendo RHF/Zod, confirmações e validações do backend. Erro ao preparar DANFE passa a exibir “DANFE indisponível”.
+- **Arquivos:** `api/nfe/document-details.ts` (leitura/identidade e referência de origem); `erp/src/pages/App/FiscalDocuments/types/fiscalDocuments.types.ts` (`FiscalOperationDraftSummary.sourceDocument`); `services/fiscalDocumentsService.ts` (validação da referência); `modals/IssuedFiscalDocumentDetailsModal.tsx` (rascunho, arquivos e continuidade da revisão); `erp/src/pages/utils/nfe/__tests__/documentDetailsDraft.test.ts` (4 regressões); `erp/src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentDetailsModal.test.tsx` (regressão da abertura da revisão).
+- **Prova inicial:** 30/30 testes em endpoint/detalhes/formulários fiscais passaram; TypeScript fiscal ERP aprovado antes dos novos testes. Reteste real da revisão em andamento. Não houve nova emissão de estorno nesta etapa.
+- **Reteste visível:** rascunho da NFC-e 647 passou a exibir “Rascunho em revisão”, origem separada e botão “Revisar estorno fiscal”. O modal real carregou os itens/tributos e manteve a transmissão desabilitada antes de salvar a revisão. Não existe CFOP inverso aprovado configurado para o item original `5101`; solicitada a definição fiscal ao operador, mantendo o rascunho sem transmissão.
+- **Menu após cancelamento:** a mudança de status desmontava o formulário de confirmação antes de seu callback fechar o menu; o backdrop continuava interceptando cliques. `OrderOptionsMenu.tsx:54` fecha o menu quando a identidade/status muda. Regressão em `OrderCardAndMenuActions.test.tsx` cobre fechamento e reabertura das opções de duplicação do pedido cancelado.
+
+### Devolução HML com identidade canônica e geração da imagem do DANFE
+
+- **Contexto/prova real:** pedido sintético `f4d2b8ac-8ee7-4d94-b325-6df63b82c9c8` (execução `cb2bc132-8bc3-487d-9831-cf0f04cc7a96`, cenário `nfe55_sale`, ownership conferido) foi validado pelo wizard real: manuseio, retirada imediata e pagamento. Status `fulfilled` e metadata canônica `is_test/testArtifact` conferidos após salvar. Prévia mostrou modelo 55, `tpAmb=2`, CFOP `5101`, consumidor final. Emissão pelo botão HML autorizou NF-e **708**, protocolo **141260000636723**. Cancelar venda após circulação abriu corretamente “Devolução comercial necessária”, preservando original.
+- **Falha de saldo reproduzida:** `/api/nfe/return-capacity` retornou 409 “Identificação do ambiente de teste incompleta” para metadata canônica válida. Causa: endpoint exigia exclusivamente `test_environment/testRunId` antigos. `api/nfe/return-capacity.ts` passou a reutilizar a identidade canônica compartilhada e exigir owner igual ao operador autorizado; metadata inválida não cai em Produção nem usa fallback legado. Compatibilidade de leitura histórica preservada. Duas regressões em `returnCapacityEndpoint.test.ts`; 21 testes de capacidade/modal passaram.
+- **Falha de DANFE reproduzida:** NF-e autorizada exibiu “Não foi possível montar a imagem do DANFE”. `fiscalDanfeXmlService.ts` anexava o iframe vazio antes de atribuir `srcdoc`; o evento `load` de about:blank podia liberar a consulta antes do HTML fiscal. O iframe agora recebe HTML antes de ser anexado e fica apenas fora da tela, sem `visibility:hidden` que impediria a renderização. Regressões dos modelos 55/65 em `fiscalDanfeShareFile.test.ts`; reteste visual em andamento.
+- **Reteste real do DANFE:** NF-e 708 passou a mostrar “Compartilhar DANFE” habilitado após gerar a imagem. Nenhuma mensagem foi enviada; o navegador possui compartilhamento nativo e o seletor externo não foi acionado. Evidência: `output/playwright/nfh-708-danfe-pronto.png`. Duas regressões de iframe/modelo aprovadas.
+- **Bloqueio adicional no PostgreSQL:** a UI com quantidade válida chegou a `create_return_order_with_fiscal_capacity`, que rejeitou a metadata canônica com “Devolução HML exige pedido de venda identificado como teste de homologação”. Consultada a definição vigente no projeto `hkoxhourxwlddgsfdgws`: fingerprint `a630ccfd4306d32117f3a6175f480f41`, assinatura `(text,jsonb,jsonb,jsonb,jsonb)`. Causa comprovada: validação/replay da RPC ainda leem `testRunId/test_environment` antigos.
+- **Migration aplicada:** `supabase/migrations/20261018021813_canonical_hml_fiscal_return_identity.sql:1` (nome criado pelo CLI e alinhado à versão efetivamente registrada pelo MCP) adiciona somente uma ponte de compatibilidade na RPC atual, com hash contra drift. Reutiliza `assert_test_artifact_identity` (administrador autenticado e owner), exige identidade igual entre venda/devolução e recusa marcadores legados divergentes. Os aliases legados são criados na variável local da venda e no payload da nova devolução, preservando metadata canônica; a venda original não é reescrita pela migration. Corpo de capacidade/replay/locks e ACLs permanecem. Reversão: nova migration removendo exclusivamente o bloco marcado `CANONICAL_HML_RETURN_IDENTITY_V1`, após interromper novas devoluções canônicas; registros/documentos já confirmados devem ser preservados.
+- **Validação remota:** catálogo confirmou `SECURITY DEFINER` e ACLs preexistentes preservados, sem grant a anon/PUBLIC. Hash da venda e hash do XML/protocolo 708 permaneceram idênticos após DDL. Após o ajuste, a UI cadastrou a devolução **`ced7fdf0-7942-4cbb-aa61-5f34d0226727`**, HTTP 200, `fulfilled`, entrada de estoque confirmada, uma alocação de quantidade 1 e identidade da mesma execução/owner. `supabase/tests/canonical_hml_return_identity.sql` passou **7/7** provas pgTAP em `BEGIN ... ROLLBACK`, usando replay de registro próprio já existente: owner/run divergentes e ambiente legado divergente bloqueados, sem duplicar estoque e preservando XML/protocolo da origem. Nenhuma fixture foi criada pelo SQL. Advisors de segurança retornaram seis grupos de alertas do projeto; nenhum associado à RPC alterada.
+- **Rota fiscal ausente:** ao abrir o menu da devolução confirmada, a UI recebeu 404 em `/api/nfe/return-fiscal-eligibility`. O handler existia no código mas não integrava bundle, dispatcher nem rewrite. Incluído em `erp/scripts/build-fiscal.cjs`, `erp/api/nfe/auxiliary.ts` e `erp/vercel.json`; `erp/scripts/check-fiscal-startup.cjs` passa a exigir o caminho e sua allowlist. Não foi criada nova Vercel function.
+- **Emitente descartado na devolução fiscal:** o menu encontrou a origem autorizada, mas a elegibilidade acusou CNPJ ausente porque a presença de `fiscalDefaults` fazia o leitor descartar `companyCnpj/companyUF/companyCRT` na raiz de `settings.data`. `api/nfe/returnFiscalRules.ts` centraliza a leitura com precedência da configuração raiz e `api/nfe/return-fiscal-eligibility.ts` reutiliza o leitor, exibindo a causa real do bloqueio. A regressão cobre configuração com e sem `fiscalDefaults`; 46 testes de regras/transmissão/formulários passaram. Reteste de interface em andamento.
+- **Reteste fiscal concluído:** a UI preparou o rascunho da devolução confirmada, permitiu somente CFOP `1201` para a origem `5101`, exigiu as duas confirmações de revisão e habilitou transmissão somente depois de salvar. A SEFAZ HML autorizou a NF-e **709**, protocolo **141260000636726**, `cStat=100`. Reabrir o menu passou a oferecer “Visualizar NF-e autorizada”, sem preparar segunda nota. Evidência: `output/playwright/nfh-709-devolucao-autorizada.png`.
+- **Indicador da devolução escondido:** `OrderHistoryRow.tsx` e `OrderHistoryCard.tsx` excluíam explicitamente NFD quando `orderType=return`, exibindo em seu lugar NF de saída não emitida com ação de Produção. Os componentes agora exibem a NFD persistida também na devolução e reservam NF/NFH/NFE de saída para os demais pedidos. `OrderHistoryTable.test.tsx` cobre tabela/card, ausência da ação de saída e abertura da nota no ambiente 2. Validação em andamento.
+- **Manutenção das provas:** a suíte ampliada inicial passou 1028 testes e apontou duas expectativas antigas no modal de emissão (prévia administrativa restaurada e CFOP recomposto automaticamente pela matriz), uma espera de alerta sensível à concorrência e ausência do binário nativo `canvas.node` no ambiente jsdom. A investigação confirmou que `NfeItemsSection` recompõe o CFOP aprovado após limpar a busca; o teste agora prova o valor transmitido e sua exibição ao perder foco, sem alterar essa regra. O teste do parser XML utiliza Node e o `DOMParser` da dependência existente `@xmldom/xmldom` (happy-dom não implementa a busca de namespace necessária), sem instalar dependência. Reteste focado: **76/76**, incluindo parser, emissão e tabela/card.
+
+## Matriz E2E HML pela interface — NF-e 55 (cenários 3 e 4) e fechamento da matriz
+
+**Execução:** Playwright (`run-fiscal-e2e-in-env.cjs hml … --authorize-hml-transmission`), exclusivamente pela UI do ERP, `tpAmb=2`, emissor Móveis Morante, SEFAZ-PR. Nenhuma transmissão por script/HTTP direto. Produção não tocada.
+
+| Cenário | Modelo | Pedido | Nº | Protocolo (cStat 100) | Chave | Observação |
+|---|---|---|---|---|---|---|
+| `nfce65_pickup` | 65 | `8f236b07-04d5-4578-8cff-52c3e1009d18` | 647 | 141260001749051 | 41261044512248000107650010000006471984765280 | retirada |
+| `nfce65_delivery` | 65 | `d876abbc-3c43-4077-b001-c7287a04c479` | 648 | 141260001749052 | 41261044512248000107650010000006481634924360 | entrega, `indPres=4` |
+| `nfe55_sale` | 55 | `d19d63cb-8658-49a9-951b-ddccab98f5da` | 705 | 141260000636687 | 41261044512248000107550010000007051862896820 | `modFrete=4`, `indPres=1`, `indFinal=1` |
+| `nfe55_delivery_own_transport` | 55 | `b735d9c4-3fdd-49b1-8781-e3d1bc0b7cac` | 707 | 141260000636690 | 41261044512248000107550010000007071545832869 | `modFrete=3`, `indPres=9`, `indIntermed=0` |
+
+Persistência confirmada em `nfe_documents` (status `homologada`, `xml_protocolo` com `cStat 100`, snapshot íntegro validado pelo próprio spec). Os cenários 1–2 foram autorizados em rodada anterior; 3–4 em rodadas posteriores (UUIDs de run distintos).
+
+### Problemas encontrados e corrigidos
+1. **Rej. 696 (indIEDest=9 com indFinal=0)** — causa: cenário provisionado como revenda para não contribuinte. Correção: cenários NF-e 55 provisionados como PF não contribuinte, `finalConsumer=true` (RV E16a-40).
+2. **Rej. 900 (dVenc ausente em `<dup>`)** — causa: pagamento `Pendente` sem vencimento. Correção: pagamento `PAGO` com `dueDate` futuro no provisionamento.
+3. **Rej. 234 (IE não vinculada ao CNPJ)** — causa: CNPJ/IE sintéticos; SEFAZ-PR confere o cadastro real mesmo em HML. Correção: abandonado contribuinte sintético; usa-se PF.
+4. **Bloqueio `OTHER_FISCAL_REQUIREMENT`** — `api/nfe/normalSaleRuleSet.ts` (≈L121-125): condição passa a aceitar `ieIndicator==='1' || contextData.otherFiscalRequirement===true` (antes exigia `!== true`, tornando o flag inutilizável).
+5. **Rej. "NFe sem indicativo do intermediador"** (cenário 4, doc de teste #706, status `erro`) — causa: `api/nfe/fiscalXmlSerializer.ts` não emitia `indIntermed`; NT 2020.006 (B25c) exige para NF-e 55 com `indPres` 2/3/4/9. Correção (≈L142-152): emite `<indIntermed>0</indIntermed>` logo após `indPres` (posição do XSD), somente modelo 55 (canal próprio = 0). NFC-e 65 inalterada. Documento #706 permanece como histórico imutável da rejeição.
+6. **Provisionamento** — `scripts/testing/provision-matrix-run.cjs`: `otherFiscalRequirement` persistido em `fiscalContext`; pagamento `PAGO`; PF não contribuinte nos cenários 55.
+
+### Validações
+`npm run test:unit --prefix erp -- src/pages/utils/nfe`: 76 arquivos aprovados; `npm run build:fiscal --prefix erp` OK (XSD/WASM); E2E dos cenários 3 e 4: 3/3 testes cada. Pendência pré-existente e não relacionada: 2 testes de `useNfeEmission.test.tsx` já falhavam antes (confirmado via `git stash`).
+
+**Invariantes:** FISCAL-016 (zero CC-e), isolamento HML, XSD validado antes do envio e snapshot sem campos arbitrários preservados.

@@ -243,4 +243,20 @@ describe('return capacity fiscal environment', () => {
     expect(test.result().status).toBe(409);
     expect(test.from).not.toHaveBeenCalledWith('nfe_documents');
   });
+
+  it('aceita a identidade canônica HML do operador sem exigir marcadores legados', async () => {
+    const ownerId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    mocks.authorizeFiscalOperator.mockResolvedValue({ ok: true, userId: ownerId });
+    const test = setup({ is_test: true, testArtifact: { is_test: true, runId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ownerId, scenarioKey: 'nfe55_sale' } });
+    await handler({ method: 'POST', headers: {}, body: { orderId: '11111111-1111-4111-8111-111111111111', environment: 2 } }, test.res);
+    expect(test.result().status).toBe(200);
+    expect(test.filters).toContainEqual(['nfe_documents', 'ambiente', 2]);
+  });
+
+  it('recusa identidade canônica de outro operador sem fallback para legado', async () => {
+    const test = setup({ is_test: true, test_environment: 'homologation', testRunId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', testArtifact: { is_test: true, runId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ownerId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' } });
+    await handler({ method: 'POST', headers: {}, body: { orderId: '11111111-1111-4111-8111-111111111111', environment: 2 } }, test.res);
+    expect(test.result().status).toBe(409);
+    expect(test.from).not.toHaveBeenCalledWith('nfe_documents');
+  });
 });
