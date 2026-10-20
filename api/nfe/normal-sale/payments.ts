@@ -6,6 +6,7 @@ import {
   getOrderPaymentDueDate,
   isPromissoryPaymentMethod,
 } from '../../../shared-utils/orderPaymentState';
+import { saoPauloEmissionTimestamp } from './attemptPolicy';
 import type { FiscalDecisionTrace, FiscalSnapshotCandidate } from '../fiscalSnapshot';
 import { money, normalize, obj } from './values';
 
@@ -20,6 +21,7 @@ export function resolveNormalSalePayments(params: {
   invoice: number;
 }) {
   const { snapshot, data, shipping, modelDecision, traces, invoice } = params;
+  const emissionDate = saoPauloEmissionTimestamp(snapshot.capturedAt).slice(0, 10);
   const rawPayments = Array.isArray(data.payments) ? data.payments.map(obj) : [];
   const resolvedPayments: Array<{
     methodCode: string;
@@ -176,7 +178,10 @@ export function resolveNormalSalePayments(params: {
   const payments = resolvedPayments.map((payment) => ({
     methodCode: payment.methodCode,
     amount: payment.amountCents / 100,
-    paymentIndicator: payment.settlement === 'paid' ? ('0' as const) : ('1' as const),
+    paymentIndicator:
+      payment.settlement === 'paid' || payment.dueDate === emissionDate
+        ? ('0' as const)
+        : ('1' as const),
     ...(payment.description ? { description: payment.description } : {}),
     ...(payment.paymentDate ? { paymentDate: payment.paymentDate } : {}),
     ...(payment.card ? { card: payment.card } : {}),
@@ -186,6 +191,7 @@ export function resolveNormalSalePayments(params: {
   const pendingPayments = resolvedPayments.filter((item) => item.settlement === 'pending');
   const billingParts: Array<{ dueDate?: string; amountCents: number }> = [];
   for (const pendingPayment of pendingPayments) {
+    if (pendingPayment.dueDate === emissionDate) continue;
     if (isPromissoryPaymentMethod(pendingPayment.description) && pendingPayment.installments > 1) {
       const perInstallment = Math.floor(pendingPayment.amountCents / pendingPayment.installments);
       const remainder = pendingPayment.amountCents % pendingPayment.installments;

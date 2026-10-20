@@ -86,7 +86,7 @@ const ShippingData = ({
 
   const onChangeScheduling = (
     key: keyof Shipping['scheduling'],
-    value: string | Date | boolean
+    value: string | Date | boolean | NonNullable<Shipping['scheduling']['alternatives']>
   ) => {
     setShipping((prev: Shipping) => {
       const newScheduling = { ...prev.scheduling, [key]: value };

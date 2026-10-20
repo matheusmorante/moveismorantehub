@@ -145,7 +145,7 @@ async function main() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   if (ref !== 'hkoxhourxwlddgsfdgws' || new URL(url).origin !== `https://${ref}.supabase.co`) throw Error('LINKED_PROJECT_REQUIRED');
   const targets = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-  if (!Array.isArray(targets) || !targets.length || targets.length > 2 || new Set(targets.map(t => t.orderId)).size !== targets.length || targets.some(t => !['55', '65'].includes(t.model) || !['transport', 'persistence', 'malformed_response'].includes(t.fault))) throw Error('SCOPED_TARGETS_REQUIRED');
+  if (!Array.isArray(targets) || !targets.length || targets.length > 2 || new Set(targets.map(t => t.orderId)).size !== targets.length || targets.some(t => !['55', '65'].includes(t.model) || !['none', 'transport', 'persistence', 'malformed_response'].includes(t.fault))) throw Error('SCOPED_TARGETS_REQUIRED');
   const { createClient } = require('../../erp/node_modules/@supabase/supabase-js');
   const options = { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(15000) }) } };
   const admin = createClient(url, process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY, options);

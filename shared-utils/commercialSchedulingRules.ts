@@ -186,5 +186,32 @@ export const validateShippingScheduling = (
     errors['shipping_time'] = 'Informe um horário válido.';
   }
 
+  if (scheduling.scheduleMode === 'alternatives') {
+    const seen = new Set<string>([
+      JSON.stringify([scheduling.dateType, scheduling.date, scheduling.endDate, scheduling.type, rawStartTime, rawEndTime]),
+    ]);
+    scheduling.alternatives?.forEach((alternative) => {
+      const key = JSON.stringify([
+        alternative.dateType,
+        alternative.date,
+        alternative.endDate,
+        alternative.type,
+        alternative.startTime || alternative.time,
+        alternative.endTime,
+      ]);
+      const altErrors = validateShippingScheduling(
+        { ...alternative, pendingScheduling: false, notInformed: false, immediatePickup: false },
+        deliveryMethod,
+        false
+      );
+      if (altErrors['shipping_date']) errors[`shipping_alternative_${alternative.id}_date`] = altErrors['shipping_date'];
+      if (altErrors['shipping_time']) errors[`shipping_alternative_${alternative.id}_time`] = altErrors['shipping_time'];
+      if (seen.has(key)) {
+        errors[`shipping_alternative_${alternative.id}_duplicate`] = 'Esta programação duplica outra opção.';
+      }
+      seen.add(key);
+    });
+  }
+
   return errors;
 };

@@ -17,6 +17,7 @@ export interface DeliveryPreparationModalsProps {
   onCloseStartConfirmModal: () => void;
   onConfirmStartRoute: () => void;
   showUnattendedModal: boolean;
+  unattendedVariant?: 'preparation' | 'arrival';
   onCloseUnattendedModal: () => void;
   onConfirmUnattended: (reason: string, notes: string, proofUrls: string[]) => void;
   showCancelModal: boolean;
@@ -40,6 +41,7 @@ export const DeliveryPreparationModals: React.FC<DeliveryPreparationModalsProps>
   onCloseStartConfirmModal,
   onConfirmStartRoute,
   showUnattendedModal,
+  unattendedVariant = 'arrival',
   onCloseUnattendedModal,
   onConfirmUnattended,
   showCancelModal,
@@ -64,6 +66,8 @@ export const DeliveryPreparationModals: React.FC<DeliveryPreparationModalsProps>
       />
 
       <UnattendedModal
+        key={unattendedVariant}
+        variant={unattendedVariant}
         visible={showUnattendedModal}
         onClose={onCloseUnattendedModal}
         onConfirm={onConfirmUnattended}

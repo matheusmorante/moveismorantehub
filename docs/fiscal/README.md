@@ -6,6 +6,16 @@
 
 ## Referências atuais
 
+- [NF-e735 — vencimento no dia da emissão e retorno visual,20/10](historico-correcoes-2026-10-20.md#nf-e-735-vencimento-no-dia-da-emissão-e-retorno-visual): saldo de retirada pendente no mesmo dia agora gera `indPag=0` sem inventar pagamento; autorização UI/HML número735 e protocolo conferidos, assinatura/snapshot/XSD válidos. Corrigido o descarte do retorno se a permissão mudar durante a chamada;37 testes de pagamento,103 testes do modal passaram. O selo NFH foi conferido; fechamento pós-emissão real não foi repetido.
+
+- [Pendência55 comprovada — NF-e734,20/10](historico-correcoes-2026-10-20.md#prova-ui-de-pendência55-concluída--nf-e734): uma transmissão real HML, cinco consultas inválidas recusadas e sexta íntegra autoriza a mesma chave;28 verificações, assinatura/snapshot/XSD, itens/pagamentos/estoque preservados. Contador55 avança733→734;65 permanece658. Complementa a prova65/658, sem encerrar matriz global.
+
+- [Confirmação comercial sem autorização fiscal implícita,20/10](historico-correcoes-2026-10-20.md#contrato-de-confirmação-comercial-sem-autorização-fiscal-implícita): teste legado exigia productionConfirmedtrue na auditoria da edição. Expectativa alinhada ao contrato vigente que grava a proposta sem transmitir;11 testes/2arquivos passaram. Migration comercial de outra tarefa permanece não aplicada.
+
+- [Feedback de finalidade e ICMS,20/10](historico-correcoes-2026-10-20.md#feedback-visível-da-inconsistência-entre-finalidade-e-icms): bloqueio de Revenda/não contribuinte era correto, mas sua mensagem não chegava ao campo. Alerta persistente e atributos acessíveis adicionados;24 testes/3 arquivos e prova UI com zero chamadas fiscais. Regra de domínio preservada.
+
+- [Duplicação sem gravação incidental na fonte,20/10](historico-correcoes-2026-10-20.md#duplicação-sem-gravação-incidental-no-pedido-fonte): chamada real rastreada até handleAction; abrir cópia continuava gravando clique pelo writer do pedido fonte. Retorno após duplicateOrder/generateSaleFromBudget; duas regressões falhavam antes e13 testes passaram após correção. UI comprovou zero gravações na fonte; sete grupos completos do banco, inclusive pedido/versão, preservados. Lint passou; sem nova emissão.
+
 - [Reteste UI da pendência65 concluído — NFC-e658,20/10](historico-correcoes-2026-10-20.md#reteste-ui-da-pendência65--nfc-e658): artefato próprio criado pela interface; uma transmissão real HML, cinco consultas inválidas409 mantêm pendência e sexta consulta real200 autoriza a mesma chave.28 verificações, assinatura/snapshot/XSD, itens/pagamentos/estoque preservados; contador65 avança somente657→658 e55 permanece733. Helpers encerrados. Não conclui a matriz fiscal global.
 
 - [Edição comercial salva antes da reversão fiscal, com pendência rastreada — 20/10](historico-correcoes-2026-10-20.md#edição-comercial-salva-antes-da-reversão-fiscal-com-pendência-rastreada): o modal fiscal pré-salvamento foi removido. A alteração comercial é salva; reversão e nova emissão seguem depois somente quando elegíveis. Circulação, tentativa incerta ou revisão fiscal deixam pendência persistida sem cancelamento/estorno automático. Migration local não aplicada. ESLint e bundle da rota passaram; testes não executados; typecheck geral foi interrompido por demora.

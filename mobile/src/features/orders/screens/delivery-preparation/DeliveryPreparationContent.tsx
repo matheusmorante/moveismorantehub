@@ -109,6 +109,7 @@ export const DeliveryPreparationContent: React.FC<DeliveryPreparationContentProp
           onRemoveResponsible={onRemoveResponsible}
           availableStaff={availableStaff}
           userProfile={userProfile}
+          onOpenUnattendedModal={onOpenUnattendedModal}
           isDarkMode={isDarkMode}
         />
       )}

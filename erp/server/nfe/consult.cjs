@@ -1765,6 +1765,11 @@ var INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES = [
   }
 ];
 
+// api/nfe/normal-sale/attemptPolicy.ts
+function isUncertainAuthorization(cStat, pending) {
+  return pending || !/^\d{3}$/.test(cStat) || ["100", "103", "104", "105", "108", "109", "204", "539", "999"].includes(cStat);
+}
+
 // api/nfe/hml-technical/constants.ts
 var isHmlRuleSet = (version) => version === HML_TECHNICAL_RULESET_VERSION || version === "HML_NORMAL_SALE_V1" || version === HML_NORMAL_SALE_RULESET_VERSION;
 var hmlEndpoint = (model, service) => {
@@ -2508,11 +2513,6 @@ async function loadOutboundAttempt(db, documentId) {
   if (attempt.error || document.error || !attempt.data || !document.data)
     throw new Error("FISCAL_ATTEMPT_UNAVAILABLE");
   return { attempt: attempt.data, document: document.data };
-}
-
-// api/nfe/normal-sale/attemptPolicy.ts
-function isUncertainAuthorization(cStat, pending) {
-  return pending || !/^\d{3}$/.test(cStat) || ["100", "103", "104", "105", "108", "109", "204", "539", "999"].includes(cStat);
 }
 
 // api/nfe/normal-sale/outboundRecovery.ts

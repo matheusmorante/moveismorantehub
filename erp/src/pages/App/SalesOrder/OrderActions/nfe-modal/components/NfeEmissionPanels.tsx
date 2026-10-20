@@ -202,6 +202,7 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
             recipientIeIndicator={recipientIeIndicator}
             onRecipientIeIndicatorChange={setRecipientIeIndicator}
             recipientIeError={recipientIeError}
+            recipientIeIndicatorError={fiscalFieldError?.fieldId === 'nfe-recipient-ie-indicator' ? fiscalFieldError.message : null}
             fiscalModel={selectedModel || '55'}
           />
         </section>

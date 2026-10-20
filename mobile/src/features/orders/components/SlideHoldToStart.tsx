@@ -73,7 +73,7 @@ export function SlideHoldToStart({
             return;
           }
           const distance = direction === 'left' ? -gesture.dx : gesture.dx;
-          const reachedEnd = maxX > 0 && distance >= maxX * 0.85;
+          const reachedEnd = maxX > 0 && distance >= maxX * 0.75;
           if (reachedEnd) finishSlide();
           else returnToStart();
         },

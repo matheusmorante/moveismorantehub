@@ -8,6 +8,18 @@ const note = k => `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="N
 const response = k => `<retEnviNFe xmlns="http://www.portalfiscal.inf.br/nfe"><cStat>104</cStat><protNFe><infProt><tpAmb>2</tpAmb><chNFe>${k}</chNFe><cStat>100</cStat><nProt>141260000000001</nProt></infProt></protNFe></retEnviNFe>`;
 const consult = k => `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>2</tpAmb><xServ>CONSULTAR</xServ><chNFe>${k}</chNFe></consSitNFe>`;
 const postUrl = 'https://homologacao.nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4';
+test('no-fault mode preserves the real reply and still permits only one scoped HML transmission', async () => {
+  const actual = { data: response(key), status: 200 };
+  let calls = 0;
+  const faults = createNormalOutboundFaults({ targets: [{ orderId: 'order', model: '55', fault: 'none' }], origin,
+    originalFetch: async () => new Response(JSON.stringify({ documentId: 'doc' })),
+    originalPost: async () => { calls++; return actual; } });
+  await prepare(faults);
+  assert.equal(await faults.post(postUrl, note(key), {}), actual);
+  await assert.rejects(faults.post(postUrl, note(key), {}), /SINGLE_NORMAL_TRANSMISSION/);
+  assert.equal(calls, 1);
+  assert.equal(faults.allowsRequest('/api/nfe/emit', { orderId: 'order', environment: 1 }), false);
+});
 async function prepare(faults, orderId = 'order', k = key) {
   return faults.fetch(origin + '/rest/v1/rpc/prepare_nfe_outbound_attempt', { body: JSON.stringify({ p_request_command: { orderId, environment: 2 }, p_snapshot: { order: { id: orderId } }, p_access_key: k, p_signed_xml: note(k) }) });
 }

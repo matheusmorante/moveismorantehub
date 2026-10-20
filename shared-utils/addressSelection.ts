@@ -57,6 +57,5 @@ export function mergeAddressSelection<T extends object>(current: T, selected: Se
   if (selected.placeId) next.placeId = selected.placeId;
   if (selected.coords) next.coords = selected.coords;
   if (selected.formattedAddress) next.formattedAddress = selected.formattedAddress;
-  if (selected.coords && !next.mapsUrl) next.mapsUrl = `https://www.google.com/maps?q=${selected.coords[1]},${selected.coords[0]}`;
   return next as T;
 }

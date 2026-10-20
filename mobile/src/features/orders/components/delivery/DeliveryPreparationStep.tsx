@@ -1,8 +1,9 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { Check, ClipboardCheck } from 'lucide-react-native';
+import { Check, ClipboardCheck, AlertTriangle } from 'lucide-react-native';
 import { DeliveryResponsibleItem } from '../../screens/delivery-preparation/deliveryPreparation.types';
 import { styles } from './preparation/deliveryPreparationStep.styles';
+import { styles as unattendedStyles } from './arrival/deliveryArrivalStep.styles';
 import { DeliveryDestinationInfoCard } from './preparation/DeliveryDestinationInfoCard';
 import { DeliveryResponsiblesSection } from './preparation/DeliveryResponsiblesSection';
 
@@ -21,6 +22,7 @@ interface Props {
   availableStaff?: Array<{ id: string; fullName: string; role?: string }>;
   userProfile?: any;
   onStartDelivery?: () => void;
+  onOpenUnattendedModal?: () => void;
   saving?: boolean;
   isDarkMode: boolean;
 }
@@ -42,6 +44,7 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
   onRemoveResponsible,
   availableStaff = [],
   userProfile,
+  onOpenUnattendedModal,
   isDarkMode,
 }) => {
   return (
@@ -85,6 +88,30 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
           <Text style={[styles.itemText, isDarkMode && styles.textLight]}>{item.label}</Text>
         </TouchableOpacity>
       ))}
+
+      {/* 4. Insucesso antecipado: a entrega não vai poder ser realizada (mesmo estilo da etapa de chegada) */}
+      {onOpenUnattendedModal ? (
+        <TouchableOpacity
+          onPress={onOpenUnattendedModal}
+          style={[
+            unattendedStyles.unattendedButton,
+            isDarkMode && unattendedStyles.unattendedButtonDark,
+          ]}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Não será possível entregar"
+        >
+          <AlertTriangle size={20} color={isDarkMode ? '#fca5a5' : '#dc2626'} />
+          <Text
+            style={[
+              unattendedStyles.unattendedButtonText,
+              isDarkMode && unattendedStyles.unattendedButtonTextDark,
+            ]}
+          >
+            Não será possível entregar
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       <Text style={[styles.safety, isDarkMode && styles.textMuted]}>
         🔒 Dirija com segurança. Use cinto de segurança e respeite os limites de velocidade.

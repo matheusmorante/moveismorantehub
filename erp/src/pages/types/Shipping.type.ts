@@ -28,6 +28,17 @@ type Shipping = {
     notInformed?: boolean;
     pendingScheduling?: boolean;
     immediatePickup?: boolean;
+    alternatives?: Array<{
+      id: string;
+      date: string;
+      endDate?: string;
+      dateType?: 'fixed' | 'range';
+      time: string;
+      startTime?: string;
+      endTime?: string;
+      type: 'fixed' | 'range';
+    }>;
+    scheduleMode?: 'defined' | 'alternatives';
   };
   destinationCoords?: [number, number]; // [lng, lat] (GeoJSON/MapLibre format)
   routeGeoJSON?: any; // GeoJSON geometry from routing API

@@ -5149,6 +5149,7 @@ function getOrderPaymentActualDate(payment) {
 // api/nfe/normal-sale/payments.ts
 function resolveNormalSalePayments(params) {
   const { snapshot, data, shipping, modelDecision, traces, invoice } = params;
+  const emissionDate = saoPauloEmissionTimestamp(snapshot.capturedAt).slice(0, 10);
   const rawPayments = Array.isArray(data.payments) ? data.payments.map(obj) : [];
   const resolvedPayments = [];
   let paidCents = 0;
@@ -5244,7 +5245,7 @@ function resolveNormalSalePayments(params) {
   const payments = resolvedPayments.map((payment2) => ({
     methodCode: payment2.methodCode,
     amount: payment2.amountCents / 100,
-    paymentIndicator: payment2.settlement === "paid" ? "0" : "1",
+    paymentIndicator: payment2.settlement === "paid" || payment2.dueDate === emissionDate ? "0" : "1",
     ...payment2.description ? { description: payment2.description } : {},
     ...payment2.paymentDate ? { paymentDate: payment2.paymentDate } : {},
     ...payment2.card ? { card: payment2.card } : {},
@@ -5254,6 +5255,7 @@ function resolveNormalSalePayments(params) {
   const pendingPayments = resolvedPayments.filter((item) => item.settlement === "pending");
   const billingParts = [];
   for (const pendingPayment of pendingPayments) {
+    if (pendingPayment.dueDate === emissionDate) continue;
     if (isPromissoryPaymentMethod(pendingPayment.description) && pendingPayment.installments > 1) {
       const perInstallment = Math.floor(pendingPayment.amountCents / pendingPayment.installments);
       const remainder = pendingPayment.amountCents % pendingPayment.installments;

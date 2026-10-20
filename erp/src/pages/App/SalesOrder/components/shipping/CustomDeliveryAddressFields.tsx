@@ -236,7 +236,7 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
           <div className="flex items-center justify-between mb-1 ml-1">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
               <i className="bi bi-geo-alt-fill text-red-500" />
-              Link / URL do Google Maps (Localização Exata)
+              URL manual das coordenadas (se não localizar o endereço)
             </label>
             {shipping.deliveryAddress?.mapsUrl && (
               <a
@@ -252,10 +252,13 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
           <input
             type="url"
             className="w-full border-b-2 border-slate-200 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors focus:border-blue-600 dark:border-slate-800 dark:text-slate-300 dark:focus:border-blue-500 placeholder:font-normal"
-            placeholder="https://maps.app.goo.gl/... ou link copiado do Google Maps"
+            placeholder="Cole o link do ponto com as coordenadas"
             value={shipping.deliveryAddress?.mapsUrl || ''}
             onChange={(e) => updateDeliveryAddress('mapsUrl', e.target.value)}
           />
+          <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+            Use somente se a busca não localizar o endereço. No Google Maps, copie o link do ponto marcado pelas coordenadas.
+          </p>
         </div>
       </div>
 

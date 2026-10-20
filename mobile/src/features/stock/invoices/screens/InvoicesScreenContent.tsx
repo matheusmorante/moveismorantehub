@@ -28,6 +28,14 @@ import {
 
 const ITEMS_PER_PAGE = stockService.ITEMS_PER_PAGE;
 
+type InvoiceListRow =
+  | { type: 'module'; id: 'module-header' }
+  | { type: 'page'; id: 'page-header' }
+  | { type: 'invoice'; id: string; invoice: Invoice }
+  | { type: 'loading'; id: 'loading' }
+  | { type: 'error'; id: 'error' }
+  | { type: 'empty'; id: 'empty' };
+
 interface Props {
   isDarkMode: boolean;
   onBack: () => void;
@@ -78,7 +86,7 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
     [dateFilter.mode]
   );
 
-  const rows: any[] = [
+  const rows: InvoiceListRow[] = [
     { type: 'module', id: 'module-header' },
     { type: 'page', id: 'page-header' },
     ...invoices.map((invoice) => ({ type: 'invoice' as const, id: invoice.id, invoice })),
@@ -95,7 +103,7 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <FlatList
+      <FlatList<InvoiceListRow>
         data={rows}
         keyExtractor={(item) => item.id}
         stickyHeaderIndices={[1]}
@@ -126,7 +134,7 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
           return (
             <View style={styles.cardContainer}>
               <InvoiceCard
-                item={item.invoice!}
+                item={item.invoice}
                 isDarkMode={isDarkMode}
                 onMenuPress={setActiveInvoice}
                 onPress={(invoice) => {

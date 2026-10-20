@@ -23,6 +23,33 @@ export const unattendedDeliveryFormSchema = z.object({
   }
 });
 
+export const UNATTENDED_PREPARATION_REASONS = [
+  'Cliente não poderá receber no momento',
+  'Cliente quer Cancelar',
+  'Problema no veículo',
+  'Outro motivo',
+] as const;
+
+/**
+ * Insucesso antecipado (etapa de Preparação): "Não será possível entregar".
+ * "Outro motivo" exige o texto do motivo; os demais motivos dispensam observações e fotos.
+ */
+export const unattendedPreparationFormSchema = z
+  .object({
+    reason: z.enum(UNATTENDED_PREPARATION_REASONS),
+    notes: z.string(),
+    proofUrls: z.array(z.url('Anexe uma imagem válida como evidência.')).max(5),
+  })
+  .superRefine((values, ctx) => {
+    if (values.reason === 'Outro motivo' && !values.notes.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['notes'],
+        message: 'Descreva o motivo pelo qual não será possível entregar.',
+      });
+    }
+  });
+
 export const deliveryResponsibleSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1, 'Informe o nome do responsável.'),

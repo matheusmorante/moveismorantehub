@@ -254,7 +254,9 @@ export function useNfeEmissionActions({
             nfeNumberSequence,
             manualNumberInput,
             freshHmlEmission,
-            isCurrent: () => operationOwner.current === owner && canOperateFiscalRef.current,
+            // Permission is checked before dispatch. A permission/profile refresh while the
+            // request is in flight must not discard its authoritative fiscal outcome.
+            isCurrent: () => operationOwner.current === owner,
             setXmlPreview,
             setIsXmlPreviewOpen: (open) => {
               if (open && !isXmlPreviewOpen) {

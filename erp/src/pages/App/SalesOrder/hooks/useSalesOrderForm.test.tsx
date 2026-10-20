@@ -207,6 +207,44 @@ describe('vinculação de cliente e toggle de usar mesmo endereço (useCustomerA
     expect(result.current.state.shipping.useCustomerAddress).toBe(true);
   });
 
+  it.each(['novo pedido', 'troca de cliente'])('salva o endereço do cliente no snapshot de entrega durante %s', async (scenario) => {
+    const { result } = renderHook(() => useSalesOrderForm());
+    act(() => {
+      fill(result.current);
+      result.current.actions.setShipping({
+        ...valid().shipping,
+        deliveryMethod: 'delivery',
+        noAddress: true,
+        useCustomerAddress: false,
+      });
+      if (scenario === 'troca de cliente') {
+        result.current.actions.setCustomerData(customerWithoutAddress);
+      }
+      result.current.actions.setCustomerData(customerWithAddress);
+    });
+
+    expect(result.current.state.shipping.noAddress).toBe(false);
+    expect(result.current.state.shipping.useCustomerAddress).toBe(true);
+
+    await act(async () => {
+      await result.current.actions.handleSaveOrder();
+    });
+
+    expect(mocks.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerData: expect.objectContaining({
+          id: customerWithAddress.id,
+          fullAddress: expect.objectContaining({ street: 'Rua Marechal Deodoro' }),
+        }),
+        shipping: expect.objectContaining({
+          deliveryMethod: 'delivery',
+          useCustomerAddress: true,
+          noAddress: false,
+        }),
+      })
+    );
+  });
+
   it('desliga automaticamente useCustomerAddress quando vincula cliente com endereço "Não informar" (noAddress: true)', () => {
     const { result } = renderHook(() => useSalesOrderForm());
     act(() => {

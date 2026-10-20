@@ -76,6 +76,9 @@ describe('orderSnapshotResolution', () => {
     expect(resolvedOrder.customerData?.fullAddress?.street).toBe('Rua Rio Guaíba');
     expect(resolvedOrder.customerData?.fullAddress?.number).toBe('135');
     expect(resolvedOrder.shipping?.deliveryAddress?.street).toBe('Rua Rio Guaíba');
+    expect(buildOrderPersistencePayload(resolvedOrder).order_data.shipping?.deliveryAddress).toEqual(
+      resolvedOrder.customerData?.fullAddress
+    );
   });
 
   it('deve recuperar e congelar o endereço do cliente se o pedido possuir ID, nome e telefone, mas endereço vazio e noAddress falso', async () => {
@@ -167,6 +170,9 @@ describe('orderSnapshotResolution', () => {
     expect(resolved.customerData?.fullName).toBe('Carmen José da Silva - Endereço Novo');
     expect(resolved.customerData?.fullAddress?.street).toBe('Avenida São Gabriel');
     expect(resolved.shipping?.deliveryAddress?.street).toBe('Avenida São Gabriel');
+    expect(buildOrderPersistencePayload(resolved).order_data.shipping?.deliveryAddress).toEqual(
+      resolved.customerData?.fullAddress
+    );
   });
 
   it('alterações externas na pessoa não alteram o snapshot de pedidos históricos já salvos', () => {

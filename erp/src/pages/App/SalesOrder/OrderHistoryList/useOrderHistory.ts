@@ -432,6 +432,9 @@ export const useOrderHistory = (filters?: any) => {
       sessionStorage.setItem('order', JSON.stringify(order));
       actionsMap[actionDef.action](order);
 
+      // These actions open a new order; they do not change the source order.
+      if (actionKey === 'duplicateOrder' || actionKey === 'generateSaleFromBudget') return;
+
       const currentClicks = order.isButtonsClicked || {
         printReceipt: false,
         printShippingOrder: false,

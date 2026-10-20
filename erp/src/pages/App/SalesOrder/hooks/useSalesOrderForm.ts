@@ -522,6 +522,10 @@ export const useSalesOrderForm = (
           setShipping((prev) => ({
             ...prev,
             useCustomerAddress: nextUseCustomerAddress,
+            noAddress:
+              prev.deliveryMethod === 'delivery' && nextUseCustomerAddress
+                ? false
+                : prev.noAddress,
           }));
         }
 

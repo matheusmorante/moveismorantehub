@@ -37,6 +37,7 @@ export const ScheduledTimeCardsSection = ({
   onCustomTimeChange,
   onCustomTimeRangeChange,
 }: ScheduledTimeCardsSectionProps) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
   const customTimePanelId = `${baseId}-custom-time-panel`;
   const customTimeRangePanelId = `${baseId}-custom-time-range-panel`;
 
@@ -46,6 +47,17 @@ export const ScheduledTimeCardsSection = ({
   const isCustomRangeStartFilled = isValidScheduleTime(customRangeStartTimeValue);
   const isCustomRangeEndFilled = isValidScheduleTime(customRangeEndTimeValue);
   const isCustomTimeRangeFilled = isCustomRangeStartFilled && isCustomRangeEndFilled;
+  const selectionSummary = effectiveTimeMode === 'morning'
+    ? 'Manhã · 09:00 às 12:00'
+    : effectiveTimeMode === 'afternoon'
+      ? 'Tarde · 13:00 às 18:00'
+      : effectiveTimeMode === 'custom_time'
+        ? customTimeValue ? `Horário específico · ${customTimeValue}` : 'Horário específico não definido'
+        : effectiveTimeMode === 'custom_time_range'
+          ? customRangeStartTimeValue && customRangeEndTimeValue
+            ? `${customRangeStartTimeValue} às ${customRangeEndTimeValue}`
+            : 'Período de horário não definido'
+          : 'Horário não definido';
 
   const isCustomTimeInvalid = Boolean(timeError && isCustomTimeSelected);
   const isCustomTimeRangeStartInvalid = Boolean(
@@ -60,7 +72,13 @@ export const ScheduledTimeCardsSection = ({
 
   return (
     <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/50">
-      <div className="flex items-center justify-between ml-1">
+      <button
+        type="button"
+        aria-expanded={isExpanded}
+        aria-controls={`${baseId}-scheduled-time-content`}
+        onClick={() => setIsExpanded((expanded) => !expanded)}
+        className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"
+      >
         <span
           className={`text-xs font-black uppercase tracking-widest ${
             timeError ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'
@@ -68,8 +86,11 @@ export const ScheduledTimeCardsSection = ({
         >
           Horário programado {isRequired && <span className="text-red-500">*</span>}
         </span>
-      </div>
+        <span className="ml-auto truncate text-xs font-medium text-slate-500 dark:text-slate-400">{selectionSummary}</span>
+        {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
+      </button>
 
+      {isExpanded && <div id={`${baseId}-scheduled-time-content`} className="flex flex-col gap-3 animate-fade-in">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           type="button"
@@ -337,6 +358,7 @@ export const ScheduledTimeCardsSection = ({
           {timeError}
         </p>
       )}
+      </div>}
     </div>
   );
 };

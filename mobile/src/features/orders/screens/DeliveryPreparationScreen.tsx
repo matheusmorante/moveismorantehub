@@ -171,6 +171,9 @@ export function DeliveryPreparationScreen({
         onCloseStartConfirmModal={() => setShowStartConfirmModal(false)}
         onConfirmStartRoute={handleConfirmStartRoute}
         showUnattendedModal={showUnattendedModal}
+        unattendedVariant={
+          !isInArrival && !isInService && !isInTransit ? 'preparation' : 'arrival'
+        }
         onCloseUnattendedModal={() => setShowUnattendedModal(false)}
         onConfirmUnattended={handleConfirmUnattended}
         showCancelModal={showCancelModal}

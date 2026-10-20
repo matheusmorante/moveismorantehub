@@ -22,6 +22,7 @@ import {
 } from './agendamento/agendamentoSessionMemory';
 import { ScheduledDateCardsSection } from './agendamento/ScheduledDateCardsSection';
 import { ScheduledTimeCardsSection } from './agendamento/ScheduledTimeCardsSection';
+import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 
 export {
   createEmptySchedulingSessionMemory,
@@ -31,9 +32,34 @@ export {
   type TimeScheduleMode,
 };
 
+const emptyAlternative = (): NonNullable<Shipping['scheduling']['alternatives']>[number] => ({
+  id: crypto.randomUUID(),
+  date: '',
+  endDate: '',
+  dateType: 'fixed',
+  time: '',
+  startTime: '',
+  endTime: '',
+  type: 'fixed',
+});
+
+const summarizeOption = (option: Shipping['scheduling']) => {
+  const date = option.date
+    ? option.date.split('-').reverse().join('/') + (option.dateType === 'range' && option.endDate ? ` a ${option.endDate.split('-').reverse().join('/')}` : '')
+    : 'Data não definida';
+  const start = option.startTime || (option.type === 'fixed' ? option.time : '');
+  const time = start
+    ? `${start}${option.endTime ? ` às ${option.endTime}` : ''}`
+    : 'Horário não definido';
+  return `${date} · ${time}`;
+};
+
 interface AgendamentoProps {
   scheduling: Shipping['scheduling'];
-  onChangeScheduling: (key: keyof Shipping['scheduling'], value: string | Date | boolean) => void;
+  onChangeScheduling: (
+    key: keyof Shipping['scheduling'],
+    value: string | Date | boolean | NonNullable<Shipping['scheduling']['alternatives']>
+  ) => void;
   errors: ValidationErrors;
   isPickup?: boolean;
   hideSchedulingShortcuts?: boolean;
@@ -53,17 +79,40 @@ const Agendamento = ({
   sessionMemoryRef,
 }: AgendamentoProps) => {
   const fallbackMemoryRef = useRef<SchedulingSessionMemory | null>(null);
-  const activeMemoryRef = sessionMemoryRef || fallbackMemoryRef;
+  const optionMemoryRefs = useRef(new Map<string, React.MutableRefObject<SchedulingSessionMemory | null>>());
+  const [scheduleMode, setScheduleMode] = useState<'defined' | 'alternatives'>(
+    scheduling?.scheduleMode || 'defined'
+  );
+  const [expandedOptionId, setExpandedOptionId] = useState('primary');
+  const alternatives = scheduling?.alternatives || [];
+  const activeOptionId = scheduleMode === 'alternatives' ? expandedOptionId : 'primary';
+  const hasExpandedOption = scheduleMode !== 'alternatives' || Boolean(expandedOptionId);
+  const expandedOptionIndex = expandedOptionId === 'primary'
+    ? 0
+    : alternatives.findIndex((option) => option.id === expandedOptionId) + 1;
+  const activeScheduling =
+    activeOptionId === 'primary'
+      ? scheduling
+      : (alternatives.find((option) => option.id === activeOptionId) || scheduling);
+  let activeMemoryRef = activeOptionId === 'primary' ? sessionMemoryRef || fallbackMemoryRef : optionMemoryRefs.current.get(activeOptionId);
+  if (!activeMemoryRef) {
+    activeMemoryRef = { current: null };
+    optionMemoryRefs.current.set(activeOptionId, activeMemoryRef);
+  }
   const baseId = useId();
 
+  useEffect(() => {
+    setScheduleMode(scheduling?.scheduleMode || 'defined');
+  }, [scheduling?.scheduleMode]);
+
   if (!activeMemoryRef.current || !activeMemoryRef.current.initialized) {
-    activeMemoryRef.current = deriveSchedulingSessionMemory(scheduling);
+    activeMemoryRef.current = deriveSchedulingSessionMemory(activeScheduling);
   }
 
   const [, setRenderTick] = useState(0);
   const forceRender = () => setRenderTick((prev) => prev + 1);
 
-  const currentSignature = buildSchedulingSignature(scheduling);
+  const currentSignature = buildSchedulingSignature(activeScheduling);
 
   useEffect(() => {
     const mem = activeMemoryRef.current;
@@ -71,19 +120,19 @@ const Agendamento = ({
 
     if (mem.lastHydratedSignature !== currentSignature) {
       const hasExternalData = Boolean(
-        normalizeScheduleDate(scheduling?.date) ||
-          normalizeScheduleDate(scheduling?.endDate) ||
-          extractScheduleTimes(scheduling || {}).startTime ||
-          extractScheduleTimes(scheduling || {}).endTime
+        normalizeScheduleDate(activeScheduling?.date) ||
+          normalizeScheduleDate(activeScheduling?.endDate) ||
+          extractScheduleTimes(activeScheduling || {}).startTime ||
+          extractScheduleTimes(activeScheduling || {}).endTime
       );
       if (hasExternalData && mem.dateMode === null && mem.timeMode === null) {
-        activeMemoryRef.current = deriveSchedulingSessionMemory(scheduling);
+        activeMemoryRef.current = deriveSchedulingSessionMemory(activeScheduling);
         forceRender();
       } else {
         mem.lastHydratedSignature = currentSignature;
       }
     }
-  }, [currentSignature, scheduling, activeMemoryRef]);
+  }, [currentSignature, activeScheduling, activeMemoryRef]);
 
   if (!scheduling) return null;
 
@@ -91,19 +140,30 @@ const Agendamento = ({
   const isImmediatePickup = Boolean(isPickup && scheduling.immediatePickup);
   const isPendingScheduling = Boolean(scheduling.pendingScheduling && !isImmediatePickup);
   const isScheduleReadOnly = isPendingScheduling || isImmediatePickup;
-  const dateError = !isScheduleReadOnly ? errors['shipping_date'] : undefined;
-  const timeError = !isScheduleReadOnly ? errors['shipping_time'] : undefined;
+  const dateError = !isScheduleReadOnly
+    ? activeOptionId === 'primary' ? errors['shipping_date'] : errors[`shipping_alternative_${activeOptionId}_date`]
+    : undefined;
+  const timeError = !isScheduleReadOnly
+    ? activeOptionId === 'primary' ? errors['shipping_time'] : errors[`shipping_alternative_${activeOptionId}_time`]
+    : undefined;
 
   const updateScheduleField = (
     key: keyof Shipping['scheduling'],
     value: string | Date | boolean
   ) => {
-    if (key !== 'immediatePickup') onChangeScheduling('immediatePickup', false);
-    onChangeScheduling(key, value);
+    if (activeOptionId === 'primary') {
+      if (key !== 'immediatePickup') onChangeScheduling('immediatePickup', false);
+      onChangeScheduling(key, value);
+    } else {
+      onChangeScheduling(
+        'alternatives',
+        alternatives.map((option) => option.id === activeOptionId ? { ...option, [key]: value } : option)
+      );
+    }
   };
 
-  const effectiveDateMode = resolveEffectiveDateMode(memory, scheduling, dateError);
-  const effectiveTimeMode = resolveEffectiveTimeMode(memory, scheduling);
+  const effectiveDateMode = resolveEffectiveDateMode(memory, activeScheduling, dateError);
+  const effectiveTimeMode = resolveEffectiveTimeMode(memory, activeScheduling);
 
   const handleSelectDateMode = (mode: NonNullable<DateScheduleMode>) => {
     if (isScheduleReadOnly) return;
@@ -232,20 +292,20 @@ const Agendamento = ({
 
   const customDateValue =
     effectiveDateMode === 'custom_date'
-      ? normalizeScheduleDate(scheduling.date) || memory.customDate
+      ? normalizeScheduleDate(activeScheduling.date) || memory.customDate
       : memory.customDate;
 
   const customRangeStartDateValue =
     effectiveDateMode === 'custom_date_range'
-      ? normalizeScheduleDate(scheduling.date) || memory.customRangeStartDate
+      ? normalizeScheduleDate(activeScheduling.date) || memory.customRangeStartDate
       : memory.customRangeStartDate;
 
   const customRangeEndDateValue =
     effectiveDateMode === 'custom_date_range'
-      ? normalizeScheduleDate(scheduling.endDate) || memory.customRangeEndDate
+      ? normalizeScheduleDate(activeScheduling.endDate) || memory.customRangeEndDate
       : memory.customRangeEndDate;
 
-  const { startTime: currentStartTime, endTime: currentEndTime } = extractScheduleTimes(scheduling);
+  const { startTime: currentStartTime, endTime: currentEndTime } = extractScheduleTimes(activeScheduling);
 
   const customTimeValue =
     effectiveTimeMode === 'custom_time'
@@ -277,7 +337,7 @@ const Agendamento = ({
   );
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 gap-2">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4 ml-1">
         <label className="text-sm font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
           {title || (isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega')}
@@ -360,7 +420,65 @@ const Agendamento = ({
         )}
       </div>
 
-      <div className={`w-full transition-opacity ${isScheduleReadOnly ? 'opacity-90' : ''}`}>
+      {!hideSchedulingShortcuts && (
+        <div className="mb-4 ml-1 flex w-fit rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800" role="tablist" aria-label="Tipo de agendamento">
+          {(['defined', 'alternatives'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              role="tab"
+              aria-selected={scheduleMode === mode}
+              onClick={() => {
+                setScheduleMode(mode);
+                onChangeScheduling('scheduleMode', mode);
+                if (mode === 'alternatives' && !expandedOptionId) setExpandedOptionId('primary');
+              }}
+              className={`rounded-lg px-3 py-2 text-xs font-bold transition-colors ${scheduleMode === mode ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}
+            >
+              {mode === 'defined' ? 'Data definida' : 'Datas alternativas'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {scheduleMode === 'alternatives' && (
+        <div className="contents">
+          {[{ id: 'primary', option: scheduling, primary: true }, ...alternatives.map((option) => ({ id: option.id, option, primary: false }))].map(({ id, option, primary }, index) => {
+            const expanded = expandedOptionId === id;
+            const optionHasError = primary
+              ? Boolean(errors['shipping_date'] || errors['shipping_time'])
+              : Boolean(errors[`shipping_alternative_${id}_date`] || errors[`shipping_alternative_${id}_time`] || errors[`shipping_alternative_${id}_duplicate`]);
+            return (
+              <div key={id} style={{ order: index * 2 }} className={`overflow-hidden border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 ${expanded ? 'rounded-t-2xl border-b-0' : 'rounded-2xl'}`}>
+                <div className="flex items-center gap-2 px-3 py-2.5">
+                  <button
+                    type="button"
+                    aria-expanded={expanded}
+                    onClick={() => setExpandedOptionId(expanded ? '' : id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                    <span className="text-xs font-black text-slate-700 dark:text-slate-200">{index + 1}ª opção — {primary ? 'Principal' : 'Alternativa'}</span>
+                    <span className="truncate text-xs text-slate-500 dark:text-slate-400">{summarizeOption(option)}</span>
+                    {optionHasError && <span className="shrink-0 text-[10px] font-bold text-red-600">Erro</span>}
+                  </button>
+                  {!primary && (
+                    <button type="button" aria-label={`Remover ${index + 1}ª opção`} onClick={() => {
+                      const next = alternatives.filter((item) => item.id !== id);
+                      onChangeScheduling('alternatives', next);
+                      if (expanded) setExpandedOptionId('primary');
+                    }} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {hasExpandedOption && <div style={scheduleMode === 'alternatives' ? { order: expandedOptionIndex * 2 + 1 } : undefined} className={`w-full transition-opacity ${isScheduleReadOnly ? 'opacity-90' : ''} ${scheduleMode === 'alternatives' ? 'rounded-b-2xl border border-t-0 border-slate-200 p-4 dark:border-slate-700' : ''}`}>
         {isPendingScheduling ? (
           <div className="flex items-center gap-4 py-4 px-4 bg-orange-50/50 dark:bg-orange-900/10 border border-dashed border-orange-200 dark:border-orange-800 rounded-2xl animate-fade-in">
             <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0">
@@ -382,6 +500,7 @@ const Agendamento = ({
             }`}
           >
             <ScheduledDateCardsSection
+              key={activeOptionId}
               baseId={baseId}
               isScheduleReadOnly={isScheduleReadOnly}
               isRequired={!isScheduleReadOnly}
@@ -396,6 +515,7 @@ const Agendamento = ({
             />
 
             <ScheduledTimeCardsSection
+              key={activeOptionId}
               baseId={baseId}
               isScheduleReadOnly={isScheduleReadOnly}
               isRequired={!isScheduleReadOnly}
@@ -409,7 +529,7 @@ const Agendamento = ({
               onCustomTimeRangeChange={handleCustomTimeRangeChange}
             />
 
-            <div
+            {scheduleMode === 'defined' && <div
               data-testid="scheduling-summary"
               className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 px-4 py-3.5 flex flex-col gap-1.5"
             >
@@ -417,7 +537,7 @@ const Agendamento = ({
                 Resumo da programação
               </span>
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-6 text-xs">
-                <div className="flex items-center gap-1.5">
+                {scheduleMode === 'defined' ? <><div className="flex items-center gap-1.5">
                   <span className="font-bold text-slate-500 dark:text-slate-400">Data:</span>
                   <span
                     data-testid="scheduling-summary-date"
@@ -442,9 +562,11 @@ const Agendamento = ({
                   >
                     {summaryTimeText}
                   </span>
-                </div>
+                </div></> : <div className="flex flex-col gap-1 text-xs font-bold text-slate-700 dark:text-slate-200">
+                  {[{ id: 'primary', option: scheduling }, ...alternatives.map((option) => ({ id: option.id, option }))].map(({ option }, index) => <div key={index}>{index + 1}ª opção: {summarizeOption(option)}</div>)}
+                </div>}
               </div>
-            </div>
+            </div>}
           </div>
         ) : (
           <div className="flex-1 bg-amber-50/50 dark:bg-amber-900/10 border border-dashed border-amber-200 dark:border-amber-900/30 rounded-2xl px-6 py-4 flex items-center gap-4">
@@ -461,7 +583,28 @@ const Agendamento = ({
             </div>
           </div>
         )}
-      </div>
+      </div>}
+      {scheduleMode === 'alternatives' && (
+        <>
+          <button style={{ order: (alternatives.length + 1) * 2 }}
+            type="button"
+            onClick={() => {
+              const next = [...alternatives, emptyAlternative()];
+              onChangeScheduling('alternatives', next);
+              setExpandedOptionId(next[next.length - 1].id);
+            }}
+            className="ml-1 inline-flex w-fit items-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-2.5 text-xs font-bold text-slate-600 transition-colors hover:border-orange-400 hover:bg-orange-50 hover:text-orange-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-orange-950/20"
+          >
+            <Plus className="h-4 w-4" /> Adicionar alternativa
+          </button>
+          <div style={{ order: (alternatives.length + 1) * 2 + 1 }} className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3.5 dark:border-slate-800 dark:bg-slate-800/40">
+            <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Resumo da programação</span>
+            <div className="mt-2 flex flex-col gap-1 text-xs font-bold text-slate-700 dark:text-slate-200">
+              {[{ option: scheduling }, ...alternatives.map((option) => ({ option }))].map(({ option }, index) => <div key={index}>{index + 1}ª opção — {index === 0 ? 'Principal' : 'Alternativa'}: {summarizeOption(option)}</div>)}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

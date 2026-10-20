@@ -47,6 +47,7 @@ export const ScheduledDateCardsSection = ({
   onCustomDateChange,
   onCustomDateRangeChange,
 }: ScheduledDateCardsSectionProps) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
   const todayInfo = getSaoPauloDayInfo(0);
   const tomorrowInfo = getSaoPauloDayInfo(1);
   const customDatePanelId = `${baseId}-custom-date-panel`;
@@ -58,6 +59,17 @@ export const ScheduledDateCardsSection = ({
   const isCustomRangeStartFilled = isValidScheduleDate(customRangeStartDateValue);
   const isCustomRangeEndFilled = isValidScheduleDate(customRangeEndDateValue);
   const isCustomDateRangeFilled = isCustomRangeStartFilled && isCustomRangeEndFilled;
+  const selectionSummary = effectiveDateMode === 'today'
+    ? `Hoje · ${todayInfo.formattedDate}`
+    : effectiveDateMode === 'tomorrow'
+      ? `Amanhã · ${tomorrowInfo.formattedDate}`
+      : effectiveDateMode === 'custom_date'
+        ? customDateValue ? customDateValue.split('-').reverse().join('/') : 'Data específica não definida'
+        : effectiveDateMode === 'custom_date_range'
+          ? customRangeStartDateValue && customRangeEndDateValue
+            ? `${customRangeStartDateValue.split('-').reverse().join('/')} a ${customRangeEndDateValue.split('-').reverse().join('/')}`
+            : 'Período de datas não definido'
+          : 'Data não definida';
 
   const isCustomDateInvalid = Boolean(dateError && isCustomDateSelected);
   const isCustomRangeStartInvalid = Boolean(
@@ -72,7 +84,13 @@ export const ScheduledDateCardsSection = ({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between ml-1">
+      <button
+        type="button"
+        aria-expanded={isExpanded}
+        aria-controls={`${baseId}-scheduled-date-content`}
+        onClick={() => setIsExpanded((expanded) => !expanded)}
+        className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"
+      >
         <span
           className={`text-xs font-black uppercase tracking-widest ${
             dateError ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'
@@ -80,8 +98,11 @@ export const ScheduledDateCardsSection = ({
         >
           Data programada {isRequired && <span className="text-red-500">*</span>}
         </span>
-      </div>
+        <span className="ml-auto truncate text-xs font-medium text-slate-500 dark:text-slate-400">{selectionSummary}</span>
+        {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
+      </button>
 
+      {isExpanded && <div id={`${baseId}-scheduled-date-content`} className="flex flex-col gap-3 animate-fade-in">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
           type="button"
@@ -349,6 +370,7 @@ export const ScheduledDateCardsSection = ({
           {dateError}
         </p>
       )}
+      </div>}
     </div>
   );
 };

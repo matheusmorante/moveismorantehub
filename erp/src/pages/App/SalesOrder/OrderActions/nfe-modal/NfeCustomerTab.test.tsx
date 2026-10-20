@@ -37,6 +37,18 @@ const baseOrder: Order = {
 describe('NfeCustomerTab - Dados Fiscais (IE e indIEDest)', () => {
   afterEach(() => cleanup());
 
+  it('mostra o erro de finalidade junto à situação perante o ICMS', () => {
+    const message = 'Destinatário não contribuinte exige operação com consumidor final.';
+    render(<NfeCustomerTab order={baseOrder} customerPersonType="PF" isIdentityOptional={false}
+      recipientTaxId="10000044067" onRecipientTaxIdChange={vi.fn()} recipientTaxIdError={null}
+      recipientTaxIdInputRef={{ current: null }} recipientIeIndicator="9"
+      recipientIeIndicatorError={message} fiscalModel="55" />);
+    const field = screen.getByLabelText(/Situação perante o ICMS/);
+    expect(field.getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByRole('alert').textContent).toContain(message);
+    expect(field.getAttribute('aria-describedby')).toBe(screen.getByRole('alert').id);
+  });
+
   it('usa o tipo cadastrado do cliente para definir o documento, mesmo se a exigência divergir', () => {
     render(
       <NfeCustomerTab

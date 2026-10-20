@@ -23,6 +23,7 @@ interface NfeCustomerTabProps {
   recipientIeIndicator?: '1' | '2' | '9';
   onRecipientIeIndicatorChange?: (val: '1' | '2' | '9') => void;
   recipientIeError?: string | null;
+  recipientIeIndicatorError?: string | null;
   fiscalModel?: '55' | '65';
 }
 
@@ -63,6 +64,7 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
   recipientIeIndicator = '9',
   onRecipientIeIndicatorChange,
   recipientIeError,
+  recipientIeIndicatorError,
   fiscalModel = '55',
 }) => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
@@ -338,6 +340,8 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
               id="nfe-recipient-ie-indicator"
               disabled={disabled || fiscalModel === '65'}
               value={effectiveIeIndicator}
+              aria-invalid={recipientIeIndicatorError ? true : undefined}
+              aria-describedby={recipientIeIndicatorError ? 'nfe-recipient-ie-indicator-error' : undefined}
               onChange={(e) => onRecipientIeIndicatorChange?.(e.target.value as '1' | '2' | '9')}
               className="w-full rounded-none border-0 border-b-2 bg-white px-3 py-2 text-xs font-bold outline-none transition-all border-slate-200 focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-blue-500"
             >
@@ -345,6 +349,11 @@ export const NfeCustomerTab: React.FC<NfeCustomerTabProps> = ({
               <option value="1">1 - Contribuinte do ICMS (Possui IE obrigatória)</option>
               <option value="2">2 - Contribuinte Isento de Inscrição Estadual</option>
             </select>
+            {recipientIeIndicatorError && (
+              <p id="nfe-recipient-ie-indicator-error" role="alert" className="mt-1 text-xs font-bold text-rose-700 dark:text-rose-300">
+                {recipientIeIndicatorError}
+              </p>
+            )}
             <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
               {effectiveIeIndicator === '1'
                 ? 'Destinatário contribuinte: a SEFAZ exige Inscrição Estadual ativa e válida.'

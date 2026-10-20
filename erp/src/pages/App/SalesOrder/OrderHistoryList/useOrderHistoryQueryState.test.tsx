@@ -14,13 +14,17 @@ const mocks = vi.hoisted(() => ({
   confirmReturnOrderCancellation: vi.fn(),
   automaticallyTransmitReturnFiscalDocuments: vi.fn(),
   getAutomaticReturnFiscalEmissionNotice: vi.fn(),
+  updateOrder: vi.fn(),
+  duplicateOrder: vi.fn(),
+  generateSaleFromBudget: vi.fn(),
+  printReceipt: vi.fn(),
 }));
 
 vi.mock('../../../utils/orderHistoryService', () => ({
   fetchOrdersPage: mocks.fetchOrdersPage,
   fetchOrdersForClientFiltering: mocks.fetchOrdersForClientFiltering,
   subscribeToOrderChanges: mocks.subscribeToOrderChanges,
-  updateOrder: vi.fn(),
+  updateOrder: mocks.updateOrder,
   undoReturn: vi.fn(),
 }));
 vi.mock('@/pages/utils/nfe/orderFiscalBadgeService', () => ({
@@ -31,7 +35,18 @@ vi.mock('../../FiscalDocuments/services/automaticReturnFiscalEmissionService', (
   getAutomaticReturnFiscalEmissionNotice: mocks.getAutomaticReturnFiscalEmissionNotice,
 }));
 vi.mock('../../../../hooks/useWindowSize', () => ({ useWindowSize: () => ({ width: 1440 }) }));
-vi.mock('../OrderActions/orderActionsConfig', () => ({ actionsMap: {}, buttons: [] }));
+vi.mock('../OrderActions/orderActionsConfig', () => ({
+  actionsMap: {
+    DUPLICATE_ORDER: mocks.duplicateOrder,
+    GENERATE_SALE_FROM_BUDGET: mocks.generateSaleFromBudget,
+    PRINT_RECEIPT: mocks.printReceipt,
+  },
+  buttons: [
+    { key: 'duplicateOrder', action: 'DUPLICATE_ORDER' },
+    { key: 'generateSaleFromBudget', action: 'GENERATE_SALE_FROM_BUDGET' },
+    { key: 'printReceipt', action: 'PRINT_RECEIPT' },
+  ],
+}));
 vi.mock('./useOrderHistoryOperations', () => ({
   createOrderHistoryOperations: () => ({
     handleDelete: vi.fn(),
@@ -65,6 +80,31 @@ describe('useOrderHistory query state', () => {
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
   };
+
+  it.each(['duplicateOrder', 'generateSaleFromBudget'] as const)('abre %s sem gravar no pedido fonte', async (action) => {
+    const order = { id: 'own-source', status: 'scheduled', orderType: 'sale', items: [] };
+    mocks.fetchOrdersPage.mockResolvedValue({ orders: [order], total: 1 });
+    mocks.fetchOrderFiscalBadgeStatuses.mockResolvedValue({});
+    mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
+    const { result } = renderHook(() => useOrderHistory(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.orders[0]?.id).toBe(order.id));
+    await act(async () => { await result.current.handleAction(action, result.current.orders[0]); });
+    expect(mocks[action]).toHaveBeenCalledWith(expect.objectContaining({ id: order.id }));
+    expect(mocks.updateOrder).not.toHaveBeenCalled();
+    expect(result.current.orders[0].isButtonsClicked).toBeUndefined();
+  });
+
+  it('preserva o registro de clique das ações concluídas no próprio pedido', async () => {
+    const order = { id: 'own-receipt', status: 'scheduled', orderType: 'sale', items: [] };
+    mocks.fetchOrdersPage.mockResolvedValue({ orders: [order], total: 1 });
+    mocks.fetchOrderFiscalBadgeStatuses.mockResolvedValue({});
+    mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
+    const { result } = renderHook(() => useOrderHistory(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.orders[0]?.id).toBe(order.id));
+    await act(async () => { await result.current.handleAction('printReceipt', result.current.orders[0]); });
+    expect(mocks.printReceipt).toHaveBeenCalledOnce();
+    expect(mocks.updateOrder).toHaveBeenCalledWith(order.id, { isButtonsClicked: expect.objectContaining({ printReceipt: true }) }, expect.objectContaining({ id: order.id }), undefined, { metadataOnly: true });
+  });
 
   it('devolve o resultado comercial de cancelamento ao proprietário da confirmação', async () => {
     const order = { id: 'sale-cancellation-receipt', status: 'scheduled', orderType: 'sale', items: [] };

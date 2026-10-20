@@ -34,6 +34,8 @@ export const buildDeliveryMessage = (order: Order) => {
   }
   const customer = order.customerData;
   const customerNameFormatted = toTitleCase(customer?.fullName || 'Cliente');
+  const deliveryAddress = order.shipping?.deliveryAddress;
+  const deliveryAddressText = stringifyFullAddressWithObservation(deliveryAddress);
 
   let message = settings.whatsappTemplates?.deliveryInfo || '';
 
@@ -54,11 +56,6 @@ export const buildDeliveryMessage = (order: Order) => {
       order.shipping?.deliveryAddress?.mapsUrl ||
       (order.shipping?.deliveryAddress as any)?.googleMapsUrl ||
       (order.shipping?.deliveryAddress as any)?.mapsLink ||
-      (order.shipping as any)?.mapsUrl ||
-      customer.fullAddress?.mapsUrl ||
-      (customer.fullAddress as any)?.googleMapsUrl ||
-      (customer.fullAddress as any)?.mapsLink ||
-      (customer as any)?.mapsUrl ||
       ''
     )?.trim() || null;
 
@@ -74,8 +71,7 @@ export const buildDeliveryMessage = (order: Order) => {
     .replace(/{{address}}/g, () => {
       if (order.shipping?.noAddress)
         return order.shipping?.deliveryMethod === 'pickup' ? 'Retirada em loja' : 'Não informado';
-      const effectiveAddr = order.shipping?.deliveryAddress || customer.fullAddress;
-      let addrStr = stringifyFullAddressWithObservation(effectiveAddr);
+      let addrStr = deliveryAddressText || 'Endereço não informado';
       if (mapsLink) {
         addrStr += `\n📍 *Localização (Google Maps):* ${mapsLink}`;
       }
@@ -90,8 +86,8 @@ export const buildDeliveryMessage = (order: Order) => {
       /{{routeUrl}}/g,
       () =>
         mapsLink ||
-        (order.shipping?.deliveryAddress || customer.fullAddress
-          ? getShippingRouteUrl(order.shipping?.deliveryAddress || customer.fullAddress)
+        (deliveryAddressText
+          ? getShippingRouteUrl(deliveryAddress)
           : 'Endereço não informado')
     );
 

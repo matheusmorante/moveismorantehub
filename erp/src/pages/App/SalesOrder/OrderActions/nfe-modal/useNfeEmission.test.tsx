@@ -774,6 +774,37 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(result.current.isSubmitting).toBe(false);
   });
 
+  it('preserva o resultado autorizado se a permissão mudar durante a emissão', async () => {
+    let completeEmission!: (response: unknown) => void;
+    mocks.emit.mockImplementationOnce(() => new Promise((resolve) => { completeEmission = resolve; }));
+    const onSuccess = vi.fn();
+    const { result, rerender } = renderHook(() => useNfeEmission(order, onSuccess));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+
+    let emission!: Promise<void>;
+    await act(async () => { emission = result.current.handleEmit(); });
+    expect(mocks.emit).toHaveBeenCalledTimes(1);
+
+    mocks.profileRole = 'sales';
+    rerender();
+    await act(async () => {
+      completeEmission({
+        success: true,
+        documentId: 'authorized-before-permission-refresh',
+        environment: 2,
+        model: '55',
+        nfeNumber: 735,
+      });
+      await emission;
+    });
+
+    expect(onSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({ success: true, documentId: 'authorized-before-permission-refresh' })
+    );
+    expect(result.current.emissionResult).toMatchObject({ success: true, nfeNumber: 735 });
+    mocks.profileRole = 'administrator';
+  });
+
   it('localiza a intenção com resposta perdida e consulta sem outra emissão', async () => {
     mocks.emit.mockResolvedValue({
       success: false,

@@ -53,7 +53,7 @@ describe('serviço de auditoria fiscal da edição de pedido', () => {
     });
   });
 
-  it('confirma a proposta fiscalmente auditada no servidor antes da transação', async () => {
+  it('confirma a proposta comercial sem autorizar transmissão fiscal em produção', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({ success: true, order: { id: 'TEST_AUT_order' }, replacements: [] })
     );
@@ -75,9 +75,11 @@ describe('serviço de auditoria fiscal da edição de pedido', () => {
       requestId: '00000000-0000-4000-8000-000000000001',
       orderId: 'TEST_AUT_order',
       orderUpdatedAt: '2026-10-09T10:00:00.000Z',
-      productionConfirmed: true,
       plans: [{ id: 'TEST_AUT_doc', action: 'cancel', environment: 1 }],
     });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).not.toHaveProperty('productionConfirmed');
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/nfe/audit-order-edit');
   });
 
   it('vincula a chamada do cancelamento ao registro persistente de substituição', async () => {

@@ -14,7 +14,11 @@ import {
 } from 'react-native';
 import { X, AlertTriangle, Camera, Check } from 'lucide-react-native';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
-import { unattendedDeliveryFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
+import {
+  unattendedDeliveryFormSchema,
+  unattendedPreparationFormSchema,
+  UNATTENDED_PREPARATION_REASONS,
+} from '../../../../../../shared-utils/operationsFormSchemas';
 
 const UNATTENDED_REASONS = [
   'Cliente comunicou que está ausente',
@@ -33,6 +37,12 @@ interface Props {
   onConfirm: (reason: string, notes: string, proofUrls: string[]) => Promise<void>;
   isDarkMode: boolean;
   customerName: string;
+  /**
+   * 'arrival' (padrão): etapa de Chegada — "Não foi possível entregar".
+   * 'preparation': etapa de Preparação — "Não será possível entregar" (motivos próprios,
+   * campo de texto apenas em "Outro motivo", sem fotos).
+   */
+  variant?: 'preparation' | 'arrival';
 }
 
 export const UnattendedModal: React.FC<Props> = ({
@@ -41,17 +51,30 @@ export const UnattendedModal: React.FC<Props> = ({
   onConfirm,
   isDarkMode,
   customerName,
+  variant = 'arrival',
 }) => {
-  const [selectedReason, setSelectedReason] = useState<(typeof UNATTENDED_REASONS)[number]>(UNATTENDED_REASONS[0]);
+  const isPreparation = variant === 'preparation';
+  const reasons: readonly string[] = isPreparation
+    ? UNATTENDED_PREPARATION_REASONS
+    : UNATTENDED_REASONS;
+  const [selectedReason, setSelectedReason] = useState<string>(reasons[0]);
+  // Na preparação o campo de texto só aparece em "Outro motivo"; na chegada, sempre.
+  const showNotesField = !isPreparation || selectedReason === 'Outro motivo';
   const [notes, setNotes] = useState('');
   const [proofUrls, setProofUrls] = useState<string[]>([]);
   const [uploadingProofs, setUploadingProofs] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const form = useZodForm(unattendedDeliveryFormSchema, { reason: selectedReason, notes, proofUrls });
+  const form = useZodForm(
+    (isPreparation
+      ? unattendedPreparationFormSchema
+      : unattendedDeliveryFormSchema) as typeof unattendedDeliveryFormSchema,
+    { reason: selectedReason as any, notes, proofUrls }
+  );
 
   const handleConfirm = async () => {
     if (uploadingProofs) return;
-    return form.validateAndRun({ reason: selectedReason, notes, proofUrls }, async (values) => {
+    const effectiveNotes = showNotesField ? notes : '';
+    return form.validateAndRun({ reason: selectedReason as any, notes: effectiveNotes, proofUrls }, async (values) => {
       setSubmitting(true);
       try {
         await onConfirm(values.reason, values.notes, values.proofUrls);
@@ -130,7 +153,7 @@ export const UnattendedModal: React.FC<Props> = ({
           style={StyleSheet.absoluteFill}
           activeOpacity={1}
           onPress={onClose}
-          accessibilityLabel="Fechar modal"
+          accessibilityLabel="Fechar modal ao clicar fora"
         />
         <View style={[styles.content, isDarkMode && styles.contentDark]}>
           {/* Topo */}
@@ -138,12 +161,14 @@ export const UnattendedModal: React.FC<Props> = ({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <AlertTriangle size={20} color="#dc2626" />
               <Text style={[styles.title, isDarkMode && styles.textLight]}>
-                Não foi possível realizar a entrega
+                {isPreparation ? 'Não será possível entregar' : 'Não foi possível realizar a entrega'}
               </Text>
             </View>
             <TouchableOpacity
               onPress={onClose}
               style={[styles.closeBtn, isDarkMode && styles.closeBtnDark]}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar modal"
             >
               <X size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
             </TouchableOpacity>
@@ -157,7 +182,7 @@ export const UnattendedModal: React.FC<Props> = ({
               Selecione o Motivo:
             </Text>
             <View style={styles.reasonsList}>
-              {UNATTENDED_REASONS.map((r) => {
+              {reasons.map((r) => {
                 const isSelected = selectedReason === r;
                 return (
                   <TouchableOpacity
@@ -185,69 +210,81 @@ export const UnattendedModal: React.FC<Props> = ({
               })}
             </View>
 
-            {/* Observações */}
-            <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>
-              Detalhes / Observações:
-            </Text>
-            <TextInput
-              style={[styles.input, isDarkMode && styles.inputDark]}
-              placeholder="Explique o que aconteceu no local..."
-              placeholderTextColor="#94a3b8"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={3}
-            />
+            {/* Observações / Campo de motivo quando selecionado Outro motivo na preparação ou sempre na chegada */}
+            {showNotesField && (
+              <>
+                <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>
+                  {isPreparation ? 'Descreva o motivo *:' : 'Detalhes / Observações:'}
+                </Text>
+                <TextInput
+                  style={[styles.input, isDarkMode && styles.inputDark]}
+                  placeholder={
+                    isPreparation
+                      ? 'Explique o motivo...'
+                      : 'Explique o que aconteceu no local...'
+                  }
+                  placeholderTextColor="#94a3b8"
+                  value={notes}
+                  onChangeText={setNotes}
+                  multiline
+                  numberOfLines={3}
+                />
+              </>
+            )}
 
-            {/* Fotos de comprovação */}
-            <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>
-              Fotos de Prova / Comprovante
-              {selectedReason === 'Ninguém Atendeu no Local' ? (
-                <>
-                  <Text style={styles.requiredAsterisk}> *</Text>
-                  <Text style={isDarkMode && styles.requiredTextDark}> (obrigatório)</Text>
-                </>
-              ) : (
-                ' (opcional)'
-              )}
-              {' — até 5:'}
-            </Text>
-            <View style={styles.proofList}>
-              {proofUrls.map((proofUrl, index) => (
-                <View
-                  key={proofUrl}
-                  style={[styles.proofThumbnail, isDarkMode && styles.proofThumbnailDark]}
-                >
-                  <Image source={{ uri: proofUrl }} style={styles.proofImage} />
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remover imagem ${index + 1}`}
-                    onPress={() => removeProofImage(proofUrl)}
-                    style={styles.removeProofButton}
-                  >
-                    <X size={16} color="#64748b" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              {proofUrls.length < 5 && (
-                <TouchableOpacity
-                  onPress={addProofImages}
-                  disabled={uploadingProofs}
-                  style={[styles.addProofButton, isDarkMode && styles.addProofButtonDark]}
-                >
-                  {uploadingProofs ? (
-                    <ActivityIndicator size="small" color={isDarkMode ? '#cbd5e1' : '#475569'} />
+            {/* Fotos de comprovação (apenas para a etapa de chegada/atendimento) */}
+            {!isPreparation && (
+              <>
+                <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>
+                  Fotos de Prova / Comprovante
+                  {selectedReason === 'Ninguém Atendeu no Local' ? (
+                    <>
+                      <Text style={styles.requiredAsterisk}> *</Text>
+                      <Text style={isDarkMode && styles.requiredTextDark}> (obrigatório)</Text>
+                    </>
                   ) : (
-                    <Camera size={16} color={isDarkMode ? '#cbd5e1' : '#475569'} />
+                    ' (opcional)'
                   )}
-                  <Text style={[styles.addProofText, isDarkMode && styles.textLight]}>
-                    {uploadingProofs
-                      ? 'Enviando imagem...'
-                      : `Adicionar imagem (${proofUrls.length}/5)`}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+                  {' — até 5:'}
+                </Text>
+                <View style={styles.proofList}>
+                  {proofUrls.map((proofUrl, index) => (
+                    <View
+                      key={proofUrl}
+                      style={[styles.proofThumbnail, isDarkMode && styles.proofThumbnailDark]}
+                    >
+                      <Image source={{ uri: proofUrl }} style={styles.proofImage} />
+                      <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remover imagem ${index + 1}`}
+                        onPress={() => removeProofImage(proofUrl)}
+                        style={styles.removeProofButton}
+                      >
+                        <X size={16} color="#64748b" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  {proofUrls.length < 5 && (
+                    <TouchableOpacity
+                      onPress={addProofImages}
+                      disabled={uploadingProofs}
+                      style={[styles.addProofButton, isDarkMode && styles.addProofButtonDark]}
+                    >
+                      {uploadingProofs ? (
+                        <ActivityIndicator size="small" color={isDarkMode ? '#cbd5e1' : '#475569'} />
+                      ) : (
+                        <Camera size={16} color={isDarkMode ? '#cbd5e1' : '#475569'} />
+                      )}
+                      <Text style={[styles.addProofText, isDarkMode && styles.textLight]}>
+                        {uploadingProofs
+                          ? 'Enviando imagem...'
+                          : `Adicionar imagem (${proofUrls.length}/5)`}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </>
+            )}
           </ScrollView>
 
           {/* Botão de Enviar */}
@@ -257,7 +294,11 @@ export const UnattendedModal: React.FC<Props> = ({
             style={[styles.confirmBtn, (submitting || uploadingProofs) && { opacity: 0.6 }]}
           >
             <Text style={styles.confirmBtnText}>
-              {submitting ? 'REGISTRANDO...' : 'CONFIRMAR NÃO FOI POSSÍVEL ENTREGAR'}
+              {submitting
+                ? 'REGISTRANDO...'
+                : isPreparation
+                  ? 'CONFIRMAR NÃO SERÁ POSSÍVEL ENTREGAR'
+                  : 'CONFIRMAR NÃO FOI POSSÍVEL ENTREGAR'}
             </Text>
           </TouchableOpacity>
         </View>
