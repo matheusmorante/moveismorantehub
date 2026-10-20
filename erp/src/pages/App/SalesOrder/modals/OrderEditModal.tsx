@@ -4,13 +4,9 @@ import SalesOrderFormSection from '../components/SalesOrderFormSection';
 import OrderSavingOverlay from '../components/OrderSavingOverlay';
 import { useSalesOrderForm } from '../hooks/useSalesOrderForm';
 import Order from '@/pages/types/order.type';
-import {
-  updateOrder,
-  fetchOrderById,
-  shouldAutoFulfillScheduledSaleOnEdit,
-} from '@/pages/utils/orderHistoryService';
+import { updateOrder, fetchOrderById } from '@/pages/utils/orderHistoryService';
 import { toast } from 'react-toastify';
-import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { useZodForm } from '@/hooks/useZodForm';
 import {
   createOrderDomainSchema,
   orderReconciliationFormSchema,
@@ -18,22 +14,19 @@ import {
 import { getSettings } from '@/pages/utils/settingsService';
 import type { z } from 'zod';
 import OrderStatusTimeline from '../components/OrderStatusTimeline';
-import SellerSearchModal from './SellerSearchModal';
-import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
-import ItemMovementChangeConfirmModal, {
-  getInventorySensitiveItemChanges,
-} from './ItemMovementChangeConfirmModal';
+import { getInventorySensitiveItemChanges } from './ItemMovementChangeConfirmModal';
 import ProductReconciliationItems from '../components/ProductReconciliationItems';
-import ConfirmModal from '@/components/shared/ConfirmModal';
-import { useOrderEditFiscalFlow } from './order-edit-modal';
+import {
+  useOrderEditFiscalFlow,
+  OrderEditSubModals,
+  buildUpdatedOrder,
+} from './order-edit-modal';
 import OrderEditFiscalContinuation from './OrderEditFiscalContinuation';
 import {
   applyImportedOrderDataToForm,
   buildImportedClientDraft,
 } from './orderEditJsonHelpers';
 import { OrderEditModalHeader } from './OrderEditModalHeader';
-import { FiscalOrderEditConfirmDialog } from './FiscalOrderEditConfirmDialog';
-import { getPostSaleActionsStaleAfterEdit } from '@/pages/utils/postSaleActions';
 
 interface OrderEditModalProps {
   order?: Order;
@@ -105,7 +98,6 @@ const OrderEditModal = ({
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
   const [pendingUpdate, setPendingUpdate] = useState<Order | null>(null);
   const [isReconciliationConfirmationOpen, setIsReconciliationConfirmationOpen] = useState(false);
-
 
   const applyOrderData = useCallback(
     (orderData: any) => {
@@ -210,44 +202,11 @@ const OrderEditModal = ({
     async (e?: React.MouseEvent) => {
       e?.preventDefault();
       if (!effectiveOrder) return false;
-      const firstHandling =
-        (form.state.items || []).find((i: any) => i.handlingType?.trim())?.handlingType || '';
-      const currentShipping = form.state.shipping || ({} as any);
-      let resolvedScheduling = currentShipping.scheduling;
-      const sessionDateMode = form.state.schedulingSessionRef?.current?.dateMode;
-      if (
-        resolvedScheduling &&
-        !resolvedScheduling.pendingScheduling &&
-        !resolvedScheduling.notInformed &&
-        !resolvedScheduling.immediatePickup &&
-        (sessionDateMode === 'today' || sessionDateMode === 'tomorrow')
-      ) {
-        const { getSaoPauloDayInfo } = await import(
-          '../../../../../../shared-utils/commercialOrderRules'
-        );
-        const dayInfo = getSaoPauloDayInfo(sessionDateMode === 'today' ? 0 : 1);
-        resolvedScheduling = {
-          ...resolvedScheduling,
-          date: dayInfo.isoDate,
-          endDate: '',
-          dateType: 'fixed',
-        };
-      }
-      const updatedOrder = {
-        ...form.state.currentOrder,
-        id: effectiveOrder.id,
-        items: form.state.items,
-        shipping: {
-          ...currentShipping,
-          scheduling: resolvedScheduling,
-          orderType: firstHandling || currentShipping.orderType || '',
-        },
-        isButtonsClicked:
-          effectiveOrder.isButtonsClicked || form.state.currentOrder.isButtonsClicked,
-      } as Order;
-      if (shouldAutoFulfillScheduledSaleOnEdit(effectiveOrder, updatedOrder)) {
-        updatedOrder.status = 'fulfilled';
-      }
+      const updatedOrder = buildUpdatedOrder({
+        effectiveOrder,
+        formState: form.state,
+      });
+
       const validationErrors = form.actions.validateOrder(updatedOrder);
       if (Object.keys(validationErrors).length > 0) {
         form.actions.setErrors(validationErrors);
@@ -265,6 +224,7 @@ const OrderEditModal = ({
         );
         return false;
       }
+
       const needsConfirmation =
         ['scheduled', 'fulfilled'].includes(effectiveOrder.status || '') &&
         getInventorySensitiveItemChanges(effectiveOrder, updatedOrder).length > 0;
@@ -274,16 +234,7 @@ const OrderEditModal = ({
       }
       return saveWithFiscalAudit(updatedOrder);
     },
-    [
-      effectiveOrder,
-      form.actions,
-      form.state.currentOrder,
-      form.state.currentStep,
-      form.state.items,
-      form.state.schedulingSessionRef,
-      form.state.shipping,
-      saveWithFiscalAudit,
-    ]
+    [effectiveOrder, form.actions, form.state, saveWithFiscalAudit]
   );
 
   const handleSaveReconciliation = useCallback(async () => {
@@ -342,39 +293,25 @@ const OrderEditModal = ({
         onClose={onClose}
       />
 
-      {/* Seller Search Modal */}
-      {isSellerSearchOpen && (
-        <SellerSearchModal
-          anchorRef={sellerRef}
-          onSelect={(name) => form.actions.setSeller(name)}
-          onClose={() => setIsSellerSearchOpen(false)}
-          onAddNew={() => {
-            setIsSellerSearchOpen(false);
-            setIsSellerRegistrationOpen(true);
-          }}
-        />
-      )}
-
-      {/* Seller Registration Modal */}
-      <PersonFormModal
-        isOpen={isSellerRegistrationOpen}
-        onClose={() => setIsSellerRegistrationOpen(false)}
-        collectionName="employees"
-        title="Vendedor"
-        onSuccess={(newSeller) => {
+      <OrderEditSubModals
+        isSellerSearchOpen={isSellerSearchOpen}
+        sellerRef={sellerRef}
+        onSelectSeller={(name) => form.actions.setSeller(name)}
+        onCloseSellerSearch={() => setIsSellerSearchOpen(false)}
+        onAddNewSeller={() => {
+          setIsSellerSearchOpen(false);
+          setIsSellerRegistrationOpen(true);
+        }}
+        isSellerRegistrationOpen={isSellerRegistrationOpen}
+        onCloseSellerRegistration={() => setIsSellerRegistrationOpen(false)}
+        onSellerRegistered={(newSeller) => {
           form.actions.setSeller(newSeller.nickname || newSeller.fullName);
           setIsSellerRegistrationOpen(false);
         }}
-      />
-
-      {/* Customer Registration Modal */}
-      <PersonFormModal
-        isOpen={isCustomerRegistrationOpen}
-        onClose={() => setIsCustomerRegistrationOpen(false)}
-        collectionName="customers"
-        title="Cliente"
-        person={pendingCustomerData}
-        onSuccess={(person) => {
+        isCustomerRegistrationOpen={isCustomerRegistrationOpen}
+        pendingCustomerData={pendingCustomerData}
+        onCloseCustomerRegistration={() => setIsCustomerRegistrationOpen(false)}
+        onCustomerRegistered={(person) => {
           form.actions.setCustomerData({
             id: person.id,
             fullName: person.fullName || person.tradeName || '',
@@ -399,6 +336,26 @@ const OrderEditModal = ({
             applyOrderData(pendingOrderData);
           }
           toast.success('Cliente cadastrado e pedido preenchido com sucesso via JSON!');
+        }}
+        effectiveOrder={effectiveOrder}
+        pendingUpdate={pendingUpdate}
+        onCancelPendingUpdate={() => setPendingUpdate(null)}
+        onConfirmPendingUpdate={() => {
+          const orderToSave = pendingUpdate!;
+          setPendingUpdate(null);
+          void saveWithFiscalAudit(orderToSave);
+        }}
+        isReconciliationConfirmationOpen={isReconciliationConfirmationOpen}
+        onCloseReconciliationConfirmation={() => setIsReconciliationConfirmationOpen(false)}
+        onConfirmReconciliation={() => void handleSaveReconciliation()}
+        isFiscalEditConfirmationOpen={isFiscalEditConfirmationOpen}
+        pendingFiscalEdit={pendingFiscalEdit}
+        isConfirmingFiscalEdit={isConfirmingFiscalEdit}
+        onCancelFiscalEdit={closeFiscalConfirmation}
+        onConfirmFiscalEdit={() => void confirmFiscalOrderEdit()}
+        onNavigateToReturns={() => {
+          closeFiscalConfirmation();
+          navigate('/sales-order?module=returns');
         }}
       />
 
@@ -437,38 +394,6 @@ const OrderEditModal = ({
           <OrderStatusTimeline orderId={effectiveOrder.id!} order={effectiveOrder} />
         )}
       </div>
-      {pendingUpdate && (
-        <ItemMovementChangeConfirmModal
-          changes={getInventorySensitiveItemChanges(effectiveOrder!, pendingUpdate)}
-          onCancel={() => setPendingUpdate(null)}
-          onConfirm={() => {
-            const orderToSave = pendingUpdate;
-            setPendingUpdate(null);
-            void saveWithFiscalAudit(orderToSave);
-          }}
-        />
-      )}
-      <ConfirmModal
-        isOpen={isReconciliationConfirmationOpen}
-        onClose={() => setIsReconciliationConfirmationOpen(false)}
-        onConfirm={() => void handleSaveReconciliation()}
-        title="Confirmar conciliação comercial?"
-        message="A conciliação comercial serve apenas para o relatório de vendas, indexando o produto cadastrado no lugar daquele que não estava cadastrado antes da conciliação. Ela NÃO gera movimentação de estoque (nem saída na venda, nem entrada na devolução). Deseja continuar?"
-        confirmLabel="Confirmar conciliação comercial"
-        type="info"
-      />
-      {isFiscalEditConfirmationOpen && pendingFiscalEdit && (
-        <FiscalOrderEditConfirmDialog
-          audit={pendingFiscalEdit.audit}
-          isConfirmingFiscalEdit={isConfirmingFiscalEdit}
-          onCancel={closeFiscalConfirmation}
-          onConfirm={() => void confirmFiscalOrderEdit()}
-          onNavigateToReturns={() => {
-            closeFiscalConfirmation();
-            navigate('/sales-order?module=returns');
-          }}
-        />
-      )}
     </div>
   );
 
@@ -496,7 +421,7 @@ const OrderEditModal = ({
         dangerouslySetInnerHTML={{
           __html: `
                 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-                @keyframes slide-up { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                @keyframes slide-up { transform: translateY(30px); opacity: 0; to { transform: translateY(0); opacity: 1; } }
                 .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
                 .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
             `,

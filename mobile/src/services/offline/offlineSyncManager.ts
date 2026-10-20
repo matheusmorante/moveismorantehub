@@ -3,6 +3,13 @@ import { OrderRepository } from '../../repositories/OrderRepository';
 import { generateUUID } from '../../utils/uuid';
 import { supabase } from '../supabaseClient';
 import { connectivityService } from './connectivityService';
+import { offlineStorageService } from './offlineStorageService';
+import { listInventorySubmissions } from '../sqlite/inventoryOutbox';
+import { syncPendingInventorySubmissions } from '../../features/stock/inventory/services/inventoryFinalizer';
+import {
+  getPendingLocalCalendarEvents,
+  syncPendingLocalCalendarEvents,
+} from '../scheduleEventsService';
 import {
   ConflictReasonCode,
   OfflineSyncSummary,
@@ -38,9 +45,12 @@ const eventPatch = (event: SyncEvent): Record<string, unknown> => {
       ...base,
       deliveryStatus: 'in_progress',
       deliveryStartedAt: event.occurredAt,
-      deliveryResponsibles: (event.payload as any)?.deliveryResponsibles ?? base.deliveryResponsibles,
-      deliveryResponsibleName: (event.payload as any)?.deliveryResponsibleName ?? base.deliveryResponsibleName,
-      deliveryResponsibleId: (event.payload as any)?.deliveryResponsibleId ?? base.deliveryResponsibleId,
+      deliveryResponsibles:
+        (event.payload as any)?.deliveryResponsibles ?? base.deliveryResponsibles,
+      deliveryResponsibleName:
+        (event.payload as any)?.deliveryResponsibleName ?? base.deliveryResponsibleName,
+      deliveryResponsibleId:
+        (event.payload as any)?.deliveryResponsibleId ?? base.deliveryResponsibleId,
     };
   if (event.type === 'DELIVERY_ARRIVE_DESTINATION')
     return { ...base, deliveryStatus: 'in_service', deliveryArrivedAt: event.occurredAt };
@@ -53,7 +63,42 @@ const eventPatch = (event: SyncEvent): Record<string, unknown> => {
     };
   if (event.type === 'DELIVERY_UNATTENDED')
     return { ...base, deliveryStatus: 'unattended', unattendedAt: event.occurredAt };
+  if (event.type === 'DELIVERY_STEP_BACK') {
+    const payloadObj = (event.payload as Record<string, unknown>) || {};
+    return {
+      ...base,
+      deliveryStatus: payloadObj.deliveryStatus ?? null,
+      deliveryStartedAt: payloadObj.deliveryStartedAt ?? null,
+      deliveryArrivedAt: payloadObj.deliveryArrivedAt ?? null,
+    };
+  }
+  if (event.type === 'DELIVERY_CANCEL') {
+    return {
+      ...base,
+      status: 'scheduled',
+      deliveryStatus: null,
+      deliveryStartedAt: null,
+      deliveryArrivedAt: null,
+      deliveryFinishedAt: null,
+      unattendedAt: null,
+      unattendedReason: null,
+      unattendedNotes: null,
+      unattendedProofUrl: null,
+      unattendedProofUrls: null,
+    };
+  }
   return base;
+};
+
+const isMissingRpcError = (error: any): boolean => {
+  if (!error) return false;
+  const code = String(error.code || '');
+  const message = String(error.message || '');
+  return (
+    code === 'PGRST202' ||
+    code === '42883' ||
+    /sync_entity_operation|could not find the function/i.test(message)
+  );
 };
 
 class OfflineSyncManager {
@@ -82,8 +127,17 @@ class OfflineSyncManager {
 
   async getSummary(): Promise<OfflineSyncSummary> {
     const counts = await SyncQueueRepository.getSummary();
+    let extraPending = 0;
+    try {
+      const [invOutbox, calPending] = await Promise.all([
+        listInventorySubmissions().catch(() => []),
+        getPendingLocalCalendarEvents().catch(() => []),
+      ]);
+      extraPending = invOutbox.length + calPending.length;
+    } catch {}
+
     return {
-      pendingCount: counts.pending + counts.failed,
+      pendingCount: counts.pending + counts.failed + extraPending,
       syncingCount: counts.syncing,
       rejectedCount: counts.rejected,
       conflictCount: counts.conflict,
@@ -116,7 +170,7 @@ class OfflineSyncManager {
       id: event.eventId,
       entityType,
       entityId,
-      operation: 'update',
+      operation: type === 'CALENDAR_EVENT_CREATE' ? 'create' : 'update',
       payload: { event_type: type, order_data_patch: eventPatch(event) },
       expectedVersion: local?.version ?? 1,
       idempotencyKey: event.eventId,
@@ -162,6 +216,14 @@ class OfflineSyncManager {
           break;
         }
       }
+
+      if (connectivityService.connected) {
+        await Promise.all([
+          syncPendingInventorySubmissions().catch(() => 0),
+          syncPendingLocalCalendarEvents().catch(() => 0),
+        ]);
+      }
+
       this.lastSyncAt = new Date().toISOString();
     } finally {
       this.isProcessing = false;
@@ -170,17 +232,120 @@ class OfflineSyncManager {
   }
 
   private async send(item: SyncQueueItem): Promise<RpcResult> {
-    const { data, error } = await supabase.rpc('sync_entity_operation', {
-      p_entity_type: item.entityType,
-      p_entity_id: item.entityId,
-      p_operation: item.operation,
-      p_expected_version: item.expectedVersion,
-      p_idempotency_key: item.idempotencyKey,
-      p_payload: item.payload,
-    });
-    if (error) throw error;
-    if (!data || typeof data !== 'object') throw new Error('Resposta inválida de sincronização.');
-    return data as RpcResult;
+    if (typeof supabase.rpc === 'function') {
+      const { data, error } = await supabase.rpc('sync_entity_operation', {
+        p_entity_type: item.entityType,
+        p_entity_id: item.entityId,
+        p_operation: item.operation,
+        p_expected_version: item.expectedVersion,
+        p_idempotency_key: item.idempotencyKey,
+        p_payload: item.payload,
+      });
+      if (!error) {
+        if (!data || typeof data !== 'object') {
+          throw new Error('Resposta inválida de sincronização.');
+        }
+        return data as RpcResult;
+      }
+      if (!isMissingRpcError(error) || item.entityType !== 'order') {
+        throw error;
+      }
+    }
+
+    if (item.entityType === 'order') {
+      return this.sendOrderDirectFallback(item);
+    }
+
+    return { success: false, reason: 'UNSUPPORTED_OPERATION' };
+  }
+
+  private async sendOrderDirectFallback(item: SyncQueueItem): Promise<RpcResult> {
+    const { data: currentOrder, error: readError } = await supabase
+      .from('orders')
+      .select('id, status, order_data')
+      .eq('id', item.entityId)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!currentOrder) {
+      return { success: false, reason: 'ENTITY_NOT_FOUND' };
+    }
+
+    const currentData =
+      currentOrder.order_data && typeof currentOrder.order_data === 'object'
+        ? (currentOrder.order_data as Record<string, unknown>)
+        : {};
+
+    if (currentData.lastSyncEventId === item.idempotencyKey) {
+      return {
+        success: true,
+        server_version: item.expectedVersion,
+        server_state: currentOrder as Record<string, unknown>,
+      };
+    }
+
+    const currentStatus = String(currentOrder.status || '').toLowerCase();
+    if (['cancelled', 'cancelado'].includes(currentStatus)) {
+      return {
+        success: false,
+        reason: 'ORDER_CANCELLED',
+        server_version: item.expectedVersion,
+        server_state: currentOrder as Record<string, unknown>,
+      };
+    }
+
+    const eventType = String((item.payload as any)?.event_type || '');
+    if (
+      ['fulfilled', 'atendido', 'completed'].includes(currentStatus) &&
+      eventType !== 'DELIVERY_FINISH' &&
+      eventType !== 'DELIVERY_STEP_BACK' &&
+      eventType !== 'DELIVERY_CANCEL'
+    ) {
+      return {
+        success: false,
+        reason: 'ORDER_ALREADY_COMPLETED',
+        server_version: item.expectedVersion,
+        server_state: currentOrder as Record<string, unknown>,
+      };
+    }
+
+    const patch =
+      (item.payload as any)?.order_data_patch &&
+      typeof (item.payload as any).order_data_patch === 'object'
+        ? ((item.payload as any).order_data_patch as Record<string, unknown>)
+        : {};
+
+    const mergedOrderData: Record<string, unknown> = { ...currentData, ...patch };
+    for (const [key, val] of Object.entries(patch)) {
+      if (val === null) {
+        delete mergedOrderData[key];
+      }
+    }
+
+    const nextStatus =
+      typeof patch.status === 'string' && patch.status.trim()
+        ? patch.status
+        : currentOrder.status;
+
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        order_data: mergedOrderData,
+        status: nextStatus,
+      })
+      .eq('id', item.entityId);
+    if (updateError) throw updateError;
+
+    const finalState = {
+      ...currentOrder,
+      status: nextStatus,
+      order_data: mergedOrderData,
+    } as Record<string, unknown>;
+
+    return {
+      success: true,
+      server_version: item.expectedVersion + 1,
+      server_state: finalState,
+    };
   }
 
   private async applyServerState(item: SyncQueueItem, result: RpcResult): Promise<void> {
@@ -200,6 +365,32 @@ class OfflineSyncManager {
       syncedAt: new Date().toISOString(),
       isPendingLocal: false,
     });
+
+    // Sincronizar também working sets em AsyncStorage para que Cronograma, Operações e Montagens reflitam o estado do servidor
+    for (const cacheKey of ['logistics_orders', 'assemblies_orders']) {
+      try {
+        const cached = await offlineStorageService.getWorkingSet<any[]>(cacheKey);
+        if (Array.isArray(cached?.data) && cached.data.length > 0) {
+          let changed = false;
+          const nextData = cached.data.map((ord) => {
+            if (ord?.id === item.entityId) {
+              changed = true;
+              return {
+                ...ord,
+                status,
+                delivery_status: (orderData.deliveryStatus as string | undefined) ?? null,
+                deliveryStatus: orderData.deliveryStatus,
+                order_data: orderData,
+              };
+            }
+            return ord;
+          });
+          if (changed) {
+            await offlineStorageService.cacheWorkingSet(cacheKey, nextData);
+          }
+        }
+      } catch {}
+    }
   }
 
   private async emitSummary(): Promise<void> {

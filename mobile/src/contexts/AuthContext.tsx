@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import { supabase, MASTER_DEFAULT_PROFILE } from '../services/supabaseClient';
 import { completeGoogleSignIn } from '../services/googleAuth';
 import { resolveMobileUserProfile } from '../services/mobileAuthProfile';
+import { offlineStorageService } from '../services/offline/offlineStorageService';
 import {
   hasProductPermission,
   normalizePermissionRoles,
@@ -16,6 +17,20 @@ import {
 import { shouldRunAuthSessionMaintenance } from '../../../shared-utils/authSessionPolicy';
 
 export type PasswordCredentialStatus = 'idle' | 'checking' | 'required' | 'configured' | 'error';
+
+const ROLE_PERMISSIONS_CACHE_KEY = 'app_role_permissions_v1';
+const PASSWORD_CHECK_TIMEOUT_MS = 5000;
+
+const withPasswordCheckTimeout = <T,>(promise: Promise<T>): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error('Timeout ao verificar credencial de senha offline.')),
+        PASSWORD_CHECK_TIMEOUT_MS
+      )
+    ),
+  ]);
 
 interface AuthContextProps {
   userProfile: any;
@@ -87,7 +102,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const refreshPasswordCredentialStatus = async () => {
     setPasswordCredentialStatus('checking');
     try {
-      const hasPassword = await checkCurrentUserHasPassword(supabase);
+      const hasPassword = await withPasswordCheckTimeout(checkCurrentUserHasPassword(supabase));
       setPasswordCredentialStatus(hasPassword ? 'configured' : 'required');
       return hasPassword;
     } catch (error) {
@@ -153,9 +168,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setRolePermissions(safePermissions);
         setRolePermissionsLoaded(true);
         setRolePermissionsLoadFailed(false);
+        await offlineStorageService
+          .cacheWorkingSet(ROLE_PERMISSIONS_CACHE_KEY, safePermissions)
+          .catch(() => {});
       } catch {
         if (!active) return;
-        console.warn('[Permissions] Falha ao carregar os acessos configurados.');
+        console.warn('[Permissions] Falha ao carregar os acessos configurados. Tentando cache...');
+        try {
+          const cached = await offlineStorageService.getWorkingSet<Record<string, string[]>>(
+            ROLE_PERMISSIONS_CACHE_KEY
+          );
+          if (!active) return;
+          if (cached?.data && typeof cached.data === 'object') {
+            setRolePermissions(cached.data);
+            setRolePermissionsLoaded(true);
+            setRolePermissionsLoadFailed(false);
+            return;
+          }
+        } catch {}
         setRolePermissions({});
         setRolePermissionsLoadFailed(true);
       }
@@ -196,10 +226,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       .maybeSingle();
     if (readError) throw readError;
 
-    const currentData = current?.data && typeof current.data === 'object' && !Array.isArray(current.data)
-      ? current.data
-      : {};
-    const currentPermissions = currentData.rolePermissions &&
+    const currentData =
+      current?.data && typeof current.data === 'object' && !Array.isArray(current.data)
+        ? current.data
+        : {};
+    const currentPermissions =
+      currentData.rolePermissions &&
       typeof currentData.rolePermissions === 'object' &&
       !Array.isArray(currentData.rolePermissions)
         ? currentData.rolePermissions
@@ -214,6 +246,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setRolePermissions(nextPermissions as Record<string, string[]>);
     setRolePermissionsLoaded(true);
     setRolePermissionsLoadFailed(false);
+    await offlineStorageService
+      .cacheWorkingSet(ROLE_PERMISSIONS_CACHE_KEY, nextPermissions)
+      .catch(() => {});
   };
 
   const handleLogout = async () => {

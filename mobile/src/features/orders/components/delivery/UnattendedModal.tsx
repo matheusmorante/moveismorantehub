@@ -77,7 +77,7 @@ export const UnattendedModal: React.FC<Props> = ({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <AlertTriangle size={20} color="#dc2626" />
               <Text style={[styles.title, isDarkMode && styles.textLight]}>
-                Registrar Não Atendido
+                Não foi possível realizar a entrega
               </Text>
             </View>
             <TouchableOpacity
@@ -185,7 +185,7 @@ export const UnattendedModal: React.FC<Props> = ({
             style={[styles.confirmBtn, submitting && { opacity: 0.6 }]}
           >
             <Text style={styles.confirmBtnText}>
-              {submitting ? 'REGISTRANDO...' : 'CONFIRMAR NÃO ATENDIDO'}
+              {submitting ? 'REGISTRANDO...' : 'CONFIRMAR NÃO FOI POSSÍVEL ENTREGAR'}
             </Text>
           </TouchableOpacity>
         </View>

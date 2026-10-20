@@ -34,6 +34,7 @@ import type {
   FiscalBadgeStatus,
   FiscalDocumentStatusRow,
   MobileOrderType,
+  OrderFiscalCancellationState,
 } from '../domain/types';
 
 export type { MobileOrderListItem, MobileFiscalBadgeStatuses, FiscalBadgeStatus };
@@ -310,6 +311,23 @@ const toListItem = (row: any): MobileOrderListItem => {
 const isHiddenRow = (row: any): boolean =>
   Boolean(row?.deleted || row?.order_data?.deleted);
 
+const matchesRequestedOrderType = (
+  row: any,
+  orderType: MobileOrderType,
+  status: string
+): boolean => {
+  const rowType = String(
+    row?.order_data?.orderType || row?.order_data?.order_type || row?.order_type || 'sale'
+  );
+  if (status === 'assistencias') {
+    return rowType === 'assistance';
+  }
+  if (orderType === 'sale') {
+    return rowType !== 'budget' && rowType !== 'assistance' && rowType !== 'return';
+  }
+  return rowType === orderType;
+};
+
 export const fetchMobileOrdersPage = async ({
   page,
   pageSize,
@@ -325,43 +343,56 @@ export const fetchMobileOrdersPage = async ({
 }): Promise<{ items: MobileOrderListItem[]; total: number }> => {
   const firstRow = (page - 1) * pageSize;
   const lastRow = firstRow + pageSize - 1;
+  const effectiveOrderType: MobileOrderType =
+    status === 'assistencias' ? 'assistance' : orderType;
 
   // 1. Tenta buscar da view otimizada order_list_items caso ela esteja disponível
   try {
-    let query = excludeTestOrders(
-      supabase
-        .from('order_list_items')
-        .select(ORDER_LIST_VIEW_COLUMNS, { count: 'exact' })
-        .order('created_at', { ascending: false })
-    );
+    const baseViewQuery = supabase
+      .from('order_list_items')
+      .select(ORDER_LIST_VIEW_COLUMNS, { count: 'exact' })
+      .order('created_at', { ascending: false });
+    let query = excludeTestOrders(baseViewQuery) || baseViewQuery;
 
-    if (orderType === 'sale') {
-      query = query.not('order_type', 'in', '(budget,assistance,return)');
+    if (effectiveOrderType === 'sale') {
+      query = query.neq('order_type', 'budget') || query;
+      if (typeof (query as any).not === 'function') {
+        query = (query as any).not('order_type', 'in', '(budget,assistance,return)') || query;
+      }
     } else {
-      query = query.eq('order_type', orderType);
+      query = query.eq('order_type', effectiveOrderType) || query;
     }
 
     const term = search.trim().replace(/[,%()]/g, '');
     if (term) {
-      query = query.or(
-        `customer_name.ilike.%${term}%,order_number.ilike.%${term}%,order_index.ilike.%${term}%`
-      );
+      query =
+        query.or(
+          `customer_name.ilike.%${term}%,order_number.ilike.%${term}%,order_index.ilike.%${term}%`
+        ) || query;
     }
-    if (status === 'agendados') query = query.or('status.ilike.%scheduled%,status.ilike.%agendad%');
+    if (status === 'agendados')
+      query = query.or('status.ilike.%scheduled%,status.ilike.%agendad%') || query;
     if (status === 'concluidos')
-      query = query.or(
-        'status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%'
-      );
-    if (status === 'cancelados') query = query.or('status.ilike.%cancelled%,status.ilike.%cancelad%');
-    if (status === 'rascunhos') query = query.or('status.ilike.%draft%,status.ilike.%rascunh%');
+      query =
+        query.or(
+          'status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%'
+        ) || query;
+    if (status === 'cancelados')
+      query = query.or('status.ilike.%cancelled%,status.ilike.%cancelad%') || query;
+    if (status === 'rascunhos')
+      query = query.or('status.ilike.%draft%,status.ilike.%rascunh%') || query;
     if (status === 'retiradas')
-      query = query.or('delivery_method.ilike.%pickup%,delivery_method.ilike.%retirada%');
+      query =
+        query.or('delivery_method.ilike.%pickup%,delivery_method.ilike.%retirada%') || query;
     query = query.range(firstRow, lastRow);
 
     const { data, count, error } = await query;
     if (!error && data) {
       const visibleRows = data.filter(
-        (row: any) => !isHiddenRow(row) && !isIdentifiedTestArtifact(row)
+        (row: any) =>
+          !isHiddenRow(row) &&
+          !isIdentifiedTestArtifact(row) &&
+          matchesRequestedOrderType(row, orderType, status)
       );
       const items = visibleRows.map(toListItem);
       await cacheOrders(items);
@@ -375,44 +406,54 @@ export const fetchMobileOrdersPage = async ({
   }
 
   // 2. Fallback resiliente direto na tabela orders oficial (sempre existente e populada)
-  let query = excludeTestOrders(
-    supabase
-      .from('orders')
-      .select(
-        'id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, deleted, order_data',
-        { count: 'exact' }
-      )
-      .order('created_at', { ascending: false })
-  );
+  const baseOrdersQuery = supabase
+    .from('orders')
+    .select(
+      'id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, deleted, order_data',
+      { count: 'exact' }
+    )
+    .order('created_at', { ascending: false });
+  let query = excludeTestOrders(baseOrdersQuery) || baseOrdersQuery;
 
-  if (orderType === 'sale') {
-    query = query.not('order_type', 'in', '(budget,assistance,return)');
+  if (effectiveOrderType === 'sale') {
+    query = query.neq('order_type', 'budget') || query;
+    if (typeof (query as any).not === 'function') {
+      query = (query as any).not('order_type', 'in', '(budget,assistance,return)') || query;
+    }
   } else {
-    query = query.eq('order_type', orderType);
+    query = query.eq('order_type', effectiveOrderType) || query;
   }
 
   const term = search.trim().replace(/[,%()]/g, '');
   if (term) {
-    query = query.or(`customer_name.ilike.%${term}%,order_number.ilike.%${term}%`);
+    query = query.or(`customer_name.ilike.%${term}%,order_number.ilike.%${term}%`) || query;
   }
-  if (status === 'agendados') query = query.or('status.ilike.%scheduled%,status.ilike.%agendad%');
+  if (status === 'agendados')
+    query = query.or('status.ilike.%scheduled%,status.ilike.%agendad%') || query;
   if (status === 'concluidos')
-    query = query.or(
-      'status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%'
-    );
-  if (status === 'cancelados') query = query.or('status.ilike.%cancelled%,status.ilike.%cancelad%');
-  if (status === 'rascunhos') query = query.or('status.ilike.%draft%,status.ilike.%rascunh%');
+    query =
+      query.or(
+        'status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%'
+      ) || query;
+  if (status === 'cancelados')
+    query = query.or('status.ilike.%cancelled%,status.ilike.%cancelad%') || query;
+  if (status === 'rascunhos')
+    query = query.or('status.ilike.%draft%,status.ilike.%rascunh%') || query;
   if (status === 'retiradas')
-    query = query.or(
-      'order_data->shipping->>deliveryMethod.ilike.%pickup%,order_data->shipping->>deliveryMethod.ilike.%retirada%'
-    );
+    query =
+      query.or(
+        'order_data->shipping->>deliveryMethod.ilike.%pickup%,order_data->shipping->>deliveryMethod.ilike.%retirada%'
+      ) || query;
   query = query.range(firstRow, lastRow);
 
   const { data, count, error } = await query;
   if (error) throw error;
 
   const visibleRows = (data || []).filter(
-    (row: any) => !isHiddenRow(row) && !isIdentifiedTestArtifact(row)
+    (row: any) =>
+      !isHiddenRow(row) &&
+      !isIdentifiedTestArtifact(row) &&
+      matchesRequestedOrderType(row, orderType, status)
   );
   return {
     items: await cacheOrders(visibleRows.map(toListItem)),

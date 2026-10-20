@@ -1,9 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Check, ClipboardCheck, Truck, MapPin } from 'lucide-react-native';
+import { Check, ClipboardCheck, Truck, MapPin, CheckCircle2 } from 'lucide-react-native';
 
 interface Props {
-  currentStep: 1 | 2 | 3;
+  currentStep: 1 | 2 | 3 | 4 | number;
   isDarkMode?: boolean;
 }
 
@@ -23,9 +23,15 @@ export const DeliveryStepProgressIndicator: React.FC<Props> = ({ currentStep, is
     },
     {
       num: 3,
+      title: 'Chegada',
+      subtitle: 'No Local',
+      icon: <MapPin size={14} color="#ffffff" />,
+    },
+    {
+      num: 4,
       title: 'Atendimento',
       subtitle: 'No Cliente',
-      icon: <MapPin size={14} color="#ffffff" />,
+      icon: <CheckCircle2 size={14} color="#ffffff" />,
     },
   ];
 
@@ -33,11 +39,12 @@ export const DeliveryStepProgressIndicator: React.FC<Props> = ({ currentStep, is
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       {/* Título de Status da Etapa Atual */}
       <View style={styles.headerInfo}>
-        <Text style={styles.stepCounterText}>ETAPA {currentStep} DE 3</Text>
+        <Text style={styles.stepCounterText}>ETAPA {currentStep} DE 4</Text>
         <Text style={[styles.stepCurrentTitle, isDarkMode && styles.textLight]}>
           {currentStep === 1 && '📦 1. Preparação e Conferência de Mercadorias'}
           {currentStep === 2 && '🚚 2. Em Deslocamento / Rota para o Destino'}
-          {currentStep === 3 && '📍 3. No Local do Cliente • Finalização'}
+          {currentStep === 3 && '📍 3. Chegada no Destino / No Local'}
+          {currentStep === 4 && '🤝 4. Em Atendimento • Pagamentos e Entrega'}
         </Text>
       </View>
 
@@ -125,7 +132,7 @@ const styles = StyleSheet.create({
   stepItem: {
     alignItems: 'center',
     gap: 4,
-    width: 76,
+    width: 64,
   },
   circleBadge: {
     width: 28,
@@ -136,7 +143,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   stepLabel: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: '#94a3b8',
     textAlign: 'center',
@@ -153,7 +160,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 3,
     backgroundColor: '#e2e8f0',
-    marginHorizontal: 4,
+    marginHorizontal: 2,
     marginBottom: 16,
     borderRadius: 2,
   },

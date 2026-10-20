@@ -207,4 +207,41 @@ describe('OrderCardAndMenuActions', () => {
     fireEvent.click(screen.getByText('NFH'));
     expect(onViewFiscalDocument).toHaveBeenCalledWith('hml-doc-123', 2);
   });
+
+  it('renderiza o badge AGENDAMENTO PENDENTE compacto (w-fit) na coluna de entrega quando pendingScheduling=true', () => {
+    const pendingOrder = {
+      ...baseOrder,
+      date: '2026-10-20',
+      shipping: {
+        deliveryMethod: 'delivery',
+        scheduling: {
+          pendingScheduling: true,
+          time: '14:00',
+        },
+      },
+    };
+
+    render(
+      <MemoryRouter>
+        <OrderHistoryCard
+          order={pendingOrder}
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+          onRestore={vi.fn()}
+          onPermanentDelete={vi.fn()}
+          onAction={vi.fn()}
+          onStatusUpdate={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    const badge = screen.getByText('AGENDAMENTO PENDENTE');
+    expect(badge).toBeTruthy();
+    expect(badge.parentElement?.className).toContain('w-fit');
+    expect(badge.parentElement?.className).toContain('bg-orange-500');
+    // Garante que há apenas um badge e não um banner duplicado
+    expect(screen.getAllByText('AGENDAMENTO PENDENTE')).toHaveLength(1);
+    // Não exibe o horário quando pendingScheduling está ativo
+    expect(screen.queryByText('14:00')).toBeNull();
+  });
 });

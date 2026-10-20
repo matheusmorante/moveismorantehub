@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { type GestureResponderEvent, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import {
   ChevronDown,
   ChevronUp,
@@ -7,17 +7,18 @@ import {
   Clock,
   Play,
   Eye,
-  Truck,
 } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
 import { isAssemblyInternalType, isAssemblyOutsideType } from '../../../../utils/aiSummaryHelper';
+import { DeliveryFlowIcon } from '../../../../components/shared/DeliveryFlowIcon';
 
 interface Props {
   item: DeliveryRouteItem;
   onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
+  onOpenDeliveryFlow?: (item: DeliveryRouteItem) => void;
   handlingOptions?: any[];
   isDarkMode?: boolean;
 }
@@ -26,6 +27,7 @@ export const ScheduleCard: React.FC<Props> = ({
   item,
   onStartDelivery,
   onViewOrder,
+  onOpenDeliveryFlow,
   handlingOptions = [],
   isDarkMode = false,
 }) => {
@@ -76,6 +78,38 @@ export const ScheduleCard: React.FC<Props> = ({
   ].filter(Boolean);
   const travelText = travelParts.join(' · ');
   const addressAndTravelText = [locationText, travelText].filter(Boolean).join(' · ');
+
+  const isDeliveryActivity = item.activityType === 'delivery';
+
+  const handlePrimaryPress = (event: GestureResponderEvent) => {
+    event.stopPropagation();
+    if (isDeliveryActivity) {
+      onViewOrder(item);
+    } else {
+      onStartDelivery(item);
+    }
+  };
+
+  const handleDeliveryFlowPress = (event: GestureResponderEvent) => {
+    event.stopPropagation();
+    if (onOpenDeliveryFlow) {
+      onOpenDeliveryFlow(item);
+    } else {
+      onStartDelivery(item);
+    }
+  };
+
+  const primaryActionConfig = isDeliveryActivity
+    ? {
+        label: 'VER DETALHES',
+        accessibilityLabel: 'Ver detalhes do pedido',
+        icon: <Eye size={18} color="#ffffff" />,
+      }
+    : {
+        label: 'VER ATIVIDADE',
+        accessibilityLabel: 'Ver atividade',
+        icon: <Play size={14} color="#ffffff" fill="#ffffff" />,
+      };
 
   return (
     <TouchableOpacity
@@ -156,22 +190,28 @@ export const ScheduleCard: React.FC<Props> = ({
       <View style={styles.actionsRow}>
         <TouchableOpacity
           style={styles.startBtn}
-          onPress={(e) => {
-            e.stopPropagation?.();
-            if (item.activityType === 'delivery') onViewOrder(item);
-            else onStartDelivery(item);
-          }}
+          onPress={handlePrimaryPress}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={primaryActionConfig.accessibilityLabel}
         >
-          {item.activityType === 'delivery' ? (
-            <Eye size={18} color="#ffffff" />
-          ) : (
-            <Play size={14} color="#ffffff" fill="#ffffff" />
-          )}
-          <Text style={styles.startBtnText}>
-            {item.activityType === 'delivery' ? 'VER DETALHES' : 'VER ATIVIDADE'}
-          </Text>
+          {primaryActionConfig.icon}
+          <Text style={styles.startBtnText}>{primaryActionConfig.label}</Text>
         </TouchableOpacity>
+
+        {/* Botão de Fluxo de Entrega — exclusivo para atividades de entrega */}
+        {isDeliveryActivity && (
+          <TouchableOpacity
+            style={[styles.deliveryFlowBtn, isDarkMode && styles.deliveryFlowBtnDark]}
+            onPress={handleDeliveryFlowPress}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir fluxo de entrega"
+          >
+            <DeliveryFlowIcon size={20} color="#ffffff" />
+            <Text style={styles.deliveryFlowBtnText}>FLUXO DE ENTREGA</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -357,17 +397,41 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
   },
   startBtn: {
     flex: 1,
+    minWidth: 135,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     backgroundColor: '#2563eb',
     paddingVertical: 12,
+    paddingHorizontal: 10,
     borderRadius: 14,
+  },
+  deliveryFlowBtn: {
+    flex: 1,
+    minWidth: 140,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#16a34a',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+  },
+  deliveryFlowBtnDark: {
+    backgroundColor: '#15803d',
+  },
+  deliveryFlowBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   startBtnText: {
     color: '#ffffff',

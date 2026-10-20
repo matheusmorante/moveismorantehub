@@ -525,7 +525,7 @@ async function withNfeEmissionStage(stage, operation, attributes = {}) {
 }
 
 // api/nfe/emit.ts
-var import_node_crypto11 = require("node:crypto");
+var import_node_crypto13 = require("node:crypto");
 
 // erp/src/pages/utils/nfe/sefazResponseParser.ts
 function firstTag(xml, tag2) {
@@ -623,74 +623,46 @@ function getNfeServiceEndpoint(model, environment, service) {
 }
 var getNfeAuthorizationEndpoint = (model, environment) => getNfeServiceEndpoint(model, environment, "NFeAutorizacao4");
 
-// api/nfe/emitNormalSale.ts
-var import_node_crypto7 = require("node:crypto");
-
-// erp/src/pages/utils/nfe/nfeAccessKey.ts
-function calculateMod11CheckDigit(base43) {
-  return calculateAccessKeyDigit(base43);
-}
-function generateNfeAccessKey(params) {
-  const cleanCnpj = normalizeFiscalIdentifier(params.cnpj);
-  if (!isValidCnpj(cleanCnpj)) throw new Error("CNPJ do emitente inv\xE1lido.");
-  const cleanUf = params.ufCode.replace(/\D/g, "").padStart(2, "0");
-  const cleanAAMM = params.yearMonth.replace(/\D/g, "").padStart(4, "0");
-  const cleanModel = params.model.replace(/\D/g, "").padStart(2, "0");
-  const cleanSeries = String(params.series).replace(/\D/g, "").padStart(3, "0");
-  const cleanNumber = String(params.number).replace(/\D/g, "").padStart(9, "0");
-  const cleanTpEmis = (params.emissionType || "1").replace(/\D/g, "").slice(0, 1) || "1";
-  const cNF = params.randomCode ? params.randomCode.replace(/\D/g, "").padStart(8, "0").slice(-8) : String(Math.floor(1e7 + Math.random() * 9e7));
-  const base43 = `${cleanUf}${cleanAAMM}${cleanCnpj}${cleanModel}${cleanSeries}${cleanNumber}${cleanTpEmis}${cNF}`;
-  const checkDigit = calculateMod11CheckDigit(base43);
-  const accessKey = `${base43}${checkDigit}`;
-  return { accessKey, randomCode: cNF, checkDigit };
-}
-
-// shared-utils/fiscalNumbering.ts
-var MAX_FISCAL_NUMBER = 999999999;
-var DEFAULT_NFE_NUMBER = 102;
-var DEFAULT_NFCE_NUMBER = 600;
-function isFiscalNumber(value) {
-  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= MAX_FISCAL_NUMBER;
-}
-function fiscalNumberConflict(number) {
-  if (!isFiscalNumber(number)) throw new Error("N\xFAmero fiscal inv\xE1lido.");
-  return { previousNumber: number, nextNumber: number < MAX_FISCAL_NUMBER ? number + 1 : null };
-}
-function isDifferentKeyNumberConflict(cStat, reason, ownKey) {
-  if (cStat !== "539" || !ACCESS_KEY_PATTERN.test(ownKey)) return false;
-  const otherKey = reason.match(/\[chNFe:\s*([0-9]{6}[A-Z0-9]{12}[0-9]{26})\]/)?.[1];
-  return Boolean(otherKey && otherKey !== ownKey && otherKey.slice(0, 2) === ownKey.slice(0, 2) && otherKey.slice(6, 34) === ownKey.slice(6, 34));
-}
-
-// erp/src/pages/utils/nfe/nfeSequenceSettings.ts
-function resolveNfeSequenceSettings(settings, model, environment) {
-  const series = validateContributorNfeSeries(
-    environment === 2 ? settings.nfeHomologationSerie || "1" : settings.nfeSerie || "1"
-  );
-  if (environment === 2) {
-    return {
-      series,
-      minimumNumber: Number(
-        model === "65" ? settings.nfceHomologationNextNumber ?? DEFAULT_NFCE_NUMBER : settings.nfeHomologationNextNumber ?? DEFAULT_NFE_NUMBER
-      )
-    };
+// erp/src/pages/utils/nfe/fiscalAuthorization.ts
+var FISCAL_OPERATOR_ROLES = ["manager", "administrator"];
+var fiscalOperatorRoles = new Set(FISCAL_OPERATOR_ROLES);
+function hasFiscalOperationRole(profile) {
+  if (!profile) return false;
+  const roles = /* @__PURE__ */ new Set();
+  if (typeof profile.role === "string") roles.add(profile.role);
+  if (Array.isArray(profile.roles)) {
+    for (const role of profile.roles) {
+      if (typeof role === "string") roles.add(role);
+    }
   }
-  return {
-    series,
-    minimumNumber: Number(
-      model === "65" ? settings.nfceNextNumber ?? DEFAULT_NFCE_NUMBER : settings.nfeNextNumber ?? DEFAULT_NFE_NUMBER
-    )
-  };
+  return Array.from(roles).some((role) => fiscalOperatorRoles.has(role));
 }
-function validateContributorNfeSeries(value) {
-  const series = typeof value === "string" ? value.trim() : "";
-  if (!/^\d{1,3}$/.test(series) || Number(series) > 889)
-    throw new Error(
-      "A s\xE9rie deste emissor deve estar entre 0 e 889. A s\xE9rie 900 \xE9 reservada \xE0 emiss\xE3o avulsa pelo Fisco. Corrija a s\xE9rie nas configura\xE7\xF5es fiscais."
-    );
-  return String(Number(series));
+function hasFiscalAdministratorRole(profile) {
+  return profile?.role === "administrator" || Array.isArray(profile?.roles) && profile.roles.includes("administrator");
 }
+
+// api/nfe/fiscalAuthorization.ts
+async function authorizeFiscalOperator(client, authorizationHeader) {
+  const headerValue = Array.isArray(authorizationHeader) ? authorizationHeader[0] : authorizationHeader;
+  const token = String(headerValue || "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return { ok: false, status: 401, message: "Autentica\xE7\xE3o necess\xE1ria." };
+  try {
+    const { data, error } = await client.auth.getUser(token);
+    const user = data?.user;
+    if (error || !user?.id) return { ok: false, status: 401, message: "Sess\xE3o inv\xE1lida." };
+    const { data: profile, error: profileError } = await client.from("profiles").select("role,roles").eq("id", user.id).maybeSingle();
+    if (profileError)
+      return { ok: false, status: 503, message: "N\xE3o foi poss\xEDvel validar a permiss\xE3o fiscal." };
+    if (!hasFiscalOperationRole(profile))
+      return { ok: false, status: 403, message: "Seu perfil n\xE3o pode operar documentos fiscais." };
+    return { ok: true, userId: user.id, isAdministrator: hasFiscalAdministratorRole(profile) };
+  } catch {
+    return { ok: false, status: 503, message: "N\xE3o foi poss\xEDvel validar a permiss\xE3o fiscal." };
+  }
+}
+
+// api/nfe/fiscalCore.ts
+var import_node_crypto3 = require("node:crypto");
 
 // shared-utils/fiscalIcmsGroups.ts
 var ZERO_OWN_ICMS_CSOSNS = ["102", "103", "300", "400"];
@@ -699,6 +671,66 @@ function zeroOwnIcmsGroup(csosn) {
   if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn))
     throw new Error(`CSOSN ${csosn || "n\xE3o informado"} exige determina\xE7\xE3o e grupo tribut\xE1rio espec\xEDficos.`);
   return "ICMSSN102";
+}
+
+// api/nfe/csosnPolicy.ts
+var HML_CSOSN_SETTINGS_ID = "nfe55_hml_csosn_defaults_v1";
+function initialHmlCsosnConfiguration() {
+  return {
+    model: "55",
+    environment: 2,
+    issuerCrt: "1",
+    csosn: "103",
+    productionApproved: false,
+    version: "hml-csosn-2026-09-30"
+  };
+}
+function validateCsosn(value, issuerCrt) {
+  if (typeof value !== "string" || !CSOSN_CODES.some((code) => code === value))
+    throw new Error("CSOSN inv\xE1lido. Selecione uma op\xE7\xE3o fiscal v\xE1lida.");
+  if (issuerCrt !== "1")
+    throw new Error("Esta regra de CSOSN exige CRT 1 (Simples Nacional).");
+  return value;
+}
+function parseHmlCsosnConfiguration(value) {
+  const config = value;
+  if (config?.model !== "55" || config.environment !== 2 || config.issuerCrt !== "1" || config.productionApproved !== false || typeof config.version !== "string" || !config.version)
+    throw new Error("Configura\xE7\xE3o de CSOSN de homologa\xE7\xE3o indispon\xEDvel ou fora do escopo.");
+  validateCsosn(config.csosn, config.issuerCrt);
+  return config;
+}
+async function loadHmlCsosnConfiguration(db, requirePersisted = false) {
+  const { data, error } = await db.from("settings").select("data").eq("id", HML_CSOSN_SETTINGS_ID).maybeSingle();
+  if (error) throw new Error("N\xE3o foi poss\xEDvel ler o padr\xE3o CSOSN do servidor.");
+  if (requirePersisted && !data?.data)
+    throw new Error("Salve o padr\xE3o CSOSN de homologa\xE7\xE3o antes de emitir.");
+  return data?.data ? parseHmlCsosnConfiguration(data.data) : initialHmlCsosnConfiguration();
+}
+function resolveItemCsosn(input) {
+  parseHmlCsosnConfiguration(input.configuration);
+  if (input.environment !== 2)
+    throw new Error("O padr\xE3o CSOSN de homologa\xE7\xE3o n\xE3o est\xE1 aprovado para produ\xE7\xE3o.");
+  if (input.specificRule && input.manual && input.specificRule !== input.manual)
+    throw new Error("CSOSN selecionado conflita com a regra fiscal espec\xEDfica. Revise a opera\xE7\xE3o.");
+  const choices = [
+    ["specific_rule", input.specificRule],
+    ["manual", input.manual],
+    ["catalog", input.catalog],
+    ["default", input.configuration.csosn]
+  ];
+  const [source, value] = choices.find(([, code]) => code !== void 0 && code !== "");
+  return { csosn: validateCsosn(value, input.issuerCrt), source };
+}
+function parseItemCsosnOverrides(value) {
+  if (value === void 0) return {};
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Escolhas de CSOSN inv\xE1lidas.");
+  const entries = Object.entries(value);
+  if (entries.length > 990 || entries.some(
+    ([key, code]) => !/^[1-9]\d{0,2}$/.test(key) || Number(key) > 990 || typeof code !== "string" || !CSOSN_CODES.some((allowed) => allowed === code)
+  ))
+    throw new Error("Escolhas de CSOSN devem referenciar itens v\xE1lidos e c\xF3digos existentes.");
+  return Object.fromEntries(entries);
 }
 
 // shared-utils/fiscalItemSelections.ts
@@ -764,69 +796,6 @@ async function assertXmlFiscalSelections(snapshot, xml) {
   } finally {
     parsed.dispose();
   }
-}
-
-// api/nfe/fiscalCore.ts
-var import_node_crypto3 = require("node:crypto");
-
-// api/nfe/csosnPolicy.ts
-var HML_CSOSN_SETTINGS_ID = "nfe55_hml_csosn_defaults_v1";
-function initialHmlCsosnConfiguration() {
-  return {
-    model: "55",
-    environment: 2,
-    issuerCrt: "1",
-    csosn: "103",
-    productionApproved: false,
-    version: "hml-csosn-2026-09-30"
-  };
-}
-function validateCsosn(value, issuerCrt) {
-  if (typeof value !== "string" || !CSOSN_CODES.some((code) => code === value))
-    throw new Error("CSOSN inv\xE1lido. Selecione uma op\xE7\xE3o fiscal v\xE1lida.");
-  if (issuerCrt !== "1")
-    throw new Error("Esta regra de CSOSN exige CRT 1 (Simples Nacional).");
-  return value;
-}
-function parseHmlCsosnConfiguration(value) {
-  const config = value;
-  if (config?.model !== "55" || config.environment !== 2 || config.issuerCrt !== "1" || config.productionApproved !== false || typeof config.version !== "string" || !config.version)
-    throw new Error("Configura\xE7\xE3o de CSOSN de homologa\xE7\xE3o indispon\xEDvel ou fora do escopo.");
-  validateCsosn(config.csosn, config.issuerCrt);
-  return config;
-}
-async function loadHmlCsosnConfiguration(db, requirePersisted = false) {
-  const { data, error } = await db.from("settings").select("data").eq("id", HML_CSOSN_SETTINGS_ID).maybeSingle();
-  if (error) throw new Error("N\xE3o foi poss\xEDvel ler o padr\xE3o CSOSN do servidor.");
-  if (requirePersisted && !data?.data)
-    throw new Error("Salve o padr\xE3o CSOSN de homologa\xE7\xE3o antes de emitir.");
-  return data?.data ? parseHmlCsosnConfiguration(data.data) : initialHmlCsosnConfiguration();
-}
-function resolveItemCsosn(input) {
-  parseHmlCsosnConfiguration(input.configuration);
-  if (input.environment !== 2)
-    throw new Error("O padr\xE3o CSOSN de homologa\xE7\xE3o n\xE3o est\xE1 aprovado para produ\xE7\xE3o.");
-  if (input.specificRule && input.manual && input.specificRule !== input.manual)
-    throw new Error("CSOSN selecionado conflita com a regra fiscal espec\xEDfica. Revise a opera\xE7\xE3o.");
-  const choices = [
-    ["specific_rule", input.specificRule],
-    ["manual", input.manual],
-    ["catalog", input.catalog],
-    ["default", input.configuration.csosn]
-  ];
-  const [source, value] = choices.find(([, code]) => code !== void 0 && code !== "");
-  return { csosn: validateCsosn(value, input.issuerCrt), source };
-}
-function parseItemCsosnOverrides(value) {
-  if (value === void 0) return {};
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("Escolhas de CSOSN inv\xE1lidas.");
-  const entries = Object.entries(value);
-  if (entries.length > 990 || entries.some(
-    ([key, code]) => !/^[1-9]\d{0,2}$/.test(key) || Number(key) > 990 || typeof code !== "string" || !CSOSN_CODES.some((allowed) => allowed === code)
-  ))
-    throw new Error("Escolhas de CSOSN devem referenciar itens v\xE1lidos e c\xF3digos existentes.");
-  return Object.fromEntries(entries);
 }
 
 // api/nfe/normal-sale/constants.ts
@@ -904,7 +873,7 @@ function recipientTaxIdMatchesPersonType(raw, personType) {
   return personType === "PF" && kind === "CPF" || personType === "PJ" && kind === "CNPJ";
 }
 
-// shared-utils/fiscal-cfop-model/catalog.ts
+// shared-utils/fiscal-cfop-model/data/cfopBaseCatalog.ts
 var CFOP_CATALOG_BASE = [
   // --- SAÍDAS INTERNAS (5.xxx) ---
   {
@@ -1329,7 +1298,10 @@ var CFOP_CATALOG_BASE = [
     notes: "Outras entradas interestaduais n\xE3o especificadas."
   }
 ];
+
+// shared-utils/fiscal-cfop-model/data/cfopSemantics.ts
 var CFOP_SEMANTICS = {
+  // --- Saídas Internas (5.xxx) ---
   "5102": { operationType: "sale", merchandiseOrigin: "third_party" },
   "5101": { operationType: "sale", merchandiseOrigin: "own_production" },
   "5405": { operationType: "sale", merchandiseOrigin: "third_party" },
@@ -1344,6 +1316,7 @@ var CFOP_SEMANTICS = {
   "5915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
   "5949": { operationType: "other", merchandiseOrigin: "not_applicable" },
   "5933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  // --- Saídas Interestaduais (6.xxx) ---
   "6102": { operationType: "sale", merchandiseOrigin: "third_party" },
   "6101": { operationType: "sale", merchandiseOrigin: "own_production" },
   "6108": { operationType: "sale_to_non_taxpayer", merchandiseOrigin: "third_party" },
@@ -1359,15 +1332,19 @@ var CFOP_SEMANTICS = {
   "6915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
   "6949": { operationType: "other", merchandiseOrigin: "not_applicable" },
   "6933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  // --- Entradas Internas (1.xxx) ---
   "1202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "1201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
   "1411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "1949": { operationType: "other", merchandiseOrigin: "not_applicable" },
+  // --- Entradas Interestaduais (2.xxx) ---
   "2202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "2201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
   "2411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "2949": { operationType: "other", merchandiseOrigin: "not_applicable" }
 };
+
+// shared-utils/fiscal-cfop-model/catalog.ts
 if (CFOP_CATALOG_BASE.length !== Object.keys(CFOP_SEMANTICS).length) {
   throw new Error("Cat\xE1logo CFOP sem classifica\xE7\xE3o sem\xE2ntica completa.");
 }
@@ -1493,7 +1470,7 @@ function resolveFiscalCfopOrderScope(input) {
   };
 }
 
-// shared-utils/fiscal-cfop-model/selection.ts
+// shared-utils/fiscal-cfop-model/validation.ts
 function validateItemCfopMatch(params) {
   const {
     cfop,
@@ -2238,6 +2215,174 @@ function parseFiscalSnapshotReservation(value) {
   };
 }
 
+// api/nfe/normal-sale/outboundTypes.ts
+var outboundFailure = (status, code, error, extra = {}) => ({ status, body: { success: false, code, error, ...extra } });
+var metadata = (a) => ({
+  documentId: a.document_id,
+  orderId: a.order_id,
+  emissionRequestId: a.emission_request_id,
+  fiscalSnapshotId: a.snapshot_id,
+  accessKey: a.access_key,
+  nfeNumber: a.number,
+  series: a.series,
+  model: a.model,
+  environment: a.environment,
+  numberReserved: true
+});
+
+// api/nfe/normal-sale/outboundPersistence.ts
+async function persistResultToDatabase(db, a, token, state, reason, response, protocol = null, xml = "") {
+  const items = state === "authorized" ? parseAuthorizedInvoiceLines(xml).map((line) => ({
+    item_number: line.invoiceItemNumber,
+    product_code: line.productCode,
+    description: line.description,
+    billed_quantity: line.billedQuantity,
+    unit_value: line.unitValue,
+    gross_value: line.grossValue,
+    discount_value: line.discountValue,
+    product_xml: line.productXml,
+    taxes_xml: line.taxesXml
+  })) : [];
+  const result = await db.rpc("persist_nfe_outbound_result", {
+    p_document_id: a.document_id,
+    p_attempt_token: token,
+    p_state: state,
+    p_reason: reason,
+    p_response_xml: response,
+    p_protocol: protocol,
+    p_items: items
+  });
+  if (result.error) throw new Error("FISCAL_RESULT_PERSIST_FAILED");
+}
+async function loadOutboundAttempt(db, documentId) {
+  const [attempt, document] = await Promise.all([
+    db.from("nfe_outbound_attempts").select("*").eq("document_id", documentId).maybeSingle(),
+    db.from("nfe_documents").select("*").eq("id", documentId).maybeSingle()
+  ]);
+  if (attempt.error || document.error || !attempt.data || !document.data)
+    throw new Error("FISCAL_ATTEMPT_UNAVAILABLE");
+  return { attempt: attempt.data, document: document.data };
+}
+
+// api/nfe/normal-sale/attemptPolicy.ts
+function fiscalAttemptCommand(command) {
+  const {
+    productionConfirmed: _consent,
+    previewOnly: _previewOnly,
+    previewProof: _previewProof,
+    ...fiscalCommand
+  } = command;
+  return JSON.parse(JSON.stringify(fiscalCommand));
+}
+function canonicalFiscalCommand(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalFiscalCommand).join(",")}]`;
+  if (value && typeof value === "object")
+    return `{${Object.entries(value).filter(([, v]) => v !== void 0).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${canonicalFiscalCommand(v)}`).join(",")}}`;
+  return JSON.stringify(value);
+}
+function saoPauloEmissionTimestamp(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) throw new Error("Data fiscal inv\xE1lida.");
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+      timeZoneName: "longOffset"
+    }).formatToParts(date).map(({ type, value }) => [type, value])
+  );
+  const offset = parts.timeZoneName.replace("GMT", "") || "+00:00";
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
+}
+function isUncertainAuthorization(cStat, pending) {
+  return pending || !/^\d{3}$/.test(cStat) || ["100", "103", "104", "105", "108", "109", "204", "539", "999"].includes(cStat);
+}
+
+// api/nfe/normal-sale/outboundRecovery.ts
+function productionTransmissionGate(environment, confirmed) {
+  if (environment === 1 && !confirmed)
+    return outboundFailure(
+      403,
+      "PRODUCTION_CONFIRMATION_REQUIRED",
+      "Confirme explicitamente a emiss\xE3o em Produ\xE7\xE3o."
+    );
+  return null;
+}
+async function describeActiveNormalSaleConflict(db, command, issuerCnpj) {
+  const active = await db.from("nfe_outbound_attempts").select("*").eq("order_id", command.orderId).eq("environment", command.environment).eq("issuer_cnpj", issuerCnpj).in("state", ["prepared", "transmitting", "reconciling", "authorized"]);
+  if (active.error || active.data?.length !== 1)
+    return outboundFailure(
+      503,
+      "FISCAL_RECOVERY_UNAVAILABLE",
+      "J\xE1 existe uma tentativa fiscal para este pedido, mas n\xE3o foi poss\xEDvel identific\xE1-la com seguran\xE7a. Atualize a consulta antes de continuar.",
+      {
+        pending: true,
+        orderId: command.orderId,
+        environment: command.environment,
+        numberReserved: false,
+        sefazContacted: false
+      }
+    );
+  const attempt = active.data[0];
+  return outboundFailure(
+    409,
+    "ALREADY_ACTIVE_FISCAL_ATTEMPT",
+    "J\xE1 existe uma tentativa fiscal em andamento para este pedido. Consulte a tentativa original antes de continuar.",
+    {
+      ...metadata(attempt),
+      state: attempt.state,
+      databaseReason: "ALREADY_ACTIVE_FISCAL_ATTEMPT",
+      pending: true,
+      numberReserved: false,
+      sefazContacted: false
+    }
+  );
+}
+async function recoverNormalSale(db, command, reconcileFn) {
+  const prior = await db.from("nfe_outbound_attempts").select("*").eq("emission_request_id", command.emissionRequestId).maybeSingle();
+  if (prior.error)
+    return outboundFailure(
+      503,
+      "FISCAL_RECOVERY_UNAVAILABLE",
+      "N\xE3o foi poss\xEDvel verificar a idempot\xEAncia. Nenhum n\xFAmero novo ser\xE1 reservado.",
+      { pending: true }
+    );
+  if (!prior.data) return null;
+  if (canonicalFiscalCommand(prior.data.request_command) !== canonicalFiscalCommand(fiscalAttemptCommand(command)))
+    return outboundFailure(
+      409,
+      "IDEMPOTENCY_KEY_REUSED",
+      "A chave de idempot\xEAncia j\xE1 pertence a outro payload fiscal.",
+      metadata(prior.data)
+    );
+  if (!["authorized", "rejected"].includes(prior.data.state)) {
+    try {
+      await loadOutboundAttempt(db, prior.data.document_id);
+    } catch {
+      return outboundFailure(
+        503,
+        "FISCAL_RECOVERY_UNAVAILABLE",
+        "N\xE3o foi poss\xEDvel revalidar o XML da tentativa reservada.",
+        { ...metadata(prior.data), sefazContacted: false }
+      );
+    }
+  }
+  return reconcileFn(
+    db,
+    prior.data.document_id,
+    true,
+    command.productionConfirmed === true
+  );
+}
+
+// api/nfe/normal-sale/outboundTransmission.ts
+var import_node_crypto5 = require("node:crypto");
+
 // api/nfe/fiscalXmlAudit.ts
 var import_node_crypto4 = require("node:crypto");
 var import_xmldom = require("@xmldom/xmldom");
@@ -2281,45 +2426,6 @@ function composeServiceFiscalValues(items = []) {
     }),
     vOutroCents
   };
-}
-
-// api/nfe/normal-sale/attemptPolicy.ts
-function fiscalAttemptCommand(command) {
-  const {
-    productionConfirmed: _consent,
-    previewOnly: _previewOnly,
-    previewProof: _previewProof,
-    ...fiscalCommand
-  } = command;
-  return JSON.parse(JSON.stringify(fiscalCommand));
-}
-function canonicalFiscalCommand(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalFiscalCommand).join(",")}]`;
-  if (value && typeof value === "object")
-    return `{${Object.entries(value).filter(([, v]) => v !== void 0).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${canonicalFiscalCommand(v)}`).join(",")}}`;
-  return JSON.stringify(value);
-}
-function saoPauloEmissionTimestamp(iso) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) throw new Error("Data fiscal inv\xE1lida.");
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/Sao_Paulo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-      timeZoneName: "longOffset"
-    }).formatToParts(date).map(({ type, value }) => [type, value])
-  );
-  const offset = parts.timeZoneName.replace("GMT", "") || "+00:00";
-  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
-}
-function isUncertainAuthorization(cStat, pending) {
-  return pending || !/^\d{3}$/.test(cStat) || ["100", "103", "104", "105", "108", "109", "204", "539", "999"].includes(cStat);
 }
 
 // api/nfe/fiscalXmlAudit.ts
@@ -2865,6 +2971,779 @@ function assertSignedFiscalXmlMatchesSnapshot(snapshot, document, xml, identity,
   if (mismatches.length) throw new FiscalXmlAuditError(mismatches);
 }
 
+// api/nfe/schemaValidator.ts
+var import_node_fs = require("node:fs");
+var import_node_path = require("node:path");
+var import_node_url = require("node:url");
+var import_xmldom2 = require("@xmldom/xmldom");
+var NFE_SCHEMA_PACKAGE = "PL_010f_v1.04";
+var schemaRelativePath = `api/nfe/schemas/${NFE_SCHEMA_PACKAGE}/nfe_v4.00.xsd`;
+function resolveFilePath(filename) {
+  try {
+    if (filename.startsWith("file:")) {
+      return (0, import_node_url.fileURLToPath)(filename);
+    }
+    const url = new URL(filename);
+    if (url.protocol === "file:") {
+      return (0, import_node_url.fileURLToPath)(url);
+    }
+    return null;
+  } catch {
+    return filename;
+  }
+}
+var fsProviderRegistered = false;
+function registerCustomFsProvider(xmlRegisterInputProvider) {
+  if (fsProviderRegistered) return;
+  fsProviderRegistered = true;
+  xmlRegisterInputProvider({
+    match(filename) {
+      const p = resolveFilePath(filename);
+      return p != null && (0, import_node_fs.existsSync)(p);
+    },
+    open(filename) {
+      const p = resolveFilePath(filename);
+      if (!p) return void 0;
+      try {
+        return (0, import_node_fs.openSync)(p, "r");
+      } catch {
+        return void 0;
+      }
+    },
+    read(fd, buf) {
+      try {
+        return (0, import_node_fs.readSync)(fd, buf, 0, buf.byteLength, null);
+      } catch {
+        return -1;
+      }
+    },
+    close(fd) {
+      try {
+        (0, import_node_fs.closeSync)(fd);
+      } catch {
+      }
+      return true;
+    }
+  });
+}
+async function validateUnsignedNfeStructure(xml) {
+  if (!xml || /<!DOCTYPE|<!ENTITY/i.test(xml))
+    throw new Error("XML fiscal cont\xE9m declara\xE7\xE3o n\xE3o permitida.");
+  const { XmlDocument } = await import("libxml2-wasm");
+  let document;
+  try {
+    document = XmlDocument.fromBuffer(Buffer.from(xml, "utf8"));
+    if (!/<NFe\s+xmlns="http:\/\/www\.portalfiscal\.inf\.br\/nfe">/.test(xml) || !/<infNFe\s+Id="NFe[0-9]{6}[A-Z0-9]{12}[0-9]{26}"\s+versao="4\.00">/.test(xml) || /<(?:\w+:)?Signature(?:\s|>)/.test(xml))
+      throw new Error("Envelope NF-e pr\xE9-assinatura inesperado.");
+  } catch (error) {
+    throw new Error(
+      `XML da NF-e pr\xE9-assinatura inv\xE1lido: ${error instanceof Error ? error.message.slice(0, 300) : "erro desconhecido"}`
+    );
+  } finally {
+    document?.dispose();
+  }
+}
+async function validateNfeAgainstOfficialSchema(xml) {
+  return validatePinnedSchema(xml, schemaRelativePath, NFE_SCHEMA_PACKAGE);
+}
+async function validatePinnedSchema(xml, relativePath, packageName) {
+  if (!xml || /<!DOCTYPE|<!ENTITY/i.test(xml))
+    throw new Error("XML fiscal cont\xE9m declara\xE7\xE3o n\xE3o permitida.");
+  const candidates = [
+    (0, import_node_path.resolve)(process.cwd(), relativePath),
+    (0, import_node_path.resolve)(process.cwd(), "..", relativePath)
+  ];
+  const path2 = candidates.find(import_node_fs.existsSync) || candidates[0];
+  const { XmlDocument, XsdValidator, xmlRegisterInputProvider } = await import("libxml2-wasm");
+  registerCustomFsProvider(xmlRegisterInputProvider);
+  let schema;
+  let validator;
+  let document;
+  try {
+    schema = XmlDocument.fromBuffer((0, import_node_fs.readFileSync)(path2), { url: (0, import_node_url.pathToFileURL)(path2).href });
+    validator = XsdValidator.fromDoc(schema);
+    document = XmlDocument.fromBuffer(Buffer.from(xml, "utf8"));
+    validator.validate(document);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message.slice(0, 500) : "erro desconhecido";
+    throw new Error(`XML da NF-e n\xE3o passou pelo schema oficial ${packageName}: ${detail}`);
+  } finally {
+    document?.dispose();
+    validator?.dispose();
+    schema?.dispose();
+  }
+}
+
+// api/nfe/xmlEnvelope.ts
+function embeddedNfeXml(xml) {
+  return xml.replace(/^\uFEFF?\s*<\?xml\s[^?]*\?>\s*/, "");
+}
+
+// api/nfe/normal-sale/outboundTransmission.ts
+async function transmitPreparedOutbound(db, a, doc, token, certificate, productionConfirmed) {
+  const gate = productionTransmissionGate(a.environment, productionConfirmed);
+  if (gate) return { ...gate, body: { ...gate.body, ...metadata(a), sefazContacted: false } };
+  try {
+    const saved = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("id", a.snapshot_id).maybeSingle();
+    const xml = String(doc.xml_nfe || "");
+    if (saved.error || !saved.data || (0, import_node_crypto5.createHash)("sha256").update(xml).digest("hex") !== a.xml_sha256)
+      throw new Error("Snapshot ou XML reservado indispon\xEDvel.");
+    const envelopeError = validateOrdinaryOutboundEnvelope({
+      xml,
+      accessKey: a.access_key,
+      model: a.model,
+      environment: a.environment,
+      nfeNumber: a.number,
+      series: a.series
+    });
+    if (envelopeError) throw new Error(envelopeError);
+    const snapshot = saved.data.snapshot_data;
+    if (!snapshot.resolvedDocument)
+      throw new Error("Snapshot fiscal sem documento resolvido para a auditoria final.");
+    const issuedAt = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1];
+    if (!issuedAt) throw new Error("XML reservado sem instante de emiss\xE3o fiscal.");
+    assertSignedFiscalXmlMatchesSnapshot(
+      snapshot,
+      snapshot.resolvedDocument,
+      xml,
+      { series: a.series, number: a.number, accessKey: a.access_key, issuedAt },
+      certificate.certPem
+    );
+    await assertXmlFiscalSelections(snapshot, xml);
+    await validateNfeAgainstOfficialSchema(xml);
+    if (a.model === "65" && (!issuedAt || Date.now() - Date.parse(issuedAt) > 5 * 6e4))
+      return outboundFailure(
+        409,
+        "FISCAL_XML_EXPIRED",
+        "XML NFC-e reservado fora do prazo de emiss\xE3o. A reserva foi preservada para tratamento fiscal.",
+        { ...metadata(a), state: a.state, sefazContacted: false }
+      );
+  } catch (error) {
+    return outboundFailure(
+      422,
+      "FISCAL_TRANSMISSION_INTEGRITY_FAILED",
+      error instanceof Error ? error.message : "XML reservado inv\xE1lido.",
+      { ...metadata(a), sefazContacted: false }
+    );
+  }
+  const started = await withNfeEmissionStage(
+    "start_transmission_rpc",
+    () => db.rpc("start_nfe_outbound_transmission", {
+      p_document_id: a.document_id,
+      p_attempt_token: token
+    }),
+    { emissionRequestId: a.emission_request_id }
+  );
+  if (started.error)
+    return outboundFailure(
+      503,
+      "FISCAL_START_NOT_CONFIRMED",
+      "N\xE3o foi poss\xEDvel confirmar o in\xEDcio da transmiss\xE3o. Consulte a tentativa original.",
+      { ...metadata(a), pending: true, sefazContacted: false }
+    );
+  let response;
+  try {
+    response = await withNfeEmissionStage(
+      "sefaz_transmission",
+      () => sendSoapToSefaz({
+        url: getNfeServiceEndpoint(a.model, a.environment, "NFeAutorizacao4"),
+        action: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote",
+        xmlPayload: `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${a.number}</idLote><indSinc>1</indSinc>${embeddedNfeXml(String(doc.xml_nfe))}</enviNFe>`,
+        certPem: certificate.certPem,
+        privateKeyPem: certificate.privateKeyPem
+      }),
+      { model: a.model, environment: a.environment, emissionRequestId: a.emission_request_id }
+    );
+  } catch {
+    let recorded = false;
+    try {
+      await persistResultToDatabase(
+        db,
+        a,
+        token,
+        "reconciling",
+        "Transmiss\xE3o sem resposta confirmada; consulta obrigat\xF3ria antes de retry.",
+        ""
+      );
+      recorded = true;
+    } catch {
+    }
+    return outboundFailure(
+      502,
+      "FISCAL_TRANSMISSION_UNCERTAIN",
+      "Transmiss\xE3o sem resposta confirmada. Consulte a chave reservada antes de repetir.",
+      { ...metadata(a), pending: true, state: "unknown", reconciliationRecorded: recorded }
+    );
+  }
+  const parsed = parseSefazAuthorization(response);
+  const state = parsed.authorized ? "authorized" : isUncertainAuthorization(parsed.cStat, parsed.pending) ? "reconciling" : "rejected";
+  try {
+    await withNfeEmissionStage(
+      "persist_result_rpc",
+      () => persistResultToDatabase(
+        db,
+        a,
+        token,
+        state,
+        parsed.xMotivo || "Resposta SEFAZ inconclusiva.",
+        response,
+        state === "authorized" ? parsed.protocolNumber || null : null,
+        String(doc.xml_nfe)
+      ),
+      { emissionRequestId: a.emission_request_id }
+    );
+  } catch {
+    return outboundFailure(
+      503,
+      "FISCAL_RESULT_PERSIST_FAILED",
+      "Resposta recebida sem confirma\xE7\xE3o local. Consulte a tentativa original; n\xE3o retransmita.",
+      { ...metadata(a), pending: true, state: "unknown" }
+    );
+  }
+  return {
+    status: state === "rejected" ? 422 : 200,
+    body: {
+      ...parsed,
+      success: state === "authorized",
+      pending: state === "reconciling",
+      state,
+      ...metadata(a),
+      signedXml: doc.xml_nfe,
+      sefazResponseXml: response,
+      ...state === "rejected" ? { code: "FISCAL_SEFAZ_REJECTED", error: parsed.xMotivo } : {}
+    }
+  };
+}
+
+// api/nfe/normal-sale/outboundReconciliation.ts
+var import_node_crypto6 = require("node:crypto");
+
+// erp/src/pages/utils/nfe/nfeEventRules.ts
+var readTag = (xml, tag2) => {
+  const name = `(?:[\\w.-]+:)?${tag2}`;
+  const match = xml.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, "i"));
+  return match?.[1]?.replace(/<[^>]+>/g, "").trim() || null;
+};
+var parseSefazNfeSituation = (xml) => {
+  const consultation = xml.match(/<(?:[\w.-]+:)?retConsSitNFe\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?retConsSitNFe>/i)?.[1];
+  const currentStatus = consultation ? readTag(consultation, "cStat") : null;
+  if (currentStatus && currentStatus !== "100") {
+    return {
+      cStat: currentStatus,
+      xMotivo: readTag(consultation || "", "xMotivo"),
+      state: currentStatus === "101" ? "cancelled" : currentStatus === "217" ? "not_found" : "unknown",
+      cancellationEventXml: currentStatus === "101" ? findCancellationEvent(xml) : null
+    };
+  }
+  const cancellationEventXml = findCancellationEvent(xml);
+  if (cancellationEventXml) {
+    return {
+      cStat: readTag(cancellationEventXml, "cStat"),
+      xMotivo: readTag(cancellationEventXml, "xMotivo"),
+      state: "cancelled",
+      cancellationEventXml
+    };
+  }
+  const protocol = xml.match(/<(?:[\w.-]+:)?infProt\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?infProt>/i)?.[0] || xml;
+  const cStat = currentStatus || readTag(protocol, "cStat");
+  return {
+    cStat,
+    xMotivo: readTag(consultation || protocol, "xMotivo"),
+    state: cStat === "100" ? "authorized" : cStat === "101" ? "cancelled" : cStat === "217" ? "not_found" : "unknown",
+    cancellationEventXml
+  };
+};
+function findCancellationEvent(xml) {
+  const eventBlocks = [...xml.matchAll(/<(?:[\w.-]+:)?procEventoNFe\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?procEventoNFe>/gi)].map(
+    (match) => match[0]
+  );
+  return eventBlocks.find(
+    (event) => readTag(event, "tpEvento") === "110111" && ["135", "155"].includes(readTag(event, "cStat") || "")
+  ) || null;
+}
+
+// api/nfe/normal-sale/outboundReconciliation.ts
+function finalResult(a, doc, isReversed = false) {
+  const parsed = parseSefazAuthorization(String(doc.xml_protocolo || ""));
+  const isCancelled = doc.status === "cancelada";
+  return {
+    status: 200,
+    body: {
+      ...parsed,
+      success: a.state === "authorized" && !isCancelled && !isReversed,
+      ...metadata(a),
+      state: isCancelled || isReversed ? "cancelled" : a.state,
+      pending: false,
+      signedXml: doc.xml_nfe,
+      sefazResponseXml: doc.xml_protocolo,
+      protocolNumber: doc.numero_protocolo,
+      xMotivo: doc.motivo_status,
+      ...isCancelled ? {
+        code: "FISCAL_ALREADY_CANCELLED",
+        error: "O documento original est\xE1 cancelado. Seu hist\xF3rico foi preservado."
+      } : isReversed ? {
+        code: "FISCAL_ALREADY_REVERSED",
+        error: "O documento original foi revertido por estorno. Seu hist\xF3rico foi preservado."
+      } : {},
+      ...a.state === "rejected" ? { code: "FISCAL_SEFAZ_REJECTED", error: doc.motivo_status } : {}
+    }
+  };
+}
+async function reconcileNormalSale(db, documentId, allowTransmission = false, productionConfirmed = false, ownedToken, preloadedCertificate) {
+  let loaded;
+  try {
+    loaded = await withNfeEmissionStage(
+      "attempt_load",
+      () => loadOutboundAttempt(db, documentId),
+      { documentId }
+    );
+  } catch {
+    return outboundFailure(
+      503,
+      "FISCAL_ATTEMPT_UNAVAILABLE",
+      "Tentativa fiscal indispon\xEDvel. Nenhuma nova numera\xE7\xE3o foi reservada.",
+      { documentId, pending: true }
+    );
+  }
+  const { attempt: a, document: doc } = loaded;
+  if (["authorized", "rejected"].includes(a.state)) {
+    let isReversed = false;
+    try {
+      const { data: revConfirmed } = await db.rpc("is_order_edit_reversal_confirmed", {
+        p_original_document_id: doc.id
+      });
+      isReversed = revConfirmed === true;
+    } catch {
+    }
+    return finalResult(a, doc, isReversed);
+  }
+  const token = ownedToken || (0, import_node_crypto6.randomUUID)();
+  if (!ownedToken) {
+    const claimed = await db.rpc("claim_nfe_outbound_attempt", {
+      p_document_id: documentId,
+      p_attempt_token: token
+    });
+    if (claimed.error || !claimed.data)
+      return outboundFailure(
+        409,
+        "FISCAL_ATTEMPT_IN_PROGRESS",
+        "Outra opera\xE7\xE3o fiscal est\xE1 em andamento. Consulte novamente ap\xF3s sua conclus\xE3o.",
+        { ...metadata(a), pending: true }
+      );
+  }
+  try {
+    if (a.state === "prepared" && !allowTransmission)
+      return outboundFailure(
+        409,
+        "FISCAL_PREPARED_NOT_SENT",
+        "Documento reservado; a transmiss\xE3o n\xE3o foi iniciada.",
+        { ...metadata(a), pending: false, state: "prepared", sefazContacted: false }
+      );
+    const pfx = process.env.NFE_CERTIFICATE_BASE64;
+    if (!pfx)
+      return outboundFailure(
+        503,
+        "FISCAL_CERTIFICATE_UNAVAILABLE",
+        "Certificado A1 indispon\xEDvel para consultar ou transmitir.",
+        { ...metadata(a), pending: a.state !== "prepared" }
+      );
+    const certificate = preloadedCertificate ? preloadedCertificate : await withNfeEmissionStage(
+      "reconcile_cert_extract",
+      () => extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || ""),
+      { documentId }
+    );
+    if (a.state === "prepared" && allowTransmission)
+      return await transmitPreparedOutbound(db, a, doc, token, certificate, productionConfirmed);
+    const response = await sendSoapToSefaz({
+      url: getNfeServiceEndpoint(a.model, a.environment, "NFeConsultaProtocolo4"),
+      action: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF",
+      serviceNamespace: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4",
+      xmlPayload: `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${a.environment}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${a.access_key}</chNFe></consSitNFe>`,
+      certPem: certificate.certPem,
+      privateKeyPem: certificate.privateKeyPem
+    });
+    const situation = parseSefazNfeSituation(response);
+    if (situation.state === "authorized") {
+      const parsed = parseSefazAuthorization(response);
+      await persistResultToDatabase(
+        db,
+        a,
+        token,
+        "authorized",
+        parsed.xMotivo,
+        response,
+        parsed.protocolNumber || null,
+        String(doc.xml_nfe)
+      );
+      return {
+        status: 200,
+        body: {
+          ...parsed,
+          success: true,
+          pending: false,
+          state: "authorized",
+          ...metadata(a),
+          signedXml: doc.xml_nfe,
+          sefazResponseXml: response
+        }
+      };
+    }
+    if (situation.state === "not_found") {
+      await persistResultToDatabase(
+        db,
+        a,
+        token,
+        "confirmed_not_found",
+        `217: ${situation.xMotivo}`,
+        response
+      );
+      if (allowTransmission && a.state === "confirmed_not_found")
+        return await transmitPreparedOutbound(db, a, doc, token, certificate, productionConfirmed);
+      return outboundFailure(
+        409,
+        "FISCAL_CONFIRMED_NOT_FOUND",
+        "217: Documento n\xE3o encontrado. Uma nova tentativa expl\xEDcita reutilizar\xE1 o XML, a chave e o n\xFAmero reservados.",
+        {
+          ...metadata(a),
+          pending: false,
+          state: "not_found",
+          cStat: "217",
+          xMotivo: situation.xMotivo
+        }
+      );
+    }
+    await persistResultToDatabase(
+      db,
+      a,
+      token,
+      "reconciling",
+      "Consulta n\xE3o confirmou autoriza\xE7\xE3o nem aus\xEAncia do documento.",
+      response
+    );
+    return outboundFailure(
+      409,
+      "FISCAL_RECONCILIATION_REQUIRED",
+      "Consulta inconclusiva. N\xE3o retransmita sem confirmar a situa\xE7\xE3o da chave reservada.",
+      { ...metadata(a), pending: true, state: "unknown", cStat: situation.cStat }
+    );
+  } catch {
+    return outboundFailure(
+      502,
+      "FISCAL_RECONCILIATION_REQUIRED",
+      "N\xE3o foi poss\xEDvel confirmar e persistir a situa\xE7\xE3o fiscal. A tentativa e o n\xFAmero foram preservados.",
+      { ...metadata(a), pending: true, state: "unknown" }
+    );
+  } finally {
+    try {
+      await withNfeEmissionStage(
+        "release_attempt_rpc",
+        () => db.rpc("release_nfe_outbound_attempt", {
+          p_document_id: documentId,
+          p_attempt_token: token
+        }),
+        { documentId }
+      );
+    } catch {
+    }
+  }
+}
+
+// api/nfe/normal-sale/outboundAttempt.ts
+async function recoverNormalSale2(db, command) {
+  return recoverNormalSale(db, command, reconcileNormalSale);
+}
+
+// api/nfe/emitHmlTechnical.ts
+var import_node_crypto10 = require("node:crypto");
+
+// erp/src/pages/utils/nfe/nfeAccessKey.ts
+function calculateMod11CheckDigit(base43) {
+  return calculateAccessKeyDigit(base43);
+}
+function generateNfeAccessKey(params) {
+  const cleanCnpj = normalizeFiscalIdentifier(params.cnpj);
+  if (!isValidCnpj(cleanCnpj)) throw new Error("CNPJ do emitente inv\xE1lido.");
+  const cleanUf = params.ufCode.replace(/\D/g, "").padStart(2, "0");
+  const cleanAAMM = params.yearMonth.replace(/\D/g, "").padStart(4, "0");
+  const cleanModel = params.model.replace(/\D/g, "").padStart(2, "0");
+  const cleanSeries = String(params.series).replace(/\D/g, "").padStart(3, "0");
+  const cleanNumber = String(params.number).replace(/\D/g, "").padStart(9, "0");
+  const cleanTpEmis = (params.emissionType || "1").replace(/\D/g, "").slice(0, 1) || "1";
+  const cNF = params.randomCode ? params.randomCode.replace(/\D/g, "").padStart(8, "0").slice(-8) : String(Math.floor(1e7 + Math.random() * 9e7));
+  const base43 = `${cleanUf}${cleanAAMM}${cleanCnpj}${cleanModel}${cleanSeries}${cleanNumber}${cleanTpEmis}${cNF}`;
+  const checkDigit = calculateMod11CheckDigit(base43);
+  const accessKey = `${base43}${checkDigit}`;
+  return { accessKey, randomCode: cNF, checkDigit };
+}
+
+// shared-utils/fiscalNumbering.ts
+var MAX_FISCAL_NUMBER = 999999999;
+var DEFAULT_NFE_NUMBER = 102;
+var DEFAULT_NFCE_NUMBER = 600;
+function isFiscalNumber(value) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= MAX_FISCAL_NUMBER;
+}
+function fiscalNumberConflict(number) {
+  if (!isFiscalNumber(number)) throw new Error("N\xFAmero fiscal inv\xE1lido.");
+  return { previousNumber: number, nextNumber: number < MAX_FISCAL_NUMBER ? number + 1 : null };
+}
+function isDifferentKeyNumberConflict(cStat, reason, ownKey) {
+  if (cStat !== "539" || !ACCESS_KEY_PATTERN.test(ownKey)) return false;
+  const otherKey = reason.match(/\[chNFe:\s*([0-9]{6}[A-Z0-9]{12}[0-9]{26})\]/)?.[1];
+  return Boolean(otherKey && otherKey !== ownKey && otherKey.slice(0, 2) === ownKey.slice(0, 2) && otherKey.slice(6, 34) === ownKey.slice(6, 34));
+}
+
+// erp/src/pages/utils/nfe/nfeSequenceSettings.ts
+function resolveNfeSequenceSettings(settings, model, environment) {
+  const series = validateContributorNfeSeries(
+    environment === 2 ? settings.nfeHomologationSerie || "1" : settings.nfeSerie || "1"
+  );
+  if (environment === 2) {
+    return {
+      series,
+      minimumNumber: Number(
+        model === "65" ? settings.nfceHomologationNextNumber ?? DEFAULT_NFCE_NUMBER : settings.nfeHomologationNextNumber ?? DEFAULT_NFE_NUMBER
+      )
+    };
+  }
+  return {
+    series,
+    minimumNumber: Number(
+      model === "65" ? settings.nfceNextNumber ?? DEFAULT_NFCE_NUMBER : settings.nfeNextNumber ?? DEFAULT_NFE_NUMBER
+    )
+  };
+}
+function validateContributorNfeSeries(value) {
+  const series = typeof value === "string" ? value.trim() : "";
+  if (!/^\d{1,3}$/.test(series) || Number(series) > 889)
+    throw new Error(
+      "A s\xE9rie deste emissor deve estar entre 0 e 889. A s\xE9rie 900 \xE9 reservada \xE0 emiss\xE3o avulsa pelo Fisco. Corrija a s\xE9rie nas configura\xE7\xF5es fiscais."
+    );
+  return String(Number(series));
+}
+
+// api/nfe/hmlTechnicalRuleSet.ts
+var HML_TECHNICAL_RULESET_VERSION = "HML_TECHNICAL_V1";
+var record = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Dado sint\xE9tico fiscal ausente.");
+  return value;
+};
+var string = (value, field) => {
+  if (typeof value !== "string" || !value.trim()) throw new Error(`${field} ausente.`);
+  return value.trim();
+};
+var digits = (value, size, field) => {
+  const result = string(value, field).replace(/\D/g, "");
+  if (result.length !== size) throw new Error(`${field} inv\xE1lido.`);
+  return result;
+};
+var amount = (value, field) => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6)
+    throw new Error(`${field} deve ser positivo e em centavos.`);
+  return value;
+};
+var address = (value, prefix) => ({
+  street: string(value[`${prefix}Logradouro`], "Logradouro"),
+  number: string(value[`${prefix}Numero`], "N\xFAmero"),
+  district: string(value[`${prefix}Bairro`], "Bairro"),
+  municipalityCode: digits(value[`${prefix}CMun`], 7, "C\xF3digo IBGE"),
+  municipality: string(value[`${prefix}XMun`], "Munic\xEDpio"),
+  uf: string(value[`${prefix}UF`], "UF"),
+  postalCode: digits(value[`${prefix}CEP`], 8, "CEP")
+});
+function createHmlTechnicalRuleSet(snapshot, savedDecision, csosnConfiguration) {
+  if (snapshot.emissionRequest.environment !== 2)
+    throw new Error("PRODUCTION_FISCAL_RULESET_REQUIRED");
+  parseHmlCsosnConfiguration(csosnConfiguration);
+  if (savedDecision.productionApproved !== false || savedDecision.scope?.model !== "55" || savedDecision.scope?.operation !== "normal_sale" || savedDecision.scope?.issuerCrt !== "1" || !savedDecision.confirmedBy || !savedDecision.confirmedAt || !Number.isFinite(Date.parse(savedDecision.confirmedAt)) || savedDecision.pis?.cst !== "99" || savedDecision.cofins?.cst !== "99" || [savedDecision.pis, savedDecision.cofins].some(
+    (tax) => tax?.base !== 0 || tax.rate !== 0 || tax.value !== 0
+  ))
+    throw new Error("Decis\xE3o persistida de PIS/COFINS para HML indispon\xEDvel.");
+  const issuerCnpj = normalizeFiscalIdentifier(snapshot.issuerProfile.companyCnpj);
+  if (!isValidCnpj(issuerCnpj)) throw new Error("CNPJ do emitente inv\xE1lido.");
+  if (snapshot.issuerProfile.companyCRT !== "1" || snapshot.issuerProfile.companyUF !== "PR")
+    throw new Error("Regra HML exige emitente Simples Nacional no Paran\xE1.");
+  return {
+    version: HML_TECHNICAL_RULESET_VERSION,
+    approvedBy: "operator_instruction_hml_technical_only",
+    approvedAt: savedDecision.confirmedAt,
+    effectiveFrom: savedDecision.confirmedAt,
+    issuerCnpj,
+    technicalHomologationOnly: true,
+    determine: (facts, hash) => {
+      const data = facts.order.data;
+      const runId = string(data.testRunId, "Identificador de teste");
+      if (!/^TEST_AUT_[0-9a-f-]{36}$/i.test(runId) || facts.order.id !== runId || data.fiscalScenario !== HML_TECHNICAL_RULESET_VERSION || facts.order.type !== "sale" || facts.order.status !== "draft" || facts.order.deleted !== true || data.deleted !== true || !Array.isArray(data.payments) || data.payments.length !== 0)
+        throw new Error(
+          "HML exige pedido sint\xE9tico em rascunho, exclu\xEDdo dos indicadores e sem pagamentos operacionais."
+        );
+      const items = data.items;
+      const payments = data.fiscalTestPayments;
+      if (!Array.isArray(items) || items.length !== 1 || !Array.isArray(payments) || payments.length !== 1)
+        throw new Error("HML t\xE9cnico exige um item e um pagamento sint\xE9ticos.");
+      const item = record(items[0]);
+      if (Object.keys(facts.emissionRequest.itemCsosnOverrides || {}).some((key) => key !== "1"))
+        throw new Error("Escolha de CSOSN referencia item inexistente no cen\xE1rio HML.");
+      const fiscal = item.fiscal ? record(item.fiscal) : {};
+      const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
+      if (Object.keys(selections).some((key) => key !== "1"))
+        throw new Error("Sele\xE7\xE3o fiscal referencia item inexistente.");
+      const selected = selections["1"];
+      const csosn = resolveItemCsosn({
+        configuration: csosnConfiguration,
+        environment: 2,
+        issuerCrt: String(facts.issuerProfile.companyCRT),
+        manual: facts.emissionRequest.itemCsosnOverrides?.["1"]
+      });
+      if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn.csosn))
+        throw new Error(
+          `CSOSN ${csosn.csosn} exige regra espec\xEDfica e grupos tribut\xE1rios ainda n\xE3o dispon\xEDveis neste cen\xE1rio HML.`
+        );
+      const origin = selected?.origem ?? (fiscal.origem === void 0 || fiscal.origem === "" ? "0" : String(fiscal.origem));
+      if (!/^[0-8]$/.test(origin)) throw new Error("Origem fiscal inv\xE1lida no item HML.");
+      const payment = record(payments[0]);
+      if (item.isTemporaryProduct !== true || item.productId || item.unitDiscount !== 0 || item.discountType || Number(item.quantity) !== 1 || String(payment.method).toLowerCase() !== "pix")
+        throw new Error("Produto tempor\xE1rio sem estoque, sem desconto e PIX s\xE3o obrigat\xF3rios.");
+      const price = amount(item.unitPrice, "Pre\xE7o sint\xE9tico");
+      if (amount(payment.amount, "Pagamento sint\xE9tico") !== price)
+        throw new Error("Pagamento sint\xE9tico n\xE3o reconcilia com o item.");
+      const customer = record(data.customerData);
+      if (customer.id || customer.cpfCnpj !== "12345678909" || !String(customer.fullName || "").includes("TEST_AUT_") || !String(item.description || "").includes("TEST_AUT_"))
+        throw new Error("Produto e destinat\xE1rio devem identificar o teste.");
+      const recipientAddress = address(record(customer.fiscalAddress), "");
+      if (recipientAddress.uf !== "PR" || recipientAddress.street !== "RUA TESTE" || recipientAddress.number !== "10" || recipientAddress.district !== "CENTRO" || recipientAddress.municipalityCode !== "4105805" || recipientAddress.municipality !== "COLOMBO" || recipientAddress.postalCode !== "83410270")
+        throw new Error("Fixture HML exige endere\xE7o sint\xE9tico fixo no PR.");
+      const issuer = facts.issuerProfile;
+      const issuerAddress = address(issuer, "company");
+      const trace2 = {
+        decisionId: "hml-technical-single-item",
+        ruleSetVersion: HML_TECHNICAL_RULESET_VERSION,
+        effectiveAt: savedDecision.confirmedAt,
+        inputFacts: { testRunId: runId, issuerCrt: "1", environment: 2 },
+        result: {
+          model: "55",
+          cfop: "5102",
+          csosn: csosn.csosn,
+          csosnSource: csosn.source,
+          csosnConfigurationVersion: csosnConfiguration.version,
+          pisCst: "99",
+          cofinsCst: "99"
+        },
+        reason: "Fixture t\xE9cnica sint\xE9tica: venda interna, sem substitui\xE7\xE3o tribut\xE1ria, sem frete ou desconto.",
+        approver: "operator_instruction_hml_technical_only"
+      };
+      const totals = {
+        icmsBase: 0,
+        products: price,
+        discount: 0,
+        freight: 0,
+        insurance: 0,
+        otherExpenses: 0,
+        icms: 0,
+        icmsExempt: 0,
+        fcp: 0,
+        icmsStBase: 0,
+        icmsSt: 0,
+        fcpSt: 0,
+        fcpStRetained: 0,
+        ii: 0,
+        ipi: 0,
+        ipiReturned: 0,
+        pis: 0,
+        cofins: 0,
+        invoice: price,
+        payment: price,
+        change: 0
+      };
+      return {
+        snapshotHash: hash,
+        ruleSetVersion: HML_TECHNICAL_RULESET_VERSION,
+        model: "55",
+        environment: 2,
+        issuer: {
+          cnpj: issuerCnpj,
+          name: string(issuer.companyName, "Raz\xE3o social"),
+          ie: digits(
+            issuer.companyIE,
+            String(issuer.companyIE || "").replace(/\D/g, "").length,
+            "IE"
+          ),
+          crt: "1",
+          municipalityCode: issuerAddress.municipalityCode,
+          address: issuerAddress
+        },
+        recipient: {
+          name: string(customer.fullName, "Destinat\xE1rio"),
+          cpfCnpj: digits(customer.cpfCnpj, 11, "CPF sint\xE9tico"),
+          ieIndicator: "9",
+          address: recipientAddress
+        },
+        operation: {
+          natureOfOperation: "VENDA DE MERCADORIA",
+          direction: "outbound",
+          purpose: "1",
+          destination: "1",
+          presence: "1",
+          finalConsumer: "1",
+          freightMode: "9"
+        },
+        items: [
+          {
+            itemNumber: 1,
+            product: {
+              code: runId.slice(0, 30),
+              description: string(item.description, "Produto sint\xE9tico"),
+              gtin: "SEM GTIN",
+              quantity: 1,
+              unitValue: price,
+              gross: price,
+              discount: 0,
+              freight: 0,
+              insurance: 0,
+              otherExpenses: 0
+            },
+            classification: {
+              ncm: selected?.ncm ?? "94036000",
+              origin,
+              cfop: selected?.cfop ?? "5102",
+              cest: selected?.cest || void 0,
+              unit: "UN"
+            },
+            taxes: [
+              {
+                group: "ICMS",
+                codeSystem: "CSOSN",
+                code: csosn.csosn,
+                values: { vICMS: 0 },
+                decisionId: trace2.decisionId
+              },
+              {
+                group: "PIS",
+                codeSystem: "CST",
+                code: "99",
+                values: { vBC: 0, pPIS: 0, vPIS: 0 },
+                decisionId: trace2.decisionId
+              },
+              {
+                group: "COFINS",
+                codeSystem: "CST",
+                code: "99",
+                values: { vBC: 0, pCOFINS: 0, vCOFINS: 0 },
+                decisionId: trace2.decisionId
+              }
+            ],
+            decisions: [trace2]
+          }
+        ],
+        payments: [{ methodCode: "17", amount: price, decision: trace2 }],
+        totals,
+        decisions: [trace2]
+      };
+    }
+  };
+}
+
 // api/nfe/xml/xmlPrimitives.ts
 var escapeXml = (value) => String(value).replace(
   /[&<>"']/g,
@@ -3121,583 +4000,65 @@ function serializeFiscalDocument(snapshot, document, ruleSet, identity) {
   return `<?xml version="1.0" encoding="UTF-8"?><NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${key}" versao="4.00">${ide}${issuer}${recipient}${items}${total}${transport}${billing}${payments}</infNFe>${supplement}</NFe>`;
 }
 
-// api/nfe/normal-sale/outboundAttempt.ts
-var import_node_crypto5 = require("node:crypto");
-
-// erp/src/pages/utils/nfe/nfeEventRules.ts
-var readTag = (xml, tag2) => {
-  const name = `(?:[\\w.-]+:)?${tag2}`;
-  const match = xml.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}>`, "i"));
-  return match?.[1]?.replace(/<[^>]+>/g, "").trim() || null;
-};
-var parseSefazNfeSituation = (xml) => {
-  const consultation = xml.match(/<(?:[\w.-]+:)?retConsSitNFe\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?retConsSitNFe>/i)?.[1];
-  const currentStatus = consultation ? readTag(consultation, "cStat") : null;
-  if (currentStatus && currentStatus !== "100") {
-    return {
-      cStat: currentStatus,
-      xMotivo: readTag(consultation || "", "xMotivo"),
-      state: currentStatus === "101" ? "cancelled" : currentStatus === "217" ? "not_found" : "unknown",
-      cancellationEventXml: currentStatus === "101" ? findCancellationEvent(xml) : null
-    };
-  }
-  const cancellationEventXml = findCancellationEvent(xml);
-  if (cancellationEventXml) {
-    return {
-      cStat: readTag(cancellationEventXml, "cStat"),
-      xMotivo: readTag(cancellationEventXml, "xMotivo"),
-      state: "cancelled",
-      cancellationEventXml
-    };
-  }
-  const protocol = xml.match(/<(?:[\w.-]+:)?infProt\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?infProt>/i)?.[0] || xml;
-  const cStat = currentStatus || readTag(protocol, "cStat");
-  return {
-    cStat,
-    xMotivo: readTag(consultation || protocol, "xMotivo"),
-    state: cStat === "100" ? "authorized" : cStat === "101" ? "cancelled" : cStat === "217" ? "not_found" : "unknown",
-    cancellationEventXml
-  };
-};
-function findCancellationEvent(xml) {
-  const eventBlocks = [...xml.matchAll(/<(?:[\w.-]+:)?procEventoNFe\b[^>]*>[\s\S]*?<\/(?:[\w.-]+:)?procEventoNFe>/gi)].map(
-    (match) => match[0]
+// api/nfe/responsibleTechnician.ts
+var import_node_crypto7 = require("node:crypto");
+function readResponsibleTechnicianConfig(env = process.env, environment = 2) {
+  const cnpj = normalizeFiscalIdentifier(env.NFE_RESP_TECH_CNPJ || env.NFE_RESPONSIBLE_TECH_CNPJ);
+  const contact = String(
+    env.NFE_RESP_TECH_CONTACT || env.NFE_RESPONSIBLE_TECH_CONTACT || ""
+  ).trim();
+  const email = String(env.NFE_RESP_TECH_EMAIL || env.NFE_RESPONSIBLE_TECH_EMAIL || "").trim();
+  const phone = String(env.NFE_RESP_TECH_PHONE || env.NFE_RESPONSIBLE_TECH_PHONE || "").replace(
+    /\D/g,
+    ""
   );
-  return eventBlocks.find(
-    (event) => readTag(event, "tpEvento") === "110111" && ["135", "155"].includes(readTag(event, "cStat") || "")
-  ) || null;
+  const csrtId = String(
+    environment === 2 ? env.NFE_ID_CSRT_HOMOLOGACAO || env.NFE_CSRT_ID || "" : env.NFE_ID_CSRT_PRODUCAO || env.NFE_CSRT_ID || ""
+  ).trim();
+  const csrt = String(
+    environment === 2 ? env.NFE_CSRT_HOMOLOGACAO || env.NFE_CSRT_SECRET || "" : env.NFE_CSRT_PRODUCAO || env.NFE_CSRT_SECRET || ""
+  ).trim();
+  return { cnpj, contact, email, phone, csrtId, csrt };
 }
-
-// api/nfe/schemaValidator.ts
-var import_node_fs = require("node:fs");
-var import_node_path = require("node:path");
-var import_node_url = require("node:url");
-var import_xmldom2 = require("@xmldom/xmldom");
-var NFE_SCHEMA_PACKAGE = "PL_010f_v1.04";
-var schemaRelativePath = `api/nfe/schemas/${NFE_SCHEMA_PACKAGE}/nfe_v4.00.xsd`;
-function resolveFilePath(filename) {
-  try {
-    if (filename.startsWith("file:")) {
-      return (0, import_node_url.fileURLToPath)(filename);
-    }
-    const url = new URL(filename);
-    if (url.protocol === "file:") {
-      return (0, import_node_url.fileURLToPath)(url);
-    }
-    return null;
-  } catch {
-    return filename;
-  }
-}
-var fsProviderRegistered = false;
-function registerCustomFsProvider(xmlRegisterInputProvider) {
-  if (fsProviderRegistered) return;
-  fsProviderRegistered = true;
-  xmlRegisterInputProvider({
-    match(filename) {
-      const p = resolveFilePath(filename);
-      return p != null && (0, import_node_fs.existsSync)(p);
-    },
-    open(filename) {
-      const p = resolveFilePath(filename);
-      if (!p) return void 0;
-      try {
-        return (0, import_node_fs.openSync)(p, "r");
-      } catch {
-        return void 0;
-      }
-    },
-    read(fd, buf) {
-      try {
-        return (0, import_node_fs.readSync)(fd, buf, 0, buf.byteLength, null);
-      } catch {
-        return -1;
-      }
-    },
-    close(fd) {
-      try {
-        (0, import_node_fs.closeSync)(fd);
-      } catch {
-      }
-      return true;
-    }
-  });
-}
-async function validateUnsignedNfeStructure(xml) {
-  if (!xml || /<!DOCTYPE|<!ENTITY/i.test(xml))
-    throw new Error("XML fiscal cont\xE9m declara\xE7\xE3o n\xE3o permitida.");
-  const { XmlDocument } = await import("libxml2-wasm");
-  let document;
-  try {
-    document = XmlDocument.fromBuffer(Buffer.from(xml, "utf8"));
-    if (!/<NFe\s+xmlns="http:\/\/www\.portalfiscal\.inf\.br\/nfe">/.test(xml) || !/<infNFe\s+Id="NFe[0-9]{6}[A-Z0-9]{12}[0-9]{26}"\s+versao="4\.00">/.test(xml) || /<(?:\w+:)?Signature(?:\s|>)/.test(xml))
-      throw new Error("Envelope NF-e pr\xE9-assinatura inesperado.");
-  } catch (error) {
-    throw new Error(
-      `XML da NF-e pr\xE9-assinatura inv\xE1lido: ${error instanceof Error ? error.message.slice(0, 300) : "erro desconhecido"}`
-    );
-  } finally {
-    document?.dispose();
-  }
-}
-async function validateNfeAgainstOfficialSchema(xml) {
-  return validatePinnedSchema(xml, schemaRelativePath, NFE_SCHEMA_PACKAGE);
-}
-async function validatePinnedSchema(xml, relativePath, packageName) {
-  if (!xml || /<!DOCTYPE|<!ENTITY/i.test(xml))
-    throw new Error("XML fiscal cont\xE9m declara\xE7\xE3o n\xE3o permitida.");
-  const candidates = [
-    (0, import_node_path.resolve)(process.cwd(), relativePath),
-    (0, import_node_path.resolve)(process.cwd(), "..", relativePath)
+function invalidConfigurationFields(config) {
+  const validations = [
+    ["responsibleTechnician.cnpj", /^[A-Z0-9]{12}[0-9]{2}$/.test(config.cnpj)],
+    ["responsibleTechnician.contact", config.contact.length >= 2 && config.contact.length <= 60],
+    ["responsibleTechnician.email", config.email.length >= 6 && config.email.length <= 60],
+    ["responsibleTechnician.phone", /^\d{6,14}$/.test(config.phone)],
+    ["responsibleTechnician.csrtId", /^\d{2}$/.test(config.csrtId)],
+    ["responsibleTechnician.csrt", /^[A-Za-z0-9]{16,36}$/.test(config.csrt)]
   ];
-  const path2 = candidates.find(import_node_fs.existsSync) || candidates[0];
-  const { XmlDocument, XsdValidator, xmlRegisterInputProvider } = await import("libxml2-wasm");
-  registerCustomFsProvider(xmlRegisterInputProvider);
-  let schema;
-  let validator;
-  let document;
-  try {
-    schema = XmlDocument.fromBuffer((0, import_node_fs.readFileSync)(path2), { url: (0, import_node_url.pathToFileURL)(path2).href });
-    validator = XsdValidator.fromDoc(schema);
-    document = XmlDocument.fromBuffer(Buffer.from(xml, "utf8"));
-    validator.validate(document);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message.slice(0, 500) : "erro desconhecido";
-    throw new Error(`XML da NF-e n\xE3o passou pelo schema oficial ${packageName}: ${detail}`);
-  } finally {
-    document?.dispose();
-    validator?.dispose();
-    schema?.dispose();
-  }
+  return validations.filter(([, valid]) => !valid).map(([field]) => field);
 }
-
-// api/nfe/xmlEnvelope.ts
-function embeddedNfeXml(xml) {
-  return xml.replace(/^\uFEFF?\s*<\?xml\s[^?]*\?>\s*/, "");
+function getResponsibleTechnicianConfigurationIssues(env = process.env, environment = 2) {
+  return invalidConfigurationFields(readResponsibleTechnicianConfig(env, environment));
 }
-
-// api/nfe/normal-sale/outboundAttempt.ts
-var outboundFailure = (status, code, error, extra = {}) => ({ status, body: { success: false, code, error, ...extra } });
-var metadata = (a) => ({
-  documentId: a.document_id,
-  orderId: a.order_id,
-  emissionRequestId: a.emission_request_id,
-  fiscalSnapshotId: a.snapshot_id,
-  accessKey: a.access_key,
-  nfeNumber: a.number,
-  series: a.series,
-  model: a.model,
-  environment: a.environment,
-  numberReserved: true
-});
-async function describeActiveNormalSaleConflict(db, command, issuerCnpj) {
-  const active = await db.from("nfe_outbound_attempts").select("*").eq("order_id", command.orderId).eq("environment", command.environment).eq("issuer_cnpj", issuerCnpj).in("state", ["prepared", "transmitting", "reconciling", "authorized"]);
-  if (active.error || active.data?.length !== 1)
-    return outboundFailure(
-      503,
-      "FISCAL_RECOVERY_UNAVAILABLE",
-      "J\xE1 existe uma tentativa fiscal para este pedido, mas n\xE3o foi poss\xEDvel identific\xE1-la com seguran\xE7a. Atualize a consulta antes de continuar.",
-      { pending: true, orderId: command.orderId, environment: command.environment, numberReserved: false, sefazContacted: false }
-    );
-  const attempt = active.data[0];
-  return outboundFailure(
-    409,
-    "ALREADY_ACTIVE_FISCAL_ATTEMPT",
-    "J\xE1 existe uma tentativa fiscal em andamento para este pedido. Consulte a tentativa original antes de continuar.",
-    { ...metadata(attempt), state: attempt.state, databaseReason: "ALREADY_ACTIVE_FISCAL_ATTEMPT", pending: true, numberReserved: false, sefazContacted: false }
-  );
+function getResponsibleTechnicianConfig(env = process.env, environment = 2) {
+  const config = readResponsibleTechnicianConfig(env, environment);
+  return invalidConfigurationFields(config).length ? null : config;
 }
-function productionTransmissionGate(environment, confirmed) {
-  if (environment === 1 && !confirmed)
-    return outboundFailure(
-      403,
-      "PRODUCTION_CONFIRMATION_REQUIRED",
-      "Confirme explicitamente a emiss\xE3o em Produ\xE7\xE3o."
-    );
-  return null;
+function escapeXml2(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
-async function persist(db, a, token, state, reason, response, protocol = null, xml = "") {
-  const items = state === "authorized" ? parseAuthorizedInvoiceLines(xml).map((line) => ({
-    item_number: line.invoiceItemNumber,
-    product_code: line.productCode,
-    description: line.description,
-    billed_quantity: line.billedQuantity,
-    unit_value: line.unitValue,
-    gross_value: line.grossValue,
-    discount_value: line.discountValue,
-    product_xml: line.productXml,
-    taxes_xml: line.taxesXml
-  })) : [];
-  const result = await db.rpc("persist_nfe_outbound_result", {
-    p_document_id: a.document_id,
-    p_attempt_token: token,
-    p_state: state,
-    p_reason: reason,
-    p_response_xml: response,
-    p_protocol: protocol,
-    p_items: items
-  });
-  if (result.error) throw new Error("FISCAL_RESULT_PERSIST_FAILED");
+function appendResponsibleTechnician(xml, accessKey, config) {
+  if (!ACCESS_KEY_PATTERN.test(accessKey)) throw new Error("Chave de acesso inv\xE1lida para CSRT.");
+  if (/<infRespTec(?:\s|>)/.test(xml))
+    throw new Error("O XML j\xE1 cont\xE9m infRespTec; o grupo deve ser gerado pelo servidor.");
+  const infNfeCloseIndex = xml.lastIndexOf("</infNFe>");
+  if (infNfeCloseIndex === -1) throw new Error("Grupo infNFe ausente no XML da NF-e.");
+  const hashCSRT = (0, import_node_crypto7.createHash)("sha1").update(`${config.csrt}${accessKey}`, "utf8").digest("base64");
+  const responsibleTechnicianXml = `<infRespTec><CNPJ>${config.cnpj}</CNPJ><xContato>${escapeXml2(config.contact)}</xContato><email>${escapeXml2(config.email)}</email><fone>${config.phone}</fone><idCSRT>${config.csrtId}</idCSRT><hashCSRT>${hashCSRT}</hashCSRT></infRespTec>`;
+  return `${xml.slice(0, infNfeCloseIndex)}${responsibleTechnicianXml}${xml.slice(infNfeCloseIndex)}`;
 }
-function finalResult(a, doc) {
-  const parsed = parseSefazAuthorization(String(doc.xml_protocolo || ""));
-  return {
-    status: 200,
-    body: {
-      ...parsed,
-      success: a.state === "authorized" && doc.status !== "cancelada",
-      ...metadata(a),
-      state: doc.status === "cancelada" ? "cancelled" : a.state,
-      pending: false,
-      signedXml: doc.xml_nfe,
-      sefazResponseXml: doc.xml_protocolo,
-      protocolNumber: doc.numero_protocolo,
-      xMotivo: doc.motivo_status,
-      ...doc.status === "cancelada" ? {
-        code: "FISCAL_ALREADY_CANCELLED",
-        error: "O documento original est\xE1 cancelado. Seu hist\xF3rico foi preservado."
-      } : {},
-      ...a.state === "rejected" ? { code: "FISCAL_SEFAZ_REJECTED", error: doc.motivo_status } : {}
-    }
-  };
-}
-async function transmitPreparedOutbound(db, a, doc, token, certificate, productionConfirmed) {
-  const gate = productionTransmissionGate(a.environment, productionConfirmed);
-  if (gate) return { ...gate, body: { ...gate.body, ...metadata(a), sefazContacted: false } };
-  try {
-    const saved = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("id", a.snapshot_id).maybeSingle();
-    const xml = String(doc.xml_nfe || "");
-    if (saved.error || !saved.data || (0, import_node_crypto5.createHash)("sha256").update(xml).digest("hex") !== a.xml_sha256)
-      throw new Error("Snapshot ou XML reservado indispon\xEDvel.");
-    const envelopeError = validateOrdinaryOutboundEnvelope({
-      xml,
-      accessKey: a.access_key,
-      model: a.model,
-      environment: a.environment,
-      nfeNumber: a.number,
-      series: a.series
-    });
-    if (envelopeError) throw new Error(envelopeError);
-    const snapshot = saved.data.snapshot_data;
-    if (!snapshot.resolvedDocument)
-      throw new Error("Snapshot fiscal sem documento resolvido para a auditoria final.");
-    const issuedAt = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1];
-    if (!issuedAt) throw new Error("XML reservado sem instante de emiss\xE3o fiscal.");
-    assertSignedFiscalXmlMatchesSnapshot(
-      snapshot,
-      snapshot.resolvedDocument,
-      xml,
-      { series: a.series, number: a.number, accessKey: a.access_key, issuedAt },
-      certificate.certPem
-    );
-    await assertXmlFiscalSelections(snapshot, xml);
-    await validateNfeAgainstOfficialSchema(xml);
-    if (a.model === "65" && (!issuedAt || Date.now() - Date.parse(issuedAt) > 5 * 6e4))
-      return outboundFailure(
-        409,
-        "FISCAL_XML_EXPIRED",
-        "XML NFC-e reservado fora do prazo de emiss\xE3o. A reserva foi preservada para tratamento fiscal.",
-        { ...metadata(a), state: a.state, sefazContacted: false }
-      );
-  } catch (error) {
-    return outboundFailure(
-      422,
-      "FISCAL_TRANSMISSION_INTEGRITY_FAILED",
-      error instanceof Error ? error.message : "XML reservado inv\xE1lido.",
-      { ...metadata(a), sefazContacted: false }
-    );
-  }
-  const started = await withNfeEmissionStage(
-    "start_transmission_rpc",
-    () => db.rpc("start_nfe_outbound_transmission", {
-      p_document_id: a.document_id,
-      p_attempt_token: token
-    }),
-    { emissionRequestId: a.emission_request_id }
-  );
-  if (started.error)
-    return outboundFailure(
-      503,
-      "FISCAL_START_NOT_CONFIRMED",
-      "N\xE3o foi poss\xEDvel confirmar o in\xEDcio da transmiss\xE3o. Consulte a tentativa original.",
-      { ...metadata(a), pending: true, sefazContacted: false }
-    );
-  let response;
-  try {
-    response = await withNfeEmissionStage(
-      "sefaz_transmission",
-      () => sendSoapToSefaz({
-        url: getNfeServiceEndpoint(a.model, a.environment, "NFeAutorizacao4"),
-        action: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote",
-        xmlPayload: `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${a.number}</idLote><indSinc>1</indSinc>${embeddedNfeXml(String(doc.xml_nfe))}</enviNFe>`,
-        certPem: certificate.certPem,
-        privateKeyPem: certificate.privateKeyPem
-      }),
-      { model: a.model, environment: a.environment, emissionRequestId: a.emission_request_id }
-    );
-  } catch {
-    let recorded = false;
-    try {
-      await persist(
-        db,
-        a,
-        token,
-        "reconciling",
-        "Transmiss\xE3o sem resposta confirmada; consulta obrigat\xF3ria antes de retry.",
-        ""
-      );
-      recorded = true;
-    } catch {
-    }
-    return outboundFailure(
-      502,
-      "FISCAL_TRANSMISSION_UNCERTAIN",
-      "Transmiss\xE3o sem resposta confirmada. Consulte a chave reservada antes de repetir.",
-      { ...metadata(a), pending: true, state: "unknown", reconciliationRecorded: recorded }
-    );
-  }
-  const parsed = parseSefazAuthorization(response);
-  const state = parsed.authorized ? "authorized" : isUncertainAuthorization(parsed.cStat, parsed.pending) ? "reconciling" : "rejected";
-  try {
-    await withNfeEmissionStage(
-      "persist_result_rpc",
-      () => persist(
-        db,
-        a,
-        token,
-        state,
-        parsed.xMotivo || "Resposta SEFAZ inconclusiva.",
-        response,
-        state === "authorized" ? parsed.protocolNumber || null : null,
-        String(doc.xml_nfe)
-      ),
-      { emissionRequestId: a.emission_request_id }
-    );
-  } catch {
-    return outboundFailure(
-      503,
-      "FISCAL_RESULT_PERSIST_FAILED",
-      "Resposta recebida sem confirma\xE7\xE3o local. Consulte a tentativa original; n\xE3o retransmita.",
-      { ...metadata(a), pending: true, state: "unknown" }
-    );
-  }
-  return {
-    status: state === "rejected" ? 422 : 200,
-    body: {
-      ...parsed,
-      success: state === "authorized",
-      pending: state === "reconciling",
-      state,
-      ...metadata(a),
-      signedXml: doc.xml_nfe,
-      sefazResponseXml: response,
-      ...state === "rejected" ? { code: "FISCAL_SEFAZ_REJECTED", error: parsed.xMotivo } : {}
-    }
-  };
-}
-async function loadOutboundAttempt(db, documentId) {
-  const [attempt, document] = await Promise.all([
-    db.from("nfe_outbound_attempts").select("*").eq("document_id", documentId).maybeSingle(),
-    db.from("nfe_documents").select("*").eq("id", documentId).maybeSingle()
-  ]);
-  if (attempt.error || document.error || !attempt.data || !document.data)
-    throw new Error("FISCAL_ATTEMPT_UNAVAILABLE");
-  return { attempt: attempt.data, document: document.data };
-}
-async function reconcileNormalSale(db, documentId, allowTransmission = false, productionConfirmed = false, ownedToken, preloadedCertificate) {
-  let loaded;
-  try {
-    loaded = await withNfeEmissionStage(
-      "attempt_load",
-      () => loadOutboundAttempt(db, documentId),
-      { documentId }
-    );
-  } catch {
-    return outboundFailure(
-      503,
-      "FISCAL_ATTEMPT_UNAVAILABLE",
-      "Tentativa fiscal indispon\xEDvel. Nenhuma nova numera\xE7\xE3o foi reservada.",
-      { documentId, pending: true }
-    );
-  }
-  const { attempt: a, document: doc } = loaded;
-  if (["authorized", "rejected"].includes(a.state)) return finalResult(a, doc);
-  const token = ownedToken || (0, import_node_crypto5.randomUUID)();
-  if (!ownedToken) {
-    const claimed = await db.rpc("claim_nfe_outbound_attempt", {
-      p_document_id: documentId,
-      p_attempt_token: token
-    });
-    if (claimed.error || !claimed.data)
-      return outboundFailure(
-        409,
-        "FISCAL_ATTEMPT_IN_PROGRESS",
-        "Outra opera\xE7\xE3o fiscal est\xE1 em andamento. Consulte novamente ap\xF3s sua conclus\xE3o.",
-        { ...metadata(a), pending: true }
-      );
-  }
-  try {
-    if (a.state === "prepared" && !allowTransmission)
-      return outboundFailure(
-        409,
-        "FISCAL_PREPARED_NOT_SENT",
-        "Documento reservado; a transmiss\xE3o n\xE3o foi iniciada.",
-        { ...metadata(a), pending: false, state: "prepared", sefazContacted: false }
-      );
-    const pfx = process.env.NFE_CERTIFICATE_BASE64;
-    if (!pfx)
-      return outboundFailure(
-        503,
-        "FISCAL_CERTIFICATE_UNAVAILABLE",
-        "Certificado A1 indispon\xEDvel para consultar ou transmitir.",
-        { ...metadata(a), pending: a.state !== "prepared" }
-      );
-    const certificate = preloadedCertificate ? preloadedCertificate : await withNfeEmissionStage(
-      "reconcile_cert_extract",
-      () => extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || ""),
-      { documentId }
-    );
-    if (a.state === "prepared" && allowTransmission)
-      return await transmitPreparedOutbound(db, a, doc, token, certificate, productionConfirmed);
-    const response = await sendSoapToSefaz({
-      url: getNfeServiceEndpoint(a.model, a.environment, "NFeConsultaProtocolo4"),
-      action: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4/nfeConsultaNF",
-      serviceNamespace: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4",
-      xmlPayload: `<consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><tpAmb>${a.environment}</tpAmb><xServ>CONSULTAR</xServ><chNFe>${a.access_key}</chNFe></consSitNFe>`,
-      certPem: certificate.certPem,
-      privateKeyPem: certificate.privateKeyPem
-    });
-    const situation = parseSefazNfeSituation(response);
-    if (situation.state === "authorized") {
-      const parsed = parseSefazAuthorization(response);
-      await persist(
-        db,
-        a,
-        token,
-        "authorized",
-        parsed.xMotivo,
-        response,
-        parsed.protocolNumber || null,
-        String(doc.xml_nfe)
-      );
-      return {
-        status: 200,
-        body: {
-          ...parsed,
-          success: true,
-          pending: false,
-          state: "authorized",
-          ...metadata(a),
-          signedXml: doc.xml_nfe,
-          sefazResponseXml: response
-        }
-      };
-    }
-    if (situation.state === "not_found") {
-      await persist(db, a, token, "confirmed_not_found", `217: ${situation.xMotivo}`, response);
-      if (allowTransmission && a.state === "confirmed_not_found")
-        return await transmitPreparedOutbound(db, a, doc, token, certificate, productionConfirmed);
-      return outboundFailure(
-        409,
-        "FISCAL_CONFIRMED_NOT_FOUND",
-        "217: Documento n\xE3o encontrado. Uma nova tentativa expl\xEDcita reutilizar\xE1 o XML, a chave e o n\xFAmero reservados.",
-        {
-          ...metadata(a),
-          pending: false,
-          state: "not_found",
-          cStat: "217",
-          xMotivo: situation.xMotivo
-        }
-      );
-    }
-    await persist(
-      db,
-      a,
-      token,
-      "reconciling",
-      "Consulta n\xE3o confirmou autoriza\xE7\xE3o nem aus\xEAncia do documento.",
-      response
-    );
-    return outboundFailure(
-      409,
-      "FISCAL_RECONCILIATION_REQUIRED",
-      "Consulta inconclusiva. N\xE3o retransmita sem confirmar a situa\xE7\xE3o da chave reservada.",
-      { ...metadata(a), pending: true, state: "unknown", cStat: situation.cStat }
-    );
-  } catch {
-    return outboundFailure(
-      502,
-      "FISCAL_RECONCILIATION_REQUIRED",
-      "N\xE3o foi poss\xEDvel confirmar e persistir a situa\xE7\xE3o fiscal. A tentativa e o n\xFAmero foram preservados.",
-      { ...metadata(a), pending: true, state: "unknown" }
-    );
-  } finally {
-    try {
-      await withNfeEmissionStage(
-        "release_attempt_rpc",
-        () => db.rpc("release_nfe_outbound_attempt", {
-          p_document_id: documentId,
-          p_attempt_token: token
-        }),
-        { documentId }
-      );
-    } catch {
-    }
-  }
-}
-async function recoverNormalSale(db, command) {
-  const prior = await db.from("nfe_outbound_attempts").select("*").eq("emission_request_id", command.emissionRequestId).maybeSingle();
-  if (prior.error)
-    return outboundFailure(
-      503,
-      "FISCAL_RECOVERY_UNAVAILABLE",
-      "N\xE3o foi poss\xEDvel verificar a idempot\xEAncia. Nenhum n\xFAmero novo ser\xE1 reservado.",
-      { pending: true }
-    );
-  if (!prior.data) return null;
-  if (canonicalFiscalCommand(prior.data.request_command) !== canonicalFiscalCommand(fiscalAttemptCommand(command)))
-    return outboundFailure(
-      409,
-      "IDEMPOTENCY_KEY_REUSED",
-      "A chave de idempot\xEAncia j\xE1 pertence a outro payload fiscal.",
-      metadata(prior.data)
-    );
-  if (!["authorized", "rejected"].includes(prior.data.state)) {
-    try {
-      await loadOutboundAttempt(db, prior.data.document_id);
-    } catch {
-      return outboundFailure(
-        503,
-        "FISCAL_RECOVERY_UNAVAILABLE",
-        "N\xE3o foi poss\xEDvel revalidar o XML da tentativa reservada.",
-        { ...metadata(prior.data), sefazContacted: false }
-      );
-    }
-  }
-  return reconcileNormalSale(
-    db,
-    prior.data.document_id,
-    true,
-    command.productionConfirmed === true
+function hasResponsibleTechnicianCsrt(xml) {
+  return /<infRespTec(?:\s|>)[\s\S]*?<idCSRT>\d{2}<\/idCSRT>[\s\S]*?<hashCSRT>[A-Za-z0-9+/]{27}={0,1}<\/hashCSRT>[\s\S]*?<\/infRespTec>/.test(
+    xml
   );
 }
 
-// api/nfe/normal-sale/values.ts
-var obj = (value) => {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("Fatos fiscais obrigat\xF3rios ausentes.");
-  return value;
-};
-var required2 = (value, field) => {
-  if (typeof value !== "string" || !value.trim()) throw new Error(`${field} ausente.`);
-  return value.trim();
-};
-var normalize = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-var money2 = (value, field, positive = false) => {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < (positive ? 0.01 : 0) || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6)
-    throw new Error(`${field} inv\xE1lido ou fora da precis\xE3o de centavos.`);
-  return Math.round(value * 100);
-};
+// api/nfe/hml-normal-sale/constants.ts
+var HML_NORMAL_SALE_RULESET_VERSION = "HML_NORMAL_SALE_V2";
 
 // shared-utils/fiscalTransportModel.ts
 function resolveTransport(input) {
@@ -3771,12 +4132,12 @@ function resolveTransport(input) {
 }
 
 // shared-utils/orderItemFiscalSnapshot.ts
-var record = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
+var record2 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 var nonEmptyString = (value) => typeof value === "string" && value.trim() ? value.trim() : void 0;
 function hasFiscalItemSnapshot(item) {
-  const itemRecord = record(item);
+  const itemRecord = record2(item);
   const version = itemRecord.fiscalSnapshotVersion;
-  const fiscal = record(itemRecord.fiscal);
+  const fiscal = record2(itemRecord.fiscal);
   return typeof version === "number" && Number.isInteger(version) && version > 0 && Boolean(nonEmptyString(fiscal.commercialUnit)) && Boolean(nonEmptyString(fiscal.taxableUnit));
 }
 
@@ -4355,6 +4716,23 @@ function resolveInterstateOutboundFiscalMatrix(facts, rules = INTERSTATE_OUTBOUN
   }
   return notApproved("Nenhuma regra APPROVED completa e vigente corresponde aos fatos.");
 }
+
+// api/nfe/normal-sale/values.ts
+var obj = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Fatos fiscais obrigat\xF3rios ausentes.");
+  return value;
+};
+var required2 = (value, field) => {
+  if (typeof value !== "string" || !value.trim()) throw new Error(`${field} ausente.`);
+  return value.trim();
+};
+var normalize = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+var money2 = (value, field, positive = false) => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < (positive ? 0.01 : 0) || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6)
+    throw new Error(`${field} inv\xE1lido ou fora da precis\xE3o de centavos.`);
+  return Math.round(value * 100);
+};
 
 // api/nfe/normal-sale/interstateValidation.ts
 function resolveInterstateFinalConsumer(operationScope, contextData, requestFinalConsumer) {
@@ -5366,6 +5744,15 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
   };
 }
 
+// api/nfe/hmlNormalSaleRuleSet.ts
+async function createHmlNormalSaleRuleSet(facts, configuration) {
+  if (facts.emissionRequest.environment !== 2)
+    throw new Error("PRODUCTION_FISCAL_RULESET_REQUIRED");
+  parseHmlCsosnConfiguration(configuration);
+  const rules = await createNormalSaleRuleSet(facts, HML_NORMAL_SALE_RULESET_VERSION);
+  return { ...rules, technicalHomologationOnly: true };
+}
+
 // api/nfe/paranaIssuerIe.ts
 function validateParanaIssuerIe(value) {
   const supplied = String(value ?? "").trim();
@@ -5381,667 +5768,6 @@ function validateParanaIssuerIe(value) {
     throw new Error(
       "Inscri\xE7\xE3o estadual do emitente inv\xE1lida para o Paran\xE1. Confira o n\xFAmero no cadastro da Receita/PR ou com a contabilidade."
     );
-}
-
-// api/nfe/responsibleTechnician.ts
-var import_node_crypto6 = require("node:crypto");
-function readResponsibleTechnicianConfig(env = process.env, environment = 2) {
-  const cnpj = normalizeFiscalIdentifier(env.NFE_RESP_TECH_CNPJ || env.NFE_RESPONSIBLE_TECH_CNPJ);
-  const contact = String(
-    env.NFE_RESP_TECH_CONTACT || env.NFE_RESPONSIBLE_TECH_CONTACT || ""
-  ).trim();
-  const email = String(env.NFE_RESP_TECH_EMAIL || env.NFE_RESPONSIBLE_TECH_EMAIL || "").trim();
-  const phone = String(env.NFE_RESP_TECH_PHONE || env.NFE_RESPONSIBLE_TECH_PHONE || "").replace(
-    /\D/g,
-    ""
-  );
-  const csrtId = String(
-    environment === 2 ? env.NFE_ID_CSRT_HOMOLOGACAO || env.NFE_CSRT_ID || "" : env.NFE_ID_CSRT_PRODUCAO || env.NFE_CSRT_ID || ""
-  ).trim();
-  const csrt = String(
-    environment === 2 ? env.NFE_CSRT_HOMOLOGACAO || env.NFE_CSRT_SECRET || "" : env.NFE_CSRT_PRODUCAO || env.NFE_CSRT_SECRET || ""
-  ).trim();
-  return { cnpj, contact, email, phone, csrtId, csrt };
-}
-function invalidConfigurationFields(config) {
-  const validations = [
-    ["responsibleTechnician.cnpj", /^[A-Z0-9]{12}[0-9]{2}$/.test(config.cnpj)],
-    ["responsibleTechnician.contact", config.contact.length >= 2 && config.contact.length <= 60],
-    ["responsibleTechnician.email", config.email.length >= 6 && config.email.length <= 60],
-    ["responsibleTechnician.phone", /^\d{6,14}$/.test(config.phone)],
-    ["responsibleTechnician.csrtId", /^\d{2}$/.test(config.csrtId)],
-    ["responsibleTechnician.csrt", /^[A-Za-z0-9]{16,36}$/.test(config.csrt)]
-  ];
-  return validations.filter(([, valid]) => !valid).map(([field]) => field);
-}
-function getResponsibleTechnicianConfigurationIssues(env = process.env, environment = 2) {
-  return invalidConfigurationFields(readResponsibleTechnicianConfig(env, environment));
-}
-function getResponsibleTechnicianConfig(env = process.env, environment = 2) {
-  const config = readResponsibleTechnicianConfig(env, environment);
-  return invalidConfigurationFields(config).length ? null : config;
-}
-function escapeXml2(value) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
-}
-function appendResponsibleTechnician(xml, accessKey, config) {
-  if (!ACCESS_KEY_PATTERN.test(accessKey)) throw new Error("Chave de acesso inv\xE1lida para CSRT.");
-  if (/<infRespTec(?:\s|>)/.test(xml))
-    throw new Error("O XML j\xE1 cont\xE9m infRespTec; o grupo deve ser gerado pelo servidor.");
-  const infNfeCloseIndex = xml.lastIndexOf("</infNFe>");
-  if (infNfeCloseIndex === -1) throw new Error("Grupo infNFe ausente no XML da NF-e.");
-  const hashCSRT = (0, import_node_crypto6.createHash)("sha1").update(`${config.csrt}${accessKey}`, "utf8").digest("base64");
-  const responsibleTechnicianXml = `<infRespTec><CNPJ>${config.cnpj}</CNPJ><xContato>${escapeXml2(config.contact)}</xContato><email>${escapeXml2(config.email)}</email><fone>${config.phone}</fone><idCSRT>${config.csrtId}</idCSRT><hashCSRT>${hashCSRT}</hashCSRT></infRespTec>`;
-  return `${xml.slice(0, infNfeCloseIndex)}${responsibleTechnicianXml}${xml.slice(infNfeCloseIndex)}`;
-}
-function hasResponsibleTechnicianCsrt(xml) {
-  return /<infRespTec(?:\s|>)[\s\S]*?<idCSRT>\d{2}<\/idCSRT>[\s\S]*?<hashCSRT>[A-Za-z0-9+/]{27}={0,1}<\/hashCSRT>[\s\S]*?<\/infRespTec>/.test(
-    xml
-  );
-}
-
-// api/nfe/normal-sale/testOrderProductionGuard.ts
-var isSyntheticOrderBlockedInProduction = (environment, persistedOrderData) => {
-  if (environment !== 1 || !persistedOrderData || typeof persistedOrderData !== "object") {
-    return false;
-  }
-  return persistedOrderData.is_test === true;
-};
-
-// api/nfe/emitNormalSale.ts
-async function emitNormalSale(db, command, candidate, appSettings, actorId) {
-  if (isSyntheticOrderBlockedInProduction(command.environment, candidate.order.data))
-    return outboundFailure(
-      403,
-      "TEST_ORDER_PRODUCTION_BLOCKED",
-      "Pedidos marcados como teste n\xE3o podem ser emitidos em Produ\xE7\xE3o.",
-      { numberReserved: false, sefazContacted: false }
-    );
-  const recovered = command.previewOnly ? null : await recoverNormalSale(db, command);
-  if (recovered) return recovered;
-  const gate = command.previewOnly ? null : productionTransmissionGate(command.environment, command.productionConfirmed === true);
-  if (gate)
-    return { ...gate, body: { ...gate.body, numberReserved: false, sefazContacted: false } };
-  if (command.supersedesDocumentId)
-    return outboundFailure(
-      409,
-      "FISCAL_REPLACEMENT_POLICY_REQUIRED",
-      "A substitui\xE7\xE3o deve seguir a pol\xEDtica de corre\xE7\xE3o do documento original.",
-      { numberReserved: false, sefazContacted: false }
-    );
-  if (candidate.order.data.fiscalScenario === "HML_TECHNICAL_V1")
-    return outboundFailure(
-      422,
-      "SYNTHETIC_FISCAL_SCENARIO",
-      "Fixture t\xE9cnica n\xE3o pertence ao fluxo de venda normal.",
-      { numberReserved: false, sefazContacted: false }
-    );
-  const facts = structuredClone(candidate);
-  let preparationSubmitted = false;
-  try {
-    await withNfeEmissionStage(
-      "inputs_fetch",
-      () => loadNormalSaleInputs(db, facts, appSettings),
-      { emissionRequestId: command.emissionRequestId }
-    );
-    let rules = await createNormalSaleRuleSet(facts);
-    const preflight = resolveFiscalDocument(facts, rules);
-    if (preflight.status !== "ready") {
-      console.error("[PREFLIGHT BLOCKERS]", JSON.stringify(preflight.blockers));
-      return outboundFailure(
-        422,
-        "FISCAL_DETERMINATION_REQUIRED",
-        "O pedido n\xE3o passou pela determina\xE7\xE3o fiscal.",
-        { blockers: preflight.blockers, numberReserved: false, sefazContacted: false }
-      );
-    }
-    validateParanaIssuerIe(preflight.document.issuer.ie);
-    const model = preflight.document.model;
-    const inputs = obj(facts.fiscalInputs);
-    const decisions = inputs.contributionDecisions ? obj(inputs.contributionDecisions) : {};
-    const { contributionDecisions: _allDecisions, ...ownInputs } = inputs;
-    facts.fiscalInputs = {
-      ...ownInputs,
-      contributionDecision: inputs.contributionDecision ?? decisions[model]
-    };
-    facts.emissionRequest.modelDecision = preflight.document.modelDecision;
-    facts.emissionRequest.finalConsumer = preflight.document.operation.finalConsumer === "1";
-    rules = await createNormalSaleRuleSet(facts);
-    const resolved = resolveFiscalDocument(facts, rules);
-    if (resolved.status !== "ready" || resolved.document.model !== model)
-      throw new Error("Modelo fiscal divergiu durante a prepara\xE7\xE3o.");
-    const sequence = resolveNfeSequenceSettings(appSettings, model, command.environment);
-    if (!Number.isInteger(sequence.minimumNumber) || sequence.minimumNumber < 1 || sequence.minimumNumber > 999999999)
-      throw new Error("N\xFAmero inicial fiscal inv\xE1lido.");
-    if (command.requestedNumber !== void 0 && command.requestedNumber < sequence.minimumNumber)
-      throw new Error(
-        `A numera\xE7\xE3o deve ser igual ou superior ao in\xEDcio configurado (${sequence.minimumNumber}).`
-      );
-    const minimum = command.requestedNumber ?? sequence.minimumNumber;
-    const tech = getResponsibleTechnicianConfig(process.env, command.environment);
-    const pfx = process.env.NFE_CERTIFICATE_BASE64;
-    if (!tech || !pfx)
-      return outboundFailure(
-        503,
-        "FISCAL_CERTIFICATE_OR_CSRT_UNAVAILABLE",
-        "Certificado A1 ou respons\xE1vel t\xE9cnico/CSRT n\xE3o configurado para o ambiente.",
-        {
-          numberReserved: false,
-          sefazContacted: false,
-          configurationIssues: [
-            ...getResponsibleTechnicianConfigurationIssues(process.env, command.environment),
-            ...!pfx ? ["certificate.base64"] : []
-          ]
-        }
-      );
-    const certificate = await withNfeEmissionStage(
-      "cert_extract",
-      () => extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || ""),
-      { emissionRequestId: command.emissionRequestId }
-    );
-    const issuedAt = saoPauloEmissionTimestamp(facts.capturedAt);
-    const code = (0, import_node_crypto7.createHash)("sha256").update(command.emissionRequestId).digest("hex");
-    const randomCode = String(Number.parseInt(code.slice(0, 10), 16) % 1e8).padStart(8, "0");
-    for (let preparation = 0; preparation < 3; preparation++) {
-      const peek = await withNfeEmissionStage(
-        "number_peek_rpc",
-        () => db.rpc("peek_nfe_outbound_number", {
-          p_issuer_cnpj: resolved.document.issuer.cnpj,
-          p_model: model,
-          p_environment: command.environment,
-          p_series: sequence.series,
-          p_minimum: minimum
-        }),
-        { emissionRequestId: command.emissionRequestId }
-      );
-      if (peek.error || !Number.isInteger(peek.data))
-        return outboundFailure(
-          503,
-          "FISCAL_SEQUENCE_UNAVAILABLE",
-          "N\xE3o foi poss\xEDvel consultar a pr\xF3xima numera\xE7\xE3o fiscal.",
-          { numberReserved: false, sefazContacted: false }
-        );
-      const number = peek.data;
-      if (command.requestedNumber !== void 0 && number !== command.requestedNumber)
-        return outboundFailure(
-          409,
-          "NFE_NUMBER_ALREADY_USED",
-          "A numera\xE7\xE3o solicitada j\xE1 est\xE1 reservada ou foi utilizada.",
-          {
-            numberReserved: false,
-            sefazContacted: false,
-            numberConflict: { requestedNumber: command.requestedNumber, nextNumber: number },
-            nfeNumber: command.requestedNumber
-          }
-        );
-      const accessKey = generateNfeAccessKey({
-        ufCode: "41",
-        yearMonth: issuedAt.slice(2, 4) + issuedAt.slice(5, 7),
-        cnpj: resolved.document.issuer.cnpj,
-        model,
-        series: sequence.series,
-        number,
-        emissionType: "1",
-        randomCode
-      }).accessKey;
-      const snapshot = {
-        ...facts,
-        resolvedDocument: resolved.document,
-        emissionRequest: {
-          ...facts.emissionRequest,
-          requestedModel: model,
-          series: sequence.series,
-          number
-        }
-      };
-      let xml = await withNfeEmissionStage(
-        "xml_serialization",
-        () => serializeFiscalDocument(facts, resolved.document, rules, {
-          accessKey,
-          series: Number(sequence.series),
-          number,
-          issuedAt
-        }),
-        { emissionRequestId: command.emissionRequestId }
-      );
-      xml = appendResponsibleTechnician(xml, accessKey, tech);
-      await withNfeEmissionStage(
-        "xml_unsigned_validation",
-        () => validateUnsignedNfeStructure(xml),
-        { emissionRequestId: command.emissionRequestId }
-      );
-      const signedXml = await withNfeEmissionStage(
-        "xml_signing",
-        () => signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64),
-        { emissionRequestId: command.emissionRequestId }
-      );
-      if (command.previewOnly) {
-        await withNfeEmissionStage(
-          "xml_schema_validation",
-          () => validateNfeAgainstOfficialSchema(signedXml),
-          { emissionRequestId: command.emissionRequestId }
-        );
-      }
-      await assertXmlFiscalSelections(snapshot, signedXml);
-      const identity = {
-        series: sequence.series,
-        number,
-        accessKey
-      };
-      assertSignedFiscalXmlMatchesSnapshot(
-        snapshot,
-        resolved.document,
-        signedXml,
-        { ...identity, issuedAt },
-        certificate.certPem
-      );
-      const previewFingerprint = fiscalPreviewFingerprint(
-        snapshot,
-        resolved.document,
-        { ...identity, issuedAt },
-        signedXml
-      );
-      if (command.previewOnly)
-        return {
-          status: 200,
-          body: {
-            success: true,
-            preview: true,
-            previewStatus: "PREVIEW_ONLY_NOT_AUTHORIZED",
-            signedXml,
-            previewProof: {
-              fingerprint: previewFingerprint,
-              capturedAt: facts.capturedAt,
-              issuedAt,
-              model,
-              series: sequence.series,
-              number,
-              accessKey
-            },
-            orderId: command.orderId,
-            emissionRequestId: command.emissionRequestId,
-            model,
-            series: sequence.series,
-            nfeNumber: number,
-            accessKey,
-            environment: command.environment,
-            numberReserved: false,
-            sefazContacted: false
-          }
-        };
-      const token = (0, import_node_crypto7.randomUUID)();
-      preparationSubmitted = true;
-      const saved = await withNfeEmissionStage(
-        "prepare_attempt_rpc",
-        () => db.rpc("prepare_nfe_outbound_attempt", {
-          p_snapshot: { ...snapshot, decisionTrace: resolved.document.decisions },
-          p_signed_xml: signedXml,
-          p_access_key: accessKey,
-          p_request_command: fiscalAttemptCommand(command),
-          p_attempt_token: token,
-          p_actor_id: actorId,
-          p_minimum_number: minimum
-        }),
-        { emissionRequestId: command.emissionRequestId }
-      );
-      if (saved.error?.message.includes("FISCAL_SEQUENCE_CHANGED") && command.requestedNumber === void 0) {
-        preparationSubmitted = false;
-        continue;
-      }
-      if (saved.error || !saved.data?.documentId) {
-        const recovery = await recoverNormalSale(db, command);
-        if (recovery) return recovery;
-        const reason = saved.error?.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || "FISCAL_PREPARATION_FAILED";
-        if (reason === "ALREADY_ACTIVE_FISCAL_ATTEMPT")
-          return await describeActiveNormalSaleConflict(db, command, resolved.document.issuer.cnpj);
-        if (!saved.error?.code && (!reason || reason === "FISCAL_PREPARATION_FAILED"))
-          return outboundFailure(
-            503,
-            "FISCAL_PREPARATION_UNCONFIRMED",
-            "A resposta da prepara\xE7\xE3o n\xE3o foi confirmada. Preserve esta inten\xE7\xE3o e consulte antes de repetir.",
-            {
-              pending: true,
-              emissionRequestId: command.emissionRequestId,
-              orderId: command.orderId,
-              environment: command.environment,
-              sefazContacted: false
-            }
-          );
-        return outboundFailure(
-          reason === "IDEMPOTENCY_KEY_REUSED" ? 409 : 503,
-          reason,
-          reason === "FISCAL_SOURCE_CHANGED" ? "Os dados do pedido, produtos ou cliente foram alterados durante a prepara\xE7\xE3o. Atualize os dados fiscais e tente novamente." : saved.error?.message || "A prepara\xE7\xE3o fiscal n\xE3o foi conclu\xEDda. Atualize os dados ou consulte a tentativa original.",
-          { numberReserved: false, sefazContacted: false, pending: false }
-        );
-      }
-      preparationSubmitted = false;
-      return reconcileNormalSale(
-        db,
-        saved.data.documentId,
-        true,
-        command.productionConfirmed === true,
-        saved.data.created ? token : void 0,
-        certificate
-      );
-    }
-    return outboundFailure(
-      409,
-      "FISCAL_SEQUENCE_BUSY",
-      "A numera\xE7\xE3o mudou durante a prepara\xE7\xE3o. Repita a mesma solicita\xE7\xE3o.",
-      { numberReserved: false, sefazContacted: false }
-    );
-  } catch (error) {
-    if (preparationSubmitted) {
-      try {
-        const recovery = await recoverNormalSale(db, command);
-        if (recovery) return recovery;
-      } catch {
-      }
-      return outboundFailure(
-        503,
-        "FISCAL_PREPARATION_UNCONFIRMED",
-        "A resposta da prepara\xE7\xE3o n\xE3o foi confirmada. Preserve esta inten\xE7\xE3o e consulte antes de repetir.",
-        {
-          pending: true,
-          emissionRequestId: command.emissionRequestId,
-          orderId: command.orderId,
-          environment: command.environment,
-          sefazContacted: false
-        }
-      );
-    }
-    return outboundFailure(
-      422,
-      "FISCAL_PREPARATION_INVALID",
-      error instanceof Error ? error.message : "Prepara\xE7\xE3o fiscal inv\xE1lida.",
-      {
-        numberReserved: false,
-        sefazContacted: false,
-        ...error instanceof FiscalXmlAuditError ? {
-          fiscalMismatchFields: error.mismatches.map(({ field, expected, actual }) => ({
-            field,
-            snapshotValue: String(expected),
-            currentValue: String(actual)
-          }))
-        } : {}
-      }
-    );
-  }
-}
-
-// erp/src/pages/utils/nfe/fiscalAuthorization.ts
-var FISCAL_OPERATOR_ROLES = ["manager", "administrator"];
-var fiscalOperatorRoles = new Set(FISCAL_OPERATOR_ROLES);
-function hasFiscalOperationRole(profile) {
-  if (!profile) return false;
-  const roles = /* @__PURE__ */ new Set();
-  if (typeof profile.role === "string") roles.add(profile.role);
-  if (Array.isArray(profile.roles)) {
-    for (const role of profile.roles) {
-      if (typeof role === "string") roles.add(role);
-    }
-  }
-  return Array.from(roles).some((role) => fiscalOperatorRoles.has(role));
-}
-function hasFiscalAdministratorRole(profile) {
-  return profile?.role === "administrator" || Array.isArray(profile?.roles) && profile.roles.includes("administrator");
-}
-
-// api/nfe/fiscalAuthorization.ts
-async function authorizeFiscalOperator(client, authorizationHeader) {
-  const headerValue = Array.isArray(authorizationHeader) ? authorizationHeader[0] : authorizationHeader;
-  const token = String(headerValue || "").replace(/^Bearer\s+/i, "").trim();
-  if (!token) return { ok: false, status: 401, message: "Autentica\xE7\xE3o necess\xE1ria." };
-  try {
-    const { data, error } = await client.auth.getUser(token);
-    const user = data?.user;
-    if (error || !user?.id) return { ok: false, status: 401, message: "Sess\xE3o inv\xE1lida." };
-    const { data: profile, error: profileError } = await client.from("profiles").select("role,roles").eq("id", user.id).maybeSingle();
-    if (profileError)
-      return { ok: false, status: 503, message: "N\xE3o foi poss\xEDvel validar a permiss\xE3o fiscal." };
-    if (!hasFiscalOperationRole(profile))
-      return { ok: false, status: 403, message: "Seu perfil n\xE3o pode operar documentos fiscais." };
-    return { ok: true, userId: user.id, isAdministrator: hasFiscalAdministratorRole(profile) };
-  } catch {
-    return { ok: false, status: 503, message: "N\xE3o foi poss\xEDvel validar a permiss\xE3o fiscal." };
-  }
-}
-
-// api/nfe/emitHmlTechnical.ts
-var import_node_crypto10 = require("node:crypto");
-
-// api/nfe/hmlTechnicalRuleSet.ts
-var HML_TECHNICAL_RULESET_VERSION = "HML_TECHNICAL_V1";
-var record2 = (value) => {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("Dado sint\xE9tico fiscal ausente.");
-  return value;
-};
-var string = (value, field) => {
-  if (typeof value !== "string" || !value.trim()) throw new Error(`${field} ausente.`);
-  return value.trim();
-};
-var digits = (value, size, field) => {
-  const result = string(value, field).replace(/\D/g, "");
-  if (result.length !== size) throw new Error(`${field} inv\xE1lido.`);
-  return result;
-};
-var amount = (value, field) => {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6)
-    throw new Error(`${field} deve ser positivo e em centavos.`);
-  return value;
-};
-var address = (value, prefix) => ({
-  street: string(value[`${prefix}Logradouro`], "Logradouro"),
-  number: string(value[`${prefix}Numero`], "N\xFAmero"),
-  district: string(value[`${prefix}Bairro`], "Bairro"),
-  municipalityCode: digits(value[`${prefix}CMun`], 7, "C\xF3digo IBGE"),
-  municipality: string(value[`${prefix}XMun`], "Munic\xEDpio"),
-  uf: string(value[`${prefix}UF`], "UF"),
-  postalCode: digits(value[`${prefix}CEP`], 8, "CEP")
-});
-function createHmlTechnicalRuleSet(snapshot, savedDecision, csosnConfiguration) {
-  if (snapshot.emissionRequest.environment !== 2)
-    throw new Error("PRODUCTION_FISCAL_RULESET_REQUIRED");
-  parseHmlCsosnConfiguration(csosnConfiguration);
-  if (savedDecision.productionApproved !== false || savedDecision.scope?.model !== "55" || savedDecision.scope?.operation !== "normal_sale" || savedDecision.scope?.issuerCrt !== "1" || !savedDecision.confirmedBy || !savedDecision.confirmedAt || !Number.isFinite(Date.parse(savedDecision.confirmedAt)) || savedDecision.pis?.cst !== "99" || savedDecision.cofins?.cst !== "99" || [savedDecision.pis, savedDecision.cofins].some(
-    (tax) => tax?.base !== 0 || tax.rate !== 0 || tax.value !== 0
-  ))
-    throw new Error("Decis\xE3o persistida de PIS/COFINS para HML indispon\xEDvel.");
-  const issuerCnpj = normalizeFiscalIdentifier(snapshot.issuerProfile.companyCnpj);
-  if (!isValidCnpj(issuerCnpj)) throw new Error("CNPJ do emitente inv\xE1lido.");
-  if (snapshot.issuerProfile.companyCRT !== "1" || snapshot.issuerProfile.companyUF !== "PR")
-    throw new Error("Regra HML exige emitente Simples Nacional no Paran\xE1.");
-  return {
-    version: HML_TECHNICAL_RULESET_VERSION,
-    approvedBy: "operator_instruction_hml_technical_only",
-    approvedAt: savedDecision.confirmedAt,
-    effectiveFrom: savedDecision.confirmedAt,
-    issuerCnpj,
-    technicalHomologationOnly: true,
-    determine: (facts, hash) => {
-      const data = facts.order.data;
-      const runId = string(data.testRunId, "Identificador de teste");
-      if (!/^TEST_AUT_[0-9a-f-]{36}$/i.test(runId) || facts.order.id !== runId || data.fiscalScenario !== HML_TECHNICAL_RULESET_VERSION || facts.order.type !== "sale" || facts.order.status !== "draft" || facts.order.deleted !== true || data.deleted !== true || !Array.isArray(data.payments) || data.payments.length !== 0)
-        throw new Error(
-          "HML exige pedido sint\xE9tico em rascunho, exclu\xEDdo dos indicadores e sem pagamentos operacionais."
-        );
-      const items = data.items;
-      const payments = data.fiscalTestPayments;
-      if (!Array.isArray(items) || items.length !== 1 || !Array.isArray(payments) || payments.length !== 1)
-        throw new Error("HML t\xE9cnico exige um item e um pagamento sint\xE9ticos.");
-      const item = record2(items[0]);
-      if (Object.keys(facts.emissionRequest.itemCsosnOverrides || {}).some((key) => key !== "1"))
-        throw new Error("Escolha de CSOSN referencia item inexistente no cen\xE1rio HML.");
-      const fiscal = item.fiscal ? record2(item.fiscal) : {};
-      const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
-      if (Object.keys(selections).some((key) => key !== "1"))
-        throw new Error("Sele\xE7\xE3o fiscal referencia item inexistente.");
-      const selected = selections["1"];
-      const csosn = resolveItemCsosn({
-        configuration: csosnConfiguration,
-        environment: 2,
-        issuerCrt: String(facts.issuerProfile.companyCRT),
-        manual: facts.emissionRequest.itemCsosnOverrides?.["1"]
-      });
-      if (!ZERO_OWN_ICMS_CSOSNS.includes(csosn.csosn))
-        throw new Error(
-          `CSOSN ${csosn.csosn} exige regra espec\xEDfica e grupos tribut\xE1rios ainda n\xE3o dispon\xEDveis neste cen\xE1rio HML.`
-        );
-      const origin = selected?.origem ?? (fiscal.origem === void 0 || fiscal.origem === "" ? "0" : String(fiscal.origem));
-      if (!/^[0-8]$/.test(origin)) throw new Error("Origem fiscal inv\xE1lida no item HML.");
-      const payment = record2(payments[0]);
-      if (item.isTemporaryProduct !== true || item.productId || item.unitDiscount !== 0 || item.discountType || Number(item.quantity) !== 1 || String(payment.method).toLowerCase() !== "pix")
-        throw new Error("Produto tempor\xE1rio sem estoque, sem desconto e PIX s\xE3o obrigat\xF3rios.");
-      const price = amount(item.unitPrice, "Pre\xE7o sint\xE9tico");
-      if (amount(payment.amount, "Pagamento sint\xE9tico") !== price)
-        throw new Error("Pagamento sint\xE9tico n\xE3o reconcilia com o item.");
-      const customer = record2(data.customerData);
-      if (customer.id || customer.cpfCnpj !== "12345678909" || !String(customer.fullName || "").includes("TEST_AUT_") || !String(item.description || "").includes("TEST_AUT_"))
-        throw new Error("Produto e destinat\xE1rio devem identificar o teste.");
-      const recipientAddress = address(record2(customer.fiscalAddress), "");
-      if (recipientAddress.uf !== "PR" || recipientAddress.street !== "RUA TESTE" || recipientAddress.number !== "10" || recipientAddress.district !== "CENTRO" || recipientAddress.municipalityCode !== "4105805" || recipientAddress.municipality !== "COLOMBO" || recipientAddress.postalCode !== "83410270")
-        throw new Error("Fixture HML exige endere\xE7o sint\xE9tico fixo no PR.");
-      const issuer = facts.issuerProfile;
-      const issuerAddress = address(issuer, "company");
-      const trace2 = {
-        decisionId: "hml-technical-single-item",
-        ruleSetVersion: HML_TECHNICAL_RULESET_VERSION,
-        effectiveAt: savedDecision.confirmedAt,
-        inputFacts: { testRunId: runId, issuerCrt: "1", environment: 2 },
-        result: {
-          model: "55",
-          cfop: "5102",
-          csosn: csosn.csosn,
-          csosnSource: csosn.source,
-          csosnConfigurationVersion: csosnConfiguration.version,
-          pisCst: "99",
-          cofinsCst: "99"
-        },
-        reason: "Fixture t\xE9cnica sint\xE9tica: venda interna, sem substitui\xE7\xE3o tribut\xE1ria, sem frete ou desconto.",
-        approver: "operator_instruction_hml_technical_only"
-      };
-      const totals = {
-        icmsBase: 0,
-        products: price,
-        discount: 0,
-        freight: 0,
-        insurance: 0,
-        otherExpenses: 0,
-        icms: 0,
-        icmsExempt: 0,
-        fcp: 0,
-        icmsStBase: 0,
-        icmsSt: 0,
-        fcpSt: 0,
-        fcpStRetained: 0,
-        ii: 0,
-        ipi: 0,
-        ipiReturned: 0,
-        pis: 0,
-        cofins: 0,
-        invoice: price,
-        payment: price,
-        change: 0
-      };
-      return {
-        snapshotHash: hash,
-        ruleSetVersion: HML_TECHNICAL_RULESET_VERSION,
-        model: "55",
-        environment: 2,
-        issuer: {
-          cnpj: issuerCnpj,
-          name: string(issuer.companyName, "Raz\xE3o social"),
-          ie: digits(
-            issuer.companyIE,
-            String(issuer.companyIE || "").replace(/\D/g, "").length,
-            "IE"
-          ),
-          crt: "1",
-          municipalityCode: issuerAddress.municipalityCode,
-          address: issuerAddress
-        },
-        recipient: {
-          name: string(customer.fullName, "Destinat\xE1rio"),
-          cpfCnpj: digits(customer.cpfCnpj, 11, "CPF sint\xE9tico"),
-          ieIndicator: "9",
-          address: recipientAddress
-        },
-        operation: {
-          natureOfOperation: "VENDA DE MERCADORIA",
-          direction: "outbound",
-          purpose: "1",
-          destination: "1",
-          presence: "1",
-          finalConsumer: "1",
-          freightMode: "9"
-        },
-        items: [
-          {
-            itemNumber: 1,
-            product: {
-              code: runId.slice(0, 30),
-              description: string(item.description, "Produto sint\xE9tico"),
-              gtin: "SEM GTIN",
-              quantity: 1,
-              unitValue: price,
-              gross: price,
-              discount: 0,
-              freight: 0,
-              insurance: 0,
-              otherExpenses: 0
-            },
-            classification: {
-              ncm: selected?.ncm ?? "94036000",
-              origin,
-              cfop: selected?.cfop ?? "5102",
-              cest: selected?.cest || void 0,
-              unit: "UN"
-            },
-            taxes: [
-              {
-                group: "ICMS",
-                codeSystem: "CSOSN",
-                code: csosn.csosn,
-                values: { vICMS: 0 },
-                decisionId: trace2.decisionId
-              },
-              {
-                group: "PIS",
-                codeSystem: "CST",
-                code: "99",
-                values: { vBC: 0, pPIS: 0, vPIS: 0 },
-                decisionId: trace2.decisionId
-              },
-              {
-                group: "COFINS",
-                codeSystem: "CST",
-                code: "99",
-                values: { vBC: 0, pCOFINS: 0, vCOFINS: 0 },
-                decisionId: trace2.decisionId
-              }
-            ],
-            decisions: [trace2]
-          }
-        ],
-        payments: [{ methodCode: "17", amount: price, decision: trace2 }],
-        totals,
-        decisions: [trace2]
-      };
-    }
-  };
-}
-
-// api/nfe/hml-normal-sale/constants.ts
-var HML_NORMAL_SALE_RULESET_VERSION = "HML_NORMAL_SALE_V2";
-
-// api/nfe/hmlNormalSaleRuleSet.ts
-async function createHmlNormalSaleRuleSet(facts, configuration) {
-  if (facts.emissionRequest.environment !== 2)
-    throw new Error("PRODUCTION_FISCAL_RULESET_REQUIRED");
-  parseHmlCsosnConfiguration(configuration);
-  const rules = await createNormalSaleRuleSet(facts, HML_NORMAL_SALE_RULESET_VERSION);
-  return { ...rules, technicalHomologationOnly: true };
 }
 
 // api/nfe/hml-technical/constants.ts
@@ -6230,9 +5956,9 @@ async function releaseAttempt(db, documentId, attemptToken) {
   } catch {
   }
 }
-async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumber, metadata2, cert, attemptToken) {
+async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumber, metadata3, cert, attemptToken) {
   try {
-    const { data: persisted, error } = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("id", String(metadata2.fiscalSnapshotId || "")).maybeSingle();
+    const { data: persisted, error } = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("id", String(metadata3.fiscalSnapshotId || "")).maybeSingle();
     if (error || !persisted) throw new Error("Snapshot fiscal indispon\xEDvel na transmiss\xE3o.");
     await assertXmlFiscalSelections(persisted.snapshot_data, signedXml);
   } catch {
@@ -6240,7 +5966,7 @@ async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumbe
       422,
       "HML_TRANSMISSION_INTEGRITY_FAILED",
       "XML assinado e campos confirmados n\xE3o puderam ser reconciliados. Transmiss\xE3o bloqueada.",
-      { ...metadata2, sefazContacted: false, numberReserved: true }
+      { ...metadata3, sefazContacted: false, numberReserved: true }
     );
   }
   let responseXml;
@@ -6249,21 +5975,21 @@ async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumbe
     responseXml = await withNfeEmissionStage(
       "sefaz_transmission",
       () => sendSoapToSefaz({
-        url: hmlEndpoint(metadata2.model, "NFeAutorizacao4"),
+        url: hmlEndpoint(metadata3.model, "NFeAutorizacao4"),
         action: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote",
         serviceNamespace: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4",
         xmlPayload: envelope,
         certPem: cert.certPem,
         privateKeyPem: cert.privateKeyPem
       }),
-      { environment: 2, model: String(metadata2.model || "") }
+      { environment: 2, model: String(metadata3.model || "") }
     );
   } catch (error) {
     const transportDiagnostic = sefazTransportDiagnostic(error);
     const diagnosticId = (0, import_node_crypto8.randomUUID)();
     const attemptDiagnostic = {
       diagnosticId,
-      emissionRequestId: metadata2.emissionRequestId,
+      emissionRequestId: metadata3.emissionRequestId,
       ...transportDiagnostic
     };
     console.error("SEFAZ_HML_TRANSPORT", { documentId, ...attemptDiagnostic });
@@ -6282,7 +6008,7 @@ async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumbe
       "Transmiss\xE3o sem resposta confirmada. Consulte a chave antes de qualquer nova tentativa.",
       {
         pending: true,
-        ...metadata2,
+        ...metadata3,
         transportDiagnostic,
         diagnosticId,
         diagnosticStage: "sefaz-transmission",
@@ -6321,7 +6047,7 @@ async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumbe
       503,
       "HML_RESULT_PERSIST_FAILED",
       "Resposta SEFAZ recebida, mas n\xE3o persistida; reconcilia\xE7\xE3o obrigat\xF3ria.",
-      { pending: true, ...metadata2 }
+      { pending: true, ...metadata3 }
     );
   return {
     status: numberConflict ? 409 : status === "erro" ? 422 : 200,
@@ -6336,7 +6062,7 @@ async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumbe
         code: "HML_SEFAZ_REJECTED",
         error: `${parsed.cStat ? parsed.cStat + ": " : ""}${parsed.xMotivo || "Rejei\xE7\xE3o da SEFAZ."}`
       } : {},
-      ...metadata2,
+      ...metadata3,
       signedXml,
       sefazResponseXml: responseXml,
       cStat: parsed.cStat,
@@ -7271,7 +6997,7 @@ async function emitHmlTechnical(db, command, candidate, appSettings) {
       }
     );
   }
-  const metadata2 = {
+  const metadata3 = {
     emissionRequestId: command.emissionRequestId,
     documentId,
     orderId: command.orderId,
@@ -7289,13 +7015,588 @@ async function emitHmlTechnical(db, command, candidate, appSettings) {
       signedXml,
       accessKey,
       reservation.number,
-      metadata2,
+      metadata3,
       cert,
       attemptToken
     );
   } finally {
     await releaseAttempt(db, documentId, attemptToken);
   }
+}
+
+// api/nfe/normal-sale/normalSalePreparation.ts
+var import_node_crypto11 = require("node:crypto");
+async function executeCasPreparationLoop(ctx) {
+  const {
+    db,
+    command,
+    facts,
+    resolved,
+    rules,
+    model,
+    sequence,
+    minimum,
+    tech,
+    certificate,
+    issuedAt,
+    randomCode,
+    actorId
+  } = ctx;
+  for (let preparation = 0; preparation < 3; preparation++) {
+    const peek = await withNfeEmissionStage(
+      "number_peek_rpc",
+      () => db.rpc("peek_nfe_outbound_number", {
+        p_issuer_cnpj: resolved.document.issuer.cnpj,
+        p_model: model,
+        p_environment: command.environment,
+        p_series: sequence.series,
+        p_minimum: minimum
+      }),
+      { emissionRequestId: command.emissionRequestId }
+    );
+    if (peek.error || !Number.isInteger(peek.data))
+      return {
+        result: outboundFailure(
+          503,
+          "FISCAL_SEQUENCE_UNAVAILABLE",
+          "N\xE3o foi poss\xEDvel consultar a pr\xF3xima numera\xE7\xE3o fiscal.",
+          { numberReserved: false, sefazContacted: false }
+        )
+      };
+    const number = peek.data;
+    if (command.requestedNumber !== void 0 && number !== command.requestedNumber)
+      return {
+        result: outboundFailure(
+          409,
+          "NFE_NUMBER_ALREADY_USED",
+          "A numera\xE7\xE3o solicitada j\xE1 est\xE1 reservada ou foi utilizada.",
+          {
+            numberReserved: false,
+            sefazContacted: false,
+            numberConflict: { requestedNumber: command.requestedNumber, nextNumber: number },
+            nfeNumber: command.requestedNumber
+          }
+        )
+      };
+    const accessKey = generateNfeAccessKey({
+      ufCode: "41",
+      yearMonth: issuedAt.slice(2, 4) + issuedAt.slice(5, 7),
+      cnpj: resolved.document.issuer.cnpj,
+      model,
+      series: sequence.series,
+      number,
+      emissionType: "1",
+      randomCode
+    }).accessKey;
+    const snapshot = {
+      ...facts,
+      resolvedDocument: resolved.document,
+      emissionRequest: {
+        ...facts.emissionRequest,
+        requestedModel: model,
+        series: sequence.series,
+        number
+      }
+    };
+    let xml = await withNfeEmissionStage(
+      "xml_serialization",
+      () => serializeFiscalDocument(facts, resolved.document, rules, {
+        accessKey,
+        series: Number(sequence.series),
+        number,
+        issuedAt
+      }),
+      { emissionRequestId: command.emissionRequestId }
+    );
+    xml = appendResponsibleTechnician(xml, accessKey, tech);
+    await withNfeEmissionStage(
+      "xml_unsigned_validation",
+      () => validateUnsignedNfeStructure(xml),
+      { emissionRequestId: command.emissionRequestId }
+    );
+    const signedXml = await withNfeEmissionStage(
+      "xml_signing",
+      () => signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64),
+      { emissionRequestId: command.emissionRequestId }
+    );
+    if (command.previewOnly) {
+      await withNfeEmissionStage(
+        "xml_schema_validation",
+        () => validateNfeAgainstOfficialSchema(signedXml),
+        { emissionRequestId: command.emissionRequestId }
+      );
+    }
+    await assertXmlFiscalSelections(snapshot, signedXml);
+    const identity = { series: sequence.series, number, accessKey };
+    assertSignedFiscalXmlMatchesSnapshot(
+      snapshot,
+      resolved.document,
+      signedXml,
+      { ...identity, issuedAt },
+      certificate.certPem
+    );
+    const previewFingerprint = fiscalPreviewFingerprint(
+      snapshot,
+      resolved.document,
+      { ...identity, issuedAt },
+      signedXml
+    );
+    if (command.previewOnly)
+      return {
+        result: {
+          status: 200,
+          body: {
+            success: true,
+            preview: true,
+            previewStatus: "PREVIEW_ONLY_NOT_AUTHORIZED",
+            signedXml,
+            previewProof: {
+              fingerprint: previewFingerprint,
+              capturedAt: facts.capturedAt,
+              issuedAt,
+              model,
+              series: sequence.series,
+              number,
+              accessKey
+            },
+            orderId: command.orderId,
+            emissionRequestId: command.emissionRequestId,
+            model,
+            series: sequence.series,
+            nfeNumber: number,
+            accessKey,
+            environment: command.environment,
+            numberReserved: false,
+            sefazContacted: false
+          }
+        }
+      };
+    const token = (0, import_node_crypto11.randomUUID)();
+    let saved;
+    try {
+      saved = await withNfeEmissionStage(
+        "prepare_attempt_rpc",
+        () => db.rpc("prepare_nfe_outbound_attempt", {
+          p_snapshot: { ...snapshot, decisionTrace: resolved.document.decisions },
+          p_signed_xml: signedXml,
+          p_access_key: accessKey,
+          p_request_command: fiscalAttemptCommand(command),
+          p_attempt_token: token,
+          p_actor_id: actorId,
+          p_minimum_number: minimum
+        }),
+        { emissionRequestId: command.emissionRequestId }
+      );
+    } catch {
+      try {
+        const recovery = await recoverNormalSale2(db, command);
+        if (recovery) return { result: recovery };
+      } catch {
+      }
+      return {
+        result: outboundFailure(
+          503,
+          "FISCAL_PREPARATION_UNCONFIRMED",
+          "A resposta da prepara\xE7\xE3o n\xE3o foi confirmada. Preserve esta inten\xE7\xE3o e consulte antes de repetir.",
+          {
+            pending: true,
+            emissionRequestId: command.emissionRequestId,
+            orderId: command.orderId,
+            environment: command.environment,
+            sefazContacted: false
+          }
+        )
+      };
+    }
+    if (saved.error?.message.includes("FISCAL_SEQUENCE_CHANGED") && command.requestedNumber === void 0) {
+      continue;
+    }
+    if (saved.error || !saved.data?.documentId) {
+      const recovery = await recoverNormalSale2(db, command);
+      if (recovery) return { result: recovery };
+      const reason = saved.error?.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || "FISCAL_PREPARATION_FAILED";
+      if (reason === "ALREADY_ACTIVE_FISCAL_ATTEMPT") {
+        const conflict = await describeActiveNormalSaleConflict(
+          db,
+          command,
+          resolved.document.issuer.cnpj
+        );
+        return { result: conflict };
+      }
+      if (!saved.error?.code && (!reason || reason === "FISCAL_PREPARATION_FAILED"))
+        return {
+          result: outboundFailure(
+            503,
+            "FISCAL_PREPARATION_UNCONFIRMED",
+            "A resposta da prepara\xE7\xE3o n\xE3o foi confirmada. Preserve esta inten\xE7\xE3o e consulte antes de repetir.",
+            {
+              pending: true,
+              emissionRequestId: command.emissionRequestId,
+              orderId: command.orderId,
+              environment: command.environment,
+              sefazContacted: false
+            }
+          )
+        };
+      return {
+        result: outboundFailure(
+          reason === "IDEMPOTENCY_KEY_REUSED" ? 409 : 503,
+          reason,
+          reason === "FISCAL_SOURCE_CHANGED" ? "Os dados do pedido, produtos ou cliente foram alterados durante a prepara\xE7\xE3o. Atualize os dados fiscais e tente novamente." : saved.error?.message || "A prepara\xE7\xE3o fiscal n\xE3o foi conclu\xEDda. Atualize os dados ou consulte a tentativa original.",
+          { numberReserved: false, sefazContacted: false, pending: false }
+        )
+      };
+    }
+    const reconciled = await reconcileNormalSale(
+      db,
+      saved.data.documentId,
+      true,
+      command.productionConfirmed === true,
+      saved.data.created ? token : void 0,
+      certificate
+    );
+    return { result: reconciled };
+  }
+  return { sequenceChanged: true };
+}
+
+// api/nfe/normal-sale/normalSaleContext.ts
+var import_node_crypto12 = require("node:crypto");
+
+// api/nfe/normal-sale/testOrderProductionGuard.ts
+var isSyntheticOrderBlockedInProduction = (environment, persistedOrderData) => {
+  if (environment !== 1 || !persistedOrderData || typeof persistedOrderData !== "object") {
+    return false;
+  }
+  return persistedOrderData.is_test === true;
+};
+
+// api/nfe/normal-sale/normalSaleContext.ts
+async function validateNormalSalePreconditions(db, command, candidate) {
+  if (isSyntheticOrderBlockedInProduction(command.environment, candidate))
+    return outboundFailure(
+      422,
+      "TEST_ORDER_PRODUCTION_BLOCKED",
+      "Pedidos marcados como teste n\xE3o podem ser emitidos em Produ\xE7\xE3o.",
+      { numberReserved: false, sefazContacted: false }
+    );
+  const recovered = command.previewOnly ? null : await recoverNormalSale2(db, command);
+  if (recovered) return recovered;
+  const gate = command.previewOnly ? null : productionTransmissionGate(command.environment, command.productionConfirmed === true);
+  if (gate)
+    return { ...gate, body: { ...gate.body, numberReserved: false, sefazContacted: false } };
+  if (command.supersedesDocumentId)
+    return outboundFailure(
+      409,
+      "FISCAL_REPLACEMENT_POLICY_REQUIRED",
+      "A substitui\xE7\xE3o deve seguir a pol\xEDtica de corre\xE7\xE3o do documento original.",
+      { numberReserved: false, sefazContacted: false }
+    );
+  if (candidate.order.data.fiscalScenario === "HML_TECHNICAL_V1")
+    return outboundFailure(
+      422,
+      "SYNTHETIC_FISCAL_SCENARIO",
+      "Fixture t\xE9cnica n\xE3o pertence ao fluxo de venda normal.",
+      { numberReserved: false, sefazContacted: false }
+    );
+  return null;
+}
+async function resolveNormalSaleFactsAndRules(db, command, candidate, appSettings) {
+  const facts = structuredClone(candidate);
+  await withNfeEmissionStage(
+    "inputs_fetch",
+    () => loadNormalSaleInputs(db, facts, appSettings),
+    { emissionRequestId: command.emissionRequestId }
+  );
+  let rules = await createNormalSaleRuleSet(facts);
+  const preflight = resolveFiscalDocument(facts, rules);
+  if (preflight.status !== "ready") {
+    console.error("[PREFLIGHT BLOCKERS]", JSON.stringify(preflight.blockers));
+    return {
+      errorResult: outboundFailure(
+        422,
+        "FISCAL_DETERMINATION_REQUIRED",
+        "O pedido n\xE3o passou pela determina\xE7\xE3o fiscal.",
+        { blockers: preflight.blockers, numberReserved: false, sefazContacted: false }
+      )
+    };
+  }
+  validateParanaIssuerIe(preflight.document.issuer.ie);
+  const model = preflight.document.model;
+  const inputs = obj(facts.fiscalInputs);
+  const decisions = inputs.contributionDecisions ? obj(inputs.contributionDecisions) : {};
+  const { contributionDecisions: _allDecisions, ...ownInputs } = inputs;
+  facts.fiscalInputs = {
+    ...ownInputs,
+    contributionDecision: inputs.contributionDecision ?? decisions[model]
+  };
+  facts.emissionRequest.modelDecision = preflight.document.modelDecision;
+  facts.emissionRequest.finalConsumer = preflight.document.operation.finalConsumer === "1";
+  rules = await createNormalSaleRuleSet(facts);
+  const resolved = resolveFiscalDocument(facts, rules);
+  if (resolved.status !== "ready" || resolved.document.model !== model)
+    throw new Error("Modelo fiscal divergiu durante a prepara\xE7\xE3o.");
+  return {
+    outcome: {
+      facts,
+      rules,
+      resolved,
+      model
+    }
+  };
+}
+async function resolveNormalSaleCredentials(command, model, facts, appSettings) {
+  const sequence = resolveNfeSequenceSettings(appSettings, model, command.environment);
+  if (!Number.isInteger(sequence.minimumNumber) || sequence.minimumNumber < 1 || sequence.minimumNumber > 999999999)
+    throw new Error("N\xFAmero inicial fiscal inv\xE1lido.");
+  if (command.requestedNumber !== void 0 && command.requestedNumber < sequence.minimumNumber)
+    throw new Error(
+      `A numera\xE7\xE3o deve ser igual ou superior ao in\xEDcio configurado (${sequence.minimumNumber}).`
+    );
+  const minimum = command.requestedNumber ?? sequence.minimumNumber;
+  const tech = getResponsibleTechnicianConfig(process.env, command.environment);
+  const pfx = process.env.NFE_CERTIFICATE_BASE64;
+  if (!tech || !pfx)
+    return {
+      errorResult: outboundFailure(
+        503,
+        "FISCAL_CERTIFICATE_OR_CSRT_UNAVAILABLE",
+        "Certificado A1 ou respons\xE1vel t\xE9cnico/CSRT n\xE3o configurado para o ambiente.",
+        {
+          numberReserved: false,
+          sefazContacted: false,
+          configurationIssues: [
+            ...getResponsibleTechnicianConfigurationIssues(process.env, command.environment),
+            ...!pfx ? ["certificate.base64"] : []
+          ]
+        }
+      )
+    };
+  const certificate = await withNfeEmissionStage(
+    "cert_extract",
+    () => extractCertificateAndKey(pfx, process.env.NFE_CERTIFICATE_PASSWORD || ""),
+    { emissionRequestId: command.emissionRequestId }
+  );
+  const issuedAt = saoPauloEmissionTimestamp(facts.capturedAt);
+  const code = (0, import_node_crypto12.createHash)("sha256").update(command.emissionRequestId).digest("hex");
+  const randomCode = String(Number.parseInt(code.slice(0, 10), 16) % 1e8).padStart(8, "0");
+  return {
+    outcome: {
+      sequence,
+      minimum,
+      tech,
+      certificate,
+      issuedAt,
+      randomCode
+    }
+  };
+}
+
+// api/nfe/emitNormalSale.ts
+async function emitNormalSale(db, command, candidate, appSettings = {}, actorId = "anonymous") {
+  const earlyPreconditionBlock = await validateNormalSalePreconditions(db, command, candidate);
+  if (earlyPreconditionBlock) return earlyPreconditionBlock;
+  try {
+    const factsResult = await resolveNormalSaleFactsAndRules(db, command, candidate, appSettings);
+    if ("errorResult" in factsResult) return factsResult.errorResult;
+    const { facts, rules, resolved, model } = factsResult.outcome;
+    const credsResult = await resolveNormalSaleCredentials(command, model, facts, appSettings);
+    if ("errorResult" in credsResult) return credsResult.errorResult;
+    const { sequence, minimum, tech, certificate, issuedAt, randomCode } = credsResult.outcome;
+    const casOutcome = await executeCasPreparationLoop({
+      db,
+      command,
+      facts,
+      resolved,
+      rules,
+      model,
+      sequence,
+      minimum,
+      tech,
+      certificate,
+      issuedAt,
+      randomCode,
+      actorId
+    });
+    if ("result" in casOutcome) {
+      return casOutcome.result;
+    }
+    return outboundFailure(
+      409,
+      "FISCAL_SEQUENCE_BUSY",
+      "A numera\xE7\xE3o mudou durante a prepara\xE7\xE3o. Repita a mesma solicita\xE7\xE3o.",
+      { numberReserved: false, sefazContacted: false }
+    );
+  } catch (error) {
+    return outboundFailure(
+      422,
+      "FISCAL_PREPARATION_INVALID",
+      error instanceof Error ? error.message : "Prepara\xE7\xE3o fiscal inv\xE1lida.",
+      {
+        numberReserved: false,
+        sefazContacted: false,
+        ...error instanceof FiscalXmlAuditError ? {
+          fiscalMismatchFields: error.mismatches.map(({ field, expected, actual }) => ({
+            field,
+            snapshotValue: String(expected),
+            currentValue: String(actual)
+          }))
+        } : {}
+      }
+    );
+  }
+}
+
+// api/nfe/normal-sale/normalEmissionDispatcher.ts
+async function dispatchNormalEmission(reqBody, authHeader, supabase, res) {
+  const parsedCommand = parseFiscalEmissionCommand(reqBody);
+  if ("error" in parsedCommand)
+    return res.status(400).json({
+      success: false,
+      code: "INVALID_FISCAL_EMISSION_COMMAND",
+      error: parsedCommand.error
+    });
+  const command = parsedCommand.command;
+  const fiscalAuthorization = await withNfeEmissionStage(
+    "operator_authorization",
+    () => authorizeFiscalOperator(supabase, authHeader),
+    { emissionRequestId: command.emissionRequestId, environment: command.environment }
+  );
+  if (!fiscalAuthorization.ok)
+    return res.status(fiscalAuthorization.status).json({
+      success: false,
+      error: fiscalAuthorization.message
+    });
+  if (command.previewOnly && !fiscalAuthorization.isAdministrator)
+    return res.status(403).json({
+      success: false,
+      code: "FISCAL_XML_PREVIEW_ADMIN_REQUIRED",
+      error: "Somente administradores podem visualizar a pr\xE9via do XML fiscal."
+    });
+  const normalRecovery = command.previewOnly ? null : await withNfeEmissionStage(
+    "idempotency_recovery",
+    () => recoverNormalSale2(supabase, command),
+    { emissionRequestId: command.emissionRequestId, environment: command.environment }
+  );
+  if (normalRecovery) return res.status(normalRecovery.status).json(normalRecovery.body);
+  const recovered = !command.previewOnly && command.environment === 2 ? await withNfeEmissionStage(
+    "idempotency_recovery",
+    () => recoverHmlTechnical(supabase, command),
+    { emissionRequestId: command.emissionRequestId, environment: command.environment }
+  ) : null;
+  if (recovered) return res.status(recovered.status).json(recovered.body);
+  const [{ data: orderRow, error: orderError }, { data: settingsRow, error: settingsError }] = await withNfeEmissionStage(
+    "order_and_settings_fetch",
+    () => Promise.all([
+      supabase.from("orders").select("id,order_type,status,deleted,order_data,version,updated_at").eq("id", command.orderId).maybeSingle(),
+      supabase.from("settings").select("data").eq("id", "app").maybeSingle()
+    ]),
+    { emissionRequestId: command.emissionRequestId, environment: command.environment }
+  );
+  if (orderError)
+    return res.status(503).json({
+      success: false,
+      code: "FISCAL_ORDER_SNAPSHOT_UNAVAILABLE",
+      error: "N\xE3o foi poss\xEDvel carregar a revis\xE3o fiscal do pedido no servidor."
+    });
+  if (!orderRow)
+    return res.status(404).json({ success: false, error: "Pedido n\xE3o encontrado." });
+  if (!["sale", "showroom"].includes(String(orderRow.order_type)) || ["cancelled", "cancelado"].includes(String(orderRow.status || "").toLowerCase()))
+    return res.status(409).json({
+      success: false,
+      code: "ORDER_NOT_ELIGIBLE_FOR_OUTBOUND_FISCAL",
+      error: "Pedido n\xE3o eleg\xEDvel para emiss\xE3o fiscal de sa\xEDda."
+    });
+  if (!orderRow.order_data || typeof orderRow.order_data !== "object" || Array.isArray(orderRow.order_data) || !Number.isInteger(orderRow.version) || !orderRow.updated_at)
+    return res.status(409).json({
+      success: false,
+      code: "ORDER_FISCAL_SNAPSHOT_INCOMPLETE",
+      error: "Pedido sem dados ou revis\xE3o necess\xE1rios para snapshot fiscal."
+    });
+  if (settingsError || !settingsRow?.data || typeof settingsRow.data !== "object" || Array.isArray(settingsRow.data))
+    return res.status(503).json({
+      success: false,
+      code: "ISSUER_PROFILE_UNAVAILABLE",
+      error: "Perfil do emitente indispon\xEDvel para preparar o snapshot fiscal."
+    });
+  const issuerKeys = [
+    "companyName",
+    "companyAddress",
+    "companyCnpj",
+    "companyIE",
+    "companyIM",
+    "companyCRT",
+    "companyLogradouro",
+    "companyNumero",
+    "companyBairro",
+    "companyCEP",
+    "companyCMun",
+    "companyXMun",
+    "companyUF",
+    "companyPhone",
+    "cscId"
+  ];
+  const issuerSettings = settingsRow.data;
+  const issuerProfile = Object.fromEntries(
+    issuerKeys.flatMap(
+      (key) => issuerSettings[key] === null || issuerSettings[key] === void 0 ? [] : [[key, issuerSettings[key]]]
+    )
+  );
+  const candidate = {
+    schemaVersion: 1,
+    capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    order: {
+      id: String(orderRow.id),
+      type: String(orderRow.order_type),
+      status: String(orderRow.status || ""),
+      deleted: orderRow.deleted === true,
+      version: Number(orderRow.version),
+      updatedAt: String(orderRow.updated_at),
+      data: orderRow.order_data
+    },
+    issuerProfile,
+    emissionRequest: {
+      id: command.emissionRequestId,
+      environment: command.environment,
+      itemCsosnOverrides: command.itemCsosnOverrides,
+      itemFiscalSelections: command.itemFiscalSelections,
+      recipientTaxId: command.recipientTaxId,
+      recipientIe: command.recipientIe,
+      recipientIeIndicator: command.recipientIeIndicator,
+      finalConsumer: command.finalConsumer,
+      deliveryByIssuer: command.deliveryByIssuer,
+      cardNotIntegrated: command.cardNotIntegrated,
+      hasTransport: command.hasTransport,
+      transportResponsible: command.transportResponsible,
+      freightContractResponsible: command.freightContractResponsible,
+      transporter: command.transporter,
+      freightMode: command.freightMode
+    }
+  };
+  if (command.environment === 2 && candidate.order.data.fiscalScenario === "HML_TECHNICAL_V1") {
+    if (command.previewOnly)
+      return res.status(422).json({
+        success: false,
+        code: "FISCAL_PREVIEW_UNSUPPORTED_SCENARIO",
+        error: "A pr\xE9via assinada ainda n\xE3o est\xE1 dispon\xEDvel para este cen\xE1rio fiscal t\xE9cnico.",
+        numberReserved: false,
+        sefazContacted: false
+      });
+    const result2 = await emitHmlTechnical(supabase, command, candidate, issuerSettings);
+    return res.status(result2.status).json(result2.body);
+  }
+  const result = await withNfeEmissionStage(
+    "normal_sale_pipeline",
+    () => emitNormalSale(
+      supabase,
+      command,
+      candidate,
+      issuerSettings,
+      fiscalAuthorization.userId
+    ),
+    { environment: command.environment }
+  );
+  return res.status(result.status).json(result.body);
 }
 
 // api/nfe/emit.ts
@@ -7332,14 +7633,6 @@ async function handler(req, res) {
     let selectedEnvironment = Number(submittedEnvironment);
     let retryDoc = null;
     if (!req.body.retryDocumentId) {
-      const parsedCommand = parseFiscalEmissionCommand(req.body);
-      if ("error" in parsedCommand)
-        return res.status(400).json({
-          success: false,
-          code: "INVALID_FISCAL_EMISSION_COMMAND",
-          error: parsedCommand.error
-        });
-      const command = parsedCommand.command;
       if (!supabaseServiceKey)
         return res.status(503).json({
           success: false,
@@ -7350,140 +7643,7 @@ async function handler(req, res) {
         supabaseServiceKey,
         { db: { retry: false } }
       );
-      const fiscalAuthorization2 = await withNfeEmissionStage(
-        "operator_authorization",
-        () => authorizeFiscalOperator(supabase, req.headers.authorization),
-        { emissionRequestId: command.emissionRequestId, environment: command.environment }
-      );
-      if (!fiscalAuthorization2.ok)
-        return res.status(fiscalAuthorization2.status).json({
-          success: false,
-          error: fiscalAuthorization2.message
-        });
-      if (command.previewOnly && !fiscalAuthorization2.isAdministrator)
-        return res.status(403).json({
-          success: false,
-          code: "FISCAL_XML_PREVIEW_ADMIN_REQUIRED",
-          error: "Somente administradores podem visualizar a pr\xE9via do XML fiscal."
-        });
-      const normalRecovery = command.previewOnly ? null : await withNfeEmissionStage(
-        "idempotency_recovery",
-        () => recoverNormalSale(supabase, command),
-        { emissionRequestId: command.emissionRequestId, environment: command.environment }
-      );
-      if (normalRecovery) return res.status(normalRecovery.status).json(normalRecovery.body);
-      const recovered = !command.previewOnly && command.environment === 2 ? await withNfeEmissionStage(
-        "idempotency_recovery",
-        () => recoverHmlTechnical(supabase, command),
-        { emissionRequestId: command.emissionRequestId, environment: command.environment }
-      ) : null;
-      if (recovered) return res.status(recovered.status).json(recovered.body);
-      const [{ data: orderRow2, error: orderError2 }, { data: settingsRow, error: settingsError }] = await withNfeEmissionStage(
-        "order_and_settings_fetch",
-        () => Promise.all([
-          supabase.from("orders").select("id,order_type,status,deleted,order_data,version,updated_at").eq("id", command.orderId).maybeSingle(),
-          supabase.from("settings").select("data").eq("id", "app").maybeSingle()
-        ]),
-        { emissionRequestId: command.emissionRequestId, environment: command.environment }
-      );
-      if (orderError2)
-        return res.status(503).json({
-          success: false,
-          code: "FISCAL_ORDER_SNAPSHOT_UNAVAILABLE",
-          error: "N\xE3o foi poss\xEDvel carregar a revis\xE3o fiscal do pedido no servidor."
-        });
-      if (!orderRow2)
-        return res.status(404).json({ success: false, error: "Pedido n\xE3o encontrado." });
-      if (!["sale", "showroom"].includes(String(orderRow2.order_type)) || ["cancelled", "cancelado"].includes(String(orderRow2.status || "").toLowerCase()))
-        return res.status(409).json({
-          success: false,
-          code: "ORDER_NOT_ELIGIBLE_FOR_OUTBOUND_FISCAL",
-          error: "Pedido n\xE3o eleg\xEDvel para emiss\xE3o fiscal de sa\xEDda."
-        });
-      if (!orderRow2.order_data || typeof orderRow2.order_data !== "object" || Array.isArray(orderRow2.order_data) || !Number.isInteger(orderRow2.version) || !orderRow2.updated_at)
-        return res.status(409).json({
-          success: false,
-          code: "ORDER_FISCAL_SNAPSHOT_INCOMPLETE",
-          error: "Pedido sem dados ou revis\xE3o necess\xE1rios para snapshot fiscal."
-        });
-      if (settingsError || !settingsRow?.data || typeof settingsRow.data !== "object" || Array.isArray(settingsRow.data))
-        return res.status(503).json({
-          success: false,
-          code: "ISSUER_PROFILE_UNAVAILABLE",
-          error: "Perfil do emitente indispon\xEDvel para preparar o snapshot fiscal."
-        });
-      const issuerKeys = [
-        "companyName",
-        "companyAddress",
-        "companyCnpj",
-        "companyIE",
-        "companyIM",
-        "companyCRT",
-        "companyLogradouro",
-        "companyNumero",
-        "companyBairro",
-        "companyCEP",
-        "companyCMun",
-        "companyXMun",
-        "companyUF",
-        "companyPhone",
-        "cscId"
-      ];
-      const issuerSettings = settingsRow.data;
-      const issuerProfile = Object.fromEntries(
-        issuerKeys.flatMap(
-          (key) => issuerSettings[key] === null || issuerSettings[key] === void 0 ? [] : [[key, issuerSettings[key]]]
-        )
-      );
-      const candidate = {
-        schemaVersion: 1,
-        capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
-        order: {
-          id: String(orderRow2.id),
-          type: String(orderRow2.order_type),
-          status: String(orderRow2.status || ""),
-          deleted: orderRow2.deleted === true,
-          version: Number(orderRow2.version),
-          updatedAt: String(orderRow2.updated_at),
-          data: orderRow2.order_data
-        },
-        issuerProfile,
-        emissionRequest: {
-          id: command.emissionRequestId,
-          environment: command.environment,
-          itemCsosnOverrides: command.itemCsosnOverrides,
-          itemFiscalSelections: command.itemFiscalSelections,
-          recipientTaxId: command.recipientTaxId,
-          recipientIe: command.recipientIe,
-          recipientIeIndicator: command.recipientIeIndicator,
-          finalConsumer: command.finalConsumer,
-          deliveryByIssuer: command.deliveryByIssuer,
-          cardNotIntegrated: command.cardNotIntegrated,
-          hasTransport: command.hasTransport,
-          transportResponsible: command.transportResponsible,
-          freightContractResponsible: command.freightContractResponsible,
-          transporter: command.transporter,
-          freightMode: command.freightMode
-        }
-      };
-      if (command.environment === 2 && candidate.order.data.fiscalScenario === "HML_TECHNICAL_V1") {
-        if (command.previewOnly)
-          return res.status(422).json({
-            success: false,
-            code: "FISCAL_PREVIEW_UNSUPPORTED_SCENARIO",
-            error: "A pr\xE9via assinada ainda n\xE3o est\xE1 dispon\xEDvel para este cen\xE1rio fiscal t\xE9cnico.",
-            numberReserved: false,
-            sefazContacted: false
-          });
-        const result2 = await emitHmlTechnical(supabase, command, candidate, issuerSettings);
-        return res.status(result2.status).json(result2.body);
-      }
-      const result = await withNfeEmissionStage(
-        "normal_sale_pipeline",
-        () => emitNormalSale(supabase, command, candidate, issuerSettings, fiscalAuthorization2.userId),
-        { environment: command.environment }
-      );
-      return res.status(result.status).json(result.body);
+      return await dispatchNormalEmission(req.body, req.headers.authorization, supabase, res);
     }
     if (!xml && !req.body.retryDocumentId) {
       return res.status(400).json({ error: "XML da NF-e n\xE3o fornecido no payload." });
@@ -7809,7 +7969,7 @@ async function handler(req, res) {
         { environment: selectedEnvironment, model }
       );
     } catch (soapErr) {
-      const diagnosticId = (0, import_node_crypto11.randomUUID)();
+      const diagnosticId = (0, import_node_crypto13.randomUUID)();
       const transportDiagnostic = sefazTransportDiagnostic(soapErr);
       const attemptDiagnostic = { diagnosticId, emissionRequestId, ...transportDiagnostic };
       console.error("[NF-e Emit] Falha de transporte:", { documentId, ...attemptDiagnostic });

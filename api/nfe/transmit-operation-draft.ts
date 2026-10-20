@@ -58,6 +58,9 @@ import {
   validateSourceDocument,
 } from './operation-draft/draftValidation';
 import {
+  claimReadyDraftForTransmission,
+  confirmDraftTransmissionStart,
+  executePrepareDraftAttemptRpc,
   persistDraftAuthorized,
   reconcileStoredDraftAttempt,
 } from './operation-draft/draftPersistence';
@@ -664,14 +667,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         let prepared = null;
         try {
-          prepared = await db.rpc('prepare_nfe_operation_attempt', {
-            p_draft_id: draft.id,
-            p_expected_updated_at: draft.updated_at,
-            p_expected_review_data: review,
-            p_expected_lines: lines,
-            p_signed_xml: signedXml,
-            p_access_key: accessKey,
-            p_minimum_number: minimumNumber,
+          prepared = await executePrepareDraftAttemptRpc(db, {
+            draftId: draft.id,
+            expectedUpdatedAt: draft.updated_at,
+            reviewData: review,
+            lines,
+            signedXml,
+            accessKey,
+            minimumNumber,
           });
         } catch {
           return res.status(503).json({
@@ -725,15 +728,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         sourceOperationType,
         sourceDestinationIndicator,
       });
-      const { data: claimed, error: claimError } = await db
-        .from('nfe_operation_drafts')
-        .update({ status: 'transmitting', transmitted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq('id', draft.id)
-        .eq('status', 'ready')
-        .eq('access_key', accessKey)
-        .eq('updated_at', draft.updated_at)
-        .select('id,updated_at')
-        .maybeSingle();
+      const { data: claimed, error: claimError } = await claimReadyDraftForTransmission(db, {
+        draftId: draft.id,
+        accessKey,
+        expectedUpdatedAt: draft.updated_at,
+      });
 
       if (claimError || !claimed) {
         return res.status(409).json({
@@ -746,30 +745,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!accessKey || !signedXml) throw new Error('Tentativa fiscal sem chave/XML confirmados.');
-    assertDraftXmlMatchesReview({
-      signedXml,
-      certificatePem: certificate.certPem,
-      draft,
-      review,
-      lines: lines as Array<Record<string, unknown>>,
-      originalById,
-      sourceAccessKey: String(validatedSource.chave_acesso),
-      environment,
-      accessKey,
-      series,
-      number: nfeNumber,
-      sourceOperationType,
-      sourceDestinationIndicator,
-    });
 
     const batchXml = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${Date.now().toString().slice(-15)}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
     // A delayed preparation response must not send after another session changed the attempt.
     try {
-      const now = new Date().toISOString();
-      const { data: started, error: startError } = await db.from('nfe_operation_drafts')
-        .update({ transmitted_at: now, updated_at: now })
-        .eq('id', draft.id).eq('status', 'transmitting').eq('access_key', accessKey)
-        .eq('updated_at', transmissionVersion).select('id,updated_at').maybeSingle();
+      const { data: started, error: startError } = await confirmDraftTransmissionStart(db, {
+        draftId: draft.id,
+        accessKey,
+        transmissionVersion,
+      });
       if (startError || !started) throw new Error('TRANSMISSION_START_NOT_CONFIRMED');
       transmissionVersion = started.updated_at;
     } catch {

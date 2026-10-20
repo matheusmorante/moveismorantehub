@@ -7,6 +7,7 @@ import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadg
 import type { NfeTabId, FiscalFieldError } from '../types/nfeEmission.types';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { supabase } from '@/pages/utils/supabaseConfig';
 
 export const maskRecipientTaxId = (value: string) => {
   if (/[a-z]/i.test(value)) return formatRecipientTaxId(value, 'PJ');
@@ -90,11 +91,51 @@ export function useNfeEmissionModalState({
     if (recipientTaxIdPrefilledOrderId.current === prefillKey) return;
 
     recipientTaxIdPrefilledOrderId.current = prefillKey;
-    setRecipientTaxId(
-      maskRecipientTaxId(
-        emissionOrder.customerData?.cpfCnpj || emissionOrder.customerData?.document || ''
-      )
-    );
+    const directTaxId =
+      emissionOrder.customerData?.cpfCnpj ||
+      emissionOrder.customerData?.document ||
+      (emissionOrder as any).nfeDraft?.[environment === 1 ? '1' : '2']?.recipientTaxId ||
+      (emissionOrder as any).nfeDraft?.['2']?.recipientTaxId ||
+      (emissionOrder as any).nfeDraft?.['1']?.recipientTaxId ||
+      '';
+    if (directTaxId && directTaxId.trim()) {
+      setRecipientTaxId(maskRecipientTaxId(directTaxId));
+      return;
+    }
+
+    let active = true;
+    void Promise.resolve(
+      supabase
+        ?.from?.('nfe_documents')
+        ?.select?.('destinatario_documento,xml_nfe,status,document_type')
+        ?.eq?.('order_id', emissionOrder.id)
+        ?.in?.('status', ['homologada', 'autorizada', 'cancelada'])
+        ?.order?.('created_at', { ascending: false })
+    ).then((res: any) => {
+      if (!active || !res?.data || res.data.length === 0) return;
+      for (const doc of res.data) {
+        if (doc.destinatario_documento && doc.destinatario_documento.trim()) {
+          setRecipientTaxId(maskRecipientTaxId(doc.destinatario_documento));
+          return;
+        }
+        if (doc.xml_nfe) {
+          const cpfMatch = doc.xml_nfe.match(/<(?:\\w+:)?dest>[\\s\\S]*?<(?:\\w+:)?CPF>([0-9]{11})<\/(?:\\w+:)?CPF>/i);
+          if (cpfMatch?.[1]) {
+            setRecipientTaxId(maskRecipientTaxId(cpfMatch[1]));
+            return;
+          }
+          const cnpjMatch = doc.xml_nfe.match(/<(?:\\w+:)?dest>[\\s\\S]*?<(?:\\w+:)?CNPJ>([0-9]{14})<\/(?:\\w+:)?CNPJ>/i);
+          if (cnpjMatch?.[1]) {
+            setRecipientTaxId(maskRecipientTaxId(cnpjMatch[1]));
+            return;
+          }
+        }
+      }
+    }).catch(() => {});
+
+    return () => {
+      active = false;
+    };
   }, [
     isOpen,
     isLoadingCustomerType,
@@ -102,6 +143,8 @@ export function useNfeEmissionModalState({
     emissionOrder?.customerData?.id,
     emissionOrder?.customerData?.cpfCnpj,
     emissionOrder?.customerData?.document,
+    (emissionOrder as any)?.nfeDraft,
+    environment,
     setRecipientTaxId,
   ]);
 

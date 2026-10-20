@@ -304,14 +304,22 @@ const DeliveryOrderCard = ({
                 className={`${linkedBtnBg} text-white px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow flex items-center gap-1 transition-transform hover:scale-105 active:scale-95`}
                 title={`Ver ${linkedLabel.toLowerCase()}`}
               >
-                <i className={`bi ${linkedIcon} text-xs`} />
+                {isLinkedPickup ? (
+                  <PickupIcon white className="h-3 w-3" />
+                ) : (
+                  <i className={`bi ${linkedIcon} text-xs`} />
+                )}
                 <span>{isLinkedPickup ? 'Retirada' : 'Entrega'}</span>
               </button>
 
               {showOrderTooltip && (
                 <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-premium-lg z-[100] p-3 animate-slide-up-custom overflow-hidden">
                   <div className="flex items-center gap-2 mb-2 border-b pb-2 dark:border-slate-800">
-                    <i className={`bi ${linkedIcon} ${linkedIconColor}`} />
+                    {isLinkedPickup ? (
+                      <PickupIcon className={`h-3.5 w-3.5 ${linkedIconColor}`} />
+                    ) : (
+                      <i className={`bi ${linkedIcon} ${linkedIconColor}`} />
+                    )}
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                       {linkedLabel}
                     </span>

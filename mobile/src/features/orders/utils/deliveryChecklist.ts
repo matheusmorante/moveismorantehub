@@ -12,9 +12,9 @@ const normalize = (value: unknown) =>
  * repetições antes de montar o checklist.
  */
 const collectOrderItems = (order: any): any[] => {
-  const data = order.order_data || order;
+  const data = order?.order_data || order || {};
   const dataItems = Array.isArray(data.items) ? data.items : [];
-  const orderItems = Array.isArray(order.items) ? order.items : [];
+  const orderItems = Array.isArray(order?.items) ? order.items : [];
   const primaryItems = dataItems.length > 0 ? dataItems : orderItems;
   const assistanceItems = Array.isArray(data.assistanceItems) ? data.assistanceItems : [];
   const uniqueItems = new Map<string, any>();
@@ -35,11 +35,14 @@ const collectOrderItems = (order: any): any[] => {
 };
 
 const collectRawNotes = (order: any): string => {
-  const data = order.order_data || order;
-  const shipping = data.shipping || {};
-  const address = shipping.deliveryAddress || shipping.address || {};
-  const customer = data.customerData || {};
+  const data = order?.order_data || order || {};
+  const shipping = data?.shipping || order?.shipping || {};
+  const address = shipping?.deliveryAddress || shipping?.address || {};
+  const customer = data?.customerData || order?.customerData || {};
   return [
+    order?.observation,
+    order?.observations,
+    order?.notes,
     data.observation,
     data.observations,
     data.notes,
@@ -77,11 +80,18 @@ const extractCallAdvanceTime = (rawText: string): string | null => {
   return null;
 };
 
+const isTruthy = (value: unknown): boolean =>
+  value === true || value === 'true' || value === 1 || value === '1';
+
 const getPendingCardInfo = (
   order: any
 ): { hasPending: boolean; methods: string[]; pendingAmount: number } => {
-  const data = order.order_data || order;
-  const payments = Array.isArray(data.payments) ? data.payments : [];
+  const data = order?.order_data || order || {};
+  const payments = Array.isArray(data.payments)
+    ? data.payments
+    : Array.isArray(order?.payments)
+      ? order.payments
+      : [];
   let pendingAmount = 0;
   const methodsFound: string[] = [];
 
@@ -102,14 +112,24 @@ const getPendingCardInfo = (
   });
 
   if (methodsFound.length === 0 && payments.length === 0) {
-    const fallbackMethod = normalize(data.paymentMethod || data.payment_method);
-    const orderStatus = normalize(data.status || order.status);
+    const fallbackMethod = normalize(
+      data.paymentMethod || data.payment_method || order?.paymentMethod || order?.payment_method
+    );
+    const orderStatus = normalize(data.status || order?.status);
     if (
       /credito|debito|cartao/.test(fallbackMethod) &&
       !/pago|recebido|concluido/.test(orderStatus)
     ) {
-      methodsFound.push(String(data.paymentMethod || data.payment_method || 'Cartão').trim());
-      pendingAmount = Number(data.total || order.total || 0);
+      methodsFound.push(
+        String(
+          data.paymentMethod ||
+            data.payment_method ||
+            order?.paymentMethod ||
+            order?.payment_method ||
+            'Cartão'
+        ).trim()
+      );
+      pendingAmount = Number(data.total || order?.total || 0);
     }
   }
 
@@ -119,6 +139,55 @@ const getPendingCardInfo = (
     methods: uniqueMethods,
     pendingAmount,
   };
+};
+
+const hasCardMachineRequired = (
+  order: any,
+  rawNotes: string,
+  cardInfo: { hasPending: boolean }
+): boolean => {
+  const data = order?.order_data || order || {};
+  const shipping = data?.shipping || order?.shipping || {};
+
+  const flag =
+    isTruthy(shipping?.bringCardMachine) ||
+    isTruthy(shipping?.bring_card_machine) ||
+    isTruthy(shipping?.takeCardMachine) ||
+    isTruthy(shipping?.needCardMachine) ||
+    isTruthy(shipping?.cardMachine) ||
+    isTruthy(data?.bringCardMachine) ||
+    isTruthy(data?.bring_card_machine) ||
+    isTruthy(order?.bringCardMachine) ||
+    isTruthy(order?.bring_card_machine);
+
+  if (flag) return true;
+  if (cardInfo?.hasPending) return true;
+
+  const normalizedNotes = normalize(rawNotes);
+  return /levar m[aá]quina de cart[aã]o|maquininha de cart[aã]o|levar maquina/i.test(normalizedNotes);
+};
+
+const hasCallBeforeLeavingRequired = (order: any, rawNotes: string): boolean => {
+  const data = order?.order_data || order || {};
+  const shipping = data?.shipping || order?.shipping || {};
+
+  const flag =
+    isTruthy(shipping?.callBeforeDelivery) ||
+    isTruthy(shipping?.call_before_delivery) ||
+    isTruthy(shipping?.callBeforeLeaving) ||
+    isTruthy(shipping?.call_before_leaving) ||
+    isTruthy(shipping?.callBefore) ||
+    isTruthy(data?.callBeforeDelivery) ||
+    isTruthy(data?.call_before_delivery) ||
+    isTruthy(data?.callBeforeLeaving) ||
+    isTruthy(order?.callBeforeDelivery) ||
+    isTruthy(order?.callBeforeLeaving);
+
+  if (flag) return true;
+  if (extractCallAdvanceTime(rawNotes)) return true;
+
+  const normalizedNotes = normalize(rawNotes);
+  return /(?:ligar|avisar|chamar|whatsapp|msg|mensagem).{0,30}antes/i.test(normalizedNotes);
 };
 
 const checkHoleSawRequirement = (
@@ -155,7 +224,6 @@ const checkHoleSawRequirement = (
 
 export const buildDeliveryChecklist = (order: any): DeliveryChecklistItem[] => {
   const rawNotes = collectRawNotes(order);
-  const normalizedNotes = normalize(rawNotes);
   const itemsList = collectOrderItems(order);
 
   const checklist: DeliveryChecklistItem[] = [];
@@ -180,29 +248,21 @@ export const buildDeliveryChecklist = (order: any): DeliveryChecklistItem[] => {
     });
   }
 
-  // 2. Maquininha de Cartão se houver débito/crédito pendente
+  // 2. Máquina de Cartão se marcado em logística, pendente ou solicitado em observações
   const cardInfo = getPendingCardInfo(order);
-  if (cardInfo.hasPending) {
-    const amountText =
-      cardInfo.pendingAmount > 0
-        ? ` (R$ ${cardInfo.pendingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
-        : '';
+  if (hasCardMachineRequired(order, rawNotes, cardInfo)) {
     checklist.push({
       id: 'card_machine',
-      label: `Levar maquininha de cartão — pendente: ${cardInfo.methods.join(' / ')}${amountText}`,
+      label: 'Carregado: Máquina de cartão',
     });
   }
 
-  // 3. Ligar / Avisar antes de ir com mensuração de tempo
-  const hasCallRequest =
-    /ligar antes|avisar antes|chamar antes|whatsapp antes|msg antes|mensagem antes/.test(
-      normalizedNotes
-    );
-  if (hasCallRequest) {
+  // 3. Ligar antes de sair se marcado em logística ou solicitado em observações
+  if (hasCallBeforeLeavingRequired(order, rawNotes)) {
     const advanceTime = extractCallAdvanceTime(rawNotes);
     const label = advanceTime
-      ? `Ligar / Avisar o cliente com ${advanceTime} de antecedência`
-      : 'Ligar / Avisar o cliente antes de ir (solicitado nas observações)';
+      ? `Ligar antes de sair (${advanceTime} de antecedência)`
+      : 'Ligar antes de sair';
     checklist.push({ id: 'call_customer', label });
   }
 

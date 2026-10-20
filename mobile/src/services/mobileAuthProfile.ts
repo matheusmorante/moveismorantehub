@@ -1,4 +1,5 @@
 import { MASTER_DEFAULT_PROFILE, supabase } from './supabaseClient';
+import { offlineStorageService } from './offline/offlineStorageService';
 
 const PROFILE_TIMEOUT_MS = 10000;
 const PROFILE_COLUMNS = 'id,email,full_name,role,roles';
@@ -9,6 +10,8 @@ const withTimeout = <T,>(promise: Promise<T>) =>
     new Promise<null>((resolve) => setTimeout(() => resolve(null), PROFILE_TIMEOUT_MS)),
   ]);
 
+const getProfileCacheKey = (userId: string) => `user_profile_${userId}`;
+
 export const resolveMobileUserProfile = async (session: any) => {
   if (!session?.user) return null;
 
@@ -18,44 +21,72 @@ export const resolveMobileUserProfile = async (session: any) => {
     return { ...MASTER_DEFAULT_PROFILE, fullName: googleName || MASTER_DEFAULT_PROFILE.fullName };
   }
 
-  const response: any = await withTimeout(
-    Promise.resolve(
-      supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', session.user.id).maybeSingle()
-    )
-  );
-  let profile = response?.data;
-  if (!profile) {
-    const { data } = await supabase
-      .from('profiles')
-      .upsert({
-        id: session.user.id,
-        email: session.user.email || '',
-        full_name: googleName || session.user.email?.split('@')[0] || 'Novo usuário',
-        role: 'pending',
-      })
-      .select(PROFILE_COLUMNS)
-      .maybeSingle();
-    profile = data;
+  let response: any = null;
+  try {
+    response = await withTimeout(
+      Promise.resolve(
+        supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', session.user.id).maybeSingle()
+      )
+    );
+  } catch {
+    response = null;
   }
+
+  let profile = response?.data;
+  const hadNetworkOrTimeoutFailure = !response || Boolean(response?.error);
+
+  // Somente cria perfil 'pending' se a consulta ao banco respondeu sem erro e confirmou ausência do registro
+  if (!profile && !hadNetworkOrTimeoutFailure) {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .upsert({
+          id: session.user.id,
+          email: session.user.email || '',
+          full_name: googleName || session.user.email?.split('@')[0] || 'Novo usuário',
+          role: 'pending',
+        })
+        .select(PROFILE_COLUMNS)
+        .maybeSingle();
+      profile = data;
+    } catch {}
+  }
+
+  // Fallback offline: se houve falha de rede/timeout e não obteve profile do servidor, restaura o último perfil válido em cache
+  if (!profile && hadNetworkOrTimeoutFailure) {
+    try {
+      const cached = await offlineStorageService.getWorkingSet<any>(
+        getProfileCacheKey(session.user.id)
+      );
+      if (cached?.data && cached.data.id === session.user.id) {
+        return cached.data;
+      }
+    } catch {}
+  }
+
   if (profile && googleName && profile.full_name !== googleName) {
-    await supabase.from('profiles').update({ full_name: googleName }).eq('id', session.user.id);
+    try {
+      await supabase.from('profiles').update({ full_name: googleName }).eq('id', session.user.id);
+    } catch {}
   }
 
   let personRoles: string[] = [];
-  try {
-    const { data: person } = await supabase
-      .from('people')
-      .select('roles,role')
-      .eq('email', userEmail)
-      .maybeSingle();
-    if (person) {
-      if (Array.isArray(person.roles) && person.roles.length > 0) {
-        personRoles.push(...person.roles);
-      } else if (person.role) {
-        personRoles.push(person.role);
+  if (!hadNetworkOrTimeoutFailure) {
+    try {
+      const { data: person } = await supabase
+        .from('people')
+        .select('roles,role')
+        .eq('email', userEmail)
+        .maybeSingle();
+      if (person) {
+        if (Array.isArray(person.roles) && person.roles.length > 0) {
+          personRoles.push(...person.roles);
+        } else if (person.role) {
+          personRoles.push(person.role);
+        }
       }
-    }
-  } catch (err) {}
+    } catch (err) {}
+  }
 
   const mergedRoles = Array.from(
     new Set([
@@ -65,7 +96,7 @@ export const resolveMobileUserProfile = async (session: any) => {
     ])
   ).filter((r) => r && r !== 'pending');
 
-  return {
+  const resolvedProfile = {
     id: profile?.id || session.user.id,
     fullName: googleName || profile?.full_name || session.user.email?.split('@')[0] || 'Usuário',
     email: profile?.email || session.user.email,
@@ -78,4 +109,15 @@ export const resolveMobileUserProfile = async (session: any) => {
           : [],
     active: true,
   };
+
+  if (resolvedProfile.role && resolvedProfile.role !== 'pending') {
+    try {
+      await offlineStorageService.cacheWorkingSet(
+        getProfileCacheKey(session.user.id),
+        resolvedProfile
+      );
+    } catch {}
+  }
+
+  return resolvedProfile;
 };

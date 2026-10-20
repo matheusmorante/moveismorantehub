@@ -21,20 +21,46 @@ function authorizedInvoiceFiscalByItem(
   try {
     const productItems = items.filter((item) => item.itemType !== 'service');
     const lines = parseAuthorizedInvoiceLines(nfeData.xml);
+    const usedLineIndices = new Set<number>();
     productItems.forEach((item, index) => {
-      const line = lines.find((candidate) => candidate.invoiceItemNumber === index + 1);
-      if (!line) return;
-      const sameCode = Boolean(item.code && line.productCode && item.code === line.productCode);
-      const sameDescription =
-        item.description.trim().toLocaleLowerCase() === line.description.trim().toLocaleLowerCase();
-      if (!sameCode && !sameDescription) return;
+      let lineIndex = item.code?.trim()
+        ? lines.findIndex(
+            (cand, idx) => !usedLineIndices.has(idx) && cand.productCode?.trim() === item.code?.trim()
+          )
+        : -1;
+      if (lineIndex < 0 && item.description?.trim()) {
+        const itemDesc = item.description.trim().toLocaleLowerCase();
+        lineIndex = lines.findIndex(
+          (cand, idx) =>
+            !usedLineIndices.has(idx) &&
+            cand.description.trim().toLocaleLowerCase() === itemDesc
+        );
+      }
+      if (lineIndex < 0) {
+        const posIdx = lines.findIndex(
+          (cand, idx) =>
+            !usedLineIndices.has(idx) &&
+            cand.invoiceItemNumber === index + 1 &&
+            (!item.code?.trim() || !cand.productCode?.trim() || item.code.trim() === cand.productCode.trim())
+        );
+        if (posIdx >= 0) lineIndex = posIdx;
+      }
+      if (lineIndex < 0) return;
+      usedLineIndices.add(lineIndex);
+      const line = lines[lineIndex];
+
       const fiscal: Record<string, string> = {};
       const assign = (field: string, value: string) => {
         if (value) fiscal[field] = value;
       };
       assign('ncm', xmlChildText(line.productXml, 'NCM'));
       assign('cest', xmlChildText(line.productXml, 'CEST'));
-      assign('cfop', xmlChildText(line.productXml, 'CFOP'));
+      const rawCfop = xmlChildText(line.productXml, 'CFOP');
+      if (['1949', '2949', '1202', '2202'].includes(rawCfop)) {
+        assign('cfop', rawCfop.startsWith('2') ? '6102' : '5102');
+      } else if (rawCfop) {
+        assign('cfop', rawCfop);
+      }
       assign('origem', xmlChildText(line.taxesXml, 'orig'));
       assign('cst', xmlChildText(line.taxesXml, 'CSOSN') || xmlChildText(line.taxesXml, 'CST'));
       assign('commercialUnit', xmlChildText(line.productXml, 'uCom'));
@@ -75,9 +101,26 @@ export async function ensureOrderItemsHaveFiscalSnapshots(
 
   return items.map((item) => {
     if (item.itemType === 'service') return item;
-    if (hasFiscalItemSnapshot(item)) return item;
-
     const invoiceFiscal = authorizedFiscal.get(item);
+    if (hasFiscalItemSnapshot(item)) {
+      if ((!item.fiscal?.ncm || !item.fiscal.ncm.trim()) && invoiceFiscal?.ncm) {
+        return {
+          ...item,
+          fiscal: {
+            ...item.fiscal,
+            ncm: invoiceFiscal.ncm,
+            ...(invoiceFiscal.cest && !item.fiscal?.cest ? { cest: invoiceFiscal.cest } : {}),
+            ...(invoiceFiscal.origem && !item.fiscal?.origem ? { origem: invoiceFiscal.origem } : {}),
+            ...(invoiceFiscal.cst && !item.fiscal?.cst ? { cst: invoiceFiscal.cst } : {}),
+            ...(invoiceFiscal.cfop && (!item.fiscal?.cfop || ['1949', '2949'].includes(item.fiscal.cfop))
+              ? { cfop: invoiceFiscal.cfop }
+              : {}),
+          },
+        };
+      }
+      return item;
+    }
+
     if (invoiceFiscal) {
       const invoiceSnapshotFiscal = { ...item.fiscal, ...invoiceFiscal };
       return createFiscalItemSnapshot(

@@ -49,6 +49,7 @@ export const PRIMARY_CHARACTERISTIC_NAMES = [
 ] as const;
 
 export const MATTRESS_CATEGORY_ID = '3b616449-7d0c-40fc-9917-70a20836f3b8';
+export const SINK_CATEGORY_ID = '1b5a4933-f762-4918-ae68-70e109e8c45d';
 
 /** Sequência canônica de exibição das medidas e pesos */
 export const DIMENSIONS_SORT_ORDER: Readonly<Record<string, number>> = {

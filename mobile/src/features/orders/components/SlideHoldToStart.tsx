@@ -1,83 +1,128 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
 import { Truck, CheckCircle2, RotateCcw } from 'lucide-react-native';
 
-type Props = {
-  disabled: boolean;
-  onComplete: () => void;
+export type SlideHoldToStartProps = {
+  disabled?: boolean;
+  loading?: boolean;
+  onComplete?: () => void;
+  onConfirm?: () => void;
   actionText?: string;
+  label?: string;
+  loadingLabel?: string;
   trackColor?: string;
   knobColor?: string;
   iconType?: 'truck' | 'check' | 'back';
   direction?: 'left' | 'right';
+  isDarkMode?: boolean;
 };
 
+/**
+ * Botão deslizante com confirmação de um único deslize.
+ * Usado nas etapas de transição do fluxo de entrega (Preparação -> Em Rota -> Atendimento -> Finalização).
+ * Quando desativado, apresenta cor cinza meio transparente e bloqueia qualquer interação física.
+ */
 export function SlideHoldToStart({
-  disabled,
+  disabled = false,
+  loading = false,
   onComplete,
-  actionText = 'Deslize o caminhão',
+  onConfirm,
+  actionText = 'Deslize para confirmar',
+  label,
+  loadingLabel = 'Aguarde...',
   trackColor = '#16a34a',
   knobColor = '#14532d',
   iconType = 'truck',
   direction = 'left',
-}: Props) {
+  isDarkMode = false,
+}: SlideHoldToStartProps) {
   const x = useRef(new Animated.Value(0)).current;
-  const [trackWidth, setTrackWidth] = useState(0);
-  const [completedSlides, setCompletedSlides] = useState(0);
+  const [trackWidth, setTrackWidth] = React.useState(280);
   const maxX = Math.max(0, trackWidth - 58);
 
   const returnToStart = (callback?: () => void) => {
     Animated.spring(x, { toValue: 0, useNativeDriver: false }).start(callback);
   };
 
+  const isDisabled = Boolean(disabled || loading);
+
   const finishSlide = () => {
-    if (completedSlides === 0) {
-      setCompletedSlides(1);
+    if (isDisabled) {
       returnToStart();
       return;
     }
-    onComplete();
+    returnToStart();
+    const handleAction = onComplete || onConfirm;
+    handleAction?.();
   };
 
   const responder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => !disabled,
-        onMoveShouldSetPanResponder: () => !disabled,
+        onStartShouldSetPanResponder: () => !isDisabled,
+        onMoveShouldSetPanResponder: () => !isDisabled,
+        onPanResponderTerminationRequest: () => false,
         onPanResponderMove: (_, gesture) => {
+          if (isDisabled) return;
           const distance = direction === 'left' ? -gesture.dx : gesture.dx;
           x.setValue(Math.max(0, Math.min(maxX, distance)));
         },
         onPanResponderRelease: (_, gesture) => {
+          if (isDisabled) {
+            returnToStart();
+            return;
+          }
           const distance = direction === 'left' ? -gesture.dx : gesture.dx;
-          const reachedEnd = maxX > 0 && distance >= maxX * 0.88;
+          const reachedEnd = maxX > 0 && distance >= maxX * 0.85;
           if (reachedEnd) finishSlide();
           else returnToStart();
         },
         onPanResponderTerminate: () => returnToStart(),
       }),
-    [disabled, completedSlides, maxX, direction]
+    [isDisabled, maxX, direction, onComplete, onConfirm]
   );
 
-  const label = disabled
-    ? 'Aguarde...'
-    : completedSlides === 0
-      ? `${actionText} • 1 de 2`
-      : 'Deslize novamente • 2 de 2';
+  const displayLabel = loading ? loadingLabel : (label || actionText);
+
+  // Cores quando desativado: cinza meio transparente
+  const currentTrackColor = isDisabled
+    ? isDarkMode
+      ? '#475569'
+      : '#94a3b8'
+    : trackColor;
+  const currentKnobColor = isDisabled
+    ? isDarkMode
+      ? '#334155'
+      : '#64748b'
+    : knobColor;
 
   return (
     <View
-      style={[styles.track, { backgroundColor: trackColor }, disabled && styles.disabled]}
+      style={[
+        styles.track,
+        { backgroundColor: currentTrackColor },
+        isDisabled && styles.disabled,
+      ]}
+      pointerEvents={isDisabled ? 'none' : 'auto'}
       onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+      accessibilityRole="adjustable"
+      accessibilityState={{ disabled: isDisabled }}
+      accessibilityLabel={displayLabel}
     >
-      <Text style={[styles.label, direction === 'left' ? styles.labelLeft : styles.labelRight]}>
-        {label}
+      <Text
+        style={[
+          styles.label,
+          direction === 'left' ? styles.labelLeft : styles.labelRight,
+          isDisabled && styles.labelDisabled,
+        ]}
+      >
+        {displayLabel}
       </Text>
       <Animated.View
         style={[
           styles.knob,
           {
-            backgroundColor: knobColor,
+            backgroundColor: currentKnobColor,
             ...(direction === 'left' ? { right: 4 } : { left: 4 }),
             transform: [{ translateX: direction === 'left' ? Animated.multiply(x, -1) : x }],
           },
@@ -104,14 +149,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   disabled: {
-    backgroundColor: '#94a3b8',
-    opacity: 0.75,
+    opacity: 0.55,
   },
   label: {
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '900',
     textAlign: 'center',
+  },
+  labelDisabled: {
+    color: '#f8fafc',
   },
   labelLeft: {
     paddingRight: 48,

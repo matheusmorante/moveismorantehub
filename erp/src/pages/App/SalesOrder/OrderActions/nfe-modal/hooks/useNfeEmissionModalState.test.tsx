@@ -6,7 +6,16 @@ import type Order from '@/pages/types/order.type';
 import { useNfeEmissionModalState } from './useNfeEmissionModalState';
 import type { UseNfeEmissionModalStateProps } from './useNfeEmissionModalState';
 
-vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {}, isTestEnvironment: false }));
+const { supabaseMock } = vi.hoisted(() => ({
+  supabaseMock: {
+    from: vi.fn(),
+  },
+}));
+
+vi.mock('@/pages/utils/supabaseConfig', () => ({
+  supabase: supabaseMock,
+  isTestEnvironment: false,
+}));
 
 describe('useNfeEmissionModalState recipient CPF prefill', () => {
   afterEach(() => {
@@ -100,5 +109,92 @@ describe('useNfeEmissionModalState recipient CPF prefill', () => {
     expect(result.current.recipientTaxId).toBe('');
     rerender({ ...props, emissionOrder: registeredOrder, isLoadingCustomerType: false });
     await waitFor(() => expect(result.current.recipientTaxId).toBe('12.345.678/0001-90'));
+  });
+
+  it('preenche o CPF do destinatário a partir do draft fiscal quando o pedido não tem CPF cadastrado', async () => {
+    const orderWithDraft = {
+      id: 'order-draft-cpf',
+      customerData: { id: 'cust-draft', fullName: 'Cliente Sem CPF' },
+      nfeDraft: {
+        '2': {
+          recipientTaxId: '04692941243',
+          items: [],
+        },
+      },
+    } as unknown as Order;
+
+    const props: UseNfeEmissionModalStateProps = {
+      isOpen: true,
+      order: null,
+      emissionOrder: orderWithDraft,
+      isLoadingCustomerType: false,
+      environment: 2,
+      setEnvironment: vi.fn(),
+      setRecipientTaxId: vi.fn(),
+      fiscalFieldError: null,
+      recipientTaxIdError: null,
+      emissionResult: null,
+    };
+
+    const { result } = renderHook(
+      (currentProps) => {
+        const [recipientTaxId, setRecipientTaxId] = useState('');
+        useNfeEmissionModalState({ ...currentProps, setRecipientTaxId });
+        return { recipientTaxId };
+      },
+      { initialProps: props }
+    );
+
+    await waitFor(() => expect(result.current.recipientTaxId).toBe('046.929.412-43'));
+  });
+
+  it('recupera o CPF da 1ª nota autorizada no banco quando o pedido e o draft estão sem documento', async () => {
+    const orderWithPriorDoc = {
+      id: 'order-prior-doc',
+      customerData: { id: 'cust-prior', fullName: 'Daiane Soares' },
+    } as unknown as Order;
+
+    supabaseMock.from.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  destinatario_documento: null,
+                  xml_nfe: '<NFe><infNFe><dest><CPF>04692941243</CPF></dest></infNFe></NFe>',
+                  status: 'homologada',
+                  document_type: 'outbound',
+                },
+              ],
+            }),
+          }),
+        }),
+      }),
+    });
+
+    const props: UseNfeEmissionModalStateProps = {
+      isOpen: true,
+      order: null,
+      emissionOrder: orderWithPriorDoc,
+      isLoadingCustomerType: false,
+      environment: 2,
+      setEnvironment: vi.fn(),
+      setRecipientTaxId: vi.fn(),
+      fiscalFieldError: null,
+      recipientTaxIdError: null,
+      emissionResult: null,
+    };
+
+    const { result } = renderHook(
+      (currentProps) => {
+        const [recipientTaxId, setRecipientTaxId] = useState('');
+        useNfeEmissionModalState({ ...currentProps, setRecipientTaxId });
+        return { recipientTaxId };
+      },
+      { initialProps: props }
+    );
+
+    await waitFor(() => expect(result.current.recipientTaxId).toBe('046.929.412-43'));
   });
 });

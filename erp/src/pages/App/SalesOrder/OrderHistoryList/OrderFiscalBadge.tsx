@@ -93,6 +93,7 @@ interface OrderFiscalBadgeProps {
   readonly variant?: 'production' | 'homologation';
   readonly loading?: boolean;
   readonly documentId?: string;
+  readonly label?: string;
   readonly onOpenDocument?: (documentId: string, environment: 1 | 2) => void;
   readonly onIssue?: (environment: 1 | 2) => void;
 }
@@ -102,6 +103,7 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
   variant = 'production',
   loading = false,
   documentId,
+  label,
   onOpenDocument,
   onIssue,
 }) => {
@@ -111,11 +113,13 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
 
   const targetEnvironment: 1 | 2 = variant === 'homologation' ? 2 : 1;
   const isHomologation = variant === 'homologation';
-  if (isHomologation && resolvedStatus === 'not_issued' && !loading) return null;
+  if (isHomologation && resolvedStatus === 'not_issued' && !loading && !label) return null;
 
   const renderBadge = (presentation: BadgeConfig) => {
+    const badgeLabel = label || presentation.label;
+    const baseTitle = label ? `${label} · ${presentation.title}` : presentation.title;
     const className = `relative inline-flex h-6 min-w-8 items-center justify-center rounded-md border px-1.5 text-[9px] font-black leading-none ${presentation.className}`;
-    const title = loading ? 'Atualizando status fiscal do pedido' : presentation.title;
+    const title = loading ? 'Atualizando status fiscal do pedido' : baseTitle;
     const contents = (
       <>
         {loading && (
@@ -126,7 +130,7 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
             <span className="order-fiscal-badge-shimmer-beam" />
           </span>
         )}
-        <span className="relative z-10">{presentation.label}</span>
+        <span className="relative z-10">{badgeLabel}</span>
         {presentation.icon ? (
           <span
             aria-hidden="true"
@@ -162,7 +166,7 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
     }
 
     if (resolvedStatus === 'not_issued' && onIssue && !loading) {
-      const issueActionTitle = `${presentation.title} · Clique para emitir em ${isHomologation ? 'homologação' : 'produção'}`;
+      const issueActionTitle = `${baseTitle} · Clique para emitir em ${isHomologation ? 'homologação' : 'produção'}`;
       return (
         <button
           type="button"

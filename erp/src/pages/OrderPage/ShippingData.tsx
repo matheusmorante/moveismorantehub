@@ -1,4 +1,5 @@
 import Shipping from '../types/Shipping.type';
+import PickupIcon from '@/components/shared/PickupIcon';
 import { formatDate } from '../utils/formatters';
 import { NumericFormat as NumericFormatBase } from 'react-number-format';
 const NumericFormat = NumericFormatBase as any;
@@ -16,9 +17,11 @@ const ShippingData = ({ shipping, isBudget, itemsTotalValue }: Props) => {
     <section className="flex flex-col gap-2 w-full text-xs bg-slate-50/50 p-3 rounded-2xl border border-slate-50">
       <div>
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 mb-1 flex items-center gap-2">
-          <i
-            className={`bi ${shipping.deliveryMethod === 'pickup' ? 'bi-hand-index-thumb-fill' : 'bi-truck'} text-base`}
-          ></i>{' '}
+          {shipping.deliveryMethod === 'pickup' ? (
+            <PickupIcon className="h-4 w-4" />
+          ) : (
+            <i className="bi bi-truck text-base" />
+          )}{' '}
           {shipping.deliveryMethod === 'pickup' ? 'RETIRADA' : 'ENTREGA E FRETE'}
         </h3>
 

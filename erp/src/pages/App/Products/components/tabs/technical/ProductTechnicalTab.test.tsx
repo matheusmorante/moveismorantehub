@@ -50,7 +50,7 @@ describe('ProductTechnicalTab Component', () => {
       />
     );
 
-    expect(await screen.findByText('Características principais')).toBeDefined();
+    expect(await screen.findByText('Dimensões e Peso')).toBeDefined();
     expect(screen.getByText('Altura')).toBeDefined();
     expect(screen.getByText('Largura')).toBeDefined();
     expect(screen.getByRole('searchbox')).toBeDefined();

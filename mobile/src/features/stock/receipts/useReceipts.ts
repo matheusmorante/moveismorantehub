@@ -1,5 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import * as stockService from '../../../services/stockService';
+import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { connectivityService } from '../../../services/offline/connectivityService';
+
+const GOODS_RECEIPTS_CACHE_KEY = 'goods_receipts_cache_v1';
 
 export const useReceipts = () => {
   const [receipts, setReceipts] = useState<any[]>([]);
@@ -32,6 +36,22 @@ export const useReceipts = () => {
         items: Array.isArray(receipt.items) ? receipt.items : [],
       }));
 
+      if (formattedData.length > 0 && pageNum === 0) {
+        await offlineStorageService
+          .cacheWorkingSet(GOODS_RECEIPTS_CACHE_KEY, formattedData)
+          .catch(() => {});
+      }
+
+      if (formattedData.length === 0 && pageNum === 0 && !connectivityService.connected) {
+        const cached =
+          await offlineStorageService.getWorkingSet<any[]>(GOODS_RECEIPTS_CACHE_KEY);
+        if (Array.isArray(cached?.data) && cached.data.length > 0) {
+          setReceipts(cached.data);
+          setHasMore(false);
+          return;
+        }
+      }
+
       if (isRefresh || pageNum === 0) {
         setReceipts(formattedData);
       } else {
@@ -43,6 +63,15 @@ export const useReceipts = () => {
       }
     } catch (err) {
       console.error('Failed to fetch receipts:', err);
+      if (pageNum === 0) {
+        try {
+          const cached =
+            await offlineStorageService.getWorkingSet<any[]>(GOODS_RECEIPTS_CACHE_KEY);
+          if (Array.isArray(cached?.data)) {
+            setReceipts(cached.data);
+          }
+        } catch {}
+      }
       setHasMore(false);
     } finally {
       setLoading(false);

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../../services/supabaseClient';
+import { offlineStorageService } from '../../../../services/offline/offlineStorageService';
 import {
   DeliveryResponsibleItem,
   AvailableStaffMember,
@@ -13,6 +14,8 @@ import {
   isTestOperator,
   isTestOperatorVisibleToUser,
 } from '../../../../../../shared-utils/testOperatorVisibility';
+
+const DELIVERY_STAFF_CACHE_KEY = 'delivery_staff_profiles_v1';
 
 interface UseDeliveryStaffOptions {
   order: any;
@@ -28,13 +31,15 @@ export function useDeliveryStaff({ order, userProfile }: UseDeliveryStaffOptions
 
   useEffect(() => {
     let alive = true;
-    supabase
-      .from('profiles')
-      .select('id, full_name, position, role, email')
-      .not('full_name', 'is', null)
-      .neq('role', 'pending')
-      .limit(50)
-      .then(({ data: profiles, error }) => {
+    const loadStaff = async () => {
+      try {
+        const { data: profiles, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, position, role, email')
+          .not('full_name', 'is', null)
+          .neq('role', 'pending')
+          .limit(50);
+
         if (!error && profiles && alive) {
           const list = profiles
             .filter((profile: any) =>
@@ -56,11 +61,26 @@ export function useDeliveryStaff({ order, userProfile }: UseDeliveryStaffOptions
               role: p.role,
             }));
           setAvailableStaff(list);
+          await offlineStorageService
+            .cacheWorkingSet(DELIVERY_STAFF_CACHE_KEY, list)
+            .catch(() => {});
+          return;
         }
-      })
-      .catch((err) =>
-        console.warn('[useDeliveryStaff] Falha ao carregar colaboradores da equipe:', err)
-      );
+      } catch (err) {
+        console.warn('[useDeliveryStaff] Falha ao carregar colaboradores da equipe, tentando cache:', err);
+      }
+
+      try {
+        const cached = await offlineStorageService.getWorkingSet<AvailableStaffMember[]>(
+          DELIVERY_STAFF_CACHE_KEY
+        );
+        if (alive && Array.isArray(cached?.data)) {
+          setAvailableStaff(cached.data);
+        }
+      } catch {}
+    };
+
+    void loadStaff();
 
     return () => {
       alive = false;

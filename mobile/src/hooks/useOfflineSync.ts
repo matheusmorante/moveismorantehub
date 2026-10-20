@@ -13,6 +13,7 @@ export function useOfflineSync() {
   });
 
   useEffect(() => {
+    void offlineSyncManager.initialize().catch(() => {});
     const unsubscribe = offlineSyncManager.subscribe((newSummary) => {
       setSummary(newSummary);
     });

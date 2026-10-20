@@ -1,81 +1,23 @@
 import React from 'react';
-import Order, { AssistanceItem } from '../../../types/order.type';
-import { Item } from '../../../types/items.type';
 import { getSettings } from '@/pages/utils/settingsService';
-import { getOrderStatusLabel } from '@/pages/utils/orderStatusPresentation';
-import { formatCurrency, formatToBRDate, toTitleCase } from '../../../utils/formatters';
-import { formatOrderCode } from '../../../utils/orderCode';
 import { resolveOrderColor } from '../../../utils/orderTypeColorUtils';
 import CancelledOrderBadge from './CancelledOrderBadge';
 import { getOrderAssemblyFlags, isPaidTrafficOrder } from './orderItemHandlingUtils';
-import { OrderAssemblyBadges } from './OrderAssemblyBadges';
-import { OrderDeliveryPrompt } from './OrderDeliveryPrompt';
-import { OrderOperationalBadges } from './OrderOperationalBadges';
-import { OrderOptionsMenu } from './OrderOptionsMenu';
-import { OrderFiscalBadge } from './OrderFiscalBadge';
-import { OrderFiscalOperationBadge } from './OrderFiscalOperationBadge';
-import { OrderCancellationFailureNotice } from './OrderCancellationFailureNotice';
-import PickupIcon from '@/components/shared/PickupIcon';
-import DeliveryTruckIcon from '@/components/shared/DeliveryTruckIcon';
-import type {
-  OrderFiscalBadgeStatus,
-  OrderFiscalCancellationState,
-  OrderFiscalOperationBadgeStatus,
-  ReturnFiscalDocumentSummary,
-} from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import { OrderHistoryCardProps } from './OrderHistoryCard/OrderHistoryCard.types';
+import {
+  buildOrderCardStatusConfig,
+  resolveCardBgBorderClass,
+  resolveCardCapabilities,
+  resolveCardHeaderAccentClass,
+  resolveCardTimeDisplay,
+} from './OrderHistoryCard/orderCardPresentation';
+import { OrderCardHeader } from './OrderHistoryCard/OrderCardHeader';
+import { OrderCardBody } from './OrderHistoryCard/OrderCardBody';
+import { OrderCardFooter } from './OrderHistoryCard/OrderCardFooter';
 
-interface OrderHistoryCardProps {
-  readonly order: Order;
-  readonly fiscalBadgeStatus?: OrderFiscalBadgeStatus;
-  readonly fiscalHmlBadgeStatus?: OrderFiscalBadgeStatus;
-  readonly fiscalBadgeLoading?: boolean;
-  readonly fiscalDocumentId?: string;
-  readonly fiscalHmlDocumentId?: string;
-  readonly fiscalCancellationState?: OrderFiscalCancellationState;
-  readonly fiscalCancellationDocuments?: Array<{
-    documentId: string;
-    environment: 1 | 2;
-    state: OrderFiscalCancellationState;
-  }>;
-  readonly fiscalEstornoBadgeStatus?: OrderFiscalOperationBadgeStatus;
-  readonly fiscalEstornoDocumentId?: string;
-  readonly fiscalEstornoDraftId?: string;
-  readonly fiscalEstornoEnvironment?: 1 | 2;
-  readonly fiscalDevolucaoBadgeStatus?: OrderFiscalOperationBadgeStatus;
-  readonly fiscalDevolucaoDocumentId?: string;
-  readonly fiscalDevolucaoEnvironment?: 1 | 2;
-  readonly fiscalDevolucaoDocuments?: readonly ReturnFiscalDocumentSummary[];
-  readonly onEdit: (
-    order: Order,
-    initialStep?: number,
-    highlightTemporary?: boolean,
-    reconciliationMode?: boolean
-  ) => void;
-  readonly onDelete: (id: string) => void;
-  readonly onRestore: (id: string) => void;
-  readonly onPermanentDelete: (id: string) => void;
-  readonly onAction: (actionKey: string, order: Order) => void;
-  readonly onStatusUpdate: (id: string, newStatus: Order['status']) => void;
-  readonly showTrash?: boolean;
-  readonly isSelected?: boolean;
-  readonly onToggleSelection?: () => void;
-  readonly isHighlighted?: boolean;
-  readonly id?: string;
-  readonly onFilterByOrderId?: (id: string) => void;
-  readonly onBlingUpdate?: (id: string, value: boolean) => void;
-  readonly onStockCheckUpdate?: (
-    id: string,
-    value: boolean,
-    updatedItems?: readonly Item[],
-    updatedAssistanceItems?: readonly AssistanceItem[]
-  ) => void;
-  readonly onViewDetails?: (order: Order) => void;
-  readonly onViewFiscalDocument?: (documentId: string, environment: 1 | 2) => void;
-  readonly onShowPostSaleActions?: (order: Order) => void;
-  readonly onIssueNfe?: (order: Order, environment: 1 | 2) => void;
-}
+export type { OrderHistoryCardProps };
 
-const OrderHistoryCard = ({
+const OrderHistoryCard: React.FC<OrderHistoryCardProps> = ({
   order,
   fiscalBadgeStatus,
   fiscalHmlBadgeStatus,
@@ -92,6 +34,8 @@ const OrderHistoryCard = ({
   fiscalDevolucaoDocumentId,
   fiscalDevolucaoEnvironment,
   fiscalDevolucaoDocuments,
+  fiscalProductionBadges,
+  fiscalHomologationBadges,
   onEdit,
   onDelete,
   onRestore,
@@ -108,57 +52,10 @@ const OrderHistoryCard = ({
   onViewFiscalDocument,
   onShowPostSaleActions,
   onIssueNfe,
-}: OrderHistoryCardProps) => {
+}) => {
   const settings = getSettings();
-  const canViewDetails =
-    ['scheduled', 'fulfilled', 'cancelled'].includes(order.status || '') ||
-    (order.orderType === 'budget' && order.status === 'quoted');
-  const isDraft = order.status === 'draft';
-  const isCancelled = order.status === 'cancelled';
-  const isEditLocked =
-    (order.status === 'fulfilled' || isCancelled) &&
-    ['sale', 'showroom', 'return'].includes(order.orderType || 'sale');
-
-  const statuses = (
-    settings.orderStatuses || [
-      { id: 'draft', label: 'Rascunho', color: 'slate' },
-      { id: 'scheduled', label: 'Agendado', color: 'amber' },
-      { id: 'fulfilled', label: 'Atendido', color: 'emerald' },
-      { id: 'cancelled', label: 'Cancelado', color: 'rose' },
-    ]
-  )
-    .map((s) => (s.id === 'draft' ? { ...s, label: 'Rascunho' } : s))
-    .filter((s) => s.id !== 'chargeback' && s.id !== 'disputed');
-
-  const statusConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {};
-  statuses.forEach((s) => {
-    statusConfig[s.id] = {
-      label: s.label,
-      bg: `bg-${s.color}-${s.color === 'slate' ? '100' : '50'}`,
-      text: `text-${s.color}-${s.color === 'slate' ? '500' : '600'}`,
-      dot: `bg-${s.color}-${s.color === 'slate' ? '400' : '500'}`,
-    };
-  });
-  if (statusConfig.fulfilled) {
-    statusConfig.fulfilled.label = getOrderStatusLabel(
-      { ...order, status: 'fulfilled' },
-      statusConfig.fulfilled.label
-    );
-  }
-  if (order.orderType === 'budget' && order.status === 'quoted') {
-    statusConfig.quoted = {
-      label: 'Orçamento cadastrado',
-      bg: 'bg-indigo-50',
-      text: 'text-indigo-700',
-      dot: 'bg-indigo-500',
-    };
-  }
-  if (statusConfig.scheduled) {
-    statusConfig.scheduled.label = getOrderStatusLabel(
-      { ...order, status: 'scheduled' },
-      statusConfig.scheduled.label
-    );
-  }
+  const { isDraft, isCancelled, canViewDetails, isEditLocked } = resolveCardCapabilities(order);
+  const statusConfig = buildOrderCardStatusConfig(order, settings);
 
   const colors = settings.orderTypeColors ?? {
     delivery: 'green',
@@ -166,35 +63,12 @@ const OrderHistoryCard = ({
     assistance: 'orange',
   };
   const colorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
-
   const { hasAssemblyDepot, hasAssemblyOutside } = getOrderAssemblyFlags(order, settings);
   const isPaidTraffic = isPaidTrafficOrder(order);
 
-  const headerAccentClass = isCancelled
-    ? 'bg-red-100/90 dark:bg-red-900/60 border-b border-red-200 dark:border-red-800'
-    : order.orderType === 'budget'
-      ? isDraft
-        ? 'bg-indigo-50/60 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900/30'
-        : 'bg-indigo-100/70 dark:bg-indigo-900/30 border-b border-indigo-200/60 dark:border-indigo-900/40'
-      : isDraft
-        ? 'bg-slate-100/80 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-700'
-        : colorKey === 'green'
-          ? 'bg-emerald-200/90 dark:bg-emerald-950/80 border-b border-emerald-300 dark:border-emerald-800'
-          : colorKey === 'purple'
-            ? 'bg-purple-400 dark:bg-purple-800/80 border-b border-purple-500 dark:border-purple-700'
-            : colorKey === 'orange'
-              ? 'bg-orange-50/80 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/30'
-              : 'bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-700';
-
-  const sched = order.shipping?.scheduling;
-  let timeDisplay = '';
-  if (sched) {
-    if (sched.notInformed) timeDisplay = 'Não informado';
-    else if (sched.type === 'range' && sched.startTime && sched.endTime)
-      timeDisplay = `${sched.startTime} às ${sched.endTime}`;
-    else if (sched.startTime) timeDisplay = sched.startTime;
-    else if (sched.time) timeDisplay = sched.time;
-  }
+  const headerAccentClass = resolveCardHeaderAccentClass(order, colorKey, isDraft, isCancelled);
+  const cardBgBorderClass = resolveCardBgBorderClass(isCancelled);
+  const timeDisplay = resolveCardTimeDisplay(order.shipping?.scheduling);
 
   const isInteractive = isDraft || canViewDetails;
   const handleCardClick = () => {
@@ -216,10 +90,6 @@ const OrderHistoryCard = ({
     }
   };
 
-  const cardBgBorderClass = isCancelled
-    ? 'bg-red-50/90 dark:bg-red-950/40 border-2 border-red-500 dark:border-red-600 shadow-xs ring-1 ring-red-500/20'
-    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800';
-
   return (
     <div
       id={id}
@@ -239,248 +109,65 @@ const OrderHistoryCard = ({
         />
       )}
 
-      {/* Header com faixa colorida + badges operacionais */}
-      <div
-        className={`${headerAccentClass} rounded-t-xl px-3 py-2 flex items-center justify-between gap-2 flex-wrap`}
-      >
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-white/70 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/60 dark:border-slate-700/60">
-            #{formatOrderCode(order)}
-          </span>
-        </div>
+      <OrderCardHeader
+        order={order}
+        headerAccentClass={headerAccentClass}
+        isCancelled={isCancelled}
+        isPaidTraffic={isPaidTraffic}
+        statusConfig={statusConfig}
+        hasAssemblyDepot={hasAssemblyDepot}
+        hasAssemblyOutside={hasAssemblyOutside}
+        fiscalBadgeStatus={fiscalBadgeStatus}
+        fiscalHmlBadgeStatus={fiscalHmlBadgeStatus}
+        fiscalBadgeLoading={fiscalBadgeLoading}
+        fiscalDocumentId={fiscalDocumentId}
+        fiscalHmlDocumentId={fiscalHmlDocumentId}
+        fiscalEstornoBadgeStatus={fiscalEstornoBadgeStatus}
+        fiscalEstornoDocumentId={fiscalEstornoDocumentId}
+        fiscalEstornoDraftId={fiscalEstornoDraftId}
+        fiscalEstornoEnvironment={fiscalEstornoEnvironment}
+        fiscalDevolucaoBadgeStatus={fiscalDevolucaoBadgeStatus}
+        fiscalDevolucaoDocumentId={fiscalDevolucaoDocumentId}
+        fiscalDevolucaoEnvironment={fiscalDevolucaoEnvironment}
+        fiscalDevolucaoDocuments={fiscalDevolucaoDocuments}
+        fiscalProductionBadges={fiscalProductionBadges}
+        fiscalHomologationBadges={fiscalHomologationBadges}
+        onViewFiscalDocument={onViewFiscalDocument}
+        onIssueNfe={onIssueNfe}
+        onStatusUpdate={onStatusUpdate}
+        onBlingUpdate={onBlingUpdate}
+        onStockCheckUpdate={onStockCheckUpdate}
+        showTrash={showTrash}
+      />
 
-        <div className="ml-auto flex items-center gap-1.5">
-          {order.orderType !== 'return' && (
-            <>
-              <OrderFiscalBadge
-                status={fiscalBadgeStatus}
-                loading={fiscalBadgeLoading}
-                documentId={fiscalDocumentId}
-                onOpenDocument={onViewFiscalDocument}
-                onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-              />
-              <OrderFiscalBadge
-                variant="homologation"
-                status={fiscalHmlBadgeStatus}
-                loading={fiscalBadgeLoading}
-                documentId={fiscalHmlDocumentId}
-                onOpenDocument={onViewFiscalDocument}
-                onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-              />
-              <OrderFiscalOperationBadge
-                kind="estorno"
-                status={fiscalEstornoBadgeStatus}
-                documentId={fiscalEstornoDocumentId}
-                draftId={fiscalEstornoDraftId}
-                environment={fiscalEstornoEnvironment}
-                onOpenDocument={onViewFiscalDocument}
-              />
-            </>
-          )}
-          <OrderFiscalOperationBadge
-            kind="devolucao"
-            status={fiscalDevolucaoBadgeStatus}
-            documentId={fiscalDevolucaoDocumentId}
-            environment={fiscalDevolucaoEnvironment}
-            documents={fiscalDevolucaoDocuments}
-            onOpenDocument={onViewFiscalDocument}
-          />
-          <div
-            className={`flex items-center gap-1.5 flex-wrap justify-end ${isCancelled ? 'opacity-70 pointer-events-none' : ''}`}
-            onClick={isCancelled ? undefined : (e) => e.stopPropagation()}
-          >
-            <OrderOperationalBadges
-              order={order}
-              showTrash={showTrash}
-              isPaidTraffic={isPaidTraffic}
-              statusConfig={statusConfig}
-              onStatusUpdate={onStatusUpdate}
-              onBlingUpdate={onBlingUpdate}
-              onStockCheckUpdate={onStockCheckUpdate}
-            />
-            <OrderAssemblyBadges
-              hasAssemblyDepot={hasAssemblyDepot}
-              hasAssemblyOutside={hasAssemblyOutside}
-              size="sm"
-            />
-          </div>
-        </div>
-      </div>
+      <OrderCardBody
+        order={order}
+        isCancelled={isCancelled}
+        fiscalCancellationDocuments={fiscalCancellationDocuments}
+        fiscalCancellationState={fiscalCancellationState}
+        onAction={onAction}
+        onFilterByOrderId={onFilterByOrderId}
+        showTrash={showTrash}
+        showManualPrompt={settings.showManualFulfillmentPrompt}
+        onStatusUpdate={onStatusUpdate}
+        statusConfig={statusConfig}
+        timeDisplay={timeDisplay}
+      />
 
-      {/* Corpo do card */}
-      <div className="px-3 pt-2.5 pb-3">
-        <h3
-          className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight w-fit"
-          title={order.customerData?.fullName || 'Cliente não informado'}
-        >
-          {toTitleCase(order.customerData?.fullName || 'Cliente não informado')}
-        </h3>
-
-        {fiscalCancellationDocuments?.length ? (
-          <div className="mt-1 flex flex-col items-start gap-1">
-            {fiscalCancellationDocuments.map((item) => (
-              <OrderCancellationFailureNotice
-                key={item.documentId}
-                state={item.state}
-                documentId={item.documentId}
-                environment={item.environment}
-                onRetry={(documentId) => onAction(`retryOrderFiscalCancellation:${documentId}`, order)}
-              />
-            ))}
-          </div>
-        ) : (
-          <OrderCancellationFailureNotice state={fiscalCancellationState} />
-        )}
-
-        {order.linkedOrderId && (
-          <button
-            type="button"
-            disabled={isCancelled}
-            onClick={
-              isCancelled
-                ? undefined
-                : (event) => {
-                    event.stopPropagation();
-                    onFilterByOrderId?.(order.linkedOrderId!);
-                  }
-            }
-            className="mt-2 flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-400"
-            title={isCancelled ? 'Pedido cancelado' : 'Abrir pedido de venda vinculado'}
-          >
-            <i className="bi bi-link-45deg" />
-            Pedido #{order.linkedOrderCode || formatOrderCode(order)}
-          </button>
-        )}
-
-        {sched?.pendingScheduling && (
-          <div className="mt-2 flex items-center gap-2 bg-orange-500 text-white p-2 rounded-lg border border-orange-600 shadow-sm">
-            <i className="bi bi-clock-history text-[10px]" />
-            <span className="text-[9px] font-black uppercase tracking-widest">
-              AGENDAMENTO PENDENTE
-            </span>
-          </div>
-        )}
-
-        <OrderDeliveryPrompt
-          order={order}
-          showTrash={showTrash}
-          showManualPrompt={settings.showManualFulfillmentPrompt}
-          onStatusUpdate={onStatusUpdate}
-          fulfilledLabel={statusConfig.fulfilled?.label || 'Atendido'}
-        />
-
-        <div
-          className={`grid grid-cols-2 gap-x-4 gap-y-2 mt-2 pt-2 border-t ${isCancelled ? 'border-red-200/60 dark:border-red-900/40' : 'border-slate-100 dark:border-slate-800/40'}`}
-        >
-          <div className="flex flex-col">
-            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">
-              Pedido
-            </span>
-            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-bold">
-              <i className="bi bi-calendar3 text-[10px]" />
-              <span className="text-[10px]">{formatToBRDate(order.date)}</span>
-            </div>
-          </div>
-
-          {(sched?.date || sched?.pendingScheduling) && (
-            <div className="flex flex-col items-end text-right">
-              <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">
-                {order.orderType === 'return'
-                  ? 'Data de coleta'
-                  : order.shipping?.deliveryMethod === 'pickup'
-                    ? 'Retirada'
-                    : 'Entrega'}
-              </span>
-              <div
-                className={`flex items-center justify-end gap-1.5 font-bold ${sched?.pendingScheduling ? 'text-slate-400 dark:text-slate-500' : 'text-blue-500 dark:text-blue-400'}`}
-              >
-                {sched?.pendingScheduling ? (
-                  <i className="bi bi-clock-history text-[11px] text-orange-500" />
-                ) : order.shipping?.deliveryMethod === 'pickup' ? (
-                  <PickupIcon className="h-3 w-3" />
-                ) : (
-                  <DeliveryTruckIcon className="h-3 w-3" />
-                )}
-                <span className="text-[10px]">
-                  {sched?.pendingScheduling
-                    ? 'PENDENTE'
-                    : sched.dateType === 'range' && sched.endDate
-                      ? `${formatToBRDate(sched.date)} até ${formatToBRDate(sched.endDate)}`
-                      : formatToBRDate(sched.date)}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {timeDisplay && (
-            <div className="col-span-2 mt-0.5 flex justify-end">
-              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md border border-blue-100 dark:border-blue-900/30">
-                <i className="bi bi-clock-history text-[10px]" />
-                <span className="text-[9px] font-black uppercase tracking-widest">
-                  {timeDisplay}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Rodapé do card */}
-      <div
-        className={`flex justify-between items-center border-t ${isCancelled ? 'border-red-200/60 dark:border-red-900/40' : 'border-slate-50 dark:border-slate-800/50'} px-3 pt-2.5 pb-3`}
-      >
-        <div className="flex flex-col">
-          <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5">
-            {order.orderType === 'return' ? 'Total devolvido' : 'Total'}
-          </span>
-          <span className="text-base font-black text-blue-600 dark:text-blue-400">
-            {formatCurrency(order.paymentsSummary?.totalOrderValue || 0)}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-          {isDraft && !showTrash && (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onEdit(order);
-              }}
-              className="w-8 h-8 rounded-xl transition-all bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 cursor-pointer flex items-center justify-center border border-blue-100 dark:border-blue-900/30 shadow-sm"
-              title="Retomar cadastramento do pedido"
-              aria-label="Retomar cadastramento do pedido"
-            >
-              <i className="bi bi-play-fill text-lg" aria-hidden="true" />
-            </button>
-          )}
-
-          {!isEditLocked && !isCancelled && !isDraft && !showTrash && (
-            <button
-              type="button"
-              onClick={() => onEdit(order)}
-              className="w-8 h-8 rounded-xl transition-all bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 cursor-pointer flex items-center justify-center border border-blue-100 dark:border-blue-900/30 shadow-sm"
-              title="Editar pedido"
-            >
-              <i className="bi bi-pencil-fill text-sm" />
-            </button>
-          )}
-
-          <OrderOptionsMenu
-            order={order}
-            showTrash={showTrash}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onRestore={onRestore}
-            onPermanentDelete={onPermanentDelete}
-            onAction={onAction}
-            onStatusUpdate={onStatusUpdate}
-            onShowPostSaleActions={onShowPostSaleActions}
-            hideResumeDraftAction={isDraft && !showTrash}
-            hideEditAction={!isEditLocked && !isCancelled && !isDraft && !showTrash}
-            buttonClassName={`w-8 h-8 ${isCancelled ? 'relative z-30' : ''}`}
-          />
-        </div>
-      </div>
+      <OrderCardFooter
+        order={order}
+        isCancelled={isCancelled}
+        isDraft={isDraft}
+        isEditLocked={isEditLocked}
+        showTrash={showTrash}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onRestore={onRestore}
+        onPermanentDelete={onPermanentDelete}
+        onAction={onAction}
+        onStatusUpdate={onStatusUpdate}
+        onShowPostSaleActions={onShowPostSaleActions}
+      />
     </div>
   );
 };

@@ -1,9 +1,54 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SyncEvent, MediaUploadItem, SyncEventState } from './offlineTypes';
 
 const EVENT_QUEUE_KEY = '@morante_offline_event_queue_v1';
 const MEDIA_QUEUE_KEY = '@morante_offline_media_queue_v1';
 const WORKING_SET_CACHE_KEY_PREFIX = '@morante_working_set_cache_v1_';
+
+const memoryStorageFallback = new Map<string, string>();
+let asyncStoragePromise: Promise<{
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+} | null> | null = null;
+
+const isTestEnvironment = (): boolean =>
+  typeof process !== 'undefined' &&
+  Boolean(process.env?.VITEST || process.env?.NODE_ENV === 'test');
+
+const resolveAsyncStorage = async () => {
+  if (typeof window === 'undefined' && isTestEnvironment()) {
+    return null;
+  }
+  if (!asyncStoragePromise) {
+    asyncStoragePromise = Promise.resolve()
+      .then(() => {
+        const mod = require('@react-native-async-storage/async-storage');
+        return mod.default || mod;
+      })
+      .catch(() => null);
+  }
+  return asyncStoragePromise;
+};
+
+const safeGetItem = async (key: string): Promise<string | null> => {
+  const storage = await resolveAsyncStorage();
+  if (!storage) {
+    return memoryStorageFallback.get(key) ?? null;
+  }
+  try {
+    return await storage.getItem(key);
+  } catch {
+    return memoryStorageFallback.get(key) ?? null;
+  }
+};
+
+const safeSetItem = async (key: string, value: string): Promise<void> => {
+  memoryStorageFallback.set(key, value);
+  const storage = await resolveAsyncStorage();
+  if (!storage) {
+    return;
+  }
+  await storage.setItem(key, value);
+};
 
 export const generateUUID = (): string => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -17,7 +62,7 @@ export const offlineStorageService = {
   // === FILA DE EVENTOS ===
   async getEventQueue(): Promise<SyncEvent[]> {
     try {
-      const raw = await AsyncStorage.getItem(EVENT_QUEUE_KEY);
+      const raw = await safeGetItem(EVENT_QUEUE_KEY);
       return raw ? JSON.parse(raw) : [];
     } catch (e) {
       console.warn('[OfflineStorage] Erro ao carregar fila de eventos:', e);
@@ -27,7 +72,7 @@ export const offlineStorageService = {
 
   async saveEventQueue(queue: SyncEvent[]): Promise<void> {
     try {
-      await AsyncStorage.setItem(EVENT_QUEUE_KEY, JSON.stringify(queue));
+      await safeSetItem(EVENT_QUEUE_KEY, JSON.stringify(queue));
     } catch (e) {
       console.error('[OfflineStorage] Erro ao salvar fila de eventos:', e);
     }
@@ -80,54 +125,46 @@ export const offlineStorageService = {
     await this.saveEventQueue(updated);
   },
 
-  async removeEvent(eventId: string): Promise<void> {
-    const queue = await this.getEventQueue();
-    const filtered = queue.filter((ev) => ev.eventId !== eventId);
-    await this.saveEventQueue(filtered);
-  },
-
   async clearConfirmedEvents(): Promise<void> {
     const queue = await this.getEventQueue();
-    const remaining = queue.filter((ev) => ev.state !== 'CONFIRMED');
-    await this.saveEventQueue(remaining);
+    const active = queue.filter((ev) => ev.state !== 'CONFIRMED');
+    await this.saveEventQueue(active);
   },
 
   // === FILA DE MÍDIA ===
   async getMediaQueue(): Promise<MediaUploadItem[]> {
     try {
-      const raw = await AsyncStorage.getItem(MEDIA_QUEUE_KEY);
+      const raw = await safeGetItem(MEDIA_QUEUE_KEY);
       return raw ? JSON.parse(raw) : [];
     } catch (e) {
+      console.warn('[OfflineStorage] Erro ao carregar fila de mídia:', e);
       return [];
     }
   },
 
   async saveMediaQueue(queue: MediaUploadItem[]): Promise<void> {
     try {
-      await AsyncStorage.setItem(MEDIA_QUEUE_KEY, JSON.stringify(queue));
+      await safeSetItem(MEDIA_QUEUE_KEY, JSON.stringify(queue));
     } catch (e) {
       console.error('[OfflineStorage] Erro ao salvar fila de mídia:', e);
     }
   },
 
   async pushMedia(
-    entityType: MediaUploadItem['entityType'],
+    eventId: string,
     entityId: string,
     localUri: string,
-    storageBucket: string,
-    storagePath: string,
-    eventId?: string
+    mimeType: string,
+    targetField: string
   ): Promise<MediaUploadItem> {
     const item: MediaUploadItem = {
-      id: generateUUID(),
+      mediaId: generateUUID(),
       eventId,
-      entityType,
       entityId,
       localUri,
-      storageBucket,
-      storagePath,
-      state: 'PENDING',
-      createdAt: new Date().toISOString(),
+      mimeType,
+      targetField,
+      state: 'PENDING_UPLOAD',
       retryCount: 0,
     };
     const queue = await this.getMediaQueue();
@@ -136,35 +173,47 @@ export const offlineStorageService = {
     return item;
   },
 
-  // === CACHE DE TRABALHO (WORKING SET) ===
+  async updateMediaStatus(
+    mediaId: string,
+    state: MediaUploadItem['state'],
+    remoteUrl?: string,
+    errorReason?: string
+  ): Promise<void> {
+    const queue = await this.getMediaQueue();
+    const updated = queue.map((m) => {
+      if (m.mediaId === mediaId) {
+        return {
+          ...m,
+          state,
+          remoteUrl: remoteUrl || m.remoteUrl,
+          errorReason: errorReason || m.errorReason,
+          retryCount: state === 'UPLOADING' ? m.retryCount + 1 : m.retryCount,
+        };
+      }
+      return m;
+    });
+    await this.saveMediaQueue(updated);
+  },
+
+  // === CACHE LOCAL DO WORKING SET ===
   async cacheWorkingSet<T>(key: string, data: T): Promise<void> {
     try {
-      await AsyncStorage.setItem(
-        `${WORKING_SET_CACHE_KEY_PREFIX}${key}`,
-        JSON.stringify({ data, cachedAt: new Date().toISOString() })
-      );
-    } catch (e: any) {
-      if (e?.name === 'QuotaExceededError' || e?.message?.includes('exceeded the quota')) {
-        try {
-          const keys = await AsyncStorage.getAllKeys();
-          const oldCacheKeys = keys.filter((k) => k.startsWith(WORKING_SET_CACHE_KEY_PREFIX));
-          for (const k of oldCacheKeys) {
-            await AsyncStorage.removeItem(k);
-          }
-        } catch {
-          // Ignorar se falhar no fallback
-        }
-      } else {
-        console.warn('[OfflineStorage] Erro ao gravar cache local:', e);
-      }
+      const payload = {
+        data,
+        cachedAt: new Date().toISOString(),
+      };
+      await safeSetItem(WORKING_SET_CACHE_KEY_PREFIX + key, JSON.stringify(payload));
+    } catch (e) {
+      console.error(`[OfflineStorage] Erro ao salvar working set (${key}):`, e);
     }
   },
 
   async getWorkingSet<T>(key: string): Promise<{ data: T; cachedAt: string } | null> {
     try {
-      const raw = await AsyncStorage.getItem(`${WORKING_SET_CACHE_KEY_PREFIX}${key}`);
+      const raw = await safeGetItem(WORKING_SET_CACHE_KEY_PREFIX + key);
       return raw ? JSON.parse(raw) : null;
     } catch (e) {
+      console.warn(`[OfflineStorage] Erro ao carregar working set (${key}):`, e);
       return null;
     }
   },

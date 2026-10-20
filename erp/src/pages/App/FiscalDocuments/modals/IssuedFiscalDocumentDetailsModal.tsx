@@ -269,7 +269,16 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
             <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-center">
               <p role="alert" className="max-w-xl text-sm text-rose-700 dark:text-rose-300">{loadError}</p>
               {documentId && (
-                <button type="button" onClick={() => setReloadVersion((version) => version + 1)} className="rounded-xl bg-blue-700 px-4 py-2 text-xs font-bold text-white hover:bg-blue-800">
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => {
+                    setIsLoading(true);
+                    setReloadVersion((version) => version + 1);
+                  }}
+                  className="flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50"
+                >
+                  {isLoading && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
                   Tentar carregar novamente
                 </button>
               )}

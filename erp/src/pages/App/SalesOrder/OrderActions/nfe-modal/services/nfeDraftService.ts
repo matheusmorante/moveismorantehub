@@ -49,6 +49,7 @@ export function buildNfeDraftChanges(
     nfeDraft: {
       ...order.nfeDraft,
       [environment === 1 ? '1' : '2']: {
+        recipientTaxId: recipientTaxId.trim() || undefined,
         items: nfeItems.map((item) => ({
         ...(item.orderItemId ? { orderItemId: item.orderItemId } : {}),
         ...(item.fiscalSnapshotProductId || item.productId

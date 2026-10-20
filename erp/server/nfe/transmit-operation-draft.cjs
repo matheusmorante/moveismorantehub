@@ -157,7 +157,7 @@ function buildEmitXml(settings) {
     </emit>`;
 }
 
-// shared-utils/fiscal-cfop-model/catalog.ts
+// shared-utils/fiscal-cfop-model/data/cfopBaseCatalog.ts
 var CFOP_CATALOG_BASE = [
   // --- SAÍDAS INTERNAS (5.xxx) ---
   {
@@ -582,7 +582,10 @@ var CFOP_CATALOG_BASE = [
     notes: "Outras entradas interestaduais n\xE3o especificadas."
   }
 ];
+
+// shared-utils/fiscal-cfop-model/data/cfopSemantics.ts
 var CFOP_SEMANTICS = {
+  // --- Saídas Internas (5.xxx) ---
   "5102": { operationType: "sale", merchandiseOrigin: "third_party" },
   "5101": { operationType: "sale", merchandiseOrigin: "own_production" },
   "5405": { operationType: "sale", merchandiseOrigin: "third_party" },
@@ -597,6 +600,7 @@ var CFOP_SEMANTICS = {
   "5915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
   "5949": { operationType: "other", merchandiseOrigin: "not_applicable" },
   "5933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  // --- Saídas Interestaduais (6.xxx) ---
   "6102": { operationType: "sale", merchandiseOrigin: "third_party" },
   "6101": { operationType: "sale", merchandiseOrigin: "own_production" },
   "6108": { operationType: "sale_to_non_taxpayer", merchandiseOrigin: "third_party" },
@@ -612,15 +616,19 @@ var CFOP_SEMANTICS = {
   "6915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
   "6949": { operationType: "other", merchandiseOrigin: "not_applicable" },
   "6933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  // --- Entradas Internas (1.xxx) ---
   "1202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "1201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
   "1411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "1949": { operationType: "other", merchandiseOrigin: "not_applicable" },
+  // --- Entradas Interestaduais (2.xxx) ---
   "2202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "2201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
   "2411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "2949": { operationType: "other", merchandiseOrigin: "not_applicable" }
 };
+
+// shared-utils/fiscal-cfop-model/catalog.ts
 if (CFOP_CATALOG_BASE.length !== Object.keys(CFOP_SEMANTICS).length) {
   throw new Error("Cat\xE1logo CFOP sem classifica\xE7\xE3o sem\xE2ntica completa.");
 }
@@ -641,7 +649,7 @@ function getCfopDefinition(code) {
   return CFOP_BY_CODE.get(normalized);
 }
 
-// shared-utils/fiscal-cfop-model/selection.ts
+// shared-utils/fiscal-cfop-model/options.ts
 function listActiveCfopOptions(filter) {
   return CANONICAL_CFOPS.filter((item) => {
     if (!item.active) return false;
@@ -965,55 +973,32 @@ function getFiscalFormRules(context, scenario = {}) {
 }
 
 // erp/src/pages/utils/nfe/fiscalCfopResolution.ts
-var OUTBOUND_TO_INBOUND_CFOP_MAP = {
-  // --- Operações internas (5xxx -> 1xxx) ---
-  "5102": "1202",
-  // Venda mercadoria adquirida/recebida terceiros -> Devolução/estorno venda mercadoria terceiros
-  "5104": "1202",
-  // Venda fora do estabelecimento -> Devolução/estorno venda terceiros
-  "5101": "1201",
-  // Venda produção do estabelecimento -> Devolução/estorno venda produção
-  "5405": "1411",
-  // Venda mercadoria terceiros com ST -> Devolução venda com ST
-  "5403": "1411",
-  // Venda mercadoria terceiros com ST substituto -> Devolução venda com ST
-  "5152": "1202",
-  // Transferência de mercadoria adquirida de terceiros
-  "5910": "1910",
-  // Remessa bonificação/doação/brinde -> Entrada bonificação/doação/brinde
-  "5912": "1913",
-  // Remessa demonstração -> Retorno demonstração
-  "5914": "1913",
-  // Remessa exposição/feira -> Retorno exposição/feira
-  "5915": "1916",
-  // Remessa conserto/reparo -> Retorno conserto/reparo
+var OUTBOUND_TO_ESTORNO_INBOUND_CFOP_MAP = {
+  // Operações internas (5xxx -> 1949): Estorno de venda/saída conforme art. 298 RICMS/PR
+  "5101": "1949",
+  "5102": "1949",
+  "5104": "1949",
+  "5403": "1949",
+  "5405": "1949",
+  "5152": "1949",
+  "5910": "1949",
+  "5912": "1949",
+  "5914": "1949",
+  "5915": "1949",
   "5949": "1949",
-  // Outra saída não especificada -> Outra entrada não especificada
-  // --- Operações interestaduais (6xxx -> 2xxx) ---
-  "6102": "2202",
-  // Venda mercadoria terceiros fora do Estado -> Devolução venda terceiros fora do Estado
-  "6108": "2202",
-  // Venda mercadoria terceiros a não contribuinte fora do Estado -> Devolução venda terceiros fora do Estado
-  "6101": "2201",
-  // Venda produção do estabelecimento fora do Estado -> Devolução venda produção fora do Estado
-  "6107": "2201",
-  // Venda produção a não contribuinte fora do Estado -> Devolução venda produção fora do Estado
-  "6404": "2411",
-  // Venda com ST retido anteriormente fora do Estado -> Devolução venda com ST fora do Estado
-  "6403": "2411",
-  // Venda com ST substituto fora do Estado -> Devolução venda com ST fora do Estado
-  "6152": "2202",
-  // Transferência interestadual
-  "6910": "2910",
-  // Remessa bonificação interestadual -> Entrada bonificação interestadual
-  "6912": "2913",
-  // Remessa demonstração interestadual -> Retorno demonstração interestadual
-  "6914": "2913",
-  // Remessa exposição interestadual -> Retorno exposição interestadual
-  "6915": "2916",
-  // Remessa conserto interestadual -> Retorno conserto interestadual
+  // Operações interestaduais (6xxx -> 2949): Estorno de saída interestadual
+  "6101": "2949",
+  "6102": "2949",
+  "6107": "2949",
+  "6108": "2949",
+  "6403": "2949",
+  "6404": "2949",
+  "6152": "2949",
+  "6910": "2949",
+  "6912": "2949",
+  "6914": "2949",
+  "6915": "2949",
   "6949": "2949"
-  // Outra saída interestadual -> Outra entrada interestadual
 };
 var ESTORNO_FALLBACK_CFOPS = ["5949", "6949", "7949"];
 function normalizeCfop(value) {
@@ -1031,7 +1016,7 @@ function suggestEstornoCfop(originalCfop, config) {
     const normalized = normalizeCfop(configured);
     return normalized?.startsWith(requiredEntryPrefix) ? normalized : null;
   }
-  const canonical = OUTBOUND_TO_INBOUND_CFOP_MAP[originalCfop];
+  const canonical = OUTBOUND_TO_ESTORNO_INBOUND_CFOP_MAP[originalCfop];
   if (canonical?.startsWith(requiredEntryPrefix)) return canonical;
   return null;
 }
@@ -1041,7 +1026,7 @@ function getEstornoCfopOptions(originalCfop, config) {
     return [
       {
         value: inverse,
-        label: `${inverse.slice(0, 1)}.${inverse.slice(1)} \xB7 CFOP inverso da opera\xE7\xE3o`
+        label: `${inverse.slice(0, 1)}.${inverse.slice(1)} \xB7 Estorno fiscal (art. 298)`
       }
     ];
   }
@@ -2916,6 +2901,29 @@ async function consultDraftKey(accessKey, environment, certificate) {
     privateKeyPem: certificate.privateKeyPem
   });
 }
+async function executePrepareDraftAttemptRpc(db, params) {
+  return db.rpc("prepare_nfe_operation_attempt", {
+    p_draft_id: params.draftId,
+    p_expected_updated_at: params.expectedUpdatedAt,
+    p_expected_review_data: params.reviewData,
+    p_expected_lines: params.lines,
+    p_signed_xml: params.signedXml,
+    p_access_key: params.accessKey,
+    p_minimum_number: params.minimumNumber
+  });
+}
+async function claimReadyDraftForTransmission(db, params) {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  return db.from("nfe_operation_drafts").update({
+    status: "transmitting",
+    transmitted_at: now,
+    updated_at: now
+  }).eq("id", params.draftId).eq("status", "ready").eq("access_key", params.accessKey).eq("updated_at", params.expectedUpdatedAt).select("id,updated_at").maybeSingle();
+}
+async function confirmDraftTransmissionStart(db, params) {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  return db.from("nfe_operation_drafts").update({ transmitted_at: now, updated_at: now }).eq("id", params.draftId).eq("status", "transmitting").eq("access_key", params.accessKey).eq("updated_at", params.transmissionVersion).select("id,updated_at").maybeSingle();
+}
 async function persistDraftAuthorized(params) {
   const {
     res,
@@ -2997,9 +3005,17 @@ async function persistDraftAuthorized(params) {
         error: "O estorno foi autorizado, mas a conclus\xE3o da edi\xE7\xE3o do pedido precisa ser retomada. N\xE3o retransmita."
       });
     }
-    if (editReplacement && !editReplacementError) {
+    let resolvedReplacement = editReplacement;
+    if (!editReplacement && !editReplacementError && draft.original_document_id) {
+      const { data: fallbackReplacement, error: fallbackError } = await db.from("nfe_order_edit_replacements").select("id").eq("original_document_id", draft.original_document_id).eq("environment", environment).eq("reversal_kind", "estorno").eq("status", "awaiting_reversal").maybeSingle();
+      if (!fallbackError && fallbackReplacement) {
+        await db.from("nfe_order_edit_replacements").update({ operation_draft_id: draft.id }).eq("id", fallbackReplacement.id);
+        resolvedReplacement = fallbackReplacement;
+      }
+    }
+    if (resolvedReplacement) {
       const { error: finalizeEditError } = await db.rpc("finalize_fiscal_order_edit", {
-        p_replacement_id: editReplacement.id
+        p_replacement_id: resolvedReplacement.id
       });
       if (finalizeEditError) {
         console.error(
@@ -3627,14 +3643,14 @@ async function handler(req, res) {
         }
         let prepared = null;
         try {
-          prepared = await db.rpc("prepare_nfe_operation_attempt", {
-            p_draft_id: draft.id,
-            p_expected_updated_at: draft.updated_at,
-            p_expected_review_data: review,
-            p_expected_lines: lines,
-            p_signed_xml: signedXml,
-            p_access_key: accessKey,
-            p_minimum_number: minimumNumber
+          prepared = await executePrepareDraftAttemptRpc(db, {
+            draftId: draft.id,
+            expectedUpdatedAt: draft.updated_at,
+            reviewData: review,
+            lines,
+            signedXml,
+            accessKey,
+            minimumNumber
           });
         } catch {
           return res.status(503).json({
@@ -3682,7 +3698,11 @@ async function handler(req, res) {
         sourceOperationType,
         sourceDestinationIndicator
       });
-      const { data: claimed, error: claimError } = await db.from("nfe_operation_drafts").update({ status: "transmitting", transmitted_at: (/* @__PURE__ */ new Date()).toISOString(), updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", draft.id).eq("status", "ready").eq("access_key", accessKey).eq("updated_at", draft.updated_at).select("id,updated_at").maybeSingle();
+      const { data: claimed, error: claimError } = await claimReadyDraftForTransmission(db, {
+        draftId: draft.id,
+        accessKey,
+        expectedUpdatedAt: draft.updated_at
+      });
       if (claimError || !claimed) {
         return res.status(409).json({
           success: false,
@@ -3693,25 +3713,13 @@ async function handler(req, res) {
       transmissionVersion = claimed.updated_at;
     }
     if (!accessKey || !signedXml) throw new Error("Tentativa fiscal sem chave/XML confirmados.");
-    assertDraftXmlMatchesReview({
-      signedXml,
-      certificatePem: certificate.certPem,
-      draft,
-      review,
-      lines,
-      originalById,
-      sourceAccessKey: String(validatedSource.chave_acesso),
-      environment,
-      accessKey,
-      series,
-      number: nfeNumber,
-      sourceOperationType,
-      sourceDestinationIndicator
-    });
     const batchXml = `<enviNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><idLote>${Date.now().toString().slice(-15)}</idLote><indSinc>1</indSinc>${embeddedNfeXml(signedXml)}</enviNFe>`;
     try {
-      const now = (/* @__PURE__ */ new Date()).toISOString();
-      const { data: started, error: startError } = await db.from("nfe_operation_drafts").update({ transmitted_at: now, updated_at: now }).eq("id", draft.id).eq("status", "transmitting").eq("access_key", accessKey).eq("updated_at", transmissionVersion).select("id,updated_at").maybeSingle();
+      const { data: started, error: startError } = await confirmDraftTransmissionStart(db, {
+        draftId: draft.id,
+        accessKey,
+        transmissionVersion
+      });
       if (startError || !started) throw new Error("TRANSMISSION_START_NOT_CONFIRMED");
       transmissionVersion = started.updated_at;
     } catch {

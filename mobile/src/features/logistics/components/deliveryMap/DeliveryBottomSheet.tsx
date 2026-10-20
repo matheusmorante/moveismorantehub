@@ -58,6 +58,18 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
     /agendad|scheduled/.test(orderStatus);
   const canContinueDelivery = item.activityType === 'delivery' && isInProgress;
 
+  const primaryDeliveryAction = canStartDelivery
+    ? {
+        label: 'INICIAR ETAPAS DA ENTREGA',
+        onPress: handleStartAndNavigate,
+      }
+    : canContinueDelivery
+      ? {
+          label: 'CONTINUAR ETAPAS DA ENTREGA',
+          onPress: handleOpenNav,
+        }
+      : null;
+
   // Extrair observações separadas por linhas para criar rótulos individuais
   const obsList =
     typeof item.observations === 'string'
@@ -226,7 +238,7 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
 
                 <View style={styles.obsTagsContainer}>
                   {obsList.map((obsText, idx) => (
-                    <View key={idx} style={[styles.obsTag, isDarkMode && styles.obsTagDark]}>
+                    <View key={`${idx}-${obsText.slice(0, 12)}`} style={[styles.obsTag, isDarkMode && styles.obsTagDark]}>
                       <Text style={[styles.obsTagText, isDarkMode && styles.obsTagTextDark]}>
                         {obsText}
                       </Text>
@@ -247,31 +259,26 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
             ) : (
               <>
                 {/* Botão de Ação Primária: Iniciar ou Continuar (Topo) */}
-                {canStartDelivery ? (
+                {primaryDeliveryAction && (
                   <TouchableOpacity
-                    style={[styles.primaryActionBtn, { backgroundColor: '#2563eb' }]}
-                    onPress={handleStartAndNavigate}
+                    style={styles.primaryActionBtn}
+                    onPress={primaryDeliveryAction.onPress}
                     activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={primaryDeliveryAction.label}
                   >
                     <Play size={16} color="#ffffff" fill="#ffffff" />
-                    <Text style={styles.primaryActionText}>INICIAR ETAPAS DA ENTREGA</Text>
+                    <Text style={styles.primaryActionText}>{primaryDeliveryAction.label}</Text>
                   </TouchableOpacity>
-                ) : canContinueDelivery ? (
-                  <TouchableOpacity
-                    style={[styles.primaryActionBtn, { backgroundColor: '#2563eb' }]}
-                    onPress={handleOpenNav}
-                    activeOpacity={0.85}
-                  >
-                    <Play size={16} color="#ffffff" fill="#ffffff" />
-                    <Text style={styles.primaryActionText}>CONTINUAR ETAPAS DA ENTREGA</Text>
-                  </TouchableOpacity>
-                ) : null}
+                )}
 
                 {/* Botão Secundário: Detalhes do Pedido (Embaixo) */}
                 <TouchableOpacity
                   style={[styles.secondaryActionBtn, isDarkMode && styles.secondaryActionBtnDark]}
                   onPress={handleViewOrderDetails}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver Detalhes do Pedido"
                 >
                   <FileText size={16} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
                   <Text
@@ -300,7 +307,7 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
   sheetCard: {
@@ -510,6 +517,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 46,
     borderRadius: 12,
+    backgroundColor: '#2563eb',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

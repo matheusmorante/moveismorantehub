@@ -1,7 +1,10 @@
 import React from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CurrencyInput } from '../../../../components/shared/CurrencyInput';
 import { CreditCard, PlusCircle, CheckCircle2, CircleDollarSign } from 'lucide-react-native';
+import { areDeliveryPaymentsPaid } from '../../screens/delivery-preparation/deliveryFlowStepRules';
+
+export { areDeliveryPaymentsPaid };
 
 type Payment = {
   method?: string;
@@ -10,6 +13,7 @@ type Payment = {
   fee?: number;
   feeType?: string;
 };
+
 type Props = { payments: Payment[]; onChange: (payments: Payment[]) => void; isDarkMode: boolean };
 const METHODS = ['Pix', 'Débito', 'Crédito', 'Dinheiro'];
 const paid = (status?: string) => ['pago', 'paid'].includes(String(status || '').toLowerCase());
@@ -103,9 +107,6 @@ export const DeliveryPaymentSection = ({ payments, onChange, isDarkMode }: Props
     </View>
   );
 };
-
-export const areDeliveryPaymentsPaid = (payments: Payment[]) =>
-  payments.length > 0 && payments.every((payment) => paid(payment.status));
 
 const styles = StyleSheet.create({
   card: {

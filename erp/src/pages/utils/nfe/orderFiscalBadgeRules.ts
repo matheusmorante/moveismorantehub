@@ -48,11 +48,20 @@ export interface FiscalOperationDraftStatusRow {
   created_at?: string | null;
 }
 
+export interface OutboundFiscalBadgeItem {
+  id?: string;
+  status: OrderFiscalBadgeStatus;
+  sequenceNumber: number;
+  label: string;
+}
+
 export interface OrderFiscalBadgeStatuses {
   production: OrderFiscalBadgeStatus;
   homologation?: OrderFiscalBadgeStatus;
   productionDocumentId?: string;
   homologationDocumentId?: string;
+  productionBadges?: OutboundFiscalBadgeItem[];
+  homologationBadges?: OutboundFiscalBadgeItem[];
   cancellationState?: OrderFiscalCancellationState;
   cancellationDocuments?: Array<{
     documentId: string;
@@ -68,6 +77,10 @@ export interface OrderFiscalBadgeStatuses {
   devolucaoEnvironment?: 1 | 2;
   devolucaoCount?: number;
   devolucaoDocuments?: ReturnFiscalDocumentSummary[];
+  /** True when estorno was confirmed and no replacement HML outbound has been emitted. */
+  readyToReissueHml?: boolean;
+  /** True when estorno was confirmed and no replacement prod outbound has been emitted. */
+  readyToReissueProd?: boolean;
 }
 
 const FISCAL_REJECTION_STATUSES = new Set(['rejeitada', 'denegada']);
@@ -243,6 +256,27 @@ export const isOutboundFiscalDocument = (document: FiscalDocumentStatusRow): boo
 const isAuthorized = isAuthorizedFiscalDocument;
 const isOutbound = isOutboundFiscalDocument;
 
+/** Returns the set of outbound document IDs whose estorno has been confirmed (authorized). */
+const getEstornoConfirmedDocumentIds = (
+  documents: readonly FiscalDocumentStatusRow[],
+  drafts: readonly FiscalOperationDraftStatusRow[]
+): Set<string> => {
+  const confirmed = new Set<string>();
+  // A draft with status='authorized' confirms the estorno for its original_document_id.
+  for (const draft of drafts) {
+    if (draft.operation_kind === 'estorno' &&
+        draft.status === 'authorized' &&
+        draft.original_document_id) {
+      confirmed.add(draft.original_document_id);
+    }
+  }
+  // A persisted estorno document (document_type='estorno') also confirms it.
+  const estornoDocs = documents.filter((d) => d.document_type === 'estorno' && isAuthorized(d));
+  // We don't have original_document_id in FiscalDocumentStatusRow, so rely on drafts above.
+  // (The badge service always returns drafts alongside documents, so this is sufficient.)
+  return confirmed;
+};
+
 export const resolveOrderFiscalBadgeStatus = (
   documents: readonly FiscalDocumentStatusRow[]
 ): OrderFiscalBadgeStatus => {
@@ -295,6 +329,9 @@ export const resolveOrderFiscalBadgePair = (
   const outboundDocs = documents.filter(isOutbound);
   const prodDocs = outboundDocs.filter((doc) => doc.ambiente !== 2);
   const hmlDocs = outboundDocs.filter((doc) => doc.ambiente === 2);
+
+  // Compute which original document IDs have a confirmed estorno (authorized draft).
+  const estornoConfirmedIds = getEstornoConfirmedDocumentIds(documents, operationDrafts);
 
   const production = resolveOrderFiscalBadgeStatus(prodDocs);
   const homologation = resolveOrderFiscalBadgeStatus(hmlDocs);
@@ -377,15 +414,86 @@ export const resolveOrderFiscalBadgePair = (
     )[0]?.id;
   };
 
+  // readyToReissue: estorno confirmed, but no replacement outbound doc emitted yet.
+  const replacementOutboundDocs = documents.filter(
+    (d) => isOutbound(d) && isAuthorized(d) && !estornoConfirmedIds.has(d.id || '')
+  );
+  const hasReplacementHml = replacementOutboundDocs.some((d) => d.ambiente === 2);
+  const hasReplacementProd = replacementOutboundDocs.some((d) => d.ambiente !== 2);
+  const hasConfirmedEstornoHml = hmlDocs.some((d) => d.id && estornoConfirmedIds.has(d.id));
+  const hasConfirmedEstornoProd = prodDocs.some((d) => d.id && estornoConfirmedIds.has(d.id));
+
+  const hmlOutboundDocs = outboundDocs
+    .filter((d) => d.ambiente === 2)
+    .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+
+  const homologationBadges: OutboundFiscalBadgeItem[] = hmlOutboundDocs.map((doc, index) => {
+    const seq = index + 1;
+    const label = seq === 1 ? 'NFH' : `NFH ${seq}`;
+    return {
+      id: doc.id,
+      status: resolveOrderFiscalBadgeStatus([doc]),
+      sequenceNumber: seq,
+      label,
+    };
+  });
+
+  if (hasConfirmedEstornoHml && !hasReplacementHml) {
+    homologationBadges.push({
+      status: 'not_issued',
+      sequenceNumber: hmlOutboundDocs.length + 1,
+      label: `NFH ${hmlOutboundDocs.length + 1}`,
+    });
+  }
+
+  const prodOutboundDocs = outboundDocs
+    .filter((d) => d.ambiente !== 2)
+    .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+
+  const productionBadges: OutboundFiscalBadgeItem[] = prodOutboundDocs.map((doc, index) => {
+    const seq = index + 1;
+    const label = seq === 1 ? 'NF' : `NF ${seq}`;
+    return {
+      id: doc.id,
+      status: resolveOrderFiscalBadgeStatus([doc]),
+      sequenceNumber: seq,
+      label,
+    };
+  });
+
+  if (prodOutboundDocs.length === 0) {
+    productionBadges.push({
+      status: production,
+      sequenceNumber: 1,
+      label: 'NF',
+    });
+  } else if (hasConfirmedEstornoProd && !hasReplacementProd) {
+    productionBadges.push({
+      status: 'not_issued',
+      sequenceNumber: prodOutboundDocs.length + 1,
+      label: `NF ${prodOutboundDocs.length + 1}`,
+    });
+  }
+
+  const prodDocId = findDocumentId(prodDocs, production);
+  const hmlDocId = findDocumentId(hmlDocs, homologation);
+
   return {
     production,
     homologation,
-    productionDocumentId: findDocumentId(prodDocs, production),
-    homologationDocumentId:
-      homologation !== 'not_issued' ? findDocumentId(hmlDocs, homologation) : undefined,
+    ...(production !== 'not_issued' && prodDocId ? { productionDocumentId: prodDocId } : {}),
+    ...(homologation !== 'not_issued' && hmlDocId ? { homologationDocumentId: hmlDocId } : {}),
+    ...(productionBadges.some((b) => b.status !== 'not_issued' || b.sequenceNumber > 1)
+      ? { productionBadges }
+      : {}),
+    ...(homologationBadges.length > 0 ? { homologationBadges } : {}),
     ...(cancellationState ? { cancellationState } : {}),
     ...(cancellationDocuments.length ? { cancellationDocuments } : {}),
     ...resolveOrderFiscalEstornoBadge(documents, operationDrafts),
     ...resolveOrderFiscalDevolucaoBadge(documents, operationDrafts),
+    ...(hasConfirmedEstornoHml && !hasReplacementHml ? { readyToReissueHml: true } : {}),
+    ...(hasConfirmedEstornoProd && !hasReplacementProd ? { readyToReissueProd: true } : {}),
   };
 };
+
+

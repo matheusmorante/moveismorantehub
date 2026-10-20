@@ -221,6 +221,14 @@ const OrderHistoryTable = ({
                   typeof badgeInfo === 'object' ? badgeInfo?.devolucaoEnvironment : undefined;
                 const devolucaoDocuments =
                   typeof badgeInfo === 'object' ? badgeInfo?.devolucaoDocuments : undefined;
+                const readyToReissueHml =
+                  typeof badgeInfo === 'object' ? badgeInfo?.readyToReissueHml : undefined;
+                const readyToReissueProd =
+                  typeof badgeInfo === 'object' ? badgeInfo?.readyToReissueProd : undefined;
+                const homologationBadges =
+                  typeof badgeInfo === 'object' ? badgeInfo?.homologationBadges : undefined;
+                const productionBadges =
+                  typeof badgeInfo === 'object' ? badgeInfo?.productionBadges : undefined;
 
                 return (
                   <OrderHistoryRow
@@ -240,6 +248,10 @@ const OrderHistoryTable = ({
                     fiscalDevolucaoDocumentId={devolucaoDocumentId}
                     fiscalDevolucaoEnvironment={devolucaoEnvironment}
                     fiscalDevolucaoDocuments={devolucaoDocuments}
+                    fiscalReadyToReissueHml={readyToReissueHml}
+                    fiscalReadyToReissueProd={readyToReissueProd}
+                    fiscalHomologationBadges={homologationBadges}
+                    fiscalProductionBadges={productionBadges}
                     onEdit={onEdit}
                     onViewDetails={onViewDetails}
                     onViewFiscalDocument={onViewFiscalDocument}
@@ -305,6 +317,10 @@ const OrderHistoryTable = ({
                 typeof badgeInfo === 'object' ? badgeInfo?.devolucaoEnvironment : undefined;
               const devolucaoDocuments =
                 typeof badgeInfo === 'object' ? badgeInfo?.devolucaoDocuments : undefined;
+              const cardHomologationBadges =
+                typeof badgeInfo === 'object' ? badgeInfo?.homologationBadges : undefined;
+              const cardProductionBadges =
+                typeof badgeInfo === 'object' ? badgeInfo?.productionBadges : undefined;
 
               return (
                 <OrderHistoryCard
@@ -325,6 +341,8 @@ const OrderHistoryTable = ({
                   fiscalDevolucaoDocumentId={devolucaoDocumentId}
                   fiscalDevolucaoEnvironment={devolucaoEnvironment}
                   fiscalDevolucaoDocuments={devolucaoDocuments}
+                  fiscalProductionBadges={cardProductionBadges}
+                  fiscalHomologationBadges={cardHomologationBadges}
                   onEdit={onEdit}
                   onViewDetails={onViewDetails}
                   onViewFiscalDocument={onViewFiscalDocument}

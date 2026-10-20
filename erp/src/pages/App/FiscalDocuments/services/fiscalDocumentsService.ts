@@ -196,6 +196,151 @@ export async function fetchFiscalDocumentsList({
   };
 }
 
+async function fetchFiscalDocumentDetailsFromSupabase(
+  documentId: string
+): Promise<FiscalDocumentDetails> {
+  const { data: doc, error: docError } = await supabase
+    .from('nfe_documents')
+    .select(
+      'id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,motivo_status,numero_protocolo,xml_nfe,xml_protocolo,valor_total,destinatario_nome,destinatario_documento,created_at,updated_at,document_type'
+    )
+    .eq('id', documentId)
+    .maybeSingle();
+
+  if (docError) {
+    throw new Error('Não foi possível carregar o documento fiscal via banco de dados: ' + docError.message);
+  }
+
+  if (doc) {
+    const document: FiscalDocumentDetails['document'] = {
+      id: doc.id,
+      order_id: doc.order_id,
+      numero_nfe: Number(doc.numero_nfe),
+      serie: String(doc.serie),
+      chave_acesso: String(doc.chave_acesso),
+      modelo: doc.modelo as '55' | '65',
+      ambiente: Number(doc.ambiente) as 1 | 2,
+      status: doc.status as NfeDocumentRecord['status'],
+      motivo_status: nullableString(doc.motivo_status, 'motivo_status') || undefined,
+      numero_protocolo: nullableString(doc.numero_protocolo, 'numero_protocolo'),
+      valor_total: typeof doc.valor_total === 'number' ? doc.valor_total : undefined,
+      destinatario_nome: nullableString(doc.destinatario_nome, 'destinatario_nome') || undefined,
+      destinatario_documento:
+        nullableString(doc.destinatario_documento, 'destinatario_documento') || undefined,
+      created_at: String(doc.created_at),
+      updated_at: String(doc.updated_at),
+      document_type: typeof doc.document_type === 'string' ? doc.document_type : undefined,
+      xml_nfe: nullableString(doc.xml_nfe, 'xml_nfe'),
+      xml_protocolo: nullableString(doc.xml_protocolo, 'xml_protocolo'),
+    };
+
+    const [{ data: events }, { data: drafts }] = await Promise.all([
+      supabase
+        .from('nfe_document_events')
+        .select(
+          'id,event_type,event_sequence,attempt_number,status,justification,cstat,xmotivo,protocol_number,protocol_date,requested_by,requested_at,confirmed_at'
+        )
+        .eq('document_id', documentId)
+        .order('requested_at', { ascending: false })
+        .limit(30),
+      supabase
+        .from('nfe_operation_drafts')
+        .select('id,operation_kind,environment,status,reason,created_at,updated_at')
+        .or(`original_document_id.eq.${documentId},document_id.eq.${documentId}`)
+        .order('created_at', { ascending: false })
+        .limit(10),
+    ]);
+
+    return {
+      document,
+      events: (events || []).map(parseFiscalDocumentEvent),
+      parsedXml: parseFiscalXmlDetails(document.xml_nfe || ''),
+      operationDrafts: Array.isArray(drafts)
+        ? drafts.map((d: any) => ({
+            id: String(d.id),
+            operation_kind: d.operation_kind === 'estorno' ? ('estorno' as const) : ('return' as const),
+            environment: Number(d.environment) === 2 ? (2 as const) : (1 as const),
+            status: String(d.status),
+            reason: typeof d.reason === 'string' ? d.reason : null,
+            created_at: String(d.created_at),
+            updated_at: typeof d.updated_at === 'string' ? d.updated_at : undefined,
+          }))
+        : undefined,
+    };
+  }
+
+  const { data: draft, error: draftError } = await supabase
+    .from('nfe_operation_drafts')
+    .select('*')
+    .eq('id', documentId)
+    .maybeSingle();
+
+  if (draftError || !draft) {
+    throw new Error('Documento fiscal não encontrado.');
+  }
+
+  if (draft.document_id && draft.document_id !== draft.id) {
+    return fetchFiscalDocumentDetailsFromSupabase(draft.document_id);
+  }
+
+  let originalDoc: any = null;
+  if (draft.original_document_id) {
+    const { data: orig } = await supabase
+      .from('nfe_documents')
+      .select('*')
+      .eq('id', draft.original_document_id)
+      .maybeSingle();
+    originalDoc = orig;
+  }
+
+  const draftStatus = String(draft.status || '').toLowerCase();
+  const status =
+    draftStatus === 'rejected'
+      ? 'rejeitada'
+      : draftStatus === 'cancelled'
+      ? 'cancelada'
+      : 'pendente';
+  const accessKey = typeof draft.access_key === 'string' ? draft.access_key : '';
+
+  const draftDoc: FiscalDocumentDetails['document'] = {
+    id: draft.id,
+    order_id: originalDoc?.order_id || null,
+    numero_nfe: accessKey.length >= 34 ? Number(accessKey.slice(25, 34)) : 0,
+    serie: accessKey.length >= 25 ? String(Number(accessKey.slice(22, 25))) : '',
+    chave_acesso: accessKey,
+    modelo: '55',
+    ambiente: draft.environment === 1 ? 1 : 2,
+    status: status as any,
+    motivo_status: draft.reason || 'Nota Fiscal de Estorno (Modelo 55)',
+    numero_protocolo: draft.protocol_number || null,
+    valor_total: originalDoc?.valor_total || 0,
+    destinatario_nome: originalDoc?.destinatario_nome || 'Consumidor',
+    destinatario_documento: originalDoc?.destinatario_documento || null,
+    created_at: draft.created_at || new Date().toISOString(),
+    updated_at: draft.updated_at || new Date().toISOString(),
+    document_type: draft.operation_kind || 'estorno',
+    xml_nfe: draft.signed_xml || draft.generated_xml || null,
+    xml_protocolo: draft.sefaz_response_xml || null,
+  };
+
+  return {
+    document: draftDoc,
+    events: [],
+    parsedXml: parseFiscalXmlDetails(draftDoc.xml_nfe || ''),
+    operationDrafts: [
+      {
+        id: String(draft.id),
+        operation_kind: draft.operation_kind === 'estorno' ? 'estorno' : 'return',
+        environment: Number(draft.environment) === 2 ? 2 : 1,
+        status: String(draft.status),
+        reason: typeof draft.reason === 'string' ? draft.reason : null,
+        created_at: String(draft.created_at),
+        updated_at: typeof draft.updated_at === 'string' ? draft.updated_at : undefined,
+      },
+    ],
+  };
+}
+
 export async function fetchFiscalDocumentDetails(
   documentId: string
 ): Promise<FiscalDocumentDetails> {
@@ -204,20 +349,32 @@ export async function fetchFiscalDocumentDetails(
     throw new Error('Faça login novamente para consultar os detalhes fiscais.');
   }
 
-  const response = await fetch('/api/nfe/document-details', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${data.session.access_token}`,
-    },
-    body: JSON.stringify({ documentId }),
-    signal: AbortSignal.timeout(8000),
-  });
+  let result: Record<string, any>;
+  try {
+    const response = await fetch('/api/nfe/document-details', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${data.session.access_token}`,
+      },
+      body: JSON.stringify({ documentId }),
+      signal: AbortSignal.timeout(8000),
+    });
 
-  const result: unknown = await response.json();
-  if (!response.ok) {
-    const message = isRecord(result) && typeof result.error === 'string' ? result.error : null;
-    throw new Error(message || 'Não foi possível carregar os detalhes fiscais.');
+    result = await parseNfeApiResponse<Record<string, any>>(
+      response,
+      'Não foi possível carregar os detalhes fiscais.'
+    );
+    if (!response.ok) {
+      const message = isRecord(result) && typeof result.error === 'string' ? result.error : null;
+      throw new Error(message || 'Não foi possível carregar os detalhes fiscais.');
+    }
+  } catch (apiError: unknown) {
+    console.warn(
+      'Falha na rota /api/nfe/document-details, acionando consulta direta ao Supabase:',
+      apiError
+    );
+    return fetchFiscalDocumentDetailsFromSupabase(documentId);
   }
   if (
     !isRecord(result) ||

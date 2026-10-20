@@ -34,6 +34,11 @@ export const groupCharacteristicsByTopic = <
   const otherFields: T[] = [];
 
   fields.forEach((field) => {
+    if (field.isCustom) {
+      otherFields.push(field);
+      return;
+    }
+
     const topic = CHARACTERISTIC_TOPICS.find((candidate) => candidate.matches.test(field.name));
     if (topic) {
       const groupedFields = groups.get(topic.title) || [];

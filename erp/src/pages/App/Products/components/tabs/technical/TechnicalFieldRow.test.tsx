@@ -9,18 +9,18 @@ describe('TechnicalFieldRow', () => {
   afterEach(() => {
     cleanup();
   });
-  it('renderiza o campo com nome e unidade sem asterisco vermelho de cadastro', () => {
+  it('renderiza o campo com nome e unidade sem asterisco vermelho de cadastro quando opcional', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f1',
-      name: 'Altura',
+      name: 'Observações',
       unit: 'cm',
-      isRequired: true,
+      isRequired: false,
     };
 
     render(
       <TechnicalFieldRow
         field={field}
-        formData={{ height: 120, technicalValues: { Altura: '120' } }}
+        formData={{ height: 120, technicalValues: { Observações: '120' } }}
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
@@ -29,7 +29,7 @@ describe('TechnicalFieldRow', () => {
       />
     );
 
-    expect(screen.getByText('Altura (cm)')).toBeDefined();
+    expect(screen.getByText('Observações (cm)')).toBeDefined();
     expect(screen.queryByText('*')).toBeNull();
   });
 

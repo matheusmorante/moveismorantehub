@@ -1,7 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Check, ClipboardCheck } from 'lucide-react-native';
-import { SlideHoldToStart } from '../SlideHoldToStart';
 import { DeliveryResponsibleItem } from '../../screens/delivery-preparation/deliveryPreparation.types';
 import { styles } from './preparation/deliveryPreparationStep.styles';
 import { DeliveryDestinationInfoCard } from './preparation/DeliveryDestinationInfoCard';
@@ -21,14 +20,15 @@ interface Props {
   onRemoveResponsible: (index: number) => void;
   availableStaff?: Array<{ id: string; fullName: string; role?: string }>;
   userProfile?: any;
-  onStartDelivery: () => void;
-  saving: boolean;
+  onStartDelivery?: () => void;
+  saving?: boolean;
   isDarkMode: boolean;
 }
 
 /**
  * Etapa 1 do Fluxo de Entrega: Preparação e Conferência Pré-Saída.
- * Modularizado e desacoplado respeitando os princípios de SRP e DRY.
+ * Modularizado e desacoplado respeitando os princípios de SRP e Clean Architecture.
+ * As ações de transição foram alocadas no rodapé fixo `DeliveryStepActionFooter`.
  */
 export const DeliveryPreparationStep: React.FC<Props> = ({
   customer,
@@ -42,8 +42,6 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
   onRemoveResponsible,
   availableStaff = [],
   userProfile,
-  onStartDelivery,
-  saving,
   isDarkMode,
 }) => {
   return (
@@ -87,15 +85,6 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
           <Text style={[styles.itemText, isDarkMode && styles.textLight]}>{item.label}</Text>
         </TouchableOpacity>
       ))}
-
-      {/* 4. Ação de Início do Fluxo de Entrega */}
-      <SlideHoldToStart
-        label="Deslize para Iniciar Entrega"
-        loadingLabel="Iniciando Rota..."
-        onConfirm={onStartDelivery}
-        loading={saving}
-        isDarkMode={isDarkMode}
-      />
 
       <Text style={[styles.safety, isDarkMode && styles.textMuted]}>
         🔒 Dirija com segurança. Use cinto de segurança e respeite os limites de velocidade.

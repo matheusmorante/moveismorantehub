@@ -2,7 +2,10 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { getNextInventoryCode } from '../../../../services/stockService';
 import { Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
-import { inventoryAuditScopeSchema, inventoryAuditCompletionSchema } from '../../../../../../shared-utils/inventoryAuditFormSchemas';
+import {
+  inventoryAuditScopeSchema,
+  inventoryAuditCompletionSchema,
+} from '../../../../../../shared-utils/inventoryAuditFormSchemas';
 import type { ScopeConfiguration } from './useInventoryScopeBuilder';
 import type { InventorySession } from '../../types/stock.types';
 import type {
@@ -44,8 +47,19 @@ export const useInventoryAuditWorkflow = (
   const draftRef = useRef<AuditDraftState>({});
   const latestItemsRef = useRef<AuditItem[]>(items);
   const frozenSubmissionRef = useRef(false);
-  const scopeForm = useZodForm(inventoryAuditScopeSchema, { type: 'full', name: '', supplierId: '', responsibleId: '', itemsSnapshot: [] });
-  const completionForm = useZodForm(inventoryAuditCompletionSchema, { id: '', code: '', items: [], adjustments: [] });
+  const scopeForm = useZodForm(inventoryAuditScopeSchema, {
+    type: 'full',
+    name: '',
+    supplierId: '',
+    responsibleId: '',
+    itemsSnapshot: [],
+  });
+  const completionForm = useZodForm(inventoryAuditCompletionSchema, {
+    id: '',
+    code: '',
+    items: [],
+    adjustments: [],
+  });
 
   // Fila serializada para concorrência segura no SQLite
   const { persistToSQLite, flush } = useInventoryPersistenceQueue(
@@ -87,14 +101,15 @@ export const useInventoryAuditWorkflow = (
         try {
           const data = await restoreInventorySession(initialSession, userProfile?.id);
           if (data && isMounted) {
-            frozenSubmissionRef.current = Boolean(
+            const isFrozen = Boolean(
               data.draft.id && (await getInventorySubmission(data.draft.id))
             );
+            frozenSubmissionRef.current = isFrozen;
             draftRef.current = data.draft;
             latestItemsRef.current = data.items;
             setItemsState(data.items);
             setScopeConfig(data.scopeConfig);
-            setView('operation');
+            setView(isFrozen ? 'review' : 'operation');
           }
         } catch (error) {
           console.error('[Workflow] Erro ao restaurar inventário:', error);
@@ -129,57 +144,66 @@ export const useInventoryAuditWorkflow = (
     };
   }, [initialSession, copiedItems, userProfile?.id]);
 
-  const handleConfirmScope = async (input: ScopeConfiguration) => scopeForm.validateAndRun({ ...input, supplierId: input.supplierId || '', itemsSnapshot: input.itemsSnapshot.map((item) => ({ ...item })) }, async (config) => {
-    frozenSubmissionRef.current = false;
-    const initialItems: AuditItem[] = config.itemsSnapshot.map((snapshot) => ({
-      id: createInventoryItemId(),
-      key: `${snapshot.productId}-${snapshot.variationId || 'main'}`,
-      productId: snapshot.productId,
-      variationId: snapshot.variationId,
-      name: snapshot.name,
-      supplierNames: snapshot.supplierNames,
-      assignedSupplier: snapshot.assignedSupplier || 'Sem fornecedor',
-      systemStock: snapshot.systemStock,
-      physicalCount: null,
-      unit: snapshot.unit,
-      sku: snapshot.sku,
-      code: snapshot.code,
-      barcode: snapshot.barcode,
-      isActive: snapshot.isActive,
-    }));
+  const handleConfirmScope = async (input: ScopeConfiguration) =>
+    scopeForm.validateAndRun(
+      {
+        ...input,
+        supplierId: input.supplierId || '',
+        itemsSnapshot: input.itemsSnapshot.map((item) => ({ ...item })),
+      },
+      async (config) => {
+        frozenSubmissionRef.current = false;
+        const initialItems: AuditItem[] = config.itemsSnapshot.map((snapshot) => ({
+          id: createInventoryItemId(),
+          key: `${snapshot.productId}-${snapshot.variationId || 'main'}`,
+          productId: snapshot.productId,
+          variationId: snapshot.variationId,
+          name: snapshot.name,
+          supplierNames: snapshot.supplierNames,
+          assignedSupplier: snapshot.assignedSupplier || 'Sem fornecedor',
+          systemStock: snapshot.systemStock,
+          physicalCount: null,
+          unit: snapshot.unit,
+          sku: snapshot.sku,
+          code: snapshot.code,
+          barcode: snapshot.barcode,
+          isActive: snapshot.isActive,
+        }));
 
-    const nextScope = {
-      name: config.name,
-      hasStages: config.hasStages ?? false,
-      responsibleId: config.responsibleId,
-      scopeType: config.type,
-      supplierId: config.supplierId,
-    };
+        const nextScope = {
+          name: config.name,
+          hasStages: config.hasStages ?? false,
+          responsibleId: config.responsibleId,
+          scopeType: config.type,
+          supplierId: config.supplierId,
+        };
 
-    setScopeConfig(nextScope);
+        setScopeConfig(nextScope);
 
-    const auditId = draftRef.current.id || generateInventoryUUID();
-    draftRef.current.id = auditId;
-    try {
-      draftRef.current.code = await getNextInventoryCode();
-    } catch {
-      draftRef.current.code = `LOCAL-${auditId.slice(0, 8)}`;
-    }
-    if (!draftRef.current.code) draftRef.current.code = `LOCAL-${auditId.slice(0, 8)}`;
-    draftRef.current.date = new Date().toISOString();
-    latestItemsRef.current = initialItems;
-    setItemsState(initialItems);
-    try {
-      await persistToSQLite(initialItems, nextScope);
-      setView('operation');
-    } catch (error) {
-      console.error('[Inventory] Falha ao iniciar inventário local:', error);
-      Alert.alert(
-        'Falha ao salvar',
-        'Não foi possível iniciar o inventário no armazenamento do aparelho.'
-      );
-    }
-  }, (errors) => Alert.alert('Revise o escopo', Object.values(flattenFormErrors(errors))[0]));
+        const auditId = draftRef.current.id || generateInventoryUUID();
+        draftRef.current.id = auditId;
+        try {
+          draftRef.current.code = await getNextInventoryCode();
+        } catch {
+          draftRef.current.code = `LOCAL-${auditId.slice(0, 8)}`;
+        }
+        if (!draftRef.current.code) draftRef.current.code = `LOCAL-${auditId.slice(0, 8)}`;
+        draftRef.current.date = new Date().toISOString();
+        latestItemsRef.current = initialItems;
+        setItemsState(initialItems);
+        try {
+          await persistToSQLite(initialItems, nextScope);
+          setView('operation');
+        } catch (error) {
+          console.error('[Inventory] Falha ao iniciar inventário local:', error);
+          Alert.alert(
+            'Falha ao salvar',
+            'Não foi possível iniciar o inventário no armazenamento do aparelho.'
+          );
+        }
+      },
+      (errors) => Alert.alert('Revise o escopo', Object.values(flattenFormErrors(errors))[0])
+    );
 
   const handleUpdateCount = useCallback(
     (itemId: string, newCount: number | null) => {
@@ -226,14 +250,27 @@ export const useInventoryAuditWorkflow = (
     setIsSaving(true);
     try {
       await flush();
-      await completionForm.validateAndRun({ id: draftRef.current.id || '', code: draftRef.current.code || '', items: latestItemsRef.current.map((item) => ({ ...item })), adjustments: itemsWithAdjustment.map((item) => ({ ...item, physicalCount: item.physicalCount! })) }, async (values) => executeInventoryFinalization({
-        items: values.items,
-        itemsWithAdjustment: values.adjustments,
-        scopeConfig,
-        draftRef,
-        userProfile,
-        onClose,
-      }), (errors) => Alert.alert('Revise a contagem', Object.values(flattenFormErrors(errors))[0]));
+      await completionForm.validateAndRun(
+        {
+          id: draftRef.current.id || '',
+          code: draftRef.current.code || '',
+          items: latestItemsRef.current.map((item) => ({ ...item })),
+          adjustments: itemsWithAdjustment.map((item) => ({
+            ...item,
+            physicalCount: item.physicalCount!,
+          })),
+        },
+        async (values) =>
+          executeInventoryFinalization({
+            items: values.items,
+            itemsWithAdjustment: values.adjustments,
+            scopeConfig,
+            draftRef,
+            userProfile,
+            onClose,
+          }),
+        (errors) => Alert.alert('Revise a contagem', Object.values(flattenFormErrors(errors))[0])
+      );
     } catch (error) {
       console.error('[Inventory] Falha ao preparar conclusão:', error);
       Alert.alert('Falha ao salvar', 'A contagem local ainda não foi gravada. Tente novamente.');

@@ -34,6 +34,73 @@ export async function consultDraftKey(
   });
 }
 
+export async function executePrepareDraftAttemptRpc(
+  db: SupabaseClient<FiscalDatabase>,
+  params: {
+    draftId: string;
+    expectedUpdatedAt: string;
+    reviewData: Record<string, unknown>;
+    lines: Array<Record<string, unknown>>;
+    signedXml: string;
+    accessKey: string;
+    minimumNumber: number;
+  }
+) {
+  return db.rpc('prepare_nfe_operation_attempt', {
+    p_draft_id: params.draftId,
+    p_expected_updated_at: params.expectedUpdatedAt,
+    p_expected_review_data: params.reviewData,
+    p_expected_lines: params.lines,
+    p_signed_xml: params.signedXml,
+    p_access_key: params.accessKey,
+    p_minimum_number: params.minimumNumber,
+  });
+}
+
+export async function claimReadyDraftForTransmission(
+  db: SupabaseClient<FiscalDatabase>,
+  params: {
+    draftId: string;
+    accessKey: string;
+    expectedUpdatedAt: string;
+  }
+) {
+  const now = new Date().toISOString();
+  return db
+    .from('nfe_operation_drafts')
+    .update({
+      status: 'transmitting',
+      transmitted_at: now,
+      updated_at: now,
+    })
+    .eq('id', params.draftId)
+    .eq('status', 'ready')
+    .eq('access_key', params.accessKey)
+    .eq('updated_at', params.expectedUpdatedAt)
+    .select('id,updated_at')
+    .maybeSingle();
+}
+
+export async function confirmDraftTransmissionStart(
+  db: SupabaseClient<FiscalDatabase>,
+  params: {
+    draftId: string;
+    accessKey: string;
+    transmissionVersion: string;
+  }
+) {
+  const now = new Date().toISOString();
+  return db
+    .from('nfe_operation_drafts')
+    .update({ transmitted_at: now, updated_at: now })
+    .eq('id', params.draftId)
+    .eq('status', 'transmitting')
+    .eq('access_key', params.accessKey)
+    .eq('updated_at', params.transmissionVersion)
+    .select('id,updated_at')
+    .maybeSingle();
+}
+
 export async function persistDraftAuthorized(params: {
   res: VercelResponse;
   db: SupabaseClient<FiscalDatabase>;
@@ -112,6 +179,7 @@ export async function persistDraftAuthorized(params: {
   }
 
   if (draft.operation_kind === 'estorno') {
+    // Primary lookup: replacement row pointing directly to this draft.
     const { data: editReplacement, error: editReplacementError } = await db
       .from('nfe_order_edit_replacements')
       .select('id')
@@ -135,9 +203,33 @@ export async function persistDraftAuthorized(params: {
       });
     }
 
-    if (editReplacement && !editReplacementError) {
+    // Fallback: the operator restarted a rejected estorno attempt. The replacement row
+    // still holds the old (rejected) draft ID in operation_draft_id. Search by
+    // original_document_id + awaiting_reversal to find the orphaned record and patch it.
+    let resolvedReplacement = editReplacement;
+    if (!editReplacement && !editReplacementError && draft.original_document_id) {
+      const { data: fallbackReplacement, error: fallbackError } = await db
+        .from('nfe_order_edit_replacements')
+        .select('id')
+        .eq('original_document_id', draft.original_document_id)
+        .eq('environment', environment)
+        .eq('reversal_kind', 'estorno')
+        .eq('status', 'awaiting_reversal')
+        .maybeSingle();
+
+      if (!fallbackError && fallbackReplacement) {
+        // Patch the stale operation_draft_id so future checks (SQL functions) find it.
+        await db
+          .from('nfe_order_edit_replacements')
+          .update({ operation_draft_id: draft.id } as Record<string, unknown>)
+          .eq('id', fallbackReplacement.id);
+        resolvedReplacement = fallbackReplacement;
+      }
+    }
+
+    if (resolvedReplacement) {
       const { error: finalizeEditError } = await db.rpc('finalize_fiscal_order_edit', {
-        p_replacement_id: editReplacement.id,
+        p_replacement_id: resolvedReplacement.id,
       });
       if (finalizeEditError) {
         console.error(

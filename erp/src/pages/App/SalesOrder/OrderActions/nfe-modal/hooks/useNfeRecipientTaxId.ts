@@ -16,9 +16,13 @@ export interface UseNfeRecipientTaxIdProps {
 
 export function useNfeRecipientTaxId({ order, currentModel }: UseNfeRecipientTaxIdProps) {
   const [recipientTaxIdError, setRecipientTaxIdError] = useState<string | null>(null);
-  const [recipientTaxId, setRecipientTaxId] = useState(
-    order?.customerData?.cpfCnpj || order?.customerData?.document || ''
-  );
+  const initialTaxId =
+    order?.customerData?.cpfCnpj ||
+    order?.customerData?.document ||
+    order?.nfeDraft?.['2']?.recipientTaxId ||
+    order?.nfeDraft?.['1']?.recipientTaxId ||
+    '';
+  const [recipientTaxId, setRecipientTaxId] = useState(initialTaxId);
 
   const initialIe = order?.customerData?.ie || (order?.customerData as any)?.rgIe || '';
   const initialIndicator = resolveEffectiveRecipientIeIndicator({

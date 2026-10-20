@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type Order from '@/pages/types/order.type';
 import {
   cancelFiscalDocumentForOrderEdit,
@@ -7,6 +7,7 @@ import {
   resumeFiscalOrderEdit,
   type FiscalOrderEditReplacement,
 } from '@/pages/utils/nfe/orderEditFiscalService';
+import { clearFiscalEmissionRequest } from '@/pages/utils/nfe/nfeEmissionRequestState';
 import NfeOperationDraftModal from '../../FiscalDocuments/modals/NfeOperationDraftModal';
 import NfeEmissionModal from '../OrderActions/NfeEmissionModal';
 import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
@@ -27,10 +28,21 @@ export default function OrderEditFiscalContinuation({ order: initialOrder, repla
   const [estorno, setEstorno] = useState<FiscalOrderEditReplacement | null>(null);
   const [emission, setEmission] = useState<FiscalOrderEditReplacement | null>(null);
 
+  useEffect(() => {
+    if (initialOrder?.id) {
+      initialRows.forEach((row) => {
+        if (!row.replacementDocumentId && row.status === 'ready_to_reissue') {
+          clearFiscalEmissionRequest(initialOrder.id!, row.environment);
+        }
+      });
+    }
+  }, [initialOrder?.id, initialRows]);
+
   const refresh = async () => {
     const current = await resumeFiscalOrderEdit(initialOrder.id!);
     setOrder(current.order);
     setRows(current.replacements);
+    return current;
   };
   const run = async (action: () => Promise<unknown>) => {
     if (busyRef.current) return;
@@ -39,11 +51,19 @@ export default function OrderEditFiscalContinuation({ order: initialOrder, repla
     setError(null);
     try {
       await action();
-      await refresh();
+      const current = await refresh();
+      if (current.replacements.length === 0) {
+        onClose(current.order);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível concluir a etapa fiscal.');
       // A timeout does not prove failure. Reload the persisted facts before offering another action.
-      try { await refresh(); } catch { /* Keep the last facts and the error; never infer authorization. */ }
+      try {
+        const current = await refresh();
+        if (current.replacements.length === 0) {
+          onClose(current.order);
+        }
+      } catch { /* Keep the last facts and the error; never infer authorization. */ }
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -93,6 +113,9 @@ export default function OrderEditFiscalContinuation({ order: initialOrder, repla
                     className={buttonClass}
                     onClick={() =>
                       void run(async () => {
+                        if (!row.replacementDocumentId) {
+                          clearFiscalEmissionRequest(initialOrder.id!, row.environment);
+                        }
                         const preparedOrder = await prepareOrderFiscalSnapshotForEmission(
                           order,
                           row.environment
@@ -118,7 +141,21 @@ export default function OrderEditFiscalContinuation({ order: initialOrder, repla
         {busy && <p role="status" className="mt-3 text-sm">Conferindo a etapa fiscal…</p>}
       </section>
       {estorno && <NfeOperationDraftModal sourceDocument={estorno.sourceDocument} initialDraftId={estorno.draftId} mode="estorno" onClose={() => { setEstorno(null); void run(async () => {}); }} onAuthorized={() => { setEstorno(null); void run(async () => {}); }} />}
-      {emission && <NfeEmissionModal isOpen order={order} initialEnvironment={emission.environment} onClose={() => { setEmission(null); void run(async () => {}); }} onSuccess={() => { setEmission(null); void run(async () => {}); }} />}
+      {emission && (
+        <NfeEmissionModal
+          isOpen
+          order={order}
+          initialEnvironment={emission.environment}
+          onClose={() => {
+            setEmission(null);
+            void run(async () => {});
+          }}
+          onSuccess={async () => {
+            setEmission(null);
+            await run(async () => {});
+          }}
+        />
+      )}
     </div>
   );
 }

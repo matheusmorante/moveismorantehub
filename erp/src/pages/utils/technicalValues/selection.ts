@@ -10,6 +10,11 @@ import {
   isWeightCharacteristicName,
   isExcludedCharacteristic,
   isMattressCategory,
+  isSinkCategory,
+  isStructureMaterialCharacteristic,
+  isSinkMaterialCharacteristic,
+  isConcretadaCharacteristic,
+  isHasInoxBowlCharacteristic,
 } from './predicates';
 import type { TechnicalFieldDefinition, TechnicalValuesMap } from './types';
 
@@ -68,6 +73,7 @@ export const getApplicableTechnicalFields = (
   const activeCategorySet = new Set(productCategoryIds);
   const manualSet = new Set(manuallyAddedFieldNames);
   const isMattress = isMattressCategory(productCategoryIds, safeFields);
+  const isSink = isSinkCategory(productCategoryIds, safeFields);
 
   const isRequiredForProduct = (field: TechnicalFieldDefinition): boolean => {
     if (isWeightCharacteristicName(field.name)) return false;
@@ -88,6 +94,21 @@ export const getApplicableTechnicalFields = (
 
   let applicable = safeFields.filter((field) => {
     if (isExcludedCharacteristic(field.name)) return false;
+
+    // Para a categoria Pias, "Material da estrutura" não se aplica (usa-se estritamente "Material da pia")
+    if (isSink && isStructureMaterialCharacteristic(field.name)) {
+      return false;
+    }
+
+    // "Material da pia", "Concretada?" e "Possui cuba de inox?" são exclusivos da categoria Pias
+    if (
+      !isSink &&
+      (isSinkMaterialCharacteristic(field.name) ||
+        isConcretadaCharacteristic(field.name) ||
+        isHasInoxBowlCharacteristic(field.name))
+    ) {
+      return manualSet.has(field.name);
+    }
 
     const normName = normalizeCharacteristicName(field.name);
     const hasExistingValue =

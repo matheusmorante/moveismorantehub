@@ -11,15 +11,17 @@ export type SyncEventType =
   | 'DELIVERY_FINISH'
   | 'DELIVERY_UNATTENDED'
   | 'DELIVERY_STEP_BACK'
+  | 'DELIVERY_CANCEL'
   | 'ASSEMBLY_STATUS_UPDATE'
   | 'ASSEMBLY_CHECKLIST_UPDATE'
   | 'INVENTORY_COUNT_ITEM'
-  | 'GOODS_RECEIPT_CONFIRM';
+  | 'GOODS_RECEIPT_CONFIRM'
+  | 'CALENDAR_EVENT_CREATE';
 
 export interface SyncEvent<T = unknown> {
   eventId: string;
   type: SyncEventType;
-  entityType: 'order' | 'assembly' | 'inventory' | 'goods_receipt';
+  entityType: 'order' | 'assembly' | 'inventory' | 'goods_receipt' | 'calendar_event';
   entityId: string;
   state: SyncEventState;
   occurredAt: string;
@@ -57,7 +59,13 @@ export type ConflictReasonCode =
 
 export interface SyncQueueItem<T = Record<string, unknown>> {
   id: string; // UUID v4 do item da fila
-  entityType: 'order' | 'financial_transaction' | 'assembly' | 'inventory' | 'goods_receipt';
+  entityType:
+    | 'order'
+    | 'financial_transaction'
+    | 'assembly'
+    | 'inventory'
+    | 'goods_receipt'
+    | 'calendar_event';
   entityId: string;
   operation: SyncOperationType;
   payload: T;

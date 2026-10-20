@@ -1,0 +1,311 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { generateNfeAccessKey } from '../../../erp/src/pages/utils/nfe/nfeAccessKey';
+import { assertXmlFiscalSelections } from '../fiscalSelectionIntegrity';
+import type {
+  FiscalEmissionCommand,
+  FiscalSnapshot,
+  FiscalSnapshotCandidate,
+} from '../fiscalSnapshot';
+import {
+  assertSignedFiscalXmlMatchesSnapshot,
+  fiscalPreviewFingerprint,
+} from '../fiscalXmlAudit';
+import { serializeFiscalDocument } from '../fiscalXmlSerializer';
+import { extractCertificateAndKey, signNfeXml } from '../nfeSigner';
+import { fiscalAttemptCommand } from './attemptPolicy';
+import {
+  type OutboundDatabase,
+  type OutboundResult,
+  outboundFailure,
+  describeActiveNormalSaleConflict,
+  reconcileNormalSale,
+  recoverNormalSale,
+} from './outboundAttempt';
+import { withNfeEmissionStage } from '../nfeEmissionPerformance';
+import { appendResponsibleTechnician } from '../responsibleTechnician';
+import { validateNfeAgainstOfficialSchema, validateUnsignedNfeStructure } from '../schemaValidator';
+
+export interface CasPreparationContext {
+  db: OutboundDatabase;
+  command: FiscalEmissionCommand;
+  facts: FiscalSnapshotCandidate;
+  resolved: any;
+  rules: any;
+  model: '55' | '65';
+  sequence: { series: string; minimumNumber: number };
+  minimum: number;
+  tech: any;
+  certificate: ReturnType<typeof extractCertificateAndKey>;
+  issuedAt: string;
+  randomCode: string;
+  actorId: string;
+}
+
+export async function executeCasPreparationLoop(
+  ctx: CasPreparationContext
+): Promise<{ result: OutboundResult } | { sequenceChanged: boolean }> {
+  const {
+    db,
+    command,
+    facts,
+    resolved,
+    rules,
+    model,
+    sequence,
+    minimum,
+    tech,
+    certificate,
+    issuedAt,
+    randomCode,
+    actorId,
+  } = ctx;
+
+  for (let preparation = 0; preparation < 3; preparation++) {
+    const peek = await withNfeEmissionStage(
+      'number_peek_rpc',
+      () =>
+        db.rpc('peek_nfe_outbound_number', {
+          p_issuer_cnpj: resolved.document.issuer.cnpj,
+          p_model: model,
+          p_environment: command.environment,
+          p_series: sequence.series,
+          p_minimum: minimum,
+        }),
+      { emissionRequestId: command.emissionRequestId }
+    );
+
+    if (peek.error || !Number.isInteger(peek.data))
+      return {
+        result: outboundFailure(
+          503,
+          'FISCAL_SEQUENCE_UNAVAILABLE',
+          'Não foi possível consultar a próxima numeração fiscal.',
+          { numberReserved: false, sefazContacted: false }
+        ),
+      };
+
+    const number = peek.data as number;
+    if (command.requestedNumber !== undefined && number !== command.requestedNumber)
+      return {
+        result: outboundFailure(
+          409,
+          'NFE_NUMBER_ALREADY_USED',
+          'A numeração solicitada já está reservada ou foi utilizada.',
+          {
+            numberReserved: false,
+            sefazContacted: false,
+            numberConflict: { requestedNumber: command.requestedNumber, nextNumber: number },
+            nfeNumber: command.requestedNumber,
+          }
+        ),
+      };
+
+    const accessKey = generateNfeAccessKey({
+      ufCode: '41',
+      yearMonth: issuedAt.slice(2, 4) + issuedAt.slice(5, 7),
+      cnpj: resolved.document.issuer.cnpj,
+      model,
+      series: sequence.series,
+      number,
+      emissionType: '1',
+      randomCode,
+    }).accessKey;
+
+    const snapshot: FiscalSnapshot = {
+      ...facts,
+      resolvedDocument: resolved.document,
+      emissionRequest: {
+        ...facts.emissionRequest,
+        requestedModel: model,
+        series: sequence.series,
+        number,
+      },
+    };
+
+    let xml = await withNfeEmissionStage(
+      'xml_serialization',
+      () =>
+        serializeFiscalDocument(facts, resolved.document, rules, {
+          accessKey,
+          series: Number(sequence.series),
+          number,
+          issuedAt,
+        }),
+      { emissionRequestId: command.emissionRequestId }
+    );
+
+    xml = appendResponsibleTechnician(xml, accessKey, tech);
+    await withNfeEmissionStage(
+      'xml_unsigned_validation',
+      () => validateUnsignedNfeStructure(xml),
+      { emissionRequestId: command.emissionRequestId }
+    );
+
+    const signedXml = await withNfeEmissionStage(
+      'xml_signing',
+      () => signNfeXml(xml, certificate.privateKeyPem, certificate.certDerBase64),
+      { emissionRequestId: command.emissionRequestId }
+    );
+
+    if (command.previewOnly) {
+      await withNfeEmissionStage(
+        'xml_schema_validation',
+        () => validateNfeAgainstOfficialSchema(signedXml),
+        { emissionRequestId: command.emissionRequestId }
+      );
+    }
+
+    await assertXmlFiscalSelections(snapshot, signedXml);
+    const identity = { series: sequence.series, number, accessKey };
+    assertSignedFiscalXmlMatchesSnapshot(
+      snapshot,
+      resolved.document,
+      signedXml,
+      { ...identity, issuedAt },
+      certificate.certPem
+    );
+
+    const previewFingerprint = fiscalPreviewFingerprint(
+      snapshot,
+      resolved.document,
+      { ...identity, issuedAt },
+      signedXml
+    );
+
+    if (command.previewOnly)
+      return {
+        result: {
+          status: 200,
+          body: {
+            success: true,
+            preview: true,
+            previewStatus: 'PREVIEW_ONLY_NOT_AUTHORIZED',
+            signedXml,
+            previewProof: {
+              fingerprint: previewFingerprint,
+              capturedAt: facts.capturedAt,
+              issuedAt,
+              model,
+              series: sequence.series,
+              number,
+              accessKey,
+            },
+            orderId: command.orderId,
+            emissionRequestId: command.emissionRequestId,
+            model,
+            series: sequence.series,
+            nfeNumber: number,
+            accessKey,
+            environment: command.environment,
+            numberReserved: false,
+            sefazContacted: false,
+          },
+        },
+      };
+
+    const token = randomUUID();
+    let saved;
+    try {
+      saved = await withNfeEmissionStage(
+        'prepare_attempt_rpc',
+        () =>
+          db.rpc('prepare_nfe_outbound_attempt', {
+            p_snapshot: { ...snapshot, decisionTrace: resolved.document.decisions },
+            p_signed_xml: signedXml,
+            p_access_key: accessKey,
+            p_request_command: fiscalAttemptCommand(command),
+            p_attempt_token: token,
+            p_actor_id: actorId,
+            p_minimum_number: minimum,
+          }),
+        { emissionRequestId: command.emissionRequestId }
+      );
+    } catch {
+      try {
+        const recovery = await recoverNormalSale(db, command);
+        if (recovery) return { result: recovery };
+      } catch {
+        /* A transport error can hide a committed preparation. */
+      }
+      return {
+        result: outboundFailure(
+          503,
+          'FISCAL_PREPARATION_UNCONFIRMED',
+          'A resposta da preparação não foi confirmada. Preserve esta intenção e consulte antes de repetir.',
+          {
+            pending: true,
+            emissionRequestId: command.emissionRequestId,
+            orderId: command.orderId,
+            environment: command.environment,
+            sefazContacted: false,
+          }
+        ),
+      };
+    }
+
+    if (
+      saved.error?.message.includes('FISCAL_SEQUENCE_CHANGED') &&
+      command.requestedNumber === undefined
+    ) {
+      continue;
+    }
+
+    if (saved.error || !saved.data?.documentId) {
+      const recovery = await recoverNormalSale(db, command);
+      if (recovery) return { result: recovery };
+
+      const reason =
+        saved.error?.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || 'FISCAL_PREPARATION_FAILED';
+
+      if (reason === 'ALREADY_ACTIVE_FISCAL_ATTEMPT') {
+        const conflict = await describeActiveNormalSaleConflict(
+          db,
+          command,
+          resolved.document.issuer.cnpj
+        );
+        return { result: conflict };
+      }
+
+      if (!saved.error?.code && (!reason || reason === 'FISCAL_PREPARATION_FAILED'))
+        return {
+          result: outboundFailure(
+            503,
+            'FISCAL_PREPARATION_UNCONFIRMED',
+            'A resposta da preparação não foi confirmada. Preserve esta intenção e consulte antes de repetir.',
+            {
+              pending: true,
+              emissionRequestId: command.emissionRequestId,
+              orderId: command.orderId,
+              environment: command.environment,
+              sefazContacted: false,
+            }
+          ),
+        };
+
+      return {
+        result: outboundFailure(
+          reason === 'IDEMPOTENCY_KEY_REUSED' ? 409 : 503,
+          reason,
+          reason === 'FISCAL_SOURCE_CHANGED'
+            ? 'Os dados do pedido, produtos ou cliente foram alterados durante a preparação. Atualize os dados fiscais e tente novamente.'
+            : saved.error?.message ||
+              'A preparação fiscal não foi concluída. Atualize os dados ou consulte a tentativa original.',
+          { numberReserved: false, sefazContacted: false, pending: false }
+        ),
+      };
+    }
+
+    const reconciled = await reconcileNormalSale(
+      db,
+      saved.data.documentId,
+      true,
+      command.productionConfirmed === true,
+      saved.data.created ? token : undefined,
+      certificate
+    );
+
+    return { result: reconciled };
+  }
+
+  return { sequenceChanged: true };
+}

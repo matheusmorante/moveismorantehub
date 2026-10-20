@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
@@ -15,6 +15,7 @@ import { PasswordSetupModal } from './src/components/modals/PasswordSetupModal';
 
 import { useExpoAutoUpdate } from './src/hooks/useExpoAutoUpdate';
 import { useMandatoryAppUpdate } from './src/hooks/useMandatoryAppUpdate';
+import { offlineSyncManager } from './src/services/offline/offlineSyncManager';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -29,6 +30,12 @@ const AppContent = () => {
   } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const mandatoryUpdate = useMandatoryAppUpdate();
+
+  useEffect(() => {
+    void offlineSyncManager.initialize().catch((err) => {
+      console.warn('[OfflineSync] Falha ao inicializar gerenciador offline:', err);
+    });
+  }, []);
 
   return (
     <View testID="app-root" style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }}>

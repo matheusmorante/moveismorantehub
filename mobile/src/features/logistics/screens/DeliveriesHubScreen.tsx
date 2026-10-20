@@ -156,13 +156,22 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     enabled: activeTab === 'map' && !!activeDeliveryTarget?.coords,
   });
 
-  const handleStartDelivery = (item: DeliveryRouteItem) => {
-    onSelectOrder(item.order);
-  };
+  const handleSelectDeliveryOrder = useCallback(
+    (item: DeliveryRouteItem) => {
+      onSelectOrder(item.order);
+    },
+    [onSelectOrder]
+  );
 
-  const handleViewOrder = (item: DeliveryRouteItem) => {
-    onSelectOrder(item.order);
-  };
+  const handleOpenDeliveryFlow = useCallback(
+    (item: DeliveryRouteItem) => {
+      onSelectOrder({ ...item.order, _openDeliveryPreparation: true });
+    },
+    [onSelectOrder]
+  );
+
+  const handleStartDelivery = handleSelectDeliveryOrder;
+  const handleViewOrder = handleSelectDeliveryOrder;
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -387,6 +396,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             onRefresh={onRefresh}
             onStartDelivery={handleStartDelivery}
             onViewOrder={handleViewOrder}
+            onOpenDeliveryFlow={handleOpenDeliveryFlow}
             isDarkMode={isDarkMode}
           />
         )

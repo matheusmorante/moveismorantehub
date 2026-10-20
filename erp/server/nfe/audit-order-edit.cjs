@@ -76,11 +76,72 @@ function getSupabaseSecretKey() {
   return process.env.SUPABASE_SECRET_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.SUPABASE_SERVICE_KEY?.trim() || process.env.service_role?.trim();
 }
 
+// erp/src/pages/utils/nfe/fiscalAuthorization.ts
+var FISCAL_OPERATOR_ROLES = ["manager", "administrator"];
+var fiscalOperatorRoles = new Set(FISCAL_OPERATOR_ROLES);
+function hasFiscalOperationRole(profile) {
+  if (!profile) return false;
+  const roles = /* @__PURE__ */ new Set();
+  if (typeof profile.role === "string") roles.add(profile.role);
+  if (Array.isArray(profile.roles)) {
+    for (const role of profile.roles) {
+      if (typeof role === "string") roles.add(role);
+    }
+  }
+  return Array.from(roles).some((role) => fiscalOperatorRoles.has(role));
+}
+function hasFiscalAdministratorRole(profile) {
+  return profile?.role === "administrator" || Array.isArray(profile?.roles) && profile.roles.includes("administrator");
+}
+
+// api/nfe/fiscalAuthorization.ts
+async function authorizeFiscalOperator(client, authorizationHeader) {
+  const headerValue = Array.isArray(authorizationHeader) ? authorizationHeader[0] : authorizationHeader;
+  const token = String(headerValue || "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return { ok: false, status: 401, message: "Autentica\xE7\xE3o necess\xE1ria." };
+  try {
+    const { data, error } = await client.auth.getUser(token);
+    const user = data?.user;
+    if (error || !user?.id) return { ok: false, status: 401, message: "Sess\xE3o inv\xE1lida." };
+    const { data: profile, error: profileError } = await client.from("profiles").select("role,roles").eq("id", user.id).maybeSingle();
+    if (profileError)
+      return { ok: false, status: 503, message: "N\xE3o foi poss\xEDvel validar a permiss\xE3o fiscal." };
+    if (!hasFiscalOperationRole(profile))
+      return { ok: false, status: 403, message: "Seu perfil n\xE3o pode operar documentos fiscais." };
+    return { ok: true, userId: user.id, isAdministrator: hasFiscalAdministratorRole(profile) };
+  } catch {
+    return { ok: false, status: 503, message: "N\xE3o foi poss\xEDvel validar a permiss\xE3o fiscal." };
+  }
+}
+
+// api/nfe/order-edit-audit/auditFinalizeAction.ts
+var uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+async function handleFinalizeAction({
+  db,
+  orderId,
+  replacementId,
+  res
+}) {
+  if (!uuidPattern.test(replacementId))
+    return res.status(400).json({ error: "Substitui\xE7\xE3o fiscal inv\xE1lida." });
+  const { data: replacement, error: replacementError } = await db.from("nfe_order_edit_replacements").select("id").eq("id", replacementId).eq("order_id", orderId).maybeSingle();
+  if (replacementError || !replacement)
+    return res.status(404).json({ error: "Substitui\xE7\xE3o fiscal n\xE3o encontrada para este pedido." });
+  const { data: finalized, error: finalizeError } = await db.rpc("finalize_fiscal_order_edit", {
+    p_replacement_id: replacementId
+  });
+  if (finalizeError)
+    return res.status(409).json({
+      error: "A revers\xE3o ainda n\xE3o est\xE1 confirmada; o pedido continua sem altera\xE7\xE3o."
+    });
+  return res.status(200).json({ success: true, order: { ...finalized.order_data, id: orderId } });
+}
+
 // api/nfe/fiscalXmlAudit.ts
 var import_xmldom = require("@xmldom/xmldom");
 var import_xml_crypto = require("xml-crypto");
 
-// shared-utils/fiscal-cfop-model/catalog.ts
+// shared-utils/fiscal-cfop-model/data/cfopBaseCatalog.ts
 var CFOP_CATALOG_BASE = [
   // --- SAÍDAS INTERNAS (5.xxx) ---
   {
@@ -505,7 +566,10 @@ var CFOP_CATALOG_BASE = [
     notes: "Outras entradas interestaduais n\xE3o especificadas."
   }
 ];
+
+// shared-utils/fiscal-cfop-model/data/cfopSemantics.ts
 var CFOP_SEMANTICS = {
+  // --- Saídas Internas (5.xxx) ---
   "5102": { operationType: "sale", merchandiseOrigin: "third_party" },
   "5101": { operationType: "sale", merchandiseOrigin: "own_production" },
   "5405": { operationType: "sale", merchandiseOrigin: "third_party" },
@@ -520,6 +584,7 @@ var CFOP_SEMANTICS = {
   "5915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
   "5949": { operationType: "other", merchandiseOrigin: "not_applicable" },
   "5933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  // --- Saídas Interestaduais (6.xxx) ---
   "6102": { operationType: "sale", merchandiseOrigin: "third_party" },
   "6101": { operationType: "sale", merchandiseOrigin: "own_production" },
   "6108": { operationType: "sale_to_non_taxpayer", merchandiseOrigin: "third_party" },
@@ -535,15 +600,19 @@ var CFOP_SEMANTICS = {
   "6915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
   "6949": { operationType: "other", merchandiseOrigin: "not_applicable" },
   "6933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  // --- Entradas Internas (1.xxx) ---
   "1202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "1201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
   "1411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "1949": { operationType: "other", merchandiseOrigin: "not_applicable" },
+  // --- Entradas Interestaduais (2.xxx) ---
   "2202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "2201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
   "2411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "2949": { operationType: "other", merchandiseOrigin: "not_applicable" }
 };
+
+// shared-utils/fiscal-cfop-model/catalog.ts
 if (CFOP_CATALOG_BASE.length !== Object.keys(CFOP_SEMANTICS).length) {
   throw new Error("Cat\xE1logo CFOP sem classifica\xE7\xE3o sem\xE2ntica completa.");
 }
@@ -1717,41 +1786,71 @@ function findFiscalOrderEditChanges(snapshot, proposedOrderData, document) {
   return changes;
 }
 
-// erp/src/pages/utils/nfe/fiscalAuthorization.ts
-var FISCAL_OPERATOR_ROLES = ["manager", "administrator"];
-var fiscalOperatorRoles = new Set(FISCAL_OPERATOR_ROLES);
-function hasFiscalOperationRole(profile) {
-  if (!profile) return false;
-  const roles = /* @__PURE__ */ new Set();
-  if (typeof profile.role === "string") roles.add(profile.role);
-  if (Array.isArray(profile.roles)) {
-    for (const role of profile.roles) {
-      if (typeof role === "string") roles.add(role);
-    }
-  }
-  return Array.from(roles).some((role) => fiscalOperatorRoles.has(role));
+// api/nfe/order-edit-audit/auditContinuationLoader.ts
+async function loadAuditedChanges(db, order, document, proposedOrderData) {
+  if (!document.emission_request_id || !document.xml_nfe)
+    throw new Error("A nota autorizada n\xE3o possui v\xEDnculo t\xE9cnico e XML \xEDntegro para auditoria.");
+  const { data: fiscalSnapshotRow, error } = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("emission_request_id", document.emission_request_id).eq("order_id", order.id).maybeSingle();
+  if (error || !fiscalSnapshotRow?.snapshot_data)
+    throw new Error("N\xE3o existe fotografia fiscal imut\xE1vel para comparar esta nota autorizada.");
+  const snapshot = fiscalSnapshotRow.snapshot_data;
+  const resolvedDocument = assertAuthorizedFiscalSnapshot(
+    snapshot,
+    document
+  );
+  return findFiscalOrderEditChanges(snapshot, proposedOrderData, resolvedDocument);
 }
-function hasFiscalAdministratorRole(profile) {
-  return profile?.role === "administrator" || Array.isArray(profile?.roles) && profile.roles.includes("administrator");
+async function loadContinuationReplacements(db, orderId) {
+  const { data: rows, error } = await db.from("nfe_order_edit_replacements").select(
+    "id,original_document_id,environment,reversal_kind,status,operation_draft_id,source_document_snapshot,replacement_document_id"
+  ).eq("order_id", orderId).neq("status", "completed").order("created_at");
+  if (error) throw new Error("O registro de substitui\xE7\xE3o fiscal est\xE1 indispon\xEDvel.");
+  return Promise.all(
+    (rows || []).map(async (row) => {
+      const { data: confirmed, error: proofError } = await db.rpc(
+        "is_order_edit_reversal_confirmed",
+        {
+          p_original_document_id: row.original_document_id
+        }
+      );
+      if (proofError) throw new Error("N\xE3o foi poss\xEDvel comprovar a revers\xE3o da nota original.");
+      const source = row.source_document_snapshot;
+      return {
+        id: row.id,
+        status: row.status,
+        action: row.reversal_kind,
+        environment: row.environment,
+        reversalConfirmed: confirmed === true,
+        draftId: row.operation_draft_id,
+        replacementDocumentId: row.replacement_document_id,
+        sourceDocument: {
+          id: row.original_document_id,
+          order_id: orderId,
+          modelo: source.modelo,
+          ambiente: row.environment,
+          numero_nfe: source.numero_nfe,
+          serie: source.serie,
+          chave_acesso: source.chave_acesso
+        }
+      };
+    })
+  );
 }
 
-// api/nfe/fiscalAuthorization.ts
-async function authorizeFiscalOperator(client, authorizationHeader) {
-  const headerValue = Array.isArray(authorizationHeader) ? authorizationHeader[0] : authorizationHeader;
-  const token = String(headerValue || "").replace(/^Bearer\s+/i, "").trim();
-  if (!token) return { ok: false, status: 401, message: "Autentica\xE7\xE3o necess\xE1ria." };
+// api/nfe/order-edit-audit/auditResumeAction.ts
+async function handleResumeAction({
+  db,
+  orderId,
+  currentData,
+  res
+}) {
   try {
-    const { data, error } = await client.auth.getUser(token);
-    const user = data?.user;
-    if (error || !user?.id) return { ok: false, status: 401, message: "Sess\xE3o inv\xE1lida." };
-    const { data: profile, error: profileError } = await client.from("profiles").select("role,roles").eq("id", user.id).maybeSingle();
-    if (profileError)
-      return { ok: false, status: 503, message: "N\xE3o foi poss\xEDvel validar a permiss\xE3o fiscal." };
-    if (!hasFiscalOperationRole(profile))
-      return { ok: false, status: 403, message: "Seu perfil n\xE3o pode operar documentos fiscais." };
-    return { ok: true, userId: user.id, isAdministrator: hasFiscalAdministratorRole(profile) };
-  } catch {
-    return { ok: false, status: 503, message: "N\xE3o foi poss\xEDvel validar a permiss\xE3o fiscal." };
+    const replacements = await loadContinuationReplacements(db, orderId);
+    return res.status(200).json({ replacements, order: { ...currentData, id: orderId } });
+  } catch (error) {
+    return res.status(503).json({
+      error: error instanceof Error ? error.message : "Substitui\xE7\xE3o fiscal indispon\xEDvel."
+    });
   }
 }
 
@@ -1998,113 +2097,19 @@ var buildOrderPersistencePayload = (order) => {
   };
 };
 
-// api/nfe/audit-order-edit.ts
-var supabaseUrl = getSupabaseUrl();
-var serviceKey = getSupabaseSecretKey() || "";
-var anonKey = getSupabaseAnonKey();
-var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-async function loadAuditedChanges(db, order, document, proposedOrderData) {
-  if (!document.emission_request_id || !document.xml_nfe)
-    throw new Error("A nota autorizada n\xE3o possui v\xEDnculo t\xE9cnico e XML \xEDntegro para auditoria.");
-  const { data: fiscalSnapshotRow, error } = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("emission_request_id", document.emission_request_id).eq("order_id", order.id).maybeSingle();
-  if (error || !fiscalSnapshotRow?.snapshot_data)
-    throw new Error("N\xE3o existe fotografia fiscal imut\xE1vel para comparar esta nota autorizada.");
-  const snapshot = fiscalSnapshotRow.snapshot_data;
-  const resolvedDocument = assertAuthorizedFiscalSnapshot(
-    snapshot,
-    document
-  );
-  return findFiscalOrderEditChanges(snapshot, proposedOrderData, resolvedDocument);
-}
-async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "OPTIONS,POST");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
-  const supabaseUrl2 = getSupabaseUrl();
-  const serviceKey2 = getSupabaseSecretKey() || "";
-  const anonKey2 = getSupabaseAnonKey();
-  if (!supabaseUrl2 || !serviceKey2 || !anonKey2)
-    return res.status(503).json({ error: "Servi\xE7o de auditoria fiscal indispon\xEDvel." });
-  const header = Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization;
-  const accessToken = String(header || "").replace(/^Bearer\s+/i, "").trim();
-  const orderId = String(req.body?.orderId || "");
-  const action = String(req.body?.action || "audit");
-  const submitted = req.body?.proposedOrder;
-  if (!accessToken) return res.status(401).json({ error: "Autentica\xE7\xE3o necess\xE1ria." });
-  if (!uuid.test(orderId) || !["audit", "confirm", "resume", "finalize"].includes(action) || !["resume", "finalize"].includes(action) && (!submitted || typeof submitted !== "object" || Array.isArray(submitted)))
-    return res.status(400).json({ error: "Dados de edi\xE7\xE3o do pedido inv\xE1lidos." });
-  if (submitted && JSON.stringify(submitted).length > 1e6)
-    return res.status(413).json({ error: "Os dados de edi\xE7\xE3o excedem o limite permitido." });
-  const userDb = (0, import_supabase_js.createClient)(supabaseUrl2, anonKey2, {
-    auth: { persistSession: false },
-    global: { headers: { Authorization: `Bearer ${accessToken}` } }
-  });
-  const db = (0, import_supabase_js.createClient)(supabaseUrl2, serviceKey2, { auth: { persistSession: false } });
-  let fiscalOperatorId = null;
-  if (action === "confirm" || action === "finalize") {
-    const authorization = await authorizeFiscalOperator(db, header);
-    if (!authorization.ok)
-      return res.status(authorization.status).json({ error: authorization.message });
-    fiscalOperatorId = authorization.userId;
-  }
-  const { data: order, error: orderError } = await userDb.from("orders").select("id,order_type,status,order_data,updated_at,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method").eq("id", orderId).maybeSingle();
-  if (orderError)
-    return res.status(503).json({ error: "N\xE3o foi poss\xEDvel carregar o pedido atual." });
-  if (!order) return res.status(403).json({ error: "Pedido indispon\xEDvel para esta sess\xE3o." });
-  if (!["sale", "showroom"].includes(String(order.order_type || order.order_data?.orderType || "sale")))
-    return res.status(409).json({ error: "A auditoria de edi\xE7\xE3o fiscal est\xE1 dispon\xEDvel para vendas." });
-  const currentData = order.order_data || {};
-  if (action === "finalize") {
-    const replacementId = String(req.body?.replacementId || "");
-    if (!uuid.test(replacementId)) return res.status(400).json({ error: "Substitui\xE7\xE3o fiscal inv\xE1lida." });
-    const { data: replacement, error: replacementError } = await db.from("nfe_order_edit_replacements").select("id").eq("id", replacementId).eq("order_id", orderId).maybeSingle();
-    if (replacementError || !replacement)
-      return res.status(404).json({ error: "Substitui\xE7\xE3o fiscal n\xE3o encontrada para este pedido." });
-    const { data: finalized, error: finalizeError } = await db.rpc("finalize_fiscal_order_edit", {
-      p_replacement_id: replacementId
-    });
-    if (finalizeError)
-      return res.status(409).json({ error: "A revers\xE3o ainda n\xE3o est\xE1 confirmada; o pedido continua sem altera\xE7\xE3o." });
-    return res.status(200).json({ success: true, order: { ...finalized.order_data, id: orderId } });
-  }
-  const loadContinuation = async () => {
-    const { data: rows, error } = await db.from("nfe_order_edit_replacements").select("id,original_document_id,environment,reversal_kind,status,operation_draft_id,source_document_snapshot,replacement_document_id").eq("order_id", orderId).neq("status", "completed").order("created_at");
-    if (error) throw new Error("O registro de substitui\xE7\xE3o fiscal est\xE1 indispon\xEDvel.");
-    return Promise.all((rows || []).map(async (row) => {
-      const { data: confirmed, error: proofError } = await db.rpc("is_order_edit_reversal_confirmed", {
-        p_original_document_id: row.original_document_id
-      });
-      if (proofError) throw new Error("N\xE3o foi poss\xEDvel comprovar a revers\xE3o da nota original.");
-      const source = row.source_document_snapshot;
-      return {
-        id: row.id,
-        status: row.status,
-        action: row.reversal_kind,
-        environment: row.environment,
-        reversalConfirmed: confirmed === true,
-        draftId: row.operation_draft_id,
-        replacementDocumentId: row.replacement_document_id,
-        sourceDocument: {
-          id: row.original_document_id,
-          order_id: orderId,
-          modelo: source.modelo,
-          ambiente: row.environment,
-          numero_nfe: source.numero_nfe,
-          serie: source.serie,
-          chave_acesso: source.chave_acesso
-        }
-      };
-    }));
-  };
-  if (action === "resume") {
-    try {
-      return res.status(200).json({ replacements: await loadContinuation(), order: { ...currentData, id: orderId } });
-    } catch (error) {
-      return res.status(503).json({ error: error instanceof Error ? error.message : "Substitui\xE7\xE3o fiscal indispon\xEDvel." });
-    }
-  }
+// api/nfe/order-edit-audit/auditAuditAndConfirmAction.ts
+var uuidPattern2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+async function handleAuditAndConfirmAction({
+  db,
+  order,
+  orderId,
+  action,
+  submitted,
+  currentData,
+  reqBody,
+  fiscalOperatorId,
+  res
+}) {
   const proposedOrderData = projectOrderDataForFiscalEdit(currentData, submitted);
   if (action === "audit" && !hasPotentialFiscalOrderEdit(currentData, proposedOrderData))
     return res.status(200).json({
@@ -2119,7 +2124,9 @@ async function handler(req, res) {
   if (fiscalError)
     return res.status(503).json({ error: "N\xE3o foi poss\xEDvel consultar as notas autorizadas." });
   const pending = (fiscalRows || []).find(
-    (row) => ["processando", "pendente", "unknown", "transmitting"].includes(String(row.status || "").toLowerCase())
+    (row) => ["processando", "pendente", "unknown", "transmitting"].includes(
+      String(row.status || "").toLowerCase()
+    )
   );
   if (pending)
     return res.status(409).json({
@@ -2127,29 +2134,40 @@ async function handler(req, res) {
       error: "Existe uma tentativa fiscal sem resultado confirmado. Consulte a SEFAZ antes de editar os dados fiscais do pedido."
     });
   const { data: replaced, error: replacedError } = await db.from("nfe_order_edit_replacements").select("original_document_id,status,request_id,original_order_data").eq("order_id", orderId);
-  if (replacedError) return res.status(503).json({ error: "O registro de substitui\xE7\xE3o fiscal est\xE1 indispon\xEDvel." });
+  if (replacedError)
+    return res.status(503).json({ error: "O registro de substitui\xE7\xE3o fiscal est\xE1 indispon\xEDvel." });
   if (replaced?.some((row) => row.status !== "completed")) {
-    if (action === "confirm" && replaced.some((row) => row.request_id === req.body?.requestId)) {
-      const original = replaced.find((row) => row.request_id === req.body.requestId).original_order_data;
+    if (action === "confirm" && replaced.some((row) => row.request_id === reqBody?.requestId)) {
+      const original = replaced.find((row) => row.request_id === reqBody.requestId).original_order_data;
       const retryData = projectOrderDataForFiscalEdit(original, submitted);
       const payload = buildOrderPersistencePayload({ ...retryData, id: orderId });
       const { error } = await db.rpc("commit_fiscal_order_edit", {
-        p_request_id: req.body.requestId,
+        p_request_id: reqBody.requestId,
         p_order_id: orderId,
-        p_expected_updated_at: req.body.orderUpdatedAt,
+        p_expected_updated_at: reqBody.orderUpdatedAt,
         p_order_payload: payload,
         p_items: retryData.items || [],
         p_payments: retryData.payments || [],
-        p_plans: req.body.plans,
+        p_plans: reqBody.plans,
         p_actor_id: fiscalOperatorId
       });
-      if (error) return res.status(409).json({ error: "A confirma\xE7\xE3o j\xE1 registrada n\xE3o corresponde a esta edi\xE7\xE3o." });
-      return res.status(200).json({ success: true, replacements: await loadContinuation(), order: { ...currentData, id: orderId } });
+      if (error)
+        return res.status(409).json({ error: "A confirma\xE7\xE3o j\xE1 registrada n\xE3o corresponde a esta edi\xE7\xE3o." });
+      return res.status(200).json({
+        success: true,
+        replacements: await loadContinuationReplacements(db, orderId),
+        order: { ...currentData, id: orderId }
+      });
     }
-    return res.status(409).json({ status: "blocked", error: "Existe uma substitui\xE7\xE3o fiscal pendente. Conclua a revers\xE3o e a nova emiss\xE3o antes de editar novamente." });
+    return res.status(409).json({
+      status: "blocked",
+      error: "Existe uma substitui\xE7\xE3o fiscal pendente. Conclua a revers\xE3o e a nova emiss\xE3o antes de editar novamente."
+    });
   }
   const authorizedDocuments = (fiscalRows || []).filter(
-    (row) => ["autorizada", "homologada"].includes(String(row.status || "").toLowerCase()) && !replaced?.some((replacement) => replacement.original_document_id === row.id && replacement.status === "completed")
+    (row) => ["autorizada", "homologada"].includes(String(row.status || "").toLowerCase()) && !replaced?.some(
+      (replacement) => replacement.original_document_id === row.id && replacement.status === "completed"
+    )
   );
   if (!authorizedDocuments.length)
     return res.status(200).json({
@@ -2199,29 +2217,112 @@ async function handler(req, res) {
     });
   }
   if (action === "confirm") {
-    if (!uuid.test(String(req.body?.requestId || "")) || !documents.length || req.body.orderUpdatedAt !== order.updated_at || proposedOrderData.status !== "scheduled" || JSON.stringify(req.body.plans) !== JSON.stringify(documents.map(({ id, action: reversal, environment }) => ({ id, action: reversal, environment }))))
-      return res.status(409).json({ error: "O pedido ou a pol\xEDtica fiscal mudou. Confira novamente antes de confirmar." });
-    if (documents.some((document) => document.environment === 1) && req.body.productionConfirmed !== true)
+    if (!uuidPattern2.test(String(reqBody?.requestId || "")) || !documents.length || reqBody.orderUpdatedAt !== order.updated_at || proposedOrderData.status !== "scheduled" || JSON.stringify(reqBody.plans) !== JSON.stringify(
+      documents.map(({ id, action: reversal, environment }) => ({
+        id,
+        action: reversal,
+        environment
+      }))
+    ))
+      return res.status(409).json({
+        error: "O pedido ou a pol\xEDtica fiscal mudou. Confira novamente antes de confirmar."
+      });
+    if (documents.some((document) => document.environment === 1) && reqBody.productionConfirmed !== true)
       return res.status(400).json({ error: "Confirme explicitamente a substitui\xE7\xE3o fiscal em Produ\xE7\xE3o." });
     const payload = buildOrderPersistencePayload({ ...proposedOrderData, id: orderId });
     const { data: result, error } = await db.rpc("commit_fiscal_order_edit", {
-      p_request_id: req.body.requestId,
+      p_request_id: reqBody.requestId,
       p_order_id: orderId,
       p_expected_updated_at: order.updated_at,
       p_order_payload: payload,
       p_items: proposedOrderData.items || [],
       p_payments: proposedOrderData.payments || [],
-      p_plans: req.body.plans,
+      p_plans: reqBody.plans,
       p_actor_id: fiscalOperatorId
     });
-    if (error) return res.status(409).json({ error: "A edi\xE7\xE3o n\xE3o foi gravada. O pedido mudou ou algum efeito obrigat\xF3rio falhou; confira novamente." });
-    return res.status(200).json({ success: true, replacements: await loadContinuation(), order: { ...result.order_data, id: orderId } });
+    if (error)
+      return res.status(409).json({
+        error: "A edi\xE7\xE3o n\xE3o foi gravada. O pedido mudou ou algum efeito obrigat\xF3rio falhou; confira novamente."
+      });
+    return res.status(200).json({
+      success: true,
+      replacements: await loadContinuationReplacements(db, orderId),
+      order: { ...result.order_data, id: orderId }
+    });
   }
   return res.status(200).json({
     status: documents.length ? "confirmation_required" : "unchanged",
     orderUpdatedAt: order.updated_at,
     changes: documents.flatMap((document) => document.changes),
     documents
+  });
+}
+
+// api/nfe/audit-order-edit.ts
+var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "OPTIONS,POST");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "M\xE9todo n\xE3o permitido." });
+  const supabaseUrl = getSupabaseUrl();
+  const serviceKey = getSupabaseSecretKey() || "";
+  const anonKey = getSupabaseAnonKey();
+  if (!supabaseUrl || !serviceKey || !anonKey)
+    return res.status(503).json({ error: "Servi\xE7o de auditoria fiscal indispon\xEDvel." });
+  const header = Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization;
+  const accessToken = String(header || "").replace(/^Bearer\s+/i, "").trim();
+  const orderId = String(req.body?.orderId || "");
+  const action = String(req.body?.action || "audit");
+  const submitted = req.body?.proposedOrder;
+  if (!accessToken) return res.status(401).json({ error: "Autentica\xE7\xE3o necess\xE1ria." });
+  if (!uuid.test(orderId) || !["audit", "confirm", "resume", "finalize"].includes(action) || !["resume", "finalize"].includes(action) && (!submitted || typeof submitted !== "object" || Array.isArray(submitted)))
+    return res.status(400).json({ error: "Dados de edi\xE7\xE3o do pedido inv\xE1lidos." });
+  if (submitted && JSON.stringify(submitted).length > 1e6)
+    return res.status(413).json({ error: "Os dados de edi\xE7\xE3o excedem o limite permitido." });
+  const userDb = (0, import_supabase_js.createClient)(supabaseUrl, anonKey, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${accessToken}` } }
+  });
+  const db = (0, import_supabase_js.createClient)(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+  let fiscalOperatorId = null;
+  if (action === "confirm" || action === "finalize") {
+    const authorization = await authorizeFiscalOperator(db, header);
+    if (!authorization.ok)
+      return res.status(authorization.status).json({ error: authorization.message });
+    fiscalOperatorId = authorization.userId;
+  }
+  const { data: order, error: orderError } = await userDb.from("orders").select(
+    "id,order_type,status,order_data,updated_at,delivery_status,delivery_started_at,delivery_arrived_at,delivery_finished_at,delivery_method"
+  ).eq("id", orderId).maybeSingle();
+  if (orderError)
+    return res.status(503).json({ error: "N\xE3o foi poss\xEDvel carregar o pedido atual." });
+  if (!order) return res.status(403).json({ error: "Pedido indispon\xEDvel para esta sess\xE3o." });
+  if (!["sale", "showroom"].includes(String(order.order_type || order.order_data?.orderType || "sale")))
+    return res.status(409).json({ error: "A auditoria de edi\xE7\xE3o fiscal est\xE1 dispon\xEDvel para vendas." });
+  const currentData = order.order_data || {};
+  if (action === "finalize") {
+    return handleFinalizeAction({
+      db,
+      orderId,
+      replacementId: String(req.body?.replacementId || ""),
+      res
+    });
+  }
+  if (action === "resume") {
+    return handleResumeAction({ db, orderId, currentData, res });
+  }
+  return handleAuditAndConfirmAction({
+    db,
+    order,
+    orderId,
+    action,
+    submitted,
+    currentData,
+    reqBody: req.body,
+    fiscalOperatorId,
+    res
   });
 }
 //# sourceMappingURL=audit-order-edit.cjs.map

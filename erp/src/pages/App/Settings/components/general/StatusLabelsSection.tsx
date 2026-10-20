@@ -2,6 +2,7 @@
 import React from 'react';
 import { AppSettings, OrderStatusConfig, OrderTypeColor } from '@/pages/utils/settingsService';
 import { ORDER_TYPE_COLOR_OPTIONS } from '@/pages/utils/orderTypeColorUtils';
+import PickupIcon from '@/components/shared/PickupIcon';
 
 interface Props {
   settings: AppSettings;
@@ -27,7 +28,8 @@ const STATUS_COLOR_OPTIONS = [
 
 interface OrderTypeRowProps {
   label: string;
-  icon: string;
+  icon?: string;
+  iconComponent?: React.ReactNode;
   labelPath: string;
   colorPath: string;
   currentLabel: string;
@@ -38,6 +40,7 @@ interface OrderTypeRowProps {
 const OrderTypeRow = ({
   label,
   icon,
+  iconComponent,
   labelPath,
   colorPath,
   currentLabel,
@@ -49,7 +52,7 @@ const OrderTypeRow = ({
   return (
     <div className="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all hover:border-slate-300 dark:hover:border-slate-700">
       <label className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5 ml-1">
-        <i className={`bi ${icon}`} />
+        {iconComponent ?? <i className={`bi ${icon}`} />}
         {label}
       </label>
       <div className="flex items-center gap-3">
@@ -225,7 +228,7 @@ export default function StatusLabelsSection({ settings, onChange }: Props): any 
           />
           <OrderTypeRow
             label="Retirada"
-            icon="bi-hand-index-thumb-fill"
+            iconComponent={<PickupIcon className="h-3.5 w-3.5" />}
             labelPath="orderTypeLabels.pickup"
             colorPath="orderTypeColors.pickup"
             currentLabel={settings.orderTypeLabels.pickup}

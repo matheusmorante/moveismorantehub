@@ -16,7 +16,11 @@ const inFlightPreparations = new Map<string, Promise<Order>>();
 
 async function prepareOrderFiscalSnapshot(order: Order, environment: 1 | 2): Promise<Order> {
   const needsSnapshot = (items: Order['items']) =>
-    items.some((item) => item.itemType !== 'service' && !hasFiscalItemSnapshot(item));
+    items.some(
+      (item) =>
+        item.itemType !== 'service' &&
+        (!hasFiscalItemSnapshot(item) || !item.fiscal?.ncm || !item.fiscal.ncm.trim())
+    );
 
   if (!order.id) {
     throw new Error('Salve o pedido antes de iniciar a emissão da nota fiscal.');

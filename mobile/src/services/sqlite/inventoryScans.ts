@@ -1,6 +1,11 @@
 import { getSQLiteDatabase } from './database';
-import 'react-native-get-random-values';
-const { v4: uuidv4 } = require('uuid');
+
+const createScanRowId = (): string =>
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 
 export interface InventoryScan {
   id: string;
@@ -39,7 +44,7 @@ export const addInventoryScan = async (
   scanId: string
 ): Promise<{ success: boolean; error?: string }> => {
   const db = await getSQLiteDatabase();
-  const id = uuidv4();
+  const id = createScanRowId();
   const scannedAt = new Date().toISOString();
 
   try {
@@ -78,4 +83,9 @@ export const removeLatestScanForProduct = async (
 export const clearInventoryScans = async (inventoryId: string): Promise<void> => {
   const db = await getSQLiteDatabase();
   await db.runAsync(`DELETE FROM inventory_scans_local WHERE inventory_id = ?;`, [inventoryId]);
+  await db
+    .runAsync(`DELETE FROM inventory_label_scans_local WHERE audit_id = ?;`, [inventoryId])
+    .catch(() => {});
 };
+
+export const deleteLocalInventoryScans = clearInventoryScans;

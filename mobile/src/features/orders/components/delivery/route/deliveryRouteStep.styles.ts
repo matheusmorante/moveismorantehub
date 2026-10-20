@@ -1,0 +1,112 @@
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+  container: {
+    gap: 14,
+  },
+  routeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#eff6ff',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#bfdbfe',
+  },
+  routeBannerDark: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#dbeafe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1e3a8a',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  bannerSubtitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  textLight: {
+    color: '#f8fafc',
+  },
+  infoCard: {
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 20,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  infoCardDark: {
+    backgroundColor: '#1e293b',
+    borderColor: '#334155',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  customerName: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  addressText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    lineHeight: 18,
+  },
+  googleMapsNavButton: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#2563eb',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+    elevation: 3,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  googleMapsNavButtonText: {
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    color: '#ffffff',
+  },
+  stepBackText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  safetyText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+});

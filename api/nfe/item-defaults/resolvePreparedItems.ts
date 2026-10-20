@@ -41,7 +41,13 @@ export function resolvePreparedItems(params: {
     const catalogCst = product?.fiscal?.cst;
     const catalogCfop = product?.fiscal?.cfop;
     const savedCfop = typeof itemFiscal.cfop === 'string' ? itemFiscal.cfop : undefined;
-    const sourceCfop = savedCfop || (typeof catalogCfop === 'string' ? catalogCfop : undefined);
+    const rawSourceCfop = savedCfop || (typeof catalogCfop === 'string' ? catalogCfop : undefined);
+    const sourceCfop =
+      rawSourceCfop && ['1949', '2949', '1202', '2202'].includes(rawSourceCfop)
+        ? destination === '2'
+          ? '6102'
+          : '5102'
+        : rawSourceCfop;
     const sourceDefinition = getCfopDefinition(sourceCfop || '');
     if (sourceCfop && !sourceDefinition)
       throw new Error(

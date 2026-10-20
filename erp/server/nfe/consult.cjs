@@ -425,7 +425,7 @@ async function sendSoapToSefaz(params) {
 }
 
 // api/nfe/consult.ts
-var import_node_crypto8 = require("node:crypto");
+var import_node_crypto9 = require("node:crypto");
 
 // erp/src/pages/utils/nfe/nfeEventRules.ts
 var readTag = (xml, tag2) => {
@@ -886,7 +886,7 @@ async function assertXmlFiscalSelections(snapshot, xml) {
 // api/nfe/normal-sale/constants.ts
 var NORMAL_SALE_RULESET_VERSION = "NORMAL_SALE_V1";
 
-// shared-utils/fiscal-cfop-model/catalog.ts
+// shared-utils/fiscal-cfop-model/data/cfopBaseCatalog.ts
 var CFOP_CATALOG_BASE = [
   // --- SAÍDAS INTERNAS (5.xxx) ---
   {
@@ -1311,7 +1311,10 @@ var CFOP_CATALOG_BASE = [
     notes: "Outras entradas interestaduais n\xE3o especificadas."
   }
 ];
+
+// shared-utils/fiscal-cfop-model/data/cfopSemantics.ts
 var CFOP_SEMANTICS = {
+  // --- Saídas Internas (5.xxx) ---
   "5102": { operationType: "sale", merchandiseOrigin: "third_party" },
   "5101": { operationType: "sale", merchandiseOrigin: "own_production" },
   "5405": { operationType: "sale", merchandiseOrigin: "third_party" },
@@ -1326,6 +1329,7 @@ var CFOP_SEMANTICS = {
   "5915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
   "5949": { operationType: "other", merchandiseOrigin: "not_applicable" },
   "5933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  // --- Saídas Interestaduais (6.xxx) ---
   "6102": { operationType: "sale", merchandiseOrigin: "third_party" },
   "6101": { operationType: "sale", merchandiseOrigin: "own_production" },
   "6108": { operationType: "sale_to_non_taxpayer", merchandiseOrigin: "third_party" },
@@ -1341,15 +1345,19 @@ var CFOP_SEMANTICS = {
   "6915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
   "6949": { operationType: "other", merchandiseOrigin: "not_applicable" },
   "6933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  // --- Entradas Internas (1.xxx) ---
   "1202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "1201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
   "1411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "1949": { operationType: "other", merchandiseOrigin: "not_applicable" },
+  // --- Entradas Interestaduais (2.xxx) ---
   "2202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "2201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
   "2411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "2949": { operationType: "other", merchandiseOrigin: "not_applicable" }
 };
+
+// shared-utils/fiscal-cfop-model/catalog.ts
 if (CFOP_CATALOG_BASE.length !== Object.keys(CFOP_SEMANTICS).length) {
   throw new Error("Cat\xE1logo CFOP sem classifica\xE7\xE3o sem\xE2ntica completa.");
 }
@@ -1894,9 +1902,9 @@ async function releaseAttempt(db, documentId, attemptToken) {
   } catch {
   }
 }
-async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumber, metadata2, cert, attemptToken) {
+async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumber, metadata3, cert, attemptToken) {
   try {
-    const { data: persisted, error } = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("id", String(metadata2.fiscalSnapshotId || "")).maybeSingle();
+    const { data: persisted, error } = await db.from("nfe_fiscal_snapshots").select("snapshot_data").eq("id", String(metadata3.fiscalSnapshotId || "")).maybeSingle();
     if (error || !persisted) throw new Error("Snapshot fiscal indispon\xEDvel na transmiss\xE3o.");
     await assertXmlFiscalSelections(persisted.snapshot_data, signedXml);
   } catch {
@@ -1904,7 +1912,7 @@ async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumbe
       422,
       "HML_TRANSMISSION_INTEGRITY_FAILED",
       "XML assinado e campos confirmados n\xE3o puderam ser reconciliados. Transmiss\xE3o bloqueada.",
-      { ...metadata2, sefazContacted: false, numberReserved: true }
+      { ...metadata3, sefazContacted: false, numberReserved: true }
     );
   }
   let responseXml;
@@ -1913,21 +1921,21 @@ async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumbe
     responseXml = await withNfeEmissionStage(
       "sefaz_transmission",
       () => sendSoapToSefaz({
-        url: hmlEndpoint(metadata2.model, "NFeAutorizacao4"),
+        url: hmlEndpoint(metadata3.model, "NFeAutorizacao4"),
         action: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4/nfeAutorizacaoLote",
         serviceNamespace: "http://www.portalfiscal.inf.br/nfe/wsdl/NFeAutorizacao4",
         xmlPayload: envelope,
         certPem: cert.certPem,
         privateKeyPem: cert.privateKeyPem
       }),
-      { environment: 2, model: String(metadata2.model || "") }
+      { environment: 2, model: String(metadata3.model || "") }
     );
   } catch (error) {
     const transportDiagnostic = sefazTransportDiagnostic(error);
     const diagnosticId = (0, import_node_crypto4.randomUUID)();
     const attemptDiagnostic = {
       diagnosticId,
-      emissionRequestId: metadata2.emissionRequestId,
+      emissionRequestId: metadata3.emissionRequestId,
       ...transportDiagnostic
     };
     console.error("SEFAZ_HML_TRANSPORT", { documentId, ...attemptDiagnostic });
@@ -1946,7 +1954,7 @@ async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumbe
       "Transmiss\xE3o sem resposta confirmada. Consulte a chave antes de qualquer nova tentativa.",
       {
         pending: true,
-        ...metadata2,
+        ...metadata3,
         transportDiagnostic,
         diagnosticId,
         diagnosticStage: "sefaz-transmission",
@@ -1985,7 +1993,7 @@ async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumbe
       503,
       "HML_RESULT_PERSIST_FAILED",
       "Resposta SEFAZ recebida, mas n\xE3o persistida; reconcilia\xE7\xE3o obrigat\xF3ria.",
-      { pending: true, ...metadata2 }
+      { pending: true, ...metadata3 }
     );
   return {
     status: numberConflict ? 409 : status === "erro" ? 422 : 200,
@@ -2000,7 +2008,7 @@ async function transmitAndPersist(db, documentId, signedXml, accessKey, nfeNumbe
         code: "HML_SEFAZ_REJECTED",
         error: `${parsed.cStat ? parsed.cStat + ": " : ""}${parsed.xMotivo || "Rejei\xE7\xE3o da SEFAZ."}`
       } : {},
-      ...metadata2,
+      ...metadata3,
       signedXml,
       sefazResponseXml: responseXml,
       cStat: parsed.cStat,
@@ -2453,7 +2461,72 @@ async function retryHmlTechnical(db, documentId, allowRetransmission = true) {
   }
 }
 
-// api/nfe/normal-sale/outboundAttempt.ts
+// api/nfe/normal-sale/outboundTypes.ts
+var outboundFailure = (status, code, error, extra = {}) => ({ status, body: { success: false, code, error, ...extra } });
+var metadata = (a) => ({
+  documentId: a.document_id,
+  orderId: a.order_id,
+  emissionRequestId: a.emission_request_id,
+  fiscalSnapshotId: a.snapshot_id,
+  accessKey: a.access_key,
+  nfeNumber: a.number,
+  series: a.series,
+  model: a.model,
+  environment: a.environment,
+  numberReserved: true
+});
+
+// api/nfe/normal-sale/outboundPersistence.ts
+async function persistResultToDatabase(db, a, token, state, reason, response, protocol = null, xml = "") {
+  const items = state === "authorized" ? parseAuthorizedInvoiceLines(xml).map((line) => ({
+    item_number: line.invoiceItemNumber,
+    product_code: line.productCode,
+    description: line.description,
+    billed_quantity: line.billedQuantity,
+    unit_value: line.unitValue,
+    gross_value: line.grossValue,
+    discount_value: line.discountValue,
+    product_xml: line.productXml,
+    taxes_xml: line.taxesXml
+  })) : [];
+  const result = await db.rpc("persist_nfe_outbound_result", {
+    p_document_id: a.document_id,
+    p_attempt_token: token,
+    p_state: state,
+    p_reason: reason,
+    p_response_xml: response,
+    p_protocol: protocol,
+    p_items: items
+  });
+  if (result.error) throw new Error("FISCAL_RESULT_PERSIST_FAILED");
+}
+async function loadOutboundAttempt(db, documentId) {
+  const [attempt, document] = await Promise.all([
+    db.from("nfe_outbound_attempts").select("*").eq("document_id", documentId).maybeSingle(),
+    db.from("nfe_documents").select("*").eq("id", documentId).maybeSingle()
+  ]);
+  if (attempt.error || document.error || !attempt.data || !document.data)
+    throw new Error("FISCAL_ATTEMPT_UNAVAILABLE");
+  return { attempt: attempt.data, document: document.data };
+}
+
+// api/nfe/normal-sale/attemptPolicy.ts
+function isUncertainAuthorization(cStat, pending) {
+  return pending || !/^\d{3}$/.test(cStat) || ["100", "103", "104", "105", "108", "109", "204", "539", "999"].includes(cStat);
+}
+
+// api/nfe/normal-sale/outboundRecovery.ts
+function productionTransmissionGate(environment, confirmed) {
+  if (environment === 1 && !confirmed)
+    return outboundFailure(
+      403,
+      "PRODUCTION_CONFIRMATION_REQUIRED",
+      "Confirme explicitamente a emiss\xE3o em Produ\xE7\xE3o."
+    );
+  return null;
+}
+
+// api/nfe/normal-sale/outboundTransmission.ts
 var import_node_crypto7 = require("node:crypto");
 
 // erp/src/pages/utils/nfe/fiscalEnvelope.ts
@@ -2483,13 +2556,6 @@ function validateOrdinaryOutboundEnvelope(input) {
 // api/nfe/fiscalXmlAudit.ts
 var import_xmldom3 = require("@xmldom/xmldom");
 var import_xml_crypto2 = require("xml-crypto");
-
-// api/nfe/normal-sale/attemptPolicy.ts
-function isUncertainAuthorization(cStat, pending) {
-  return pending || !/^\d{3}$/.test(cStat) || ["100", "103", "104", "105", "108", "109", "204", "539", "999"].includes(cStat);
-}
-
-// api/nfe/fiscalXmlAudit.ts
 function createStrictXmlParser(parseErrors) {
   return new import_xmldom3.DOMParser({
     errorHandler: (level, message) => {
@@ -3017,74 +3083,7 @@ function assertSignedFiscalXmlMatchesSnapshot(snapshot, document, xml, identity,
   if (mismatches.length) throw new FiscalXmlAuditError(mismatches);
 }
 
-// api/nfe/normal-sale/outboundAttempt.ts
-var outboundFailure = (status, code, error, extra = {}) => ({ status, body: { success: false, code, error, ...extra } });
-var metadata = (a) => ({
-  documentId: a.document_id,
-  orderId: a.order_id,
-  emissionRequestId: a.emission_request_id,
-  fiscalSnapshotId: a.snapshot_id,
-  accessKey: a.access_key,
-  nfeNumber: a.number,
-  series: a.series,
-  model: a.model,
-  environment: a.environment,
-  numberReserved: true
-});
-function productionTransmissionGate(environment, confirmed) {
-  if (environment === 1 && !confirmed)
-    return outboundFailure(
-      403,
-      "PRODUCTION_CONFIRMATION_REQUIRED",
-      "Confirme explicitamente a emiss\xE3o em Produ\xE7\xE3o."
-    );
-  return null;
-}
-async function persist(db, a, token, state, reason, response, protocol = null, xml = "") {
-  const items = state === "authorized" ? parseAuthorizedInvoiceLines(xml).map((line) => ({
-    item_number: line.invoiceItemNumber,
-    product_code: line.productCode,
-    description: line.description,
-    billed_quantity: line.billedQuantity,
-    unit_value: line.unitValue,
-    gross_value: line.grossValue,
-    discount_value: line.discountValue,
-    product_xml: line.productXml,
-    taxes_xml: line.taxesXml
-  })) : [];
-  const result = await db.rpc("persist_nfe_outbound_result", {
-    p_document_id: a.document_id,
-    p_attempt_token: token,
-    p_state: state,
-    p_reason: reason,
-    p_response_xml: response,
-    p_protocol: protocol,
-    p_items: items
-  });
-  if (result.error) throw new Error("FISCAL_RESULT_PERSIST_FAILED");
-}
-function finalResult(a, doc) {
-  const parsed = parseSefazAuthorization(String(doc.xml_protocolo || ""));
-  return {
-    status: 200,
-    body: {
-      ...parsed,
-      success: a.state === "authorized" && doc.status !== "cancelada",
-      ...metadata(a),
-      state: doc.status === "cancelada" ? "cancelled" : a.state,
-      pending: false,
-      signedXml: doc.xml_nfe,
-      sefazResponseXml: doc.xml_protocolo,
-      protocolNumber: doc.numero_protocolo,
-      xMotivo: doc.motivo_status,
-      ...doc.status === "cancelada" ? {
-        code: "FISCAL_ALREADY_CANCELLED",
-        error: "O documento original est\xE1 cancelado. Seu hist\xF3rico foi preservado."
-      } : {},
-      ...a.state === "rejected" ? { code: "FISCAL_SEFAZ_REJECTED", error: doc.motivo_status } : {}
-    }
-  };
-}
+// api/nfe/normal-sale/outboundTransmission.ts
 async function transmitPreparedOutbound(db, a, doc, token, certificate, productionConfirmed) {
   const gate = productionTransmissionGate(a.environment, productionConfirmed);
   if (gate) return { ...gate, body: { ...gate.body, ...metadata(a), sefazContacted: false } };
@@ -3162,7 +3161,7 @@ async function transmitPreparedOutbound(db, a, doc, token, certificate, producti
   } catch {
     let recorded = false;
     try {
-      await persist(
+      await persistResultToDatabase(
         db,
         a,
         token,
@@ -3185,7 +3184,7 @@ async function transmitPreparedOutbound(db, a, doc, token, certificate, producti
   try {
     await withNfeEmissionStage(
       "persist_result_rpc",
-      () => persist(
+      () => persistResultToDatabase(
         db,
         a,
         token,
@@ -3219,14 +3218,34 @@ async function transmitPreparedOutbound(db, a, doc, token, certificate, producti
     }
   };
 }
-async function loadOutboundAttempt(db, documentId) {
-  const [attempt, document] = await Promise.all([
-    db.from("nfe_outbound_attempts").select("*").eq("document_id", documentId).maybeSingle(),
-    db.from("nfe_documents").select("*").eq("id", documentId).maybeSingle()
-  ]);
-  if (attempt.error || document.error || !attempt.data || !document.data)
-    throw new Error("FISCAL_ATTEMPT_UNAVAILABLE");
-  return { attempt: attempt.data, document: document.data };
+
+// api/nfe/normal-sale/outboundReconciliation.ts
+var import_node_crypto8 = require("node:crypto");
+function finalResult(a, doc, isReversed = false) {
+  const parsed = parseSefazAuthorization(String(doc.xml_protocolo || ""));
+  const isCancelled = doc.status === "cancelada";
+  return {
+    status: 200,
+    body: {
+      ...parsed,
+      success: a.state === "authorized" && !isCancelled && !isReversed,
+      ...metadata(a),
+      state: isCancelled || isReversed ? "cancelled" : a.state,
+      pending: false,
+      signedXml: doc.xml_nfe,
+      sefazResponseXml: doc.xml_protocolo,
+      protocolNumber: doc.numero_protocolo,
+      xMotivo: doc.motivo_status,
+      ...isCancelled ? {
+        code: "FISCAL_ALREADY_CANCELLED",
+        error: "O documento original est\xE1 cancelado. Seu hist\xF3rico foi preservado."
+      } : isReversed ? {
+        code: "FISCAL_ALREADY_REVERSED",
+        error: "O documento original foi revertido por estorno. Seu hist\xF3rico foi preservado."
+      } : {},
+      ...a.state === "rejected" ? { code: "FISCAL_SEFAZ_REJECTED", error: doc.motivo_status } : {}
+    }
+  };
 }
 async function reconcileNormalSale(db, documentId, allowTransmission = false, productionConfirmed = false, ownedToken, preloadedCertificate) {
   let loaded;
@@ -3245,8 +3264,18 @@ async function reconcileNormalSale(db, documentId, allowTransmission = false, pr
     );
   }
   const { attempt: a, document: doc } = loaded;
-  if (["authorized", "rejected"].includes(a.state)) return finalResult(a, doc);
-  const token = ownedToken || (0, import_node_crypto7.randomUUID)();
+  if (["authorized", "rejected"].includes(a.state)) {
+    let isReversed = false;
+    try {
+      const { data: revConfirmed } = await db.rpc("is_order_edit_reversal_confirmed", {
+        p_original_document_id: doc.id
+      });
+      isReversed = revConfirmed === true;
+    } catch {
+    }
+    return finalResult(a, doc, isReversed);
+  }
+  const token = ownedToken || (0, import_node_crypto8.randomUUID)();
   if (!ownedToken) {
     const claimed = await db.rpc("claim_nfe_outbound_attempt", {
       p_document_id: documentId,
@@ -3294,7 +3323,7 @@ async function reconcileNormalSale(db, documentId, allowTransmission = false, pr
     const situation = parseSefazNfeSituation(response);
     if (situation.state === "authorized") {
       const parsed = parseSefazAuthorization(response);
-      await persist(
+      await persistResultToDatabase(
         db,
         a,
         token,
@@ -3318,7 +3347,14 @@ async function reconcileNormalSale(db, documentId, allowTransmission = false, pr
       };
     }
     if (situation.state === "not_found") {
-      await persist(db, a, token, "confirmed_not_found", `217: ${situation.xMotivo}`, response);
+      await persistResultToDatabase(
+        db,
+        a,
+        token,
+        "confirmed_not_found",
+        `217: ${situation.xMotivo}`,
+        response
+      );
       if (allowTransmission && a.state === "confirmed_not_found")
         return await transmitPreparedOutbound(db, a, doc, token, certificate, productionConfirmed);
       return outboundFailure(
@@ -3334,7 +3370,7 @@ async function reconcileNormalSale(db, documentId, allowTransmission = false, pr
         }
       );
     }
-    await persist(
+    await persistResultToDatabase(
       db,
       a,
       token,
@@ -3437,7 +3473,7 @@ async function handler(req, res) {
     const result = await reconcileLegacyConsultation(supabase, doc, responseXml, consultationStartedAt);
     return res.status(result.status).json(result.body);
   } catch (err) {
-    const diagnosticId = (0, import_node_crypto8.randomUUID)();
+    const diagnosticId = (0, import_node_crypto9.randomUUID)();
     const transportDiagnostic = sefazTransportDiagnostic(err);
     console.error("[NF-e Consult] Falha de transporte:", {
       documentId,

@@ -108,15 +108,17 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
   if (!isOpen || !order) return null;
 
   const isHmlIssued = Boolean(
-    fiscalStatuses?.homologation === 'issued' ||
-      (order.nfeData?.status === 'homologada' && order.nfeData?.environment === 2)
+    (fiscalStatuses?.homologation === 'issued' ||
+      (order.nfeData?.status === 'homologada' && order.nfeData?.environment === 2)) &&
+    !fiscalStatuses?.readyToReissueHml
   );
 
   const isProdIssued = Boolean(
-    fiscalStatuses?.production === 'issued' ||
+    (fiscalStatuses?.production === 'issued' ||
       (order.nfeData?.status === 'autorizada' && (order.nfeData?.environment ?? 1) === 1) ||
       (order.nfeData?.environment === 1 &&
-        (order.nfeData?.accessKey || order.nfeData?.protocolNumber))
+        (order.nfeData?.accessKey || order.nfeData?.protocolNumber))) &&
+    !fiscalStatuses?.readyToReissueProd
   );
   const snapshotStatusMessage = isPreparingSnapshot
     ? 'Preparando os dados fiscais dos itens do pedido...'
@@ -214,7 +216,9 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1">
                 {isHmlIssued
                   ? 'Já emitida para este pedido'
-                  : 'Ambiente de testes (sem valor fiscal)'}
+                  : fiscalStatuses?.readyToReissueHml
+                    ? 'Emitir nota corrigida (NFH 2)'
+                    : 'Ambiente de testes (sem valor fiscal)'}
               </span>
             </button>
 
@@ -249,7 +253,9 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1">
                 {isProdIssued
                   ? 'Já emitida para este pedido'
-                  : 'Ambiente oficial • exige confirmação'}
+                  : fiscalStatuses?.readyToReissueProd
+                    ? 'Emitir nota corrigida (NF 2)'
+                    : 'Ambiente oficial • exige confirmação'}
               </span>
             </button>
           </div>

@@ -8,6 +8,7 @@ export * from './useProductTechnicalTab';
 export * from './TechnicalCharacteristicSearch';
 export * from './TechnicalFieldRow';
 export * from './TechnicalFieldInput';
+export * from './inputs';
 export * from './TechnicalFieldGroupSection';
 export * from './TechnicalTabFeedbackState';
 export * from './DisabledFieldWrapper';

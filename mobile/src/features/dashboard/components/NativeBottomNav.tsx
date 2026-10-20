@@ -1,51 +1,26 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { MoreHorizontal } from 'lucide-react-native';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Platform,
-  Modal,
-  ScrollView,
-  Image,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  ShoppingBag,
-  Package,
-  Calendar,
-  Truck,
-  BarChart3,
-  Wallet,
-  MoreHorizontal,
-  X,
-  ChevronRight,
-  Sparkles,
-  Route,
-} from 'lucide-react-native';
+  NavItemConfig,
+  NativeBottomNavProps,
+  useNativeBottomNav,
+  BottomNavTabItem,
+  BottomNavMoreSheet,
+  styles,
+} from './bottom-nav';
 
-export interface NavItemConfig {
-  key: string;
-  label: string;
-  icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>;
-  url: string;
-  visible?: boolean;
-  disabled?: boolean;
-}
+export type { NavItemConfig };
 
-interface Props {
-  isDarkMode: boolean;
-  currentTab: string;
-  canSeeReports: boolean;
-  canSeeProducts?: boolean;
-  canSeeFinance?: boolean;
-  isAdmin?: boolean;
-  handleTabChange: (tab: string, url: string) => void;
-  WEB_URL: string;
-  customTabs?: NavItemConfig[];
-}
-
-export const NativeBottomNav: React.FC<Props> = ({
+/**
+ * Barra de Navegação Inferior Nativa do Aplicativo Mobile.
+ * Refatorada sob os princípios de Clean Architecture, Single Responsibility (SRP) e High Cohesion.
+ * - Gerenciamento de abas e overflow: useNativeBottomNav
+ * - Item de aba primária: BottomNavTabItem (com suporte ao Agente Lizandro e badge BETA)
+ * - Menu excedente: BottomNavMoreSheet (bottom sheet nativo)
+ * - Estilos centralizados: bottomNav.styles
+ */
+export const NativeBottomNav: React.FC<NativeBottomNavProps> = ({
   isDarkMode,
   currentTab,
   canSeeReports,
@@ -56,95 +31,25 @@ export const NativeBottomNav: React.FC<Props> = ({
   WEB_URL,
   customTabs,
 }) => {
-  const insets = useSafeAreaInsets();
-  const [showMoreSheet, setShowMoreSheet] = useState(false);
-  const bottomInset = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12);
-  const totalNavHeight = 58 + bottomInset;
-
-  // Lista base de todas as abas configuradas para o app
-  const allTabs = [
-    {
-      key: 'entregas',
-      label: 'Operações',
-      icon: Route,
-      url: `${WEB_URL}/schedule`,
-      visible: true,
-    },
-    {
-      key: 'agenda',
-      label: 'Agenda',
-      icon: Calendar,
-      url: `${WEB_URL}/schedule`,
-      visible: true,
-    },
-    {
-      key: 'agente',
-      label: 'Assistente',
-      icon: Sparkles,
-      url: `${WEB_URL}/agent`,
-      visible: true,
-      disabled: !isAdmin,
-    },
-    {
-      key: 'pedidos',
-      label: 'Pedidos',
-      icon: ShoppingBag,
-      url: `${WEB_URL}/mobile-orders`,
-      visible: true,
-    },
-    {
-      key: 'financeiro',
-      label: 'Financeiro',
-      icon: Wallet,
-      url: `${WEB_URL}/mobile-finance`,
-      visible: canSeeFinance,
-    },
-    {
-      key: 'produtos',
-      label: 'Produtos',
-      icon: Package,
-      url: `${WEB_URL}/products`,
-      visible: Boolean(canSeeProducts),
-    },
-    {
-      key: 'relatorios',
-      label: 'Relatórios',
-      icon: BarChart3,
-      url: `${WEB_URL}/mobile-reports`,
-      visible: canSeeReports,
-    },
-    {
-      key: 'estoque',
-      label: 'Estoque',
-      icon: Package,
-      url: `${WEB_URL}/stock`,
-      visible: true,
-    },
-  ];
-
-  // Filtra apenas abas visíveis para o perfil do usuário
-  const visibleTabs = (customTabs || allTabs)
-    .filter((t) => t.visible !== false)
-    .map((tab) => (tab.key === 'agente' ? { ...tab, disabled: !isAdmin } : tab));
-
-  const hasOverflow = visibleTabs.length > 5;
-  const primaryTabs = hasOverflow ? visibleTabs.slice(0, 4) : visibleTabs;
-  const overflowTabs = hasOverflow ? visibleTabs.slice(4) : [];
-
-  const isOverflowTabActive = overflowTabs.some((t) => {
-    if (t.key === 'agenda' || t.key === 'logistica') {
-      return currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma';
-    }
-    return currentTab === t.key;
+  const {
+    primaryTabs,
+    overflowTabs,
+    hasOverflow,
+    showMoreSheet,
+    setShowMoreSheet,
+    isTabActive,
+    isOverflowTabActive,
+    bottomInset,
+    totalNavHeight,
+  } = useNativeBottomNav({
+    currentTab,
+    canSeeReports,
+    canSeeProducts,
+    canSeeFinance,
+    isAdmin,
+    WEB_URL,
+    customTabs,
   });
-
-  const isTabActive = (key: string) => {
-    if (key === 'agenda' || key === 'logistica') {
-      return currentTab === 'agenda' || currentTab === 'logistica' || currentTab === 'cronograma';
-    }
-    if (key === 'entregas') return currentTab === 'entregas' || currentTab === 'montagens';
-    return currentTab === key;
-  };
 
   return (
     <>
@@ -155,422 +60,48 @@ export const NativeBottomNav: React.FC<Props> = ({
           isDarkMode && styles.bottomNavDark,
         ]}
       >
-        {primaryTabs.map((tab) => {
-          const IconComponent = tab.icon;
-          const active = isTabActive(tab.key);
-          const isAgent = tab.key === 'agente';
-          const isDisabled = tab.disabled;
-          const activeColor = isAgent ? '#eab308' : '#2563eb';
-          const inactiveColor = isAgent ? '#eab308' : '#94a3b8';
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              testID={`bottom-tab-${tab.key}`}
-              style={[
-                styles.navItem,
-                active && styles.navItemActive,
-                isDisabled && { opacity: 0.4 },
-              ]}
-              disabled={isDisabled}
-              onPress={() => {
-                if (!isDisabled) {
-                  handleTabChange(tab.key, tab.url);
-                }
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={isAgent ? 'Assistente, beta' : tab.label}
-            >
-              {isAgent ? (
-                <View style={styles.agentPrimaryContent}>
-                  <View style={styles.agentAvatarPrimaryFrame}>
-                    <Image
-                      source={require('../../../../assets/lizandro-small.png')}
-                      style={styles.agentAvatarPrimary}
-                    />
-                  </View>
-                  <Text style={styles.agentBetaLabel}>BETA</Text>
-                </View>
-              ) : (
-                <IconComponent
-                  size={22}
-                  color={active ? activeColor : inactiveColor}
-                  strokeWidth={active ? 2.5 : 2}
-                />
-              )}
-              {!isAgent && (
-                <Text style={[styles.navText, active && styles.navTextActive]}>{tab.label}</Text>
-              )}
-            </TouchableOpacity>
-          );
-        })}
+        {primaryTabs.map((tab) => (
+          <BottomNavTabItem
+            key={tab.key}
+            tab={tab}
+            active={isTabActive(tab.key)}
+            onPress={() => handleTabChange(tab.key, tab.url)}
+          />
+        ))}
 
         {/* Botão de 3 Pontinhos na 5ª posição quando há mais de 5 abas */}
         {hasOverflow && (
           <TouchableOpacity
+            testID="bottom-tab-more"
             style={[styles.navItem, isOverflowTabActive && styles.navItemActive]}
             onPress={() => setShowMoreSheet(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Mais opções de navegação"
           >
             <MoreHorizontal
               size={22}
               color={isOverflowTabActive ? '#2563eb' : '#94a3b8'}
               strokeWidth={isOverflowTabActive ? 2.5 : 2}
             />
-            <Text style={[styles.navText, isOverflowTabActive && styles.navTextActive]}>Mais</Text>
+            <Text style={[styles.navText, isOverflowTabActive && styles.navTextActive]}>
+              Mais
+            </Text>
           </TouchableOpacity>
         )}
       </View>
 
       {/* Bottom Sheet com as opções adicionais */}
-      <Modal
+      <BottomNavMoreSheet
         visible={showMoreSheet}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowMoreSheet(false)}
-      >
-        <TouchableOpacity
-          style={styles.sheetBackdrop}
-          activeOpacity={1}
-          onPress={() => setShowMoreSheet(false)}
-        >
-          <View
-            style={[
-              styles.sheetContent,
-              isDarkMode && styles.sheetContentDark,
-              { paddingBottom: bottomInset + 16 },
-            ]}
-          >
-            {/* Linha de pegador (Handle) do Bottom Sheet */}
-            <View style={styles.sheetHandleWrapper}>
-              <View style={[styles.sheetHandle, isDarkMode && styles.sheetHandleDark]} />
-            </View>
-
-            {/* Cabeçalho do Bottom Sheet */}
-            <View style={styles.sheetHeader}>
-              <View>
-                <Text style={[styles.sheetTitle, isDarkMode && styles.sheetTextDark]}>
-                  Mais Opções
-                </Text>
-                <Text style={[styles.sheetSubtitle, isDarkMode && styles.sheetSubtitleDark]}>
-                  Navegação do aplicativo
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.closeButton, isDarkMode && styles.closeButtonDark]}
-                onPress={() => setShowMoreSheet(false)}
-              >
-                <X size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Lista de Itens do Bottom Sheet */}
-            <ScrollView style={styles.sheetScroll} bounces={false}>
-              <View style={styles.sheetItemsContainer}>
-                {overflowTabs.map((tab) => {
-                  const IconComponent = tab.icon;
-                  const active = isTabActive(tab.key);
-                  return (
-                    <TouchableOpacity
-                      key={tab.key}
-                      style={[
-                        styles.sheetItem,
-                        isDarkMode && styles.sheetItemDark,
-                        tab.disabled && styles.disabledItem,
-                        active &&
-                          (isDarkMode ? styles.sheetItemActiveDark : styles.sheetItemActive),
-                      ]}
-                      disabled={tab.disabled}
-                      onPress={() => {
-                        setShowMoreSheet(false);
-                        handleTabChange(tab.key, tab.url);
-                      }}
-                    >
-                      {tab.key === 'agente' ? (
-                        <View style={styles.agentAvatarFrame}>
-                          <Image
-                            source={require('../../../../assets/lizandro-small.png')}
-                            style={styles.agentAvatar}
-                          />
-                        </View>
-                      ) : (
-                        <View
-                          style={[
-                            styles.sheetIconWrapper,
-                            active
-                              ? styles.sheetIconWrapperActive
-                              : isDarkMode
-                                ? styles.sheetIconWrapperDark
-                                : styles.sheetIconWrapperLight,
-                          ]}
-                        >
-                          <IconComponent
-                            size={20}
-                            color={active ? '#2563eb' : isDarkMode ? '#cbd5e1' : '#475569'}
-                            strokeWidth={active ? 2.5 : 2}
-                          />
-                        </View>
-                      )}
-                      <View style={styles.sheetItemTitleRow}>
-                        <Text
-                          style={[
-                            styles.sheetItemLabel,
-                            isDarkMode && styles.sheetTextDark,
-                            active && styles.sheetItemLabelActive,
-                          ]}
-                        >
-                          {tab.label}
-                        </Text>
-                        {tab.key === 'agente' ? (
-                          <View style={styles.agentBetaBadge}>
-                            <Text style={styles.agentBetaBadgeText}>BETA</Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      <ChevronRight
-                        size={18}
-                        color={active ? '#2563eb' : isDarkMode ? '#64748b' : '#94a3b8'}
-                      />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        isDarkMode={isDarkMode}
+        bottomInset={bottomInset}
+        overflowTabs={overflowTabs}
+        isTabActive={isTabActive}
+        onClose={() => setShowMoreSheet(false)}
+        onSelectTab={handleTabChange}
+      />
     </>
   );
 };
 
-const styles = StyleSheet.create({
-  bottomNav: {
-    flexDirection: 'row',
-    paddingTop: 6,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 8,
-    elevation: 8,
-  },
-  bottomNavDark: {
-    backgroundColor: '#0f172a',
-    borderTopColor: '#1e293b',
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-  },
-  agentAvatarFrame: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 2,
-    borderColor: '#2563eb',
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  agentAvatar: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 17,
-  },
-  agentAvatarPrimaryFrame: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2.5,
-    borderColor: '#2563eb',
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  agentAvatarPrimary: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 19,
-  },
-  agentPrimaryContent: {
-    alignItems: 'center',
-    gap: 1,
-  },
-  agentBetaLabel: {
-    fontSize: 8,
-    lineHeight: 9,
-    fontWeight: '900',
-    letterSpacing: 0.4,
-    color: '#eab308',
-  },
-  agentBetaBadge: {
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: '#fef3c7',
-    borderWidth: 1,
-    borderColor: '#fde68a',
-  },
-  agentBetaBadgeText: {
-    fontSize: 9,
-    lineHeight: 11,
-    fontWeight: '900',
-    color: '#92400e',
-  },
-  sheetItemTitleRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  disabledItem: {
-    opacity: 0.45,
-  },
-  navItemActive: {},
-  navText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#94a3b8',
-  },
-  navTextActive: {
-    color: '#2563eb',
-    fontWeight: '900',
-  },
-  navTextAgentActive: {
-    color: '#7c3aed',
-    fontWeight: '900',
-  },
-  navTextAgentInactive: {
-    color: '#8b5cf6',
-    fontWeight: '800',
-  },
-
-  /* Estilos do Bottom Sheet */
-  sheetBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'flex-end',
-  },
-  sheetContent: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    maxHeight: '75%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 20,
-  },
-  sheetContentDark: {
-    backgroundColor: '#0f172a',
-    borderTopWidth: 1,
-    borderTopColor: '#1e293b',
-  },
-  sheetHandleWrapper: {
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#cbd5e1',
-  },
-  sheetHandleDark: {
-    backgroundColor: '#334155',
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    marginBottom: 8,
-  },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0f172a',
-  },
-  sheetSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748b',
-    marginTop: 2,
-  },
-  sheetSubtitleDark: {
-    color: '#94a3b8',
-  },
-  sheetTextDark: {
-    color: '#f8fafc',
-  },
-  closeButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeButtonDark: {
-    backgroundColor: '#1e293b',
-  },
-  sheetScroll: {
-    flexGrow: 0,
-  },
-  sheetItemsContainer: {
-    gap: 10,
-    paddingVertical: 4,
-  },
-  sheetItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 14,
-    borderRadius: 18,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  sheetItemDark: {
-    backgroundColor: '#1e293b',
-    borderColor: '#334155',
-  },
-  sheetItemActive: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
-  },
-  sheetItemActiveDark: {
-    backgroundColor: '#1e3a8a30',
-    borderColor: '#1e40af',
-  },
-  sheetIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetIconWrapperLight: {
-    backgroundColor: '#e2e8f0',
-  },
-  sheetIconWrapperDark: {
-    backgroundColor: '#334155',
-  },
-  sheetIconWrapperActive: {
-    backgroundColor: '#dbeafe',
-  },
-  sheetItemLabel: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  sheetItemLabelActive: {
-    color: '#2563eb',
-    fontWeight: '900',
-  },
-});
+export default NativeBottomNav;

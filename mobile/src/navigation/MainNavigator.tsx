@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Platform } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppNotifications } from '../contexts/NotificationContext';
@@ -109,6 +109,114 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
     }
   };
 
+  const handleNavigateToDeliveriesMap = useCallback(() => {
+    setDeliveriesSubTab('map');
+    setCurrentTab('entregas');
+  }, []);
+
+  const handleLaunchStock = useCallback(() => {
+    setCurrentTab('estoque');
+  }, []);
+
+  const handleBackFromSettings = useCallback(() => {
+    setCurrentTab('entregas');
+  }, []);
+
+  const renderActiveScreen = () => {
+    switch (activeTab) {
+      case 'agente':
+        return <GlobalAgentScreen isDarkMode={isDarkMode} userProfile={userProfile} />;
+
+      case 'financeiro':
+        if (canSeeFinance) {
+          return <FinanceHubScreen isDarkMode={isDarkMode} userProfile={userProfile} />;
+        }
+        break;
+
+      case 'pedidos':
+        return (
+          <NativeOrdersScreen
+            isDarkMode={isDarkMode}
+            isAdmin={isAdmin}
+            onSelectOrder={setAppSelectedOrder}
+          />
+        );
+
+      case 'produtos':
+        if (canSeeProducts) {
+          return (
+            <NativeProductsScreen
+              isDarkMode={isDarkMode}
+              userProfile={userProfile}
+              onLaunchStock={handleLaunchStock}
+            />
+          );
+        }
+        break;
+
+      case 'entregas':
+        return (
+          <DeliveriesHubScreen
+            isDarkMode={isDarkMode}
+            isAdmin={isAdmin}
+            userProfile={userProfile}
+            initialTab={deliveriesSubTab}
+            onSelectOrder={setAppSelectedOrder}
+          />
+        );
+
+      case 'agenda':
+      case 'logistica':
+      case 'cronograma':
+        return (
+          <NativeLogisticsScreen
+            isDarkMode={isDarkMode}
+            isAdmin={isAdmin}
+            userProfile={userProfile}
+            onSelectOrder={setAppSelectedOrder}
+            onNavigateToDeliveriesMap={handleNavigateToDeliveriesMap}
+          />
+        );
+
+      case 'montagens':
+        return (
+          <NativeAssembliesScreen
+            isDarkMode={isDarkMode}
+            initialSubTab={assemblySubTab}
+            onSelectOrder={setAppSelectedOrder}
+          />
+        );
+
+      case 'configuracoes':
+        return (
+          <NativeSettingsScreen
+            isDarkMode={isDarkMode}
+            setIsDarkMode={setIsDarkMode}
+            isAdmin={isAdmin}
+            onBack={handleBackFromSettings}
+          />
+        );
+
+      case 'estoque':
+        return <NativeStockScreen isDarkMode={isDarkMode} userProfile={userProfile} />;
+
+      default:
+        break;
+    }
+
+    if (canSeeReports) {
+      return <NativeReportsScreen isDarkMode={isDarkMode} />;
+    }
+
+    return (
+      <NativeOrdersScreen
+        isDarkMode={isDarkMode}
+        isAdmin={isAdmin}
+        onSelectOrder={setAppSelectedOrder}
+      />
+    );
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <DashboardHeader
@@ -126,65 +234,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
       />
       <OfflineSyncBar isDarkMode={isDarkMode} />
 
-      {activeTab === 'agente' ? (
-        <GlobalAgentScreen isDarkMode={isDarkMode} userProfile={userProfile} />
-      ) : activeTab === 'financeiro' && canSeeFinance ? (
-        <FinanceHubScreen isDarkMode={isDarkMode} userProfile={userProfile} />
-      ) : activeTab === 'pedidos' ? (
-        <NativeOrdersScreen
-          isDarkMode={isDarkMode}
-          isAdmin={isAdmin}
-          onSelectOrder={setAppSelectedOrder}
-        />
-      ) : activeTab === 'produtos' && canSeeProducts ? (
-        <NativeProductsScreen
-          isDarkMode={isDarkMode}
-          userProfile={userProfile}
-          onLaunchStock={() => setCurrentTab('estoque')}
-        />
-      ) : activeTab === 'entregas' ? (
-        <DeliveriesHubScreen
-          isDarkMode={isDarkMode}
-          isAdmin={isAdmin}
-          userProfile={userProfile}
-          initialTab={deliveriesSubTab}
-          onSelectOrder={setAppSelectedOrder}
-        />
-      ) : activeTab === 'agenda' || activeTab === 'logistica' || activeTab === 'cronograma' ? (
-        <NativeLogisticsScreen
-          isDarkMode={isDarkMode}
-          isAdmin={isAdmin}
-          userProfile={userProfile}
-          onSelectOrder={setAppSelectedOrder}
-          onNavigateToDeliveriesMap={() => {
-            setDeliveriesSubTab('map');
-            setCurrentTab('entregas');
-          }}
-        />
-      ) : activeTab === 'montagens' ? (
-        <NativeAssembliesScreen
-          isDarkMode={isDarkMode}
-          initialSubTab={assemblySubTab}
-          onSelectOrder={setAppSelectedOrder}
-        />
-      ) : activeTab === 'configuracoes' ? (
-        <NativeSettingsScreen
-          isDarkMode={isDarkMode}
-          setIsDarkMode={setIsDarkMode}
-          isAdmin={isAdmin}
-          onBack={() => setCurrentTab('entregas')}
-        />
-      ) : activeTab === 'estoque' ? (
-        <NativeStockScreen isDarkMode={isDarkMode} userProfile={userProfile} />
-      ) : canSeeReports ? (
-        <NativeReportsScreen isDarkMode={isDarkMode} />
-      ) : (
-        <NativeOrdersScreen
-          isDarkMode={isDarkMode}
-          isAdmin={isAdmin}
-          onSelectOrder={setAppSelectedOrder}
-        />
-      )}
+      {renderActiveScreen()}
 
       {/* Navegação Inferior Nativa */}
       <NativeBottomNav

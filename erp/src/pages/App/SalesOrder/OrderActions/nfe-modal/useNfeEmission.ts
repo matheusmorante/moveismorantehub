@@ -9,9 +9,7 @@ import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 
 import { getSettings } from '@/pages/utils/settingsService';
 
-import { resolveFiscalCfopOrderScope } from '../../../../../../../shared-utils/fiscalCfopModel';
-import { resolveOrderFiscalModel } from '../../../../../../../shared-utils/fiscalDocumentModel';
-import type { DeliveryMethod } from '../../../../../../../shared-utils/fiscalTransportModel';
+import { resolveOrderFiscalModelContext } from './utils/nfeModelOrderResolution';
 import { useNfeEmissionActions } from './hooks/useNfeEmissionActions';
 import { useNfeItemEnrichment } from './hooks/useNfeItemEnrichment';
 import { useNfeRecipientTaxId } from './hooks/useNfeRecipientTaxId';
@@ -27,16 +25,6 @@ import {
 export type { FiscalFieldError };
 export { clearFiscalEmissionDrafts };
 
-function initialAcquisitionPurpose(
-  order: Order | null,
-  requiresExplicitPurpose: boolean
-): FiscalAcquisitionPurpose | null {
-  const persistedPurpose = order?.fiscalContext?.acquisitionPurpose;
-  if (persistedPurpose) return persistedPurpose;
-  if (requiresExplicitPurpose) return null;
-  return order?.fiscalContext?.finalConsumer === false ? 'resale' : 'use_consumption';
-}
-
 export function useNfeEmission(
   order: Order | null,
   onSuccess?: (result: NfeEmissionResult) => void
@@ -46,44 +34,27 @@ export function useNfeEmission(
   const [environment, setEnvironment] = useState<1 | 2>(DEFAULT_NFE_ENVIRONMENT);
   const fiscalOperationLock = useRef(false);
   const issuerUf = getSettings().companyUF;
-  const operationScope = order
-    ? resolveFiscalCfopOrderScope({
-        issuerUf,
-        deliveryMethod: order.shipping?.deliveryMethod,
-        shipping: order.shipping,
-        customerAddress: order.customerData?.fullAddress,
-      })
-    : null;
-  const requiresExplicitAcquisitionPurpose = operationScope?.scope === 'interstate';
 
   const [savedAcquisitionPurpose, setSavedAcquisitionPurpose] =
     useState<FiscalAcquisitionPurpose | null>(
       () => order?.fiscalContext?.acquisitionPurpose ?? null
     );
-  const acquisitionPurpose =
-    savedAcquisitionPurpose ?? initialAcquisitionPurpose(order, requiresExplicitAcquisitionPurpose);
-  const finalConsumer = acquisitionPurpose === null ? undefined : acquisitionPurpose !== 'resale';
 
-  const deliveryMethod: DeliveryMethod =
-    order?.shipping?.deliveryMethod === 'pickup' ? 'pickup' : 'delivery';
+  const {
+    requiresExplicitAcquisitionPurpose,
+    acquisitionPurpose,
+    finalConsumer,
+    deliveryMethod,
+    modelOrder,
+    modelDecision,
+    currentModel,
+  } = resolveOrderFiscalModelContext({
+    order,
+    issuerUf,
+    savedAcquisitionPurpose,
+  });
 
   const manualFiscalFields = useRef(fiscalDrafts);
-
-  const modelOrder = order
-    ? {
-        ...order,
-        fiscalContext: {
-          ...order.fiscalContext,
-          ...(savedAcquisitionPurpose ? { acquisitionPurpose: savedAcquisitionPurpose } : {}),
-          // Um indFinal legado não distingue uso/consumo de ativo imobilizado.
-          finalConsumer: acquisitionPurpose === null ? undefined : acquisitionPurpose !== 'resale',
-        },
-      }
-    : null;
-  const modelDecision = modelOrder
-    ? resolveOrderFiscalModel(modelOrder, { issuerUf, finalConsumer })
-    : null;
-  const currentModel: '55' | '65' = modelDecision?.status === 'ready' ? modelDecision.model : '55';
   const {
     recipientTaxId,
     setRecipientTaxId,

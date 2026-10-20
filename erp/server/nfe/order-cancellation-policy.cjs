@@ -253,7 +253,7 @@ function getFiscalCancellationPolicy(input) {
 var import_xmldom = require("@xmldom/xmldom");
 var import_xml_crypto = require("xml-crypto");
 
-// shared-utils/fiscal-cfop-model/catalog.ts
+// shared-utils/fiscal-cfop-model/data/cfopBaseCatalog.ts
 var CFOP_CATALOG_BASE = [
   // --- SAÍDAS INTERNAS (5.xxx) ---
   {
@@ -678,7 +678,10 @@ var CFOP_CATALOG_BASE = [
     notes: "Outras entradas interestaduais n\xE3o especificadas."
   }
 ];
+
+// shared-utils/fiscal-cfop-model/data/cfopSemantics.ts
 var CFOP_SEMANTICS = {
+  // --- Saídas Internas (5.xxx) ---
   "5102": { operationType: "sale", merchandiseOrigin: "third_party" },
   "5101": { operationType: "sale", merchandiseOrigin: "own_production" },
   "5405": { operationType: "sale", merchandiseOrigin: "third_party" },
@@ -693,6 +696,7 @@ var CFOP_SEMANTICS = {
   "5915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
   "5949": { operationType: "other", merchandiseOrigin: "not_applicable" },
   "5933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  // --- Saídas Interestaduais (6.xxx) ---
   "6102": { operationType: "sale", merchandiseOrigin: "third_party" },
   "6101": { operationType: "sale", merchandiseOrigin: "own_production" },
   "6108": { operationType: "sale_to_non_taxpayer", merchandiseOrigin: "third_party" },
@@ -708,15 +712,19 @@ var CFOP_SEMANTICS = {
   "6915": { operationType: "shipment", merchandiseOrigin: "not_applicable" },
   "6949": { operationType: "other", merchandiseOrigin: "not_applicable" },
   "6933": { operationType: "service", merchandiseOrigin: "not_applicable" },
+  // --- Entradas Internas (1.xxx) ---
   "1202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "1201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
   "1411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "1949": { operationType: "other", merchandiseOrigin: "not_applicable" },
+  // --- Entradas Interestaduais (2.xxx) ---
   "2202": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "2201": { operationType: "customer_return", merchandiseOrigin: "own_production" },
   "2411": { operationType: "customer_return", merchandiseOrigin: "third_party" },
   "2949": { operationType: "other", merchandiseOrigin: "not_applicable" }
 };
+
+// shared-utils/fiscal-cfop-model/catalog.ts
 if (CFOP_CATALOG_BASE.length !== Object.keys(CFOP_SEMANTICS).length) {
   throw new Error("Cat\xE1logo CFOP sem classifica\xE7\xE3o sem\xE2ntica completa.");
 }

@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { InventorySession } from '../../types/stock.types';
 import * as stockService from '../../../../services/stockService';
 import { listLocalInventoryDrafts } from '../../../../services/sqlite/inventoryDrafts';
+import { connectivityService } from '../../../../services/offline/connectivityService';
+import { syncPendingInventorySubmissions } from '../services/inventoryFinalizer';
 
 export const useInventory = () => {
   const [sessions, setSessions] = useState<InventorySession[]>([]);
@@ -18,6 +20,11 @@ export const useInventory = () => {
       setLoadingMore(true);
     } else {
       setLoading(true);
+    }
+
+    // 0. Se estiver online, sincroniza automaticamente submissões congeladas na outbox local
+    if (pageNum === 0 && connectivityService.connected) {
+      await syncPendingInventorySubmissions().catch(() => 0);
     }
 
     // 1. Carrega rascunhos locais do SQLite (disponíveis 100% offline)
@@ -103,6 +110,11 @@ export const useInventory = () => {
 
   useEffect(() => {
     void loadSessions(true, 0);
+    return connectivityService.subscribe((online) => {
+      if (online) {
+        void loadSessions(true, 0);
+      }
+    });
   }, [loadSessions]);
 
   return { sessions, loading, loadingMore, loadMore, reload: () => loadSessions(true, 0) };

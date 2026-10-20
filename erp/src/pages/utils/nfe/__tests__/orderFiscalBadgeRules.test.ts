@@ -189,4 +189,84 @@ describe('resolveReturnFiscalBadgeStatus', () => {
     expect(resolveReturnFiscalBadgeStatus([])).toBeUndefined();
     expect(resolveReturnFiscalBadgeStatus([returnDocument('', 'autorizada')])).toBeUndefined();
   });
+
+  it('mantém NFH emitida e disponibiliza NFH 2 para reemissão quando estorno está autorizado', () => {
+    const originalDoc = {
+      id: 'doc-original-hml',
+      order_id: 'order-1',
+      status: 'homologada',
+      document_type: 'outbound',
+      ambiente: 2,
+      created_at: '2026-10-19T14:20:00Z',
+    };
+    const estornoDoc = {
+      id: 'doc-estorno-hml',
+      order_id: 'order-1',
+      status: 'homologada',
+      document_type: 'estorno',
+      ambiente: 2,
+      created_at: '2026-10-19T22:13:00Z',
+    };
+    const estornoDraft = {
+      id: 'draft-estorno-1',
+      original_document_id: 'doc-original-hml',
+      operation_kind: 'estorno' as const,
+      environment: 2,
+      status: 'authorized',
+      created_at: '2026-10-19T22:12:00Z',
+    };
+
+    const result = resolveOrderFiscalBadgePair([originalDoc, estornoDoc], [estornoDraft]);
+    expect(result.homologation).toBe('issued');
+    expect(result.estornoStatus).toBe('issued');
+    expect(result.readyToReissueHml).toBe(true);
+    expect(result.homologationBadges).toEqual([
+      { id: 'doc-original-hml', status: 'issued', sequenceNumber: 1, label: 'NFH' },
+      { status: 'not_issued', sequenceNumber: 2, label: 'NFH 2' },
+    ]);
+  });
+
+  it('exibe NFH e NFH 2 emitidas quando a nova nota de saída corrigida é homologada', () => {
+    const originalDoc = {
+      id: 'doc-original-hml',
+      order_id: 'order-1',
+      status: 'homologada',
+      document_type: 'outbound',
+      ambiente: 2,
+      created_at: '2026-10-19T14:20:00Z',
+    };
+    const estornoDoc = {
+      id: 'doc-estorno-hml',
+      order_id: 'order-1',
+      status: 'homologada',
+      document_type: 'estorno',
+      ambiente: 2,
+      created_at: '2026-10-19T22:13:00Z',
+    };
+    const replacementDoc = {
+      id: 'doc-replacement-hml',
+      order_id: 'order-1',
+      status: 'homologada',
+      document_type: 'outbound',
+      ambiente: 2,
+      created_at: '2026-10-19T23:00:00Z',
+    };
+    const estornoDraft = {
+      id: 'draft-estorno-1',
+      original_document_id: 'doc-original-hml',
+      operation_kind: 'estorno' as const,
+      environment: 2,
+      status: 'authorized',
+      created_at: '2026-10-19T22:12:00Z',
+    };
+
+    const result = resolveOrderFiscalBadgePair([originalDoc, estornoDoc, replacementDoc], [estornoDraft]);
+    expect(result.homologation).toBe('issued');
+    expect(result.estornoStatus).toBe('issued');
+    expect(result.readyToReissueHml).toBeUndefined();
+    expect(result.homologationBadges).toEqual([
+      { id: 'doc-original-hml', status: 'issued', sequenceNumber: 1, label: 'NFH' },
+      { id: 'doc-replacement-hml', status: 'issued', sequenceNumber: 2, label: 'NFH 2' },
+    ]);
+  });
 });

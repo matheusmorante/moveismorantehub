@@ -6,6 +6,7 @@ import ScheduleCardView from './ScheduleCardView/Index';
 import ShowroomAssemblyModal from './ShowroomAssemblyModal';
 import OrderEditModal from '../SalesOrder/modals/OrderEditModal';
 import AssistanceOrderModal from '../SalesOrder/modals/AssistanceOrderModal';
+import PickupIcon from '@/components/shared/PickupIcon';
 
 const DeliverySchedule = () => {
   const navigate = useNavigate();
@@ -171,7 +172,11 @@ const DeliverySchedule = () => {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <i className={`bi ${tf.icon} text-base`} />
+                      {tf.id === 'pickup' ? (
+                        <PickupIcon white={isActive} className="h-4 w-4" />
+                      ) : (
+                        <i className={`bi ${tf.icon} text-base`} />
+                      )}
                       {tf.label}
                     </div>
                     <i

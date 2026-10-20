@@ -1,11 +1,25 @@
 import { supabase } from '../supabaseClient';
 import { ITEMS_PER_PAGE, getStockPeriod } from './stockMovesService';
+import { connectivityService } from '../offline/connectivityService';
+import { offlineStorageService } from '../offline/offlineStorageService';
+import {
+  deleteLocalInventoryDraft,
+  getLocalInventoryDraft,
+} from '../sqlite/inventoryDrafts';
+import {
+  deleteInventorySubmission,
+  getInventorySubmission,
+} from '../sqlite/inventoryOutbox';
+import { deleteLocalInventoryScans } from '../sqlite/inventoryScans';
 import {
   clearOfflineInventoryCatalogCache,
   ensureOfflineInventoryCatalogSynced,
   getOfflineInventoryCatalog,
   getOfflineInventoryScopeProducts,
 } from '../../features/stock/inventory/services/offlineInventoryCatalog';
+
+const INVENTORY_SESSIONS_CACHE_KEY = 'inventory_sessions_cache_v1';
+const INVENTORY_SESSION_DETAILS_CACHE_KEY = 'inventory_session_details_cache_v1';
 
 export const fetchInventoryScopeSuppliers = async () => {
   await ensureOfflineInventoryCatalogSynced();
@@ -41,10 +55,6 @@ export const fetchInventoryScopeProducts = async (
 export const clearInventoryScopeCache = () => clearOfflineInventoryCatalogCache();
 
 /**
- * Consulta o registro de uma etiqueta física UUID na tabela inventory_labels
- * para associar a unidade escaneada ao seu produto e variação de destino.
- */
-/**
  * Sessões de Inventário
  */
 export const fetchInventorySessions = async (
@@ -56,119 +66,161 @@ export const fetchInventorySessions = async (
   const to = from + ITEMS_PER_PAGE - 1;
   const period = getStockPeriod(startDate, endDate);
 
-  let query = supabase
-    .from('inventory_moves')
-    .select('id, label, observation, quantity, date, created_at')
-    .ilike('label', 'Inventário #%')
-    .order('created_at', { ascending: false })
-    .range(from, to);
+  try {
+    let query = supabase
+      .from('inventory_moves')
+      .select('id, label, observation, quantity, date, created_at')
+      .ilike('label', 'Inventário #%')
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
-  if (period.start) query = query.gte('created_at', period.start);
-  if (period.end) query = query.lte('created_at', period.end);
+    if (period.start) query = query.gte('created_at', period.start);
+    if (period.end) query = query.lte('created_at', period.end);
 
-  const { data: markerMoves, error } = await query;
+    const { data: markerMoves, error } = await query;
 
-  if (error) {
-    console.warn('Erro ao buscar auditorias de inventário:', error);
+    if (error) {
+      throw error;
+    }
+
+    if (!markerMoves || markerMoves.length === 0) return [];
+
+    // Cachear detalhes (observation) das sessões remotas para consulta/duplicação offline
+    try {
+      const existingDetails =
+        (
+          await offlineStorageService.getWorkingSet<Record<string, any>>(
+            INVENTORY_SESSION_DETAILS_CACHE_KEY
+          )
+        )?.data || {};
+      const nextDetails: Record<string, any> = { ...existingDetails };
+      for (const m of markerMoves) {
+        if (m.id && m.observation) {
+          try {
+            nextDetails[m.id] = JSON.parse(m.observation);
+          } catch {}
+        }
+      }
+      await offlineStorageService.cacheWorkingSet(INVENTORY_SESSION_DETAILS_CACHE_KEY, nextDetails);
+    } catch {}
+
+    const sessionCodes = markerMoves
+      .map((m) => {
+        try {
+          const data = JSON.parse(m.observation || '{}') as any;
+          if (data.inventoryCode) return data.inventoryCode;
+        } catch {}
+        return m.label?.replace('Inventário #', '') || '';
+      })
+      .filter(Boolean);
+
+    let adjustmentsData: any[] = [];
+    if (sessionCodes.length > 0) {
+      const expectedLabels = sessionCodes.map((code) => `Ajuste lançado pelo inventário #${code}`);
+      const { data, error: adjustmentsError } = await supabase
+        .from('inventory_moves')
+        .select('id, label, observation, product_id')
+        .in('label', expectedLabels);
+
+      if (adjustmentsError) {
+        console.warn('Erro ao buscar ajustes dos inventários:', adjustmentsError);
+      } else {
+        adjustmentsData = data || [];
+      }
+    }
+
+    const adjustmentsBySession = adjustmentsData.reduce(
+      (acc: Record<string, { total: number; reversed: number }>, move) => {
+        const match = move.label?.match(/Ajuste lançado pelo inventário #(.+)/);
+        if (match && match[1]) {
+          const code = match[1].trim();
+          if (!acc[code]) acc[code] = { total: 0, reversed: 0 };
+          acc[code].total += 1;
+
+          const isReversed =
+            move.status === 'reversed' ||
+            (() => {
+              try {
+                return JSON.parse(move.observation || '{}').status === 'reversed';
+              } catch {
+                return false;
+              }
+            })();
+          if (isReversed) {
+            acc[code].reversed += 1;
+          }
+        }
+        return acc;
+      },
+      {}
+    );
+
+    const mappedSessions = markerMoves
+      .map((m) => {
+        let productsCount = 0;
+        let status = 'in_progress';
+        let inventoryCode = m.id.split('-')[0];
+        let responsibleName = 'Não informado';
+
+        let sessionName = '';
+
+        try {
+          const data = JSON.parse(m.observation || '{}') as any;
+          inventoryCode =
+            data.inventoryCode || m.label?.replace('Inventário #', '') || inventoryCode;
+          responsibleName = data.responsibleName || 'Não informado';
+          if (data.name) sessionName = data.name;
+
+          if (data.inventoryAudit && Array.isArray(data.items)) {
+            productsCount = data.items.length;
+            status = data.status || 'completed';
+          } else {
+            productsCount = Math.abs(m.quantity || 0);
+          }
+        } catch {
+          productsCount = Math.abs(m.quantity || 0);
+          inventoryCode = m.label?.replace('Inventário #', '') || inventoryCode;
+        }
+
+        const sessionAdjustments = adjustmentsBySession[inventoryCode] || { total: 0, reversed: 0 };
+
+        return {
+          id: m.id,
+          name: sessionName || `Inventário #${inventoryCode}`,
+          inventoryCode,
+          responsibleName,
+          status: status as 'in_progress' | 'completed' | 'pending',
+          created_at: m.created_at || m.date,
+          updated_at: m.created_at || m.date,
+          items_count: productsCount,
+          productsCount,
+          adjustmentsCount: sessionAdjustments.total,
+          reversedCount: sessionAdjustments.reversed,
+        };
+      })
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    if (page === 0) {
+      await offlineStorageService
+        .cacheWorkingSet(INVENTORY_SESSIONS_CACHE_KEY, mappedSessions)
+        .catch(() => {});
+    }
+
+    return mappedSessions;
+  } catch (error) {
+    console.warn('Erro ao buscar auditorias de inventário (usando fallback offline):', error);
+    if (page === 0) {
+      try {
+        const cached = await offlineStorageService.getWorkingSet<any[]>(
+          INVENTORY_SESSIONS_CACHE_KEY
+        );
+        if (Array.isArray(cached?.data)) {
+          return cached.data;
+        }
+      } catch {}
+    }
     return [];
   }
-
-  if (!markerMoves || markerMoves.length === 0) return [];
-
-  const sessionCodes = markerMoves
-    .map((m) => {
-      try {
-        const data = JSON.parse(m.observation || '{}') as any;
-        if (data.inventoryCode) return data.inventoryCode;
-      } catch {}
-      return m.label?.replace('Inventário #', '') || '';
-    })
-    .filter(Boolean);
-
-  let adjustmentsData: any[] = [];
-  if (sessionCodes.length > 0) {
-    const expectedLabels = sessionCodes.map((code) => `Ajuste lançado pelo inventário #${code}`);
-    const { data, error: adjustmentsError } = await supabase
-      .from('inventory_moves')
-      .select('id, label, observation, product_id')
-      .in('label', expectedLabels);
-
-    if (adjustmentsError) {
-      console.warn('Erro ao buscar ajustes dos inventários:', adjustmentsError);
-    } else {
-      adjustmentsData = data || [];
-    }
-  }
-
-  const adjustmentsBySession = adjustmentsData.reduce(
-    (acc: Record<string, { total: number; reversed: number }>, move) => {
-      const match = move.label?.match(/Ajuste lançado pelo inventário #(.+)/);
-      if (match && match[1]) {
-        const code = match[1].trim();
-        if (!acc[code]) acc[code] = { total: 0, reversed: 0 };
-        acc[code].total += 1;
-
-        const isReversed =
-          move.status === 'reversed' ||
-          (() => {
-            try {
-              return JSON.parse(move.observation || '{}').status === 'reversed';
-            } catch {
-              return false;
-            }
-          })();
-        if (isReversed) {
-          acc[code].reversed += 1;
-        }
-      }
-      return acc;
-    },
-    {}
-  );
-
-  return markerMoves
-    .map((m) => {
-      let productsCount = 0;
-      let status = 'in_progress';
-      let inventoryCode = m.id.split('-')[0];
-      let responsibleName = 'Não informado';
-
-      let sessionName = '';
-
-      try {
-        const data = JSON.parse(m.observation || '{}') as any;
-        inventoryCode = data.inventoryCode || m.label?.replace('Inventário #', '') || inventoryCode;
-        responsibleName = data.responsibleName || 'Não informado';
-        if (data.name) sessionName = data.name;
-
-        if (data.inventoryAudit && Array.isArray(data.items)) {
-          productsCount = data.items.length;
-          status = data.status || 'completed';
-        } else {
-          productsCount = Math.abs(m.quantity || 0);
-        }
-      } catch {
-        productsCount = Math.abs(m.quantity || 0);
-        inventoryCode = m.label?.replace('Inventário #', '') || inventoryCode;
-      }
-
-      const sessionAdjustments = adjustmentsBySession[inventoryCode] || { total: 0, reversed: 0 };
-
-      return {
-        id: m.id,
-        name: sessionName || `Inventário #${inventoryCode}`,
-        inventoryCode,
-        responsibleName,
-        status: status as 'in_progress' | 'completed' | 'pending',
-        created_at: m.created_at || m.date,
-        updated_at: m.created_at || m.date,
-        items_count: productsCount,
-        productsCount,
-        adjustmentsCount: sessionAdjustments.total,
-        reversedCount: sessionAdjustments.reversed,
-      };
-    })
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 };
 
 export const getNextInventoryCode = async (): Promise<string> => {
@@ -222,43 +274,103 @@ export const fetchInventoryItems = async (
 export const searchProducts = async (query: string) => {
   if (!query || query.length < 2) return [];
 
-  const { data, error } = await supabase
-    .from('products')
-    .select('id, name, sku, stock, product_variations(id, name, sku, stock)')
-    .or(`name.ilike.%${query}%,sku.ilike.%${query}%`)
-    .limit(10);
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, sku, stock, product_variations(id, name, sku, stock)')
+      .or(`name.ilike.%${query}%,sku.ilike.%${query}%`)
+      .limit(10);
 
-  if (error) throw error;
-  return (data || []).flatMap((product: any) => {
-    const variations = Array.isArray(product.product_variations) ? product.product_variations : [];
-    if (variations.length === 0) return [];
-    return variations.map((variation: any) => ({
-      ...product,
-      variation_id: variation.id,
-      name: variation.name,
-      variationName: variation.name,
-      sku: variation.sku || product.sku,
-      stock: Number(
-        variation.stock !== undefined && variation.stock !== null
-          ? variation.stock
-          : product.stock || 0
-      ),
-    }));
-  });
+    if (error) throw error;
+    return (data || []).flatMap((product: any) => {
+      const variations = Array.isArray(product.product_variations)
+        ? product.product_variations
+        : [];
+      if (variations.length === 0) return [];
+      return variations.map((variation: any) => ({
+        ...product,
+        variation_id: variation.id,
+        name: variation.name,
+        variationName: variation.name,
+        sku: variation.sku || product.sku,
+        stock: Number(
+          variation.stock !== undefined && variation.stock !== null
+            ? variation.stock
+            : product.stock || 0
+        ),
+      }));
+    });
+  } catch {
+    // Fallback offline usando o catálogo local SQLite
+    const term = query.trim().toLowerCase();
+    const localProducts = await getOfflineInventoryScopeProducts().catch(() => []);
+    return localProducts
+      .filter((item) =>
+        `${item.name || ''} ${item.sku || ''} ${item.code || ''} ${item.barcode || ''}`
+          .toLowerCase()
+          .includes(term)
+      )
+      .slice(0, 10)
+      .map((item) => ({
+        ...item,
+        variationName: item.name,
+      }));
+  }
 };
 
 export const fetchInventorySessionDetails = async (sessionId: string) => {
-  const { data, error } = await supabase
-    .from('inventory_moves')
-    .select('observation')
-    .eq('id', sessionId)
-    .single();
-  if (error) throw error;
+  // 1. Verificar primeiro se é um rascunho ou submissão congelada no SQLite local
   try {
-    return JSON.parse(data.observation || '{}');
-  } catch {
-    return {};
-  }
+    const localDraft = await getLocalInventoryDraft(sessionId);
+    if (localDraft) {
+      return {
+        inventoryAudit: true,
+        inventoryCode: localDraft.code,
+        name: localDraft.name,
+        status: localDraft.status || 'in_progress',
+        hasStages: localDraft.hasStages,
+        scopeType: localDraft.scopeType,
+        supplierId: localDraft.supplierId,
+        responsibleId: localDraft.responsibleId,
+        items: localDraft.items,
+      };
+    }
+  } catch {}
+
+  try {
+    const localSubmission = await getInventorySubmission(sessionId);
+    if (localSubmission?.observation) {
+      return localSubmission.observation;
+    }
+  } catch {}
+
+  // 2. Tentar buscar no Supabase
+  try {
+    const { data, error } = await supabase
+      .from('inventory_moves')
+      .select('observation')
+      .eq('id', sessionId)
+      .single();
+    if (!error && data) {
+      try {
+        return JSON.parse(data.observation || '{}');
+      } catch {
+        return {};
+      }
+    }
+  } catch {}
+
+  // 3. Fallback no cache local de sessões sincronizadas
+  try {
+    const cachedDetails = await offlineStorageService.getWorkingSet<Record<string, any>>(
+      INVENTORY_SESSION_DETAILS_CACHE_KEY
+    );
+    if (cachedDetails?.data?.[sessionId]) {
+      return cachedDetails.data[sessionId];
+    }
+  } catch {}
+
+  throw new Error('Não foi possível carregar os detalhes desta sessão de inventário.');
 };
 
 const isEffectiveInventoryMove = (move: any) => {
@@ -450,9 +562,23 @@ export const unreverseInventorySession = async (session: {
 };
 
 export const deleteInventoryDraft = async (markerMoveId: string): Promise<void> => {
-  const { error } = await supabase.from('inventory_moves').delete().eq('id', markerMoveId);
+  // 1. Remove sempre do armazenamento SQLite local (rascunho, outbox e leituras de etiquetas)
+  await deleteLocalInventoryDraft(markerMoveId).catch(() => {});
+  await deleteInventorySubmission(markerMoveId).catch(() => {});
+  await deleteLocalInventoryScans(markerMoveId).catch(() => {});
 
-  if (error) throw error;
+  if (!connectivityService.connected) {
+    return;
+  }
+
+  try {
+    const { error } = await supabase.from('inventory_moves').delete().eq('id', markerMoveId);
+    if (error) {
+      console.warn('[Inventory] Aviso ao excluir rascunho remoto:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Inventory] Falha de rede ao excluir rascunho remoto (excluído localmente):', err);
+  }
 };
 
 export const saveInventoryDraft = async (params: {

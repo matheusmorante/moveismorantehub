@@ -8,6 +8,7 @@ export interface InventorySubmission {
   observation: Record<string, unknown>;
   items: Array<Record<string, unknown>>;
   responsibleName: string;
+  userId?: string;
 }
 
 interface OutboxRow {
@@ -70,4 +71,24 @@ export const recordInventorySubmissionFailure = async (
 export const deleteInventorySubmission = async (auditId: string): Promise<void> => {
   const db = await getSQLiteDatabase();
   await db.runAsync('DELETE FROM inventory_outbox_local WHERE id = ?;', [auditId]);
+};
+
+export const listInventorySubmissions = async (): Promise<InventorySubmission[]> => {
+  const db = await getSQLiteDatabase();
+  await runMigrations(db);
+  const rows = await db.getAllAsync<OutboxRow>(
+    'SELECT * FROM inventory_outbox_local ORDER BY created_at ASC;'
+  );
+  const submissions: InventorySubmission[] = [];
+  for (const row of rows) {
+    try {
+      const payload = JSON.parse(row.payload_json) as InventorySubmission;
+      if ([1, 2].includes(payload.contractVersion) && payload.auditId === row.id) {
+        submissions.push(payload);
+      }
+    } catch {
+      // ignora linhas corrompidas
+    }
+  }
+  return submissions;
 };

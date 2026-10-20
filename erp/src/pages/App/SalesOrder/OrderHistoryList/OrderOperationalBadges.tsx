@@ -4,6 +4,7 @@ import InventoryMovementBadge from './InventoryMovementBadge';
 import { binaryOrderBadgeClass } from './orderBadgeStyles';
 import { isPartialSaleStockMovement } from '@/pages/utils/saleInventoryRules';
 import ReturnIcon from '@/components/shared/ReturnIcon';
+import PickupIcon from '@/components/shared/PickupIcon';
 
 interface OrderOperationalBadgesProps {
   order: Order;
@@ -30,6 +31,10 @@ export const OrderOperationalBadges = ({
   const isRet = order.orderType === 'return';
   const isPick = order.shipping?.deliveryMethod === 'pickup';
   const hasLinkedReturn = !isRet && Boolean(order.returnOrderId);
+  const isPendingScheduling =
+    Boolean(order.shipping?.scheduling?.pendingScheduling) &&
+    order.status !== 'cancelled' &&
+    order.status !== 'fulfilled';
 
   const tIcon = isAssis ? 'bi-tools' : isRet ? 'bi-arrow-return-left' : isPick ? 'bi-shop' : 'bi-truck';
   const sIcons: Record<string, string> = {
@@ -124,20 +129,30 @@ export const OrderOperationalBadges = ({
       {/* 4. Status Picker Button */}
       <div className="relative" onClick={isCancelled ? undefined : (e) => e.stopPropagation()}>
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             if (!isStatusBadgeReadOnly) setShowPicker(!showPicker);
           }}
-          className={`flex items-center justify-center h-6 w-6 rounded-md ${
+          className={`relative flex items-center justify-center h-6 w-6 rounded-md ${
             order.status === 'cancelled'
               ? 'bg-red-600 border border-red-700'
               : order.status === 'draft'
                 ? 'bg-slate-400 dark:bg-slate-600 border border-slate-500 dark:border-slate-600'
                 : currentStatus.bg.replace('/10', '').replace('/20', '').replace('-50', '-500')
           } text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
-          title={`Status: ${currentStatus.label} | Tipo: ${isRet ? 'Devolução' : isAssis ? 'Assistência' : isPick ? 'Retirada' : 'Entrega'}`}
+          title={`Status: ${currentStatus.label}${isPendingScheduling ? ' (Agendamento pendente)' : ''} | Tipo: ${isRet ? 'Devolução' : isAssis ? 'Assistência' : isPick ? 'Retirada' : 'Entrega'}`}
         >
           <i className={`bi ${sIcon} text-white text-[11px]`} />
+          {isPendingScheduling && (
+            <span
+              className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-orange-500 text-white shadow-2xs border border-white dark:border-slate-900 pointer-events-none"
+              title="Agendamento pendente"
+              aria-label="Agendamento pendente"
+            >
+              <i className="bi bi-clock text-[8px] leading-none text-white" aria-hidden="true" />
+            </span>
+          )}
         </button>
 
         {!isStatusBadgeReadOnly && showPicker && (
@@ -192,7 +207,11 @@ export const OrderOperationalBadges = ({
           }`}
           title={isAssis ? 'Assistência' : isPick ? 'Retirada' : 'Entrega'}
         >
-          <i className={`bi ${tIcon} text-[11px] text-white`} />
+          {isPick ? (
+            <PickupIcon white className="h-5 w-5" />
+          ) : (
+            <i className={`bi ${tIcon} text-[11px] text-white`} />
+          )}
         </div>
       ) : null}
 

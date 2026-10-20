@@ -1,58 +1,68 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
-import { supabase } from '../../../../services/supabaseClient';
 import { formatOrderCode } from '../../../../utils/orderUtils';
-import { offlineSyncManager } from '../../../../services/offline/offlineSyncManager';
 import {
   broadcastMyLocation,
   stopDeliveringBroadcast,
 } from '../../../../services/teamLocationService';
 import { buildDeliveryChecklist } from '../../utils/deliveryChecklist';
-import { areDeliveryPaymentsPaid } from '../../components/delivery/DeliveryPaymentSection';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import {
   deliveryRouteFormSchema,
   deliveryFinishFormSchema,
 } from '../../../../../../shared-utils/operationsFormSchemas';
-import { DeliveryResponsibleItem } from './deliveryPreparation.types';
+import { deliveryFlowService } from '../../services/deliveryFlowService';
+import {
+  DeliveryResponsibleItem,
+  UseDeliveryFlowActionsOptions,
+  UseDeliveryFlowActionsReturn,
+} from './deliveryPreparation.types';
+import { useDeliveryModals } from './useDeliveryModals';
+import {
+  resolveDeliveryStep,
+  resolveInitialDeliveryPayments,
+  isDeliveryChecklistComplete as checkChecklistComplete,
+  areDeliveryPaymentsPaid,
+} from './deliveryFlowStepRules';
 
-interface UseDeliveryFlowActionsOptions {
-  order: any;
-  userProfile?: any;
-  responsibles: DeliveryResponsibleItem[];
-  onBack: (started?: boolean) => void;
-  fulfillmentSuccessMessage: string;
-}
-
+/**
+ * Hook orquestrador do fluxo de entrega (SRP & Clean Architecture).
+ * Gerencia o estado de interface, formulários Zod, validações de saída
+ * e delega persistência para o `deliveryFlowService`.
+ */
 export function useDeliveryFlowActions({
   order,
   userProfile,
   responsibles,
   onBack,
   fulfillmentSuccessMessage,
-}: UseDeliveryFlowActionsOptions) {
+}: UseDeliveryFlowActionsOptions): UseDeliveryFlowActionsReturn {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
-  // Modais
-  const [showUnattendedModal, setShowUnattendedModal] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showStartConfirmModal, setShowStartConfirmModal] = useState(false);
+  // 1. Modais de Confirmação e Registro
+  const {
+    showUnattendedModal,
+    setShowUnattendedModal,
+    showCancelModal,
+    setShowCancelModal,
+    showStartConfirmModal,
+    setShowStartConfirmModal,
+  } = useDeliveryModals();
 
-  // Dados do pedido e pagamentos
+  // 2. Dados do Pedido e Pagamentos
   const [deliveryData, setDeliveryData] = useState(() => order.order_data || order);
-  const [payments, setPayments] = useState<any[]>(() => {
-    const data = order.order_data || order;
-    if (Array.isArray(data.payments) && data.payments.length) return data.payments;
-    const amount = Number(data.paymentsSummary?.totalOrderValue || data.totalValue || 0);
-    return [
-      { method: data.paymentMethod || 'Pix', amount, status: 'Pendente', fee: 0, feeType: 'fixed' },
-    ];
-  });
+  const [payments, setPayments] = useState<any[]>(() => resolveInitialDeliveryPayments(order));
 
+  // 3. Checklist e Validação de Conclusão
   const checklist = useMemo(() => buildDeliveryChecklist(order), [order]);
+  const isChecklistComplete = useMemo(
+    () => checkChecklistComplete(checklist, checked),
+    [checklist, checked]
+  );
 
+  // 4. Formulários Validados com Zod (Regra 5 do MoranteHub)
   const routeForm = useZodForm(deliveryRouteFormSchema, {
     orderId: String(order.id || ''),
     checklist: checklist.map((item) => ({ ...item, checked: Boolean(checked[item.id]) })),
@@ -64,19 +74,37 @@ export function useDeliveryFlowActions({
     payments,
   });
 
+  // 5. Estado Derivado da Etapa Atual (Domain Rules)
   const data = deliveryData;
-  const deliveryStatus = data.deliveryStatus;
-  const isInService = deliveryStatus === 'in_service' || Boolean(data.deliveryArrivedAt);
-  const isInTransit =
-    (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) && !isInService;
-  const isInProgress = isInTransit || isInService;
-  const paymentsConfirmed = areDeliveryPaymentsPaid(payments);
-  const currentStep = isInService ? 3 : isInTransit ? 2 : 1;
-  const headerTitle = isInService ? 'Em Atendimento' : isInTransit ? 'Em Rota' : 'Preparar Saída';
+  const { currentStep, headerTitle, isInArrival, isInService, isInTransit, isInProgress } = useMemo(
+    () => resolveDeliveryStep(data),
+    [data]
+  );
+  const paymentsConfirmed = useMemo(() => areDeliveryPaymentsPaid(payments), [payments]);
 
-  // 1. Iniciar Rota (com validação Zod e persistência)
+  // Sincronizador de compatibilidade com referências mutáveis externas
+  const syncOrderSnapshot = useCallback(
+    (updatedData: any, newStatus?: string) => {
+      if (order && typeof order === 'object') {
+        order.order_data = updatedData;
+        if (newStatus) {
+          order.status = newStatus;
+        }
+      }
+    },
+    [order]
+  );
+
+  // 6. Iniciar Rota (com validação Zod, guarda de checklist e serviço de persistência)
   const handleStartRoute = useCallback(async () => {
     if (saving) return;
+    if (!isChecklistComplete) {
+      Alert.alert(
+        'Checklist incompleto',
+        'Por favor, confira e marque todos os itens do checklist antes de iniciar a rota.'
+      );
+      return;
+    }
     return routeForm.validateAndRun(
       {
         orderId: String(order.id || ''),
@@ -85,58 +113,35 @@ export function useDeliveryFlowActions({
       },
       async (values) => {
         setSaving(true);
-        const now = new Date().toISOString();
-        const primaryResponsible = responsibles[0];
-        const responsibleName = responsibles.map((r) => r.name).join(', ');
-        const payload = {
-          deliveryStatus: 'in_progress',
-          deliveryStartedAt: now,
-          deliveryChecklist: values.checklist,
-          deliveryResponsibles: responsibles,
-          deliveryResponsibleName: responsibleName,
-          deliveryResponsibleId: primaryResponsible?.id || userProfile?.id || null,
-        };
-        const updatedData = {
-          ...data,
-          ...payload,
-        };
-
-        order.order_data = updatedData;
-        setDeliveryData(updatedData);
-
         try {
-          await supabase
-            .from('orders')
-            .update({
-              delivery_status: 'in_progress',
-              delivery_started_at: now,
-              order_data: updatedData,
-              updated_at: now,
-            })
-            .eq('id', order.id);
-        } catch (dbErr) {
-          console.warn('[useDeliveryFlowActions] Falha na persistência direta do pedido:', dbErr);
-        }
-
-        await offlineSyncManager.recordEvent('DELIVERY_START_ROUTE', 'order', values.orderId, payload);
-
-        if (userProfile?.id) {
-          void broadcastMyLocation(userProfile, null, true, true, {
-            id: order.id,
-            code: formatOrderCode(order),
+          const { updatedData } = await deliveryFlowService.startRoute({
+            orderId: values.orderId,
+            currentData: data,
+            checklist: values.checklist,
+            responsibles,
+            userProfileId: userProfile?.id,
           });
-        }
 
-        setSaving(false);
-        Alert.alert(
-          'Em Rota',
-          `A saída para entrega foi registrada.\nResponsável(is): ${responsibleName}.\nSua localização agora está visível para a equipe.`
-        );
+          syncOrderSnapshot(updatedData);
+          setDeliveryData(updatedData);
+
+          if (userProfile?.id) {
+            void broadcastMyLocation(userProfile, null, true, true, {
+              id: order.id,
+              code: formatOrderCode(order),
+            });
+          }
+        } catch (error: any) {
+          Alert.alert('Erro ao iniciar rota', error?.message || 'Falha na operação.');
+        } finally {
+          setSaving(false);
+        }
       },
       (errors) => Alert.alert('Revise a entrega', Object.values(flattenFormErrors(errors))[0])
     );
   }, [
     saving,
+    isChecklistComplete,
     routeForm,
     order,
     checklist,
@@ -144,37 +149,53 @@ export function useDeliveryFlowActions({
     responsibles,
     data,
     userProfile,
+    syncOrderSnapshot,
   ]);
 
   const handleConfirmStartRoute = useCallback(async () => {
     setShowStartConfirmModal(false);
     await handleStartRoute();
-  }, [handleStartRoute]);
+  }, [handleStartRoute, setShowStartConfirmModal]);
 
-  // 2. Chegada no Destino
+  // 7. Chegada no Destino (Etapa 2 -> Etapa 3)
   const handleArriveAtDestination = useCallback(async () => {
     if (saving) return;
     setSaving(true);
-    const now = new Date().toISOString();
-    const payload = {
-      deliveryStatus: 'in_service',
-      deliveryArrivedAt: now,
-    };
-    const updatedData = {
-      ...data,
-      ...payload,
-    };
+    try {
+      const { updatedData } = await deliveryFlowService.arriveAtDestination({
+        orderId: order.id,
+        currentData: data,
+      });
 
-    order.order_data = updatedData;
-    setDeliveryData(updatedData);
+      syncOrderSnapshot(updatedData);
+      setDeliveryData(updatedData);
+    } catch (error: any) {
+      Alert.alert('Erro', error?.message || 'Falha ao registrar chegada.');
+    } finally {
+      setSaving(false);
+    }
+  }, [saving, data, order.id, syncOrderSnapshot]);
 
-    await offlineSyncManager.recordEvent('DELIVERY_ARRIVE_DESTINATION', 'order', order.id, payload);
+  // 8. Iniciar Atendimento (Etapa 3 -> Etapa 4)
+  const handleStartService = useCallback(async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const { updatedData } = await deliveryFlowService.startService({
+        orderId: order.id,
+        currentData: data,
+      });
 
-    setSaving(false);
-    Alert.alert('Chegada Confirmada', 'Você está no local do cliente.');
-  }, [saving, data, order]);
+      syncOrderSnapshot(updatedData);
+      setDeliveryData(updatedData);
+    } catch (error: any) {
+      Alert.alert('Erro', error?.message || 'Falha ao iniciar atendimento.');
+    } finally {
+      setSaving(false);
+    }
+  }, [saving, data, order.id, syncOrderSnapshot]);
 
-  // 3. Finalizar Entrega
+  // 9. Finalizar Entrega (Etapa 4 -> Conclusão)
   const handleFinishDelivery = useCallback(async () => {
     if (saving) return;
     if (!paymentsConfirmed) {
@@ -188,44 +209,28 @@ export function useDeliveryFlowActions({
       { orderId: String(order.id || ''), payments },
       async (values) => {
         setSaving(true);
-        const now = new Date().toISOString();
-        const paidAmount = values.payments.reduce(
-          (total, payment) => total + Number(payment.amount || 0),
-          0
-        );
-        const totalValue = Number(data.paymentsSummary?.totalOrderValue || paidAmount);
-        const payload = {
-          payments: values.payments,
-          paymentsSummary: {
-            ...data.paymentsSummary,
-            totalOrderValue: totalValue,
-            totalPaid: paidAmount,
-            totalAmountPaid: paidAmount,
-            amountRemaining: Math.max(0, totalValue - paidAmount),
-          },
-          status: 'fulfilled',
-          deliveryStatus: 'completed',
-          deliveryFinishedAt: now,
-        };
-        const updatedData = {
-          ...data,
-          ...payload,
-        };
+        try {
+          const { updatedData } = await deliveryFlowService.finishDelivery({
+            orderId: values.orderId,
+            currentData: data,
+            payments: values.payments,
+          });
 
-        order.status = 'fulfilled';
-        order.order_data = updatedData;
-        setDeliveryData(updatedData);
+          syncOrderSnapshot(updatedData, 'fulfilled');
+          setDeliveryData(updatedData);
 
-        await offlineSyncManager.recordEvent('DELIVERY_FINISH', 'order', values.orderId, payload);
+          if (userProfile?.id) {
+            void stopDeliveringBroadcast(userProfile.id);
+          }
 
-        if (userProfile?.id) {
-          void stopDeliveringBroadcast(userProfile.id);
+          Alert.alert('🎉 Entrega Finalizada!', fulfillmentSuccessMessage, [
+            { text: 'OK', onPress: () => onBack(true) },
+          ]);
+        } catch (error: any) {
+          Alert.alert('Erro ao finalizar', error?.message || 'Falha ao concluir entrega.');
+        } finally {
+          setSaving(false);
         }
-
-        setSaving(false);
-        Alert.alert('🎉 Entrega Finalizada!', fulfillmentSuccessMessage, [
-          { text: 'OK', onPress: () => onBack(true) },
-        ]);
       },
       (errors) => Alert.alert('Revise a entrega', Object.values(flattenFormErrors(errors))[0])
     );
@@ -233,139 +238,123 @@ export function useDeliveryFlowActions({
     saving,
     paymentsConfirmed,
     finishForm,
-    order,
+    order.id,
     payments,
     data,
     userProfile,
     fulfillmentSuccessMessage,
     onBack,
+    syncOrderSnapshot,
   ]);
 
-  // 4. Insucesso / Não Atendido
+  // 9. Insucesso / Não Atendido
   const handleConfirmUnattended = useCallback(
     async (reason: string, notes: string, proofUrls: string[]) => {
-      const now = new Date().toISOString();
-      const payload = {
-        deliveryStatus: 'unattended',
-        unattendedReason: reason,
-        unattendedNotes: notes,
-        unattendedProofUrl: proofUrls[0] || '',
-        unattendedProofUrls: proofUrls,
-        unattendedAt: now,
-      };
-      const updatedData = {
-        ...data,
-        ...payload,
-      };
+      try {
+        const { updatedData } = await deliveryFlowService.recordUnattended({
+          orderId: order.id,
+          currentData: data,
+          reason,
+          notes,
+          proofUrls,
+        });
 
-      order.order_data = updatedData;
-      setDeliveryData(updatedData);
-      setShowUnattendedModal(false);
+        syncOrderSnapshot(updatedData);
+        setDeliveryData(updatedData);
+        setShowUnattendedModal(false);
 
-      await offlineSyncManager.recordEvent('DELIVERY_UNATTENDED', 'order', order.id, payload);
+        if (userProfile?.id) {
+          void stopDeliveringBroadcast(userProfile.id);
+        }
 
-      if (userProfile?.id) {
-        void stopDeliveringBroadcast(userProfile.id);
+        Alert.alert('Insucesso Registrado', `O não atendimento foi registrado (${reason}).`, [
+          { text: 'OK', onPress: () => onBack(true) },
+        ]);
+      } catch (error: any) {
+        Alert.alert('Erro', error?.message || 'Falha ao registrar insucesso.');
       }
-
-      Alert.alert('Insucesso Registrado', `O não atendimento foi registrado (${reason}).`, [
-        { text: 'OK', onPress: () => onBack(true) },
-      ]);
     },
-    [data, order, userProfile, onBack]
+    [data, order.id, userProfile, onBack, setShowUnattendedModal, syncOrderSnapshot]
   );
 
-  // Retroceder Etapa 2 -> 1
+  // 10. Retroceder Etapa 2 -> 1
   const handleStepBackToPreparation = useCallback(async () => {
     if (saving) return;
     setSaving(true);
-    const updatedData = { ...data };
-    delete updatedData.deliveryStatus;
-    delete updatedData.deliveryStartedAt;
+    try {
+      const { updatedData } = await deliveryFlowService.stepBackToPreparation(order.id, data);
 
-    order.order_data = updatedData;
-    setDeliveryData(updatedData);
+      syncOrderSnapshot(updatedData);
+      setDeliveryData(updatedData);
 
-    await offlineSyncManager.recordEvent('DELIVERY_STEP_BACK', 'order', order.id, updatedData);
-
-    if (userProfile?.id) {
-      void stopDeliveringBroadcast(userProfile.id);
+      if (userProfile?.id) {
+        void stopDeliveringBroadcast(userProfile.id);
+      }
+    } catch (error: any) {
+      Alert.alert('Erro', error?.message || 'Falha ao retroceder etapa.');
+    } finally {
+      setSaving(false);
     }
+  }, [saving, data, order.id, userProfile, syncOrderSnapshot]);
 
-    setSaving(false);
-    Alert.alert('Etapa Retrocedida', 'O pedido voltou para a etapa de Preparação e Conferência.');
-  }, [saving, data, order, userProfile]);
-
-  // Retroceder Etapa 3 -> 2
+  // 12. Retroceder Etapa 3 -> 2 (Chegada -> Em Rota)
   const handleStepBackToRoute = useCallback(async () => {
     if (saving) return;
     setSaving(true);
-    const updatedData = {
-      ...data,
-      deliveryStatus: 'in_progress',
-    };
-    delete updatedData.deliveryArrivedAt;
+    try {
+      const { updatedData } = await deliveryFlowService.stepBackToRoute(order.id, data);
 
-    order.order_data = updatedData;
-    setDeliveryData(updatedData);
+      syncOrderSnapshot(updatedData);
+      setDeliveryData(updatedData);
+    } catch (error: any) {
+      Alert.alert('Erro', error?.message || 'Falha ao retroceder etapa.');
+    } finally {
+      setSaving(false);
+    }
+  }, [saving, data, order.id, syncOrderSnapshot]);
 
-    await offlineSyncManager.recordEvent('DELIVERY_STEP_BACK', 'order', order.id, updatedData);
+  // 13. Retroceder Etapa 4 -> 3 (Em Atendimento -> Chegada)
+  const handleStepBackToArrival = useCallback(async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const { updatedData } = await deliveryFlowService.stepBackToArrival(order.id, data);
 
-    setSaving(false);
-    Alert.alert('Etapa Retrocedida', 'O status voltou para Em Rota.');
-  }, [saving, data, order]);
+      syncOrderSnapshot(updatedData);
+      setDeliveryData(updatedData);
+    } catch (error: any) {
+      Alert.alert('Erro', error?.message || 'Falha ao retroceder etapa.');
+    } finally {
+      setSaving(false);
+    }
+  }, [saving, data, order.id, syncOrderSnapshot]);
 
-  // Cancelar Entrega
+  // 14. Cancelar Entrega
   const handleConfirmCancelDelivery = useCallback(async () => {
     setCancelling(true);
     try {
-      const now = new Date().toISOString();
-      const updatedData = { ...data };
-      delete updatedData.deliveryStatus;
-      delete updatedData.deliveryStartedAt;
-      delete updatedData.deliveryArrivedAt;
-      delete updatedData.deliveryFinishedAt;
-      delete updatedData.deliveryChecklist;
-      delete updatedData.unattendedReason;
-      delete updatedData.unattendedNotes;
-      delete updatedData.unattendedProofUrl;
-      delete updatedData.unattendedProofUrls;
+      const { updatedData } = await deliveryFlowService.cancelDelivery(order.id, data);
 
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          status: 'scheduled',
-          order_data: updatedData,
-          updated_at: now,
-        })
-        .eq('id', order.id);
-
-      setCancelling(false);
       setShowCancelModal(false);
-
-      if (error) {
-        Alert.alert('Erro ao Cancelar', error.message);
-        return;
-      }
 
       if (userProfile?.id) {
         void stopDeliveringBroadcast(userProfile.id);
       }
 
-      order.status = 'scheduled';
-      order.order_data = updatedData;
+      syncOrderSnapshot(updatedData, 'scheduled');
       setDeliveryData(updatedData);
 
       onBack(true);
     } catch (err: any) {
-      setCancelling(false);
       setShowCancelModal(false);
       Alert.alert('Erro', err?.message || 'Falha ao cancelar entrega');
+    } finally {
+      setCancelling(false);
     }
-  }, [data, order, userProfile, onBack]);
+  }, [data, order.id, userProfile, onBack, setShowCancelModal, syncOrderSnapshot]);
 
   const handleToggleChecklist = useCallback((id: string) => {
-    setChecked((c) => ({ ...c, [id]: !c[id] }));
+    setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
   return {
@@ -383,19 +372,23 @@ export function useDeliveryFlowActions({
     setShowCancelModal,
     showStartConfirmModal,
     setShowStartConfirmModal,
+    isInArrival,
     isInService,
     isInTransit,
     isInProgress,
     currentStep,
     headerTitle,
     paymentsConfirmed,
+    isChecklistComplete,
     handleStartRoute,
     handleConfirmStartRoute,
     handleArriveAtDestination,
+    handleStartService,
     handleFinishDelivery,
     handleConfirmUnattended,
     handleStepBackToPreparation,
     handleStepBackToRoute,
+    handleStepBackToArrival,
     handleConfirmCancelDelivery,
   };
 }

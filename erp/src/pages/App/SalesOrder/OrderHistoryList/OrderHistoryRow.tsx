@@ -18,6 +18,7 @@ import type {
   OrderFiscalBadgeStatus,
   OrderFiscalCancellationState,
   OrderFiscalOperationBadgeStatus,
+  OutboundFiscalBadgeItem,
   ReturnFiscalDocumentSummary,
 } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 
@@ -37,6 +38,10 @@ interface OrderHistoryRowProps {
   fiscalDevolucaoDocumentId?: string;
   fiscalDevolucaoEnvironment?: 1 | 2;
   fiscalDevolucaoDocuments?: readonly ReturnFiscalDocumentSummary[];
+  fiscalReadyToReissueHml?: boolean;
+  fiscalReadyToReissueProd?: boolean;
+  fiscalProductionBadges?: readonly OutboundFiscalBadgeItem[];
+  fiscalHomologationBadges?: readonly OutboundFiscalBadgeItem[];
   onEdit: (
     order: Order,
     initialStep?: number,
@@ -85,6 +90,10 @@ const OrderHistoryRow = ({
   fiscalDevolucaoDocumentId,
   fiscalDevolucaoEnvironment,
   fiscalDevolucaoDocuments,
+  fiscalReadyToReissueHml,
+  fiscalReadyToReissueProd,
+  fiscalProductionBadges,
+  fiscalHomologationBadges,
   onEdit,
   onDelete,
   onRestore,
@@ -284,21 +293,52 @@ const OrderHistoryRow = ({
               <div className="flex flex-wrap items-center gap-1">
                 {order.orderType !== 'return' && (
                   <>
-                    <OrderFiscalBadge
-                      status={fiscalBadgeStatus}
-                      loading={fiscalBadgeLoading}
-                      documentId={fiscalDocumentId}
-                      onOpenDocument={onViewFiscalDocument}
-                      onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-                    />
-                    <OrderFiscalBadge
-                      variant="homologation"
-                      status={fiscalHmlBadgeStatus}
-                      loading={fiscalBadgeLoading}
-                      documentId={fiscalHmlDocumentId}
-                      onOpenDocument={onViewFiscalDocument}
-                      onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-                    />
+                    {fiscalProductionBadges && fiscalProductionBadges.length > 0 ? (
+                      fiscalProductionBadges.map((badge) => (
+                        <OrderFiscalBadge
+                          key={`prod-${badge.sequenceNumber}`}
+                          status={badge.status}
+                          label={badge.label}
+                          loading={fiscalBadgeLoading}
+                          documentId={badge.id}
+                          onOpenDocument={onViewFiscalDocument}
+                          onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+                        />
+                      ))
+                    ) : (
+                      <OrderFiscalBadge
+                        status={fiscalBadgeStatus}
+                        loading={fiscalBadgeLoading}
+                        documentId={fiscalDocumentId}
+                        onOpenDocument={onViewFiscalDocument}
+                        onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+                      />
+                    )}
+                    {fiscalHomologationBadges && fiscalHomologationBadges.length > 0 ? (
+                      fiscalHomologationBadges
+                        .filter((badge) => badge.sequenceNumber === 1)
+                        .map((badge) => (
+                          <OrderFiscalBadge
+                            key={`hml-${badge.sequenceNumber}`}
+                            variant="homologation"
+                            status={badge.status}
+                            label={badge.label}
+                            loading={fiscalBadgeLoading}
+                            documentId={badge.id}
+                            onOpenDocument={onViewFiscalDocument}
+                            onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+                          />
+                        ))
+                    ) : (
+                      <OrderFiscalBadge
+                        variant="homologation"
+                        status={fiscalHmlBadgeStatus}
+                        loading={fiscalBadgeLoading}
+                        documentId={fiscalHmlDocumentId}
+                        onOpenDocument={onViewFiscalDocument}
+                        onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+                      />
+                    )}
                     <OrderFiscalOperationBadge
                       kind="estorno"
                       status={fiscalEstornoBadgeStatus}
@@ -307,6 +347,21 @@ const OrderHistoryRow = ({
                       environment={fiscalEstornoEnvironment}
                       onOpenDocument={onViewFiscalDocument}
                     />
+                    {fiscalHomologationBadges &&
+                      fiscalHomologationBadges
+                        .filter((badge) => badge.sequenceNumber > 1)
+                        .map((badge) => (
+                          <OrderFiscalBadge
+                            key={`hml-${badge.sequenceNumber}`}
+                            variant="homologation"
+                            status={badge.status}
+                            label={badge.label}
+                            loading={fiscalBadgeLoading}
+                            documentId={badge.id}
+                            onOpenDocument={onViewFiscalDocument}
+                            onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+                          />
+                        ))}
                   </>
                 )}
                 <OrderFiscalOperationBadge

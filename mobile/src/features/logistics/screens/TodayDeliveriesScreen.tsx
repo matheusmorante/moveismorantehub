@@ -153,6 +153,11 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
     onSelectOrder(item.order);
   };
 
+  // Ação de Abrir Fluxo de Entrega diretamente do cronograma
+  const handleOpenDeliveryFlow = (item: DeliveryRouteItem) => {
+    onSelectOrder({ ...item.order, _openDeliveryPreparation: true });
+  };
+
   // Ação de Registrar Atendimento
   const handleRegisterService = (item: DeliveryRouteItem) => {
     onSelectOrder(item.order);

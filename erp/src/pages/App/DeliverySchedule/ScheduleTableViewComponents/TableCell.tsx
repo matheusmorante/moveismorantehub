@@ -169,13 +169,21 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                   className={`${linkedBtnBg} text-white w-12 h-12 rounded-full border-4 border-white dark:border-slate-950 shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95`}
                   title={`Ver ${linkedLabel.toLowerCase()}`}
                 >
-                  <i className={`bi ${linkedIcon} text-xl`} />
+                  {isLinkedPickup ? (
+                    <PickupIcon white className="h-5 w-5" />
+                  ) : (
+                    <i className={`bi ${linkedIcon} text-xl`} />
+                  )}
                 </button>
 
                 {showOrderTooltip && (
                   <div className="absolute bottom-full right-0 mb-4 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[100] p-4 animate-slide-up-custom overflow-hidden">
                     <div className="flex items-center gap-2 mb-3 border-b pb-2 dark:border-slate-800">
-                      <i className={`bi ${linkedIcon} ${linkedIconColor}`} />
+                      {isLinkedPickup ? (
+                        <PickupIcon className={`h-4 w-4 ${linkedIconColor}`} />
+                      ) : (
+                        <i className={`bi ${linkedIcon} ${linkedIconColor}`} />
+                      )}
                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                         {linkedLabel}
                       </span>

@@ -84,6 +84,68 @@ export const OrderRepository = {
     }
   },
 
+  async listPendingLocal(): Promise<LocalOrder[]> {
+    try {
+      await this.init();
+      const db = await getSQLiteDatabase();
+      const rows = await db.getAllAsync<OrderRow>(
+        'SELECT * FROM orders_local WHERE is_pending_local = 1'
+      );
+      return (rows || []).map((row) => ({
+        id: row.id,
+        status: row.status,
+        orderType: row.order_type ?? undefined,
+        customerName: row.customer_name ?? undefined,
+        totalAmount: row.total_amount ?? undefined,
+        orderData: parseOrderData(row.order_data),
+        version: row.version,
+        updatedAt: row.updated_at,
+        syncedAt: row.synced_at ?? undefined,
+        isPendingLocal: Boolean(row.is_pending_local),
+      }));
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Sobrepõe alterações locais pendentes de sincronização (`isPendingLocal = true`)
+   * sobre listas vindas do servidor para evitar que um SELECT concorrente antes do
+   * término do `processQueue()` sobrescreva o estado local otimista.
+   */
+  async overlayPendingLocalOrders<T extends Record<string, any>>(remoteOrders: T[]): Promise<T[]> {
+    try {
+      const pendingLocals = await this.listPendingLocal();
+      if (pendingLocals.length === 0) return remoteOrders;
+
+      const pendingById = new Map<string, LocalOrder>();
+      for (const local of pendingLocals) {
+        if (local?.id && local.isPendingLocal) {
+          pendingById.set(local.id, local);
+        }
+      }
+      if (pendingById.size === 0) return remoteOrders;
+
+      return remoteOrders.map((remote) => {
+        const local = remote?.id ? pendingById.get(String(remote.id)) : undefined;
+        if (!local) return remote;
+        const localData = (local.orderData || {}) as Record<string, any>;
+        return {
+          ...remote,
+          status: local.status || remote.status,
+          delivery_status: localData.deliveryStatus ?? null,
+          deliveryStatus: localData.deliveryStatus,
+          order_data: {
+            ...(remote.order_data || {}),
+            ...localData,
+          },
+        };
+      });
+    } catch {
+      return remoteOrders;
+    }
+  },
+
   async saveLocal(order: LocalOrder): Promise<void> {
     try {
       await this.init();

@@ -13,10 +13,15 @@ import {
 import { Calendar as CalendarIcon, ChevronDown, ChevronRight } from 'lucide-react-native';
 import { MobileDrill } from '../../../components/shared/MobileDrill';
 import { supabase } from '../../../services/supabaseClient';
+import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { OrderRepository } from '../../../repositories/OrderRepository';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
 import { getLocalDateString, isCancelledOrder, parseOrderDateStr } from '../../../utils/orderUtils';
 import { AssemblyOrderCard } from '../components/AssemblyOrderCard';
+
+const ASSEMBLIES_CACHE_KEY = 'assemblies_orders';
+const HANDLING_OPTIONS_CACHE_KEY = 'order_handling_options_v1';
 
 interface Props {
   isDarkMode: boolean;
@@ -131,13 +136,68 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
 
   const fetchSettings = async () => {
     try {
-      const { data } = await supabase.from('settings').select('*').limit(1);
-      if (data?.length) {
+      const { data, error } = await supabase.from('settings').select('*').limit(1);
+      if (!error && data?.length) {
         const settings = data[0]?.data || data[0];
-        setHandlingOptions([
+        const opts = [
           ...(settings.deliveryHandlingOptions || []),
           ...(settings.pickupHandlingOptions || []),
-        ]);
+        ];
+        setHandlingOptions(opts);
+        await offlineStorageService
+          .cacheWorkingSet(HANDLING_OPTIONS_CACHE_KEY, opts)
+          .catch(() => {});
+        return;
+      }
+    } catch {}
+
+    try {
+      const cached =
+        await offlineStorageService.getWorkingSet<any[]>(HANDLING_OPTIONS_CACHE_KEY);
+      if (Array.isArray(cached?.data)) {
+        setHandlingOptions(cached.data);
+      }
+    } catch {}
+  };
+
+  const loadOfflineAssembliesFallback = async () => {
+    try {
+      const [assembliesCached, logisticsCached, repoOrders] = await Promise.all([
+        offlineStorageService.getWorkingSet<any[]>(ASSEMBLIES_CACHE_KEY).catch(() => null),
+        offlineStorageService.getWorkingSet<any[]>('logistics_orders').catch(() => null),
+        OrderRepository.list().catch(() => []),
+      ]);
+
+      const byId = new Map<string, any>();
+      if (Array.isArray(assembliesCached?.data)) {
+        for (const o of assembliesCached.data) {
+          if (o?.id) byId.set(o.id, o);
+        }
+      }
+      if (Array.isArray(logisticsCached?.data)) {
+        for (const o of logisticsCached.data) {
+          if (o?.id && !byId.has(o.id)) byId.set(o.id, o);
+        }
+      }
+      for (const local of repoOrders) {
+        if (local?.id) {
+          const existing = byId.get(local.id);
+          if (!existing || local.isPendingLocal) {
+            byId.set(local.id, {
+              ...existing,
+              id: local.id,
+              status: local.status,
+              created_at: local.updatedAt,
+              customer_name: local.customerName,
+              order_data: local.orderData,
+            });
+          }
+        }
+      }
+
+      const merged = Array.from(byId.values());
+      if (merged.length > 0) {
+        setOrders(merged);
       }
     } catch {}
   };
@@ -145,18 +205,26 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
   const fetchAssemblies = async () => {
     try {
       setLoading(true);
-      const { data, error } = await excludeTestOrders(supabase
-        .from('orders')
-        .select(
-          'id, status, created_at, order_data, deleted, scheduled_date, delivery_method, order_number, order_index, customer_name'
-        ))
+      const { data, error } = await excludeTestOrders(
+        supabase
+          .from('orders')
+          .select(
+            'id, status, created_at, order_data, deleted, scheduled_date, delivery_method, order_number, order_index, customer_name'
+          )
+      )
         .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (!error && data) setOrders(data);
+      if (!error && data) {
+        setOrders(data);
+        await offlineStorageService.cacheWorkingSet(ASSEMBLIES_CACHE_KEY, data).catch(() => {});
+      } else {
+        await loadOfflineAssembliesFallback();
+      }
     } catch (error) {
-      console.warn('[NativeAssemblies] Erro ao buscar montagens:', error);
+      console.warn('[NativeAssemblies] Erro ao buscar montagens, usando cache local:', error);
+      await loadOfflineAssembliesFallback();
     } finally {
       setLoading(false);
       setRefreshing(false);

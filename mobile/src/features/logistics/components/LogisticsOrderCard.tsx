@@ -7,7 +7,7 @@ import { formatFullAddress } from '../../../utils/orderUtils';
 import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 
-interface LogisticsOrderCardProps {
+export interface LogisticsOrderCardProps {
   order: any;
   handlingOptions: any[];
   isDarkMode: boolean;
@@ -33,20 +33,20 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
   isDarkMode,
   onSelectOrder,
 }) => {
-  const oData = o.order_data || {};
+  const oData = o?.order_data || {};
   const customerName = (
     oData.customerData?.fullName ||
-    o.customer_name ||
+    o?.customer_name ||
     'Consumidor'
   ).toUpperCase();
   const shipping = oData.shipping || {};
   const fullAddress = formatFullAddress(shipping, oData.customerData);
   const sched = shipping.scheduling || oData.schedule || {};
   const displayTime = formatDisplayTime(sched, o);
-  const items = oData.items || o.items || oData.assistanceItems || o.assistance_items || [];
+  const items = oData.items || o?.items || oData.assistanceItems || o?.assistance_items || [];
 
-  const orderType = (o.order_type || oData.orderType || '').toLowerCase();
-  const taskType = (o.task_type || oData.taskType || '').toLowerCase();
+  const orderType = (o?.order_type || oData.orderType || '').toLowerCase();
+  const taskType = (o?.task_type || oData.taskType || '').toLowerCase();
   const deliveryMethod = (shipping.deliveryMethod || oData.deliveryMethod || '').toLowerCase();
 
   const isAssistance = orderType === 'assistance' || taskType === 'assistance';
@@ -59,7 +59,7 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
     oData.deliveryType ||
     shipping.handlingType ||
     shipping.handling ||
-    o.handling ||
+    o?.handling ||
     ''
   ).toString();
 
@@ -82,36 +82,27 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
   if (isAssistance) cardBorderColor = '#f59e0b';
   else if (isPickup) cardBorderColor = '#a855f7';
 
+  const primaryBadgeConfig = isAssistance
+    ? { style: styles.badgeAssistance, Icon: Wrench, label: 'ASSISTÊNCIA' }
+    : isPickup
+      ? { style: styles.badgePickup, Icon: Package, label: 'RETIRADA' }
+      : { style: styles.badgeDelivery, Icon: Truck, label: 'ENTREGA' };
+
   return (
     <TouchableOpacity
-      key={o.id}
+      key={o?.id}
       onPress={() => onSelectOrder && onSelectOrder(o)}
       style={[styles.card, { borderColor: cardBorderColor }, isDarkMode && styles.cardDark]}
       activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={`Pedido ${customerName}`}
     >
       {/* Top Badges Row */}
       <View style={styles.cardHeaderTop}>
         <View style={styles.cardHeaderBadges}>
-          <View
-            style={[
-              styles.handlingBadge,
-              isAssistance
-                ? styles.badgeAssistance
-                : isPickup
-                  ? styles.badgePickup
-                  : styles.badgeDelivery,
-            ]}
-          >
-            {isAssistance ? (
-              <Wrench size={12} color="#ffffff" />
-            ) : isPickup ? (
-              <Package size={12} color="#ffffff" />
-            ) : (
-              <Truck size={12} color="#ffffff" />
-            )}
-            <Text style={styles.handlingBadgeText}>
-              {isAssistance ? 'ASSISTÊNCIA' : isPickup ? 'RETIRADA' : 'ENTREGA'}
-            </Text>
+          <View style={[styles.handlingBadge, primaryBadgeConfig.style]}>
+            <primaryBadgeConfig.Icon size={12} color="#ffffff" />
+            <Text style={styles.handlingBadgeText}>{primaryBadgeConfig.label}</Text>
           </View>
 
           {hasInternalAssembly && (
@@ -132,7 +123,7 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
 
       {/* Time & Status Row */}
       <View style={[styles.timeRow, isDarkMode && styles.timeRowDark]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={styles.timeLabelContainer}>
           <Clock size={15} color={cardBorderColor} />
           <Text style={[styles.timeText, isDarkMode && styles.textDark]}>{displayTime}</Text>
         </View>
@@ -146,7 +137,7 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
 
       {/* Address Box */}
       <View style={[styles.addressBox, isDarkMode && styles.addressBoxDark]}>
-        <MapPin size={15} color="#ef4444" style={{ marginTop: 2 }} />
+        <MapPin size={15} color="#ef4444" style={styles.addressPin} />
         <Text style={[styles.addressText, isDarkMode && styles.textDark]}>{fullAddress}</Text>
       </View>
 
@@ -154,16 +145,16 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
       {distanceKm || durationMin ? (
         <View style={[styles.routeMetricsBox, isDarkMode && styles.routeMetricsBoxDark]}>
           {distanceKm ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <View style={styles.metricItemRow}>
               <Navigation size={13} color={cardBorderColor} />
-              <Text style={{ fontSize: 11, fontWeight: '800', color: cardBorderColor }}>
+              <Text style={[styles.metricKmText, { color: cardBorderColor }]}>
                 {distanceKm} KM
               </Text>
             </View>
           ) : null}
-          {distanceKm && durationMin ? <Text style={{ color: '#cbd5e1' }}>|</Text> : null}
+          {distanceKm && durationMin ? <Text style={styles.metricDivider}>|</Text> : null}
           {durationMin ? (
-            <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748b' }}>
+            <Text style={styles.metricDurationText}>
               ~ {durationMin} MIN
             </Text>
           ) : null}
@@ -177,12 +168,15 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
             {isAssistance ? 'PEÇAS / MATERIAIS' : 'ITENS DO PEDIDO'}
           </Text>
           <Text style={styles.itemsPillsRow}>
-            {items.map((item: any, idx: number) => (
-              <React.Fragment key={idx}>
-                <OrderItemChip item={item} handlingOptions={handlingOptions} dark={isDarkMode} />
-                {idx < items.length - 1 ? '  ' : null}
-              </React.Fragment>
-            ))}
+            {items.map((item: any, idx: number) => {
+              const itemKey = item?.id || item?.product_id || item?.code || `item-${idx}`;
+              return (
+                <React.Fragment key={itemKey}>
+                  <OrderItemChip item={item} handlingOptions={handlingOptions} dark={isDarkMode} />
+                  {idx < items.length - 1 ? '  ' : null}
+                </React.Fragment>
+              );
+            })}
           </Text>
         </View>
       ) : null}
@@ -257,6 +251,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   timeRowDark: { backgroundColor: '#0f172a' },
+  timeLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   timeText: { fontSize: 12, fontWeight: '800', color: '#1e293b' },
   textDark: { color: '#f8fafc' },
   statusBadge: {
@@ -287,6 +286,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   addressBoxDark: { backgroundColor: '#0f172a' },
+  addressPin: {
+    marginTop: 2,
+  },
   addressText: { fontSize: 12, color: '#334155', flex: 1, lineHeight: 16 },
   routeMetricsBox: {
     flexDirection: 'row',
@@ -300,6 +302,23 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   routeMetricsBoxDark: { backgroundColor: '#064e3b' },
+  metricItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metricKmText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  metricDivider: {
+    color: '#cbd5e1',
+  },
+  metricDurationText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748b',
+  },
   itemsContainer: {
     backgroundColor: '#f8fafc',
     padding: 8,

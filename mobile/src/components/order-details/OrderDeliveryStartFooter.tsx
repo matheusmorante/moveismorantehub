@@ -1,13 +1,61 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Play, Truck, MapPin } from 'lucide-react-native';
+import { Truck, MapPin } from 'lucide-react-native';
 import { DeliveryFlowIcon } from '../shared/DeliveryFlowIcon';
 
-interface Props {
-  order: any;
+export interface OrderDeliveryStartFooterOrder {
+  status?: string;
+  deliveryStatus?: string;
+  order_data?: {
+    status?: string;
+    deliveryStatus?: string;
+    deliveryStartedAt?: string | null;
+    deliveryArrivedAt?: string | null;
+    deliveryMethod?: string;
+    shipping?: {
+      deliveryMethod?: string;
+    };
+  };
+  shipping?: {
+    deliveryMethod?: string;
+  };
+  deliveryMethod?: string;
+  deliveryStartedAt?: string | null;
+  deliveryArrivedAt?: string | null;
+}
+
+export interface OrderDeliveryStartFooterProps {
+  order: OrderDeliveryStartFooterOrder;
   onStart?: () => void;
   onViewDelivery?: () => void;
   allowed?: boolean;
+}
+
+interface ActiveDeliveryStatusConfig {
+  label: string;
+  icon: React.ReactNode;
+  bgColor: string;
+}
+
+function resolveActiveDeliveryStatusConfig(
+  isInService: boolean,
+  isInTransit: boolean
+): ActiveDeliveryStatusConfig | null {
+  if (isInService) {
+    return {
+      label: 'EM ATENDIMENTO',
+      icon: <MapPin size={18} color="#fff" />,
+      bgColor: '#15803d',
+    };
+  }
+  if (isInTransit) {
+    return {
+      label: 'EM ROTA',
+      icon: <Truck size={18} color="#fff" />,
+      bgColor: '#1d4ed8',
+    };
+  }
+  return null;
 }
 
 function AnimatedDeliveryStatusButton({
@@ -43,21 +91,21 @@ function AnimatedDeliveryStatusButton({
   return (
     <TouchableOpacity
       onPress={onPress}
-      style={[styles.statusButton, { backgroundColor: bgColor }]}
+      style={[styles.baseButton, styles.statusButton, { backgroundColor: bgColor }]}
       activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={label}
     >
       {/* Shimmer sweep */}
       <View style={StyleSheet.absoluteFill}>
-        <View style={{ flex: 1, overflow: 'hidden', borderRadius: 16 }}>
+        <View style={styles.shimmerContainer}>
           <Animated.View
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              width: 200,
-              backgroundColor: 'rgba(255,255,255,0.18)',
-              transform: [{ translateX }],
-            }}
+            style={[
+              styles.shimmerBar,
+              {
+                transform: [{ translateX }],
+              },
+            ]}
           />
         </View>
       </View>
@@ -72,7 +120,7 @@ export function OrderDeliveryStartFooter({
   onStart,
   onViewDelivery,
   allowed = true,
-}: Props) {
+}: OrderDeliveryStartFooterProps) {
   const data = order.order_data || order;
   const shipping = data.shipping || {};
   const status = String(order.status || data.status || '').toLowerCase();
@@ -90,34 +138,31 @@ export function OrderDeliveryStartFooter({
   const isInTransit =
     (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) && !isInService;
 
-  // Em Atendimento → Botão 'EM ATENDIMENTO'
-  if (isInService && onViewDelivery) {
-    return (
-      <AnimatedDeliveryStatusButton
-        label="EM ATENDIMENTO"
-        icon={<MapPin size={18} color="#fff" />}
-        bgColor="#15803d"
-        onPress={onViewDelivery}
-      />
-    );
-  }
-
-  // Em Rota → Botão 'EM ROTA'
-  if (isInTransit && onViewDelivery) {
-    return (
-      <AnimatedDeliveryStatusButton
-        label="EM ROTA"
-        icon={<Truck size={18} color="#fff" />}
-        bgColor="#1d4ed8"
-        onPress={onViewDelivery}
-      />
-    );
+  // Botões de status em andamento: Em Atendimento ou Em Rota
+  if (onViewDelivery) {
+    const statusConfig = resolveActiveDeliveryStatusConfig(isInService, isInTransit);
+    if (statusConfig) {
+      return (
+        <AnimatedDeliveryStatusButton
+          label={statusConfig.label}
+          icon={statusConfig.icon}
+          bgColor={statusConfig.bgColor}
+          onPress={onViewDelivery}
+        />
+      );
+    }
   }
 
   // Não iniciado → Botão 'Iniciar fluxo de entrega'
   if (onStart) {
     return (
-      <TouchableOpacity onPress={onStart} style={styles.startButton} activeOpacity={0.85}>
+      <TouchableOpacity
+        onPress={onStart}
+        style={[styles.baseButton, styles.startButton]}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Iniciar fluxo de entrega"
+      >
         <DeliveryFlowIcon size={36} color="#ffffff" />
         <Text style={styles.text}>Iniciar fluxo de entrega</Text>
       </TouchableOpacity>
@@ -128,25 +173,32 @@ export function OrderDeliveryStartFooter({
 }
 
 const styles = StyleSheet.create({
-  startButton: {
+  baseButton: {
     height: 52,
     borderRadius: 16,
-    backgroundColor: '#16a34a',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     elevation: 2,
   },
+  startButton: {
+    backgroundColor: '#16a34a',
+  },
   statusButton: {
-    height: 52,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    elevation: 2,
     overflow: 'hidden',
+  },
+  shimmerContainer: {
+    flex: 1,
+    overflow: 'hidden',
+    borderRadius: 16,
+  },
+  shimmerBar: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 200,
+    backgroundColor: 'rgba(255,255,255,0.18)',
   },
   text: {
     color: '#fff',
