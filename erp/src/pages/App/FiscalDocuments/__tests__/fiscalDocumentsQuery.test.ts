@@ -10,7 +10,7 @@ import { fetchFiscalDocumentsList } from '../services/fiscalDocumentsService';
 
 function createQuery(result: { data: unknown; count?: number | null; error?: unknown }) {
   const query: any = {};
-  for (const method of ['select', 'eq', 'gte', 'lt', 'or', 'order']) {
+  for (const method of ['select', 'eq', 'neq', 'gte', 'lt', 'or', 'order']) {
     query[method] = vi.fn(() => query);
   }
   query.range = vi.fn().mockResolvedValue({ count: 0, error: null, ...result });

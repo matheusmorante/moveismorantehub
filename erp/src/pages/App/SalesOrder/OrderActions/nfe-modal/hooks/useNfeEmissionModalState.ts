@@ -3,7 +3,10 @@ import type Order from '@/pages/types/order.type';
 import { DEFAULT_NFE_ENVIRONMENT } from '@/pages/utils/nfe/nfeEnvironment';
 import { formatRecipientTaxId } from '../../../../../../../../shared-utils/recipientTaxId';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
-import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import {
+  isFiscalRegularizationBlockingStatus,
+  type OrderFiscalBadgeStatuses,
+} from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import type { NfeTabId, FiscalFieldError } from '../types/nfeEmission.types';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -181,10 +184,12 @@ export function useNfeEmissionModalState({
 
   const isHmlIssued = Boolean(
     fiscalStatuses?.homologation === 'issued' ||
+      isFiscalRegularizationBlockingStatus(fiscalStatuses?.homologation) ||
       (order?.nfeData?.status === 'homologada' && order?.nfeData?.environment === 2)
   );
   const isProdIssued = Boolean(
     fiscalStatuses?.production === 'issued' ||
+      isFiscalRegularizationBlockingStatus(fiscalStatuses?.production) ||
       (order?.nfeData?.status === 'autorizada' && (order?.nfeData?.environment ?? 1) === 1)
   );
 

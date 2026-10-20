@@ -74,4 +74,37 @@ describe('useDeliverySchedule', () => {
       expect(result.current.schedule['2099-01-01']?.map((item) => item.id)).toEqual(['newest-order'])
     );
   });
+
+  it('posiciona o pedido no próximo agendamento alternativo quando a data principal vence e o pedido não foi atendido', async () => {
+    // Pedido com data definida no passado (2020-01-01) e alternativa no futuro (2099-05-10)
+    const orderWithPassedSchedule = {
+      id: 'repositioned-order',
+      status: 'scheduled',
+      orderType: 'sale',
+      shipping: {
+        deliveryMethod: 'delivery',
+        scheduling: {
+          date: '2020-01-01',
+          startTime: '09:00',
+          alternatives: [
+            { date: '2099-05-10', period: 'morning', time: '10:00' },
+          ],
+        },
+      },
+      items: [],
+    };
+
+    mocks.fetchScheduledAndDraftOrders.mockResolvedValueOnce([orderWithPassedSchedule]);
+
+    const { result } = renderHook(() => useDeliverySchedule());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Não deve aparecer na data passada 2020-01-01
+    expect(result.current.schedule['2020-01-01']).toBeUndefined();
+
+    // Deve aparecer na data alternativa 2099-05-10
+    await waitFor(() =>
+      expect(result.current.schedule['2099-05-10']?.map((item) => item.id)).toEqual(['repositioned-order'])
+    );
+  });
 });

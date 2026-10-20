@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
 import { ACCESS_KEY_PATTERN } from '../../shared-utils/fiscalIdentifiers.js';
+import { loadOrderFiscalSituation } from './orderFiscalSituation';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -157,7 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const [eventsResult, draftsResult] = await Promise.all([
+  const [eventsResult, draftsResult, linkedDocsResult] = await Promise.all([
     db
       .from('nfe_document_events')
       .select(
@@ -168,8 +169,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .limit(30),
     db
       .from('nfe_operation_drafts')
-      .select('id,operation_kind,environment,status,reason,created_at,updated_at')
+      .select(
+        'id,operation_kind,environment,status,reason,created_at,updated_at,document_id,access_key,protocol_number'
+      )
       .or(`original_document_id.eq.${documentId},document_id.eq.${documentId}`)
+      .order('created_at', { ascending: false })
+      .limit(10),
+    db
+      .from('nfe_documents')
+      .select(
+        'id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,motivo_status,numero_protocolo,xml_nfe,xml_protocolo,valor_total,destinatario_nome,destinatario_documento,created_at,updated_at,document_type,original_document_id'
+      )
+      .eq('original_document_id', documentId)
       .order('created_at', { ascending: false })
       .limit(10),
   ]);
@@ -178,10 +189,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .status(503)
       .json({ success: false, error: 'Não foi possível carregar o histórico fiscal.' });
 
+  let orderEmissions: any[] = [];
+  if (fiscalDoc?.order_id) {
+    const { data: emissions } = await db
+      .from('nfe_documents')
+      .select(
+        'id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,motivo_status,numero_protocolo,xml_nfe,xml_protocolo,valor_total,destinatario_nome,destinatario_documento,created_at,updated_at,document_type,original_document_id'
+      )
+      .eq('order_id', fiscalDoc.order_id)
+      .eq('ambiente', fiscalDoc.ambiente)
+      .eq('document_type', 'outbound')
+      .order('created_at', { ascending: true })
+      .limit(20);
+    orderEmissions = emissions || [];
+  }
+
+  const fiscalSituation = await loadOrderFiscalSituation(db, fiscalDoc, orderEmissions);
+
   return res.status(200).json({
     success: true,
     document: fiscalDoc,
     events: eventsResult.data || [],
     operationDrafts: draftsResult.data || [],
+    linkedDocuments: linkedDocsResult?.data || [],
+    orderEmissions,
+    ...(fiscalSituation ? { fiscalSituation } : {}),
   });
 }

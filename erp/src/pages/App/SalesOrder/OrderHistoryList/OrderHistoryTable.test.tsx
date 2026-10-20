@@ -52,21 +52,25 @@ describe('OrderHistoryTable', () => {
     expect(screen.queryByRole('button', { name: 'Saída devolvida integralmente' })).toBeNull();
   });
 
-  it.each([1200, 500])('mostra a NFD própria da devolução e abre o documento no ambiente correto (%i px)', (width) => {
+  it.each([1200, 500])('mostra o rótulo principal com indicador de devolução e abre o documento no ambiente correto (%i px)', (width) => {
     mockWindowWidth(width);
     const onViewFiscalDocument = vi.fn();
     render(<MemoryRouter><OrderHistoryTable {...defaultProps}
-      orders={[{ ...baseOrder, orderType: 'return', status: 'fulfilled' }]}
+      orders={[{ ...baseOrder, orderType: 'sale', status: 'fulfilled' }]}
       onViewFiscalDocument={onViewFiscalDocument}
       fiscalBadgeStatusByOrderId={{ 'order-101': {
-        production: 'not_issued', homologation: 'not_issued',
+        production: 'not_issued', homologation: 'issued',
+        homologationDocumentId: 'hml-doc-101',
         devolucaoStatus: 'issued', devolucaoEnvironment: 2, devolucaoDocumentId: 'return-doc',
         devolucaoDocuments: [{ id: 'return-doc', order_id: 'order-101', document_type: 'return', status: 'homologada', ambiente: 2, modelo: '55', numero_nfe: 709, serie: '1' }],
       } }}
     /></MemoryRouter>);
-    expect(screen.queryByLabelText(/Nota fiscal não emitida/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /NFD.*Autorizada/ }));
-    expect(onViewFiscalDocument).toHaveBeenCalledWith('return-doc', 2);
+    expect(screen.queryByText('NFD')).toBeNull();
+    const nfhButton = screen.getByRole('button', { name: /homologação emitida.*com devolução/ });
+    expect(nfhButton).toBeTruthy();
+    expect(nfhButton.querySelector('.bi-arrow-return-left')).not.toBeNull();
+    fireEvent.click(nfhButton);
+    expect(onViewFiscalDocument).toHaveBeenCalledWith('hml-doc-101', 2);
   });
 
   it('renderiza visão em tabela para telas desktop sem erro', () => {

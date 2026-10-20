@@ -1,8 +1,12 @@
 import React from 'react';
 import type Order from '@/pages/types/order.type';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
-import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
+import {
+  isFiscalRegularizationBlockingStatus,
+  type OrderFiscalBadgeStatuses,
+} from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
+import { clearFiscalEmissionRequest } from '@/pages/utils/nfe/nfeEmissionRequestState';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface NfeEnvironmentChoiceModalProps {
@@ -60,6 +64,13 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
 
   const selectEnvironment = async (environment: 1 | 2) => {
     if (!isOpen || !order || snapshotRequestInProgress.current) return;
+    if (
+      isFiscalRegularizationBlockingStatus(
+        environment === 2 ? fiscalStatuses?.homologation : fiscalStatuses?.production
+      )
+    ) {
+      return;
+    }
     snapshotRequestInProgress.current = true;
     const attempt = ++selectionAttempt.current;
     setSnapshotError(null);
@@ -67,6 +78,11 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
     try {
       const preparedOrder = await prepareOrderFiscalSnapshotForEmission(order, environment);
       if (attempt === selectionAttempt.current && isOpen) {
+        const isConfirmedReissue =
+          environment === 2
+            ? fiscalStatuses?.readyToReissueHml
+            : fiscalStatuses?.readyToReissueProd;
+        if (isConfirmedReissue) clearFiscalEmissionRequest(String(order.id), environment);
         onSelectEnvironment(environment, preparedOrder);
       }
     } catch (error: unknown) {
@@ -120,6 +136,15 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
         (order.nfeData?.accessKey || order.nfeData?.protocolNumber))) &&
     !fiscalStatuses?.readyToReissueProd
   );
+  // Regularização (cancelamento/estorno) da NF anterior sem confirmação bloqueia nova emissão.
+  const isHmlRegularizationBlocked = isFiscalRegularizationBlockingStatus(
+    fiscalStatuses?.homologation
+  );
+  const isProdRegularizationBlocked = isFiscalRegularizationBlockingStatus(
+    fiscalStatuses?.production
+  );
+  const regularizationBlockedTitle =
+    'Regularização fiscal pendente: resolva ou reconcilie o cancelamento/estorno da nota anterior antes de emitir uma nova nota.';
   const snapshotStatusMessage = isPreparingSnapshot
     ? 'Preparando os dados fiscais dos itens do pedido...'
     : snapshotError;
@@ -194,9 +219,11 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
             {/* Opção Homologação */}
             <button
               type="button"
-              disabled={isHmlIssued || isPreparingSnapshot}
+              disabled={isHmlIssued || isHmlRegularizationBlocked || isPreparingSnapshot}
               title={
-                isHmlIssued
+                isHmlRegularizationBlocked
+                  ? regularizationBlockedTitle
+                  : isHmlIssued
                   ? 'Nota fiscal de homologação já emitida para este pedido.'
                   : isPreparingSnapshot
                     ? 'Aguarde a preparação dos dados fiscais do pedido.'
@@ -204,7 +231,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
               }
               onClick={() => void selectEnvironment(2)}
               className={`flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
-                isHmlIssued || isPreparingSnapshot
+                isHmlIssued || isHmlRegularizationBlocked || isPreparingSnapshot
                   ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 pointer-events-auto'
                   : 'border-amber-200 dark:border-amber-900/40 bg-amber-50/70 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100/80 dark:hover:bg-amber-900/30 hover:-translate-y-1 hover:shadow-lg cursor-pointer'
               }`}
@@ -214,10 +241,12 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
               </div>
               <span className="text-sm font-black tracking-wide uppercase">Homologação</span>
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1">
-                {isHmlIssued
+                {isHmlRegularizationBlocked
+                  ? 'Regularização fiscal pendente'
+                  : isHmlIssued
                   ? 'Já emitida para este pedido'
                   : fiscalStatuses?.readyToReissueHml
-                    ? 'Emitir nota corrigida (NFH 2)'
+                    ? 'Emitir nova nota fiscal'
                     : 'Ambiente de testes (sem valor fiscal)'}
               </span>
             </button>
@@ -225,9 +254,11 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
             {/* Produção abre o fluxo normal, que exige confirmação explícita antes do envio. */}
             <button
               type="button"
-              disabled={isProdIssued || isPreparingSnapshot}
+              disabled={isProdIssued || isProdRegularizationBlocked || isPreparingSnapshot}
               title={
-                isProdIssued
+                isProdRegularizationBlocked
+                  ? regularizationBlockedTitle
+                  : isProdIssued
                   ? 'Nota fiscal de produção já emitida para este pedido.'
                   : isPreparingSnapshot
                     ? 'Aguarde a preparação dos dados fiscais do pedido.'
@@ -235,7 +266,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
               }
               onClick={() => void selectEnvironment(1)}
               className={`flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
-                isProdIssued || isPreparingSnapshot
+                isProdIssued || isProdRegularizationBlocked || isPreparingSnapshot
                   ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 pointer-events-auto'
                   : 'border-rose-200 dark:border-rose-900/40 bg-rose-50/70 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 hover:bg-rose-100/80 dark:hover:bg-rose-900/30 hover:-translate-y-1 hover:shadow-lg cursor-pointer'
               }`}
@@ -251,10 +282,12 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
                 Produção
               </span>
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1">
-                {isProdIssued
+                {isProdRegularizationBlocked
+                  ? 'Regularização fiscal pendente'
+                  : isProdIssued
                   ? 'Já emitida para este pedido'
                   : fiscalStatuses?.readyToReissueProd
-                    ? 'Emitir nota corrigida (NF 2)'
+                    ? 'Emitir nova nota fiscal'
                     : 'Ambiente oficial • exige confirmação'}
               </span>
             </button>

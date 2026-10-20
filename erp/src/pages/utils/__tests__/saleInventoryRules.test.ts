@@ -151,6 +151,7 @@ describe('regras de estoque de pedido de venda', () => {
       orderType: 'sale',
       status: 'scheduled',
       stockProcessed: true,
+      isPartialStockProcessed: true,
       items: [itemReal1, itemTemp],
     } as Order;
     expect(isPartialSaleStockMovement(orderMisto)).toBe(true);
@@ -169,7 +170,8 @@ describe('regras de estoque de pedido de venda', () => {
     expect(
       isPartialSaleStockMovement(orderAntesParcialAgoraCompleto, new Set(['prod-1', 'prod-2']))
     ).toBe(false);
-    expect(isPartialSaleStockMovement(orderAntesParcialAgoraCompleto)).toBe(false);
+    // Sem IDs de movimentação consultados, o estado persistido continua sendo a evidência disponível.
+    expect(isPartialSaleStockMovement(orderAntesParcialAgoraCompleto)).toBe(true);
 
     // Pedido sem saída processada: NÃO é parcial
     const orderSemSaida: Order = {
@@ -190,7 +192,7 @@ describe('regras de estoque de pedido de venda', () => {
     } as Order;
     expect(isPartialSaleStockMovement(orderCancelado)).toBe(false);
 
-    // Devolução parcial (returnKind === 'partial')
+    // Devolução parcial do pedido original, com toda a entrada dessa devolução processada.
     const devolucaoParcial: Order = {
       orderType: 'return',
       status: 'fulfilled',
@@ -198,6 +200,15 @@ describe('regras de estoque de pedido de venda', () => {
       returnKind: 'partial',
       items: [itemReal1],
     } as Order;
-    expect(isPartialSaleStockMovement(devolucaoParcial)).toBe(true);
+    expect(isPartialSaleStockMovement(devolucaoParcial, new Set(['prod-1']))).toBe(false);
+
+    // Duas linhas de devolução, mas entrada confirmada para somente uma delas: movimento parcial.
+    const devolucaoComEntradaParcial = {
+      ...devolucaoParcial,
+      items: [itemReal1, itemReal2],
+    } as Order;
+    expect(
+      isPartialSaleStockMovement(devolucaoComEntradaParcial, new Set(['prod-1']))
+    ).toBe(true);
   });
 });

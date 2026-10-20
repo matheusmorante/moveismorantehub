@@ -11,6 +11,7 @@ import { IssuedFiscalDocumentItemsTab } from './tabs/IssuedFiscalDocumentItemsTa
 import { IssuedFiscalDocumentTransportTab } from './tabs/IssuedFiscalDocumentTransportTab';
 import { IssuedFiscalDocumentPaymentTab } from './tabs/IssuedFiscalDocumentPaymentTab';
 import { IssuedFiscalDocumentEventsTab } from './tabs/IssuedFiscalDocumentEventsTab';
+import { IssuedFiscalDocumentLinkedTab } from './tabs/IssuedFiscalDocumentLinkedTab';
 
 export { ReadOnlyField } from './tabs/ReadOnlyField';
 export { IssuedFiscalDocumentSummaryTab, IssuedFiscalDocumentSummaryTab as IssuedFiscalDocumentGeneralTab } from './tabs/IssuedFiscalDocumentSummaryTab';
@@ -19,36 +20,53 @@ export { IssuedFiscalDocumentItemsTab } from './tabs/IssuedFiscalDocumentItemsTa
 export { IssuedFiscalDocumentTransportTab } from './tabs/IssuedFiscalDocumentTransportTab';
 export { IssuedFiscalDocumentPaymentTab } from './tabs/IssuedFiscalDocumentPaymentTab';
 export { IssuedFiscalDocumentEventsTab } from './tabs/IssuedFiscalDocumentEventsTab';
+export { IssuedFiscalDocumentLinkedTab } from './tabs/IssuedFiscalDocumentLinkedTab';
 
-export type DetailTab = 'general' | 'customer' | 'items' | 'payment' | 'transport' | 'events';
-
-const tabs: Array<{ id: DetailTab; label: string; icon: string }> = [
-  { id: 'general', label: 'Resumo', icon: 'bi-receipt' },
-  { id: 'customer', label: 'Cliente', icon: 'bi-person' },
-  { id: 'items', label: 'Itens', icon: 'bi-box-seam' },
-  { id: 'payment', label: 'Pagamento', icon: 'bi-credit-card' },
-  { id: 'transport', label: 'Transporte', icon: 'bi-truck' },
-  { id: 'events', label: 'Eventos', icon: 'bi-clock-history' },
-];
+export type DetailTab =
+  | 'general'
+  | 'customer'
+  | 'items'
+  | 'payment'
+  | 'transport'
+  | 'linked'
+  | 'events';
 
 export function IssuedFiscalDocumentDetailsTabList({
   activeTab,
   eventsCount = 0,
+  linkedCount = 0,
   onChange,
 }: {
   activeTab: DetailTab;
   eventsCount?: number;
+  linkedCount?: number;
   onChange: (tab: DetailTab) => void;
 }) {
+  const visibleTabs: Array<{ id: DetailTab; label: string; icon: string }> = [
+    { id: 'general', label: 'Resumo', icon: 'bi-receipt' },
+    { id: 'customer', label: 'Cliente', icon: 'bi-person' },
+    { id: 'items', label: 'Itens', icon: 'bi-box-seam' },
+    { id: 'payment', label: 'Pagamento', icon: 'bi-credit-card' },
+    { id: 'transport', label: 'Transporte', icon: 'bi-truck' },
+  ];
+
+  if (linkedCount > 0) {
+    visibleTabs.push({ id: 'linked', label: 'Vinculadas', icon: 'bi-link-45deg' });
+  }
+
+  visibleTabs.push({ id: 'events', label: 'Eventos', icon: 'bi-clock-history' });
+
   return (
     <nav
       role="tablist"
       aria-label="Abas dos detalhes fiscais"
       className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 px-2 dark:border-slate-800 sm:px-4"
     >
-      {tabs.map((tab) => {
+      {visibleTabs.map((tab) => {
         const isSelected = activeTab === tab.id;
-        const showBadge = tab.id === 'events' && eventsCount > 0;
+        const count =
+          tab.id === 'events' ? eventsCount : tab.id === 'linked' ? linkedCount : 0;
+        const showBadge = count > 0;
 
         return (
           <button
@@ -69,7 +87,7 @@ export function IssuedFiscalDocumentDetailsTabList({
             <span>{tab.label}</span>
             {showBadge && (
               <span className="ml-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-100 px-1 text-[10px] font-black text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
-                {eventsCount}
+                {count}
               </span>
             )}
           </button>
@@ -85,12 +103,14 @@ export function IssuedFiscalDocumentDetailsTabPanel({
   fallbackDocument,
   details,
   parsed,
+  onSelectDocument,
 }: {
   activeTab: DetailTab;
   emissionResult?: NfeEmissionResult;
   fallbackDocument?: NfeDocumentRecord;
   details: FiscalDocumentDetails | null;
   parsed: ParsedFiscalDetails | null;
+  onSelectDocument?: (documentId: string) => void;
 }) {
   return (
     <section
@@ -110,10 +130,18 @@ export function IssuedFiscalDocumentDetailsTabPanel({
       {activeTab === 'items' && <IssuedFiscalDocumentItemsTab parsed={parsed} />}
       {activeTab === 'payment' && <IssuedFiscalDocumentPaymentTab parsed={parsed} />}
       {activeTab === 'transport' && <IssuedFiscalDocumentTransportTab parsed={parsed} />}
+      {activeTab === 'linked' && (
+        <IssuedFiscalDocumentLinkedTab
+          linkedDocuments={details?.linkedDocuments}
+          operationDrafts={details?.operationDrafts}
+          orderEmissions={details?.orderEmissions}
+          currentDocumentId={details?.document?.id || fallbackDocument?.id}
+          onSelectDocument={onSelectDocument}
+        />
+      )}
       {activeTab === 'events' && (
         <IssuedFiscalDocumentEventsTab
           events={details?.events}
-          operationDrafts={details?.operationDrafts}
         />
       )}
     </section>

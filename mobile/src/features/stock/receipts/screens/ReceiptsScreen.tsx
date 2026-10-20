@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { ArrowLeft, Box } from 'lucide-react-native';
-import { useReceipts } from './useReceipts';
+import { useReceipts } from '../hooks/useReceipts';
 import { ReceiptCheckScreen } from './ReceiptCheckScreen';
 
 interface Props {

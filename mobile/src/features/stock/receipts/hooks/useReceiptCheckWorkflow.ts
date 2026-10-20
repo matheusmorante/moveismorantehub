@@ -4,7 +4,7 @@ import {
   completeGoodsReceiptCheck,
   getGoodsReceiptCheckDraft,
   saveGoodsReceiptCheckDraft,
-} from '../../../services/stock/stockReceiptsService';
+} from '../../../../services/stock/stockReceiptsService';
 
 interface UseReceiptCheckWorkflowParams {
   receipt?: any;

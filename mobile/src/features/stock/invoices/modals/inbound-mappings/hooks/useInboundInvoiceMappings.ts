@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { flattenFormErrors, useZodForm } from '../../../../../hooks/useZodForm';
-import { mobileInboundMappingsFormSchema } from '../../../../../../../shared-utils/inboundProductLinkFormSchemas';
-import * as stockService from '../../../../../services/stockService';
-import type { Invoice } from '../../../types/stock.types';
+import { flattenFormErrors, useZodForm } from '../../../../../../hooks/useZodForm';
+import { mobileInboundMappingsFormSchema } from '../../../../../../../../shared-utils/inboundProductLinkFormSchemas';
+import * as stockService from '../../../../../../services/stockService';
+import type { Invoice } from '../../../../types/stock.types';
 import {
   applyProductLinkToMappingItems,
   buildCompositionMigratedItems,
@@ -13,11 +13,11 @@ import {
   hydrateMappingItemsWithDetails,
   removeCompositionLinkFromItems,
   updateCompositionMultiplierInItems,
-} from './domain/inboundMappingItemRules';
-import { useInboundMappingSearches } from './hooks/useInboundMappingSearches';
-import { useInboundMappingSuggestions } from './hooks/useInboundMappingSuggestions';
-import { useInboundQuickRegistration } from './hooks/useInboundQuickRegistration';
-import type { CompositionLink, MappingItem, Product, Supplier } from './types';
+} from '../domain/inboundMappingItemRules';
+import { useInboundMappingSearches } from './useInboundMappingSearches';
+import { useInboundMappingSuggestions } from './useInboundMappingSuggestions';
+import { useInboundQuickRegistration } from './useInboundQuickRegistration';
+import type { CompositionLink, MappingItem, Product, Supplier } from '../types';
 
 interface UseInboundInvoiceMappingsParams {
   invoice: Invoice | null;

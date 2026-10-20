@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseSecretKey, getSupabaseUrl, getSupabaseAnonKey } from '../supabaseSecretKey';
 import { getAuthorizedAt } from '../../erp/src/pages/utils/nfe/nfeEventRules';
+import { fetchOrderEditReplacements } from './orderFiscalSituation';
 
 const supabaseUrl = getSupabaseUrl();
 const serviceKey = getSupabaseSecretKey() || '';
@@ -200,13 +201,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (eventsResult.error || draftsResult.error)
     return res.status(503).json({ error: 'Não foi possível consultar o histórico fiscal.' });
+  // Intenções de edição comercial: leitura não fatal; sem elas o rótulo não presume edição.
+  const orderEditReplacements = await fetchOrderEditReplacements(db, outboundDocumentIds);
 
-  const latestEvents = new Map<string, (typeof eventsResult.data)[number]>();
+  const latestEvents = new Map<string, any>();
   for (const event of eventsResult.data || []) {
     if (!latestEvents.has(String(event.document_id)))
       latestEvents.set(String(event.document_id), event);
   }
-  const latestDrafts = new Map<string, (typeof draftsResult.data)[number]>();
+  const latestDrafts = new Map<string, any>();
   for (const draft of draftsResult.data || []) {
     if (!latestDrafts.has(String(draft.original_document_id)))
       latestDrafts.set(String(draft.original_document_id), draft);
@@ -225,6 +228,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       requested_at: event.requested_at,
     })),
     cancelledOrderIds,
+    ...(orderEditReplacements ? { orderEditReplacements } : {}),
     estornoDrafts: Array.from(latestDrafts.values()).map((draft) => ({
       id: draft.id,
       original_document_id: draft.original_document_id,

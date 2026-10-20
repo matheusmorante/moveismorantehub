@@ -17,15 +17,11 @@ import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import {
   unattendedDeliveryFormSchema,
   unattendedPreparationFormSchema,
+  UNATTENDED_DELIVERY_REASONS,
   UNATTENDED_PREPARATION_REASONS,
 } from '../../../../../../shared-utils/operationsFormSchemas';
 
-const UNATTENDED_REASONS = [
-  'Cliente comunicou que está ausente',
-  'Ninguém Atendeu no Local',
-  'Cliente Recusou Recebimento',
-  'Outro Motivo',
-] as const;
+const UNATTENDED_REASONS = UNATTENDED_DELIVERY_REASONS;
 
 const CATALOG_API_URL = (
   process.env.EXPO_PUBLIC_CATALOG_API_URL || 'https://www.moveismorante.com.br'

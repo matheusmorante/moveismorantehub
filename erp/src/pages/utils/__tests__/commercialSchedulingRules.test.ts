@@ -98,11 +98,12 @@ describe('commercialSchedulingRules & operationalSchedule', () => {
       expect(resolution.hasAlternatives).toBe(true);
     });
 
-    it('reposiciona automaticamente para a 1ª alternativa quando a data/período definidos passam', () => {
+    it('reposiciona automaticamente para a 1ª alternativa quando a data/período definidos passam e pedido NÃO foi atendido', () => {
       // Referência: 2026-10-20 às 14:00 SP (17:00 UTC) -> Período da manhã (até 12:00) já passou
       const refDate = new Date('2026-10-20T17:00:00Z');
 
       const order = {
+        status: 'scheduled',
         shipping: {
           scheduling: {
             date: '2026-10-20',
@@ -117,8 +118,9 @@ describe('commercialSchedulingRules & operationalSchedule', () => {
 
       const resolution = resolveEffectiveSchedule(order, refDate);
 
-      // Deve estar reposicionado
+      // Deve estar reposicionado com rótulo de alternativo
       expect(resolution.isRepositioned).toBe(true);
+      expect(resolution.isUsingAlternative).toBe(true);
       expect(resolution.repositionedFrom?.date).toBe('2026-10-20');
 
       // A opção efetiva passa a ser a data alternativa mais próxima válida
@@ -133,11 +135,12 @@ describe('commercialSchedulingRules & operationalSchedule', () => {
       expect(resolution.alternatives).toHaveLength(2);
     });
 
-    it('avança para a 2ª alternativa quando a 1ª alternativa também já expirou', () => {
+    it('avança para a 2ª alternativa quando a 1ª alternativa também já expirou sem o pedido ser atendido', () => {
       // Referência: 2026-10-21 às 19:00 SP (22:00 UTC) -> 20/10 já passou e 21/10 afternoon já passou
       const refDate = new Date('2026-10-21T22:00:00Z');
 
       const order = {
+        status: 'scheduled',
         shipping: {
           scheduling: {
             date: '2026-10-20',
@@ -153,17 +156,40 @@ describe('commercialSchedulingRules & operationalSchedule', () => {
       const resolution = resolveEffectiveSchedule(order, refDate);
 
       expect(resolution.isRepositioned).toBe(true);
+      expect(resolution.isUsingAlternative).toBe(true);
       expect(resolution.effective?.date).toBe('2026-10-23');
       expect(resolution.effective?.period).toBe('morning');
       expect(resolution.effective?.notes).toBe('Terceira opção');
       expect(resolution.defined?.date).toBe('2026-10-20');
     });
 
-    it('mantém o agendamento original como informativo caso todas as alternativas tenham expirado', () => {
+    it('quando o pedido está setado como atendido (status = fulfilled), NÃO avança para alternativas mesmo com data vencida', () => {
+      // Data de referência: 2026-10-25
+      const refDate = new Date('2026-10-25T12:00:00Z');
+
+      const order = {
+        status: 'fulfilled',
+        shipping: {
+          scheduling: {
+            date: '2026-10-20',
+            period: 'morning',
+            alternatives: [{ date: '2026-10-26', period: 'afternoon' }],
+          },
+        },
+      };
+
+      const resolution = resolveEffectiveSchedule(order, refDate);
+      expect(resolution.isRepositioned).toBe(false);
+      expect(resolution.isUsingAlternative).toBe(false);
+      expect(resolution.effective?.date).toBe('2026-10-20');
+    });
+
+    it('quando o pedido NÃO está atendido e todas as alternativas expiraram, mantém na última alternativa com rótulo ALTERNATIVO sem regredir no tempo', () => {
       // Referência: 2026-10-25
       const refDate = new Date('2026-10-25T12:00:00Z');
 
       const order = {
+        status: 'scheduled',
         shipping: {
           scheduling: {
             date: '2026-10-20',
@@ -174,8 +200,9 @@ describe('commercialSchedulingRules & operationalSchedule', () => {
       };
 
       const resolution = resolveEffectiveSchedule(order, refDate);
-      expect(resolution.effective?.date).toBe('2026-10-20');
-      expect(resolution.isRepositioned).toBe(false);
+      expect(resolution.effective?.date).toBe('2026-10-21');
+      expect(resolution.isUsingAlternative).toBe(true);
+      expect(resolution.isRepositioned).toBe(true);
       expect(resolution.defined?.date).toBe('2026-10-20');
     });
 

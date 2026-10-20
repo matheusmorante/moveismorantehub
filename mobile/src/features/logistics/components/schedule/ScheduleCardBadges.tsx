@@ -10,6 +10,7 @@ interface ScheduleCardBadgesProps {
   hasDepotAssembly: boolean;
   hasOutsideAssembly: boolean;
   hasWallInstallation: boolean;
+  isAlternative?: boolean;
   isDarkMode?: boolean;
 }
 
@@ -21,12 +22,19 @@ export const ScheduleCardBadges: React.FC<ScheduleCardBadgesProps> = ({
   hasDepotAssembly,
   hasOutsideAssembly,
   hasWallInstallation,
+  isAlternative = false,
   isDarkMode = false,
 }) => (
   <View style={styles.headerLeft}>
     <View style={[styles.activityBadge, { backgroundColor: activityBackgroundColor }]}>
       <Text style={[styles.activityBadgeText, { color: activityColor }]}>{activityLabel}</Text>
     </View>
+
+    {isAlternative && (
+      <View style={styles.alternativeBadge}>
+        <Text style={styles.alternativeBadgeText}>ALTERNATIVO</Text>
+      </View>
+    )}
 
     {statusBadgeConfig && (
       <View style={[styles.activityBadge, { backgroundColor: statusBadgeConfig.bg }]}>
@@ -67,6 +75,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 4,
     borderRadius: 6,
+  },
+  alternativeBadge: {
+    backgroundColor: '#f59e0b',
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  alternativeBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 0.4,
   },
   activityBadgeText: {
     fontSize: 9,

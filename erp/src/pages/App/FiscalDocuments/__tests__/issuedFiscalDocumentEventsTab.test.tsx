@@ -2,23 +2,56 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { IssuedFiscalDocumentEventsTab } from '../components/tabs/IssuedFiscalDocumentEventsTab';
-import type { FiscalOperationDraftSummary } from '../types/fiscalDocuments.types';
+import type { FiscalDocumentEventSummary } from '../types/fiscalDocuments.types';
+
 afterEach(cleanup);
-describe('histórico do rascunho por finalidade e situação próprias', () => {
-  it.each(['return', 'estorno'] as const)('não manda emitir estorno de NFC-e para rascunho %s cancelado', operation_kind => {
-    render(<IssuedFiscalDocumentEventsTab operationDrafts={[{ id: 'draft', operation_kind, status: 'cancelled', environment: 2, created_at: '2026-10-18T12:00:00Z' } as FiscalOperationDraftSummary]} />);
-    expect(screen.getByText('Cancelado')).toBeTruthy();
-    expect(screen.getByText(new RegExp(`rascunho de ${operation_kind === 'return' ? 'devolução fiscal' : 'estorno fiscal'} está cancelado`))).toBeTruthy();
-    expect(screen.queryByText(/30 minutos|ultrapassou o prazo legal/)).toBeNull();
+
+describe('IssuedFiscalDocumentEventsTab', () => {
+  it('exibe estado vazio quando não há eventos registrados', () => {
+    render(<IssuedFiscalDocumentEventsTab events={[]} />);
+    expect(screen.getByText('Nenhum evento registrado')).toBeTruthy();
+    expect(
+      screen.getByText('Este documento fiscal não possui eventos ou tentativas registrados.')
+    ).toBeTruthy();
   });
-  it.each(['transmitting', 'unknown'])('exige consulta da mesma chave em situação %s', status => {
-    render(<IssuedFiscalDocumentEventsTab operationDrafts={[{ id: 'draft', operation_kind: 'return', status, environment: 2, created_at: '2026-10-18T12:00:00Z' } as FiscalOperationDraftSummary]} />);
-    expect(screen.getByText(/Consulte a mesma chave antes/)).toBeTruthy();
-    expect(screen.queryByText(/deve ser concluída emitindo/)).toBeNull();
+
+  it('renderiza evento de cancelamento fiscal (110111) homologado pela SEFAZ', () => {
+    const cancelEvent: FiscalDocumentEventSummary = {
+      id: 'event-cancel-1',
+      event_type: '110111',
+      status: 'homologado',
+      justification: 'Venda cancelada pelo cliente antes da saída',
+      protocol_number: '135260000000001',
+      requested_at: '2026-10-20T14:35:00Z',
+    };
+
+    render(<IssuedFiscalDocumentEventsTab events={[cancelEvent]} />);
+    expect(screen.getByText(/Cancelamento/i)).toBeTruthy();
+    expect(screen.getByText('135260000000001')).toBeTruthy();
+    expect(screen.getByText(/Venda cancelada pelo cliente antes da saída/)).toBeTruthy();
   });
-  it('identifica uma devolução autorizada sem pressupor janela da NFC-e', () => {
-    render(<IssuedFiscalDocumentEventsTab operationDrafts={[{ id: 'draft', operation_kind: 'return', status: 'authorized', environment: 2, created_at: '2026-10-18T12:00:00Z' } as FiscalOperationDraftSummary]} />);
-    expect(screen.getByText(/NF-e de devolução fiscal.*foi autorizada/)).toBeTruthy();
-    expect(screen.queryByText(/NFC-e/)).toBeNull();
+
+  it('renderiza tentativas e eventos fiscais ordenados por data decrescente', () => {
+    const events: FiscalDocumentEventSummary[] = [
+      {
+        id: 'event-auth',
+        event_type: '100',
+        status: 'autorizada',
+        protocol_number: '141260000000001',
+        requested_at: '2026-10-19T10:00:00Z',
+      },
+      {
+        id: 'event-cancel',
+        event_type: '110111',
+        status: 'homologado',
+        justification: 'Erro no preenchimento',
+        protocol_number: '141260000000002',
+        requested_at: '2026-10-20T11:00:00Z',
+      },
+    ];
+
+    render(<IssuedFiscalDocumentEventsTab events={events} />);
+    expect(screen.getByText('141260000000002')).toBeTruthy();
+    expect(screen.getByText('141260000000001')).toBeTruthy();
   });
 });

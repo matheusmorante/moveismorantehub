@@ -9,7 +9,10 @@ import DeliveryInfoModal from './DeliveryInfoModal';
 import PromissoryNoteModal from './PromissoryNoteModal';
 import { useAuth } from '@/context/AuthContext';
 import { fetchOrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeService';
-import type { OrderFiscalBadgeStatuses } from '../../../utils/nfe/orderFiscalBadgeRules';
+import {
+  isFiscalRegularizationBlockingStatus,
+  type OrderFiscalBadgeStatuses,
+} from '../../../utils/nfe/orderFiscalBadgeRules';
 import { DELIVERY_ACTION_KEYS, getAvailablePostOrderActions } from './postOrderActionsHelpers';
 import { PostOrderActionGridButton } from './components/PostOrderActionGridButton';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -57,6 +60,7 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
 
   const isNfeIssued = Boolean(
     fiscalStatuses?.production === 'issued' ||
+      isFiscalRegularizationBlockingStatus(fiscalStatuses?.production) ||
       (order.nfeData?.status === 'autorizada' && (order.nfeData?.environment ?? 1) === 1) ||
       order.nfeData?.accessKey ||
       order.nfeData?.protocolNumber

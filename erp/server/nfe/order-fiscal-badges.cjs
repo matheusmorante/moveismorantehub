@@ -84,6 +84,18 @@ var readTag = (xml, tag) => {
 };
 var getAuthorizedAt = (protocolXml, fallbackDate) => readTag(protocolXml || "", "dhRecbto") || fallbackDate;
 
+// api/nfe/orderFiscalSituation.ts
+var REPLACEMENT_SELECT = "original_document_id,environment,reversal_kind,status,replacement_document_id";
+async function fetchOrderEditReplacements(db, documentIds) {
+  if (!documentIds.length) return [];
+  const { data, error } = await db.from("nfe_order_edit_replacements").select(REPLACEMENT_SELECT).in("original_document_id", [...documentIds]);
+  if (error) {
+    console.warn("[Fiscal] Inten\xE7\xF5es de edi\xE7\xE3o indispon\xEDveis para o r\xF3tulo fiscal:", error.code || "erro");
+    return void 0;
+  }
+  return data || [];
+}
+
 // api/nfe/order-fiscal-badges.ts
 var supabaseUrl = getSupabaseUrl();
 var serviceKey = getSupabaseSecretKey() || "";
@@ -207,6 +219,7 @@ async function handler(req, res) {
   }
   if (eventsResult.error || draftsResult.error)
     return res.status(503).json({ error: "N\xE3o foi poss\xEDvel consultar o hist\xF3rico fiscal." });
+  const orderEditReplacements = await fetchOrderEditReplacements(db, outboundDocumentIds);
   const latestEvents = /* @__PURE__ */ new Map();
   for (const event of eventsResult.data || []) {
     if (!latestEvents.has(String(event.document_id)))
@@ -230,6 +243,7 @@ async function handler(req, res) {
       requested_at: event.requested_at
     })),
     cancelledOrderIds,
+    ...orderEditReplacements ? { orderEditReplacements } : {},
     estornoDrafts: Array.from(latestDrafts.values()).map((draft) => ({
       id: draft.id,
       original_document_id: draft.original_document_id,

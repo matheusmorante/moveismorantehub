@@ -1,8 +1,5 @@
 import React from 'react';
-import type {
-  FiscalDocumentEventSummary,
-  FiscalOperationDraftSummary,
-} from '../../types/fiscalDocuments.types';
+import type { FiscalDocumentEventSummary } from '../../types/fiscalDocuments.types';
 import {
   formatFiscalDateTime,
   getFiscalEventLabel,
@@ -10,17 +7,14 @@ import {
 
 interface IssuedFiscalDocumentEventsTabProps {
   events?: FiscalDocumentEventSummary[];
-  operationDrafts?: FiscalOperationDraftSummary[];
 }
 
 export function IssuedFiscalDocumentEventsTab({
   events = [],
-  operationDrafts = [],
 }: IssuedFiscalDocumentEventsTabProps) {
   const hasEvents = events && events.length > 0;
-  const hasDrafts = operationDrafts && operationDrafts.length > 0;
 
-  if (!hasEvents && !hasDrafts) {
+  if (!hasEvents) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center dark:border-slate-800 dark:bg-slate-900/50">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-2xl text-slate-400 dark:bg-slate-800 dark:text-slate-500">
@@ -43,93 +37,8 @@ export function IssuedFiscalDocumentEventsTab({
 
   return (
     <div className="space-y-4">
-      {/* Rascunhos e Procedimentos de Regularização Fiscal */}
-      {hasDrafts && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Procedimentos de Regularização Fiscal
-            </span>
-            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-          </div>
-
-          {operationDrafts.map((draft) => {
-            const isEstorno = draft.operation_kind === 'estorno';
-            const draftTitle = isEstorno
-              ? 'Rascunho de NF-e de Estorno Fiscal (Modelo 55)'
-              : 'Rascunho de Devolução Fiscal';
-            const operationLabel = isEstorno ? 'estorno fiscal' : 'devolução fiscal';
-            const draftStatusLabel = ({ draft: 'Em elaboração', ready: 'Pronto para transmissão',
-              authorized: 'Autorizado', cancelled: 'Cancelado', transmitting: 'Em transmissão',
-              unknown: 'Confirmação pendente', rejected: 'Rejeitado' } as Record<string, string>)[draft.status] || draft.status;
-            const draftDescription = draft.status === 'cancelled'
-              ? `Este rascunho de ${operationLabel} está cancelado. Consulte os eventos e documentos vinculados antes de preparar uma nova emissão.`
-              : draft.status === 'authorized'
-                ? `A NF-e de ${operationLabel} vinculada a este rascunho foi autorizada. Consulte o XML e o protocolo próprios do documento.`
-                : ['transmitting', 'unknown'].includes(draft.status)
-                  ? 'Há uma tentativa fiscal pendente de confirmação. Consulte a mesma chave antes de qualquer nova transmissão.'
-                  : `Este rascunho de ${operationLabel} está vinculado ao documento original. A elegibilidade, os itens, CFOPs e tributos precisam ser conferidos antes da transmissão fiscal.`;
-
-            return (
-              <div
-                key={draft.id}
-                className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-4 shadow-sm transition dark:border-indigo-900/60 dark:bg-indigo-950/30 sm:p-5"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
-                      <i className="bi bi-arrow-counterclockwise text-lg" />
-                    </span>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                        {draftTitle}
-                      </h4>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Preparado em: {formatFiscalDateTime(draft.created_at)} ·{' '}
-                        {draft.environment === 2 ? 'Homologação' : 'Produção'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-bold uppercase text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300">
-                    {draftStatusLabel}
-                  </span>
-                </div>
-
-                {draft.reason && (
-                  <div className="mt-3 rounded-xl border border-indigo-100 bg-white/80 p-3 text-xs dark:border-indigo-900/40 dark:bg-slate-900/60">
-                    <span className="font-bold text-slate-700 dark:text-slate-300">
-                      Motivação do Procedimento:
-                    </span>
-                    <p className="mt-1 text-slate-600 dark:text-slate-400">
-                      {draft.reason}
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-2.5 rounded-lg border border-amber-200 bg-amber-50/80 p-2.5 text-[11px] text-[#3b1900] dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
-                  <i className="bi bi-info-circle-fill mr-1.5" />
-                  {draftDescription}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Histórico de Eventos Fiscais */}
-      {hasEvents && (
-        <div className="space-y-3">
-          {hasDrafts && (
-            <div className="flex items-center gap-2 pt-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Eventos e Tentativas Registradas
-              </span>
-              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-            </div>
-          )}
-
-          {sortedEvents.map((event, index) => {
+      <div className="space-y-3">
+        {sortedEvents.map((event, index) => {
             const rawEvent = event as FiscalDocumentEventSummary & {
               tipo_evento?: string;
               numero_protocolo?: string;
@@ -288,7 +197,6 @@ export function IssuedFiscalDocumentEventsTab({
             );
           })}
         </div>
-      )}
     </div>
   );
 }

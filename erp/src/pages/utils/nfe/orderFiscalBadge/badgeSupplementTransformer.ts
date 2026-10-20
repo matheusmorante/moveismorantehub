@@ -5,6 +5,7 @@ import {
 import type {
   FiscalDocumentStatusRow,
   FiscalOperationDraftStatusRow,
+  FiscalOrderEditReplacementRow,
   OrderFiscalBadgeStatuses,
   ReturnFiscalDocumentSummary,
 } from '../orderFiscalBadgeRules';
@@ -62,6 +63,15 @@ export function assembleOrderFiscalBadgeStatuses(
     draftsByOrderId.set(orderId, drafts);
   }
 
+  const replacementsByOrderId = new Map<string, FiscalOrderEditReplacementRow[]>();
+  for (const replacement of supplement.orderEditReplacements || []) {
+    const orderId = orderIdByDocumentId.get(replacement.original_document_id);
+    if (!orderId) continue;
+    const replacements = replacementsByOrderId.get(orderId) || [];
+    replacements.push(replacement);
+    replacementsByOrderId.set(orderId, replacements);
+  }
+
   const returnOrderIdsBySaleId = new Map<string, Set<string>>();
   for (const returnOrder of supplement.returnOrders || []) {
     const saleId = returnOrder.linked_order_id || returnOrder.legacy_parent_id;
@@ -94,7 +104,9 @@ export function assembleOrderFiscalBadgeStatuses(
       const base = resolveOrderFiscalBadgePair(
         documentsByOrderId.get(orderId) || [],
         draftsByOrderId.get(orderId) || [],
-        supplement.cancelledOrderIds?.includes(orderId) || false
+        supplement.cancelledOrderIds?.includes(orderId) || false,
+        Date.now(),
+        replacementsByOrderId.get(orderId) || []
       );
       return [
         orderId,

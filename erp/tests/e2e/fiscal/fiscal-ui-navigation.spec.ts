@@ -2,6 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import { assertFiscalXmlMatchesSnapshot, type FiscalXmlItemExpectation } from './fiscalXmlAssertions';
 
+test.use({ trace: 'off', video: 'off', screenshot: 'off' });
+
 function requireRuntimeCredential(name: string, value: string | undefined): string {
   const trimmed = value?.trim() || '';
   if (!trimmed || /^<redacted>$/i.test(trimmed) || trimmed.toLowerCase() === 'redacted') {
@@ -166,6 +168,9 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
     page.on('console', (msg) => console.log('[PAGE CONSOLE]', msg.text()));
     await signInThroughUi(page);
     await page.goto('/sales-order');
+    const showTestOrders = page.getByRole('checkbox', { name: 'Mostrar testes' });
+    await expect(showTestOrders).toBeVisible({ timeout: 15000 });
+    if (!(await showTestOrders.isChecked())) await showTestOrders.check();
     const customerSearch = page.getByPlaceholder('Buscar pedido pelo nome do cliente (mín. 3 caracteres)...');
     await customerSearch.fill(customerSearchLabel);
 

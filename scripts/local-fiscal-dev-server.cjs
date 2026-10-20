@@ -16,16 +16,19 @@ const serverNfeDir = path.join(projectRoot, 'erp/server/nfe');
 const handlers = new Map();
 
 function getHandler(routeName) {
-  if (handlers.has(routeName)) return handlers.get(routeName);
   if (!/^[a-z][a-z0-9-]*$/.test(routeName)) return null;
   const filePath = routeName === 'test-artifact-operator'
     ? path.join(projectRoot, 'erp/server/testing/test-artifact-operator.cjs')
     : path.join(serverNfeDir, `${routeName}.cjs`);
   if (fs.existsSync(filePath)) {
-    const mod = require(filePath);
-    const handler = mod.default || mod;
-    handlers.set(routeName, handler);
-    return handler;
+    try {
+      delete require.cache[require.resolve(filePath)];
+      const mod = require(filePath);
+      return mod.default || mod;
+    } catch (err) {
+      console.error(`[local-fiscal-dev-server] Erro ao carregar handler ${routeName}:`, err);
+      return null;
+    }
   }
   return null;
 }

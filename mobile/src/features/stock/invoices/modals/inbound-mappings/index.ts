@@ -6,4 +6,4 @@ export * from './InboundQuickProductModal';
 export * from './InboundMappingItemCard';
 export * from './InboundItemFiscalDetails';
 export * from './InboundItemSuggestionsCard';
-export * from './useInboundInvoiceMappings';
+export * from './hooks/useInboundInvoiceMappings';

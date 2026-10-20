@@ -64,7 +64,14 @@ export const AgendaItemCard: React.FC<AgendaItemCardProps> = ({
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text style={[styles.itemTitle, isDarkMode && styles.textDark]}>{item.title}</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.itemTitle, isDarkMode && styles.textDark]}>{item.title}</Text>
+          {isUsingAlternative && (
+            <View style={styles.alternativoPill}>
+              <Text style={styles.alternativoPillText}>ALTERNATIVO</Text>
+            </View>
+          )}
+        </View>
         <Text style={[styles.itemSub, isDarkMode && styles.subtitleDark]}>{item.subtitle}</Text>
 
         {effective?.formattedTime && (
@@ -80,7 +87,7 @@ export const AgendaItemCard: React.FC<AgendaItemCardProps> = ({
           <View style={styles.alternativeBadge}>
             <RefreshCw size={10} color="#b45309" />
             <Text style={styles.alternativeBadgeText}>
-              Data definida expirou · {effective.label} ({effective.formattedDate})
+              ALTERNATIVO · {effective.label} ({effective.formattedDate})
             </Text>
           </View>
         )}
@@ -154,6 +161,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#0f172a',
+    flexShrink: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  alternativoPill: {
+    backgroundColor: '#f59e0b',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  alternativoPillText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 0.5,
   },
   itemSub: {
     fontSize: 12,

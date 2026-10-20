@@ -2,13 +2,14 @@ import { z } from 'zod';
 
 // ─── Esquemas de Entrega e Rota ──────────────────────────────────────────────
 
+export const UNATTENDED_DELIVERY_REASONS = [
+  'Cliente comunicou que está ausente',
+  'Ninguém Atendeu no Local',
+  'Outro Motivo',
+] as const;
+
 export const unattendedDeliveryFormSchema = z.object({
-  reason: z.enum([
-    'Cliente comunicou que está ausente',
-    'Ninguém Atendeu no Local',
-    'Cliente Recusou Recebimento',
-    'Outro Motivo',
-  ]),
+  reason: z.enum(UNATTENDED_DELIVERY_REASONS),
   notes: z.string(),
   proofUrls: z
     .array(z.url('Anexe uma imagem válida como evidência.'))

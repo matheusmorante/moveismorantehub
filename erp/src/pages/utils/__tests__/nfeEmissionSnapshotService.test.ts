@@ -89,6 +89,11 @@ describe('prepareOrderFiscalSnapshotForEmission', () => {
 
   it('continua persistindo snapshot de catálogo quando não existe nota autorizada', async () => {
     mocks.findAuthorizedFiscalDocument.mockResolvedValue(null);
+    mocks.fetchOrderById.mockResolvedValueOnce(persistedOrder).mockResolvedValueOnce({
+      ...persistedOrder,
+      updatedAt: '2026-10-08T13:20:11.716Z',
+      items: [snapshotItem],
+    });
 
     const prepared = await prepareOrderFiscalSnapshotForEmission(persistedOrder, 1);
 
@@ -104,6 +109,8 @@ describe('prepareOrderFiscalSnapshotForEmission', () => {
       { metadataOnly: true }
     );
     expect(prepared.items).toEqual([snapshotItem]);
+    expect(prepared.updatedAt).toBe('2026-10-08T13:20:11.716Z');
+    expect(mocks.fetchOrderById).toHaveBeenCalledTimes(2);
   });
 
   it('falha fechado se não conseguir verificar a existência de nota autorizada', async () => {
@@ -114,6 +121,50 @@ describe('prepareOrderFiscalSnapshotForEmission', () => {
     );
     expect(mocks.ensureOrderItemsHaveFiscalSnapshots).not.toHaveBeenCalled();
     expect(mocks.updateOrder).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    null,
+    { ...persistedOrder, items: [snapshotItem] },
+    { ...persistedOrder, updatedAt: 'inválido', items: [snapshotItem] },
+    { ...persistedOrder, updatedAt: '2026-10-08T13:20:11.716Z' },
+    { ...persistedOrder, id: 'outro-pedido', updatedAt: '2026-10-08T13:20:11.716Z', items: [snapshotItem] },
+  ])('não libera emissão sem conferir versão e snapshots persistidos (%#)', async (saved) => {
+    mocks.findAuthorizedFiscalDocument.mockResolvedValue(null);
+    mocks.fetchOrderById.mockResolvedValueOnce(persistedOrder).mockResolvedValueOnce(saved);
+
+    await expect(prepareOrderFiscalSnapshotForEmission(persistedOrder, 2)).rejects.toThrow(
+      'Não foi possível conferir a versão salva dos itens fiscais.'
+    );
+    expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it('limita a espera de gravação incerta e não repete a atualização', async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.findAuthorizedFiscalDocument.mockResolvedValue(null);
+      mocks.updateOrder.mockReturnValue(new Promise(() => {}));
+      const result = expect(prepareOrderFiscalSnapshotForEmission(persistedOrder, 2)).rejects.toThrow(
+        'Não foi possível confirmar o salvamento dos itens fiscais no prazo.'
+      );
+      await vi.advanceTimersByTimeAsync(30_000);
+      await result;
+      expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
+      expect(mocks.fetchOrderById).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('mantém NCM vazio legível para correção no modal, usando a versão salva', async () => {
+    const incompleteItem = { ...snapshotItem, fiscal: { ...snapshotItem.fiscal, ncm: '' } };
+    const saved = { ...persistedOrder, updatedAt: '2026-10-08T13:20:11.716Z', items: [incompleteItem] };
+    mocks.findAuthorizedFiscalDocument.mockResolvedValue(null);
+    mocks.ensureOrderItemsHaveFiscalSnapshots.mockResolvedValue([incompleteItem]);
+    mocks.fetchOrderById.mockResolvedValueOnce(persistedOrder).mockResolvedValueOnce(saved);
+
+    const prepared = await prepareOrderFiscalSnapshotForEmission(persistedOrder, 2);
+    expect(prepared).toBe(saved);
+    expect(prepared.items[0].fiscal?.ncm).toBe('');
+    expect(mocks.updateOrder).toHaveBeenCalledTimes(1);
   });
 
   it('não usa XML autorizado de homologação para preparar produção nem altera o pedido protegido', async () => {

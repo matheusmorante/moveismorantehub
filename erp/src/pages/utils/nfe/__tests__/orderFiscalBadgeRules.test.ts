@@ -76,7 +76,7 @@ describe('resolveOrderFiscalBadgePair', () => {
     expect(result.homologation).toBe('issued');
   });
 
-  it('mantém a NF autorizada quando o cancelamento falha e sinaliza a falha em separado', () => {
+  it('sinaliza erro na regularização (regularization_failed) quando o cancelamento falha', () => {
     const result = resolveOrderFiscalBadgePair([
       {
         ...outbound('autorizada', 1),
@@ -84,11 +84,11 @@ describe('resolveOrderFiscalBadgePair', () => {
         cancellationEventStatus: 'rejected',
       },
     ]);
-    expect(result.production).toBe('issued');
+    expect(result.production).toBe('regularization_failed');
     expect(result.cancellationState).toBe('failed');
   });
 
-  it('mantém a NF autorizada e pede verificação quando o resultado do cancelamento é incerto', () => {
+  it('sinaliza regularização incerta (regularization_uncertain) quando o resultado do cancelamento é incerto', () => {
     const result = resolveOrderFiscalBadgePair([
       {
         ...outbound('homologada', 2),
@@ -96,7 +96,7 @@ describe('resolveOrderFiscalBadgePair', () => {
         cancellationEventStatus: 'unknown',
       },
     ]);
-    expect(result.homologation).toBe('issued');
+    expect(result.homologation).toBe('regularization_uncertain');
     expect(result.cancellationState).toBe('verify');
   });
 
@@ -190,7 +190,7 @@ describe('resolveReturnFiscalBadgeStatus', () => {
     expect(resolveReturnFiscalBadgeStatus([returnDocument('', 'autorizada')])).toBeUndefined();
   });
 
-  it('mantém NFH emitida e disponibiliza NFH 2 para reemissão quando estorno está autorizado', () => {
+  it('mantém o rótulo NFH com status reversed quando o estorno é confirmado e disponibiliza NFH para reemissão', () => {
     const originalDoc = {
       id: 'doc-original-hml',
       order_id: 'order-1',
@@ -217,16 +217,17 @@ describe('resolveReturnFiscalBadgeStatus', () => {
     };
 
     const result = resolveOrderFiscalBadgePair([originalDoc, estornoDoc], [estornoDraft]);
-    expect(result.homologation).toBe('issued');
+    expect(result.homologation).toBe('reversed');
+    expect(result.homologationDocumentId).toBe('doc-original-hml');
     expect(result.estornoStatus).toBe('issued');
     expect(result.readyToReissueHml).toBe(true);
     expect(result.homologationBadges).toEqual([
-      { id: 'doc-original-hml', status: 'issued', sequenceNumber: 1, label: 'NFH' },
+      { id: 'doc-original-hml', status: 'reversed', sequenceNumber: 1, label: 'NFH' },
       { status: 'not_issued', sequenceNumber: 2, label: 'NFH 2' },
     ]);
   });
 
-  it('exibe NFH e NFH 2 emitidas quando a nova nota de saída corrigida é homologada', () => {
+  it('exibe NFH reversed e a nova NFH 2 emitida sem apagar o histórico da nota estornada', () => {
     const originalDoc = {
       id: 'doc-original-hml',
       order_id: 'order-1',
@@ -262,11 +263,58 @@ describe('resolveReturnFiscalBadgeStatus', () => {
 
     const result = resolveOrderFiscalBadgePair([originalDoc, estornoDoc, replacementDoc], [estornoDraft]);
     expect(result.homologation).toBe('issued');
+    expect(result.homologationDocumentId).toBe('doc-replacement-hml');
     expect(result.estornoStatus).toBe('issued');
     expect(result.readyToReissueHml).toBeUndefined();
     expect(result.homologationBadges).toEqual([
-      { id: 'doc-original-hml', status: 'issued', sequenceNumber: 1, label: 'NFH' },
+      { id: 'doc-original-hml', status: 'reversed', sequenceNumber: 1, label: 'NFH' },
       { id: 'doc-replacement-hml', status: 'issued', sequenceNumber: 2, label: 'NFH 2' },
     ]);
+  });
+
+  it('não altera o status para reversed se o estorno estiver pendente ou em transmissão', () => {
+    const originalDoc = {
+      id: 'doc-prod-1',
+      order_id: 'order-1',
+      status: 'autorizada',
+      document_type: 'outbound',
+      ambiente: 1,
+      created_at: '2026-10-19T10:00:00Z',
+    };
+    const estornoDraftPending = {
+      id: 'draft-estorno-pending',
+      original_document_id: 'doc-prod-1',
+      operation_kind: 'estorno' as const,
+      environment: 1,
+      status: 'transmitting',
+      created_at: '2026-10-19T11:00:00Z',
+    };
+
+    const result = resolveOrderFiscalBadgePair([originalDoc], [estornoDraftPending]);
+    expect(result.production).toBe('regularization_uncertain');
+    expect(result.productionBadges?.[0].status).toBe('issued');
+  });
+
+  it('não altera o status para reversed se o estorno tiver sido rejeitado pela SEFAZ, sinalizando falha na regularização', () => {
+    const originalDoc = {
+      id: 'doc-prod-1',
+      order_id: 'order-1',
+      status: 'autorizada',
+      document_type: 'outbound',
+      ambiente: 1,
+      created_at: '2026-10-19T10:00:00Z',
+    };
+    const estornoDraftRejected = {
+      id: 'draft-estorno-rej',
+      original_document_id: 'doc-prod-1',
+      operation_kind: 'estorno' as const,
+      environment: 1,
+      status: 'rejected',
+      created_at: '2026-10-19T11:00:00Z',
+    };
+
+    const result = resolveOrderFiscalBadgePair([originalDoc], [estornoDraftRejected]);
+    expect(result.production).toBe('regularization_failed');
+    expect(result.productionBadges?.[0].status).toBe('issued');
   });
 });

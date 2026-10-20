@@ -475,6 +475,18 @@ describe('preenchimento dos itens da NF-e', () => {
     await prepareNfeEmission();
     expect(screen.queryByTestId('nfe-preview-xml-button')).toBeNull();
   });
+
+  it('abre e fecha a prévia XML retornada sem transmitir a nota', async () => {
+    render(<NfeEmissionModal isOpen order={{ ...order, id: 'preview-dialog-cycle' }} onClose={vi.fn()} />);
+    await prepareNfeEmission();
+    await act(async () => { fireEvent.click(screen.getByTestId('nfe-preview-xml-button')); });
+    await waitFor(() => expect(mocks.preview).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId('nfe-xml-preview-dialog')).toBeTruthy());
+    expect(screen.getByTestId('nfe-xml-preview-content').textContent).toContain('<tpAmb>2</tpAmb>');
+    fireEvent.click(screen.getByTestId('nfe-xml-preview-close'));
+    await waitFor(() => expect(screen.queryByTestId('nfe-xml-preview-dialog')).toBeNull());
+    expect(mocks.emit).not.toHaveBeenCalled();
+  });
   it.each([
     [
       'CEST',

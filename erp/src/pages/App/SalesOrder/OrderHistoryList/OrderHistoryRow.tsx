@@ -12,7 +12,6 @@ import { OrderDeliveryPrompt } from './OrderDeliveryPrompt';
 import { OrderOperationalBadges } from './OrderOperationalBadges';
 import { OrderOptionsMenu } from './OrderOptionsMenu';
 import { OrderFiscalBadge } from './OrderFiscalBadge';
-import { OrderFiscalOperationBadge } from './OrderFiscalOperationBadge';
 import { OrderCancellationFailureNotice } from './OrderCancellationFailureNotice';
 import type {
   OrderFiscalBadgeStatus,
@@ -293,85 +292,33 @@ const OrderHistoryRow = ({
               <div className="flex flex-wrap items-center gap-1">
                 {order.orderType !== 'return' && (
                   <>
-                    {fiscalProductionBadges && fiscalProductionBadges.length > 0 ? (
-                      fiscalProductionBadges.map((badge) => (
-                        <OrderFiscalBadge
-                          key={`prod-${badge.sequenceNumber}`}
-                          status={badge.status}
-                          label={badge.label}
-                          loading={fiscalBadgeLoading}
-                          documentId={badge.id}
-                          onOpenDocument={onViewFiscalDocument}
-                          onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-                        />
-                      ))
-                    ) : (
-                      <OrderFiscalBadge
-                        status={fiscalBadgeStatus}
-                        loading={fiscalBadgeLoading}
-                        documentId={fiscalDocumentId}
-                        onOpenDocument={onViewFiscalDocument}
-                        onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-                      />
-                    )}
-                    {fiscalHomologationBadges && fiscalHomologationBadges.length > 0 ? (
-                      fiscalHomologationBadges
-                        .filter((badge) => badge.sequenceNumber === 1)
-                        .map((badge) => (
-                          <OrderFiscalBadge
-                            key={`hml-${badge.sequenceNumber}`}
-                            variant="homologation"
-                            status={badge.status}
-                            label={badge.label}
-                            loading={fiscalBadgeLoading}
-                            documentId={badge.id}
-                            onOpenDocument={onViewFiscalDocument}
-                            onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-                          />
-                        ))
-                    ) : (
-                      <OrderFiscalBadge
-                        variant="homologation"
-                        status={fiscalHmlBadgeStatus}
-                        loading={fiscalBadgeLoading}
-                        documentId={fiscalHmlDocumentId}
-                        onOpenDocument={onViewFiscalDocument}
-                        onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-                      />
-                    )}
-                    <OrderFiscalOperationBadge
-                      kind="estorno"
-                      status={fiscalEstornoBadgeStatus}
-                      documentId={fiscalEstornoDocumentId}
-                      draftId={fiscalEstornoDraftId}
-                      environment={fiscalEstornoEnvironment}
+                    <OrderFiscalBadge
+                      status={fiscalBadgeStatus}
+                      loading={fiscalBadgeLoading}
+                      documentId={fiscalDocumentId}
+                      hasReturn={Boolean(
+                        fiscalDevolucaoBadgeStatus &&
+                        fiscalDevolucaoBadgeStatus !== 'cancelled' &&
+                        (fiscalDevolucaoEnvironment !== 2 || fiscalDevolucaoDocuments?.some((d) => d.ambiente !== 2))
+                      )}
                       onOpenDocument={onViewFiscalDocument}
+                      onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
                     />
-                    {fiscalHomologationBadges &&
-                      fiscalHomologationBadges
-                        .filter((badge) => badge.sequenceNumber > 1)
-                        .map((badge) => (
-                          <OrderFiscalBadge
-                            key={`hml-${badge.sequenceNumber}`}
-                            variant="homologation"
-                            status={badge.status}
-                            label={badge.label}
-                            loading={fiscalBadgeLoading}
-                            documentId={badge.id}
-                            onOpenDocument={onViewFiscalDocument}
-                            onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
-                          />
-                        ))}
+                    <OrderFiscalBadge
+                      variant="homologation"
+                      status={fiscalHmlBadgeStatus}
+                      loading={fiscalBadgeLoading}
+                      documentId={fiscalHmlDocumentId}
+                      hasReturn={Boolean(
+                        fiscalDevolucaoBadgeStatus &&
+                        fiscalDevolucaoBadgeStatus !== 'cancelled' &&
+                        (fiscalDevolucaoEnvironment === 2 || fiscalDevolucaoDocuments?.some((d) => d.ambiente === 2))
+                      )}
+                      onOpenDocument={onViewFiscalDocument}
+                      onIssue={isCancelled ? undefined : (env) => onIssueNfe?.(order, env)}
+                    />
                   </>
                 )}
-                <OrderFiscalOperationBadge
-                  kind="devolucao"
-                  status={fiscalDevolucaoBadgeStatus}
-                  documentId={fiscalDevolucaoDocumentId}
-                  environment={fiscalDevolucaoEnvironment}
-                  documents={fiscalDevolucaoDocuments}
-                  onOpenDocument={onViewFiscalDocument}
-                />
                 <OrderOperationalBadges
                   order={order}
                   showTrash={showTrash}

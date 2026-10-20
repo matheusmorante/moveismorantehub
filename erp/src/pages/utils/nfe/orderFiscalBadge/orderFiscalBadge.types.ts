@@ -1,6 +1,7 @@
 import type {
   FiscalDocumentStatusRow,
   FiscalOperationDraftStatusRow,
+  FiscalOrderEditReplacementRow,
   OrderFiscalBadgeStatuses,
   ReturnFiscalDocumentSummary,
 } from '../orderFiscalBadgeRules';
@@ -38,4 +39,9 @@ export interface FiscalBadgeSupplement {
     created_at?: string;
   }>;
   cancelledOrderIds?: string[];
+  /**
+   * Intenções fiscais persistidas por edição comercial. Tabela restrita ao backend: ausente quando
+   * a consulta é feita diretamente pelo cliente, caso em que o rótulo não presume edição.
+   */
+  orderEditReplacements?: FiscalOrderEditReplacementRow[];
 }

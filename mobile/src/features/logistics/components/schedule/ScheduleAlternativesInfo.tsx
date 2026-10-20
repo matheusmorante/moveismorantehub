@@ -24,7 +24,7 @@ export const ScheduleAlternativesInfo: React.FC<ScheduleAlternativesInfoProps> =
         <View style={styles.repositionedRow}>
           <RefreshCw size={12} color="#b45309" />
           <Text style={styles.repositionedText}>
-            Data definida expirou · Reposicionado para {effective.label} ({effective.formattedDate})
+            ALTERNATIVO · Reposicionado para {effective.label} ({effective.formattedDate})
           </Text>
         </View>
       )}

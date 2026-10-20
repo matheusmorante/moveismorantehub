@@ -16,8 +16,10 @@ const supplierCodesStore: ProductSupplierCode[] = [];
 const attributeValuesStore: { id: string; attribute_id: string; value: string }[] = [];
 
 vi.mock('../../supabaseConfig', () => {
-  const createDbChain = () => {
+  const createDbChain = (table: string) => {
     const chain: any = {
+      data: [],
+      error: null,
       select: () => chain,
       order: () => chain,
       gte: () => chain,
@@ -28,33 +30,43 @@ vi.mock('../../supabaseConfig', () => {
       like: () => chain,
       ilike: (_col: string, val: string) => {
         const cleanVal = val.toLowerCase();
-        if (cleanVal === 'cor') {
-          return {
-            limit: () =>
-              Promise.resolve({ data: [{ id: 'attr-cor-1', name: 'Cor' }], error: null }),
-          };
-        }
-        const foundVal = attributeValuesStore.find((v) => v.value.toLowerCase() === cleanVal);
-        return {
-          limit: () => Promise.resolve({ data: foundVal ? [foundVal] : [], error: null }),
-        };
+        chain.data =
+          table === 'attributes' && cleanVal === 'cor'
+            ? [{ id: 'attr-cor-1', name: 'Cor' }]
+            : attributeValuesStore.filter((v) => v.value.toLowerCase() === cleanVal);
+        return chain;
       },
-      in: (_col: string, codes: string[]) => {
-        const found = supplierCodesStore
-          .filter((item) =>
-            codes.map((c) => c.toUpperCase()).includes(item.supplierProductCode.toUpperCase())
-          )
-          .map((item) => ({
-            product_id: item.productId,
-            product_variation_id: item.productVariationId,
-            supplier_id: item.supplierId,
-            supplier_product_code: item.supplierProductCode,
-            supplier_description: item.supplierDescription,
-          }));
-        return Promise.resolve({ data: found, error: null });
+      filter: (column: string, _operator: string, expression: string) => {
+        const matcher = new RegExp(expression, 'i');
+        if (table === 'attributes' && column === 'name' && matcher.test('Cor')) {
+          chain.data = [{ id: 'attr-cor-1', name: 'Cor' }];
+        } else if (table === 'attribute_values' && column === 'value') {
+          chain.data = attributeValuesStore.filter((entry) => matcher.test(entry.value));
+        } else {
+          chain.data = [];
+        }
+        return chain;
+      },
+      in: (column: string, codes: string[]) => {
+        chain.data =
+          table === 'product_supplier_codes' && column === 'supplier_product_code'
+            ? supplierCodesStore
+                .filter((item) =>
+                  codes.map((c) => c.toUpperCase()).includes(item.supplierProductCode.toUpperCase())
+                )
+                .map((item) => ({
+                  product_id: item.productId,
+                  product_variation_id: item.productVariationId,
+                  supplier_id: item.supplierId,
+                  supplier_product_code: item.supplierProductCode,
+                  supplier_description: item.supplierDescription,
+                }))
+            : [];
+        return chain;
       },
       limit: () => chain,
-      single: () => Promise.resolve({ data: null, error: null }),
+      single: () =>
+        Promise.resolve({ data: Array.isArray(chain.data) ? chain.data[0] || null : chain.data, error: null }),
       range: () => Promise.resolve({ data: [], count: 0, error: null }),
       upsert: (record: any) => {
         if (record && record.supplier_product_code) {
@@ -66,26 +78,32 @@ vi.mock('../../supabaseConfig', () => {
             supplierDescription: record.supplier_description,
           });
         }
-        return Promise.resolve({ error: null });
+        return chain;
       },
       insert: (record: any) => {
         if (record && record.value) {
-          attributeValuesStore.push({
+          const insertedValue = {
             id: `val-${Date.now()}`,
             attribute_id: record.attribute_id,
             value: record.value,
-          });
+          };
+          attributeValuesStore.push(insertedValue);
+          chain.data = [insertedValue];
+        } else if (table === 'attributes' && record && record.name) {
+          chain.data = [{ id: 'attr-cor-1', ...record }];
         }
-        return Promise.resolve({ error: null });
+        return chain;
       },
       update: () => chain,
       delete: () => chain,
+      then: (resolve: (value: { data: any; error: null }) => unknown, reject: (reason: unknown) => unknown) =>
+        Promise.resolve({ data: chain.data, error: chain.error }).then(resolve, reject),
     };
     return chain;
   };
 
   const db = {
-    from: () => createDbChain(),
+    from: (table: string) => createDbChain(table),
     rpc: () => Promise.resolve({ data: null, error: null }),
     functions: { invoke: () => Promise.resolve({ data: { success: true }, error: null }) },
   };

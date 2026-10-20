@@ -143,8 +143,9 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
 
             {/* Selo de reprogramação para alternativa quando a data principal passou */}
             {scheduleRes.isUsingAlternative && activeOption && (
-              <span className="text-[9px] font-black text-amber-700 dark:text-amber-300 uppercase px-2 py-0.5 bg-amber-100/80 dark:bg-amber-950/40 rounded-md border border-amber-300 dark:border-amber-800 w-fit">
-                {activeOption.label}: {activeOption.formattedDate}
+              <span className="text-[9px] font-black text-amber-900 bg-amber-400 dark:bg-amber-500 dark:text-slate-950 uppercase px-2 py-0.5 rounded-md border border-amber-500 shadow-2xs flex items-center gap-1 w-fit">
+                <i className="bi bi-arrow-repeat text-[10px]" />
+                ALTERNATIVO • {activeOption.label} ({activeOption.formattedDate})
               </span>
             )}
 

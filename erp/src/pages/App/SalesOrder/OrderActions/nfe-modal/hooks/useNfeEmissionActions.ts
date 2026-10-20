@@ -90,6 +90,7 @@ export function useNfeEmissionActions({
     xmlPreview,
     setXmlPreview,
     isXmlPreviewOpen,
+    setIsXmlPreviewOpen,
     hasCurrentXmlPreview,
     clearXmlPreview,
     closeXmlPreview,
@@ -258,11 +259,7 @@ export function useNfeEmissionActions({
             // request is in flight must not discard its authoritative fiscal outcome.
             isCurrent: () => operationOwner.current === owner,
             setXmlPreview,
-            setIsXmlPreviewOpen: (open) => {
-              if (open && !isXmlPreviewOpen) {
-                // controlled via useNfeXmlPreviewState
-              }
-            },
+            setIsXmlPreviewOpen,
             setEmissionResult,
             setNumberPreviewState,
             onSuccess,

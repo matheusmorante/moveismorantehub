@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import * as stockService from '../../../services/stockService';
-import { offlineStorageService } from '../../../services/offline/offlineStorageService';
-import { connectivityService } from '../../../services/offline/connectivityService';
+import * as stockService from '../../../../services/stockService';
+import { offlineStorageService } from '../../../../services/offline/offlineStorageService';
+import { connectivityService } from '../../../../services/offline/connectivityService';
 import {
   GOODS_RECEIPTS_CACHE_KEY,
   getPendingGoodsReceiptChecks,
   syncPendingGoodsReceipts,
-} from '../../../services/stock/stockReceiptsService';
+} from '../../../../services/stock/stockReceiptsService';
 
 const overlayPendingChecksOnReceipts = async (list: any[]): Promise<any[]> => {
   try {

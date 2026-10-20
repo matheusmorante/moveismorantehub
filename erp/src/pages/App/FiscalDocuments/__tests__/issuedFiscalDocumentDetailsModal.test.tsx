@@ -717,4 +717,61 @@ describe('IssuedFiscalDocumentDetailsModal', () => {
     ).toBeTruthy();
     expect(screen.getByText(/Orientação Fiscal:/)).toBeTruthy();
   });
+
+  it('renderiza o aviso contextual de situação fiscal (FiscalSituationNotice) na aba Detalhes quando nova emissão é necessária', async () => {
+    const detailsWithFiscalSituation: FiscalDocumentDetails = {
+      ...fiscalDetails,
+      linkedDocuments: [
+        {
+          id: 'doc-estorno-733',
+          order_id: 'order-7001',
+          numero_nfe: 733,
+          serie: '1',
+          chave_acesso: '41261044512248000107550010000007331046645952',
+          modelo: '55',
+          ambiente: 2,
+          status: 'homologada',
+          numero_protocolo: '141260000000733',
+          created_at: '2026-10-19T22:15:00Z',
+          updated_at: '2026-10-19T22:15:00Z',
+          document_type: 'estorno',
+          xml_nfe: '<nfeProc />',
+        },
+      ],
+      fiscalSituation: {
+        status: 'reissue_required',
+        environment: 2,
+        title: 'Nova nota fiscal necessária',
+        description: 'A nota anterior foi regularizada e o pedido foi alterado. É necessário emitir a nova NF.',
+        actionRequired: true,
+        blockingRegularization: false,
+      },
+    };
+
+    vi.mocked(fetchFiscalDocumentDetails).mockResolvedValueOnce(detailsWithFiscalSituation);
+
+    render(
+      <IssuedFiscalDocumentDetailsModal
+        documentId="fiscal-document-615"
+        orderNumber={7001}
+        onClose={vi.fn()}
+      />
+    );
+
+    await screen.findByText('Nova nota fiscal necessária');
+    expect(
+      screen.getByText(
+        'A nota fiscal anterior foi cancelada ou estornada após a alteração do pedido. É necessário emitir uma nova nota fiscal com os dados atualizados.'
+      )
+    ).toBeTruthy();
+
+    const linkedNavButton = screen.getByRole('button', { name: /Ver documentos vinculados/i });
+    expect(linkedNavButton).toBeTruthy();
+
+    // Clicar no botão navega para a aba Vinculadas
+    fireEvent.click(linkedNavButton);
+
+    const linkedTab = screen.getByRole('tab', { name: /Vinculadas/i });
+    expect(linkedTab.getAttribute('aria-selected')).toBe('true');
+  });
 });

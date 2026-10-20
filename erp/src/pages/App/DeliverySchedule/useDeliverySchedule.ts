@@ -12,6 +12,7 @@ import {
   getOperationalScheduleDate,
   normalizeScheduleStatus,
 } from '@/pages/utils/operationalSchedule';
+import { resolveEffectiveSchedule } from '../../../../../shared-utils/commercialOrderRules';
 
 export type ScheduleFilter = 'custom' | 'default' | 'week' | 'month' | 'year' | 'all';
 export type OrderTypeFilter = 'delivery' | 'pickup' | 'assistance' | 'assembly';
@@ -175,9 +176,11 @@ const processOrders = (
     if (t.shipping?.scheduling?.pendingScheduling) return; // Will be returned in 'pending' list
 
     const isAssistance = t.orderType === 'assistance';
-    const dateStr = isAssistance
-      ? (t as any).scheduledDate || t.shipping?.scheduling?.date
-      : t.shipping.scheduling.date;
+    const dateStr =
+      getOperationalScheduleDate(t) ||
+      (isAssistance
+        ? (t as any).scheduledDate || t.shipping?.scheduling?.date
+        : t.shipping?.scheduling?.date);
     if (!dateStr) return;
     if (!grouped[dateStr]) grouped[dateStr] = [];
     grouped[dateStr].push(t);
@@ -185,13 +188,19 @@ const processOrders = (
 
   Object.keys(grouped).forEach((date) => {
     grouped[date].sort((a, b) => {
+      const effA = resolveEffectiveSchedule(a).effective;
+      const effB = resolveEffectiveSchedule(b).effective;
       const timeA =
         (a.orderType === 'assistance' ? (a as any).scheduledTime : null) ||
+        effA?.startTime ||
+        effA?.cutoffTime ||
         a.shipping?.scheduling?.startTime ||
         a.shipping?.scheduling?.time ||
         '23:59';
       const timeB =
         (b.orderType === 'assistance' ? (b as any).scheduledTime : null) ||
+        effB?.startTime ||
+        effB?.cutoffTime ||
         b.shipping?.scheduling?.startTime ||
         b.shipping?.scheduling?.time ||
         '23:59';

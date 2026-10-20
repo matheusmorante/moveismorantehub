@@ -22,6 +22,7 @@ describe('INITIAL_PRODUCT_FORM_DATA', () => {
       cfop: '5102',
       cst: '103',
       icmsPercent: 0,
+      merchandiseOrigin: 'third_party',
     });
   });
 });

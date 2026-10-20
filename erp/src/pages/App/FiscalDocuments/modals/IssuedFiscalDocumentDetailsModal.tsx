@@ -1,326 +1,203 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { toast } from 'react-toastify';
-import type { Order } from '@/pages/types/order.type';
-import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
-import { parseFiscalXmlDetails } from '../utils/fiscalXmlParser';
-import { fetchFiscalDocumentDetails } from '../services/fiscalDocumentsService';
-import { FiscalDocumentStatusBadge } from '../components/FiscalDocumentStatusBadge';
+import React from 'react';
+import { FiscalSituationNotice } from '../components/FiscalSituationNotice';
 import { FiscalXmlViewer } from '../components/FiscalXmlViewer';
 import NfeOperationDraftModal from './NfeOperationDraftModal';
 import {
   IssuedFiscalDocumentDetailsTabList,
   IssuedFiscalDocumentDetailsTabPanel,
-  type DetailTab,
 } from '../components/IssuedFiscalDocumentDetailsTabs';
 import {
-  createDanfeShareFile,
-  downloadXml,
-  printDanfe,
-} from '../services/fiscalDanfeXmlService';
-import type {
-  FiscalDocumentDetails,
-  NfeDocumentRecord,
-} from '../types/fiscalDocuments.types';
+  type IssuedFiscalDocumentDetailsModalProps,
+  useIssuedFiscalDocumentDetails,
+  IssuedFiscalDocumentDetailsHeader,
+  IssuedFiscalDocumentAnteriorBanner,
+  IssuedFiscalDocumentDetailsFooter,
+} from './issued-details-modal';
 
-interface IssuedFiscalDocumentDetailsModalProps {
-  emissionResult?: NfeEmissionResult;
-  document?: NfeDocumentRecord;
-  documentId?: string;
-  initialEnvironment?: 1 | 2;
-  fullScreen?: boolean;
-  order?: Order;
-  orderNumber?: number;
-  onClose: () => void;
-}
+export type { IssuedFiscalDocumentDetailsModalProps } from './issued-details-modal';
 
-function downloadBlob(file: File) {
-  const url = URL.createObjectURL(file);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = file.name;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
+export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDetailsModalProps> = (
+  props
+) => {
+  const { fullScreen = false, onClose, document, emissionResult } = props;
+  const state = useIssuedFiscalDocumentDetails(props);
 
-export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDetailsModalProps> = ({
-  emissionResult,
-  document,
-  documentId: suppliedDocumentId,
-  initialEnvironment,
-  fullScreen = false,
-  order,
-  orderNumber: providedOrderNumber,
-  onClose,
-}) => {
-  const [activeTab, setActiveTab] = useState<DetailTab>('general');
-  const [details, setDetails] = useState<FiscalDocumentDetails | null>(null);
-  const documentId = document?.id || emissionResult?.documentId || suppliedDocumentId;
-  const [isLoading, setIsLoading] = useState(Boolean(documentId));
-  const [loadError, setLoadError] = useState('');
-  const [shareFile, setShareFile] = useState<File | null>(null);
-  const [shareFileError, setShareFileError] = useState('');
-  const [reloadVersion, setReloadVersion] = useState(0);
-  const [reviewingDraft, setReviewingDraft] = useState(false);
-  const [showXml, setShowXml] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    if (!documentId) {
-      setIsLoading(false);
-      setLoadError('O identificador do documento autorizado não veio na resposta da emissão.');
-      return () => {
-        active = false;
-      };
-    }
-
-    setIsLoading(true);
-    setDetails(null);
-    setLoadError('');
-    setShareFile(null);
-    setShareFileError('');
-    setShowXml(false);
-    void fetchFiscalDocumentDetails(documentId)
-      .then((loaded) => {
-        if (!active) return;
-        setDetails(loaded);
-        setIsLoading(false);
-        if (loaded.operationDrafts?.some(draft => draft.id === loaded.document.id && draft.sourceDocument)) return;
-        void createDanfeShareFile(loaded.document)
-          .then((file) => {
-            if (active) setShareFile(file);
-          })
-          .catch((error: unknown) => {
-            if (active) setShareFileError(error instanceof Error ? error.message : 'Não foi possível preparar o arquivo do DANFE.');
-          });
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os detalhes fiscais.');
-        setIsLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [documentId, reloadVersion]);
-
-  const parsed = useMemo(
-    () => details?.parsedXml || parseFiscalXmlDetails(emissionResult?.xml || document?.xml_nfe || ''),
-    [details?.parsedXml, emissionResult?.xml, document?.xml_nfe]
-  );
-  const visibleDocument = details?.document || document;
-  const storedXml = visibleDocument?.xml_nfe || emissionResult?.xml || '';
-  const operationDraft = details?.operationDrafts?.find(draft => draft.id === visibleDocument?.id && draft.sourceDocument);
-  const model = visibleDocument?.modelo || emissionResult?.model || '55';
-  const environment =
-    visibleDocument?.ambiente || emissionResult?.environment || initialEnvironment || 1;
-  const status = visibleDocument?.status || (environment === 2 ? 'homologada' : 'autorizada');
-  const isEstorno = visibleDocument?.document_type === 'estorno';
-  const isDevolucao = visibleDocument?.document_type === 'return';
-  const title = isEstorno
-    ? 'NF-e de Estorno Fiscal'
-    : isDevolucao
-    ? 'NF-e de Devolução Fiscal'
-    : model === '65'
-    ? 'NFC-e'
-    : 'NF-e';
-  const visibleDocumentNumber = visibleDocument?.numero_nfe ?? emissionResult?.nfeNumber;
-  const documentNumberLabel =
-    visibleDocumentNumber && visibleDocumentNumber > 0
-      ? `nº ${visibleDocumentNumber}`
-      : operationDraft
-      ? '(Rascunho fiscal)'
-      : isEstorno
-      ? '(Rascunho de Ajuste)'
-      : '—';
-  const orderNumber = order?.orderNumber || order?.orderIndex || providedOrderNumber;
-
-  const handleDownloadXml = async () => {
-    if (details) {
-      try {
-        await downloadXml(details.document);
-        toast.success('XML baixado com sucesso.');
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Não foi possível baixar o XML.');
-      }
-      return;
-    }
-    if (document) {
-      try {
-        await downloadXml(document);
-        toast.success('XML baixado com sucesso.');
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Não foi possível baixar o XML.');
-      }
-      return;
-    }
-    if (!emissionResult?.xml) {
-      toast.error('O XML ainda não está disponível.');
-      return;
-    }
-    const file = new File([emissionResult.xml], `NFe_${emissionResult.accessKey || emissionResult.nfeNumber || 'documento'}.xml`, {
-      type: 'application/xml;charset=utf-8',
-    });
-    downloadBlob(file);
-  };
-
-  const handlePrintDanfe = async () => {
-    const printableDocument = details?.document || document;
-    if (!printableDocument) {
-      toast.error(loadError || 'Carregue os detalhes fiscais antes de imprimir o DANFE.');
-      return;
-    }
-    try {
-      await printDanfe(printableDocument);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Não foi possível abrir o DANFE.');
-    }
-  };
-
-  const handleShareDanfe = () => {
-    if (!shareFile) {
-      toast.error(shareFileError || 'O arquivo do DANFE ainda está sendo preparado.');
-      return;
-    }
-
-    const shareNavigator = navigator as Navigator & {
-      canShare?: (data: { files: File[] }) => boolean;
-      share?: (data: ShareData) => Promise<void>;
-    };
-    const files = [shareFile];
-    if (shareNavigator.share && shareNavigator.canShare?.({ files })) {
-      try {
-        void shareNavigator.share({
-          files,
-          title: `DANFE ${title} ${visibleDocumentNumber || ''}`.trim(),
-        }).catch((error: unknown) => {
-          if (error instanceof DOMException && error.name === 'AbortError') return;
-          toast.error(error instanceof Error ? error.message : 'Não foi possível compartilhar o DANFE.');
-        });
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Não foi possível compartilhar o DANFE.');
-      }
-      return;
-    }
-
-    downloadBlob(shareFile);
-    toast.info('Este navegador não compartilha arquivos diretamente. O DANFE foi baixado; anexe-o no WhatsApp.');
-  };
-
-  if (reviewingDraft && operationDraft?.sourceDocument) return (
-    <NfeOperationDraftModal
-      sourceDocument={operationDraft.sourceDocument}
-      initialDraftId={operationDraft.id}
-      mode={operationDraft.operation_kind}
-      onClose={() => setReviewingDraft(false)}
-      onAuthorized={() => { setReviewingDraft(false); setReloadVersion(version => version + 1); }}
-    />
-  );
+  if (state.reviewingDraft && state.operationDraft?.sourceDocument) {
+    return (
+      <NfeOperationDraftModal
+        sourceDocument={state.operationDraft.sourceDocument}
+        initialDraftId={state.operationDraft.id}
+        mode={state.operationDraft.operation_kind}
+        onClose={() => state.setReviewingDraft(false)}
+        onAuthorized={() => {
+          state.setReviewingDraft(false);
+          state.setReloadVersion((version) => version + 1);
+        }}
+      />
+    );
+  }
 
   return (
-    <div className={`fixed inset-0 z-[1000000] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm ${fullScreen ? 'p-0' : 'p-0 md:p-4'}`}>
-      <button type="button" aria-label="Fechar detalhes da nota fiscal" className="absolute inset-0 cursor-default" onClick={onClose} />
+    <div
+      className={`fixed inset-0 z-[1000000] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm ${
+        fullScreen ? 'p-0' : 'p-0 md:p-4'
+      }`}
+    >
+      <button
+        type="button"
+        aria-label="Fechar detalhes da nota fiscal"
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+      />
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="issued-fiscal-details-title"
-        className={`relative z-10 flex flex-col overflow-hidden bg-white shadow-2xl dark:bg-slate-950 ${fullScreen ? 'h-full max-h-full w-full max-w-none rounded-none border-0' : 'h-[100dvh] max-h-[100dvh] w-full max-w-none rounded-none border-0 md:h-[min(92dvh,900px)] md:max-h-[calc(100dvh-2rem)] md:max-w-7xl md:rounded-3xl md:border md:border-slate-200 dark:border-slate-800'}`}
+        className={`relative z-10 flex flex-col overflow-hidden bg-white shadow-2xl dark:bg-slate-950 ${
+          fullScreen
+            ? 'h-full max-h-full w-full max-w-none rounded-none border-0'
+            : 'h-[100dvh] max-h-[100dvh] w-full max-w-none rounded-none border-0 md:h-[min(92dvh,900px)] md:max-h-[calc(100dvh-2rem)] md:max-w-7xl md:rounded-3xl md:border md:border-slate-200 dark:border-slate-800'
+        }`}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-6">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 id="issued-fiscal-details-title" className="text-base font-black text-slate-900 dark:text-slate-100 sm:text-lg">
-                {isEstorno ? 'Detalhes da nota fiscal de estorno fiscal' : isDevolucao ? 'Detalhes da nota fiscal de devolução fiscal' : 'Detalhes da nota fiscal'}
-              </h2>
-              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${environment === 2 ? 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'}`}>
-                {environment === 2 ? 'Homologação' : 'Produção'}
-              </span>
-              {operationDraft && ['draft', 'ready'].includes(operationDraft.status)
-                ? <span className="text-xs font-bold text-amber-700 dark:text-amber-300">Rascunho em revisão</span>
-                : <FiscalDocumentStatusBadge status={status} />}
-            </div>
-            <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-              {title} {documentNumberLabel}{!operationDraft || visibleDocumentNumber ? ` · Série ${visibleDocument?.serie || emissionResult?.series || '1'}` : ''}
-              {orderNumber ? ` · Pedido #${orderNumber}` : ''}
-            </p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white">
-            <i className="bi bi-x-lg" />
-          </button>
-        </header>
+        <IssuedFiscalDocumentDetailsHeader
+          title={state.title}
+          isEstorno={state.isEstorno}
+          isDevolucao={state.isDevolucao}
+          environment={state.environment}
+          operationDraft={state.operationDraft}
+          isEstornada={state.isEstornada}
+          status={state.status}
+          documentNumberLabel={state.documentNumberLabel}
+          visibleDocument={state.visibleDocument}
+          visibleDocumentNumber={state.visibleDocumentNumber}
+          emissionResult={emissionResult}
+          orderNumber={state.orderNumber}
+          onClose={onClose}
+        />
+
+        {state.details?.fiscalSituation && (
+          <FiscalSituationNotice
+            situation={state.details.fiscalSituation}
+            onExecuteAction={state.handleExecuteSituationAction}
+            onOpenLinked={state.linkedCount > 0 ? () => state.setActiveTab('linked') : undefined}
+          />
+        )}
+
+        {state.isViewingAnteriorEmission && state.currentActiveEmission && (
+          <IssuedFiscalDocumentAnteriorBanner
+            currentActiveEmission={state.currentActiveEmission}
+            onReturnToActive={(id) => {
+              state.setActiveDocumentId(id);
+              state.setActiveTab('general');
+            }}
+          />
+        )}
 
         <IssuedFiscalDocumentDetailsTabList
-          activeTab={activeTab}
-          eventsCount={
-            (details?.events?.length || 0) + (details?.operationDrafts?.length || 0)
-          }
-          onChange={setActiveTab}
+          activeTab={state.activeTab}
+          eventsCount={state.details?.events?.length || 0}
+          linkedCount={state.linkedCount}
+          onChange={state.setActiveTab}
         />
 
         <main className="min-h-[280px] flex-1 overflow-y-auto bg-slate-50/70 p-4 dark:bg-slate-950/30 sm:p-6">
-          {isLoading && (activeTab !== 'general' || (!details && !document)) ? (
-            <div role="status" className="flex min-h-[240px] items-center justify-center gap-3 text-sm text-slate-500">
+          {state.isLoading && (state.activeTab !== 'general' || (!state.details && !document)) ? (
+            <div
+              role="status"
+              className="flex min-h-[240px] items-center justify-center gap-3 text-sm text-slate-500"
+            >
               <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
               Carregando informações do XML armazenado…
             </div>
-          ) : loadError && !details && !document ? (
+          ) : state.loadError && !state.details && !document ? (
             <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 text-center">
-              <p role="alert" className="max-w-xl text-sm text-rose-700 dark:text-rose-300">{loadError}</p>
-              {documentId && (
+              <p role="alert" className="max-w-xl text-sm text-rose-700 dark:text-rose-300">
+                {state.loadError}
+              </p>
+              {state.documentId && (
                 <button
                   type="button"
-                  disabled={isLoading}
+                  disabled={state.isLoading}
                   onClick={() => {
-                    setIsLoading(true);
-                    setReloadVersion((version) => version + 1);
+                    state.setIsLoading(true);
+                    state.setReloadVersion((version) => version + 1);
                   }}
                   className="flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50"
                 >
-                  {isLoading && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                  {state.isLoading && (
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  )}
                   Tentar carregar novamente
                 </button>
               )}
             </div>
           ) : (
             <>
-              {loadError && <p role="alert" className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">{loadError}</p>}
-              {operationDraft && !visibleDocument?.xml_nfe && activeTab !== 'events' ? (
-                <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                  <p>Rascunho fiscal aguardando revisão. Os dados do documento serão exibidos após a geração do seu próprio XML.</p>
-                  {operationDraft.sourceDocument && <p className="mt-2">Documento de origem: {operationDraft.sourceDocument.modelo === '65' ? 'NFC-e' : 'NF-e'} nº {operationDraft.sourceDocument.numero_nfe} · {operationDraft.environment === 2 ? 'Homologação' : 'Produção'}.</p>}
-                  {operationDraft.reason && <p className="mt-2">{operationDraft.reason}</p>}
+              {state.loadError && (
+                <p
+                  role="alert"
+                  className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                >
+                  {state.loadError}
+                </p>
+              )}
+              {state.operationDraft && !state.visibleDocument?.xml_nfe && state.activeTab !== 'events' ? (
+                <div
+                  role="status"
+                  className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                >
+                  <p>
+                    Rascunho fiscal aguardando revisão. Os dados do documento serão exibidos após a
+                    geração do seu próprio XML.
+                  </p>
+                  {state.operationDraft.sourceDocument && (
+                    <p className="mt-2">
+                      Documento de origem:{' '}
+                      {state.operationDraft.sourceDocument.modelo === '65' ? 'NFC-e' : 'NF-e'} nº{' '}
+                      {state.operationDraft.sourceDocument.numero_nfe} ·{' '}
+                      {state.operationDraft.environment === 2 ? 'Homologação' : 'Produção'}.
+                    </p>
+                  )}
+                  {state.operationDraft.reason && (
+                    <p className="mt-2">{state.operationDraft.reason}</p>
+                  )}
                 </div>
-              ) : <IssuedFiscalDocumentDetailsTabPanel activeTab={activeTab} emissionResult={emissionResult} fallbackDocument={document} details={details} parsed={parsed} />}
+              ) : (
+                <IssuedFiscalDocumentDetailsTabPanel
+                  activeTab={state.activeTab}
+                  emissionResult={emissionResult}
+                  fallbackDocument={document}
+                  details={state.details}
+                  parsed={state.parsed}
+                  onSelectDocument={(id) => {
+                    state.setActiveDocumentId(id);
+                    state.setActiveTab('general');
+                  }}
+                />
+              )}
             </>
           )}
         </main>
 
-        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-3 py-3 dark:border-slate-800 dark:bg-slate-950 sm:px-6">
-          <div className="flex flex-wrap gap-2">
-            {operationDraft?.sourceDocument && <button type="button" onClick={() => setReviewingDraft(true)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-800">{operationDraft.operation_kind === 'estorno' ? 'Revisar estorno fiscal' : 'Revisar devolução fiscal'}</button>}
-            {!operationDraft && <>
-            <button type="button" onClick={() => setShowXml(true)} disabled={isLoading || !storedXml} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
-              <i className="bi bi-code-slash" /> Ver XML
-            </button>
-            <button type="button" onClick={() => void handlePrintDanfe()} disabled={(!details && !document) || isLoading} className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4">
-              <i className="bi bi-printer-fill" /> Imprimir DANFE
-            </button>
-            <button type="button" onClick={() => void handleDownloadXml()} disabled={isLoading || (!details && !document && !emissionResult?.xml)} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 sm:px-4">
-              <i className="bi bi-filetype-xml" /> Baixar XML
-            </button>
-            <button type="button" onClick={handleShareDanfe} disabled={!shareFile} title={shareFile ? 'Escolha WhatsApp no menu de compartilhamento do dispositivo' : shareFileError || 'Preparando o arquivo do DANFE'} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4">
-              <i className="bi bi-share-fill" /> {shareFile ? 'Compartilhar DANFE' : shareFileError ? 'DANFE indisponível' : 'Preparando DANFE…'}
-            </button>
-            </>}
-          </div>
-          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white">
-            Fechar
-          </button>
-        </footer>
+        <IssuedFiscalDocumentDetailsFooter
+          operationDraft={state.operationDraft}
+          storedXml={state.storedXml}
+          hasDetailsOrDocument={Boolean(state.details || document)}
+          hasXmlAvailable={Boolean(emissionResult?.xml)}
+          isLoading={state.isLoading}
+          shareFile={state.shareFile}
+          shareFileError={state.shareFileError}
+          onReviewDraft={() => state.setReviewingDraft(true)}
+          onShowXml={() => state.setShowXml(true)}
+          onPrintDanfe={() => void state.handlePrintDanfe()}
+          onDownloadXml={() => void state.handleDownloadXml()}
+          onShareDanfe={state.handleShareDanfe}
+          onClose={onClose}
+        />
       </section>
-      {showXml && storedXml && <FiscalXmlViewer xml={storedXml} onClose={() => setShowXml(false)} />}
+      {state.showXml && state.storedXml && (
+        <FiscalXmlViewer xml={state.storedXml} onClose={() => state.setShowXml(false)} />
+      )}
     </div>
   );
 };

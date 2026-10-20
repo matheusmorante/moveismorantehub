@@ -285,6 +285,12 @@ export const SalesOrderModalsContainer: React.FC<SalesOrderModalsContainerProps>
           emissionResult={issuedFiscalDocument.result}
           order={issuedFiscalDocument.order}
           onClose={() => setIssuedFiscalDocument(null)}
+          onIssueNfe={(targetOrder, env) => {
+            setIssuedFiscalDocument(null);
+            setChosenNfeEnvironment(env);
+            setNfeEmissionOpenedAt(performance.now());
+            setNfeModalOrder(targetOrder);
+          }}
         />
       )}
 
@@ -294,6 +300,12 @@ export const SalesOrderModalsContainer: React.FC<SalesOrderModalsContainerProps>
           initialEnvironment={fiscalDocumentToView.environment}
           fullScreen={fiscalDocumentToView.environment === 1}
           onClose={() => setFiscalDocumentToView(null)}
+          onIssueNfe={(targetOrder, env) => {
+            setFiscalDocumentToView(null);
+            setChosenNfeEnvironment(env);
+            setNfeEmissionOpenedAt(performance.now());
+            setNfeModalOrder(targetOrder);
+          }}
         />
       )}
 

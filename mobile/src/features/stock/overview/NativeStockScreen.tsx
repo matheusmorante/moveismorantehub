@@ -7,7 +7,7 @@ import { StockMovesScreen } from '../moves';
 import { InventoryScreen } from '../inventory';
 import { PurchasesScreen } from '../purchases/PurchasesScreen';
 import { InvoicesScreen } from '../invoices';
-import { ReceiptsScreen } from '../receipts/ReceiptsScreen';
+import { ReceiptsScreen } from '../receipts';
 import { SuppliersScreen } from '../suppliers/SuppliersScreen';
 import { UnavailabilitiesScreen } from '../unavailabilities';
 import { TABS } from './native-stock-screen/nativeStockScreen.types';

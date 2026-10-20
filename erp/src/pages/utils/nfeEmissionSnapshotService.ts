@@ -7,6 +7,7 @@ import {
   hasFiscalItemSnapshot,
   hasPersistedAuthorizedInvoice,
 } from '../../../../shared-utils/orderItemFiscalSnapshot';
+import { withTimeout } from '../../../../shared-utils/withTimeout';
 
 /**
  * Completes and persists legacy item snapshots for the selected fiscal environment.
@@ -116,13 +117,19 @@ async function prepareOrderFiscalSnapshot(order: Order, environment: 1 | 2): Pro
     }
 
     try {
-      await updateOrder(
-        persistedOrder.id,
-        { items },
-        persistedOrder,
-        persistedOrder.updatedAt,
-        { metadataOnly: true }
+      const written = await withTimeout(
+        updateOrder(
+          persistedOrder.id,
+          { items },
+          persistedOrder,
+          persistedOrder.updatedAt,
+          { metadataOnly: true }
+        ).then(() => true),
+        30_000, null, 'nfe:preparar-snapshot'
       );
+      if (written === null) {
+        throw new Error('Não foi possível confirmar o salvamento dos itens fiscais no prazo. Reabra a emissão para conferir o pedido.');
+      }
     } catch (error) {
       const message =
         error instanceof Error
@@ -133,6 +140,20 @@ async function prepareOrderFiscalSnapshot(order: Order, environment: 1 | 2): Pro
             : 'Não foi possível salvar os dados fiscais dos itens do pedido.';
       throw new Error(message, { cause: error });
     }
+
+    // The write advances updated_at. Passing the pre-write order to the modal
+    // makes its next version-guarded fiscal save conflict with our own write.
+    const savedOrder = await withTimeout(
+      fetchOrderById(persistedOrder.id), 15_000, null, 'nfe:conferir-snapshot'
+    );
+    if (!savedOrder || savedOrder.id !== persistedOrder.id ||
+        !savedOrder.updatedAt || !Number.isFinite(Date.parse(savedOrder.updatedAt)) ||
+        savedOrder.updatedAt === persistedOrder.updatedAt ||
+        !Array.isArray(savedOrder.items) || !savedOrder.items.length ||
+        savedOrder.items.some((item) => item.itemType !== 'service' && !hasFiscalItemSnapshot(item))) {
+      throw new Error('Não foi possível conferir a versão salva dos itens fiscais. Reabra a emissão para atualizar o pedido.');
+    }
+    return savedOrder;
   }
 
   return { ...persistedOrder, items };

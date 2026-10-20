@@ -52,6 +52,15 @@ export function IssuedFiscalDocumentSummaryTab({
   const docModel = document?.modelo || emissionResult?.model || general?.model || '55';
   const docEnv = document?.ambiente ?? emissionResult?.environment ?? 1;
   const docStatus = document?.status || (docEnv === 2 ? 'homologada' : 'autorizada');
+  const isEstornada = Boolean(
+    details?.linkedDocuments?.some(
+      (d) => d.document_type === 'estorno' && ['autorizada', 'homologada'].includes(d.status)
+    ) ||
+      details?.operationDrafts?.some(
+        (d) => d.operation_kind === 'estorno' && d.status === 'authorized'
+      )
+  );
+  const effectiveStatus = isEstornada ? 'Estornada' : docStatus;
 
   const handleCopyAccessKey = async (key: string, isRef = false) => {
     if (!key) return;
@@ -99,6 +108,24 @@ export function IssuedFiscalDocumentSummaryTab({
           </div>
         </div>
       </div>
+
+      {isEstornada && (
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-900/60 dark:bg-indigo-950/40">
+          <div className="flex items-start gap-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-900/80 dark:text-indigo-300">
+              <i className="bi bi-arrow-counterclockwise text-base" />
+            </span>
+            <div className="text-xs">
+              <h4 className="font-bold text-indigo-900 dark:text-indigo-200">
+                Operação Fiscal Regularizada por Estorno (finNFe=3)
+              </h4>
+              <p className="mt-0.5 text-indigo-700 dark:text-indigo-300">
+                Esta nota fiscal foi estornada através de NF-e própria de entrada/anulação autorizada. Consulte o número, chave de acesso, XML e DANFE da nota de estorno na aba <strong>Eventos</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Grid de Seções: Identificação e Autorização */}
       <div className="grid gap-3 sm:grid-cols-2">
@@ -165,8 +192,8 @@ export function IssuedFiscalDocumentSummaryTab({
           <dl className="divide-y divide-slate-100 text-xs dark:divide-slate-800/80">
             <div className="flex justify-between py-2">
               <dt className="text-slate-500 dark:text-slate-400">Situação</dt>
-              <dd className="font-bold text-slate-800 dark:text-slate-200 capitalize text-right">
-                {docStatus}
+              <dd className={`font-bold capitalize text-right ${isEstornada ? 'text-indigo-600 dark:text-indigo-400 font-black' : 'text-slate-800 dark:text-slate-200'}`}>
+                {effectiveStatus}
               </dd>
             </div>
             <div className="flex justify-between py-2">

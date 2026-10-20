@@ -2,7 +2,7 @@ import React from 'react';
 import { Modal, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Invoice } from '../../types/stock.types';
-import { InboundInvoiceMappingsModalContent } from './InboundInvoiceMappingsModalContent';
+import { InboundInvoiceMappingsModalContent } from './inbound-mappings/InboundInvoiceMappingsModalContent';
 
 interface Props {
   invoice: Invoice | null;

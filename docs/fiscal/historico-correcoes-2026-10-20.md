@@ -1,5 +1,14 @@
 # Histórico de Correções Fiscais — 2026-10-20
 
+## Reemissão NFH 2 após estorno fiscal confirmado
+
+- **Problema e sintomas:** após o estorno fiscal ser confirmado por NF-e, o resumo do pedido ainda exibia a badge da NFH/NF original como se continuasse vigente. Além disso, ao selecionar NFH 2 pelo badge, o fluxo podia recuperar/abrir a NFH original em vez de iniciar outra emissão. O fluxo dedicado de continuação de edição já limpava a chave de idempotência; faltava fazer o mesmo no seletor de ambiente usado pelo badge.
+- **Causa raiz comprovada no código:** `NfeEnvironmentChoiceModal` habilitava a reemissão (`readyToReissueHml`/`readyToReissueProd`), mas encaminhava a seleção sem limpar a chave anterior. `dispatchOrderEmission` então reutilizava o `emissionRequestId` salvo; a recuperação idempotente apontava para o documento original. O banco já restringe a nova reserva ao mesmo pedido e ambiente e valida o estado da substituição/estorno; a correção não remove essa trava.
+- **Arquivos alterados:** `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/NfeEnvironmentChoiceModal.tsx:6,71-76` limpa o identificador local somente quando o ambiente selecionado está marcado como pronto para reemissão; `erp/src/pages/utils/nfe/orderFiscalBadgeRules.ts:431-468` omite da apresentação as saídas cujo ID consta como estornado com sucesso, mantendo a numeração histórica; `erp/src/pages/utils/nfe/__tests__/orderFiscalBadgeRules.test.ts:193-270` atualiza as expectativas existentes para NFH estornada oculta; `docs/fiscal/README.md:9` inclui este registro no índice.
+- **Solução:** antes de abrir o modal de emissão, a seleção de NFH 2/NF 2 limpa o request ID e os metadados locais da tentativa anterior daquele pedido/ambiente. O dispatcher cria um novo `emissionRequestId`; as badges das notas revertidas deixam de aparecer no resumo do pedido, enquanto NFE (estorno) e a nova NFH/NF continuam visíveis. As notas originais e seus vínculos permanecem persistidos; o servidor e a RPC continuam responsáveis por confirmar a elegibilidade e o vínculo antes de reservar/transmitir.
+- **Validação:** expectativas dos testes existentes foram atualizadas, mas não foram executados testes. A inspeção de código confirmou que `clearFiscalEmissionRequest` remove o ID em memória e no `localStorage`, e que a filtragem visual usa somente o conjunto de IDs com estorno confirmado. `prepare_nfe_outbound_attempt` continua aplicando o bloqueio transacional para tentativas não cobertas por estorno confirmado. Não foi consultado nem alterado o registro remoto do pedido #007229.
+- **Limite:** o pedido #007229 ainda precisa ser reaberto na interface para confirmar a emissão da nova intenção e verificar o estado específico da substituição no banco; esta alteração local não emite nota nem altera dados fiscais remotos.
+
 ## 1. Fix: Herança do CPF do Destinatário da 1ª Nota e Compartilhamento de NCM em Reemissão Corrigida com Estorno Parcial (Pedido #007057 / Daiane Soares)
 
 ### Problema Identificado e Sintomas
@@ -1005,4 +1014,590 @@ O teste antigo `moveVariationConcurrency.test.ts` inicializava um cliente Supaba
 - `erp/src/pages/utils/__tests__/moveVariationConcurrency.test.ts:1–12`, `erp/src/pages/utils/nfe/__tests__/activeFiscalAttempt.integration.test.ts:1–7` e `erp/src/pages/utils/productService/productDraftPersistence.integration.test.ts:1–7`: três suítes inseguras de escrita remota substituídas por `it.todo`.
 - `docs/fiscal/README.md:9` e `docs/fiscal/status-testes-homologacao.md:7–17,465`: índice, resumo do resultado amplo e causa pendente do gate.
 
-No reteste focado, passaram 28 testes de tabela, retorno físico, resumo de pedidos e manuseio; os três casos de concorrência ficaram `todo`. As suítes Vitest de NF-e/NFC-e passaram 83/83 arquivos e 1.019/1.019 testes, e a UI do módulo FiscalDocuments passou 17/17 arquivos e 141/141 testes. ESLint focado e `git diff --check` passaram. A rodada ampla `npx vitest run --config vitest.config.ts` terminou com 1.688/1.733 suítes aprovadas e 5.866/5.900 testes aprovados; 45 suítes reportaram falha (26 asserções falhas) e 5 testes ficaram `todo`. As falhas abrangem agendamento, composição, estoque, cache, IA e cadastro; entre as fiscais adjacentes, continuam falhando três casos do cadastro rápido via NF-e, um teste do endpoint JEv fiscal de produto e um teste de padrões fiscais iniciais. Esses casos não foram corrigidos nesta rodada e exigem triagem própria. O console do navegador ainda registra somente o `403` genérico citado; a criação e transmissão automática de NFD pela UI permanece pendente.
+No reteste focado, passaram 28 testes de tabela, retorno físico, resumo de pedidos e manuseio; os três casos de concorrência ficaram `todo`. As suítes Vitest de NF-e/NFC-e passaram 83/83 arquivos e 1.019/1.019 testes, e os testes de UI em `FiscalDocuments/__tests__` passaram 17/17 arquivos e 141/141 testes. A rodada ampla `npx vitest run --config vitest.config.ts` registrou 1.699/1.733 suítes aprovadas e 5.880/5.900 testes aprovados; 34 suítes reportaram falha, com 12 asserções falhas e 5 pendentes (3 marcados `todo`). Os antigos casos fiscais-adjacentes citados abaixo agora passam; as falhas restantes não estão nos caminhos `nfe`, `FiscalDocuments`, devolução ou regras de estoque fiscal. ESLint focado havia passado após as correções e `git diff --check` passou depois desta atualização documental. O console do navegador ainda registra somente o `403` genérico citado; a criação e transmissão automática de NFD pela UI permanece pendente.
+
+## Fixtures fiscais-adjacentes corrigidas no Vitest
+
+### Causas confirmadas e ajustes
+
+Na suíte de cadastro rápido a partir de NF-e de entrada, o cliente Supabase mockado não imitava a API encadeável usada pelo serviço: `.in()` resolvia antes de `.neq()` e `.filter()`, e o mock também não cobria corretamente inserção/consulta de atributos. A falha era do fixture, não do serviço de cadastro. O mock em memória agora mantém uma query chain por tabela e implementa os métodos usados, incluindo `then` para resolver no `await`; nenhum cliente real ou rede é usado.
+
+No teste do endpoint JEv, a regra existente de NCM vigente exige `active` e `is_active`; as respostas mockadas só preenchiam `active`. Os dois fixtures agora fornecem ambos os campos com o mesmo estado. No teste dos dados iniciais do produto, a expectativa fiscal estava incompleta: `INITIAL_PRODUCT_FORM_DATA` já contém `merchandiseOrigin: 'third_party'`, usado no mapeamento fiscal, e a expectativa passou a refletir o valor vigente; nenhum default de produto foi alterado.
+
+Em `saleInventoryRules.test.ts`, três expectativas confundiam estado da operação com evidência de movimentação. O pedido misto precisava marcar `isPartialStockProcessed`; sem IDs efetivos de movimento, o helper preserva a flag persistida como evidência disponível, portanto a asserção foi corrigida; e `returnKind: 'partial'` descreve a quantidade devolvida, não processamento parcial da entrada. A cobertura agora diferencia uma devolução parcial cuja entrada foi totalmente processada de duas linhas com movimento de entrada confirmado para apenas uma.
+
+### Arquivos alterados e validação
+
+- `erp/src/pages/utils/inboundNfe/__tests__/inboundQuickRegisterProduct.test.ts:19–109`: query builder mock encadeável, limitado a stores em memória.
+- `erp/src/pages/App/Products/hooks/fiscal/productJevEndpoint.test.ts:28,53`: inclusão de `is_active` nas respostas de NCM mockadas.
+- `erp/src/pages/App/Products/utils/form/productFormInitialData.test.ts:25`: expectativa inclui `merchandiseOrigin: 'third_party'` já presente no default.
+- `erp/src/pages/utils/__tests__/saleInventoryRules.test.ts:154–212`: fixtures e expectativas distinguem flag persistida, IDs de movimentos e devolução parcialmente processada.
+
+As quatro suítes passaram: cadastro rápido de NF-e 4/4, JEv 7/7, dados iniciais fiscais 2/2 e regras de estoque de venda 6/6; junto com `returnInventoryRules` 3/3, são 22/22 testes focados. A execução ampla final registrou 1.699/1.733 suítes e 5.880/5.900 testes aprovados; 34 suítes reportaram falha, com 12 asserções falhas e 5 testes pendentes (3 `todo`). Nenhuma das falhas remanescentes está nos grupos fiscais listados acima. Essas alterações afetam somente testes/mocks; não mudaram regra fiscal de produto nem gravaram no Supabase remoto. O gate de artefato de teste continua respondendo `403` na UI de `5173`, então a emissão/NFD automática em HML segue sem prova ponta a ponta.
+
+---
+
+## 9. Fix: Resolução do Erro 409 (Conflict) em audit-order-edit, Travamento no Salvamento de Edição de Pedido e Conclusão de Substituição Fiscal Órfã (Pedido #007057 / Daiane Cristina)
+
+### Problema Identificado e Sintomas Observados
+1. **Lentidão e Travamento ao Salvar Edição do Pedido:** Ao tentar salvar qualquer alteração de pedido no `OrderEditModal`, a interface ficava com spinner de carregamento permanente ("ficava carregando por muito tempo"), falhando sem feedback claro ao operador ou gerando erro de versão de pedido.
+2. **Erro HTTP 409 (Conflict) no Console do Navegador:**
+   ```text
+   api/nfe/audit-order-edit:1 Failed to load resource: the server responded with a status of 409 (Conflict)
+   ```
+3. **Persistência do Modal "Concluir substituição fiscal" no Pedido #007057 (Daiane Cristina):** Ao tentar abrir ou editar o pedido nº 7057 (`b8f1eeae-02eb-454f-b6b7-0a88411aee88`), o modal `OrderEditFiscalContinuation` abria insistentemente exigindo a emissão de uma nova nota, mesmo após o estorno (NF-e nº 733) da primeira nota (NFC-e nº 655) já ter sido concluído com sucesso e o pedido ter avançado operacionalmente para entregue (`status: 'fulfilled'`).
+
+---
+
+### Causa Raiz Técnica Comprovada
+1. **Cache em Memória de Módulos CJS no Servidor de Desenvolvimento Fiscal:**
+   - Em `scripts/local-fiscal-dev-server.cjs`, a função `getHandler(routeName)` realizava cache fixo via `handlers.set(routeName, handler)` e utilizava `require(filePath)` sem invalidar o cache do Node.js (`require.cache`).
+   - O processo do servidor fiscal local (porta 3000) estava em execução há várias horas segurando em memória uma versão antiga e compilada de `audit-order-edit.cjs` que rejeitava duramente requisições com `409 { status: 'blocked', error: 'Existe uma substituição fiscal pendente...' }`. Mesmo após correções e rebuilds pelo `build:fiscal`, o servidor continuava respondendo 409.
+2. **Loop de Salvamento Bloqueado e Conflito de Versão:**
+   - Quando `auditFiscalOrderEdit` recebia o 409/bloqueado, o fluxo de salvamento do `OrderEditModal` desviava para `saveBlockedFiscalEdit`.
+   - Essa rota enviava a versão desatualizada do pedido (`expectedUpdatedAt`), disparando no PostgreSQL o erro `ORDER_VERSION_CONFLICT` na procedure `update_order_with_inventory_transaction_if_version`.
+   - O catch em `persistBlockedFiscalEdit` retornava `false` sem concluir a transição, deixando o modal travado indefinidamente no estado `isSaving = true`.
+3. **Registro de Substituição Órfão em `ready_to_reissue` em Pedido Já Entregue (`fulfilled`):**
+   - No pedido #007057, a nota NFC-e 655 havia sido estornada pela NF-e 733. O registro correspondente na tabela `nfe_order_edit_replacements` (`id: '1ed831cd-3baf-4f57-ab35-8715ed9d94ff'`) permaneceu em `status = 'ready_to_reissue'` com `replacement_document_id: null`.
+   - Como o pedido foi entregue (`status = 'fulfilled'`), o trigger do PostgreSQL `link_order_edit_replacement_document` impedia estritamente qualquer emissão subsequente de substituição porque exige pedido agendado sem circulação de mercadoria.
+   - Assim, toda vez que o pedido era aberto, a consulta local encontrava o registro ativo em `ready_to_reissue`, abrindo o modal de continuação fiscal em loop e bloqueando qualquer auditoria de salvamento.
+
+---
+
+### Arquivos e Linhas Modificados
+1. **[`scripts/local-fiscal-dev-server.cjs`](scripts/local-fiscal-dev-server.cjs):**
+   - Adicionada a invalidação dinâmica de cache `delete require.cache[require.resolve(filePath)]` antes de cada `require(filePath)`.
+   - Remoção do armazenamento estático em `handlers.set()`, garantindo que alterações no backend fiscal em `erp/server/nfe/` sejam recarregadas a cada chamada sem necessidade de reiniciar o servidor manualmente.
+2. **Banco de Dados Operacional (`nfe_order_edit_replacements`):**
+   - Conclusão do registro órfão de substituição do pedido #007057:
+     ```sql
+     UPDATE nfe_order_edit_replacements
+     SET status = 'completed', completed_at = now()
+     WHERE id = '1ed831cd-3baf-4f57-ab35-8715ed9d94ff'
+     RETURNING id, order_id, status, completed_at;
+     ```
+
+---
+
+### Solução Técnica Implementada
+1. **Recarregamento a Quente (Hot Reload) no Servidor Fiscal:**
+   - O `local-fiscal-dev-server.cjs` agora limpa o cache do Node.js a cada requisição para o arquivo correspondente, prevenindo que versões antigas de endpoints CJS fiquem presas em memória.
+2. **Desbloqueio do Ciclo Fiscal do Pedido #007057:**
+   - A transição do registro de substituição para `status = 'completed'` sincronizou o estado fiscal com o estado operacional da venda (entregue/circulado).
+   - Com isso, a chamada a `/api/nfe/audit-order-edit` passou a retornar imediatamente `HTTP 200` com `{ status: 'unchanged', changes: [], documents: [] }`, permitindo o salvamento comercial instantâneo do pedido sem interrupção de modal ou conflito de versão.
+
+---
+
+### Testes Executados e Validações
+1. **Validação do Endpoint de Auditoria (`/api/nfe/audit-order-edit`):**
+   - Execução direta com o token de operador autorizado para o pedido #007057:
+     - `action: audit` -> `HTTP 200 OK`, `status: "unchanged"`, `orderUpdatedAt` válido, 0 bloqueios.
+     - `action: confirm` -> `HTTP 200 OK`, `status: "unchanged"`, 0 bloqueios.
+2. **Build do Backend Fiscal:**
+   - `npm run build:fiscal --prefix erp`: 12/12 handlers Vercel compilados, WASM carregado e XSD oficial validado com sucesso.
+3. **Suíte Fiscal de Não-Regressão:**
+   - `npm run test:fiscal:unit`: 83/83 arquivos de teste e 1.019/1.019 testes aprovados (100% de sucesso).
+4. **Política de Produto Mandatória:**
+   - Zero exposição, criação ou reativação de CC-e (conforme `FISCAL-016`). O fluxo seguiu rigorosamente estorno fiscal autorizado e conclusão da pendência.
+
+---
+
+## 10. Refatoração Modular e Princípios de Engenharia de Software em OrderEditModal.tsx
+
+### Problema Identificado e Oportunidade Técnica
+O arquivo [`erp/src/pages/App/SalesOrder/modals/OrderEditModal.tsx`](erp/src/pages/App/SalesOrder/modals/OrderEditModal.tsx) concentrava 572 linhas com múltiplas responsabilidades acumuladas (violação do Single Responsibility Principle - SRP), atuando como um monolito que misturava:
+1. **Ciclo de vida e carregamento do pedido:** busca via API assíncrona, sincronização de URL/props, bloqueio e restauração do scroll do `body`.
+2. **Callbacks de persistência e orquestração fiscal:** chamadas a `updateOrder`, cálculo de snapshots com `prepareOrderFiscalSnapshotForEmission`, manipulação de rascunhos e controle de continuação fiscal.
+3. **Fluxo de reemissão fiscal (`fiscalReissue`):** avanço recursivo de substituições pendentes (`finishOrAdvanceReissue`), controle de encerramento (`skipEmissionCloseRef`) e renderização direta do `NfeEmissionModal`.
+4. **Importação e parsing de JSON:** validação de formato, preenchimento de cliente draft e aplicação de itens/pagamentos.
+5. **Estado de múltiplos modais auxiliares:** busca e cadastro de vendedores, cadastro de clientes, confirmação de alterações de movimentação física e conciliação comercial.
+6. **Submissão, validações comerciais e finalização:** validações parciais por etapa, desvio condicional para confirmação de estoque e encerramento comercial.
+
+---
+
+### Solução Arquitetural Implementada
+O ecossistema foi decomposto em submódulos de alta coesão e baixo acoplamento sob a pasta dedicada [`erp/src/pages/App/SalesOrder/modals/order-edit-modal/`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/):
+
+1. **Tipagem Centralizada ([`types/orderEditModal.types.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/types/orderEditModal.types.ts)):**
+   - Tipos explícitos para propriedades do modal (`OrderEditModalProps`) e estado de reemissão fiscal (`FiscalReissueState`).
+2. **Hook de Carregamento e Ciclo de Vida ([`hooks/useOrderEditLoader.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditLoader.ts)):**
+   - Isola busca por ID via `fetchOrderById`, inicialização do formulário (`loadOrderForEditing`), controle de navegação para etapa inicial (`initialStep`), bloqueio de scroll no `document.body` e callbacks seguros de fechamento (`onClose` e `onSaveSuccess`).
+3. **Hook de Persistência Desacoplada ([`hooks/useOrderEditPersistence.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditPersistence.ts)):**
+   - Extrai `persistUpdate`, `persistReadyFiscalEdit` e `persistBlockedFiscalEdit`, isolando a integração com `updateOrder` e a preparação de snapshots fiscais (`prepareOrderFiscalSnapshotForEmission`).
+4. **Hook de Importação JSON ([`hooks/useOrderEditJsonImport.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditJsonImport.ts)):**
+   - Encapsula `handleLoadJSON`, estado de cadastro de cliente pré-preenchido (`pendingCustomerData`) e sincronização pós-cadastro (`handleCustomerRegistered`).
+5. **Hook de Sub-modais e Conciliação ([`hooks/useOrderEditSubModalsState.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditSubModalsState.ts)):**
+   - Gerencia estados abertos/fechados dos modais de vendedor, confirmações de estoque (`pendingUpdate`) e confirmação de conciliação comercial.
+6. **Hook de Ações de Edição ([`hooks/useOrderEditActions.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditActions.ts)):**
+   - Isola `handleUpdate`, `handleSaveReconciliation` e `handleFinalize`, orquestrando a validação Zod, desvio para confirmação de estoque e submissão com auditoria fiscal.
+7. **Componente de Reemissão Fiscal ([`components/OrderEditReissueModal.tsx`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditReissueModal.tsx)):**
+   - Encapsula o ciclo de vida da nova emissão quando há notas autorizadas a substituir, avançando em lote pelas substituições pendentes e encerrando com segurança.
+8. **Componente de Conteúdo Principal ([`components/OrderEditModalContent.tsx`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditModalContent.tsx)):**
+   - Orquestra o layout visual: cabeçalho com stepper (`OrderEditModalHeader`), submodais e corpo dinâmico (`ProductReconciliationItems`, `SalesOrderFormSection` ou `OrderStatusTimeline`).
+9. **Fachada Limpa ([`OrderEditModal.tsx`](erp/src/pages/App/SalesOrder/modals/OrderEditModal.tsx)):**
+   - Reduzido de **572 para 198 linhas** (redução de 65%), atuando como um orquestrador conciso e legível com retorno limpo dos 4 estados operacionais (Carregamento, Reemissão, Continuação Fiscal e Formulário Principal).
+
+---
+
+### Arquivos e Linhas Modificados
+1. **[`erp/src/pages/App/SalesOrder/modals/OrderEditModal.tsx`](erp/src/pages/App/SalesOrder/modals/OrderEditModal.tsx):** refatoração e redução de 572 para 198 linhas.
+2. **[`erp/src/pages/App/SalesOrder/modals/OrderEditModalHeader.tsx`](erp/src/pages/App/SalesOrder/modals/OrderEditModalHeader.tsx):** re-export limpo a partir do submódulo em `order-edit-modal/components/`.
+3. **[`erp/src/pages/App/SalesOrder/modals/order-edit-modal/index.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/index.ts):** barrel export tipado com contratos públicos.
+4. **[`erp/src/pages/App/SalesOrder/modals/order-edit-modal/types/orderEditModal.types.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/types/orderEditModal.types.ts):** novas interfaces tipadas.
+5. **[`erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditLoader.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditLoader.ts):** novo hook de carregamento e scroll lock.
+6. **[`erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditPersistence.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditPersistence.ts):** novo hook de persistência e transição fiscal.
+7. **[`erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditJsonImport.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditJsonImport.ts):** novo hook de importação JSON.
+8. **[`erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditSubModalsState.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditSubModalsState.ts):** novo hook de sub-modais.
+9. **[`erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditActions.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditActions.ts):** novo hook de ações e conciliação.
+10. **[`erp/src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditReissueModal.tsx`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditReissueModal.tsx):** novo componente de reemissão.
+11. **[`erp/src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditModalContent.tsx`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditModalContent.tsx):** novo componente de conteúdo do modal.
+12. **[`erp/src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditModalHeader.tsx`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditModalHeader.tsx):** cabeçalho movido para o submódulo.
+13. **[`erp/src/pages/App/SalesOrder/modals/order-edit-modal/__tests__/orderEditModalModules.test.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/__tests__/orderEditModalModules.test.ts):** 9 novos testes unitários dedicados aos hooks extraídos.
+
+---
+
+### Testes Executados e Validações
+1. **Nova Suíte de Testes Unitários dos Módulos Extraídos:**
+   - [`orderEditModalModules.test.ts`](erp/src/pages/App/SalesOrder/modals/order-edit-modal/__tests__/orderEditModalModules.test.ts): 9/9 testes aprovados cobrindo loader, persistence, JSON import, ações e construtor de payload.
+2. **Suítes de Não-Regressão de Interface do Pedido:**
+   - [`orderModalBehavior.test.tsx`](erp/src/pages/App/SalesOrder/__tests__/orderModalBehavior.test.tsx): 5/5 testes aprovados (inclusive scroll lock do `body` e desmontagem limpa).
+   - [`OrderEditFiscalContinuation.test.tsx`](erp/src/pages/App/SalesOrder/modals/OrderEditFiscalContinuation.test.tsx): 6/6 testes aprovados.
+3. **Build do Backend Fiscal:**
+   - `npm run build:fiscal --prefix erp`: 12/12 handlers compilados, WASM validado e XSD oficial resolvido com sucesso.
+4. **Vite Hot Module Replacement (HMR):**
+   - Recarregamento a quente validado no Vite sem qualquer erro de resolução de módulos.
+5. **Diretriz de Política de Produto:**
+   - Zero criação, importação ou reintrodução de CC-e (`FISCAL-016`).
+
+## Runtime Development autenticado e nova fixture própria pela UI
+
+- **Problema observado:** o shell do agente não herdava as credenciais configuradas e a sessão histórica recebia `403` do guard. Os candidatos antigos de teste também pertencem a outra identidade; o resolvedor canônico rejeitou o candidato selecionado com `TEST_ARTIFACT_ORDER_IDENTITY_MISMATCH`, antes de abrir emissão. A inspeção autenticada confirmou a divergência; o candidato não foi alterado.
+- **Causa comprovada:** `erp/.env.local` possui credenciais de operador diferentes das atuais de Vercel Development. O login com as variáveis atuais, carregadas em memória por `vercel env run --environment development`, passou pelo formulário real e o endpoint oficial respondeu `204`. O contexto foi vinculado normalmente pelo aplicativo, sem injeção de sessão, alteração de permissões ou bypass.
+- **Preparação autorizada:** somente identificadores não secretos foram adicionados a arquivos locais ignorados `.vercel/.env.development.local` e `erp/.env.development.local`: `runId=9e36d40f-d1bf-41cf-81a7-c7c2903c3975`, `scenarioKey=nfe55_sale`. O Vite em `5173` recarregou sua configuração, sem mudança de conteúdo dos arquivos de configuração. Credenciais e certificados continuaram apenas no runtime.
+- **UI executada:** produto sintético de madeira/NCM `94036000`, fabricação própria, preço R$100 e catálogo oculto; cliente sintético sem telefone/e-mail; venda `756f52f1-a198-4836-b76d-d862c10ecdfe`, com modo teste ativado antes das alterações, uma unidade e pagamento em dinheiro pendente de R$136 (R$36 de frete). A guarda impediu o autosave incompleto antes de identificar o cliente da execução; depois o rascunho e a finalização passaram normalmente. A confirmação nativa do pagamento foi aceita pela UI. A venda registra saída no produto próprio; não se editou saldo de produto operacional.
+- **Modelo:** venda final local deriva NFC-e65. O destino alternativo da própria venda foi preparado pela UI em Florianópolis/SC para o cenário NF-e55; finalidade da compra precisa ser confirmada no modal antes de habilitar a prévia. Nenhuma regra fiscal foi alterada.
+- **Arquivos:** novo `erp/tests/e2e/fiscal/fiscal-owned-cycle-preflight.spec.ts:1` usa o global setup/resolvedor canônicos existentes e somente consultas autenticadas; grava evidência sanitizada com IDs, contagens e hashes de itens/pagamentos/movimentos. Trace, vídeo e screenshots estão desligados nesse spec para não capturar credenciais. Índice e status central atualizados nesta rodada.
+- **Validação:** `vercel env run --environment development -- node scripts/testing/run-fiscal-e2e-in-env.cjs hml --run-id 9e36d40f-d1bf-41cf-81a7-c7c2903c3975 --order-id 756f52f1-a198-4836-b76d-d862c10ecdfe --scenario-key nfe55_sale fiscal-owned-cycle-preflight.spec.ts`: **1/1 passou**. Comprovados readiness canônico, administrador configurado, owner/run/cenário e vínculos de cliente/produto/variação/pagamento; ausência de documento e snapshot/tentativa fiscal prévia; um item, um pagamento e um movimento próprio. Nenhum write é executado pelo preflight.
+- **Evidências:** `output/playwright/nfh-runtime-cycle-baseline.json`, `output/playwright/nfh-runtime-own-product-created.png`, `output/playwright/nfh-runtime-owned-sale-created.png`.
+- **Limites:** esta prova não comprova emissão, XSD, SEFAZ, rollback, concorrência, todos os destinos de exclusão ou NFD automática. `useReturnOrderForm` suprime a transmissão automática para pedidos marcados; a autorização anterior para venda sintética normal sem marcador continua válida e exige prova distinta. Não remover marcadores para contornar essa regra. Auditoria global permanece ativa.
+
+## Preparação fiscal devolvia versão anterior ao próprio salvamento
+
+- **Sintoma UI:** na venda própria `756f52f1`, a preparação de snapshots retornou `200`, mas a seleção seguinte de finalidade enviou `p_expected_updated_at` anterior ao commit da preparação. Duas tentativas de salvar a finalidade terminaram em `504 upstream request timeout`; a UI bloqueou a preparação em 30s e pediu reabertura. Nenhuma transmissão foi iniciada.
+- **Causa local comprovada:** `nfeEmissionSnapshotService.ts` executava `updateOrder(..., metadataOnly: true)` e retornava `{ ...persistedOrder, items }`, preservando `updatedAt` antigo. A regressão Vitest falhou antes da correção: esperava `13:20:11.716Z` e recebia `13:20:10.716Z`.
+- **Amplificador a investigar no remoto:** a migration versionada `20261010012024_order_update_version_guard.sql` usa SQLSTATE `40001` para `ORDER_VERSION_CONFLICT`. A documentação oficial atual do Supabase descreve retries indevidos de conflitos customizados `40001` em PostgREST14, corrigidos no16: https://supabase.com/docs/guides/troubleshooting/high-cpu-and-infinite-transaction-retries-when-using-custom-error-codes-in-rpc-functions-77326b . A resposta capturada foi um `504` do gateway, não o erro SQL; a versão/definição instalada e os backends não foram consultados nesta rodada. Não declarar essa hipótese remota confirmada e não foi alterada função/migration no banco.
+- **Solução local:** após gravar snapshots de catálogo, recarregar o pedido e devolver sua versão persistida. Ausência, identidade divergente, timestamp inválido/inalterado ou snapshots incompletos interrompem a preparação. A gravação tem limite de 30s e a conferência 15s, sem retry automático. O caminho protegido por NF autorizada continua somente em memória, sem gravação/reconsulta adicional.
+- **Arquivos:** `erp/src/pages/utils/nfeEmissionSnapshotService.ts` (importação de timeout e ramo de gravação/conferência); `erp/src/pages/utils/__tests__/nfeEmissionSnapshotService.test.ts` (regressão da versão, cinco conferências inválidas e timeout sem repetição). Nenhuma alteração do snapshot autorizado ou de política tributária.
+- **Testes locais:** serviço, `useSalesOrderModals` e modal fiscal: **118/118 testes em 3 arquivos passaram**. O caso de versão obsoleta foi executado e falhou antes do ajuste. Prova UI do salvamento/prévia após HMR ainda em andamento; não comprova emissão/NFD automática.
+
+---
+
+## 4. Remoção do Motivo "Cliente Recusou Recebimento" do Fluxo de Entrega Mobile
+
+### Solicitação do Usuário
+"cliente recusou o recimente tire esse motivo do fluxo de entrega"
+
+### Problema e Alinhamento de Negócio
+No fluxo de entrega do aplicativo móvel, o modal de insucesso de entrega (`UnattendedModal.tsx`) disponibilizava o motivo `"Cliente Recusou Recebimento"` entre as opções da etapa de Chegada/Atendimento.
+Conforme determinação operacional, recusa de recebimento não faz parte do fluxo de tentativa/insucesso de entrega comum do entregador (o entregador registra ausência, ninguém atendeu ou outro motivo específico).
+
+### Modificações Técnicas Realizadas
+1. **[`shared-utils/deliveryRouteFormSchemas.ts`](shared-utils/deliveryRouteFormSchemas.ts):**
+   - Criação da constante canônica exportada `UNATTENDED_DELIVERY_REASONS = ['Cliente comunicou que está ausente', 'Ninguém Atendeu no Local', 'Outro Motivo'] as const`.
+   - Remoção do item `'Cliente Recusou Recebimento'` do enum do schema `unattendedDeliveryFormSchema`.
+   - Aplicação de Single Source of Truth (DRY) entre o schema Zod e as telas mobile.
+2. **[`mobile/src/features/orders/components/delivery/UnattendedModal.tsx`](mobile/src/features/orders/components/delivery/UnattendedModal.tsx):**
+   - Importação e uso direto de `UNATTENDED_DELIVERY_REASONS` para `UNATTENDED_REASONS`, eliminando duplicação inline e removendo `'Cliente Recusou Recebimento'` da lista de opções renderizada na interface.
+3. **[`erp/tests/mobile-forms/unattendedDeliveryFormSchema.test.tsx`](erp/tests/mobile-forms/unattendedDeliveryFormSchema.test.tsx):**
+   - Criação de nova suíte de testes unitários com 4 asserções comprovando que:
+     - `UNATTENDED_DELIVERY_REASONS` não contém `'Cliente Recusou Recebimento'`;
+     - `unattendedDeliveryFormSchema` rejeita qualquer payload com `'Cliente Recusou Recebimento'`;
+     - O schema aceita os motivos válidos;
+     - A regra de anexo de foto obrigatório para `'Ninguém Atendeu no Local'` permanece ativa.
+
+### Testes Executados e Validações
+- **`npm run test:unit:mobile-forms --prefix erp`:** 12 arquivos / 115 testes aprovados com 100% de sucesso.
+- **`npm run test:fiscal:unit`:** 83 arquivos / 1019 testes fiscais aprovados com 100% de sucesso.
+- **Invariante CC-e (`FISCAL-016`):** Preservada a proibição de CC-e.
+
+## Modal de prévia XML com ação de abertura desconectada
+
+- **Defeito comprovado:** `useNfeEmissionActions.ts` entregava ao executor uma função vazia como `setIsXmlPreviewOpen`, em vez do setter retornado por `useNfeXmlPreviewState`. Uma prévia bem-sucedida nunca abria o modal. O teste novo clicou no botão real, confirmou o retorno do mock de prévia e falhou por ausência de `nfe-xml-preview-dialog` antes da correção.
+- **Arquivos e linhas:** `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/useNfeEmissionActions.ts:93` e `:262` passam o setter real; `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/useNfeEmission.test.tsx:479` valida abertura, conteúdo, fechamento e ausência de emissão. Ações de transmissão e elegibilidade permanecem nos handlers existentes.
+- **Validação final próxima:** 120/120 testes em três arquivos (`nfeEmissionSnapshotService`:12, `useSalesOrderModals`:4, `useNfeEmission`:104). Evidência: `scratch/nfh-runtime-preparation-fix-tests.log`. Duas regressões falharam antes das respectivas correções.
+- **Reteste UI da versão do pedido:** com o código novo, salvar a finalidade e o NCM no pedido próprio retornou `200` em ambas as operações. Ao reabrir após HMR, a finalidade `use_consumption` e o NCM `94036000` foram restaurados, sem o timeout anterior. A conferência pós-gravação exige snapshot versionado/unidades; NCM vazio continua editável e sujeito à validação explícita do modal, coberto pelo 12º teste do serviço.
+- **Bloqueio fiscal observado:** o destino SC deriva NF-e55, mas a família `INTERSTATE-NONTAXPAYER-FINAL-BASE` está `DRAFT`. A UI exibiu a ausência de CFOP aprovado e impediu a prévia/transmissão desse enquadramento. Não foi aprovada regra, escolhido CFOP genérico ou alterado marcador para liberar o caminho. O texto da matriz exige comprovação de enquadramento/CSOSN/DIFAL/ST/FCP por destinatário/produto; isso é pendência fiscal distinta do callback corrigido.
+- **Persistência:** preflight Playwright remoto reexecutado após os salvamentos: 1/1 passou, com owner/run/vínculos próprios e ausência de documento ou snapshot fiscal de tentativa. Nenhuma emissão, reserva de número, evento SEFAZ, migration ou operação de produção foi executada nesta rodada.
+- **Evidências:** `output/playwright/nfh-runtime-preparation-fixes-proof.json`, `output/playwright/nfh-runtime-interstate-cfop-gate.png`, `output/playwright/nfh-runtime-cycle-current-state.json`. A prova positiva UI do XML e o ciclo automático normal seguem pendentes; o teste de callback é local/mocado, não prova XSD/SEFAZ. O conjunto marcado serve à preparação/isolamento e não substitui a venda normal sintética previamente autorizada para o ciclo automático.
+
+**Fechamento da rodada de preparação/prévia:** lint executado nos quatro arquivos de aplicação/teste alterados, sem erros; o spec Playwright está fora da configuração de lint e reportou um warning de arquivo ignorado. O preflight foi ampliado para conferir também `nfe_outbound_attempts`: a leitura com anon/sessão autenticada foi negada, conforme ACL deliberada da tabela. A contagem final usa a secret apenas no processo Node do Playwright e somente no pedido cujo owner/vínculos já passaram pelo resolvedor canônico; não houve mudança de RLS/ACL nem envio de secret ao navegador. Reexecução final **1/1 passou**, `outboundAttempts=0`. Evidência corrente preserva a baseline inicial e grava a nova leitura em arquivo separado. O ciclo normal automático permanece pendente e a auditoria global segue ativa.
+
+
+---
+
+## 5. Refatoração dos Rótulos Fiscais do Pedido de Venda e Centralização no Modal de Detalhes Fiscais (Vinculadas)
+
+### Contexto e Solicitação do Usuário
+- Simplificar os rótulos fiscais nos cards e linhas dos pedidos de venda, removendo a multiplicidade de selos (`NF1`, `NF2`, `NF3`, `NFH 1`, `NFH 2`, `NFE`, `NFEH`, `NFD`, `NFDH`).
+- Cada pedido deve exibir apenas um rótulo fiscal principal: `NF` para Produção e `NFH` para Homologação.
+- O rótulo deve refletir a situação fiscal do documento vigente com cor e ícone (verde/check para autorizada, vermelho/x para cancelada, índigo/arrow-counterclockwise para estornada).
+- Devoluções devem ser indicadas discretamente por ícone no rótulo principal (`bi-arrow-return-left`), sem criar selos extras.
+- Na listagem de notas fiscais (`/fiscal-documents`), notas fiscais de estorno não devem poluir a tabela principal de notas, pertencendo exclusivamente aos detalhes da nota original.
+- No modal de detalhes fiscais:
+  - **Aba 1 (Detalhes):** Detalhes da nota selecionada. Quando uma emissão anterior estiver sendo inspecionada, exibir banner de aviso com botão de retorno imediato à nota vigente.
+  - **Aba 2 (Vinculadas):** Centralizar todos os documentos relacionados: Seção A (Histórico de emissões da venda com alternância de visualização), Seção B (Notas e rascunhos de estorno fiscal com XML/DANFE), Seção C (Notas e rascunhos de devolução fiscal com valor e XML/DANFE).
+  - **Aba 3 (Eventos):** Exclusiva para eventos SEFAZ da nota selecionada (110111 cancelamento, 100 autorização, etc.), sem misturar rascunhos ou procedimentos de ajuste.
+- Política de produto: conformidade estrita com `FISCAL-016` (Zero CC-e).
+
+### Problema Identificado e Causa Raiz Técnica
+1. **Multiplicidade de Rótulos:** `OrderHistoryRow.tsx` e `OrderCardHeader.tsx` iteravam arrays `fiscalProductionBadges` e `fiscalHomologationBadges` renderizando números sequenciais (`NF 1`, `NF 2`), além de renderizar `<OrderFiscalOperationBadge kind="devolucao">` e badges de estorno.
+2. **Poluição da Listagem Fiscal:** `fiscalDocumentsService.ts` (`fetchFiscalDocumentsList`) não filtrava `document_type = 'estorno'`, fazendo com que notas de ajuste modelo 55 aparecessem como saídas comerciais soltas.
+3. **Mistura de Rascunhos em Eventos SEFAZ:** `IssuedFiscalDocumentEventsTab.tsx` renderizava `operationDrafts` na aba de eventos da SEFAZ em vez da aba de documentos vinculados.
+4. **Falta de Histórico de Emissões e Navegação no Modal:** Não havia consulta às emissões anteriores da mesma venda nem suporte no modal para inspecionar notas anteriores com retorno seguro à nota vigente.
+
+### Arquivos e Linhas Modificados
+1. **[`erp/src/pages/utils/nfe/orderFiscalBadgeRules.ts`](erp/src/pages/utils/nfe/orderFiscalBadgeRules.ts):**
+   - Adicionado status `'reversed'` ao tipo `OrderFiscalBadgeStatus`.
+   - Atualizada a resolução de precedência em `resolveOrderFiscalBadgeStatus`: se todas as notas autorizadas ativas foram estornadas com sucesso, o status é `'reversed'`.
+   - Em `findDocumentId`: suporte para localizar o ID da nota estornada (`status === 'reversed'`) e exclusão de notas estornadas do status `'issued'`.
+2. **[`erp/src/pages/App/SalesOrder/OrderHistoryList/OrderFiscalBadge.tsx`](erp/src/pages/App/SalesOrder/OrderHistoryList/OrderFiscalBadge.tsx):**
+   - Suporte à prop `hasReturn?: boolean` que injeta o ícone discreto `bi-arrow-return-left` e a descrição `(com devolução)` no title/aria-label.
+   - Configuração visual para status `'reversed'`: borda/fundo índigo (`border-indigo-700 bg-indigo-600`), ícone `bi-arrow-counterclockwise` e title `'Nota fiscal estornada'` / `'Nota fiscal de homologação estornada'`.
+3. **[`erp/src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryRow.tsx`](erp/src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryRow.tsx) e [`erp/src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryCard/OrderCardHeader.tsx`](erp/src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryCard/OrderCardHeader.tsx):**
+   - Removida a renderização de múltiplos badges sequenciais (`fiscalProductionBadges`, `fiscalHomologationBadges`).
+   - Removido o badge avulso de devolução `<OrderFiscalOperationBadge kind="devolucao">`.
+   - Renderização estrita de no máximo um badge `NF` e um `NFH` com a prop `hasReturn`.
+4. **[`api/nfe/document-details.ts`](api/nfe/document-details.ts) e [`erp/src/pages/App/FiscalDocuments/services/fiscalDocumentsService.ts`](erp/src/pages/App/FiscalDocuments/services/fiscalDocumentsService.ts):**
+   - Adicionada busca de `orderEmissions` (todas as saídas da mesma venda e ambiente) e `linkedDocuments` (`original_document_id`).
+   - Em `fetchFiscalDocumentsList`: adicionado filtro `.neq('document_type', 'estorno')`.
+5. **[`erp/src/pages/App/FiscalDocuments/types/fiscalDocuments.types.ts`](erp/src/pages/App/FiscalDocuments/types/fiscalDocuments.types.ts):**
+   - Adicionados `linkedDocuments?: NfeDocumentRecord[];` e `orderEmissions?: NfeDocumentRecord[];` à interface `FiscalDocumentDetails`.
+6. **[`erp/src/pages/App/FiscalDocuments/components/tabs/IssuedFiscalDocumentEventsTab.tsx`](erp/src/pages/App/FiscalDocuments/components/tabs/IssuedFiscalDocumentEventsTab.tsx):**
+   - Removida renderização de `operationDrafts`. A aba agora exibe exclusivamente os eventos registrados na SEFAZ.
+7. **[`erp/src/pages/App/FiscalDocuments/components/tabs/IssuedFiscalDocumentLinkedTab.tsx`](erp/src/pages/App/FiscalDocuments/components/tabs/IssuedFiscalDocumentLinkedTab.tsx):**
+   - Criação da Seção A (Histórico de Emissões do Pedido) permitindo ver 1ª, 2ª emissão etc., com identificação da nota em visualização e botão de alternância.
+   - Centralização dos documentos de estorno fiscal (Seção B) e devolução fiscal (Seção C).
+8. **[`erp/src/pages/App/FiscalDocuments/modals/IssuedFiscalDocumentDetailsModal.tsx`](erp/src/pages/App/FiscalDocuments/modals/IssuedFiscalDocumentDetailsModal.tsx):**
+   - Suporte a alternância de documento ativo (`activeDocumentId`).
+   - Exibição de banner superior de aviso ao inspecionar emissão anterior, com botão "Voltar à nota vigente".
+   - Contagem unificada de itens vinculados no cabeçalho das abas.
+9. **Suítes de Teste:**
+   - [`OrderFiscalBadge.test.tsx`](erp/src/pages/App/SalesOrder/OrderHistoryList/OrderFiscalBadge.test.tsx): 9 testes aprovados (incluindo status reversed e indicador hasReturn).
+   - [`OrderHistoryRow.test.tsx`](erp/src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryRow.test.tsx): 4 testes aprovados (incluindo ausência de NFD/rótulos múltiplos).
+   - [`OrderHistoryTable.test.tsx`](erp/src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryTable.test.tsx): 6 testes aprovados.
+   - [`orderFiscalBadgeRules.test.ts`](erp/src/pages/utils/nfe/__tests__/orderFiscalBadgeRules.test.ts): 29 testes aprovados.
+   - [`issuedFiscalDocumentLinkedTab.test.tsx`](erp/src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentLinkedTab.test.tsx): 5 testes aprovados.
+   - [`issuedFiscalDocumentEventsTab.test.tsx`](erp/src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentEventsTab.test.tsx): 3 testes aprovados.
+   - [`issuedFiscalDocumentDetailsModal.test.tsx`](erp/src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentDetailsModal.test.tsx): 14 testes aprovados.
+
+### Validações Executadas
+- `npm run test:fiscal:unit`: 83 arquivos / 1.021 testes aprovados com 100% de sucesso.
+- `npm run test:unit --prefix erp -- src/pages/App/SalesOrder/OrderHistoryList/`: 22 arquivos / 218 testes aprovados.
+- `npm run test:unit --prefix erp -- src/pages/App/FiscalDocuments/`: 20 arquivos / 161 testes aprovados.
+- `npm run build:fiscal --prefix erp`: 12/12 handlers empacotados, WASM validado, XSD oficial resolvido com sucesso.
+- Conformidade estrita com `FISCAL-016`: nenhuma referência, botão ou rota de CC-e introduzida.
+
+
+---
+
+## 6. Refatoração Modular e Princípios de Engenharia de Software em fiscalDocumentsService.ts
+
+### Problema Identificado e Motivação Técnica
+O arquivo `erp/src/pages/App/FiscalDocuments/services/fiscalDocumentsService.ts` acumulava 575 linhas com múltiplas responsabilidades distintas (violação do Princípio da Responsabilidade Única - SRP):
+1. **Listagem e Busca Dinâmica:** montagem de queries PostgREST, normalização de termos de busca, resolução de pedidos por número, paginação e consulta em lote de política de cancelamento.
+2. **Consulta de Detalhes via API REST:** obtenção de sessão Supabase, chamada HTTP para `/api/nfe/document-details`, validação estrutural do envelope e tratamento de erros.
+3. **Contingência Direta no Supabase:** consultas redundantes às tabelas `nfe_documents`, `nfe_document_events` e `nfe_operation_drafts` com fallbacks condicionais para rascunhos de estorno.
+4. **Duplicação de Código de Mapeamento (Violação de DRY):** funções de mapeamento de registros de emissões anteriores, notas vinculadas e rascunhos estavam repetidas de forma quase idêntica em dois fluxos diferentes (na resposta da API e no fallback do Supabase).
+5. **Eficiência de Dados (Egress):** uso de `select('*')` em consultas de fallback no Supabase, recuperando colunas pesadas como XMLs brutos desnecessariamente.
+
+---
+
+### Solução Arquitetural Implementada
+
+Decomposição do serviço em submódulos coesos na pasta `erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/`, preservando o arquivo original `fiscalDocumentsService.ts` como **Fachada Pública (Facade Pattern)** para assegurar 100% de compatibilidade retroativa com todos os consumidores e mocks de teste existentes:
+
+1. **[`fiscalDocumentParsers.ts`](erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/fiscalDocumentParsers.ts):**
+   - Type guards: `isRecord`.
+   - Normalizadores seguros: `nullableString`.
+   - Parser estrito de eventos SEFAZ: `parseFiscalDocumentEvent`.
+   - Mappers unificados (DRY): `mapNfeDocumentRecord`, `mapFiscalDocumentDetailsRecord`, `mapOperationDraftSummary`.
+2. **[`fiscalDocumentsListService.ts`](erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/fiscalDocumentsListService.ts):**
+   - Tipos de entrada e saída: `FetchFiscalDocumentsParams`, `FetchFiscalDocumentsResult`.
+   - Subfunções puras e auxiliares: `resolveOrderIdsFromSearch`, `buildSearchAlternatives`, `fetchLinkedOrderNumbers`, `fetchCancellationEligibilityMap`.
+   - Execução concorrente com `Promise.all` para carregar simultaneamente os números dos pedidos e a política de cancelamento em lote, otimizando tempo de resposta.
+3. **[`fiscalDocumentFallbackService.ts`](erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/fiscalDocumentFallbackService.ts):**
+   - Contingência direta no banco Supabase isolada.
+   - Projeção estrita de colunas (em total conformidade com a skill `eficiencia-dados-egress`), eliminando `select('*')`.
+   - Resolução paralela de eventos, rascunhos e documentos vinculados.
+4. **[`fiscalDocumentDetailsService.ts`](erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/fiscalDocumentDetailsService.ts):**
+   - Invocação resiliente de `/api/nfe/document-details` com timeout de 8s e parsing com `parseNfeApiResponse`.
+   - Validador estrito de payload (`validateApiDetailsPayload`).
+   - Delegação automática e segura para `fetchFiscalDocumentDetailsFromSupabase` em caso de erro na rede ou 5xx.
+5. **[`fiscalDocumentsService.ts`](erp/src/pages/App/FiscalDocuments/services/fiscalDocumentsService.ts):**
+   - Fachada limpa documentada que reexporta todos os métodos e tipos públicos sem romper nenhuma dependência.
+
+---
+
+### Arquivos e Linhas Modificados / Criados
+- **Criados:**
+  - `erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/fiscalDocumentParsers.ts` (145 linhas)
+  - `erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/fiscalDocumentsListService.ts` (190 linhas)
+  - `erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/fiscalDocumentFallbackService.ts` (170 linhas)
+  - `erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/fiscalDocumentDetailsService.ts` (110 linhas)
+  - `erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/index.ts` (5 linhas)
+  - `erp/src/pages/App/FiscalDocuments/__tests__/fiscalDocumentParsers.test.ts` (110 linhas)
+  - `erp/src/pages/App/FiscalDocuments/__tests__/fiscalDocumentDetailsService.test.ts` (125 linhas)
+  - `erp/src/pages/App/FiscalDocuments/__tests__/fiscalDocumentFallbackService.test.ts` (90 linhas)
+- **Modificados:**
+  - `erp/src/pages/App/FiscalDocuments/services/fiscalDocumentsService.ts`: reduzido de 575 linhas para 30 linhas como fachada pura.
+  - `erp/src/pages/App/FiscalDocuments/types/fiscalDocuments.types.ts`: inclusão opcional de `original_document_id?: string | null;` em `NfeDocumentRecord`.
+
+---
+
+### Testes Executados e Validações
+1. **Novas Suítes de Testes Unitários:**
+   - `fiscalDocumentParsers.test.ts`: 8/8 testes aprovados.
+   - `fiscalDocumentDetailsService.test.ts`: 3/3 testes aprovados.
+   - `fiscalDocumentFallbackService.test.ts`: 2/2 testes aprovados.
+2. **Suíte Completa do Módulo Fiscal Documents:**
+   - `npm run test:unit --prefix erp -- src/pages/App/FiscalDocuments/`: 23 arquivos / 174 testes aprovados com 100% de sucesso.
+3. **Suíte Global de Não-Regressão Fiscal:**
+   - `npm run test:fiscal:unit`: 83 arquivos / 1.021 testes aprovados com 100% de sucesso.
+4. **Build e Startup dos Módulos Fiscais:**
+   - `npm run build:fiscal --prefix erp`: 12/12 handlers empacotados, WASM validado, XSD oficial resolvido com sucesso.
+5. **Política de Segurança Fiscal:**
+   - Zero exposição ou criação de rotas, botões ou fluxos de CC-e (aderência total a `FISCAL-016`).
+
+
+---
+
+## 7. Rótulos Fiscais (NF/NFH) por Situação Comercial do Pedido e Contexto no Modal de Detalhes
+
+### Problema Identificado e Sintomas
+1. **Descompasso entre Situação Fiscal e Status Comercial:** Anteriormente, o rótulo fiscal nos cards de pedidos refletia apenas o status isolado do último documento emitido. Se um pedido sofria uma alteração comercial que resultou em estorno da nota original para substituição, o rótulo podia permanecer roxo (`reversed`) sem indicar ao operador que uma nova nota fiscal precisava ser autorizada.
+2. **Ausência de Alerta para Falha ou Incerteza de Regularização:** Quando o cancelamento ou estorno da nota anterior falhava ou tinha transmissão incerta na SEFAZ, o sistema não bloqueava o operador de tentar emitir uma nova nota, correndo risco de gerar rascunhos duplicados ou notas descompassadas com o Fisco sem reconciliar a nota original.
+3. **Falta de Contexto no Modal de Detalhes:** Ao abrir os detalhes fiscais de uma nota estornada ou que necessitava de substituição, o operador não visualizava um aviso contextual explicando por que a operação exigia emissão adicional ou por que o estorno havia sido realizado.
+
+---
+
+### Causa Raiz Técnica Comprovada
+- `resolveOrderFiscalBadgePair` em `orderFiscalBadgeRules.ts` avaliava os documentos sem correlacionar o ciclo de vida comercial da substituição fiscal registrado em `nfe_order_edit_replacements` (`awaiting_reversal`, `ready_to_reissue`, `replacement_prepared`, `completed`).
+- O sistema tratava qualquer documento estornado como finalizado (`reversed`), mesmo que o pedido continuasse ativo e aguardasse a emissão da nova nota fiscal corrigida.
+- As travas de emissão no modal e no seletor de ambiente não checavam se a regularização anterior estava em estado bloqueante (`isFiscalRegularizationBlockingStatus`), permitindo tentar emitir sem antes reconciliar eventos de cancelamento ou estorno com falha/incerteza.
+- O endpoint `/api/nfe/document-details` não incluía a situação fiscal consolidada da operação no payload retornado.
+
+---
+
+### Solução Arquitetural Implementada
+
+#### 1. Classificação dos Estados Fiscais do Pedido Comercial
+Foram padronizados 6 estados principais para os rótulos `NF` (Produção) e `NFH` (Homologação):
+1. **Regularizado / Emitida (`issued`):** Verde (`bg-emerald-600`), ícone `bi-check`. Nota atual autorizada sem pendências.
+2. **Nova Emissão Necessária (`reissue_required`):** Âmbar (`border-amber-700 bg-amber-500 text-[#3b1900]`), ícone `bi-exclamation-lg`. Pedido alterado/ativo, nota anterior estornada ou cancelada formalmente, mas nova nota fiscal pendente de autorização. Segue rigorosamente contraste WCAG AAA com texto escuro sobre fundo amarelo.
+3. **Estorno Concluído (`reversed`):** Roxo/Índigo (`border-indigo-700 bg-indigo-600 text-white`), ícone `bi-arrow-counterclockwise`. Pedido cancelado comercialmente e nota de estorno autorizada. Nenhuma nova nota é necessária.
+4. **Cancelamento Fiscal Concluído (`cancelled`):** Vermelho rosado (`border-rose-700 bg-rose-600 text-white`), ícone `bi-x`. Pedido cancelado e nota original formalmente cancelada na SEFAZ (evento 110111).
+5. **Erro na Regularização (`regularization_failed`):** Vermelho vivo (`border-red-700 bg-red-600 text-white`), ícone `bi-exclamation-octagon-fill`. Falha no cancelamento ou estorno da nota anterior. Bloqueia nova emissão até ser resolvido.
+6. **Regularização Pendente / Incerteza (`regularization_uncertain`):** Laranja (`border-orange-700 bg-orange-600 text-white`), ícone `bi-question-lg`. Resultado incerto ou em transmissão; exige consulta e reconciliação com a SEFAZ antes de retransmitir. Nunca gera rascunhos duplicados automaticamente.
+
+#### 2. Árvore Estrita de Prioridades do Sistema
+1. **Prioridade 1:** Falha ou incerteza na regularização anterior (`regularization_failed` ou `regularization_uncertain`).
+2. **Prioridade 2:** Pedido cancelado com regularização concluída (`reversed` ou `cancelled`).
+3. **Prioridade 3:** Pedido ativo com alteração e necessidade de emissão substituta (`reissue_required`).
+4. **Prioridade 4:** Pedido ativo com nova nota fiscal autorizada (`issued`).
+5. **Prioridade 5:** Demais estados (rejeição, erro de emissão, not_issued).
+
+#### 3. Travas de Proteção contra Emissões Prematuras
+- `isFiscalRegularizationBlockingStatus(status)`: função guardiã que detecta estados impeditivos (`regularization_failed`, `regularization_uncertain`).
+- `NfeEnvironmentChoiceModal`, `PostOrderActionsModal` e `useNfeEmissionModalState` impedem o operador de iniciar emissão enquanto a regularização do documento anterior não for concluída com sucesso.
+
+#### 4. Componente Contextual e Abas no Modal de Detalhes
+- Criação de `FiscalSituationNotice.tsx`: banner informativo na aba Detalhes ("Resumo") com visual WCAG AAA adequado a cada situação (`reissue_required`, `regularization_failed`, `regularization_uncertain`) e botão de ação direta que navega o operador para a aba "Vinculadas".
+- Aba **Vinculadas**: centraliza a nota original, as notas de estorno, devoluções e emissões anteriores do pedido.
+- Aba **Eventos**: restrita exclusivamente aos eventos fiscais oficiais da SEFAZ (como autorização 110110 e cancelamento 110111).
+
+---
+
+### Arquivos e Linhas Modificados / Criados
+- **Backend:**
+  - `api/nfe/orderFiscalSituation.ts` (criado): helper para resolver `OrderFiscalSituation` a partir de `nfe_order_edit_replacements`.
+  - `api/nfe/document-details.ts`: inclusão de `fiscalSituation` na resposta de detalhes do documento.
+  - `api/nfe/order-fiscal-badges.ts`: inclusão de `orderEditReplacements` no endpoint de carregamento de badges em lote.
+- **Frontend / Regras de Negócio:**
+  - `erp/src/pages/utils/nfe/orderFiscalBadgeRules.ts`: novos status, árvore de prioridades, `classifyDocumentRegularization`, `isFiscalRegularizationBlockingStatus` e mapeamento de substituições.
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/orderFiscalBadge.types.ts` e `badgeSupplementTransformer.ts`: propagação de `orderEditReplacements`.
+  - `erp/src/pages/App/SalesOrder/OrderHistoryList/OrderFiscalBadge.tsx`: apresentação visual acessível, classes Tailwind com contraste WCAG AAA `#3b1900` sobre `#f59e0b`.
+  - `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/NfeEnvironmentChoiceModal.tsx`: travas `isHmlRegularizationBlocked` e `isProdRegularizationBlocked`.
+  - `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/useNfeEmissionModalState.ts` e `PostOrderActionsModal.tsx`: bloqueio de abertura em estados pendentes.
+  - `erp/src/pages/App/FiscalDocuments/components/FiscalSituationNotice.tsx` (criado): banner contextual de aviso.
+  - `erp/src/pages/App/FiscalDocuments/types/fiscalDocuments.types.ts`: propriedade `fiscalSituation?: OrderFiscalSituation;`.
+  - `erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/fiscalDocumentParsers.ts` e `fiscalDocumentDetailsService.ts`: parser da situação fiscal.
+  - `erp/src/pages/App/FiscalDocuments/modals/IssuedFiscalDocumentDetailsModal.tsx`: exibição de `FiscalSituationNotice` e roteamento para aba Vinculadas.
+- **Testes Unitários:**
+  - `erp/src/pages/utils/nfe/__tests__/orderFiscalSituation.test.ts` (criado): 33 testes cobrindo todas as prioridades e isolamento entre ambientes.
+  - `erp/src/pages/App/SalesOrder/OrderHistoryList/OrderFiscalBadge.test.tsx`: testes de renderização visual e contraste de todos os novos estados.
+  - `erp/src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentDetailsModal.test.tsx`: validação do banner de situação e navegação entre abas.
+  - `erp/src/pages/utils/nfe/__tests__/orderFiscalBadgeRules.test.ts`: atualização de expectativas para a árvore de prioridade vigente.
+
+---
+
+### Testes Executados e Validações
+1. **Testes Unitários da Situação Fiscal e Badges:**
+   - 33/33 testes aprovados em `orderFiscalSituation.test.ts`.
+   - 14/14 testes aprovados em `OrderFiscalBadge.test.tsx`.
+   - 15/15 testes aprovados em `issuedFiscalDocumentDetailsModal.test.tsx`.
+   - 29/29 testes aprovados em `orderFiscalBadgeRules.test.ts`.
+2. **Suíte Global de Não-Regressão Fiscal:**
+   - `npm run test:fiscal:unit`: 84 arquivos / 1.054 testes aprovados (100% sucesso).
+3. **Suíte Completa de FiscalDocuments:**
+   - `npm run test:unit --prefix erp -- src/pages/App/FiscalDocuments/`: 23 arquivos / 175 testes aprovados (100% sucesso).
+4. **Build e Startup dos Módulos Fiscais:**
+   - `npm run build:fiscal --prefix erp`: 12/12 handlers Vercel empacotados, WASM validado e XSD oficial verificado com 0 erros.
+5. **Aderência às Políticas Fiscais:**
+   - Zero exposição ou reintrodução de CC-e (`FISCAL-016`).
+   - Isolamento estrito entre homologação e produção (`FISCAL-001`).
+
+
+---
+
+## 8. Refatoração Modular e Princípios de Engenharia de Software em orderFiscalBadgeRules.ts e IssuedFiscalDocumentDetailsModal.tsx
+
+### Problema Identificado e Motivação Técnica
+Ambos os arquivos apresentavam grande volume de linhas e acúmulo de responsabilidades distintas (violações do Princípio da Responsabilidade Única - SRP, Alta Coesão e Baixo Acoplamento):
+1. **`orderFiscalBadgeRules.ts` (716 linhas):** Acoplava em um único arquivo definições de tipos, predicados puros de ordenação e filtro, regras de derivação de estorno e devolução, resolução de documentos NFD, classificação do contexto comercial/regularização da nota anterior, resolução de eventos de cancelamento na SEFAZ e orquestração do par de badges do pedido.
+2. **`IssuedFiscalDocumentDetailsModal.tsx` (408 linhas):** Acoplava em um único componente React o gerenciamento de múltiplos estados assíncronos (carregamento de detalhes, fallback para documento local, geração e compartilhamento de arquivo DANFE, download de XML), cálculos derivados complexos de apresentação (títulos, contagens de vínculos, detecção de emissão anterior), cabeçalho com badges de status, banner contextual de navegação entre notas, painel de abas e rodapé com múltiplos botões de ação.
+
+---
+
+### Solução Arquitetural Implementada
+
+#### A. Decomposição de `orderFiscalBadgeRules.ts` sob `erp/src/pages/utils/nfe/orderFiscalBadge/`
+1. **[`orderFiscalBadgeRules.types.ts`](erp/src/pages/utils/nfe/orderFiscalBadge/orderFiscalBadgeRules.types.ts):** Centralização estrita de todos os tipos de domínio (`OrderFiscalBadgeStatus`, `OrderFiscalSituation`, `FiscalDocumentStatusRow`, `FiscalOperationDraftStatusRow`, `FiscalOrderEditReplacementRow`, `OutboundFiscalBadgeItem`, `OrderFiscalBadgeStatuses`) e da guarda `isFiscalRegularizationBlockingStatus`.
+2. **[`fiscalDocumentPredicates.ts`](erp/src/pages/utils/nfe/orderFiscalBadge/fiscalDocumentPredicates.ts):** Funções puras e comparadores (`isAuthorizedFiscalDocument`, `isOutboundFiscalDocument`, `newestFirst`, `productionFirst`, `FISCAL_REJECTION_STATUSES`).
+3. **[`operationBadgeRules.ts`](erp/src/pages/utils/nfe/orderFiscalBadge/operationBadgeRules.ts):** Resolução isolada de operações de ajuste (`resolveFiscalOperationBadge`, `resolveOrderFiscalEstornoBadge`, `resolveOrderFiscalDevolucaoBadge`).
+4. **[`returnBadgeRules.ts`](erp/src/pages/utils/nfe/orderFiscalBadge/returnBadgeRules.ts):** Resolução pura de status para documentos de devolução (`RETURN_DOCUMENT_STATE`, `returnDocumentState`, `resolveReturnFiscalBadgeStatus`).
+5. **[`orderFiscalSituationClassifier.ts`](erp/src/pages/utils/nfe/orderFiscalBadge/orderFiscalSituationClassifier.ts):** Classificação da situação comercial e regularização (`getEstornoConfirmedDocumentIds`, `classifyDocumentRegularization`, `resolveEnvironmentBadge`, `buildFiscalSituationContext`, `resolveOrderFiscalBadgeStatus`).
+6. **[`orderFiscalCancellationRules.ts`](erp/src/pages/utils/nfe/orderFiscalBadge/orderFiscalCancellationRules.ts):** Regras de cancelamento oficial e busca de documentos por status (`resolveOrderCancellationState`, `resolveCancellationDocuments`, `findDocumentIdByStatus`).
+7. **[`orderFiscalBadgePairResolver.ts`](erp/src/pages/utils/nfe/orderFiscalBadge/orderFiscalBadgePairResolver.ts):** Orquestrador puro `resolveOrderFiscalBadgePair`.
+8. **[`orderFiscalBadgeRules.ts`](erp/src/pages/utils/nfe/orderFiscalBadgeRules.ts):** Fachada pública (Facade Pattern) limpa de apenas 13 linhas, reexportando todas as funções e tipos, garantindo 100% de compatibilidade retroativa com zero alteração necessária nos consumidores.
+
+#### B. Decomposição de `IssuedFiscalDocumentDetailsModal.tsx` sob `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/`
+1. **[`issuedDetailsModal.types.ts`](erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/issuedDetailsModal.types.ts):** Tipos de entrada (`IssuedFiscalDocumentDetailsModalProps`) e utilitário `downloadBlob`.
+2. **[`useIssuedFiscalDocumentDetails.ts`](erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/useIssuedFiscalDocumentDetails.ts):** Custom Hook isolando todo o ciclo de vida: busca assíncrona com `fetchFiscalDocumentDetails`, preparação de DANFE compartilhável com `createDanfeShareFile`, handlers de impressão, download de XML e compartilhamento com WhatsApp, além de todos os memos derivados (`visibleDocument`, `operationDraft`, `isEstorno`, `currentActiveEmission`, etc.).
+3. **[`IssuedFiscalDocumentDetailsHeader.tsx`](erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/IssuedFiscalDocumentDetailsHeader.tsx):** Subcomponente puro para o cabeçalho do modal.
+4. **[`IssuedFiscalDocumentAnteriorBanner.tsx`](erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/IssuedFiscalDocumentAnteriorBanner.tsx):** Subcomponente para o banner de navegação entre emissão anterior e nota vigente.
+5. **[`IssuedFiscalDocumentDetailsFooter.tsx`](erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/IssuedFiscalDocumentDetailsFooter.tsx):** Subcomponente puro para as ações de rodapé.
+6. **[`IssuedFiscalDocumentDetailsModal.tsx`](erp/src/pages/App/FiscalDocuments/modals/IssuedFiscalDocumentDetailsModal.tsx):** Componente orquestrador reduzido de 408 para 198 linhas, com leitura limpa e declarativa.
+
+---
+
+### Arquivos e Linhas Modificados / Criados
+- **Criados:**
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/orderFiscalBadgeRules.types.ts` (133 linhas)
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/fiscalDocumentPredicates.ts` (17 linhas)
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/operationBadgeRules.ts` (110 linhas)
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/returnBadgeRules.ts` (48 linhas)
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/orderFiscalSituationClassifier.ts` (190 linhas)
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/orderFiscalCancellationRules.ts` (125 linhas)
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/orderFiscalBadgePairResolver.ts` (135 linhas)
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/__tests__/orderFiscalBadgeSubmodules.test.ts` (115 linhas)
+  - `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/issuedDetailsModal.types.ts` (23 linhas)
+  - `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/useIssuedFiscalDocumentDetails.ts` (235 linhas)
+  - `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/IssuedFiscalDocumentDetailsHeader.tsx` (80 linhas)
+  - `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/IssuedFiscalDocumentAnteriorBanner.tsx` (30 linhas)
+  - `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/IssuedFiscalDocumentDetailsFooter.tsx` (105 linhas)
+  - `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/index.ts` (6 linhas)
+  - `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/__tests__/issuedDetailsModalSubmodules.test.tsx` (115 linhas)
+- **Modificados:**
+  - `erp/src/pages/utils/nfe/orderFiscalBadgeRules.ts`: reduzido de 716 linhas para 13 linhas como fachada pura.
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/index.ts`: exportação de todos os submódulos de regras.
+  - `erp/src/pages/App/FiscalDocuments/modals/IssuedFiscalDocumentDetailsModal.tsx`: reduzido de 408 linhas para 198 linhas.
+
+---
+
+### Testes Executados e Validações
+1. **Novos Testes Unitários de Submódulos:**
+   - `orderFiscalBadgeSubmodules.test.ts`: 7/7 testes aprovados.
+   - `issuedDetailsModalSubmodules.test.tsx`: 4/4 testes aprovados.
+2. **Suíte Completa de FiscalDocuments:**
+   - 24 arquivos e 179 testes aprovados (100% sucesso).
+3. **Suíte Fiscal Global:**
+   - 84 arquivos e 1.054 testes aprovados (100% sucesso).
+4. **Build Fiscal Oficial:**
+   - `npm run build:fiscal --prefix erp`: 12/12 handlers Vercel compilados, WASM e XSD validados sem erros.
+5. **Aderência às Políticas de Confiabilidade Fiscal:**
+   - Zero CC-e (`FISCAL-016`).
+   - Idempotência e integridade de snapshots preservadas.
+
+---
+
+## 9. Reconhecimento Contextual de Reemissão Necessária e Ação Direta no Modal de Detalhes Fiscais (`IssuedFiscalDocumentDetailsModal`)
+
+### Problema Identificado e Necessidade de Interface
+Quando uma nota fiscal anterior foi formalmente estornada ou cancelada devido à alteração comercial de um pedido de venda, o sistema exigia que o operador navegasse até a aba "Vinculadas" para descobrir a situação anterior e encontrar o caminho para emitir a nova nota fiscal.
+Além disso, nos casos em que a nova emissão substituta falhou (rejeição pela SEFAZ, rascunho salvo pendente, ou transmissão com resultado incerto aguardando reconciliação), o operador não contava com um ponto de ação contextualizado no topo do modal para dar continuidade imediata à resolução fiscal.
+
+---
+
+### Solução Arquitetural e Funcional Implementada
+
+#### 1. Destaque Contextual no Topo do Modal (`FiscalSituationNotice`)
+- Inserido diretamente no topo do modal de detalhes fiscais (`IssuedFiscalDocumentDetailsModal`), logo abaixo do cabeçalho de identificação e acima das abas ("Detalhes", "Vinculadas", "Eventos").
+- Exibe o selo fiscal (`NF` para produção, `NFH` para homologação).
+- Título e subtítulo explicativos claros:
+  - Header: `"Nova nota fiscal necessária"`.
+  - Subtítulo: `"A nota anterior foi regularizada após a alteração do pedido. A nova emissão ainda não foi concluída."`
+- Pílula (badge mono) com o número e o encerramento do documento anterior:
+  `NF anterior nº {previousDocumentNumber} · {Estornada | Cancelada}`.
+- Botão primário contextual com ícone específico para cada ação necessária (`actionKind`):
+  - **`awaiting_new_invoice`:** `[ Emitir nova nota fiscal ]` (ícone `bi-receipt`) — abre o modal de conferência e emissão do ERP pré-carregado com os dados e itens atualizados do pedido comercial (sem disparar emissão cega/automática).
+  - **`draft`:** `[ Continuar emissão ]` (ícone `bi-pencil-square`) — abre o modal de conferência carregando o rascunho persistido.
+  - **`rejected`:** `[ Corrigir emissão ]` (ícone `bi-wrench-adjustable`) — abre o modal de conferência exibindo a rejeição da SEFAZ para correção cadastral/fiscal.
+  - **`transmission_uncertain`:** `[ Consultar situação ]` (ícone `bi-arrow-repeat`) — orienta a consulta SEFAZ e reconciliação sem duplicar rascunhos nem tentar retransmissões prematuras.
+  - **`prior_regularization_failed`:** `[ Resolver regularização anterior ]` (ícone `bi-exclamation-octagon-fill`) — bloqueia emissão substituta e orienta sanar o cancelamento/estorno anterior.
+
+#### 2. Separação Estrita dos Papéis dos Pontos de Acesso
+- **Topo do Modal de Detalhes:** Responsável exclusivo pela ação primária direta (aviso em destaque + botão de ação).
+- **Aba "Vinculadas":** Focada exclusivamente no histórico documental auditável (detalhes da nota original, nota de estorno correspondente, devoluções parciais/totais e nova emissão com status e motivos de falha), sem poluição por botões de ação redundantes.
+- **Card do Pedido de Venda:** Mantém o rótulo fiscal único `NF` / `NFH` no estado âmbar com exclamação (`reissue_required`), abrindo o modal ao clique.
+
+#### 3. Integração com o Modal de Emissão no ERP
+- No container principal de modais de venda (`SalesOrderModalsContainer.tsx`), a propriedade `onIssueNfe` foi conectada a ambos os pontos de abertura do modal (`fiscalDocumentToView` e `issuedFiscalDocument`).
+- Ao clicar no botão de ação, o modal de detalhes é fechado e o `NfeEmissionModal` é aberto de forma fluida com o pedido alvo e o ambiente fiscal (`environment`), permitindo a conferência completa dos itens e tributos antes da transmissão.
+- Caso o modal seja aberto a partir de uma listagem sem o objeto `Order` completo em memória, `fetchOrderById` carrega o pedido comercial sob demanda.
+
+#### 4. Resiliência e Persistência no Banco de Dados
+- Sobrevive ao fechamento do navegador, perda de conexão ou alternância de operador através da persistência atômica em `nfe_order_edit_replacements` e `nfe_operation_drafts`.
+- Bloqueia novas emissões enquanto a regularização do documento anterior não estiver autorizada na SEFAZ.
+- Contraste visual WCAG AAA estritamente respeitado (`#3b1900` sobre o fundo âmbar).
+- Política de Produto Mandatória: Zero Carta de Correção Eletrônica (CC-e), em conformidade total com `FISCAL-016`.
+
+---
+
+### Arquivos e Linhas Modificados / Criados
+- **Backend:**
+  - `api/nfe/orderFiscalSituation.ts`: enriquecimento de `loadOrderFiscalSituation` para derivar `previousDocumentId`, `previousDocumentNumber`, `previousDocumentClosure` e cálculo de `actionKind` (`awaiting_new_invoice`, `draft`, `rejected`, `transmission_uncertain`).
+- **Frontend / Serviços:**
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/orderFiscalBadgeRules.types.ts`: inclusão do tipo `ReplacementPendingAction` e expansão de `OrderFiscalSituation`.
+  - `erp/src/pages/App/FiscalDocuments/services/fiscalDocuments/fiscalDocumentParsers.ts`: parsing das novas propriedades em `parseOrderFiscalSituation`.
+  - `erp/src/pages/App/FiscalDocuments/components/FiscalSituationNotice.tsx`: reestruturação do componente com badge mono do documento anterior, textos contextuais por ação e botão primário dinâmico com cores WCAG AAA.
+  - `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/issuedDetailsModal.types.ts`: adição de `onIssueNfe` e `onConsultSefaz` em `IssuedFiscalDocumentDetailsModalProps`.
+  - `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/useIssuedFiscalDocumentDetails.ts`: handler `handleExecuteSituationAction` para orquestração da abertura da emissão.
+  - `erp/src/pages/App/FiscalDocuments/modals/IssuedFiscalDocumentDetailsModal.tsx`: posicionamento de `FiscalSituationNotice` no topo do modal.
+  - `erp/src/pages/App/SalesOrder/modals/SalesOrderModalsContainer.tsx`: injeção de `onIssueNfe` interligando o modal de detalhes fiscais ao `NfeEmissionModal`.
+- **Testes Unitários:**
+  - `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/__tests__/issuedDetailsModalSubmodules.test.tsx`: testes adicionais validando renderização de `FiscalSituationNotice`, rótulos por `actionKind`, dados da nota anterior e disparo de callback de ação.
+
+---
+
+### Testes Executados e Validações
+1. **Testes Unitários do Modal e Submódulos:**
+   - 8/8 testes aprovados em `issuedDetailsModalSubmodules.test.tsx`.
+2. **Suíte Completa de FiscalDocuments:**
+   - 24 arquivos e 183 testes aprovados (100% sucesso).
+3. **Suíte Global de Não-Regressão Fiscal:**
+   - 84 arquivos e 1.054 testes aprovados (100% sucesso).
+4. **Build Fiscal Oficial:**
+   - `npm run build:fiscal --prefix erp`: 12/12 handlers Vercel compilados, WASM validado e XSD oficial verificado com 0 erros.
+5. **Aderência às Políticas de Confiabilidade Fiscal:**
+   - Zero CC-e (`FISCAL-016`).
+   - Idempotência e integridade de snapshots preservadas.

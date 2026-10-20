@@ -140,6 +140,7 @@ export const ScheduleCard: React.FC<Props> = ({
           hasDepotAssembly={hasDepotAssembly}
           hasOutsideAssembly={hasOutsideAssembly}
           hasWallInstallation={serviceSummary.hasWallInstallation}
+          isAlternative={scheduleRes.isUsingAlternative}
           isDarkMode={isDarkMode}
         />
 

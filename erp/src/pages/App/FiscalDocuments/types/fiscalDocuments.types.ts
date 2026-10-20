@@ -1,3 +1,4 @@
+import type { OrderFiscalSituation } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import type {
   FiscalIssuePresentation,
   FiscalIssueTechnicalDetails,
@@ -33,6 +34,7 @@ export interface NfeDocumentRecord {
   document_type?: 'outbound' | 'return' | 'estorno' | string;
   fiscal_ruleset_version?: string;
   supersedes_document_id?: string | null;
+  original_document_id?: string | null;
   orderNumber?: number;
 }
 
@@ -237,6 +239,9 @@ export interface FiscalOperationDraftSummary {
   reason?: string | null;
   created_at: string;
   updated_at?: string;
+  document_id?: string | null;
+  access_key?: string | null;
+  protocol_number?: string | null;
 }
 
 export interface FiscalDocumentDetails {
@@ -247,6 +252,10 @@ export interface FiscalDocumentDetails {
   parsedXml: ParsedFiscalDetails | null;
   events: FiscalDocumentEventSummary[];
   operationDrafts?: FiscalOperationDraftSummary[];
+  linkedDocuments?: NfeDocumentRecord[];
+  orderEmissions?: NfeDocumentRecord[];
+  /** Situação fiscal do pedido no ambiente da nota; ausente quando não comprovada. */
+  fiscalSituation?: OrderFiscalSituation;
 }
 
 export type FiscalDocumentFilters = {

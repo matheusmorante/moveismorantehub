@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { ArrowLeft, Check, Camera, QrCode } from 'lucide-react-native';
 import { receiptCheckStyles as styles } from './ReceiptCheckScreen.styles';
-import { useReceiptCheckWorkflow } from './useReceiptCheckWorkflow';
+import { useReceiptCheckWorkflow } from '../hooks/useReceiptCheckWorkflow';
 
 export interface ReceiptCheckScreenProps {
   isDarkMode: boolean;

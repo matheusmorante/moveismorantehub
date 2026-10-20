@@ -9,15 +9,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, X } from 'lucide-react-native';
-import { SupplierFormModal } from '../../suppliers/SupplierFormModal';
-import type { Invoice } from '../../types/stock.types';
+import { SupplierFormModal } from '../../../suppliers/SupplierFormModal';
+import type { Invoice } from '../../../types/stock.types';
 import {
   styles,
   InboundSupplierSection,
   InboundQuickProductModal,
   InboundMappingItemCard,
   useInboundInvoiceMappings,
-} from './inbound-mappings';
+} from '.';
 
 interface Props {
   invoice: Invoice | null;
