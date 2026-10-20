@@ -843,7 +843,7 @@ O fluxo usava o resultado da política fiscal como autorização para gravar o p
 - A migration grava um registro `nfe_order_edit_pending_reviews` com os documentos originais, dados comerciais anteriores/novos, motivo e categoria da pendência. A NF autorizada, XML e snapshot permanecem imutáveis.
 - Para substituição elegível sem circulação, a RPC salva o pedido e registra a reversão pendente na mesma transação. Depois da confirmação da reversão, a finalização verifica a versão comercial já salva e segue para a nova emissão sem reaplicar estoque/pedido.
 - Para circulação, entrega em andamento ou reconciliação incerta, não é iniciado cancelamento/estorno automático nem uma nova saída. A emissão fica bloqueada até a pendência ser resolvida por procedimento fiscal apropriado. A confirmação de cancelamento em Produção continua sendo uma ação explícita após o salvamento comercial.
-- A migration local **não foi aplicada ao banco remoto**. O comportamento do banco operacional só muda depois da aplicação dessa migration; a versão atual da trigger remota ainda pode rejeitar o salvamento.
+- No registro original, as migrations ainda não tinham sido aplicadas ao banco remoto. A atualização operacional de 20/10 abaixo registra a aplicação posterior e a validação do catálogo.
 
 ### Arquivos e linhas modificados
 - `api/nfe/order-edit-audit/auditAuditAndConfirmAction.ts`:64–66, 119–124, 201–204 — respostas `blocked` incluem a versão do pedido e deixam claro que a edição comercial pode ser salva; confirmação cria substituição sem exigir confirmação de Produção antes de qualquer transmissão.
@@ -861,7 +861,28 @@ O fluxo usava o resultado da política fiscal como autorização para gravar o p
 - ESLint focado nos cinco arquivos frontend alterados: passou, sem avisos.
 - Bundle da rota `audit-order-edit` regenerado com esbuild: passou.
 - Testes não executados. O `tsc` geral do ERP foi iniciado e interrompido após 90 segundos sem saída; não há resultado de typecheck.
-- Migration inspecionada localmente. Sem DDL/DML remoto, emissão, cancelamento ou chamada à SEFAZ.
+- Migration inspecionada localmente. Naquele momento, sem DDL/DML remoto, emissão, cancelamento ou chamada à SEFAZ.
+
+## Erro ao editar pedido de venda — migrations fiscais ausentes no remoto
+
+### Problema identificado e sintomas
+Ao alterar o pedido informado pelo operador, as RPCs `update_order_with_inventory_transaction_if_version` e `create_order_with_inventory_transaction` retornaram HTTP 400/P0001 com `FISCAL_ORDER_EDIT_PENDING: conclua a substituição fiscal antes de editar ou entregar`. A rota `/api/nfe/audit-order-edit` retornou HTTP 503.
+
+### Causa raiz técnica comprovada
+O projeto Supabase operacional `hkoxhourxwlddgsfdgws`, schema `public`, ainda estava no histórico de migrations de 19/10. A tabela `nfe_order_edit_pending_reviews` não existia e os gatilhos de rastreamento da edição comercial não estavam instalados, embora o código da auditoria já consultasse essa tabela. A RPC/trigger remota ainda usava a regra legada que rejeitava edição antes da reversão fiscal. Isso explica o 503 de leitura e o P0001 da gravação; não foi necessário inferir o conteúdo fiscal do pedido para comprovar a divergência de versão.
+
+### Solução aplicada
+Aplicadas em sequência no projeto operacional as migrations `20261020183000_allow_commercial_edit_before_fiscal_reissue.sql` e `20261020203000_save_commercial_order_edits_and_track_fiscal_pending.sql`. A edição comercial agora pode ser salva com controle de versão e a pendência fiscal é registrada; reversão e eventual reemissão permanecem etapas posteriores, sob os gates existentes. Nenhum pedido foi alterado manualmente e nenhuma chamada à SEFAZ foi iniciada.
+
+### Arquivos e linhas modificados
+- `supabase/migrations/20261020183000_allow_commercial_edit_before_fiscal_reissue.sql`: 1–42 — liberação versionada após a reversão e sincronização da reemissão pendente.
+- `supabase/migrations/20261020203000_save_commercial_order_edits_and_track_fiscal_pending.sql`: 1–283 — persistência da edição comercial, histórico da pendência e bloqueio seguro da saída fiscal até sua resolução.
+- `docs/fiscal/README.md`: referência atualizada para registrar aplicação remota e causa do incidente.
+
+### Testes e validações
+- Antes da aplicação, consulta somente de catálogo confirmou tabela ausente e zero gatilhos de rastreamento; o histórico remoto terminava em 19/10.
+- Após as duas migrations, consultas somente de catálogo confirmaram `nfe_order_edit_pending_reviews`, a RPC `commit_fiscal_order_edit` e os três gatilhos esperados; leitura das definições confirmou que a trigger legada não mantém o bloqueio `FISCAL_ORDER_EDIT_PENDING`; o histórico remoto registrou ambas as versões.
+- Não foi repetida a edição do pedido pela interface para evitar gravar uma alteração comercial sem revisão explícita do operador. Nenhum teste automatizado foi executado.
 
 
 ## Duplicação sem gravação incidental no pedido fonte
@@ -938,3 +959,50 @@ Pela UI visível, a nota foi autorizada uma vez em homologação: NF-e modelo 55
 A interface permaneceu no formulário de emissão mesmo após a autorização; abrir o selo NFH mostrou os detalhes legíveis, status homologado e o protocolo acima. Foi removida de `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/useNfeEmissionActions.ts:259` a segunda checagem de permissão no retorno assíncrono. A permissão continua validada antes do envio e a identidade do pedido/ambiente/operador continua protegendo contra retorno de operação obsoleta. Assim, uma atualização de perfil durante uma transmissão já iniciada não descarta o resultado fiscal. `useNfeEmission.test.tsx:777–808` prova a preservação, enquanto os testes existentes de troca de pedido continuam cobrindo o descarte obsoleto; a suíte inteira passou com 103/103 testes. Como a NF-e 735 já está autorizada, o fechamento visual após uma transmissão real não foi repetido; o comportamento novo foi validado pela regressão automatizada.
 
 Arquivos de evidência da transmissão/UI: `output/playwright/nfh-pickup55-normal-ui.json`, `scratch/nfh-pickup55-after-authorized.json`, `output/playwright/nfh-pickup55-authorized-signed-xsd-proof.json` e `scratch/nfh-pickup55-validate-xml.ts`. Os JSONs de prova não contêm XML assinado. Nenhuma emissão em produção foi feita.
+
+## Reteste visual da NFD 709 e do estorno 710
+
+Pela interface visível de desenvolvimento, com o filtro fiscal explicitamente limitado a Homologação, foram reabertos os documentos já autorizados: NFD 709, modelo 55/entrada, protocolo `141260000636726`, e NF-e de estorno 710, modelo 55/entrada, protocolo `141260000636733`. Os modais apresentam cabeçalho específico, resumo fiscal em campos legíveis e as seis abas `Resumo`, `Cliente`, `Itens`, `Pagamento`, `Transporte` e `Eventos`. As abas dos dois documentos foram percorridas; nenhuma exibiu marcação XML crua. O XML completo continua acessível pelo botão `Ver XML`, separado dos detalhes. Os arquivos DANFE/XML seguem disponíveis para as notas autorizadas.
+
+Capturas da UI: `output/playwright/nfh-709-details-visual-2026-10-20.png` e `output/playwright/nfh-710-details-visual-2026-10-20.png`. Validação local: `issuedFiscalDocumentDetailsModal.test.tsx` passou 14/14; as seis suítes de devolução (`automaticReturnFiscalEmissionService`, `automaticReturnTransmissionEndpoint`, `automaticReturnFiscalWorker`, `returnCapacityEndpoint`, `returnFiscalRules` e `ReturnOrderModal`) passaram 52/52; badges de vínculo, endpoint de indicadores e elegibilidade de reemissão passaram 10/10. São três seleções distintas e não uma certificação global.
+
+Ao tentar criar pela interface um novo retorno próprio ligado à NF-e 735, a guarda de artefato de teste exigiu o operador autorizado desta execução. A identidade da sessão não corresponde à configurada em Vercel Development; a UI bloqueou a criação antes de qualquer POST. Consultas somente leitura confirmaram que não surgiu pedido de retorno nem movimento de estoque. Não houve transmissão, reserva de número, alteração de documento ou escrita de banco nesta prova visual. Além disso, `useReturnOrderForm.ts:259–261` suprime a transmissão automática para pedidos identificados como artefato de teste. A sessão autorizada permitiria testar a criação comercial, mas não comprovar a transmissão automática. O ciclo automático ponta a ponta requer uma venda sintética HML normal, sem a marca de teste, cuja gravação não foi autorizada neste escopo; nenhuma guarda foi contornada.
+
+## UI de NFD automática em HML bloqueada pela guarda do operador; notificação falsa corrigida
+
+O usuário autorizou uma prova ponta a ponta em HML com venda sintética, NF-e de saída, retorno físico pela UI e NFD automática. A UI `http://localhost:5173` aponta para o projeto Supabase remoto operacional `hkoxhourxwlddgsfdgws`. A política atual proíbe iniciar Supabase Local/Docker ou criar branch/backend isolado; o usuário confirmou que os testes devem usar Playwright na UI de desenvolvimento e Vitest, com integração apenas no remoto existente e sob as guardas de propriedade. A execução não foi iniciada porque `/api/testing/test-artifact-operator` respondeu `403` e não comprovou autorização/ownership. Nenhuma emissão, tentativa fiscal ou movimentação de estoque foi feita. A pendência concreta é corrigir a autenticação/runtime do operador autorizado, sem contornar a guarda.
+
+Durante a inspeção da UI foi salvo o rascunho comercial `7154` (`0e03550f-6e57-4127-960d-ea5065baec08`). A exclusão solicitada pela própria interface o retirou da lista e marcou `deleted=true`; não houve documento fiscal ou processamento de estoque. A UI também gravou a notificação `35ae9099-e7f8-4beb-a541-866e6c5bae71` anunciando montagem no depósito, embora o item estivesse configurado como “Item não necessita de montagem”. Esse registro residual de `app_notifications` permanece, pois a interface não oferece remoção; não houve mutação direta no banco nem entrega de push.
+
+Causa raiz comprovada: `getOrderAssemblyKinds` respeitava as flags positivas `includeInAssemblySchedule` e `isAssemblyOutside`, mas para uma opção encontrada com ambas falsas continuava para o fallback legado que procura a palavra “montagem”. A opção explícita “Item não necessita de montagem” era assim classificada incorretamente. Em `erp/src/pages/utils/orderEventNotificationService.ts:33`, uma opção encontrada que não ativou nenhuma classificação agora encerra o processamento; o fallback de texto permanece apenas para valores sem configuração conhecida. Cobertura adicionada em `erp/src/pages/utils/__tests__/orderEventNotificationService.test.ts:20` e `:33` para a opção negativa e para as classificações válidas de depósito/externa.
+
+Validação: a nova suíte do classificador (2 testes), `orderNotificationDispatcher.test.ts` (4) e `pushNotificationService.test.ts` (4) passaram, 10/10; ESLint focado e `git diff --check` passaram após a atualização documental. Não foi executada nova operação fiscal/remota porque a guarda de operador respondeu `403`.
+
+## Regras de execução Playwright/Vitest e resumo do retorno físico
+
+### Ambiente e causa do bloqueio remoto
+
+O usuário confirmou a regra vigente: não iniciar nem usar Supabase Local, PostgreSQL local ou Docker; os únicos runners são Playwright no navegador e Vitest/RTL. Integrações com persistência continuam no único projeto Supabase remoto operacional e no schema `public`, conforme ownership, `runId`, vínculos e gates de `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`. A regra foi adicionada em `AGENTS.md` seção 7 e explicitada na política canônica; também foi removida a instrução de executar `npm run advisors`, que usa `--local`. A falta de banco local/Docker não é bloqueio. A UI de `5173` está correta e encaminha `/api` ao backend de desenvolvimento em `3000`; `/api/testing/test-artifact-operator` ainda responde `403`. O código exige runtime Vercel Development, sessão administradora e identidade igual ao operador configurado, mas a resposta genérica não informa qual condição recusou a sessão. Nenhuma escrita, emissão ou guarda contornada ocorreu nesta tentativa.
+
+### Reteste visual de detalhes e correções
+
+Na UI visível, com filtro Homologação, o documento próprio de devolução 719 (`b9dd347f-20ca-4a35-a964-b75c011b7cde`) abriu o modal **Detalhes da nota fiscal de devolução fiscal**. O status atual observado é cancelado; o modal mostra resumo, cliente, itens, pagamento, transporte e eventos em campos legíveis, com XML acessível em ação separada `Ver XML`. O estorno 710 (`ad60f0aa-49df-42d4-9504-d3e5a6c35ab5`) abriu **Detalhes da nota fiscal de estorno fiscal**, com seis abas equivalentes e documento em Homologação. Nenhuma emissão, cancelamento ou alteração foi acionada neste reteste. A interface também confirmou que o filtro padrão de documentos é Produção; selecionar Homologação revela os documentos HML, evitando confusão de ambiente.
+
+Os testes de `OrderHistoryTable` expuseram que a venda original ignorava `linkedReturnMovement`, resumo calculado a partir das devoluções físicas irmãs. `InventoryMovementBadge.tsx` agora mostra `Saída devolvida parcialmente` ou `Saída devolvida integralmente` somente quando o resumo derivado está concluído e a entrada foi processada; o valor histórico persistido em `returnKind` não decide o selo. O teste cobre que um vínculo histórico integral cancelado não substitui o resumo físico parcial atual, tanto no desktop quanto no mobile.
+
+Imports de `commercialOrderRules` em `operationalSchedule.ts`, `orderSchedulingStatus.ts`, `ReceiptPage/ShippingData.tsx` e `OrderPage/ShippingData.tsx` tinham um nível `../` excessivo e impediam a montagem de telas em testes; os quatro agora apontam ao arquivo compartilhado correto. O teste de manuseio também estava esperando `onChange`, embora o componente use `onBatchChange` para atualizar o campo e suas dependências atomicamente; a expectativa foi alinhada a esse contrato. O teste NFD da lista agora valida o comportamento real: clicar no selo abre o documento no ambiente do próprio registro; `Ver XML` é uma ação interna do modal, não um segundo botão na linha da lista.
+
+O teste antigo `moveVariationConcurrency.test.ts` inicializava um cliente Supabase com URL/chave anon embutida e fazia INSERT/UPDATE/DELETE em tabelas operacionais ao ser coletado por `test:unit`. Esse caminho foi removido; os três cenários foram marcados `it.todo` até haver fixture remota própria e autorizada. Também foram suspensos como `it.todo` `activeFiscalAttempt.integration.test.ts` (gravação privilegiada de pedido e reserva HML por RPC) e `productDraftPersistence.integration.test.ts` (INSERT/UPDATE remoto com service role), pois não usam ownership/gates canônicos. A reexecução destes arquivos não faz escrita nem conexão de rede; as propriedades de concorrência, reserva e persistência de rascunho continuam sem prova real.
+
+### Arquivos e validações
+
+- `AGENTS.md:85–91`: seção 7 — proibição de Supabase Local/Docker e runners restritos a Playwright/Vitest.
+- `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md:11–17,37`: runners permitidos, limites de ambiente e exclusão do script de advisors local.
+- `erp/src/pages/App/SalesOrder/OrderHistoryList/InventoryMovementBadge.tsx:46–79`: resumo do retorno físico exibido na venda.
+- `erp/src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryTable.test.tsx:68`: remoção da expectativa de um segundo botão de XML inexistente na linha.
+- `erp/src/pages/App/SalesOrder/__tests__/salesOrderItemHandlingOptions.test.tsx:306–335`: expectativa de atualização em lote.
+- `erp/src/pages/utils/operationalSchedule.ts:4`, `erp/src/pages/utils/orderSchedulingStatus.ts:2`, `erp/src/pages/ReceiptPage/ShippingData.tsx:3` e `erp/src/pages/OrderPage/ShippingData.tsx:4`: caminhos dos imports compartilhados corrigidos.
+- `erp/src/pages/utils/__tests__/moveVariationConcurrency.test.ts:1–12`, `erp/src/pages/utils/nfe/__tests__/activeFiscalAttempt.integration.test.ts:1–7` e `erp/src/pages/utils/productService/productDraftPersistence.integration.test.ts:1–7`: três suítes inseguras de escrita remota substituídas por `it.todo`.
+- `docs/fiscal/README.md:9` e `docs/fiscal/status-testes-homologacao.md:7–17,465`: índice, resumo do resultado amplo e causa pendente do gate.
+
+No reteste focado, passaram 28 testes de tabela, retorno físico, resumo de pedidos e manuseio; os três casos de concorrência ficaram `todo`. As suítes Vitest de NF-e/NFC-e passaram 83/83 arquivos e 1.019/1.019 testes, e a UI do módulo FiscalDocuments passou 17/17 arquivos e 141/141 testes. ESLint focado e `git diff --check` passaram. A rodada ampla `npx vitest run --config vitest.config.ts` terminou com 1.688/1.733 suítes aprovadas e 5.866/5.900 testes aprovados; 45 suítes reportaram falha (26 asserções falhas) e 5 testes ficaram `todo`. As falhas abrangem agendamento, composição, estoque, cache, IA e cadastro; entre as fiscais adjacentes, continuam falhando três casos do cadastro rápido via NF-e, um teste do endpoint JEv fiscal de produto e um teste de padrões fiscais iniciais. Esses casos não foram corrigidos nesta rodada e exigem triagem própria. O console do navegador ainda registra somente o `403` genérico citado; a criação e transmissão automática de NFD pela UI permanece pendente.

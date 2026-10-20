@@ -37,7 +37,7 @@ export const ScheduledTimeCardsSection = ({
   onCustomTimeChange,
   onCustomTimeRangeChange,
 }: ScheduledTimeCardsSectionProps) => {
-  const [isExpanded, setIsExpanded] = React.useState(false);
+  const [isExpanded, setIsExpanded] = React.useState(true);
   const customTimePanelId = `${baseId}-custom-time-panel`;
   const customTimeRangePanelId = `${baseId}-custom-time-range-panel`;
 

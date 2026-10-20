@@ -3,6 +3,7 @@ import ReturnIcon from '@/components/shared/ReturnIcon';
 import PickupIcon from '@/components/shared/PickupIcon';
 import Order from '../../../types/order.type';
 import { getSettings } from '@/pages/utils/settingsService';
+import { resolveEffectiveSchedule } from '../../../../../../shared-utils/commercialOrderRules';
 import { formatCurrency, stringifyFullAddressWithObservation } from '../../../utils/formatters';
 import {
   getOrderTypeClasses,
@@ -43,9 +44,14 @@ const TimelineNode = ({
   const cls = getOrderTypeClasses(colorKey);
 
   const scheduling = order.shipping?.scheduling;
+  const scheduleRes = resolveEffectiveSchedule(order);
+  const activeOption = scheduleRes.effective;
+
   let displayTime = 'N/D';
   if (isAssistance) {
-    displayTime = (order as any).scheduledTime || 'N/D';
+    displayTime = (order as any).scheduledTime || activeOption?.formattedTime || 'N/D';
+  } else if (activeOption?.formattedTime) {
+    displayTime = activeOption.formattedTime;
   } else if (scheduling) {
     displayTime =
       scheduling.type === 'range'
@@ -141,7 +147,20 @@ const TimelineNode = ({
             <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
               <i className="bi bi-clock-fill text-xs opacity-50" />
               <span className="text-xs font-black tracking-tight">{displayTime}</span>
-              {scheduling?.dateType === 'range' && scheduling?.endDate && (
+              {scheduleRes.isUsingAlternative && activeOption && (
+                <span className="text-[9px] font-black text-amber-700 dark:text-amber-300 uppercase ml-2 px-2 py-0.5 bg-amber-100/80 dark:bg-amber-950/40 rounded-md border border-amber-300 dark:border-amber-800">
+                  {activeOption.label}: {activeOption.formattedDate}
+                </span>
+              )}
+              {!scheduleRes.isUsingAlternative && scheduleRes.alternatives.length > 0 && (
+                <span
+                  className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase ml-2 px-2 py-0.5 bg-slate-100 dark:bg-slate-800/60 rounded-md border border-slate-200 dark:border-slate-700"
+                  title={scheduleRes.alternativesSummaryText}
+                >
+                  +{scheduleRes.alternatives.length} alt.
+                </span>
+              )}
+              {scheduling?.dateType === 'range' && scheduling?.endDate && !scheduleRes.isUsingAlternative && (
                 <span className="text-[9px] font-bold text-blue-500 uppercase ml-2 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-900/30">
                   Até {formatDate(scheduling.endDate)}
                 </span>

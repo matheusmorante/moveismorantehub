@@ -1,16 +1,16 @@
 import React from 'react';
-import ReturnIcon from '@/components/shared/ReturnIcon';
-import PickupIcon from '@/components/shared/PickupIcon';
 import Order from '../../../types/order.type';
 import {
   stringifyFullAddressWithObservation,
-  stringifyItems,
   formatDate,
 } from '../../../utils/formatters';
 import { getSettings } from '@/pages/utils/settingsService';
 import { Drill } from '@/components/shared/DrillIcon';
-
-import { OrderTypeFilter } from '../useDeliverySchedule';
+import { getOrderTypeClasses, resolveOrderColor } from '../../../utils/orderTypeColorUtils';
+import { resolveEffectiveSchedule } from '../../../../../../shared-utils/commercialOrderRules';
+import { LinkedAssemblyOverlay } from './tableCell/LinkedAssemblyOverlay';
+import { LinkedOrderOverlay } from './tableCell/LinkedOrderOverlay';
+import { TableCellBadges } from './tableCell/TableCellBadges';
 
 interface Props {
   order: Order;
@@ -20,8 +20,7 @@ interface Props {
 
 const TableCell = ({ order, duration, onOrderClick }: Props) => {
   const settings = getSettings();
-  const [showAssemblyTooltip, setShowAssemblyTooltip] = React.useState(false);
-  const [showOrderTooltip, setShowOrderTooltip] = React.useState(false);
+  const scheduleRes = resolveEffectiveSchedule(order);
 
   const isAssemblyTask = (order as any).taskType === 'assembly';
   const hasLinkedAssembly = (order as any).hasLinkedAssembly;
@@ -38,16 +37,10 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
     : resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
   const cls = getOrderTypeClasses(colorKey);
 
-  const isAssistance = order.orderType === 'assistance' || (order as any).taskType === 'assistance';
+  const isAssistance =
+    order.orderType === 'assistance' || (order as any).taskType === 'assistance';
   const isPickup = (order as any).taskType === 'pickup';
   const isAssembly = (order as any).taskType === 'assembly';
-  const typeLabel = isAssembly
-    ? 'MONTAGEM'
-    : isAssistance
-      ? 'ASSISTÊNCIA'
-      : isPickup
-        ? 'RETIRADA'
-        : 'ENTREGA';
 
   const allOptions = [
     ...(settings.deliveryHandlingOptions || []),
@@ -79,13 +72,23 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
       return foundOpt?.includeInAssemblySchedule === true && !foundOpt?.isAssemblyOutside;
     });
 
+  const activeOption = scheduleRes.effective;
   const timeDisplay =
+    activeOption?.formattedTime ||
     order.shipping?.scheduling?.startTime ||
     order.shipping?.scheduling?.time ||
     (order as any).period ||
     (order as any).startTime ||
     'Horário Livre';
-  const endTimeDisplay = order.shipping?.scheduling?.endTime || (order as any).endTime;
+
+  const endTimeDisplay =
+    activeOption?.endTime || order.shipping?.scheduling?.endTime || (order as any).endTime;
+
+  const isLinkedPickup = order.shipping?.deliveryMethod === 'pickup';
+  const linkedIcon = isLinkedPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck';
+  const linkedLabel = isLinkedPickup ? 'Detalhes da Retirada' : 'Detalhes da Entrega';
+  const linkedIconColor = isLinkedPickup ? 'text-purple-500' : 'text-emerald-500';
+  const linkedBtnBg = isLinkedPickup ? 'bg-purple-600' : 'bg-emerald-600';
 
   return (
     <td
@@ -94,182 +97,35 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
     >
       <div
         onClick={() => onOrderClick(order)}
-        className={`w-full min-w-[250px] min-h-[190px] h-auto mx-auto border-2 rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all group overflow-visible flex flex-col gap-2 cursor-pointer relative ${cls.cardBg} ${cls.cardBorder} ${order.status === 'draft' ? 'border-dashed opacity-80' : ''}`}
+        className={`w-full min-w-[250px] min-h-[190px] h-auto mx-auto border-2 rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all group overflow-visible flex flex-col gap-2 cursor-pointer relative ${cls.cardBg} ${cls.cardBorder} ${
+          order.status === 'draft' ? 'border-dashed opacity-80' : ''
+        }`}
       >
-        {/* Hammer Button Overlay */}
-        {hasLinkedAssembly && (
-          <div className="absolute -top-3 -right-3 z-[60]">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowAssemblyTooltip(!showAssemblyTooltip);
-              }}
-              className="bg-rose-600 text-white w-16 h-16 rounded-full border-4 border-white dark:border-slate-950 shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
-              title="Ver itens de montagem"
-            >
-              <Drill className="w-6 h-6 text-white" />
-            </button>
+        {/* Linked Assembly Tooltip Overlay */}
+        {hasLinkedAssembly && <LinkedAssemblyOverlay assemblyItems={assemblyItems} />}
 
-            {showAssemblyTooltip && (
-              <div className="absolute bottom-full right-0 mb-4 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[100] p-4 animate-slide-up-custom overflow-hidden">
-                <div className="flex items-center gap-2 mb-3 border-b pb-2 dark:border-slate-800">
-                  <Drill className="w-4 h-4 text-rose-500" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    Produtos para Montagem
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {assemblyItems.map((item: any, i: number) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100/50 dark:border-rose-800/50 px-2 py-1.5 rounded-xl"
-                    >
-                      <span className="text-[10px] font-black text-rose-700 dark:text-rose-400">
-                        {item.quantity}x
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-none">
-                        {item.description}
-                      </span>
-                    </div>
-                  ))}
-                  {assemblyItems.length === 0 && (
-                    <p className="text-[10px] text-slate-400 font-bold uppercase py-2">
-                      Consultar informações no pedido
-                    </p>
-                  )}
-                </div>
-                <div className="absolute top-0 right-0 w-16 h-16 bg-rose-600/5 rotate-45 translate-x-8 -translate-y-8" />
-              </div>
-            )}
-          </div>
+        {/* Linked Order Overlay (on Assembly tasks) */}
+        {isAssemblyTask && hasLinkedDelivery && (
+          <LinkedOrderOverlay
+            order={order}
+            isLinkedPickup={isLinkedPickup}
+            linkedBtnBg={linkedBtnBg}
+            linkedLabel={linkedLabel}
+            linkedIcon={linkedIcon}
+            linkedIconColor={linkedIconColor}
+          />
         )}
 
-        {/* Order Button Overlay (on Assembly tasks) */}
-        {isAssemblyTask &&
-          hasLinkedDelivery &&
-          (() => {
-            const linkedColorKey = resolveOrderColor(
-              order.orderType,
-              order.shipping?.deliveryMethod,
-              colors
-            );
-            const isLinkedPickup = order.shipping?.deliveryMethod === 'pickup';
-            const linkedIcon = isLinkedPickup ? 'bi-hand-index-thumb-fill' : 'bi-truck';
-            const linkedLabel = isLinkedPickup ? 'Detalhes da Retirada' : 'Detalhes da Entrega';
-            const linkedIconColor = isLinkedPickup ? 'text-purple-500' : 'text-emerald-500';
-            const linkedBtnBg = isLinkedPickup ? 'bg-purple-600' : 'bg-emerald-600';
-
-            return (
-              <div className="absolute -top-3 -right-3 z-[60]">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowOrderTooltip(!showOrderTooltip);
-                  }}
-                  className={`${linkedBtnBg} text-white w-12 h-12 rounded-full border-4 border-white dark:border-slate-950 shadow-xl flex items-center justify-center transition-transform hover:scale-110 active:scale-95`}
-                  title={`Ver ${linkedLabel.toLowerCase()}`}
-                >
-                  {isLinkedPickup ? (
-                    <PickupIcon white className="h-5 w-5" />
-                  ) : (
-                    <i className={`bi ${linkedIcon} text-xl`} />
-                  )}
-                </button>
-
-                {showOrderTooltip && (
-                  <div className="absolute bottom-full right-0 mb-4 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[100] p-4 animate-slide-up-custom overflow-hidden">
-                    <div className="flex items-center gap-2 mb-3 border-b pb-2 dark:border-slate-800">
-                      {isLinkedPickup ? (
-                        <PickupIcon className={`h-4 w-4 ${linkedIconColor}`} />
-                      ) : (
-                        <i className={`bi ${linkedIcon} ${linkedIconColor}`} />
-                      )}
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                        {linkedLabel}
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          Cliente
-                        </span>
-                        <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase">
-                          {order.customerData?.fullName || 'Consumidor'}
-                        </p>
-                      </div>
-                      <div className="flex flex-col gap-1 mt-1">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          Endereço
-                        </span>
-                        <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-tight">
-                          {stringifyFullAddressWithObservation(order.customerData?.fullAddress)}
-                        </p>
-                      </div>
-                    </div>
-                    <div
-                      className={`absolute top-0 right-0 w-16 h-16 ${isLinkedPickup ? 'bg-purple-600/5' : 'bg-emerald-600/5'} rotate-45 translate-x-8 -translate-y-8`}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })()}
         <div className="flex justify-between items-center mb-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Selo Primário (Entrega / Retirada / Assistência / Devolução) */}
-            {(!isAssembly || (!isAssemblyOutside && !isOnlyInternalAssembly)) && (
-              <div
-                className={`flex h-6 w-6 items-center justify-center ${order.orderType === 'return' ? '' : `rounded-md text-white border border-white/20 shadow-2xs ${
-                  isAssistance
-                    ? 'bg-orange-500 border-orange-600'
-                    : isPickup
-                      ? 'bg-purple-600 border-purple-700'
-                      : 'bg-emerald-600 border-emerald-700'
-                }`}`}
-                title={
-                  isAssistance
-                    ? 'Assistência Técnica'
-                    : isPickup
-                      ? 'Retirada na Loja'
-                      : order.orderType === 'return'
-                        ? 'Devolução'
-                        : 'Entrega'
-                }
-              >
-                {order.orderType === 'return' ? (
-                  <ReturnIcon className="h-6 w-6" />
-                ) : (
-              isAssistance ? (
-                <i className="bi bi-tools text-[11px] text-white" />
-              ) : isPickup ? (
-                <PickupIcon white className="h-3.5 w-3.5" />
-              ) : (
-                <i className="bi bi-truck text-[11px] text-white" />
-              )
-                )}
-              </div>
-            )}
-
-            {/* Selo Montagem Depósito */}
-            {(isAssemblyTask || isOnlyInternalAssembly) && (
-              <div
-                className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-500 text-white border border-amber-600 shadow-2xs"
-                title="Montagem Depósito (antes da entrega/retirada)"
-              >
-                <Drill size={12} className="text-white fill-white" />
-              </div>
-            )}
-
-            {/* Selo Montagem Fora */}
-            {isAssemblyOutside && (
-              <div
-                className="flex h-6 w-6 items-center justify-center rounded-md bg-red-600 text-white border border-red-700 shadow-2xs"
-                title="Montagem Fora (na casa do cliente)"
-              >
-                <Drill size={12} className="text-white fill-white" />
-              </div>
-            )}
-          </div>
+          <TableCellBadges
+            isAssembly={isAssembly}
+            isAssemblyOutside={isAssemblyOutside}
+            isOnlyInternalAssembly={isOnlyInternalAssembly}
+            isAssistance={isAssistance}
+            isPickup={isPickup}
+            orderType={order.orderType}
+            isAssemblyTask={isAssemblyTask}
+          />
         </div>
 
         <div className="flex justify-between items-start mb-1 pb-1 border-b border-slate-100 dark:border-slate-800">
@@ -278,12 +134,33 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
               className={`font-black text-[12px] uppercase tracking-widest whitespace-nowrap ${cls.timeText}`}
             >
               {timeDisplay}
-              {(order.shipping?.scheduling?.type === 'range' || (order as any).type === 'range') &&
+              {((activeOption?.type === 'range') || order.shipping?.scheduling?.type === 'range' || (order as any).type === 'range') &&
                 endTimeDisplay &&
+                !timeDisplay.includes('às') &&
+                !timeDisplay.includes('-') &&
                 ` → ${endTimeDisplay}`}
             </span>
+
+            {/* Selo de reprogramação para alternativa quando a data principal passou */}
+            {scheduleRes.isUsingAlternative && activeOption && (
+              <span className="text-[9px] font-black text-amber-700 dark:text-amber-300 uppercase px-2 py-0.5 bg-amber-100/80 dark:bg-amber-950/40 rounded-md border border-amber-300 dark:border-amber-800 w-fit">
+                {activeOption.label}: {activeOption.formattedDate}
+              </span>
+            )}
+
+            {/* Indicador de alternativas informativas adicionais acordadas com o cliente */}
+            {!scheduleRes.isUsingAlternative && scheduleRes.alternatives.length > 0 && (
+              <span
+                className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase px-2 py-0.5 bg-slate-100 dark:bg-slate-800/60 rounded-md border border-slate-200 dark:border-slate-700 w-fit"
+                title={scheduleRes.alternativesSummaryText}
+              >
+                +{scheduleRes.alternatives.length} data(s) alt.
+              </span>
+            )}
+
             {order.shipping?.scheduling?.dateType === 'range' &&
-              order.shipping?.scheduling?.endDate && (
+              order.shipping?.scheduling?.endDate &&
+              !scheduleRes.isUsingAlternative && (
                 <span className="text-[9px] font-bold text-blue-500 uppercase px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-900/30 w-fit">
                   Até {formatDate(order.shipping.scheduling.endDate)}
                 </span>
@@ -385,7 +262,11 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
                 className="flex items-center gap-1.5 px-2 py-1 bg-white/60 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-700/40 rounded-lg shadow-sm"
               >
                 <span
-                  className={`text-[10px] font-black ${isAssemblyTask ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'}`}
+                  className={`text-[10px] font-black ${
+                    isAssemblyTask
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : 'text-blue-600 dark:text-blue-400'
+                  }`}
                 >
                   {item.quantity}x
                 </span>
@@ -400,12 +281,12 @@ const TableCell = ({ order, duration, onOrderClick }: Props) => {
         <style
           dangerouslySetInnerHTML={{
             __html: `
-                    @keyframes slide-up-custom {
-                        from { transform: translateY(10px); opacity: 0; }
-                        to { transform: translateY(0); opacity: 1; }
-                    }
-                    .animate-slide-up-custom { animation: slide-up-custom 0.3s ease-out forwards; }
-                `,
+              @keyframes slide-up-custom {
+                from { transform: translateY(10px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+              }
+              .animate-slide-up-custom { animation: slide-up-custom 0.3s ease-out forwards; }
+            `,
           }}
         />
       </div>

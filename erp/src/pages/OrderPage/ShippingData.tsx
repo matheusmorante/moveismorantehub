@@ -1,6 +1,7 @@
 import Shipping from '../types/Shipping.type';
 import PickupIcon from '@/components/shared/PickupIcon';
 import { formatDate } from '../utils/formatters';
+import { resolveEffectiveSchedule } from '../../../../shared-utils/commercialOrderRules';
 import { NumericFormat as NumericFormatBase } from 'react-number-format';
 const NumericFormat = NumericFormatBase as any;
 
@@ -12,6 +13,7 @@ interface Props {
 
 const ShippingData = ({ shipping, isBudget, itemsTotalValue }: Props) => {
   const shippingDate = shipping.scheduling?.date;
+  const resolution = resolveEffectiveSchedule({ shipping });
 
   return (
     <section className="flex flex-col gap-2 w-full text-xs bg-slate-50/50 p-3 rounded-2xl border border-slate-50">
@@ -114,6 +116,16 @@ const ShippingData = ({ shipping, isBudget, itemsTotalValue }: Props) => {
                   : shipping.scheduling?.startTime || shipping.scheduling?.time || 'A combinar'}
               </span>
             </div>
+            {resolution.alternatives.length > 0 && (
+              <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex flex-col gap-0.5">
+                <span className="text-[9px] font-black uppercase text-slate-400">
+                  Datas alternativas:
+                </span>
+                <span className="text-xs text-slate-700 font-semibold">
+                  {resolution.alternativesSummaryText}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

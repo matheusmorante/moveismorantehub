@@ -115,6 +115,9 @@ const ShippingLabelPage = () => {
               <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                 AGENDADO: {shipping.scheduling.date}{' '}
                 {shipping.scheduling.time && `| ${shipping.scheduling.time}`}
+                {Array.isArray(shipping.scheduling.alternatives) &&
+                  shipping.scheduling.alternatives.length > 0 &&
+                  ` | ALT: ${shipping.scheduling.alternatives.map((a: any) => `${a.date}${a.startTime || a.time ? ` (${a.startTime || a.time})` : ''}`).join('; ')}`}
               </div>
             )}
           </div>

@@ -130,7 +130,7 @@ describe('proprietário do pedido, rascunho e finalização', () => {
 
   it('mantém entrega com agendamento pendente como scheduled, sem convertê-la em retirada concluída', async () => {
     const { result } = renderHook(() => useSalesOrderForm());
-    act(() => { fill(result.current); result.current.actions.setShipping({ ...valid().shipping, deliveryMethod: 'delivery', scheduling: { ...valid().shipping.scheduling, pendingScheduling: true } }); });
+    act(() => { fill(result.current); result.current.actions.setShipping({ ...valid().shipping, deliveryMethod: 'delivery', callBeforeDelivery: false, bringCardMachine: false, callOnArrival: false, scheduling: { ...valid().shipping.scheduling, pendingScheduling: true } }); });
     await act(async () => { await result.current.actions.handleCompleteOrder(); });
     expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ status: 'scheduled', shipping: expect.objectContaining({ deliveryMethod: 'delivery' }) }));
     expect(result.current.state.status).toBe('scheduled');

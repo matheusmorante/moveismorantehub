@@ -11,6 +11,7 @@ import {
   getOperationActivityPresentation,
   type OperationActivityType,
 } from '../../schedule/utils/operationActivity';
+import { classifyDeliveryService } from './deliveryServiceClassification';
 
 export interface DeliveryRouteItem {
   id: string;
@@ -62,6 +63,12 @@ export const buildDeliveryRouteItems = (
     if (oData.deleted || o.deleted || isCancelledOrder(o)) return false;
     const orderStatus = (o.status || oData.status || '').toLowerCase();
     if (orderStatus === 'draft' || orderStatus === 'rascunho') return false;
+
+    const shipping = oData.shipping || o.shipping || {};
+    const isLegacyPickup = String(shipping.deliveryType || '')
+      .toLowerCase()
+      .includes('retirada');
+    if (classifyDeliveryService(o).isPickup || isLegacyPickup) return false;
 
     const rawSchedDate = getOperationalScheduleDate(o);
     return dateScope === 'today'

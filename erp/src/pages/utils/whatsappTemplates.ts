@@ -328,7 +328,17 @@ export const buildAssistanceServiceOrderMessage = (order: Order) => {
   message += `🏠 *Endereço:* ${address}\n\n`;
 
   message += `🗓️ *Agendamento:* ${date}\n`;
-  message += `🕒 *Janela:* ${time || 'A combinar'}\n\n`;
+  message += `🕒 *Janela:* ${time || 'A combinar'}\n`;
+  if (Array.isArray(order.shipping?.scheduling?.alternatives) && order.shipping.scheduling.alternatives.length > 0) {
+    const altText = order.shipping.scheduling.alternatives
+      .filter((a: any) => a?.date)
+      .map((a: any) => `${a.date}${a.startTime || a.time ? ` (${a.startTime || a.time})` : ''}`)
+      .join(' • ');
+    if (altText) {
+      message += `🗓️ *Datas Alternativas:* ${altText}\n`;
+    }
+  }
+  message += `\n`;
 
   message += `📦 *Itens do Chamado:*\n`;
   const hasAssistanceItems = order.assistanceItems && order.assistanceItems.length > 0;

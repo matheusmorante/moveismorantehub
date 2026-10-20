@@ -30,6 +30,7 @@ export const getOrderAssemblyKinds = (order: Order): AssemblyKind[] => {
       kinds.add('depot');
       return;
     }
+    if (option) return;
 
     if (handling.includes('fora') || handling.includes('cliente') || handling.includes('extern')) {
       kinds.add('outside');

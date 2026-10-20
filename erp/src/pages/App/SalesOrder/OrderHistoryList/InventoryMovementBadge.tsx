@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Check, Package, PackageMinus, PackagePlus, PackageX } from 'lucide-react';
+import { Check, PackageMinus, PackagePlus, PackageX } from 'lucide-react';
 import type Order from '../../../types/order.type';
 import { isPartialSaleStockMovement } from '../../../utils/saleInventoryRules';
 import { getInventoryBadgeContent } from './inventoryBadgeContent';
@@ -43,7 +43,40 @@ const InventoryMovementBadge = ({
     isCancelled: ['cancelled', 'cancelado'].includes(String(order?.status || '').toLowerCase()),
     isPartialMovement,
   });
-  const content = baseContent;
+  const linkedReturn = order?.linkedReturnMovement;
+  const receivedReturnKind =
+    !isReturn &&
+    hasMovement &&
+    !isReversed &&
+    linkedReturn?.status === 'fulfilled' &&
+    linkedReturn.stockProcessed === true
+      ? linkedReturn.returnKind
+      : undefined;
+  const content = receivedReturnKind
+    ? {
+        ...baseContent,
+        title:
+          receivedReturnKind === 'complete'
+            ? 'Saída devolvida integralmente'
+            : 'Saída devolvida parcialmente',
+        explanation:
+          receivedReturnKind === 'complete'
+            ? 'As devoluções físicas vinculadas registraram entrada para todas as quantidades vendidas.'
+            : 'As devoluções físicas vinculadas registraram entrada para parte das quantidades vendidas.',
+        statusLabel:
+          receivedReturnKind === 'complete'
+            ? 'Devolução integral'
+            : 'Devolução parcial',
+        statusTextColor:
+          receivedReturnKind === 'complete'
+            ? 'text-emerald-600 dark:text-emerald-400'
+            : 'text-amber-600 dark:text-amber-400',
+        badgeColorClass:
+          receivedReturnKind === 'complete'
+            ? 'border-emerald-700 bg-emerald-600 text-white hover:bg-emerald-700'
+            : 'border-amber-600 bg-amber-500 text-white hover:bg-amber-600 dark:border-amber-700 dark:bg-amber-600 shadow-sm',
+      }
+    : baseContent;
 
   const updatePosition = useCallback(() => {
     if (!buttonRef.current) return;

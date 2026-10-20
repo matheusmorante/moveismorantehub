@@ -303,8 +303,9 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
     expect(optionLabels).not.toContain('montagem');
   });
 
-  it('deve disparar onChange com o manuseio selecionado pelo usuário', () => {
+  it('deve aplicar o manuseio selecionado pelo usuário como alteração em lote', () => {
     const onChangeMock = vi.fn();
+    const onBatchChangeMock = vi.fn();
     render(
       <table>
         <tbody>
@@ -313,7 +314,7 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
             productItems={[baseItem]}
             idx={0}
             onChange={onChangeMock}
-            onBatchChange={vi.fn()}
+            onBatchChange={onBatchChangeMock}
             onToggleDiscountType={vi.fn()}
             onDelete={vi.fn()}
             deliveryMethod="delivery"
@@ -328,10 +329,9 @@ describe('Manuseio nos Itens do Pedido (Desktop e Mobile)', () => {
     const select = screen.getByRole('combobox', { name: 'Manuseio' });
     fireEvent.change(select, { target: { value: 'Na caixa > Montagem no local da entrega' } });
 
-    expect(onChangeMock).toHaveBeenCalledWith(
-      0,
-      'handlingType',
-      'Na caixa > Montagem no local da entrega'
-    );
+    expect(onBatchChangeMock).toHaveBeenCalledWith(0, {
+      handlingType: 'Na caixa > Montagem no local da entrega',
+    });
+    expect(onChangeMock).not.toHaveBeenCalled();
   });
 });

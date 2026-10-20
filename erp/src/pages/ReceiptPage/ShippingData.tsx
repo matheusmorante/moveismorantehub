@@ -1,5 +1,6 @@
 import Shipping from '../types/Shipping.type';
 import { formatDate } from '../utils/formatters';
+import { resolveEffectiveSchedule } from '../../../../shared-utils/commercialOrderRules';
 import { NumericFormat as NumericFormatBase } from 'react-number-format';
 const NumericFormat = NumericFormatBase as any;
 
@@ -11,6 +12,7 @@ const ShippingData = ({ shipping }: Props) => {
   const shippingDate = shipping?.scheduling?.date || (shipping as any)?.date || '';
   const shippingValue = Number(shipping?.value ?? 0);
   const scheduling = shipping?.scheduling;
+  const resolution = resolveEffectiveSchedule(shipping ? { shipping } : null);
 
   return (
     <section className="flex flex-col gap-4">
@@ -55,6 +57,11 @@ const ShippingData = ({ shipping }: Props) => {
               ? `${scheduling.startTime} às ${scheduling.endTime}`
               : scheduling?.startTime || scheduling?.time || 'A combinar'}
           </span>
+          {resolution.alternatives.length > 0 && (
+            <span className="text-xs text-slate-500 mt-1 font-semibold">
+              Datas alternativas: {resolution.alternativesSummaryText}
+            </span>
+          )}
         </div>
       </div>
     </section>

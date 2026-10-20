@@ -30,6 +30,7 @@ export function applyImportedOrderDataToForm(orderData: any, formActions: any): 
       value: typeof migrated.shipping.value === 'number' ? migrated.shipping.value : prev.value,
       scheduling: migrated.shipping.scheduling
         ? {
+            ...migrated.shipping.scheduling,
             notInformed: !!migrated.shipping.scheduling.notInformed,
             dateType: migrated.shipping.scheduling.dateType || 'fixed',
             date: migrated.shipping.scheduling.date || '',

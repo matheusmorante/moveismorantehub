@@ -1,20 +1,31 @@
+import {
+  normalizeScheduleDate,
+  resolveEffectiveSchedule,
+} from '../../../shared-utils/commercialOrderRules';
+
 const normalize = (value: unknown) =>
   String(value || '')
     .trim()
     .toLowerCase();
 
-export const getOperationalScheduleDate = (order: any): string => {
-  // 1. Fonte de verdade primária: Coluna física normalizada no PostgreSQL
-  const directDate = order?.scheduled_date || order?.scheduledDate;
-  if (directDate) return String(directDate).substring(0, 10);
+export const getOperationalScheduleDate = (order: any, referenceDate: Date = new Date()): string => {
+  // 1. Resolve a programação efetiva (se a data definida já passou, avança para a próxima alternativa válida)
+  const resolved = resolveEffectiveSchedule(order, referenceDate);
+  if (resolved.effective?.date) {
+    return resolved.effective.date;
+  }
 
-  // 2. Fallback temporário para registros legados no JSONB
+  // 2. Coluna física normalizada no PostgreSQL como fallback
+  const directDate = order?.scheduled_date || order?.scheduledDate;
+  if (directDate) return normalizeScheduleDate(String(directDate));
+
+  // 3. Fallback para campos brutos legados
   const data = order?.order_data || {};
   const shipping = data.shipping || order?.shipping || {};
   const scheduling =
     shipping.scheduling || data.schedule || data.scheduling || order?.schedule || {};
 
-  return (
+  const fallback =
     scheduling.date ||
     scheduling.startDate ||
     scheduling.scheduledDate ||
@@ -23,8 +34,9 @@ export const getOperationalScheduleDate = (order: any): string => {
     data.scheduled_date ||
     data.date ||
     order?.date ||
-    ''
-  );
+    '';
+
+  return normalizeScheduleDate(fallback);
 };
 
 export const isScheduledAssistanceOrReturn = (order: any): boolean => {

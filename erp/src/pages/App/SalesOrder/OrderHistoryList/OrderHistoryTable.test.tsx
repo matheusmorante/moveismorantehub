@@ -66,7 +66,6 @@ describe('OrderHistoryTable', () => {
     /></MemoryRouter>);
     expect(screen.queryByLabelText(/Nota fiscal não emitida/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /NFD.*Autorizada/ }));
-    fireEvent.click(screen.getByRole('button', { name: /Abrir XML\/DANFE e ações fiscais/ }));
     expect(onViewFiscalDocument).toHaveBeenCalledWith('return-doc', 2);
   });
 

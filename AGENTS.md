@@ -79,3 +79,13 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 * A aba global **Pedidos** do aplicativo deve abrir um menu de módulos equivalente à hierarquia de Vendas do ERP, incluindo Pedidos de Venda, Orçamentos, Assistências e Devoluções.
 * Ao entrar em um módulo, a lista e a consulta devem ficar limitadas ao tipo selecionado. A tela **Pedidos de Venda** deve exibir somente filtros de status da venda; Assistências, Devoluções e Orçamentos são módulos próprios, nunca filtros da lista de vendas.
 * Preservar essa hierarquia ao criar ou revisar a navegação mobile; não juntar tipos de operação diferentes em uma única lista de filtros.
+
+---
+
+## 7. Testes: interface via Playwright, lógica via Vitest e banco remoto
+
+* Não iniciar nem usar Supabase Local, PostgreSQL local, Docker ou banco/simulador local como infraestrutura de teste. O fluxo local de Supabase está extinto no projeto; não executar `supabase start`, resets locais, migrations em banco local nem `npm run advisors` (o script usa `--local`).
+* Os únicos runners de teste permitidos são Playwright para fluxos de interface no navegador e Vitest/RTL para componentes e lógica. Não executar scripts de teste avulsos em Node/CJS/SQL nem CLI Supabase; testes que dependam do banco remoto devem estar integrados ao Playwright ou Vitest e obedecer às guardas abaixo.
+* Testes de interface devem exercitar o navegador de desenvolvimento pela UI com Playwright. Testes de componente e lógica isolada devem usar Vitest/RTL; mocks não comprovam persistência ou comportamento real do PostgreSQL.
+* Quando a propriedade depender do banco, usar somente o projeto Supabase remoto operacional existente, schema `public` e fixtures próprias com ownership e gates comprovados, conforme [`docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`](docs/testing/SUPABASE_REMOTE_TEST_POLICY.md). Não criar branches, projetos, bancos ou schemas para testar.
+* Emissão fiscal real à SEFAZ só pode ocorrer pela UI, em Homologação e com autorização explícita. Se autenticação, ownership ou isolamento dos artefatos não for comprovado, não contornar a guarda: concluir as provas locais seguras e registrar o cenário remoto como pendente com a causa concreta.

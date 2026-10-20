@@ -1,5 +1,4 @@
-import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,30 +11,13 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  Calendar as CalendarIcon,
-  Plus,
-  Truck,
-  RefreshCw,
-  ChevronRight,
-  MapPin,
-  Clock,
-  Tag,
-} from 'lucide-react-native';
-import { MobileDrill } from '../../../components/shared/MobileDrill';
-import PickupIcon from '../../../components/shared/PickupIcon';
-import { supabase } from '../../../services/supabaseClient';
-import { offlineStorageService } from '../../../services/offline/offlineStorageService';
-import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
-import { OrderRepository } from '../../../repositories/OrderRepository';
-import { fetchCalendarEvents, CalendarEvent } from '../../../services/scheduleEventsService';
+import { Calendar as CalendarIcon, Plus } from 'lucide-react-native';
 import { CreateEventModal } from '../components/CreateEventModal';
 import { getLocalDateString, formatFullAddress } from '../../../utils/orderUtils';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
-import {
-  getOperationActivityPresentation,
-  getOperationActivityType,
-} from '../utils/operationActivity';
+import { getOperationActivityType } from '../utils/operationActivity';
+import { useAgendaData } from '../hooks/useAgendaData';
+import { AgendaItemCard } from '../components/AgendaItemCard';
 
 export type AgendaFilterType = 'all' | 'deliveries' | 'pickups' | 'assemblies' | 'events';
 
@@ -47,7 +29,6 @@ interface Props {
 
 export const AgendaScreen: React.FC<Props> = ({
   isDarkMode = false,
-  isAdmin = false,
   onSelectOrder,
 }) => {
   const insets = useSafeAreaInsets();
@@ -55,116 +36,12 @@ export const AgendaScreen: React.FC<Props> = ({
     Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + 8;
 
   const [activeFilter, setActiveFilter] = useState<AgendaFilterType>('all');
-  const [orders, setOrders] = useState<any[]>([]);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-
-  const loadOfflineOrdersFallback = async () => {
-    try {
-      const [logisticsCached, repoOrders] = await Promise.all([
-        offlineStorageService.getWorkingSet<any[]>('logistics_orders').catch(() => null),
-        OrderRepository.list().catch(() => []),
-      ]);
-      const byId = new Map<string, any>();
-      if (Array.isArray(logisticsCached?.data)) {
-        for (const o of logisticsCached.data) {
-          if (o?.id) byId.set(o.id, o);
-        }
-      }
-      for (const local of repoOrders) {
-        if (local?.id) {
-          const existing = byId.get(local.id);
-          if (!existing || local.isPendingLocal) {
-            byId.set(local.id, {
-              ...existing,
-              id: local.id,
-              status: local.status,
-              created_at: local.updatedAt,
-              customer_name: local.customerName,
-              order_data: local.orderData,
-            });
-          }
-        }
-      }
-      const merged = Array.from(byId.values()).filter((ord) =>
-        ['scheduled', 'draft', 'agendado', 'rascunho'].includes(
-          String(ord.status || ord.order_data?.status || '').toLowerCase()
-        )
-      );
-      if (merged.length > 0) {
-        setOrders(merged);
-      }
-    } catch {}
-  };
-
-  const loadData = async () => {
-    try {
-      const [ordersOutcome, eventsOutcome] = await Promise.allSettled([
-        excludeTestOrders(
-          supabase
-            .from('orders')
-            .select(
-              'id, status, scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method, customer_name, order_number, order_index, created_at, order_data'
-            )
-        )
-          .or('deleted.is.null,deleted.eq.false')
-          .in('status', ['scheduled', 'draft'])
-          .order('created_at', { ascending: false }),
-        fetchCalendarEvents(),
-      ]);
-
-      if (
-        ordersOutcome.status === 'fulfilled' &&
-        !ordersOutcome.value.error &&
-        ordersOutcome.value.data
-      ) {
-        const reconciledOrders = await OrderRepository.overlayPendingLocalOrders(
-          ordersOutcome.value.data
-        );
-        setOrders(reconciledOrders);
-        await offlineStorageService
-          .cacheWorkingSet('logistics_orders', reconciledOrders)
-          .catch(() => {});
-      } else {
-        await loadOfflineOrdersFallback();
-      }
-
-      if (eventsOutcome.status === 'fulfilled' && eventsOutcome.value) {
-        setEvents(eventsOutcome.value);
-      }
-    } catch (e) {
-      console.warn('[AgendaScreen] Erro ao carregar dados da agenda:', e);
-      await loadOfflineOrdersFallback();
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-    let prevSyncAt: string | undefined;
-    const unsub = offlineSyncManager.subscribe((summary) => {
-      if (summary.lastSyncAt && summary.lastSyncAt !== prevSyncAt) {
-        prevSyncAt = summary.lastSyncAt;
-        void loadOfflineOrdersFallback();
-        void fetchCalendarEvents().then(setEvents).catch(() => {});
-      }
-    });
-    return () => unsub();
-  }, []);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadData();
-  };
+  const { orders, events, loading, refreshing, onRefresh, reload } = useAgendaData();
 
   // Agrupamento de itens por data (Entregas, Retiradas, Montagens e Eventos)
   const sections = useMemo(() => {
     const todayStr = getLocalDateString(new Date());
-
     const itemsByDate: Record<string, any[]> = {};
 
     // 1. Inserir Pedidos (Entregas / Retiradas / Montagens)
@@ -182,6 +59,7 @@ export const AgendaScreen: React.FC<Props> = ({
               .map((notice: string) => notice.trim())
               .filter(Boolean)
           : [];
+
       const dDate =
         getOperationalScheduleDate(order) ||
         order.delivery_date ||
@@ -334,7 +212,7 @@ export const AgendaScreen: React.FC<Props> = ({
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: 24 }}
+          contentContainerStyle={{ paddingBottom: 24, paddingHorizontal: 16 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
           }
@@ -344,80 +222,9 @@ export const AgendaScreen: React.FC<Props> = ({
               <Text style={[styles.sectionHeaderText, isDarkMode && styles.textDark]}>{title}</Text>
             </View>
           )}
-          renderItem={({ item }) => {
-            const isOrder = !!item.order;
-            return (
-              <TouchableOpacity
-                style={[styles.itemCard, isDarkMode && styles.itemCardDark]}
-                onPress={() => isOrder && onSelectOrder && onSelectOrder(item.order)}
-                activeOpacity={isOrder ? 0.7 : 1}
-              >
-                <View style={styles.itemBadgeCol}>
-                  {item.kind === 'delivery' ||
-                  item.kind === 'assistance' ||
-                  item.kind === 'return' ? (
-                    <View
-                      style={[
-                        styles.kindBadge,
-                        {
-                          backgroundColor: getOperationActivityPresentation(item.order)
-                            .backgroundColor,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.operationLabel,
-                          { color: getOperationActivityPresentation(item.order).color },
-                        ]}
-                      >
-                        {getOperationActivityPresentation(item.order).label}
-                      </Text>
-                    </View>
-                  ) : item.kind === 'pickup' ? (
-                    <View style={[styles.kindBadge, { backgroundColor: '#f3e8ff' }]}>
-                      <PickupIcon size={18} color="#7c3aed" />
-                    </View>
-                  ) : item.kind === 'assembly' ? (
-                    <View style={[styles.kindBadge, { backgroundColor: '#fef3c7' }]}>
-                      <MobileDrill size={14} color="#d97706" />
-                    </View>
-                  ) : (
-                    <View style={[styles.kindBadge, { backgroundColor: '#dcfce7' }]}>
-                      <Tag size={14} color="#16a34a" />
-                    </View>
-                  )}
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.itemTitle, isDarkMode && styles.textDark]}>
-                    {item.title}
-                  </Text>
-                  <Text style={[styles.itemSub, isDarkMode && styles.subtitleDark]}>
-                    {item.subtitle}
-                  </Text>
-                  {item.observationLabels?.length ? (
-                    <View style={styles.observationLabels}>
-                      {item.observationLabels.map((notice: string, index: number) => (
-                        <View
-                          key={`${index}-${notice}`}
-                          style={[styles.observationLabel, isDarkMode && styles.observationLabelDark]}
-                        >
-                          <Text style={[styles.observationLabelText, isDarkMode && styles.observationLabelTextDark]}>
-                            {notice}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-
-                {isOrder ? (
-                  <ChevronRight size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                ) : null}
-              </TouchableOpacity>
-            );
-          }}
+          renderItem={({ item }) => (
+            <AgendaItemCard item={item} isDarkMode={isDarkMode} onSelectOrder={onSelectOrder} />
+          )}
         />
       )}
 
@@ -425,7 +232,7 @@ export const AgendaScreen: React.FC<Props> = ({
       <CreateEventModal
         visible={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onEventCreated={() => loadData()}
+        onEventCreated={() => reload()}
         isDarkMode={isDarkMode}
       />
     </View>
@@ -443,7 +250,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
@@ -455,157 +262,87 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   screenTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '900',
     color: '#0f172a',
+    letterSpacing: -0.5,
   },
   screenSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: '600',
     color: '#64748b',
     marginTop: 2,
-  },
-  textDark: {
-    color: '#f8fafc',
-  },
-  subtitleDark: {
-    color: '#94a3b8',
   },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     backgroundColor: '#2563eb',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
   },
   createBtnText: {
-    color: '#ffffff',
     fontSize: 12,
     fontWeight: '800',
+    color: '#ffffff',
   },
   pillFilterRow: {
     flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 14,
-    padding: 3,
-    gap: 2,
+    gap: 8,
   },
-  pillFilterRowDark: {
-    backgroundColor: '#0f172a',
-  },
+  pillFilterRowDark: {},
   pillBtn: {
-    flex: 1,
-    alignItems: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 11,
+    borderRadius: 10,
+    backgroundColor: '#f1f5f9',
   },
   pillBtnActive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#2563eb',
   },
   pillText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: '#64748b',
   },
   pillTextActive: {
-    color: '#2563eb',
-  },
-  centerLoading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    fontSize: 12,
-    marginTop: 8,
+    color: '#ffffff',
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#e2e8f0',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingVertical: 8,
+    marginTop: 12,
+    marginBottom: 4,
   },
-  sectionHeaderDark: {
-    backgroundColor: '#334155',
-  },
+  sectionHeaderDark: {},
   sectionHeaderText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '900',
     color: '#334155',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
-  itemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    gap: 12,
-  },
-  itemCardDark: {
-    backgroundColor: '#1e293b',
-    borderBottomColor: '#334155',
-  },
-  itemBadgeCol: {
-    width: 32,
-  },
-  kindBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+  centerLoading: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  operationLabel: {
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 0.2,
-  },
-  itemTitle: {
-    fontSize: 13.5,
+  loadingText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#0f172a',
-  },
-  itemSub: {
-    fontSize: 11,
     color: '#64748b',
-    marginTop: 2,
+    marginTop: 8,
   },
-  observationLabels: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 6,
+  textDark: {
+    color: '#f8fafc',
   },
-  observationLabel: {
-    maxWidth: '100%',
-    backgroundColor: '#fee2e2',
-    borderColor: '#fca5a5',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  observationLabelDark: {
-    backgroundColor: '#7f1d1d',
-    borderColor: '#991b1b',
-  },
-  observationLabelText: {
-    fontSize: 10,
-    fontWeight: '800',
-    lineHeight: 14,
-    color: '#b91c1c',
-    flexShrink: 1,
-  },
-  observationLabelTextDark: {
-    color: '#fef2f2',
+  subtitleDark: {
+    color: '#94a3b8',
   },
 });

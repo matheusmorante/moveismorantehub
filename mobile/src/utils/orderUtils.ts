@@ -1,4 +1,6 @@
 // Helpers de formatação e utilitários de pedidos
+import { getOperationalScheduleDate } from './operationalSchedule';
+import { resolveEffectiveSchedule } from '../../../shared-utils/commercialOrderRules';
 
 export const formatOrderCode = (order: any): string => {
   if (!order) return '—';
@@ -384,9 +386,10 @@ export const groupOrdersByDate = (ordersList: any[]): DateGroupedOrders[] => {
       o.pending_scheduling === true ||
       o.pendingScheduling === true;
 
+    const operationalDate = isPendingScheduling ? '' : getOperationalScheduleDate(o);
     const rawDate = isPendingScheduling
       ? 'sem_data'
-      : sched.date || sched.startDate || o.scheduled_date || o.date || '';
+      : operationalDate || sched.date || sched.startDate || o.scheduled_date || o.date || '';
     const dateKey = isPendingScheduling ? 'sem_data' : parseOrderDateStr(rawDate) || 'sem_data';
 
     if (!groupsMap[dateKey]) {
@@ -584,13 +587,18 @@ export const formatOrderSchedulingText = (shipping: any, item: any): string => {
     return '📅 Agendamento: Não informado';
   }
 
+  const resolution = resolveEffectiveSchedule(item || { shipping });
+  const effective = resolution.effective;
+
   let datePart = '';
-  if (sched.date) datePart = formatOrderDate(sched.date);
+  if (effective?.formattedDate) datePart = effective.formattedDate;
+  else if (sched.date) datePart = formatOrderDate(sched.date);
   else if (sched.endDate) datePart = `Até ${formatOrderDate(sched.endDate)}`;
   else if (item?.scheduled_date) datePart = formatOrderDate(item.scheduled_date);
 
   let shiftPart = '';
-  if (sched.type === 'morning' || sched.period === 'morning') shiftPart = 'Manhã (09h-12h)';
+  if (effective?.formattedTime) shiftPart = effective.formattedTime;
+  else if (sched.type === 'morning' || sched.period === 'morning') shiftPart = 'Manhã (09h-12h)';
   else if (sched.type === 'afternoon' || sched.period === 'afternoon')
     shiftPart = 'Tarde (13h-18h)';
   else if (sched.type === 'full_day' || sched.period === 'full_day')
@@ -598,9 +606,16 @@ export const formatOrderSchedulingText = (shipping: any, item: any): string => {
   else if (sched.startTime && sched.endTime) shiftPart = `${sched.startTime} às ${sched.endTime}`;
   else if (sched.startTime) shiftPart = `A partir das ${sched.startTime}`;
 
-  if (datePart && shiftPart) return `📅 Agendado para ${datePart} (${shiftPart})`;
-  if (datePart) return `📅 Agendado para ${datePart}`;
-  if (shiftPart) return `📅 Agendamento: ${shiftPart}`;
+  const altSuffix =
+    resolution.alternatives.length > 0 && !resolution.isUsingAlternative
+      ? ` • Alt: ${resolution.alternativesSummaryText}`
+      : resolution.isUsingAlternative && effective
+        ? ` • (${effective.label})`
+        : '';
+
+  if (datePart && shiftPart) return `📅 Agendado para ${datePart} (${shiftPart})${altSuffix}`;
+  if (datePart) return `📅 Agendado para ${datePart}${altSuffix}`;
+  if (shiftPart) return `📅 Agendamento: ${shiftPart}${altSuffix}`;
 
   return '';
 };

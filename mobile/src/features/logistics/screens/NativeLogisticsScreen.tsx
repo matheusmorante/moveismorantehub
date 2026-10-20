@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,18 +9,7 @@ import {
   StyleSheet,
   Modal,
 } from 'react-native';
-import {
-  Calendar,
-  Truck,
-  ChevronRight,
-  ChevronDown,
-  AlertCircle,
-  Check,
-  Map,
-  MoreVertical,
-} from 'lucide-react-native';
-import { supabase } from '../../../services/supabaseClient';
-import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
+import { Calendar, ChevronDown, Check, MoreVertical } from 'lucide-react-native';
 import {
   groupOrdersByDate,
   isCancelledOrder,
@@ -28,14 +17,11 @@ import {
   formatGroupDateLabel,
 } from '../../../utils/orderUtils';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
-import { offlineStorageService } from '../../../services/offline/offlineStorageService';
-import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
-import { OrderRepository } from '../../../repositories/OrderRepository';
 import { TodayDeliveriesScreen } from './TodayDeliveriesScreen';
 import { PERIOD_OPTIONS } from '../components/LogisticsPeriodModal';
 import { LogisticsOrderCard } from '../components/LogisticsOrderCard';
-import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
-import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import { useLogisticsScheduleData } from '../hooks/useLogisticsScheduleData';
+import { LogisticsDateSectionHeader } from '../components/LogisticsDateSectionHeader';
 
 interface Props {
   isDarkMode: boolean;
@@ -49,105 +35,17 @@ interface Props {
 
 export const NativeLogisticsScreen: React.FC<Props> = ({
   isDarkMode,
-  isAdmin,
   userProfile,
   onSelectOrder,
-  isEmbeddedInHub = false,
   title,
-  onNavigateToDeliveriesMap,
 }) => {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { orders, loading, refreshing, handlingOptions, onRefresh } = useLogisticsScheduleData();
   const [selectedPeriod, setSelectedPeriod] = useState<string>('today_and_following');
   const [showPeriodModal, setShowPeriodModal] = useState<boolean>(false);
-  const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
   const [showTodayMap, setShowTodayMap] = useState<boolean>(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     sem_data: true,
   });
-
-  const fetchSettings = async () => {
-    try {
-      const { data } = await supabase.from('settings').select('*').limit(1);
-      if (data && data.length > 0) {
-        const sData = data[0]?.data || data[0];
-        const opts = [
-          ...(sData.deliveryHandlingOptions || []),
-          ...(sData.pickupHandlingOptions || []),
-        ];
-        setHandlingOptions(opts);
-      }
-    } catch {}
-  };
-
-  const loadScheduleFromCache = async () => {
-    try {
-      const cached = await offlineStorageService.getWorkingSet<any[]>('logistics_orders');
-      if (Array.isArray(cached?.data)) {
-        const overlaid = await OrderRepository.overlayPendingLocalOrders(
-          cached.data.filter((order) => !isIdentifiedTestArtifact(order))
-        );
-        setOrders(overlaid);
-        setLoading(false);
-      }
-    } catch {}
-  };
-
-  const fetchSchedule = async () => {
-    try {
-      if (orders.length === 0) {
-        await loadScheduleFromCache();
-      }
-
-      const query = excludeTestOrders(
-        supabase
-          .from('orders')
-          .select('id, status, created_at, order_data')
-          .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
-      );
-      const { data, error } = await query.order('created_at', { ascending: false }).limit(300);
-
-      if (!error && data) {
-        const visibleOrders = await OrderRepository.overlayPendingLocalOrders(
-          data.filter((order) => !isIdentifiedTestArtifact(order))
-        );
-        setOrders(visibleOrders);
-        await offlineStorageService.cacheWorkingSet('logistics_orders', visibleOrders);
-      } else {
-        await loadScheduleFromCache();
-      }
-    } catch (err) {
-      console.warn('[NativeLogistics] Erro ao buscar cronograma logístico:', err);
-      await loadScheduleFromCache();
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSchedule();
-    fetchSettings();
-
-    const unsubRealtime = subscribeToLogisticsChanges(() => {
-      fetchSchedule();
-      fetchSettings();
-    });
-    const unsubSync = offlineSyncManager.subscribe(() => {
-      void loadScheduleFromCache();
-    });
-    return () => {
-      unsubRealtime();
-      unsubSync();
-    };
-  }, []);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchSchedule();
-    fetchSettings();
-  };
 
   const toggleSection = (key: string) => {
     setCollapsedSections((prev) => ({
@@ -170,12 +68,12 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     const sched = shipping.scheduling || oData.schedule || oData.scheduling || o.schedule || {};
     const rawSchedDate = getOperationalScheduleDate(o);
 
-    const isExplicitlyPending = !!(
+    const isExplicitlyPending = Boolean(
       sched.pendingScheduling ||
-      oData.pendingScheduling ||
-      o.pending_scheduling ||
-      orderStatus === 'pending_scheduling' ||
-      orderStatus === 'agendar_depois'
+        oData.pendingScheduling ||
+        o.pending_scheduling ||
+        orderStatus === 'pending_scheduling' ||
+        orderStatus === 'agendar_depois'
     );
 
     if (isExplicitlyPending) return true;
@@ -255,7 +153,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     const count = ordersForDay.length;
 
     const isCollapsed =
-      collapsedSections[key] === undefined ? key !== todayStr : !!collapsedSections[key];
+      collapsedSections[key] === undefined ? key !== todayStr : Boolean(collapsedSections[key]);
 
     const label = isPending ? 'Agendamentos Pendentes' : formatGroupDateLabel(key);
 
@@ -303,9 +201,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
 
         <TouchableOpacity
           style={[styles.moreBtn, isDarkMode && styles.moreBtnDark]}
-          onPress={() => {
-            // Reservado para futuras ações
-          }}
+          onPress={() => {}}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           activeOpacity={0.7}
         >
@@ -348,19 +244,21 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
                   key={opt.id}
                   style={[
                     styles.modalOptionBtn,
-                    isSel && styles.modalOptionActive,
-                    isDarkMode && isSel && styles.modalOptionActiveDark,
+                    isSel && styles.modalOptionBtnActive,
+                    isDarkMode && isSel && styles.modalOptionBtnActiveDark,
                   ]}
                   onPress={() => {
                     setSelectedPeriod(opt.id);
                     setShowPeriodModal(false);
                   }}
+                  activeOpacity={0.7}
                 >
                   <Text
                     style={[
                       styles.modalOptionText,
                       isSel && styles.modalOptionTextActive,
                       isDarkMode && styles.textDark,
+                      isDarkMode && isSel && styles.textPrimaryDark,
                     ]}
                   >
                     {opt.label}
@@ -374,121 +272,59 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
       </Modal>
 
       {loading && !refreshing ? (
-        <View style={styles.loadingBox}>
+        <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#64748b', marginTop: 10 }}>
-            Carregando cronograma logístico...
+          <Text style={[styles.loadingText, isDarkMode && styles.textDark]}>
+            Carregando cronograma...
           </Text>
         </View>
       ) : (
         <SectionList
           sections={sections}
-          keyExtractor={(item, index) => (item?.id ? String(item.id) : String(index))}
-          stickySectionHeadersEnabled={true}
+          keyExtractor={(item, index) => item.id || `item-${index}`}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           ListHeaderComponent={renderHeader}
-          ListEmptyComponent={
-            <View style={styles.emptyBox}>
-              <Truck size={40} color="#cbd5e1" />
-              <Text style={{ fontSize: 14, fontWeight: '800', color: '#64748b', marginTop: 12 }}>
-                Nenhum agendamento logístico encontrado
-              </Text>
-            </View>
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
           }
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 12 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          renderSectionHeader={({ section }) => {
-            const isCollapsed =
-              collapsedSections[section.key] === undefined
-                ? section.key !== todayStr
-                : !!collapsedSections[section.key];
-            const isPending = section.isPending;
-            const isEmpty = section.count === 0;
-
-            let headerStyle = styles.stickySectionHeaderDefault;
-            if (isPending) {
-              headerStyle = styles.stickySectionHeaderPending;
-            } else if (isEmpty) {
-              headerStyle = styles.stickySectionHeaderEmpty;
-            }
-
-            return (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => toggleSection(section.key)}
-                style={[
-                  styles.stickySectionHeader,
-                  headerStyle,
-                  isDarkMode && styles.stickySectionHeaderDark,
-                ]}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                  {isPending ? (
-                    <AlertCircle size={16} color="#d97706" />
-                  ) : (
-                    <Calendar
-                      size={16}
-                      color={isEmpty ? (isDarkMode ? '#475569' : '#94a3b8') : '#2563eb'}
-                    />
-                  )}
-                  <Text
-                    style={[
-                      styles.stickySectionTitle,
-                      isPending && { color: '#92400e' },
-                      isEmpty && { color: isDarkMode ? '#64748b' : '#94a3b8' },
-                      isDarkMode && styles.textDark,
-                    ]}
-                  >
-                    {section.title}
-                  </Text>
-                </View>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View
-                    style={[
-                      styles.stickySectionBadge,
-                      isPending && { backgroundColor: '#d97706' },
-                      isEmpty && { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.stickySectionBadgeText,
-                        isEmpty && { color: isDarkMode ? '#cbd5e1' : '#64748b' },
-                      ]}
-                    >
-                      {section.count} {section.count === 1 ? 'item' : 'itens'}
-                    </Text>
-                  </View>
-                  {isCollapsed ? (
-                    <ChevronRight
-                      size={18}
-                      color={isPending ? '#d97706' : isEmpty ? '#94a3b8' : '#2563eb'}
-                    />
-                  ) : (
-                    <ChevronDown
-                      size={18}
-                      color={isPending ? '#d97706' : isEmpty ? '#94a3b8' : '#2563eb'}
-                    />
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          }}
-          renderItem={({ item }) => {
+          renderSectionHeader={({ section }) => (
+            <LogisticsDateSectionHeader
+              dateKey={section.key}
+              label={section.title}
+              count={section.count}
+              isPending={section.isPending}
+              isToday={section.key === todayStr}
+              isCollapsed={collapsedSections[section.key] ?? section.key !== todayStr}
+              onToggle={toggleSection}
+              isDarkMode={isDarkMode}
+            />
+          )}
+          renderItem={({ item, section }) => {
             if (item.isEmptyPlaceholder) {
               return (
-                <View style={[styles.emptyDayBox, isDarkMode && styles.emptyDayBoxDark]}>
-                  <Text style={styles.emptyDayText}>Nenhuma entrega agendada</Text>
+                <View
+                  style={[
+                    styles.emptyDayPlaceholder,
+                    isDarkMode && styles.emptyDayPlaceholderDark,
+                  ]}
+                >
+                  <Text style={[styles.emptyDayText, isDarkMode && styles.textMuted]}>
+                    Nenhuma entrega programada para este dia
+                  </Text>
                 </View>
               );
             }
+
             return (
-              <LogisticsOrderCard
-                order={item}
-                handlingOptions={handlingOptions}
-                isDarkMode={isDarkMode}
-                onSelectOrder={onSelectOrder}
-              />
+              <View style={styles.cardContainer}>
+                <LogisticsOrderCard
+                  order={item}
+                  handlingOptions={handlingOptions}
+                  isDarkMode={isDarkMode}
+                  onSelectOrder={onSelectOrder}
+                />
+              </View>
             );
           }}
         />
@@ -498,135 +334,158 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  containerDark: { backgroundColor: '#0f172a' },
-  headerPadding: { paddingVertical: 12, gap: 10 },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: '#ffffff',
   },
-  titleContainer: {
-    gap: 8,
-    alignItems: 'flex-start',
+  containerDark: {
+    backgroundColor: '#0f172a',
   },
-  screenTitle: { fontSize: 20, fontWeight: '900', color: '#0f172a' },
-  screenSubtitle: { fontSize: 11, fontWeight: '700', color: '#64748b', marginTop: 1 },
-  textDark: { color: '#f8fafc' },
-  subtitleDark: { color: '#94a3b8' },
-  moreBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+  centerContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    padding: 24,
   },
-  moreBtnDark: {
-    backgroundColor: '#1e293b',
-    borderColor: '#334155',
+  loadingText: {
+    marginTop: 12,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  listContent: {
+    paddingBottom: 40,
+    paddingHorizontal: 16,
+  },
+  headerPadding: {
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0f172a',
+    letterSpacing: -0.5,
   },
   selectBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    alignSelf: 'flex-start',
-  },
-  selectBtnDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
-  selectBtnText: { fontSize: 12, fontWeight: '800', color: '#2563eb' },
-  mapBannerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#eff6ff',
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-    marginTop: 4,
-  },
-  mapBannerBtnDark: { backgroundColor: '#1e3a8a33', borderColor: '#1e40af' },
-  mapBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  mapIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#2563eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapBannerTitle: { fontSize: 13, fontWeight: '900', color: '#1e3a8a' },
-  mapBannerSubtitle: { fontSize: 11, color: '#64748b', marginTop: 1 },
-  loadingBox: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
-  emptyBox: { justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
-  stickySectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: '#f1f5f9',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    marginVertical: 4,
+    paddingVertical: 7,
+    borderRadius: 20,
+    maxWidth: 180,
   },
-  stickySectionHeaderDefault: { backgroundColor: '#dbeafe' },
-  stickySectionHeaderPending: { backgroundColor: '#fef3c7' },
-  stickySectionHeaderEmpty: { backgroundColor: '#f1f5f9' },
-  stickySectionHeaderDark: { backgroundColor: '#1e293b' },
-  stickySectionTitle: { fontSize: 13, fontWeight: '900' },
-  stickySectionBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    backgroundColor: '#2563eb',
+  selectBtnDark: {
+    backgroundColor: '#1e293b',
   },
-  stickySectionBadgeText: { color: '#ffffff', fontSize: 10, fontWeight: '900' },
-  emptyDayBox: {
-    paddingVertical: 14,
+  selectBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  moreBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    marginHorizontal: 16,
+    backgroundColor: '#f8fafc',
+  },
+  moreBtnDark: {
+    backgroundColor: '#1e293b',
+  },
+  cardContainer: {
+    marginBottom: 12,
+  },
+  emptyDayPlaceholder: {
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#f1f5f9',
+    borderStyle: 'dashed',
   },
-  emptyDayBoxDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
-  emptyDayText: { fontSize: 12, fontWeight: '600', color: '#94a3b8' },
+  emptyDayPlaceholderDark: {
+    backgroundColor: '#1e293b/40',
+    borderColor: '#334155',
+  },
+  emptyDayText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   modalCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
     width: '100%',
-    maxWidth: 340,
-    gap: 8,
+    maxWidth: 320,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 20,
+    elevation: 5,
   },
-  modalCardDark: { backgroundColor: '#1e293b' },
-  modalTitle: { fontSize: 15, fontWeight: '900', color: '#0f172a', marginBottom: 8 },
+  modalCardDark: {
+    backgroundColor: '#1e293b',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0f172a',
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   modalOptionBtn: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 6,
   },
-  modalOptionActive: { backgroundColor: '#eff6ff' },
-  modalOptionActiveDark: { backgroundColor: '#0f172a' },
-  modalOptionText: { fontSize: 13, fontWeight: '700', color: '#475569' },
-  modalOptionTextActive: { color: '#2563eb', fontWeight: '900' },
+  modalOptionBtnActive: {
+    backgroundColor: '#eff6ff',
+  },
+  modalOptionBtnActiveDark: {
+    backgroundColor: '#1e3a8a/30',
+  },
+  modalOptionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  modalOptionTextActive: {
+    color: '#2563eb',
+    fontWeight: '900',
+  },
+  textDark: {
+    color: '#f8fafc',
+  },
+  textMuted: {
+    color: '#64748b',
+  },
+  textPrimaryDark: {
+    color: '#60a5fa',
+  },
 });

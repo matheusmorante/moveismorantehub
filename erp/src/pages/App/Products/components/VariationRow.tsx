@@ -95,6 +95,19 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   Nome da Variação
                 </span>
+                {v.status === 'draft' && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onEdit?.(v.id);
+                    }}
+                    title="Rascunho: revise os campos obrigatórios antes de disponibilizar."
+                    className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                  >
+                    Rascunho
+                  </button>
+                )}
               </div>
               <input
                 value={v.name || v.title || 'Variação'}

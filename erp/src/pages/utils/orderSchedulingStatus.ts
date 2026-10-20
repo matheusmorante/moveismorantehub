@@ -1,8 +1,12 @@
 import Shipping from '../types/Shipping.type';
+import { resolveEffectiveSchedule } from '../../../../shared-utils/commercialOrderRules';
 
 export const formatOrderSchedulingText = (shipping: any, order?: any): string => {
   const sched = shipping?.scheduling || {};
   if (sched.pendingScheduling && !sched.immediatePickup) return 'Agendamento: Pendente';
+
+  const resolution = resolveEffectiveSchedule(order || { shipping });
+  const effective = resolution.effective;
 
   const formatDateStr = (dStr: string) => {
     if (!dStr) return '';
@@ -12,18 +16,23 @@ export const formatOrderSchedulingText = (shipping: any, order?: any): string =>
     return clean;
   };
 
-  const startDate = sched.date || order?.scheduled_date || order?.order_data?.scheduledDate;
-  const endDate = sched.endDate;
+  const startDate =
+    effective?.date || sched.date || order?.scheduled_date || order?.order_data?.scheduledDate;
+  const endDate = effective?.endDate || sched.endDate;
 
   let dateLabel = '';
-  if (sched.dateType === 'range' && endDate && startDate) {
+  if (effective?.formattedDate) {
+    dateLabel = effective.formattedDate;
+  } else if (sched.dateType === 'range' && endDate && startDate) {
     dateLabel = `${formatDateStr(startDate)} até ${formatDateStr(endDate)}`;
   } else if (startDate) {
     dateLabel = formatDateStr(startDate);
   }
 
   let timeLabel = '';
-  if (sched.type === 'range' && sched.startTime && sched.endTime) {
+  if (effective?.formattedTime) {
+    timeLabel = effective.formattedTime;
+  } else if (sched.type === 'range' && sched.startTime && sched.endTime) {
     timeLabel = `${sched.startTime} às ${sched.endTime}`;
   } else if (sched.startTime) {
     timeLabel = sched.startTime;
@@ -31,8 +40,15 @@ export const formatOrderSchedulingText = (shipping: any, order?: any): string =>
     timeLabel = sched.time;
   }
 
-  if (dateLabel && timeLabel) return `Agendado: ${dateLabel} (${timeLabel})`;
-  if (dateLabel) return `Agendado: ${dateLabel}`;
+  const altSuffix =
+    resolution.alternatives.length > 0 && !resolution.isUsingAlternative
+      ? ` • Alternativas: ${resolution.alternativesSummaryText}`
+      : resolution.isUsingAlternative && effective
+        ? ` • (${effective.label})`
+        : '';
+
+  if (dateLabel && timeLabel) return `Agendado: ${dateLabel} (${timeLabel})${altSuffix}`;
+  if (dateLabel) return `Agendado: ${dateLabel}${altSuffix}`;
   return '';
 };
 

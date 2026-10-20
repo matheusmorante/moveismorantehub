@@ -54,6 +54,12 @@ const AssemblyPrintPage = () => {
               return `${s.startTime} às ${s.endTime}`;
             return s.startTime || s.time || '';
           })(),
+          alternatives: Array.isArray(order.shipping?.scheduling?.alternatives)
+            ? order.shipping.scheduling.alternatives
+                .filter((a: any) => a?.date)
+                .map((a: any) => `${formatToBRDate(a.date)}${a.startTime || a.time ? ` (${a.startTime || a.time})` : ''}`)
+                .join(' • ')
+            : '',
           items: order.items
             .filter((i) => {
               const isPickup = order.shipping?.deliveryMethod === 'pickup';
@@ -199,6 +205,11 @@ const AssemblyPrintPage = () => {
                           {item.time && (
                             <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-1 rounded border border-blue-100 uppercase tracking-tighter italic">
                               Janela: {item.time}
+                            </span>
+                          )}
+                          {(item as any).alternatives && (
+                            <span className="text-[8px] font-black text-amber-700 bg-amber-50 px-1 rounded border border-amber-200 uppercase tracking-tighter italic">
+                              Alt: {(item as any).alternatives}
                             </span>
                           )}
                         </div>

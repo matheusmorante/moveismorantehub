@@ -1,16 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { type GestureResponderEvent, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import {
-  ChevronDown,
-  ChevronUp,
-  MapPin,
-  Clock,
-  Play,
-  Eye,
-} from 'lucide-react-native';
+import { MapPin, Clock, Play, Eye } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
-import { MobileDrill } from '../../../../components/shared/MobileDrill';
 import {
   isAssemblyInternalType,
   isAssemblyOutsideType,
@@ -18,6 +10,9 @@ import {
   type AssemblyHandlingOption,
 } from '../../../../utils/aiSummaryHelper';
 import { DeliveryFlowIcon } from '../../../../components/shared/DeliveryFlowIcon';
+import { resolveEffectiveSchedule } from '../../../../../../shared-utils/commercialOrderRules';
+import { ScheduleCardBadges } from './ScheduleCardBadges';
+import { ScheduleAlternativesInfo } from './ScheduleAlternativesInfo';
 
 interface Props {
   item: DeliveryRouteItem;
@@ -36,8 +31,6 @@ export const ScheduleCard: React.FC<Props> = ({
   handlingOptions = [],
   isDarkMode = false,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   const oData = item.order?.order_data || item.order || {};
   const serviceSummary = analyzeOrderServiceHandlings(
     oData.items || item.order?.items || oData.assistanceItems || []
@@ -48,6 +41,7 @@ export const ScheduleCard: React.FC<Props> = ({
     String(
       oData.orderType || oData.order_type || item.order?.orderType || item.order?.order_type || ''
     ).toLowerCase() === 'return';
+
   const hasOutsideAssembly =
     !isReturn &&
     (serviceSummary.hasOutsideAssembly ||
@@ -55,6 +49,7 @@ export const ScheduleCard: React.FC<Props> = ({
       items.some((entry: AssemblyHandlingItem) =>
         isAssemblyOutsideType(entry?.handlingType || entry?.handling, handlingOptions)
       ));
+
   const hasDepotAssembly =
     !isReturn &&
     (serviceSummary.hasDepotAssembly ||
@@ -62,19 +57,15 @@ export const ScheduleCard: React.FC<Props> = ({
       items.some((entry: AssemblyHandlingItem) =>
         isAssemblyInternalType(entry?.handlingType || entry?.handling, handlingOptions)
       ));
-  // Informações de pagamento
-  const financial = oData.financial || item.order?.financial || {};
-  const pendingAmount = Number(financial.remainingAmount || financial.pendingBalance || 0);
-  const paymentMethod = financial.pendingPaymentMethod || financial.paymentMethod || 'PIX / Cartão';
 
-  // Bairro e Cidade
+  // Endereço e localização
   const shipping = oData.shipping || {};
   const deliveryAddr = shipping.deliveryAddress || item.order?.customer?.fullAddress || {};
   const neighborhood = deliveryAddr.neighborhood || '';
   const city = deliveryAddr.city || '';
   const locationText = [neighborhood, city].filter(Boolean).join(' · ');
 
-  // Tempo de deslocamento e quilometragem ao lado do endereço
+  // Tempo de deslocamento e quilometragem
   const travelMin = item.durationMin || shipping.durationMinutes;
   const travelKm = item.distanceKm || shipping.distance;
   const travelParts = [
@@ -129,6 +120,10 @@ export const ScheduleCard: React.FC<Props> = ({
         icon: <Play size={14} color="#ffffff" fill="#ffffff" />,
       };
 
+  const scheduleRes = resolveEffectiveSchedule(item.order);
+  const effectiveOption = scheduleRes.effective;
+  const displayPeriodLabel = effectiveOption?.formattedTime || item.periodLabel;
+
   return (
     <TouchableOpacity
       style={[styles.card, isDarkMode && styles.cardDark]}
@@ -137,40 +132,16 @@ export const ScheduleCard: React.FC<Props> = ({
     >
       {/* Cabeçalho do Card com selos de serviço e código do pedido */}
       <View style={styles.cardHeader}>
-        <View style={styles.headerLeft}>
-          <View style={[styles.activityBadge, { backgroundColor: item.activityBackgroundColor }]}>
-            <Text style={[styles.activityBadgeText, { color: item.activityColor }]}>
-              {item.activityLabel}
-            </Text>
-          </View>
-          {statusBadgeConfig && (
-            <View style={[styles.activityBadge, { backgroundColor: statusBadgeConfig.bg }]}>
-              <Text style={[styles.activityBadgeText, { color: statusBadgeConfig.color }]}>
-                {statusBadgeConfig.label}
-              </Text>
-            </View>
-          )}
-          {/* Selo Parafusadeira Amarela - Montagem Depósito */}
-          {hasDepotAssembly && (
-            <View style={[styles.drillBadge, styles.drillBadgeDepot]}>
-              <MobileDrill size={11} color="#ffffff" />
-            </View>
-          )}
-
-          {/* Selo Parafusadeira Vermelha - Montagem Fora */}
-          {hasOutsideAssembly && (
-            <View style={[styles.drillBadge, styles.drillBadgeOutside]}>
-              <MobileDrill size={11} color="#ffffff" />
-            </View>
-          )}
-
-          {/* Selo de Fixação em Parede / Instalação de Aéreo (se houver) */}
-          {serviceSummary.hasWallInstallation && (
-            <View style={[styles.wallBadge, isDarkMode && styles.wallBadgeDark]}>
-              <Text style={styles.wallBadgeText}>🧱 AÉREO</Text>
-            </View>
-          )}
-        </View>
+        <ScheduleCardBadges
+          activityLabel={item.activityLabel}
+          activityColor={item.activityColor}
+          activityBackgroundColor={item.activityBackgroundColor}
+          statusBadgeConfig={statusBadgeConfig}
+          hasDepotAssembly={hasDepotAssembly}
+          hasOutsideAssembly={hasOutsideAssembly}
+          hasWallInstallation={serviceSummary.hasWallInstallation}
+          isDarkMode={isDarkMode}
+        />
 
         <Text style={[styles.orderIndexText, isDarkMode && styles.textMuted]}>
           #{item.orderIndex || item.id.substring(0, 5)}
@@ -182,15 +153,18 @@ export const ScheduleCard: React.FC<Props> = ({
         {item.isFixedTime ? (
           <View style={styles.fixedTimeBadge}>
             <Clock size={13} color="#b91c1c" />
-            <Text style={styles.fixedTimeText}>{item.periodLabel} · HORÁRIO FIXO</Text>
+            <Text style={styles.fixedTimeText}>{displayPeriodLabel} · HORÁRIO FIXO</Text>
           </View>
         ) : (
           <View style={styles.windowBadge}>
             <Clock size={13} color="#2563eb" />
-            <Text style={styles.windowText}>{item.periodLabel}</Text>
+            <Text style={styles.windowText}>{displayPeriodLabel}</Text>
           </View>
         )}
       </View>
+
+      {/* Programação alternativa & Reposicionamento (Informativo no mesmo Card) */}
+      <ScheduleAlternativesInfo scheduleRes={scheduleRes} isDarkMode={isDarkMode} />
 
       {/* Cliente e Localização com Deslocamento e Quilometragem */}
       <Text style={[styles.customerName, isDarkMode && styles.textLight]}>{item.customerName}</Text>
@@ -265,148 +239,70 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  activityBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  activityBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.4,
-  },
-  drillBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  drillBadgeDepot: {
-    backgroundColor: '#d97706', // Amarelo/Âmbar oficial do Morante Hub para Montagem Depósito
-  },
-  drillBadgeOutside: {
-    backgroundColor: '#dc2626', // Vermelho oficial do Morante Hub para Montagem Fora
-  },
-  wallBadge: {
-    backgroundColor: '#f5f3ff',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ddd6fe',
-  },
-  wallBadgeDark: {
-    backgroundColor: '#2e1065',
-    borderColor: '#5b21b6',
-  },
-  wallBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#7c3aed',
-    letterSpacing: 0.3,
-  },
   orderIndexText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#64748b',
+    letterSpacing: 0.5,
   },
   timeSection: {
-    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
   },
   fixedTimeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     backgroundColor: '#fee2e2',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    alignSelf: 'flex-start',
   },
   fixedTimeText: {
     fontSize: 11,
     fontWeight: '900',
     color: '#b91c1c',
+    letterSpacing: 0.3,
   },
   windowBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 10,
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    alignSelf: 'flex-start',
   },
   windowText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#334155',
+    color: '#2563eb',
   },
   customerName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     color: '#0f172a',
+    marginTop: 2,
     marginBottom: 4,
-    flexShrink: 1,
   },
   locationRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 10,
-    minWidth: 0,
+    alignItems: 'flex-start',
+    gap: 5,
+    marginBottom: 8,
   },
   locationText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#64748b',
+    fontWeight: '600',
+    color: '#475569',
     flex: 1,
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  serviceBadgesRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 10,
-  },
-  serviceBadge: {
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 8,
-    paddingVertical: 3.5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  serviceBadgeDark: {
-    backgroundColor: '#0f172a',
-    borderColor: '#334155',
-  },
-  serviceBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#334155',
   },
   metricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    gap: 8,
     marginBottom: 12,
   },
   productsCountText: {
@@ -414,148 +310,48 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#64748b',
   },
-  durationText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#0369a1',
-  },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
+    marginTop: 4,
   },
   startBtn: {
     flex: 1,
-    minWidth: 135,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#2563eb',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: 11,
     borderRadius: 14,
+    elevation: 2,
+  },
+  startBtnText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 0.5,
   },
   deliveryFlowBtn: {
     flex: 1,
-    minWidth: 140,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#16a34a',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    gap: 6,
+    backgroundColor: '#10b981',
+    paddingVertical: 11,
     borderRadius: 14,
+    elevation: 2,
   },
   deliveryFlowBtnDark: {
-    backgroundColor: '#15803d',
+    backgroundColor: '#059669',
   },
   deliveryFlowBtnText: {
+    fontSize: 12,
+    fontWeight: '900',
     color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '900',
     letterSpacing: 0.5,
-  },
-  startBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  expandBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  expandBtnDark: {
-    backgroundColor: '#334155',
-  },
-  expandedContainer: {
-    marginTop: 12,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
-    marginVertical: 10,
-  },
-  expandedSectionTitle: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#94a3b8',
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  productsList: {
-    gap: 8,
-  },
-  productItem: {
-    gap: 3,
-  },
-  productName: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1e293b',
-  },
-  productHandlingTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  tagOutside: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#dc2626',
-  },
-  tagDepot: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#d97706',
-  },
-  tagWall: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#7c3aed',
-  },
-  tagDefault: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#64748b',
-  },
-  paymentBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#f0fdf4',
-    padding: 10,
-    borderRadius: 10,
-  },
-  paymentLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#166534',
-  },
-  paymentValue: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#15803d',
-  },
-  fullOrderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
-    marginTop: 12,
-    paddingTop: 8,
-  },
-  fullOrderBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#2563eb',
   },
   textLight: {
     color: '#f8fafc',

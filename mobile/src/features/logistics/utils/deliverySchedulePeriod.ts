@@ -1,3 +1,9 @@
+import {
+  resolveEffectiveSchedule,
+  MORNING_SHIFT,
+  AFTERNOON_SHIFT,
+} from '../../../../../shared-utils/commercialOrderRules';
+
 export interface DeliverySchedulePeriod {
   label: string;
   isFixed: boolean;
@@ -15,12 +21,35 @@ const getMinutesFromTime = (time: string, fallback: number): number => {
 };
 
 /**
- * Normaliza a promessa de horário registrada em order_data.shipping.scheduling.
- * Esta função não altera o pedido: apenas prepara dados de apresentação e ordenação.
+ * Normaliza a promessa de horário registrada em order_data.shipping.scheduling,
+ * respeitando a opção efetiva (avança para alternativas se a principal expirou).
  */
-export const getDeliverySchedulePeriod = (shipping: unknown): DeliverySchedulePeriod => {
-  const scheduling =
-    (shipping as { scheduling?: Record<string, unknown> } | null)?.scheduling ?? {};
+export const getDeliverySchedulePeriod = (
+  shippingOrOrder: unknown,
+  referenceDate: Date = new Date()
+): DeliverySchedulePeriod => {
+  const resolution = resolveEffectiveSchedule(shippingOrOrder, referenceDate);
+  if (resolution.effective) {
+    const eff = resolution.effective;
+    const isFixed = eff.type === 'fixed' || (!eff.endTime && Boolean(eff.startTime));
+    const label = eff.formattedTime
+      ? isFixed
+        ? `🔒 ${eff.formattedTime}`
+        : eff.formattedTime
+      : 'HORÁRIO COMERCIAL';
+
+    return {
+      label,
+      isFixed,
+      windowStart: eff.startTime,
+      windowEnd: eff.endTime,
+      sortWeight: getMinutesFromTime(eff.startTime || eff.cutoffTime, DEFAULT_START_MINUTES),
+    };
+  }
+
+  const shipping =
+    (shippingOrOrder as any)?.shipping || (shippingOrOrder as any)?.order_data?.shipping || shippingOrOrder;
+  const scheduling = (shipping as any)?.scheduling ?? {};
   const rawTime = String(scheduling.time ?? '').trim();
   const startTime = String(scheduling.startTime ?? '').trim();
   const endTime = String(scheduling.endTime ?? '').trim();
@@ -65,8 +94,8 @@ export const getDeliverySchedulePeriod = (shipping: unknown): DeliverySchedulePe
     return {
       label: 'MANHÃ · 08:00–12:00',
       isFixed: false,
-      windowStart: '08:00',
-      windowEnd: '12:00',
+      windowStart: MORNING_SHIFT.startTime,
+      windowEnd: MORNING_SHIFT.endTime,
       sortWeight: 480,
     };
   }
@@ -74,8 +103,8 @@ export const getDeliverySchedulePeriod = (shipping: unknown): DeliverySchedulePe
     return {
       label: 'TARDE · 13:00–18:00',
       isFixed: false,
-      windowStart: '13:00',
-      windowEnd: '18:00',
+      windowStart: AFTERNOON_SHIFT.startTime,
+      windowEnd: AFTERNOON_SHIFT.endTime,
       sortWeight: 780,
     };
   }

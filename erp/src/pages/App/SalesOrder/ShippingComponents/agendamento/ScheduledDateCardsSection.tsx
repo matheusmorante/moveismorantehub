@@ -47,7 +47,7 @@ export const ScheduledDateCardsSection = ({
   onCustomDateChange,
   onCustomDateRangeChange,
 }: ScheduledDateCardsSectionProps) => {
-  const [isExpanded, setIsExpanded] = React.useState(false);
+  const [isExpanded, setIsExpanded] = React.useState(true);
   const todayInfo = getSaoPauloDayInfo(0);
   const tomorrowInfo = getSaoPauloDayInfo(1);
   const customDatePanelId = `${baseId}-custom-date-panel`;
