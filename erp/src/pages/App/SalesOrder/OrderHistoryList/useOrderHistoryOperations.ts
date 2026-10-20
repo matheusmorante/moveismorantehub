@@ -137,10 +137,10 @@ export const createOrderHistoryOperations = ({
       return false;
     }
 
-    const payload: Partial<Order> = { status: newStatus };
-    if (isUndoFulfillment) {
-      payload.autoFulfillExempt = true;
-    }
+    const payload: Partial<Order> = {
+      status: newStatus,
+      ...(isUndoFulfillment ? { autoFulfillExempt: true } : {}),
+    };
 
     // A cancellation must remain open until its commercial/fiscal result is known.
     const applyStatus = () => setOrders((prev) =>
@@ -153,7 +153,23 @@ export const createOrderHistoryOperations = ({
               stockReversed: expectedStockReversed,
               returnStockProcessed: expectedReturnStockProcessed,
               returnStockReversed: expectedReturnStockReversed,
-              ...(isUndoFulfillment ? { autoFulfillExempt: true } : {}),
+              ...(isUndoFulfillment
+                ? {
+                    autoFulfillExempt: true,
+                    delivery_status: null,
+                    deliveryStatus: null,
+                    unattendedReason: undefined,
+                    unattendedNotes: undefined,
+                    unattendedProofUrl: undefined,
+                    unattendedProofUrls: undefined,
+                    unattendedAt: undefined,
+                    deliveryStartedAt: undefined,
+                    deliveryArrivedAt: undefined,
+                    deliveryServiceStartedAt: undefined,
+                    deliveryFinishedAt: undefined,
+                    deliveryChecklist: undefined,
+                  }
+                : {}),
             }
           : o
       )

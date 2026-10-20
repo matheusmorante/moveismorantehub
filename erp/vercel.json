@@ -42,6 +42,10 @@
       "destination": "/api/nfe/auxiliary?operation=order-fiscal-badges"
     },
     {
+      "source": "/api/nfe/fiscal-pendencies",
+      "destination": "/api/nfe/auxiliary?operation=fiscal-pendencies"
+    },
+    {
       "source": "/api/facebook-catalog.csv",
       "destination": "https://moveismorante.com.br/api/facebook-catalog.csv"
     },

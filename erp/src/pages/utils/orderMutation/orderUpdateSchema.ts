@@ -21,9 +21,25 @@ export const sanitizeOrderUpdateFields = (
   }
 
   const keys = Object.keys(cleanUpdates);
+  const statusOnlyKeys = new Set([
+    'status',
+    'autoFulfillExempt',
+    'deliveryStatus',
+    'delivery_status',
+    'unattendedReason',
+    'unattendedNotes',
+    'unattendedProofUrl',
+    'unattendedProofUrls',
+    'unattendedAt',
+    'deliveryStartedAt',
+    'deliveryArrivedAt',
+    'deliveryServiceStartedAt',
+    'deliveryFinishedAt',
+    'deliveryChecklist',
+  ]);
   const isStatusOnlyUpdate =
     Object.hasOwn(cleanUpdates, 'status') &&
-    keys.every((key) => key === 'status' || key === 'autoFulfillExempt');
+    keys.every((key) => statusOnlyKeys.has(key));
 
   return { cleanUpdates, isStatusOnlyUpdate };
 };

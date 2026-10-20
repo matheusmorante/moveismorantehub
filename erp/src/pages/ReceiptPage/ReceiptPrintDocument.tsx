@@ -91,9 +91,10 @@ export const ReceiptPrintDocument: React.FC<ReceiptPrintDocumentProps> = ({ orde
                     .header-logo-container {
                         width: 12rem !important;
                         height: 6rem !important;
-                        padding: 0.1rem !important;
+                        padding: 0 !important;
                         margin: 0 !important;
-                        border-radius: 0.5rem !important;
+                        border-radius: 0 !important;
+                        background: transparent !important;
                     }
                     .header-logo-container img {
                         width: 100% !important;

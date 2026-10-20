@@ -10,7 +10,7 @@ import {
 import type { DetailTab } from '../../components/IssuedFiscalDocumentDetailsTabs';
 import type {
   FiscalDocumentDetails,
-  FiscalDocumentEmissionHistoryRecord,
+  NfeDocumentRecord,
 } from '../../types/fiscalDocuments.types';
 import type { ReplacementPendingAction } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import { fetchOrderById } from '@/pages/utils/orderHistoryService';
@@ -122,7 +122,7 @@ export function useIssuedFiscalDocumentDetails(props: IssuedFiscalDocumentDetail
         (d) => d.operation_kind === 'estorno' && d.status === 'authorized'
       )
   );
-  const orderEmissions: readonly FiscalDocumentEmissionHistoryRecord[] = details?.orderEmissions || [];
+  const orderEmissions: readonly NfeDocumentRecord[] = details?.orderEmissions || [];
   const currentActiveEmission = useMemo(() => {
     if (orderEmissions.length <= 1) return null;
     const authorized = orderEmissions.find((e) =>

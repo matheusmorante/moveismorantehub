@@ -85,13 +85,29 @@ const resolveStatusOnlyOrderDataSnapshot = async (
 
   validateSnapshot?.(statusUpdateSnapshot);
 
-  return {
+  const nextSnapshot: Record<string, unknown> = {
     ...statusUpdateSnapshot,
     status: cleanUpdates.status,
     ...(Object.hasOwn(cleanUpdates, 'autoFulfillExempt')
       ? { autoFulfillExempt: cleanUpdates.autoFulfillExempt }
       : {}),
   };
+
+  if (cleanUpdates.status === 'scheduled') {
+    delete (nextSnapshot as any).deliveryStatus;
+    delete (nextSnapshot as any).unattendedReason;
+    delete (nextSnapshot as any).unattendedNotes;
+    delete (nextSnapshot as any).unattendedProofUrl;
+    delete (nextSnapshot as any).unattendedProofUrls;
+    delete (nextSnapshot as any).unattendedAt;
+    delete (nextSnapshot as any).deliveryStartedAt;
+    delete (nextSnapshot as any).deliveryArrivedAt;
+    delete (nextSnapshot as any).deliveryServiceStartedAt;
+    delete (nextSnapshot as any).deliveryFinishedAt;
+    delete (nextSnapshot as any).deliveryChecklist;
+  }
+
+  return nextSnapshot;
 };
 
 /**

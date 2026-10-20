@@ -97,13 +97,13 @@ export function SubHeader() {
               'flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-1.5 leading-tight rounded-lg',
               'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs',
               isSalvadosActive
-                ? 'bg-orange-500 text-black ring-2 ring-white/80 shadow-sm'
-                : 'bg-orange-500 hover:bg-orange-400 text-black',
+                ? 'bg-orange-500 text-white ring-2 ring-white/80 shadow-sm'
+                : 'bg-orange-500 hover:bg-orange-400 text-white',
             ].join(' ');
 
             return (
               <Link href="/?type=salvados" className={salvadosClass}>
-                <Flame className="h-3.5 w-3.5 fill-black text-black shrink-0" />
+                <Flame className="h-3.5 w-3.5 fill-white text-white shrink-0" />
                 QUEIMA DOS SALVADOS
               </Link>
             );
@@ -229,9 +229,9 @@ export function SubHeader() {
                       <Link
                         href="/?type=salvados"
                         onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-2 rounded-lg bg-orange-500 hover:bg-orange-600 px-3 py-2.5 text-sm font-black text-black transition-all shadow-xs"
+                        className="flex items-center gap-2 rounded-lg bg-orange-500 hover:bg-orange-600 px-3 py-2.5 text-sm font-black text-white transition-all shadow-xs"
                       >
-                        <Flame className="h-4 w-4 fill-black text-black shrink-0" />
+                        <Flame className="h-4 w-4 fill-white text-white shrink-0" />
                         QUEIMA DOS SALVADOS
                       </Link>
                       <Link

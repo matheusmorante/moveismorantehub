@@ -62,6 +62,20 @@ const ACTION_CONFIG: Record<
     actionLabel: 'Resolver regularização anterior',
     actionIcon: 'bi-exclamation-octagon-fill',
   },
+  prior_regularization_uncertain: {
+    title: 'Regularização anterior com resultado incerto',
+    message:
+      'O resultado do cancelamento ou estorno da nota fiscal anterior é incerto. Consulte a SEFAZ e reconcilie o documento antes de prosseguir.',
+    actionLabel: 'Consultar regularização',
+    actionIcon: 'bi-arrow-repeat',
+  },
+  processing: {
+    title: 'Processamento fiscal em andamento',
+    message:
+      'Procedimento fiscal em processamento pela SEFAZ. Acompanhe a conclusão antes de novas ações.',
+    actionLabel: 'Acompanhar processamento',
+    actionIcon: 'bi-hourglass-split',
+  },
   authorized: {
     title: 'Nota fiscal regularizada',
     message: 'A operação fiscal deste pedido está regularizada.',

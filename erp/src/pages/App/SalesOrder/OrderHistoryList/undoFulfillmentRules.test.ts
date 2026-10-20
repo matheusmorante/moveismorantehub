@@ -62,6 +62,40 @@ describe('Regras de Negócio e Contratos de "Desfazer Atendido"', () => {
         })
       ).toBe(false);
     });
+
+    it('permite a correção quando a entrega não foi concluída (insucesso/unattended/auto-atendido)', () => {
+      expect(
+        canUndoFulfillment({
+          ...baseOrder,
+          status: 'fulfilled',
+          delivery_status: 'unattended',
+        })
+      ).toBe(true);
+      expect(
+        canUndoFulfillment({
+          ...baseOrder,
+          status: 'fulfilled',
+          order_data: {
+            deliveryStatus: 'unattended',
+            unattendedAt: '2026-10-20T20:57:34.705Z',
+            unattendedReason: 'Cliente não poderá receber no momento',
+          },
+        })
+      ).toBe(true);
+      expect(
+        canUndoFulfillment({
+          ...baseOrder,
+          status: 'fulfilled',
+          order_data: { autoFulfilledAfter12h: true },
+        })
+      ).toBe(true);
+      expect(
+        validateOrderStatusTransition('fulfilled', 'scheduled', {
+          delivery_status: 'unattended',
+          order_data: { deliveryStatus: 'unattended', unattendedAt: '2026-10-20T20:57:34.705Z' },
+        }).allowed
+      ).toBe(true);
+    });
   });
 
   describe('Correção de clique equivocado em "Atendido"', () => {

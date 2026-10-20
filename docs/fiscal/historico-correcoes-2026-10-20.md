@@ -1601,3 +1601,181 @@ Além disso, nos casos em que a nova emissão substituta falhou (rejeição pela
 5. **Aderência às Políticas de Confiabilidade Fiscal:**
    - Zero CC-e (`FISCAL-016`).
    - Idempotência e integridade de snapshots preservadas.
+
+## Ajuste de importação do modal de emissão na página fiscal
+
+- **Sintoma observado:** ao carregar a interface de desenvolvimento, o Vite exibia overlay de erro e não compilava a página de documentos fiscais; `FiscalDocuments/index.tsx` importava `NfeEmissionModal` de um caminho inexistente.
+- **Causa raiz comprovada:** o componente está em `SalesOrder/OrderActions/NfeEmissionModal.tsx`, mas a página fiscal apontava para `SalesOrder/OrderActions/nfe-modal/NfeEmissionModal`.
+- **Arquivo e linha:** `erp/src/pages/App/FiscalDocuments/index.tsx:28`.
+- **Correção:** apontar o import para o arquivo canônico `SalesOrder/OrderActions/NfeEmissionModal`, preservando a integração do modal contextual de emissão.
+- **Validação:** `npm run test:fiscal:unit` passou com 84 arquivos / 1.054 testes; `npm run test:unit --prefix erp -- src/pages/App/FiscalDocuments/` passou com 25 arquivos / 195 testes. A navegação protegida pela página fiscal em Playwright aguarda a autenticação Vercel Development necessária para carregar as credenciais de runtime.
+
+---
+
+## 10. Central de Pendências Fiscais no Módulo de Notas Fiscais e Regularização Fiscal Completa
+
+### Auditoria Prévia dos Fluxos Fiscais Existentes
+1. **Emissão de NF-e 55 e NFC-e 65:** Conduzida por `useNfeEmission.ts` e `NfeEmissionModal.tsx`, enviando snapshots imutáveis validados via hash transacional para `/api/nfe/emit` ou `/api/nfe/transmit-operation-draft`. XML gerado em Rust/WASM e validado contra XSD oficial antes de assinar e transmitir.
+2. **Homologação vs. Produção:** Estrita segregação por `ambiente` (2 para Homologação, 1 para Produção). Produção exige confirmação deliberada do operador (`FISCAL-001`).
+3. **Cancelamento Fiscal:** Processado via `/api/nfe/cancel` emitindo evento oficial `110111` à SEFAZ, respeitando a janela de 168h para modelo 55 e 30 minutos para modelo 65.
+4. **Estorno Fiscal:** Conduzido via `NfeOperationDraftModal.tsx` com `finNFe=3` e CFOPs 1949/2949 referenciando a NF original.
+5. **Controle de Situação do Pedido e Badges:** Calculado centralizadamente por `orderFiscalBadgeRules.ts` (`orderFiscalSituationClassifier.ts`, `orderFiscalBadgePairResolver.ts`) e no backend por `api/nfe/orderFiscalSituation.ts`. Exibe rótulo único `NF` ou `NFH` nos cards de vendas com estados padronizados (`issued`, `reissue_required`, `reversed`, `cancelled`, `regularization_failed`, `regularization_uncertain`).
+6. **Idempotência e Reconciliação:** Bloqueio atômico via `prepare_nfe_outbound_attempt`. Falhas e timeouts nunca retransmitem cegamente; consultam a mesma chave via `/api/nfe/consult`.
+7. **Permissões e Auditoria:** Controles estritos com `canPerform('viewFiscal')` e `hasFiscalOperationRole`. Sem exposição de credenciais ou certificados nos logs ou na UI.
+
+---
+
+### Solução Arquitetural e Funcional da Central de Pendências Fiscais
+
+#### 1. Backend Centralizador (`/api/nfe/fiscal-pendencies`)
+- Criado endpoint de consulta e consolidação em `api/nfe/fiscal-pendencies.ts`, empacotado no build fiscal (`erp/server/nfe/fiscal-pendencies.cjs`).
+- **Detecção Automática:**
+  - Consulta `nfe_order_edit_replacements` com `status <> 'completed'` (substituições ativas em `ready_to_reissue`, `awaiting_reversal` ou `replacement_prepared`).
+  - Consulta documentos não-conclusivos recentes em `nfe_documents` (`status IN ('rejeitada', 'denegada', 'transmitting', 'unknown', 'erro')`).
+  - Cruza com dados comerciais do pedido (`orders.order_data`), nome do cliente, documento, modelo e ambiente.
+- **Filtro Estrito de Rejeições Resolvidas:**
+  - Se um pedido com tentativa rejeitada no passado já possui uma nota posterior autorizada para o mesmo ambiente e pedido, a pendência antiga é descartada da lista aberta. Apenas pendências ativas que exigem intervenção humana são apresentadas.
+- **Deduplicação por Operação:**
+  - Agrupa por `${order_id}:${ambiente}`, garantindo no máximo 1 pendência operacional ativa por pedido/ambiente.
+- **Tipos de Pendência Mapeados:**
+  - `awaiting_new_invoice`: Nota anterior regularizada, pedido ativo aguardando nova nota.
+  - `draft`: Nova nota fiscal preparada e não transmitida.
+  - `rejected`: Nova tentativa rejeitada pela SEFAZ.
+  - `transmission_uncertain`: Resultado de transmissão desconhecido aguardando consulta/reconciliação.
+  - `prior_regularization_failed`: Falha no cancelamento ou estorno da nota original.
+  - `prior_regularization_uncertain`: Incerteza no cancelamento/estorno anterior na SEFAZ.
+  - `processing`: Processamento em andamento na SEFAZ.
+
+#### 2. Serviço e Hook Reativo no Frontend
+- `fiscalPendenciesService.ts`: Chamada HTTP com timeout de 15s e fallback resiliente direto ao Supabase (`supabaseClient`) caso o endpoint REST esteja temporariamente inacessível.
+- `useFiscalPendencies.ts`: Hook orquestrador que calcula métricas consolidadas (`openCount`, `productionCount`, `homologationCount`, `reissueCount`, `rejectionCount`) e aplica filtros reativos em memória (por tipo, ambiente, modelo, período e busca textual por pedido/cliente).
+
+#### 3. Componentes da Interface no Módulo de Notas Fiscais
+- **`FiscalDocumentsHeader.tsx`:** Navegação por abas com `role="tablist"` entre:
+  - **"Documentos Fiscais"**: Lista padrão de notas autorizadas, estornadas e canceladas.
+  - **"Pendências Fiscais"**: Com badge numérico dinâmico exibindo a quantidade de pendências abertas.
+- **`FiscalPendenciesView.tsx`:** Visão completa contendo:
+  - Painel de métricas rápidas (Total abertas, Produção, Homologação, Reemissões, Rejeições/Erros).
+  - Barra de filtros (`FiscalPendenciesFilterBar.tsx`) com seleção de tipo, ambiente, modelo, período e busca rápida.
+  - Tabela de pendências (`FiscalPendenciesTable.tsx`) exibindo Pedido comercial, Cliente, Tipo de Pendência, Ambiente/Modelo, Nota Anterior, Situação Atual e Botão de Ação Direta (`Emitir nova NF`, `Continuar emissão`, `Corrigir emissão`, `Consultar situação`, `Resolver regularização`, etc.).
+  - Empty state positivo: quando não há pendências abertas, informa com clareza que todas as operações estão regularizadas.
+
+#### 4. Integração Fluida com Modais Existentes
+- Ao clicar no botão de ação da tabela:
+  - Para `awaiting_new_invoice`: carrega o pedido comercial atualizado e abre o `NfeEmissionModal` já existente para conferência dos dados antes da transmissão (sem emissão cega/automática).
+  - Para outras pendências: abre o `IssuedFiscalDocumentDetailsModal` com o documento/pedido selecionado, exibindo o `FiscalSituationNotice` em destaque no topo do modal.
+- Quando uma emissão é autorizada com sucesso, o sistema fecha o modal e recarrega tanto a lista de notas quanto a lista de pendências, removendo a pendência resolvida imediatamente.
+
+---
+
+### Arquivos e Linhas Modificados / Criados
+- **Backend:**
+  - `api/nfe/fiscal-pendencies.ts` (criado): handler Vercel/Node para consolidação das pendências abertas.
+  - `erp/scripts/build-fiscal.cjs`: inclusão de `fiscal-pendencies` na lista de rotas empacotadas.
+- **Frontend / Tipos e Serviços:**
+  - `erp/src/pages/utils/nfe/orderFiscalBadge/orderFiscalBadgeRules.types.ts`: adição de `prior_regularization_uncertain` e `processing` em `ReplacementPendingAction`.
+  - `erp/src/pages/App/FiscalDocuments/components/FiscalSituationNotice.tsx`: suporte a todas as 8 ações contextuais em `ACTION_CONFIG`.
+  - `erp/src/pages/App/FiscalDocuments/types/fiscalPendencies.types.ts` (criado): modelos de dados, configurações de badges e filtros da Central de Pendências.
+  - `erp/src/pages/App/FiscalDocuments/services/fiscalPendenciesService.ts` (criado): serviço de busca com fallback para o Supabase.
+  - `erp/src/pages/App/FiscalDocuments/hooks/useFiscalPendencies.ts` (criado): hook de estado, métricas e filtragem.
+  - `erp/src/pages/App/FiscalDocuments/components/pendencies/FiscalPendencyTypeBadge.tsx` (criado): badge visual por tipo de pendência.
+  - `erp/src/pages/App/FiscalDocuments/components/pendencies/FiscalPendenciesFilterBar.tsx` (criado): controles de filtro.
+  - `erp/src/pages/App/FiscalDocuments/components/pendencies/FiscalPendenciesTable.tsx` (criado): tabela responsiva de pendências.
+  - `erp/src/pages/App/FiscalDocuments/components/pendencies/FiscalPendenciesView.tsx` (criado): container principal da visão.
+  - `erp/src/pages/App/FiscalDocuments/components/FiscalDocumentsHeader.tsx`: suporte a abas de navegação e badge de contagem.
+  - `erp/src/pages/App/FiscalDocuments/index.tsx`: integração das abas, visualização de pendências e orquestração de modais.
+- **Testes Unitários:**
+  - `erp/src/pages/App/FiscalDocuments/__tests__/fiscalPendencies.test.tsx` (criado): 12 testes cobrindo badges, tabela, header e hook com filtros.
+  - `erp/src/pages/utils/nfe/__tests__/fiscalPendenciesEndpoint.test.ts` (criado): 2 testes cobrindo autenticação, retorno de pendências e exclusão de rejeições já regularizadas.
+
+---
+
+### Testes Executados e Validações
+1. **Testes Unitários da Central de Pendências:**
+   - 12/12 testes aprovados em `fiscalPendencies.test.tsx`.
+   - 2/2 testes aprovados em `fiscalPendenciesEndpoint.test.ts`.
+2. **Suíte Completa do Módulo FiscalDocuments:**
+   - 25 arquivos e 195 testes aprovados (100% sucesso).
+3. **Suíte Global de Não-Regressão Fiscal:**
+   - 85 arquivos e 1.056 testes aprovados (100% sucesso).
+4. **Build Fiscal Oficial:**
+   - `npm run build:fiscal --prefix erp`: 12/12 handlers Vercel compilados (incluindo `fiscal-pendencies`), WASM validado e XSD oficial verificado com 0 erros.
+5. **Conformidade Mandatória com Políticas do Projeto:**
+   - Zero criação ou exposição de CC-e (`FISCAL-016`).
+   - Bloqueio estrito de reemissões prematuras enquanto a regularização anterior for incerta ou falha.
+   - Preservação da idempotência e integridade documental histórica.
+
+## 11. Endurecimento de Segurança e Falha Fechada da Central de Pendências Fiscais
+
+### Problema Identificado e Sintomas
+
+A Central de Pendências consultava as tabelas fiscais com a chave privilegiada após confirmar somente que o token pertencia a uma sessão válida. Um usuário autenticado sem perfil fiscal podia receber nomes e documentos de clientes e estados de documentos fiscais. Erros em consultas eram ignorados e a API podia responder com `success: true` e lista vazia; o frontend ainda apresentava a mensagem de que todas as operações estavam regularizadas. A consulta também descartava falhas abertas com mais de 45 dias, podia escolher uma autorização antiga sem ordenação determinística e inferia Produção/modelo 55 diante de valores inválidos.
+
+### Causa Raiz Técnica Comprovada
+
+`api/nfe/fiscal-pendencies.ts` não usava `authorizeFiscalOperator`, ignorava erros de PostgREST, limitava tentativas por data e não paginava consultas. `fiscalPendenciesService.ts` chamava `withTimeout` com argumentos incorretos e usava uma segunda implementação direta ao Supabase que convertia falha em `[]`. `FiscalPendenciesView.tsx` fazia uma nova busca própria além do hook da página e renderizava a tabela vazia mesmo depois de erro.
+
+### Arquivos e Linhas Modificados
+
+- `api/nfe/fiscal-pendencies.ts:1-295`: autorização fiscal antes das leituras fiscais privilegiadas; somente GET; paginação determinística de 1.000 linhas e filtros em blocos de 100 IDs; falha fechada para erros e inconsistências; inclusão de tentativas abertas sem corte de idade; escolha da autorização mais recente; validação estrita de ambiente/modelo; classificação de `erro` como processamento com falha.
+- `erp/src/pages/App/FiscalDocuments/services/fiscalPendenciesService.ts:1-49`: timeout da sessão, resposta e consulta HTTP; remoção do fallback que ocultava erros; rejeição de respostas inválidas e falhas HTTP.
+- `erp/src/pages/App/FiscalDocuments/components/pendencies/FiscalPendenciesView.tsx:1-168`: estado recebido do hook do módulo; em erro, mostra aviso e ação de nova tentativa sem exibir a tabela ou o estado positivo vazio.
+- `erp/src/pages/App/FiscalDocuments/index.tsx:163-167`: compartilha com a aba a mesma consulta usada no contador, evitando requisição duplicada.
+- `erp/src/pages/utils/nfe/__tests__/fiscalPendenciesEndpoint.test.ts:1-240`: cobertura de método/autorização, ausência de consulta fiscal para perfil negado, consultas com erro, tentativas antigas, paginação, autorização mais recente, ambiente/modelo inválidos e falha de substituição. A revisão do item 13 passou a exercitar o autorizador real.
+- `erp/src/pages/App/FiscalDocuments/__tests__/fiscalPendencies.test.tsx:1-306`: regressão que comprova que erro de carregamento nunca mostra o estado “Nenhuma pendência fiscal aberta” e que a nova tentativa é acionada.
+- `erp/src/pages/App/FiscalDocuments/services/fiscalPendenciesService.test.ts:1-36`: falha HTTP propagada e sessão expirada sem fallback direto ao banco.
+
+### Solução e Validação
+
+A API chama `authorizeFiscalOperator` com o cliente de servidor e só inicia leituras fiscais depois da validação do token e do perfil protegido. O contexto do cliente foi corrigido após a prova UI descrita no item 13. Qualquer erro de consulta ou dado fiscal inválido retorna indisponibilidade, sem declarar a lista completa; tentativas antigas continuam visíveis até serem resolvidas por documento posterior autorizado. O frontend compartilha uma busca única e separa erro de lista vazia.
+
+- `npm run test:fiscal:unit`: 85 arquivos e 1.063 testes aprovados.
+- `npm run test:unit --prefix erp -- src/pages/App/FiscalDocuments/`: 26 arquivos e 198 testes aprovados.
+- `npm run build --prefix erp`: build fiscal com 12/12 handlers e XSD oficial verificado, seguido do build Vite concluído. O Vite reportou avisos de divisão de chunks já existentes; terminou com sucesso.
+
+### Limite da Prova de Interface
+
+O acesso ao CLI Vercel foi restabelecido e a conexão MCP oficial foi configurada/autenticada no escopo do usuário. `vercel env run --environment=development` carregou as variáveis de runtime; `NFE_HML_TEST_OPERATOR_EMAIL` e `NFE_HML_TEST_OPERATOR_PASSWORD` foram usadas apenas em memória para preencher o formulário real. O teste Playwright `abre pedidos, devoluções, notas fiscais e cadastros pelos menus existentes` passou (1/1), incluindo o preflight remoto de operador, execução e artefato próprios. A navegação não gravou cadastros nem transmitiu notas.
+
+Foi acrescentado em `erp/tests/e2e/fiscal/fiscal-ui-navigation.spec.ts:101` o cenário de consulta da Central pela UI, verificando HTTP/JSON, completude do retorno e apresentação da aba. Após os ajustes dos itens 12–14, o cenário passou (1/1) em Development/5173, com a API real e o Supabase remoto. O ciclo HML autorizado continua separado: a consulta aprovada não comprova emissão ou NFD automática.
+
+## 12. Roteamento da Central de Pendências na API Vercel
+
+- **Problema e causa comprovada:** o handler da Central era empacotado, mas faltavam o import e a entrada de whitelist no dispatcher `auxiliary`, a reescrita do caminho público e a inclusão no gate de roteamento do build. Assim, o bundle sozinho não garantia que `/api/nfe/fiscal-pendencies` chegaria ao handler numa implantação Vercel. O servidor de desenvolvimento direto carrega os bundles pelo nome e podia ocultar essa omissão.
+- **Arquivos e solução:** `erp/api/nfe/auxiliary.ts:7,18` importa e registra o handler existente; `erp/vercel.json:44-47` encaminha o caminho público ao dispatcher; `erp/scripts/check-fiscal-startup.cjs:42` inclui a rota na conferência de whitelist, rewrite e execução do bundle. Não houve criação de nova função Vercel nem alteração de banco.
+- **Prova de interface:** `erp/tests/e2e/fiscal/fiscal-ui-navigation.spec.ts:36,101-122` espera a saída real do login, usa janela desktop e verifica a consulta/aba da Central. A primeira execução não chegou à tela fiscal porque o viewport padrão abriu o menu compacto; esse erro do roteiro não foi contado como falha da API. O roteiro foi corrigido; após os itens 13–14, a UI passou (1/1), com HTTP 200/JSON e a aba renderizada.
+- **Gate aprovado:** `npm run build:fiscal --prefix erp` passou, incluindo `fiscal-pendencies: native module loading and handler execution passed`, 12/12 funções e XSD oficial resolvido. A mudança de roteamento ainda não foi implantada; o teste local não será relatado como prova do rewrite remoto publicado.
+
+## 13. Contexto de Autorização da Central de Pendências
+
+- **Sintoma confirmado pela UI:** o Playwright autenticou o operador e recebeu HTTP 403 na consulta da Central, embora o preflight tivesse confirmado seu papel administrativo.
+- **Causa comprovada:** `auth.getUser(token)` valida o token, mas não autentica as consultas seguintes do cliente anônimo. A consulta de `profiles` do autorizador rodava sem sessão; o mock do autorizador no teste inicial ocultava esse comportamento.
+- **Correção:** `api/nfe/fiscal-pendencies.ts:4,76-86` usa o cliente de servidor no autorizador central, seguindo o contrato das demais rotas fiscais. O autorizador valida o token e lê somente o perfil protegido do usuário; as tabelas fiscais só são consultadas após resultado autorizado. O cliente anônimo redundante foi removido. Não houve alteração de perfil, RLS, credenciais ou banco.
+- **Regressão:** `erp/src/pages/utils/nfe/__tests__/fiscalPendenciesEndpoint.test.ts:1-240` deixou de mockar o autorizador e passou a exercitar o helper real com a consulta de perfil. Antes da correção, seis cenários falharam com 403; depois, os nove testes passaram, incluindo 401/403 sem leituras fiscais. `erp/tests/e2e/fiscal/fiscal-ui-navigation.spec.ts:112-114` também usa o erro JSON retornado para tornar o diagnóstico do reteste explícito.
+- **Validação atual:** build fiscal aprovado com a rota na whitelist e 12/12 funções. O reteste UI superou o bloqueio 403 e revelou a incompatibilidade de coluna registrada no item 14. A prova é somente de leitura e não transmite documentos.
+
+## 14. Consulta da Central Compatível com a Tabela de Substituições
+
+- **Sintoma e causa:** após validar o administrador, a UI recebeu 503. A consulta selecionava `updated_at` de `nfe_order_edit_replacements`, coluna que não existe no contrato da migration nem no projeto remoto operacional. A leitura somente do catálogo de `public` no projeto `hkoxhourxwlddgsfdgws` confirmou `has_created_at=true` e `has_updated_at=false`; nenhum registro de negócio foi consultado ou modificado nessa conferência.
+- **Correção:** `api/nfe/fiscal-pendencies.ts:90,228` remove o campo inexistente da projeção e usa `created_at` como data de identificação da pendência. `erp/src/pages/utils/nfe/__tests__/fiscalPendenciesEndpoint.test.ts:227` ajusta a fixture ao contrato real. Os artefatos `erp/server/nfe/fiscal-pendencies.cjs`, `erp/server/nfe/fiscal-pendencies.cjs.map` e `erp/server/nfe/fiscal-pendencies.d.cts` foram regenerados pelo build fiscal. Nenhuma migration foi criada ou aplicada.
+- **Validação final:** a resposta 503 foi constatada pelo Playwright real antes do ajuste. Depois, o cenário da Central passou (1/1): login real com runtime Development, HTTP 200/JSON, retorno completo e aba renderizada. A suíte fiscal completa voltou a passar, 85 arquivos/1.063 testes, além dos nove testes focados e do build fiscal com whitelist/rewrite e 12/12 funções. Log local: `scratch/nfh-central-final-fiscal-vitest.log`; relatório Playwright: `erp/playwright-report/fiscal-interface-e2e/index.html`. Não houve escrita comercial, emissão, transmissão ou implantação remota nesta prova.
+- **Limites:** os mocks iniciais não validavam a existência das colunas; a compatibilidade foi confirmada pela consulta real somente leitura da UI. O rewrite Vercel foi validado no gate do build, ainda sem implantação que comprove a rota publicada.
+
+## 15. Continuação da Prévia XML da Fixture HML 65
+
+- **Escopo:** retomado o cenário Playwright existente `usa o pedido persistido selecionado, valida o XML em HML e só transmite com autorização explícita`, com `runId=9e36d40f-d1bf-41cf-81a7-c7c2903c3975`, pedido próprio `1e99f970-bee4-4f2a-afc0-0b899bed8256` e `scenarioKey=nfce65_delivery`. O runner usa o runtime Vercel Development e o resolvedor de ownership/preflight vigente. A flag `--authorize-hml-transmission` não foi passada.
+- **Roteiro:** login pelo formulário real, abertura do pedido/modais, conferência dos dados exigidos sem inventá-los, prévia XML, modelo 65/`tpAmb=2`, itens fiscais e fechamento sem emissão.
+- **Ajuste do teste:** `erp/tests/e2e/fiscal/fiscal-ui-navigation.spec.ts:191-192` remove o encaminhamento indiscriminado do console da página para os logs. Credenciais permanecem em memória; trace, vídeo e screenshots continuam desligados no spec. A execução chegou ao modal e falhou na conferência do NCM vazio, antes da prévia e de qualquer transmissão.
+- **Diagnóstico remoto somente leitura:** `erp/tests/e2e/fiscal/fiscal-owned-cycle-preflight.spec.ts:90-122` acrescenta `audita NCM dos itens e catálogo da fixture própria`, subordinado ao preflight canônico de operador, ownership e vínculos. A prova falhou por `snapshotNcm=""`, versão 1, enquanto o catálogo do próprio produto `b7f3a888-acb4-47da-949c-9ca38f7bbff4` contém `94036000`. Evidência sem credenciais: `output/playwright/nfh-runtime-ncm-diagnostic.json`. Nenhuma escrita, reserva ou transmissão.
+- **Causa comprovada:** `ensureOrderItemsHaveFiscalSnapshots` consultava o catálogo apenas para linhas sem snapshot versionado; a linha com unidades e versão 1 era devolvida intacta mesmo com NCM vazio. `prepareOrderFiscalSnapshotForEmission` já solicita a preparação desse caso, mas o serviço compartilhado a descartava.
+- **Correção:** `erp/src/pages/utils/orderFiscalSnapshotService.ts:77-78,91-93,122-128` inclui na consulta em lote as linhas sem NCM e preenche somente esse campo quando não existe nota autorizada, usando a variação específica ou o produto. Preserva todos os demais campos e valores preenchidos; XML autorizado continua fonte exclusiva, inclusive quando inválido ou sem NCM. O helper genérico de snapshots, os hashes e as RPCs não foram alterados.
+- **Regressão:** `erp/src/pages/utils/__tests__/orderFiscalSnapshotService.test.ts:1-12,143-196` mocka somente a consulta de catálogo e cobre NCM ausente do produto/variação, preservação do snapshot preenchido, catálogo sem classificação e XML autorizado sem NCM ou inválido. Antes da correção, os dois casos de preenchimento falharam e seis casos de preservação passaram. Depois, os oito testes passaram. Gate próximo com `nfeEmissionSnapshotService.test.ts`, `useSalesOrderModals.test.tsx` e `useNfeEmission.test.tsx`: quatro arquivos e 128 testes aprovados.
+- **Reteste pela UI aprovado:** o mesmo cenário real de prévia passou (1/1) em Development/5173: preparação pelo fluxo normal, NCM/CFOP/origem/CSOSN conferidos no modal, XML visível com modelo 65 e `tpAmb=2`, correspondência dos itens com a prévia e fechamento sem clicar em emitir. O teste remoto de NCM repetido depois também passou (1/1), confirmando `snapshotNcm=catalogNcm=94036000` no mesmo item versão 1. A persistência veio da preparação normal pela UI; o diagnóstico continua somente leitura. A ausência da flag de transmissão foi preservada e nenhum documento autorizado é inferido dessa prova. O ciclo NF-e 55 → retorno físico → NFD automática continua uma pendência distinta.
+
+## 16. Contratos das Ações da Central e dos Detalhes Fiscais
+
+- **Problema e causa comprovada:** o TypeScript fiscal apontou sete erros em FiscalDocuments. A página passava `chosenEnvironment` ao modal, cujo contrato exige `initialEnvironment`, e omitia `isOpen`; o componente real retorna `null` nesse caso. Os callbacks de recarga retornavam `void` onde os hooks aguardam `Promise<void>`. O atalho de detalhes fabricava um documento incompleto com status comercial/da tentativa, série numérica e fallback indevido para ID do pedido. Dois componentes importavam o tipo inexistente `FiscalDocumentEmissionHistoryRecord`, embora `orderEmissions` use `NfeDocumentRecord[]`.
+- **Correção:** `erp/src/pages/App/FiscalDocuments/index.tsx:2,45,88-102,122-129,315-331` passa `isOpen`/`initialEnvironment`, aguarda ambas as recargas e guarda somente identidade/ambiente para solicitar os detalhes reais, incluindo rascunhos; ausência de documento produz feedback sem usar o ID comercial. `erp/src/pages/App/FiscalDocuments/modals/issued-details-modal/IssuedFiscalDocumentAnteriorBanner.tsx:2,5` e `useIssuedFiscalDocumentDetails.ts:13,125` reutilizam `NfeDocumentRecord`, o contrato real do histórico. Não houve mudança de backend, ambiente padrão, confirmação de Produção, política fiscal ou banco.
+- **Regressão:** `erp/src/pages/App/FiscalDocuments/__tests__/fiscalPendencyPageActions.test.tsx:1-96` exercita o clique na Central e o contrato de abertura do modal para ambientes 1/2, detalhes por documento/rascunho sem payload sintético e ausência de documento sem usar o pedido como identidade fiscal. Serviços/hooks externos e modais pesados são mocks; não há emissão ou escrita remota. Os cinco casos falharam antes da correção e passaram depois. O diretório FiscalDocuments passou integralmente: 27 arquivos e 203 testes. A prova de abertura por ação é de componente/integrador; não foi relatada como transmissão SEFAZ pela UI.
+- **Conferência de tipos e lint:** o novo `tsc --noEmit --project tsconfig.fiscal.json` eliminou os sete diagnósticos de FiscalDocuments. Permanecem dois erros fora dos arquivos alterados, em `shared-utils/commercialScheduling` (import de Shipping e propriedade `period`); o gate global continua com saída 1 e não é declarado aprovado. ESLint dos quatro arquivos da ação/detalhes terminou sem erros, com um aviso preexistente de dependência de `useMemo` em `orderEmissions`; serviço/teste do NCM passaram sem avisos. `git diff --check` também passou após a correção do NCM.
+- **Reteste UI sem escrita:** a consulta da Central foi repetida após esse ajuste e passou novamente (1/1) no Playwright visível em Development/5173, com runtime e API reais, HTTP200/JSON e aba renderizada. O teste somente abriu/consultou a Central; a abertura do emissor por uma pendência específica permanece comprovada pelo teste de componente acima, sem nova transmissão nem alegação de implantação Vercel.

@@ -86,3 +86,37 @@ test('confirma fixture própria antes do ciclo HML pela UI', async () => {
   if (!fs.existsSync(baselinePath)) fs.writeFileSync(baselinePath, encoded, { flag: 'wx' });
   fs.writeFileSync(path.join(root, 'output/playwright/nfh-runtime-cycle-current-state.json'), encoded);
 });
+
+test('audita NCM dos itens e catálogo da fixture própria', async () => {
+  test.setTimeout(30_000);
+  // The global setup already verified this exact order, owner and product links.
+  const orderId = process.env.FISCAL_E2E_SELECTED_ORDER_ID!;
+  const audit = createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const items = await audit.from('order_items')
+    .select('product_id,item_snapshot').eq('order_id', orderId).order('id');
+  expect(items.error?.code ?? null).toBe(null);
+  const productIds = [...new Set((items.data || []).map((item) => item.product_id).filter(Boolean))];
+  expect(productIds.length).toBeGreaterThan(0);
+  const products = await audit.from('products').select('id,fiscal').in('id', productIds);
+  expect(products.error?.code ?? null).toBe(null);
+  const catalog = new Map((products.data || []).map((product) => [product.id, product.fiscal]));
+  const classification = (items.data || []).map((item) => ({
+    productId: item.product_id,
+    snapshotVersion: item.item_snapshot?.fiscalSnapshotVersion ?? null,
+    snapshotNcm: item.item_snapshot?.fiscal?.ncm ?? '',
+    catalogNcm: catalog.get(item.product_id)?.ncm ?? '',
+  }));
+  console.log('[HML_FIXTURE_NCM]', JSON.stringify(classification));
+  fs.writeFileSync(path.join(root, 'output/playwright/nfh-runtime-ncm-diagnostic.json'), JSON.stringify({
+    checkedAt: new Date().toISOString(), orderId,
+    projectRef: process.env.FISCAL_E2E_ALLOWED_SUPABASE_REF,
+    runId: process.env.FISCAL_E2E_RUN_ID,
+    ownerAndLinksValidated: true, classification, writes: false, transmission: false,
+  }, null, 2) + '\n');
+  for (const item of classification) {
+    expect(String(item.catalogNcm).replace(/\D/g, '')).toMatch(/^\d{8}$/);
+    expect(String(item.snapshotNcm).replace(/\D/g, '')).toMatch(/^\d{8}$/);
+  }
+});

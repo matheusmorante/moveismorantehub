@@ -90,7 +90,7 @@ export function ProductGallery({
           )}
           {productOpportunities && (
             <Badge
-              className={`absolute top-4 left-4 ${isMegaLiquidacaoLastUnit ? 'bg-amber-400 border border-red-600 text-black' : `${productOpportunities.badge_color || 'bg-accent'} text-white`} font-bold px-4 py-1 text-[10px] sm:text-xs shadow-lg pointer-events-none flex items-center gap-1`}
+              className={`absolute top-0 right-0 rounded-none ${isMegaLiquidacaoLastUnit ? 'bg-amber-400 border border-red-600 text-black' : `${productOpportunities.badge_color || 'bg-accent'} text-white`} font-bold px-4 py-1 text-[10px] sm:text-xs shadow-lg pointer-events-none flex items-center gap-1`}
             >
               {(productOpportunities.slug === 'salvado' ||
                 productOpportunities.name?.toLowerCase()?.includes('salvado')) && (

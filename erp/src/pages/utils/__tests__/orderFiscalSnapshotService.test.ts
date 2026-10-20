@@ -1,6 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
 import type Item from '@/pages/types/items.type';
+
+const catalogMocks = vi.hoisted(() => ({ getProductsFiscalData: vi.fn() }));
+vi.mock('../productService/productFiscalDataService', () => catalogMocks);
+
+beforeEach(() => {
+  catalogMocks.getProductsFiscalData.mockReset().mockResolvedValue(new Map());
+});
 
 describe('orderFiscalSnapshotService - partial estorno & NCM persistence', () => {
   const sampleXmlWithTwoItems = `
@@ -131,5 +138,58 @@ describe('orderFiscalSnapshotService - partial estorno & NCM persistence', () =>
     expect(enriched[0].fiscal?.ncm).toBe('94035000');
     // CFOP 1949 inverted to 5102 for outbound sale
     expect(enriched[0].fiscal?.cfop).toBe('5102');
+  });
+
+  const unissuedItem = (ncm = '') => ({
+    id: 'owned-item', productId: 'owned-product', variationId: 'owned-variation',
+    fiscalSnapshotProductId: 'owned-product', fiscalSnapshotVariationId: 'owned-variation',
+    code: '000353-01', description: 'Produto próprio', itemType: 'product',
+    quantity: 2, unitPrice: 229, fiscalSnapshotVersion: 1,
+    fiscal: { ncm, cfop: '5102', origem: '0', cst: '102', commercialUnit: 'UN', taxableUnit: 'UN' },
+  } as Item);
+
+  it.each([
+    { missingNcm: '', variationNcm: undefined, expectedNcm: '94036000' },
+    { missingNcm: '   ', variationNcm: '94035000', expectedNcm: '94035000' },
+  ])('preenche apenas NCM ausente antes da autorização: $expectedNcm', async ({ missingNcm, variationNcm, expectedNcm }) => {
+    const item = unissuedItem(missingNcm);
+    catalogMocks.getProductsFiscalData.mockResolvedValue(new Map([['owned-product', {
+      id: 'owned-product', ncm: '94036000', cfop: '6102', origem: '1', commercialUnit: 'CX',
+      variations: { 'owned-variation': { ncm: variationNcm } },
+    }]]));
+
+    const [enriched] = await ensureOrderItemsHaveFiscalSnapshots([item]);
+
+    expect(enriched).toEqual({ ...item, fiscal: { ...item.fiscal, ncm: expectedNcm } });
+    expect(item.fiscal?.ncm).toBe(missingNcm);
+    expect(catalogMocks.getProductsFiscalData).toHaveBeenCalledOnce();
+    expect(catalogMocks.getProductsFiscalData).toHaveBeenCalledWith(['owned-product'], { useCache: false });
+  });
+
+  it('preserva o NCM já registrado sem consultar o catálogo atual', async () => {
+    const item = unissuedItem('94035000');
+    const [enriched] = await ensureOrderItemsHaveFiscalSnapshots([item]);
+    expect(enriched).toBe(item);
+    expect(catalogMocks.getProductsFiscalData).not.toHaveBeenCalled();
+  });
+
+  it.each(['<invalid', sampleXmlWithTwoItems.replace(/<NCM>[^<]*<\/NCM>/g, '')])(
+    'não substitui NCM ausente de nota autorizada pelo catálogo',
+    async (xml) => {
+      const item = unissuedItem();
+      const [enriched] = await ensureOrderItemsHaveFiscalSnapshots([item], { xml, status: 'homologada' });
+      expect(enriched).toBe(item);
+      expect(catalogMocks.getProductsFiscalData).not.toHaveBeenCalled();
+    }
+  );
+
+  it('mantém a pendência quando o catálogo também não contém NCM', async () => {
+    const item = unissuedItem();
+    catalogMocks.getProductsFiscalData.mockResolvedValue(new Map([['owned-product', {
+      id: 'owned-product', ncm: '', variations: {},
+    }]]));
+    const [enriched] = await ensureOrderItemsHaveFiscalSnapshots([item]);
+    expect(enriched).toBe(item);
+    expect(enriched.fiscal?.ncm).toBe('');
   });
 });

@@ -274,6 +274,7 @@ describe('[MÓDULO 1 - Etapa 1.2] Ciclo de vida e transições de status do pedi
       expect(canUndoFulfillment({ status: 'scheduled', orderType: 'sale' })).toBe(false);
       expect(canUndoFulfillment({ status: 'draft', orderType: 'sale' })).toBe(false);
       expect(canUndoFulfillment({ status: 'cancelled', orderType: 'sale' })).toBe(false);
+      expect(canUndoFulfillment({ status: 'fulfilled', orderType: 'sale', delivery_status: 'unattended' })).toBe(true);
     });
 
     it('fluxo completo: pedido atendido deve primeiro desfazer atendimento antes de poder ser cancelado', () => {

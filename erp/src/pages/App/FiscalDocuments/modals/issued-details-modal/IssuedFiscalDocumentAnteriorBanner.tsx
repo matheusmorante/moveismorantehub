@@ -1,8 +1,8 @@
 import React from 'react';
-import type { FiscalDocumentEmissionHistoryRecord } from '../../types/fiscalDocuments.types';
+import type { NfeDocumentRecord } from '../../types/fiscalDocuments.types';
 
 interface IssuedFiscalDocumentAnteriorBannerProps {
-  currentActiveEmission: FiscalDocumentEmissionHistoryRecord;
+  currentActiveEmission: NfeDocumentRecord;
   onReturnToActive: (documentId: string) => void;
 }
 

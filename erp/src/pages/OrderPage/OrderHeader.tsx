@@ -7,31 +7,48 @@ interface OrderHeaderProps {
   isBudget: boolean;
 }
 
-const OrderHeader = ({ order, isBudget }: OrderHeaderProps) => {
-  const isAssistance = order.orderType === 'assistance';
-  const isPickup = order.shipping?.deliveryMethod === 'pickup';
-  const headerColor = isBudget
-    ? 'bg-slate-800'
-    : isAssistance
-      ? 'bg-orange-500'
-      : isPickup
-        ? 'bg-purple-700'
-        : 'bg-emerald-700';
+const HEADER_THEMES = {
+  budget: {
+    title: 'ORÇAMENTO / PROPOSTA',
+    colorHex: '#1e293b',
+  },
+  assistance: {
+    title: 'ORDEM DE SERVIÇO',
+    colorHex: '#f97316',
+  },
+  pickup: {
+    title: 'PEDIDO DE RETIRADA',
+    colorHex: '#7e22ce',
+  },
+  delivery: {
+    title: 'PEDIDO DE ENTREGA',
+    colorHex: '#047857',
+  },
+} as const;
 
-  const title = isBudget
-    ? 'ORÇAMENTO / PROPOSTA'
+const OrderHeader = ({ order, isBudget }: OrderHeaderProps) => {
+  const isAssistance = order?.orderType === 'assistance';
+  const isPickup = order?.shipping?.deliveryMethod === 'pickup';
+
+  const theme = isBudget
+    ? HEADER_THEMES.budget
     : isAssistance
-      ? 'ORDEM DE SERVIÇO'
+      ? HEADER_THEMES.assistance
       : isPickup
-        ? 'PEDIDO DE RETIRADA'
-        : 'PEDIDO DE ENTREGA';
+        ? HEADER_THEMES.pickup
+        : HEADER_THEMES.delivery;
+
+  const backgroundGradient = `linear-gradient(to right, #ffffff 0%, #ffffff 35%, ${theme.colorHex} 55%, ${theme.colorHex} 100%)`;
 
   return (
     <div
-      className={`order-print-header flex justify-between items-center px-3 py-1.5 rounded-xl mb-1.5 ${headerColor} text-white print-exact-bg shadow-sm`}
+      className="order-print-header flex justify-between items-center px-3 py-1.5 rounded-xl mb-1.5 text-white print-exact-bg shadow-sm overflow-hidden"
+      style={{
+        background: backgroundGradient,
+      }}
     >
       <div className="flex items-center">
-        <div className="header-logo-container w-48 h-24 bg-white rounded-lg p-1 border-0 shadow-none flex items-center justify-center shrink-0">
+        <div className="header-logo-container w-48 h-24 border-0 shadow-none flex items-center justify-start shrink-0">
           <img
             src={logoMorante}
             alt="Móveis Morante"
@@ -41,7 +58,7 @@ const OrderHeader = ({ order, isBudget }: OrderHeaderProps) => {
       </div>
       <div className="text-right">
         <div className="text-xl sm:text-2xl font-black uppercase tracking-tighter leading-none mb-0.5">
-          {title}
+          {theme.title}
         </div>
         <div className="text-[10px] sm:text-[11px] font-black opacity-90 uppercase tracking-wider flex items-center justify-end gap-1.5">
           <i className="bi bi-hash"></i>
@@ -49,7 +66,7 @@ const OrderHeader = ({ order, isBudget }: OrderHeaderProps) => {
         </div>
         <div className="text-[9px] sm:text-[10px] font-bold opacity-75 mt-0.5 uppercase tracking-tight flex items-center justify-end gap-1.5">
           <i className="bi bi-calendar3"></i>
-          EMISSÃO: {formatToBRDate(order.date)}
+          EMISSÃO: {formatToBRDate(order?.date)}
         </div>
       </div>
     </div>

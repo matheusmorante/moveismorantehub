@@ -18,12 +18,15 @@ const OrderPrintStyles = () => {
                     padding: 0.2rem 0.6rem !important;
                     margin-bottom: 0.25rem !important;
                     border-radius: 0.75rem !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
                 }
                 .header-logo-container {
                     width: 12rem !important;
                     height: 6rem !important;
-                    padding: 0.15rem 0.4rem !important;
-                    border-radius: 0.5rem !important;
+                    padding: 0 !important;
+                    border-radius: 0 !important;
+                    background: transparent !important;
                     margin: 0 !important;
                 }
                 .header-logo-container img {

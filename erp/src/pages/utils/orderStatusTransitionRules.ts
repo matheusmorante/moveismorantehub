@@ -17,6 +17,60 @@ const resolveOrderType = (order?: OrderStatusTransitionContext): string | undefi
   order?.orderType || order?.order_data?.orderType || undefined;
 
 /**
+ * Verifica se há circulação física impeditiva para corrigir/desfazer o atendimento (retornar para 'scheduled').
+ *
+ * Fatos que impedem a reversão simples:
+ * 1. Entrega física concluída ('delivered', 'entregue', 'retirado', 'deliveryFinishedAt', 'pickupConfirmedAt').
+ * 2. Carga ativamente em trânsito/em rota ('in_transit', 'out_for_delivery', 'em_rota', 'em_transito', 'em_entrega').
+ *
+ * Situações de insucesso de entrega ou tentativa não atendida ('unattended', 'unattendedAt', etc.)
+ * NÃO impedem a correção da entrega, permitindo que o operador retorne o pedido para 'scheduled'
+ * para corrigir dados, reagendar ou redisponibilizar para nova rota.
+ */
+export const hasBlockingCirculationForUndoFulfillment = (
+  order: OrderCirculationState | null | undefined
+): boolean => {
+  const data = order?.order_data || {};
+  const shipping = data.shipping || order?.shipping || {};
+  const deliveryStatus = String(
+    order?.delivery_status || order?.deliveryStatus || data.deliveryStatus || shipping.deliveryStatus || ''
+  ).trim().toLowerCase();
+
+  // 1. Entrega ou retirada confirmada/concluída
+  if (['delivered', 'entregue', 'retirado'].includes(deliveryStatus)) {
+    return true;
+  }
+  const deliveryFinished =
+    shipping.deliveryFinishedAt ||
+    order?.delivery_finished_at ||
+    order?.deliveryFinishedAt ||
+    data.deliveryFinishedAt;
+  const pickupConfirmed =
+    shipping.pickupConfirmedAt || order?.pickupConfirmedAt || data.pickupConfirmedAt;
+  if (deliveryFinished || pickupConfirmed) {
+    return true;
+  }
+
+  // 2. Carga ativamente em rota / em trânsito
+  const activeTransitStatuses = new Set([
+    'in_transit',
+    'in-transit',
+    'out_for_delivery',
+    'out-for-delivery',
+    'em_transito',
+    'em_rota',
+    'em rota',
+    'em_entrega',
+    'em entrega',
+  ]);
+  if (activeTransitStatuses.has(deliveryStatus)) {
+    return true;
+  }
+
+  return false;
+};
+
+/**
  * Valida se uma transição de status de pedido é permitida pelas regras de negócio.
  *
  * Regras Canônicas:
@@ -74,7 +128,7 @@ export const validateOrderStatusTransition = (
   if (
     currentStatus === 'fulfilled' &&
     newStatus === 'scheduled' &&
-    hasExplicitGoodsCirculationEvidence(currentOrder)
+    hasBlockingCirculationForUndoFulfillment(currentOrder)
   ) {
     return {
       allowed: false,
@@ -136,5 +190,5 @@ export const canUndoFulfillment = (order: OrderCirculationState & {
 }): boolean => {
   if (order.status !== 'fulfilled') return false;
   if ((order.orderType || 'sale') === 'return') return false;
-  return !hasExplicitGoodsCirculationEvidence(order);
+  return !hasBlockingCirculationForUndoFulfillment(order);
 };

@@ -26,7 +26,9 @@ export type ReplacementPendingAction =
   | 'rejected'
   | 'transmission_uncertain'
   | 'authorized'
-  | 'prior_regularization_failed';
+  | 'prior_regularization_failed'
+  | 'prior_regularization_uncertain'
+  | 'processing';
 
 /** Situação fiscal do pedido no ambiente de uma NF, calculada no backend para o modal de detalhes. */
 export interface OrderFiscalSituation {

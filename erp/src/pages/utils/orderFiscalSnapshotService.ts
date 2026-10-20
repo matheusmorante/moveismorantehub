@@ -74,8 +74,8 @@ function authorizedInvoiceFiscalByItem(
 }
 
 /**
- * Backfills only legacy order lines. Existing snapshots stay unchanged, while
- * missing catalog facts are read in one batch before the order transaction.
+ * Backfills legacy order lines and missing NCM before authorization. Recorded
+ * values stay unchanged; authorized invoices use only their original XML.
  */
 export async function ensureOrderItemsHaveFiscalSnapshots(
   items: Item[],
@@ -88,7 +88,8 @@ export async function ensureOrderItemsHaveFiscalSnapshots(
       items
         .filter(
           (item) =>
-            !hasAuthorizedInvoice && item.itemType !== 'service' && !hasFiscalItemSnapshot(item)
+            !hasAuthorizedInvoice && item.itemType !== 'service' &&
+            (!hasFiscalItemSnapshot(item) || !item.fiscal?.ncm?.trim())
         )
         .map((item) => item.productId || item.fiscalSnapshotProductId)
         .filter((id): id is string => typeof id === 'string' && Boolean(id))
@@ -117,6 +118,13 @@ export async function ensureOrderItemsHaveFiscalSnapshots(
               : {}),
           },
         };
+      }
+      if (!hasAuthorizedInvoice && !item.fiscal?.ncm?.trim()) {
+        const product = catalog.get(item.productId || item.fiscalSnapshotProductId);
+        const variationId = item.variationId || item.fiscalSnapshotVariationId;
+        const variation = variationId ? product?.variations?.[variationId] : undefined;
+        const ncm = variation?.ncm?.trim() || product?.ncm?.trim();
+        if (ncm) return { ...item, fiscal: { ...item.fiscal, ncm } };
       }
       return item;
     }

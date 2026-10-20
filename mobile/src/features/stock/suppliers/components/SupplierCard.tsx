@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Clock3, MoreVertical } from 'lucide-react-native';
-import { styles } from '../suppliersScreen.styles';
+import { styles } from '../screens/suppliersScreen.styles';
 
 interface SupplierColors {
   bg: string;

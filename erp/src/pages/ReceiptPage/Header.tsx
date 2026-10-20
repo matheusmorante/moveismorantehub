@@ -16,7 +16,7 @@ const Header = ({ seller }: Props) => {
   return (
     <header className="receipt-print-header flex justify-between items-center py-1 pb-1.5 border-b border-slate-200 text-slate-800 transition-colors duration-300 shrink-0 mb-1">
       <div className="flex items-center">
-        <div className="header-logo-container w-48 h-24 bg-white rounded-lg p-0.5 border-0 shadow-none flex items-center justify-start shrink-0">
+        <div className="header-logo-container w-48 h-24 border-0 shadow-none flex items-center justify-start shrink-0">
           <img
             src={logo}
             alt={`Logo ${companyName}`}

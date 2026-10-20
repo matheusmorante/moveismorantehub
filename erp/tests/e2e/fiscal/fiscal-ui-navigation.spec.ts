@@ -33,6 +33,7 @@ async function signInThroughUi(page: Page): Promise<void> {
     await page.getByPlaceholder('exemplo@email.com').fill(operatorEmail);
     await page.locator('input[type="password"]').fill(operatorPassword);
     await page.getByRole('button', { name: 'Entrar no Sistema' }).click();
+    await expect(page).not.toHaveURL(/\/login(?:[/?#]|$)/, { timeout: 30000 });
     await expect(page.locator('nav, banner, header').first()).toBeVisible({ timeout: 30000 });
   });
 }
@@ -95,6 +96,29 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
     });
 
     expect(pageErrors).toEqual([]);
+  });
+
+  test('carrega a Central de Pendências pela UI com resposta fiscal completa', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await signInThroughUi(page);
+
+    const pendenciesResponse = page.waitForResponse((response) =>
+      new URL(response.url()).pathname === '/api/nfe/fiscal-pendencies' &&
+      response.request().method() === 'GET'
+    );
+    await openTopMenu(page, 'Fiscal', /Notas fiscais de saída/i);
+    const response = await pendenciesResponse;
+    expect(response.headers()['content-type']).toMatch(/application\/json/i);
+    const payload = await response.json();
+    expect(response.status(), payload.error || 'A consulta fiscal pela interface deve responder sem falha.').toBe(200);
+    expect(payload.success).toBe(true);
+    expect(Array.isArray(payload.pendencies)).toBe(true);
+    expect(payload.count).toBe(payload.pendencies.length);
+
+    await page.getByRole('tab', { name: /Pendências Fiscais/i }).click();
+    await expect(page.getByRole('heading', { name: 'Central de Pendências Fiscais' })).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: /Não foi possível carregar a lista de pendências fiscais/i })).toHaveCount(0);
   });
 
   test('mantém pedido e modais de cadastro utilizáveis em viewport mobile', async ({ page }) => {
@@ -165,7 +189,6 @@ test.describe('Navegação real pela interface fiscal e comercial', () => {
     }
 
     await page.setViewportSize({ width: 1920, height: 1080 });
-    page.on('console', (msg) => console.log('[PAGE CONSOLE]', msg.text()));
     await signInThroughUi(page);
     await page.goto('/sales-order');
     const showTestOrders = page.getByRole('checkbox', { name: 'Mostrar testes' });
