@@ -5,6 +5,7 @@ import { supabase, MASTER_DEFAULT_PROFILE } from '../services/supabaseClient';
 import { completeGoogleSignIn } from '../services/googleAuth';
 import { resolveMobileUserProfile } from '../services/mobileAuthProfile';
 import { offlineStorageService } from '../services/offline/offlineStorageService';
+import { offlineSyncManager } from '../services/offline/offlineSyncManager';
 import {
   hasProductPermission,
   normalizePermissionRoles,
@@ -253,6 +254,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const handleLogout = async () => {
     try {
+      offlineSyncManager.setCurrentUserId(null);
       await supabase.auth.signOut();
       setUserProfile(null);
       setPasswordCredentialStatus('idle');
@@ -263,6 +265,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const syncAuthProfile = async (session: any, checkPasswordCredential = true) => {
+    offlineSyncManager.setCurrentUserId(session?.user?.id ?? null);
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
       const authEmail = searchParams.get('auth_email');

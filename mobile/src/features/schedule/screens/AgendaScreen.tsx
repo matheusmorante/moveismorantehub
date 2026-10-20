@@ -26,6 +26,7 @@ import { MobileDrill } from '../../../components/shared/MobileDrill';
 import PickupIcon from '../../../components/shared/PickupIcon';
 import { supabase } from '../../../services/supabaseClient';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import { fetchCalendarEvents, CalendarEvent } from '../../../services/scheduleEventsService';
 import { CreateEventModal } from '../components/CreateEventModal';
@@ -119,9 +120,12 @@ export const AgendaScreen: React.FC<Props> = ({
         !ordersOutcome.value.error &&
         ordersOutcome.value.data
       ) {
-        setOrders(ordersOutcome.value.data);
+        const reconciledOrders = await OrderRepository.overlayPendingLocalOrders(
+          ordersOutcome.value.data
+        );
+        setOrders(reconciledOrders);
         await offlineStorageService
-          .cacheWorkingSet('logistics_orders', ordersOutcome.value.data)
+          .cacheWorkingSet('logistics_orders', reconciledOrders)
           .catch(() => {});
       } else {
         await loadOfflineOrdersFallback();
@@ -141,6 +145,15 @@ export const AgendaScreen: React.FC<Props> = ({
 
   useEffect(() => {
     loadData();
+    let prevSyncAt: string | undefined;
+    const unsub = offlineSyncManager.subscribe((summary) => {
+      if (summary.lastSyncAt && summary.lastSyncAt !== prevSyncAt) {
+        prevSyncAt = summary.lastSyncAt;
+        void loadOfflineOrdersFallback();
+        void fetchCalendarEvents().then(setEvents).catch(() => {});
+      }
+    });
+    return () => unsub();
   }, []);
 
   const onRefresh = () => {

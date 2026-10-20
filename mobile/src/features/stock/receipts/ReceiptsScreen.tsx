@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { ArrowLeft, Box } from 'lucide-react-native';
 import { useReceipts } from './useReceipts';
+import { ReceiptCheckScreen } from './ReceiptCheckScreen';
 
 interface Props {
   isDarkMode: boolean;
@@ -17,7 +18,22 @@ interface Props {
 }
 
 export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHeader }) => {
-  const { receipts, loading, loadingMore, loadMore } = useReceipts();
+  const { receipts, loading, loadingMore, loadMore, reload } = useReceipts();
+  const [selectedReceipt, setSelectedReceipt] = useState<any | null>(null);
+
+  if (selectedReceipt) {
+    return (
+      <ReceiptCheckScreen
+        isDarkMode={isDarkMode}
+        receipt={selectedReceipt}
+        onBack={() => setSelectedReceipt(null)}
+        onCompleted={() => {
+          void reload();
+        }}
+      />
+    );
+  }
+
   const data: any[] = [
     { type: 'MODULE_HEADER', id: 'MODULE_HEADER' },
     ...receipts.map((r) => ({ type: 'ITEM', id: r.id, data: r })),
@@ -43,7 +59,10 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
 
           return (
             <View style={styles.cardContainer}>
-              <TouchableOpacity style={[styles.card, isDarkMode && styles.cardDark]}>
+              <TouchableOpacity
+                style={[styles.card, isDarkMode && styles.cardDark]}
+                onPress={() => setSelectedReceipt(r)}
+              >
                 <View
                   style={{
                     flexDirection: 'row',

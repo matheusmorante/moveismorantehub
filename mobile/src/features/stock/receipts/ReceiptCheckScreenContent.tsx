@@ -1,19 +1,98 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { ArrowLeft, Box, Check, Camera, QrCode } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { ArrowLeft, Check, Camera, QrCode } from 'lucide-react-native';
+import {
+  completeGoodsReceiptCheck,
+  getGoodsReceiptCheckDraft,
+  saveGoodsReceiptCheckDraft,
+} from '../../../services/stock/stockReceiptsService';
 
 export interface ReceiptCheckScreenProps {
   isDarkMode: boolean;
   onBack: () => void;
+  receipt?: any;
+  onCompleted?: () => void;
 }
 
-export const ReceiptCheckScreenContent: React.FC<ReceiptCheckScreenProps> = ({ isDarkMode, onBack }) => {
-  const [checkedVolumes, setCheckedVolumes] = useState(0);
-  const totalVolumes = 15;
+export const ReceiptCheckScreenContent: React.FC<ReceiptCheckScreenProps> = ({
+  isDarkMode,
+  onBack,
+  receipt,
+  onCompleted,
+}) => {
+  const items = Array.isArray(receipt?.items) ? receipt.items : [];
+  const computedTotalVolumes = Math.max(
+    1,
+    items.reduce((sum: number, item: any) => sum + Math.max(1, Number(item?.quantity || 1)), 0) ||
+      15
+  );
+  const [checkedVolumes, setCheckedVolumes] = useState<number>(
+    Number(receipt?.checkedVolumes ?? (receipt?.status === 'received' ? computedTotalVolumes : 0))
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const totalVolumes = computedTotalVolumes;
+
+  useEffect(() => {
+    let active = true;
+    if (receipt?.id) {
+      void getGoodsReceiptCheckDraft(String(receipt.id)).then((draft) => {
+        if (active && draft && typeof draft.checkedVolumes === 'number') {
+          setCheckedVolumes(Math.min(totalVolumes, draft.checkedVolumes));
+        }
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [receipt?.id, totalVolumes]);
+
+  const handleScanVolume = async () => {
+    const next = Math.min(totalVolumes, checkedVolumes + 1);
+    setCheckedVolumes(next);
+    if (receipt?.id) {
+      await saveGoodsReceiptCheckDraft(String(receipt.id), {
+        checkedVolumes: next,
+        totalVolumes,
+      });
+    }
+  };
+
+  const handleCompleteCheck = async () => {
+    if (!receipt?.id) {
+      onCompleted?.();
+      onBack();
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const result = await completeGoodsReceiptCheck({
+        receiptId: String(receipt.id),
+        checkedVolumes,
+        totalVolumes,
+      });
+      if (!result.syncedRemotely) {
+        Alert.alert(
+          'Conferência salva no aparelho',
+          'Você está sem internet. A conferência deste recebimento foi salva localmente e será sincronizada automaticamente assim que a conexão retornar.'
+        );
+      }
+      onCompleted?.();
+      onBack();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const headerTitle = receipt?.invoiceNumber
+    ? `NF ${receipt.invoiceNumber}`
+    : receipt?.receiptIndex || receipt?.receipt_index
+      ? `Rec #${String(receipt.receiptIndex || receipt.receipt_index).padStart(6, '0')}`
+      : 'NF 123456';
+  const supplierSubtitle = receipt?.supplierName || 'Indústria Móveis Silva';
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <View style={styles.header}>
+      <View style={[styles.header, isDarkMode && styles.headerDark]}>
         <TouchableOpacity
           onPress={onBack}
           style={[styles.backButton, isDarkMode && styles.backButtonDark]}
@@ -21,9 +100,9 @@ export const ReceiptCheckScreenContent: React.FC<ReceiptCheckScreenProps> = ({ i
           <ArrowLeft size={24} color={isDarkMode ? '#94a3b8' : '#64748b'} />
         </TouchableOpacity>
         <View style={styles.headerTitleGroup}>
-          <Text style={[styles.title, isDarkMode && styles.textDark]}>NF 123456</Text>
+          <Text style={[styles.title, isDarkMode && styles.textDark]}>{headerTitle}</Text>
           <Text style={[styles.subtitle, isDarkMode && styles.textMutedDark]}>
-            Indústria Móveis Silva
+            {supplierSubtitle}
           </Text>
         </View>
       </View>
@@ -41,10 +120,7 @@ export const ReceiptCheckScreenContent: React.FC<ReceiptCheckScreenProps> = ({ i
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.scanButton}
-          onPress={() => setCheckedVolumes((prev) => Math.min(totalVolumes, prev + 1))}
-        >
+        <TouchableOpacity style={styles.scanButton} onPress={handleScanVolume}>
           <QrCode size={32} color="#ffffff" />
           <Text style={styles.scanButtonText}>Ler Código de Barras do Volume</Text>
         </TouchableOpacity>
@@ -58,18 +134,28 @@ export const ReceiptCheckScreenContent: React.FC<ReceiptCheckScreenProps> = ({ i
 
         <View style={styles.itemsList}>
           <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Itens da Nota</Text>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <View key={i} style={[styles.itemCard, isDarkMode && styles.itemCardDark]}>
+          {(items.length > 0
+            ? items
+            : Array.from({ length: 3 }).map((_, i) => ({
+                id: `fallback-${i}`,
+                description: 'Sofá Retrátil 3 Lugares',
+                sku: `100${i}`,
+                quantity: 5,
+              }))
+          ).map((item: any, i: number) => (
+            <View key={item.id || i} style={[styles.itemCard, isDarkMode && styles.itemCardDark]}>
               <View style={styles.itemInfo}>
                 <Text style={[styles.itemName, isDarkMode && styles.textDark]}>
-                  Sofá Retrátil 3 Lugares
+                  {item.description || item.name || 'Item do Recebimento'}
                 </Text>
                 <Text style={[styles.itemSku, isDarkMode && styles.textMutedDark]}>
-                  SKU: 100{i}
+                  SKU: {item.sku || item.product_id || `100${i}`}
                 </Text>
               </View>
               <View style={[styles.itemQtyBadge, isDarkMode && styles.itemQtyBadgeDark]}>
-                <Text style={[styles.itemQtyText, isDarkMode && styles.textDark]}>5 un</Text>
+                <Text style={[styles.itemQtyText, isDarkMode && styles.textDark]}>
+                  {Number(item.quantity || 1)} un
+                </Text>
               </View>
             </View>
           ))}
@@ -78,9 +164,15 @@ export const ReceiptCheckScreenContent: React.FC<ReceiptCheckScreenProps> = ({ i
 
       {checkedVolumes === totalVolumes && (
         <View style={[styles.footer, isDarkMode && styles.footerDark]}>
-          <TouchableOpacity style={styles.confirmButton}>
+          <TouchableOpacity
+            style={styles.confirmButton}
+            disabled={submitting}
+            onPress={handleCompleteCheck}
+          >
             <Check size={20} color="#ffffff" />
-            <Text style={styles.confirmButtonText}>Concluir Conferência</Text>
+            <Text style={styles.confirmButtonText}>
+              {submitting ? 'Salvando...' : 'Concluir Conferência'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -103,6 +195,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
     backgroundColor: '#ffffff',
+  },
+  headerDark: {
+    backgroundColor: '#0f172a',
+    borderBottomColor: '#1e293b',
   },
   headerTitleGroup: {
     flex: 1,

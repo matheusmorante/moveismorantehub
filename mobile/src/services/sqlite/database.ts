@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { createAsyncSingleton } from './asyncSingleton';
 
 export interface DatabaseDriver {
@@ -182,6 +183,15 @@ export const shouldUseInMemoryDatabase = (platform: string, environment?: string
   platform === 'web' || environment === 'test';
 
 const resolveRuntimePlatform = (): string => {
+  if (Platform?.OS === 'web') {
+    return 'web';
+  }
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.document?.createElement === 'function'
+  ) {
+    return 'web';
+  }
   if (
     typeof process !== 'undefined' &&
     (process.env?.NODE_ENV === 'test' || process.env?.VITEST)
@@ -192,18 +202,11 @@ const resolveRuntimePlatform = (): string => {
   if (
     g.HermesInternal !== undefined ||
     g.nativeFabricUIManager !== undefined ||
-    g.__fbBatchedBridgeConfig !== undefined ||
-    (typeof navigator !== 'undefined' && navigator.product === 'ReactNative')
+    g.__fbBatchedBridgeConfig !== undefined
   ) {
     return 'native';
   }
-  if (
-    typeof window !== 'undefined' &&
-    typeof window.document?.createElement === 'function'
-  ) {
-    return 'web';
-  }
-  return 'native';
+  return Platform?.OS || 'native';
 };
 
 const openSQLiteDatabase = async (): Promise<DatabaseDriver> => {
@@ -214,9 +217,16 @@ const openSQLiteDatabase = async (): Promise<DatabaseDriver> => {
   try {
     // Carregamento dinâmico de expo-sqlite para ambiente nativo
     const SQLite = require('expo-sqlite');
+    if (!SQLite || typeof SQLite.openDatabaseAsync !== 'function') {
+      console.warn('[SQLite] expo-sqlite sem openDatabaseAsync, usando fallback em memória');
+      return new InMemoryDatabaseDriver();
+    }
     return (await SQLite.openDatabaseAsync('morantehub.db')) as DatabaseDriver;
   } catch (e) {
-    console.error('[SQLite] Banco nativo indisponível:', e);
+    console.warn('[SQLite] Banco nativo indisponível:', e);
+    if (typeof window !== 'undefined' || Platform?.OS === 'web') {
+      return new InMemoryDatabaseDriver();
+    }
     throw new Error(
       'O armazenamento local do aparelho está indisponível. Não é seguro iniciar a contagem.'
     );

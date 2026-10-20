@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../../../services/supabaseClient';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
+import { OrderRepository } from '../../../repositories/OrderRepository';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import {
@@ -57,16 +59,28 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const lastSyncAtRef = useRef<string | undefined>(undefined);
 
   const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
+
+  const loadFromLocalCache = useCallback(async () => {
+    try {
+      const cached = await offlineStorageService.getWorkingSet<any[]>('logistics_orders');
+      if (Array.isArray(cached?.data)) {
+        const overlaid = await OrderRepository.overlayPendingLocalOrders(
+          cached.data.filter((order) => !isIdentifiedTestArtifact(order))
+        );
+        setOrders(overlaid);
+        setLoading(false);
+      }
+    } catch {}
+  }, []);
 
   const fetchOrders = useCallback(async () => {
     try {
       // 1. Tenta carregar do cache local primeiro para exibição offline instantânea
-      const cached = await offlineStorageService.getWorkingSet<any[]>('logistics_orders');
-      if (cached?.data && orders.length === 0) {
-        setOrders(cached.data.filter((order) => !isIdentifiedTestArtifact(order)));
-        setLoading(false);
+      if (orders.length === 0) {
+        await loadFromLocalCache();
       }
 
       // 2. Busca do Supabase
@@ -76,23 +90,37 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (!error && data) {
-        const visibleOrders = data.filter((order) => !isIdentifiedTestArtifact(order));
+        const visibleOrders = await OrderRepository.overlayPendingLocalOrders(
+          data.filter((order) => !isIdentifiedTestArtifact(order))
+        );
         setOrders(visibleOrders);
         await offlineStorageService.cacheWorkingSet('logistics_orders', visibleOrders);
+      } else {
+        await loadFromLocalCache();
       }
     } catch (err) {
       console.warn('[useDeliveryRoute] Erro ao buscar pedidos (usando cache):', err);
+      await loadFromLocalCache();
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [orders.length]);
+  }, [orders.length, loadFromLocalCache]);
 
   useEffect(() => {
     fetchOrders();
-    const unsub = subscribeToLogisticsChanges(() => fetchOrders());
-    return () => unsub();
-  }, [fetchOrders]);
+    const unsubRealtime = subscribeToLogisticsChanges(() => fetchOrders());
+    const unsubSync = offlineSyncManager.subscribe((summary) => {
+      if (summary.lastSyncAt && summary.lastSyncAt !== lastSyncAtRef.current) {
+        lastSyncAtRef.current = summary.lastSyncAt;
+        void loadFromLocalCache();
+      }
+    });
+    return () => {
+      unsubRealtime();
+      unsubSync();
+    };
+  }, [fetchOrders, loadFromLocalCache]);
 
   // Filtra e normaliza os pedidos do roteiro selecionado.
   const routeItems = useMemo<DeliveryRouteItem[]>(() => {
@@ -114,7 +142,7 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
     // 3º: Ordem de criação do registro
     const sorted = [...scopedOrders].sort((a, b) => {
       const seqA = a.order_data?.routeSequence ?? 9999;
-      const seqB = b.order_data?.routeSequence ?? 9999;
+      const seqB = a.order_data?.routeSequence ?? 9999;
       if (seqA !== seqB) return seqA - seqB;
 
       const shippingA = a.order_data?.shipping || {};

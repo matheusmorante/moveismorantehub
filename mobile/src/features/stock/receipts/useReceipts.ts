@@ -2,8 +2,30 @@ import { useState, useCallback, useEffect } from 'react';
 import * as stockService from '../../../services/stockService';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { connectivityService } from '../../../services/offline/connectivityService';
+import {
+  GOODS_RECEIPTS_CACHE_KEY,
+  getPendingGoodsReceiptChecks,
+  syncPendingGoodsReceipts,
+} from '../../../services/stock/stockReceiptsService';
 
-const GOODS_RECEIPTS_CACHE_KEY = 'goods_receipts_cache_v1';
+const overlayPendingChecksOnReceipts = async (list: any[]): Promise<any[]> => {
+  try {
+    const pendingChecks = await getPendingGoodsReceiptChecks();
+    if (pendingChecks.length === 0) return list;
+    const byId = new Map(pendingChecks.map((p) => [p.receiptId, p]));
+    return list.map((r) => {
+      const pending = r?.id ? byId.get(String(r.id)) : undefined;
+      if (!pending || r.status === 'estornado') return r;
+      return {
+        ...r,
+        status: 'received',
+        checkedVolumes: pending.checkedVolumes,
+      };
+    });
+  } catch {
+    return list;
+  }
+};
 
 export const useReceipts = () => {
   const [receipts, setReceipts] = useState<any[]>([]);
@@ -23,16 +45,25 @@ export const useReceipts = () => {
     }
 
     try {
+      if (connectivityService.connected && pageNum === 0) {
+        await syncPendingGoodsReceipts().catch(() => 0);
+      }
+
       const data = await stockService.fetchReceipts(pageNum);
 
       const formattedData = (data || []).map((receipt: any) => ({
         id: receipt.id,
+        receipt_index: receipt.receipt_index ?? receipt.receiptIndex,
+        receiptIndex: receipt.receiptIndex ?? receipt.receipt_index,
         supplierName: receipt.supplierName || receipt.supplier_name || 'Fornecedor',
         status: receipt.status || 'draft',
         created_at: receipt.created_at,
         received_at: receipt.received_at,
-        invoiceNumber: receipt.invoice_number || '',
+        fiscal_key: receipt.fiscal_key || '',
+        invoice_number: receipt.invoice_number || receipt.invoiceNumber || '',
+        invoiceNumber: receipt.invoice_number || receipt.invoiceNumber || '',
         totalValue: receipt.totalValue || receipt.total_value || 0,
+        checkedVolumes: receipt.checkedVolumes,
         items: Array.isArray(receipt.items) ? receipt.items : [],
       }));
 
@@ -46,7 +77,7 @@ export const useReceipts = () => {
         const cached =
           await offlineStorageService.getWorkingSet<any[]>(GOODS_RECEIPTS_CACHE_KEY);
         if (Array.isArray(cached?.data) && cached.data.length > 0) {
-          setReceipts(cached.data);
+          setReceipts(await overlayPendingChecksOnReceipts(cached.data));
           setHasMore(false);
           return;
         }
@@ -68,7 +99,7 @@ export const useReceipts = () => {
           const cached =
             await offlineStorageService.getWorkingSet<any[]>(GOODS_RECEIPTS_CACHE_KEY);
           if (Array.isArray(cached?.data)) {
-            setReceipts(cached.data);
+            setReceipts(await overlayPendingChecksOnReceipts(cached.data));
           }
         } catch {}
       }
@@ -89,6 +120,15 @@ export const useReceipts = () => {
 
   useEffect(() => {
     void loadReceipts(true, 0);
+  }, [loadReceipts]);
+
+  useEffect(() => {
+    const unsubscribe = connectivityService.subscribe((online) => {
+      if (online) {
+        void loadReceipts(true, 0);
+      }
+    });
+    return unsubscribe;
   }, [loadReceipts]);
 
   return { receipts, loading, loadingMore, loadMore, reload: () => loadReceipts(true, 0) };

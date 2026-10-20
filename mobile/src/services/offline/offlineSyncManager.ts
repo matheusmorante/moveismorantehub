@@ -11,6 +11,10 @@ import {
   syncPendingLocalCalendarEvents,
 } from '../scheduleEventsService';
 import {
+  getPendingGoodsReceiptChecks,
+  syncPendingGoodsReceipts,
+} from '../stock/stockReceiptsService';
+import {
   ConflictReasonCode,
   OfflineSyncSummary,
   SyncEvent,
@@ -25,6 +29,26 @@ type RpcResult = {
   server_state?: Record<string, unknown>;
   server_version?: number;
 };
+
+const SYNC_REQUEST_TIMEOUT_MS = 15000;
+
+const withSyncTimeout = <T>(promise: Promise<T>, ms = SYNC_REQUEST_TIMEOUT_MS): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('SYNC_NETWORK_TIMEOUT'));
+    }, ms);
+    promise.then(
+      (val) => {
+        clearTimeout(timer);
+        resolve(val);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+
 const knownReasons: ConflictReasonCode[] = [
   'VERSION_CONFLICT',
   'ORDER_ALREADY_COMPLETED',
@@ -106,6 +130,36 @@ class OfflineSyncManager {
   private initialized = false;
   private listeners = new Set<SyncListener>();
   private lastSyncAt?: string;
+  private currentUserId: string | null = null;
+
+  setCurrentUserId(userId: string | null): void {
+    const prev = this.currentUserId;
+    this.currentUserId = userId ? String(userId) : null;
+    if (prev !== this.currentUserId && this.currentUserId && connectivityService.connected) {
+      void this.processQueue();
+    }
+    void this.emitSummary();
+  }
+
+  getCurrentUserId(): string | null {
+    return this.currentUserId;
+  }
+
+  private async resolveActiveUserId(): Promise<string | null> {
+    if (this.currentUserId) return this.currentUserId;
+    try {
+      const auth = (supabase as any)?.auth;
+      if (typeof auth?.getSession === 'function') {
+        const { data } = await auth.getSession();
+        const sessionUserId = data?.session?.user?.id || null;
+        if (sessionUserId) {
+          this.currentUserId = String(sessionUserId);
+          return this.currentUserId;
+        }
+      }
+    } catch {}
+    return null;
+  }
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -127,13 +181,25 @@ class OfflineSyncManager {
 
   async getSummary(): Promise<OfflineSyncSummary> {
     const counts = await SyncQueueRepository.getSummary();
+    const activeUserId = await this.resolveActiveUserId();
     let extraPending = 0;
     try {
-      const [invOutbox, calPending] = await Promise.all([
+      const [invOutbox, calPending, recPending] = await Promise.all([
         listInventorySubmissions().catch(() => []),
         getPendingLocalCalendarEvents().catch(() => []),
+        getPendingGoodsReceiptChecks().catch(() => []),
       ]);
-      extraPending = invOutbox.length + calPending.length;
+      const userInv = invOutbox.filter((s) => {
+        const owner = s.userId || (s.observation?.responsibleId as string | undefined);
+        return !owner || !activeUserId || owner === activeUserId;
+      });
+      const userCal = calPending.filter(
+        (e) => !e.created_by || !activeUserId || e.created_by === activeUserId
+      );
+      const userRec = recPending.filter(
+        (r) => !r.userId || !activeUserId || r.userId === activeUserId
+      );
+      extraPending = userInv.length + userCal.length + userRec.length;
     } catch {}
 
     return {
@@ -154,6 +220,11 @@ class OfflineSyncManager {
     payload: T
   ): Promise<SyncEvent<T>> {
     const now = new Date().toISOString();
+    const actorUserId =
+      (typeof (payload as any)?.userId === 'string' && (payload as any).userId) ||
+      (await this.resolveActiveUserId()) ||
+      undefined;
+
     const event: SyncEvent<T> = {
       eventId: generateUUID(),
       type,
@@ -174,6 +245,7 @@ class OfflineSyncManager {
       payload: { event_type: type, order_data_patch: eventPatch(event) },
       expectedVersion: local?.version ?? 1,
       idempotencyKey: event.eventId,
+      userId: actorUserId,
       status: 'pending',
       retryCount: 0,
       createdAt: now,
@@ -188,12 +260,17 @@ class OfflineSyncManager {
     if (this.isProcessing || !connectivityService.connected) return;
     this.isProcessing = true;
     try {
+      const activeUserId = await this.resolveActiveUserId();
       for (const item of await SyncQueueRepository.listActive()) {
         if (!connectivityService.connected) break;
+        // Segurança multi-usuário: impede sincronizar operação de outro usuário logado no mesmo aparelho
+        if (item.userId && activeUserId && item.userId !== activeUserId) {
+          continue;
+        }
         await SyncQueueRepository.updateStatus(item.id, 'syncing');
         await this.emitSummary();
         try {
-          const result = await this.send(item);
+          const result = await withSyncTimeout(this.send(item));
           if (result.success) {
             await this.applyServerState(item, result);
             await SyncQueueRepository.updateStatus(item.id, 'synced');
@@ -219,8 +296,9 @@ class OfflineSyncManager {
 
       if (connectivityService.connected) {
         await Promise.all([
-          syncPendingInventorySubmissions().catch(() => 0),
-          syncPendingLocalCalendarEvents().catch(() => 0),
+          syncPendingInventorySubmissions(activeUserId).catch(() => 0),
+          syncPendingLocalCalendarEvents(activeUserId).catch(() => 0),
+          syncPendingGoodsReceipts(activeUserId).catch(() => 0),
         ]);
       }
 
@@ -283,12 +361,24 @@ class OfflineSyncManager {
       };
     }
 
+    const serverVersion = Number(
+      (currentOrder as any).version ?? currentData.syncVersion ?? item.expectedVersion
+    );
+    if (serverVersion > item.expectedVersion) {
+      return {
+        success: false,
+        reason: 'VERSION_CONFLICT',
+        server_version: serverVersion,
+        server_state: currentOrder as Record<string, unknown>,
+      };
+    }
+
     const currentStatus = String(currentOrder.status || '').toLowerCase();
     if (['cancelled', 'cancelado'].includes(currentStatus)) {
       return {
         success: false,
         reason: 'ORDER_CANCELLED',
-        server_version: item.expectedVersion,
+        server_version: serverVersion,
         server_state: currentOrder as Record<string, unknown>,
       };
     }
@@ -303,7 +393,7 @@ class OfflineSyncManager {
       return {
         success: false,
         reason: 'ORDER_ALREADY_COMPLETED',
-        server_version: item.expectedVersion,
+        server_version: serverVersion,
         server_state: currentOrder as Record<string, unknown>,
       };
     }
@@ -314,7 +404,12 @@ class OfflineSyncManager {
         ? ((item.payload as any).order_data_patch as Record<string, unknown>)
         : {};
 
-    const mergedOrderData: Record<string, unknown> = { ...currentData, ...patch };
+    const nextVersion = serverVersion + 1;
+    const mergedOrderData: Record<string, unknown> = {
+      ...currentData,
+      ...patch,
+      syncVersion: nextVersion,
+    };
     for (const [key, val] of Object.entries(patch)) {
       if (val === null) {
         delete mergedOrderData[key];
@@ -337,13 +432,14 @@ class OfflineSyncManager {
 
     const finalState = {
       ...currentOrder,
+      version: nextVersion,
       status: nextStatus,
       order_data: mergedOrderData,
     } as Record<string, unknown>;
 
     return {
       success: true,
-      server_version: item.expectedVersion + 1,
+      server_version: nextVersion,
       server_state: finalState,
     };
   }
