@@ -33,7 +33,7 @@ export function SubHeader() {
     getServerHydratedSnapshot
   );
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [useMenu, setUseMenu] = useState(true);
+  const [useMenu, setUseMenu] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
@@ -43,6 +43,11 @@ export function SubHeader() {
     if (!mounted || !isLoaded || !nav) return;
 
     const measureRows = () => {
+      if (window.matchMedia('(min-width: 1024px)').matches) {
+        setUseMenu(false);
+        return;
+      }
+
       const rowTops = new Set(
         Array.from(nav.children).map((child) => Math.round(child.getBoundingClientRect().top))
       );
