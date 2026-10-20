@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 import { connectivityService } from './connectivityService';
 import { offlineStorageService } from './offlineStorageService';
 import { listInventorySubmissions } from '../sqlite/inventoryOutbox';
-import { syncPendingInventorySubmissions } from '../../features/stock/inventory/services/inventoryFinalizer';
+import { syncPendingInventorySubmissions } from '../../features/stock/inventory/services/inventoryOutboxSync';
 import {
   getPendingLocalCalendarEvents,
   syncPendingLocalCalendarEvents,
@@ -77,7 +77,18 @@ const eventPatch = (event: SyncEvent): Record<string, unknown> => {
         (event.payload as any)?.deliveryResponsibleId ?? base.deliveryResponsibleId,
     };
   if (event.type === 'DELIVERY_ARRIVE_DESTINATION')
-    return { ...base, deliveryStatus: 'in_service', deliveryArrivedAt: event.occurredAt };
+    return {
+      ...base,
+      deliveryStatus: (event.payload as any)?.deliveryStatus ?? 'arrived',
+      deliveryArrivedAt: (event.payload as any)?.deliveryArrivedAt ?? event.occurredAt,
+    };
+  if (event.type === 'DELIVERY_START_SERVICE')
+    return {
+      ...base,
+      deliveryStatus: 'in_service',
+      deliveryServiceStartedAt:
+        (event.payload as any)?.deliveryServiceStartedAt ?? event.occurredAt,
+    };
   if (event.type === 'DELIVERY_FINISH')
     return {
       ...base,
@@ -127,6 +138,7 @@ const isMissingRpcError = (error: any): boolean => {
 
 class OfflineSyncManager {
   private isProcessing = false;
+  private activeProcessPromise: Promise<void> | null = null;
   private initialized = false;
   private listeners = new Set<SyncListener>();
   private lastSyncAt?: string;
@@ -257,56 +269,65 @@ class OfflineSyncManager {
   }
 
   async processQueue(): Promise<void> {
-    if (this.isProcessing || !connectivityService.connected) return;
-    this.isProcessing = true;
-    try {
-      const activeUserId = await this.resolveActiveUserId();
-      for (const item of await SyncQueueRepository.listActive()) {
-        if (!connectivityService.connected) break;
-        // Segurança multi-usuário: impede sincronizar operação de outro usuário logado no mesmo aparelho
-        if (item.userId && activeUserId && item.userId !== activeUserId) {
-          continue;
-        }
-        await SyncQueueRepository.updateStatus(item.id, 'syncing');
-        await this.emitSummary();
-        try {
-          const result = await withSyncTimeout(this.send(item));
-          if (result.success) {
-            await this.applyServerState(item, result);
-            await SyncQueueRepository.updateStatus(item.id, 'synced');
-          } else {
-            const reason = isReason(result.reason) ? result.reason : 'BUSINESS_RULE_REJECTED';
-            await this.applyServerState(item, result);
-            await SyncQueueRepository.updateStatus(
-              item.id,
-              reason === 'VERSION_CONFLICT' ? 'conflict' : 'rejected',
-              { reason, error: reason }
-            );
-          }
-        } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'Falha transitória de rede.';
-          await SyncQueueRepository.updateStatus(item.id, 'failed', {
-            error: message,
-            reason: 'NETWORK_ERROR',
-            incrementRetry: true,
-          });
-          break;
-        }
-      }
-
-      if (connectivityService.connected) {
-        await Promise.all([
-          syncPendingInventorySubmissions(activeUserId).catch(() => 0),
-          syncPendingLocalCalendarEvents(activeUserId).catch(() => 0),
-          syncPendingGoodsReceipts(activeUserId).catch(() => 0),
-        ]);
-      }
-
-      this.lastSyncAt = new Date().toISOString();
-    } finally {
-      this.isProcessing = false;
-      await this.emitSummary();
+    if (!connectivityService.connected) return;
+    if (this.activeProcessPromise) {
+      await this.activeProcessPromise;
+      return;
     }
+    this.isProcessing = true;
+    const run = (async () => {
+      try {
+        const activeUserId = await this.resolveActiveUserId();
+        for (const item of await SyncQueueRepository.listActive()) {
+          if (!connectivityService.connected) break;
+          // Segurança multi-usuário: impede sincronizar operação de outro usuário logado no mesmo aparelho
+          if (item.userId && activeUserId && item.userId !== activeUserId) {
+            continue;
+          }
+          await SyncQueueRepository.updateStatus(item.id, 'syncing');
+          await this.emitSummary();
+          try {
+            const result = await withSyncTimeout(this.send(item));
+            if (result.success) {
+              await this.applyServerState(item, result);
+              await SyncQueueRepository.updateStatus(item.id, 'synced');
+            } else {
+              const reason = isReason(result.reason) ? result.reason : 'BUSINESS_RULE_REJECTED';
+              await this.applyServerState(item, result);
+              await SyncQueueRepository.updateStatus(
+                item.id,
+                reason === 'VERSION_CONFLICT' ? 'conflict' : 'rejected',
+                { reason, error: reason }
+              );
+            }
+          } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Falha transitória de rede.';
+            await SyncQueueRepository.updateStatus(item.id, 'failed', {
+              error: message,
+              reason: 'NETWORK_ERROR',
+              incrementRetry: true,
+            });
+            break;
+          }
+        }
+
+        if (connectivityService.connected) {
+          await Promise.all([
+            syncPendingInventorySubmissions(activeUserId).catch(() => 0),
+            syncPendingLocalCalendarEvents(activeUserId).catch(() => 0),
+            syncPendingGoodsReceipts(activeUserId).catch(() => 0),
+          ]);
+        }
+
+        this.lastSyncAt = new Date().toISOString();
+      } finally {
+        this.isProcessing = false;
+        this.activeProcessPromise = null;
+        await this.emitSummary();
+      }
+    })();
+    this.activeProcessPromise = run;
+    await run;
   }
 
   private async send(item: SyncQueueItem): Promise<RpcResult> {

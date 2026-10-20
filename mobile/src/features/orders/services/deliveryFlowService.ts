@@ -1,6 +1,7 @@
 import { supabase } from '../../../services/supabaseClient';
 import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { SyncEventType, SyncEvent } from '../../../services/offline/offlineTypes';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import { DeliveryResponsibleItem } from '../screens/delivery-preparation/deliveryPreparation.types';
 
@@ -92,6 +93,19 @@ const syncLocalOrderCaches = async (
   }
 };
 
+const safeRecordOfflineEvent = async (
+  type: SyncEventType,
+  entityType: SyncEvent['entityType'],
+  entityId: string,
+  payload: any
+) => {
+  try {
+    await offlineSyncManager.recordEvent(type, entityType, entityId, payload);
+  } catch (err) {
+    console.warn(`[deliveryFlowService] Falha não impeditiva ao registrar evento offline (${type}):`, err);
+  }
+};
+
 /**
  * Serviço de domínio responsável pela persistência e sincronização offline
  * dos eventos do fluxo de entrega (SRP & Separation of Concerns).
@@ -140,7 +154,7 @@ export const deliveryFlowService = {
     }
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await offlineSyncManager.recordEvent('DELIVERY_START_ROUTE', 'order', orderId, payload);
+    await safeRecordOfflineEvent('DELIVERY_START_ROUTE', 'order', orderId, payload);
 
     return {
       updatedData,
@@ -177,7 +191,7 @@ export const deliveryFlowService = {
     }
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await offlineSyncManager.recordEvent('DELIVERY_ARRIVE_DESTINATION', 'order', orderId, payload);
+    await safeRecordOfflineEvent('DELIVERY_ARRIVE_DESTINATION', 'order', orderId, payload);
 
     return { updatedData };
   },
@@ -211,7 +225,7 @@ export const deliveryFlowService = {
     }
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await offlineSyncManager.recordEvent('DELIVERY_START_SERVICE', 'order', orderId, payload);
+    await safeRecordOfflineEvent('DELIVERY_START_SERVICE', 'order', orderId, payload);
 
     return { updatedData };
   },
@@ -247,7 +261,7 @@ export const deliveryFlowService = {
     };
 
     await syncLocalOrderCaches(orderId, updatedData, 'fulfilled');
-    await offlineSyncManager.recordEvent('DELIVERY_FINISH', 'order', orderId, payload);
+    await safeRecordOfflineEvent('DELIVERY_FINISH', 'order', orderId, payload);
 
     return { updatedData };
   },
@@ -278,7 +292,7 @@ export const deliveryFlowService = {
     };
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await offlineSyncManager.recordEvent('DELIVERY_UNATTENDED', 'order', orderId, payload);
+    await safeRecordOfflineEvent('DELIVERY_UNATTENDED', 'order', orderId, payload);
 
     return { updatedData };
   },
@@ -292,7 +306,7 @@ export const deliveryFlowService = {
     delete updatedData.deliveryStartedAt;
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await offlineSyncManager.recordEvent('DELIVERY_STEP_BACK', 'order', orderId, updatedData);
+    await safeRecordOfflineEvent('DELIVERY_STEP_BACK', 'order', orderId, updatedData);
 
     return { updatedData };
   },
@@ -309,7 +323,7 @@ export const deliveryFlowService = {
     delete updatedData.deliveryServiceStartedAt;
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await offlineSyncManager.recordEvent('DELIVERY_STEP_BACK', 'order', orderId, updatedData);
+    await safeRecordOfflineEvent('DELIVERY_STEP_BACK', 'order', orderId, updatedData);
 
     return { updatedData };
   },
@@ -325,7 +339,7 @@ export const deliveryFlowService = {
     delete updatedData.deliveryServiceStartedAt;
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await offlineSyncManager.recordEvent('DELIVERY_STEP_BACK', 'order', orderId, updatedData);
+    await safeRecordOfflineEvent('DELIVERY_STEP_BACK', 'order', orderId, updatedData);
 
     return { updatedData };
   },

@@ -79,7 +79,7 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
         }
       }
     } else if (trimmed.toUpperCase().startsWith('UPDATE')) {
-      const match = trimmed.match(/UPDATE ([a-zA-Z0-9_]+) SET/i);
+      const match = trimmed.match(/UPDATE\s+([a-zA-Z0-9_]+)\s+SET/i);
       if (match && match[1]) {
         const tableName = match[1];
         const rows = this.tables[tableName] || [];
@@ -182,10 +182,7 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
 export const shouldUseInMemoryDatabase = (platform: string, environment?: string): boolean =>
   platform === 'web' || environment === 'test';
 
-const resolveRuntimePlatform = (): string => {
-  if (Platform?.OS === 'web') {
-    return 'web';
-  }
+export const resolveRuntimePlatform = (): string => {
   if (
     typeof window !== 'undefined' &&
     typeof window.document?.createElement === 'function'
@@ -202,15 +199,20 @@ const resolveRuntimePlatform = (): string => {
   if (
     g.HermesInternal !== undefined ||
     g.nativeFabricUIManager !== undefined ||
-    g.__fbBatchedBridgeConfig !== undefined
+    g.__fbBatchedBridgeConfig !== undefined ||
+    (typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative')
   ) {
     return 'native';
   }
-  return Platform?.OS || 'native';
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    return 'web';
+  }
+  return 'native';
 };
 
 const openSQLiteDatabase = async (): Promise<DatabaseDriver> => {
-  if (shouldUseInMemoryDatabase(resolveRuntimePlatform(), process.env.NODE_ENV)) {
+  const runtimePlatform = resolveRuntimePlatform();
+  if (shouldUseInMemoryDatabase(runtimePlatform, process.env.NODE_ENV)) {
     return new InMemoryDatabaseDriver();
   }
 
@@ -224,7 +226,7 @@ const openSQLiteDatabase = async (): Promise<DatabaseDriver> => {
     return (await SQLite.openDatabaseAsync('morantehub.db')) as DatabaseDriver;
   } catch (e) {
     console.warn('[SQLite] Banco nativo indisponível:', e);
-    if (typeof window !== 'undefined' || Platform?.OS === 'web') {
+    if (runtimePlatform === 'web') {
       return new InMemoryDatabaseDriver();
     }
     throw new Error(

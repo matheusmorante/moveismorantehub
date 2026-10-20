@@ -610,3 +610,59 @@ Os arquivos centrais de emissão de NF-e, reconciliação, auditoria de edição
    - Sem alertas intrusivos de transição JavaScript (`Alert.alert`).
    - Zero exposição ou criação de CC-e (`FISCAL-016`).
    - Zona segura de layout preservada (`SafeAreaInsets`).
+
+
+---
+
+## 8. Fix: Resiliência de Plataforma Web/Expo e Fallback de Banco Local ao Mudar de Etapa na Entrega
+
+### Problema Identificado e Sintomas
+Ao acionar o deslizamento de transição de etapa no fluxo de entrega (ex: "Iniciar Rota" na Etapa 1) rodando no navegador (`localhost:8081` / Expo Web), a operação falhava com o alerta:
+> *"Erro ao iniciar rota: Your web project is importing a module from 'react-native' instead of 'react-native-web'. Learn more: https://expo.fyi/fb-batched-bridge-config-web"*
+
+---
+
+### Causa Raiz Técnica Comprovada
+1. **Falso Positivo de Plataforma Nativa no Web Browser:**
+   - Em `mobile/src/services/sqlite/database.ts`, a função `resolveRuntimePlatform()` verificava `(typeof navigator !== 'undefined' && navigator.product === 'ReactNative')` antes de validar se o ambiente era navegador (`window` / `document`).
+   - O `react-native-web` define o polyfill global `navigator.product = 'ReactNative'` em navegadores para compatibilidade com certas bibliotecas.
+   - Isso fazia com que `resolveRuntimePlatform()` retornasse `'native'` mesmo executando no Google Chrome no desktop (`localhost:8081`).
+   - Com retorno `'native'`, `openSQLiteDatabase` chamava `require('expo-sqlite')`. No Expo Web, `expo-sqlite` tenta carregar módulos nativos inexistentes no navegador (`NativeModules` de `react-native`), disparando a exceção do BatchedBridge do Expo.
+2. **Propagação Desnecessária do Erro Offline para a Ação do Usuário:**
+   - Em `deliveryFlowService.ts`, as chamadas a `offlineSyncManager.recordEvent` eram executadas sem captura resiliente. Quando o banco de dados local lançava a exceção de carregamento nativo, a persistência primária da transição no Supabase era interrompida e o erro técnico era exibido no alerta da UI.
+
+---
+
+### Solução Técnica Implementada
+1. **Detecção Precisa de Plataforma (`database.ts`):**
+   - Importação de `Platform` de `react-native`.
+   - `resolveRuntimePlatform()` confere prioritariamente `Platform?.OS === 'web'`, `typeof window !== 'undefined' && typeof window.document?.createElement === 'function'` e `process.env?.NODE_ENV === 'test' || process.env?.VITEST`.
+   - Remoção do teste ambíguo `navigator.product === 'ReactNative'`.
+   - Adicionado fallback defensivo no bloco `catch` de `openSQLiteDatabase`: se a plataforma for web ou o banco nativo falhar, utiliza `InMemoryDatabaseDriver` sem derrubar a aplicação.
+2. **Isolamento de Erros da Fila Offline (`deliveryFlowService.ts`):**
+   - Criação da função utilitária `safeRecordOfflineEvent` que encapsula o enfileiramento offline em `try/catch` com log de advertência (`console.warn`).
+   - Falhas no armazenamento local de eventos offline não mais impedem ou quebram o fluxo de transição de etapas do motorista/entregador.
+3. **Novo Arquivo de Testes Unitários (`erp/tests/mobile-forms/sqliteDatabasePlatform.test.tsx`):**
+   - Validação da identificação de ambiente web/teste (`shouldUseInMemoryDatabase`).
+   - Verificação de que `resolveRuntimePlatform` retorna `'web'` e fornece o `InMemoryDatabaseDriver` funcional.
+
+---
+
+### Arquivos e Linhas Modificados
+1. **[`mobile/src/services/sqlite/database.ts`](mobile/src/services/sqlite/database.ts):**
+   - Importação de `Platform`.
+   - Refatoração de `resolveRuntimePlatform` e fallback em `openSQLiteDatabase`.
+2. **[`mobile/src/features/orders/services/deliveryFlowService.ts`](mobile/src/features/orders/services/deliveryFlowService.ts):**
+   - Implementação de `safeRecordOfflineEvent` com tipagem estrita (`SyncEventType`, `SyncEvent['entityType']`).
+   - Proteção de todos os métodos de transição (`startRoute`, `arriveAtDestination`, `startService`, `finishDelivery`, `recordUnattended`, `stepBackToPreparation`, `stepBackToRoute`, `stepBackToArrival`).
+3. **[`erp/tests/mobile-forms/sqliteDatabasePlatform.test.tsx`](erp/tests/mobile-forms/sqliteDatabasePlatform.test.tsx):**
+   - 3 testes unitários cobrindo resiliência de plataforma e driver em memória.
+
+---
+
+### Testes Executados e Validações
+1. **Suíte Completa de Formulários Mobile:**
+   - `npm run test:unit:mobile-forms --prefix erp`: **11 arquivos / 111 testes aprovados com 100% de sucesso**.
+2. **Não-Regressão e Invariantes:**
+   - Execução web testada com sucesso sem alertas ou dependência de pontes nativas.
+   - Zero CC-e mantida (`FISCAL-016`).

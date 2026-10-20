@@ -53,17 +53,32 @@ describe('deliveryFlowService — Persistência e Sincronização do Fluxo de En
     );
   });
 
-  it('arriveAtDestination atualiza status para in_service', async () => {
-    const result = await deliveryFlowService.arriveAtDestination({
+  it('arriveAtDestination atualiza status para arrived e startService para in_service', async () => {
+    const arrivedResult = await deliveryFlowService.arriveAtDestination({
       orderId: 'ord-100',
       currentData: { deliveryStatus: 'in_progress' },
     });
 
-    expect(result.updatedData.deliveryStatus).toBe('in_service');
-    expect(result.updatedData.deliveryArrivedAt).toBeDefined();
+    expect(arrivedResult.updatedData.deliveryStatus).toBe('arrived');
+    expect(arrivedResult.updatedData.deliveryArrivedAt).toBeDefined();
 
     expect(mockRecordEvent).toHaveBeenCalledWith(
       'DELIVERY_ARRIVE_DESTINATION',
+      'order',
+      'ord-100',
+      expect.objectContaining({ deliveryStatus: 'arrived' })
+    );
+
+    const serviceResult = await deliveryFlowService.startService({
+      orderId: 'ord-100',
+      currentData: arrivedResult.updatedData,
+    });
+
+    expect(serviceResult.updatedData.deliveryStatus).toBe('in_service');
+    expect(serviceResult.updatedData.deliveryServiceStartedAt).toBeDefined();
+
+    expect(mockRecordEvent).toHaveBeenCalledWith(
+      'DELIVERY_START_SERVICE',
       'order',
       'ord-100',
       expect.objectContaining({ deliveryStatus: 'in_service' })

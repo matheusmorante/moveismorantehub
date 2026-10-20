@@ -1,14 +1,32 @@
-import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
-
 type ConnectivityListener = (isOnline: boolean) => void;
+
+interface NetInfoLikeState {
+  isConnected: boolean | null;
+  isInternetReachable?: boolean | null;
+}
+
+const isTestEnv = (): boolean =>
+  typeof process !== 'undefined' &&
+  Boolean(process.env?.VITEST || process.env?.NODE_ENV === 'test');
 
 class ConnectivityService {
   private isOnline = true;
   private listeners = new Set<ConnectivityListener>();
 
   async initialize(): Promise<void> {
-    this.apply(await NetInfo.fetch());
-    NetInfo.addEventListener((state) => this.apply(state));
+    if (typeof window === 'undefined' && isTestEnv()) {
+      return;
+    }
+    try {
+      const mod = require('@react-native-community/netinfo');
+      const NetInfo = mod.default || mod;
+      if (NetInfo && typeof NetInfo.fetch === 'function') {
+        this.apply(await NetInfo.fetch());
+        NetInfo.addEventListener((state: NetInfoLikeState) => this.apply(state));
+      }
+    } catch {
+      // Fallback para ambiente web/node sem módulo nativo
+    }
   }
 
   subscribe(listener: ConnectivityListener): () => void {
@@ -21,7 +39,11 @@ class ConnectivityService {
     return this.isOnline;
   }
 
-  private apply(state: NetInfoState): void {
+  set connected(val: boolean) {
+    this.isOnline = Boolean(val);
+  }
+
+  private apply(state: NetInfoLikeState): void {
     const next = state.isConnected === true && state.isInternetReachable !== false;
     if (next === this.isOnline) return;
     this.isOnline = next;
