@@ -159,38 +159,6 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           </div>
-          {product.opportunity && (
-            <Badge
-              className={cn(
-                'absolute top-0 right-0 font-black px-2 py-0.5 rounded-none shadow-lg z-10 text-[9px] uppercase tracking-tighter border border-white/20 flex items-center gap-0.5',
-                isSalvados
-                  ? 'bg-orange-500 text-white border-orange-600/20'
-                  : isMegaLiquidacao
-                    ? isMegaLiquidacaoLastUnit
-                      ? 'bg-amber-400 text-black border-red-600'
-                      : 'bg-amber-400 text-black border-amber-500/20'
-                    : 'text-white',
-                getAnimationClass(product.opportunity.badge_animation || style.opportunity_emphasis)
-              )}
-              style={
-                isSalvados || isMegaLiquidacao || opportunityBadgeBackground === 'inherit'
-                  ? undefined
-                  : { backgroundColor: opportunityBadgeBackground }
-              }
-            >
-              {isSalvados && <Flame className="h-2.5 w-2.5 shrink-0 text-white fill-white" />}
-              {isMegaLiquidacao && <Zap className="h-2.5 w-2.5 shrink-0 fill-current text-black" />}
-              {isMegaLiquidacaoLastUnit ? (
-                <span className="flex flex-col items-start normal-case tracking-normal leading-[1.05]">
-                  <span className="text-black">Mega Liquidação</span>
-                  <span className="text-red-600">Última Unidade</span>
-                </span>
-              ) : (
-                product.opportunity.name
-              )}
-            </Badge>
-          )}
-
           {/* Botão de Edição Rápida para Admin */}
           {isAdmin && isAdminMode && (
             <button
@@ -203,6 +171,38 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
           )}
         </div>
       </Link>
+
+      {product.opportunity && (
+        <Badge
+          className={cn(
+            'pointer-events-none absolute top-0 right-0 font-black px-2 py-0.5 rounded-none shadow-lg z-10 text-[9px] uppercase tracking-tighter border border-white/20 flex items-center gap-0.5',
+            isSalvados
+              ? 'bg-orange-500 text-white border-orange-600/20'
+              : isMegaLiquidacao
+                ? isMegaLiquidacaoLastUnit
+                  ? 'bg-amber-400 text-black border-red-600'
+                  : 'bg-amber-400 text-black border-amber-500/20'
+                : 'text-white',
+            getAnimationClass(product.opportunity.badge_animation || style.opportunity_emphasis)
+          )}
+          style={
+            isSalvados || isMegaLiquidacao || opportunityBadgeBackground === 'inherit'
+              ? undefined
+              : { backgroundColor: opportunityBadgeBackground }
+          }
+        >
+          {isSalvados && <Flame className="h-2.5 w-2.5 shrink-0 text-white fill-white" />}
+          {isMegaLiquidacao && <Zap className="h-2.5 w-2.5 shrink-0 fill-current text-black" />}
+          {isMegaLiquidacaoLastUnit ? (
+            <span className="flex flex-col items-start normal-case tracking-normal leading-[1.05]">
+              <span className="text-black">Mega Liquidação</span>
+              <span className="text-red-600">Última Unidade</span>
+            </span>
+          ) : (
+            product.opportunity.name
+          )}
+        </Badge>
+      )}
 
       {isAdmin && isAdminMode && (
         <AdminProductModal
