@@ -11,7 +11,7 @@ import {
   buildVariationBatchRequests,
   buildSimpleProductRequest,
   DEFAULT_SYNC_SETTINGS,
-} from '../facebook-catalog/sync/syncBatchBuilder';
+} from '../../facebook-catalog/sync/syncBatchBuilder';
 
 export const dynamic = 'force-dynamic';
 
