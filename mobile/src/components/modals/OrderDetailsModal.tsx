@@ -61,7 +61,7 @@ export const OrderDetailsModal: React.FC<Props> = ({
             userProfile={userProfile}
             onBack={(started) => {
               setPreparingDelivery(false);
-              if (started) onClose();
+              if (started || order?._openDeliveryPreparation) onClose();
             }}
           />
         ) : (

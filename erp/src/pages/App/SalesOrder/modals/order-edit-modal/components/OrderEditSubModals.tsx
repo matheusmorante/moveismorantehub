@@ -1,12 +1,11 @@
 import React from 'react';
 import type Order from '@/pages/types/order.type';
-import SellerSearchModal from '../SellerSearchModal';
+import SellerSearchModal from '../../SellerSearchModal';
 import PersonFormModal from '@/pages/App/Registrations/shared/modals/PersonFormModal';
 import ItemMovementChangeConfirmModal, {
   getInventorySensitiveItemChanges,
-} from '../ItemMovementChangeConfirmModal';
+} from '../../ItemMovementChangeConfirmModal';
 import ConfirmModal from '@/components/shared/ConfirmModal';
-import { FiscalOrderEditConfirmDialog } from '../FiscalOrderEditConfirmDialog';
 
 interface OrderEditSubModalsProps {
   // Seller search & registration
@@ -36,13 +35,6 @@ interface OrderEditSubModalsProps {
   onCloseReconciliationConfirmation: () => void;
   onConfirmReconciliation: () => void;
 
-  // Fiscal edit dialog
-  isFiscalEditConfirmationOpen: boolean;
-  pendingFiscalEdit: any;
-  isConfirmingFiscalEdit: boolean;
-  onCancelFiscalEdit: () => void;
-  onConfirmFiscalEdit: () => void;
-  onNavigateToReturns: () => void;
 }
 
 export const OrderEditSubModals: React.FC<OrderEditSubModalsProps> = ({
@@ -65,12 +57,6 @@ export const OrderEditSubModals: React.FC<OrderEditSubModalsProps> = ({
   isReconciliationConfirmationOpen,
   onCloseReconciliationConfirmation,
   onConfirmReconciliation,
-  isFiscalEditConfirmationOpen,
-  pendingFiscalEdit,
-  isConfirmingFiscalEdit,
-  onCancelFiscalEdit,
-  onConfirmFiscalEdit,
-  onNavigateToReturns,
 }) => {
   return (
     <>
@@ -123,16 +109,6 @@ export const OrderEditSubModals: React.FC<OrderEditSubModalsProps> = ({
         type="info"
       />
 
-      {/* Fiscal Order Edit Confirmation */}
-      {isFiscalEditConfirmationOpen && pendingFiscalEdit && (
-        <FiscalOrderEditConfirmDialog
-          audit={pendingFiscalEdit.audit}
-          isConfirmingFiscalEdit={isConfirmingFiscalEdit}
-          onCancel={onCancelFiscalEdit}
-          onConfirm={onConfirmFiscalEdit}
-          onNavigateToReturns={onNavigateToReturns}
-        />
-      )}
     </>
   );
 };

@@ -1,24 +1,31 @@
 import React, { useState } from 'react';
+import * as DocumentPicker from 'expo-document-picker';
 import {
+  ActivityIndicator,
+  Alert,
+  Image,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ScrollView,
-  Alert,
 } from 'react-native';
 import { X, AlertTriangle, Camera, Check } from 'lucide-react-native';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { unattendedDeliveryFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
 
 const UNATTENDED_REASONS = [
-  'Cliente Ausente',
+  'Cliente comunicou que está ausente',
   'Ninguém Atendeu no Local',
   'Cliente Recusou Recebimento',
   'Outro Motivo',
 ] as const;
+
+const CATALOG_API_URL = (
+  process.env.EXPO_PUBLIC_CATALOG_API_URL || 'https://www.moveismorante.com.br'
+).replace(/\/$/, '');
 
 interface Props {
   visible: boolean;
@@ -37,40 +44,94 @@ export const UnattendedModal: React.FC<Props> = ({
 }) => {
   const [selectedReason, setSelectedReason] = useState<(typeof UNATTENDED_REASONS)[number]>(UNATTENDED_REASONS[0]);
   const [notes, setNotes] = useState('');
-  const [proofUrls, setProofUrls] = useState<string[]>(['']);
+  const [proofUrls, setProofUrls] = useState<string[]>([]);
+  const [uploadingProofs, setUploadingProofs] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const form = useZodForm(unattendedDeliveryFormSchema, { reason: selectedReason, notes, proofUrls });
 
   const handleConfirm = async () => {
+    if (uploadingProofs) return;
     return form.validateAndRun({ reason: selectedReason, notes, proofUrls }, async (values) => {
-    setSubmitting(true);
-    try {
-      await onConfirm(values.reason, values.notes, values.proofUrls.filter(Boolean));
-    } finally {
-      setSubmitting(false);
-    }
+      setSubmitting(true);
+      try {
+        await onConfirm(values.reason, values.notes, values.proofUrls);
+      } finally {
+        setSubmitting(false);
+      }
     }, (errors) => Alert.alert('Revise o registro', Object.values(flattenFormErrors(errors))[0]));
   };
 
-  const updateProofUrl = (index: number, value: string) => {
-    setProofUrls((current) =>
-      current.map((url, currentIndex) => (currentIndex === index ? value : url))
-    );
+  const addProofImages = async () => {
+    setUploadingProofs(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'image/*',
+        copyToCacheDirectory: true,
+        multiple: true,
+      });
+      if (result.canceled || !result.assets?.length) return;
+
+      const assets = result.assets.slice(0, 5 - proofUrls.length);
+      for (const [index, asset] of assets.entries()) {
+        const contentType = asset.mimeType || 'image/jpeg';
+        if (!contentType.startsWith('image/')) {
+          throw new Error('Selecione somente arquivos de imagem.');
+        }
+        const fileName = (asset.name || 'comprovante.jpg').replace(/[^a-zA-Z0-9._-]/g, '-');
+        let credentialResponse: Response | null = null;
+        try {
+          credentialResponse = await fetch(`${CATALOG_API_URL}/api/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName: `delivery-proofs/${Date.now()}-${index}-${fileName}`,
+              contentType,
+            }),
+          });
+        } catch {
+          // Fallback offline: quando sem internet para alcançar o endpoint de upload, mantém a URI local/data da foto
+          if (asset.uri) {
+            setProofUrls((current) => [...current, asset.uri].slice(0, 5));
+            continue;
+          }
+          throw new Error('Não foi possível preparar o envio da imagem.');
+        }
+
+        if (!credentialResponse.ok) {
+          const details = await credentialResponse.json().catch(() => ({}));
+          throw new Error(details.error || 'Não foi possível preparar o envio da imagem.');
+        }
+        const { uploadUrl, fileUrl } = await credentialResponse.json();
+        const imageResponse = await fetch(asset.uri);
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': contentType },
+          body: await imageResponse.blob(),
+        });
+        if (!uploadResponse.ok) throw new Error('Falha ao enviar a imagem de comprovação.');
+        setProofUrls((current) => [...current, fileUrl].slice(0, 5));
+      }
+    } catch (error: any) {
+      Alert.alert('Erro ao anexar imagem', error?.message || 'Não foi possível enviar a imagem.');
+    } finally {
+      setUploadingProofs(false);
+    }
   };
 
-  const addProofField = () => {
-    setProofUrls((current) => (current.length < 5 ? [...current, ''] : current));
-  };
-
-  const removeProofField = (index: number) => {
-    setProofUrls((current) =>
-      current.length === 1 ? [''] : current.filter((_, currentIndex) => currentIndex !== index)
-    );
+  const removeProofImage = (url: string) => {
+    setProofUrls((current) => current.filter((proofUrl) => proofUrl !== url));
   };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose}>
+      <View style={styles.backdrop}>
+        {/* Backdrop irmão (não pai) do conteúdo: toques dentro do card não fecham o modal */}
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={onClose}
+          accessibilityLabel="Fechar modal"
+        />
         <View style={[styles.content, isDarkMode && styles.contentDark]}>
           {/* Topo */}
           <View style={styles.topRow}>
@@ -140,38 +201,49 @@ export const UnattendedModal: React.FC<Props> = ({
 
             {/* Fotos de comprovação */}
             <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>
-              Fotos de Prova / Comprovante (opcional — até 5):
+              Fotos de Prova / Comprovante
+              {selectedReason === 'Ninguém Atendeu no Local' ? (
+                <>
+                  <Text style={styles.requiredAsterisk}> *</Text>
+                  <Text style={isDarkMode && styles.requiredTextDark}> (obrigatório)</Text>
+                </>
+              ) : (
+                ' (opcional)'
+              )}
+              {' — até 5:'}
             </Text>
             <View style={styles.proofList}>
               {proofUrls.map((proofUrl, index) => (
-                <View key={index} style={[styles.proofBox, isDarkMode && styles.inputDark]}>
-                  <Camera size={18} color="#64748b" />
-                  <TextInput
-                    style={[styles.proofInput, isDarkMode && styles.textLight]}
-                    placeholder={`Referência ou link da foto ${index + 1}`}
-                    placeholderTextColor="#94a3b8"
-                    value={proofUrl}
-                    onChangeText={(value) => updateProofUrl(index, value)}
-                  />
-                  {proofUrls.length > 1 && (
-                    <TouchableOpacity
-                      accessibilityLabel={`Remover foto ${index + 1}`}
-                      onPress={() => removeProofField(index)}
-                      style={styles.removeProofButton}
-                    >
-                      <X size={16} color="#64748b" />
-                    </TouchableOpacity>
-                  )}
+                <View
+                  key={proofUrl}
+                  style={[styles.proofThumbnail, isDarkMode && styles.proofThumbnailDark]}
+                >
+                  <Image source={{ uri: proofUrl }} style={styles.proofImage} />
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remover imagem ${index + 1}`}
+                    onPress={() => removeProofImage(proofUrl)}
+                    style={styles.removeProofButton}
+                  >
+                    <X size={16} color="#64748b" />
+                  </TouchableOpacity>
                 </View>
               ))}
               {proofUrls.length < 5 && (
                 <TouchableOpacity
-                  onPress={addProofField}
+                  onPress={addProofImages}
+                  disabled={uploadingProofs}
                   style={[styles.addProofButton, isDarkMode && styles.addProofButtonDark]}
                 >
-                  <Camera size={16} color={isDarkMode ? '#cbd5e1' : '#475569'} />
+                  {uploadingProofs ? (
+                    <ActivityIndicator size="small" color={isDarkMode ? '#cbd5e1' : '#475569'} />
+                  ) : (
+                    <Camera size={16} color={isDarkMode ? '#cbd5e1' : '#475569'} />
+                  )}
                   <Text style={[styles.addProofText, isDarkMode && styles.textLight]}>
-                    Adicionar foto ({proofUrls.length}/5)
+                    {uploadingProofs
+                      ? 'Enviando imagem...'
+                      : `Adicionar imagem (${proofUrls.length}/5)`}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -181,15 +253,15 @@ export const UnattendedModal: React.FC<Props> = ({
           {/* Botão de Enviar */}
           <TouchableOpacity
             onPress={handleConfirm}
-            disabled={submitting}
-            style={[styles.confirmBtn, submitting && { opacity: 0.6 }]}
+            disabled={submitting || uploadingProofs}
+            style={[styles.confirmBtn, (submitting || uploadingProofs) && { opacity: 0.6 }]}
           >
             <Text style={styles.confirmBtnText}>
               {submitting ? 'REGISTRANDO...' : 'CONFIRMAR NÃO FOI POSSÍVEL ENTREGAR'}
             </Text>
           </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     </Modal>
   );
 };
@@ -251,6 +323,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 6,
   },
+  requiredAsterisk: {
+    color: '#dc2626',
+  },
+  requiredTextDark: {
+    color: '#fca5a5',
+  },
   reasonsList: {
     gap: 6,
   },
@@ -301,28 +379,33 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
     color: '#f8fafc',
   },
-  proofBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#f8fafc',
+  proofThumbnail: {
+    width: 58,
+    height: 58,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    overflow: 'hidden',
   },
   proofList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
-  proofInput: {
-    flex: 1,
-    fontSize: 13,
-    color: '#0f172a',
-    paddingVertical: 4,
+  proofThumbnailDark: {
+    borderColor: '#475569',
+  },
+  proofImage: {
+    width: '100%',
+    height: '100%',
   },
   removeProofButton: {
-    padding: 4,
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    padding: 3,
+    borderRadius: 10,
+    backgroundColor: '#ffffffdd',
   },
   addProofButton: {
     minHeight: 42,

@@ -1,6 +1,6 @@
 import type React from 'react';
 import type Order from '@/pages/types/order.type';
-import type { NfeItemFiscal, NfeItemWithFiscal } from '../NfeItemsSection';
+import type { NfeItemFiscal, NfeItemWithFiscal } from '../../NfeItemsSection';
 
 export interface UseNfeItemEnrichmentProps {
   order: Order | null;

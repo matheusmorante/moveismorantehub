@@ -1,4 +1,4 @@
-import type Person from '../../types/person.type';
+import type Person from '../../../types/person.type';
 import { type PersonCacheEntry, PEOPLE_CACHE_TTL_MS, PERSON_PREFETCH_MAX_AGE_MS } from './personQuery.types';
 
 export const peopleCache: Record<string, PersonCacheEntry> = {};

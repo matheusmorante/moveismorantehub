@@ -11,10 +11,12 @@ vi.mock('react-native', () => ({
   },
   Text: ({ children, ...props }: any) => React.createElement('span', props, children),
   Animated: {
-    Value: vi.fn(() => ({
-      setValue: vi.fn(),
-      interpolate: vi.fn(() => ({})),
-    })),
+    Value: vi.fn(function () {
+      return {
+        setValue: vi.fn(),
+        interpolate: vi.fn(() => ({})),
+      };
+    }),
     multiply: vi.fn((a, b) => ({ a, b })),
     spring: vi.fn(() => ({
       start: (cb?: () => void) => cb && cb(),

@@ -11,7 +11,12 @@ import {
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
-import { isAssemblyInternalType, isAssemblyOutsideType } from '../../../../utils/aiSummaryHelper';
+import {
+  isAssemblyInternalType,
+  isAssemblyOutsideType,
+  type AssemblyHandlingItem,
+  type AssemblyHandlingOption,
+} from '../../../../utils/aiSummaryHelper';
 import { DeliveryFlowIcon } from '../../../../components/shared/DeliveryFlowIcon';
 
 interface Props {
@@ -19,7 +24,7 @@ interface Props {
   onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
   onOpenDeliveryFlow?: (item: DeliveryRouteItem) => void;
-  handlingOptions?: any[];
+  handlingOptions?: AssemblyHandlingOption[];
   isDarkMode?: boolean;
 }
 
@@ -47,14 +52,14 @@ export const ScheduleCard: React.FC<Props> = ({
     !isReturn &&
     (serviceSummary.hasOutsideAssembly ||
       isAssemblyOutsideType(orderHandling, handlingOptions) ||
-      items.some((entry: any) =>
+      items.some((entry: AssemblyHandlingItem) =>
         isAssemblyOutsideType(entry?.handlingType || entry?.handling, handlingOptions)
       ));
   const hasDepotAssembly =
     !isReturn &&
     (serviceSummary.hasDepotAssembly ||
       isAssemblyInternalType(orderHandling, handlingOptions) ||
-      items.some((entry: any) =>
+      items.some((entry: AssemblyHandlingItem) =>
         isAssemblyInternalType(entry?.handlingType || entry?.handling, handlingOptions)
       ));
   // Informações de pagamento
@@ -80,6 +85,19 @@ export const ScheduleCard: React.FC<Props> = ({
   const addressAndTravelText = [locationText, travelText].filter(Boolean).join(' · ');
 
   const isDeliveryActivity = item.activityType === 'delivery';
+
+  const statusBadgeConfig =
+    item.status === 'in_progress'
+      ? { label: 'EM ROTA', bg: '#fef3c7', color: '#b45309' }
+      : item.status === 'arrived'
+        ? { label: 'NO LOCAL', bg: '#cffafe', color: '#0e7490' }
+        : item.status === 'in_service'
+          ? { label: 'EM ATENDIMENTO', bg: '#dbeafe', color: '#1d4ed8' }
+          : item.status === 'completed'
+            ? { label: 'CONCLUÍDA', bg: '#dcfce7', color: '#15803d' }
+            : item.status === 'unattended'
+              ? { label: 'NÃO ENTREGUE', bg: '#fee2e2', color: '#b91c1c' }
+              : null;
 
   const handlePrimaryPress = (event: GestureResponderEvent) => {
     event.stopPropagation();
@@ -125,6 +143,13 @@ export const ScheduleCard: React.FC<Props> = ({
               {item.activityLabel}
             </Text>
           </View>
+          {statusBadgeConfig && (
+            <View style={[styles.activityBadge, { backgroundColor: statusBadgeConfig.bg }]}>
+              <Text style={[styles.activityBadgeText, { color: statusBadgeConfig.color }]}>
+                {statusBadgeConfig.label}
+              </Text>
+            </View>
+          )}
           {/* Selo Parafusadeira Amarela - Montagem Depósito */}
           {hasDepotAssembly && (
             <View style={[styles.drillBadge, styles.drillBadgeDepot]}>

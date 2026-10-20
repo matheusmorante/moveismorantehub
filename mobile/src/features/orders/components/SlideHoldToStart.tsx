@@ -108,6 +108,7 @@ export function SlideHoldToStart({
       accessibilityRole="adjustable"
       accessibilityState={{ disabled: isDisabled }}
       accessibilityLabel={displayLabel}
+      {...({ 'aria-disabled': isDisabled } as Record<string, unknown>)}
     >
       <Text
         style={[

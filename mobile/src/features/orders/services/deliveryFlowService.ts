@@ -182,6 +182,7 @@ export const deliveryFlowService = {
         .from('orders')
         .update({
           delivery_status: 'arrived',
+          delivery_arrived_at: now,
           order_data: updatedData,
           updated_at: now,
         })
@@ -260,6 +261,21 @@ export const deliveryFlowService = {
       ...payload,
     };
 
+    try {
+      await supabase
+        .from('orders')
+        .update({
+          status: 'fulfilled',
+          delivery_status: 'completed',
+          delivery_finished_at: now,
+          order_data: updatedData,
+          updated_at: now,
+        })
+        .eq('id', orderId);
+    } catch (dbErr) {
+      console.warn('[deliveryFlowService] Falha na persistência de finalização:', dbErr);
+    }
+
     await syncLocalOrderCaches(orderId, updatedData, 'fulfilled');
     await safeRecordOfflineEvent('DELIVERY_FINISH', 'order', orderId, payload);
 
@@ -291,6 +307,19 @@ export const deliveryFlowService = {
       ...payload,
     };
 
+    try {
+      await supabase
+        .from('orders')
+        .update({
+          delivery_status: 'unattended',
+          order_data: updatedData,
+          updated_at: now,
+        })
+        .eq('id', orderId);
+    } catch (dbErr) {
+      console.warn('[deliveryFlowService] Falha na persistência de insucesso:', dbErr);
+    }
+
     await syncLocalOrderCaches(orderId, updatedData);
     await safeRecordOfflineEvent('DELIVERY_UNATTENDED', 'order', orderId, payload);
 
@@ -301,12 +330,36 @@ export const deliveryFlowService = {
    * Retrocede o status de Em Rota para Preparação/Conferência.
    */
   async stepBackToPreparation(orderId: string, currentData: Record<string, any>) {
+    const now = new Date().toISOString();
     const updatedData = { ...currentData };
     delete updatedData.deliveryStatus;
     delete updatedData.deliveryStartedAt;
+    delete updatedData.deliveryArrivedAt;
+    delete updatedData.deliveryServiceStartedAt;
+
+    try {
+      await supabase
+        .from('orders')
+        .update({
+          delivery_status: null,
+          delivery_started_at: null,
+          delivery_arrived_at: null,
+          order_data: updatedData,
+          updated_at: now,
+        })
+        .eq('id', orderId);
+    } catch (dbErr) {
+      console.warn('[deliveryFlowService] Falha ao retroceder para preparação:', dbErr);
+    }
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await safeRecordOfflineEvent('DELIVERY_STEP_BACK', 'order', orderId, updatedData);
+    await safeRecordOfflineEvent('DELIVERY_STEP_BACK', 'order', orderId, {
+      ...updatedData,
+      deliveryStatus: null,
+      deliveryStartedAt: null,
+      deliveryArrivedAt: null,
+      deliveryServiceStartedAt: null,
+    });
 
     return { updatedData };
   },
@@ -315,6 +368,7 @@ export const deliveryFlowService = {
    * Retrocede o status de Chegada para Em Rota.
    */
   async stepBackToRoute(orderId: string, currentData: Record<string, any>) {
+    const now = new Date().toISOString();
     const updatedData = {
       ...currentData,
       deliveryStatus: 'in_progress',
@@ -322,8 +376,27 @@ export const deliveryFlowService = {
     delete updatedData.deliveryArrivedAt;
     delete updatedData.deliveryServiceStartedAt;
 
+    try {
+      await supabase
+        .from('orders')
+        .update({
+          delivery_status: 'in_progress',
+          delivery_arrived_at: null,
+          order_data: updatedData,
+          updated_at: now,
+        })
+        .eq('id', orderId);
+    } catch (dbErr) {
+      console.warn('[deliveryFlowService] Falha ao retroceder para rota:', dbErr);
+    }
+
     await syncLocalOrderCaches(orderId, updatedData);
-    await safeRecordOfflineEvent('DELIVERY_STEP_BACK', 'order', orderId, updatedData);
+    await safeRecordOfflineEvent('DELIVERY_STEP_BACK', 'order', orderId, {
+      ...updatedData,
+      deliveryStatus: 'in_progress',
+      deliveryArrivedAt: null,
+      deliveryServiceStartedAt: null,
+    });
 
     return { updatedData };
   },
@@ -332,14 +405,32 @@ export const deliveryFlowService = {
    * Retrocede o status de Em Atendimento para Chegada.
    */
   async stepBackToArrival(orderId: string, currentData: Record<string, any>) {
+    const now = new Date().toISOString();
     const updatedData = {
       ...currentData,
       deliveryStatus: 'arrived',
     };
     delete updatedData.deliveryServiceStartedAt;
 
+    try {
+      await supabase
+        .from('orders')
+        .update({
+          delivery_status: 'arrived',
+          order_data: updatedData,
+          updated_at: now,
+        })
+        .eq('id', orderId);
+    } catch (dbErr) {
+      console.warn('[deliveryFlowService] Falha ao retroceder para chegada:', dbErr);
+    }
+
     await syncLocalOrderCaches(orderId, updatedData);
-    await safeRecordOfflineEvent('DELIVERY_STEP_BACK', 'order', orderId, updatedData);
+    await safeRecordOfflineEvent('DELIVERY_STEP_BACK', 'order', orderId, {
+      ...updatedData,
+      deliveryStatus: 'arrived',
+      deliveryServiceStartedAt: null,
+    });
 
     return { updatedData };
   },
@@ -360,12 +451,17 @@ export const deliveryFlowService = {
     delete updatedData.unattendedNotes;
     delete updatedData.unattendedProofUrl;
     delete updatedData.unattendedProofUrls;
+    delete updatedData.unattendedAt;
 
     try {
       await supabase
         .from('orders')
         .update({
           status: 'scheduled',
+          delivery_status: null,
+          delivery_started_at: null,
+          delivery_arrived_at: null,
+          delivery_finished_at: null,
           order_data: updatedData,
           updated_at: now,
         })
@@ -375,7 +471,7 @@ export const deliveryFlowService = {
     }
 
     await syncLocalOrderCaches(orderId, updatedData, 'scheduled');
-    await offlineSyncManager.recordEvent('DELIVERY_CANCEL', 'order', orderId, {
+    await safeRecordOfflineEvent('DELIVERY_CANCEL', 'order', orderId, {
       ...updatedData,
       status: 'scheduled',
       deliveryStatus: null,
@@ -383,6 +479,7 @@ export const deliveryFlowService = {
       deliveryArrivedAt: null,
       deliveryServiceStartedAt: null,
       deliveryFinishedAt: null,
+      deliveryChecklist: null,
       unattendedAt: null,
       unattendedReason: null,
       unattendedNotes: null,

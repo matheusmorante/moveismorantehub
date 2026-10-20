@@ -1,6 +1,6 @@
-import type { OrderItem } from '@/pages/types/order.type';
+import type { Item as OrderItem } from '@/pages/types/items.type';
 import { getCfopDefinition } from '../../../../../../../../../shared-utils/fiscalCfopModel';
-import type { NfeItemFiscal, NfeItemWithFiscal } from '../NfeItemsSection';
+import type { NfeItemFiscal, NfeItemWithFiscal } from '../../NfeItemsSection';
 import { type DraftItemLike, invertIfReversalCfop } from './itemDraftMatcher';
 
 export interface BuildFallbackItemsParams {

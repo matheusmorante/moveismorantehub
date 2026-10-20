@@ -72,3 +72,29 @@ test('invalid source, XML identity, or failed preparation never registers a tran
   assert.equal(faults.attempts.size, 0);
   await assert.rejects(faults.post(postUrl, note(key), {}), /SCOPED_PREPARED/);
 });
+
+test('invalid transmission and recovery responses use one real authorization, then recover the same key', async () => {
+  const events=[],calls=[];
+  const faults=createNormalOutboundFaults({targets:[{orderId:'order',model:'55',fault:'malformed_response'}],origin,
+    originalFetch:async()=>new Response(JSON.stringify({documentId:'doc'})),
+    originalPost:async(url,xml)=>{calls.push({url,xml});return {data:response(key)};},onEvent:e=>events.push(e)});
+  await prepare(faults);
+  assert.match((await faults.post(postUrl,note(key),{})).data,/<html>/);
+  await assert.rejects(faults.post(postUrl,note(key),{}),/SINGLE_NORMAL_TRANSMISSION/);
+  const queryUrl=postUrl.replace('NFeAutorizacao4','NFeConsultaProtocolo4');
+  const replies=[];for(let i=0;i<6;i++)replies.push((await faults.post(queryUrl,consult(key),{})).data);
+  assert.match(replies[0],/<html>/);assert.equal(replies[1],'');
+  assert(!replies[2].includes(key));assert(!replies[3].includes('<tpAmb>2'));
+  assert(replies[4].includes('INVALID_CONTROLLED_PROTOCOL'));assert.equal(replies[5],response(key));
+  assert.equal(calls.filter(c=>c.url===postUrl).length,1);
+  assert.deepEqual(events.filter(e=>e.phase==='controlled-recovery-response-delivered').map(e=>e.mode),['html','empty','wrong_key','wrong_environment','wrong_protocol','valid']);
+});
+
+test('malformed recovery cannot replace a mismatched real protocol with a fake success',async()=>{
+  let call=0;
+  const faults=createNormalOutboundFaults({targets:[{orderId:'order',model:'55',fault:'malformed_response'}],origin,
+    originalFetch:async()=>new Response(JSON.stringify({documentId:'doc'})),
+    originalPost:async()=>({data:++call===1?response(key):response(key).replace('141260000000001','141260000000002')})});
+  await prepare(faults);await faults.post(postUrl,note(key),{});
+  await assert.rejects(faults.post(postUrl.replace('NFeAutorizacao4','NFeConsultaProtocolo4'),consult(key),{}),/MATCHING_REAL_RECOVERY_REQUIRED/);
+});

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CurrencyInput } from '../../../../components/shared/CurrencyInput';
 import { CreditCard, PlusCircle, CheckCircle2, CircleDollarSign } from 'lucide-react-native';
 import { areDeliveryPaymentsPaid } from '../../screens/delivery-preparation/deliveryFlowStepRules';
@@ -21,25 +21,17 @@ const currency = (value?: number) =>
   Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export const DeliveryPaymentSection = ({ payments, onChange, isDarkMode }: Props) => {
+  const [openMethodPickerIndex, setOpenMethodPickerIndex] = useState<number | null>(null);
+
   const update = (index: number, patch: Partial<Payment>) =>
     onChange(
       payments.map((payment, current) => (current === index ? { ...payment, ...patch } : payment))
     );
-  const selectMethod = (index: number) =>
-    Alert.alert(
-      'Forma de pagamento',
-      'Escolha a forma recebida na entrega.',
-      METHODS.map((method) => ({ text: method, onPress: () => update(index, { method }) }))
-    );
-  const selectStatus = (index: number) =>
-    Alert.alert('Status do pagamento', 'Confirme o recebimento antes de finalizar a entrega.', [
-      {
-        text: 'Pendente - no ato da entrega',
-        onPress: () => update(index, { status: 'Pendente' }),
-      },
-      { text: 'Pago', onPress: () => update(index, { status: 'Pago' }) },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+
+  const toggleStatus = (index: number) => {
+    const currentStatus = payments[index]?.status;
+    update(index, { status: paid(currentStatus) ? 'Pendente' : 'Pago' });
+  };
 
   return (
     <View style={[styles.card, isDarkMode && styles.cardDark]}>
@@ -64,7 +56,14 @@ export const DeliveryPaymentSection = ({ payments, onChange, isDarkMode }: Props
             </Text>
           </View>
           <View style={styles.controls}>
-            <TouchableOpacity onPress={() => selectMethod(index)} style={styles.select}>
+            <TouchableOpacity
+              onPress={() =>
+                setOpenMethodPickerIndex((prev) => (prev === index ? null : index))
+              }
+              style={styles.select}
+              accessibilityRole="button"
+              accessibilityLabel={`Forma de pagamento ${payment.method || 'Escolher forma'}`}
+            >
               <CreditCard size={15} color="#2563eb" />
               <Text style={styles.selectText}>{payment.method || 'Escolher forma'}</Text>
             </TouchableOpacity>
@@ -75,10 +74,40 @@ export const DeliveryPaymentSection = ({ payments, onChange, isDarkMode }: Props
               color={isDarkMode ? '#f8fafc' : '#1e293b'}
             />
           </View>
+          {openMethodPickerIndex === index && (
+            <View style={styles.methodPillsRow}>
+              {METHODS.map((method) => {
+                const isSelected = payment.method === method;
+                return (
+                  <TouchableOpacity
+                    key={method}
+                    onPress={() => {
+                      update(index, { method });
+                      setOpenMethodPickerIndex(null);
+                    }}
+                    style={[
+                      styles.methodPill,
+                      isSelected && styles.methodPillActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.methodPillText,
+                        isSelected && styles.methodPillTextActive,
+                      ]}
+                    >
+                      {method}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
           <TouchableOpacity
-            disabled={paid(payment.status)}
-            onPress={() => selectStatus(index)}
+            onPress={() => toggleStatus(index)}
             style={[styles.status, paid(payment.status) ? styles.statusPaid : styles.statusPending]}
+            accessibilityRole="button"
+            accessibilityLabel={paid(payment.status) ? 'Pago' : 'Pendente - no ato da entrega'}
           >
             <CheckCircle2 size={16} color={paid(payment.status) ? '#166534' : '#b45309'} />
             <Text
@@ -184,4 +213,26 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   addText: { fontSize: 12, fontWeight: '900', color: '#2563eb' },
+  methodPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  methodPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#e2e8f0',
+  },
+  methodPillActive: {
+    backgroundColor: '#2563eb',
+  },
+  methodPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  methodPillTextActive: {
+    color: '#ffffff',
+  },
 });

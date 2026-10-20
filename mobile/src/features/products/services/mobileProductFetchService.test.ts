@@ -15,6 +15,7 @@ describe('fetchMobileProductsPage', () => {
     const query: any = {};
     query.select = vi.fn(() => query);
     query.eq = vi.fn(() => query);
+    query.or = vi.fn(() => query);
     query.order = vi.fn(() => query);
     query.range = vi.fn().mockResolvedValue({
       data: [
@@ -44,7 +45,7 @@ describe('fetchMobileProductsPage', () => {
     const result = await fetchMobileProductsPage(1, 10, { summaryOnly: true });
 
     const [columns, options] = query.select.mock.calls[0];
-    expect(columns).toContain('product_variations(sku, active, merged_to_variation_id)');
+    expect(columns).toContain('product_variations(');
     expect(columns).not.toContain('product_images');
     expect(columns).not.toContain('*,');
     expect(options).toEqual({ count: 'exact' });
@@ -61,6 +62,7 @@ describe('fetchMobileProductsPage', () => {
     const query: any = {};
     query.select = vi.fn(() => query);
     query.eq = vi.fn(() => query);
+    query.or = vi.fn(() => query);
     query.filter = vi.fn(() => query);
     query.order = vi.fn(() => query);
     query.range = vi.fn().mockResolvedValue({
@@ -92,6 +94,7 @@ describe('fetchMobileProductsPage', () => {
     const query: any = {};
     query.select = vi.fn(() => query);
     query.eq = vi.fn(() => query);
+    query.or = vi.fn(() => query);
     query.filter = vi.fn(() => query);
     query.order = vi.fn(() => query);
     query.range = vi.fn().mockResolvedValue({

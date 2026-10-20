@@ -7,6 +7,7 @@ import {
 import {
   consultSefazStatus,
   executeAbandonHmlTlsAttempt,
+  type SefazConsultOutcome,
 } from '../../services/nfeReconciliationService';
 import { withTimeout } from '../../../../../../../../../shared-utils/withTimeout';
 import type { NfeItemWithFiscal } from '../../NfeItemsSection';
@@ -31,10 +32,11 @@ export async function executeReconcileOperation({
   isCurrent,
   setEmissionResult,
   onSuccess,
-}: ExecuteReconcileParams): Promise<unknown> {
+}: ExecuteReconcileParams): Promise<SefazConsultOutcome | null> {
   try {
     const outcome = await withTimeout(
       consultSefazStatus(orderId, environment, {
+        success: false,
         ...emissionResult,
         documentId,
         emissionRequestId,
@@ -111,7 +113,7 @@ export async function executeHmlRestartOperation({
   setManualNumberInput,
   setEmissionResult,
 }: ExecuteHmlRestartParams): Promise<boolean> {
-  let readyToEmit = false;
+  let readyToEmit: boolean;
   try {
     if (kind === 'tls_untransmitted') {
       readyToEmit = await executeAbandonHmlTlsAttempt(

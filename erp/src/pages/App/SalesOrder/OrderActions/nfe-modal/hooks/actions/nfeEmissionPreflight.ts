@@ -33,7 +33,7 @@ export interface CheckEmissionPreflightParams {
   deliveryMethod: DeliveryMethod;
   recipientTaxId: string;
   recipientIe: string;
-  recipientIeIndicator: string;
+  recipientIeIndicator?: '1' | '2' | '9';
   nfeItems: any[];
   isLoadingFiscalData: boolean;
   manualNumber: number | undefined;

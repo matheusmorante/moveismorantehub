@@ -1846,7 +1846,13 @@ async function handleResumeAction({
 }) {
   try {
     const replacements = await loadContinuationReplacements(db, orderId);
-    return res.status(200).json({ replacements, order: { ...currentData, id: orderId } });
+    const { data: pendingReviews, error: reviewError } = await db.from("nfe_order_edit_pending_reviews").select("id,resolution_kind,reason,created_at").eq("order_id", orderId).eq("status", "pending").order("created_at", { ascending: false });
+    if (reviewError) throw new Error("N\xE3o foi poss\xEDvel carregar a pend\xEAncia fiscal da edi\xE7\xE3o.");
+    return res.status(200).json({
+      replacements,
+      pendingReviews: pendingReviews || [],
+      order: { ...currentData, id: orderId }
+    });
   } catch (error) {
     return res.status(503).json({
       error: error instanceof Error ? error.message : "Substitui\xE7\xE3o fiscal indispon\xEDvel."
@@ -2111,13 +2117,7 @@ async function handleAuditAndConfirmAction({
   res
 }) {
   const proposedOrderData = projectOrderDataForFiscalEdit(currentData, submitted);
-  if (action === "audit" && !hasPotentialFiscalOrderEdit(currentData, proposedOrderData))
-    return res.status(200).json({
-      status: "unchanged",
-      orderUpdatedAt: order.updated_at,
-      changes: [],
-      documents: []
-    });
+  const hasPotentialEdit = hasPotentialFiscalOrderEdit(currentData, proposedOrderData);
   const { data: fiscalRows, error: fiscalError } = await db.from("nfe_documents").select(
     "id,order_id,emission_request_id,document_type,status,ambiente,modelo,numero_nfe,serie,chave_acesso,numero_protocolo,xml_protocolo,xml_nfe,created_at"
   ).eq("order_id", orderId).eq("document_type", "outbound").in("modelo", ["55", "65"]).order("created_at", { ascending: false });
@@ -2131,9 +2131,10 @@ async function handleAuditAndConfirmAction({
   if (pending)
     return res.status(409).json({
       status: "blocked",
-      error: "Existe uma tentativa fiscal sem resultado confirmado. Consulte a SEFAZ antes de editar os dados fiscais do pedido."
+      orderUpdatedAt: order.updated_at,
+      error: "A altera\xE7\xE3o comercial pode ser salva. A tentativa fiscal permanece pendente e precisa ser reconciliada antes de qualquer nova emiss\xE3o."
     });
-  const { data: replaced, error: replacedError } = await db.from("nfe_order_edit_replacements").select("original_document_id,status,request_id,original_order_data").eq("order_id", orderId);
+  const { data: replaced, error: replacedError } = await db.from("nfe_order_edit_replacements").select("original_document_id,status,request_id,original_order_data,replacement_document_id").eq("order_id", orderId);
   if (replacedError)
     return res.status(503).json({ error: "O registro de substitui\xE7\xE3o fiscal est\xE1 indispon\xEDvel." });
   if (replaced?.some((row) => row.status !== "completed")) {
@@ -2159,11 +2160,43 @@ async function handleAuditAndConfirmAction({
         order: { ...currentData, id: orderId }
       });
     }
-    return res.status(409).json({
-      status: "blocked",
-      error: "Existe uma substitui\xE7\xE3o fiscal pendente. Conclua a revers\xE3o e a nova emiss\xE3o antes de editar novamente."
+    const activeReplacements = replaced.filter((row) => row.status !== "completed");
+    const reversalProofs = await Promise.all(
+      activeReplacements.map(async (row) => {
+        const { data, error } = await db.rpc("is_order_edit_reversal_confirmed", {
+          p_original_document_id: row.original_document_id
+        });
+        return { row, confirmed: !error && data === true };
+      })
+    );
+    if (reversalProofs.some(
+      ({ row, confirmed }) => !confirmed || row.status !== "ready_to_reissue" || row.replacement_document_id
+    ))
+      return res.status(409).json({
+        status: "blocked",
+        orderUpdatedAt: order.updated_at,
+        error: "A altera\xE7\xE3o comercial pode ser salva. A revers\xE3o ou a emiss\xE3o anterior continua pendente e ser\xE1 atualizada para refletir os novos dados.",
+        replacements: await loadContinuationReplacements(db, orderId)
+      });
+    if (action !== "audit")
+      return res.status(409).json({
+        error: "A substitui\xE7\xE3o fiscal mudou. Confira novamente antes de confirmar a edi\xE7\xE3o."
+      });
+    return res.status(200).json({
+      status: "reissue_pending",
+      orderUpdatedAt: order.updated_at,
+      changes: [],
+      documents: [],
+      replacements: await loadContinuationReplacements(db, orderId)
     });
   }
+  if (action === "audit" && !hasPotentialEdit)
+    return res.status(200).json({
+      status: "unchanged",
+      orderUpdatedAt: order.updated_at,
+      changes: [],
+      documents: []
+    });
   const authorizedDocuments = (fiscalRows || []).filter(
     (row) => ["autorizada", "homologada"].includes(String(row.status || "").toLowerCase()) && !replaced?.some(
       (replacement) => replacement.original_document_id === row.id && replacement.status === "completed"
@@ -2213,6 +2246,7 @@ async function handleAuditAndConfirmAction({
   } catch (error) {
     return res.status(409).json({
       status: "blocked",
+      orderUpdatedAt: order.updated_at,
       error: error instanceof Error ? error.message : "N\xE3o foi poss\xEDvel comprovar a integridade das notas autorizadas."
     });
   }
@@ -2227,8 +2261,6 @@ async function handleAuditAndConfirmAction({
       return res.status(409).json({
         error: "O pedido ou a pol\xEDtica fiscal mudou. Confira novamente antes de confirmar."
       });
-    if (documents.some((document) => document.environment === 1) && reqBody.productionConfirmed !== true)
-      return res.status(400).json({ error: "Confirme explicitamente a substitui\xE7\xE3o fiscal em Produ\xE7\xE3o." });
     const payload = buildOrderPersistencePayload({ ...proposedOrderData, id: orderId });
     const { data: result, error } = await db.rpc("commit_fiscal_order_edit", {
       p_request_id: reqBody.requestId,

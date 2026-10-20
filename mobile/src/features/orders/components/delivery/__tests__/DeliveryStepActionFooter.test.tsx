@@ -18,10 +18,12 @@ vi.mock('react-native', () => ({
   },
   Text: ({ children, ...props }: any) => React.createElement('span', props, children),
   Animated: {
-    Value: vi.fn(() => ({
-      setValue: vi.fn(),
-      interpolate: vi.fn(() => ({})),
-    })),
+    Value: vi.fn(function () {
+      return {
+        setValue: vi.fn(),
+        interpolate: vi.fn(() => ({})),
+      };
+    }),
     multiply: vi.fn((a, b) => ({ a, b })),
     spring: vi.fn(() => ({ start: (cb?: () => void) => cb && cb() })),
     View: ({ children, ...props }: any) => React.createElement('div', props, children),
@@ -47,6 +49,16 @@ describe('DeliveryStepActionFooter — Rodapé Fixo Ancorado na Zona Segura', ()
     mockInsets.bottom = 34;
   });
 
+  const baseHandlers = {
+    onStartDelivery: vi.fn(),
+    onArriveAtDestination: vi.fn(),
+    onStepBackToPreparation: vi.fn(),
+    onStartService: vi.fn(),
+    onStepBackToRoute: vi.fn(),
+    onFinishDelivery: vi.fn(),
+    onStepBackToArrival: vi.fn(),
+  };
+
   it('respeita os insets de safe area da parte inferior do dispositivo', () => {
     mockInsets.bottom = 48; // Dispositivo com barra de 3 botões
 
@@ -57,11 +69,7 @@ describe('DeliveryStepActionFooter — Rodapé Fixo Ancorado na Zona Segura', ()
         loading={false}
         isChecklistComplete={true}
         paymentsConfirmed={true}
-        onStartDelivery={vi.fn()}
-        onArriveAtDestination={vi.fn()}
-        onStepBackToPreparation={vi.fn()}
-        onFinishDelivery={vi.fn()}
-        onStepBackToRoute={vi.fn()}
+        {...baseHandlers}
       />
     );
 
@@ -78,11 +86,7 @@ describe('DeliveryStepActionFooter — Rodapé Fixo Ancorado na Zona Segura', ()
         loading={false}
         isChecklistComplete={true}
         paymentsConfirmed={true}
-        onStartDelivery={vi.fn()}
-        onArriveAtDestination={vi.fn()}
-        onStepBackToPreparation={vi.fn()}
-        onFinishDelivery={vi.fn()}
-        onStepBackToRoute={vi.fn()}
+        {...baseHandlers}
       />
     );
 
@@ -97,11 +101,7 @@ describe('DeliveryStepActionFooter — Rodapé Fixo Ancorado na Zona Segura', ()
         loading={false}
         isChecklistComplete={true}
         paymentsConfirmed={true}
-        onStartDelivery={vi.fn()}
-        onArriveAtDestination={vi.fn()}
-        onStepBackToPreparation={vi.fn()}
-        onFinishDelivery={vi.fn()}
-        onStepBackToRoute={vi.fn()}
+        {...baseHandlers}
       />
     );
 
@@ -118,11 +118,7 @@ describe('DeliveryStepActionFooter — Rodapé Fixo Ancorado na Zona Segura', ()
         loading={false}
         isChecklistComplete={true}
         paymentsConfirmed={true}
-        onStartDelivery={vi.fn()}
-        onArriveAtDestination={vi.fn()}
-        onStepBackToPreparation={vi.fn()}
-        onFinishDelivery={vi.fn()}
-        onStepBackToRoute={vi.fn()}
+        {...baseHandlers}
       />
     );
 
@@ -130,7 +126,7 @@ describe('DeliveryStepActionFooter — Rodapé Fixo Ancorado na Zona Segura', ()
     expect(html).toContain('Deslize para VOLTAR AO PREPARO');
   });
 
-  it('renderiza slider para a esquerda (Finalizar) e para a direita (Voltar para Em Rota) na Etapa 3', () => {
+  it('renderiza slider para a esquerda (Iniciar Atendimento) e para a direita (Voltar para Em Rota) na Etapa 3', () => {
     const html = renderToStaticMarkup(
       <DeliveryStepActionFooter
         currentStep={3}
@@ -138,31 +134,39 @@ describe('DeliveryStepActionFooter — Rodapé Fixo Ancorado na Zona Segura', ()
         loading={false}
         isChecklistComplete={true}
         paymentsConfirmed={true}
-        onStartDelivery={vi.fn()}
-        onArriveAtDestination={vi.fn()}
-        onStepBackToPreparation={vi.fn()}
-        onFinishDelivery={vi.fn()}
-        onStepBackToRoute={vi.fn()}
+        {...baseHandlers}
+      />
+    );
+
+    expect(html).toContain('Deslize para INICIAR ATENDIMENTO');
+    expect(html).toContain('Deslize para VOLTAR PARA EM ROTA');
+  });
+
+  it('renderiza slider para a esquerda (Finalizar) e para a direita (Voltar à Chegada) na Etapa 4', () => {
+    const html = renderToStaticMarkup(
+      <DeliveryStepActionFooter
+        currentStep={4}
+        isDarkMode={false}
+        loading={false}
+        isChecklistComplete={true}
+        paymentsConfirmed={true}
+        {...baseHandlers}
       />
     );
 
     expect(html).toContain('Deslize para FINALIZAR');
-    expect(html).toContain('Deslize para VOLTAR PARA EM ROTA');
+    expect(html).toContain('Deslize para VOLTAR À CHEGADA');
   });
 
-  it('exibe alerta de pagamentos pendentes na Etapa 3 quando não confirmados', () => {
+  it('exibe alerta de pagamentos pendentes na Etapa 4 quando não confirmados', () => {
     const html = renderToStaticMarkup(
       <DeliveryStepActionFooter
-        currentStep={3}
+        currentStep={4}
         isDarkMode={false}
         loading={false}
         isChecklistComplete={true}
         paymentsConfirmed={false}
-        onStartDelivery={vi.fn()}
-        onArriveAtDestination={vi.fn()}
-        onStepBackToPreparation={vi.fn()}
-        onFinishDelivery={vi.fn()}
-        onStepBackToRoute={vi.fn()}
+        {...baseHandlers}
       />
     );
 

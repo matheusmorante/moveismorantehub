@@ -137,7 +137,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
             text: 'Continuar mesmo assim',
             style: 'destructive',
             onPress: () => {
-              onSelectOrder(item.order);
+              onSelectOrder({ ...item.order, _openDeliveryPreparation: true });
             },
           },
         ]
@@ -145,7 +145,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
       return;
     }
 
-    onSelectOrder(item.order);
+    onSelectOrder({ ...item.order, _openDeliveryPreparation: true });
   };
 
   // Ação de Ver Pedido

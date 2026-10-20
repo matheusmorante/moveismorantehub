@@ -1,7 +1,7 @@
-import type { OrderItem } from '@/pages/types/order.type';
+import type { Item as OrderItem } from '@/pages/types/items.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { parseAuthorizedInvoiceLines } from '@/pages/utils/nfe/invoiceLineSnapshot';
-import type { NfeItemWithFiscal } from '../NfeItemsSection';
+import type { NfeItemWithFiscal } from '../../NfeItemsSection';
 
 export function extractXmlTagValue(xml: string, tag: string): string | null {
   if (!xml || !tag) return null;

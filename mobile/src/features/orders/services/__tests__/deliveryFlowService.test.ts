@@ -134,26 +134,81 @@ describe('deliveryFlowService — Persistência e Sincronização do Fluxo de En
     );
   });
 
-  it('stepBackToPreparation remove deliveryStatus e deliveryStartedAt', async () => {
+  it('stepBackToPreparation remove deliveryStatus e deliveryStartedAt e limpa no banco e evento offline', async () => {
     const result = await deliveryFlowService.stepBackToPreparation('ord-100', {
       deliveryStatus: 'in_progress',
       deliveryStartedAt: '2026-10-19T10:00:00Z',
+      deliveryArrivedAt: '2026-10-19T10:15:00Z',
       otherField: 'preserved',
     });
 
     expect(result.updatedData.deliveryStatus).toBeUndefined();
     expect(result.updatedData.deliveryStartedAt).toBeUndefined();
+    expect(result.updatedData.deliveryArrivedAt).toBeUndefined();
     expect(result.updatedData.otherField).toBe('preserved');
+
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        delivery_status: null,
+        delivery_started_at: null,
+        delivery_arrived_at: null,
+      })
+    );
+    expect(mockRecordEvent).toHaveBeenCalledWith(
+      'DELIVERY_STEP_BACK',
+      'order',
+      'ord-100',
+      expect.objectContaining({
+        deliveryStatus: null,
+        deliveryStartedAt: null,
+        deliveryArrivedAt: null,
+        deliveryServiceStartedAt: null,
+      })
+    );
   });
 
-  it('stepBackToRoute remove deliveryArrivedAt e restaura in_progress', async () => {
+  it('stepBackToRoute remove deliveryArrivedAt e deliveryServiceStartedAt e restaura in_progress', async () => {
     const result = await deliveryFlowService.stepBackToRoute('ord-100', {
-      deliveryStatus: 'in_service',
+      deliveryStatus: 'arrived',
       deliveryArrivedAt: '2026-10-19T10:30:00Z',
+      deliveryServiceStartedAt: '2026-10-19T10:35:00Z',
     });
 
     expect(result.updatedData.deliveryStatus).toBe('in_progress');
     expect(result.updatedData.deliveryArrivedAt).toBeUndefined();
+    expect(result.updatedData.deliveryServiceStartedAt).toBeUndefined();
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        delivery_status: 'in_progress',
+        delivery_arrived_at: null,
+      })
+    );
+  });
+
+  it('stepBackToArrival remove deliveryServiceStartedAt e restaura arrived (Etapa 4 -> Etapa 3)', async () => {
+    const result = await deliveryFlowService.stepBackToArrival('ord-100', {
+      deliveryStatus: 'in_service',
+      deliveryArrivedAt: '2026-10-19T10:30:00Z',
+      deliveryServiceStartedAt: '2026-10-19T10:35:00Z',
+    });
+
+    expect(result.updatedData.deliveryStatus).toBe('arrived');
+    expect(result.updatedData.deliveryArrivedAt).toBe('2026-10-19T10:30:00Z');
+    expect(result.updatedData.deliveryServiceStartedAt).toBeUndefined();
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        delivery_status: 'arrived',
+      })
+    );
+    expect(mockRecordEvent).toHaveBeenCalledWith(
+      'DELIVERY_STEP_BACK',
+      'order',
+      'ord-100',
+      expect.objectContaining({
+        deliveryStatus: 'arrived',
+        deliveryServiceStartedAt: null,
+      })
+    );
   });
 
   it('cancelDelivery remove atributos de entrega e atualiza status no banco para scheduled', async () => {
@@ -170,7 +225,47 @@ describe('deliveryFlowService — Persistência e Sincronização do Fluxo de En
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'scheduled',
+        delivery_status: null,
+        delivery_started_at: null,
+        delivery_arrived_at: null,
+        delivery_finished_at: null,
       })
     );
+  });
+
+  it('resiliência offline: todas as etapas funcionam mesmo quando o Supabase lança erro de rede', async () => {
+    mockUpdate.mockImplementation(() => {
+      throw new Error('Network request failed');
+    });
+
+    const r1 = await deliveryFlowService.startRoute({
+      orderId: 'ord-off-1',
+      currentData: { totalValue: 300 },
+      checklist: [{ id: 'chk-1', checked: true }],
+      responsibles: [{ name: 'João', id: 'usr-2' }],
+      userProfileId: 'usr-2',
+    });
+    expect(r1.updatedData.deliveryStatus).toBe('in_progress');
+
+    const r2 = await deliveryFlowService.arriveAtDestination({
+      orderId: 'ord-off-1',
+      currentData: r1.updatedData,
+    });
+    expect(r2.updatedData.deliveryStatus).toBe('arrived');
+
+    const r3 = await deliveryFlowService.startService({
+      orderId: 'ord-off-1',
+      currentData: r2.updatedData,
+    });
+    expect(r3.updatedData.deliveryStatus).toBe('in_service');
+
+    const r4 = await deliveryFlowService.finishDelivery({
+      orderId: 'ord-off-1',
+      currentData: r3.updatedData,
+      payments: [{ method: 'Pix', amount: 300, status: 'pago' }],
+    });
+    expect(r4.updatedData.status).toBe('fulfilled');
+    expect(r4.updatedData.deliveryStatus).toBe('completed');
+    expect(mockRecordEvent).toHaveBeenCalledTimes(4);
   });
 });

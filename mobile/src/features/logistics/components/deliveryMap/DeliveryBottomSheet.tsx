@@ -58,6 +58,29 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
     /agendad|scheduled/.test(orderStatus);
   const canContinueDelivery = item.activityType === 'delivery' && isInProgress;
 
+  const handleOpenNav = () => {
+    onClose();
+    onViewOrder(item);
+  };
+
+  // Iniciar etapas da entrega
+  const handleStartAndNavigate = async () => {
+    setStarting(true);
+    try {
+      await onStartDelivery(item);
+      onClose();
+    } catch (err) {
+      Alert.alert('Atenção', 'Não foi possível registrar o início da entrega. Tente novamente.');
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const handleViewOrderDetails = () => {
+    onClose();
+    onViewOrder(item);
+  };
+
   const primaryDeliveryAction = canStartDelivery
     ? {
         label: 'INICIAR ETAPAS DA ENTREGA',
@@ -66,7 +89,7 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
     : canContinueDelivery
       ? {
           label: 'CONTINUAR ETAPAS DA ENTREGA',
-          onPress: handleOpenNav,
+          onPress: handleStartAndNavigate,
         }
       : null;
 
@@ -94,29 +117,6 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
         : effectiveKm
           ? Math.max(1, Math.round(effectiveKm * 2.2))
           : undefined;
-
-  const handleOpenNav = () => {
-    onClose();
-    onViewOrder(item);
-  };
-
-  // Iniciar etapas da entrega
-  const handleStartAndNavigate = async () => {
-    setStarting(true);
-    try {
-      await onStartDelivery(item);
-      onClose();
-    } catch (err) {
-      Alert.alert('Atenção', 'Não foi possível registrar o início da entrega. Tente novamente.');
-    } finally {
-      setStarting(false);
-    }
-  };
-
-  const handleViewOrderDetails = () => {
-    onClose();
-    onViewOrder(item);
-  };
 
   return (
     <Modal visible={!!item} transparent animationType="fade" onRequestClose={onClose}>

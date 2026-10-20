@@ -33,7 +33,7 @@ export function useNfeEmission(
   const canOperateFiscal = hasFiscalOperationRole(profile);
   const [environment, setEnvironment] = useState<1 | 2>(DEFAULT_NFE_ENVIRONMENT);
   const fiscalOperationLock = useRef(false);
-  const issuerUf = getSettings().companyUF;
+  const issuerUf = getSettings().companyUF || '';
 
   const [savedAcquisitionPurpose, setSavedAcquisitionPurpose] =
     useState<FiscalAcquisitionPurpose | null>(

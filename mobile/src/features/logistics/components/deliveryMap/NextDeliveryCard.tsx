@@ -69,7 +69,7 @@ export const NextDeliveryCard: React.FC<NextDeliveryCardProps> = ({
         isInProgress={isInProgress}
         activeItem={activeItem}
         onStartAndNavigate={() => onStartDelivery(activeItem)}
-        onOpenNavigation={() => onViewOrder(activeItem)}
+        onOpenNavigation={() => onStartDelivery(activeItem)}
         onViewOrder={onViewOrder}
         isDarkMode={isDarkMode}
       />

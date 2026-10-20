@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import type { z } from 'zod';
 import type Order from '@/pages/types/order.type';
 import { flattenFormErrors } from '@/hooks/useZodForm';
 import { updateOrder } from '@/pages/utils/orderHistoryService';
@@ -31,7 +30,17 @@ interface UseOrderEditFiscalFlowParams {
     updatedOrder: Order,
     expectedUpdatedAt?: string
   ) => Promise<string | false>;
-  readonly editSchema: z.ZodTypeAny;
+  readonly persistReadyFiscalEdit: (
+    updatedOrder: Order,
+    expectedUpdatedAt: string,
+    replacements: FiscalOrderEditReplacement[]
+  ) => Promise<string | false>;
+  readonly persistBlockedFiscalEdit: (
+    updatedOrder: Order,
+    expectedUpdatedAt: string,
+    replacements: FiscalOrderEditReplacement[],
+    reason?: string
+  ) => Promise<{ order: Order; continueReplacement: boolean } | false>;
   readonly setIsSavingOrder: (saving: boolean) => void;
 }
 
@@ -39,11 +48,10 @@ export function useOrderEditFiscalFlow({
   effectiveOrder,
   validateEditedOrder,
   persistUpdate,
-  editSchema,
+  persistReadyFiscalEdit,
+  persistBlockedFiscalEdit,
   setIsSavingOrder,
 }: UseOrderEditFiscalFlowParams) {
-  const [pendingFiscalEdit, setPendingFiscalEdit] = useState<PendingFiscalEditState | null>(null);
-  const [isFiscalEditConfirmationOpen, setIsFiscalEditConfirmationOpen] = useState(false);
   const [isConfirmingFiscalEdit, setIsConfirmingFiscalEdit] = useState(false);
   const [pendingFiscalReplacements, setPendingFiscalReplacements] = useState<
     FiscalOrderEditReplacement[]
@@ -54,11 +62,14 @@ export function useOrderEditFiscalFlow({
   useEffect(() => {
     if (!effectiveOrder?.id) return;
     let isCurrent = true;
+    setPendingFiscalReplacements([]);
+    setFiscalContinuationOrder(null);
     void resumeFiscalOrderEdit(effectiveOrder.id)
-      .then(({ replacements, order: currentOrder }) => {
+      .then(({ replacements, pendingReviews = [] }) => {
         if (isCurrent) {
           setPendingFiscalReplacements(replacements);
-          setFiscalContinuationOrder(replacements.length ? currentOrder : null);
+          setFiscalContinuationOrder(null);
+          if (pendingReviews.length) toast.info(pendingReviews[0].reason);
         }
       })
       .catch((error) => {
@@ -74,10 +85,62 @@ export function useOrderEditFiscalFlow({
     };
   }, [effectiveOrder?.id]);
 
-  const closeFiscalConfirmation = useCallback(() => {
-    setIsFiscalEditConfirmationOpen(false);
-    setPendingFiscalEdit(null);
-  }, []);
+  const saveBlockedFiscalEdit = useCallback(async (
+    updatedOrder: Order,
+    expectedUpdatedAt: string,
+    replacements: FiscalOrderEditReplacement[],
+    reason?: string
+  ): Promise<string | false> => {
+    const saved = await persistBlockedFiscalEdit(updatedOrder, expectedUpdatedAt, replacements, reason);
+    if (!saved) return false;
+    if (saved.continueReplacement) {
+      setPendingFiscalReplacements(replacements);
+      setFiscalContinuationOrder(saved.order);
+    }
+    return saved.order.id || false;
+  }, [persistBlockedFiscalEdit]);
+
+  const applyFiscalEdit = useCallback(async (
+    pendingEdit: PendingFiscalEditState
+  ): Promise<string | false> => {
+    if (!effectiveOrder?.id || isConfirmingFiscalEdit) return false;
+    setIsConfirmingFiscalEdit(true);
+    try {
+      const committed = await commitFiscalOrderEdit({
+        requestId: pendingEdit.requestId,
+        orderId: effectiveOrder.id,
+        proposedOrder: pendingEdit.order,
+        audit: pendingEdit.audit,
+      });
+      const committedOrder = {
+        ...committed.order,
+        isButtonsStale: pendingEdit.staleButtons,
+      };
+      try {
+        await updateOrder(
+          effectiveOrder.id,
+          { isButtonsStale: pendingEdit.staleButtons },
+          committed.order,
+          undefined,
+          { metadataOnly: true }
+        );
+      } catch (metadataError) {
+        console.error('Não foi possível salvar o estado visual das ações pós-venda:', metadataError);
+        toast.warning(
+          'A edição foi confirmada, mas o aviso visual das ações pós-venda não foi salvo.'
+        );
+      }
+      setPendingFiscalReplacements(committed.replacements);
+      setFiscalContinuationOrder(committedOrder);
+      toast.success('Edição comercial salva. A reversão fiscal seguirá antes da nova emissão.');
+      return effectiveOrder.id;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'A substituição fiscal não foi iniciada.');
+      return false;
+    } finally {
+      setIsConfirmingFiscalEdit(false);
+    }
+  }, [effectiveOrder?.id, isConfirmingFiscalEdit]);
 
   const saveWithFiscalAudit = useCallback(
     async (updatedOrder: Order): Promise<string | false> => {
@@ -87,36 +150,73 @@ export function useOrderEditFiscalFlow({
       setIsSavingOrder(true);
       try {
         const result = await validateEditedOrder(
-          updatedOrder as unknown as z.input<typeof editSchema>,
+          updatedOrder,
           async (validatedData) => {
             const validated = validatedData as unknown as Order;
             try {
               const audit = await auditFiscalOrderEdit(targetOrderId, validated);
               if (audit.status === 'blocked') {
-                setPendingFiscalEdit({
-                  requestId: crypto.randomUUID(),
-                  order: validated,
-                  audit,
-                  staleButtons,
-                });
-                setIsFiscalEditConfirmationOpen(true);
-                return false;
+                const expectedUpdatedAt = audit.orderUpdatedAt || effectiveOrder.updatedAt;
+                if (!expectedUpdatedAt) {
+                  toast.error('Não foi possível fixar a versão do pedido; nenhuma alteração foi salva.');
+                  return false;
+                }
+                return await saveBlockedFiscalEdit(
+                  { ...validated, isButtonsStale: staleButtons },
+                  expectedUpdatedAt,
+                  audit.replacements || pendingFiscalReplacements,
+                  audit.error
+                );
               }
               if (audit.status === 'confirmation_required') {
                 if (!audit.orderUpdatedAt || !audit.documents.length) {
-                  toast.error(
-                    'A conferência fiscal retornou incompleta; o pedido permanece sem alteração.'
+                  return await saveBlockedFiscalEdit(
+                    { ...validated, isButtonsStale: staleButtons },
+                    audit.orderUpdatedAt || effectiveOrder.updatedAt || '',
+                    audit.replacements || pendingFiscalReplacements,
+                    'A conferência fiscal retornou incompleta. A edição comercial foi salva e a nota ficou pendente de revisão.'
                   );
-                  return false;
                 }
-                setPendingFiscalEdit({
+                const pendingEdit = {
                   requestId: crypto.randomUUID(),
                   order: validated,
                   audit,
                   staleButtons,
-                });
-                setIsFiscalEditConfirmationOpen(true);
-                return false;
+                };
+                const committed = await applyFiscalEdit(pendingEdit);
+                if (committed) return committed;
+                return await saveBlockedFiscalEdit(
+                  { ...validated, isButtonsStale: staleButtons },
+                  audit.orderUpdatedAt,
+                  audit.replacements || pendingFiscalReplacements,
+                  'A edição comercial foi salva; a substituição fiscal permanece pendente de autorização ou conferência.'
+                );
+              }
+              const readyReplacements = audit.replacements || pendingFiscalReplacements;
+              if (
+                audit.status === 'reissue_pending' ||
+                readyReplacements.length > 0
+              ) {
+                if (
+                  !audit.orderUpdatedAt ||
+                  !readyReplacements.length ||
+                  readyReplacements.some(
+                    (row: FiscalOrderEditReplacement) =>
+                      row.status !== 'ready_to_reissue' ||
+                      !row.reversalConfirmed ||
+                      Boolean(row.replacementDocumentId)
+                  )
+                ) {
+                  toast.error(
+                    'A nota anterior ainda precisa ter sua reversão fiscal confirmada antes de aplicar a edição.'
+                  );
+                  return false;
+                }
+                return await persistReadyFiscalEdit(
+                  { ...validated, isButtonsStale: staleButtons },
+                  audit.orderUpdatedAt,
+                  readyReplacements
+                );
               }
               if (!audit.orderUpdatedAt) {
                 toast.error(
@@ -129,6 +229,16 @@ export function useOrderEditFiscalFlow({
                 audit.orderUpdatedAt
               );
             } catch (error) {
+              const expectedUpdatedAt = effectiveOrder?.updatedAt;
+              if (expectedUpdatedAt) {
+                const saved = await saveBlockedFiscalEdit(
+                  { ...validated, isButtonsStale: staleButtons },
+                  expectedUpdatedAt,
+                  pendingFiscalReplacements,
+                  'A edição comercial foi salva. A auditoria fiscal precisa ser retomada antes de qualquer nova emissão.'
+                );
+                if (saved) return saved;
+              }
               toast.error(
                 error instanceof Error
                   ? error.message
@@ -146,60 +256,21 @@ export function useOrderEditFiscalFlow({
         setIsSavingOrder(false);
       }
     },
-    [effectiveOrder, persistUpdate, setIsSavingOrder, validateEditedOrder, editSchema]
+    [
+      effectiveOrder,
+      persistUpdate,
+      persistReadyFiscalEdit,
+      saveBlockedFiscalEdit,
+      pendingFiscalReplacements,
+      applyFiscalEdit,
+      setIsSavingOrder,
+      validateEditedOrder,
+    ]
   );
 
-  const confirmFiscalOrderEdit = useCallback(async () => {
-    if (!pendingFiscalEdit || !effectiveOrder?.id || isConfirmingFiscalEdit) return;
-    setIsConfirmingFiscalEdit(true);
-    try {
-      const committed = await commitFiscalOrderEdit({
-        requestId: pendingFiscalEdit.requestId,
-        orderId: effectiveOrder.id,
-        proposedOrder: pendingFiscalEdit.order,
-        audit: pendingFiscalEdit.audit,
-      });
-      const committedOrder = {
-        ...committed.order,
-        isButtonsStale: pendingFiscalEdit.staleButtons,
-      };
-      try {
-        await updateOrder(
-          effectiveOrder.id,
-          { isButtonsStale: pendingFiscalEdit.staleButtons },
-          committed.order,
-          undefined,
-          { metadataOnly: true }
-        );
-      } catch (metadataError) {
-        console.error('Não foi possível salvar o estado visual das ações pós-venda:', metadataError);
-        toast.warning(
-          'A edição foi confirmada, mas o aviso visual das ações pós-venda não foi salvo.'
-        );
-      }
-      setPendingFiscalEdit(null);
-      setIsFiscalEditConfirmationOpen(false);
-      setPendingFiscalReplacements(committed.replacements);
-      setFiscalContinuationOrder(committedOrder);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'A confirmação não foi concluída; o pedido permanece inalterado até a reversão fiscal.'
-      );
-    } finally {
-      setIsConfirmingFiscalEdit(false);
-    }
-  }, [effectiveOrder?.id, isConfirmingFiscalEdit, pendingFiscalEdit]);
-
   return {
-    pendingFiscalEdit,
-    isFiscalEditConfirmationOpen,
-    isConfirmingFiscalEdit,
     pendingFiscalReplacements,
     fiscalContinuationOrder,
     saveWithFiscalAudit,
-    confirmFiscalOrderEdit,
-    closeFiscalConfirmation,
   };
 }

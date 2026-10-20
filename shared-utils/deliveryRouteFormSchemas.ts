@@ -4,15 +4,23 @@ import { z } from 'zod';
 
 export const unattendedDeliveryFormSchema = z.object({
   reason: z.enum([
-    'Cliente Ausente',
+    'Cliente comunicou que está ausente',
     'Ninguém Atendeu no Local',
     'Cliente Recusou Recebimento',
     'Outro Motivo',
   ]),
   notes: z.string(),
   proofUrls: z
-    .array(z.union([z.literal(''), z.url('Informe uma URL válida para a evidência.')]))
+    .array(z.url('Anexe uma imagem válida como evidência.'))
     .max(5),
+}).superRefine((values, ctx) => {
+  if (values.reason === 'Ninguém Atendeu no Local' && values.proofUrls.length === 0) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['proofUrls'],
+      message: 'Anexe pelo menos uma imagem para o motivo “Ninguém Atendeu no Local”.',
+    });
+  }
 });
 
 export const deliveryResponsibleSchema = z.object({

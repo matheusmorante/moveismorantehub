@@ -1,7 +1,7 @@
-import type { OrderItem } from '@/pages/types/order.type';
+import type { Item as OrderItem } from '@/pages/types/items.type';
 import { getCfopDefinition } from '../../../../../../../../../shared-utils/fiscalCfopModel';
 import { ORDER_ITEM_FISCAL_SNAPSHOT_VERSION } from '../../../../../../../../../shared-utils/orderItemFiscalSnapshot';
-import type { NfeItemFiscal, NfeItemWithFiscal } from '../NfeItemsSection';
+import type { NfeItemFiscal, NfeItemWithFiscal } from '../../NfeItemsSection';
 import { invertIfReversalCfop } from './itemDraftMatcher';
 
 export interface PreparedCsosnItem {

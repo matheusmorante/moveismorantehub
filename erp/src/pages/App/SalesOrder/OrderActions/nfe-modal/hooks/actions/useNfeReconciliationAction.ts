@@ -5,6 +5,7 @@ import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { nfeEmissionConsultFormSchema } from '../../../../../../../../../shared-utils/nfeEmissionFormValidation';
 import { executeReconcileOperation } from './nfeReconciliationExecutor';
+import type { FiscalOperationOwner } from './actions.types';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -19,11 +20,11 @@ interface UseNfeReconciliationActionParams {
   canOperateFiscal: boolean;
   canOperateFiscalRef: React.MutableRefObject<boolean>;
   submissionInProgress: React.MutableRefObject<boolean>;
-  operationOwner: React.MutableRefObject<symbol>;
+  operationOwner: React.MutableRefObject<FiscalOperationOwner>;
   emissionResult: NfeEmissionResult | null;
   lastEmissionProductionConfirmation: React.MutableRefObject<boolean>;
   setIsSubmitting: (submitting: boolean) => void;
-  setEmissionResult: (res: NfeEmissionResult | null) => void;
+  setEmissionResult: React.Dispatch<React.SetStateAction<NfeEmissionResult | null>>;
   onSuccess?: (result: NfeEmissionResult) => void;
   handleEmit: (
     productionConfirmed?: boolean,

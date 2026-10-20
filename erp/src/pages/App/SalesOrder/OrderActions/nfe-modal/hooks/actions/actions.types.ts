@@ -9,9 +9,16 @@ import type {
   DeliveryMethod,
   resolveTransport,
 } from '../../../../../../../../../shared-utils/fiscalTransportModel';
-import type { NfeItemWithFiscal } from '../NfeItemsSection';
-import type { ThirdPartyTransporterForm } from '../NfeTransportSection';
-import type { FiscalFieldError, NfeSequencePreviewState } from '../types/nfeEmission.types';
+import type { NfeItemWithFiscal } from '../../NfeItemsSection';
+import type { ThirdPartyTransporterForm } from '../../NfeTransportSection';
+import type { FiscalFieldError, NfeSequencePreviewState } from '../../types/nfeEmission.types';
+import type { SefazConsultOutcome } from '../../services/nfeReconciliationService';
+
+export interface FiscalOperationOwner {
+  orderId: string | undefined;
+  environment: 1 | 2;
+  operatorId: string | undefined;
+}
 
 export interface UseNfeEmissionActionsProps {
   fiscalOperationLock?: { current: boolean };
@@ -74,7 +81,7 @@ export interface UseNfeEmissionActionsReturn {
     existingEmissionRequestId?: string
   ) => Promise<void>;
   handlePreviewXml: (productionConfirmed?: boolean) => Promise<void>;
-  handleReconcile: () => Promise<unknown>;
+  handleReconcile: () => Promise<SefazConsultOutcome | null | undefined>;
   handleStartFreshHmlEmission: () => Promise<void>;
   handleAbandonHmlTlsAttempt: () => Promise<void>;
   handlePrintDanfe: () => void;

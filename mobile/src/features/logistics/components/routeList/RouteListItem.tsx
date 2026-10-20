@@ -24,7 +24,8 @@ export const RouteListItem: React.FC<RouteListItemProps> = ({
 }) => {
   const isCompleted = item.status === 'completed';
   const isUnattended = item.status === 'unattended';
-  const isInProgress = item.status === 'in_progress' || item.status === 'in_service';
+  const isInProgress =
+    item.status === 'in_progress' || item.status === 'arrived' || item.status === 'in_service';
   const isNext = item.isNext && !isInProgress;
 
   const classification = classifyDeliveryService(item.order);

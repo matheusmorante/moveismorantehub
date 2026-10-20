@@ -3,10 +3,9 @@ import { resolveNfeSequenceSettings } from '../../../erp/src/pages/utils/nfe/nfe
 import type {
   FiscalEmissionCommand,
   FiscalSnapshotCandidate,
-  ResolvedFiscalDocument,
 } from '../fiscalSnapshot';
 import { resolveFiscalDocument } from '../fiscalSnapshot';
-import { extractCertificateAndKey, type CertificateAndKey } from '../nfeSigner';
+import { extractCertificateAndKey } from '../nfeSigner';
 import { saoPauloEmissionTimestamp } from './attemptPolicy';
 import {
   type OutboundDatabase,
@@ -17,7 +16,7 @@ import {
 } from './outboundAttempt';
 import { withNfeEmissionStage } from '../nfeEmissionPerformance';
 import { obj } from './values';
-import { createNormalSaleRuleSet, loadNormalSaleInputs, type NormalSaleRuleSet } from '../normalSaleRuleSet';
+import { createNormalSaleRuleSet, loadNormalSaleInputs } from '../normalSaleRuleSet';
 import { validateParanaIssuerIe } from '../paranaIssuerIe';
 import {
   getResponsibleTechnicianConfig,
@@ -69,8 +68,8 @@ export async function validateNormalSalePreconditions(
 
 export interface ResolvedSaleFactsOutcome {
   facts: FiscalSnapshotCandidate;
-  rules: NormalSaleRuleSet;
-  resolved: ResolvedFiscalDocument;
+  rules: Awaited<ReturnType<typeof createNormalSaleRuleSet>>;
+  resolved: ReturnType<typeof resolveFiscalDocument>;
   model: '55' | '65';
 }
 
@@ -135,7 +134,7 @@ export interface ResolvedSaleCredentialsOutcome {
   sequence: ReturnType<typeof resolveNfeSequenceSettings>;
   minimum: number;
   tech: ResponsibleTechnicianConfig;
-  certificate: CertificateAndKey;
+  certificate: ReturnType<typeof extractCertificateAndKey>;
   issuedAt: string;
   randomCode: string;
 }

@@ -50,7 +50,7 @@ export function useNfeEmissionActions({
   nfeNumberSequence,
   manualNumberInput,
   recipientTaxId,
-  recipientIe,
+  recipientIe = '',
   recipientIeIndicator,
   resolvedTransport,
   thirdPartyTransporter,
@@ -167,7 +167,7 @@ export function useNfeEmissionActions({
       environment,
       fiscalPreparationError,
       isRestoringAttempt,
-      attemptRestorationError,
+      attemptRestorationError: attemptRestorationError ?? null,
       emissionResult,
       isRetry,
       deliveryMethod,
@@ -182,7 +182,7 @@ export function useNfeEmissionActions({
       setEmissionResult,
     });
 
-    if (!preflightPassed) return;
+    if (!preflightPassed || !order) return;
 
     await form.validateAndRun(
       {

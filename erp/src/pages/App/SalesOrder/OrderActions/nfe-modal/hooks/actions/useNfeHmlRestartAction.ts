@@ -5,6 +5,7 @@ import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { nfeHmlRestartFormSchema } from '../../../../../../../../../shared-utils/nfeEmissionFormValidation';
 import { executeHmlRestartOperation } from './nfeReconciliationExecutor';
+import type { FiscalOperationOwner } from './actions.types';
 
 interface UseNfeHmlRestartActionParams {
   order: Order | null;
@@ -12,7 +13,7 @@ interface UseNfeHmlRestartActionParams {
   canOperateFiscal: boolean;
   canOperateFiscalRef: React.MutableRefObject<boolean>;
   submissionInProgress: React.MutableRefObject<boolean>;
-  operationOwner: React.MutableRefObject<symbol>;
+  operationOwner: React.MutableRefObject<FiscalOperationOwner>;
   emissionResult: NfeEmissionResult | null;
   canUsePreparation: () => boolean;
   isSavingPreparation: boolean;
@@ -23,7 +24,7 @@ interface UseNfeHmlRestartActionParams {
   setIsSubmitting: (submitting: boolean) => void;
   setIsRestartingHml: (restarting: boolean) => void;
   setManualNumberInput: (value: string | null) => void;
-  setEmissionResult: (res: NfeEmissionResult | null) => void;
+  setEmissionResult: React.Dispatch<React.SetStateAction<NfeEmissionResult | null>>;
   handleEmit: (
     productionConfirmed?: boolean,
     isRetry?: boolean,
@@ -106,7 +107,7 @@ export function useNfeHmlRestartAction({
         submissionInProgress.current = true;
         setIsSubmitting(true);
         setIsRestartingHml(true);
-        let readyToEmit = false;
+        let readyToEmit: boolean;
 
         try {
           readyToEmit = await executeHmlRestartOperation({

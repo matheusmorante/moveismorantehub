@@ -45,19 +45,25 @@ export function useOrderDetailsModal({ order, userRole }: UseOrderDetailsModalPr
       setPreparingDelivery(false);
       return;
     }
-    if (order._openDeliveryPreparation) {
-      setPreparingDelivery(true);
-    }
-
-    const existingItems = order.order_data?.items || order.items || [];
-    const hasFullItems =
-      Array.isArray(existingItems) &&
-      existingItems.length > 0 &&
-      existingItems.some((i: any) => i.name || i.description || i.productName || i.title);
-    if (hasFullItems) return;
+    setPreparingDelivery(Boolean(order._openDeliveryPreparation));
 
     let alive = true;
     const loadFullOrder = async () => {
+      // Aplica sempre qualquer estado local pendente (ex: transição offline de etapa da entrega)
+      try {
+        const overlaidInitial = await OrderRepository.overlayPendingLocalOrders([order]);
+        if (alive && overlaidInitial[0]) {
+          setDetailedOrder(overlaidInitial[0]);
+        }
+      } catch {}
+
+      const existingItems = order.order_data?.items || order.items || [];
+      const hasFullItems =
+        Array.isArray(existingItems) &&
+        existingItems.length > 0 &&
+        existingItems.some((i: any) => i.name || i.description || i.productName || i.title);
+      if (hasFullItems) return;
+
       try {
         const { data, error } = await supabase
           .from('orders')
@@ -65,7 +71,10 @@ export function useOrderDetailsModal({ order, userRole }: UseOrderDetailsModalPr
           .eq('id', order.id)
           .maybeSingle();
         if (!error && data && alive) {
-          setDetailedOrder(data);
+          const overlaidRemote = await OrderRepository.overlayPendingLocalOrders([data]);
+          if (alive) {
+            setDetailedOrder(overlaidRemote[0] || data);
+          }
           return;
         }
       } catch (err) {
@@ -90,7 +99,10 @@ export function useOrderDetailsModal({ order, userRole }: UseOrderDetailsModalPr
         const cached = await offlineStorageService.getWorkingSet<any[]>('logistics_orders');
         const found = cached?.data?.find((item) => item?.id === order.id);
         if (found && alive) {
-          setDetailedOrder(found);
+          const overlaidCached = await OrderRepository.overlayPendingLocalOrders([found]);
+          if (alive) {
+            setDetailedOrder(overlaidCached[0] || found);
+          }
         }
       } catch {}
     };

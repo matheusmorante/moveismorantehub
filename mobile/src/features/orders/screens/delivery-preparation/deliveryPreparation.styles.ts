@@ -13,4 +13,7 @@ export const styles = StyleSheet.create({
     gap: 14,
     paddingBottom: 36,
   },
+  arrivalContent: {
+    flexGrow: 1,
+  },
 });

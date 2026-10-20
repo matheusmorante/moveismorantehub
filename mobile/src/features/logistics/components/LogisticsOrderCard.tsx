@@ -4,12 +4,17 @@ import { Clock, MapPin, Navigation, Package, Truck, Wrench } from 'lucide-react-
 import { MobileDrill } from '../../../components/shared/MobileDrill';
 import { OrderItemChip } from '../../../components/orders/OrderItemChip';
 import { formatFullAddress } from '../../../utils/orderUtils';
-import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
+import {
+  isAssemblyOutsideType,
+  isAssemblyInternalType,
+  type AssemblyHandlingItem,
+  type AssemblyHandlingOption,
+} from '../../../utils/aiSummaryHelper';
 import { OrderCardDeliveryFooter } from '../../../components/cards/OrderCardDeliveryFooter';
 
 export interface LogisticsOrderCardProps {
   order: any;
-  handlingOptions: any[];
+  handlingOptions: AssemblyHandlingOption[];
   isDarkMode: boolean;
   onSelectOrder?: (order: any) => void;
 }
@@ -65,12 +70,12 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
 
   const hasOutsideAssembly =
     isAssemblyOutsideType(orderHandling, handlingOptions) ||
-    items.some((i: any) =>
+    items.some((i: AssemblyHandlingItem) =>
       isAssemblyOutsideType((i.handlingType || i.handling || '').toString(), handlingOptions)
     );
   const hasInternalAssembly =
     isAssemblyInternalType(orderHandling, handlingOptions) ||
-    items.some((i: any) =>
+    items.some((i: AssemblyHandlingItem) =>
       isAssemblyInternalType((i.handlingType || i.handling || '').toString(), handlingOptions)
     );
 

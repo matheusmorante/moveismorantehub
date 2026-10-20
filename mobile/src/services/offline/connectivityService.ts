@@ -12,10 +12,28 @@ const isTestEnv = (): boolean =>
 class ConnectivityService {
   private isOnline = true;
   private listeners = new Set<ConnectivityListener>();
+  private webListenersBound = false;
 
   async initialize(): Promise<void> {
     if (typeof window === 'undefined' && isTestEnv()) {
       return;
+    }
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.addEventListener === 'function' &&
+      !this.webListenersBound
+    ) {
+      this.webListenersBound = true;
+      if (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') {
+        this.isOnline = navigator.onLine;
+      }
+      window.addEventListener('online', () => {
+        this.isOnline = true;
+        this.listeners.forEach((listener) => listener(true));
+      });
+      window.addEventListener('offline', () => {
+        this.apply({ isConnected: false, isInternetReachable: false });
+      });
     }
     try {
       const mod = require('@react-native-community/netinfo');

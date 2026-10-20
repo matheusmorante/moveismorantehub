@@ -87,8 +87,14 @@ async function main() {
   const client = createClient(url,process.env.VITE_SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
   const auth = await client.auth.signInWithPassword({email:local.NFE_HML_TEST_OPERATOR_EMAIL,password:local.NFE_HML_TEST_OPERATOR_PASSWORD});
   if (auth.error) throw Error('OPERATOR_AUTHENTICATION_REQUIRED');
-  const artifact = await require('./fiscal-persisted-artifact.cjs').loadPersistedFiscalOrder(client,{...target,expectedEmail:local.NFE_HML_TEST_OPERATOR_EMAIL});
-  if (artifact.ownerId !== target.ownerId) throw Error('OWNED_TARGET_REQUIRED');
+  const {verifyAuthenticatedOperator,assertUuid} = require('./fiscal-persisted-artifact.cjs');
+  const operator = await verifyAuthenticatedOperator(client,local.NFE_HML_TEST_OPERATOR_EMAIL);
+  for (const key of ['orderId','documentId','ownerId','runId']) assertUuid(target[key],key);
+  const {data:order,error:orderError} = await client.from('orders').select('id,order_type,deleted,order_data').eq('id',target.orderId).single();
+  const identity = order?.order_data?.testArtifact;
+  if (orderError || order.order_type !== 'sale' || order.deleted || order.order_data?.is_test !== true ||
+      operator.ownerId !== target.ownerId || identity?.ownerId !== target.ownerId ||
+      identity?.runId !== target.runId || identity?.scenarioKey !== target.scenarioKey || identity?.is_test !== true) throw Error('OWNED_TARGET_REQUIRED');
   const {data:doc,error} = await client.from('nfe_documents').select('id,order_id,modelo,ambiente,status,chave_acesso,numero_protocolo,fiscal_ruleset_version').eq('id',target.documentId).single();
   if (error || doc.order_id !== target.orderId || doc.modelo !== target.model || doc.ambiente !== 2 ||
       doc.status !== 'homologada' || doc.fiscal_ruleset_version !== 'NORMAL_SALE_V1' ||
@@ -97,7 +103,27 @@ async function main() {
   const save = () => fs.writeFileSync(evidence,JSON.stringify(proof,null,2));
   const backendRequire = createRequire(path.join(root,'erp/server/nfe/consult.cjs'));
   const axios = backendRequire('axios');
-  const faults = createAuthorizedConsultationFaults({target,originalPost:axios.post.bind(axios),onEvent:e=>{proof.events.push({at:new Date().toISOString(),...e});save();}});
+  const originalPost = axios.post.bind(axios);
+  const faults = target.captureRealOnly === true ? {
+    allowsRequest(route,body) { return route === '/api/nfe/consult' && body?.documentId === target.documentId; },
+    async post(endpoint,envelope,config) {
+      const prefix=target.model==='65'?'nfce':'nfe';
+      const request=parse(envelope);
+      if(endpoint!==`https://homologacao.${prefix}.sefa.pr.gov.br/${prefix}/NFeConsultaProtocolo4` ||
+          nodes(request,'chNFe').length!==1 || nodes(request,'chNFe')[0].textContent!==target.accessKey ||
+          nodes(request,'tpAmb').length!==1 || nodes(request,'tpAmb')[0].textContent!=='2') throw Error('SCOPED_HML_CONSULTATION_REQUIRED');
+      const response=await originalPost(endpoint,envelope,config);
+      const xml=parse(response.data);
+      if(nodes(xml,'infProt').length!==1 || nodes(xml,'chNFe').length!==2 || nodes(xml,'chNFe').some(n=>n.textContent!==target.accessKey) ||
+          nodes(xml,'tpAmb').length!==2 || nodes(xml,'tpAmb').some(n=>n.textContent!=='2') ||
+          nodes(xml,'cStat').length!==2 || nodes(xml,'cStat').some(n=>n.textContent!=='100') ||
+          nodes(xml,'nProt').length!==1 || nodes(xml,'nProt')[0].textContent!==target.expectedActualProtocol) throw Error('REAL_AUTHORIZATION_CAPTURE_MISMATCH');
+      const file=evidence.replace(/\.json$/, '-real-response.xml');
+      fs.writeFileSync(file,response.data);
+      proof.events.push({at:new Date().toISOString(),phase:'real-response-captured-unchanged',protocol:target.expectedActualProtocol,responseHash:hash(response.data),file:path.basename(file)});save();
+      return response;
+    },
+  } : createAuthorizedConsultationFaults({target,originalPost,onEvent:e=>{proof.events.push({at:new Date().toISOString(),...e});save();}});
   global.fetch = readOnlyFetch(new URL(url).origin,global.fetch.bind(global));
   axios.post = faults.post;
   const {server:fiscalServer} = require('../local-fiscal-dev-server.cjs');

@@ -230,6 +230,10 @@ export type FiscalDatabase = {
     };
     Views: Record<string, never>;
     Functions: {
+      is_order_edit_reversal_confirmed: {
+        Args: { p_original_document_id: string };
+        Returns: boolean;
+      };
       finalize_fiscal_order_edit: {
         Args: { p_replacement_id: string };
         Returns: Record<string, unknown>;

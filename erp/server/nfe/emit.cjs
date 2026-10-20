@@ -3262,6 +3262,79 @@ function findCancellationEvent(xml) {
   ) || null;
 }
 
+// api/nfe/authorizationResponseIdentity.ts
+var import_xmldom3 = require("@xmldom/xmldom");
+function readSefazResult(response) {
+  try {
+    if (/<!DOCTYPE|<!ENTITY/i.test(response)) return null;
+    let invalidXml = false;
+    const xml = new import_xmldom3.DOMParser({ errorHandler(level, message) {
+      if (level === "warning" && String(message).includes("errorHandler") && String(message).includes("deprecated")) return;
+      invalidXml = true;
+    } }).parseFromString(response, "text/xml");
+    if (invalidXml) return null;
+    const namespace = "http://www.portalfiscal.inf.br/nfe";
+    const results = [
+      ...Array.from(xml.getElementsByTagNameNS("*", "retEnviNFe")),
+      ...Array.from(xml.getElementsByTagNameNS("*", "retConsSitNFe"))
+    ];
+    const protocols = xml.getElementsByTagNameNS("*", "infProt");
+    if (results.length !== 1 || protocols.length > 1) return null;
+    const result = results[0];
+    const protocol = protocols[0];
+    if (result.namespaceURI !== namespace || protocol && (protocol.namespaceURI !== namespace || protocol.parentNode?.localName !== "protNFe" || protocol.parentNode.namespaceURI !== namespace || protocol.parentNode.parentNode !== result)) return null;
+    const directValue = (element, name) => {
+      const children2 = Array.from(element.childNodes).filter(
+        (node) => node.nodeType === 1 && "localName" in node && node.localName === name
+      );
+      const child2 = children2[0];
+      return children2.length === 1 && child2 && "namespaceURI" in child2 && child2.namespaceURI === namespace ? child2.textContent?.trim() : void 0;
+    };
+    return { result, protocol, directValue };
+  } catch {
+    return null;
+  }
+}
+function matchesSefazAuthorization(response, expected) {
+  const parsed = readSefazResult(response);
+  if (!parsed?.protocol || !/^\d{15}$/.test(expected.protocolNumber)) return false;
+  const { result, protocol, directValue } = parsed;
+  const consultation = result.localName === "retConsSitNFe";
+  return directValue(result, "cStat") === (consultation ? "100" : "104") && directValue(result, "tpAmb") === String(expected.environment) && (!consultation || directValue(result, "chNFe") === expected.accessKey) && directValue(protocol, "cStat") === "100" && directValue(protocol, "tpAmb") === String(expected.environment) && directValue(protocol, "chNFe") === expected.accessKey && directValue(protocol, "nProt") === expected.protocolNumber && Number.isFinite(Date.parse(directValue(protocol, "dhRecbto") || ""));
+}
+
+// api/nfe/consultAuthorizedDocument.ts
+var import_xmldom4 = require("@xmldom/xmldom");
+function matchesConsultedDocument(response, doc, currentStatus = "100") {
+  try {
+    if (/<!DOCTYPE|<!ENTITY/i.test(response)) return false;
+    const errors = [];
+    const xml = new import_xmldom4.DOMParser({
+      errorHandler: (level, message) => {
+        if (level === "warning" && String(message).includes("errorHandler") && String(message).includes("deprecated")) return;
+        errors.push(String(message));
+      }
+    }).parseFromString(response, "text/xml");
+    if (!xml || errors.length) return false;
+    const results = xml.getElementsByTagNameNS("*", "retConsSitNFe");
+    if (results.length !== 1) return false;
+    const result = results[0];
+    const directValue = (element, name) => {
+      const children2 = Array.from(element.childNodes).filter(
+        (node) => node.nodeType === 1 && "localName" in node && node.localName === name
+      );
+      return children2.length === 1 ? children2[0].textContent?.trim() : void 0;
+    };
+    const protocols = result.getElementsByTagNameNS("*", "infProt");
+    if (currentStatus === "217") return protocols.length === 0 && directValue(result, "tpAmb") === String(doc.ambiente) && directValue(result, "chNFe") === doc.chave_acesso && directValue(result, "cStat") === "217";
+    return protocols.length === 1 && [result, protocols[0]].every(
+      (element) => directValue(element, "tpAmb") === String(doc.ambiente) && directValue(element, "chNFe") === doc.chave_acesso
+    ) && directValue(result, "cStat") === currentStatus && directValue(protocols[0], "cStat") === "100" && directValue(protocols[0], "nProt") === doc.numero_protocolo;
+  } catch {
+    return false;
+  }
+}
+
 // api/nfe/normal-sale/outboundReconciliation.ts
 function finalResult(a, doc, isReversed = false) {
   const parsed = parseSefazAuthorization(String(doc.xml_protocolo || ""));
@@ -3365,6 +3438,22 @@ async function reconcileNormalSale(db, documentId, allowTransmission = false, pr
     const situation = parseSefazNfeSituation(response);
     if (situation.state === "authorized") {
       const parsed = parseSefazAuthorization(response);
+      if (!matchesSefazAuthorization(response, {
+        accessKey: a.access_key,
+        environment: a.environment,
+        protocolNumber: parsed.protocolNumber || ""
+      }) || !matchesConsultedDocument(response, {
+        ambiente: a.environment,
+        chave_acesso: a.access_key,
+        numero_protocolo: parsed.protocolNumber || null
+      })) {
+        return outboundFailure(
+          409,
+          "FISCAL_RECONCILIATION_REQUIRED",
+          "A consulta n\xE3o confirmou a identidade da autoriza\xE7\xE3o. Consulte novamente a mesma chave.",
+          { ...metadata(a), pending: true, state: "unknown" }
+        );
+      }
       await persistResultToDatabase(
         db,
         a,
@@ -7273,9 +7362,9 @@ var isSyntheticOrderBlockedInProduction = (environment, persistedOrderData) => {
 
 // api/nfe/normal-sale/normalSaleContext.ts
 async function validateNormalSalePreconditions(db, command, candidate) {
-  if (isSyntheticOrderBlockedInProduction(command.environment, candidate))
+  if (isSyntheticOrderBlockedInProduction(command.environment, candidate.order.data))
     return outboundFailure(
-      422,
+      403,
       "TEST_ORDER_PRODUCTION_BLOCKED",
       "Pedidos marcados como teste n\xE3o podem ser emitidos em Produ\xE7\xE3o.",
       { numberReserved: false, sefazContacted: false }

@@ -312,6 +312,18 @@ export function getFiscalIssuePresentation(result: FiscalIssueResult): FiscalIss
         };
   }
 
+  if (code === 'FISCAL_AUTHORIZED_CONSULT_UNKNOWN' ||
+      code === 'FISCAL_AUTHORIZED_CONSULT_RECONCILIATION_REQUIRED') {
+    return {
+      tone: 'attention',
+      title: 'A consulta atual não foi confirmada',
+      description:
+        'A autorização já registrada no ERP foi preservada. A nova consulta à SEFAZ não confirmou a situação atual da nota.',
+      nextStep: 'Consulte novamente a mesma chave para confirmar a situação fiscal atual.',
+      action: 'consult',
+    };
+  }
+
   const transmissionUncertain =
     result.pending === true ||
     code === 'HML_TRANSMISSION_UNCERTAIN' ||

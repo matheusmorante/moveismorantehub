@@ -37,14 +37,7 @@ export async function handleAuditAndConfirmAction({
   res: VercelResponse;
 }) {
   const proposedOrderData = projectOrderDataForFiscalEdit(currentData, submitted);
-
-  if (action === 'audit' && !hasPotentialFiscalOrderEdit(currentData, proposedOrderData))
-    return res.status(200).json({
-      status: 'unchanged',
-      orderUpdatedAt: order.updated_at,
-      changes: [],
-      documents: [],
-    });
+  const hasPotentialEdit = hasPotentialFiscalOrderEdit(currentData, proposedOrderData);
 
   const { data: fiscalRows, error: fiscalError } = await db
     .from('nfe_documents')
@@ -68,13 +61,14 @@ export async function handleAuditAndConfirmAction({
   if (pending)
     return res.status(409).json({
       status: 'blocked',
+      orderUpdatedAt: order.updated_at,
       error:
-        'Existe uma tentativa fiscal sem resultado confirmado. Consulte a SEFAZ antes de editar os dados fiscais do pedido.',
+        'A alteração comercial pode ser salva. A tentativa fiscal permanece pendente e precisa ser reconciliada antes de qualquer nova emissão.',
     });
 
   const { data: replaced, error: replacedError } = await db
     .from('nfe_order_edit_replacements')
-    .select('original_document_id,status,request_id,original_order_data')
+    .select('original_document_id,status,request_id,original_order_data,replacement_document_id')
     .eq('order_id', orderId);
 
   if (replacedError)
@@ -106,12 +100,51 @@ export async function handleAuditAndConfirmAction({
         order: { ...currentData, id: orderId },
       });
     }
-    return res.status(409).json({
-      status: 'blocked',
-      error:
-        'Existe uma substituição fiscal pendente. Conclua a reversão e a nova emissão antes de editar novamente.',
+
+    const activeReplacements = replaced.filter((row: any) => row.status !== 'completed');
+    const reversalProofs = await Promise.all(
+      activeReplacements.map(async (row: any) => {
+        const { data, error } = await db.rpc('is_order_edit_reversal_confirmed', {
+          p_original_document_id: row.original_document_id,
+        });
+        return { row, confirmed: !error && data === true };
+      })
+    );
+    if (
+      reversalProofs.some(
+        ({ row, confirmed }) =>
+          !confirmed || row.status !== 'ready_to_reissue' || row.replacement_document_id
+      )
+    )
+      return res.status(409).json({
+        status: 'blocked',
+        orderUpdatedAt: order.updated_at,
+        error:
+          'A alteração comercial pode ser salva. A reversão ou a emissão anterior continua pendente e será atualizada para refletir os novos dados.',
+        replacements: await loadContinuationReplacements(db, orderId),
+      });
+
+    if (action !== 'audit')
+      return res.status(409).json({
+        error: 'A substituição fiscal mudou. Confira novamente antes de confirmar a edição.',
+      });
+
+    return res.status(200).json({
+      status: 'reissue_pending',
+      orderUpdatedAt: order.updated_at,
+      changes: [],
+      documents: [],
+      replacements: await loadContinuationReplacements(db, orderId),
     });
   }
+
+  if (action === 'audit' && !hasPotentialEdit)
+    return res.status(200).json({
+      status: 'unchanged',
+      orderUpdatedAt: order.updated_at,
+      changes: [],
+      documents: [],
+    });
 
   const authorizedDocuments = (fiscalRows || []).filter(
     (row: any) =>
@@ -167,6 +200,7 @@ export async function handleAuditAndConfirmAction({
   } catch (error) {
     return res.status(409).json({
       status: 'blocked',
+      orderUpdatedAt: order.updated_at,
       error:
         error instanceof Error
           ? error.message
@@ -192,14 +226,6 @@ export async function handleAuditAndConfirmAction({
       return res.status(409).json({
         error: 'O pedido ou a política fiscal mudou. Confira novamente antes de confirmar.',
       });
-
-    if (
-      documents.some((document) => document.environment === 1) &&
-      reqBody.productionConfirmed !== true
-    )
-      return res
-        .status(400)
-        .json({ error: 'Confirme explicitamente a substituição fiscal em Produção.' });
 
     const payload = buildOrderPersistencePayload({ ...proposedOrderData, id: orderId } as Order);
     const { data: result, error } = await db.rpc('commit_fiscal_order_edit', {

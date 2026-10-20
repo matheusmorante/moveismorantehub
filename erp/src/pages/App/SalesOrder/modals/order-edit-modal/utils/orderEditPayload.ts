@@ -1,5 +1,5 @@
 import type Order from '@/pages/types/order.type';
-import { getSaoPauloDayInfo } from '../../../../../../../shared-utils/commercialOrderRules';
+import { getSaoPauloDayInfo } from '../../../../../../../../shared-utils/commercialOrderRules';
 import { shouldAutoFulfillScheduledSaleOnEdit } from '@/pages/utils/orderHistoryService';
 
 interface BuildUpdatedOrderParams {

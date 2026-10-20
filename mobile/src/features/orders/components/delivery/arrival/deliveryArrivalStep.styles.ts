@@ -2,10 +2,15 @@ import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
+    flex: 1,
     gap: 16,
     paddingVertical: 12,
+    justifyContent: 'center',
   },
   unattendedButton: {
+    alignSelf: 'center',
+    width: '88%',
+    minHeight: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -15,7 +20,7 @@ export const styles = StyleSheet.create({
     borderColor: '#fca5a5',
     paddingVertical: 16,
     paddingHorizontal: 16,
-    borderRadius: 16,
+    borderRadius: 10,
     shadowColor: '#dc2626',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,

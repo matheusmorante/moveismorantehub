@@ -28,10 +28,27 @@ export type FiscalOrderEditReplacement = {
   sourceDocument: SourceDocument;
 };
 
+export type FiscalOrderEditPendingReview = {
+  id: string;
+  resolutionKind: 'reissue' | 'legal_review' | 'reconciliation';
+  reason: string;
+  createdAt: string;
+};
+
 export async function resumeFiscalOrderEdit(orderId: string) {
   const { response, result } = await authorizedPost('/api/nfe/audit-order-edit', { orderId, action: 'resume' });
   if (!response.ok) throw new Error(result.error || 'Não foi possível carregar a substituição fiscal.');
-  return result as { order: Order; replacements: FiscalOrderEditReplacement[] };
+  return {
+    ...(result as { order: Order; replacements: FiscalOrderEditReplacement[] }),
+    pendingReviews: Array.isArray(result.pendingReviews)
+      ? result.pendingReviews.map((row: any) => ({
+          id: String(row.id),
+          resolutionKind: row.resolution_kind as FiscalOrderEditPendingReview['resolutionKind'],
+          reason: String(row.reason || ''),
+          createdAt: String(row.created_at || ''),
+        }))
+      : [],
+  };
 }
 
 export async function consultOrderEditOriginal(documentId: string) {
@@ -56,7 +73,6 @@ export async function confirmFiscalOrderEdit(input: {
     action: 'confirm', requestId: input.requestId, orderId: input.orderId, proposedOrder: input.proposedOrder,
     orderUpdatedAt: input.audit.orderUpdatedAt,
     plans: input.audit.documents.map(({ id, action, environment }) => ({ id, action, environment })),
-    productionConfirmed: input.audit.documents.some((document) => document.environment === 1),
   });
   if (!response.ok || result.success !== true)
     throw new Error(result.error || 'Não foi possível confirmar a edição e seus efeitos.');
@@ -64,11 +80,12 @@ export async function confirmFiscalOrderEdit(input: {
 }
 
 export type FiscalOrderEditAudit = {
-  status: 'unchanged' | 'confirmation_required' | 'blocked';
+  status: 'unchanged' | 'confirmation_required' | 'reissue_pending' | 'blocked';
   orderUpdatedAt?: string;
   error?: string;
   changes: FiscalOrderEditChange[];
   documents: FiscalOrderEditDocument[];
+  replacements?: FiscalOrderEditReplacement[];
 };
 
 async function authorizedPost(path: string, body: Record<string, unknown>) {
@@ -103,6 +120,7 @@ export async function auditFiscalOrderEdit(orderId: string, proposedOrder: Order
     error: typeof result.error === 'string' ? result.error : undefined,
     changes: Array.isArray(result.changes) ? result.changes : [],
     documents: Array.isArray(result.documents) ? result.documents : [],
+    replacements: Array.isArray(result.replacements) ? result.replacements : undefined,
   } satisfies FiscalOrderEditAudit;
 }
 

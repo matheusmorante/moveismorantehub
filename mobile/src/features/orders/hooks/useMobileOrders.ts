@@ -5,6 +5,7 @@ import { Alert } from 'react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import {
   fetchMobileOrderFiscalBadgeStatuses,
@@ -276,6 +277,35 @@ export function useMobileOrders(orderType: MobileOrderType = 'sale') {
   useEffect(() => {
     void refresh(false, currentPage);
   }, [currentPage, refresh]);
+
+  useEffect(() => {
+    return offlineSyncManager.subscribe(() => {
+      void OrderRepository.listPendingLocal().then((pendingLocals) => {
+        if (pendingLocals.length === 0) return;
+        setOrders((current) => {
+          if (current.length === 0) return current;
+          const pendingById = new Map(pendingLocals.map((l) => [String(l.id), l]));
+          let changed = false;
+          const next = current.map((remote) => {
+            const local = pendingById.get(String(remote.id));
+            if (!local) return remote;
+            changed = true;
+            const localData = (local.orderData || {}) as Record<string, any>;
+            return {
+              ...remote,
+              status: local.status || remote.status,
+              order_data: {
+                ...(remote.order_data || {}),
+                ...localData,
+              },
+            };
+          });
+          return changed ? next : current;
+        });
+      });
+    });
+  }, []);
+
   // Reset pagination when search or status filters change
   useEffect(() => {
     setCurrentPage(1);

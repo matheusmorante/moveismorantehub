@@ -130,15 +130,38 @@ export const OrderRepository = {
         const local = remote?.id ? pendingById.get(String(remote.id)) : undefined;
         if (!local) return remote;
         const localData = (local.orderData || {}) as Record<string, any>;
+        const mergedOrderData: Record<string, any> = {
+          ...(remote.order_data || {}),
+          ...localData,
+        };
+        const clearableDeliveryKeys = [
+          'deliveryStatus',
+          'deliveryStartedAt',
+          'deliveryArrivedAt',
+          'deliveryServiceStartedAt',
+          'deliveryFinishedAt',
+          'deliveryChecklist',
+          'unattendedReason',
+          'unattendedNotes',
+          'unattendedProofUrl',
+          'unattendedProofUrls',
+          'unattendedAt',
+        ];
+        for (const key of clearableDeliveryKeys) {
+          if (localData[key] === undefined || localData[key] === null) {
+            delete mergedOrderData[key];
+          }
+        }
         return {
           ...remote,
           status: local.status || remote.status,
           delivery_status: localData.deliveryStatus ?? null,
+          delivery_started_at: localData.deliveryStartedAt ?? null,
+          delivery_arrived_at: localData.deliveryArrivedAt ?? null,
+          delivery_finished_at: localData.deliveryFinishedAt ?? null,
+          unattended_reason: localData.unattendedReason ?? null,
           deliveryStatus: localData.deliveryStatus,
-          order_data: {
-            ...(remote.order_data || {}),
-            ...localData,
-          },
+          order_data: mergedOrderData,
         };
       });
     } catch {

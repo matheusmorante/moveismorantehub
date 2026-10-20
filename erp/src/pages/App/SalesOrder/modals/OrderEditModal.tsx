@@ -22,6 +22,11 @@ import {
   buildUpdatedOrder,
 } from './order-edit-modal';
 import OrderEditFiscalContinuation from './OrderEditFiscalContinuation';
+import NfeEmissionModal from '../OrderActions/NfeEmissionModal';
+import { clearFiscalEmissionRequest } from '@/pages/utils/nfe/nfeEmissionRequestState';
+import { getGoodsCirculationState } from '@/pages/utils/nfe/cancellationEligibility';
+import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
+import type { FiscalOrderEditReplacement } from '@/pages/utils/nfe/orderEditFiscalService';
 import {
   applyImportedOrderDataToForm,
   buildImportedClientDraft,
@@ -98,6 +103,12 @@ const OrderEditModal = ({
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
   const [pendingUpdate, setPendingUpdate] = useState<Order | null>(null);
   const [isReconciliationConfirmationOpen, setIsReconciliationConfirmationOpen] = useState(false);
+  const [fiscalReissue, setFiscalReissue] = useState<{
+    order: Order;
+    replacement: FiscalOrderEditReplacement;
+    remaining: FiscalOrderEditReplacement[];
+  } | null>(null);
+  const skipEmissionCloseRef = useRef(false);
 
   const applyOrderData = useCallback(
     (orderData: any) => {
@@ -181,20 +192,102 @@ const OrderEditModal = ({
     [effectiveOrder, onSaveSuccess, onClose]
   );
 
+  const persistReadyFiscalEdit = useCallback(
+    async (
+      updatedOrder: Order,
+      expectedUpdatedAt: string,
+      replacements: FiscalOrderEditReplacement[]
+    ): Promise<string | false> => {
+      const targetOrderId = effectiveOrder?.id;
+      if (!targetOrderId || !replacements.length) return false;
+      try {
+        await updateOrder(targetOrderId, updatedOrder, effectiveOrder, expectedUpdatedAt);
+        toast.success('Edição salva com sucesso!');
+
+        const [replacement, ...remaining] = replacements;
+        clearFiscalEmissionRequest(targetOrderId, replacement.environment);
+        try {
+          const preparedOrder = await prepareOrderFiscalSnapshotForEmission(
+            updatedOrder,
+            replacement.environment
+          );
+          setFiscalReissue({ order: preparedOrder, replacement, remaining });
+          toast.info(
+            replacement.action === 'estorno'
+              ? 'O estorno fiscal da NF anterior já foi confirmado. Prepare a nova emissão.'
+              : 'O cancelamento fiscal da NF anterior já foi confirmado. Prepare a nova emissão.'
+          );
+        } catch (error) {
+          toast.error(
+            error instanceof Error
+              ? `A edição foi salva, mas não foi possível preparar a nova NF: ${error.message}`
+              : 'A edição foi salva, mas não foi possível preparar a nova NF.'
+          );
+          onSaveSuccess(targetOrderId, updatedOrder);
+          onClose();
+        }
+        return targetOrderId;
+      } catch (error) {
+        console.error('Erro ao atualizar pedido antes da reemissão fiscal:', error);
+        toast.error(
+          error instanceof Error ? error.message : 'Falha ao atualizar o pedido antes da nova NF.'
+        );
+        return false;
+      }
+    },
+    [effectiveOrder, onClose, onSaveSuccess]
+  );
+
+  const persistBlockedFiscalEdit = useCallback(
+    async (
+      updatedOrder: Order,
+      expectedUpdatedAt: string,
+      replacements: FiscalOrderEditReplacement[],
+      reason?: string
+    ): Promise<{ order: Order; continueReplacement: boolean } | false> => {
+      const targetOrderId = effectiveOrder?.id;
+      if (!targetOrderId || !expectedUpdatedAt) return false;
+      try {
+        await updateOrder(targetOrderId, updatedOrder, effectiveOrder, expectedUpdatedAt);
+        const savedOrder = (await fetchOrderById(targetOrderId)) || updatedOrder;
+        toast.warning(
+          reason
+            ? `Edição comercial salva. Pendência fiscal mantida: ${reason}`
+            : 'Edição comercial salva. A pendência fiscal ficou registrada para revisão.'
+        );
+        const canContinueReplacement =
+          replacements.length > 0 &&
+          savedOrder.status === 'scheduled' &&
+          getGoodsCirculationState(savedOrder) === 'none';
+        if (canContinueReplacement) {
+          return { order: savedOrder, continueReplacement: true };
+        }
+        onSaveSuccess(targetOrderId, savedOrder);
+        onClose();
+        return { order: savedOrder, continueReplacement: false };
+      } catch (error) {
+        console.error('Falha ao salvar edição comercial com pendência fiscal:', error);
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível salvar a alteração comercial do pedido.'
+        );
+        return false;
+      }
+    },
+    [effectiveOrder, onClose, onSaveSuccess]
+  );
+
   const {
-    pendingFiscalEdit,
-    isFiscalEditConfirmationOpen,
-    isConfirmingFiscalEdit,
     pendingFiscalReplacements,
     fiscalContinuationOrder,
     saveWithFiscalAudit,
-    confirmFiscalOrderEdit,
-    closeFiscalConfirmation,
   } = useOrderEditFiscalFlow({
     effectiveOrder,
     validateEditedOrder,
     persistUpdate,
-    editSchema,
+    persistReadyFiscalEdit,
+    persistBlockedFiscalEdit,
     setIsSavingOrder,
   });
 
@@ -280,6 +373,59 @@ const OrderEditModal = ({
     );
   }
 
+  if (fiscalReissue) {
+    const { order: reissueOrder, replacement, remaining } = fiscalReissue;
+    const finishOrAdvanceReissue = async () => {
+      skipEmissionCloseRef.current = true;
+      if (remaining.length) {
+        const [nextReplacement, ...nextRemaining] = remaining;
+        clearFiscalEmissionRequest(reissueOrder.id!, nextReplacement.environment);
+        try {
+          const preparedOrder = await prepareOrderFiscalSnapshotForEmission(
+            reissueOrder,
+            nextReplacement.environment
+          );
+          setFiscalReissue({
+            order: preparedOrder,
+            replacement: nextReplacement,
+            remaining: nextRemaining,
+          });
+        } catch (error) {
+          toast.error(
+            error instanceof Error
+              ? `Não foi possível preparar a nova NF: ${error.message}`
+              : 'Não foi possível preparar a nova NF.'
+          );
+          setFiscalReissue(null);
+          onSaveSuccess(reissueOrder.id, reissueOrder);
+          onClose();
+        }
+        return;
+      }
+      setFiscalReissue(null);
+      onSaveSuccess(reissueOrder.id, reissueOrder);
+      onClose();
+    };
+
+    return (
+      <NfeEmissionModal
+        isOpen
+        order={reissueOrder}
+        initialEnvironment={replacement.environment}
+        onClose={() => {
+          if (skipEmissionCloseRef.current) {
+            skipEmissionCloseRef.current = false;
+            return;
+          }
+          setFiscalReissue(null);
+          onSaveSuccess(reissueOrder.id, reissueOrder);
+          onClose();
+        }}
+        onSuccess={() => void finishOrAdvanceReissue()}
+      />
+    );
+  }
+
   const renderContent = () => (
     <div
       className="bg-white dark:bg-slate-900 w-full h-full flex flex-col overflow-hidden"
@@ -348,15 +494,6 @@ const OrderEditModal = ({
         isReconciliationConfirmationOpen={isReconciliationConfirmationOpen}
         onCloseReconciliationConfirmation={() => setIsReconciliationConfirmationOpen(false)}
         onConfirmReconciliation={() => void handleSaveReconciliation()}
-        isFiscalEditConfirmationOpen={isFiscalEditConfirmationOpen}
-        pendingFiscalEdit={pendingFiscalEdit}
-        isConfirmingFiscalEdit={isConfirmingFiscalEdit}
-        onCancelFiscalEdit={closeFiscalConfirmation}
-        onConfirmFiscalEdit={() => void confirmFiscalOrderEdit()}
-        onNavigateToReturns={() => {
-          closeFiscalConfirmation();
-          navigate('/sales-order?module=returns');
-        }}
       />
 
       {/* Content */}
@@ -402,6 +539,7 @@ const OrderEditModal = ({
       <OrderEditFiscalContinuation
         order={fiscalContinuationOrder}
         replacements={pendingFiscalReplacements}
+        autoContinue
         onClose={(currentOrder) => {
           onSaveSuccess(currentOrder.id, currentOrder);
           onClose();

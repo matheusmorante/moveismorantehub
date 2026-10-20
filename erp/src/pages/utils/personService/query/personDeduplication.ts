@@ -1,4 +1,4 @@
-import type Person from '../../types/person.type';
+import type Person from '../../../types/person.type';
 import { mapFromDB } from '../personMapper';
 import {
   isIdentifiedTestArtifact,

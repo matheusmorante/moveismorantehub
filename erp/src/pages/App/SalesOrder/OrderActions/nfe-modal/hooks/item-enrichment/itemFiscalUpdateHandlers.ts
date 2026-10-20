@@ -1,4 +1,4 @@
-import type { NfeItemFiscal, NfeItemWithFiscal } from '../NfeItemsSection';
+import type { NfeItemFiscal, NfeItemWithFiscal } from '../../NfeItemsSection';
 
 export interface ResolveFiscalContextParams {
   compatibleCfop: (cfop?: string | null) => string;

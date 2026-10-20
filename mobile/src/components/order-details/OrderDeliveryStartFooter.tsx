@@ -6,11 +6,13 @@ import { DeliveryFlowIcon } from '../shared/DeliveryFlowIcon';
 export interface OrderDeliveryStartFooterOrder {
   status?: string;
   deliveryStatus?: string;
+  delivery_status?: string;
   order_data?: {
     status?: string;
     deliveryStatus?: string;
     deliveryStartedAt?: string | null;
     deliveryArrivedAt?: string | null;
+    deliveryServiceStartedAt?: string | null;
     deliveryMethod?: string;
     shipping?: {
       deliveryMethod?: string;
@@ -22,6 +24,7 @@ export interface OrderDeliveryStartFooterOrder {
   deliveryMethod?: string;
   deliveryStartedAt?: string | null;
   deliveryArrivedAt?: string | null;
+  deliveryServiceStartedAt?: string | null;
 }
 
 export interface OrderDeliveryStartFooterProps {
@@ -39,6 +42,7 @@ interface ActiveDeliveryStatusConfig {
 
 function resolveActiveDeliveryStatusConfig(
   isInService: boolean,
+  isInArrival: boolean,
   isInTransit: boolean
 ): ActiveDeliveryStatusConfig | null {
   if (isInService) {
@@ -46,6 +50,13 @@ function resolveActiveDeliveryStatusConfig(
       label: 'EM ATENDIMENTO',
       icon: <MapPin size={18} color="#fff" />,
       bgColor: '#15803d',
+    };
+  }
+  if (isInArrival) {
+    return {
+      label: 'CHEGADA NO LOCAL',
+      icon: <MapPin size={18} color="#fff" />,
+      bgColor: '#0284c7',
     };
   }
   if (isInTransit) {
@@ -127,20 +138,29 @@ export function OrderDeliveryStartFooter({
   const pickup = /pickup|retirada/.test(
     String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase()
   );
-  const deliveryStatus = data.deliveryStatus;
+  const deliveryStatus = data.deliveryStatus || order.deliveryStatus || order.delivery_status;
 
   const isFulfilled = status === 'fulfilled' || status === 'atendido';
   const isScheduled = /agendad|scheduled/.test(status);
 
   if (!allowed || pickup || isFulfilled || !isScheduled) return null;
 
-  const isInService = deliveryStatus === 'in_service' || Boolean(data.deliveryArrivedAt);
+  const isInService =
+    deliveryStatus === 'in_service' || Boolean(data.deliveryServiceStartedAt);
+  const isInArrival =
+    (deliveryStatus === 'arrived' || Boolean(data.deliveryArrivedAt)) && !isInService;
   const isInTransit =
-    (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) && !isInService;
+    (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) &&
+    !isInArrival &&
+    !isInService;
 
-  // Botões de status em andamento: Em Atendimento ou Em Rota
+  // Botões de status em andamento: Em Atendimento, Chegada no Local ou Em Rota
   if (onViewDelivery) {
-    const statusConfig = resolveActiveDeliveryStatusConfig(isInService, isInTransit);
+    const statusConfig = resolveActiveDeliveryStatusConfig(
+      isInService,
+      isInArrival,
+      isInTransit
+    );
     if (statusConfig) {
       return (
         <AnimatedDeliveryStatusButton

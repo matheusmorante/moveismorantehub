@@ -7,6 +7,20 @@ import {
 } from '../fiscalIssuePresentation';
 
 describe('mensagens fiscais para a interface', () => {
+  it.each(['FISCAL_AUTHORIZED_CONSULT_UNKNOWN', 'FISCAL_AUTHORIZED_CONSULT_RECONCILIATION_REQUIRED'])(
+    'preserva o fato autorizado ao explicar a consulta inconclusiva %s', (code) => {
+      const issue = getFiscalIssuePresentation({ code, pending: true, documentId: 'authorized-doc' });
+      expect(issue).toMatchObject({
+        title: 'A consulta atual não foi confirmada',
+        action: 'consult', tone: 'attention',
+      });
+      expect(issue.description).toContain('autorização já registrada');
+      expect(issue.description).toContain('preservada');
+      expect(issue.description).not.toContain('não sabemos se a nota foi recebida');
+      expect(issue.nextStep).toContain('mesma chave');
+      expect(issue.nextStep).not.toContain('novo envio');
+    }
+  );
   it('explica a rejeição 696 também para uma saída interna', () => {
     const issue = getFiscalIssuePresentation({ code: 'HML_SEFAZ_REJECTED', cStat: '696' });
     expect(issue.description.toLowerCase()).toContain('consumidor final');

@@ -29,6 +29,8 @@ import {
 } from '../../../utils/orderUtils';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
+import { OrderRepository } from '../../../repositories/OrderRepository';
 import { TodayDeliveriesScreen } from './TodayDeliveriesScreen';
 import { PERIOD_OPTIONS } from '../components/LogisticsPeriodModal';
 import { LogisticsOrderCard } from '../components/LogisticsOrderCard';
@@ -79,12 +81,23 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     } catch {}
   };
 
-  const fetchSchedule = async () => {
+  const loadScheduleFromCache = async () => {
     try {
       const cached = await offlineStorageService.getWorkingSet<any[]>('logistics_orders');
-      if (cached?.data && orders.length === 0) {
-        setOrders(cached.data.filter((order) => !isIdentifiedTestArtifact(order)));
+      if (Array.isArray(cached?.data)) {
+        const overlaid = await OrderRepository.overlayPendingLocalOrders(
+          cached.data.filter((order) => !isIdentifiedTestArtifact(order))
+        );
+        setOrders(overlaid);
         setLoading(false);
+      }
+    } catch {}
+  };
+
+  const fetchSchedule = async () => {
+    try {
+      if (orders.length === 0) {
+        await loadScheduleFromCache();
       }
 
       const query = excludeTestOrders(
@@ -96,12 +109,17 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
       const { data, error } = await query.order('created_at', { ascending: false }).limit(300);
 
       if (!error && data) {
-        const visibleOrders = data.filter((order) => !isIdentifiedTestArtifact(order));
+        const visibleOrders = await OrderRepository.overlayPendingLocalOrders(
+          data.filter((order) => !isIdentifiedTestArtifact(order))
+        );
         setOrders(visibleOrders);
         await offlineStorageService.cacheWorkingSet('logistics_orders', visibleOrders);
+      } else {
+        await loadScheduleFromCache();
       }
     } catch (err) {
       console.warn('[NativeLogistics] Erro ao buscar cronograma logístico:', err);
+      await loadScheduleFromCache();
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -112,10 +130,17 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     fetchSchedule();
     fetchSettings();
 
-    return subscribeToLogisticsChanges(() => {
+    const unsubRealtime = subscribeToLogisticsChanges(() => {
       fetchSchedule();
       fetchSettings();
     });
+    const unsubSync = offlineSyncManager.subscribe(() => {
+      void loadScheduleFromCache();
+    });
+    return () => {
+      unsubRealtime();
+      unsubSync();
+    };
   }, []);
 
   const onRefresh = () => {

@@ -1,5 +1,5 @@
-import type { OrderItem } from '@/pages/types/order.type';
-import type { NfeItemFiscal } from '../NfeItemsSection';
+import type { Item as OrderItem } from '@/pages/types/items.type';
+import type { NfeItemFiscal } from '../../NfeItemsSection';
 
 export const invertIfReversalCfop = (cfop?: string, destination?: string | null): string | undefined => {
   if (!cfop) return cfop;

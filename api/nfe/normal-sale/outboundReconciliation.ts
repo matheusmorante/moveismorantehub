@@ -5,6 +5,8 @@ import { getNfeServiceEndpoint } from '../fiscalEnvironmentPolicy';
 import { extractCertificateAndKey } from '../nfeSigner';
 import { sendSoapToSefaz } from '../sefazClient';
 import { withNfeEmissionStage } from '../nfeEmissionPerformance';
+import { matchesSefazAuthorization } from '../authorizationResponseIdentity';
+import { matchesConsultedDocument } from '../consultAuthorizedDocument';
 import {
   type Attempt,
   type Document,
@@ -146,6 +148,22 @@ export async function reconcileNormalSale(
 
     if (situation.state === 'authorized') {
       const parsed = parseSefazAuthorization(response);
+      if (!matchesSefazAuthorization(response, {
+        accessKey: a.access_key,
+        environment: a.environment,
+        protocolNumber: parsed.protocolNumber || '',
+      }) || !matchesConsultedDocument(response, {
+        ambiente: a.environment,
+        chave_acesso: a.access_key,
+        numero_protocolo: parsed.protocolNumber || null,
+      })) {
+        return outboundFailure(
+          409,
+          'FISCAL_RECONCILIATION_REQUIRED',
+          'A consulta não confirmou a identidade da autorização. Consulte novamente a mesma chave.',
+          { ...metadata(a), pending: true, state: 'unknown' }
+        );
+      }
       await persistResultToDatabase(
         db,
         a,

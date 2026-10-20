@@ -16,6 +16,17 @@ export interface SpokenDeliveryItem {
   notices: string[];
 }
 
+export interface AssemblyHandlingOption {
+  label?: string;
+  includeInAssemblySchedule?: boolean;
+  isAssemblyOutside?: boolean;
+}
+
+export interface AssemblyHandlingItem {
+  handlingType?: string | null;
+  handling?: string | null;
+}
+
 // Converte horários técnicos em linguagem falada natural (ex: "10:00 às 12:00" -> "entre dez e meio-dia")
 export const formatTimeNatural = (timeStr: string, endTimeStr?: string): string => {
   if (!timeStr) return '';
@@ -160,7 +171,10 @@ export const formatProductNameWithArticle = (rawName: string, itemQty: number = 
 };
 
 // Verifica se um tipo de manuseio/entrega requer montagem fora no cliente
-export const isAssemblyOutsideType = (handlingType?: string, optionsConfig?: any[]): boolean => {
+export const isAssemblyOutsideType = (
+  handlingType?: string,
+  optionsConfig?: AssemblyHandlingOption[]
+): boolean => {
   if (!handlingType) return false;
   const h = handlingType.trim().toLowerCase();
   if (
@@ -194,7 +208,10 @@ export const isAssemblyOutsideType = (handlingType?: string, optionsConfig?: any
 };
 
 // Verifica se um tipo de manuseio/entrega é de montagem na loja ou depósito
-export const isAssemblyInternalType = (handlingType?: string, optionsConfig?: any[]): boolean => {
+export const isAssemblyInternalType = (
+  handlingType?: string,
+  optionsConfig?: AssemblyHandlingOption[]
+): boolean => {
   if (!handlingType) return false;
   const h = handlingType.trim().toLowerCase();
   if (

@@ -1,37 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
-import { supabase, MASTER_DEFAULT_PROFILE } from '../services/supabaseClient';
+import { supabase } from '../services/supabaseClient';
 import { completeGoogleSignIn } from '../services/googleAuth';
 import { resolveMobileUserProfile } from '../services/mobileAuthProfile';
-import { offlineStorageService } from '../services/offline/offlineStorageService';
 import { offlineSyncManager } from '../services/offline/offlineSyncManager';
-import {
-  hasProductPermission,
-  normalizePermissionRoles,
-  PRODUCT_PERMISSION_ACTIONS,
-} from '../../../shared-utils/productPermissions';
-import {
-  checkCurrentUserHasPassword,
-  createCurrentUserPassword,
-} from '../services/authPasswordSetup';
 import { shouldRunAuthSessionMaintenance } from '../../../shared-utils/authSessionPolicy';
+import {
+  deriveAuthRoleFlags,
+  resolveWebDevOverrideProfile,
+} from './auth/authProfilePermissions';
+import { useRolePermissionsState } from './auth/useRolePermissionsState';
+import {
+  usePasswordCredentialState,
+  type PasswordCredentialStatus,
+} from './auth/usePasswordCredentialState';
 
-export type PasswordCredentialStatus = 'idle' | 'checking' | 'required' | 'configured' | 'error';
-
-const ROLE_PERMISSIONS_CACHE_KEY = 'app_role_permissions_v1';
-const PASSWORD_CHECK_TIMEOUT_MS = 5000;
-
-const withPasswordCheckTimeout = <T,>(promise: Promise<T>): Promise<T> =>
-  Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(
-        () => reject(new Error('Timeout ao verificar credencial de senha offline.')),
-        PASSWORD_CHECK_TIMEOUT_MS
-      )
-    ),
-  ]);
+export type { PasswordCredentialStatus };
 
 interface AuthContextProps {
   userProfile: any;
@@ -62,203 +47,35 @@ interface AuthContextProps {
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [userProfile, setUserProfile] = useState<any>(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      const authEmail = searchParams.get('auth_email');
-      if (
-        authEmail &&
-        (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)
-      ) {
-        return {
-          ...MASTER_DEFAULT_PROFILE,
-          email: authEmail,
-          fullName: 'Matheus Morante',
-          role: 'admin',
-        };
-      }
-    }
-    return null;
-  });
+  const [userProfile, setUserProfile] = useState<any>(() => resolveWebDevOverrideProfile());
+  const [loadingProfile, setLoadingProfile] = useState(() => !resolveWebDevOverrideProfile());
 
-  const [loadingProfile, setLoadingProfile] = useState(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      if (searchParams.get('auth_email')) return false;
-    }
-    return true;
-  });
-
-  const [passwordCredentialStatus, setPasswordCredentialStatus] =
-    useState<PasswordCredentialStatus>('idle');
-  const [passwordRecoveryInProgress, setPasswordRecoveryInProgress] = useState(false);
-  const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>({});
-  const [rolePermissionsLoaded, setRolePermissionsLoaded] = useState(false);
-  const [rolePermissionsLoadFailed, setRolePermissionsLoadFailed] = useState(false);
-  const [permissionReloadVersion, setPermissionReloadVersion] = useState(0);
-
-  const beginPasswordRecovery = () => setPasswordRecoveryInProgress(true);
-  const endPasswordRecovery = () => setPasswordRecoveryInProgress(false);
-
-  const refreshPasswordCredentialStatus = async () => {
-    setPasswordCredentialStatus('checking');
-    try {
-      const hasPassword = await withPasswordCheckTimeout(checkCurrentUserHasPassword(supabase));
-      setPasswordCredentialStatus(hasPassword ? 'configured' : 'required');
-      return hasPassword;
-    } catch (error) {
-      setPasswordCredentialStatus('error');
-      throw error;
-    }
-  };
-
-  const createPasswordCredential = async (password: string, confirmation: string) => {
-    await createCurrentUserPassword(supabase, password, confirmation);
-    const hasPassword = await refreshPasswordCredentialStatus();
-    if (!hasPassword) {
-      throw new Error('O Supabase ainda não confirmou a senha. Tente novamente.');
-    }
-  };
+  const {
+    passwordCredentialStatus,
+    setPasswordCredentialStatus,
+    passwordRecoveryInProgress,
+    beginPasswordRecovery,
+    endPasswordRecovery,
+    refreshPasswordCredentialStatus,
+    createPasswordCredential,
+    resetPasswordCredentialState,
+  } = usePasswordCredentialState();
 
   const profileAccessKey = userProfile?.id || userProfile?.email || null;
-
-  useEffect(() => {
-    let active = true;
-    if (!profileAccessKey) {
-      setRolePermissions({});
-      setRolePermissionsLoaded(false);
-      setRolePermissionsLoadFailed(false);
-      return () => {
-        active = false;
-      };
-    }
-
-    const loadRolePermissions = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('settings')
-          .select('data')
-          .eq('id', 'app')
-          .maybeSingle();
-        if (!active) return;
-        if (error) throw error;
-
-        const saved = data?.data?.rolePermissions;
-        const safePermissions: Record<string, string[]> =
-          saved && typeof saved === 'object' && !Array.isArray(saved)
-            ? Object.fromEntries(
-                Object.entries(saved).map(([actionId, roles]) => [
-                  actionId,
-                  Array.isArray(roles) ? roles.filter((role) => typeof role === 'string') : [],
-                ])
-              )
-            : {};
-
-        // O ERP migra permissões antigas dos submódulos a partir do acesso ao cadastro.
-        // Aplicamos o mesmo fallback antes de a migração do ERP gravar essas chaves.
-        for (const action of PRODUCT_PERMISSION_ACTIONS) {
-          if (
-            action.id.startsWith('viewProduct') &&
-            action.id !== 'viewProducts' &&
-            !Object.prototype.hasOwnProperty.call(safePermissions, action.id)
-          ) {
-            safePermissions[action.id] = safePermissions.productConfig ?? [...action.defaultRoles];
-          }
-        }
-
-        setRolePermissions(safePermissions);
-        setRolePermissionsLoaded(true);
-        setRolePermissionsLoadFailed(false);
-        await offlineStorageService
-          .cacheWorkingSet(ROLE_PERMISSIONS_CACHE_KEY, safePermissions)
-          .catch(() => {});
-      } catch {
-        if (!active) return;
-        console.warn('[Permissions] Falha ao carregar os acessos configurados. Tentando cache...');
-        try {
-          const cached = await offlineStorageService.getWorkingSet<Record<string, string[]>>(
-            ROLE_PERMISSIONS_CACHE_KEY
-          );
-          if (!active) return;
-          if (cached?.data && typeof cached.data === 'object') {
-            setRolePermissions(cached.data);
-            setRolePermissionsLoaded(true);
-            setRolePermissionsLoadFailed(false);
-            return;
-          }
-        } catch {}
-        setRolePermissions({});
-        setRolePermissionsLoadFailed(true);
-      }
-    };
-
-    setRolePermissionsLoaded(false);
-    setRolePermissionsLoadFailed(false);
-    void loadRolePermissions();
-
-    const settingsChannel = supabase
-      .channel('mobile-product-role-permissions')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'settings', filter: 'id=eq.app' },
-        () => void loadRolePermissions()
-      )
-      .subscribe();
-
-    return () => {
-      active = false;
-      void supabase.removeChannel(settingsChannel);
-    };
-  }, [profileAccessKey, permissionReloadVersion]);
-
-  const reloadRolePermissions = () => setPermissionReloadVersion((version) => version + 1);
-
-  const saveRolePermissions = async (updates: Record<string, string[]>) => {
-    const productActionIds = new Set(PRODUCT_PERMISSION_ACTIONS.map((action) => action.id));
-    const safeUpdates = Object.fromEntries(
-      Object.entries(updates).filter(([actionId]) => productActionIds.has(actionId))
-    );
-    if (Object.keys(safeUpdates).length === 0) return;
-
-    const { data: current, error: readError } = await supabase
-      .from('settings')
-      .select('data')
-      .eq('id', 'app')
-      .maybeSingle();
-    if (readError) throw readError;
-
-    const currentData =
-      current?.data && typeof current.data === 'object' && !Array.isArray(current.data)
-        ? current.data
-        : {};
-    const currentPermissions =
-      currentData.rolePermissions &&
-      typeof currentData.rolePermissions === 'object' &&
-      !Array.isArray(currentData.rolePermissions)
-        ? currentData.rolePermissions
-        : {};
-    const nextPermissions = { ...currentPermissions, ...safeUpdates };
-    const { error: saveError } = await supabase.from('settings').upsert({
-      id: 'app',
-      data: { ...currentData, rolePermissions: nextPermissions },
-    });
-    if (saveError) throw saveError;
-
-    setRolePermissions(nextPermissions as Record<string, string[]>);
-    setRolePermissionsLoaded(true);
-    setRolePermissionsLoadFailed(false);
-    await offlineStorageService
-      .cacheWorkingSet(ROLE_PERMISSIONS_CACHE_KEY, nextPermissions)
-      .catch(() => {});
-  };
+  const {
+    rolePermissions,
+    rolePermissionsLoaded,
+    rolePermissionsLoadFailed,
+    reloadRolePermissions,
+    saveRolePermissions,
+  } = useRolePermissionsState(profileAccessKey);
 
   const handleLogout = async () => {
     try {
       offlineSyncManager.setCurrentUserId(null);
       await supabase.auth.signOut();
       setUserProfile(null);
-      setPasswordCredentialStatus('idle');
-      setPasswordRecoveryInProgress(false);
+      resetPasswordCredentialState();
     } catch (err) {
       console.warn('[Logout] Erro:', err);
     }
@@ -266,23 +83,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const syncAuthProfile = async (session: any, checkPasswordCredential = true) => {
     offlineSyncManager.setCurrentUserId(session?.user?.id ?? null);
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      const authEmail = searchParams.get('auth_email');
-      if (
-        authEmail &&
-        (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)
-      ) {
-        setUserProfile({
-          ...MASTER_DEFAULT_PROFILE,
-          email: authEmail,
-          fullName: 'Matheus Morante',
-          role: 'admin',
-        });
-        setPasswordCredentialStatus('idle');
-        setLoadingProfile(false);
-        return;
-      }
+    const webDevOverride = resolveWebDevOverrideProfile();
+    if (webDevOverride) {
+      setUserProfile(webDevOverride);
+      setPasswordCredentialStatus('idle');
+      setLoadingProfile(false);
+      return;
     }
 
     setLoadingProfile(true);
@@ -319,7 +125,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       }
-    } catch (err) {
+    } catch {
       console.warn('[DeepLink] Falha ao processar URL');
     } finally {
       setLoadingProfile(false);
@@ -335,17 +141,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       void syncAuthProfile(session, true);
     };
 
-    // On web, use the browser URL directly.
     const initialUrlPromise =
       Platform.OS === 'web' && typeof window !== 'undefined'
         ? Promise.resolve(window.location.href)
         : Linking.getInitialURL();
     initialUrlPromise.then((url) => {
-      if (url) handleDeepLinkUrl(url);
+      if (url) void handleDeepLinkUrl(url);
     });
 
     const deepLinkSubscription = Linking.addEventListener('url', (event) => {
-      if (event.url) handleDeepLinkUrl(event.url);
+      if (event.url) void handleDeepLinkUrl(event.url);
     });
 
     const {
@@ -368,24 +173,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoadingProfile(false);
     }, 3500);
 
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      const authEmail = searchParams.get('auth_email');
-      if (
-        authEmail &&
-        (authEmail.toLowerCase() === MASTER_DEFAULT_PROFILE.email.toLowerCase() || __DEV__)
-      ) {
-        clearTimeout(authTimeout);
-        setUserProfile({
-          ...MASTER_DEFAULT_PROFILE,
-          email: authEmail,
-          fullName: 'Matheus Morante',
-          role: 'admin',
-        });
-        setPasswordCredentialStatus('idle');
-        setLoadingProfile(false);
-        return;
-      }
+    const webDevOverride = resolveWebDevOverrideProfile();
+    if (webDevOverride) {
+      clearTimeout(authTimeout);
+      setUserProfile(webDevOverride);
+      setPasswordCredentialStatus('idle');
+      setLoadingProfile(false);
+      return () => {
+        subscription.unsubscribe();
+        deepLinkSubscription.remove();
+      };
     }
 
     supabase.auth
@@ -406,38 +203,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  const profileRoleValues = Array.isArray(userProfile?.roles)
-    ? userProfile.roles.filter((role: string) => role !== 'pending')
-    : [];
-  const roles = normalizePermissionRoles(
-    profileRoleValues.length > 0 ? profileRoleValues : [userProfile?.role]
-  );
-  const isAdmin = roles.includes('administrator');
-  const isAssemblerDriver =
-    userProfile?.role === 'assembler' ||
-    userProfile?.role === 'driver' ||
-    userProfile?.role === 'entregador' ||
-    userProfile?.role === 'deliverer';
-  const isSeller = roles.includes('seller');
-  const canSeeReports = isAdmin || userProfile?.role === 'manager' || isSeller;
-  const canUseProductPermission = (actionId: string) => {
-    if (isAdmin) return hasProductPermission(actionId, roles, rolePermissions);
-    if (!rolePermissionsLoaded) return false;
-    return hasProductPermission(actionId, roles, rolePermissions);
-  };
-  const canSeeProducts = [
-    'viewProducts',
-    'viewProductCharacteristics',
-    'viewProductCategories',
-    'viewProductCompositions',
-    'viewProductReconciliation',
-  ].some(canUseProductPermission);
-  const canSeeFinance =
-    isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'gerente';
-  const canManageStock =
-    isAdmin ||
-    userProfile?.permissions?.manualStockMovement === true ||
-    userProfile?.permissions?.includes?.('manualStockMovement');
+  const roleFlags = deriveAuthRoleFlags(userProfile, rolePermissions, rolePermissionsLoaded);
 
   return (
     <AuthContext.Provider
@@ -446,19 +212,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUserProfile,
         loadingProfile,
         handleLogout,
-        isAdmin,
-        isAssemblerDriver,
-        isSeller,
-        canSeeReports,
-        canSeeProducts,
-        canUseProductPermission,
+        ...roleFlags,
         rolePermissions,
         rolePermissionsLoaded,
         rolePermissionsLoadFailed,
         reloadRolePermissions,
         saveRolePermissions,
-        canSeeFinance,
-        canManageStock,
         passwordCredentialStatus,
         passwordRecoveryInProgress,
         refreshPasswordCredentialStatus,

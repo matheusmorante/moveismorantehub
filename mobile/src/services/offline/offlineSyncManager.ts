@@ -105,6 +105,7 @@ const eventPatch = (event: SyncEvent): Record<string, unknown> => {
       deliveryStatus: payloadObj.deliveryStatus ?? null,
       deliveryStartedAt: payloadObj.deliveryStartedAt ?? null,
       deliveryArrivedAt: payloadObj.deliveryArrivedAt ?? null,
+      deliveryServiceStartedAt: payloadObj.deliveryServiceStartedAt ?? null,
     };
   }
   if (event.type === 'DELIVERY_CANCEL') {
@@ -114,7 +115,9 @@ const eventPatch = (event: SyncEvent): Record<string, unknown> => {
       deliveryStatus: null,
       deliveryStartedAt: null,
       deliveryArrivedAt: null,
+      deliveryServiceStartedAt: null,
       deliveryFinishedAt: null,
+      deliveryChecklist: null,
       unattendedAt: null,
       unattendedReason: null,
       unattendedNotes: null,
@@ -139,6 +142,7 @@ const isMissingRpcError = (error: any): boolean => {
 class OfflineSyncManager {
   private isProcessing = false;
   private activeProcessPromise: Promise<void> | null = null;
+  private pendingRerun = false;
   private initialized = false;
   private listeners = new Set<SyncListener>();
   private lastSyncAt?: string;
@@ -271,10 +275,12 @@ class OfflineSyncManager {
   async processQueue(): Promise<void> {
     if (!connectivityService.connected) return;
     if (this.activeProcessPromise) {
+      this.pendingRerun = true;
       await this.activeProcessPromise;
       return;
     }
     this.isProcessing = true;
+    let hadNetworkError = false;
     const run = (async () => {
       try {
         const activeUserId = await this.resolveActiveUserId();
@@ -301,6 +307,7 @@ class OfflineSyncManager {
               );
             }
           } catch (error: unknown) {
+            hadNetworkError = true;
             const message = error instanceof Error ? error.message : 'Falha transitória de rede.';
             await SyncQueueRepository.updateStatus(item.id, 'failed', {
               error: message,
@@ -324,6 +331,12 @@ class OfflineSyncManager {
         this.isProcessing = false;
         this.activeProcessPromise = null;
         await this.emitSummary();
+        if (this.pendingRerun && !hadNetworkError && connectivityService.connected) {
+          this.pendingRerun = false;
+          await this.processQueue();
+        } else {
+          this.pendingRerun = false;
+        }
       }
     })();
     this.activeProcessPromise = run;
@@ -447,6 +460,7 @@ class OfflineSyncManager {
       .update({
         order_data: mergedOrderData,
         status: nextStatus,
+        delivery_status: (mergedOrderData.deliveryStatus as string | undefined) ?? null,
       })
       .eq('id', item.entityId);
     if (updateError) throw updateError;

@@ -666,3 +666,199 @@ Ao acionar o deslizamento de transição de etapa no fluxo de entrega (ex: "Inic
 2. **Não-Regressão e Invariantes:**
    - Execução web testada com sucesso sem alertas ou dependência de pontes nativas.
    - Zero CC-e mantida (`FISCAL-016`).
+
+
+## Consulta autorizada — preparação da prova UI de respostas inválidas
+
+Lacuna: testes unitários já protegem consulta incompatível, mas faltava comprovar no fluxo UI atual HTML/vazio e identidade divergente. Harness local scripts/testing/authorized-consult-fault.cjs:1–125 encaminha exclusivamente a consulta UI de um documento próprio HML persistido; exige resposta real100 com chave/ambiente/protocolo originais antes de entregar HTML, vazio, chave divergente, ambiente divergente, protocolo divergente ou resposta íntegra. Escritas fetch no banco, demais origens/rotas, autorização/cancelamento, produção e chamadas sobrepostas são bloqueados. Certificado/credenciais não entram na evidência; somente hashes e identidades públicas. Nenhuma função SQL/ACL ou endpoint de produto alterados.
+
+Seis testes em scripts/testing/authorized-consult-fault.test.cjs passaram em20/10, conferindo os seis modos, escopo/produção, rejeição de origem real incompatível, impossibilidade de DML e concorrência do harness. Prova pela UI ainda não executada; não declarar casos SEFAZ inválidos ou matriz integral concluídos. Também foi consultado o catálogo atual de prepare_nfe_operation_attempt: validações precedem o alocador e o único trigger atual protege autorização, logo não provoca a falha interna específica desejada entre reserva e UPDATE. Nenhuma alteração temporária de função/trigger foi feita; rollback do alocador permanece pendente.
+
+
+## Tela vazia — imports após extração de OrderEditModal
+
+A retomada UI20/10 mostrou body vazio; captura de rede comprovou500 nos módulos OrderEditSubModals.tsx e orderEditPayload.ts. Vite apontou imports não resolvidos após a movimentação para subpastas. Correção restrita: erp/src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditSubModals.tsx:3,7,9 usa ../../ para SellerSearchModal, ItemMovementChangeConfirmModal e FiscalOrderEditConfirmDialog; utils/orderEditPayload.ts:2 usa oito níveis até shared-utils/commercialOrderRules. Sem alterar regras/formulários/serviços. Verificação de transformação Vite e abertura de tela em andamento.
+
+O preflight do harness de consulta também foi corrigido: o resolver de pré-emissão proíbe notas existentes; consulta exige justamente nota autorizada. scripts/testing/authorized-consult-fault.cjs agora confere operador autenticado, UUIDs, sale própria/is_test/owner/run/scenario e documento autorizado55/HML/identidade persistida, sem remover a guarda do resolver usado na emissão. Primeira tentativa abortou FISCAL_ATTEMPT_EXISTS_OR_UNCERTAIN antes de iniciar servidor/SOAP; segunda abriu bridge somente consulta na3002.
+
+
+## Consulta autorizada — mensagem confundia consulta incerta com emissão incerta
+
+Prova UI/HML da731 executou seis consultas reais: cada resposta100 da mesma chave/protocolo foi conferida antes da alteração local; HTML/vazio/chave/ambiente/protocolo divergentes receberam409/pending, e a resposta real íntegra recebeu200/authorized com protocolo original. Oito hashes e contadores da baseline atual permaneceram iguais após a rodada. Porém a UI apresentou “Ainda não sabemos se a nota foi recebida” sobre uma autorização já persistida. Causa: fiscalIssuePresentation.ts tratava todo pending como transmissão incerta, sem priorizar os códigos FISCAL_AUTHORIZED_CONSULT_UNKNOWN e FISCAL_AUTHORIZED_CONSULT_RECONCILIATION_REQUIRED.
+
+Dois testes reproduziram a falha em fiscalIssuePresentation.test.ts. Helper agora diferencia consulta atual inconclusiva, afirma preservação da autorização registrada e orienta consulta da mesma chave. Arquivos: erp/src/pages/utils/nfe/fiscalIssuePresentation.ts (ramo antes de transmissionUncertain) e __tests__/fiscalIssuePresentation.test.ts:11–25; nenhum status/XML/protocolo/RPC alterado. Rodada inicial preservada em output/playwright/nfh-authorized-consult-invalid-20261020-initial-ui.json e ...server.json. Regressões e reteste UI após a correção em andamento.
+
+
+## Consulta autorizada — seis cenários UI comprovados após a correção
+
+Operador original, Playwright visível localhost5173/fiscal-documents, nota própria731/doc219b552e/run c8905ad4/owner eccde09e. Duas rodadas de seis consultas reais SOAP/HML da mesma chave: HTML, vazio, chave divergente, tpAmb divergente, protocolo divergente e resposta real íntegra. Todas as respostas originais recebidas foram100 e corresponderam ao protocolo141260000638279 antes de o harness alterar o retorno. As cinco inválidas foram409/FISCAL_AUTHORIZED_CONSULT_RECONCILIATION_REQUIRED, pending=true e state=unknown, sem protocolo falso. A sexta foi200/authorized com o protocolo original. A segunda rodada comprovou a mensagem corrigida preservando o fato autorizado e orientando reconsulta da mesma chave.
+
+Prova consolidada: output/playwright/nfh-authorized-consult-invalid-20261020-proof.json,18 verificações/verified=true; rodada inicial e segunda em ...initial-ui.json, ...fixed-ui.json, ...server.json e ...fixed-server.json. HTML inicial mostra o texto incorreto em nfh-consult-invalid-html.png; corrigido em nfh-consult-invalid-fixed-html.png. Captura HTML corrigida ocorreu na transição final de loading; clique UI seguinte e nova consulta real comprovam retorno do botão, sem inferir conclusão só pelo snapshot intermediário.
+
+Oito grupos de hashes preservados (pedidos, itens, pagamentos, movimentos, documentos, tentativas, snapshots e sequências) nas origens656/731, mais contadores por estabelecimento. Baseline atual20/10 era55=733 e65=656 (movimento733 anterior à rodada, não atribuído a este teste), intacta ao final. Não houve emissão, reserva, DML, migration ou evento fiscal. Harness só consulta, porta3002 encerrada, interceptações removidas e navegador mantido aberto. Esta prova cobre consulta de NF55 já autorizada; resposta inválida na transmissão/persistência pendente e modelo65 exigem evidência própria. Não encerra a matriz fiscal.
+
+Validação local: dois testes falharam antes do ajuste de mensagem e passaram depois;38 testes/4 arquivos focados passaram, seis testes do harness passaram e lint dos quatro TS/TSX alterados sem erros. Build fiscal aprovado com carregamento nativo/WASM/XSD vigente. Build cliente ainda em execução no momento deste registro; resultado final será acrescentado. Correção imports conferida por transformação Vite200 e login/dashboard/listagem/modal fiscal operacionais.
+
+Arquivos/linhas: erp/src/pages/utils/nfe/fiscalIssuePresentation.ts:315–326; __tests__/fiscalIssuePresentation.test.ts:11–24; erp/src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditSubModals.tsx:3,7,9; utils/orderEditPayload.ts:2. Harness scripts/testing/authorized-consult-fault.cjs e authorized-consult-fault.test.cjs (128/51 linhas não vazias). Somente imports e apresentação foram alterados no produto.
+
+Build cliente final aprovado (built in 1m 37s). Log scratch/nfh-consult-fixes-client-build.log; avisos preexistentes de annotations/chunks não impediram o build. Nenhum deployment executado.
+
+
+## Transmissão inconclusiva — preparação do harness para resposta HTML
+
+A prova anterior cobre consulta de nota já autorizada; não comprova a tentativa ainda pendente após resposta de transmissão inválida. scripts/testing/normal-outbound-fault.cjs ganhou modo malformed_response: após100 real da mesma chave substitui somente o retorno por HTML; consultas UI seguintes recebem HTML/vazio/chave/ambiente/protocolo divergentes e, por fim, resposta real íntegra. Só altera resposta depois de conferir autorização real e protocolo original, conserva limite de um SOAP por pedido/chave; nenhuma resposta artificial vira sucesso no harness.
+
+Dois testes novos em normal-outbound-fault.test.cjs exercitam uma autorização/um SOAP e seis consultas da mesma chave, recusando protocolo real divergente; seis testes totais aprovados. Mudança exclusivamente no harness local, sem DDL/DML manual e sem mudar regras de produto. Prova real/UI ainda em preparação.
+
+Pré-prova20/10: candidato6de4b3e9 já autorizado, descartado para nova emissão. Cópia da656 abriu formulário sem contexto de teste verificado no servidor atual; nenhum salvamento/finalização realizado. Venda própria5ae50fef segue sem NF e permite prova real65 com fiscalContext.use_consumption/finalConsumer. Seu scenarioKey55 é histórico e não prova modelo55. Harness passa a validar owner/run/scenario persistidos e modelo explicitamente fixado no XML assinado antes do SOAP, sem deduzir modelo de metadata antiga. Guardas de endpoint/tpAmb/mod/finNFe/uma transmissão preservadas. Prova só será declarada65.
+
+
+## Harness de pendência657 — protocolo sintético válido gravado, prova não concluída
+
+A transmissão UI da venda própria5ae50fef retornou100 real para a NFC-e657/chave41261044512248000107650010000006571960762147/protocolo141260001752507. HTML substituiu o retorno: documento pendente/protocoloNULL, tentativa reconciling e botãoEmitir removido. Consultas HTML/vazio/chave/ambiente divergentes mantiveram pendência. Porém o quinto caso do harness trocou o nProt por outro número15dígitos (141260001752500), consistente em todo o XML. Como era a primeira persistência da autorização, o ERP não conhecia o protocolo original: aceitou o fato sintético. Isto é erro de desenho do teste, não evidência de falha da guarda de protocolo conhecido. Documento próprio HML5a0155fb ficou com protocolo de teste incorreto. Nenhum dado operacional alheio foi reescrito.
+
+Rodada interrompida e helper encerrado; não declarar recuperação657 concluída. Evidência original e marcação verified=false preservadas. Harness agora usa INVALID_CONTROLLED_PROTOCOL (sintaticamente inválido) para primeira persistência; protocolo diferente com formato válido só pode ser testado contra fato previamente conhecido. authorized-consult-fault.cjs ganhou captureRealOnly para capturar bytes exatos de uma consulta real/HML, sem alterar resposta nem permitir DML. Captura será usada para preparar reparo explícito e guardado somente do artefato próprio657; não instalar migration, apagar documento, retransmitir ou reescrever fatos até aprovação concreta desse reparo.
+
+Reparo657 preparado, NÃO executado: captura UI somente leitura confirmou100 real/protocolo141260001752507; bytes exatos salvos em output/playwright/nfh-657-real-response-capture-real-response.xml, SHA256 3d46681b3af5be5869830ca4e389b9c7ae01bef4798c8c31d44dbc0ce8634923. API corretamente retornou409 na consulta da nota já autorizada porque o protocolo persistido sintético diverge do real. Helper encerrado e interceptações removidas.
+
+Roteiro excepcional scratch/nfh-657-prepare-owned-repair.cjs gera ...owned-repair-rollback.sql e ...owned-repair-apply.sql. Exige ID/owner/run/chave/env2/model65/status/protocolo/hash incorretos exatos; substitui somente numero_protocolo/xml_protocolo/updated_at pelo retorno real e acrescenta uma entrada de correção em response_history, sem remover/reordenar o histórico original. Guarda de imutabilidade recebe exceção exata somente dentro da transação e a definição original é restaurada antes do COMMIT; nenhuma exceção permanente, trigger desabilitado, GRANT, RLS ou migração nova. Verifica cabeçalho/itens/pagamentos/estoque/snapshots/contadores e identidade/XML assinado/estado da tentativa. Planejado primeiro ROLLBACK com prova, depois COMMIT apenas após comprovação; SQL comportamental ainda NÃO executado. Preparação validou hash dos bytes capturados, namespaces/chave/tpAmb/cStat/protocolo no XML e geração determinística dos roteiros.
+
+A substituição excepcional de evidência autorizada contraria a política normal de imutabilidade FISCAL-003; exige autorização humana específica para reparar o artefato próprio produzido pelo harness. Não reutilizar o roteiro para notas operacionais ou outras divergências. Evidência da preparação: output/playwright/nfh-657-repair-preparation.json. Os12 testes dos dois harnesses passam após usar protocolo sintaticamente inválido no caso de primeira autorização. Ainda não há prova completa de recuperação657, nem conclusão fiscal geral.
+
+Reparo excepcional657 autorizado explicitamente pelo usuário e aplicado em20/10. Primeiro roteiro ROLLBACK passou e leitura independente comprovou reversão de nove grupos (inclusive documento/histórico). Somente depois foi executado ...owned-repair-apply.sql: numero_protocolo passou500→507 e xml_protocolo recebeu exatamente os bytes capturados da consulta real. Histórico sintético anterior integralmente preservado, com uma nova entrada test_harness_evidence_correction; XML assinado, snapshot, cliente/pedido/itens/pagamentos/movimentos/contadores intactos. Nova leitura de catálogo conferiu funções, ACLs/configurações e triggers idênticos à baseline: exceção temporária removida antes do COMMIT. Nenhuma migration, GRANT/RLS ou exceção permanente instalada. Logs/provas em scratch/nfh-657-owned-repair-{rollback,apply}-proof.json, ...after-owned-repair.json e ...after-repair-catalog.json. Consulta UI normal de confirmação em preparação.
+
+
+## Reconciliação pendente — validar identidade antes da primeira autorização
+
+Investigação independente do erro do harness657 comprovou que outboundReconciliation.ts parseava state=authorized e chamava persist_nfe_outbound_result sem aplicar o validador estrito usado na transmissão. A RPC bloqueava divergências de chave/ambiente do infProt, porém validações do envelope, namespace, protocolo15dígitos/data e cardinalidade não podiam depender apenas desse fallback. Seis regressões falharam antes: protocolo sintaticamente inválido, data ausente, chave externa divergente, namespace incorreto, protocolo duplicado e ambiente externo divergente.
+
+Correção em api/nfe/normal-sale/outboundReconciliation.ts:8–9 e ramo authorized: reutiliza matchesSefazAuthorization e matchesConsultedDocument, exige envelope/namespace/cardinalidade/data/protocolo e identidade da mesma chave/ambiente antes de chamar a RPC. Falha devolve409/pending/stateunknown e mantém tentativa/número; finally libera somente o lease existente. Não compara um protocolo válido desconhecido a um valor que o ERP não possui, nem inventa confirmação. erp/src/pages/utils/nfe/__tests__/normalOutboundEmission.test.ts adiciona seis casos e ajusta duas fixtures de sucesso para retConsSitNFe oficial (antes retornavam artificialmente retEnviNFe em consulta). Rodada antes6 falhas/31passaram; rodada focada pós-correção aprovada em três arquivos, contagem/log scratch/nfh-pending-consult-identity-after.log. Tipos/lint/build e reteste pendente real ainda em conferência; sem nova migration/DDL ou gravação fora do reparo657 explicitamente autorizado.
+
+Após o reparo excepcional, consulta UI normal sem interceptação retornou200/success/authorized para657, protocolo141260001752507. Um overlay transitório de Vite impediu o primeiro clique e já não existia na conferência seguinte; nenhuma transmissão foi repetida. Evidência output/playwright/nfh-657-repaired-normal-ui-consult.json.
+
+## Edição comercial liberada após reversão fiscal e nova emissão em sequência
+
+> Registro da etapa anterior. O fluxo atual foi atualizado em [Edição comercial salva antes da reversão fiscal](#edição-comercial-salva-antes-da-reversão-fiscal-com-pendência-rastreada): o pedido comercial é persistido antes da etapa fiscal e não fica bloqueado por uma substituição pendente.
+
+### Problema identificado e sintomas
+Ao abrir o pedido #007057 para edição, qualquer substituição fiscal ainda não marcada como `completed` fazia `OrderEditModal` renderizar imediatamente “Concluir substituição fiscal” no lugar do formulário comercial. A auditoria da API e o trigger SQL também rejeitavam toda edição enquanto essa linha permanecesse pendente, mesmo depois da reversão da nota original estar comprovada e faltar somente a nova emissão.
+
+### Causa raiz técnica
+`useOrderEditFiscalFlow` transformava qualquer resultado não vazio de `resumeFiscalOrderEdit` em `fiscalContinuationOrder`; `OrderEditModal` retornava essa continuação antes de renderizar o formulário. Separadamente, `auditAuditAndConfirmAction.ts` bloqueava todos os registros ativos e `guard_order_fiscal_edit()` recusava qualquer atualização com substituição não concluída. A nova emissão exige que a projeção fiscal do pedido corresponda a `edited_order_data`, que não era sincronizado com alterações comerciais salvas após a reversão.
+
+### Solução aplicada
+- A retomada fiscal ao abrir o pedido agora carrega a pendência sem interceptar o formulário.
+- A API só libera a edição durante `ready_to_reissue` quando comprova, pela RPC `is_order_edit_reversal_confirmed`, a reversão da NF original e não encontra documento de substituição preparado. Demais estados continuam exigindo reconciliação da etapa fiscal.
+- A migration nova libera atualização comercial apenas com pedido agendado, sem circulação/entrega em andamento, reversão comprovada e sem nova emissão preparada. Um trigger atualiza `edited_order_data` na mesma transação, mantendo a validação de projeção antes da próxima NF.
+- Depois do salvamento validado, a interface limpa o request ID antigo, prepara a nova emissão no mesmo ambiente da nota original e exibe um toast informando que o cancelamento fiscal ou estorno fiscal anterior já foi confirmado. Para uma substituição nova, a confirmação da edição inicia o cancelamento fiscal; o estorno fiscal abre a revisão obrigatória; após a reversão confirmada, o sistema aplica a edição e abre a nova emissão.
+- A migration foi criada localmente e **não foi aplicada ao banco remoto**. Nenhuma NF foi transmitida ou alterada durante esta correção.
+
+### Arquivos e linhas modificados
+1. [`api/nfe/order-edit-audit/auditAuditAndConfirmAction.ts`](../../api/nfe/order-edit-audit/auditAuditAndConfirmAction.ts):39, 67, 99–145 — diferencia substituições prontas para reemissão das demais pendências e inclui sua auditoria antes do retorno de “sem alteração”.
+2. [`supabase/migrations/20261020183000_allow_commercial_edit_before_fiscal_reissue.sql`](../../supabase/migrations/20261020183000_allow_commercial_edit_before_fiscal_reissue.sql):1–49 — guarda de edição e sincronização do pedido com a substituição pendente.
+3. [`erp/src/pages/App/SalesOrder/modals/order-edit-modal/useOrderEditFiscalFlow.ts`](../../erp/src/pages/App/SalesOrder/modals/order-edit-modal/useOrderEditFiscalFlow.ts):34–69, 126–149, 215–221 — não intercepta ao abrir; conclui a edição pronta e informa a sequência fiscal.
+4. [`erp/src/pages/App/SalesOrder/modals/OrderEditModal.tsx`](../../erp/src/pages/App/SalesOrder/modals/OrderEditModal.tsx):25–28, 102–111, 194–238, 337–390, 509–517 — salva a edição, prepara e abre a nova emissão no ambiente original.
+5. [`erp/src/pages/App/SalesOrder/modals/OrderEditFiscalContinuation.tsx`](../../erp/src/pages/App/SalesOrder/modals/OrderEditFiscalContinuation.tsx):2, 50–159, 164–236 — após a confirmação da edição, inicia o cancelamento fiscal, abre a revisão obrigatória do estorno fiscal, aplica as alterações depois da reversão e prepara a nova emissão; falhas permanecem reconciliáveis e não disparam retry automático.
+6. [`erp/src/pages/utils/nfe/orderEditFiscalService.ts`](../../erp/src/pages/utils/nfe/orderEditFiscalService.ts):67–72, 104–107 — tipa o estado pronto para reemissão e a resposta com substituições.
+7. [`erp/server/nfe/audit-order-edit.cjs`](../../erp/server/nfe/audit-order-edit.cjs) e [`erp/server/nfe/audit-order-edit.cjs.map`](../../erp/server/nfe/audit-order-edit.cjs.map) — bundle fiscal atualizado para incluir a nova resposta da API.
+
+### Testes e validações
+- Testes unitários e prova pela interface não foram executados nesta tarefa.
+- ESLint focado nos quatro componentes/serviços do frontend passou sem avisos. O `tsc --noEmit` geral do ERP saiu com erro: apontou incompatibilidades nos contratos `validateEditedOrder`/`flattenFormErrors` e no estado tipado do formulário em linhas adjacentes ao fluxo, além de erros em outras áreas do checkout. Não há baseline prévio nesta tarefa para atribuir esses erros ao diff.
+- O bundle isolado `audit-order-edit.cjs` foi regenerado com esbuild; a saída contém o novo estado `reissue_pending`.
+- A migration local foi inspecionada quanto às condições de status, circulação, prova da reversão e ausência de documento substituto. Não houve DDL remoto, DML, emissão, cancelamento ou consulta à SEFAZ.
+- A validação em banco real e o reteste do fluxo de edição/emissão pela interface permanecem pendentes.
+
+Gates da correção de reconciliação:64 testes/3 arquivos passaram. O gate tipado revelou quatro erros atuais de contratos após a refatoração: normalSaleContext.ts importava três nomes não exportados e fiscalDatabaseTypes.ts omitia is_order_edit_reversal_confirmed. Tipos agora derivados de ReturnType/Awaited dos produtores reais e RPC existente tipada com p_original_document_id:string/Returns:boolean (sem mudança SQL). Arquivos: api/nfe/normal-sale/normalSaleContext.ts:3–20,69–73,137; api/nfe/fiscalDatabaseTypes.ts:233–236. Gate API13 entradas passou após os ajustes. Primeira invocação lint não encontrou flat-config para caminhos externos; repetida com erp/eslint.config.mjs explícito, verificar avisos de arquivos externos/escopo no log final. Build fiscal passou; regressão fiscal revisada113 arquivos em andamento. Tipos ERP globais não certificados nesta rodada.
+
+
+## Contratos de tipos após extrações fiscais
+
+O gate `tsc --noEmit -p erp/tsconfig.fiscal.json` reproduziu 31 erros após extrações: imports relativos continuavam apontando para a pasta antiga, o tipo OrderItem não é exportado por order.type, e os contratos extraídos divergiam dos produtores reais (setter React, objeto proprietário da operação, resultado de consulta e campos opcionais). O rascunho já persiste recipientTaxId em nfeDraftService, mas o domínio não o declarava.
+
+Correção restrita aos contratos/imports: reutiliza Item, tipa SefazConsultOutcome e o proprietário real, preserva atualizações funcionais do setter, normaliza ausência de IE/UF/erro para os valores já esperados e impede backfill sem ID/pedido inexistente. Não altera regra tributária, banco ou emissão.
+
+Arquivos e linhas:
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/actions/actions.types.ts`:12,15,17,46,84.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/actions/nfeEmissionPreflight.ts`:36,122.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/actions/nfeReconciliationExecutor.ts`:10,13,22,35,39,102.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/actions/useNfeHmlRestartAction.ts`:8,16,27.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/actions/useNfeReconciliationAction.ts`:8,23,27.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/useNfeEmissionActions.ts`:53,170,185.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/useNfeItemEnrichment.ts`:97,206.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/useNfeEmission.ts`:36.
+- `erp/src/pages/types/order.type.ts`:43,141.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/item-enrichment/index.ts`:.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/item-enrichment/itemDraftMatcher.ts`:1,2.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/item-enrichment/itemEnrichment.types.ts`:3,9.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/item-enrichment/itemFallbackBuilder.ts`:1,3.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/item-enrichment/itemFiscalMerger.ts`:1,4.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/item-enrichment/itemFiscalUpdateHandlers.ts`:1.
+- `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/item-enrichment/itemPriorDocumentBackfill.ts`:1,4.
+- `erp/src/pages/utils/personService/query/personCacheManager.ts`:1.
+- `erp/src/pages/utils/personService/query/personDeduplication.ts`:1.
+- `erp/src/pages/utils/personService/query/personQuery.types.ts`:1.
+
+Validação: gate fiscal ERP antes31 erros/depois saída0 (scratch/nfh-pending-consult-identity-erp-types-fixed.log). Gate API passou e build fiscal passou. A regressão anterior passou1321 testes/113 arquivos; repetição após estes ajustes e lint focado em andamento. Nenhuma comprovação global de prontidão ou do cenário UI pendente é inferida destes gates.
+
+Validação concluída dos contratos: regressão revisada1321 testes/113 arquivos passou (39,45s); lint19 arquivos passou sem erros/avisos. O lint detectou duas inicializações booleanas redundantes anteriores nas funções de reinício; removida somente a atribuição inicial, mantendo todas as atribuições de fluxo (nfeReconciliationExecutor.ts:116 e useNfeHmlRestartAction.ts:110). O gate ERP fiscal passou antes deste ajuste semântico neutro; nova conferência final registrada no log.
+
+
+### Retomada do contexto local de artefatos próprios
+
+A sessão localhost5173 recebeu403 do endpoint oficial test-artifact-operator; o servidor3000 atual pertence a outro runtime e não foi reiniciado/reconfigurado. Consulta SQL somente leitura, restrita ao owner/run próprios, encontrou zero pedidos sem documento/tentativa. Preparado scratch/nfh-owned-test-context-bridge.cjs:1–33, servidor separado3004 que carrega apenas a configuração local já existente do operador original, confirma seu UUID/email via leitura admin e encaminha somente POST do endpoint oficial. O handler continua verificando token real, identidade configurada e papel administrador; não forja204, não injeta sessionStorage, não altera credenciais/usuário/papéis/RLS nem permite rotas fiscais/escritas de negócio. Configuração só no processo novo, memória; env Vercel Development sem gravação em arquivo. scratch/nfh-owned-unissued-candidates.sql:1–15 registra a busca própria (primeiro SQL usava coluna number inexistente; corrigido antes da consulta válida). A validação UI do contexto e criação de novo artefato estão em andamento.
+
+Reteste do contexto: handler oficial respondeu204 via bridge; toggle Modo teste presente e ON. Cópia abriu cadastro, mas autosave continuou bloqueado: contexto gerado com runId novo divergia dos vínculos sintéticos da execução original (assertTestArtifactLinks exige mesmo run/owner). Nenhum pedido foi finalizado. Instância Vite própria5174 será iniciada com VITE_TEST_ARTIFACT_RUN_ID/VITE_TEST_ARTIFACT_SCENARIO_KEY da execução original em variáveis do processo, preservando as guardas e o servidor5173. Nenhuma injeção manual de contexto ou mudança remota.
+
+
+## Reteste UI da pendência65 — NFC-e658
+
+Problema e causa comprovada: após uma resposta de transmissão inconclusiva, o reconciliador pendente não aplicava integralmente a validação estrita de identidade/estrutura antes da primeira autorização. Os seis testes vermelhos e a correção em api/nfe/normal-sale/outboundReconciliation.ts:8–9,150–165 estão na seção de reconciliação acima. O harness original657 também tinha uma falha própria: usava outro protocolo sintaticamente válido ainda desconhecido pelo sistema; esse teste foi corrigido para protocolo malformado, sem presumir conhecimento de um valor externo. A prova original657 permanece incompleta, mesmo após seu reparo aprovado.
+
+Artefato novo: venda própria3d24602e-c69e-4f2e-a755-607970e0e6c3 criada por Duplicar Pedido na interface, Modo teste ON, mesmas identidades owner eccde09e-72d8-4efe-a387-eb34114dea39/run c8905ad4-91ae-486b-b7c9-8be49a41a805. Cinco etapas conferidas; Finalizar Cadastro confirmou sucesso e estado scheduled. Metadata histórica scenarioKey55 não define o modelo; contexto real uso/consumo/finalConsumer e XML assinado comprovaram65. Instância local própria5174, sem alterar5173/3000. Ponte3004 respondeu204 pelo handler oficial; nenhuma injeção de contexto/token/role.
+
+Resultado real: prévia200 sem reserva/documento/tentativa ou alteração nos oito grupos conferidos. Uma transmissão SOAP65/tpAmb2 autorizou658; o harness entregou HTML ao handler. API devolveu200/successfalse/pendingtrue/reconciling; documento cb3cb095-e5bd-430b-8348-6948852b5afb permaneceu pendente, sem protocolo. Cinco consultas SOAP reais pela mesma chave, iniciadas no botão Consultar SEFAZ agora, foram substituídas por HTML, vazio, chave divergente, ambiente divergente e protocolo malformado. Todas409/FISCAL_RECONCILIATION_REQUIRED, sem autorização no banco. Sexta consulta real íntegra retornou200/authorized/protocolo141260001752583. Modal abriu detalhes legíveis da NFC-e658. Nunca houve retransmissão ou nova reserva durante as consultas.
+
+Verificação independente:28 checks em output/playwright/nfh-malformed-pending-retest-proof.json. Documentos/itens/pagamentos/movimentos/snapshot/chave/XML assinado conservados conforme o estado de cada etapa; histórico anterior da tentativa preservado como prefixo. Durante pendência, motivo_status/updated_at e XML de resposta inconclusiva podem mudar, sem protocolo/autorização; não foram confundidos com evidência autorizada imutável. Itens/pagamentos/movimentos completos iguais ao baseline após finalização; pagamento Pendente continua com paid_atNULL. Contador65 apenas657→658;55 continua733. Valor autorizado100 igual pedido/XML. Assinatura/snapshot/XSD oficial passaram (output/playwright/nfh-malformed-pending-retest-signed-xsd-proof.json).
+
+Arquivos de prova novos: scratch/nfh-malformed-pending-retest-state.sql:1–12 (leitura própria), scratch/nfh-malformed-pending-retest-targets.json:1–11 (escopo exato), scratch/nfh-malformed-pending-ui-observer.cjs:1–29 (encaminha chamadas reais da UI, bloqueia produção e salva somente resumo sem XML/token), scratch/nfh-malformed-pending-retest-validate-xml.ts:1–39 (valida documento/snapshot/assinatura/XSD), scratch/nfh-malformed-pending-retest-verify.cjs:1–139 (28 verificações e hashes). Não houve novo DDL/DML manual; escritas somente pelo fluxo normal autorizado da UI/API. SQLs anteriores de reparo657 foram executados somente dentro da aprovação específica registrada.
+
+Limitação do verificador corrigida: primeira asserção comparava documento pendente inteiro, mas motivo_status/updated_at e depois xml_protocolo inconclusivo mudam legitimamente. A falha inicial do assert imprimiu XML fiscal assinado/certificado público da nota sintética na saída da ferramenta. Verificador agora compara hashes, verifica separadamente os campos fiscais e preservação do histórico, e captura falhas exibindo apenas nome da verificação/código. A prova registra esse incidente explicitamente; não afirma ausência histórica de XML na saída. Não foram impressas chave privada, senha ou token pelo roteiro.
+
+Limites: prova específica normal65, não substitui matriz pendente55, falha interna do alocador, concorrência da primeira autorização nem toda a auditoria fiscal. Helpers3002/3004 encerrados; portas conferidas sem listener e rotas da página própria removidas. Vite5174 e janela visível ficam abertos para inspeção. Gates locais:1321 testes/113 arquivos; ERP fiscal tsc saída0 na conferência final; API tsc e build fiscal aprovados; lint19 arquivos sem erros/avisos.
+
+Conferência adicional da fonte657: os seis grupos items/payments/moves/documents/attempts/snapshots permanecem integralmente iguais ao pós-reparo. O pedido teve apenas inventoryRequestHash no order_data e updated_at/version alterados (16→18 em20/10 13:56:58UTC). A causa/caller não foi estabelecida; não se afirma preservação integral do registro do pedido nem se altera a fonte para forçar igualdade. O catálogo local da função create_order_with_inventory_transaction (scratch/audit-create_order_with_inventory_transaction.sql:251–254) mostra a atualização desse hash em operações normais; isso identifica o mecanismo possível, não prova qual chamada ocorreu. Diagnóstico registrado separadamente na matriz ativa, sem invalidar as28 verificações específicas de emissão/recuperação658.
+
+
+## Edição comercial salva antes da reversão fiscal, com pendência rastreada
+
+### Problema identificado e sintomas
+Ao salvar um pedido com NF autorizada, a auditoria fiscal podia retornar `blocked` por circulação, tentativa incerta ou substituição incompleta. O modal só permitia voltar, e `guard_order_fiscal_edit()` também rejeitava a gravação comercial. Isso mantinha o pedido antigo mesmo quando o operador precisava corrigir cliente, itens, quantidades, preços ou pagamentos.
+
+### Causa raiz técnica
+O fluxo usava o resultado da política fiscal como autorização para gravar o pedido: `blocked` abria um modal sem ação de salvar. A trigger do banco também tratava a alteração da projeção fiscal do pedido como tentativa de reescrever uma NF autorizada. Na substituição elegível, `commit_fiscal_order_edit` registrava a intenção mas só aplicava a edição depois da reversão, então uma falha de cancelamento/estorno deixava a edição comercial não aplicada.
+
+### Solução aplicada
+- Removido o modal fiscal pré-salvamento. A validação comercial existente continua obrigatória; quando a auditoria informa impedimento ou incerteza fiscal, a edição é persistida com controle de versão e o operador recebe um toast com a pendência.
+- A migration grava um registro `nfe_order_edit_pending_reviews` com os documentos originais, dados comerciais anteriores/novos, motivo e categoria da pendência. A NF autorizada, XML e snapshot permanecem imutáveis.
+- Para substituição elegível sem circulação, a RPC salva o pedido e registra a reversão pendente na mesma transação. Depois da confirmação da reversão, a finalização verifica a versão comercial já salva e segue para a nova emissão sem reaplicar estoque/pedido.
+- Para circulação, entrega em andamento ou reconciliação incerta, não é iniciado cancelamento/estorno automático nem uma nova saída. A emissão fica bloqueada até a pendência ser resolvida por procedimento fiscal apropriado. A confirmação de cancelamento em Produção continua sendo uma ação explícita após o salvamento comercial.
+- A migration local **não foi aplicada ao banco remoto**. O comportamento do banco operacional só muda depois da aplicação dessa migration; a versão atual da trigger remota ainda pode rejeitar o salvamento.
+
+### Arquivos e linhas modificados
+- `api/nfe/order-edit-audit/auditAuditAndConfirmAction.ts`:64–66, 119–124, 201–204 — respostas `blocked` incluem a versão do pedido e deixam claro que a edição comercial pode ser salva; confirmação cria substituição sem exigir confirmação de Produção antes de qualquer transmissão.
+- `api/nfe/order-edit-audit/auditResumeAction.ts`:17–26 — carrega pendências fiscais persistidas para retomada informativa.
+- `erp/src/pages/App/SalesOrder/modals/order-edit-modal/useOrderEditFiscalFlow.ts`:88–101, 103–143, 158–195 — grava a edição em respostas bloqueadas, registra confirmação elegível automaticamente e retoma substituições após salvar.
+- `erp/src/pages/App/SalesOrder/modals/OrderEditModal.tsx`:241–278, 285–291 — salva a edição validada, mantém pendência fiscal e só abre continuação automática quando pedido agendado e sem circulação.
+- `erp/src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditSubModals.tsx`:7–8, 35–60 — remove o diálogo fiscal que impedia a gravação comercial.
+- `erp/src/pages/App/SalesOrder/modals/OrderEditFiscalContinuation.tsx`:85 — não transmite cancelamento automaticamente em Produção; Homologação elegível mantém o toast de progresso.
+- `erp/src/pages/utils/nfe/orderEditFiscalService.ts`:19–48, 104–111 — tipa a consulta de pendências e remove a autorização de Produção implícita do payload de confirmação.
+- `supabase/migrations/20261020203000_save_commercial_order_edits_and_track_fiscal_pending.sql`:1–283 — histórico de pendências, gravação comercial antes da reversão, gate de nova saída, sincronização de proposta ativa e finalização sem segunda aplicação dos efeitos comerciais.
+- `erp/server/nfe/audit-order-edit.cjs` e `.map` — bundle fiscal da rota atualizado.
+- `docs/fiscal/README.md`:9–10 — referência vigente adicionada e etapa anterior marcada como supersedida.
+
+### Testes e validações
+- ESLint focado nos cinco arquivos frontend alterados: passou, sem avisos.
+- Bundle da rota `audit-order-edit` regenerado com esbuild: passou.
+- Testes não executados. O `tsc` geral do ERP foi iniciado e interrompido após 90 segundos sem saída; não há resultado de typecheck.
+- Migration inspecionada localmente. Sem DDL/DML remoto, emissão, cancelamento ou chamada à SEFAZ.

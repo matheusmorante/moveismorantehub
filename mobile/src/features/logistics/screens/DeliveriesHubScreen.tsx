@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
   RefreshControl,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import {
@@ -95,7 +96,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   }, []);
 
   const recordTabLayout = useCallback(
-    (tab: DeliveriesSubTab, event: any) => {
+    (tab: DeliveriesSubTab, event: LayoutChangeEvent) => {
       const { x, width } = event.nativeEvent.layout;
       tabLayouts.current[tab] = { x, width };
       if (tab === activeTab) setTimeout(() => scrollTabIntoView(tab), 0);
@@ -170,7 +171,16 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     [onSelectOrder]
   );
 
-  const handleStartDelivery = handleSelectDeliveryOrder;
+  const handleStartDelivery = useCallback(
+    (item: DeliveryRouteItem) => {
+      if (item.activityType === 'delivery') {
+        handleOpenDeliveryFlow(item);
+      } else {
+        handleSelectDeliveryOrder(item);
+      }
+    },
+    [handleOpenDeliveryFlow, handleSelectDeliveryOrder]
+  );
   const handleViewOrder = handleSelectDeliveryOrder;
 
   return (

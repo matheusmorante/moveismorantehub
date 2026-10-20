@@ -203,7 +203,9 @@ export function useNfeItemEnrichment({
         const preparedCsosns = csosnResult.preparedCsosns;
         const initialPreparationError = csosnResult.error;
 
-        await backfillMissingNcmFromPriorDocuments(currentOrder.id, productItems, fallbackItems);
+        if (currentOrder.id) {
+          await backfillMissingNcmFromPriorDocuments(currentOrder.id, productItems, fallbackItems);
+        }
 
         const {
           enrichedList,

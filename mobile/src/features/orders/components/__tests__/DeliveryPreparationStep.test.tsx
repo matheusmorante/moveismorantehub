@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 let capturedSlideProps: any = null;
 
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 20, left: 0, right: 0 }),
+}));
+
 vi.mock('react-native', () => ({
   View: ({ children, ...props }: any) => React.createElement('div', props, children),
   Text: ({ children, ...props }: any) => React.createElement('span', props, children),
@@ -15,7 +19,7 @@ vi.mock('react-native', () => ({
 }));
 
 vi.mock('lucide-react-native', () => ({
-  Check: () => null,
+  Check: () => React.createElement('span', { 'data-testid': 'check-icon' }, '✓'),
   ClipboardCheck: () => null,
 }));
 
@@ -38,99 +42,109 @@ vi.mock('../delivery/preparation/DeliveryResponsiblesSection', () => ({
 }));
 
 import { DeliveryPreparationStep } from '../delivery/DeliveryPreparationStep';
+import { DeliveryStepActionFooter } from '../delivery/DeliveryStepActionFooter';
+import { isDeliveryChecklistComplete } from '../../screens/delivery-preparation/deliveryFlowStepRules';
 
-describe('DeliveryPreparationStep — Ativação Condicional do Botão Iniciar Rota', () => {
+describe('DeliveryPreparationStep & DeliveryStepActionFooter — Checklist e Ativação do Botão Iniciar Rota', () => {
+  const checklist = [
+    { id: 'item-1', label: 'Carregado: 1x Cadeira' },
+    { id: 'item-2', label: 'Carregado: Máquina de cartão' },
+    { id: 'item-3', label: 'Ligar antes de sair' },
+  ];
+
   const defaultProps = {
     customer: { fullName: 'João da Silva' },
     fullAddress: 'Rua das Flores, 123',
-    checklist: [
-      { id: 'item-1', label: 'Carregado: 1x Cadeira' },
-      { id: 'item-2', label: 'Carregado: Máquina de cartão' },
-      { id: 'item-3', label: 'Ligar antes de sair' },
-    ],
+    checklist,
     checked: {},
     onToggleChecklist: vi.fn(),
     responsibles: [{ name: 'Carlos Motorista' }],
     onAddResponsible: vi.fn(),
     onRemoveResponsible: vi.fn(),
-    onStartDelivery: vi.fn(),
-    saving: false,
     isDarkMode: false,
   };
 
-  it('mantém o botão de deslizar DESATIVADO quando nenhum item do checklist foi checado', () => {
+  const renderStepWithFooter = (
+    checkedMap: Record<string, boolean>,
+    customChecklist = checklist,
+    saving = false
+  ) => {
     capturedSlideProps = null;
-    const element = React.createElement(DeliveryPreparationStep, {
-      ...defaultProps,
-      checked: {},
-    });
+    const isChecklistComplete = isDeliveryChecklistComplete(customChecklist, checkedMap);
+    return renderToStaticMarkup(
+      React.createElement(
+        React.Fragment,
+        null,
+        React.createElement(DeliveryPreparationStep, {
+          ...defaultProps,
+          checklist: customChecklist,
+          checked: checkedMap,
+          saving,
+        }),
+        React.createElement(DeliveryStepActionFooter, {
+          currentStep: 1,
+          isDarkMode: false,
+          loading: saving,
+          isChecklistComplete,
+          paymentsConfirmed: false,
+          onStartDelivery: vi.fn(),
+          onArriveAtDestination: vi.fn(),
+          onStepBackToPreparation: vi.fn(),
+          onStartService: vi.fn(),
+          onStepBackToRoute: vi.fn(),
+          onFinishDelivery: vi.fn(),
+          onStepBackToArrival: vi.fn(),
+        })
+      )
+    );
+  };
 
-    renderToStaticMarkup(element);
+  it('mantém o botão de deslizar DESATIVADO quando nenhum item do checklist foi checado', () => {
+    const html = renderStepWithFooter({});
 
+    expect(html).toContain('Carregado: 1x Cadeira');
     expect(capturedSlideProps).not.toBeNull();
     expect(capturedSlideProps.disabled).toBe(true);
   });
 
   it('mantém o botão DESATIVADO quando apenas parte do checklist foi checada', () => {
-    capturedSlideProps = null;
-    const element = React.createElement(DeliveryPreparationStep, {
-      ...defaultProps,
-      checked: {
-        'item-1': true,
-        'item-2': true,
-      },
+    renderStepWithFooter({
+      'item-1': true,
+      'item-2': true,
     });
-
-    renderToStaticMarkup(element);
 
     expect(capturedSlideProps).not.toBeNull();
     expect(capturedSlideProps.disabled).toBe(true);
   });
 
   it('ATIVA o botão de deslizar quando TODOS os itens do checklist estão checados', () => {
-    capturedSlideProps = null;
-    const element = React.createElement(DeliveryPreparationStep, {
-      ...defaultProps,
-      checked: {
-        'item-1': true,
-        'item-2': true,
-        'item-3': true,
-      },
+    renderStepWithFooter({
+      'item-1': true,
+      'item-2': true,
+      'item-3': true,
     });
-
-    renderToStaticMarkup(element);
 
     expect(capturedSlideProps).not.toBeNull();
     expect(capturedSlideProps.disabled).toBe(false);
   });
 
   it('mantém o botão DESATIVADO se saving = true, mesmo com checklist todo checado', () => {
-    capturedSlideProps = null;
-    const element = React.createElement(DeliveryPreparationStep, {
-      ...defaultProps,
-      saving: true,
-      checked: {
+    renderStepWithFooter(
+      {
         'item-1': true,
         'item-2': true,
         'item-3': true,
       },
-    });
-
-    renderToStaticMarkup(element);
+      checklist,
+      true
+    );
 
     expect(capturedSlideProps).not.toBeNull();
     expect(capturedSlideProps.disabled).toBe(true);
   });
 
   it('ativa o botão se o checklist for vazio e saving for false', () => {
-    capturedSlideProps = null;
-    const element = React.createElement(DeliveryPreparationStep, {
-      ...defaultProps,
-      checklist: [],
-      checked: {},
-    });
-
-    renderToStaticMarkup(element);
+    renderStepWithFooter({}, [], false);
 
     expect(capturedSlideProps).not.toBeNull();
     expect(capturedSlideProps.disabled).toBe(false);

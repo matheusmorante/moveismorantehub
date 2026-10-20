@@ -34,6 +34,8 @@ const mocks = vi.hoisted(() => ({
   sign: vi.fn(),
   assertSignedXmlMatchesSnapshot: vi.fn(),
 }));
+const consultationAuthorization = (key: string, environment: number) =>
+  `<retConsSitNFe xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>${environment}</tpAmb><chNFe>${key}</chNFe><cStat>100</cStat><protNFe><infProt><tpAmb>${environment}</tpAmb><chNFe>${key}</chNFe><cStat>100</cStat><xMotivo>Autorizado</xMotivo><nProt>141260000000001</nProt><dhRecbto>2026-10-07T12:00:00-03:00</dhRecbto></infProt></protNFe></retConsSitNFe>`;
 vi.mock('../../../../../../api/nfe/sefazClient', () => ({ sendSoapToSefaz: mocks.send }));
 vi.mock('../../../../../../api/nfe/schemaValidator', () => ({
   validateNfeAgainstOfficialSchema: mocks.schema,
@@ -227,13 +229,36 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     mocks.send.mockRejectedValueOnce(new Error('timeout'));
     await emit(d);
     const a = d.attempts[0];
-    mocks.send.mockResolvedValueOnce(authorization(a.access_key, 1));
+    mocks.send.mockResolvedValueOnce(consultationAuthorization(a.access_key, 1));
     const r = await reconcileNormalSale(d.db, a.document_id);
     expect(r.body).toMatchObject({ success: true, state: 'authorized', nfeNumber: 102 });
     expect(d.documents[0].status).toBe('autorizada');
     expect(d.attempts).toHaveLength(1);
     expect(d.rpc.mock.calls.at(-2)?.[1].p_items).toHaveLength(1);
   });
+  it.each(['invalid_protocol', 'missing_date', 'wrong_outer_key', 'wrong_namespace', 'duplicate_protocol', 'wrong_outer_environment'])(
+    'never persists an authorized reconciliation from %s', async (variant) => {
+      const d = database();
+      mocks.send.mockRejectedValueOnce(new Error('timeout'));
+      await emit(d);
+      const a = d.attempts[0];
+      let response = consultationAuthorization(a.access_key, 1);
+      if (variant === 'invalid_protocol') response = response.replace('141260000000001', 'INVALID_CONTROLLED_PROTOCOL');
+      if (variant === 'missing_date') response = response.replace(/<dhRecbto>.*?<\/dhRecbto>/, '');
+      if (variant === 'wrong_outer_key') response = response.replace(`<chNFe>${a.access_key}</chNFe>`, `<chNFe>${a.access_key.slice(0, -1)}0</chNFe>`);
+      if (variant === 'wrong_namespace') response = response.replace('http://www.portalfiscal.inf.br/nfe', 'urn:invalid');
+      if (variant === 'duplicate_protocol') response = response.replace('</infProt>', '<nProt>141260000000002</nProt></infProt>');
+      if (variant === 'wrong_outer_environment') response = response.replace('<tpAmb>1</tpAmb>', '<tpAmb>2</tpAmb>');
+      const before = d.rpc.mock.calls.length;
+      mocks.send.mockResolvedValueOnce(response);
+      const result = await reconcileNormalSale(d.db, a.document_id);
+      expect(result.body).toMatchObject({ success: false, pending: true, state: 'unknown' });
+      expect(d.rpc.mock.calls.slice(before).some(([name, args]) => name === 'persist_nfe_outbound_result' && args.p_state === 'authorized')).toBe(false);
+      expect(d.attempts[0].state).toBe('reconciling');
+      expect(d.documents[0].numero_protocolo).toBeNull();
+      expect(mocks.send).toHaveBeenCalledTimes(2);
+    }
+  );
   it('identical final retry returns the same attempt without SOAP or a new number', async () => {
     const d = database();
     const first = await emit(d);
@@ -348,7 +373,7 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     const d = database();
     mocks.send.mockRejectedValueOnce(new Error('timeout'));
     await emit(d);
-    mocks.send.mockResolvedValueOnce(authorization(d.attempts[0].access_key, 1));
+    mocks.send.mockResolvedValueOnce(consultationAuthorization(d.attempts[0].access_key, 1));
     const r = await reconcileNormalSale(d.db, d.documents[0].id);
     expect(r.body).toMatchObject({ success: true, state: 'authorized' });
     expect(mocks.send.mock.calls[1][0].xmlPayload).toContain('<xServ>CONSULTAR</xServ>');

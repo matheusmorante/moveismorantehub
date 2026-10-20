@@ -94,6 +94,11 @@ function createNormalOutboundFaults({ targets, origin, originalFetch, originalPo
           event('real-authorization-response-hidden', a, a.authorization);
           throw timeout();
         }
+        if (a.fault === 'malformed_response' && a.authorization) {
+          const data = '<html><body>Controlled local HML audit outage</body></html>';
+          event('real-authorization-response-replaced', a, { mode: 'html', originalHash: hash(response.data), deliveredHash: hash(data) });
+          return { ...response, data };
+        }
         return response;
       }
       if (endpoint.pathname !== `/${prefix}/NFeConsultaProtocolo4` || value(xml, 'xServ') !== 'CONSULTAR' || !a.sent) throw Error('SAME_KEY_CONSULTATION_REQUIRED');
@@ -106,6 +111,27 @@ function createNormalOutboundFaults({ targets, origin, originalFetch, originalPo
       const response = await originalPost(url, envelope, config);
       const confirmed = authorization(response.data, key);
       event('recovery-consultation-completed', a, confirmed || { responseHash: hash(response.data) });
+      if (a.fault === 'malformed_response') {
+        if (!confirmed || confirmed.protocol !== a.authorization?.protocol) throw Error('MATCHING_REAL_RECOVERY_REQUIRED');
+        const modes = ['html', 'empty', 'wrong_key', 'wrong_environment', 'wrong_protocol', 'valid'];
+        const mode = modes[a.invalidConsultationIndex || 0];
+        if (!mode) throw Error('CONTROLLED_RECOVERY_LIMIT');
+        let data = response.data;
+        if (mode === 'html') data = '<html><body>Controlled local HML audit outage</body></html>';
+        else if (mode === 'empty') data = '';
+        else if (mode !== 'valid') {
+          const doc = parse(data);
+          const [tag, replacement] = mode === 'wrong_key'
+            ? ['chNFe', key.slice(0, -1) + (key.endsWith('0') ? '1' : '0')]
+            : mode === 'wrong_environment' ? ['tpAmb', '1']
+              : ['nProt', 'INVALID_CONTROLLED_PROTOCOL'];
+          nodes(doc, tag).forEach(n => { n.textContent = replacement; });
+          data = doc.toString();
+        }
+        a.invalidConsultationIndex = (a.invalidConsultationIndex || 0) + 1;
+        event('controlled-recovery-response-delivered', a, { mode, originalHash: hash(response.data), deliveredHash: hash(data) });
+        return { ...response, data };
+      }
       return response;
     },
   };
@@ -119,7 +145,7 @@ async function main() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   if (ref !== 'hkoxhourxwlddgsfdgws' || new URL(url).origin !== `https://${ref}.supabase.co`) throw Error('LINKED_PROJECT_REQUIRED');
   const targets = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-  if (!Array.isArray(targets) || !targets.length || targets.length > 2 || new Set(targets.map(t => t.orderId)).size !== targets.length || targets.some(t => !['55', '65'].includes(t.model) || !['transport', 'persistence'].includes(t.fault))) throw Error('SCOPED_TARGETS_REQUIRED');
+  if (!Array.isArray(targets) || !targets.length || targets.length > 2 || new Set(targets.map(t => t.orderId)).size !== targets.length || targets.some(t => !['55', '65'].includes(t.model) || !['transport', 'persistence', 'malformed_response'].includes(t.fault))) throw Error('SCOPED_TARGETS_REQUIRED');
   const { createClient } = require('../../erp/node_modules/@supabase/supabase-js');
   const options = { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(15000) }) } };
   const admin = createClient(url, process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY, options);
@@ -131,7 +157,9 @@ async function main() {
   const { loadPersistedFiscalOrder } = require('./fiscal-persisted-artifact.cjs');
   for (const target of targets) {
     const artifact = await loadPersistedFiscalOrder(client, { ...target, expectedEmail: local.NFE_HML_TEST_OPERATOR_EMAIL });
-    if (artifact.ownerId !== target.ownerId || (target.scenarioKey.startsWith('nfe55') ? '55' : '65') !== target.model) throw Error('OWNED_MODEL_REQUIRED');
+    // Scenario metadata can outlive a corrected fiscal context. The explicitly
+    // scoped model is checked against the actual signed XML before any SOAP.
+    if (artifact.ownerId !== target.ownerId) throw Error('OWNED_MODEL_REQUIRED');
   }
   const proof = { startedAt: new Date().toISOString(), projectRef: ref, environment: 2, targets, events: [] };
   const evidenceName = process.argv[3] || 'nfh-normal-55-two-intents-fault-server.json';

@@ -31,6 +31,8 @@ export const DeliveryHeader: React.FC<Props> = ({
           onPress={onBack}
           style={styles.backButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
         >
           <ArrowLeft size={20} color="#2563eb" />
         </TouchableOpacity>
@@ -53,6 +55,8 @@ export const DeliveryHeader: React.FC<Props> = ({
         activeOpacity={0.6}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         style={styles.cancelTextButton}
+        accessibilityRole="button"
+        accessibilityLabel="Cancelar Entrega"
       >
         <Text style={[styles.cancelText, cancelling && { opacity: 0.5 }]}>
           {cancelling ? 'Cancelando...' : 'Cancelar Entrega'}

@@ -65,7 +65,11 @@ export const DeliveryPreparationContent: React.FC<DeliveryPreparationContentProp
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={[styles.content, { paddingBottom: 24 }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: 24 },
+        isInArrival && styles.arrivalContent,
+      ]}
     >
       {isInService ? (
         <DeliveryServiceStep
