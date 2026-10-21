@@ -96,6 +96,8 @@ describe('useProductTechnicalTab', () => {
       result.current.handleAddManualField({
         id: '6',
         name: 'Material da estrutura',
+        dataType: 'text',
+        options: [],
         isRequired: false,
       });
     });
@@ -109,6 +111,34 @@ describe('useProductTechnicalTab', () => {
 
     expect(result.current.manualFieldNames).not.toContain('Material da estrutura');
     expect(currentProduct.technicalValues?.['Material da estrutura']).toBeUndefined();
+  });
+
+  it('alterna a característica do pai entre fixa e variável sem alterar os valores legados', () => {
+    let currentProduct: Partial<Product> = {
+      technicalValues: { Cor: 'Branco' },
+      variations: [
+        {
+          id: 'v1',
+          attributes: [{ name: 'Cor', value: 'Azul' }],
+          technicalValues: { Material: 'MDF' },
+        } as any,
+      ],
+    };
+    const originalVariation = currentProduct.variations?.[0];
+    const setFormData = vi.fn((updater) => {
+      currentProduct = typeof updater === 'function' ? updater(currentProduct) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useProductTechnicalTab({ formData: currentProduct, setFormData })
+    );
+
+    act(() => result.current.handleToggleVariableField('Marca'));
+    expect(currentProduct.variableTechnicalFields).toEqual(['Cor', 'Material', 'Marca']);
+
+    act(() => result.current.handleToggleVariableField('Cor'));
+    expect(currentProduct.variableTechnicalFields).toEqual(['Material', 'Marca']);
+    expect(currentProduct.variations?.[0]).toEqual(originalVariation);
   });
 
   it('mantém características preenchidas ou selecionadas sempre visíveis mesmo alterando a pesquisa', async () => {

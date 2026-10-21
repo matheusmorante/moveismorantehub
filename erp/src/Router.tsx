@@ -14,7 +14,6 @@ import OrderPage from './pages/OrderPage';
 import Products from './pages/App/Products/Index';
 import Categories from './pages/App/Products/Categories/Index';
 import SupplierReconciliation from './pages/App/Products/Reconciliation/SupplierReconciliation';
-import ProductCompositions from './pages/App/Products/Compositions/Index';
 import Settings from './pages/App/Settings';
 import SupabaseMonitorDashboard from './pages/App/Settings/SupabaseMonitor/Index';
 import ProductTypes from './pages/App/Products/ProductTypes/Index';
@@ -404,9 +403,7 @@ function Router() {
               }
             />
             <Route path="/registrations/products" element={<Navigate to="/products" replace />} />
-            <Route element={<PermissionRoute action="viewProductCompositions" />}>
-              <Route path="/products/compositions" element={<ProductCompositions />} />
-            </Route>
+            <Route path="/products/compositions" element={<Navigate to="/products" replace />} />
             <Route element={<PermissionRoute action="viewProductReconciliation" />}>
               <Route path="/products/reconciliation" element={<SupplierReconciliation />} />
               <Route

@@ -17,6 +17,8 @@ export interface ReopeningManifest {
   negativeGatesPassed: boolean; businessWritesAuthorized: boolean; cleanupCompleted?: boolean;
   backendStarted?: boolean; backendProof?: { passed: boolean; messageCount: number; completedAt: string };
   uiStarted?: boolean; uiProof?: { passed: boolean; messageCount: number; completedAt: string };
+  uiPrewriteInspection?: { messageCount: number; noUiReceipts: boolean; completedAt: string };
+  uiResumeAfterOpenVerified?: boolean;
   cleanupProof?: { before: number; after: number; archived: number; completedAt: string };
 }
 

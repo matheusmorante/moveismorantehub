@@ -57,7 +57,6 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
         includeDeactivated: filters?.activeOnly === true ? false : true,
         includeMergedVariations: Boolean(filters?.includeMergedVariations),
         itemType: mode === 'composition' ? 'composition' : filters?.itemType,
-        excludeItemType: mode === 'standard' && !filters?.itemType ? 'composition' : undefined,
       }),
       [filters, mode]
     );

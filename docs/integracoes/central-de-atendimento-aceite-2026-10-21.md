@@ -1,8 +1,12 @@
 # Inbox — conferência de aceite em 21/10/2026
 
+## Continuidade técnica mais recente
+
+Correção local da disputa entre atualização automática e paginação: quatro regressões falharam antes e passaram depois; **215/215** na seleção consolidada e Playwright somente leitura **1/1**, com resposta remota retida por 8,5s e término do loading comprovado. [Registro e limites](central-de-atendimento-atualizacao-concorrente-2026-10-21.md). O novo hook ainda não está na produção conferida abaixo. A regra de manutenção de pastas de outros autores está em decisão ATD-006-R1; visibilidade compartilhada continua vigente.
+
 ## Estado e alcance
 
-O plano original é concluir a Inbox, com envio bloqueado, sem dashboard, campanhas ou automações. A versão publicada é `dpl_7hG2EdsC9jBdS3tpexoJySN8NwaC`; a restrição final do contrato legado foi aplicada como `20261021162004`. O lote posterior ATD-009-R1 tem decisão explícita de reabrir Fechados e Adiados, mas sua função/massa/publicação continuam pendentes.
+O plano original é concluir a Inbox, com envio bloqueado, sem dashboard, campanhas ou automações. A conferência atual encontrou produção Git `dpl_Hm6cgBdncczxjNk91AvFSqbNacYB`, commit `0385fa1343887892117996e3d57fd027956bcadb`, já contendo o novo processador e o feedback de permissões; nove blobs coincidem com a origem e sete verificações HTTP passaram. O antigo `dpl_7hG2EdsC9jBdS3tpexoJySN8NwaC` é checkpoint histórico. A restrição final do contrato legado foi aplicada como `20261021162004`. ATD-009-R1 tem RPCs instaladas (`20261021190324`/`20261021190331`), quatro casos remotos e Playwright aprovados; cinco conversas próprias foram arquivadas, preservando 38 registros de um teto de 68. [Execução atual](central-de-atendimento-reabertura-execucao-2026-10-21.md). Este agente não publicou nem promoveu deployment nesta operação limitada.
 
 Esta conferência distingue implementação, prova de execução e limitações. **Não comprova conclusão global.** A publicação original e a execução anterior de fixtures permanecem os checkpoints de ponta a ponta. Alterações locais posteriores não são atribuídas ao deploy existente.
 
@@ -21,23 +25,23 @@ Esta conferência distingue implementação, prova de execução e limitações.
 | Critérios combinados e busca salva | Formulário usa schema de domínio; serviço salva critérios; SQL resolve “mine” por `auth.uid()` de quem consulta, combina filtros e aplica o escopo da pasta antes da paginação | Prova do conjunto comercial permanece delimitada acima |
 | Mensagens anteriores ao topo | Cursor de 80 mensagens e desempate estável, sem perder histórico após refresh/erro; prova UI anterior 80+1 | Sem nova execução gravável nesta conferência |
 | Snippet copia texto com feedback | `QuickSnippetsModal.tsx` usa clipboard e feedback; prova UI anterior confirmou cópia sem nota | Não envia mensagem |
-| Timeline somente persistida e sem duplicatas | `ActivityTimelineDrawer.tsx` usa IDs de notas/eventos persistidos; atribuição/status por RPC transacional; prova UI própria anterior | Reabertura automática nova ainda não foi validada no PostgreSQL |
+| Timeline somente persistida e sem duplicatas | `ActivityTimelineDrawer.tsx` usa IDs de notas/eventos persistidos; atribuição/status por RPC transacional; prova UI própria anterior e nova reabertura comprovada no PostgreSQL/Playwright | O processador foi encontrado no commit Git publicado; webhook legítimo da Meta ainda não exercitado |
 | Comentários, tags e pastas com RHF + zodResolver | `ChatComposer.tsx`, `CustomerNotesTab.tsx`, modal de pasta e exclusão executam o resolver antes dos serviços; erros aparecem na interface; RTL cobre recusas | Regra conferida para os formulários da Central; não é certificação de todos os formulários do ERP/app/catálogo |
 | Remover anon e exigir acesso à Central | Seis negativas anônimas reais na seleção atual; catálogo pós-contração sem SELECT/INSERT/UPDATE/DELETE nas quatro tabelas, inclusive por coluna; RPCs verificam permissão | Não equivale a prova comportamental com uma identidade autenticada sem acesso |
-| Exigir permissão comercial adicional | Sete funções de contexto comercial/filtro relidas no catálogo; resumos, contagem, pedidos, busca e vínculo exigem as duas permissões | Falta conta autenticada sem permissão comercial. Feedback local agora diferencia essas recusas conhecidas; ainda não publicado |
+| Exigir permissão comercial adicional | Sete funções de contexto comercial/filtro relidas no catálogo; resumos, contagem, pedidos, busca e vínculo exigem as duas permissões; feedback diferenciado presente no commit Git publicado | Falta prova comportamental com conta autenticada sem permissão comercial |
 | Webhook recusa assinatura inválida/ausente | HMAC sobre bytes originais no processador compartilhado; Vitest e verificações HTTP pós-contração aprovados; ausência de segredo em produção gera 503 nas provas locais | Presença do segredo na produção não comprova que seu valor corresponde ao aplicativo Meta |
 | Preservar recebimento e mídia | API publicada carrega o processador canônico empacotado; proxy autentica usuário, permissão e vínculo da mídia antes da Meta; suíte cobre recusas e contrato | Download real de mídia própria e webhook legítimo do aplicativo não foram exercitados neste lote |
 | Nenhum despacho da Central | Guard frontend sempre nega; rotas standalone/consolidada retornam 403; sete verificações HTTP da versão publicada passaram | Não extrapolar para outros módulos do ERP que enviam WhatsApp |
 | Substituir contador de 1.000 por política | Modal de política sem contador; documentação explica divergência com a fonte Meta e decisão empresarial de manter o bloqueio | Nenhuma configuração de franquia libera envio |
 | Ocultar atalhos sem função | Navegação da Central mantém Inbox, filtro de contatos, política e controles existentes; sem atalhos de dashboard/campanha/automação | Isso não remove o dashboard global do ERP |
-| Vitest/RTL e Playwright reais | Seleção atual: 210/210, incluindo seis negativas remotas; provas anteriores: quatro Vitest próprios, Playwright gravável e limpeza próprios aprovados | Não somar todas as provas como se fossem uma execução do mesmo candidato ou novas provas PostgreSQL |
+| Vitest/RTL e Playwright reais | Seleção atual: 211/211, incluindo seis negativas remotas; novo lote com quatro casos remotos, Playwright e limpeza próprios aprovados; snapshot isolado 211/211 e build completo aprovado | Não somar todas as provas como se fossem uma única execução; o snapshot usa baseline anterior e não deve substituir a produção Git atual |
 | Banco operacional e ownership | Todos os metadados/migrations no projeto existente `hkoxhourxwlddgsfdgws`, public; execução anterior encerrada e preservada | Nenhum Supabase/PG/Docker local, novo schema, CLI Supabase ou fixture operacional usado |
 
 ## Catálogo e origem conferidos nesta rodada
 
 O catálogo completo desta revisão está em `scratch/central-support-permission-audit-catalog-2026-10-21.json`, sem linhas de pessoas/conversas ou segredos. Contém as quatro políticas de pastas, índices/constraints e dez funções com MD5, assinatura de retorno e grants. O diretório de atendentes expõe três campos; as dez funções consultadas não permitem execução anônima.
 
-Antes do ajuste local de feedback, sete arquivos de leitores/formulários/navegação foram comparados byte a byte com o candidato isolado publicado e coincidiram: `scratch/central-support-reader-published-fingerprints-2026-10-21.json`. Depois da correção, o serviço de conversas na origem difere da revisão publicada somente pelo tratamento das duas recusas de permissão conhecidas; a produção não recebeu esse ajuste.
+Antes do ajuste de feedback, sete arquivos de leitores/formulários/navegação foram comparados byte a byte com o candidato isolado então publicado e coincidiram: `scratch/central-support-reader-published-fingerprints-2026-10-21.json`. A conferência posterior encontrou o ajuste no commit Git publicado `0385fa1343887892117996e3d57fd027956bcadb`; o blob do serviço coincide com a origem.
 
 ## Ajuste de feedback derivado da revisão
 
@@ -47,4 +51,4 @@ Arquivos: `erp/src/pages/utils/customerSupport/customerSupportService.ts` e `erp
 
 ## Próximo gate concreto
 
-A [proposta limitada de reabertura](central-de-atendimento-reabertura-fixtures-proposta-2026-10-21.md) aguarda resposta do proprietário: aplicar os dois SQLs revisados e executar até cinco conversas/68 registros totais, com reserva de limpeza incluída. O envelope continua `approved=false`. A decisão de produto autoriza implementar a regra; não autoriza inferir nova massa ou publicação. A pesquisa/questionário comparativo mais amplo também permanece parcial.
+A [operação limitada de reabertura](central-de-atendimento-reabertura-execucao-2026-10-21.md) foi autorizada e concluída, inclusive limpeza. A produção Git encontrada já contém as mudanças de runtime; não é necessário publicar o snapshot anterior. A consulta de nomes/metadados das variáveis Vercel Development, sem descriptografar valores, encontrou somente o par de credenciais do operador atual. Prova com segunda identidade exigirá conta/perfil autorizado; este lote não cria usuários nem amplia permissões. Visibilidade de pasta entre identidades e vínculos comerciais próprios exigem uma nova operação concreta autorizada; a atual excluiu pastas/clientes/pedidos novos e está encerrada. Webhook legítimo/mídia própria da Meta e o questionário comparativo mais amplo continuam com as limitações explicitadas nesta conferência.

@@ -1,4 +1,4 @@
-import { Product } from '@/types/product.type';
+import type Product from '@/pages/types/product.type';
 import { syncVariationsWithParent } from '@/pages/App/Products/domain/variationParentSync';
 
 /**

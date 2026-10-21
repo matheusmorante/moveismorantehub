@@ -32,8 +32,9 @@ export async function backfillLegacyOrderItemSnapshots(params: {
     await updateOrder(
       order.id,
       { items: order.items || [] },
-      order,
-      updatedAt
+      undefined,
+      updatedAt,
+      { metadataOnly: true }
     );
     persistedOrderIds.add(orderId);
     return;
@@ -56,7 +57,13 @@ export async function backfillLegacyOrderItemSnapshots(params: {
   });
 
   if (changed) {
-    await updateOrder(order.id, { items: backfilledItems }, order, updatedAt);
+    await updateOrder(
+      order.id,
+      { items: backfilledItems },
+      undefined,
+      updatedAt,
+      { metadataOnly: true }
+    );
   }
   persistedOrderIds.add(orderId);
 }

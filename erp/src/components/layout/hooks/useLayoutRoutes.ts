@@ -23,8 +23,7 @@ export function useLayoutRoutes(): LayoutRoutesState {
 
   const isCustomerSupport = location.pathname.startsWith('/atendimento');
 
-  const isProductsPage =
-    location.pathname === '/products' || location.pathname === '/products/compositions';
+  const isProductsPage = location.pathname === '/products';
 
   let mainContentClassName = 'p-3 sm:p-4 md:p-6 lg:p-6 xl:p-8';
   if (isTemplateEditor || isCustomerSupport) {

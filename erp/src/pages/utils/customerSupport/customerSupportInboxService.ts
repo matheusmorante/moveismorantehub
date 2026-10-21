@@ -90,7 +90,7 @@ export async function deleteCustomerSupportFolder(
     return {
       success: false,
       error: error?.code === '42501'
-        ? 'Você não pode excluir uma pasta criada por outra pessoa.'
+        ? 'Você não tem permissão para excluir esta pasta.'
         : 'Não foi possível excluir a pasta. Tente novamente.',
     };
   }

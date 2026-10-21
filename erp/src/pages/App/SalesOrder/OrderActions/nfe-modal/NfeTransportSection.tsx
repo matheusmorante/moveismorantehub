@@ -86,7 +86,7 @@ export const NfeTransportSection: React.FC<NfeTransportSectionProps> = ({
           description:
             'A retirada e o transporte da mercadoria são realizados pelo próprio cliente (destinatário). Não há contratação de transportadora terceirizada.',
           sefazRule:
-            'Modalidade 4 — Transporte próprio por conta do destinatário. Exigido pela SEFAZ para retiradas presenciais formalizadas por NF-e modelo 55.',
+            'Modalidade 4 — Transporte próprio por conta do destinatário. Use quando a NF-e 55 indicar explicitamente que o destinatário realiza o transporte.',
         };
       case '9':
         return {
@@ -95,7 +95,7 @@ export const NfeTransportSection: React.FC<NfeTransportSectionProps> = ({
           description:
             'Operação presencial no balcão sem circulação de transporte rodoviário ou entrega associada à nota fiscal.',
           sefazRule:
-            'Modalidade 9 — Sem ocorrência de transporte. Exigida pela SEFAZ para NFC-e modelo 65 presencial (Rejeição 753).',
+            'Modalidade 9 — Sem ocorrência de transporte. No emissor, aplica-se à NF-e 55 e à NFC-e 65 quando o controle “Informar entrega?” está desligado.',
         };
       default:
         return {
@@ -172,7 +172,7 @@ export const NfeTransportSection: React.FC<NfeTransportSectionProps> = ({
         <div role="status" className="flex items-start gap-3 border-t border-slate-100 p-4 dark:border-slate-800">
           <div>
             <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-              {fiscalModel === '65' ? 'Sem ocorrência de transporte' : 'Retirada pelo cliente'}
+              {resolved.modFrete === '9' ? 'Sem ocorrência de transporte' : 'Retirada pelo cliente'}
             </p>
             <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
               Modalidade fiscal: {resolved.modFreteDescription}

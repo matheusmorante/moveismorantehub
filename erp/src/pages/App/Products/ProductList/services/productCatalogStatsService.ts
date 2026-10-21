@@ -64,8 +64,6 @@ export const loadProductCatalogStats = async (
 
       if (options?.mode === 'composition' && typeof query.eq === 'function') {
         query = query.eq('item_type', 'composition');
-      } else if (options?.mode === 'standard' && typeof query.filter === 'function') {
-        query = query.filter('item_type', 'isdistinct', 'composition');
       }
 
       if (options?.showTestProducts === false && typeof query.or === 'function') {

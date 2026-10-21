@@ -27,15 +27,28 @@ vi.mock('../components', () => ({
   InboxSidebar: (props: { onDeleteFolder: (folder: unknown) => void }) => <button onClick={() => props.onDeleteFolder(mocks.folder)}>Excluir pasta de teste</button>,
 }));
 beforeEach(() => {
+  mocks.userId = '00000000-0000-4000-8000-000000000002';
+  mocks.folder.id = '00000000-0000-4000-8000-000000000001';
   mocks.folder.createdBy = mocks.userId;
   mocks.removeFolder.mockResolvedValue(null);
   vi.spyOn(window, 'confirm').mockReturnValue(true);
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); });
 
-describe('Exclusão de pasta pelo resolver do proprietário', () => {
-  it('rejeita outro autor antes de confirmar ou gravar', async () => {
+describe('Exclusão de pasta compartilhada pelo resolver do atendente', () => {
+  it('permite excluir pasta de outro autor sem alterar a autoria', async () => {
     mocks.folder.createdBy = '00000000-0000-4000-8000-000000000003';
+    render(<CustomerSupport />);
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir pasta de teste' }));
+    await waitFor(() => expect(mocks.removeFolder).toHaveBeenCalledWith(mocks.folder.id));
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(mocks.folder.createdBy).toBe('00000000-0000-4000-8000-000000000003');
+    expect(mocks.error).not.toHaveBeenCalled();
+  });
+
+  it.each(['folder', 'session'])('bloqueia contexto %s inválido antes da confirmação e serviço', async (invalid) => {
+    if (invalid === 'folder') mocks.folder.id = '';
+    else mocks.userId = '';
     render(<CustomerSupport />);
     fireEvent.click(screen.getByRole('button', { name: 'Excluir pasta de teste' }));
     await waitFor(() => expect(mocks.error).toHaveBeenCalled());

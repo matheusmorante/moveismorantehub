@@ -5,7 +5,7 @@ import { expectedRunId, expectedOwnerId, projectRef, scenarioKey, makeClient, re
   saveManifest, signInOperator, type ReopeningManifest } from './context';
 
 const phase = process.env.SUPPORT_REOPENING_PHASE;
-if (!['provision', 'backend', 'cleanup'].includes(phase || '')) throw new Error('Selecione uma etapa concreta do lote; não existe execução automática geral.');
+if (!['provision', 'backend', 'inspect', 'cleanup'].includes(phase || '')) throw new Error('Selecione uma etapa concreta do lote; não existe execução automática geral.');
 let client: SupabaseClient;
 let anonymous: SupabaseClient;
 let request: ReturnType<typeof readRequest>;
@@ -161,6 +161,35 @@ describe.skipIf(phase !== 'backend').sequential('Recebimento transacional na pr�
     const after = await snapshot(); expect(after.conversations).toHaveLength(5);
     manifest!.conversationIds = after.remote.conversationIds;
     manifest!.backendProof = { passed: true, messageCount: after.messages.length, completedAt: new Date().toISOString() };
+    saveManifest(manifest!);
+  });
+});
+
+describe.skipIf(phase !== 'inspect').sequential('Inspeção após falha de seletor da UI', () => {
+  it('confirma exatamente o ponto observado antes de liberar a continuação manual do teste corrigido', async () => {
+    expect(manifest!.backendProof?.passed).toBe(true);
+    expect(manifest!.uiStarted).toBe(true);
+    expect(manifest!.uiProof).toBeUndefined();
+    const current = await snapshot();
+    expect(current.messages.some(row => row.api_message_id?.startsWith(`test-reopen:${expectedRunId}:ui-`))).toBe(false);
+    const principal = current.conversations.find(row => row.id === manifest!.initialIds[0])!;
+    if (process.env.SUPPORT_REOPENING_INSPECTION === 'after-open') {
+      expect(current.messages.length).toBe(manifest!.backendProof!.messageCount + 1);
+      expect(principal.is_archived).toBe(false);
+      expect(principal.tags).not.toContain('status:closed');
+      const reopen = current.messages.filter(row => row.conversation_id === principal.id
+        && row.message_type === 'system_event' && row.raw_payload?.event === 'status'
+        && row.raw_payload?.status === 'open' && row.raw_payload?.author_id === expectedOwnerId);
+      expect(reopen).toHaveLength(1);
+      manifest!.uiResumeAfterOpenVerified = true;
+    } else {
+      expect(process.env.SUPPORT_REOPENING_INSPECTION).toBeUndefined();
+      expect(current.messages.length).toBe(manifest!.backendProof!.messageCount);
+      expect(principal.is_archived).toBe(true);
+      expect(principal.tags).toContain('status:closed');
+    }
+    manifest!.uiPrewriteInspection = { messageCount: current.messages.length, noUiReceipts: true, completedAt: new Date().toISOString() };
+    manifest!.uiStarted = false;
     saveManifest(manifest!);
   });
 });

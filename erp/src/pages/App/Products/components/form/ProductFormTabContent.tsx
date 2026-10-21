@@ -1,5 +1,5 @@
 import React from 'react';
-import type Product from '../../../types/product.type';
+import type Product from '../../../../types/product.type';
 import ProductFiscalTab from '../tabs/fiscal/ProductFiscalTab';
 import ProductDescriptionTab from '../tabs/ProductDescriptionTab';
 import ProductEcommerceTab from '../tabs/ProductEcommerceTab';
@@ -7,6 +7,8 @@ import ProductGeneralTab from '../tabs/ProductGeneralTab';
 import ProductInventoryTab from '../tabs/ProductInventoryTab';
 import ProductVariationsTab from '../tabs/ProductVariationsTab';
 import ProductTechnicalTab from '../tabs/technical/ProductTechnicalTab';
+
+type EcommerceSubTab = 'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo';
 
 interface ProductFormTabContentProps {
   readonly activeTab: string;
@@ -26,8 +28,8 @@ interface ProductFormTabContentProps {
   readonly jev: any;
   readonly variations: any;
   readonly images: any;
-  readonly activeEcommerceSubTab: string;
-  readonly setActiveEcommerceSubTab: (tab: any) => void;
+  readonly activeEcommerceSubTab: EcommerceSubTab;
+  readonly setActiveEcommerceSubTab: React.Dispatch<React.SetStateAction<EcommerceSubTab>>;
   readonly onOpenCategorySearch: () => void;
   readonly scheduleDraftAutoSave: () => void;
   readonly deletingVariationId: string | null;
@@ -70,6 +72,7 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
           isStockistOnly={isStockistOnly}
           formData={formData}
           setFormData={setFormData}
+          onSetHasVariations={variations.setProductMode}
           availableCategories={availableCategories}
           validationErrors={validationErrors}
           setValidationErrors={setValidationErrors}
@@ -149,7 +152,6 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
       {!isService && activeTab === 'variacoes' && (
         <ProductVariationsTab
           formData={formData}
-          setFormData={setFormData}
           editingVariationComboId={variations.editingVariationComboId}
           setEditingVariationComboId={variations.setEditingVariationComboId}
           editingVariationId={variations.editingVariationId}
@@ -162,7 +164,6 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
           isRegisteredProduct={isRegisteredProduct}
           isExistingProduct={isExistingProduct}
           isConventionalProduct={formData.productKind === 'normal'}
-          onSetHasVariations={variations.setProductMode}
         />
       )}
 

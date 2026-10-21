@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Product } from '@/types/product.type';
+import type Product from '@/pages/types/product.type';
 import { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { extractSofaDescriptionCharacteristics } from '../sofaDescriptionCharacteristics';
 import { applyTechnicalValueChangeToProduct } from '../technicalSyncUtils';

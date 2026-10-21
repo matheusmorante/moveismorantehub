@@ -1,5 +1,5 @@
 import React from 'react';
-import { Product } from '@/types/product.type';
+import type Product from '@/pages/types/product.type';
 import {
   TechnicalFieldDefinition,
   CharacteristicTopicGroupDefinition,

@@ -7,6 +7,7 @@ import {
   DEFAULT_SUPPORT_FOLDER_CRITERIA,
   fetchCustomerSupportFolders,
   saveCustomerSupportFolder,
+  deleteCustomerSupportFolder,
 } from '@/pages/utils/customerSupport/customerSupportInboxService';
 import { verifyMetaSignature } from '@/pages/utils/customerSupport/whatsappWebhookProcessor';
 import { AddCustomInboxModal } from '../components/inbox/AddCustomInboxModal';
@@ -150,11 +151,38 @@ describe('Inbox da Central de Atendimento', () => {
     );
     expect(screen.getByText('Minha pasta')).toBeTruthy();
     expect(screen.getByText('Pasta da Ana')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar pasta Pasta da Ana' }));
+    expect(props.onEditFolder).toHaveBeenCalledWith(folders[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir pasta Pasta da Ana' }));
+    expect(props.onDeleteFolder).toHaveBeenCalledWith(folders[1]);
     fireEvent.click(screen.getByRole('button', { name: 'Por mim' }));
     expect(onTabChange).toHaveBeenCalledWith('by_me');
     rerender(<InboxSectionCustom {...props} customInboxTab="by_me" />);
     expect(screen.getByText('Minha pasta')).toBeTruthy();
     expect(screen.queryByText('Pasta da Ana')).toBeNull();
+    rerender(<InboxSectionCustom {...props} customInboxTab="by_others" />);
+    expect(screen.queryByText('Minha pasta')).toBeNull();
+    expect(screen.getByText('Pasta da Ana')).toBeTruthy();
+  });
+
+  it('edita critérios de pasta compartilhada sem enviar novo autor ou identidade', async () => {
+    const update = vi.fn();
+    const row = { id: 'other-folder', name: 'Retornos', criteria: DEFAULT_SUPPORT_FOLDER_CRITERIA,
+      created_by: 'original-author', created_at: '2026-10-20T10:00:00Z', updated_at: '2026-10-21T10:00:00Z' };
+    const chain = { eq: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: row, error: null }) };
+    update.mockReturnValue(chain);
+    const client = { from: vi.fn(() => ({ update })) } as any;
+    const result = await saveCustomerSupportFolder(client, { id: row.id, name: row.name, criteria: row.criteria, userId: 'editor' });
+    expect(result.folder?.createdBy).toBe('original-author');
+    expect(Object.keys(update.mock.calls[0][0]).sort()).toEqual(['criteria', 'name', 'updated_at']);
+    expect(chain.eq).toHaveBeenCalledWith('id', row.id);
+  });
+
+  it('explica recusa de permissão sem atribuí-la à autoria da pasta', async () => {
+    const chain = { eq: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: { code: '42501' } }) };
+    const client = { from: vi.fn(() => ({ delete: () => chain })) } as any;
+    expect((await deleteCustomerSupportFolder(client, 'other-folder')).error).toBe('Você não tem permissão para excluir esta pasta.');
   });
 
   it('valida a criação de pasta com zodResolver antes de persistir', async () => {

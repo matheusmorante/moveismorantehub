@@ -200,7 +200,12 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
 
   // 3. 55 + retirada própria do cliente → ON / 4
   it('3. 55 + retirada própria do cliente: modFrete = 4, hasTransport = true e sem grupo transporta', async () => {
-    const res = resolveTransport({ fiscalModel: '55', deliveryMethod: 'pickup' });
+    const res = resolveTransport({
+      fiscalModel: '55',
+      deliveryMethod: 'pickup',
+      hasTransport: true,
+      transportResponsible: 'CUSTOMER',
+    });
     expect(res.hasTransport).toBe(true);
     expect(res.modFrete).toBe('4');
     expect(res.transportResponsible).toBe('CUSTOMER');
@@ -414,19 +419,23 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
     expect(res65.hasTransport).toBe(false);
     expect(res65.modFrete).toBe('9');
 
-    // Para 55: de entrega (3 / ON / OWN_COMPANY) -> retirada (4 / ON / CUSTOMER)
+    // Para 55, o controle desligado usa sem ocorrência de transporte (9 / OFF / NONE).
     const def55Pickup = resolveDefaultTransport('55', 'pickup');
-    expect(def55Pickup).toEqual({ hasTransport: true, transportResponsible: 'CUSTOMER' });
-    const res55 = resolveTransport({ fiscalModel: '55', deliveryMethod: 'pickup' });
-    expect(res55.hasTransport).toBe(true);
-    expect(res55.modFrete).toBe('4');
+    expect(def55Pickup).toEqual({ hasTransport: false, transportResponsible: 'NONE' });
+    const res55 = resolveTransport({ fiscalModel: '55', deliveryMethod: 'pickup', ...def55Pickup });
+    expect(res55.hasTransport).toBe(false);
+    expect(res55.modFrete).toBe('9');
   });
 
   // 10. Mudança 55 → 65 recalcula transporte
-  it('10. Mudança 55 -> 65: retirada muda de 4 (ON) para 9 (OFF)', () => {
-    const t55 = resolveTransport({ fiscalModel: '55', deliveryMethod: 'pickup' });
-    expect(t55.hasTransport).toBe(true);
-    expect(t55.modFrete).toBe('4');
+  it('10. Mudança 55 -> 65 mantém sem transporte 9 nos dois modelos', () => {
+    const t55 = resolveTransport({
+      fiscalModel: '55',
+      deliveryMethod: 'pickup',
+      ...resolveDefaultTransport('55', 'pickup'),
+    });
+    expect(t55.hasTransport).toBe(false);
+    expect(t55.modFrete).toBe('9');
 
     const t65 = resolveTransport({ fiscalModel: '65', deliveryMethod: 'pickup' });
     expect(t65.hasTransport).toBe(false);
@@ -434,14 +443,18 @@ describe('Regras Centrais de Transporte e Transportador (NF-e 55 e NFC-e 65)', (
   });
 
   // 11. Mudança 65 → 55 recalcula transporte
-  it('11. Mudança 65 -> 55: retirada muda de 9 (OFF) para 4 (ON)', () => {
+  it('11. Mudança 65 -> 55 mantém sem transporte 9 nos dois modelos', () => {
     const t65 = resolveTransport({ fiscalModel: '65', deliveryMethod: 'pickup' });
     expect(t65.hasTransport).toBe(false);
     expect(t65.modFrete).toBe('9');
 
-    const t55 = resolveTransport({ fiscalModel: '55', deliveryMethod: 'pickup' });
-    expect(t55.hasTransport).toBe(true);
-    expect(t55.modFrete).toBe('4');
+    const t55 = resolveTransport({
+      fiscalModel: '55',
+      deliveryMethod: 'pickup',
+      ...resolveDefaultTransport('55', 'pickup'),
+    });
+    expect(t55.hasTransport).toBe(false);
+    expect(t55.modFrete).toBe('9');
   });
 
   // 12. Backend rejeita combinações impossíveis

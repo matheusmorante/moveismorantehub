@@ -6,7 +6,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { FixedPageSlots } from '../../../../components/shared/FixedPageSlots';
-import { InventoryCard } from '../components/InventoryCard';
+import { InventoryCard } from '../components/inventory-card/InventoryCard';
 import { useInventory } from '../hooks/useInventory';
 import { useInventoryScreenActions } from '../hooks/useInventoryScreenActions';
 import type { InventorySession } from '../../types/stock.types';

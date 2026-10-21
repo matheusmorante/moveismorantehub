@@ -127,12 +127,7 @@ BEGIN
     END IF;
     v_identity := public.assert_test_artifact_identity(v_meta);
     IF v_business IS DISTINCT FROM 'test-artifact:' || (v_identity->>'runId')
-      OR coalesce(v_meta->>'scenarioKey', '') !~ '^[a-z][a-z0-9_-]{2,63}
-  END IF;
-  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
-  RETURN NEW;
-END;
-$function$;
+      OR coalesce(v_meta->>'scenarioKey', '') !~ '^[a-z][a-z0-9_-]{2,63}$'
       OR (NEW.raw_payload->'testArtifact' IS NOT NULL AND NEW.raw_payload->'testArtifact' IS DISTINCT FROM v_meta) THEN
       RAISE EXCEPTION 'TEST_ARTIFACT_UNAUTHORIZED: conteúdo ou vínculo da mensagem inválido' USING ERRCODE = '42501';
     END IF;

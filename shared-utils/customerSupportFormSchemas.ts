@@ -24,7 +24,7 @@ export const supportFolderDeleteSchema = z.object({
   folderId: z.string().uuid('Pasta inválida.'),
   createdBy: z.string().uuid('Autor da pasta inválido.'),
   currentUserId: z.string().uuid('Não foi possível identificar o atendente.'),
-}).refine((data) => data.createdBy === data.currentUserId, 'Somente o autor pode excluir esta pasta.');
+});
 export type SupportFolderDeleteInput = z.infer<typeof supportFolderDeleteSchema>;
 
 export const supportCustomerSearchSchema = z.object({

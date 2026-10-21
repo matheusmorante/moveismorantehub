@@ -1,5 +1,13 @@
 # Central — publicação e gates de 21/10/2026
 
+## Conferência atual — operação de reabertura concluída
+
+Autorização limitada executada: migrações **20261021190324/20261021190331**, quatro casos remotos e Playwright aprovados; cinco conversas próprias arquivadas, **38 registros preservados de 68 autorizados**. A produção encontrada é **dpl_Hm6cgBdncczxjNk91AvFSqbNacYB**, commit Git **0385fa1343887892117996e3d57fd027956bcadb**, já com o novo processador e o feedback de permissões. Nove blobs conferidos e sete verificações HTTP aprovadas. Este agente não fez deploy nesta operação. Origem e snapshot isolado: **211/211**; build isolado aprovado em **2m24s**. O snapshot usa baseline anterior e não deve ser publicado sobre a produção atual.
+
+Os checkpoints anteriores abaixo preservam o histórico. Restam provas com segunda identidade, vínculos comerciais e webhook/mídia legítimos da Meta; a metadata Vercel Development só contém o par do operador atual. Nenhuma conta nova, pasta, cliente ou pedido foi criado nesta operação.
+
+[Execução, retenção e limites](central-de-atendimento-reabertura-execucao-2026-10-21.md), [conferência de aceite](central-de-atendimento-aceite-2026-10-21.md).
+
 ## Autorização e identidade do candidato
 
 O proprietário autorizou **“Autorizar publicação desse candidato”**, condicionado à configuração Meta e ao bloqueio permanente de despacho. A metadata da Vercel confirma `WHATSAPP_APP_SECRET` como variável secreta em Production, Preview e Development. Seu valor não foi consultado. A presença não comprova que o segredo corresponde ao aplicativo Meta; essa correspondência requer um recebimento legítimo assinado.

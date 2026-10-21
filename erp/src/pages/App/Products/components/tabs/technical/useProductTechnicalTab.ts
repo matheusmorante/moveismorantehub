@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Product } from '@/types/product.type';
+import type Product from '@/pages/types/product.type';
 import { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../../services/technicalFieldService';
 import { populateInitialTechnicalValues } from './technicalSyncUtils';

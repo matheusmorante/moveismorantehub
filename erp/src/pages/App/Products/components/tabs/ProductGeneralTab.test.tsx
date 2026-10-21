@@ -35,9 +35,123 @@ describe('ProductGeneralTab product name field', () => {
     expect(screen.getByText('Nome do Produto')).toBeTruthy();
   });
 
+  it('mostra as duas opções dentro do controle na primeira aba e destaca o modo selecionado', () => {
+    const onSetHasVariations = vi.fn();
+    const { rerender } = render(
+      <ProductGeneralTab
+        onOpenCategorySearch={vi.fn()}
+        isService={false}
+        formData={{ name: 'Mesa', hasVariations: false, variations: [] }}
+        setFormData={vi.fn()}
+        availableCategories={[]}
+        onSetHasVariations={onSetHasVariations}
+      />
+    );
+
+    const modeGroup = screen.getByRole('group', { name: 'Tipo do produto' });
+    const simpleButton = screen.getByRole('button', { name: /Produto Simples/ });
+    const variationsButton = screen.getByRole('button', { name: /Produto com Variações/ });
+    expect(modeGroup.contains(simpleButton)).toBe(true);
+    expect(modeGroup.contains(variationsButton)).toBe(true);
+    expect(modeGroup.getAttribute('class')).toContain('bg-slate-200/70');
+    expect(simpleButton.getAttribute('aria-pressed')).toBe('true');
+    expect(simpleButton.getAttribute('class')).toContain('bg-white');
+    expect(simpleButton.getAttribute('class')).toContain('text-blue-600');
+    expect(variationsButton.getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.click(variationsButton);
+    expect(onSetHasVariations).toHaveBeenCalledWith(true);
+
+    rerender(
+      <ProductGeneralTab
+        onOpenCategorySearch={vi.fn()}
+        isService={false}
+        formData={{ name: 'Mesa', hasVariations: true, variations: [] }}
+        setFormData={vi.fn()}
+        availableCategories={[]}
+        onSetHasVariations={onSetHasVariations}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: /Produto Simples/ }).getAttribute('aria-pressed')).toBe('false');
+    const selectedVariationsButton = screen.getByRole('button', { name: /Produto com Variações/ });
+    expect(selectedVariationsButton.getAttribute('aria-pressed')).toBe('true');
+    expect(selectedVariationsButton.getAttribute('class')).toContain('text-emerald-600');
+  });
+
+  it('explica que o produto volta a simples automaticamente quando há mais de uma variação', () => {
+    const onSetHasVariations = vi.fn();
+    const makeVariation = (id: string) => ({
+      id,
+      name: `Mesa ${id}`,
+      sku: `SKU-${id}`,
+      stock: 1,
+      unitPrice: 100,
+      active: false,
+      attributes: [],
+      images: [],
+    });
+    render(
+      <ProductGeneralTab
+        onOpenCategorySearch={vi.fn()}
+        isService={false}
+        formData={{
+          name: 'Mesa',
+          hasVariations: true,
+          variations: [makeVariation('1'), makeVariation('2')],
+        }}
+        setFormData={vi.fn()}
+        availableCategories={[]}
+        onSetHasVariations={onSetHasVariations}
+      />
+    );
+
+    const simpleButton = screen.getByRole('button', { name: /Produto Simples/ });
+    expect(simpleButton.getAttribute('aria-pressed')).toBe('false');
+    expect(simpleButton.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(simpleButton);
+    expect(screen.getByRole('tooltip').textContent).toBe(
+      'Este produto se tornará simples automaticamente quando restar apenas 1 variação.'
+    );
+    expect(onSetHasVariations).not.toHaveBeenCalled();
+  });
+
+  it('mostra a explicação do modo simples bloqueado ao focar a chave pelo teclado', () => {
+    const makeVariation = (id: string) => ({
+      id,
+      name: `Mesa ${id}`,
+      sku: `SKU-${id}`,
+      stock: 1,
+      unitPrice: 100,
+      active: false,
+      attributes: [],
+      images: [],
+    });
+    render(
+      <ProductGeneralTab
+        onOpenCategorySearch={vi.fn()}
+        isService={false}
+        formData={{
+          name: 'Mesa',
+          hasVariations: true,
+          variations: [makeVariation('1'), makeVariation('2')],
+        }}
+        setFormData={vi.fn()}
+        availableCategories={[]}
+      />
+    );
+
+    fireEvent.focus(screen.getByRole('button', { name: /Produto Simples/ }));
+
+    expect(screen.getByRole('tooltip').textContent).toBe(
+      'Este produto se tornará simples automaticamente quando restar apenas 1 variação.'
+    );
+  });
+
   it('does not show the catalog title differentiation button or catalog title input', () => {
     renderTab();
 
+    expect(screen.queryByRole('group', { name: 'Tipo do produto' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Diferenciar Título no Catálogo' })).toBeNull();
     expect(screen.queryByText('Título no Catálogo')).toBeNull();
     expect(screen.queryByPlaceholderText('Digite o título no catálogo...')).toBeNull();

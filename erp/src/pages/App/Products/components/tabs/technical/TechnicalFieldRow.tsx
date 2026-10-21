@@ -1,4 +1,5 @@
 import React from 'react';
+import { Globe, Layers2 } from 'lucide-react';
 import type { Product } from '../../../../../types/product.type';
 import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
@@ -83,7 +84,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
           <span>
             {displayName}
             {field.unit ? ` (${field.unit})` : ''}
-            {isRequiredField && !isFieldDisabled && (
+            {isRequiredField && !isFieldDisabled && !isVariable && (
               <span className="ml-1 text-red-500" aria-hidden="true">
                 *
               </span>
@@ -98,26 +99,50 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
         </label>
         <div className="flex items-center gap-1.5">
           {onToggleVariable && (
-            <button
-              type="button"
-              role="switch"
-              aria-checked={!isVariable}
-              aria-label={`Definir ${field.name} como ${isVariable ? 'fixa' : 'variável'}`}
-              title={
-                isVariable
-                  ? 'Variável — cada variação pode ter seu próprio valor'
-                  : 'Fixo — todas as variações herdam o valor do produto pai'
-              }
-              onClick={() => onToggleVariable(field.name)}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[9px] font-black transition-colors ${
-                isVariable
-                  ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-300'
-                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300'
-              }`}
+            <div
+              role="group"
+              aria-label={`Escopo da característica ${field.name}`}
+              className="inline-flex min-w-[158px] shrink-0 rounded-xl bg-slate-200/70 p-0.5 text-[10px] font-bold dark:bg-slate-800"
             >
-              <i className={`bi ${isVariable ? 'bi-toggle-off' : 'bi-toggle-on'}`} aria-hidden="true" />
-              {isVariable ? 'Variável' : 'Fixo'}
-            </button>
+              <button
+                type="button"
+                aria-pressed={!isVariable}
+                aria-label={`Global — ${field.name}`}
+                title="Global — todas as variações herdam o valor do produto pai"
+                onClick={() => {
+                  if (isVariable) onToggleVariable(field.name);
+                }}
+                className={`flex-1 whitespace-nowrap rounded-lg px-2 py-1.5 transition-all ${
+                  !isVariable
+                    ? 'bg-white font-black text-blue-600 shadow-sm dark:bg-slate-900 dark:text-blue-400'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                }`}
+              >
+                <span className="inline-flex items-center justify-center gap-1.5">
+                  <Globe size={13} aria-hidden="true" />
+                  Global
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={isVariable}
+                aria-label={`Por variação — ${field.name}`}
+                title="Por variação — cada variação pode ter seu próprio valor"
+                onClick={() => {
+                  if (!isVariable) onToggleVariable(field.name);
+                }}
+                className={`flex-1 whitespace-nowrap rounded-lg px-2 py-1.5 transition-all ${
+                  isVariable
+                    ? 'bg-white font-black text-emerald-600 shadow-sm dark:bg-slate-900 dark:text-emerald-400'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                }`}
+              >
+                <span className="inline-flex items-center justify-center gap-1.5">
+                  <Layers2 size={13} aria-hidden="true" />
+                  Por variação
+                </span>
+              </button>
+            </div>
           )}
           {isColorField && (
             <span className="inline-flex shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
@@ -158,32 +183,34 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
         </div>
       </div>
 
-      <div className={isYesNoField ? 'shrink-0' : 'w-full'}>
-        <DisabledFieldWrapper
-          isDisabled={isFieldDisabled}
-          disabledReason={disabledReason}
-          showTooltip={showTooltip}
-          onToggleTooltip={() => setShowTooltip((prev) => !prev)}
-          onShowTooltip={() => setShowTooltip(true)}
-          onHideTooltip={() => setShowTooltip(false)}
-        >
-          <TechnicalFieldInput
-            field={field}
-            value={
-              rawValue !== undefined &&
-              rawValue !== null &&
-              rawValue !== 'Não se aplica' &&
-              rawValue !== 'N/A'
-                ? rawValue
-                : ''
-            }
-            isInvalid={isFieldInvalid}
-            disabled={isFieldDisabled}
-            compact={isYesNoField}
-            onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
-          />
-        </DisabledFieldWrapper>
-      </div>
+      {!isVariable && (
+        <div className={isYesNoField ? 'shrink-0' : 'w-full'}>
+          <DisabledFieldWrapper
+            isDisabled={isFieldDisabled}
+            disabledReason={disabledReason}
+            showTooltip={showTooltip}
+            onToggleTooltip={() => setShowTooltip((prev) => !prev)}
+            onShowTooltip={() => setShowTooltip(true)}
+            onHideTooltip={() => setShowTooltip(false)}
+          >
+            <TechnicalFieldInput
+              field={field}
+              value={
+                rawValue !== undefined &&
+                rawValue !== null &&
+                rawValue !== 'Não se aplica' &&
+                rawValue !== 'N/A'
+                  ? rawValue
+                  : ''
+              }
+              isInvalid={isFieldInvalid}
+              disabled={isFieldDisabled}
+              compact={isYesNoField}
+              onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
+            />
+          </DisabledFieldWrapper>
+        </div>
+      )}
     </div>
   );
 };

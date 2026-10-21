@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, FlatList, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useSuppliers } from '../hooks/useSuppliers';
 import { SupplierFormModal } from '../modals/supplier-form/SupplierFormModal';
-import { SupplierPurchaseHistoryModal } from '../modals/SupplierPurchaseHistoryModal';
+import { SupplierPurchaseHistoryModal } from '../modals/supplier-purchase-history/SupplierPurchaseHistoryModal';
 import { styles } from './suppliersScreen.styles';
 import { SupplierToolbar } from '../components/SupplierToolbar';
 import { SupplierCard } from '../components/SupplierCard';

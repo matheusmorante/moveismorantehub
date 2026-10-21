@@ -120,6 +120,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
             setIsActionsMenuOpen={setIsActionsMenuOpen}
             menuRef={menuRef}
             onNewProduct={() => openNewProduct(mode)}
+            onNewComposition={() => openNewProduct('composition')}
             onOpenFilters={() => setIsSidebarOpen(true)}
             onToggleActiveOnly={handleToggleActiveOnly}
             activeOnly={filters.activeOnly}

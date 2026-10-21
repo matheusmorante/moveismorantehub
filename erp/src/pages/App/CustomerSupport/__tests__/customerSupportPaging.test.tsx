@@ -30,6 +30,61 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 describe('Paginação da Inbox', () => {
+  it('uma atualização automática durante a abertura não invalida a consulta que libera o loading', async () => {
+    const initial = deferred<{ conversations: WhatsAppConversation[]; totalCount: number }>();
+    mocks.fetchConversations.mockReturnValueOnce(initial.promise);
+    const { result } = renderHook(() => useCustomerSupportConversations({}));
+    expect(result.current.isLoadingConversations).toBe(true);
+    await act(() => result.current.loadConversations(true));
+    await act(async () => { initial.resolve({ conversations: [conversation('initial')], totalCount: 1 }); });
+    expect(result.current.isLoadingConversations).toBe(false);
+    expect(result.current.conversations.map(row => row.id)).toEqual(['initial']);
+    expect(mocks.fetchConversations).toHaveBeenCalledTimes(1);
+  });
+
+  it('não sobrepõe consultas automáticas enquanto as contagens ainda estão pendentes', async () => {
+    const counts = deferred<{ all: number; mine: number; unassigned: number; unread: number }>();
+    mocks.fetchConversationCounts.mockReturnValueOnce(counts.promise);
+    const { result } = renderHook(() => useCustomerSupportConversations({}));
+    await waitFor(() => expect(result.current.conversations).toHaveLength(50));
+    await act(() => result.current.loadConversations(true));
+    await act(async () => { counts.resolve({ all: 51, mine: 0, unassigned: 0, unread: 0 }); });
+    expect(mocks.fetchConversations).toHaveBeenCalledTimes(1);
+    expect(result.current.isLoadingConversations).toBe(false);
+    expect(result.current.isRefreshingConversations).toBe(false);
+  });
+
+  it('uma resposta de atualização anterior não descarta a próxima página carregada pelo usuário', async () => {
+    const refresh = deferred<{ conversations: WhatsAppConversation[]; totalCount: number }>();
+    const { result } = renderHook(() => useCustomerSupportConversations({}));
+    await waitFor(() => expect(result.current.isLoadingConversations).toBe(false));
+    mocks.fetchConversations.mockReturnValueOnce(refresh.promise);
+    let refreshing!: Promise<void>;
+    act(() => { refreshing = result.current.loadConversations(true); });
+    mocks.fetchConversations.mockResolvedValueOnce({ conversations: [conversation('page-two')], totalCount: 51 });
+    await act(() => result.current.loadMoreConversations());
+    expect(result.current.conversations).toHaveLength(51);
+    await act(async () => { refresh.resolve({ conversations: [conversation('stale-refresh')], totalCount: 51 }); await refreshing; });
+    expect(result.current.conversations).toHaveLength(51);
+    expect(result.current.conversations.at(-1)?.id).toBe('page-two');
+    expect(result.current.hasMoreConversations).toBe(false);
+    expect(result.current.isRefreshingConversations).toBe(false);
+  });
+
+  it('uma resposta do filtro antigo não libera nova consulta sobre o filtro atual ainda pendente', async () => {
+    const old = deferred<{ conversations: WhatsAppConversation[]; totalCount: number }>();
+    const next = deferred<{ conversations: WhatsAppConversation[]; totalCount: number }>();
+    mocks.fetchConversations.mockReturnValueOnce(old.promise).mockReturnValueOnce(next.promise);
+    const { result, rerender } = renderHook(({ agentId }) => useCustomerSupportConversations({ agentId }), { initialProps: { agentId: 'old' } });
+    rerender({ agentId: 'next' });
+    await act(async () => { old.resolve({ conversations: [conversation('old')], totalCount: 1 }); });
+    await act(() => result.current.loadConversations(true));
+    await act(async () => { next.resolve({ conversations: [conversation('next')], totalCount: 1 }); });
+    expect(mocks.fetchConversations).toHaveBeenCalledTimes(2);
+    expect(result.current.conversations.map(row => row.id)).toEqual(['next']);
+    expect(result.current.isLoadingConversations).toBe(false);
+  });
+
   it('descarta a segunda página do filtro antigo ao trocar atendente', async () => {
     const stale = deferred<{ conversations: WhatsAppConversation[]; totalCount: number }>();
     const { result, rerender } = renderHook(({ agentId }) => useCustomerSupportConversations({ agentId }), { initialProps: { agentId: 'agent-a' } });

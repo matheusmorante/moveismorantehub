@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type React from 'react';
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
@@ -27,8 +27,6 @@ interface ProductVariationsTabProps {
   readonly isRegisteredProduct?: boolean;
   readonly isExistingProduct?: boolean;
   readonly isConventionalProduct?: boolean;
-  readonly onSetHasVariations?: (value: boolean) => void;
-  readonly setFormData?: React.Dispatch<React.SetStateAction<Partial<Product>>>;
   readonly onEditCombo?: (id: string) => void;
   // Aceita tanto onEdit (legado) quanto onEditVariation (ProductFormModal)
   readonly onEdit?: (id: string) => void;
@@ -60,8 +58,6 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
   isRegisteredProduct = false,
   isExistingProduct = isRegisteredProduct,
   isConventionalProduct = false,
-  onSetHasVariations,
-  setFormData,
   isCombo = false,
   onEdit,
   onEditVariation,
@@ -69,8 +65,6 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
 }) => {
   const list = variations || [];
   const [usageByVariationId, setUsageByVariationId] = useState<Record<string, boolean | undefined>>({});
-  const [showSimpleModeTooltip, setShowSimpleModeTooltip] = useState(false);
-  const simpleModeTooltipId = useId();
 
   // Resolve handlers — prioriza versão "on" (ProductFormModal) sobre legado
   const handleAdd = onAddVariation || addVariation;
@@ -103,89 +97,15 @@ const ProductVariationsTab: React.FC<ProductVariationsTabProps> = ({
     };
   }, [isRegisteredProduct, isConventionalProduct, onDeleteVariation, shouldCheckDeletionUsage, variationIds]);
 
-  const setMode = (value: boolean) => {
-    setShowSimpleModeTooltip(false);
-    if (onSetHasVariations) {
-      onSetHasVariations(value);
-    } else {
-      setFormData?.((previous) => ({ ...previous, hasVariations: value }));
-    }
-  };
-
   // Preços do pai para repassar ao VariationRow (exibição dinâmica)
   const parentPrice = formData?.unitPrice;
   const parentPromoPrice = formData?.promoPrice;
   const parentSku = formData?.code;
   const parentImage = formData?.images && formData.images.length > 0 ? formData.images[0] : null;
   const isMultiMode = Boolean(formData?.hasVariations) || list.length > 1;
-  const simpleModeBlocked = list.length > 1;
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <section aria-labelledby="product-variation-mode-heading" className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/50">
-        <div className="mb-4">
-          <h4 id="product-variation-mode-heading" className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">
-            Tipo do produto
-          </h4>
-          <p className="mt-1 text-[10px] font-bold text-slate-500">
-            Escolha se o produto terá uma variação simples ou duas ou mais variações.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="relative" onMouseLeave={() => setShowSimpleModeTooltip(false)}>
-            <button
-              type="button"
-              aria-pressed={!isMultiMode}
-              aria-disabled={simpleModeBlocked}
-              aria-describedby={showSimpleModeTooltip ? simpleModeTooltipId : undefined}
-              onFocus={() => {
-                if (simpleModeBlocked) setShowSimpleModeTooltip(true);
-              }}
-              onBlur={() => setShowSimpleModeTooltip(false)}
-              onClick={() => {
-                if (simpleModeBlocked) {
-                  setShowSimpleModeTooltip(true);
-                  return;
-                }
-                setMode(false);
-              }}
-              className={`flex min-h-16 w-full flex-col items-start rounded-2xl border px-4 py-3 text-left transition-colors ${
-                !isMultiMode
-                  ? 'border-blue-600 bg-blue-50 text-blue-800 dark:bg-blue-950/30 dark:text-blue-200'
-                  : simpleModeBlocked
-                    ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200'
-              }`}
-            >
-              <span className="text-xs font-black">Produto Simples</span>
-              <span className="mt-1 text-[10px] font-semibold opacity-75">apenas 1 variação</span>
-            </button>
-            {showSimpleModeTooltip && simpleModeBlocked && (
-              <span
-                id={simpleModeTooltipId}
-                role="tooltip"
-                className="absolute left-2 top-full z-20 mt-2 max-w-72 rounded-xl bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-lg dark:bg-slate-700"
-              >
-                Este produto se tornará simples automaticamente quando restar apenas 1 variação.
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            aria-pressed={isMultiMode}
-            onClick={() => setMode(true)}
-            className={`flex min-h-16 flex-col items-start rounded-2xl border px-4 py-3 text-left transition-colors ${
-              isMultiMode
-                ? 'border-blue-600 bg-blue-50 text-blue-800 dark:bg-blue-950/30 dark:text-blue-200'
-                : 'border-slate-200 bg-white text-slate-700 hover:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200'
-            }`}
-          >
-            <span className="text-xs font-black">Produto com Variações</span>
-            <span className="mt-1 text-[10px] font-semibold opacity-75">2 variações ou mais</span>
-          </button>
-        </div>
-      </section>
-
       <div className="flex items-center gap-4 rounded-3xl border border-blue-100 bg-blue-50 p-5 dark:border-blue-900/30 dark:bg-blue-900/10">
         <div
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white"

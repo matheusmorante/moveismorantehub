@@ -41,12 +41,6 @@ const menuItems: any[] = [
         label: 'Ambientes e Categorias',
       },
       {
-        to: '/products/compositions',
-        icon: 'bi-diagram-3-fill',
-        iconColor: 'text-amber-500',
-        label: 'Composições',
-      },
-      {
         to: '/products/reconciliation/suppliers',
         icon: 'bi-magic',
         iconColor: 'text-purple-500',
@@ -345,7 +339,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
   const canViewProductSubmodules = [
     'viewProductCharacteristics',
     'viewProductCategories',
-    'viewProductCompositions',
     'viewProductReconciliation',
     'viewMetaCatalog',
   ].some((action) => canPerform(action, roles));
@@ -407,7 +400,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
       '/products': 'viewProducts',
       '/products/characteristics': 'viewProductCharacteristics',
       '/products/categories': 'viewProductCategories',
-      '/products/compositions': 'viewProductCompositions',
       '/products/reconciliation/suppliers': 'viewProductReconciliation',
       '/registrations/product-categories': 'viewProductCategories',
       '/registrations/product-types': 'viewProductCategories',

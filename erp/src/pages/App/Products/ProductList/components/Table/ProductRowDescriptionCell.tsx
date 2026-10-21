@@ -211,7 +211,14 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
                 </span>
               )}
 
-              {product.itemType === 'service' ? (
+              {product.itemType === 'composition' ? (
+                <span
+                  title="Produto composto"
+                  className="flex items-center gap-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-blue-200 dark:border-blue-900/50"
+                >
+                  <i className="bi bi-boxes" aria-hidden="true" /> Composto
+                </span>
+              ) : product.itemType === 'service' ? (
                 <span className="flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-900/30">
                   <i className="bi bi-tools" /> Serviço
                 </span>

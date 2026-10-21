@@ -13,7 +13,9 @@ describe('TechnicalFieldRow', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f1',
       name: 'Observações',
+      dataType: 'text',
       unit: 'cm',
+      options: [],
       isRequired: false,
     };
 
@@ -37,6 +39,8 @@ describe('TechnicalFieldRow', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f2',
       name: 'Cor',
+      dataType: 'text',
+      options: [],
       isRequired: true,
     };
     const onOpenModal = vi.fn();
@@ -62,6 +66,8 @@ describe('TechnicalFieldRow', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f3',
       name: 'Material da estrutura',
+      dataType: 'text',
+      options: [],
       isRequired: false,
     };
     const onValueChange = vi.fn();
@@ -86,11 +92,13 @@ describe('TechnicalFieldRow', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f-variable',
       name: 'Material da estrutura',
+      dataType: 'text',
+      options: [],
       isRequired: false,
     };
     const onToggleVariable = vi.fn();
 
-    render(
+    const { rerender, container } = render(
       <TechnicalFieldRow
         field={field}
         formData={{ technicalValues: { 'Material da estrutura': 'MDF' } }}
@@ -103,17 +111,90 @@ describe('TechnicalFieldRow', () => {
       />
     );
 
-    const toggle = screen.getByRole('switch', { name: 'Definir Material da estrutura como variável' });
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
-    expect(toggle.textContent).toContain('Fixo');
-    fireEvent.click(toggle);
+    const scopeGroup = screen.getByRole('group', { name: 'Escopo da característica Material da estrutura' });
+    const globalButton = screen.getByRole('button', { name: 'Global — Material da estrutura' });
+    const variableButton = screen.getByRole('button', { name: 'Por variação — Material da estrutura' });
+    expect(scopeGroup.contains(globalButton)).toBe(true);
+    expect(scopeGroup.contains(variableButton)).toBe(true);
+    expect(scopeGroup.getAttribute('class')).toContain('bg-slate-200/70');
+    expect(globalButton.getAttribute('aria-pressed')).toBe('true');
+    expect(globalButton.getAttribute('class')).toContain('bg-white');
+    expect(globalButton.getAttribute('class')).toContain('text-blue-600');
+    expect(globalButton.textContent).toContain('Global');
+    expect(globalButton.querySelector('svg')?.getAttribute('class')).toContain('lucide-globe');
+    expect(container.querySelector('input, select, textarea')).not.toBeNull();
+    fireEvent.click(variableButton);
     expect(onToggleVariable).toHaveBeenCalledWith('Material da estrutura');
+
+    rerender(
+      <TechnicalFieldRow
+        field={field}
+        formData={{ technicalValues: { 'Material da estrutura': 'MDF' } }}
+        manualFieldNames={[]}
+        onValueChange={vi.fn()}
+        onOpenAttributeModal={vi.fn()}
+        onToggleDepthLength={vi.fn()}
+        onRemoveManualField={vi.fn()}
+        isVariable
+        onToggleVariable={onToggleVariable}
+      />
+    );
+    const selectedVariableButton = screen.getByRole('button', { name: 'Por variação — Material da estrutura' });
+    expect(selectedVariableButton.getAttribute('aria-pressed')).toBe('true');
+    expect(selectedVariableButton.getAttribute('class')).toContain('bg-white');
+    expect(selectedVariableButton.getAttribute('class')).toContain('text-emerald-600');
+    expect(selectedVariableButton.textContent).toContain('Por variação');
+    expect(selectedVariableButton.querySelector('svg')?.getAttribute('class')).toContain('lucide-layers-2');
+    expect(container.querySelector('input, select, textarea')).toBeNull();
+  });
+
+  it('esconde o seletor do produto pai quando a característica é variável', () => {
+    const field: TechnicalFieldDefinition = {
+      id: 'f-variable-select',
+      name: 'Acabamento',
+      dataType: 'list',
+      options: [{ id: '1', value: 'Fosco' }],
+      isRequired: false,
+    };
+
+    const { rerender } = render(
+        <TechnicalFieldRow
+        field={field}
+        formData={{ technicalValues: { Acabamento: 'Fosco' } }}
+        manualFieldNames={[]}
+        onValueChange={vi.fn()}
+        onOpenAttributeModal={vi.fn()}
+        onToggleDepthLength={vi.fn()}
+        onRemoveManualField={vi.fn()}
+        onToggleVariable={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('combobox')).toBeDefined();
+
+    rerender(
+      <TechnicalFieldRow
+        field={field}
+        formData={{ technicalValues: { Acabamento: 'Fosco' } }}
+        manualFieldNames={[]}
+        onValueChange={vi.fn()}
+        onOpenAttributeModal={vi.fn()}
+        onToggleDepthLength={vi.fn()}
+        onRemoveManualField={vi.fn()}
+        isVariable
+        onToggleVariable={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('combobox')).toBeNull();
   });
 
   it('exibe botão de exclusão para campos manuais e aciona remoção', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f4',
       name: 'Garantia',
+      dataType: 'text',
+      options: [],
       isRequired: false,
     };
     const onRemoveManualField = vi.fn();
@@ -139,6 +220,8 @@ describe('TechnicalFieldRow', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f5',
       name: 'Profundidade',
+      dataType: 'text',
+      options: [],
       isRequired: true,
     };
     const onToggleDepthLength = vi.fn();
@@ -164,6 +247,7 @@ describe('TechnicalFieldRow', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f-tipo-porta',
       name: 'Tipo de portas',
+      dataType: 'list',
       isRequired: true,
       options: [{ id: '1', value: 'De correr' }, { id: '2', value: 'De bater' }],
     };
@@ -242,6 +326,7 @@ describe('TechnicalFieldRow', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f-corredica',
       name: 'Materiais das corrediças',
+      dataType: 'list',
       isRequired: false,
       options: [{ id: '1', value: 'Telescópica' }],
     };

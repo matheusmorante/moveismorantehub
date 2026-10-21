@@ -37,7 +37,8 @@ export function filterAndSortProducts(
         !filters.category ||
         product.category === filters.category ||
         (filters.category === 'Serviços' && product.itemType === 'service') ||
-        (filters.category === 'Produtos' && product.itemType === 'product');
+        (filters.category === 'Produtos' &&
+          (product.itemType === 'product' || product.itemType === 'composition'));
 
       if (!searchTerm) {
         const activeMatch =

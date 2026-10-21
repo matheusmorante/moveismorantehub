@@ -112,7 +112,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
   const canViewProducts = canPerform('viewProducts', roles);
   const canViewProductCharacteristics = canPerform('viewProductCharacteristics', roles);
   const canViewProductCategories = canPerform('viewProductCategories', roles);
-  const canViewProductCompositions = canPerform('viewProductCompositions', roles);
   const canViewProductReconciliation = canPerform('viewProductReconciliation', roles);
   const canViewMetaCatalog = canPerform('viewMetaCatalog', roles);
   const canViewStockMovements = canPerform('viewStockMovements', roles);
@@ -135,7 +134,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
   const canViewProductMenu = canViewProducts || [
     canViewProductCharacteristics,
     canViewProductCategories,
-    canViewProductCompositions,
     canViewProductReconciliation,
     canViewMetaCatalog,
   ].some(Boolean);
@@ -210,7 +208,7 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                 onClick={() => setActiveMenu(null)}
               />
             )}
-            {(canViewProductCharacteristics || canViewProductCategories || canViewProductCompositions) && (
+            {(canViewProductCharacteristics || canViewProductCategories) && (
               <>
                 {canViewProductCharacteristics && (
                   <DropdownItem
@@ -227,15 +225,6 @@ const DesktopNav = ({ activeMenu, setActiveMenu }: DesktopNavProps) => {
                     icon="bi-tag-fill"
                     title="Ambientes e categorias"
                     description="Agrupamentos de catálogo"
-                    onClick={() => setActiveMenu(null)}
-                  />
-                )}
-                {canViewProductCompositions && (
-                  <DropdownItem
-                    to="/products/compositions"
-                    icon="bi-diagram-3-fill"
-                    title="Composições"
-                    description="Kits e montagens"
                     onClick={() => setActiveMenu(null)}
                   />
                 )}

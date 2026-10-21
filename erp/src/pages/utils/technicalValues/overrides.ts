@@ -176,7 +176,10 @@ export const getLegacyVariableTechnicalFieldNames = (
 export const resolveVariableTechnicalFieldNames = (
   configuredNames: readonly string[] | undefined,
   variations: readonly Pick<Variation, 'attributes' | 'technicalValues'>[] = []
-): string[] => configuredNames ?? getLegacyVariableTechnicalFieldNames(variations);
+): string[] =>
+  configuredNames === undefined
+    ? getLegacyVariableTechnicalFieldNames(variations)
+    : [...configuredNames];
 
 /**
  * Compara se duas combinações de Especificações Técnicas são efetivamente idênticas.

@@ -4,7 +4,7 @@
 
 O proprietário escolheu **“Reabrir Fechados e Adiados (recomendado)”**. Uma mensagem inédita do cliente deve reabrir a mesma conversa, conservando atendente, vínculos manuais, tags de negócio e histórico. O envio permanece bloqueado.
 
-**Preparado na origem; não aplicado ao banco e não publicado.** A produção permanece no candidato documentado no [registro de publicação](central-de-atendimento-publicacao-2026-10-21.md). O manifesto isolado dessa publicação não foi alterado. O novo webhook depende da RPC abaixo: não publicar antes de instalar e validar o contrato remoto.
+**Banco aplicado e provas remotas/UI concluídas.** Migrações `20261021190324` e `20261021190331`; quatro casos de backend e Playwright aprovados, cinco conversas próprias arquivadas e 38 registros preservados de um teto de 68. A conferência encontrou a produção Git `dpl_Hm6cgBdncczxjNk91AvFSqbNacYB`, commit `0385fa1343887892117996e3d57fd027956bcadb`, já contendo o novo processador; nove blobs coincidem e sete checks HTTP passaram. Nenhum deploy foi feito por este agente nesta operação. [Registro atual da execução](central-de-atendimento-reabertura-execucao-2026-10-21.md). Os checkpoints abaixo preservam a sequência histórica da preparação e da publicação anterior.
 
 ## Implementação preparada
 

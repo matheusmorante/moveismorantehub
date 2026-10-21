@@ -42,6 +42,7 @@ export function resolveEffectiveFiscalDeliveryMethod(input: {
   }
 
   if (input.fiscalModel === '55') {
+    if (input.hasTransport === false || input.transportResponsible === 'NONE') return 'pickup';
     if (input.transportResponsible === 'CUSTOMER') return 'pickup';
     if (
       input.transportResponsible === 'OWN_COMPANY' ||
@@ -58,7 +59,7 @@ export function resolveEffectiveFiscalDeliveryMethod(input: {
  * Deriva os valores padrão da MATRIZ PRINCIPAL DO ERP:
  * - 65 + Retirada: OFF (sem ocorrência, modFrete = 9)
  * - 65 + Entrega:  ON  (própria empresa, modFrete = 3)
- * - 55 + Retirada: ON  (próprio cliente, modFrete = 4)
+ * - 55 + Sem transporte: OFF (modFrete = 9); transporte explicitamente atribuído ao cliente usa 4.
  * - 55 + Entrega:  ON  (própria empresa, modFrete = 3)
  */
 export function resolveDefaultTransport(
@@ -77,7 +78,7 @@ export function resolveDefaultTransport(
   } else {
     // Modelo 55
     if (deliveryMethod === 'pickup') {
-      return { hasTransport: true, transportResponsible: 'CUSTOMER' };
+      return { hasTransport: false, transportResponsible: 'NONE' };
     }
     return { hasTransport: true, transportResponsible: 'OWN_COMPANY' };
   }
@@ -87,14 +88,14 @@ export function resolveDefaultTransport(
  * Resolução central de transporte e modalidade de frete (modFrete).
  * Impede combinações fiscais inválidas e estados incoerentes.
  *
- * No emissor, deliveryMethod representa a modalidade efetiva selecionada pelo operador
- * somente para esta emissão e deve refletir o que ocorreu (por exemplo, entrega
- * planejada que virou retirada no balcão). Essa seleção não altera o pedido comercial.
+ * No emissor, deliveryMethod define a modalidade fiscal da NF e deve refletir o que
+ * ocorreu (por exemplo, entrega planejada que virou retirada no balcão). A escolha
+ * fica registrada no snapshot/XML fiscal e não altera a logística do pedido comercial.
  * O modelo traduz essa modalidade para as regras da SEFAZ:
- * - NFC-e 65 + Retirada efetiva: OFF (modFrete 9).
- * - NF-e 55 + Retirada efetiva: ON (modFrete 4, por conta do destinatário).
+ * - NFC-e 65 + sem transporte: OFF (modFrete 9).
+ * - NF-e 55 + sem transporte: OFF (modFrete 9); se o transporte estiver explicitamente atribuído ao destinatário, usa 4.
  * - Entrega efetiva (55 ou 65): ON (modFrete 3 própria empresa ou 0/1/2 terceirizado).
- * A interface seleciona a modalidade efetiva; não permite editar hasTransport isoladamente.
+ * A interface define a modalidade fiscal da NF; não permite editar hasTransport isoladamente.
  */
 export function resolveTransport(input: TransportResolutionInput): TransportResolution {
   const { fiscalModel, deliveryMethod } = input;
@@ -111,16 +112,30 @@ export function resolveTransport(input: TransportResolutionInput): TransportReso
       isEmitterTransporter: false,
       requiresTransporterData: false,
       allowsEditHasTransport: false,
-      derivedReason: 'Definido pela modalidade selecionada para esta emissão.',
+      derivedReason: 'Definido pela modalidade de transporte da NF.',
       statusBadge: '9 — Sem ocorrência de transporte [OFF 🔒]',
       friendlyDescription: 'Sem ocorrência de transporte nesta NFC-e',
     };
   }
 
   // 2. NF-e 55 + Retirada:
-  // Retirada presencial pelo próprio cliente (destinatário): modFrete = 4.
-  // Bloqueado em ON com modFrete = 4 (sem permissão de desligar).
+  // Sem transporte usa modFrete = 9; somente transporte explicitamente por conta do cliente usa 4.
   if (fiscalModel === '55' && deliveryMethod === 'pickup') {
+    if (input.hasTransport === false || input.transportResponsible !== 'CUSTOMER') {
+      return {
+        hasTransport: false,
+        transportResponsible: 'NONE',
+        modFrete: '9',
+        modFreteDescription: '9 — Sem ocorrência de transporte',
+        isEmitterTransporter: false,
+        requiresTransporterData: false,
+        allowsEditHasTransport: false,
+        derivedReason: 'Definido pela modalidade de transporte da NF.',
+        statusBadge: '9 — Sem ocorrência de transporte [OFF 🔒]',
+        friendlyDescription: 'Sem ocorrência de transporte nesta NF-e',
+      };
+    }
+
     return {
       hasTransport: true,
       transportResponsible: 'CUSTOMER',
@@ -129,7 +144,7 @@ export function resolveTransport(input: TransportResolutionInput): TransportReso
       isEmitterTransporter: false,
       requiresTransporterData: false,
       allowsEditHasTransport: false,
-      derivedReason: 'Definido pela modalidade selecionada para esta emissão.',
+      derivedReason: 'Definido pela modalidade de transporte da NF.',
       statusBadge: '4 — Transporte próprio pelo destinatário [ON 🔒]',
       friendlyDescription: 'Transporte próprio por conta do destinatário nesta NF-e',
     };

@@ -129,6 +129,12 @@ describe('Proposta SQL de reabertura — inspeção estática, não prova de tra
 describe('Proposta das guardas de reabertura — inspeção estática, sem DML', () => {
   const sql = readFileSync(new URL('../../../../../../docs/integracoes/sql/customer-support-reopening-test-guards.sql', import.meta.url), 'utf8');
 
+  it('preserva os três corpos completos e a expressão de identidade sem encerramento duplicado', () => {
+    expect(sql.match(/^\$function\$;\r?$/gm)).toHaveLength(3);
+    expect(sql).toContain("OR coalesce(v_meta->>'scenarioKey', '') !~ '^[a-z][a-z0-9_-]{2,63}$'\n".trimEnd());
+    expect(sql).not.toMatch(/\$function\$;\s+OR /);
+  });
+
   it('mantém ownership real, reserva de limpeza e os limites dos cenários anteriores', () => {
     expect(sql).toContain('public.assert_test_artifact_identity(v_meta)');
     expect(sql).toContain('v_limit integer := 202;');

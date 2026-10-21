@@ -63,19 +63,16 @@ export const InboxSectionCustom: React.FC<InboxSectionCustomProps> = ({
               <p className="text-[11px] text-slate-400 italic px-2 py-2">Nenhuma pasta nesta aba.</p>
             ) : visibleFolders.map((folder) => {
               const isActive = activeFolderId === folder.id;
-              const isOwner = folder.createdBy === currentUserId;
               return (
                 <div key={folder.id} className={`group w-full flex items-center gap-1 px-2 rounded-lg ${isActive ? 'bg-blue-100/70 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/50'}`}>
                   <button type="button" onClick={() => onSelectFolder(folder)} title={`Pasta compartilhada: ${folder.name}`} className={`min-w-0 flex-1 flex items-center gap-2 py-1.5 text-xs text-left ${isActive ? 'font-bold' : ''}`}>
                     <i className="bi bi-folder text-xs text-slate-400" />
                     <span className="truncate">{folder.name}</span>
                   </button>
-                  {isOwner && (
-                    <div className="flex items-center gap-0.5">
-                      <button type="button" aria-label={`Editar pasta ${folder.name}`} title="Editar pasta" onClick={() => onEditFolder(folder)} className="w-6 h-6 rounded hover:bg-white/70 dark:hover:bg-slate-700"><i className="bi bi-pencil text-[10px]" /></button>
-                      <button type="button" aria-label={`Excluir pasta ${folder.name}`} title="Excluir pasta" onClick={() => onDeleteFolder(folder)} className="w-6 h-6 rounded hover:bg-red-100 text-red-500"><i className="bi bi-trash text-[10px]" /></button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-0.5">
+                    <button type="button" aria-label={`Editar pasta ${folder.name}`} title="Editar pasta" onClick={() => onEditFolder(folder)} className="w-6 h-6 rounded hover:bg-white/70 dark:hover:bg-slate-700"><i className="bi bi-pencil text-[10px]" /></button>
+                    <button type="button" aria-label={`Excluir pasta ${folder.name}`} title="Excluir pasta" onClick={() => onDeleteFolder(folder)} className="w-6 h-6 rounded hover:bg-red-100 text-red-500"><i className="bi bi-trash text-[10px]" /></button>
+                  </div>
                 </div>
               );
             })}

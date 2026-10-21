@@ -19,6 +19,7 @@ export interface ProductsTopToolbarProps {
   setIsActionsMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   menuRef: React.RefObject<HTMLDivElement>;
   onNewProduct: () => void;
+  onNewComposition: () => void;
   onOpenFilters: () => void;
   onToggleActiveOnly: () => void;
   activeOnly?: boolean;
@@ -41,6 +42,7 @@ export const ProductsTopToolbar: React.FC<ProductsTopToolbarProps> = ({
   setIsActionsMenuOpen,
   menuRef,
   onNewProduct,
+  onNewComposition,
   onOpenFilters,
   onToggleActiveOnly,
   activeOnly,
@@ -122,6 +124,22 @@ export const ProductsTopToolbar: React.FC<ProductsTopToolbarProps> = ({
                     </div>
                     {mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}
                   </button>
+
+                  {mode === 'standard' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onNewComposition();
+                        setIsActionsMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-3 transition-colors group"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <i className="bi bi-boxes" />
+                      </div>
+                      Novo Produto Composto
+                    </button>
+                  )}
 
                   <button
                     type="button"

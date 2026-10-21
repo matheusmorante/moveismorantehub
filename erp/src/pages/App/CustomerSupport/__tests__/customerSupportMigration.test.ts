@@ -41,7 +41,11 @@ describe.skipIf(!runRemoteReadOnly)('Supabase remoto operacional â€” leitura anÃ
 
   beforeAll(() => {
     const envFile = new URL('../../../../../.env.local', import.meta.url);
-    const configured = parse(readFileSync(fileURLToPath(envFile), 'utf8'));
+    const runtimeUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const runtimeKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    const configured = runtimeUrl && runtimeKey
+      ? { VITE_SUPABASE_URL: runtimeUrl, VITE_SUPABASE_ANON_KEY: runtimeKey }
+      : parse(readFileSync(fileURLToPath(envFile), 'utf8'));
     const url = configured.VITE_SUPABASE_URL;
     const key = configured.VITE_SUPABASE_ANON_KEY;
     if (!url || new URL(url).hostname !== 'hkoxhourxwlddgsfdgws.supabase.co') {

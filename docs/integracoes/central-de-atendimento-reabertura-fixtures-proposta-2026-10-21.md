@@ -1,6 +1,8 @@
 # Proposta limitada de prova da reabertura — 21/10/2026
 
-**Aguardando autorização específica. Nenhuma massa nova foi criada.** A execução anterior está encerrada e não será reutilizada. A restrição do contrato legado já foi aplicada como `20261021162004`, independentemente desta proposta.
+**Operação limitada autorizada pelo proprietário em 21/10/2026:** resposta “Autorizar essa operação limitada” à solicitação `call_64cc2cc7f4ed402384b1beca52bbd7ee`. A autorização inclui os dois SQLs, até cinco conversas/68 mensagens e eventos, UI e limpeza; exclui publicação. A execução anterior está encerrada e não será reutilizada. A restrição do contrato legado já foi aplicada como `20261021162004`, independentemente desta operação.
+
+Na conferência prévia, antes de qualquer DDL, foi encontrado um encerramento duplicado do corpo da guarda dentro da expressão regular de cenário. A correção remove somente esse trecho e restaura o literal `^[a-z][a-z0-9_-]{2,63}$`; limites, permissões e escopo permanecem os aprovados. O novo caso Vitest falhou antes e os 16 casos focados passaram depois (`scratch/central-support-reopening-sql-regression-before-2026-10-21.log` e `scratch/central-support-reopening-sql-regression-after-2026-10-21.log`). Isso é prova estática, sem execução PostgreSQL. SQL de guardas revisado SHA-256 `645A22087C21821ADA9E88C20B5FD49B3C8E954450B6FDA6E3AF20EFC2A63BF5`; recebimento permanece `FCFDC424A8BAFB1C438BEB4E5A1D044192D216CB83FC1A57DC9E8AC6C6F5C82A`.
 
 ## Objetos e limites concretos
 
@@ -9,9 +11,18 @@
 - Até **cinco conversas sintéticas**: quatro pelo provisionador existente, mais um contato derivado criado pelo processador compartilhado. Nomes começam por `Teste reabertura` e contêm o identificador curto `8eaed14f`. Canal `test-artifact:<runId>`; telefones/IDs sintéticos, sem números reais.
 - Até **68 mensagens/eventos persistidos no total**, incluindo âncoras, comentários, mensagens recebidas, atribuições, mudanças de status, reaberturas e limpeza. O banco reserva cinco linhas para fechamento normal: outras operações param no limite de 63. A execução pode consumir menos que o teto.
 - **Zero pastas, clientes, produtos ou pedidos novos**. Nenhum vínculo comercial, alteração de estoque/financeiro, documento fiscal, upload/download Meta ou envio de mensagem externa. Não haverá deploy nesta operação.
-- Solicitação revisável: `scratch/central-support-reopening-request-2026-10-21.json`, ainda com `approved=false`. O UUID identifica a execução; IDs de conversas/mensagens serão gerados pelo banco e conferidos após o provisionamento autorizado.
+- Solicitação revisável: `scratch/central-support-reopening-request-2026-10-21.json`, com `approved=true` após a resposta explícita. O UUID identifica a execução; IDs de conversas/mensagens serão gerados pelo banco e conferidos após o provisionamento autorizado.
 
-## SQL preparado, ainda não aplicado
+## SQL aplicado após autorização
+
+Histórico remoto conferido antes da aplicação; as definições das duas funções existentes coincidiam integralmente com a base revisada. Migrações aplicadas e copiadas com os mesmos bytes para `supabase/migrations`:
+
+- `20261021190324_customer_support_inbound_reopening.sql`.
+- `20261021190331_customer_support_reopening_test_guards.sql`.
+
+O catálogo posterior confirmou `customer_support_receive_message` como SECURITY INVOKER, owner postgres, search path vazio e timeouts 10s/5s; execução exclusiva de service role. A wrapper de fixtures é SECURITY DEFINER, exige os gates descritos abaixo, aceita authenticated e recusa anon/service role. A aplicação não modifica o webhook publicado.
+
+Provisionamento separado passou (1 caso Vitest): login, gate 204, permissões administrativas/Central, negativas de acesso/parâmetro e quatro âncoras próprias. Backend passou (4 casos Vitest): reabertura, replay depois de novo fechamento, entrega fora de ordem, concorrência, rollback integral existente/novo e primeiro contato concorrente. Estado após backend: cinco conversas e 26 mensagens/eventos, dentro dos limites aprovados. Logs `scratch/central-support-reopening-provision-2026-10-21.log` e `scratch/central-support-reopening-backend-2026-10-21.log`. **Conclusão:** Playwright 1/1 aprovado em 15,3s; limpeza 1/1, cinco conversas arquivadas e 38 registros finais preservados de 68 autorizados. [Registro da execução e limites](central-de-atendimento-reabertura-execucao-2026-10-21.md).
 
 1. [Recebimento/reabertura](sql/customer-support-inbound-reopening.sql): cria a RPC transacional `customer_support_receive_message`, exclusiva de service role, sem uso pelo webhook publicado nesta etapa.
 2. [Guardas da prova](sql/customer-support-reopening-test-guards.sql): mantém os triggers existentes e as regras operacionais/antigas; amplia somente o cenário próprio `support-reopening` para texto inbound sintético e o evento automático ligado à mensagem persistida. Limita cinco conversas/68 registros, com reserva de limpeza. A identidade é validada pelo helper canônico e pela âncora persistida, não apenas por nome/prefixo/flag.
@@ -27,7 +38,7 @@ A consulta de consumidores no catálogo encontrou somente 13 funções da própr
 
 `erp/tests/support-reopening/receive.test.ts` contém etapas separadas de provisionamento, backend e limpeza, selecionadas explicitamente. `context.ts` valida o envelope aprovado, runId/owner/cotas exatos, ambiente Vercel, URL operacional, login em memória e gate 204. Um manifesto encerrado é recusado; a etapa backend iniciada não é repetida automaticamente. `reopening.spec.ts` usa a janela visível/CDP, confere servidor Vite na 5173 antes de navegar, valida ownership e limita pela interceptação todas as escritas às próprias conversas, status, leitura e dois recebimentos sintéticos conhecidos. Não cria pastas ou massa pela UI, nem registra credenciais.
 
-Entradas da raiz: `npm run test:support:reopening`, com `SUPPORT_REOPENING_PHASE=provision|backend|cleanup`, e `npm run test:support:reopening:ui`. Ambos usam o launcher Vercel Development existente. Exigem `SUPPORT_REOPENING_INPUT` apontando para a solicitação revisada e `SUPPORT_REOPENING_MANIFEST` para um manifesto exclusivo novo. O envelope permanece `approved=false`; **não executar** antes da resposta autorizando esta operação.
+Entradas da raiz: `npm run test:support:reopening`, com `SUPPORT_REOPENING_PHASE=provision|backend|cleanup`, e `npm run test:support:reopening:ui`. Ambos usam o launcher Vercel Development existente. Exigem `SUPPORT_REOPENING_INPUT` apontando para a solicitação revisada e `SUPPORT_REOPENING_MANIFEST` para um manifesto exclusivo novo. O envelope foi ativado somente após a resposta autorizando esta operação.
 
 Validação da preparação: seleção Vitest **207/207**, em 21 arquivos, incluindo seis negativas anônimas remotas reais; log `scratch/central-support-reopening-with-remote-denials-2026-10-21.log`. O checkpoint sem os remotos tinha 201 aprovados/seis ignorados. TypeScript do harness passou sem diagnósticos (`scratch/central-support-reopening-harness-types-2026-10-21.log`). ESLint não tem configuração correspondente para os cinco arquivos do harness, que foram ignorados com avisos; exit 0 não é prova de lint desses arquivos. Nenhum teste gravável novo nem navegador deste lote foi executado.
 

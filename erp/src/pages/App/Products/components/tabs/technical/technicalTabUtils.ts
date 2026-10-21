@@ -42,7 +42,7 @@ export const parseNumericDimension = (val: unknown): number | undefined => {
 
 export const getToggledDepthLengthTarget = (
   currentFieldName: string,
-  allTechnicalFields: TechnicalFieldDefinition[]
+  allTechnicalFields: readonly TechnicalFieldDefinition[]
 ): TechnicalFieldDefinition | undefined => {
   const isProfundidade = currentFieldName.toLowerCase().includes('profundidade');
   const isTotal = currentFieldName.toLowerCase().includes('total');
@@ -260,7 +260,7 @@ export const hasCharacteristicValue = (
 export const isOptionalFieldSelected = (
   field: TechnicalFieldDefinition,
   formData: Partial<Product>,
-  manualFieldNames: string[]
+  manualFieldNames: readonly string[]
 ): boolean => {
   return (
     manualFieldNames.includes(field.name) ||

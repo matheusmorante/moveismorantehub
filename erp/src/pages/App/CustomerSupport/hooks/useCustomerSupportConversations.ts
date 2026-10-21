@@ -37,14 +37,16 @@ export function useCustomerSupportConversations({
   selectedConvIdRef.current = selectedConversation?.id || null;
   const loadedPagesRef = useRef(1);
   const requestIdRef = useRef(0);
+  const pendingRequestRef = useRef<number | null>(null);
   const moreRequestRef = useRef<number | null>(null);
   const queryKey = JSON.stringify([filter, search, agentId, folderCriteria, canViewCommercialInfo, sortOrder]);
   const activeQueryKeyRef = useRef(queryKey);
   activeQueryKeyRef.current = queryKey;
 
   const loadConversations = useCallback(async (isSilent = false) => {
-    if (isSilent && moreRequestRef.current !== null) return;
+    if (isSilent && (moreRequestRef.current !== null || pendingRequestRef.current !== null)) return;
     const requestId = ++requestIdRef.current;
+    pendingRequestRef.current = requestId;
     if (!isSilent) {
       moreRequestRef.current = null;
       loadedPagesRef.current = 1;
@@ -91,6 +93,7 @@ export function useCustomerSupportConversations({
         setConversationsError(error instanceof Error ? error.message : 'Não foi possível atualizar a Inbox.');
       }
     } finally {
+      if (pendingRequestRef.current === requestId) pendingRequestRef.current = null;
       if (requestId === requestIdRef.current) {
         if (!isSilent) setIsLoadingConversations(false);
         setIsRefreshingConversations(false);
@@ -100,7 +103,10 @@ export function useCustomerSupportConversations({
 
   const loadMoreConversations = useCallback(async () => {
     if (moreRequestRef.current !== null || isLoadingConversations || conversations.length >= totalCount) return;
-    const requestId = requestIdRef.current;
+    // Paging takes priority over an older refresh that could replace its rows.
+    const requestId = ++requestIdRef.current;
+    pendingRequestRef.current = null;
+    setIsRefreshingConversations(false);
     moreRequestRef.current = requestId;
     const nextPage = loadedPagesRef.current + 1;
     setIsLoadingMore(true);

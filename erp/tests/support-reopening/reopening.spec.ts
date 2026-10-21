@@ -15,6 +15,7 @@ test('nova mensagem reabre Fechados e Adiados pela mesma Inbox e mantém timelin
   if (!page) throw new Error('Navegador visível de desenvolvimento não encontrado.');
   const ids = new Set(manifest.conversationIds);
   const id = manifest.initialIds[0];
+  const resumeAfterOpen = manifest.uiResumeAfterOpenVerified === true;
   let verified = false;
   let unauthorizedWrites = 0;
   const readRPCs = new Set(['customer_support_list_conversations', 'customer_support_conversation_counts',
@@ -81,26 +82,33 @@ test('nova mensagem reabre Fechados e Adiados pela mesma Inbox e mantém timelin
           row.customer_id === null && row.business_phone_number_id === `test-artifact:${runId}`);
     }, { runId: expectedRunId, ownerId: expectedOwnerId, expectedIds: [...ids] });
     expect(verified).toBe(true);
-    manifest.uiStarted = true; saveManifest(manifest);
+    manifest.uiStarted = true;
+    delete manifest.uiResumeAfterOpenVerified;
+    saveManifest(manifest);
     await page.goto('http://localhost:5173/atendimento');
     await expect(page.getByText('Pastas compartilhadas', { exact: true })).toBeVisible();
     await page.getByTitle('Alternar campo de busca', { exact: true }).click();
     await page.getByPlaceholder('Pesquisar por cliente, telefone ou pedido...').fill(request.contactNames[0]);
-    await page.getByRole('button', { name: 'All', exact: true }).click();
-    await page.getByRole('button', { name: 'Closed (Fechadas)', exact: true }).click();
+    if (!resumeAfterOpen) {
+      await page.getByRole('button', { name: /^[^A-Za-z]*All[^A-Za-z]*$/ }).click();
+      await page.getByRole('button', { name: /Closed \(Fechadas\)/ }).click();
+    }
     const list = page.getByRole('region', { name: 'Lista de conversas', exact: true });
     await list.getByText(request.contactNames[0], { exact: true }).click();
     const changeStatus = async (next: 'open' | 'closed' | 'snoozed') => {
       const response = page.waitForResponse(res => res.url().endsWith('/rest/v1/rpc/customer_support_set_conversation_status')
         && res.request().postDataJSON()?.p_conversation_id === id && res.request().postDataJSON()?.p_status === next);
-      if (next === 'open') await page.getByRole('button', { name: 'Reopen', exact: true }).click();
-      else if (next === 'closed') await page.getByRole('button', { name: 'Close', exact: true }).click();
-      else { await page.getByTitle('Mais opções de status', { exact: true }).click(); await page.getByRole('button', { name: 'Adiar (Snooze)', exact: true }).click(); }
+      if (next === 'open') await page.getByRole('button', { name: /\bReopen\b/ }).click();
+      else if (next === 'closed') await page.getByRole('button', { name: /\bClose\b/ }).click();
+      else { await page.getByTitle('Mais opções de status', { exact: true }).click(); await page.getByRole('button', { name: /Adiar \(Snooze\)/ }).click(); }
       expect((await response).status()).toBe(200);
     };
-    await changeStatus('open');
-    await page.getByRole('button', { name: /Todas \(All\)/ }).click();
-    await list.getByText(request.contactNames[0], { exact: true }).click();
+    if (!resumeAfterOpen) {
+      await changeStatus('open');
+      await page.getByRole('button', { name: /^[^A-Za-z]*Closed[^A-Za-z]*$/ }).click();
+      await page.getByRole('button', { name: /All \(Todas\)/ }).click();
+      await list.getByText(request.contactNames[0], { exact: true }).click();
+    }
     for (const state of ['closed', 'snoozed'] as const) {
       await changeStatus(state);
       const receipt = await page.evaluate(async ({ id, key }) => {
@@ -111,7 +119,7 @@ test('nova mensagem reabre Fechados e Adiados pela mesma Inbox e mantém timelin
         return { ok: !response.error, receipt: response.data };
       }, { id, key: `ui-${state}` });
       expect(receipt.ok && receipt.receipt.inserted && receipt.receipt.reopened).toBe(true);
-      await expect(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: /\bClose\b/ })).toBeVisible();
       await expect(list.getByText(request.contactNames[0], { exact: true })).toBeVisible();
       const history = page.getByRole('region', { name: 'Histórico da conversa', exact: true });
       await expect(history.locator(`[data-message-id="${receipt.receipt.message_id}"]`)).toHaveCount(1);

@@ -150,7 +150,7 @@ export const applyProductFiltersAndSort = async (
   } else if (options?.category === 'Serviços') {
     q = q.eq('item_type', 'service');
   } else if (options?.category === 'Produtos') {
-    q = q.eq('item_type', 'product');
+    q = q.or('item_type.eq.product,item_type.eq.composition,item_type.is.null');
   }
 
   // Filtro por status do catálogo digital (ex: 'published', 'hidden')

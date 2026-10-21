@@ -8,7 +8,6 @@ import {
   removeVariationOverride,
   hasEffectiveDifferenceFromParent,
   resolveVariableTechnicalFieldNames,
-  hasEffectiveDifferenceFromParent,
   computeEffectiveVariationName,
   TechnicalFieldDefinition,
   TechnicalValuesMap,
@@ -47,8 +46,8 @@ describe('technicalValues - Overrides e Nomes de Variação', () => {
       Marca: 'Morante',
     };
     const fields: TechnicalFieldDefinition[] = [
-      { id: '1', name: 'Cor', isRequired: true },
-      { id: '2', name: 'Marca', isRequired: true },
+      { id: '1', name: 'Cor', dataType: 'text', options: [], isRequired: true },
+      { id: '2', name: 'Marca', dataType: 'text', options: [], isRequired: true },
     ];
 
     expect(
@@ -91,8 +90,8 @@ describe('technicalValues - Overrides e Nomes de Variação', () => {
 
   it('compõe nome de variação combinando atributos e preservando valores originais', () => {
     const fields: TechnicalFieldDefinition[] = [
-      { id: '1', name: 'Cor', isRequired: true, includeInName: true, nameOrder: 1 },
-      { id: '2', name: 'Acabamento', isRequired: false, includeInName: true, nameOrder: 2 },
+      { id: '1', name: 'Cor', dataType: 'text', options: [], isRequired: true, includeInName: true, nameOrder: 1 },
+      { id: '2', name: 'Acabamento', dataType: 'text', options: [], isRequired: false, includeInName: true, nameOrder: 2 },
     ];
     const effectiveName = computeEffectiveVariationName(
       'Guarda-Roupa Casal',

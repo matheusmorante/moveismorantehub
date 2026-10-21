@@ -64,11 +64,19 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
           <h2 className="min-w-0 text-lg sm:text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
             {isDraftProduct
               ? product?.id
-                ? 'Continuar Cadastramento'
-                : 'Cadastro de Produto'
+                ? isComposition
+                  ? 'Continuar Cadastro de Produto Composto'
+                  : 'Continuar Cadastramento'
+                : isComposition
+                  ? 'Cadastro de Produto Composto'
+                  : 'Cadastro de Produto'
               : product
-                ? 'Editar Produto'
-                : 'Cadastro de Produto'}
+                ? isComposition
+                  ? 'Editar Produto Composto'
+                  : 'Editar Produto'
+                : isComposition
+                  ? 'Cadastro de Produto Composto'
+                  : 'Cadastro de Produto'}
           </h2>
 
           <ProductFormReadinessIndicators

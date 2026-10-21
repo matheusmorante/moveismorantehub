@@ -7,6 +7,16 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   const email = process.env.NFE_HML_TEST_OPERATOR_EMAIL?.trim();
   const password = process.env.NFE_HML_TEST_OPERATOR_PASSWORD;
   if (!email || !password) throw new Error('Credenciais do operador ausentes no ambiente Vercel Development.');
+  const development = await fetch('http://localhost:5173', { signal: AbortSignal.timeout(10_000) });
+  if (!development.ok || !(await development.text()).includes('/@vite/client')) {
+    throw new Error('Inicie o ERP Vite na porta 5173 com strictPort antes do navegador de teste.');
+  }
+
+  const verifySlowRefresh = process.env.SUPPORT_READONLY_SLOW_REFRESH === '1';
+  const slowSearch = '__central_readonly_sem_resultado_20261021__';
+  let exerciseSlowList = false;
+  let delayedListRequests = 0;
+  let slowListCompleted = false;
 
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9225');
   const context = browser.contexts()[0];
@@ -28,6 +38,18 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       && url.pathname === '/api/testing/test-artifact-operator';
     const rpc = method === 'POST' && url.pathname.startsWith('/rest/v1/rpc/')
       && readOnlyRPCs.has(url.pathname.split('/').pop() || '');
+    if (exerciseSlowList && rpc && url.pathname.endsWith('/customer_support_list_conversations')
+      && request.postDataJSON()?.p_search === slowSearch) {
+      delayedListRequests++;
+      if (delayedListRequests === 1) {
+        const response = await route.fetch({ timeout: 15_000 });
+        await new Promise(resolve => setTimeout(resolve, 8_500));
+        exerciseSlowList = false;
+        await route.fulfill({ response });
+        slowListCompleted = true;
+        return;
+      }
+    }
     if (read || auth || operator || rpc) await route.continue();
     else await route.abort('blockedbyclient');
   };
@@ -71,6 +93,20 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     await expect(page.getByText('Pastas compartilhadas', { exact: true })).toBeVisible();
     await expect(page.getByText('Conversas', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('textbox', { name: '••••••••' })).toHaveCount(0);
+
+    if (verifySlowRefresh) {
+      const list = page.getByRole('region', { name: 'Lista de conversas', exact: true });
+      await expect(list.getByText(/^\d+ de \d+ conversas$/)).toBeVisible();
+      await page.getByTitle('Alternar campo de busca', { exact: true }).click();
+      exerciseSlowList = true;
+      await page.getByPlaceholder('Pesquisar por cliente, telefone ou pedido...').fill(slowSearch);
+      await expect.poll(() => slowListCompleted, { timeout: 20_000 }).toBe(true);
+      expect(delayedListRequests, 'A consulta lenta não pode ser substituída pelos polls de 6s.').toBe(1);
+      await expect(list.getByRole('heading', { name: 'Nenhuma conversa encontrada', exact: true })).toBeVisible();
+      await page.getByPlaceholder('Pesquisar por cliente, telefone ou pedido...').fill('');
+      await expect(list.getByText(/^\d+ de \d+ conversas$/)).toBeVisible();
+      test.info().annotations.push({ type: 'slow-refresh', description: 'Resposta remota de leitura retida por 8,5s; um pedido da busca e loading encerrado, sem escritas.' });
+    }
 
     await page.getByRole('button', { name: 'Criar pasta compartilhada', exact: true }).click();
     const folderDialog = page.getByRole('dialog', { name: 'Nova pasta compartilhada' });
