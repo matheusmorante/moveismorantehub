@@ -47,4 +47,44 @@ describe('product variation mode mapping', () => {
     expect(mapToDB({ isDraft: false, hasVariations: false, variations: product.variations }).has_variations).toBe(true);
     expect(mapToDB({ isDraft: false, hasVariations: true, variations: (product.variations || []).slice(0, 1) }).has_variations).toBe(false);
   });
+
+  it('infers variable characteristics from legacy variation overrides without rewriting their values', () => {
+    const product = mapFromDB({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      name: 'Poltrona',
+      item_type: 'product',
+      is_draft: false,
+      product_variations: [
+        {
+          ...makeDbVariation('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Poltrona Azul'),
+          attributes: [{ name: 'Cor', value: 'Azul' }],
+        },
+      ],
+      technical_specs: {
+        variationDetails: [
+          {
+            id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            technicalValues: { 'Material da estrutura': 'MDF' },
+          },
+        ],
+      },
+    });
+
+    expect(product.variableTechnicalFields).toEqual(['Cor', 'Material da estrutura']);
+    expect(product.variations?.[0].attributes).toEqual([{ name: 'Cor', value: 'Azul', showName: true }]);
+    expect(product.variations?.[0].technicalValues).toEqual({ 'Material da estrutura': 'MDF' });
+  });
+
+  it('persists the selected variable characteristics in existing technical_specs JSON', () => {
+    const mapped = mapToDB({
+      isDraft: false,
+      technicalValues: { Marca: 'Morante' },
+      variableTechnicalFields: ['Cor'],
+    });
+
+    expect(mapped.technical_specs).toMatchObject({
+      technicalValues: { Marca: 'Morante' },
+      variableTechnicalFields: ['Cor'],
+    });
+  });
 });

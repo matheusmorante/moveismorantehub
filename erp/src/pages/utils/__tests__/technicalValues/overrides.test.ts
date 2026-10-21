@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   getEffectiveTechnicalValue,
+  getEffectiveVariationTechnicalValues,
+  getLegacyVariableTechnicalFieldNames,
   hasVariationOverride,
+  isTechnicalFieldVariable,
   removeVariationOverride,
+  hasEffectiveDifferenceFromParent,
+  resolveVariableTechnicalFieldNames,
   hasEffectiveDifferenceFromParent,
   computeEffectiveVariationName,
   TechnicalFieldDefinition,
@@ -61,6 +66,27 @@ describe('technicalValues - Overrides e Nomes de Variação', () => {
         { Cor: 'Preto', Marca: 'Morante' }
       )
     ).toBe(true);
+  });
+
+  it('infere o modo antigo por overrides e força a herança dos campos fixos', () => {
+    const variation = {
+      attributes: [{ name: 'Cor', value: 'Preto' }],
+      technicalValues: { Marca: 'Marca da variação', Material: 'MDF' },
+    };
+    const legacyVariableFields = getLegacyVariableTechnicalFieldNames([variation]);
+
+    expect(legacyVariableFields).toEqual(['Cor', 'Marca', 'Material']);
+    expect(resolveVariableTechnicalFieldNames(undefined, [variation])).toEqual(legacyVariableFields);
+    expect(resolveVariableTechnicalFieldNames([], [variation])).toEqual([]);
+    expect(isTechnicalFieldVariable('Material', legacyVariableFields)).toBe(true);
+
+    expect(
+      getEffectiveVariationTechnicalValues(
+        { Cor: 'Branco', Marca: 'Morante', Material: 'Madeira' },
+        variation,
+        ['Cor']
+      )
+    ).toEqual({ Cor: 'Preto', Marca: 'Morante', Material: 'Madeira' });
   });
 
   it('compõe nome de variação combinando atributos e preservando valores originais', () => {

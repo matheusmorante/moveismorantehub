@@ -267,4 +267,6 @@ describe('recorte com modal, proprietário e cropper reais', () => {
   it('bounds an uncertain application without resending the image', async () => {
     const apply = vi.fn().mockReturnValue(new Promise(() => {})); mount(variation, parent, { onReplaceImageGlobal: apply }); const finish = await openCrop(); vi.useFakeTimers();
     await act(async () => { fireEvent.click(finish); await vi.advanceTimersByTimeAsync(30_001); });
-    expect(mocks.upload).toHaveBeenCalledOnce(); expect(apply).toHaveBeenCalledOnce(); expect(screen.getByRole('button', { name: 'Salvar Alterações' })).toHaveProperty('disabled', true); fireEvent.click(finish); expect(mocks.upload).toHaveBe
+    expect(mocks.upload).toHaveBeenCalledOnce(); expect(apply).toHaveBeenCalledOnce(); expect(screen.getByRole('button', { name: 'Salvar Alterações' })).toHaveProperty('disabled', true); fireEvent.click(finish); expect(mocks.upload).toHaveBeenCalledOnce();
+  });
+});
