@@ -346,6 +346,8 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         isOpen={isFiscalIssueModalOpen && (hasFiscalIssue || Boolean(fiscalPreparationError))}
         onClose={() => setIsFiscalIssueModalOpen(false)}
         emissionResult={emissionResult}
+        orderId={order?.id}
+        orderNumber={order?.orderNumber ?? order?.orderIndex}
         environment={environment}
         productionConfirmed={productionConfirmed}
         retryNumber={retryNumber}

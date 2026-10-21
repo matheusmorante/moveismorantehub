@@ -26,6 +26,8 @@ export interface NfeFiscalIssueModalProps {
   onAbandonHmlTlsAttempt?: () => void;
   onStartFreshHmlEmission?: () => void;
   onCorrectFiscalData?: () => void;
+  orderId?: string;
+  orderNumber?: number;
 }
 
 export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
@@ -44,6 +46,8 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
   onAbandonHmlTlsAttempt,
   onStartFreshHmlEmission,
   onCorrectFiscalData,
+  orderId,
+  orderNumber,
 }) => {
   useEffect(() => {
     if (!isOpen) return;
@@ -132,6 +136,17 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
             description={issueCopy.description}
             nextStep={issueCopy.nextStep}
             technicalDetails={technicalDetails}
+            copyPromptContext={
+              hasEmissionIssue && emissionResult
+                ? {
+                    orderId: emissionResult.orderId || orderId,
+                    orderNumber,
+                    attemptState: emissionResult.status || emissionResult.state,
+                    pending: emissionResult.pending,
+                    sefazContacted: emissionResult.sefazContacted,
+                  }
+                : undefined
+            }
             onClose={onClose}
           >
             {hasEmissionIssue && emissionResult?.fiscalMismatchFields?.length ? (
