@@ -81,6 +81,7 @@ export interface FiscalDocumentStatusRow {
   status: string;
   document_type?: string | null;
   ambiente?: number | null;
+  original_document_id?: string | null;
   cancellationEventStatus?: string | null;
   cancellationEventRequestedAt?: string | null;
 }

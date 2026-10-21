@@ -48,8 +48,7 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
   });
 
   // Callbacks de persistência e preparação de reemissão fiscal
-  const { persistUpdate, persistReadyFiscalEdit, persistBlockedFiscalEdit } =
-    useOrderEditPersistence({
+  const { persistUpdate } = useOrderEditPersistence({
       effectiveOrder,
       onClose,
       onSaveSuccess,
@@ -75,8 +74,6 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
     effectiveOrder,
     validateEditedOrder,
     persistUpdate,
-    persistReadyFiscalEdit,
-    persistBlockedFiscalEdit,
     setIsSavingOrder,
   });
 

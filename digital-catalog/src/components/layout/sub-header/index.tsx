@@ -99,7 +99,7 @@ export function SubHeader() {
             const SALVADOS_OPP_ID = '9d8bedae-b366-4f8c-ac49-74b85b882bde';
             const isSalvadosActive = activeType === 'salvados' || activeType === SALVADOS_OPP_ID;
             const salvadosClass = [
-              'flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-1.5 leading-tight rounded-lg',
+              'flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-1.5 leading-tight rounded-none',
               'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs',
               isSalvadosActive
                 ? 'bg-orange-500 text-white ring-2 ring-white/80 shadow-sm'
@@ -117,10 +117,10 @@ export function SubHeader() {
           {(() => {
             const isMegaLiquidacaoActive = activeType === 'liquidacao';
             const liquidacaoClass = [
-              'flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-2 leading-tight rounded-lg',
+              'flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-2 leading-tight rounded-none',
               'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs',
               isMegaLiquidacaoActive
-                ? 'bg-amber-400 text-black ring-2 ring-white/80 shadow-sm'
+                ? 'bg-amber-400 text-black'
                 : 'bg-amber-400 hover:bg-amber-300 text-black',
             ].join(' ');
 
@@ -234,7 +234,7 @@ export function SubHeader() {
                       <Link
                         href="/?type=salvados"
                         onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-2 rounded-lg bg-orange-500 hover:bg-orange-600 px-3 py-2.5 text-sm font-black text-white transition-all shadow-xs"
+                        className="flex items-center gap-2 rounded-none bg-orange-500 hover:bg-orange-600 px-3 py-2.5 text-sm font-black text-white transition-all shadow-xs"
                       >
                         <Flame className="h-4 w-4 fill-white text-white shrink-0" />
                         QUEIMA DOS SALVADOS
@@ -242,7 +242,7 @@ export function SubHeader() {
                       <Link
                         href="/?type=liquidacao"
                         onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-2 rounded-lg bg-amber-400 hover:bg-amber-300 px-3 py-2.5 text-sm font-black text-black transition-all shadow-xs"
+                        className="flex items-center gap-2 rounded-none bg-amber-400 hover:bg-amber-300 px-3 py-2.5 text-sm font-black text-black transition-all shadow-xs"
                       >
                         <Tag className="h-4 w-4 text-black shrink-0" />
                         MEGA LIQUIDAÇÃO

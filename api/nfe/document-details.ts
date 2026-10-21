@@ -180,7 +180,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select(
         'id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,motivo_status,numero_protocolo,xml_nfe,xml_protocolo,valor_total,destinatario_nome,destinatario_documento,created_at,updated_at,document_type,original_document_id'
       )
-      .eq('original_document_id', documentId)
+      .or(
+        fiscalDoc?.original_document_id
+          ? `original_document_id.eq.${documentId},id.eq.${fiscalDoc.original_document_id}`
+          : `original_document_id.eq.${documentId}`
+      )
       .order('created_at', { ascending: false })
       .limit(10),
   ]);

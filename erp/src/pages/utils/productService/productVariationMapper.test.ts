@@ -143,4 +143,36 @@ describe('mapDbVariations', () => {
       images: ['https://example.test/photo.jpg'],
     });
   });
+
+  it('preserva os nomes específicos das variações quando há múltiplas variações no produto', () => {
+    const variations = mapDbVariations(
+      [
+        {
+          id: 'v1',
+          product_id: 'product-1',
+          sku: '000353-01',
+          name: 'Pia de Marmore Sintético 1,20m Preto',
+          use_parent_name: true,
+          attributes: [{ name: 'Cor', value: 'Preto' }],
+        },
+        {
+          id: 'v2',
+          product_id: 'product-1',
+          sku: '000353-02',
+          name: 'Pia de Marmore Sintético 1,20m Bege',
+          use_parent_name: true,
+          attributes: [{ name: 'Cor', value: 'Bege' }],
+        },
+      ],
+      {
+        id: 'product-1',
+        name: 'Pia de Marmore Sintético 1,20m',
+      },
+      '000353'
+    );
+
+    expect(variations).toHaveLength(2);
+    expect(variations[0].name).toBe('Pia de Marmore Sintético 1,20m Preto');
+    expect(variations[1].name).toBe('Pia de Marmore Sintético 1,20m Bege');
+  });
 });

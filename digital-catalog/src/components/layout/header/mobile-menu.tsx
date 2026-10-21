@@ -109,7 +109,7 @@ export function MobileMenu() {
                 <Link
                   href="/?type=salvados"
                   onClick={() => setOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-lg bg-orange-500 hover:bg-orange-600 text-black transition-all text-sm font-black group shadow-xs"
+                  className="flex items-center justify-between p-3 rounded-none bg-orange-500 hover:bg-orange-600 text-black transition-all text-sm font-black group shadow-xs"
                 >
                   <div className="flex items-center gap-2.5">
                     <Flame className="h-4 w-4 fill-black text-black shrink-0" />
@@ -121,7 +121,7 @@ export function MobileMenu() {
                 <Link
                   href="/?type=liquidacao"
                   onClick={() => setOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-lg bg-amber-400 hover:bg-amber-300 text-black transition-all text-sm font-black group shadow-xs"
+                  className="flex items-center justify-between p-3 rounded-none bg-amber-400 hover:bg-amber-300 text-black transition-all text-sm font-black group shadow-xs"
                 >
                   <div className="flex items-center gap-2.5">
                     <Tag className="h-4 w-4 text-black shrink-0" />

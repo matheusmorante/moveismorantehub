@@ -79,7 +79,7 @@ export const OrderOperationalBadges = ({
                 : 'Não Etiquetado (Clique para marcar)'
             }
           >
-            <i className="bi bi-tag-fill text-[11px] text-white" />
+            <i className="bi bi-tag-fill text-[16px] leading-none text-white" />
             {order.isStockChecked && (
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
                 <i className="bi bi-check text-[8px] font-black leading-none" />
@@ -122,7 +122,7 @@ export const OrderOperationalBadges = ({
           className="flex items-center justify-center h-6 w-6 rounded-md bg-orange-500 text-white border border-orange-600 shadow-2xs"
           title="Gerado por Tráfego Pago"
         >
-          <i className="bi bi-megaphone-fill text-[11px] text-white" />
+          <i className="bi bi-megaphone-fill text-[16px] leading-none text-white" />
         </div>
       )}
 
@@ -143,7 +143,7 @@ export const OrderOperationalBadges = ({
           } text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
           title={`Status: ${currentStatus.label}${isPendingScheduling ? ' (Agendamento pendente)' : ''} | Tipo: ${isRet ? 'Devolução' : isAssis ? 'Assistência' : isPick ? 'Retirada' : 'Entrega'}`}
         >
-          <i className={`bi ${sIcon} text-white text-[11px]`} />
+          <i className={`bi ${sIcon} text-white text-[16px] leading-none`} />
           {isPendingScheduling && (
             <span
               className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-orange-500 text-white shadow-2xs border border-white dark:border-slate-900 pointer-events-none"
@@ -210,7 +210,7 @@ export const OrderOperationalBadges = ({
           {isPick ? (
             <PickupIcon white className="h-5 w-5" />
           ) : (
-            <i className={`bi ${tIcon} text-[11px] text-white`} />
+            <i className={`bi ${tIcon} text-[16px] leading-none text-white`} />
           )}
         </div>
       ) : null}

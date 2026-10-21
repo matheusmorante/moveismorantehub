@@ -123,7 +123,6 @@ export default function ProductPageContent({
             <ProductGallery
               displayImages={displayImages}
               displayTitle={displayTitle}
-              productOpportunities={product?.opportunities}
               activeImage={activeImage}
               activeIndex={activeIndex}
               setActiveImage={setActiveImage}
@@ -165,7 +164,7 @@ export default function ProductPageContent({
                   )}
                 >
                   <WhatsAppIcon className="h-3.5 w-3.5 shrink-0" />
-                  Enviar no WhatsApp
+                  Compartilhar no WhatsApp
                 </Button>
                 <Button
                   onClick={handleCopyLink}

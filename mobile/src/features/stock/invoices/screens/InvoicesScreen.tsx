@@ -1,5 +1,5 @@
 import React from 'react';
-import { InvoicesScreenContent } from './InvoicesScreenContent';
+import { InvoicesScreenContent } from './invoices-screen/InvoicesScreenContent';
 
 /**
  * Thin wrapper component for the Invoices screen.

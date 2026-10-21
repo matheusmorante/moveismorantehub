@@ -6,6 +6,7 @@ import {
   HML_INTERSTATE_MATRIX_NOT_APPROVED,
 } from '@/pages/utils/nfe/fiscalIssuePresentation';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
+import type { DeliveryMethod } from '../../../../../../shared-utils/fiscalTransportModel';
 import { NfeEmissionFooter } from './nfe-modal/components/NfeEmissionFooter';
 import { NfeEmissionHeader } from './nfe-modal/components/NfeEmissionHeader';
 import { NfeEmissionPanels } from './nfe-modal/components/NfeEmissionPanels';
@@ -40,6 +41,28 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   const orderId = order?.id;
   const { customerPersonType, isLoadingCustomerType, emissionOrder } =
     useNfeCustomerPersonType(order);
+  const [deliveryMethodOverride, setDeliveryMethodOverride] =
+    React.useState<DeliveryMethod>('pickup');
+
+  React.useEffect(() => {
+    setDeliveryMethodOverride('pickup');
+  }, [isOpen, orderId]);
+
+  const orderDeliveryMethod: DeliveryMethod =
+    emissionOrder?.shipping?.deliveryMethod === 'pickup' ? 'pickup' : 'delivery';
+  const deliveryMethod = deliveryMethodOverride ?? orderDeliveryMethod;
+  const fiscalEmissionOrder = React.useMemo(() => {
+    if (!emissionOrder || emissionOrder.shipping?.deliveryMethod === deliveryMethod) {
+      return emissionOrder;
+    }
+    return {
+      ...emissionOrder,
+      shipping: {
+        ...emissionOrder.shipping,
+        deliveryMethod,
+      },
+    };
+  }, [deliveryMethod, emissionOrder]);
 
   const {
     acquisitionPurpose,
@@ -94,7 +117,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     setFreightContractResponsible,
     thirdPartyTransporter,
     setThirdPartyTransporter,
-  } = useNfeEmission(isOpen ? emissionOrder : null, (result: NfeEmissionResult) => {
+  } = useNfeEmission(isOpen ? fiscalEmissionOrder : null, (result: NfeEmissionResult) => {
     onSuccess?.(result);
     onClose();
   });
@@ -109,7 +132,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   } = useNfeEmissionModalState({
     isOpen,
     order,
-    emissionOrder,
+    emissionOrder: fiscalEmissionOrder,
     isLoadingCustomerType,
     initialEnvironment,
     environment,
@@ -169,13 +192,13 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   });
 
   const { itemsTotal, freightTotal, discountTotal, invoiceTotal } = computeInvoiceTotals({
-    order,
+    order: fiscalEmissionOrder ?? order,
     nfeItems,
   });
 
   const recipientRequirements = resolveRecipientRequirementsForModal({
     selectedModel,
-    order,
+    order: fiscalEmissionOrder ?? order,
     invoiceTotal,
     customerPersonType,
     recipientTaxId,
@@ -195,7 +218,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
       className="fixed inset-0 z-[999999] flex h-full min-h-0 w-full flex-col overflow-hidden overscroll-none bg-white dark:bg-slate-900 animate-in fade-in duration-150"
     >
       <NfeEmissionHeader
-        order={order}
+        order={fiscalEmissionOrder ?? order}
         modelLabel={modelLabel}
         environment={environment}
         onClose={onClose}
@@ -223,7 +246,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
       <NfeEmissionPanels
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        order={order}
+        order={fiscalEmissionOrder ?? order}
         environment={environment}
         productionConfirmed={productionConfirmed}
         acquisitionPurpose={acquisitionPurpose}
@@ -268,6 +291,8 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         handleUpdateItemFiscal={handleUpdateItemFiscal}
         handleBatchUpdateItems={handleBatchUpdateItems}
         selectedModel={selectedModel}
+        deliveryMethod={deliveryMethod}
+        onDeliveryMethodChange={setDeliveryMethodOverride}
         transportResponsible={transportResponsible}
         setTransportResponsible={setTransportResponsible}
         freightContractResponsible={freightContractResponsible}
@@ -328,10 +353,10 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         onRetry={() => {
           setIsFiscalIssueModalOpen(false);
           if (emissionResult?.hmlConfirmedNotFound) {
-            handleEmit(productionConfirmed, true);
+            handleEmit(environment === 1 || productionConfirmed, true);
           } else {
             handleEmit(
-              productionConfirmed,
+              environment === 1 || productionConfirmed,
               false,
               /^\d{1,9}$/.test(retryNumber) ? Number(retryNumber) : undefined
             );

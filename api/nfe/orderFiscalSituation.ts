@@ -48,6 +48,7 @@ type DetailsDocument = {
   order_id: string | null;
   ambiente: number;
   document_type?: string | null;
+  original_document_id?: string | null;
 };
 
 type DetailsEmission = FiscalDocumentStatusRow & { motivo_status?: string | null };
@@ -62,14 +63,25 @@ export async function loadOrderFiscalSituation(
   document: DetailsDocument,
   orderEmissions: readonly DetailsEmission[]
 ): Promise<OrderFiscalSituation | undefined> {
-  if (!document.order_id || (document.document_type || 'outbound') !== 'outbound') return undefined;
+  const orderId = document.order_id;
+  if (!orderId) return undefined;
+  const docType = document.document_type || 'outbound';
+  if (!['outbound', 'estorno', 'devolucao'].includes(docType)) return undefined;
+
   const environment: 1 | 2 = document.ambiente === 2 ? 2 : 1;
-  const emissionIds = orderEmissions.map((emission) => String(emission.id)).filter(Boolean);
+
+  const emissionIdSet = new Set<string>();
+  for (const emission of orderEmissions) {
+    if (emission.id) emissionIdSet.add(String(emission.id));
+  }
+  if (document.id) emissionIdSet.add(String(document.id));
+  if (document.original_document_id) emissionIdSet.add(String(document.original_document_id));
+  const emissionIds = [...emissionIdSet];
   if (!emissionIds.length) return undefined;
 
   try {
     const [orderResult, eventsResult, draftsResult, replacements] = await Promise.all([
-      db.from('orders').select('id,status').eq('id', document.order_id).maybeSingle(),
+      db.from('orders').select('id,status').eq('id', orderId).maybeSingle(),
       db
         .from('nfe_document_events')
         .select('document_id,status,attempt_number,requested_at,cstat,xmotivo')
@@ -97,7 +109,15 @@ export async function loadOrderFiscalSituation(
       }
     }
 
-    const statusRows: FiscalDocumentStatusRow[] = orderEmissions.map((emission) => {
+    const allEmissionsMap = new Map<string, DetailsEmission>();
+    for (const emission of orderEmissions) {
+      if (emission.id) allEmissionsMap.set(String(emission.id), emission);
+    }
+    if (document.id && !allEmissionsMap.has(String(document.id))) {
+      allEmissionsMap.set(String(document.id), document as any);
+    }
+
+    const statusRows: FiscalDocumentStatusRow[] = [...allEmissionsMap.values()].map((emission) => {
       const event = latestEvents.get(String(emission.id));
       return {
         id: String(emission.id),
@@ -108,6 +128,7 @@ export async function loadOrderFiscalSituation(
         created_at: emission.created_at,
         cancellationEventStatus: event?.status,
         cancellationEventRequestedAt: event?.requested_at,
+        original_document_id: (emission as any).original_document_id,
       };
     });
     const drafts: FiscalOperationDraftStatusRow[] = [...latestDrafts.values()].map((draft) => ({
@@ -148,7 +169,7 @@ export async function loadOrderFiscalSituation(
 
     // Identifica nota fiscal anterior regularizada (origem da substituição)
     const activeReplacement = (replacements || []).find(
-      (r) => (r.environment === environment || r.environment == null) && r.status !== 'completed'
+      (r) => (r.environment === environment || r.environment == null) && (r.status !== 'completed' || !r.replacement_document_id)
     ) || (replacements || [])[0];
 
     let previousDocumentId: string | null = null;
@@ -160,6 +181,11 @@ export async function loadOrderFiscalSituation(
       const originalDoc = orderEmissions.find((e) => String(e.id) === activeReplacement.original_document_id);
       previousDocumentNumber = (originalDoc as any)?.numero_nfe ?? null;
       previousDocumentClosure = activeReplacement.reversal_kind === 'cancel' ? 'cancelada' : 'estornada';
+    } else if (document.original_document_id) {
+      previousDocumentId = String(document.original_document_id);
+      const originalDoc = orderEmissions.find((e) => String(e.id) === previousDocumentId);
+      previousDocumentNumber = (originalDoc as any)?.numero_nfe ?? null;
+      previousDocumentClosure = 'estornada';
     } else {
       const pastClosure = orderEmissions
         .filter((e) => e.ambiente === environment && ['cancelada'].includes(String(e.status).toLowerCase()))
@@ -172,7 +198,8 @@ export async function loadOrderFiscalSituation(
     }
 
     if (!previousDocumentNumber && (status === 'reissue_required' || status === 'regularization_failed' || status === 'regularization_uncertain')) {
-      const currentDocInEmissions = orderEmissions.find((e) => String(e.id) === document.id);
+      const targetId = previousDocumentId || document.id;
+      const currentDocInEmissions = orderEmissions.find((e) => String(e.id) === targetId);
       if (currentDocInEmissions) {
         previousDocumentNumber = (currentDocInEmissions as any)?.numero_nfe ?? null;
         previousDocumentClosure = currentDocInEmissions.status === 'cancelada' ? 'cancelada' : 'estornada';

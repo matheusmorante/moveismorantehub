@@ -251,7 +251,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
               </span>
             </button>
 
-            {/* Produção abre o fluxo normal, que exige confirmação explícita antes do envio. */}
+            {/* A transmissão só ocorre após o clique explícito no botão de emissão em Produção. */}
             <button
               type="button"
               disabled={isProdIssued || isProdRegularizationBlocked || isPreparingSnapshot}
@@ -262,7 +262,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
                   ? 'Nota fiscal de produção já emitida para este pedido.'
                   : isPreparingSnapshot
                     ? 'Aguarde a preparação dos dados fiscais do pedido.'
-                    : 'Abrir emissão real em Produção (tpAmb=1); a próxima etapa exige confirmação.'
+                    : 'Abrir emissão real em Produção (tpAmb=1); transmitir somente ao clicar em Emitir em Produção.'
               }
               onClick={() => void selectEnvironment(1)}
               className={`flex flex-col items-center justify-center p-5 rounded-2xl border text-center transition-all relative min-h-[140px] ${
@@ -288,7 +288,7 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
                   ? 'Já emitida para este pedido'
                   : fiscalStatuses?.readyToReissueProd
                     ? 'Emitir nova nota fiscal'
-                    : 'Ambiente oficial • exige confirmação'}
+                    : 'Ambiente oficial • clique para emitir'}
               </span>
             </button>
           </div>

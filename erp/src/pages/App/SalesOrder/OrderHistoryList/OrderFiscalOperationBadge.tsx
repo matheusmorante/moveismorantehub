@@ -97,7 +97,7 @@ const ReturnFiscalBadge: React.FC<
               type="button"
               title={`${title} · Abrir detalhes`}
               aria-label={`${title} · Abrir detalhes`}
-              className={`relative inline-flex h-6 min-w-8 items-center justify-center rounded-md border px-3.5 text-[9px] font-black leading-none ${presentation.color} cursor-pointer hover:ring-2 hover:ring-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
+              className={`relative inline-flex h-6 min-w-8 items-center justify-center rounded-md border px-2 text-[11px] font-black leading-none ${presentation.color} cursor-pointer hover:ring-2 hover:ring-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
               onClick={(event) => {
                 event.stopPropagation();
                 openFiscalDocument(document, onOpenDocument, navigate);
@@ -161,7 +161,7 @@ export const OrderFiscalOperationBadge: React.FC<OrderFiscalOperationBadgeProps>
             : pending
               ? 'border-blue-700 bg-blue-600 text-white hover:bg-blue-700'
               : 'border-emerald-700 bg-emerald-600 text-white hover:bg-emerald-700';
-  const className = `relative inline-flex h-6 min-w-8 items-center justify-center rounded-md border px-1.5 text-[9px] font-black leading-none ${colorClass}`;
+  const className = `relative inline-flex h-6 min-w-8 items-center justify-center rounded-md border px-2 text-[11px] font-black leading-none ${colorClass}`;
   const iconClass = cancelled
     ? 'bi-x'
     : rejected && props.kind === 'estorno'

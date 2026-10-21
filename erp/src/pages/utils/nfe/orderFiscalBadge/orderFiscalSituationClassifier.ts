@@ -29,6 +29,15 @@ export const getEstornoConfirmedDocumentIds = (
       confirmed.add(draft.original_document_id);
     }
   }
+  for (const doc of documents) {
+    if (
+      doc.document_type === 'estorno' &&
+      ['autorizada', 'homologada'].includes(String(doc.status).toLowerCase()) &&
+      doc.original_document_id
+    ) {
+      confirmed.add(doc.original_document_id);
+    }
+  }
   return confirmed;
 };
 
@@ -175,7 +184,10 @@ export const resolveEnvironmentBadge = (
     const replacement = item.document.id
       ? context.replacementsByDocumentId.get(item.document.id)
       : undefined;
-    return Boolean(replacement) && replacement?.status !== 'completed';
+    return (
+      Boolean(replacement) &&
+      (replacement?.status !== 'completed' || !replacement?.replacement_document_id)
+    );
   });
   if (!awaitingNewEmission) return { status: closureStatus };
 

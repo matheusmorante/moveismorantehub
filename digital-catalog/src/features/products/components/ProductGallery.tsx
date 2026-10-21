@@ -2,13 +2,11 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { CatalogProductImage } from '@/components/ui/CatalogProductImage';
-import { ChevronLeft, ChevronRight, X, Flame, Zap } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface ProductGalleryProps {
   displayImages: string[];
   displayTitle: string;
-  productOpportunities?: any;
   activeImage: string;
   activeIndex: number;
   setActiveImage: (img: string) => void;
@@ -18,7 +16,6 @@ interface ProductGalleryProps {
 export function ProductGallery({
   displayImages,
   displayTitle,
-  productOpportunities,
   activeImage,
   activeIndex,
   setActiveImage,
@@ -31,10 +28,6 @@ export function ProductGallery({
 
   const thumbsRef = useRef<HTMLDivElement>(null);
   const totalImages = displayImages.length;
-  const isMegaLiquidacaoLastUnit =
-    /últimas?\s+unidades?/i.test(productOpportunities?.name || '') &&
-    !/mostru[aá]rio/i.test(productOpportunities?.name || '');
-
   const updateScrollBtns = useCallback(() => {
     const el = thumbsRef.current;
     if (!el) return;
@@ -71,7 +64,7 @@ export function ProductGallery({
     <>
       <div className="space-y-4">
         <button
-          className="relative w-full aspect-[4/5] sm:aspect-square lg:aspect-[4/5] max-h-[500px] md:max-h-[600px] overflow-hidden rounded-2xl border bg-gray-50 shadow-sm block cursor-zoom-in group/main"
+          className="relative w-full aspect-[4/5] sm:aspect-square lg:aspect-[4/5] max-h-[500px] md:max-h-[600px] overflow-hidden rounded-2xl border-0 bg-transparent shadow-none block cursor-zoom-in group/main"
           onClick={() => {
             setLightboxIndex(activeIndex);
             setLightboxOpen(true);
@@ -84,30 +77,9 @@ export function ProductGallery({
               alt={displayTitle}
               size="medium"
               fill
-              className="object-contain p-4 md:p-8 transition-transform duration-500 group-hover/main:scale-105"
+              className="object-contain rounded-2xl transition-transform duration-500 group-hover/main:scale-105"
               priority
             />
-          )}
-          {productOpportunities && (
-            <Badge
-              className={`absolute top-0 right-0 rounded-none ${isMegaLiquidacaoLastUnit ? 'bg-amber-400 border border-red-600 text-black' : `${productOpportunities.badge_color || 'bg-accent'} text-white`} font-bold px-4 py-1 text-[10px] sm:text-xs shadow-lg pointer-events-none flex items-center gap-1`}
-            >
-              {(productOpportunities.slug === 'salvado' ||
-                productOpportunities.name?.toLowerCase()?.includes('salvado')) && (
-                <Flame className="h-3 w-3 shrink-0" />
-              )}
-              {isMegaLiquidacaoLastUnit ? (
-                <>
-                  <Zap className="h-3 w-3 shrink-0 fill-current text-black" />
-                  <span className="flex flex-col items-start normal-case leading-[1.05]">
-                    <span className="text-black">Mega Liquidação</span>
-                    <span className="text-red-600">Última Unidade</span>
-                  </span>
-                </>
-              ) : (
-                productOpportunities.name
-              )}
-            </Badge>
           )}
         </button>
 

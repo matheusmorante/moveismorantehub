@@ -88,7 +88,7 @@ export const mapDbVariations = (
     const syncIpi = details.syncIpi !== false;
     const syncFreight = details.syncFreight !== false;
     const formattedName = toTitleCase(
-      (v.use_parent_name === true ? data.name || data.title : v.name) || data.name || data.title || ''
+      (visibleRecords.length <= 1 && v.use_parent_name === true ? data.name || data.title : v.name) || data.name || data.title || ''
     );
 
     if (v.product_id) {

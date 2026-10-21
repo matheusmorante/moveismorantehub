@@ -55,12 +55,6 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
 
   const displayPrice = product.promo_price || product.price;
   const originalPrice = product.promo_price ? product.price : undefined;
-  const productNameCharacters = Array.from(product.name);
-  const displayName =
-    productNameCharacters.length > 30
-      ? `${productNameCharacters.slice(0, 27).join('').trimEnd()}...`
-      : product.name;
-
   const handleEditClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -175,7 +169,7 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
       {product.opportunity && (
         <Badge
           className={cn(
-            'pointer-events-none absolute top-0 right-0 font-black px-2 py-0.5 rounded-none shadow-lg z-10 text-[9px] uppercase tracking-tighter border border-white/20 flex items-center gap-0.5',
+            'pointer-events-none absolute top-0 right-0 font-black px-2.5 py-1 rounded-none shadow-lg z-10 text-[11px] uppercase tracking-normal border border-white/20 flex items-center gap-2',
             isSalvados
               ? 'bg-orange-500 text-white border-orange-600/20'
               : isMegaLiquidacao
@@ -191,8 +185,8 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
               : { backgroundColor: opportunityBadgeBackground }
           }
         >
-          {isSalvados && <Flame className="h-2.5 w-2.5 shrink-0 text-white fill-white" />}
-          {isMegaLiquidacao && <Zap className="h-2.5 w-2.5 shrink-0 fill-current text-black" />}
+          {isSalvados && <Flame className="h-3.5 w-3.5 shrink-0 text-white fill-white" />}
+          {isMegaLiquidacao && <Zap className="h-3.5 w-3.5 shrink-0 fill-current text-black" />}
           {isMegaLiquidacaoLastUnit ? (
             <span className="flex flex-col items-start normal-case tracking-normal leading-[1.05]">
               <span className="text-black">Mega Liquidação</span>
@@ -216,14 +210,14 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
       <CardContent className="min-w-0 p-2 pb-1 flex-1 flex flex-col justify-between">
         <Link href={`/produto/${product.slug}`} className="block min-w-0">
           <h3
-            className="min-h-[3rem] w-full break-words font-bold text-[14px] leading-snug transition-colors sm:text-[15px] [overflow-wrap:anywhere]"
+            className="w-full line-clamp-2 break-words font-bold text-[14px] leading-snug transition-colors sm:text-[15px] lg:text-base [overflow-wrap:anywhere]"
             aria-label={product.name}
             title={product.name}
             style={{
               color: getOpportunityTitleColor(product.opportunity),
             }}
           >
-            {displayName}
+            {product.name}
           </h3>
         </Link>
         <div className="mt-1 space-y-0.5">

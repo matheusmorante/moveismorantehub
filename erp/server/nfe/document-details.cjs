@@ -201,6 +201,11 @@ var getEstornoConfirmedDocumentIds = (documents, drafts) => {
       confirmed.add(draft.original_document_id);
     }
   }
+  for (const doc of documents) {
+    if (doc.document_type === "estorno" && ["autorizada", "homologada"].includes(String(doc.status).toLowerCase()) && doc.original_document_id) {
+      confirmed.add(doc.original_document_id);
+    }
+  }
   return confirmed;
 };
 var resolveOrderFiscalBadgeStatus = (documents, estornoConfirmedIds) => {
@@ -267,7 +272,7 @@ var resolveEnvironmentBadge = (environmentDocuments, legacyStatus, context) => {
   if (context.orderCancelled) return { status: closureStatus };
   const awaitingNewEmission = classified.some((item) => {
     const replacement = item.document.id ? context.replacementsByDocumentId.get(item.document.id) : void 0;
-    return Boolean(replacement) && replacement?.status !== "completed";
+    return Boolean(replacement) && (replacement?.status !== "completed" || !replacement?.replacement_document_id);
   });
   if (!awaitingNewEmission) return { status: closureStatus };
   const latestOutbound = environmentDocuments.filter((document) => document.id).sort(newestFirst)[0];
@@ -485,13 +490,22 @@ var joinReason = (cstat, motivo) => {
   return cstat ? `${cstat} - ${text}` : text;
 };
 async function loadOrderFiscalSituation(db, document, orderEmissions) {
-  if (!document.order_id || (document.document_type || "outbound") !== "outbound") return void 0;
+  const orderId = document.order_id;
+  if (!orderId) return void 0;
+  const docType = document.document_type || "outbound";
+  if (!["outbound", "estorno", "devolucao"].includes(docType)) return void 0;
   const environment = document.ambiente === 2 ? 2 : 1;
-  const emissionIds = orderEmissions.map((emission) => String(emission.id)).filter(Boolean);
+  const emissionIdSet = /* @__PURE__ */ new Set();
+  for (const emission of orderEmissions) {
+    if (emission.id) emissionIdSet.add(String(emission.id));
+  }
+  if (document.id) emissionIdSet.add(String(document.id));
+  if (document.original_document_id) emissionIdSet.add(String(document.original_document_id));
+  const emissionIds = [...emissionIdSet];
   if (!emissionIds.length) return void 0;
   try {
     const [orderResult, eventsResult, draftsResult, replacements] = await Promise.all([
-      db.from("orders").select("id,status").eq("id", document.order_id).maybeSingle(),
+      db.from("orders").select("id,status").eq("id", orderId).maybeSingle(),
       db.from("nfe_document_events").select("document_id,status,attempt_number,requested_at,cstat,xmotivo").in("document_id", emissionIds).eq("event_type", "110111").order("attempt_number", { ascending: false }),
       db.from("nfe_operation_drafts").select("id,original_document_id,operation_kind,environment,status,created_at").in("original_document_id", emissionIds).eq("operation_kind", "estorno").order("created_at", { ascending: false }),
       fetchOrderEditReplacements(db, emissionIds)
@@ -507,7 +521,14 @@ async function loadOrderFiscalSituation(db, document, orderEmissions) {
         latestDrafts.set(String(draft.original_document_id), draft);
       }
     }
-    const statusRows = orderEmissions.map((emission) => {
+    const allEmissionsMap = /* @__PURE__ */ new Map();
+    for (const emission of orderEmissions) {
+      if (emission.id) allEmissionsMap.set(String(emission.id), emission);
+    }
+    if (document.id && !allEmissionsMap.has(String(document.id))) {
+      allEmissionsMap.set(String(document.id), document);
+    }
+    const statusRows = [...allEmissionsMap.values()].map((emission) => {
       const event = latestEvents.get(String(emission.id));
       return {
         id: String(emission.id),
@@ -517,7 +538,8 @@ async function loadOrderFiscalSituation(db, document, orderEmissions) {
         ambiente: emission.ambiente,
         created_at: emission.created_at,
         cancellationEventStatus: event?.status,
-        cancellationEventRequestedAt: event?.requested_at
+        cancellationEventRequestedAt: event?.requested_at,
+        original_document_id: emission.original_document_id
       };
     });
     const drafts = [...latestDrafts.values()].map((draft) => ({
@@ -548,7 +570,7 @@ async function loadOrderFiscalSituation(db, document, orderEmissions) {
       reason = pending?.motivo_status ? String(pending.motivo_status) : null;
     }
     const activeReplacement = (replacements || []).find(
-      (r) => (r.environment === environment || r.environment == null) && r.status !== "completed"
+      (r) => (r.environment === environment || r.environment == null) && (r.status !== "completed" || !r.replacement_document_id)
     ) || (replacements || [])[0];
     let previousDocumentId = null;
     let previousDocumentNumber = null;
@@ -558,6 +580,11 @@ async function loadOrderFiscalSituation(db, document, orderEmissions) {
       const originalDoc = orderEmissions.find((e) => String(e.id) === activeReplacement.original_document_id);
       previousDocumentNumber = originalDoc?.numero_nfe ?? null;
       previousDocumentClosure = activeReplacement.reversal_kind === "cancel" ? "cancelada" : "estornada";
+    } else if (document.original_document_id) {
+      previousDocumentId = String(document.original_document_id);
+      const originalDoc = orderEmissions.find((e) => String(e.id) === previousDocumentId);
+      previousDocumentNumber = originalDoc?.numero_nfe ?? null;
+      previousDocumentClosure = "estornada";
     } else {
       const pastClosure = orderEmissions.filter((e) => e.ambiente === environment && ["cancelada"].includes(String(e.status).toLowerCase())).sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))[0];
       if (pastClosure) {
@@ -567,7 +594,8 @@ async function loadOrderFiscalSituation(db, document, orderEmissions) {
       }
     }
     if (!previousDocumentNumber && (status === "reissue_required" || status === "regularization_failed" || status === "regularization_uncertain")) {
-      const currentDocInEmissions = orderEmissions.find((e) => String(e.id) === document.id);
+      const targetId = previousDocumentId || document.id;
+      const currentDocInEmissions = orderEmissions.find((e) => String(e.id) === targetId);
       if (currentDocInEmissions) {
         previousDocumentNumber = currentDocInEmissions?.numero_nfe ?? null;
         previousDocumentClosure = currentDocInEmissions.status === "cancelada" ? "cancelada" : "estornada";
@@ -731,7 +759,9 @@ async function handler(req, res) {
     ).or(`original_document_id.eq.${documentId},document_id.eq.${documentId}`).order("created_at", { ascending: false }).limit(10),
     db.from("nfe_documents").select(
       "id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,motivo_status,numero_protocolo,xml_nfe,xml_protocolo,valor_total,destinatario_nome,destinatario_documento,created_at,updated_at,document_type,original_document_id"
-    ).eq("original_document_id", documentId).order("created_at", { ascending: false }).limit(10)
+    ).or(
+      fiscalDoc?.original_document_id ? `original_document_id.eq.${documentId},id.eq.${fiscalDoc.original_document_id}` : `original_document_id.eq.${documentId}`
+    ).order("created_at", { ascending: false }).limit(10)
   ]);
   if (eventsResult.error)
     return res.status(503).json({ success: false, error: "N\xE3o foi poss\xEDvel carregar o hist\xF3rico fiscal." });

@@ -130,7 +130,13 @@ export async function createNormalSaleRuleSet(
     );
   }
 
-  const deliveryMethod = shippingData.deliveryMethod as DeliveryMethod;
+  const persistedDeliveryMethod = shippingData.deliveryMethod as DeliveryMethod;
+  // NFC-e without transport represents an effective pickup for this emission,
+  // even when the commercial order was originally saved as delivery.
+  const deliveryMethod: DeliveryMethod =
+    modelDecision.model === '65' && snapshot.emissionRequest.hasTransport === false
+      ? 'pickup'
+      : persistedDeliveryMethod;
 
   validateInterstateNormalSaleMatrix({
     facts,
@@ -293,8 +299,6 @@ export async function createNormalSaleRuleSet(
         postalCode: required(issuer.companyCEP, 'CEP emitente').replace(/\D/g, ''),
       };
 
-      const isDelivery = shipping.deliveryMethod === 'delivery';
-      const snapshotDeliveryMethod: DeliveryMethod = isDelivery ? 'delivery' : 'pickup';
       const effectiveTransporter = snapshot.emissionRequest.transporter || shipping.transporter;
       const rawResponsible: TransportResponsible | undefined =
         snapshot.emissionRequest.transportResponsible ||
@@ -306,7 +310,7 @@ export async function createNormalSaleRuleSet(
 
       const resolvedTransport = resolveTransport({
         fiscalModel: modelDecision.model,
-        deliveryMethod: snapshotDeliveryMethod,
+        deliveryMethod,
         hasTransport: snapshot.emissionRequest.hasTransport,
         transportResponsible: rawResponsible,
         freightContractResponsible: snapshot.emissionRequest.freightContractResponsible,

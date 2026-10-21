@@ -159,7 +159,7 @@ export const NfeEmissionFooter: React.FC<NfeEmissionFooterProps> = ({
               <button
                 type="button"
                 data-testid="nfe-emit-button"
-                onClick={() => onEmit(productionConfirmed, false)}
+                onClick={() => onEmit(environment === 1 || productionConfirmed, false)}
                 disabled={!canOperateFiscal || isSubmitting}
                 aria-busy={isSubmitting}
                 className="px-5 py-2 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"

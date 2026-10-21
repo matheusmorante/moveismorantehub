@@ -189,7 +189,7 @@ export const OrderFiscalBadge: React.FC<OrderFiscalBadgeProps> = ({
     const badgeLabel = label || presentation.label;
     const baseTitle = label ? `${label} · ${presentation.title}` : presentation.title;
     const fullTitle = hasReturn ? `${baseTitle} (com devolução)` : baseTitle;
-    const className = `relative inline-flex h-6 min-w-8 items-center justify-center rounded-md border px-1.5 text-[9px] font-black leading-none ${presentation.className}`;
+    const className = `relative inline-flex h-6 min-w-8 items-center justify-center rounded-md border px-2 text-[11px] font-black leading-none ${presentation.className}`;
     const title = loading ? 'Atualizando status fiscal do pedido' : fullTitle;
     const contents = (
       <>

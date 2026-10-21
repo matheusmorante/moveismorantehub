@@ -22,6 +22,20 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
   const { fullScreen = false, onClose, document, emissionResult } = props;
   const state = useIssuedFiscalDocumentDetails(props);
 
+  React.useLayoutEffect(() => {
+    const body = window.document.body;
+    const root = window.document.documentElement;
+    const previousBodyOverflowY = body.style.overflowY;
+    const previousRootOverflowY = root.style.overflowY;
+    body.style.overflowY = 'hidden';
+    root.style.overflowY = 'hidden';
+
+    return () => {
+      body.style.overflowY = previousBodyOverflowY;
+      root.style.overflowY = previousRootOverflowY;
+    };
+  }, []);
+
   if (state.reviewingDraft && state.operationDraft?.sourceDocument) {
     return (
       <NfeOperationDraftModal
@@ -42,6 +56,14 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
       className={`fixed inset-0 z-[1000000] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm ${
         fullScreen ? 'p-0' : 'p-0 md:p-4'
       }`}
+      onWheelCapture={(event) => {
+        const scrollBody = event.currentTarget.querySelector('[data-fiscal-details-scroll-body]');
+        if (!scrollBody?.contains(event.target as Node)) event.preventDefault();
+      }}
+      onTouchMoveCapture={(event) => {
+        const scrollBody = event.currentTarget.querySelector('[data-fiscal-details-scroll-body]');
+        if (!scrollBody?.contains(event.target as Node)) event.preventDefault();
+      }}
     >
       <button
         type="button"
@@ -100,7 +122,10 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
           onChange={state.setActiveTab}
         />
 
-        <main className="min-h-[280px] flex-1 overflow-y-auto bg-slate-50/70 p-4 dark:bg-slate-950/30 sm:p-6">
+        <main
+          data-fiscal-details-scroll-body
+          className="min-h-[280px] flex-1 overflow-y-auto overscroll-y-contain bg-slate-50/70 p-4 dark:bg-slate-950/30 sm:p-6"
+        >
           {state.isLoading && (state.activeTab !== 'general' || (!state.details && !document)) ? (
             <div
               role="status"

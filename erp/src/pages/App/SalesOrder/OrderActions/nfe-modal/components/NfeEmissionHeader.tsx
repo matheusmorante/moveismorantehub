@@ -70,15 +70,11 @@ export const NfeEmissionHeader: React.FC<NfeEmissionHeaderProps> = ({
           </button>
         )}
 
-        <span
-          className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider select-none ${
-            environment === 2
-              ? 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
-              : 'bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
-          }`}
-        >
-          {environment === 2 ? 'Homologação' : 'Produção'}
-        </span>
+        {environment === 2 && (
+          <span className="px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider select-none bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+            Homologação
+          </span>
+        )}
         <button
           type="button"
           aria-label="Fechar emissão fiscal"

@@ -64,12 +64,14 @@ export function resolveDefaultTransport(
  * Resolução central de transporte e modalidade de frete (modFrete).
  * Impede combinações fiscais inválidas e estados incoerentes.
  *
- * REGRA INVIOLÁVEL: O pedido comercial é a fonte primária da operação.
- * O modal fiscal e o backend traduzem a realidade do pedido para as regras da SEFAZ,
- * impedindo o operador de contradizer o fato comercial:
- * - NFC-e 65 + Retirada: OFF (modFrete 9), toggle desligado e bloqueado [OFF 🔒].
- * - NF-e 55 + Retirada:  ON  (modFrete 4, cliente retira), toggle ligado e bloqueado [ON 🔒].
- * - Entrega (55 ou 65):  ON  (modFrete 3 própria empresa ou 0/1/2 terceirizado), toggle ligado e bloqueado [ON 🔒].
+ * No emissor, deliveryMethod representa a modalidade efetiva selecionada pelo operador
+ * somente para esta emissão e deve refletir o que ocorreu (por exemplo, entrega
+ * planejada que virou retirada no balcão). Essa seleção não altera o pedido comercial.
+ * O modelo traduz essa modalidade para as regras da SEFAZ:
+ * - NFC-e 65 + Retirada efetiva: OFF (modFrete 9).
+ * - NF-e 55 + Retirada efetiva: ON (modFrete 4, por conta do destinatário).
+ * - Entrega efetiva (55 ou 65): ON (modFrete 3 própria empresa ou 0/1/2 terceirizado).
+ * A interface seleciona a modalidade efetiva; não permite editar hasTransport isoladamente.
  */
 export function resolveTransport(input: TransportResolutionInput): TransportResolution {
   const { fiscalModel, deliveryMethod } = input;
@@ -86,9 +88,9 @@ export function resolveTransport(input: TransportResolutionInput): TransportReso
       isEmitterTransporter: false,
       requiresTransporterData: false,
       allowsEditHasTransport: false,
-      derivedReason: 'Definido automaticamente: pedido para retirada.',
+      derivedReason: 'Definido pela modalidade selecionada para esta emissão.',
       statusBadge: '9 — Sem ocorrência de transporte [OFF 🔒]',
-      friendlyDescription: 'Sem ocorrência de transporte — definido pelo pedido de retirada',
+      friendlyDescription: 'Sem ocorrência de transporte nesta NFC-e',
     };
   }
 
@@ -104,9 +106,9 @@ export function resolveTransport(input: TransportResolutionInput): TransportReso
       isEmitterTransporter: false,
       requiresTransporterData: false,
       allowsEditHasTransport: false,
-      derivedReason: 'Definido automaticamente: pedido para retirada.',
+      derivedReason: 'Definido pela modalidade selecionada para esta emissão.',
       statusBadge: '4 — Transporte próprio pelo destinatário [ON 🔒]',
-      friendlyDescription: 'Transporte próprio pelo destinatário — definido pelo pedido de retirada',
+      friendlyDescription: 'Transporte próprio por conta do destinatário nesta NF-e',
     };
   }
 

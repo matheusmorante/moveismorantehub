@@ -162,11 +162,11 @@ const InventoryMovementBadge = ({
         aria-label={content.title}
       >
         {isReversed ? (
-          <PackageX className="h-3.5 w-3.5" />
+          <PackageX className="h-4 w-4" />
         ) : isReturn ? (
-          <PackagePlus className="h-3.5 w-3.5" />
+          <PackagePlus className="h-4 w-4" />
         ) : (
-          <PackageMinus className="h-3.5 w-3.5" />
+          <PackageMinus className="h-4 w-4" />
         )}
 
         {hasMovement && !isReversed && (

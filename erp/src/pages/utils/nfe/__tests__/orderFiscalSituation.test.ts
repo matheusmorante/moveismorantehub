@@ -220,6 +220,37 @@ describe.each(ENVIRONMENTS)('situação fiscal do pedido — $label', ({ env, au
     );
     expect(statusOf(pair, env)).toBe('reissue_required');
   });
+
+  it('reconhece regularização por documento de estorno autorizado diretamente na lista de documentos', () => {
+    const estornoDoc: FiscalDocumentStatusRow = {
+      id: 'estorno-1',
+      order_id: 'order-1',
+      status: authorized,
+      document_type: 'estorno',
+      ambiente: env,
+      created_at: '2026-10-20T11:00:00Z',
+      original_document_id: 'nf-1',
+    };
+    const pair = resolveOrderFiscalBadgePair(
+      [original, estornoDoc],
+      [],
+      false,
+      Date.now(),
+      [replacement(env, 'nf-1', 'ready_to_reissue', 'estorno')]
+    );
+    expect(statusOf(pair, env)).toBe('reissue_required');
+  });
+
+  it('mantém pendência de nova emissão se a substituição não possui documento substituto persistido', () => {
+    const pair = resolveOrderFiscalBadgePair(
+      [original],
+      [estornoDraft(env, 'nf-1', 'authorized')],
+      false,
+      Date.now(),
+      [replacement(env, 'nf-1', 'completed', 'estorno', null)]
+    );
+    expect(statusOf(pair, env)).toBe('reissue_required');
+  });
 });
 
 describe('isolamento entre ambientes', () => {

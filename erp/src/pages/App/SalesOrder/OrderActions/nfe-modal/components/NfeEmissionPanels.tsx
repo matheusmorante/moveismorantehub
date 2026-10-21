@@ -3,6 +3,7 @@ import type Order from '@/pages/types/order.type';
 import type { FiscalAcquisitionPurpose } from '@/pages/types/order.type';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import type { FiscalRecipientRequirementDecision } from '../../../../../../../../shared-utils/fiscalDocumentModel';
+import type { DeliveryMethod } from '../../../../../../../../shared-utils/fiscalTransportModel';
 import { NfeCustomerTab } from '../NfeCustomerTab';
 import { NfeGeneralTab } from '../NfeGeneralTab';
 import type { NfeItemWithFiscal } from '../NfeItemsSection';
@@ -60,6 +61,8 @@ export interface NfeEmissionPanelsProps {
   handleUpdateItemFiscal: (index: number, updates: any) => void;
   handleBatchUpdateItems: (updated: NfeItemWithFiscal[]) => void;
   selectedModel?: '55' | '65';
+  deliveryMethod: DeliveryMethod;
+  onDeliveryMethodChange: (method: DeliveryMethod) => void;
   transportResponsible: any;
   setTransportResponsible: (val: any) => void;
   freightContractResponsible: any;
@@ -120,6 +123,8 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
   handleUpdateItemFiscal,
   handleBatchUpdateItems,
   selectedModel,
+  deliveryMethod,
+  onDeliveryMethodChange,
   transportResponsible,
   setTransportResponsible,
   freightContractResponsible,
@@ -160,9 +165,9 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
             onRetryNumberChange={setRetryNumber}
             onRetry={() =>
               emissionResult?.hmlConfirmedNotFound
-                ? handleEmit(productionConfirmed, true)
+                ? handleEmit(environment === 1 || productionConfirmed, true)
                 : handleEmit(
-                    productionConfirmed,
+                    environment === 1 || productionConfirmed,
                     false,
                     /^\d{1,9}$/.test(retryNumber) ? Number(retryNumber) : undefined
                   )
@@ -251,7 +256,8 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
           {!emissionResult?.success && (
             <NfeTransportSection
               fiscalModel={selectedModel || '55'}
-              deliveryMethod={order.shipping?.deliveryMethod === 'pickup' ? 'pickup' : 'delivery'}
+              deliveryMethod={deliveryMethod}
+              onDeliveryMethodChange={onDeliveryMethodChange}
               transportResponsible={transportResponsible}
               onTransportResponsibleChange={setTransportResponsible}
               freightContractResponsible={freightContractResponsible}
