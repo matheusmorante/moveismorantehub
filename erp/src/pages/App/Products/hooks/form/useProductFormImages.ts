@@ -103,37 +103,10 @@ export function useProductFormImages(
       });
 
       const urls = await Promise.all(uploadPromises);
-      setFormData((prev: Partial<Product>) => {
-        const nextImages = [...(prev.images || []), ...urls];
-        const isSingle = (prev.variations || []).length <= 1;
-        const updatedVariations = isSingle && prev.variations?.length === 1
-          ? prev.variations.map((v) => {
-              const hadAutoLinkedImages =
-                !v.images ||
-                v.images.length === 0 ||
-                v.images.every((img) => (prev.images || []).includes(img));
-              if (hadAutoLinkedImages) {
-                return {
-                  ...v,
-                  images: nextImages.slice(0, MAX_VARIATION_IMAGES),
-                };
-              }
-              return {
-                ...v,
-                images: (v.images || []).slice(0, MAX_VARIATION_IMAGES),
-              };
-            })
-          : prev.variations?.map((v) => ({
-              ...v,
-              images: (v.images || []).slice(0, MAX_VARIATION_IMAGES),
-            }));
-
-        return {
-          ...prev,
-          images: nextImages,
-          ...(updatedVariations ? { variations: updatedVariations } : {}),
-        };
-      });
+      setFormData((prev: Partial<Product>) => ({
+        ...prev,
+        images: [...(prev.images || []), ...urls],
+      }));
       onImagesSaved?.();
       toast.success(`${urls.length} foto(s) otimizada(s) e enviada(s) com sucesso!`);
     } catch (error: unknown) {

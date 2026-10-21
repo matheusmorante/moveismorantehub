@@ -9,6 +9,7 @@ import {
 import { parseFiscalItemSelections } from '../../shared-utils/fiscalItemSelections';
 import {
   type DeliveryMethod,
+  resolveEffectiveFiscalDeliveryMethod,
   resolveTransport,
   type TransportResponsible,
 } from '../../shared-utils/fiscalTransportModel';
@@ -131,12 +132,12 @@ export async function createNormalSaleRuleSet(
   }
 
   const persistedDeliveryMethod = shippingData.deliveryMethod as DeliveryMethod;
-  // NFC-e without transport represents an effective pickup for this emission,
-  // even when the commercial order was originally saved as delivery.
-  const deliveryMethod: DeliveryMethod =
-    modelDecision.model === '65' && facts.emissionRequest.hasTransport === false
-      ? 'pickup'
-      : persistedDeliveryMethod;
+  const deliveryMethod = resolveEffectiveFiscalDeliveryMethod({
+    fiscalModel: modelDecision.model,
+    orderDeliveryMethod: persistedDeliveryMethod,
+    hasTransport: facts.emissionRequest.hasTransport,
+    transportResponsible: facts.emissionRequest.transportResponsible,
+  });
 
   validateInterstateNormalSaleMatrix({
     facts,

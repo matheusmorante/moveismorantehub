@@ -63,16 +63,17 @@ export const ProductDescriptionInformativeModal: React.FC<ProductDescriptionInfo
 
   const techValues = formData.technicalValues || {};
   const displayBrand = formData.brand || techValues['Marca'] || techValues['marca'] || '';
-  const displayModel =
-    formData.model ||
-    formData.line ||
-    techValues['Modelo/Linha'] ||
-    techValues['Modelo / Linha'] ||
-    techValues['Modelo'] ||
-    techValues['modelo'] ||
-    techValues['Linha'] ||
-    '';
-  const displayColor = formData.color || techValues['Cor'] || techValues['cor'] || '';
+  const displayLine = formData.line || techValues['Linha'] || techValues['linha'] || '';
+  const displayModel = formData.model || techValues['Modelo'] || techValues['modelo'] || '';
+  const displayModelOrLine =
+    (displayModel && displayLine)
+      ? `${displayModel} / ${displayLine}`
+      : displayModel ||
+        displayLine ||
+        techValues['Modelo/Linha'] ||
+        techValues['Modelo / Linha'] ||
+        techValues['modelo/linha'] ||
+        '';
 
   return (
     <div
@@ -158,14 +159,23 @@ export const ProductDescriptionInformativeModal: React.FC<ProductDescriptionInfo
                     <span className="text-slate-400 font-medium">Marca:</span>{' '}
                     <strong className="text-slate-700 dark:text-slate-300 font-semibold">{displayBrand || '—'}</strong>
                   </div>
-                  <div>
-                    <span className="text-slate-400 font-medium">Modelo:</span>{' '}
-                    <strong className="text-slate-700 dark:text-slate-300 font-semibold">{displayModel || '—'}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-medium">Cor:</span>{' '}
-                    <strong className="text-slate-700 dark:text-slate-300 font-semibold">{displayColor || '—'}</strong>
-                  </div>
+                  {displayLine && displayModel ? (
+                    <>
+                      <div>
+                        <span className="text-slate-400 font-medium">Modelo:</span>{' '}
+                        <strong className="text-slate-700 dark:text-slate-300 font-semibold">{displayModel}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-medium">Linha:</span>{' '}
+                        <strong className="text-slate-700 dark:text-slate-300 font-semibold">{displayLine}</strong>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="col-span-2">
+                      <span className="text-slate-400 font-medium">Modelo / Linha:</span>{' '}
+                      <strong className="text-slate-700 dark:text-slate-300 font-semibold">{displayModelOrLine || '—'}</strong>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -181,7 +191,7 @@ export const ProductDescriptionInformativeModal: React.FC<ProductDescriptionInfo
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">
-                  💡 A IA usará as características do produto (marca, modelo, cor, dimensões e especificações) para compor uma descrição comercial detalhada.
+                  💡 A IA usará as características do produto (marca, modelo/linha, dimensões e especificações) para compor uma descrição comercial detalhada. A cor não é incluída por pertencer às variações.
                 </p>
               )}
             </div>

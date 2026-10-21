@@ -13,7 +13,6 @@ import { CategoriesManagerModal } from '../CategoriesManagerModal';
 import {
   keepManualCategorySelection,
   matchCategoryByRules,
-  rankCategoryCandidates,
 } from '../../../../../../shared-utils/productCategoryResolution';
 import { toTitleCase } from '../../../../../../shared-utils/productText';
 
@@ -118,10 +117,30 @@ export const ProductFormBasicTab: React.FC<Props> = ({
       : formData.categoryId
         ? [formData.categoryId]
         : [];
-  const categorySuggestions =
-    typeof formData.name === 'string' && selectedCategoryIds.length === 0
-      ? rankCategoryCandidates(formData.name, filteredCategories)
-      : [];
+  const autoAppliedNameRef = useMemo(() => ({ current: '' }), []);
+
+  useEffect(() => {
+    const trimmedName = (formData.name || '').trim();
+    if (!trimmedName || trimmedName.length < 3) return;
+    const currentIds: string[] =
+      Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0
+        ? formData.categoryIds
+        : formData.categoryId
+          ? [formData.categoryId]
+          : [];
+    if (currentIds.length > 0) return;
+    if (autoAppliedNameRef.current === trimmedName) return;
+
+    const timer = setTimeout(() => {
+      const matchedCategory = matchCategoryByRules(trimmedName, filteredCategories);
+      if (matchedCategory) {
+        autoAppliedNameRef.current = trimmedName;
+        applySuggestedCategory(matchedCategory as MobileCategory);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [formData.name, formData.categoryIds, formData.categoryId, filteredCategories]);
 
   const applySuggestedCategory = (category: MobileCategory) => {
     setFormData((prev) => {
@@ -298,32 +317,16 @@ export const ProductFormBasicTab: React.FC<Props> = ({
             }
             if (selectedCategoryIds.length === 0) {
               const matchedCategory = matchCategoryByRules(formData.name, filteredCategories);
-              if (matchedCategory) applySuggestedCategory(matchedCategory as MobileCategory);
+              if (matchedCategory) {
+                autoAppliedNameRef.current = formData.name.trim();
+                applySuggestedCategory(matchedCategory as MobileCategory);
+              }
             }
           }}
           placeholder="Digite o nome interno do produto (ex: SOFA 3 LUG)..."
           placeholderTextColor="#94a3b8"
           style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
         />
-        {categorySuggestions.length > 0 && (
-          <View style={styles.categorySuggestions}>
-            <Text style={[styles.categorySuggestionLabel, dark && styles.lightLabel]}>
-              Confira a sugestão pelo nome:
-            </Text>
-            {categorySuggestions.map(({ category }) => (
-              <TouchableOpacity
-                key={category.id}
-                accessibilityRole="button"
-                onPress={() => applySuggestedCategory(category as MobileCategory)}
-                style={[styles.categorySuggestionButton, dark && styles.darkCategorySuggestionButton]}
-              >
-                <Text style={[styles.categorySuggestionText, dark && styles.darkCategorySuggestionText]}>
-                  Usar {category.name || category.category}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
       </View>
 
       {/* TÍTULO NO CATÁLOGO */}

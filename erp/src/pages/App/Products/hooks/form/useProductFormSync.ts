@@ -9,6 +9,7 @@ import {
 interface UseProductFormSyncParams {
   readonly formData: Partial<Product>;
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
+  readonly isExistingProduct?: boolean;
 }
 
 /**
@@ -17,7 +18,7 @@ interface UseProductFormSyncParams {
  * 2. Propagação de campos herdados do produto pai para as variações (preço, descrição, dimensões, fiscal).
  * 3. Agregação dos valores das variações filhas de volta para o produto pai (estoque total e custo médio).
  */
-export function useProductFormSync({ formData, setFormData }: UseProductFormSyncParams): void {
+export function useProductFormSync({ formData, setFormData, isExistingProduct = false }: UseProductFormSyncParams): void {
   // 1. Cálculo do preço final de compra
   useEffect(() => {
     let final = formData.costPrice || 0;
@@ -165,4 +166,82 @@ export function useProductFormSync({ formData, setFormData }: UseProductFormSync
       }));
     }
   }, [formData.variations, formData.hasVariations, formData.stock, setFormData]);
+
+  // A variação simples criada no formulário herda os campos do pai. Produtos já salvos
+  // preservam os valores atuais da variação para evitar alterações implícitas no estoque.
+  useEffect(() => {
+    const variation = formData.variations?.[0];
+    if (isExistingProduct || formData.hasVariations || formData.variations?.length !== 1 || !variation) return;
+    const parentName = formData.name || formData.title || formData.description || '';
+    const inheritedFields = {
+      name: parentName,
+      title: formData.title || formData.name || '',
+      marketplaceTitle: formData.marketplaceTitle || formData.title || formData.name || '',
+      barcode: formData.barcode || '',
+      stock: Number(formData.stock || 0),
+      unitPrice: Number(formData.unitPrice || 0),
+      promoPrice: Number(formData.promoPrice || 0),
+      costPrice: Number(formData.costPrice || 0),
+      condition: formData.condition || 'novo',
+      description: formData.description || '',
+      fiscal: formData.fiscal ? { ...formData.fiscal } : undefined,
+      width: Number(formData.width || 0),
+      height: Number(formData.height || 0),
+      depth: Number(formData.depth || 0),
+      weight: Number(formData.weight || 0),
+      ipiPercent: Number(formData.ipiPercent || 0),
+      ipiType: formData.ipiType || 'percentage',
+      freightCost: Number(formData.freightCost || 0),
+      freightType: formData.freightType || 'fixed',
+      finalPurchasePrice: Number(formData.finalPurchasePrice || 0),
+      minStock: Number(formData.minStock || 0),
+      leadTime: Number(formData.leadTime || 0),
+      avgMonthlySales: Number(formData.avgMonthlySales || 0),
+      classification: formData.classification,
+      technicalValues: formData.technicalValues ? { ...formData.technicalValues } : undefined,
+      attributes: [],
+      images: [],
+    };
+    const hasChanged = Object.entries(inheritedFields).some(
+      ([field, value]) => JSON.stringify(variation[field as keyof typeof variation]) !== JSON.stringify(value)
+    );
+    if (!hasChanged) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      variations: prev.variations?.map((item) =>
+        item.id === variation.id ? { ...item, ...inheritedFields } : item
+      ),
+    }));
+  }, [
+    formData.hasVariations,
+    formData.name,
+    formData.title,
+    formData.marketplaceTitle,
+    formData.barcode,
+    formData.stock,
+    formData.unitPrice,
+    formData.promoPrice,
+    formData.costPrice,
+    formData.condition,
+    formData.description,
+    formData.fiscal,
+    formData.width,
+    formData.height,
+    formData.depth,
+    formData.weight,
+    formData.ipiPercent,
+    formData.ipiType,
+    formData.freightCost,
+    formData.freightType,
+    formData.finalPurchasePrice,
+    formData.minStock,
+    formData.leadTime,
+    formData.avgMonthlySales,
+    formData.classification,
+    formData.technicalValues,
+    formData.variations,
+    isExistingProduct,
+    setFormData,
+  ]);
 }

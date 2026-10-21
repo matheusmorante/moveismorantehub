@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,12 +10,7 @@ import {
 } from '@/pages/utils/customerSupport/customerMatchingService';
 import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
-
-const searchSchema = z.object({
-  searchTerm: z
-    .string()
-    .min(2, 'Informe pelo menos 2 caracteres para pesquisar cliente por nome, CPF ou telefone.'),
-});
+import { supportCustomerSearchSchema as searchSchema, supportCustomerLinkSchema, type SupportCustomerLinkInput } from '../../../../../../shared-utils/customerSupportFormSchemas';
 
 type SearchFormData = z.infer<typeof searchSchema>;
 
@@ -36,21 +31,39 @@ export const ManualLinkModal: React.FC<ManualLinkModalProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const scopeRef = useRef({ key: `${isOpen}:${conversationId}`, generation: 0 });
+  const scopeKey = `${isOpen}:${conversationId}`;
+  if (scopeRef.current.key !== scopeKey) scopeRef.current = { key: scopeKey, generation: scopeRef.current.generation + 1 };
+  const generation = scopeRef.current.generation;
+  const linkLock = useRef(false);
+  const searchRequest = useRef(0);
 
   const {
     register,
     handleSubmit,
+    reset: resetSearch,
     formState: { errors },
   } = useForm<SearchFormData>({
     resolver: zodResolver(searchSchema),
     defaultValues: { searchTerm: '' },
   });
+  const linkForm = useForm<SupportCustomerLinkInput>({ resolver: zodResolver(supportCustomerLinkSchema) });
+
+  useEffect(() => {
+    setResults([]);
+    setErrorMessage(null);
+    setIsSearching(false);
+    setIsLinking(false);
+    linkLock.current = false;
+    resetSearch({ searchTerm: '' });
+  }, [isOpen, conversationId, resetSearch]);
 
   if (!isOpen) return null;
 
   const onSearchSubmit = async (data: SearchFormData) => {
     setIsSearching(true);
     setErrorMessage(null);
+    const request = ++searchRequest.current;
     try {
       const term = data.searchTerm.trim();
       const response = await withTimeout<any>(supabase.rpc('customer_support_search_customers', {
@@ -59,29 +72,38 @@ export const ManualLinkModal: React.FC<ManualLinkModalProps> = ({
       const { data: peopleData, error } = response || { data: null, error: new Error('Timeout na busca de clientes') };
       if (error) throw error;
 
-      setResults((peopleData || []).map(mapPersonToSummary));
-    } catch (err: any) {
-      console.error('[ManualLinkModal] Erro na busca:', err);
-      setErrorMessage(err.message || 'Erro ao consultar clientes no banco.');
+      if (generation === scopeRef.current.generation && request === searchRequest.current) setResults((peopleData || []).map(mapPersonToSummary));
+    } catch {
+      if (generation === scopeRef.current.generation && request === searchRequest.current) setErrorMessage('Não foi possível consultar clientes. Tente novamente.');
     } finally {
-      setIsSearching(false);
+      if (generation === scopeRef.current.generation && request === searchRequest.current) setIsSearching(false);
     }
   };
 
   const handleLinkCustomer = async (customer: CustomerSummary) => {
-    setIsLinking(true);
+    if (linkLock.current) return;
+    linkLock.current = true;
+    linkForm.reset({ conversationId, customerId: customer.id });
     try {
-      const res = await manuallyLinkCustomer(supabase, conversationId, customer.id);
-      if (!res.success) {
-        setErrorMessage(res.error || 'Falha ao vincular cliente.');
-        return;
-      }
-      onLinked(customer);
-      onClose();
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Erro inesperado ao vincular cliente.');
+      await linkForm.handleSubmit(async (data) => {
+        setIsLinking(true);
+        setErrorMessage(null);
+        const res = await manuallyLinkCustomer(supabase, data.conversationId, data.customerId);
+        if (generation !== scopeRef.current.generation) return;
+        if (!res.success) {
+          setErrorMessage(res.error || 'Falha ao vincular cliente.');
+          return;
+        }
+        onLinked(customer);
+        onClose();
+      }, () => setErrorMessage('Conversa ou cliente inválido. Atualize os dados antes de vincular.'))();
+    } catch {
+      if (generation === scopeRef.current.generation) setErrorMessage('Não foi possível vincular o cliente. Tente novamente.');
     } finally {
-      setIsLinking(false);
+      if (generation === scopeRef.current.generation) {
+        linkLock.current = false;
+        setIsLinking(false);
+      }
     }
   };
 
@@ -104,6 +126,8 @@ export const ManualLinkModal: React.FC<ManualLinkModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
+            disabled={isLinking}
             onClick={onClose}
             className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
           >
@@ -119,13 +143,14 @@ export const ManualLinkModal: React.FC<ManualLinkModalProps> = ({
               <input
                 type="text"
                 {...register('searchTerm')}
+                disabled={isLinking}
                 placeholder="Buscar por nome, CPF/CNPJ ou telefone..."
                 className="w-full pl-8 pr-3 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <button
               type="submit"
-              disabled={isSearching}
+              disabled={isSearching || isLinking}
               className="px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all disabled:opacity-60 flex items-center gap-1.5"
             >
               {isSearching ? (
@@ -146,7 +171,7 @@ export const ManualLinkModal: React.FC<ManualLinkModalProps> = ({
         </form>
 
         {errorMessage && (
-          <div className="mt-3 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs border border-red-200 dark:border-red-900">
+          <div role="alert" className="mt-3 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs border border-red-200 dark:border-red-900">
             {errorMessage}
           </div>
         )}
@@ -182,7 +207,7 @@ export const ManualLinkModal: React.FC<ManualLinkModalProps> = ({
 
               <button
                 type="button"
-                disabled={isLinking}
+                disabled={isLinking || isSearching}
                 onClick={() => handleLinkCustomer(cust)}
                 className="shrink-0 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-sm transition-all active:scale-95 disabled:opacity-50"
               >
@@ -196,6 +221,7 @@ export const ManualLinkModal: React.FC<ManualLinkModalProps> = ({
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
           <button
             type="button"
+            disabled={isLinking}
             onClick={onClose}
             className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold"
           >

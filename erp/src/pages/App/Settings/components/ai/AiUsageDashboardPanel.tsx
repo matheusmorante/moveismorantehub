@@ -7,7 +7,6 @@ export const AiUsageDashboardPanel: React.FC = () => {
   const [counts, setCounts] = useState({
     textToday: 0,
     imageToday: 0,
-    ttsToday: 0,
     globalToday: 0,
   });
 
@@ -38,14 +37,13 @@ export const AiUsageDashboardPanel: React.FC = () => {
         return count || 0;
       };
 
-      const [textToday, imageToday, ttsToday, globalToday] = await Promise.all([
+      const [textToday, imageToday, globalToday] = await Promise.all([
         getCount('TEXT'),
         getCount('IMAGE'),
-        getCount('TTS'),
         getCount(),
       ]);
 
-      setCounts({ textToday, imageToday, ttsToday, globalToday });
+      setCounts({ textToday, imageToday, globalToday });
     } catch (e) {
       console.warn('[AiUsageDashboardPanel] Erro ao carregar contadores de IA:', e);
     }
@@ -95,7 +93,7 @@ export const AiUsageDashboardPanel: React.FC = () => {
       </div>
 
       {/* Grid de Contadores */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* TEXTO */}
         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
           <div className="flex justify-between items-center text-xs">
@@ -136,29 +134,6 @@ export const AiUsageDashboardPanel: React.FC = () => {
             ></div>
           </div>
           <span className="text-[10px] text-slate-500 block">Max 1 simultânea | 2/min</span>
-        </div>
-
-        {/* VOZ / TTS */}
-        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-300 font-semibold flex items-center gap-1.5">
-              <i className="bi bi-mic-fill text-sky-400"></i> Voz / TTS (Feminina)
-            </span>
-            <strong className="text-white">
-              {counts.ttsToday} / {AI_LIMITS.categories.TTS.perDay}
-            </strong>
-          </div>
-          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div
-              className={`h-full ${getProgressColor(counts.ttsToday, AI_LIMITS.categories.TTS.perDay)} transition-all`}
-              style={{
-                width: `${Math.min(100, (counts.ttsToday / AI_LIMITS.categories.TTS.perDay) * 100)}%`,
-              }}
-            ></div>
-          </div>
-          <span className="text-[10px] text-slate-500 block">
-            Voz 'Aoede' (Fallback p/ Google Maps)
-          </span>
         </div>
 
         {/* GLOBAL */}

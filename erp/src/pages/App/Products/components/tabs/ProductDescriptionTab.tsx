@@ -13,12 +13,14 @@ export interface ProductDescriptionTabProps {
   readonly onImprove?: () => void;
   readonly improving?: boolean;
   readonly showImprove?: boolean;
+  readonly onBlur?: () => void;
 }
 
 export default function ProductDescriptionTab({
   formData,
   setFormData,
   categoryName = '',
+  onBlur,
 }: ProductDescriptionTabProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isInformativeModalOpen, setIsInformativeModalOpen] = useState(false);
@@ -34,27 +36,36 @@ export default function ProductDescriptionTab({
     setIsGenerating(true);
     setIsInformativeModalOpen(false);
     try {
-      const techValues = {
-        ...(formData.technicalValues || {}),
-        ...(formData.brand ? { Marca: formData.brand } : {}),
-        ...(formData.model ? { Modelo: formData.model } : {}),
-        ...(formData.color ? { Cor: formData.color } : {}),
-      };
+      // Filtrar 'Cor' dos dados técnicos para que a cor nunca seja enviada nem apresentada na descrição do produto
+      const rawTechValues = formData.technicalValues || {};
+      const techValues: Record<string, any> = {};
+      Object.entries(rawTechValues).forEach(([key, val]) => {
+        if (key.trim().toLowerCase() !== 'cor') {
+          techValues[key] = val;
+        }
+      });
+      if (formData.brand) techValues['Marca'] = formData.brand;
+      if (formData.model) techValues['Modelo'] = formData.model;
+      if (formData.line) techValues['Linha'] = formData.line;
+
+      const modelVal = formData.model || String(techValues['Modelo'] || '');
+      const lineVal = formData.line || String(techValues['Linha'] || '');
+      const modelOrLineVal = String(
+        techValues['Modelo/Linha'] ||
+        techValues['Modelo / Linha'] ||
+        techValues['modelo/linha'] ||
+        lineVal ||
+        modelVal ||
+        ''
+      );
 
       const result = await aiService.improveProductDescription({
         title: formData.name || '',
         currentDescription: formData.description || '',
         brand: formData.brand || String(techValues['Marca'] || ''),
-        line:
-          formData.line ||
-          formData.model ||
-          String(
-            techValues['Modelo/Linha'] ||
-            techValues['Modelo / Linha'] ||
-            techValues['Modelo'] ||
-            techValues['Linha'] ||
-            ''
-          ),
+        line: lineVal,
+        model: modelVal,
+        modelOrLine: modelOrLineVal,
         material: formData.material || String(techValues['Material'] || techValues['Estrutura'] || ''),
         width: formData.width,
         height: formData.height,
@@ -67,6 +78,7 @@ export default function ProductDescriptionTab({
       if (description) {
         setFormData((prev) => ({ ...prev, description }));
         toast.success('Descrição gerada com IA a partir das características! ✨');
+        onBlur?.();
       }
     } catch (error: any) {
       console.error('Erro ao gerar descrição com IA:', error);
@@ -93,6 +105,7 @@ export default function ProductDescriptionTab({
       if (description) {
         setFormData((prev) => ({ ...prev, description }));
         toast.success('Descrição gerada com IA a partir do texto informativo! ✨');
+        onBlur?.();
       }
     } catch (error: any) {
       console.error('Erro ao gerar descrição a partir do texto informativo:', error);
@@ -135,6 +148,7 @@ export default function ProductDescriptionTab({
           aria-label="Descrição detalhada do produto"
           value={formData.description || ''}
           onChange={(event) => setFormData((prev) => ({ ...prev, description: event.target.value }))}
+          onBlur={onBlur}
           disabled={isGenerating}
           placeholder="Descreva o produto..."
           className={`w-full min-h-[360px] rounded-2xl border bg-transparent p-4 text-sm font-semibold outline-none resize-y dark:text-slate-200 transition-colors ${

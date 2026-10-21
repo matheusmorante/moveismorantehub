@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CareWindow } from '@/pages/utils/customerSupport/whatsappSupportGuard';
 import { formatDate } from '@/pages/utils/customerSupport/supportOrdersService';
-
-const notesSchema = z.object({ notes: z.string().max(2000, 'Máximo de 2000 caracteres.') });
-const tagSchema = z.object({
-  tagInput: z.string().trim().min(1, 'Digite um marcador.').max(40, 'O marcador deve ter no máximo 40 caracteres.'),
-});
+import { isReservedSupportTag, supportNotesSchema as notesSchema, supportTagSchema as tagSchema } from '../../../../../../../shared-utils/customerSupportFormSchemas';
 type NotesFormData = z.infer<typeof notesSchema>;
 type TagFormData = z.infer<typeof tagSchema>;
 
@@ -19,7 +15,7 @@ interface CustomerNotesTabProps {
   tags: string[];
   onAddTag: (tag: string) => Promise<boolean | void>;
   onRemoveTag: (tag: string) => Promise<boolean | void>;
-  onSaveNotes: (notes: string) => Promise<boolean | void>;
+  onSaveNotes: (notes: string, expectedNotes: string | null) => Promise<boolean | void>;
 }
 
 export const CustomerNotesTab: React.FC<CustomerNotesTabProps> = ({
@@ -32,13 +28,14 @@ export const CustomerNotesTab: React.FC<CustomerNotesTabProps> = ({
   onSaveNotes,
 }) => {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const notesBaseRef = useRef(initialNotes);
   const {
     register: registerNotes,
     handleSubmit: handleNotesSubmit,
     reset: resetNotes,
     setError: setNotesError,
     clearErrors: clearNotesErrors,
-    formState: { errors: notesErrors },
+    formState: { errors: notesErrors, isDirty },
   } = useForm<NotesFormData>({ resolver: zodResolver(notesSchema), defaultValues: { notes: initialNotes || '' } });
   const {
     register: registerTag,
@@ -51,17 +48,21 @@ export const CustomerNotesTab: React.FC<CustomerNotesTabProps> = ({
   } = useForm<TagFormData>({ resolver: zodResolver(tagSchema), defaultValues: { tagInput: '' } });
 
   useEffect(() => {
-    resetNotes({ notes: initialNotes || '' });
-  }, [initialNotes, resetNotes]);
+    if (!isDirty) {
+      notesBaseRef.current = initialNotes;
+      resetNotes({ notes: initialNotes || '' });
+    }
+  }, [initialNotes, resetNotes, isDirty]);
 
   const handleFormSubmit = async (data: NotesFormData) => {
     setIsSavingNotes(true);
     clearNotesErrors();
     try {
-      const saved = await onSaveNotes(data.notes);
+      const saved = await onSaveNotes(data.notes, notesBaseRef.current);
       if (saved === false) setNotesError('root.server', { message: 'Não foi possível salvar as notas.' });
-    } catch {
-      setNotesError('root.server', { message: 'Não foi possível salvar as notas. Tente novamente.' });
+      else resetNotes({ notes: data.notes });
+    } catch (error) {
+      setNotesError('root.server', { message: error instanceof Error ? error.message : 'Não foi possível salvar as notas. Tente novamente.' });
     } finally {
       setIsSavingNotes(false);
     }
@@ -69,7 +70,7 @@ export const CustomerNotesTab: React.FC<CustomerNotesTabProps> = ({
 
   const handleAddTag = handleTagSubmit(async (data) => {
     clearTagErrors();
-    if (tags.includes(data.tagInput)) {
+    if (tags.some((tag) => tag.toLocaleLowerCase() === data.tagInput.toLocaleLowerCase())) {
       setTagError('tagInput', { message: 'Este marcador já existe.' });
       return;
     }
@@ -115,7 +116,7 @@ export const CustomerNotesTab: React.FC<CustomerNotesTabProps> = ({
       <form onSubmit={handleAddTag} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">Marcadores Internos</span>
         <div className="flex flex-wrap gap-1.5 mb-2">
-          {tags.map((tag) => (
+          {tags.filter((tag) => !isReservedSupportTag(tag)).map((tag) => (
             <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold">
               #{tag}
               <button type="button" onClick={() => handleRemoveTag(tag)} disabled={isSavingTag} aria-label={`Remover tag ${tag}`} className="hover:text-red-500 ml-0.5"><i className="bi bi-x" /></button>
@@ -135,7 +136,7 @@ export const CustomerNotesTab: React.FC<CustomerNotesTabProps> = ({
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Notas Internas da Equipe</span>
           {isSavingNotes && <span className="text-[10px] text-emerald-500 font-semibold animate-pulse">Salvando…</span>}
         </div>
-        <textarea rows={4} {...registerNotes('notes')} placeholder="Observações visíveis somente para a equipe interna..." className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none select-text" />
+        <textarea rows={4} disabled={isSavingNotes} {...registerNotes('notes')} placeholder="Observações visíveis somente para a equipe interna..." className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none select-text" />
         {notesErrors.notes && <p role="alert" className="text-[11px] text-red-600">{notesErrors.notes.message}</p>}
         {notesErrors.root?.server && <p role="alert" className="text-[11px] text-red-600">{notesErrors.root.server.message}</p>}
         <button type="submit" disabled={isSavingNotes} className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs disabled:opacity-50">Salvar Notas</button>

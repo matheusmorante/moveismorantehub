@@ -29,7 +29,7 @@ const complete: Product = {
     'Material da estrutura': 'Madeira',
   },
   variations: [{ id: 'v1', sku: '001-01', name: 'Armário Azul', unitPrice: 150, stock: 0,
-    active: false, status: 'draft', attributes: [], syncUnitPrice: true }],
+    active: false, status: 'draft', attributes: [], syncUnitPrice: true, images: ['https://example.com/foto1.jpg'] }],
 };
 
 function renderSubmit(
@@ -283,5 +283,24 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     await act(async () => { expect(await result.current.handleSubmit(false)).toBe(true); });
 
     expect(mocks.saveProduct).toHaveBeenCalled();
+  });
+
+  it('bloqueia conclusão do cadastro quando a variação não possui foto vinculada', async () => {
+    const productWithoutVariationPhoto: Product = {
+      ...complete,
+      variations: [{ ...complete.variations![0], images: [] }],
+    };
+    const { result, variations, setActiveTab } = renderSubmit(productWithoutVariationPhoto);
+
+    await act(async () => {
+      expect(await result.current.handleSubmit(false)).toBe(false);
+    });
+
+    expect(mocks.saveProduct).not.toHaveBeenCalled();
+    expect(variations.setEditingVariationId).toHaveBeenCalledWith('v1');
+    expect(setActiveTab).toHaveBeenCalledWith('variacoes');
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining('deve ter pelo menos 1 foto vinculada para concluir o cadastro')
+    );
   });
 });

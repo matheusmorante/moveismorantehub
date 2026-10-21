@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { supportConversationCommandSchema, type SupportConversationCommand } from '../../../../../../../shared-utils/customerSupportFormSchemas';
 import { WhatsAppConversation, ConversationStatus, AssignedProfileSummary } from '../../types';
 import { CareWindow } from '@/pages/utils/customerSupport/whatsappSupportGuard';
 
@@ -17,10 +20,10 @@ interface ChatHeaderProps {
   onToggleTimeline?: () => void;
   onBackMobile: () => void;
   onOpenSnippets: () => void;
-  onToggleArchive: () => void;
+  onToggleArchive: () => Promise<boolean | void> | boolean | void;
   teamMembers: AssignedProfileSummary[];
-  onAssign?: (profileId: string | null, profileName?: string) => Promise<void>;
-  onUpdateStatus?: (status: ConversationStatus) => Promise<void>;
+  onAssign?: (profileId: string | null, profileName?: string) => Promise<boolean | void>;
+  onUpdateStatus?: (status: ConversationStatus) => Promise<boolean | void>;
   currentUserId?: string;
   currentUserName?: string;
   onRefreshMessages?: () => Promise<void> | void;
@@ -54,6 +57,33 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const commandLock = useRef(false);
+  const { reset, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<SupportConversationCommand>({
+    resolver: zodResolver(supportConversationCommandSchema),
+  });
+  const submitCommand = async (command: SupportConversationCommand) => {
+    if (commandLock.current) return;
+    commandLock.current = true;
+    reset(command);
+    try {
+      await handleSubmit(async (data) => {
+        let saved: boolean | void = false;
+        if (data.intent === 'assign' && onAssign) {
+          const name = teamMembers.find((member) => member.id === data.assigneeId)?.fullName
+            || (data.assigneeId === currentUserId ? currentUserName : undefined);
+          saved = await onAssign(data.assigneeId, name);
+        } else if (data.intent === 'status' && onUpdateStatus) saved = await onUpdateStatus(data.status);
+        else if (data.intent === 'archive') saved = await onToggleArchive();
+        if (saved === false) setError('root.command', { message: 'Não foi possível salvar a alteração. Tente novamente.' });
+      }, () => setError('root.command', { message: 'Conversa, atendente ou status inválido. Atualize os dados antes de tentar novamente.' }))();
+    } catch {
+      setError('root.command', { message: 'Não foi possível salvar a alteração. Tente novamente.' });
+    } finally {
+      commandLock.current = false;
+    }
+  };
+  const assign = (assigneeId: string | null) => void submitCommand({ intent: 'assign', conversationId: conversation.id, assigneeId });
+  const changeStatus = (status: ConversationStatus) => void submitCommand({ intent: 'status', conversationId: conversation.id, status });
 
   const assignedName = conversation.assignedProfile?.fullName || 'Não atribuído';
   const assignedInitials = assignedName
@@ -64,7 +94,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     .join('');
 
   return (
-    <div className="h-16 px-4 border-b border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between shrink-0 z-10 shadow-xs">
+    <div className="relative h-16 px-4 border-b border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between shrink-0 z-10 shadow-xs">
+      <fieldset disabled={isSubmitting} className="contents" aria-busy={isSubmitting}>
+      {errors.root?.command && <p role="alert" className="absolute top-full right-2 z-50 p-2 rounded-lg bg-red-50 dark:bg-red-950 text-xs text-red-700 dark:text-red-300 shadow-sm">{errors.root.command.message}</p>}
+      {isSubmitting && <span role="status" className="absolute top-full right-2 z-50 p-2 rounded-lg bg-white dark:bg-slate-900 text-xs text-emerald-700 animate-pulse">Salvando alteração…</span>}
       {/* Esquerda: Avatar, Nome, Telefone e Janela 24h */}
       <div
         onClick={onToggleInfoPanel}
@@ -180,7 +213,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               {currentUserId && (
                 <button
                   type="button"
-                  onClick={() => onAssign?.(currentUserId, currentUserName)}
+                  onClick={() => assign(currentUserId)}
                   className="w-full px-3.5 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold flex items-center gap-2 cursor-pointer"
                 >
                   <i className="bi bi-person-check-fill text-blue-500"></i>
@@ -190,7 +223,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
               <button
                 type="button"
-                onClick={() => onAssign?.(null)}
+                onClick={() => assign(null)}
                 className="w-full px-3.5 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center gap-2 cursor-pointer"
               >
                 <i className="bi bi-person-x text-slate-400"></i>
@@ -204,7 +237,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   <button
                     key={m.id}
                     type="button"
-                    onClick={() => onAssign?.(m.id, m.fullName)}
+                    onClick={() => assign(m.id)}
                     className={`w-full px-3.5 py-2 text-left flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer ${
                       conversation.assignedTo === m.id
                         ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50/50 dark:bg-blue-950/30'
@@ -290,7 +323,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           {currentStatus === 'closed' ? (
             <button
               type="button"
-              onClick={() => onUpdateStatus?.('open')}
+              onClick={() => changeStatus('open')}
               className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
               <i className="bi bi-arrow-repeat text-slate-400"></i>
@@ -300,7 +333,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <div className="inline-flex rounded-xl shadow-xs border border-emerald-600/30 overflow-hidden">
               <button
                 type="button"
-                onClick={() => onUpdateStatus?.('closed')}
+                onClick={() => changeStatus('closed')}
                 className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <i className="bi bi-check2"></i>
@@ -324,7 +357,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             >
               <button
                 type="button"
-                onClick={() => onUpdateStatus?.('closed')}
+                onClick={() => changeStatus('closed')}
                 className="w-full px-3.5 py-2 text-left text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2 font-bold cursor-pointer"
               >
                 <i className="bi bi-check-circle-fill"></i>
@@ -332,7 +365,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => onUpdateStatus?.('snoozed')}
+                onClick={() => changeStatus('snoozed')}
                 className="w-full px-3.5 py-2 text-left text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center gap-2 font-bold cursor-pointer"
               >
                 <i className="bi bi-alarm-fill"></i>
@@ -411,7 +444,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             </button>
             <button
               type="button"
-              onClick={onToggleArchive}
+              onClick={() => void submitCommand({ intent: 'archive', conversationId: conversation.id })}
               className="w-full px-4 py-2.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
             >
               <i className="bi bi-archive text-slate-400"></i>
@@ -420,6 +453,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </div>
         )}
       </div>
+      </fieldset>
     </div>
   );
 };

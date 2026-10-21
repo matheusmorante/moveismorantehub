@@ -4,7 +4,8 @@ import { getMissingRequiredCharacteristics } from '../../../../utils/technicalVa
 /**
  * Validação dos pré-requisitos para geração da descrição por características:
  * - Nome do produto preenchido (mínimo 2 caracteres)
- * - Características obrigatórias mínimas preenchidas (Marca, Modelo, Cor e obrigatórias de catálogo)
+ * - Características obrigatórias mínimas preenchidas (Marca, Modelo/Linha e obrigatórias de catálogo)
+ * - Nota: Cor NÃO é exigida aqui porque cor pertence às variações do produto e não deve constar na descrição.
  */
 export const validateProductDescriptionPrerequisites = (formData: Partial<Product>): string[] => {
   const missing: string[] = [];
@@ -35,20 +36,16 @@ export const validateProductDescriptionPrerequisites = (formData: Partial<Produc
     missing.push('Modelo');
   }
 
-  const hasColor = Boolean(formData.color?.trim() || techValues['Cor'] || techValues['cor']);
-  if (!hasColor) {
-    missing.push('Cor');
-  }
-
   const missingFromUtils = getMissingRequiredCharacteristics({
     ...techValues,
     ...(formData.brand ? { Marca: formData.brand } : {}),
     ...(formData.model ? { Modelo: formData.model } : {}),
-    ...(formData.color ? { Cor: formData.color } : {}),
+    // Passamos um valor para Cor para não bloqueá-la como requisito da descrição comercial do produto
+    Cor: 'NaoAplicaParaDescricao',
   });
 
   missingFromUtils.forEach((field) => {
-    if (!missing.includes(field)) {
+    if (!missing.includes(field) && field.trim().toLowerCase() !== 'cor') {
       missing.push(field);
     }
   });

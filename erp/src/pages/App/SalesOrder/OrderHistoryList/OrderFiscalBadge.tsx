@@ -16,9 +16,9 @@ interface BadgeConfig {
   iconBadgeClassName?: string;
 }
 
-// Amarelo = ação fiscal necessária (não é erro). Texto escuro garante contraste WCAG AAA.
+// Âmbar indica ação fiscal necessária (não é erro); o texto do selo permanece branco.
 const AWAITING_REISSUE_CLASS =
-  'border-amber-700 bg-amber-500 text-[#3b1900] hover:bg-amber-400';
+  'border-amber-700 bg-amber-500 text-white hover:bg-amber-400';
 const AWAITING_REISSUE_INDICATOR_CLASS = 'bg-amber-700 text-white';
 // Vermelho = falha real no cancelamento/estorno da nota anterior.
 const REGULARIZATION_FAILED_CLASS = 'border-red-700 bg-red-600 text-white hover:bg-red-700';

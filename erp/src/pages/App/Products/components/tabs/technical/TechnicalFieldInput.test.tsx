@@ -90,7 +90,7 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     expect(onChange).toHaveBeenCalledWith('');
   });
 
-  it('renderiza Peso como campo decimal com 1 dígito após a vírgula e placeholder "0,0"', () => {
+  it('renderiza Peso como campo decimal com 1 dígito após a vírgula, placeholder "0,0" e digitação RTL', () => {
     const field: TechnicalFieldDefinition = {
       id: 'attr-peso',
       name: 'Peso',
@@ -106,16 +106,18 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     expect(input.type).toBe('text');
     expect(input.inputMode).toBe('decimal');
 
-    // Digita número decimal com 1 dígito
-    fireEvent.change(input, { target: { value: '12,5' } });
-    expect(onChange).toHaveBeenCalledWith(12.5);
+    // Digita número sequencialmente no modo RTL (1 casa decimal empurrando para a esquerda)
+    fireEvent.change(input, { target: { value: '1' } });
+    expect(onChange).toHaveBeenLastCalledWith(0.1);
 
-    // Não permite segundo dígito decimal
-    fireEvent.change(input, { target: { value: '12,55' } });
-    expect(onChange).toHaveBeenCalledTimes(1); // Não emite o segundo dígito inválido
+    fireEvent.change(input, { target: { value: '0,12' } });
+    expect(onChange).toHaveBeenLastCalledWith(1.2);
+
+    fireEvent.change(input, { target: { value: '1,25' } });
+    expect(onChange).toHaveBeenLastCalledWith(12.5);
   });
 
-  it('formata valor inteiro para 1 casa decimal ao sair do campo (blur) em Peso', () => {
+  it('formata valor inicial e trata paste semanticamente em Peso com 1 casa decimal', () => {
     const field: TechnicalFieldDefinition = {
       id: 'attr-peso',
       name: 'Peso',
@@ -129,11 +131,43 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     const input = screen.getByPlaceholderText('0,0') as HTMLInputElement;
     expect(input.value).toBe('15,0');
 
-    fireEvent.change(input, { target: { value: '20' } });
-    fireEvent.blur(input);
-
-    expect(input.value).toBe('20,0');
+    // Paste de valor inteiro "20"
+    fireEvent.paste(input, { clipboardData: { getData: () => '20' } });
     expect(onChange).toHaveBeenCalledWith(20);
+    expect(input.value).toBe('20,0');
+  });
+
+  it('renderiza Altura e dimensões com 2 casas decimais, placeholder "0,00" e digitação RTL empurrando para a esquerda', () => {
+    const field: TechnicalFieldDefinition = {
+      id: 'attr-altura',
+      name: 'Altura',
+      dataType: 'measure',
+      options: [],
+    };
+    const onChange = vi.fn();
+
+    render(<TechnicalFieldInput field={field} value="" onChange={onChange} />);
+
+    const input = screen.getByPlaceholderText('0,00') as HTMLInputElement;
+    expect(input).toBeDefined();
+    expect(input.type).toBe('text');
+    expect(input.inputMode).toBe('decimal');
+
+    // Digita número sequencialmente no modo RTL (2 casas decimais)
+    fireEvent.change(input, { target: { value: '1' } });
+    expect(onChange).toHaveBeenLastCalledWith(0.01);
+
+    fireEvent.change(input, { target: { value: '0,018' } });
+    expect(onChange).toHaveBeenLastCalledWith(0.18);
+
+    fireEvent.change(input, { target: { value: '0,185' } });
+    expect(onChange).toHaveBeenLastCalledWith(1.85);
+
+    fireEvent.change(input, { target: { value: '1,850' } });
+    expect(onChange).toHaveBeenLastCalledWith(18.5);
+
+    fireEvent.change(input, { target: { value: '18,500' } });
+    expect(onChange).toHaveBeenLastCalledWith(185);
   });
 
   it('renderiza placeholders específicos para Quantidade de portas e Quantidade de gavetas', () => {

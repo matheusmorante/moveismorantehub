@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 const database = vi.hoisted(() => ({
   validNcm: true,
   userClientCreated: false,
+  searchTerms: [] as string[],
   auth: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }),
 }));
 vi.mock('../../../../../../../api/products/serverDb', () => ({
@@ -44,7 +45,9 @@ vi.mock('../../../../../../../api/products/serverDb', () => ({
           maybeSingle: () =>
             Promise.resolve({
               data:
-                table === 'categories'
+                table === 'products'
+                  ? { category_id: 'cat-1' }
+                  : table === 'categories'
                   ? { id: 'cat-1', name: 'Guarda-roupas', active: true, type: 'category' }
                   : {
                       code: filters.code,
@@ -59,7 +62,19 @@ vi.mock('../../../../../../../api/products/serverDb', () => ({
         };
         return query;
       },
-      rpc: () => Promise.resolve({ data: [{ code: '94036000', rank: 1 }], error: null }),
+      rpc: (name: string, args: any) => {
+        if (name === 'reserve_jev_classification_tokens') {
+          return Promise.resolve({
+            data: [{ allowed: true, reason: 'reserved', used_input_tokens: 100, retry_after_seconds: 0 }],
+            error: null,
+          });
+        }
+        if (name === 'settle_jev_classification_tokens') {
+          return Promise.resolve({ data: null, error: null });
+        }
+        database.searchTerms.push(args.search_term);
+        return Promise.resolve({ data: [{ code: '94036000', rank: 1 }], error: null });
+      },
     };
   },
 }));
@@ -78,6 +93,7 @@ beforeAll(async () => {
 beforeEach(() => {
   database.validNcm = true;
   database.userClientCreated = false;
+  database.searchTerms = [];
   database.auth.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
   vi.stubGlobal(
     'fetch',
@@ -112,12 +128,25 @@ describe('API Jev para produtos', () => {
     const result = await call({ name: 'Guarda Roupa Sidney', material: 'MDP' });
     expect(result.status).toBe(200);
     expect(result.payload.category.id).toBe('cat-1');
-    expect(result.payload.ncm.code).toBe('94036000');
+    expect(result.payload.ncm.code).toBe('94035000');
     expect(database.userClientCreated).toBe(true);
     const outbound = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
-    expect(outbound.questions.ncm.criteria.n0).toContain('94036000');
+    expect(outbound.questions).not.toHaveProperty('ncm');
     expect(outbound.state).not.toHaveProperty('customer');
     expect(JSON.stringify(result.payload)).not.toContain('private-test-key');
+  });
+
+  it('usa a categoria do produto e o material na busca de NCM', async () => {
+    const result = await call({
+      name: 'Produto Especial Linha Modelo',
+      material: 'Madeira Maciça',
+      productId: 'product-1',
+    });
+    expect(result.status).toBe(200);
+    expect(database.searchTerms).toContain('guarda roupa');
+    expect(database.searchTerms).toContain('madeira macica');
+    const outbound = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
+    expect(outbound.state.category).toBe('Guarda-roupas');
   });
 
   it('rejeita escolha fora das opções e não aceita NCM injetado pelo cliente', async () => {
@@ -127,7 +156,7 @@ describe('API Jev para produtos', () => {
         answers: { category: { choice: 'c999' }, ncm: { choice: '99999999' } },
       }),
     } as Response);
-    const result = await call({ name: 'Guarda Roupa Sidney', ncmCandidate: '99999999' });
+    const result = await call({ name: 'Produto Especial Linha Modelo', ncmCandidate: '99999999' });
     expect(result.status).toBe(200);
     expect(result.payload).toEqual({ category: null, ncm: null });
   });
@@ -137,7 +166,7 @@ describe('API Jev para produtos', () => {
       database.validNcm = false;
       return { ok: true, json: async () => ({ answers: { ncm: { choice: 'n0' } } }) } as Response;
     });
-    const result = await call({ name: 'Guarda Roupa Sidney', categoryId: 'cat-1' });
+    const result = await call({ name: 'Rack para TV 50 polegadas', categoryId: 'cat-1' });
     expect(result.payload.ncm).toBeNull();
   });
 
@@ -159,14 +188,23 @@ describe('API Jev para produtos', () => {
 
   it('retorna fallback em erro HTTP do Jev', async () => {
     vi.mocked(fetch).mockResolvedValue({ ok: false, status: 429 } as Response);
-    const result = await call({ name: 'Guarda Roupa Sidney' });
+    const result = await call({ name: 'Produto Especial Linha Modelo' });
     expect(result.status).toBe(503);
     expect(result.payload).toEqual({ error: 'Classificação indisponível.' });
   });
 
+  it('preserva o NCM determinístico vigente se o Jev falhar ao sugerir a categoria', async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 429 } as Response);
+    const result = await call({ name: 'Guarda Roupa Sidney' });
+
+    expect(result.status).toBe(200);
+    expect(result.payload.ncm.code).toBe('94035000');
+    expect(result.payload.category).toBeNull();
+  });
+
   it('retorna fallback quando Jev excede o timeout', async () => {
     vi.mocked(fetch).mockRejectedValue(new DOMException('Request timed out', 'TimeoutError'));
-    const result = await call({ name: 'Guarda Roupa Sidney' });
+    const result = await call({ name: 'Produto Especial Linha Modelo' });
     expect(result.status).toBe(503);
     expect(result.payload).toEqual({ error: 'Classificação indisponível.' });
   });

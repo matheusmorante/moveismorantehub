@@ -93,7 +93,12 @@ export const mapToDB = (product: Partial<Product>) => {
   if (product.whatsappTemplate !== undefined) data.whatsapp_template = product.whatsappTemplate;
   if (product.ecommerceTemplate !== undefined) data.ecommerce_template = product.ecommerceTemplate;
   if (product.hasVariations !== undefined || product.variations !== undefined) {
-    data.has_variations = Boolean(product.hasVariations);
+    const isDraft = Boolean(product.isDraft ?? (product as any).is_draft);
+    data.has_variations = isDraft && product.hasVariations !== undefined
+      ? Boolean(product.hasVariations)
+      : Array.isArray(product.variations)
+        ? product.variations.length > 1
+        : Boolean(product.hasVariations);
   }
   if (product.variations !== undefined) data.variations = product.variations;
   if (product.itemType !== undefined) data.item_type = product.itemType;
@@ -196,6 +201,7 @@ export const mapToDB = (product: Partial<Product>) => {
   // Persistência de Especificações Técnicas na coluna jsonb 'technical_specs'
   if (
     product.technicalValues !== undefined ||
+    product.variableTechnicalFields !== undefined ||
     product.technicalSpecs ||
     product.variations ||
     data.is_draft === false
@@ -204,6 +210,9 @@ export const mapToDB = (product: Partial<Product>) => {
     data.technical_specs = {
       ...existingSpecs,
       ...(product.technicalValues !== undefined ? { technicalValues: product.technicalValues } : {}),
+      ...(product.variableTechnicalFields !== undefined
+        ? { variableTechnicalFields: product.variableTechnicalFields }
+        : {}),
       ...(product.variations ? { variationDetails: product.variations.map(removeInitialStockFields) } : {}),
       ...(data.is_draft === false ? { draftProduct: null } : {}),
     };

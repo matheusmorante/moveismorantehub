@@ -31,6 +31,29 @@ export interface TransportResolution {
   friendlyDescription: string;
 }
 
+export function resolveEffectiveFiscalDeliveryMethod(input: {
+  fiscalModel: FiscalModel;
+  orderDeliveryMethod: DeliveryMethod;
+  hasTransport?: boolean;
+  transportResponsible?: TransportResponsible | 'NONE';
+}): DeliveryMethod {
+  if (input.fiscalModel === '65' && typeof input.hasTransport === 'boolean') {
+    return input.hasTransport ? 'delivery' : 'pickup';
+  }
+
+  if (input.fiscalModel === '55') {
+    if (input.transportResponsible === 'CUSTOMER') return 'pickup';
+    if (
+      input.transportResponsible === 'OWN_COMPANY' ||
+      input.transportResponsible === 'THIRD_PARTY'
+    ) {
+      return 'delivery';
+    }
+  }
+
+  return input.orderDeliveryMethod;
+}
+
 /**
  * Deriva os valores padrão da MATRIZ PRINCIPAL DO ERP:
  * - 65 + Retirada: OFF (sem ocorrência, modFrete = 9)

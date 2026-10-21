@@ -1,12 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSupabaseSecretKey, getSupabaseUrl } from './supabaseSecretKey';
-import {
+import { getSupabaseSecretKey, getSupabaseUrl } from './supabaseSecretKey.js';
+import processor from '../erp/server/customer-support/whatsapp-processor.cjs';
+
+const {
   parseMetaStatusFailure,
   processWhatsAppWebhookPayload,
   readRawWebhookBody,
   verifyMetaSignature,
-} from '../erp/src/pages/utils/customerSupport/whatsappWebhookProcessor';
+} = processor;
 
 export { parseMetaStatusFailure, verifyMetaSignature };
 export const config = { api: { bodyParser: false } };

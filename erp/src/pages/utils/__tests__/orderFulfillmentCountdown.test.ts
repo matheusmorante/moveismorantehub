@@ -41,38 +41,51 @@ describe('prazo do Cron para entrega e retirada', () => {
     }
   );
 
-  it('conta até o endTime definido para entrega no dia agendado', () => {
+  it('conta até a meia-noite para virar o dia na entrega, mesmo com horário/período agendado', () => {
     const order = scheduledSale('delivery', { endTime: '18:00', startTime: '13:00' });
     const now = new Date(2026, 9, 10, 17, 0);
 
     expect(getOrderFulfillmentCountdown(order, undefined, now)).toMatchObject({
       isPastDelivery: true,
       isExpired: false,
-      countdownLabel: '1h',
-      deadline: new Date(2026, 9, 10, 18, 0),
+      countdownLabel: '7h',
+      deadline: new Date(2026, 9, 11, 0, 0),
     });
   });
 
-  it('indica atualização pendente assim que o endTime passa', () => {
+  it('não expira quando acaba o período da entrega agendada e aguarda a meia-noite para virar o dia', () => {
     const order = scheduledSale('delivery', { endTime: '18:00', startTime: '13:00' });
     const now = new Date(2026, 9, 10, 18, 1);
 
     expect(getOrderFulfillmentCountdown(order, undefined, now)).toMatchObject({
       isPastDelivery: true,
-      isExpired: true,
-      countdownLabel: 'aguardando atualização',
+      isExpired: false,
+      countdownLabel: '5h 59min',
+      deadline: new Date(2026, 9, 11, 0, 0),
     });
   });
 
-  it('extrai horário final de intervalo formatado como "13:30 às 18:00"', () => {
+  it('conta até a meia-noite mesmo com intervalo formatado como "13:30 às 18:00"', () => {
     const order = scheduledSale('delivery', { time: '13:30 às 18:00' });
     const now = new Date(2026, 9, 10, 17, 59);
 
     expect(getOrderFulfillmentCountdown(order, undefined, now)).toMatchObject({
       isPastDelivery: true,
       isExpired: false,
-      countdownLabel: '1min',
-      deadline: new Date(2026, 9, 10, 18, 0),
+      countdownLabel: '6h 1min',
+      deadline: new Date(2026, 9, 11, 0, 0),
+    });
+  });
+
+  it('indica atualização pendente assim que chega a meia-noite para virar o dia da entrega', () => {
+    const order = scheduledSale('delivery', { endTime: '18:00', startTime: '13:00' });
+    const now = new Date(2026, 9, 11, 0, 1);
+
+    expect(getOrderFulfillmentCountdown(order, undefined, now)).toMatchObject({
+      isPastDelivery: true,
+      isExpired: true,
+      countdownLabel: 'aguardando atualização',
+      deadline: new Date(2026, 9, 11, 0, 0),
     });
   });
 

@@ -33,3 +33,41 @@ describe('status inicial das variações', () => {
     expect(result.current.formData.variations?.every((variation) => variation.status === 'draft' && !variation.active && variation.stock === 0)).toBe(true);
   });
 });
+
+describe('modo simples e modo com variações', () => {
+  it('permite alternar para múltiplas variações e volta automaticamente a simples ao restar uma', () => {
+    const { result } = renderVariations();
+    act(() => result.current.addVariation());
+    const firstId = result.current.formData.variations![0].id;
+
+    act(() => result.current.setProductMode(true));
+    expect(result.current.formData.hasVariations).toBe(true);
+
+    act(() => result.current.addVariation());
+    const secondId = result.current.formData.variations![1].id;
+    act(() => result.current.removeVariation(secondId));
+
+    expect(result.current.formData.variations).toHaveLength(1);
+    expect(result.current.formData.variations?.[0].id).toBe(firstId);
+    expect(result.current.formData.hasVariations).toBe(false);
+  });
+
+  it('preserva os campos da variação simples existente ao trocar o modo', () => {
+    const variation = {
+      id: 'saved-variation', sku: 'SAVED-1', name: 'Armário Mogno', stock: 7,
+      unitPrice: 125, active: true, attributes: [{ name: 'Madeira', value: 'Mogno' }],
+      images: ['https://img.test/mogno.jpg'], syncUnitPrice: false,
+    };
+    const { result } = renderHook(() => {
+      const [formData, setFormData] = useState<Partial<Product>>({
+        id: 'parent', name: 'Armário', status: 'hidden', variations: [variation], hasVariations: false,
+      });
+      return { ...useProductFormVariations(formData, setFormData, true, true), formData };
+    });
+    act(() => result.current.setProductMode(true));
+    act(() => result.current.setProductMode(false));
+
+    expect(result.current.formData.variations?.[0]).toEqual(variation);
+    expect(result.current.formData.hasVariations).toBe(false);
+  });
+});

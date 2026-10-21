@@ -188,7 +188,7 @@ DIRETRIZES DE EXTRAÇÃO:
    - Extraia Altura, Largura e Profundidade em cm (apenas números). Se houver peso em kg, extraia.
 4. CARACTERÍSTICAS TÉCNICAS:
    - Mapeie rigorosamente as características encontradas para os atributos abaixo (quando disponíveis):
-${attributesPrompt || 'Preencha as características comuns para este móvel (ex: Cor, Material da Estrutura, Tipo de Porta, etc.).'}
+${attributesPrompt || 'Preencha as características comuns para este móvel (ex: Material da Estrutura, Tipo de Porta, etc.).'}
 5. NÍVEIS DE CONFIANÇA:
    - Classifique cada item identificado com confiança: "alta", "media" ou "baixa".
 
@@ -222,11 +222,17 @@ Retorne APENAS um objeto JSON no seguinte formato:
  * Sanitiza e analisa a resposta JSON recebida da IA
  */
 export function cleanAndParseCharacteristicsJson(rawResponse: string): any {
-  const cleaned = rawResponse
-    .trim()
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/, '');
+  let cleaned = rawResponse.trim();
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    cleaned = codeBlockMatch[1].trim();
+  } else {
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1).trim();
+    }
+  }
 
   try {
     return JSON.parse(cleaned);
@@ -294,7 +300,7 @@ export function normalizeSuggestedTechnicalValues(
 }
 
 /**
- * Serviço especializado em extração de características técnicas com Gemini 2.5 Flash,
+ * Serviço especializado em extração de características técnicas com Gemini 3.5 Flash-Lite,
  * Grounding de busca na web e análise visual de fotos.
  */
 export const aiProductCharacteristicsService = {
@@ -315,15 +321,14 @@ export const aiProductCharacteristicsService = {
       },
     ];
 
-    // 4. Disparar via AiGateway com Gemini 2.5 Flash e Google Search Tool
+    // 4. Disparar via AiGateway com Gemini 3.5 Flash-Lite e Google Search Tool
     const result = await AiGateway.requestText({
       operation: CHARACTERISTICS_AI_LIMITS.operation,
       moduleSource: 'characteristics_ai',
       model: CHARACTERISTICS_AI_LIMITS.model,
       payload,
       tools: [{ googleSearch: {} }],
-      jsonMode: true,
-      thinkingBudget: 'low',
+      jsonMode: false,
     });
 
     if (!result.success || !result.data) {
@@ -339,25 +344,46 @@ export const aiProductCharacteristicsService = {
 
     // 6. Validar com schema Zod
     const validated = productAiSuggestedCharacteristicsSchema.safeParse(parsedJson);
-    if (!validated.success) {
-      if (parsedJson && typeof parsedJson === 'object' && !parsedJson.technicalValues) {
-        return {
-          technicalValues: parsedJson,
-          reasoning: 'Características extraídas com sucesso.',
-        };
+    let resolvedData: ProductAiSuggestedCharacteristics;
+
+    if (validated.success) {
+      resolvedData = validated.data;
+    } else {
+      console.warn('[extractProductCharacteristicsWithAI] Validação Zod com avisos:', validated.error);
+      if (parsedJson && typeof parsedJson === 'object') {
+        const candidateTechnical =
+          parsedJson.technicalValues && typeof parsedJson.technicalValues === 'object'
+            ? parsedJson.technicalValues
+            : parsedJson;
+        if (Object.keys(candidateTechnical).length > 0) {
+          resolvedData = {
+            technicalValues: candidateTechnical,
+            identifiedProduct: parsedJson.identifiedProduct,
+            itemConfidence: parsedJson.itemConfidence,
+            height: parsedJson.height,
+            width: parsedJson.width,
+            depth: parsedJson.depth,
+            weight: parsedJson.weight,
+            reasoning: typeof parsedJson.reasoning === 'string' ? parsedJson.reasoning : 'Características extraídas com sucesso.',
+            sources: parsedJson.sources,
+          };
+        } else {
+          throw new Error('A estrutura de características retornada pela IA é inválida.');
+        }
+      } else {
+        throw new Error('A estrutura de características retornada pela IA é inválida.');
       }
-      throw new Error('A estrutura de características retornada pela IA é inválida.');
     }
 
     // 7. Normalizar chaves e valores contra o banco
     const normalizedTechnical = normalizeSuggestedTechnicalValues(
-      validated.data.technicalValues || {},
+      resolvedData.technicalValues || {},
       context.availableAttributes
     );
 
     // 8. Normalizar confiança por item (se não vier, default é 'alta')
     const itemConfidence: Record<string, 'alta' | 'media' | 'baixa'> = {
-      ...(validated.data.itemConfidence || {}),
+      ...(resolvedData.itemConfidence || {}),
     };
     Object.keys(normalizedTechnical).forEach((key) => {
       if (!itemConfidence[key]) {
@@ -365,17 +391,17 @@ export const aiProductCharacteristicsService = {
       }
     });
 
-    const identifiedProduct = validated.data.identifiedProduct || {
+    const identifiedProduct = resolvedData.identifiedProduct || {
       name: context.productName,
       brand: context.brand,
       model: context.model,
       confidence: 'alta' as const,
-      sources: validated.data.sources || [],
+      sources: resolvedData.sources || [],
       divergences: '',
     };
 
     return {
-      ...validated.data,
+      ...resolvedData,
       identifiedProduct,
       itemConfidence,
       technicalValues: normalizedTechnical,
@@ -400,7 +426,6 @@ export const aiProductCharacteristicsService = {
       model: CHARACTERISTICS_AI_LIMITS.model,
       payload,
       jsonMode: true,
-      thinkingBudget: 'low',
     });
 
     if (!result.success || !result.data) {
@@ -413,23 +438,44 @@ export const aiProductCharacteristicsService = {
 
     const parsedJson = cleanAndParseCharacteristicsJson(result.data);
     const validated = productAiSuggestedCharacteristicsSchema.safeParse(parsedJson);
-    if (!validated.success) {
-      if (parsedJson && typeof parsedJson === 'object' && !parsedJson.technicalValues) {
-        return {
-          technicalValues: parsedJson,
-          reasoning: 'Características extraídas com sucesso a partir do texto descritivo.',
-        };
+    let resolvedData: ProductAiSuggestedCharacteristics;
+
+    if (validated.success) {
+      resolvedData = validated.data;
+    } else {
+      console.warn('[extractFromDescriptiveTextWithAI] Validação Zod com avisos:', validated.error);
+      if (parsedJson && typeof parsedJson === 'object') {
+        const candidateTechnical =
+          parsedJson.technicalValues && typeof parsedJson.technicalValues === 'object'
+            ? parsedJson.technicalValues
+            : parsedJson;
+        if (Object.keys(candidateTechnical).length > 0) {
+          resolvedData = {
+            technicalValues: candidateTechnical,
+            identifiedProduct: parsedJson.identifiedProduct,
+            itemConfidence: parsedJson.itemConfidence,
+            height: parsedJson.height,
+            width: parsedJson.width,
+            depth: parsedJson.depth,
+            weight: parsedJson.weight,
+            reasoning: typeof parsedJson.reasoning === 'string' ? parsedJson.reasoning : 'Características extraídas com sucesso a partir do texto descritivo.',
+            sources: parsedJson.sources,
+          };
+        } else {
+          throw new Error('A estrutura retornada pela IA é inválida.');
+        }
+      } else {
+        throw new Error('A estrutura retornada pela IA é inválida.');
       }
-      throw new Error('A estrutura retornada pela IA é inválida.');
     }
 
     const normalizedTechnical = normalizeSuggestedTechnicalValues(
-      validated.data.technicalValues || {},
+      resolvedData.technicalValues || {},
       context.availableAttributes
     );
 
     const itemConfidence: Record<string, 'alta' | 'media' | 'baixa'> = {
-      ...(validated.data.itemConfidence || {}),
+      ...(resolvedData.itemConfidence || {}),
     };
     Object.keys(normalizedTechnical).forEach((key) => {
       if (!itemConfidence[key]) {
@@ -437,7 +483,7 @@ export const aiProductCharacteristicsService = {
       }
     });
 
-    const identifiedProduct = validated.data.identifiedProduct || {
+    const identifiedProduct = resolvedData.identifiedProduct || {
       name: context.currentName || '',
       brand: context.currentBrand || '',
       model: context.currentModel || '',
@@ -447,7 +493,7 @@ export const aiProductCharacteristicsService = {
     };
 
     return {
-      ...validated.data,
+      ...resolvedData,
       identifiedProduct,
       itemConfidence,
       technicalValues: normalizedTechnical,

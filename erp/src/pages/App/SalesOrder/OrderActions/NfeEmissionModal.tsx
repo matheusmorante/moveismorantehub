@@ -7,6 +7,8 @@ import {
 } from '@/pages/utils/nfe/fiscalIssuePresentation';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import type { DeliveryMethod } from '../../../../../../shared-utils/fiscalTransportModel';
+import { fiscalPresence } from '../../../../../../shared-utils/fiscalDocumentModel';
+import { isValidRecipientTaxId } from '../../../../../../shared-utils/recipientTaxId';
 import { NfeEmissionFooter } from './nfe-modal/components/NfeEmissionFooter';
 import { NfeEmissionHeader } from './nfe-modal/components/NfeEmissionHeader';
 import { NfeEmissionPanels } from './nfe-modal/components/NfeEmissionPanels';
@@ -28,6 +30,11 @@ import {
 
 export type { NfeTabId };
 
+const recipientDocumentStatus = (value?: string) => {
+  if (!value?.trim()) return 'Ausente';
+  return isValidRecipientTaxId(value) ? 'Presente, válido' : 'Presente, inválido';
+};
+
 export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   isOpen,
   order,
@@ -39,6 +46,22 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   const { isRealAdministrator, activeRoleMode } = useAuth();
   const canPreviewXml = isRealAdministrator && !activeRoleMode;
   const orderId = order?.id;
+  const orderSensitiveValues = [
+    order?.customerData?.fullName,
+    order?.customerData?.phone,
+    order?.customerData?.email,
+    order?.customerData?.cpfCnpj,
+    order?.customerData?.document,
+    order?.customerData?.ie,
+    order?.customerData?.rgIe,
+    ...Object.values(order?.customerData?.fullAddress || {}).filter(
+      (value): value is string => typeof value === 'string'
+    ),
+    ...(order?.customerData?.additionalContacts || []).flatMap((contact) => [
+      contact.name,
+      contact.phone,
+    ]),
+  ].filter((value): value is string => typeof value === 'string' && value.trim().length >= 3);
   const { customerPersonType, isLoadingCustomerType, emissionOrder } =
     useNfeCustomerPersonType(order);
   const [deliveryMethodOverride, setDeliveryMethodOverride] =
@@ -117,6 +140,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     setFreightContractResponsible,
     thirdPartyTransporter,
     setThirdPartyTransporter,
+    resolvedTransport,
   } = useNfeEmission(isOpen ? fiscalEmissionOrder : null, (result: NfeEmissionResult) => {
     onSuccess?.(result);
     onClose();
@@ -199,6 +223,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
   const recipientRequirements = resolveRecipientRequirementsForModal({
     selectedModel,
     order: fiscalEmissionOrder ?? order,
+    deliveryMethod,
     invoiceTotal,
     customerPersonType,
     recipientTaxId,
@@ -347,7 +372,43 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         onClose={() => setIsFiscalIssueModalOpen(false)}
         emissionResult={emissionResult}
         orderId={order?.id}
-        orderNumber={order?.orderNumber ?? order?.orderIndex}
+        orderNumber={order?.orderIndex ?? order?.orderNumber}
+        orderSensitiveValues={orderSensitiveValues}
+        fiscalEvidence={{
+          model: selectedModel,
+          invoiceTotal,
+          deliveryMethod,
+          presence: selectedModel
+            ? fiscalPresence(
+                selectedModel,
+                deliveryMethod,
+                (fiscalEmissionOrder ?? order)?.fiscalContext?.presence
+              )
+            : undefined,
+          hasTransport: resolvedTransport.hasTransport,
+          recipientPersonType:
+            customerPersonType === 'PF' || customerPersonType === 'PJ'
+              ? customerPersonType
+              : 'Não identificado',
+          customerRecipientDocumentStatus: recipientDocumentStatus(
+            order?.customerData?.cpfCnpj || order?.customerData?.document
+          ),
+          draftRecipientDocumentStatus: recipientDocumentStatus(
+            order?.nfeDraft?.['2']?.recipientTaxId || order?.nfeDraft?.['1']?.recipientTaxId
+          ),
+          emissionRecipientDocumentStatus: recipientDocumentStatus(recipientTaxId),
+          recipientDocumentRequirement: !selectedModel
+            ? undefined
+            : !recipientRequirements.supported
+              ? 'Não determinada'
+              : recipientRequirements.documentRequired
+                ? 'Obrigatória'
+                : 'Opcional',
+          recipientRequirementReasons:
+            selectedModel && recipientRequirements.supported
+              ? recipientRequirements.reasonCodes
+              : undefined,
+        }}
         environment={environment}
         productionConfirmed={productionConfirmed}
         retryNumber={retryNumber}

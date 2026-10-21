@@ -73,6 +73,9 @@ export const normalizeProductForSave = (
       title: effectiveName,
       marketplaceTitle: effectiveName,
       productKind: formData.productKind !== undefined ? getProductKind(formData) : undefined,
+      hasVariations: options.isDraft
+        ? Boolean(formData.hasVariations)
+        : (formData.variations?.length || 0) > 1,
       isDraft: options.isDraft,
       active: forceInactive ? false : options.isCompletingDraft ? true : formData.active !== false,
       status: options.catalogStatus,

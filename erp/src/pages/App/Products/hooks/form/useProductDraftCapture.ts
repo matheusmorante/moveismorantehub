@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 interface UseProductDraftCaptureOptions {
   editingVariationId: string | null;
   scheduleDraftAutoSave: () => void;
+  onFieldBlur?: (fieldName?: string) => void;
 }
 
 /**
@@ -14,6 +15,7 @@ interface UseProductDraftCaptureOptions {
 export function useProductDraftCapture({
   editingVariationId,
   scheduleDraftAutoSave,
+  onFieldBlur,
 }: UseProductDraftCaptureOptions) {
   const handleDraftFieldBlurCapture = useCallback(
     (event: React.FocusEvent<HTMLDivElement>) => {
@@ -25,9 +27,11 @@ export function useProductDraftCapture({
         target.matches('input:not([type="file"]), textarea, select, [role="combobox"]')
       ) {
         scheduleDraftAutoSave();
+        const fieldName = target.getAttribute('name') || target.id || undefined;
+        onFieldBlur?.(fieldName);
       }
     },
-    [scheduleDraftAutoSave, editingVariationId]
+    [scheduleDraftAutoSave, editingVariationId, onFieldBlur]
   );
 
   const handleDraftSelectChangeCapture = useCallback(
@@ -38,9 +42,10 @@ export function useProductDraftCapture({
         !event.target.closest('[data-variation-modal]')
       ) {
         scheduleDraftAutoSave();
+        onFieldBlur?.('category');
       }
     },
-    [scheduleDraftAutoSave, editingVariationId]
+    [scheduleDraftAutoSave, editingVariationId, onFieldBlur]
   );
 
   const handleDraftSearchOptionClickCapture = useCallback(
@@ -52,9 +57,10 @@ export function useProductDraftCapture({
         event.target.closest('[role="option"]')
       ) {
         scheduleDraftAutoSave();
+        onFieldBlur?.('category');
       }
     },
-    [scheduleDraftAutoSave, editingVariationId]
+    [scheduleDraftAutoSave, editingVariationId, onFieldBlur]
   );
 
   return {

@@ -31,6 +31,7 @@ export interface ConversationSidebarProps {
   totalCount?: number;
   onLoadMore?: () => Promise<void>;
   canViewCommercialInfo?: boolean;
+  error?: string;
 }
 
 export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
@@ -51,6 +52,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   totalCount = conversations.length,
   onLoadMore,
   canViewCommercialInfo = false,
+  error = '',
 }) => {
   const [isScopeMenuOpen, setIsScopeMenuOpen] = useState(false);
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
@@ -160,7 +162,10 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       />
 
       {/* 4. Lista de Conversas com Cards Arredondados */}
+      {error && <p role="alert" className="px-3 py-2 text-xs text-amber-700 dark:text-amber-400">{error}</p>}
         <div
+          role="region"
+          aria-label="Lista de conversas"
           className="flex-1 overflow-y-auto py-2"
           onScroll={(event) => {
             const container = event.currentTarget;
@@ -169,11 +174,11 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
             }
           }}
         >
-        <ConversationListSkeleton
+        {!error && <ConversationListSkeleton
           isLoading={isLoading}
           count={sortedConversations.length}
           search={search}
-        />
+        />}
 
         {sortedConversations.map((conv) => (
           <ConversationItem

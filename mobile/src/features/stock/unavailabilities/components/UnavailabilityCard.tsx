@@ -1,14 +1,2 @@
-import type React from 'react';
-import type { StockUnavailability } from '../types';
-import {
-  UnavailabilityCardContent,
-  UnavailabilityCardProps,
-} from './UnavailabilityCardContent';
-
-export type { UnavailabilityCardProps };
-
-export const UnavailabilityCard: React.FC<UnavailabilityCardProps> = (props) => {
-  return <UnavailabilityCardContent {...props} />;
-};
-
-export default UnavailabilityCard;
+export { default } from './unavailability-card/UnavailabilityCard';
+export * from './unavailability-card/UnavailabilityCard';

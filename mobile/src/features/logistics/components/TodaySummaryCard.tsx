@@ -5,26 +5,17 @@ import {
   generateDeliveryAISummary,
   subscribeSummaryQuota,
 } from '../../../services/aiSummaryService';
-import {
-  playSummaryAudio,
-  stopGeminiAudio,
-  pauseGeminiAudio,
-  resumeGeminiAudio,
-  seekGeminiAudio,
-} from '../../../services/geminiAudioService';
 import { getLocalDateString } from '../../../utils/orderUtils';
 import {
   calculateDeliverySummaryMetrics,
   type DeliveryPeriodFilter,
 } from '../utils/deliverySummaryMetrics';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
-import { AISummaryAudioPlayer } from '../../dashboard/components/AISummaryAudioPlayer';
 import { supabase } from '../../../services/supabaseClient';
 import {
   getLatestSavedSummaryRecord,
   type DeliverySummaryRecord,
 } from '../../../services/deliverySummaryService';
-import { getCachedAudioRecord } from '../../../services/deliveryAudioCacheService';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { DeliveryShiftMetricsGrid } from './DeliveryShiftMetricsGrid';
 
@@ -49,7 +40,7 @@ interface TodaySummaryCardProps {
   periodFilter?: DeliveryPeriodFilter;
 }
 
-const SHOW_AI_SUMMARY_AND_AUDIO = false;
+const SHOW_AI_SUMMARY = false;
 
 export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   orders,
@@ -58,13 +49,9 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   periodFilter = 'today',
 }) => {
   const [isGeminiQuotaExceeded, setIsGeminiQuotaExceeded] = useState<boolean>(false);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [totalDuration, setTotalDuration] = useState(0);
 
   useEffect(() => {
-    if (!SHOW_AI_SUMMARY_AND_AUDIO) return;
+    if (!SHOW_AI_SUMMARY) return;
     const unsub = subscribeSummaryQuota((exceeded) => {
       setIsGeminiQuotaExceeded(exceeded);
     });
@@ -72,9 +59,6 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   }, []);
 
   const [aiSummaryText, setAiSummaryText] = useState<string>('');
-  const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(true);
-  const [isGeneratingAudio, setIsGeneratingAudio] = useState<boolean>(false);
-  const [isLoadingNewAudio, setIsLoadingNewAudio] = useState<boolean>(false);
   const [fallbackOrders, setFallbackOrders] = useState<any[]>([]);
 
   const effectiveOrdersRef = useRef<any[]>([]);
@@ -89,13 +73,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   }, [fadeAnim]);
 
   useEffect(() => {
-    return () => {
-      stopGeminiAudio();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!SHOW_AI_SUMMARY_AND_AUDIO) return;
+    if (!SHOW_AI_SUMMARY) return;
     let alive = true;
     const todayStr = getLocalDateString(new Date());
     const hasFuture = (orders || []).some((o) => {
@@ -150,14 +128,6 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
       .join('|');
   }, [effectiveOrders]);
 
-  useEffect(() => {
-    stopGeminiAudio();
-    setIsPlayingAudio(false);
-    setIsPaused(false);
-    setCurrentTime(0);
-    setTotalDuration(0);
-  }, [periodFilter]);
-
   const { totalCount, morningCount, afternoonCount, defaultSummaryText } = useMemo(
     () => calculateDeliverySummaryMetrics(effectiveOrders, periodFilter),
     [effectiveOrders, periodFilter]
@@ -166,11 +136,9 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   const activeSummaryText = aiSummaryText || defaultSummaryText;
 
   useEffect(() => {
-    if (!SHOW_AI_SUMMARY_AND_AUDIO) return;
+    if (!SHOW_AI_SUMMARY) return;
     let isMounted = true;
     const mode = periodFilter === 'today' ? 'today' : 'next_days';
-
-    setIsGeneratingSummary(true);
 
     generateDeliveryAISummary(
       mode,
@@ -181,9 +149,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
       (text) => {
         if (isMounted && periodFilter !== 'today') setAiSummaryText(text);
       },
-      (gen) => {
-        if (isMounted) setIsGeneratingSummary(gen);
-      },
+      undefined,
       effectiveOrdersRef.current
     );
 
@@ -193,22 +159,12 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   }, [periodFilter, ordersFingerprint]);
 
   useEffect(() => {
-    if (!SHOW_AI_SUMMARY_AND_AUDIO) return;
+    if (!SHOW_AI_SUMMARY) return;
     let alive = true;
     const scope = periodFilter === 'today' ? 'today' : 'next_days';
-    const applySummaryRecord = async (record: DeliverySummaryRecord | null) => {
+    const applySummaryRecord = (record: DeliverySummaryRecord | null) => {
       if (!alive || !record) return;
       if (record.text_status === 'READY' && record.text) setAiSummaryText(record.text);
-      const waitingForGeneration =
-        record.audio_status === 'MISSING' || record.audio_status === 'GENERATING';
-      setIsGeneratingAudio(waitingForGeneration);
-      if (record.audio_status === 'READY' && record.audio_cache_key) {
-        setIsLoadingNewAudio(true);
-        await getCachedAudioRecord(record.audio_cache_key);
-        if (alive) setIsLoadingNewAudio(false);
-      } else {
-        setIsLoadingNewAudio(false);
-      }
     };
 
     void getLatestSavedSummaryRecord(scope).then(applySummaryRecord);
@@ -237,61 +193,9 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     };
   }, [periodFilter]);
 
-  const formatAudioTime = (secs: number) => {
-    const s = Math.max(0, Math.floor(secs || 0));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    return `${m.toString().padStart(2, '0')}:${r.toString().padStart(2, '0')}`;
-  };
-
-  const handleTogglePlayAudio = async (textToPlay?: string) => {
-    const textTarget = textToPlay || activeSummaryText;
-    if (!textTarget) return;
-
-    if (isPlayingAudio && !isPaused) {
-      await pauseGeminiAudio();
-      setIsPlayingAudio(true);
-      setIsPaused(true);
-    } else if (isPlayingAudio && isPaused) {
-      await resumeGeminiAudio();
-      setIsPlayingAudio(true);
-      setIsPaused(false);
-    } else {
-      setIsPlayingAudio(true);
-      setIsPaused(false);
-
-      await playSummaryAudio(
-        textTarget,
-        'gemini',
-        {
-          onStart: () => {
-            setIsPlayingAudio(true);
-            setIsPaused(false);
-          },
-          onProgress: (currentSec, durSec) => {
-            setCurrentTime(currentSec);
-            if (durSec > 0) setTotalDuration(durSec);
-          },
-          onDone: () => {
-            setIsPlayingAudio(false);
-            setIsPaused(false);
-            setCurrentTime(0);
-          },
-          onError: (err) => {
-            console.warn('[TodaySummaryCard] Falha ao sintetizar áudio:', err);
-            setIsPlayingAudio(false);
-            setIsPaused(false);
-            setCurrentTime(0);
-          },
-        },
-        periodFilter
-      );
-    }
-  };
-
   return (
     <Animated.View style={[styles.cardContainer, { opacity: fadeAnim }]}>
-      {SHOW_AI_SUMMARY_AND_AUDIO && (
+      {SHOW_AI_SUMMARY && (
         <View style={styles.headerRow}>
           <View style={styles.iconBadge}>
             <Truck size={24} color="#0055ff" />
@@ -314,7 +218,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
         totalCount={totalCount}
       />
 
-      {SHOW_AI_SUMMARY_AND_AUDIO && (
+      {SHOW_AI_SUMMARY && (
         <View
           style={[
             styles.resumoBox,
@@ -363,30 +267,6 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
         </View>
       )}
 
-      {SHOW_AI_SUMMARY_AND_AUDIO && (
-        <AISummaryAudioPlayer
-          isDarkMode={isDarkMode}
-          title={periodFilter === 'today' ? 'Ouvir resumo de hoje' : 'Ouvir resumo dos próximos dias'}
-          text={activeSummaryText}
-          isLoadingText={isGeneratingSummary && !aiSummaryText}
-          isGenerating={isGeneratingAudio || isLoadingNewAudio}
-          loadingMessage={
-            isLoadingNewAudio ? 'Carregando novo áudio do resumo...' : 'Gerando resumo em áudio...'
-          }
-          isQuotaExceeded={isGeminiQuotaExceeded}
-          isSpeaking={isPlayingAudio}
-          isPaused={isPaused}
-          currentTime={currentTime}
-          totalDuration={totalDuration}
-          onToggle={(txt) => handleTogglePlayAudio(txt)}
-          onSeekEnd={(sec) => {
-            setCurrentTime(sec);
-            seekGeminiAudio(sec);
-          }}
-          setCurrentTime={setCurrentTime}
-          formatTime={formatAudioTime}
-        />
-      )}
     </Animated.View>
   );
 };

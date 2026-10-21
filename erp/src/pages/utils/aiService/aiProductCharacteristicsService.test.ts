@@ -1,10 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
+  aiProductCharacteristicsService,
   buildCharacteristicsPrompt,
   buildDescriptiveTextPrompt,
   cleanAndParseCharacteristicsJson,
   normalizeSuggestedTechnicalValues,
 } from './aiProductCharacteristicsService';
+import { AiGateway } from '@/services/aiGateway/AiGateway';
 
 describe('aiProductCharacteristicsService — Pure Functions & Domain Rules', () => {
   it('buildCharacteristicsPrompt deve compor o prompt com diretrizes de visão e busca', () => {
@@ -31,6 +33,15 @@ describe('aiProductCharacteristicsService — Pure Functions & Domain Rules', ()
 
   it('cleanAndParseCharacteristicsJson deve remover blocos markdown e retornar o objeto', () => {
     const raw = '```json\n{\n  "technicalValues": { "Material": "MDF" },\n  "height": 218\n}\n```';
+    const parsed = cleanAndParseCharacteristicsJson(raw);
+    expect(parsed).toEqual({
+      technicalValues: { Material: 'MDF' },
+      height: 218,
+    });
+  });
+
+  it('cleanAndParseCharacteristicsJson deve extrair JSON mesmo quando envolvido em texto conversacional', () => {
+    const raw = 'Com certeza! Aqui estão as características encontradas:\n```json\n{\n  "technicalValues": { "Material": "MDF" },\n  "height": 218\n}\n```\nEspero ter ajudado!';
     const parsed = cleanAndParseCharacteristicsJson(raw);
     expect(parsed).toEqual({
       technicalValues: { Material: 'MDF' },
@@ -95,5 +106,50 @@ describe('aiProductCharacteristicsService — Pure Functions & Domain Rules', ()
     expect(prompt).toContain('Sofás');
     expect(prompt).toContain('Material do Revestimento');
   });
-});
 
+  it('extractProductCharacteristicsWithAI deve enviar jsonMode: false e ferramentas de busca, e aceitar confiança "média" com acento', async () => {
+    const requestTextSpy = vi.spyOn(AiGateway, 'requestText').mockResolvedValueOnce({
+      success: true,
+      data: JSON.stringify({
+        identifiedProduct: {
+          name: 'Sofá Retrátil Dallas',
+          brand: 'Morante',
+          model: 'Dallas',
+          confidence: 'média',
+          sources: [{ title: 'Site Oficial Morante', uri: 'https://exemplo.com' }],
+        },
+        technicalValues: {
+          'Material': 'Madeira de Eucalipto',
+        },
+        itemConfidence: {
+          'Material': 'alta',
+        },
+        height: 105,
+        width: 220,
+        depth: 110,
+        weight: 80,
+        reasoning: 'Encontrado no catálogo oficial',
+      }),
+    });
+
+    const result = await aiProductCharacteristicsService.extractProductCharacteristicsWithAI({
+      productName: 'Sofá Retrátil Dallas',
+      brand: 'Morante',
+      model: 'Dallas',
+      categoryName: 'Sofás',
+    });
+
+    expect(requestTextSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: [{ googleSearch: {} }],
+        jsonMode: false,
+      })
+    );
+
+    expect(result.identifiedProduct?.confidence).toBe('media');
+    expect(result.technicalValues['Material']).toBe('Madeira de Eucalipto');
+    expect(result.height).toBe(105);
+    expect(result.width).toBe(220);
+    expect(result.depth).toBe(110);
+  });
+});

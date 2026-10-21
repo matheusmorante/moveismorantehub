@@ -18,7 +18,6 @@ export class AiCircuitBreaker {
   private static categoryStates: Record<AiCategory, CircuitState> = {
     TEXT: { isOpen: false, consecutiveErrors: 0, recentTimestamps: [] },
     IMAGE: { isOpen: false, consecutiveErrors: 0, recentTimestamps: [] },
-    TTS: { isOpen: false, consecutiveErrors: 0, recentTimestamps: [] },
   };
 
   private static COOLDOWN_MS = 120000; // 2 minutos de isolamento ao abrir o circuit breaker

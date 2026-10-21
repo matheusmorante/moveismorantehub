@@ -68,10 +68,11 @@ export const useProductFormSubmit = ({
         };
         const reportValidation = () => {
           if (!actualSaveAsDraft) {
-            const { errors, invalidVariation, singleVariationParentIssue } = validateProductFormSubmission(submissionData, {
+            const validationResult = validateProductFormSubmission(submissionData, {
               isStockistOnly,
               saveAsDraft: actualSaveAsDraft,
             });
+            const { errors, invalidVariation, singleVariationParentIssue } = validationResult;
 
             if (Object.keys(errors).length > 0) {
               setValidationErrors(errors);
@@ -114,13 +115,13 @@ export const useProductFormSubmit = ({
                 toast.error('Informe um NCM válido com 8 dígitos na aba Tributário / NF.');
               } else if (errors.dimensions || errors.technicalValues) {
                 toast.error('Preencha os campos obrigatórios na aba Características.');
-              } else if (errors.variations) {
-                toast.error('Adicione pelo menos uma variação ao produto.');
-              } else if (errors.mainSupplierId) {
-                toast.error('Selecione um fornecedor.');
               } else if (errors.variationRegistration && invalidVariation?.issue) {
                 variations.setEditingVariationId(invalidVariation.variation.id);
                 toast.error(invalidVariation.issue.message);
+              } else if (errors.variations) {
+                toast.error(validationResult.errorMessage || 'Adicione pelo menos uma variação ao produto.');
+              } else if (errors.mainSupplierId) {
+                toast.error('Selecione um fornecedor.');
               } else {
                 toast.error('Preencha todos os campos obrigatórios.');
               }
@@ -128,17 +129,23 @@ export const useProductFormSubmit = ({
             }
             setValidationErrors({});
           } else {
-            const { errors } = validateProductFormSubmission(submissionData, {
+            const validationResult = validateProductFormSubmission(submissionData, {
               isStockistOnly,
               saveAsDraft: actualSaveAsDraft,
             });
-            if (Object.keys(errors).length > 0) return false;
+            if (Object.keys(validationResult.errors).length > 0) {
+              setValidationErrors(validationResult.errors);
+              toast.error(validationResult.errorMessage || 'Confira os valores informados para o rascunho.');
+              return false;
+            }
           }
 
           return true;
         };
+
+        if (!reportValidation()) return false;
+
         return await (actualSaveAsDraft ? validateDraftProduct : validateFinalProduct)(submissionData, async (validatedData) => {
-          if (!reportValidation()) return false;
           const ecomVal = checkEcomLegibility(validatedData as Partial<Product>);
           if (formData.status === 'published' && !ecomVal.isLegible) {
             toast.error('Despublique o Catálogo antes de remover ou alterar um campo obrigatório.');

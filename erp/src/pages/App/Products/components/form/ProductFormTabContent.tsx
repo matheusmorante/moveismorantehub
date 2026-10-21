@@ -13,6 +13,7 @@ interface ProductFormTabContentProps {
   readonly isService: boolean;
   readonly isStockistOnly: boolean;
   readonly isRegisteredProduct: boolean;
+  readonly isExistingProduct: boolean;
   readonly canConfigureProductTaxes: boolean;
   readonly formData: Partial<Product>;
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
@@ -39,6 +40,7 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
   isService,
   isStockistOnly,
   isRegisteredProduct,
+  isExistingProduct,
   canConfigureProductTaxes,
   formData,
   setFormData,
@@ -114,6 +116,7 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
         <ProductDescriptionTab
           formData={formData}
           setFormData={setFormData}
+          onBlur={() => jev.onFieldBlur?.('description')}
           categoryName={
             availableCategories?.find((cat: any) =>
               formData.categoryIds?.includes(cat.id)
@@ -156,6 +159,10 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
           removeVariation={variations.removeVariation}
           onDeleteVariation={isRegisteredProduct ? handleDeleteVariation : undefined}
           deletingVariationId={deletingVariationId}
+          isRegisteredProduct={isRegisteredProduct}
+          isExistingProduct={isExistingProduct}
+          isConventionalProduct={formData.productKind === 'normal'}
+          onSetHasVariations={variations.setProductMode}
         />
       )}
 

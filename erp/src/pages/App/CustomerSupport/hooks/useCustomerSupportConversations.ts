@@ -4,12 +4,10 @@ import { WhatsAppConversation, ConversationFilter, CustomerSupportFolderCriteria
 import {
   fetchConversationCounts,
   fetchConversations,
-  mapRowToConversation,
 } from '@/pages/utils/customerSupport/customerSupportService';
 import { SortOrder } from '../components/ConversationSidebar';
 
 interface UseCustomerSupportConversationsParams {
-  userId?: string;
   agentId?: string | null;
   folderCriteria?: CustomerSupportFolderCriteria | null;
   canViewCommercialInfo?: boolean;
@@ -18,7 +16,6 @@ interface UseCustomerSupportConversationsParams {
 const PAGE_SIZE = 50;
 
 export function useCustomerSupportConversations({
-  userId,
   agentId = null,
   folderCriteria = null,
   canViewCommercialInfo = false,
@@ -33,18 +30,28 @@ export function useCustomerSupportConversations({
   const [isRefreshingConversations, setIsRefreshingConversations] = useState(false);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [conversationsError, setConversationsError] = useState('');
   const [counts, setCounts] = useState({ all: 0, mine: 0, unassigned: 0, unread: 0 });
 
   const selectedConvIdRef = useRef<string | null>(null);
   selectedConvIdRef.current = selectedConversation?.id || null;
   const loadedPagesRef = useRef(1);
   const requestIdRef = useRef(0);
+  const moreRequestRef = useRef<number | null>(null);
+  const queryKey = JSON.stringify([filter, search, agentId, folderCriteria, canViewCommercialInfo, sortOrder]);
+  const activeQueryKeyRef = useRef(queryKey);
+  activeQueryKeyRef.current = queryKey;
 
   const loadConversations = useCallback(async (isSilent = false) => {
+    if (isSilent && moreRequestRef.current !== null) return;
     const requestId = ++requestIdRef.current;
     if (!isSilent) {
+      moreRequestRef.current = null;
       loadedPagesRef.current = 1;
+      setIsLoadingMore(false);
       setIsLoadingConversations(true);
+      setConversations([]);
+      setTotalCount(0);
     } else {
       setIsRefreshingConversations(true);
     }
@@ -65,7 +72,7 @@ export function useCustomerSupportConversations({
       );
       const rows = pageResults.flatMap((result) => result.conversations);
       const deduplicated = Array.from(new Map(rows.map((row) => [row.id, row])).values());
-      if (requestId !== requestIdRef.current) return;
+      if (requestId !== requestIdRef.current || activeQueryKeyRef.current !== queryKey) return;
       setConversations(deduplicated);
       setTotalCount(pageResults[0]?.totalCount || 0);
 
@@ -75,17 +82,26 @@ export function useCustomerSupportConversations({
       }
 
       const nextCounts = await fetchConversationCounts(supabase);
-      if (requestId === requestIdRef.current) setCounts(nextCounts);
+      if (requestId === requestIdRef.current && activeQueryKeyRef.current === queryKey) {
+        setCounts(nextCounts);
+        setConversationsError('');
+      }
+    } catch (error) {
+      if (requestId === requestIdRef.current && activeQueryKeyRef.current === queryKey) {
+        setConversationsError(error instanceof Error ? error.message : 'Não foi possível atualizar a Inbox.');
+      }
     } finally {
       if (requestId === requestIdRef.current) {
         if (!isSilent) setIsLoadingConversations(false);
         setIsRefreshingConversations(false);
       }
     }
-  }, [filter, search, userId, agentId, folderCriteria, canViewCommercialInfo, sortOrder]);
+  }, [filter, search, agentId, folderCriteria, canViewCommercialInfo, sortOrder, queryKey]);
 
   const loadMoreConversations = useCallback(async () => {
-    if (isLoadingMore || conversations.length >= totalCount) return;
+    if (moreRequestRef.current !== null || isLoadingConversations || conversations.length >= totalCount) return;
+    const requestId = requestIdRef.current;
+    moreRequestRef.current = requestId;
     const nextPage = loadedPagesRef.current + 1;
     setIsLoadingMore(true);
     try {
@@ -99,6 +115,15 @@ export function useCustomerSupportConversations({
         canViewCommercialInfo,
         sortOrder,
       });
+      if (requestId !== requestIdRef.current || activeQueryKeyRef.current !== queryKey) return;
+      if (result.conversations.length === 0) {
+        // An empty offset page carries no window-count row. Reconcile from the
+        // loaded pages instead of displaying cached rows with a total of zero.
+        moreRequestRef.current = null;
+        setIsLoadingMore(false);
+        await loadConversations(true);
+        return;
+      }
       if (result.conversations.length) {
         loadedPagesRef.current = nextPage;
         setConversations((current) => {
@@ -106,11 +131,19 @@ export function useCustomerSupportConversations({
           return [...current, ...result.conversations.filter((conversation) => !existing.has(conversation.id))];
         });
       }
-      if (result.totalCount) setTotalCount(result.totalCount);
+      setTotalCount(result.totalCount);
+      setConversationsError('');
+    } catch (error) {
+      if (requestId === requestIdRef.current && activeQueryKeyRef.current === queryKey) {
+        setConversationsError(error instanceof Error ? error.message : 'Não foi possível carregar mais conversas.');
+      }
     } finally {
-      setIsLoadingMore(false);
+      if (moreRequestRef.current === requestId) {
+        moreRequestRef.current = null;
+        setIsLoadingMore(false);
+      }
     }
-  }, [isLoadingMore, conversations.length, totalCount, folderCriteria, filter, search, userId, agentId, canViewCommercialInfo, sortOrder]);
+  }, [isLoadingConversations, conversations.length, totalCount, folderCriteria, filter, search, agentId, canViewCommercialInfo, sortOrder, queryKey, loadConversations]);
 
   useEffect(() => {
     void loadConversations();
@@ -173,6 +206,7 @@ export function useCustomerSupportConversations({
     setSearch,
     isLoadingConversations,
     isLoadingMore,
+    conversationsError,
     isRefreshingConversations,
     isRealtimeConnected,
     loadConversations,

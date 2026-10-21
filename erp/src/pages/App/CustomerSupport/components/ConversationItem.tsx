@@ -1,7 +1,6 @@
 import React from 'react';
 import { WhatsAppConversation } from '../types';
 import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
-import { whatsappSupportGuard } from '@/pages/utils/customerSupport/whatsappSupportGuard';
 
 interface ConversationItemProps {
   conversation: WhatsAppConversation;
@@ -47,11 +46,9 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
     formatPhoneForDisplay(conversation.contactPhone);
 
   const timeFormatted = formatTimeAgo(conversation.lastMessageAt);
-  const careWindow = whatsappSupportGuard.calculateCareWindow(conversation.lastCustomerMessageAt);
 
   const isCustomerLinked = Boolean(conversation.customerId);
   const hasOrders = (conversation.orders?.length || 0) > 0;
-  const isAmbiguous = conversation.customerLinkStatus === 'ambiguous';
   const currentStatus = conversation.status || (conversation.isArchived ? 'closed' : 'open');
 
   // Iniciais para o avatar do contato

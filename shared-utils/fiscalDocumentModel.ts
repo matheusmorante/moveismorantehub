@@ -149,7 +149,7 @@ export function fiscalPresence(
 ): string {
   if (model === '65') {
     if (deliveryMethod === 'delivery') return '4';
-    if (deliveryMethod === 'pickup' && presence === '4') return '1';
+    if (deliveryMethod === 'pickup') return '1';
     return presence || '1';
   }
   if (deliveryMethod === 'delivery' && !['2', '3', '9'].includes(presence || '')) return '9';

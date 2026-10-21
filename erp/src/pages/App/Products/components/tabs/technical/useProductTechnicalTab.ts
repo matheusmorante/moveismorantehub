@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Product } from '@/types/product.type';
 import { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../../services/technicalFieldService';
@@ -6,6 +6,10 @@ import { populateInitialTechnicalValues } from './technicalSyncUtils';
 import { useSofaDescriptionSync } from './hooks/useSofaDescriptionSync';
 import { useTechnicalFieldApplicability } from './hooks/useTechnicalFieldApplicability';
 import { useTechnicalFieldActions } from './hooks/useTechnicalFieldActions';
+import {
+  isTechnicalFieldVariable,
+  resolveVariableTechnicalFieldNames,
+} from '@/pages/utils/technicalValuesService';
 
 export interface UseProductTechnicalTabParams {
   readonly formData: Partial<Product>;
@@ -91,6 +95,22 @@ export const useProductTechnicalTab = ({
     setCharacteristicSearchTerm,
   });
 
+  const handleToggleVariableField = useCallback(
+    (fieldName: string) => {
+      setFormData((prev) => {
+        const variableFields = resolveVariableTechnicalFieldNames(
+          prev.variableTechnicalFields,
+          prev.variations || []
+        );
+        const nextVariableFields = isTechnicalFieldVariable(fieldName, variableFields)
+          ? variableFields.filter((name) => !isTechnicalFieldVariable(fieldName, [name]))
+          : [...variableFields, fieldName];
+        return { ...prev, variableTechnicalFields: nextVariableFields };
+      });
+    },
+    [setFormData]
+  );
+
   const openAttributeModal = () => setIsAttributeModalOpen(true);
   const closeAttributeModal = () => {
     setIsAttributeModalOpen(false);
@@ -113,6 +133,7 @@ export const useProductTechnicalTab = ({
     setCharacteristicSearchTerm,
     handleFieldChange: actions.handleFieldChange,
     handleTechnicalValueChange: actions.handleTechnicalValueChange,
+    handleToggleVariableField,
     handleAddManualField: actions.handleAddManualField,
     handleAddGroup: actions.handleAddGroup,
     handleRemoveManualField: actions.handleRemoveManualField,

@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 let mockLogs: any[] = [];
 let mockCount: number | null = null;
+let mockCountsByQuery: number[] | null = null;
+let mockCountQueryIndex = 0;
 let mockError: any = null;
 const mockInsertFn = vi.fn(() => Promise.resolve({ data: null, error: null }));
 
@@ -16,7 +18,11 @@ vi.mock('../../../pages/utils/supabaseConfig', () => ({
               return Promise.resolve({ data: null, count: null, error: mockError });
             }
             const filtered = mockLogs.filter((item) => !item.created_at || item.created_at >= val);
-            const count = mockCount !== null ? mockCount : filtered.length;
+            const count = mockCountsByQuery
+              ? mockCountsByQuery[mockCountQueryIndex++]
+              : mockCount !== null
+                ? mockCount
+                : filtered.length;
             return Promise.resolve({
               data: opts?.head ? null : filtered,
               count,
@@ -36,6 +42,8 @@ import { AiQuotaManager } from '../core/AiQuotaManager';
 describe('AiQuotaManager - Cota Mensal de R$ 30,00 para Geração de Imagens', () => {
   beforeEach(() => {
     mockLogs = [];
+    mockCountsByQuery = null;
+    mockCountQueryIndex = 0;
     mockInsertFn.mockClear();
     vi.restoreAllMocks();
   });
@@ -105,10 +113,12 @@ describe('AiQuotaManager - Cota Mensal de R$ 30,00 para Geração de Imagens', (
   });
 });
 
-describe('AiQuotaManager - Cota de Preenchimento de Características (20 req/h e 80 req/dia)', () => {
+describe('AiQuotaManager - Cota de Preenchimento de Características (2 req/min, 20 req/h e 80 req/dia)', () => {
   beforeEach(() => {
     mockLogs = [];
     mockCount = null;
+    mockCountsByQuery = null;
+    mockCountQueryIndex = 0;
     mockError = null;
     mockInsertFn.mockClear();
     vi.restoreAllMocks();
@@ -121,10 +131,12 @@ describe('AiQuotaManager - Cota de Preenchimento de Características (20 req/h e
     expect(stats.limitToday).toBe(80);
     expect(stats.usedHour).toBe(0);
     expect(stats.limitHour).toBe(20);
+    expect(stats.usedMinute).toBe(0);
+    expect(stats.limitMinute).toBe(2);
   });
 
   it('deve permitir reserva de cota quando o consumo estiver abaixo dos limites', async () => {
-    mockCount = 5; // 5 reqs hoje e na última hora
+    mockCountsByQuery = [5, 5, 1]; // 5 hoje/na hora e 1 no minuto
     const result = await AiQuotaManager.reserveCharacteristicsQuota();
     expect(result.allowed).toBe(true);
     expect(mockInsertFn).toHaveBeenCalledTimes(1);
@@ -140,7 +152,7 @@ describe('AiQuotaManager - Cota de Preenchimento de Características (20 req/h e
   });
 
   it('deve bloquear a requisição se atingir o limite estrito de 20 requisições por hora', async () => {
-    mockCount = 20; // 20 reqs na hora
+    mockCountsByQuery = [5, 20, 1];
     const result = await AiQuotaManager.reserveCharacteristicsQuota();
     expect(result.allowed).toBe(false);
     expect(result.errorCode).toBe('AI_HOURLY_LIMIT_REACHED');
@@ -151,20 +163,22 @@ describe('AiQuotaManager - Cota de Preenchimento de Características (20 req/h e
   it('deve bloquear a requisição se atingir o limite diário de 80 requisições', async () => {
     // Simular que na última hora foram poucas, mas no dia foram 80
     // Usando mockLogs com timestamps para diferenciar hora de dia
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-    
-    mockLogs = [
-      ...Array.from({ length: 5 }).map(() => ({ created_at: new Date().toISOString() })),
-      ...Array.from({ length: 75 }).map(() => ({ created_at: fourHoursAgo })),
-    ];
-    // mockCount null uses mockLogs.filter by gte val
-    mockCount = null;
+    // Simular 80 hoje, 5 na última hora e 1 no último minuto.
+    mockCountsByQuery = [80, 5, 1];
 
     const result = await AiQuotaManager.reserveCharacteristicsQuota();
     expect(result.allowed).toBe(false);
     expect(result.errorCode).toBe('AI_DAILY_LIMIT_REACHED');
     expect(result.errorMessage).toContain('80/80');
+    expect(mockInsertFn).not.toHaveBeenCalled();
+  });
+
+  it('deve bloquear rajadas acima de 2 requisições por minuto', async () => {
+    mockCountsByQuery = [5, 5, 2];
+    const result = await AiQuotaManager.reserveCharacteristicsQuota();
+    expect(result.allowed).toBe(false);
+    expect(result.errorCode).toBe('AI_RATE_LIMIT_REACHED');
+    expect(result.errorMessage).toContain('2/2');
     expect(mockInsertFn).not.toHaveBeenCalled();
   });
 
@@ -175,6 +189,17 @@ describe('AiQuotaManager - Cota de Preenchimento de Características (20 req/h e
     expect(result.errorCode).toBe('AI_FAIL_CLOSED_BLOCKED');
     expect(result.errorMessage).toContain('FAIL CLOSED');
     expect(mockInsertFn).not.toHaveBeenCalled();
+  });
+
+  it('deve bloquear se não conseguir registrar a reserva de cota', async () => {
+    mockCountsByQuery = [0, 0, 0];
+    mockInsertFn.mockImplementationOnce(() =>
+      Promise.resolve({ data: null, error: { message: 'write denied' } })
+    );
+
+    const result = await AiQuotaManager.reserveCharacteristicsQuota();
+    expect(result.allowed).toBe(false);
+    expect(result.errorCode).toBe('AI_FAIL_CLOSED_BLOCKED');
   });
 });
 

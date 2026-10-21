@@ -87,5 +87,21 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 * Não iniciar nem usar Supabase Local, PostgreSQL local, Docker ou banco/simulador local como infraestrutura de teste. O fluxo local de Supabase está extinto no projeto; não executar `supabase start`, resets locais, migrations em banco local nem `npm run advisors` (o script usa `--local`).
 * Os únicos runners de teste permitidos são Playwright para fluxos de interface no navegador e Vitest/RTL para componentes e lógica. Não executar scripts de teste avulsos em Node/CJS/SQL nem CLI Supabase; testes que dependam do banco remoto devem estar integrados ao Playwright ou Vitest e obedecer às guardas abaixo.
 * Testes de interface devem exercitar o navegador de desenvolvimento pela UI com Playwright. Testes de componente e lógica isolada devem usar Vitest/RTL; mocks não comprovam persistência ou comportamento real do PostgreSQL.
+* Ao executar testes de navegador, iniciar o servidor de desenvolvimento do ERP e usar sempre a porta `5173`; configurar `strictPort` para impedir fallback silencioso para outra porta.
 * Quando a propriedade depender do banco, usar somente o projeto Supabase remoto operacional existente, schema `public` e fixtures próprias com ownership e gates comprovados, conforme [`docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`](docs/testing/SUPABASE_REMOTE_TEST_POLICY.md). Não criar branches, projetos, bancos ou schemas para testar.
 * Emissão fiscal real à SEFAZ só pode ocorrer pela UI, em Homologação e com autorização explícita. Se autenticação, ownership ou isolamento dos artefatos não for comprovado, não contornar a guarda: concluir as provas locais seguras e registrar o cenário remoto como pendente com a causa concreta.
+
+## 8. Remoção do Catálogo da Meta
+
+* Sempre que o usuário pedir para ocultar/remover um produto ou variação do catálogo, verificar a sincronização real com a Meta Catalog Graph API (`items_batch`) e confirmar o resultado no próprio catálogo da Meta (consulta de produtos por `retailer_id`/SKU). Não considerar a mudança do status no ERP nem a retirada do feed CSV como confirmação suficiente.
+* O feed CSV antigo não está mais em uso como fonte de sincronização. Não depender dele para remover itens da Meta; usar a Graph API e, se não for possível consultar/confirmar o resultado, deixar essa limitação explícita ao usuário.
+
+---
+
+## 9. Autonomia de Login e Credenciais da Vercel
+
+* O agente é responsável por executar os logins necessários ao trabalho autorizado. Não pedir ao usuário que tente entrar, preencha credenciais ou faça o login manualmente.
+* As credenciais devem ser obtidas das variáveis de ambiente da Vercel do projeto e ambiente corretos. Usar a integração ou CLI autenticada e os mecanismos de ambiente já adotados pelo repositório.
+* Se o login falhar, investigar e corrigir a causa — configuração, carregamento das variáveis, formulário, sessão, permissões ou automação do navegador — e repetir o fluxo apropriado. Resolver os impedimentos técnicos de autonomia antes de transferir trabalho ao usuário.
+* Carregar credenciais somente em memória durante a execução. Não expor senhas, tokens ou sessões em mensagens, argumentos de comando, snapshots, screenshots, traces, logs ou arquivos de evidência.
+* A autonomia de login preserva as permissões da conta, os gates de ownership e isolamento dos testes e as autorizações exigidas para operações fiscais ou outras ações externas.

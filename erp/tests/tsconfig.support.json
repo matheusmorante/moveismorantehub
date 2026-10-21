@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "types": ["node", "vite/client"] },
+  "include": ["support-readonly/**/*.ts", "support-owned/**/*.ts", "support-fixtures/**/*.ts", "support-reopening/**/*.ts", "support-deployment/**/*.ts", "support-*.config.ts"]
+}

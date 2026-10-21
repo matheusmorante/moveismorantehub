@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { ConversationFilter, AssignedProfileSummary, CustomerSupportFolder, CustomerSupportFolderCriteria } from '../types';
 import { InboxSectionMain, InboxSectionTeam, InboxSectionCustom, AddCustomInboxModal } from './inbox';
+import type { TestArtifactIdentity } from '../../../../../../shared-utils/testArtifactPolicy';
+import { getTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
 
 export interface InboxSidebarProps {
   activeFilter: ConversationFilter;
@@ -22,6 +24,7 @@ export interface InboxSidebarProps {
   onSaveFolder: (name: string, criteria: CustomerSupportFolderCriteria, folderId?: string) => Promise<string | null>;
   onDeleteFolder: (folder: CustomerSupportFolder) => void;
   canViewCommercialInfo: boolean;
+  testIdentity?: TestArtifactIdentity | null;
 }
 
 export const InboxSidebar: React.FC<InboxSidebarProps> = ({
@@ -44,12 +47,14 @@ export const InboxSidebar: React.FC<InboxSidebarProps> = ({
   onSaveFolder,
   onDeleteFolder,
   canViewCommercialInfo,
+  testIdentity,
 }) => {
   const [isTeamExpanded, setIsTeamExpanded] = useState(true);
   const [isCustomInboxExpanded, setIsCustomInboxExpanded] = useState(true);
   const [customInboxTab, setCustomInboxTab] = useState<'all' | 'by_me' | 'by_others'>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [folderToEdit, setFolderToEdit] = useState<CustomerSupportFolder | null>(null);
+  const [formTestIdentity, setFormTestIdentity] = useState<TestArtifactIdentity | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [queueSearch, setQueueSearch] = useState('');
 
@@ -70,11 +75,15 @@ export const InboxSidebar: React.FC<InboxSidebarProps> = ({
   };
 
   const openCreateFolder = () => {
+    const currentIdentity = testIdentity ? getTestArtifactContext() : null;
+    setFormTestIdentity(currentIdentity?.ownerId === currentUserId ? currentIdentity : null);
     setFolderToEdit(null);
     setIsAddModalOpen(true);
   };
 
   const openEditFolder = (folder: CustomerSupportFolder) => {
+    const currentIdentity = testIdentity ? getTestArtifactContext() : null;
+    setFormTestIdentity(currentIdentity?.ownerId === currentUserId ? currentIdentity : null);
     setFolderToEdit(folder);
     setIsAddModalOpen(true);
   };
@@ -137,6 +146,7 @@ export const InboxSidebar: React.FC<InboxSidebarProps> = ({
         onClose={() => setIsAddModalOpen(false)}
         agents={agents}
         canViewCommercialInfo={canViewCommercialInfo}
+        testIdentity={formTestIdentity}
         folder={folderToEdit}
         onSave={onSaveFolder}
       />

@@ -111,8 +111,23 @@ export function useProductFormModal({
 
   const pricing = useProductFormPricing(formData, setFormData);
   const ai = useProductFormAi(formData, setFormData, availableCategories, isQuickRegister, isOpen);
-  const jev = useProductJevClassification(formData, setFormData, isOpen);
-  const variations = useProductFormVariations(formData, setFormData);
+  const selectedCategoryName = availableCategories
+    .filter((category) => formData.categoryIds?.includes(category.id))
+    .map((category) => category.name)
+    .filter(Boolean)
+    .join(' / ');
+  const jev = useProductJevClassification(
+    formData,
+    setFormData,
+    isOpen,
+    selectedCategoryName || formData.category || ''
+  );
+  const variations = useProductFormVariations(
+    formData,
+    setFormData,
+    isRegisteredProduct,
+    Boolean(product?.id)
+  );
   const pendingNewVariationIdRef = variations.pendingNewVariationIdRef;
   const setEditingVariationId = variations.setEditingVariationId;
   const draft = useProductFormDraft(
@@ -146,7 +161,7 @@ export function useProductFormModal({
   }, [autoSaveDraft, getDraftSnapshotWithoutPendingVariation, isDraftProduct]);
   const images = useProductFormImages(formData, setFormData, setLoading, scheduleDraftAutoSave);
 
-  useProductFormSync({ formData, setFormData });
+  useProductFormSync({ formData, setFormData, isExistingProduct: Boolean(product?.id) });
 
   useEffect(
     () => () => {
@@ -433,16 +448,19 @@ export function useProductFormModal({
           return false;
         }
 
+        const alreadyPresent = (current.variations || []).some(
+          (item) => String(item.id) === String(updatedVar.id)
+        );
+        const nextVariations = alreadyPresent
+          ? current.variations?.map((item) =>
+              String(item.id) === String(updatedVar.id) ? updatedVar : item
+            ) || []
+          : [...(current.variations || []), updatedVar];
         const next: Partial<Product> = {
           ...current,
-          hasVariations: true,
-          variations: (current.variations || []).some(
-            (item) => String(item.id) === String(updatedVar.id)
-          )
-            ? current.variations?.map((item) =>
-                String(item.id) === String(updatedVar.id) ? updatedVar : item
-              )
-            : [...(current.variations || []), updatedVar],
+          hasVariations:
+            nextVariations.length > 1 || Boolean(current.isDraft && current.hasVariations),
+          variations: nextVariations,
         };
 
         if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
@@ -519,7 +537,8 @@ export function useProductFormModal({
         setFormData((previous) => ({
           ...previous,
           variations: previous.variations?.filter((variation) => variation.id !== variationId),
-          hasVariations: true,
+          hasVariations:
+            (previous.variations?.filter((variation) => variation.id !== variationId).length || 0) > 1,
         }));
         toast.success(result.message || 'Variação excluída com sucesso.');
       } catch (error) {

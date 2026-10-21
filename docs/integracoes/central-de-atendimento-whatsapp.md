@@ -1,9 +1,11 @@
 # Central de Atendimento WhatsApp — MoranteHub ERP
 
+> Estado de implantação em 21/10/2026: [publicação e gates](central-de-atendimento-publicacao-2026-10-21.md). O build e `test:unit` executam `build:support`, que gera a fronteira CJS do processador compartilhado; o adaptador local usa o mesmo produtor. Ver [diagnóstico de runtime](central-de-atendimento-runtime-esm-2026-10-21.md).
+
 > **Módulo:** Central de Atendimento (`/atendimento`)  
 > **Integração:** WhatsApp Cloud API Oficial da Meta (Graph API)  
-> **Status:** Ativo — consulta e recebimento; envio bloqueado por política da empresa
-> **Data:** 20/10/2026
+> **Status:** Inbox validada em desenvolvimento; implantação e segredo de assinatura pendentes; envio bloqueado por política da empresa
+> **Data:** 21/10/2026
 
 ---
 
@@ -33,7 +35,7 @@ Antes da implementação, foram auditadas as estruturas vigentes do MoranteHub:
 
 ## 3. Modelo de Dados no Supabase (Schema `public`)
 
-A migração `supabase/migrations/20261016030000_customer_support_whatsapp.sql` foi aplicada com sucesso no projeto remoto operacional (`hkoxhourxwlddgsfdgws`):
+As tabelas legadas descritas abaixo estão presentes no projeto remoto operacional (`hkoxhourxwlddgsfdgws`). A consulta de histórico não localizou a versão exata do arquivo-base `20261016030000_customer_support_whatsapp.sql`; sua existência no repositório não comprova essa origem. O complemento da Inbox tem aplicação rastreada conforme a seção 3.4.
 
 ### 3.1. Tabela `public.whatsapp_conversations`
 * `id` (UUID, PK): Identificador único da conversa.
@@ -74,7 +76,11 @@ A migração `supabase/migrations/20261016030000_customer_support_whatsapp.sql` 
 * `last_reconciliation_at` (TIMESTAMPTZ): Última checagem.
 
 ### 3.4. Complemento da Inbox
-A migração `supabase/migrations/20261021010859_customer_support_inbox_completion.sql` adiciona pastas compartilhadas e RPCs de consulta paginada, contagem e diretório de atendentes. Ela substitui o acesso anônimo às tabelas da Central por políticas que exigem `viewCustomerSupport`, limita as colunas atualizáveis e encaminha dados comerciais por funções que também exigem `viewCustomerCommercialInfo`. A migration está preparada no repositório; a persistência compartilhada e as novas RPCs dependem de sua aplicação ao projeto remoto antes da publicação da interface.
+A migração `supabase/migrations/20261021032348_customer_support_inbox_completion.sql` foi aplicada em 21/10/2026 no projeto operacional e consta no histórico remoto com o nome `customer_support_inbox_completion`. O arquivo foi alinhado à versão registrada pela ferramenta; o nome local anterior era `20261021010859_customer_support_inbox_completion.sql`.
+
+Ela adiciona pastas compartilhadas e RPCs de consulta paginada, contagem e diretório de atendentes. Substitui o acesso anônimo às tabelas da Central por políticas que exigem `viewCustomerSupport`, limita as colunas atualizáveis e encaminha dados comerciais por funções que também exigem `viewCustomerCommercialInfo`. As políticas existentes foram atualizadas sem `DROP`. O predicado de pastas foi corrigido antes da aplicação para que a exclusão padrão de fechadas não anule uma pasta de fechadas/todos os estados.
+
+Metadados e seis checks Vitest reais confirmaram acesso anônimo negado. Isso não comprova ainda o CRUD compartilhado autenticado nem os filtros em múltiplas páginas. Registro detalhado, reversão e limitações: [migração de 21/10/2026](central-de-atendimento-migracao-2026-10-21.md).
 
 ---
 
@@ -95,28 +101,46 @@ Seguindo as diretrizes de prevenção contra Egress excessivo do Supabase (`efic
 1. **Consultas Seletivas:** As RPCs da Central retornam somente os campos de conversa, resumo de cliente ou pedidos necessários para a interface.
 2. **Lazy Loading de Pedidos:** A lista de pedidos só é consultada sob demanda quando há conversa selecionada e o atendente possui `viewCustomerCommercialInfo`; o limite é de 20 registros.
 3. **Hidratação em Lote na Listagem:** Cada página busca até 50 conversas e consulta resumos de clientes e contagem de pedidos em lote, sem consultas N+1.
-4. **Visão Comercial no Atendimento:** Exibe número do pedido, situação comercial, status da entrega, previsão, resumo legível dos itens e link direto para abrir a tela correspondente no ERP.
+4. **Visão Comercial no Atendimento:** Exibe número do pedido, situação comercial, status da entrega, previsão e resumo dos itens. O atalho abre `/sales-order` com `saleOrderIdToOpen`, contrato existente para filtrar/destacar o pedido do próprio cartão. Conferido por componente, preservando a permissão comercial; navegação para pedido persistido ainda não exercitada nesta massa.
 
 ---
 
 ## 6. Sincronização em Tempo Real (Supabase Realtime)
 
 A Central de Atendimento escuta eventos através de canais dedicados:
-* `whatsapp-conversations-realtime`: Notifica novas conversas e atualiza prévias e contadores de não lidas sem recarregar a lista.
-* `whatsapp-messages-realtime`: Despeja novas mensagens instantaneamente na conversa aberta.
+* `whatsapp-conversations-realtime`: Eventos disparam novas consultas das páginas de conversas abertas; há também polling de seis segundos.
+* `whatsapp-messages-realtime`: Eventos disparam atualização do histórico carregado da conversa aberta, com deduplicação; isso não é prova de entrega instantânea nem de comportamento sob reconexão.
 * Ao abrir uma conversa, o contador de não lidas é atualizado para zero (`unread_count: 0`).
 
 ---
 
-## 7. Rastreamento e Mídias Seguras
+## 7. Rastreamento e Mídias
 
-* **Proxy de Mídias:** `/api/whatsapp-media?id={media_id}` obtém a URL temporária com o token privado no backend e transmite o binário com cabeçalho de cache seguro (`Cache-Control: private, max-age=86400`). O token permanente da Meta nunca é exposto ao navegador do cliente.
+* **Proxy de Mídias:** `/api/whatsapp-media?id={media_id}` e a operação consolidada usam `whatsappMediaProxy.ts`. Exigem Bearer validado por `auth.getUser`, permissão `customer_support_can_view()` e mensagem visível sob RLS com aquele `media_id`, antes de consultar a Meta. Respostas usam `Cache-Control: private, no-store`. Tokens não são colocados na URL.
+
+* O frontend busca o binário autenticado e fornece URLs locais `blob:` para imagem, figurinha, áudio, vídeo, documento e galeria. Cancela consultas antigas e revoga URLs ao trocar contexto ou sair. Há progresso, erro e repetição. URLs arbitrárias persistidas não são abertas diretamente; a consulta agregada encontrou 54 registros com ID e nenhum dependente somente de URL.
+* Na ausência de token Meta no ambiente, o backend consulta somente a configuração WhatsApp existente em `settings/app`, após validar JWT, permissão e mensagem pela RLS. O canal da conversa deve corresponder ao número configurado; leitura privilegiada e token permanecem no servidor. Treze testes isolados conferem esse complemento. Metadata remota confirmou presença/vínculo do token, sem validar seu acesso externo nem baixar arquivos reais.
+* O fallback HTTP de desenvolvimento agora reconhece as três rotas WhatsApp, preservando os bytes do webhook para HMAC. A API continua na porta 3000, atrás do frontend na porta 5173.
+
+**Limite:** implementação e prova sem sessão disponíveis em desenvolvimento; deploy ainda pendente. Binários privados de clientes reais não foram usados como fixture. Os sucessos de transporte/MIME com permissão são provas isoladas, sem comprovar RLS autenticada de uma fixture real.
 
 ---
 
 ## 8. Suíte de Testes Automatizados
 
-Em 20/10/2026, 48 testes Vitest passaram nas suítes `customerSupport.test.ts`, `customerSupportInbox.test.tsx` e `whatsappDispatchTracking.test.ts`. A cobertura focada inclui filtros/paginação, contagens, diretório de atendentes, formulários com `zodResolver`, pastas, cópia de snippets, linha do tempo, assinatura do webhook e despacho bloqueado. Esses testes isolados não comprovam persistência, RLS ou RPC no PostgreSQL remoto. A prova Playwright de pastas compartilhadas depende da migration remota e de fixture própria com ownership conforme [`SUPABASE_REMOTE_TEST_POLICY.md`](../testing/SUPABASE_REMOTE_TEST_POLICY.md).
+Em 21/10/2026, **191 testes Vitest passaram em 19 arquivos**, incluindo seis checks reais de leitura anônima negada nas quatro tabelas e duas RPCs de permissão e seis testes das rotas do layout. Esses seis checks remotos só fazem `SELECT ... LIMIT 0` e chamadas de permissão; não criam fixtures. A cobertura inclui mídia protegida, paginação/contexto, drafts/conflitos, resolvers reais dos comandos e formulários, seleção do pedido, altura da Central e adaptador HTTP/raw-body. [Conferência atual](central-de-atendimento-validacao-2026-10-21.md).
+
+A prova Playwright dedicada **somente leitura passou (1/1, 24s)**: login autônomo com identidade canônica e gate 204, entrada em `/atendimento`, pasta vazia recusada pelo resolver, filtro de atendente aplicado/limpo, rolagem carregando a segunda página (99/99 conversas) e mídia sem sessão recusada com 401. A lista agora rola dentro do viewport. Credenciais vêm do launcher oficial Vercel Development, em memória, sem storage state, trace ou captura de senha. Gravações de negócio são bloqueadas no transporte; navegador visível preservado.
+
+Build Vite final aprovado (1m59s). TypeScript dos harnesses sem diagnósticos; global retornou 424 diagnósticos, nenhum nos caminhos da Central; o erro anterior de assistência em `AppLayout.tsx:100` permanece fora das duas alterações de classes do layout. Lint focado sem erros e um aviso anterior de Fast Refresh; spec Playwright sem configuração de lint aplicável. Logs: `scratch/central-inbox-unit-2026-10-21.log`, `scratch/central-inbox-build-2026-10-21.log` e `scratch/central-inbox-tsc-2026-10-21.log`.
+
+A [operação limitada autorizada](central-de-atendimento-fixtures-proposta-2026-10-21.md) teve **quatro testes remotos Vitest aprovados** com ownership, autoria, replay sem nova massa, paginação 50+1, eventos idempotentes, tags concorrentes, conflito de notas e metadata preservada. Playwright gravável passou em 36,3s: pasta criada/reaberta/editada/excluída, histórico 80+1, snippet sem nota, comentário, atribuição/status, tags/notas e timeline sem IDs duplicados. A limpeza, autorizada separadamente, passou em 2/2 testes: 51 conversas arquivadas e 190 mensagens preservadas. As configurações específicas exigem ambiente oficial, gate real, identidade e IDs próprios; a suíte geral conserva sua guarda. Persistem limites para outra identidade autorizada, ausência de permissão comercial, vínculos comerciais próprios e mídia própria. Todos seguem a [`SUPABASE_REMOTE_TEST_POLICY.md`](../testing/SUPABASE_REMOTE_TEST_POLICY.md). O agente executa os logins, conforme `AGENTS.md`, seção 9.
+
+## 8.1. Comandos internos e compatibilidade de implantação
+
+A migration `20261021041610_customer_support_internal_commands.sql` foi aplicada. O frontend usa RPCs para atribuição, status, comentário, notas e tags; autor/horário e estado atual são derivados no servidor. As funções mantêm alteração/evento na mesma transação e não criam evento ao repetir atribuição/status já persistidos. Notas têm comparação do texto-base; tags não sobrescrevem notas nem snapshots de status. Rascunhos em edição são preservados.
+
+**Transição ainda aberta:** o frontend publicado anterior usa comandos diretos. Seus privilégios autenticados foram conservados na expansão. A revogação final está preparada em `docs/integracoes/sql/customer-support-internal-commands-contract.sql`, fora das migrations automáticas, para executar somente após deploy e prova com fixtures autenticadas. Até lá, não declarar impossível forjar autoria pelo contrato legado. [Objetos, efeitos, retenção e próximos gates](central-de-atendimento-comandos-2026-10-21.md).
 
 ---
 

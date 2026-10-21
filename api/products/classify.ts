@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from 'node:crypto';
 import { getSupabaseSecretKey } from '../supabaseSecretKey';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createProductDbClient } from './serverDb';
@@ -5,6 +6,8 @@ import { withSpan } from '../../src/telemetry/tracer';
 import {
   buildNcmSearchTerms,
   isCurrentNcm,
+  isWoodenBedroomFurnitureByName,
+  WOODEN_BEDROOM_FURNITURE_NCM,
   validateCategoryChoice,
   validateNcmChoice,
   type CategoryCandidate,
@@ -14,6 +17,7 @@ import {
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const serviceKey = getSupabaseSecretKey() || '';
 const jevKey = process.env.TYPESAFE_API_KEY || '';
+const JEV_INPUT_TOKEN_LIMIT_PER_MINUTE = 2_000;
 const dateInBrazil = () =>
   new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
@@ -23,6 +27,110 @@ const dateInBrazil = () =>
   }).format(new Date());
 const cleanText = (value: unknown, limit: number) =>
   typeof value === 'string' ? value.trim().slice(0, limit) : '';
+
+type JevClassificationResult = {
+  category: { id: string; name: string } | null;
+  ncm: { code: string; description: string } | null;
+};
+
+type JevReservation = {
+  allowed: boolean;
+  reason: string;
+  used_input_tokens: number;
+  retry_after_seconds: number;
+  cached_response: unknown;
+};
+
+class JevInputBudgetError extends Error {
+  constructor(
+    readonly statusCode: 413 | 429,
+    readonly code: string,
+    message: string,
+    readonly retryAfterSeconds?: number
+  ) {
+    super(message);
+  }
+}
+
+function estimateJevInputTokens(serializedRequest: string): number {
+  // Reserva com margem antes do envio; o uso reportado pelo provedor substitui a estimativa depois.
+  return Math.ceil(Buffer.byteLength(serializedRequest, 'utf8') / 2) + 512;
+}
+
+async function reserveJevInputBudget(
+  db: ReturnType<typeof createProductDbClient>,
+  requestId: string,
+  fingerprint: string,
+  reservedTokens: number,
+  ignoreCache: boolean
+): Promise<JevReservation> {
+  const { data, error } = await db.rpc('reserve_jev_classification_tokens', {
+    p_request_id: requestId,
+    p_request_fingerprint: fingerprint,
+    p_reserved_input_tokens: reservedTokens,
+    p_ignore_cache: ignoreCache,
+  });
+  if (error) throw new Error('jev_budget_unavailable');
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== 'object') throw new Error('jev_budget_unavailable');
+  return row as JevReservation;
+}
+
+function throwForBudgetDecision(decision: JevReservation): void {
+  if (decision.reason === 'request_too_large')
+    throw new JevInputBudgetError(413, 'request_too_large', 'Dados demais para classificar em uma única chamada.');
+  if (decision.reason === 'token_limit' || decision.reason === 'in_progress')
+    throw new JevInputBudgetError(
+      429,
+      decision.reason,
+      'Limite de uso do classificador atingido. Tente novamente após alguns segundos.',
+      Math.max(1, Math.min(60, Number(decision.retry_after_seconds) || 1))
+    );
+  if (!decision.allowed || decision.reason !== 'reserved')
+    throw new Error('jev_budget_unavailable');
+}
+
+async function validateCachedClassification(
+  db: ReturnType<typeof createProductDbClient>,
+  cached: unknown
+): Promise<JevClassificationResult | null> {
+  if (!cached || typeof cached !== 'object' || Array.isArray(cached)) return null;
+  const record = cached as Record<string, unknown>;
+  let category: JevClassificationResult['category'] = null;
+  let ncm: JevClassificationResult['ncm'] = null;
+
+  if (record.category != null) {
+    if (typeof record.category !== 'object' || Array.isArray(record.category)) return null;
+    const categoryValue = record.category as Record<string, unknown>;
+    const id = cleanText(categoryValue.id, 80);
+    if (!id) return null;
+    const [{ data: latest, error: categoryError }, { data: relation, error: relationError }] =
+      await Promise.all([
+        db.from('categories').select('id,name,type').eq('id', id).eq('type', 'category').maybeSingle(),
+        db.from('category_relationships').select('child_id').eq('child_id', id).limit(1),
+      ]);
+    if (categoryError || relationError) throw new Error('catalog_unavailable');
+    if (!latest || !relation?.length) return null;
+    category = { id: latest.id, name: latest.name };
+  }
+
+  if (record.ncm != null) {
+    if (typeof record.ncm !== 'object' || Array.isArray(record.ncm)) return null;
+    const ncmValue = record.ncm as Record<string, unknown>;
+    const code = cleanText(ncmValue.code, 20).replace(/\D/g, '');
+    if (!/^\d{8}$/.test(code)) return null;
+    const { data: latest, error } = await db
+      .from('ncms')
+      .select('code,official_description,active,is_active,start_date,end_date')
+      .eq('code', code)
+      .maybeSingle();
+    if (error) throw new Error('ncm_catalog_unavailable');
+    if (!latest || !isCurrentNcm(latest, dateInBrazil())) return null;
+    ncm = { code: latest.code, description: latest.official_description };
+  }
+
+  return { category, ncm };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -41,12 +149,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userDb = createProductDbClient(supabaseUrl, serviceKey, token);
 
   const body = req.body || {};
-  const title = cleanText(body.name || body.title, 180);
-  const description = cleanText(body.description, 500);
-  const material = cleanText(body.material, 100);
-  const categoryId = cleanText(body.categoryId, 80);
-  const hasNcm = Boolean(cleanText(body.ncm, 20));
-  if (title.length < 3 || typeof body !== 'object' || Array.isArray(body))
+  if (typeof body !== 'object' || Array.isArray(body))
+    return res.status(400).json({ error: 'Produto inválido.' });
+  const source = body.source === undefined ? 'product' : body.source;
+  if (source !== 'product' && source !== 'invoice')
+    return res.status(400).json({ error: 'Origem de classificação inválida.' });
+  const isInvoice = source === 'invoice';
+  const name = cleanText(body.name || body.title, 180);
+  const title = cleanText(body.title || body.name, 180);
+  const classificationTitle = isInvoice ? title : name;
+  const description = isInvoice ? '' : cleanText(body.description, 500);
+  const material = isInvoice ? '' : cleanText(body.material, 100);
+  let categoryId = isInvoice ? '' : cleanText(body.categoryId, 80);
+  const categoryHint = isInvoice ? '' : cleanText(body.category, 120);
+  const productId = isInvoice ? '' : cleanText(body.productId, 80);
+  const hasNcm = !isInvoice && Boolean(cleanText(body.ncm, 20));
+  if (classificationTitle.length < 3)
     return res.status(400).json({ error: 'Produto inválido.' });
   // A resposta só classifica. Nenhum dado de produto, estoque ou fiscal é gravado aqui.
   try {
@@ -58,17 +176,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const questions: Record<string, unknown> = {};
         const categoryOptions = new Map<string, CategoryCandidate>();
         const ncmOptions = new Map<string, NcmCandidate>();
-        let categoryName = '';
+        let categoryName = isInvoice ? '' : categoryHint;
 
-        if (categoryId) {
+        if (!hasNcm && isWoodenBedroomFurnitureByName(classificationTitle, material)) {
+          const { data: bedroomFurnitureNcm } = await db
+            .from('ncms')
+            .select('code,official_description,active,is_active,start_date,end_date')
+            .eq('code', WOODEN_BEDROOM_FURNITURE_NCM)
+            .maybeSingle();
+          if (bedroomFurnitureNcm && isCurrentNcm(bedroomFurnitureNcm, dateInBrazil()))
+            ncm = bedroomFurnitureNcm;
+        }
+
+        if (!isInvoice && !categoryId && productId) {
+          const { data: product, error: productError } = await userDb
+            .from('products')
+            .select('category_id')
+            .eq('id', productId)
+            .maybeSingle();
+          if (!productError) categoryId = cleanText(product?.category_id, 80);
+          span.setAttribute('product.category_available', Boolean(categoryId));
+        }
+
+        if (!isInvoice && categoryId) {
           const { data } = await db
             .from('categories')
             .select('id,name,type')
             .eq('id', categoryId)
             .eq('type', 'category')
             .maybeSingle();
-          categoryName = data?.name || '';
-        } else {
+          categoryName = data?.name || categoryHint;
+        } else if (!isInvoice) {
           const [
             { data: categories, error: categoryError },
             { data: relations, error: relationError },
@@ -84,7 +222,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (categoryError || relationError) throw new Error('catalog_unavailable');
           const linked = new Set((relations || []).map((row) => row.child_id));
           const options = (categories || []).filter((row) => linked.has(row.id));
-          if (options.length > 0 && options.length <= 255) {
+          // Não despeja centenas de categorias no prompt; acima disso, mantém a categoria manual.
+          if (options.length > 0 && options.length <= 16) {
             const criteria: Record<string, string> = {};
             options.forEach((row, index) => {
               const key = `c${index}`;
@@ -100,8 +239,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
 
-        if (!hasNcm) {
-          const terms = buildNcmSearchTerms(title, categoryName, material);
+        if (!hasNcm && !ncm) {
+          const searchTitle = isInvoice ? title : [name, title].filter(Boolean).join(' ');
+          const terms = buildNcmSearchTerms(
+            searchTitle,
+            isInvoice ? '' : categoryName,
+            isInvoice ? '' : material,
+            isInvoice ? '' : description
+          );
           const searches = await Promise.all(
             terms.map((term) => userDb.rpc('search_ncms', { search_term: term, max_results: 10 }))
           );
@@ -114,7 +259,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
           const codes = [...ranked.values()]
             .sort((a, b) => b.rank - a.rank)
-            .slice(0, 15)
+            .slice(0, 8)
             .map((row) => row.code);
           if (codes.length) {
             const { data: catalog, error: catalogError } = await db
@@ -139,24 +284,86 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               };
           }
         }
-        if (!Object.keys(questions).length) return { category: null, ncm: null };
-        const response = await fetch('https://api.typesafe.ai/v1/systemone', {
+        if (!Object.keys(questions).length)
+          return {
+            category: null,
+            ncm: null,
+          };
+        const jevRequest = {
+          state: isInvoice
+            ? { title }
+            : {
+                name,
+                title,
+                description,
+                material,
+                ...(categoryName ? { category: categoryName } : {}),
+              },
+          model: 'jev-latest',
+          questions,
+        };
+        const serializedRequest = JSON.stringify(jevRequest);
+        const estimatedInputTokens = estimateJevInputTokens(serializedRequest);
+        if (estimatedInputTokens > JEV_INPUT_TOKEN_LIMIT_PER_MINUTE)
+          throw new JevInputBudgetError(
+            413,
+            'request_too_large',
+            'Dados demais para classificar em uma única chamada.'
+          );
+        const fingerprint = createHash('sha256')
+          .update(
+            JSON.stringify({
+              userId: auth.user.id,
+              source,
+              state: jevRequest.state,
+              hasNcm,
+              questions,
+            })
+          )
+          .digest('hex');
+        const requestId = randomUUID();
+        let reservation = await reserveJevInputBudget(
+          db,
+          requestId,
+          fingerprint,
+          estimatedInputTokens,
+          false
+        );
+        if (reservation.allowed && reservation.reason === 'cached') {
+          const cached = await validateCachedClassification(db, reservation.cached_response);
+          if (cached) return cached;
+          // O catálogo mudou desde o cache; reserve a nova chamada sem reaproveitar a resposta.
+          reservation = await reserveJevInputBudget(
+            db,
+            requestId,
+            fingerprint,
+            estimatedInputTokens,
+            true
+          );
+        }
+        throwForBudgetDecision(reservation);
+        span.setAttribute('jev.input_tokens.estimated', estimatedInputTokens);
+        span.setAttribute('jev.input_tokens.limit_per_minute', JEV_INPUT_TOKEN_LIMIT_PER_MINUTE);
+        let response: Response;
+        try {
+          response = await fetch('https://api.typesafe.ai/v1/systemone', {
           method: 'POST',
           headers: { Authorization: `Bearer ${jevKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            state: {
-              title,
-              description,
-              material,
-              ...(categoryName ? { category: categoryName } : {}),
-            },
-            model: 'jev-latest',
-            questions,
-          }),
+          body: serializedRequest,
           signal: AbortSignal.timeout(8000),
         });
-        if (!response.ok) throw new Error(response.status === 429 ? 'rate_limited' : 'jev_http');
+        } catch (error) {
+          if (ncm) return { category: null, ncm: { code: ncm.code, description: ncm.official_description } };
+          throw error;
+        }
+        if (!response.ok) {
+          if (ncm) return { category: null, ncm: { code: ncm.code, description: ncm.official_description } };
+          throw new Error(response.status === 429 ? 'rate_limited' : 'jev_http');
+        }
         const payload = await response.json();
+        const reportedInputTokens = Number(
+          payload?.usage?.input_tokens ?? payload?.usage?.inputTokens ?? payload?.meta?.usage?.input_tokens
+        );
         const answers = payload?.answers || {};
         const today = dateInBrazil();
         if (questions.category) {
@@ -206,15 +413,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         span.setAttribute('category.validated', Boolean(category));
         span.setAttribute('ncm.validated', Boolean(ncm));
-        return {
+        const classified: JevClassificationResult = {
           category: category && { id: category.id, name: category.name },
           ncm: ncm && { code: ncm.code, description: ncm.official_description },
         };
+        const actualInputTokens =
+          Number.isInteger(reportedInputTokens) && reportedInputTokens >= 0
+            ? reportedInputTokens
+            : estimatedInputTokens;
+        const { error: settlementError } = await db.rpc('settle_jev_classification_tokens', {
+          p_request_id: requestId,
+          p_actual_input_tokens: actualInputTokens,
+          p_response: classified,
+        });
+        span.setAttribute('jev.input_tokens.actual', actualInputTokens);
+        if (settlementError) console.warn('JEV_USAGE_SETTLEMENT_FAILED');
+        return classified;
       },
       { module: 'Products', operation: 'classify' }
     );
     return res.status(200).json(result);
   } catch (error) {
+    if (error instanceof JevInputBudgetError) {
+      if (error.retryAfterSeconds) res.setHeader('Retry-After', String(error.retryAfterSeconds));
+      return res.status(error.statusCode).json({
+        error: error.message,
+        code: error.code,
+        ...(error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
+      });
+    }
     const reason =
       error && typeof error === 'object' && 'name' in error && error.name === 'TimeoutError'
         ? 'timeout'
@@ -228,6 +455,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       'catalog_unavailable',
       'ncm_search_unavailable',
       'ncm_catalog_unavailable',
+      'jev_budget_unavailable',
     ].includes(reason)
       ? reason
       : 'unknown';

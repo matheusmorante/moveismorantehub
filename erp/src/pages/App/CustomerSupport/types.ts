@@ -18,6 +18,7 @@ export interface CustomerSupportFolderCriteria {
   customerLink: 'all' | 'linked' | 'unlinked';
   orders: 'all' | 'with_orders' | 'without_orders';
   search: string;
+  testArtifact?: { is_test: true; runId: string; ownerId: string; scenarioKey?: string };
 }
 
 export interface CustomerSupportFolder {

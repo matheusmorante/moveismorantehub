@@ -8,15 +8,20 @@ import { INITIAL_PRODUCT_FORM_DATA } from '../../utils/form/productFormInitialDa
 const ensureProductFormVariation = <T extends Partial<Product>>(product: T): T => {
   if (product.itemType === 'service') return product;
   const withDefault = ensureDefaultVariation(product);
-  if (!isProductDraft(product)) return withDefault;
+  const isDraft = isProductDraft(product);
+  const hasVariations = isDraft && typeof product.hasVariations === 'boolean'
+    ? product.hasVariations
+    : (withDefault.variations?.length || 0) > 1;
   return {
     ...withDefault,
-    hasVariations: true,
+    hasVariations,
+    ...(isDraft ? {
     variations: (withDefault.variations || []).map((variation) => ({
       ...variation,
       active: false,
       status: 'draft',
     })),
+    } : {}),
   };
 };
 
@@ -85,7 +90,6 @@ export const useProductFormLoad = ({
         const initialNext = ensureProductFormVariation({
           ...INITIAL_PRODUCT_FORM_DATA,
           ...product,
-          hasVariations: true,
         });
         setFormData(initialNext);
         pricing.initializeDiscounts(product.unitPrice, product.promoPrice);
@@ -109,7 +113,6 @@ export const useProductFormLoad = ({
           ...baseProduct,
           isDraft: isDraftFromBase,
           variations: [...(baseProduct.variations || []), ...pendingVariations],
-          hasVariations: true,
         });
 
         initialFormDataRef.current = JSON.stringify(nextFormData);
@@ -125,7 +128,6 @@ export const useProductFormLoad = ({
         const nextFormData = ensureProductFormVariation({
           ...INITIAL_PRODUCT_FORM_DATA,
           ...product,
-          hasVariations: true,
         });
         initialFormDataRef.current = JSON.stringify(nextFormData);
         setFormData(nextFormData);
@@ -147,7 +149,7 @@ export const useProductFormLoad = ({
           active: false,
           status: 'draft',
           variations: initialData?.variations || [],
-          hasVariations: true,
+          hasVariations: initialData?.hasVariations,
         });
         initialFormDataRef.current = JSON.stringify(nextFormData);
         setFormData(nextFormData);

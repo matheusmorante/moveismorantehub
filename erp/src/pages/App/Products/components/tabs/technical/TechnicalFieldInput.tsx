@@ -2,6 +2,7 @@ import React from 'react';
 import { TechnicalCombobox } from './TechnicalCombobox';
 import { YesNoPowerToggle } from './YesNoPowerToggle';
 import {
+  isDimensionCharacteristicName,
   isWeightCharacteristicName,
   isYesNoCharacteristic,
 } from '@/pages/utils/technicalValuesService';
@@ -64,8 +65,9 @@ export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
   }
 
   const isWeight = isWeightCharacteristicName(field.name) || field.dataType === 'weight';
-  if (type === 'decimal' || type === 'measure' || isWeight) {
-    const decimalPlaces = isWeight ? 1 : type === 'decimal' ? field.decimalPlaces ?? 2 : 2;
+  const isDimension = isDimensionCharacteristicName(field.name) || type === 'measure';
+  if (type === 'decimal' || isDimension || isWeight) {
+    const decimalPlaces = isWeight ? 1 : isDimension ? 2 : type === 'decimal' ? field.decimalPlaces ?? 2 : 2;
     return (
       <DecimalTechnicalInput
         value={value}

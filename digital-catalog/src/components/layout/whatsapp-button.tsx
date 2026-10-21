@@ -19,7 +19,7 @@ export function WhatsAppButton() {
   if (pathname === '/' || pathname.startsWith('/categorias/')) return null;
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
+    <div className="fixed bottom-[20vh] right-4 md:right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
       {/* Balão de Fala do Seu Lizandro */}
       <motion.div
         initial={{ opacity: 0, scale: 0.8, y: 20 }}

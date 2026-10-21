@@ -4,15 +4,23 @@
 
 import type { Variation } from '../../types/product.type';
 import { isDefined } from './predicates';
+import { normalizeCharacteristicName } from './predicates/normalization';
 import type { TechnicalFieldDefinition, TechnicalValuesMap } from './types';
 
 export const getEffectiveVariationTechnicalValues = (
   parentValues: TechnicalValuesMap = {},
-  variation?: Pick<Variation, 'attributes' | 'technicalValues'> | null
+  variation?: Pick<Variation, 'attributes' | 'technicalValues'> | null,
+  variableFieldNames?: readonly string[]
 ): TechnicalValuesMap => {
+  const shouldApplyOverride = (name: string) =>
+    variableFieldNames === undefined || isTechnicalFieldVariable(name, variableFieldNames);
   const legacyCharacteristicValues = (variation?.attributes || []).reduce<TechnicalValuesMap>(
     (values, characteristic) => {
-      if (characteristic.name?.trim() && characteristic.value?.trim()) {
+      if (
+        characteristic.name?.trim() &&
+        characteristic.value?.trim() &&
+        shouldApplyOverride(characteristic.name)
+      ) {
         values[characteristic.name] = characteristic.value;
       }
       return values;
@@ -21,7 +29,7 @@ export const getEffectiveVariationTechnicalValues = (
   );
   const variationCharacteristicValues = Object.fromEntries(
     Object.entries(variation?.technicalValues || {}).filter(
-      ([, value]) => value !== undefined && value !== null
+      ([name, value]) => value !== undefined && value !== null && shouldApplyOverride(name)
     )
   );
 
@@ -131,6 +139,44 @@ export const setVariationOverride = (
     [fieldKeyOrName]: value,
   };
 };
+
+export const isTechnicalFieldVariable = (
+  fieldName: string,
+  variableFieldNames: readonly string[] = []
+): boolean => {
+  const candidates = getCandidateKeys(fieldName).map(normalizeCharacteristicName);
+  return variableFieldNames.some((name) =>
+    getCandidateKeys(name).some((candidate) => candidates.includes(normalizeCharacteristicName(candidate)))
+  );
+};
+
+/** Legacy products stored variability as per-variation overrides. */
+export const getLegacyVariableTechnicalFieldNames = (
+  variations: readonly Pick<Variation, 'attributes' | 'technicalValues'>[] = []
+): string[] => {
+  const names = new Map<string, string>();
+  const addName = (name: string) => {
+    const trimmed = name.trim();
+    const normalized = normalizeCharacteristicName(trimmed);
+    if (normalized && !names.has(normalized)) names.set(normalized, trimmed);
+  };
+
+  variations.forEach((variation) => {
+    (variation.attributes || []).forEach((attribute) => {
+      if (attribute.name?.trim() && String(attribute.value ?? '').trim()) addName(attribute.name);
+    });
+    Object.entries(variation.technicalValues || {}).forEach(([name, value]) => {
+      if (isDefined(value)) addName(name);
+    });
+  });
+
+  return [...names.values()];
+};
+
+export const resolveVariableTechnicalFieldNames = (
+  configuredNames: readonly string[] | undefined,
+  variations: readonly Pick<Variation, 'attributes' | 'technicalValues'>[] = []
+): string[] => configuredNames ?? getLegacyVariableTechnicalFieldNames(variations);
 
 /**
  * Compara se duas combinações de Especificações Técnicas são efetivamente idênticas.

@@ -25,38 +25,63 @@ export function useCustomerSupportMessages({
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
   const [isRefreshingMessages, setIsRefreshingMessages] = useState(false);
+  const [messagesError, setMessagesError] = useState('');
   const activeConvIdRef = useRef<string | null>(null);
-  activeConvIdRef.current = selectedConversation?.id || null;
+  const generationRef = useRef(0);
+  const nextConvId = selectedConversation?.id || null;
+  if (activeConvIdRef.current !== nextConvId) {
+    activeConvIdRef.current = nextConvId;
+    generationRef.current += 1;
+  }
   const onClearUnreadRef = useRef(onClearUnread);
   onClearUnreadRef.current = onClearUnread;
-  const loadingOlderRef = useRef(false);
+  const loadingOlderRef = useRef<number | null>(null);
+  const latestRequestRef = useRef(0);
+  const pendingLatestRef = useRef<number | null>(null);
+  const initializedHistoryRef = useRef<number | null>(null);
 
   const loadMessages = useCallback(async (convId: string, isSilent = false) => {
     if (!convId) return;
+    const generation = generationRef.current;
+    if (isSilent && pendingLatestRef.current === generation) return;
+    const request = ++latestRequestRef.current;
+    pendingLatestRef.current = generation;
     if (!isSilent) setIsLoadingMessages(true);
     try {
       const latest = await fetchConversationMessages(supabase, convId, INITIAL_MESSAGE_PAGE_SIZE);
-      if (activeConvIdRef.current !== convId) return;
-      setHasOlderMessages(latest.length === INITIAL_MESSAGE_PAGE_SIZE);
+      if (generation !== generationRef.current || request !== latestRequestRef.current) return;
+      if (initializedHistoryRef.current !== generation) {
+        initializedHistoryRef.current = generation;
+        setHasOlderMessages(latest.length === INITIAL_MESSAGE_PAGE_SIZE);
+      }
+      setMessagesError('');
       setMessages((current) => {
-        if (!isSilent || current.length <= INITIAL_MESSAGE_PAGE_SIZE) return latest;
+        if (!isSilent || current.length === 0) return latest;
         const combined = new Map(current.map((message) => [message.id, message]));
         latest.forEach((message) => combined.set(message.id, { ...combined.get(message.id), ...message }));
         return Array.from(combined.values()).sort((a, b) =>
           a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id)
         );
       });
+    } catch (error) {
+      if (generation === generationRef.current && request === latestRequestRef.current) {
+        setMessagesError(error instanceof Error ? error.message : 'Não foi possível carregar as mensagens.');
+      }
     } finally {
-      if (!isSilent) setIsLoadingMessages(false);
+      if (generation === generationRef.current && request === latestRequestRef.current) {
+        pendingLatestRef.current = null;
+        setIsLoadingMessages(false);
+      }
     }
   }, []);
 
   const loadOlderMessages = useCallback(async () => {
     const convId = activeConvIdRef.current;
-    if (!convId || loadingOlderRef.current || !hasOlderMessages) return 0;
+    const generation = generationRef.current;
+    if (!convId || loadingOlderRef.current === generation || !hasOlderMessages) return 0;
     const oldest = messages[0];
     if (!oldest) return 0;
-    loadingOlderRef.current = true;
+    loadingOlderRef.current = generation;
     setIsLoadingOlderMessages(true);
     try {
       const older = await fetchPreviousConversationMessages(
@@ -65,8 +90,9 @@ export function useCustomerSupportMessages({
         { timestamp: oldest.timestamp, id: oldest.id },
         OLDER_MESSAGE_PAGE_SIZE
       );
-      if (activeConvIdRef.current !== convId) return 0;
+      if (generation !== generationRef.current) return 0;
       setHasOlderMessages(older.length === OLDER_MESSAGE_PAGE_SIZE);
+      setMessagesError('');
       if (older.length) {
         setMessages((current) => {
           const existing = new Set(current.map((message) => message.id));
@@ -74,22 +100,35 @@ export function useCustomerSupportMessages({
         });
       }
       return older.length;
+    } catch (error) {
+      if (generation === generationRef.current) {
+        setMessagesError(error instanceof Error ? error.message : 'Não foi possível carregar as mensagens anteriores.');
+      }
+      return 0;
     } finally {
-      loadingOlderRef.current = false;
-      setIsLoadingOlderMessages(false);
+      if (loadingOlderRef.current === generation) {
+        loadingOlderRef.current = null;
+        setIsLoadingOlderMessages(false);
+      }
     }
   }, [messages, hasOlderMessages]);
 
   const lastLoadedConvIdRef = useRef<string | null>(null);
   useEffect(() => {
     const convId = selectedConversation?.id || null;
+    const unreadCount = selectedConversation?.unreadCount || 0;
     if (convId !== lastLoadedConvIdRef.current) {
       lastLoadedConvIdRef.current = convId;
-      if (convId && selectedConversation) {
+      loadingOlderRef.current = null;
+      setIsLoadingOlderMessages(false);
+      setIsLoadingMessages(false);
+      setIsRefreshingMessages(false);
+      setMessagesError('');
+      if (convId) {
         setMessages([]);
         setHasOlderMessages(false);
         void loadMessages(convId);
-        if (selectedConversation.unreadCount > 0) {
+        if (unreadCount > 0) {
           void markConversationAsRead(supabase, convId);
           onClearUnreadRef.current(convId);
         }
@@ -98,7 +137,7 @@ export function useCustomerSupportMessages({
         setHasOlderMessages(false);
       }
     }
-  }, [selectedConversation?.id, loadMessages]);
+  }, [selectedConversation?.id, selectedConversation?.unreadCount, loadMessages]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -129,10 +168,12 @@ export function useCustomerSupportMessages({
           if (payload.eventType === 'INSERT') {
             const newMessage = mapRowToMessage(payload.new);
             if (activeConvIdRef.current !== newMessage.conversationId) return;
+            const generation = generationRef.current;
             if (newMessage.direction === 'inbound') {
               await markConversationAsRead(supabase, newMessage.conversationId);
               onClearUnreadRef.current(newMessage.conversationId);
             }
+            if (generation !== generationRef.current) return;
             setMessages((current) => {
               if (current.some((message) => message.id === newMessage.id || (
                 message.apiMessageId && message.apiMessageId === newMessage.apiMessageId
@@ -168,10 +209,11 @@ export function useCustomerSupportMessages({
     const currentId = activeConvIdRef.current;
     if (!currentId) return;
     setIsRefreshingMessages(true);
+    const generation = generationRef.current;
     try {
       await loadMessages(currentId, true);
     } finally {
-      setIsRefreshingMessages(false);
+      if (generation === generationRef.current) setIsRefreshingMessages(false);
     }
   }, [loadMessages]);
 
@@ -184,5 +226,6 @@ export function useCustomerSupportMessages({
     loadOlderMessages,
     isRefreshingMessages,
     refreshMessages,
+    messagesError,
   };
 }

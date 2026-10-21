@@ -83,6 +83,10 @@ export function mergeEnrichedItems({
         : {}),
       fiscal: {
         ncm: draftFiscal?.ncm || savedFiscal?.ncm || fallbackItems[index].fiscal.ncm,
+        ncmDescription:
+          draftFiscal?.ncmDescription ||
+          savedFiscal?.ncmDescription ||
+          fallbackItems[index].fiscal.ncmDescription,
         cest: draftFiscal?.cest || savedFiscal?.cest || fallbackItems[index].fiscal.cest,
         commercialUnit: draftFiscal?.commercialUnit || savedFiscal?.commercialUnit || 'UN',
         taxableUnit: draftFiscal?.taxableUnit || savedFiscal?.taxableUnit || 'UN',

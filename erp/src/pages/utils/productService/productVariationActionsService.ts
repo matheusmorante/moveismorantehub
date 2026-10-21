@@ -107,10 +107,7 @@ export const saveVariation = async (productId: string, variation: any): Promise<
     notifySubscribers();
 
     if (isUuidPattern(productId) && isUuidPattern(variationToSave.id)) {
-      const effectiveImages =
-        deduplicatedVariations.length === 1
-          ? (parent.images ?? []).slice(0, MAX_VARIATION_IMAGES)
-          : variationToSave.images || [];
+      const effectiveImages = variationToSave.images || [];
 
       const attributesToSave = (cleanAttrs || [])
         .filter((attr: any) => attr.name && attr.value)

@@ -66,48 +66,13 @@ export class AiGateway {
   }
 
   /**
-   * Ponto de entrada ÚNICO e OBRIGATÓRIO para requisições de TTS / Voz (Gemini 3.1 Flash TTS)
-   * Possui FALLBACK AUTOMÁTICO para sintetizador nativo de voz (Google Maps) se a cota for atingida.
-   */
-  public static async requestTts(
-    text: string,
-    options?: Partial<AiRequestOptions>
-  ): Promise<AiResponse<{ audioUrl?: string; speechContent: string }>> {
-    const res = await this.execute<{ audioUrl?: string; speechContent: string }>({
-      category: 'TTS',
-      operation: 'tts_speech_summary',
-      payload: { text, voice: AI_LIMITS.categories.TTS.voice },
-      ...options,
-    });
-
-    // Fallback gracioso se a cota diária de TTS (30/dia) ou limite for atingido
-    if (
-      !res.success &&
-      (res.errorCode === 'AI_DAILY_LIMIT_REACHED' || res.errorCode === 'AI_FAIL_CLOSED_BLOCKED')
-    ) {
-      console.warn(
-        '[AiGateway] Cota de TTS Gemini atingida. Ativando fallback para voz nativa Google Maps/Speech API.'
-      );
-      this.speakWithNativeFallback(text);
-      return {
-        success: true,
-        data: { speechContent: text },
-        category: 'TTS',
-        modelUsed: 'native-speech-fallback (Google Maps)',
-        fallbackUsed: true,
-        userFriendlyMessage: 'Sintetizando voz via áudio nativo (Fallback ativado por cota).',
-      };
-    }
-
-    return res;
-  }
-
-  /**
    * Orquestrador de Execução do Gateway com Proteções
    */
   private static async execute<T>(options: AiRequestOptions): Promise<AiResponse<T>> {
     const { category, operation, payload, bypassDeduplication } = options;
     const categoryConfig = AI_LIMITS.categories[category];
+    const isCharacteristicsOp = operation === CHARACTERISTICS_AI_LIMITS.operation;
+    const concurrencyOperationKey = isCharacteristicsOp ? operation : undefined;
     const startTime = Date.now();
 
     // 1. Deduplicação por Hash de Payload
@@ -134,7 +99,11 @@ export class AiGateway {
     }
 
     // 3. Controle de Concorrência
-    const concurrency = AiConcurrencyLimiter.tryAcquire(category);
+    const concurrency = AiConcurrencyLimiter.tryAcquire(
+      category,
+      concurrencyOperationKey,
+      isCharacteristicsOp ? CHARACTERISTICS_AI_LIMITS.concurrent : undefined
+    );
     if (!concurrency.acquired) {
       return {
         success: false,
@@ -150,8 +119,7 @@ export class AiGateway {
     // Criar a promessa da execução
     const executionPromise = (async (): Promise<AiResponse<T>> => {
       try {
-        // 4. Reserva Atômica de Cota (Pre-Allocation + FAIL CLOSED)
-        const isCharacteristicsOp = operation === CHARACTERISTICS_AI_LIMITS.operation;
+        // 4. Reserva de cota antes da chamada externa (FAIL CLOSED)
         const quota = isCharacteristicsOp
           ? await AiQuotaManager.reserveCharacteristicsQuota()
           : await AiQuotaManager.reserveQuota(category);
@@ -164,9 +132,7 @@ export class AiGateway {
             errorMessage: quota.errorMessage,
             userFriendlyMessage:
               quota.errorMessage ||
-              (category === 'TTS'
-                ? 'Limite diário de voz de IA atingido (30/dia). Ativando voz nativa.'
-                : 'Limite de uso de IA atingido. Novas gerações estarão disponíveis amanhã.'),
+              'Limite de uso de IA atingido. Novas gerações estarão disponíveis amanhã.',
             category,
             modelUsed: isCharacteristicsOp ? CHARACTERISTICS_AI_LIMITS.model : categoryConfig.model,
           };
@@ -211,6 +177,7 @@ export class AiGateway {
         const isQuotaOrRateLimit = /429|resource_exhausted|quota|rate limit/i.test(
           err?.message || ''
         );
+        const isEmptyResponse = err?.name === 'GeminiEmptyResponseError';
         const modelUsed = options.model || categoryConfig.model;
         return {
           success: false,
@@ -218,12 +185,14 @@ export class AiGateway {
           errorMessage: err.message || 'Erro na comunicação com a API Gemini',
           userFriendlyMessage: isQuotaOrRateLimit
             ? `Cota do modelo ${modelUsed} atingida (HTTP 429).`
-            : 'Não foi possível processar a requisição de IA no momento.',
+            : isEmptyResponse
+              ? 'A Gemini respondeu sem texto utilizável. O diagnóstico técnico foi salvo para investigação.'
+              : 'Não foi possível processar a requisição de IA no momento.',
           category,
           modelUsed,
         };
       } finally {
-        AiConcurrencyLimiter.release(category);
+        AiConcurrencyLimiter.release(category, concurrencyOperationKey);
       }
     })();
 
@@ -246,8 +215,7 @@ export class AiGateway {
   ): Promise<T> {
     const callId = AiLatencyTracker.startCall(operation, model, category);
     const resolvedModule = moduleSource || inferModuleFromOperation(operation);
-    const serviceId =
-      category === 'IMAGE' ? 'gemini_image' : category === 'TTS' ? 'gemini_tts' : 'gemini_flash';
+    const serviceId = category === 'IMAGE' ? 'gemini_image' : 'gemini_flash';
 
     let apiKey =
       import.meta.env.VITE_GEMINI_API_KEY ||
@@ -273,23 +241,6 @@ export class AiGateway {
       throw new Error('Chave de API Gemini não configurada.');
     }
 
-    if (category === 'TTS') {
-      const textLen = (payload?.text || '').length;
-      this.speakWithNativeFallback(payload?.text || '');
-      AiLatencyTracker.endCall(callId, true, textLen);
-      void ApiUsageTracker.record({
-        provider: 'gemini',
-        service: serviceId,
-        operation: `${operation} [${model}]`,
-        units: textLen,
-        status: 'SUCCESS',
-        http_status: 200,
-        module_source: resolvedModule,
-        response_time_ms: 10,
-      });
-      return { speechContent: payload?.text } as any;
-    }
-
     const isEmbedding = model.includes('embedding') || operation.includes('embedding');
     const action = isEmbedding ? 'embedContent' : 'generateContent';
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${action}?key=${encodeURIComponent(apiKey)}`;
@@ -308,7 +259,12 @@ export class AiGateway {
         generationConfig.responseModalities = ['TEXT', 'IMAGE'];
       } else {
         if (jsonMode) {
-          generationConfig.responseMimeType = 'application/json';
+          // A API do Google Gemini não suporta responseMimeType: 'application/json' quando tools ativas
+          // (como googleSearch) estão habilitadas, retornando HTTP 400 INVALID_ARGUMENT.
+          // Quando tools estão presentes, o formato JSON é garantido pelas instruções do prompt e extraído no parsing.
+          if (!tools || tools.length === 0) {
+            generationConfig.responseMimeType = 'application/json';
+          }
         }
         if (thinkingBudget) {
           generationConfig.thinkingConfig = {
@@ -325,6 +281,7 @@ export class AiGateway {
     }
 
     const startFetch = Date.now();
+    let responseHttpStatus: number | null = null;
 
     try {
       const res = await fetch(endpoint, {
@@ -332,6 +289,7 @@ export class AiGateway {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
       });
+      responseHttpStatus = res.status;
 
       const durationMs = Date.now() - startFetch;
 
@@ -416,36 +374,17 @@ export class AiGateway {
           operation,
           units: 0,
           status: 'ERROR',
-          http_status: 500,
+          // 0 indica que a conexão falhou antes de receber uma resposta HTTP.
+          http_status: responseHttpStatus ?? 0,
           module_source: resolvedModule,
-          error_message: fetchErr?.message || 'Network fetch failure',
+          error_message:
+            responseHttpStatus === null
+              ? `Falha antes de receber resposta HTTP: ${fetchErr?.message || 'Network fetch failure'}`
+              : fetchErr?.message || 'Falha ao processar resposta da API Gemini',
           response_time_ms: durationMs,
         });
       }
       throw fetchErr;
-    }
-  }
-
-  private static speakWithNativeFallback(text: string) {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'pt-BR';
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-
-      const voices = window.speechSynthesis.getVoices();
-      const femalePtVoice = voices.find(
-        (v) =>
-          v.lang.includes('pt') &&
-          (v.name.includes('Luciana') ||
-            v.name.includes('Francisca') ||
-            v.name.includes('Google') ||
-            v.name.includes('Maria'))
-      );
-      if (femalePtVoice) utterance.voice = femalePtVoice;
-
-      window.speechSynthesis.speak(utterance);
     }
   }
 }

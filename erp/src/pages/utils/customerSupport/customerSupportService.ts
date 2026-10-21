@@ -13,6 +13,7 @@ import {
 } from './customerMatchingService';
 import { SupportOrderSummary } from './supportOrdersService';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { supportInternalCommentSchema, supportNotesSchema, supportTagSchema } from '../../../../../shared-utils/customerSupportFormSchemas';
 
 export const CONVERSATION_SELECT_COLUMNS =
   'id, business_phone_number_id, contact_phone, contact_wa_id, contact_name, customer_id, customer_link_status, last_message_text, last_message_at, last_customer_message_at, unread_count, is_archived, internal_notes, tags, assigned_to, created_at, updated_at';
@@ -168,8 +169,13 @@ export async function fetchConversations(
   const { data, error } = response || { data: null, error: new Error('Timeout na consulta de conversas') };
 
   if (error || !data) {
-    console.error('[CustomerSupportService] Erro ao buscar conversas:', error);
-    return { conversations: [], totalCount: 0 };
+    if (error?.code === '42501' && error.message?.includes('CUSTOMER_SUPPORT_COMMERCIAL_PERMISSION_DENIED')) {
+      throw new Error('Você não tem permissão para consultar pedidos nesta fila ou pasta.');
+    }
+    if (error?.code === '42501' && error.message?.includes('CUSTOMER_SUPPORT_PERMISSION_DENIED')) {
+      throw new Error('Você não tem permissão para acessar a Central de Atendimento.');
+    }
+    throw new Error('Não foi possível carregar as conversas. Tente atualizar a lista.');
   }
 
   const rawConversations: Array<WhatsAppConversation & { assignedProfile: AssignedProfileSummary | null }> =
@@ -189,8 +195,8 @@ export async function fetchConversations(
     new Set(rawConversations.map((c) => c.customerId).filter(Boolean) as string[])
   );
 
-  let customersMap = new Map<string, CustomerSummary>();
-  let customerOrdersCountMap = new Map<string, number>();
+  const customersMap = new Map<string, CustomerSummary>();
+  const customerOrdersCountMap = new Map<string, number>();
 
   if (canViewCommercialInfo && customerIds.length > 0) {
     const customerResponse = await withTimeout<any>(supabase.rpc('customer_support_list_customer_summaries', {
@@ -240,8 +246,7 @@ export async function fetchConversationCounts(
   const response = await withTimeout<any>(supabase.rpc('customer_support_conversation_counts'), 15_000, null, 'central:contagens');
   const { data, error } = response || { data: null, error: new Error('Timeout nas contagens da Central') };
   if (error || !data?.[0]) {
-    console.error('[CustomerSupportService] Erro ao buscar contagens da Inbox:', error);
-    return { all: 0, mine: 0, unassigned: 0, unread: 0 };
+    throw new Error('Não foi possível atualizar as contagens da Inbox.');
   }
   return {
     all: Number(data[0].all_count) || 0,
@@ -271,8 +276,7 @@ export async function fetchConversationMessages(
   const { data, error } = response || { data: null, error: new Error('Timeout ao carregar mensagens') };
 
   if (error || !data) {
-    console.error('[CustomerSupportService] Erro ao buscar mensagens da conversa:', error);
-    return [];
+    throw new Error('Não foi possível carregar as mensagens. Tente atualizar o histórico.');
   }
 
   return data.reverse().map(mapRowToMessage);
@@ -296,8 +300,7 @@ export async function fetchPreviousConversationMessages(
   const { data, error } = response || { data: null, error: new Error('Timeout ao carregar mensagens anteriores') };
 
   if (error || !data) {
-    console.error('[CustomerSupportService] Erro ao buscar mensagens anteriores:', error);
-    return [];
+    throw new Error('Não foi possível carregar as mensagens anteriores. Tente novamente.');
   }
   return data.reverse().map(mapRowToMessage);
 }
@@ -311,7 +314,7 @@ export async function markConversationAsRead(
 ): Promise<void> {
   const query = supabase
     .from('whatsapp_conversations')
-    .update({ unread_count: 0, updated_at: new Date().toISOString() })
+    .update({ unread_count: 0 })
     .eq('id', conversationId);
 
   if (typeof (query as any).gt === 'function') {
@@ -325,183 +328,74 @@ export async function markConversationAsRead(
  * Alterna estado de arquivamento da conversa
  */
 export async function toggleArchiveConversation(
-  supabase: SupabaseClient,
-  conversationId: string,
-  currentArchived: boolean
+  supabase: SupabaseClient, conversationId: string, currentArchived: boolean
 ): Promise<boolean> {
-  const nextArchived = !currentArchived;
-  const { error } = await supabase
-    .from('whatsapp_conversations')
-    .update({ is_archived: nextArchived, updated_at: new Date().toISOString() })
-    .eq('id', conversationId);
-
-  return !error;
+  return updateConversationStatus(supabase, conversationId, currentArchived ? 'open' : 'closed');
 }
 
-/**
- * Salva notas internas e marcadores da conversa
- */
-export async function updateInternalNotesAndTags(
-  supabase: SupabaseClient,
-  conversationId: string,
-  notes: string,
-  tags: string[]
+/** Change only notes, with optimistic conflict detection; never overwrite tags. */
+export async function updateConversationNotes(
+  supabase: SupabaseClient, conversationId: string, notes: string, expectedNotes: string | null
 ): Promise<boolean> {
-  const { error } = await supabase
-    .from('whatsapp_conversations')
-    .update({
-      internal_notes: notes,
-      tags,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', conversationId);
-
-  return !error;
+  const parsed = supportNotesSchema.safeParse({ notes });
+  if (!parsed.success) return false;
+  const response = await withTimeout(supabase.rpc('customer_support_set_internal_notes', {
+    p_conversation_id: conversationId, p_notes: parsed.data.notes, p_expected_notes: expectedNotes,
+  }), 15_000, null, 'central:salvar-notas');
+  if (response?.error?.code === '40001' || (response?.error?.code === 'P0001'
+    && response.error.message?.startsWith('CUSTOMER_SUPPORT_NOTES_CONFLICT:'))) {
+    throw new Error('As notas foram alteradas por outro atendimento. Atualize antes de salvar.');
+  }
+  return !response?.error && response?.data === true;
 }
 
-/**
- * Atribui a conversa a um atendente e registra evento no histórico
- */
+/** Add/remove a single tag on the server, preserving concurrent status/notes. */
+export async function updateConversationTag(
+  supabase: SupabaseClient, conversationId: string, tag: string, remove: boolean
+): Promise<string[] | null> {
+  const parsed = supportTagSchema.safeParse({ tagInput: tag });
+  if (!parsed.success) return null;
+  const response = await withTimeout(supabase.rpc('customer_support_update_tag', {
+    p_conversation_id: conversationId, p_tag: parsed.data.tagInput, p_remove: remove,
+  }), 15_000, null, 'central:salvar-marcador');
+  return !response?.error && Array.isArray(response?.data) ? response.data as string[] : null;
+}
+
+/** Assignment and its persisted event are a single server command. */
 export async function assignConversation(
-  supabase: SupabaseClient,
-  conversationId: string,
-  profileId: string | null,
-  profileName?: string,
-  currentUserName: string = 'Atendente'
+  supabase: SupabaseClient, conversationId: string, profileId: string | null,
+  _profileName?: string, _currentUserName?: string
 ): Promise<boolean> {
-  const { error } = await supabase
-    .from('whatsapp_conversations')
-    .update({
-      assigned_to: profileId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', conversationId);
-
-  if (error) {
-    console.error('[CustomerSupportService] Erro ao atribuir conversa:', error);
-    return false;
-  }
-
-  // Registra evento de sistema no histórico da conversa
-  const systemText = profileName
-    ? `Atendimento atribuído a ${profileName} por ${currentUserName}`
-    : `Atendimento retornado para a fila geral por ${currentUserName}`;
-
-  const { error: eventError } = await supabase.from('whatsapp_messages').insert([
-    {
-      conversation_id: conversationId,
-      direction: 'outbound',
-      message_type: 'system_event',
-      text_content: systemText,
-      status: 'received',
-      timestamp: new Date().toISOString(),
-    },
-  ]);
-
-  return !eventError;
+  const response = await withTimeout(supabase.rpc('customer_support_assign_conversation', {
+    p_conversation_id: conversationId, p_assignee_id: profileId,
+  }), 15_000, null, 'central:atribuir');
+  return !response?.error && response?.data === true;
 }
 
-/**
- * Altera status da conversa (open, closed, snoozed)
- */
+/** The server derives current tags and actor; client snapshots are not authoritative. */
 export async function updateConversationStatus(
-  supabase: SupabaseClient,
-  conversationId: string,
-  newStatus: ConversationStatus,
-  currentTags: string[] = [],
-  currentUserName: string = 'Atendente'
+  supabase: SupabaseClient, conversationId: string, newStatus: ConversationStatus,
+  _currentTags: string[] = [], _currentUserName?: string
 ): Promise<boolean> {
-  const isArchived = newStatus === 'closed';
-
-  // Remove tags de status antigas
-  const filteredTags = currentTags.filter((t) => !t.startsWith('status:'));
-  if (newStatus === 'closed') {
-    filteredTags.push('status:closed');
-  } else if (newStatus === 'snoozed') {
-    filteredTags.push('status:snoozed');
-  }
-
-  const { error } = await supabase
-    .from('whatsapp_conversations')
-    .update({
-      is_archived: isArchived,
-      tags: filteredTags,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', conversationId);
-
-  if (error) {
-    console.error('[CustomerSupportService] Erro ao alterar status:', error);
-    return false;
-  }
-
-  const statusLabel =
-    newStatus === 'closed'
-      ? 'Fechado / Resolvido'
-      : newStatus === 'snoozed'
-        ? 'Adiado'
-        : 'Reaberto';
-
-  const { error: eventError } = await supabase.from('whatsapp_messages').insert([
-    {
-      conversation_id: conversationId,
-      direction: 'outbound',
-      message_type: 'system_event',
-      text_content: `Status do atendimento alterado para "${statusLabel}" por ${currentUserName}`,
-      status: 'received',
-      timestamp: new Date().toISOString(),
-    },
-  ]);
-
-  return !eventError;
+  if (!['open', 'closed', 'snoozed'].includes(newStatus)) return false;
+  const response = await withTimeout(supabase.rpc('customer_support_set_conversation_status', {
+    p_conversation_id: conversationId, p_status: newStatus,
+  }), 15_000, null, 'central:status');
+  return !response?.error && response?.data === true;
 }
 
-/**
- * Registra um comentário interno da equipe diretamente no fluxo do chat
- */
+/** Authenticated identity and timestamp are derived by the RPC. */
 export async function createInternalNoteMessage(
-  supabase: SupabaseClient,
-  conversationId: string,
-  textContent: string,
-  author: { id: string; name: string; role?: string }
+  supabase: SupabaseClient, conversationId: string, textContent: string,
+  _author?: { id: string; name: string; role?: string }
 ): Promise<WhatsAppMessage | null> {
-  if (!textContent.trim()) return null;
-
-  const payload = {
-    conversation_id: conversationId,
-    direction: 'outbound',
-    message_type: 'internal_note',
-    text_content: textContent.trim(),
-    status: 'sent',
-    raw_payload: {
-      author_id: author.id,
-      author_name: author.name,
-      author_role: author.role || 'Colaborador',
-    },
-    timestamp: new Date().toISOString(),
-  };
-
-  const { data, error } = await supabase
-    .from('whatsapp_messages')
-    .insert([payload])
-    .select(MESSAGE_SELECT_COLUMNS)
-    .single();
-
-  if (error || !data) {
-    console.error('[CustomerSupportService] Erro ao criar comentário interno:', error);
-    return null;
-  }
-
-  // Atualiza campo internal_notes na conversa para compatibilidade legada
-  await supabase
-    .from('whatsapp_conversations')
-    .update({
-      internal_notes: textContent.trim(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', conversationId);
-
-  return mapRowToMessage(data);
+  const parsed = supportInternalCommentSchema.safeParse({ comment: textContent });
+  if (!parsed.success) return null;
+  const response = await withTimeout(supabase.rpc('customer_support_add_internal_note', {
+    p_conversation_id: conversationId, p_text: parsed.data.comment,
+  }), 15_000, null, 'central:comentario');
+  const row = Array.isArray(response?.data) ? response.data[0] : null;
+  return !response?.error && row ? mapRowToMessage(row) : null;
 }
 
 /**

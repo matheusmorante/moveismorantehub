@@ -23,15 +23,16 @@ export interface ChatAreaProps {
   onToggleInfoPanel: () => void;
   isTimelineOpen?: boolean;
   onToggleTimeline?: () => void;
-  onToggleArchive: () => void;
-  onAssign?: (profileId: string | null, profileName?: string) => Promise<void>;
-  onUpdateStatus?: (status: ConversationStatus) => Promise<void>;
+  onToggleArchive: () => Promise<boolean | void> | boolean | void;
+  onAssign?: (profileId: string | null, profileName?: string) => Promise<boolean | void>;
+  onUpdateStatus?: (status: ConversationStatus) => Promise<boolean | void>;
   onAddInternalNote?: (text: string) => Promise<boolean | void>;
   hasOlderMessages?: boolean;
   isLoadingOlderMessages?: boolean;
   onLoadOlderMessages?: () => Promise<number>;
   onRefreshMessages?: () => Promise<void> | void;
   isRefreshingMessages?: boolean;
+  messagesError?: string;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -52,6 +53,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onLoadOlderMessages,
   onRefreshMessages,
   isRefreshingMessages = false,
+  messagesError = '',
 }) => {
   const { profile, user } = useAuth();
   const [inChatSearch, setInChatSearch] = useState('');
@@ -130,10 +132,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
       {/* 3. Área Central de Mensagens com Rolagem Independente */}
       <ChatMessageTimeline
+        key={conversation.id}
         messages={messages}
         displayName={displayName}
         inChatSearch={inChatSearch}
         isLoadingMessages={isLoadingMessages}
+        error={messagesError}
         conversationId={conversation.id}
         hasOlderMessages={hasOlderMessages}
         isLoadingOlderMessages={isLoadingOlderMessages}

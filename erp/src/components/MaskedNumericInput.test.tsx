@@ -1,12 +1,11 @@
-/**
- * @vitest-environment jsdom
- */
+// @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import * as userEvent from '@testing-library/user-event';
 import React from 'react';
 import { PercentInput } from './PercentInput';
 import { DistanceInput } from './DistanceInput';
+import { MeasurementInput } from './MeasurementInput';
 
 afterEach(() => {
   cleanup();
@@ -70,6 +69,54 @@ describe('MaskedNumericInput Core via Percent & Distance', () => {
 
       fireEvent.paste(input, { clipboardData: { getData: () => '12,3 km' } });
       expect(handleChange).toHaveBeenLastCalledWith(12.3);
+    });
+  });
+
+  describe('MeasurementInput (Dimensões - 2 casas decimais RTL)', () => {
+    it('deve formatar valor inicial com 2 casas e badge cm', () => {
+      render(<MeasurementInput unit="cm" value={180.5} onChangeValue={vi.fn()} testID="dim-input" />);
+      const input = screen.getByTestId('dim-input') as HTMLInputElement;
+      expect(input.value).toBe('180,50');
+      expect(screen.getByText('cm')).toBeDefined();
+    });
+
+    it('deve digitar RTL empurrando dígitos para a esquerda com 2 casas decimais', async () => {
+      const handleChange = vi.fn();
+      render(<MeasurementInput unit="cm" value={null} onChangeValue={handleChange} testID="dim-input" />);
+      const input = screen.getByTestId('dim-input');
+
+      await userEvent.type(input, '1');
+      expect(handleChange).toHaveBeenLastCalledWith(0.01);
+
+      await userEvent.type(input, '85');
+      expect(handleChange).toHaveBeenLastCalledWith(1.85);
+
+      await userEvent.type(input, '00');
+      expect(handleChange).toHaveBeenLastCalledWith(185.0);
+    });
+  });
+
+  describe('MeasurementInput (Peso - 1 casa decimal RTL)', () => {
+    it('deve formatar valor inicial com 1 casa e badge kg', () => {
+      render(<MeasurementInput unit="kg" value={45.2} onChangeValue={vi.fn()} testID="weight-input" />);
+      const input = screen.getByTestId('weight-input') as HTMLInputElement;
+      expect(input.value).toBe('45,2');
+      expect(screen.getByText('kg')).toBeDefined();
+    });
+
+    it('deve digitar RTL empurrando dígitos para a esquerda com 1 casa decimal', async () => {
+      const handleChange = vi.fn();
+      render(<MeasurementInput unit="kg" value={null} onChangeValue={handleChange} testID="weight-input" />);
+      const input = screen.getByTestId('weight-input');
+
+      await userEvent.type(input, '1');
+      expect(handleChange).toHaveBeenLastCalledWith(0.1);
+
+      await userEvent.type(input, '5');
+      expect(handleChange).toHaveBeenLastCalledWith(1.5);
+
+      await userEvent.type(input, '0');
+      expect(handleChange).toHaveBeenLastCalledWith(15.0);
     });
   });
 });

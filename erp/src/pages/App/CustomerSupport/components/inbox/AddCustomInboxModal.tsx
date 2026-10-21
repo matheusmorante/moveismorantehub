@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { supportFolderFormSchema, type SupportFolderFormInput } from '../../../../../../../shared-utils/customerSupportFormSchemas';
+import { readTestArtifactIdentity, type TestArtifactIdentity } from '../../../../../../../shared-utils/testArtifactPolicy';
 import {
   AssignedProfileSummary,
   CustomerSupportFolder,
@@ -9,17 +10,7 @@ import {
 } from '../../types';
 import { DEFAULT_SUPPORT_FOLDER_CRITERIA } from '@/pages/utils/customerSupport/customerSupportInboxService';
 
-const folderSchema = z.object({
-  name: z.string().trim().min(2, 'O nome deve ter pelo menos 2 caracteres.').max(50, 'O nome deve ter no máximo 50 caracteres.'),
-  status: z.enum(['all', 'open', 'closed', 'snoozed']),
-  assigneeId: z.string(),
-  unread: z.boolean(),
-  customerLink: z.enum(['all', 'linked', 'unlinked']),
-  orders: z.enum(['all', 'with_orders', 'without_orders']),
-  search: z.string().trim().max(100, 'A busca deve ter no máximo 100 caracteres.'),
-});
-
-type FolderFormData = z.infer<typeof folderSchema>;
+type FolderFormData = SupportFolderFormInput;
 
 interface AddCustomInboxModalProps {
   isOpen: boolean;
@@ -27,6 +18,7 @@ interface AddCustomInboxModalProps {
   agents: AssignedProfileSummary[];
   canViewCommercialInfo: boolean;
   folder?: CustomerSupportFolder | null;
+  testIdentity?: TestArtifactIdentity | null;
   onSave: (name: string, criteria: CustomerSupportFolderCriteria, folderId?: string) => Promise<string | null>;
 }
 
@@ -40,6 +32,7 @@ function getDefaults(folder?: CustomerSupportFolder | null): FolderFormData {
     customerLink: criteria.customerLink,
     orders: criteria.orders,
     search: criteria.search,
+    isTestArtifact: Boolean(readTestArtifactIdentity(criteria)),
   };
 }
 
@@ -49,9 +42,11 @@ export const AddCustomInboxModal: React.FC<AddCustomInboxModalProps> = ({
   agents,
   canViewCommercialInfo,
   folder,
+  testIdentity,
   onSave,
 }) => {
   const [isSaving, setIsSaving] = useState(false);
+  const saveLock = useRef(false);
   const {
     register,
     handleSubmit,
@@ -59,7 +54,7 @@ export const AddCustomInboxModal: React.FC<AddCustomInboxModalProps> = ({
     setError,
     clearErrors,
     formState: { errors },
-  } = useForm<FolderFormData>({ resolver: zodResolver(folderSchema), defaultValues: getDefaults(folder) });
+  } = useForm<FolderFormData>({ resolver: zodResolver(supportFolderFormSchema), defaultValues: getDefaults(folder) });
 
   useEffect(() => {
     if (isOpen) {
@@ -71,6 +66,12 @@ export const AddCustomInboxModal: React.FC<AddCustomInboxModalProps> = ({
   if (!isOpen) return null;
 
   const submit = async (data: FolderFormData) => {
+    const existingIdentity = folder && readTestArtifactIdentity(folder.criteria);
+    if (data.isTestArtifact && (!testIdentity || (existingIdentity &&
+      (existingIdentity.runId !== testIdentity.runId || existingIdentity.ownerId !== testIdentity.ownerId)))) {
+      setError('root.server', { message: 'Pasta de teste exige o operador autorizado na mesma execução.' });
+      return;
+    }
     setIsSaving(true);
     try {
       const criteria: CustomerSupportFolderCriteria = {
@@ -81,6 +82,7 @@ export const AddCustomInboxModal: React.FC<AddCustomInboxModalProps> = ({
         orders: data.orders,
         search: data.search,
       };
+      if (data.isTestArtifact && testIdentity) criteria.testArtifact = { is_test: true, ...testIdentity };
       const error = await onSave(data.name, criteria, folder?.id);
       if (error) {
         setError('root.server', { message: error });
@@ -103,10 +105,16 @@ export const AddCustomInboxModal: React.FC<AddCustomInboxModalProps> = ({
             <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm"><i className="bi bi-folder-plus" /></div>
             <h3 id="add-custom-inbox-title" className="text-sm font-bold text-slate-800 dark:text-slate-100">{folder ? 'Editar pasta compartilhada' : 'Nova pasta compartilhada'}</h3>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><i className="bi bi-x-lg text-xs" /></button>
+          <button type="button" disabled={isSaving} onClick={onClose} aria-label="Fechar" className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><i className="bi bi-x-lg text-xs" /></button>
         </div>
 
-        <form onSubmit={handleSubmit(submit)} className="mt-4 space-y-3">
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (saveLock.current) return;
+          saveLock.current = true;
+          void handleSubmit(submit)(event).finally(() => { saveLock.current = false; });
+        }} className="mt-4 space-y-3">
+          <fieldset disabled={isSaving} className="contents">
           <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
             Nome da pasta
             <input {...register('name')} placeholder="Ex.: Retornos prioritários" className="mt-1 w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs normal-case tracking-normal font-normal focus:outline-none focus:ring-1 focus:ring-blue-500" />
@@ -124,6 +132,7 @@ export const AddCustomInboxModal: React.FC<AddCustomInboxModalProps> = ({
                 <option value="all">Todos</option><option value="mine">Por mim</option><option value="unassigned">Sem atendente</option>
                 {agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.fullName}</option>)}
               </select>
+              {errors.assigneeId && <span role="alert" className="mt-1 block text-[11px] text-red-500">{errors.assigneeId.message}</span>}
             </label>
             <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Vínculo com cliente
               <select {...register('customerLink')} className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2.5 py-2 text-xs font-normal text-slate-800 dark:text-slate-100">
@@ -139,6 +148,12 @@ export const AddCustomInboxModal: React.FC<AddCustomInboxModalProps> = ({
             </label>
           </div>
 
+          {(folder?.criteria.testArtifact || (!folder && testIdentity)) && (
+            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              {folder ? <input type="checkbox" checked disabled /> : <input type="checkbox" {...register('isTestArtifact')} />}
+              Pasta de teste desta execução
+            </label>
+          )}
           <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
             <input type="checkbox" {...register('unread')} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
             Somente conversas não lidas
@@ -153,6 +168,7 @@ export const AddCustomInboxModal: React.FC<AddCustomInboxModalProps> = ({
             <button type="button" onClick={onClose} className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</button>
             <button type="submit" disabled={isSaving} className="px-4 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">{isSaving ? 'Salvando…' : folder ? 'Salvar alterações' : 'Criar pasta'}</button>
           </div>
+          </fieldset>
         </form>
       </div>
     </div>

@@ -7,8 +7,10 @@ import {
   getApplicableTechnicalFields,
   getEffectiveTechnicalValue,
   hasVariationOverride,
+  isTechnicalFieldVariable,
   setVariationOverride,
   removeVariationOverride,
+  resolveVariableTechnicalFieldNames,
   groupTechnicalFields,
   isDepthCharacteristic,
   mergeCharacteristicGroups,
@@ -121,6 +123,15 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     return { ...map, ...(parentProduct?.technicalValues || {}) };
   }, [parentProduct?.attributes, parentProduct?.technicalValues]);
 
+  const variableFieldNames = useMemo(
+    () =>
+      resolveVariableTechnicalFieldNames(
+        parentProduct.variableTechnicalFields,
+        parentProduct.variations?.length ? parentProduct.variations : [formData]
+      ),
+    [parentProduct.variableTechnicalFields, parentProduct.variations, formData]
+  );
+
   // Campos visíveis na variação: categorias do pai + valores do pai + overrides da variação + atributos da variação + manuais
   const combinedValues = useMemo(() => {
     return {
@@ -143,8 +154,10 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   );
 
   const visibleFields = useMemo(
-    () => (requiredFieldsOnly ? applicableFields.filter((field) => field.isRequired) : applicableFields),
-    [applicableFields, requiredFieldsOnly]
+    () =>
+      (requiredFieldsOnly ? applicableFields.filter((field) => field.isRequired) : applicableFields)
+        .filter((field) => isTechnicalFieldVariable(field.name, variableFieldNames)),
+    [applicableFields, requiredFieldsOnly, variableFieldNames]
   );
 
   const requiredFields = useMemo(
@@ -194,8 +207,12 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       getAvailableAdditionalFields(allTechnicalFields, [
         ...requiredFields,
         ...selectedOptionalFields,
-      ]).filter((field) => !requiredFieldNames.has(normalizeSearchTerm(field.name))),
-    [allTechnicalFields, requiredFields, selectedOptionalFields, requiredFieldNames]
+      ]).filter(
+        (field) =>
+          !requiredFieldNames.has(normalizeSearchTerm(field.name)) &&
+          isTechnicalFieldVariable(field.name, variableFieldNames)
+      ),
+    [allTechnicalFields, requiredFields, selectedOptionalFields, requiredFieldNames, variableFieldNames]
   );
 
   const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
@@ -341,6 +358,14 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-350">
+      <div>
+        <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">
+          Características específicas
+        </h3>
+        <p className="mt-1 text-[10px] font-semibold text-slate-500">
+          Os campos fixos vêm do produto pai; esta aba mostra somente os campos variáveis.
+        </p>
+      </div>
       {fieldsError && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{fieldsError} <button type="button" onClick={() => setRefreshKey((value) => value + 1)} disabled={loadingFields}>Consultar características novamente</button></p>}
       <div className="flex flex-col gap-4">
         {loadingFields ? (
@@ -378,7 +403,6 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         isManual={manualFieldNames.includes(field.name)}
                         isSingleVariation={isSingleVariation}
                         onSetOverride={handleSetOverride}
-                        onRemoveOverride={handleRemoveOverride}
                         onRemoveManualField={handleRemoveManualField}
                         onToggleDepthLength={handleToggleDepthLength}
                         onOpenAttributeModal={() => setIsAttributeModalOpen(true)}

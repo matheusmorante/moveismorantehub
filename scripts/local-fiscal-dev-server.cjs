@@ -17,7 +17,9 @@ const handlers = new Map();
 
 function getHandler(routeName) {
   if (!/^[a-z][a-z0-9-]*$/.test(routeName)) return null;
-  const filePath = routeName === 'test-artifact-operator'
+  const filePath = routeName === 'whatsapp-webhook'
+    ? path.join(projectRoot, 'erp/server/customer-support/whatsapp-webhook.cjs')
+    : routeName === 'test-artifact-operator'
     ? path.join(projectRoot, 'erp/server/testing/test-artifact-operator.cjs')
     : path.join(serverNfeDir, `${routeName}.cjs`);
   if (fs.existsSync(filePath)) {
@@ -56,7 +58,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   let routeName = null;
-  if (pathname === '/api/testing/test-artifact-operator') {
+  let supportOperation = null;
+  if (pathname === '/api/whatsapp-media' || pathname === '/api/whatsapp-dispatch' || pathname === '/api/whatsapp-webhook') {
+    routeName = 'whatsapp-webhook';
+    supportOperation = pathname === '/api/whatsapp-media' ? 'media' : pathname === '/api/whatsapp-dispatch' ? 'dispatch' : null;
+  } else if (pathname === '/api/testing/test-artifact-operator') {
     routeName = 'test-artifact-operator';
   } else if (pathname.startsWith('/api/nfe/')) {
     const rawRoute = pathname.slice('/api/nfe/'.length);
@@ -74,12 +80,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  let rawBody = '';
+  const bodyChunks = [];
   req.on('data', (chunk) => {
-    rawBody += chunk;
+    bodyChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   });
 
   req.on('end', async () => {
+    const rawBodyBuffer = Buffer.concat(bodyChunks);
+    const rawBody = rawBodyBuffer.toString('utf8');
     let parsedBody = {};
     if (rawBody.trim()) {
       try {
@@ -90,12 +98,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     const query = Object.fromEntries(url.searchParams.entries());
+    if (supportOperation) query.operation = supportOperation;
     const vercelReq = Object.assign(req, {
       url: req.url,
       method: req.method,
       headers: req.headers,
       query,
       body: parsedBody,
+      rawBody: rawBodyBuffer,
       cookies: {},
     });
 

@@ -49,11 +49,7 @@ export function prepareFinalVariation(
   const resolvedVariationImages = (
     formData.images && formData.images.length > 0
       ? formData.images
-      : isSingleVariation
-        ? allParentImages.length > 0
-          ? allParentImages
-          : parentProduct.images || []
-        : []
+      : []
   ).slice(0, MAX_VARIATION_IMAGES);
 
   const finalVariation: Variation = {

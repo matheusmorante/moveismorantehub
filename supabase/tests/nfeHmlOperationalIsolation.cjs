@@ -6,15 +6,6 @@ const { PGlite } = require('@electric-sql/pglite');
 (async () => {
   const db = new PGlite();
   await db.exec(`
-    CREATE SCHEMA vault;
-    CREATE TABLE vault.decrypted_secrets(name text, decrypted_secret text);
-    INSERT INTO vault.decrypted_secrets VALUES ('delivery_summary_job_secret', 'test-secret');
-    CREATE SCHEMA net;
-    CREATE TABLE net.queue_stats(sent integer NOT NULL DEFAULT 0);
-    INSERT INTO net.queue_stats VALUES (0);
-    CREATE FUNCTION net.http_post(url text, headers jsonb, body jsonb)
-      RETURNS bigint LANGUAGE plpgsql AS $$
-      BEGIN UPDATE net.queue_stats SET sent = sent + 1; RETURN 1; END $$;
     CREATE TABLE public.dashboard_daily_metrics(
       metric_date date PRIMARY KEY, revenue numeric(14,2), orders integer, cost numeric(14,2),
       profit numeric(14,2), items_without_cost integer, updated_at timestamptz
@@ -45,15 +36,6 @@ const { PGlite } = require('@electric-sql/pglite');
     CREATE TRIGGER orders_dashboard_metrics_refresh
       AFTER INSERT OR UPDATE OR DELETE ON public.orders
       FOR EACH ROW EXECUTE FUNCTION public.refresh_dashboard_metrics_trigger();
-    CREATE TRIGGER enqueue_delivery_summary_refresh_orders_insert
-      AFTER INSERT ON public.orders REFERENCING NEW TABLE AS hml_new_rows
-      FOR EACH STATEMENT EXECUTE FUNCTION public.enqueue_delivery_summary_refresh();
-    CREATE TRIGGER enqueue_delivery_summary_refresh_orders_update
-      AFTER UPDATE ON public.orders REFERENCING NEW TABLE AS hml_new_rows OLD TABLE AS hml_old_rows
-      FOR EACH STATEMENT EXECUTE FUNCTION public.enqueue_delivery_summary_refresh();
-    CREATE TRIGGER enqueue_delivery_summary_refresh_orders_delete
-      AFTER DELETE ON public.orders REFERENCING OLD TABLE AS hml_old_rows
-      FOR EACH STATEMENT EXECUTE FUNCTION public.enqueue_delivery_summary_refresh();
   `);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -77,8 +59,6 @@ const { PGlite } = require('@electric-sql/pglite');
   assert.equal(before.rows.length, 1);
   assert.equal(Number(before.rows[0].revenue), 100);
   assert.equal(before.rows[0].orders, 1);
-  const queueBefore = (await db.query('SELECT sent FROM net.queue_stats')).rows[0].sent;
-
   assert.equal((await db.query(`SELECT public.is_nfe_hml_test_order($1,'scheduled',false,$2::jsonb) AS ok`,
     [hmlSale, JSON.stringify(makeData({ runId: liveRun }))])).rows[0].ok, true);
   assert.equal((await db.query(`SELECT public.is_nfe_hml_test_order($1,'fulfilled',false,$2::jsonb) AS ok`,
@@ -101,9 +81,6 @@ const { PGlite } = require('@electric-sql/pglite');
 
   const after = await db.query('SELECT metric_date,revenue,orders,cost,profit,items_without_cost FROM public.dashboard_daily_metrics WHERE metric_date=$1::date', [today]);
   assert.deepEqual(after.rows, before.rows, 'HML operational tests must not change dashboard business metrics');
-  assert.equal((await db.query('SELECT sent FROM net.queue_stats')).rows[0].sent, queueBefore,
-    'HML test-only order changes must not enqueue delivery summary jobs');
-
   const malformedId = '00000000-0000-4000-8000-000000000004';
   await db.query(`INSERT INTO public.orders(id,status,order_type,total_amount,order_data)
     VALUES ($1,'scheduled','sale',50,$2::jsonb)`,
@@ -112,10 +89,7 @@ const { PGlite } = require('@electric-sql/pglite');
   assert.equal(Number(afterMalformed.revenue), Number(before.rows[0].revenue) + 40,
     'Malformed markers must stay visible as operational activity instead of suppressing metrics');
   assert.equal(afterMalformed.orders, 2);
-  assert.equal((await db.query('SELECT sent FROM net.queue_stats')).rows[0].sent, queueBefore + 1,
-    'Malformed markers must retain normal delivery refresh behavior');
-
-  console.log('Isolamento de E2E HML: KPIs e refreshes operacionais preservados para pedidos marcados; marcadores inválidos continuam operacionais.');
+  console.log('Isolamento de E2E HML: KPIs operacionais preservados para pedidos marcados; marcadores inválidos continuam operacionais.');
   await db.close();
 })().catch((error) => {
   console.error(error.message);

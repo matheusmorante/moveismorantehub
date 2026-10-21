@@ -7,6 +7,8 @@ export interface CharacteristicsQuotaStats {
   limitToday: number;
   usedHour: number;
   limitHour: number;
+  usedMinute: number;
+  limitMinute: number;
 }
 
 export function useAiCharacteristicsQuota(enabled: boolean = true) {
@@ -15,6 +17,8 @@ export function useAiCharacteristicsQuota(enabled: boolean = true) {
     limitToday: CHARACTERISTICS_AI_LIMITS.perDay,
     usedHour: 0,
     limitHour: CHARACTERISTICS_AI_LIMITS.perHour,
+    usedMinute: 0,
+    limitMinute: CHARACTERISTICS_AI_LIMITS.perMinute,
   });
   const [loading, setLoading] = useState(false);
 
@@ -35,14 +39,16 @@ export function useAiCharacteristicsQuota(enabled: boolean = true) {
     void fetchStats();
   }, [fetchStats]);
 
+  const isMinuteLimitReached = stats.usedMinute >= stats.limitMinute;
   const isHourlyLimitReached = stats.usedHour >= stats.limitHour;
   const isDailyLimitReached = stats.usedToday >= stats.limitToday;
-  const isBlocked = isHourlyLimitReached || isDailyLimitReached;
+  const isBlocked = isMinuteLimitReached || isHourlyLimitReached || isDailyLimitReached;
 
   return {
     stats,
     loading,
     refresh: fetchStats,
+    isMinuteLimitReached,
     isHourlyLimitReached,
     isDailyLimitReached,
     isBlocked,

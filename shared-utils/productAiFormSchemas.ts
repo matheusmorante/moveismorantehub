@@ -2,12 +2,48 @@ import { z } from 'zod';
 import { productVariationDraftSchema } from './productVariationValidation';
 import { normalizeFiscalIdentifier } from './fiscalIdentifiers';
 
-const technicalValue = z.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.null(), z.undefined()]);
+const technicalValue = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.array(z.any()),
+  z.record(z.any()),
+  z.null(),
+  z.undefined(),
+]);
+
+export const confidenceLevelSchema = z.preprocess((val) => {
+  if (typeof val === 'string') {
+    const normalized = val.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (normalized.startsWith('alt')) return 'alta';
+    if (normalized.startsWith('med')) return 'media';
+    if (normalized.startsWith('baix')) return 'baixa';
+  }
+  return val;
+}, z.enum(['alta', 'media', 'baixa'])).default('alta');
+
+export const productAiSourceItemSchema = z.preprocess((val) => {
+  if (typeof val === 'string') {
+    return { title: val, uri: val };
+  }
+  if (val && typeof val === 'object') {
+    const v = val as Record<string, any>;
+    return {
+      title: String(v.title || v.name || v.uri || v.url || 'Fonte da Web'),
+      uri: typeof v.uri === 'string' ? v.uri : typeof v.url === 'string' ? v.url : undefined,
+    };
+  }
+  return val;
+}, z.object({
+  title: z.string(),
+  uri: z.string().optional(),
+}));
 
 export const productDescriptionAiFormSchema = z.object({
   title: z.string().trim().min(1, 'Informe o nome antes de aperfeiçoar a descrição.'),
   currentDescription: z.string(),
   material: z.string().optional(), brand: z.string().optional(), line: z.string().optional(),
+  model: z.string().optional(), modelOrLine: z.string().optional(),
   ...productVariationDraftSchema.pick({ width: true, height: true, depth: true, weight: true }).shape,
   technicalValues: z.record(z.string(), technicalValue).optional(),
 });
@@ -83,25 +119,19 @@ export const productAiSuggestedCharacteristicsSchema = z.object({
     name: z.string().optional(),
     brand: z.string().optional(),
     model: z.string().optional(),
-    confidence: z.enum(['alta', 'media', 'baixa']).default('alta'),
-    sources: z.array(z.object({
-      title: z.string(),
-      uri: z.string().optional(),
-    })).optional(),
+    confidence: confidenceLevelSchema,
+    sources: z.array(productAiSourceItemSchema).optional(),
     divergences: z.string().optional(),
   }).optional(),
   technicalValues: z.record(z.string(), technicalValue),
-  itemConfidence: z.record(z.string(), z.enum(['alta', 'media', 'baixa'])).optional(),
-  height: z.union([z.number(), z.string()]).optional(),
-  width: z.union([z.number(), z.string()]).optional(),
-  depth: z.union([z.number(), z.string()]).optional(),
-  weight: z.union([z.number(), z.string()]).optional(),
+  itemConfidence: z.record(z.string(), confidenceLevelSchema).optional(),
+  height: z.union([z.number(), z.string(), z.null()]).optional(),
+  width: z.union([z.number(), z.string(), z.null()]).optional(),
+  depth: z.union([z.number(), z.string(), z.null()]).optional(),
+  weight: z.union([z.number(), z.string(), z.null()]).optional(),
   description: z.string().optional(),
   reasoning: z.string().optional(),
-  sources: z.array(z.object({
-    title: z.string(),
-    uri: z.string().optional(),
-  })).optional(),
+  sources: z.array(productAiSourceItemSchema).optional(),
 });
 
 export type ProductAiSuggestedCharacteristics = z.infer<typeof productAiSuggestedCharacteristicsSchema>;

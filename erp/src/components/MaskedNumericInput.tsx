@@ -6,7 +6,7 @@ export interface MaskedNumericInputProps {
   onChange?: (val: number | null) => void;
 
   // Configurações da Máscara
-  fractionDigits: number; // Ex: 2 para percentual, 1 para dimensão
+  fractionDigits: number; // Ex: 2 para percentual/dimensões, 1 para peso/distância
   prefix?: string;
   suffix?: string;
 
@@ -36,6 +36,12 @@ export interface MaskedNumericInputProps {
   helperText?: string;
   testID?: string;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
+  inputMode?: 'decimal' | 'numeric' | 'text';
+
+  // Acessibilidade
+  'aria-label'?: string;
+  'aria-invalid'?: boolean;
+  'aria-describedby'?: string;
 }
 
 export const MaskedNumericInput = ({
@@ -66,6 +72,10 @@ export const MaskedNumericInput = ({
   helperText,
   testID,
   onKeyDown,
+  inputMode: inputModeProp,
+  'aria-label': ariaLabel,
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
 }: MaskedNumericInputProps) => {
   const handleChange = onChangeValue || onChange;
   const displayBadge = badgeText || suffix.trim();
@@ -75,12 +85,36 @@ export const MaskedNumericInput = ({
   const [displayValue, setDisplayValue] = useState('');
   const isPasting = useRef(false);
 
+  // Converte qualquer valor recebido para number (suporta '12,5', '12.5', '1.250,00', etc.)
+  const parseToNumber = (val: unknown): number | null => {
+    if (val === null || val === undefined || val === '') return null;
+    if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+    const str = String(val).trim();
+    if (!str) return null;
+    const cleaned = str.replace(/[^\d.,-]/g, '');
+    if (cleaned.includes(',') && cleaned.includes('.')) {
+      const num = Number(cleaned.replace(/\./g, '').replace(',', '.'));
+      return Number.isFinite(num) ? num : null;
+    }
+    if (cleaned.includes(',')) {
+      const num = Number(cleaned.replace(',', '.'));
+      return Number.isFinite(num) ? num : null;
+    }
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : null;
+  };
+
   // Função universal de formatação (pt-BR) controlando as casas decimais
   const formatValue = (numValue: number) => {
     const formatted = new Intl.NumberFormat('pt-BR', {
       minimumFractionDigits: fractionDigits,
       maximumFractionDigits: fractionDigits,
     }).format(numValue);
+
+    // Quando o badge estiver visível, o sufixo/unidade fica no badge exterior para não poluir o input nem quebrar o backspace
+    if (showBadge && displayBadge) {
+      return formatted;
+    }
 
     return prefix + formatted + suffix;
   };
@@ -91,13 +125,13 @@ export const MaskedNumericInput = ({
       setDisplayValue('');
       return;
     }
-    const numeric = Number(value);
-    if (isNaN(numeric)) {
+    const numeric = parseToNumber(value);
+    if (numeric === null) {
       setDisplayValue('');
       return;
     }
     setDisplayValue(formatValue(numeric));
-  }, [value, prefix, suffix, fractionDigits]);
+  }, [value, prefix, suffix, fractionDigits, showBadge, displayBadge]);
 
   const triggerChange = (numericValue: number | null) => {
     if (numericValue !== null && max !== undefined && numericValue > max) {
@@ -113,25 +147,22 @@ export const MaskedNumericInput = ({
 
   // Semântica de colagem e digitação livre decimal
   const parseSemanticString = (pastedText: string) => {
-    let cleaned = pastedText.trim().replace(prefix, '').replace(suffix, '').trim();
-    // Remove espaços vazios dentro
+    let cleaned = pastedText.trim();
+    // Remove qualquer texto de unidade não-numérico do final ou início (ex: 'km', 'cm', 'kg', '%', 'R$')
+    cleaned = cleaned.replace(/^[^\d.,-]+/, '').replace(/[^\d.,]+$/, '').trim();
     cleaned = cleaned.replace(/\s/g, '');
 
     const hasComma = cleaned.includes(',');
     const hasDot = cleaned.includes('.');
 
     if (hasComma && hasDot) {
-      // Se tiver ambos, o ponto americano prevalece e vira 1234.56
       cleaned = cleaned.replace(/\./g, '').replace(',', '.');
     } else if (hasComma) {
-      // Vírgula simples (BR) -> Decimal point
       cleaned = cleaned.replace(',', '.');
     } else if (hasDot) {
-      // Ponto simples (pode ser milhar BR ou decimal US)
-      // Se tiver exatamente 3 chars no último bloco e não for fractionDigits = 3, assumimos milhar BR.
       const parts = cleaned.split('.');
       if (parts[parts.length - 1].length === 3 && fractionDigits !== 3) {
-        cleaned = cleaned.replace(/\./g, ''); // Milhar BR
+        cleaned = cleaned.replace(/\./g, '');
       }
     }
 
@@ -158,13 +189,7 @@ export const MaskedNumericInput = ({
 
     const text = e.target.value;
 
-    // Controle explícito para quando o usuário selecionou tudo e apertou uma tecla nova,
-    // ou está operando no modo de medidas.
-    // No modo "decimal", evitamos dividir por 100 se ele apertar Backspace ou apagar o valor inteiro
-    // e inserir um número puro.
     if (typingMode === 'decimal') {
-      // O modo decimal lida de forma branda, aceitando vírgulas durante a digitação
-      // e mantendo um Number estrito.
       const isProbablyReplacement =
         Math.abs(text.length - displayValue.length) > 1 ||
         (!text.includes(',') && !text.includes('.'));
@@ -178,7 +203,7 @@ export const MaskedNumericInput = ({
       }
     }
 
-    // Fluxo padrão RTL (divisão iterativa por potências de 10)
+    // Fluxo padrão RTL (divisão iterativa por potências de 10) — empurrando dígitos para a esquerda
     const digitsOnly = text.replace(/\D/g, '');
     if (!digitsOnly) {
       triggerChange(null);
@@ -197,8 +222,8 @@ export const MaskedNumericInput = ({
 
   const handleBlurInternal = () => {
     if (min !== undefined && value !== undefined && value !== null && value !== '') {
-      const numVal = Number(value);
-      if (!isNaN(numVal) && numVal < min && handleChange && !readOnly && !disabled) {
+      const numVal = parseToNumber(value);
+      if (numVal !== null && numVal < min && handleChange && !readOnly && !disabled) {
         triggerChange(min);
       }
     }
@@ -228,8 +253,10 @@ export const MaskedNumericInput = ({
       placeholder,
       autoFocus,
       'data-testid': testID,
-      // Decimal permite teclado pontuado
-      inputMode: typingMode === 'decimal' ? 'decimal' : ('numeric' as const),
+      'aria-label': ariaLabel,
+      'aria-invalid': ariaInvalid !== undefined ? ariaInvalid : hasError ? true : undefined,
+      'aria-describedby': ariaDescribedBy,
+      inputMode: inputModeProp || 'decimal',
     };
 
     if (showBadge && displayBadge) {
@@ -239,7 +266,7 @@ export const MaskedNumericInput = ({
         >
           <input
             {...commonProps}
-            className="w-full min-w-[50px] text-right bg-transparent px-2.5 py-2 outline-none border-none rounded-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-0"
+            className={`w-full min-w-[50px] text-right bg-transparent px-2.5 py-2 outline-none border-none rounded-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-0 ${className || ''}`}
           />
           <div className="bg-transparent text-slate-400 dark:text-slate-500 font-black text-[10px] uppercase tracking-wider pl-1.5 pr-2 py-2 flex items-center justify-center shrink-0 self-stretch">
             {displayBadge}

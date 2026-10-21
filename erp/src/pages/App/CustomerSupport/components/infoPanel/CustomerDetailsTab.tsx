@@ -9,9 +9,9 @@ interface CustomerDetailsTabProps {
   customer: CustomerSummary | null | undefined;
   isLinked: boolean;
   canViewCommercial: boolean;
-  displayName: string;
   onOpenLinkModal: () => void;
   onUnlink: () => void;
+  isUnlinking?: boolean;
 }
 
 export const CustomerDetailsTab: React.FC<CustomerDetailsTabProps> = ({
@@ -19,9 +19,9 @@ export const CustomerDetailsTab: React.FC<CustomerDetailsTabProps> = ({
   customer,
   isLinked,
   canViewCommercial,
-  displayName,
   onOpenLinkModal,
   onUnlink,
+  isUnlinking = false,
 }) => {
   if (!canViewCommercial) {
     return (
@@ -104,6 +104,7 @@ export const CustomerDetailsTab: React.FC<CustomerDetailsTabProps> = ({
             <button
               type="button"
               onClick={onUnlink}
+              disabled={isUnlinking}
               className="px-3 py-1.5 rounded-xl text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
             >
               Desvincular

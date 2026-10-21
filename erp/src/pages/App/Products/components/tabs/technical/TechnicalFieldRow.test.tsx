@@ -82,6 +82,34 @@ describe('TechnicalFieldRow', () => {
     expect(screen.queryByText('*')).toBeNull();
   });
 
+  it('mostra a característica fixa por padrão e permite torná-la variável', () => {
+    const field: TechnicalFieldDefinition = {
+      id: 'f-variable',
+      name: 'Material da estrutura',
+      isRequired: false,
+    };
+    const onToggleVariable = vi.fn();
+
+    render(
+      <TechnicalFieldRow
+        field={field}
+        formData={{ technicalValues: { 'Material da estrutura': 'MDF' } }}
+        manualFieldNames={[]}
+        onValueChange={vi.fn()}
+        onOpenAttributeModal={vi.fn()}
+        onToggleDepthLength={vi.fn()}
+        onRemoveManualField={vi.fn()}
+        onToggleVariable={onToggleVariable}
+      />
+    );
+
+    const toggle = screen.getByRole('switch', { name: 'Definir Material da estrutura como variável' });
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(toggle.textContent).toContain('Fixo');
+    fireEvent.click(toggle);
+    expect(onToggleVariable).toHaveBeenCalledWith('Material da estrutura');
+  });
+
   it('exibe botão de exclusão para campos manuais e aciona remoção', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f4',

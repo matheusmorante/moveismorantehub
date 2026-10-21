@@ -11,6 +11,7 @@ interface ChatMessageTimelineProps {
   hasOlderMessages?: boolean;
   isLoadingOlderMessages?: boolean;
   onLoadOlderMessages?: () => Promise<number>;
+  error?: string;
 }
 
 export function groupMessagesByDate(
@@ -36,11 +37,13 @@ export function groupMessagesByDate(
   const yesterdayKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
 
   return Object.keys(groups).map((key) => {
-    let dateLabel = key;
+    let dateLabel: string;
     if (key === todayKey) {
       dateLabel = 'Hoje';
     } else if (key === yesterdayKey) {
       dateLabel = 'Ontem';
+    } else if (key === 'Desconhecida') {
+      dateLabel = 'Data desconhecida';
     } else {
       const [y, m, d] = key.split('-');
       dateLabel = `${d}/${m}/${y}`;
@@ -61,6 +64,7 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   conversationId,
   hasOlderMessages = false,
   isLoadingOlderMessages = false,
+  error = '',
   onLoadOlderMessages,
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -85,7 +89,7 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
     } else if (conversationChanged || latestChanged) {
       messagesEndRef.current?.scrollIntoView({ behavior: conversationChanged ? 'auto' : 'smooth' });
     }
-  }, [messages, conversationId]);
+  }, [messages, conversationId, preserveScroll]);
 
   const handleTimelineScroll = async () => {
     const container = timelineRef.current;
@@ -119,7 +123,9 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   const grouped = groupMessagesByDate(filteredMessages);
 
   return (
-    <div ref={timelineRef} onScroll={handleTimelineScroll} className="flex-1 overflow-y-auto p-4 space-y-3 z-0">
+    <div ref={timelineRef} role="region" aria-label="Histórico da conversa" onScroll={handleTimelineScroll} className="flex-1 overflow-y-auto p-4 space-y-3 z-0">
+      {error && <p role="alert" className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950 text-xs text-amber-800 dark:text-amber-300">{error}</p>}
+      {error && hasOlderMessages && onLoadOlderMessages && <button type="button" disabled={isLoadingOlderMessages} onClick={() => void onLoadOlderMessages()} className="text-xs underline text-emerald-700 dark:text-emerald-400">Tentar carregar mensagens anteriores</button>}
       {isLoadingOlderMessages && (
         <div className="sticky top-0 z-20 flex justify-center py-2 text-[11px] text-slate-500">
           <span className="rounded-full bg-white/90 dark:bg-slate-800/90 px-3 py-1 shadow-sm">Carregando mensagens anteriores…</span>
@@ -130,7 +136,7 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
           <div className="w-7 h-7 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
           <span className="text-xs text-slate-400">Carregando mensagens...</span>
         </div>
-      ) : filteredMessages.length === 0 ? (
+      ) : filteredMessages.length === 0 && !error ? (
         <div className="py-16 text-center text-slate-400 text-xs flex flex-col items-center justify-center">
           <i className="bi bi-chat-square-text text-3xl block mb-2 opacity-40"></i>
           {inChatSearch
@@ -149,7 +155,9 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
 
             {/* Balões de Mensagem */}
             {group.items.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} contactName={displayName} />
+              <div key={msg.id} data-message-id={msg.id}>
+                <MessageBubble message={msg} contactName={displayName} />
+              </div>
             ))}
           </div>
         ))

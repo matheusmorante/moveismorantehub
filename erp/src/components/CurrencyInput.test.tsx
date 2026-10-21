@@ -1,9 +1,7 @@
-/**
- * @vitest-environment jsdom
- */
+// @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import * as userEvent from '@testing-library/user-event';
 import CurrencyInput from './CurrencyInput';
 import React from 'react';
 
@@ -24,18 +22,16 @@ describe('CurrencyInput', () => {
     render(<CurrencyInput value={null} onChangeValue={handleChange} testID="curr-input" />);
     const input = screen.getByTestId('curr-input');
 
-    const user = userEvent.setup();
-
-    await user.type(input, '1');
+    await userEvent.type(input, '1');
     expect(handleChange).toHaveBeenLastCalledWith(0.01);
 
-    await user.type(input, '2');
+    await userEvent.type(input, '2');
     expect(handleChange).toHaveBeenLastCalledWith(0.12);
 
-    await user.type(input, '3');
+    await userEvent.type(input, '3');
     expect(handleChange).toHaveBeenLastCalledWith(1.23);
 
-    await user.type(input, '456');
+    await userEvent.type(input, '456');
     expect(handleChange).toHaveBeenLastCalledWith(1234.56);
   });
 

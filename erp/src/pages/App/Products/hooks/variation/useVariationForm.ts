@@ -221,8 +221,15 @@ export function useVariationForm({
   useEffect(() => {
     if (isOpen) {
       void fetchDbAttributes();
+      const varImgs = Array.isArray(variation?.images)
+        ? variation.images.filter(Boolean)
+        : typeof (variation as any)?.image_url === 'string' && (variation as any).image_url.trim()
+          ? (variation as any).image_url.split(',').filter(Boolean)
+          : [];
+      const hasNoImages = varImgs.length === 0;
+
       setActiveTab(
-        isSingleVariation && Boolean(variation) && !isStockistOnly ? 'fotos' : 'identificacao'
+        (isSingleVariation || hasNoImages) && Boolean(variation) && !isStockistOnly ? 'fotos' : 'identificacao'
       );
       const initial = buildInitialVariationFormData(
         parentProduct,

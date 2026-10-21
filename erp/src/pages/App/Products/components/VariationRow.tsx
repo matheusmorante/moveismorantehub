@@ -11,6 +11,8 @@ export interface VariationRowProps {
   readonly removeVariation?: (id: string) => void;
   readonly onDeleteVariation?: (id: string) => void;
   readonly isDeleting?: boolean;
+  readonly isDeletionBlocked?: boolean;
+  readonly deletionDisabledReason?: string;
   readonly isCombo?: boolean;
   readonly onEditCombo?: (id: string) => void;
   readonly onEdit?: (id: string) => void;
@@ -18,6 +20,7 @@ export interface VariationRowProps {
   readonly parentPromoPrice?: number;
   readonly parentSku?: string;
   readonly parentImage?: string | null;
+  readonly inheritParentImages?: boolean;
 }
 
 /**
@@ -29,14 +32,23 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
     variationIndex,
     onDeleteVariation,
     isDeleting = false,
+    isDeletionBlocked = false,
+    deletionDisabledReason,
     isCombo,
     onEditCombo,
     onEdit,
     parentPrice,
     parentPromoPrice,
     parentSku,
+    parentImage,
+    inheritParentImages = false,
   }) => {
-    const varImage = v.images && v.images.length > 0 ? v.images[0] : null;
+    const isEditable = Boolean(onEdit);
+    const varImage = v.images && v.images.length > 0
+      ? v.images[0]
+      : inheritParentImages
+        ? parentImage || null
+        : null;
 
     const regularPrice = Number(v.syncUnitPrice ? parentPrice : v.unitPrice) || 0;
     const promoPrice = Number(v.syncPromoPrice !== false ? parentPromoPrice : v.promoPrice) || 0;
@@ -54,8 +66,12 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
       >
         <div className="flex xl:table-cell xl:px-6 xl:py-4 items-center gap-3">
           <div
-            className="relative h-14 w-14 xl:h-10 xl:w-10 rounded-2xl xl:rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 bg-slate-50 dark:bg-slate-800/50 text-slate-400 cursor-pointer"
-            title="Clique para editar detalhes da variação"
+            className={`relative h-14 w-14 xl:h-10 xl:w-10 rounded-2xl xl:rounded-xl border overflow-hidden flex items-center justify-center shrink-0 shadow-sm transition-all ${isEditable ? 'hover:scale-105 cursor-pointer' : 'cursor-not-allowed opacity-70'} ${
+              varImage
+                ? 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-400'
+                : 'border-amber-300 dark:border-amber-700/60 bg-amber-50/60 dark:bg-amber-955/20 text-amber-500'
+            }`}
+            title={isEditable ? (varImage ? 'Clique para editar detalhes da variação' : 'Sem foto vinculada — clique para vincular (obrigatório)') : 'Produto simples: a variação herda as fotos do produto e não pode ser editada.'}
             onClick={() => onEdit?.(v.id)}
           >
             {varImage ? (
@@ -66,7 +82,10 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
                 size="thumbnail"
               />
             ) : (
-              <i className="bi bi-camera text-sm" aria-hidden="true" />
+              <div className="flex flex-col items-center justify-center text-amber-500">
+                <i className="bi bi-camera text-sm" aria-hidden="true" />
+                <span className="text-[7px] font-black uppercase tracking-tighter hidden xl:block">Foto</span>
+              </div>
             )}
           </div>
 
@@ -87,7 +106,7 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
 
         <div className="flex flex-row flex-wrap items-center justify-between gap-4 xl:contents">
           <div
-            className="flex-1 min-w-[120px] xl:table-cell xl:px-6 xl:py-4 cursor-pointer"
+            className={`flex-1 min-w-[120px] xl:table-cell xl:px-6 xl:py-4 ${isEditable ? 'cursor-pointer' : 'cursor-default'}`}
             onClick={() => onEdit?.(v.id)}
           >
             <div className="flex flex-col">
@@ -155,8 +174,9 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
           <button
             type="button"
             onClick={() => onEdit?.(v.id)}
-            className="p-1.5 rounded-xl transition-all bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-600"
-            title="Editar características da variação"
+            disabled={!isEditable}
+            className="p-1.5 rounded-xl transition-all bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+            title={isEditable ? 'Editar características da variação' : 'Produto simples: a variação herda os campos do produto e não pode ser editada.'}
             aria-label="Editar características da variação"
           >
             <i className="bi bi-pencil-square text-base" aria-hidden="true" />
@@ -165,9 +185,9 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
             <button
               type="button"
               onClick={() => onDeleteVariation(v.id)}
-              disabled={isDeleting}
-              className="p-1.5 rounded-xl transition-all bg-red-50 text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40"
-              title="Excluir variação"
+              disabled={isDeleting || isDeletionBlocked}
+              className={`p-1.5 rounded-xl transition-all disabled:cursor-not-allowed disabled:opacity-40 ${isDeletionBlocked ? 'bg-slate-100 text-slate-400 opacity-40 dark:bg-slate-800 dark:text-slate-500' : 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40'}`}
+              title={isDeletionBlocked ? deletionDisabledReason || 'A variação possui vínculos de estoque ou vendas.' : 'Excluir variação'}
               aria-label={`Excluir variação ${displaySku}`}
             >
               <i className={`bi ${isDeleting ? 'bi-arrow-repeat animate-spin' : 'bi-trash3'} text-base`} aria-hidden="true" />

@@ -89,7 +89,7 @@ export class AiQuotaManager {
   }
 
   /**
-   * Reserva a cota de forma atômica no banco ANTES da chamada.
+   * Valida os limites e registra a pré-alocação no banco antes da chamada externa.
    * REGRA CRÍTICA FAIL CLOSED: Em caso de falha de conexão ou erro no limiter,
    * a chamada é BLOQUEADA. Nunca assume liberado.
    */
@@ -217,7 +217,7 @@ export class AiQuotaManager {
         }
       }
 
-      // 5. Reservar cota com registro atômico de pré-alocação com custo estimado persistido
+      // 5. Registrar pré-alocação com custo estimado antes da chamada externa
       await this.recordPreAllocation({
         service: categoryConfig.model,
         operation: 'pre_allocation_reservation',
@@ -242,23 +242,27 @@ export class AiQuotaManager {
   }
 
   /**
-   * Consulta o consumo atual da extração de características (hoje e na última hora)
+   * Consulta o consumo atual da extração de características (minuto, hora e dia)
    */
   public static async getCharacteristicsUsageStats(): Promise<{
     usedToday: number;
     limitToday: number;
     usedHour: number;
     limitHour: number;
+    usedMinute: number;
+    limitMinute: number;
   }> {
+    const limitMinute = CHARACTERISTICS_AI_LIMITS.perMinute;
     const limitHour = CHARACTERISTICS_AI_LIMITS.perHour;
     const limitToday = CHARACTERISTICS_AI_LIMITS.perDay;
 
     try {
       const today = new Date().toISOString().split('T')[0];
       const startOfDay = `${today}T00:00:00.000Z`;
+      const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-      const [dayRes, hourRes] = await Promise.all([
+      const [dayRes, hourRes, minuteRes] = await Promise.all([
         supabase
           .from('api_usage_logs')
           .select('id', { count: 'exact', head: true })
@@ -273,41 +277,65 @@ export class AiQuotaManager {
           .eq('operation', CHARACTERISTICS_AI_LIMITS.operation)
           .eq('status', 'SUCCESS')
           .gte('created_at', oneHourAgo),
+        supabase
+          .from('api_usage_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('provider', 'gemini')
+          .eq('operation', CHARACTERISTICS_AI_LIMITS.operation)
+          .eq('status', 'SUCCESS')
+          .gte('created_at', oneMinuteAgo),
       ]);
+
+      if (dayRes.error || hourRes.error || minuteRes.error) {
+        return {
+          usedToday: limitToday,
+          limitToday,
+          usedHour: limitHour,
+          limitHour,
+          usedMinute: limitMinute,
+          limitMinute,
+        };
+      }
 
       return {
         usedToday: dayRes.count || 0,
         limitToday,
         usedHour: hourRes.count || 0,
         limitHour,
+        usedMinute: minuteRes.count || 0,
+        limitMinute,
       };
     } catch {
       return {
-        usedToday: 0,
+        usedToday: limitToday,
         limitToday,
-        usedHour: 0,
+        usedHour: limitHour,
         limitHour,
+        usedMinute: limitMinute,
+        limitMinute,
       };
     }
   }
 
   /**
-   * Reserva atômica para a extração de características com trava estrita de 20 req/hora.
+   * Reserva prévia para a extração de características com limites por minuto, hora e dia.
    * REGRA FAIL-CLOSED: Qualquer erro de comunicação com o banco bloqueia preventivamente.
    */
   public static async reserveCharacteristicsQuota(): Promise<QuotaReserveResult> {
     const limitHour = CHARACTERISTICS_AI_LIMITS.perHour;
     const limitToday = CHARACTERISTICS_AI_LIMITS.perDay;
+    const limitMinute = CHARACTERISTICS_AI_LIMITS.perMinute;
     const operation = CHARACTERISTICS_AI_LIMITS.operation;
     const model = CHARACTERISTICS_AI_LIMITS.model;
 
     try {
       const today = new Date().toISOString().split('T')[0];
       const startOfDay = `${today}T00:00:00.000Z`;
+      const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-      // 1. Consultar consumo hoje e na última hora de forma atômica
-      const [dayRes, hourRes] = await Promise.all([
+      // 1. Consultar consumo por minuto, hora e dia antes de reservar a requisição
+      const [dayRes, hourRes, minuteRes] = await Promise.all([
         supabase
           .from('api_usage_logs')
           .select('id', { count: 'exact', head: true })
@@ -322,10 +350,17 @@ export class AiQuotaManager {
           .eq('operation', operation)
           .eq('status', 'SUCCESS')
           .gte('created_at', oneHourAgo),
+        supabase
+          .from('api_usage_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('provider', 'gemini')
+          .eq('operation', operation)
+          .eq('status', 'SUCCESS')
+          .gte('created_at', oneMinuteAgo),
       ]);
 
-      if (dayRes.error || hourRes.error) {
-        const error = dayRes.error || hourRes.error;
+      if (dayRes.error || hourRes.error || minuteRes.error) {
+        const error = dayRes.error || hourRes.error || minuteRes.error;
         console.error(
           '[AiQuotaManager] FAIL CLOSED: Erro de banco ao consultar cotas de características:',
           error?.message
@@ -340,8 +375,20 @@ export class AiQuotaManager {
 
       const usedHour = hourRes.count || 0;
       const usedToday = dayRes.count || 0;
+      const usedMinute = minuteRes.count || 0;
 
-      // 2. Trava da janela deslizante de 1 hora (20 requisições/hora)
+      // 2. Limite móvel por minuto para bloquear rajadas de cliques ou loops
+      if (usedMinute >= limitMinute) {
+        return {
+          allowed: false,
+          errorCode: 'AI_RATE_LIMIT_REACHED',
+          errorMessage: `Limite de segurança atingido: já foram realizadas ${usedMinute}/${limitMinute} requisições de preenchimento com IA no último minuto. Aguarde antes de tentar novamente.`,
+          usedToday,
+          limitToday,
+        };
+      }
+
+      // 3. Trava da janela deslizante de 1 hora (20 requisições/hora)
       if (usedHour >= limitHour) {
         return {
           allowed: false,
@@ -352,7 +399,7 @@ export class AiQuotaManager {
         };
       }
 
-      // 3. Trava diária (80 requisições/dia)
+      // 4. Trava diária (80 requisições/dia)
       if (usedToday >= limitToday) {
         return {
           allowed: false,
@@ -363,7 +410,7 @@ export class AiQuotaManager {
         };
       }
 
-      // 4. Registrar pré-alocação atômica no api_usage_logs
+      // 5. Registrar pré-alocação antes da chamada externa
       await this.recordPreAllocation({
         service: model,
         operation,
@@ -389,7 +436,7 @@ export class AiQuotaManager {
   }
 
   /**
-   * Helper privado para registro atômico de pré-alocação no log de consumo (DRY)
+   * Helper privado para registrar a pré-alocação no log de consumo (DRY)
    */
   private static async recordPreAllocation(params: {
     service: string;
@@ -402,7 +449,7 @@ export class AiQuotaManager {
       typeof window !== 'undefined' &&
       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-    await supabase.from('api_usage_logs').insert([
+    const { error } = await supabase.from('api_usage_logs').insert([
       {
         provider: 'gemini',
         service: params.service,
@@ -417,6 +464,9 @@ export class AiQuotaManager {
         created_at: new Date().toISOString(),
       },
     ]);
+    if (error) {
+      throw new Error(`Falha ao reservar cota de IA no banco: ${error.message}`);
+    }
   }
 }
 

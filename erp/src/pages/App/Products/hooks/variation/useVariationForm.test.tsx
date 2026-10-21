@@ -124,7 +124,7 @@ describe('edição explícita de variação', () => {
       await result.current.handleSubmit({ preventDefault() {} } as React.FormEvent);
     });
 
-    expect(result.current.activeTab).toBe('tecnico');
+    expect(result.current.activeTab).toBe('identificacao');
     expect(onSave).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -249,7 +249,7 @@ describe('edição explícita de variação', () => {
     expect(operation).toHaveBeenCalledTimes(2); expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('vincula no máximo as 15 primeiras fotos do produto pai para variação única e preserva fotos reordenadas', async () => {
+  it('não vincula automaticamente fotos do produto pai e preserva fotos vinculadas manualmente', async () => {
     const singleVar: Variation = {
       ...variation,
       images: [],
@@ -267,21 +267,20 @@ describe('edição explícita de variação', () => {
         isOpen: true,
         onClose,
         parentProduct: parentWithTwentyImages,
-        variation: singleVar, // Edição da variação única
+        variation: singleVar,
         onSave,
       })
     );
 
-    // Deve inicializar com no máximo 15 fotos
-    expect(result.current.formData.images).toHaveLength(15);
-    expect(result.current.formData.images?.[0]).toBe('https://img.test/photo-1.jpg');
-    expect(result.current.formData.images?.[14]).toBe('https://img.test/photo-15.jpg');
+    // Não herda automaticamente fotos do pai
+    expect(result.current.formData.images).toHaveLength(0);
 
-    // Simula reordenação: inverte as duas primeiras fotos
+    // Simula vinculação manual de fotos pelo usuário
     act(() => {
-      const currentImages = [...(result.current.formData.images || [])];
-      const reordered = [currentImages[1], currentImages[0], ...currentImages.slice(2)];
-      result.current.setFormData((prev: any) => ({ ...prev, images: reordered }));
+      result.current.setFormData((prev: any) => ({
+        ...prev,
+        images: ['https://img.test/photo-2.jpg', 'https://img.test/photo-1.jpg'],
+      }));
     });
 
     await act(async () => {
@@ -290,12 +289,9 @@ describe('edição explícita de variação', () => {
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
-        images: expect.arrayContaining(['https://img.test/photo-2.jpg', 'https://img.test/photo-1.jpg']),
+        images: ['https://img.test/photo-2.jpg', 'https://img.test/photo-1.jpg'],
       })
     );
-    const savedVariation = onSave.mock.calls[0][0];
-    expect(savedVariation.images[0]).toBe('https://img.test/photo-2.jpg');
-    expect(savedVariation.images[1]).toBe('https://img.test/photo-1.jpg');
-    expect(savedVariation.images).toHaveLength(15);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

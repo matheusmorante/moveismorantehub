@@ -378,7 +378,7 @@ export const useProducts = (filters?: ProductListFilters) => {
 
       if (isVariation) {
         toast.success(
-          `Variação ${newStatus === 'published' ? 'publicada! Adicionada ao Feed Meta CSV.' : 'ocultada! Removida do Feed Meta CSV.'}`
+          `Variação ${newStatus === 'published' ? 'publicada no Catálogo Digital.' : 'ocultada do Catálogo Digital.'}`
         );
       } else {
         toast.success(

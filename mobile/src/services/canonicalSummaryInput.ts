@@ -12,7 +12,6 @@ import {
 } from '../features/schedule/utils/operationActivity';
 
 export const SUMMARY_GENERATOR_VERSION = 'v1';
-export const TTS_VERSION = 'v1';
 
 export interface CanonicalOrderItem {
   name: string;
@@ -44,7 +43,6 @@ export interface CanonicalSummaryPayload {
   scope: 'today' | 'tomorrow' | 'next_days' | 'next5days';
   targetDates: string[];
   generatorVersion: string;
-  ttsVersion: string;
   orders: CanonicalOrder[];
 }
 
@@ -288,7 +286,6 @@ export function buildCanonicalSummaryPayload(
     scope: mode,
     targetDates,
     generatorVersion: SUMMARY_GENERATOR_VERSION,
-    ttsVersion: TTS_VERSION,
     orders: canonicalOrders,
   };
 }

@@ -227,6 +227,7 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
               finalConsumer={finalConsumer === true}
               recipientIeIndicator={recipientIeIndicator}
               recipientIe={recipientIe}
+              deliveryMethod={deliveryMethod}
               items={nfeItems}
               activeError={fiscalFieldError}
               onClearFieldError={clearFiscalFieldError}

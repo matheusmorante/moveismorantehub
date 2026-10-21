@@ -1,0 +1,128 @@
+// @vitest-environment happy-dom
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useCustomerSupportConversations } from '../hooks/useCustomerSupportConversations';
+import { useCustomerSupportMessages } from '../hooks/useCustomerSupportMessages';
+import type { WhatsAppConversation, WhatsAppMessage } from '../types';
+
+const mocks = vi.hoisted(() => ({ fetchConversations: vi.fn(), fetchConversationCounts: vi.fn(),
+  fetchConversationMessages: vi.fn(), fetchPreviousConversationMessages: vi.fn(), markConversationAsRead: vi.fn() }));
+vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({ ...mocks, mapRowToMessage: (row: unknown) => row }));
+vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
+  channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel: vi.fn(),
+} }));
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((callback) => { resolve = callback; });
+  return { promise, resolve };
+}
+const conversation = (id = 'a') => ({ id, unreadCount: 0 } as WhatsAppConversation);
+const messages = (count: number, prefix = 'message') => Array.from({ length: count }, (_, index) => ({
+  id: `${prefix}-${index}`, conversationId: 'a', timestamp: `2026-10-21T12:${String(index).padStart(2, '0')}:00Z`,
+} as WhatsAppMessage));
+beforeEach(() => {
+  mocks.fetchConversations.mockResolvedValue({ conversations: Array.from({ length: 50 }, (_, index) => conversation(`a-${index}`)), totalCount: 51 });
+  mocks.fetchConversationCounts.mockResolvedValue({ all: 51, mine: 0, unassigned: 0, unread: 0 });
+  mocks.fetchConversationMessages.mockResolvedValue(messages(80));
+  mocks.fetchPreviousConversationMessages.mockResolvedValue([]);
+});
+afterEach(() => { cleanup(); vi.resetAllMocks(); });
+
+describe('Paginação da Inbox', () => {
+  it('descarta a segunda página do filtro antigo ao trocar atendente', async () => {
+    const stale = deferred<{ conversations: WhatsAppConversation[]; totalCount: number }>();
+    const { result, rerender } = renderHook(({ agentId }) => useCustomerSupportConversations({ agentId }), { initialProps: { agentId: 'agent-a' } });
+    await waitFor(() => expect(result.current.conversations).toHaveLength(50));
+    mocks.fetchConversations.mockReturnValueOnce(stale.promise);
+    let loading!: Promise<void>;
+    act(() => { loading = result.current.loadMoreConversations(); });
+    mocks.fetchConversations.mockResolvedValue({ conversations: [conversation('agent-b-result')], totalCount: 1 });
+    rerender({ agentId: 'agent-b' });
+    await waitFor(() => expect(result.current.conversations[0]?.id).toBe('agent-b-result'));
+    await act(async () => { stale.resolve({ conversations: [conversation('old-page')], totalCount: 51 }); await loading; });
+    expect(result.current.conversations.map((row) => row.id)).toEqual(['agent-b-result']);
+    expect(result.current.totalCount).toBe(1);
+    expect(result.current.isLoadingMore).toBe(false);
+  });
+
+  it('impede duas cargas simultâneas da mesma página e atualiza o total para zero', async () => {
+    const pending = deferred<{ conversations: WhatsAppConversation[]; totalCount: number }>();
+    const { result } = renderHook(() => useCustomerSupportConversations({}));
+    await waitFor(() => expect(result.current.conversations).toHaveLength(50));
+    mocks.fetchConversations.mockReturnValueOnce(pending.promise);
+    let first!: Promise<void>;
+    act(() => { first = result.current.loadMoreConversations(); void result.current.loadMoreConversations(); });
+    expect(mocks.fetchConversations).toHaveBeenCalledTimes(2);
+    mocks.fetchConversations.mockResolvedValueOnce({ conversations: [], totalCount: 0 });
+    await act(async () => { pending.resolve({ conversations: [], totalCount: 0 }); await first; });
+    expect(result.current.totalCount).toBe(0);
+    expect(result.current.conversations).toHaveLength(0);
+    expect(result.current.hasMoreConversations).toBe(false);
+  });
+
+  it('preserva a lista e informa falha ao carregar a próxima página', async () => {
+    const { result } = renderHook(() => useCustomerSupportConversations({}));
+    await waitFor(() => expect(result.current.conversations).toHaveLength(50));
+    mocks.fetchConversations.mockRejectedValueOnce(new Error('Falha na consulta.'));
+    await act(() => result.current.loadMoreConversations());
+    expect(result.current.conversations).toHaveLength(50);
+    expect(result.current.conversationsError).toBe('Falha na consulta.');
+    expect(result.current.hasMoreConversations).toBe(true);
+    expect(result.current.isLoadingMore).toBe(false);
+  });
+});
+
+describe('Paginação do histórico', () => {
+  it('não reabre o fim do histórico nem descarta mensagens antigas na atualização', async () => {
+    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation(), onClearUnread: vi.fn() }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    const older = [{ ...messages(1, 'older')[0], timestamp: '2026-10-20T10:00:00Z' }];
+    mocks.fetchPreviousConversationMessages.mockResolvedValueOnce(older);
+    await act(() => result.current.loadOlderMessages());
+    expect(result.current.hasOlderMessages).toBe(false);
+    expect(result.current.messages).toHaveLength(81);
+    await act(() => result.current.refreshMessages());
+    expect(result.current.hasOlderMessages).toBe(false);
+    expect(result.current.messages.some((row) => row.id === 'older-0')).toBe(true);
+    expect(result.current.messages).toHaveLength(81);
+  });
+
+  it('mantém o cursor e o histórico após erro, permitindo repetir a página', async () => {
+    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation(), onClearUnread: vi.fn() }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    mocks.fetchPreviousConversationMessages.mockRejectedValueOnce(new Error('Falha nas anteriores.'));
+    await act(() => result.current.loadOlderMessages());
+    expect(result.current.hasOlderMessages).toBe(true);
+    expect(result.current.messages).toHaveLength(80);
+    expect(result.current.messagesError).toBe('Falha nas anteriores.');
+    await act(() => result.current.loadOlderMessages());
+    expect(mocks.fetchPreviousConversationMessages).toHaveBeenCalledTimes(2);
+    expect(result.current.hasOlderMessages).toBe(false);
+  });
+
+  it('descarta a resposta de uma abertura anterior da mesma conversa', async () => {
+    const stale = deferred<WhatsAppMessage[]>();
+    mocks.fetchConversationMessages.mockReturnValueOnce(stale.promise);
+    const { result, rerender } = renderHook(({ id }) => useCustomerSupportMessages({ selectedConversation: conversation(id), onClearUnread: vi.fn() }), { initialProps: { id: 'a' } });
+    rerender({ id: 'b' });
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    rerender({ id: 'a' });
+    await waitFor(() => expect(mocks.fetchConversationMessages).toHaveBeenCalledTimes(3));
+    await act(async () => stale.resolve(messages(1, 'stale')));
+    expect(result.current.messages).toHaveLength(80);
+    expect(result.current.messages.some((row) => row.id === 'stale-0')).toBe(false);
+    expect(result.current.isLoadingMessages).toBe(false);
+  });
+
+  it('recupera o estado de paginação quando a primeira consulta falha', async () => {
+    mocks.fetchConversationMessages.mockRejectedValueOnce(new Error('Falha inicial.'));
+    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation(), onClearUnread: vi.fn() }));
+    await waitFor(() => expect(result.current.messagesError).toBe('Falha inicial.'));
+    expect(result.current.isLoadingMessages).toBe(false);
+    await act(() => result.current.refreshMessages());
+    expect(result.current.messages).toHaveLength(80);
+    expect(result.current.hasOlderMessages).toBe(true);
+    expect(result.current.messagesError).toBe('');
+  });
+});

@@ -18,7 +18,7 @@ import {
   type OfflineInventoryMatch,
 } from '../services/offlineInventoryCatalog';
 import { InventoryScannerScreen, type InventoryScanFeedback } from './InventoryScannerScreen';
-import { InventoryStagesView } from '../components/InventoryStagesView';
+import { InventoryStagesView } from '../components/inventory-stages/InventoryStagesView';
 import { InventoryFocusMode } from '../components/InventoryFocusMode';
 import { InventoryOperationHeader } from '../components/InventoryOperationHeader';
 import { InventoryOperationFilterBar } from '../components/InventoryOperationFilterBar';

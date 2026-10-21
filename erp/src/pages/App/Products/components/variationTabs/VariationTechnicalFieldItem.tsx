@@ -89,7 +89,6 @@ export interface VariationTechnicalFieldItemProps {
   readonly isManual: boolean;
   readonly isSingleVariation?: boolean;
   readonly onSetOverride: (fieldName: string, value: any) => void;
-  readonly onRemoveOverride: (fieldName: string) => void;
   readonly onRemoveManualField: (fieldName: string) => void;
   readonly onToggleDepthLength: (field: TechnicalFieldDefinition) => void;
   readonly onOpenAttributeModal: () => void;
@@ -103,18 +102,13 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
   isManual,
   isSingleVariation = false,
   onSetOverride,
-  onRemoveOverride,
   onRemoveManualField,
   onToggleDepthLength,
   onOpenAttributeModal,
 }) => {
   const [showTooltip, setShowTooltip] = React.useState(false);
 
-  const {
-    isOverridden,
-    effectiveVal,
-    isInheritedFromParent,
-  } = resolveVariationFieldState(
+  const { effectiveVal } = resolveVariationFieldState(
     field,
     parentNormalizedValues,
     variationAttributeValues,
@@ -128,7 +122,7 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
   };
   const dep = getCharacteristicDependencyState(field.name, combinedValues);
   const isDependencyDisabled = dep.isDisabled;
-  const isActuallyDisabled = isSingleVariation || isInheritedFromParent || isDependencyDisabled;
+  const isActuallyDisabled = isSingleVariation || isDependencyDisabled;
 
   const isDepthOrLength =
     isDepthCharacteristic(field.name) || isLengthCharacteristic(field.name);
@@ -141,15 +135,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
     : isTotal
       ? 'Profundidade total'
       : 'Profundidade';
-
-  const handleSyncToggle = () => {
-    if (isSingleVariation || isDependencyDisabled) return;
-    if (isOverridden) {
-      onRemoveOverride(field.name);
-    } else {
-      onSetOverride(field.name, effectiveVal ?? '');
-    }
-  };
 
   return (
     <div
@@ -199,33 +184,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
         </label>
 
         <div className="flex items-center gap-1 shrink-0">
-          {/* Ícone sync: verde=sincronizado (corrente ligada), cinza=manual (corrente quebrada) */}
-          <button
-            type="button"
-            disabled={isSingleVariation || isDependencyDisabled}
-            onClick={handleSyncToggle}
-            className={`p-1 rounded-lg flex items-center transition-all ${
-              isSingleVariation || isDependencyDisabled
-                ? 'cursor-not-allowed opacity-60'
-                : 'cursor-pointer'
-            } ${
-              isOverridden
-                ? 'text-slate-400 hover:text-slate-600'
-                : 'text-emerald-500 hover:text-emerald-600'
-            }`}
-            title={
-              isDependencyDisabled
-                ? dep.disabledReason
-                : isOverridden
-                  ? 'Manual — clique para sincronizar com o pai'
-                  : 'Sincronizado com o pai — clique para personalizar'
-            }
-          >
-            <i
-              className={`bi ${isOverridden ? 'bi-link-45deg' : 'bi-link'} text-sm`}
-            />
-          </button>
-
           {isManual && (
             <button
               type="button"

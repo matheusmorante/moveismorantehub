@@ -10,12 +10,18 @@ type SearchResult = {
   rank: number;
 };
 
-const { searchNcms } = vi.hoisted(() => ({
+const { searchNcms, getCatalogEntry } = vi.hoisted(() => ({
   searchNcms: vi.fn<(searchTerm: string, maxResults?: number) => Promise<SearchResult[]>>(
     async () => []
   ),
+  getCatalogEntry: vi.fn<(code: string) => Promise<any>>(async (code: string) => ({
+    code,
+    official_description: 'Móveis de madeira, do tipo utilizado em quartos de dormir',
+    active: true,
+    is_active: true,
+  })),
 }));
-vi.mock('@/services/fiscal/ncmService', () => ({ ncmService: { searchNcms } }));
+vi.mock('@/services/fiscal/ncmService', () => ({ ncmService: { searchNcms, getCatalogEntry } }));
 
 afterEach(cleanup);
 
@@ -29,6 +35,12 @@ describe('NCM exibido e submetido pelo modal', () => {
         rank: 1.5,
       },
     ]);
+    getCatalogEntry.mockImplementation(async (code: string) => ({
+      code,
+      official_description: 'Móveis de madeira, do tipo utilizado em quartos de dormir',
+      active: true,
+      is_active: true,
+    }));
   });
 
   it.each(['', '9403', '9403.40.00', 'INVALIDO', '94034000'])(
@@ -42,7 +54,7 @@ describe('NCM exibido e submetido pelo modal', () => {
     }
   );
 
-  it('mantém o resultado do portal aberto até selecionar e propaga o código escolhido', async () => {
+  it('mantém o resultado do portal aberto até selecionar e propaga o código escolhido com descrição no select', async () => {
     const onChange = vi.fn();
     render(<NcmSelect value="" onChange={onChange} />);
 
@@ -58,7 +70,27 @@ describe('NCM exibido e submetido pelo modal', () => {
     expect(document.body.contains(result)).toBe(true);
     fireEvent.click(result);
 
-    expect(onChange).toHaveBeenLastCalledWith('94035000');
-    expect(screen.getByRole('textbox', { name: 'NCM' })).toHaveProperty('value', '94035000');
+    expect(onChange).toHaveBeenLastCalledWith(
+      '94035000',
+      'Móveis de madeira, do tipo utilizado em quartos de dormir'
+    );
+    expect(screen.getByRole('textbox', { name: 'NCM' })).toHaveProperty(
+      'value',
+      '94035000 - Móveis de madeira, do tipo utilizado em quartos de dormir'
+    );
+  });
+
+  it('exibe o número do ncm - descrição da sefaz no campo do select quando carregado com descrição', () => {
+    render(
+      <NcmSelect
+        value="94035000"
+        description="Móveis de madeira, do tipo utilizado em quartos de dormir"
+        onChange={vi.fn()}
+      />
+    );
+    expect(screen.getByRole('textbox', { name: 'NCM' })).toHaveProperty(
+      'value',
+      '94035000 - Móveis de madeira, do tipo utilizado em quartos de dormir'
+    );
   });
 });

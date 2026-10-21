@@ -2,10 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-
-const internalCommentSchema = z.object({
-  comment: z.string().trim().min(1, 'Escreva um comentário antes de salvar.').max(2000, 'O comentário deve ter no máximo 2000 caracteres.'),
-});
+import { supportInternalCommentSchema as internalCommentSchema } from '../../../../../../../shared-utils/customerSupportFormSchemas';
 
 type InternalCommentForm = z.infer<typeof internalCommentSchema>;
 

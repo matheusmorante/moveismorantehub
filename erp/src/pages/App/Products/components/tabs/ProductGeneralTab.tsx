@@ -11,7 +11,6 @@ import ProductCategoryPicker from './sections/ProductCategoryPicker';
 import {
   keepManualCategorySelection,
   matchCategoryByRules,
-  rankCategoryCandidates,
 } from '@/pages/utils/categoryResolutionService';
 import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 
@@ -47,18 +46,46 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
     [availableCategories]
   );
 
-  const productNameCategoryCandidates = React.useMemo(
-    () => rankCategoryCandidates(formData.name || '', selectableCategories),
-    [formData.name, selectableCategories]
-  );
-  const topCategoryCandidate = productNameCategoryCandidates[0];
-  const secondCategoryCandidate = productNameCategoryCandidates[1];
-  const categorySuggestions =
-    !formData.categoryIds?.length && topCategoryCandidate?.score >= 0.7
-      ? secondCategoryCandidate && topCategoryCandidate.score - secondCategoryCandidate.score < 0.12
-        ? productNameCategoryCandidates.slice(0, 2)
-        : [topCategoryCandidate]
-      : [];
+  const autoAppliedNameRef = React.useRef<string>('');
+
+  React.useEffect(() => {
+    const trimmedName = (formData.name || '').trim();
+    if (!trimmedName || trimmedName.length < 3) return;
+    if (formData.categoryIds && formData.categoryIds.length > 0) return;
+    if (autoAppliedNameRef.current === trimmedName) return;
+
+    const timer = setTimeout(() => {
+      if (formData.categoryIds && formData.categoryIds.length > 0) return;
+      const matchedCategory = matchCategoryByRules(trimmedName, selectableCategories as any);
+      if (matchedCategory) {
+        autoAppliedNameRef.current = trimmedName;
+        setFormData((prev) => {
+          if (prev.categoryIds?.length) return prev;
+          const nextIds = keepManualCategorySelection([], matchedCategory.id);
+          const allEnvs = getProductCategoryRootNames(nextIds, [...availableCategories]);
+          let detectedEnv = prev.environment;
+          if (!detectedEnv || !allEnvs.includes(detectedEnv)) {
+            detectedEnv = allEnvs[0] || '';
+          }
+          return {
+            ...prev,
+            categoryIds: nextIds,
+            environment: detectedEnv,
+            availableEnvironments: allEnvs,
+          };
+        });
+        if (setValidationErrors) {
+          setValidationErrors((prev) => {
+            const next = { ...prev };
+            delete next.categoryIds;
+            return next;
+          });
+        }
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [formData.name, formData.categoryIds, selectableCategories, availableCategories, setFormData, setValidationErrors]);
 
   const handleToggleCategory = React.useCallback(
     (catId: string, isChecked: boolean) => {
@@ -150,14 +177,23 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                 if (!formData.categoryIds || formData.categoryIds.length === 0) {
                   const matchedCategory = matchCategoryByRules(
                     formData.name,
-                    availableCategories as any
+                    selectableCategories as any
                   );
                   if (matchedCategory) {
+                    autoAppliedNameRef.current = formData.name.trim();
                     setFormData((prev) => {
                       if (prev.categoryIds?.length) return prev;
+                      const nextIds = keepManualCategorySelection([], matchedCategory.id);
+                      const allEnvs = getProductCategoryRootNames(nextIds, [...availableCategories]);
+                      let detectedEnv = prev.environment;
+                      if (!detectedEnv || !allEnvs.includes(detectedEnv)) {
+                        detectedEnv = allEnvs[0] || '';
+                      }
                       return {
                         ...prev,
-                        categoryIds: keepManualCategorySelection([], matchedCategory.id),
+                        categoryIds: nextIds,
+                        environment: detectedEnv,
+                        availableEnvironments: allEnvs,
                       };
                     });
                     if (setValidationErrors) {
@@ -185,37 +221,6 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
             }`}
             placeholder="Digite o nome do produto (ex: Sofá 3 Lugares)..."
           />
-          {categorySuggestions.length > 0 && (
-            <div
-              className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400"
-              aria-live="polite"
-            >
-              <span>Confira a sugestão pelo nome:</span>
-              {categorySuggestions.map(({ category }) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  className="rounded-md border border-blue-200 px-2 py-1 font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/40"
-                  onClick={() => {
-                    setFormData((prev) => {
-                      if (prev.categoryIds?.length) return prev;
-                      return {
-                        ...prev,
-                        categoryIds: keepManualCategorySelection([], category.id),
-                      };
-                    });
-                    setValidationErrors?.((prev) => {
-                      const next = { ...prev };
-                      delete next.categoryIds;
-                      return next;
-                    });
-                  }}
-                >
-                  Usar {category.name || category.category}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {!isService && (

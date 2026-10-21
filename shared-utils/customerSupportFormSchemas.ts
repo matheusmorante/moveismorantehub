@@ -1,0 +1,59 @@
+import { z } from 'zod';
+
+export const isReservedSupportTag = (tag: string) => tag.trim().toLowerCase().startsWith('status:');
+export const supportInternalCommentSchema = z.object({
+  comment: z.string().trim().min(1, 'Escreva um comentário antes de salvar.').max(2000, 'O comentário deve ter no máximo 2000 caracteres.'),
+});
+export const supportNotesSchema = z.object({ notes: z.string().max(2000, 'Máximo de 2000 caracteres.') });
+export const supportTagSchema = z.object({
+  tagInput: z.string().trim().min(1, 'Digite um marcador.').max(40, 'O marcador deve ter no máximo 40 caracteres.')
+    .refine((tag) => !isReservedSupportTag(tag), 'Marcadores de status são gerenciados pelas ações do atendimento.'),
+});
+
+const supportConversationId = z.string().uuid('Não foi possível identificar a conversa.');
+export const supportConversationCommandSchema = z.discriminatedUnion('intent', [
+  z.object({ intent: z.literal('assign'), conversationId: supportConversationId,
+    assigneeId: z.string().uuid('Selecione um atendente válido.').nullable() }),
+  z.object({ intent: z.literal('status'), conversationId: supportConversationId,
+    status: z.enum(['open', 'closed', 'snoozed']) }),
+  z.object({ intent: z.literal('archive'), conversationId: supportConversationId }),
+]);
+export type SupportConversationCommand = z.infer<typeof supportConversationCommandSchema>;
+
+export const supportFolderDeleteSchema = z.object({
+  folderId: z.string().uuid('Pasta inválida.'),
+  createdBy: z.string().uuid('Autor da pasta inválido.'),
+  currentUserId: z.string().uuid('Não foi possível identificar o atendente.'),
+}).refine((data) => data.createdBy === data.currentUserId, 'Somente o autor pode excluir esta pasta.');
+export type SupportFolderDeleteInput = z.infer<typeof supportFolderDeleteSchema>;
+
+export const supportCustomerSearchSchema = z.object({
+  searchTerm: z.string().trim().min(2, 'Informe pelo menos 2 caracteres para pesquisar cliente por nome, CPF ou telefone.'),
+});
+export const supportCustomerLinkSchema = z.object({
+  conversationId: supportConversationId,
+  customerId: z.string().trim().min(1, 'Selecione um cliente válido.'),
+});
+export type SupportCustomerLinkInput = z.infer<typeof supportCustomerLinkSchema>;
+
+export const supportFolderFormSchema = z.object({
+  name: z.string().trim().min(2, 'O nome deve ter pelo menos 2 caracteres.').max(50, 'O nome deve ter no máximo 50 caracteres.'),
+  status: z.enum(['all', 'open', 'closed', 'snoozed']),
+  assigneeId: z.string().refine((value) => ['all', 'mine', 'unassigned'].includes(value)
+    || z.string().uuid().safeParse(value).success, 'Selecione um atendente válido.'),
+  unread: z.boolean(),
+  customerLink: z.enum(['all', 'linked', 'unlinked']),
+  orders: z.enum(['all', 'with_orders', 'without_orders']),
+  search: z.string().trim().max(100, 'A busca deve ter no máximo 100 caracteres.'),
+  isTestArtifact: z.boolean(),
+});
+export type SupportFolderFormInput = z.infer<typeof supportFolderFormSchema>;
+
+// Provisioning is separate from the UI runner and accepts a reviewed request.
+export const supportFixtureProvisionSchema = z.object({
+  runId: z.string().uuid(),
+  scenarioKey: z.string().regex(/^[a-z][a-z0-9_-]{2,63}$/),
+  contactNames: z.array(z.string().trim().min(1).max(100)).min(1).max(51),
+  history: z.array(supportInternalCommentSchema.shape.comment).min(1).max(81),
+});
+export type SupportFixtureProvisionInput = z.infer<typeof supportFixtureProvisionSchema>;

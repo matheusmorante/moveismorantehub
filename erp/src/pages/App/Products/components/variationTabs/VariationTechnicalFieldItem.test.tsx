@@ -71,9 +71,8 @@ describe('VariationTechnicalFieldItem', () => {
   });
 
   describe('Component rendering & user interactions', () => {
-    it('renderiza o campo, botão de sync e input', () => {
+    it('renderiza o campo editável sem botão individual de fixar', () => {
       const onSetOverride = vi.fn();
-      const onRemoveOverride = vi.fn();
       const onRemoveManualField = vi.fn();
       const onToggleDepthLength = vi.fn();
       const onOpenAttributeModal = vi.fn();
@@ -86,7 +85,6 @@ describe('VariationTechnicalFieldItem', () => {
           formDataTechnicalValues={{}}
           isManual={false}
           onSetOverride={onSetOverride}
-          onRemoveOverride={onRemoveOverride}
           onRemoveManualField={onRemoveManualField}
           onToggleDepthLength={onToggleDepthLength}
           onOpenAttributeModal={onOpenAttributeModal}
@@ -96,13 +94,10 @@ describe('VariationTechnicalFieldItem', () => {
       expect(screen.getByText('Material da estrutura')).toBeInTheDocument();
       const input = screen.getByTestId('input-Material da estrutura') as HTMLInputElement;
       expect(input.value).toBe('Aço');
-      // Sincronizado com o pai -> input desabilitado
-      expect(input).toBeDisabled();
-
-      // Clicar no botão de sync dessincroniza (cria override com valor atual)
-      const syncBtn = screen.getByTitle('Sincronizado com o pai — clique para personalizar');
-      fireEvent.click(syncBtn);
-      expect(onSetOverride).toHaveBeenCalledWith('Material da estrutura', 'Aço');
+      expect(input).not.toBeDisabled();
+      expect(screen.queryByTitle(/Sincronizado com o pai|Manual — clique para sincronizar/)).toBeNull();
+      fireEvent.change(input, { target: { value: 'MDF' } });
+      expect(onSetOverride).toHaveBeenCalledWith('Material da estrutura', 'MDF');
     });
 
     it('exibe botão "Gerenciar" para a característica Cor', () => {
@@ -122,7 +117,6 @@ describe('VariationTechnicalFieldItem', () => {
           variationAttributeValues={{}}
           isManual={false}
           onSetOverride={vi.fn()}
-          onRemoveOverride={vi.fn()}
           onRemoveManualField={vi.fn()}
           onToggleDepthLength={vi.fn()}
           onOpenAttributeModal={onOpenModal}
@@ -151,7 +145,6 @@ describe('VariationTechnicalFieldItem', () => {
           variationAttributeValues={{}}
           isManual={false}
           onSetOverride={vi.fn()}
-          onRemoveOverride={vi.fn()}
           onRemoveManualField={vi.fn()}
           onToggleDepthLength={onToggle}
           onOpenAttributeModal={vi.fn()}

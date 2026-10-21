@@ -48,6 +48,7 @@ export const useProductAiCharacteristicsModal = ({
   const [activeMode, setActiveMode] = useState<'web_search' | 'descriptive_text'>(initialMode);
   const [phase, setPhase] = useState<'input' | 'preview'>('input');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const requestInFlightRef = useRef(false);
   const [suggestedResult, setSuggestedResult] = useState<ProductAiSuggestedCharacteristics | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<Record<string, boolean>>({});
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
@@ -108,7 +109,9 @@ export const useProductAiCharacteristicsModal = ({
       toast.error('Limite de requisições de IA atingido. Aguarde a renovação da cota.');
       return;
     }
+    if (requestInFlightRef.current) return;
 
+    requestInFlightRef.current = true;
     setIsAnalyzing(true);
     try {
       const result = await aiService.extractProductCharacteristicsWithAI({
@@ -137,6 +140,7 @@ export const useProductAiCharacteristicsModal = ({
       console.error('[ProductAiCharacteristicsModal] Erro ao consultar na web:', err);
       toast.error(err.message || 'Falha ao pesquisar na internet com IA.');
     } finally {
+      requestInFlightRef.current = false;
       setIsAnalyzing(false);
     }
   };
@@ -147,7 +151,9 @@ export const useProductAiCharacteristicsModal = ({
       toast.error('Limite de requisições de IA atingido. Aguarde a renovação da cota.');
       return;
     }
+    if (requestInFlightRef.current) return;
 
+    requestInFlightRef.current = true;
     setIsAnalyzing(true);
     try {
       const result = await aiService.extractFromDescriptiveTextWithAI({
@@ -175,6 +181,7 @@ export const useProductAiCharacteristicsModal = ({
       console.error('[ProductAiCharacteristicsModal] Erro ao extrair de texto descritivo:', err);
       toast.error(err.message || 'Falha ao processar texto descritivo com IA.');
     } finally {
+      requestInFlightRef.current = false;
       setIsAnalyzing(false);
     }
   };

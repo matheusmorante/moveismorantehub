@@ -1,0 +1,28 @@
+const { build } = require('esbuild');
+const { resolve } = require('node:path');
+const { writeFile } = require('node:fs/promises');
+
+async function buildCustomerSupportApi() {
+  const root = resolve(__dirname, '../..');
+  const output = resolve(root, 'erp/server/customer-support');
+  const options = { bundle: true, platform: 'node', format: 'cjs', target: 'node24', packages: 'external' };
+  // Keep the shared processor inside one explicit CJS boundary, as in the fiscal build.
+  // Vercel otherwise compiles shared-utils and the ERP under different package types.
+  await build({ ...options,
+    entryPoints: [resolve(root, 'erp/src/pages/utils/customerSupport/whatsappWebhookProcessor.ts')],
+    outfile: resolve(output, 'whatsapp-processor.cjs'),
+  });
+  await writeFile(resolve(output, 'whatsapp-processor.d.cts'),
+    "import type * as Processor from '../../src/pages/utils/customerSupport/whatsappWebhookProcessor.js';\n" +
+    'declare const processor: typeof Processor;\nexport default processor;\n');
+  await build({ ...options,
+    entryPoints: [resolve(root, 'erp/api/whatsapp-webhook.ts')],
+    outfile: resolve(output, 'whatsapp-webhook.cjs'),
+  });
+}
+
+module.exports = { buildCustomerSupportApi };
+if (require.main === module) buildCustomerSupportApi().catch((error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});

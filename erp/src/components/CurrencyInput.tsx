@@ -182,6 +182,7 @@ const CurrencyInput = ({
       onPaste: handlePaste,
       onKeyDown,
       disabled: disabled || readOnly,
+      readOnly,
       placeholder,
       autoFocus,
       'data-testid': testID,
@@ -198,7 +199,7 @@ const CurrencyInput = ({
           </div>
           <input
             {...commonProps}
-            className="w-full min-w-[50px] text-right bg-transparent px-2.5 py-2 outline-none border-none rounded-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-0"
+            className={`w-full min-w-[50px] text-right bg-transparent px-2.5 py-2 outline-none border-none rounded-none text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-0 ${className || ''}`}
           />
         </div>
       );

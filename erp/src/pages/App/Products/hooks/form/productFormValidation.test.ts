@@ -1,0 +1,204 @@
+import { describe, expect, it } from 'vitest';
+import type Product from '@/pages/types/product.type';
+import { createProductFormSchema, validateProductFormSubmission } from './productFormValidation';
+
+describe('validateProductFormSubmission - validação de conformidade de fotos por variação', () => {
+  const baseProduct: Partial<Product> = {
+    name: 'Mesa de Centro',
+    unitPrice: 150,
+    hasVariations: false,
+    categoryIds: ['sala-de-estar'],
+    mainSupplierId: 'sup-1',
+    description: 'Mesa elegante para sala.',
+    images: ['https://img.test/mesa-pai.jpg'],
+  };
+
+  it('bloqueia conclusão do cadastro se a variação não possui foto vinculada', () => {
+    const productWithEmptyVariation: Partial<Product> = {
+      ...baseProduct,
+      images: [],
+      variations: [
+        {
+          id: 'var-1',
+          name: 'Mesa de Centro Carvalho',
+          sku: 'MC-CARV',
+          stock: 5,
+          unitPrice: 150,
+          active: true,
+          attributes: [{ name: 'Cor', value: 'Carvalho' }],
+          images: [],
+        },
+      ],
+    };
+
+    const result = validateProductFormSubmission(productWithEmptyVariation, {
+      isStockistOnly: false,
+      saveAsDraft: false,
+    });
+
+    expect(result.errors.variations).toBe(true);
+    expect(result.errors.variationRegistration).toBe(true);
+    expect(result.errorMessage).toContain('Mesa de Centro Carvalho');
+    expect(result.errorMessage).toContain('pelo menos 1 foto vinculada');
+    expect(result.invalidVariation).toBeDefined();
+    expect(result.invalidVariation?.issue.tab).toBe('fotos');
+    expect(result.invalidVariation?.variation.id).toBe('var-1');
+  });
+
+  it('identifica exatamente a variação sem fotos quando há múltiplas variações', () => {
+    const productWithMultipleVariations: Partial<Product> = {
+      ...baseProduct,
+      hasVariations: true,
+      variations: [
+        {
+          id: 'var-1',
+          name: 'Mesa de Centro Carvalho',
+          sku: 'MC-CARV',
+          stock: 5,
+          unitPrice: 150,
+          active: true,
+          attributes: [{ name: 'Cor', value: 'Carvalho' }],
+          images: ['https://img.test/mesa-carvalho.jpg'],
+        },
+        {
+          id: 'var-2',
+          name: 'Mesa de Centro Nogueira',
+          sku: 'MC-NOG',
+          stock: 3,
+          unitPrice: 160,
+          active: true,
+          attributes: [{ name: 'Cor', value: 'Nogueira' }],
+          images: [],
+        },
+      ],
+    };
+
+    const result = validateProductFormSubmission(productWithMultipleVariations, {
+      isStockistOnly: false,
+      saveAsDraft: false,
+    });
+
+    expect(result.errors.variations).toBe(true);
+    expect(result.errors.variationRegistration).toBe(true);
+    expect(result.errorMessage).toContain('Mesa de Centro Nogueira');
+    expect(result.invalidVariation?.variation.id).toBe('var-2');
+    expect(result.invalidVariation?.issue.tab).toBe('fotos');
+  });
+
+  it('permite salvar rascunho mesmo com variação sem foto vinculada', () => {
+    const draftProduct: Partial<Product> = {
+      ...baseProduct,
+      images: [],
+      variations: [
+        {
+          id: 'var-1',
+          name: 'Mesa Rascunho',
+          sku: 'MC-RASC',
+          stock: 0,
+          unitPrice: 0,
+          active: false,
+          attributes: [],
+          images: [],
+        },
+      ],
+    };
+
+    const result = validateProductFormSubmission(draftProduct, {
+      isStockistOnly: false,
+      saveAsDraft: true,
+    });
+
+    // Em rascunho, a regra de fotos por variação não bloqueia a submissão
+    expect(result.errors.variations).toBeUndefined();
+    expect(result.errors.variationRegistration).toBeUndefined();
+    expect(result.invalidVariation).toBeUndefined();
+  });
+
+  it('aceita foto via campo image_url legado caso exista', () => {
+    const productWithLegacyUrl: Partial<Product> = {
+      ...baseProduct,
+      variations: [
+        {
+          id: 'var-1',
+          name: 'Mesa de Centro Carvalho',
+          sku: 'MC-CARV',
+          stock: 5,
+          unitPrice: 150,
+          active: true,
+          attributes: [{ name: 'Cor', value: 'Carvalho' }],
+          image_url: 'https://img.test/foto-legada.jpg',
+        } as any,
+      ],
+    };
+
+    const result = validateProductFormSubmission(productWithLegacyUrl, {
+      isStockistOnly: false,
+      saveAsDraft: false,
+    });
+
+    expect(result.errors.variations).toBeUndefined();
+    expect(result.invalidVariation).toBeUndefined();
+  });
+});
+
+describe('createProductFormSchema - modos de variação', () => {
+  const base = {
+    name: 'Poltrona',
+    description: 'Poltrona para sala',
+    itemType: 'product',
+    productKind: 'normal',
+    unitPrice: 100,
+    hasVariations: false,
+    categoryIds: ['sala'],
+    mainSupplierId: 'supplier-1',
+    images: ['https://img.test/pai.jpg'],
+  };
+  const variation = (id: string, name: string, images: string[] = ['https://img.test/var.jpg']) => ({
+    id,
+    name,
+    sku: `SKU-${id}`,
+    stock: 1,
+    unitPrice: 100,
+    active: true,
+    attributes: [],
+    images,
+  });
+  const schema = createProductFormSchema({ isStockistOnly: false, saveAsDraft: false });
+
+  it('aceita a foto herdada do produto pai no modo simples', () => {
+    const result = schema.safeParse({ ...base, variations: [variation('1', 'Poltrona', [])] });
+    expect(result.success).toBe(true);
+  });
+
+  it('exige duas variações e nomes completos distintos no modo múltiplo', () => {
+    const tooFew = schema.safeParse({
+      ...base,
+      hasVariations: true,
+      variations: [variation('1', 'Poltrona Azul')],
+    });
+    expect(tooFew.error?.issues.some((issue) => issue.message.includes('pelo menos 2 variações'))).toBe(true);
+
+    const duplicateNames = schema.safeParse({
+      ...base,
+      hasVariations: true,
+      variations: [variation('1', 'Poltrona Azul'), variation('2', 'POLTRONA ÁZUL')],
+    });
+    expect(duplicateNames.error?.issues.some((issue) => issue.message.includes('nomes completos'))).toBe(true);
+  });
+
+  it('mantém fotos próprias obrigatórias no modo múltiplo e deixa rascunhos incompletos', () => {
+    const missingVariationPhoto = schema.safeParse({
+      ...base,
+      hasVariations: true,
+      variations: [variation('1', 'Poltrona Azul'), variation('2', 'Poltrona Verde', [])],
+    });
+    expect(missingVariationPhoto.error?.issues.some((issue) => issue.message.includes('Poltrona Verde') && issue.message.includes('foto'))).toBe(true);
+
+    const draft = createProductFormSchema({ isStockistOnly: false, saveAsDraft: true }).safeParse({
+      name: 'Rascunho',
+      hasVariations: true,
+      variations: [variation('1', '', [])],
+    });
+    expect(draft.success).toBe(true);
+  });
+});

@@ -244,7 +244,14 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
               <span className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground line-through">
                 {formatCurrency(originalPrice)}
               </span>
-              <span className="shrink-0 whitespace-nowrap rounded border border-[#00A650] px-1 text-[9px] font-bold text-[#00A650]">
+              <span
+                className={cn(
+                  'shrink-0 whitespace-nowrap rounded border px-1 text-[9px] font-bold',
+                  isSalvados
+                    ? 'border-orange-500 text-orange-500'
+                    : 'border-[#00A650] text-[#00A650]'
+                )}
+              >
                 {Math.floor(((originalPrice - displayPrice) / originalPrice) * 100)}% OFF
               </span>
             </div>

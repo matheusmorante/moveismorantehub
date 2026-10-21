@@ -1,4 +1,5 @@
 export * from './types';
+export * from './InboundInvoiceMappingsModal';
 export * from './inboundCostUtils';
 export * from './inboundMappings.styles';
 export * from './InboundSupplierSection';

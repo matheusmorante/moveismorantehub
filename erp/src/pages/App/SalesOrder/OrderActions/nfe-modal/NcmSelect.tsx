@@ -2,10 +2,28 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 
+function formatNcmDisplay(code?: string, desc?: string | null): string {
+  if (!code) return '';
+  const clean = code.replace(/\D/g, '').slice(0, 8);
+  if (!clean) return code;
+  if (desc && desc.trim()) {
+    return `${clean} - ${desc.trim()}`;
+  }
+  return clean;
+}
+
+function parseNcmCode(val: string): string {
+  if (!val) return '';
+  const firstPart = val.includes(' - ') ? val.split(' - ')[0] : val;
+  const digits = firstPart.replace(/\D/g, '');
+  return digits.length >= 8 ? digits.slice(0, 8) : firstPart.trim();
+}
+
 interface NcmSelectProps {
   id?: string;
   value: string;
-  onChange: (ncm: string) => void;
+  description?: string;
+  onChange: (ncm: string, description?: string) => void;
   onBlur?: () => void;
   placeholder?: string;
   hasError?: boolean;
@@ -14,12 +32,14 @@ interface NcmSelectProps {
 export const NcmSelect: React.FC<NcmSelectProps> = ({
   id,
   value,
+  description,
   onChange,
   onBlur,
   placeholder = 'Selecione ou digite o NCM...',
   hasError = false,
 }) => {
-  const [searchQuery, setSearchQuery] = useState(value || '');
+  const [currentDescription, setCurrentDescription] = useState(description || '');
+  const [searchQuery, setSearchQuery] = useState(() => formatNcmDisplay(value, description));
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [results, setResults] = useState<NcmSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,8 +77,33 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
   }, [isDropdownOpen, searchQuery, results.length]);
 
   useEffect(() => {
-    setSearchQuery(value || '');
-  }, [value]);
+    if (description) {
+      setCurrentDescription(description);
+      setSearchQuery(formatNcmDisplay(value, description));
+    } else {
+      const clean = (value || '').replace(/\D/g, '').slice(0, 8);
+      if (clean.length === 8 && typeof ncmService?.getCatalogEntry === 'function') {
+        let cancelled = false;
+        Promise.resolve(ncmService.getCatalogEntry(clean))
+          .then((entry) => {
+            if (!cancelled && entry?.official_description) {
+              setCurrentDescription(entry.official_description);
+              setSearchQuery(formatNcmDisplay(clean, entry.official_description));
+            } else if (!cancelled) {
+              setSearchQuery(value || '');
+            }
+          })
+          .catch(() => {
+            if (!cancelled) setSearchQuery(value || '');
+          });
+        return () => {
+          cancelled = true;
+        };
+      } else {
+        setSearchQuery(value || '');
+      }
+    }
+  }, [value, description]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -74,27 +119,36 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
   }, []);
 
   useEffect(() => {
-    const fetchNcms = async () => {
-      if (searchQuery.trim().length < 2) {
-        setResults([]);
-        return;
-      }
-      setIsLoading(true);
+    const term = searchQuery.includes(' - ')
+      ? searchQuery.split(' - ')[0].trim()
+      : searchQuery.trim();
+    if (term.length < 2) {
+      setResults([]);
+      return;
+    }
+    if (!isDropdownOpen && searchQuery.includes(' - ')) {
+      return;
+    }
+    setIsLoading(true);
+    let cancelled = false;
+    const timer = setTimeout(async () => {
       try {
-        const res = await ncmService.searchNcms(searchQuery, 10);
-        setResults(res);
+        const res = await ncmService.searchNcms(term, 10);
+        if (!cancelled) setResults(res);
       } catch (err) {
         console.error('Erro ao buscar NCMs:', err);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
     };
+  }, [searchQuery, isDropdownOpen]);
 
-    const timer = setTimeout(fetchNcms, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  const cleanVal = (searchQuery || '').replace(/\D/g, '');
+  const cleanVal = parseNcmCode(searchQuery).replace(/\D/g, '').slice(0, 8);
   const isNcmValid = cleanVal.length === 8;
 
   return (
@@ -104,18 +158,35 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
           id={id}
           ref={inputRef}
           aria-label="NCM"
+          title={searchQuery}
           type="text"
           value={searchQuery}
           onChange={(e) => {
             const val = e.target.value;
             setSearchQuery(val);
-            // Even an incomplete/invalid edit must replace the form value and be rejected,
-            // rather than displaying it while submitting the previous valid code.
-            onChange(val);
+            const code = val.includes(' - ') ? parseNcmCode(val) : val;
+            onChange(code);
             setIsDropdownOpen(true);
           }}
-          onFocus={() => setIsDropdownOpen(true)}
-          onBlur={() => setTimeout(() => onBlur?.(), 150)}
+          onFocus={(e) => {
+            setIsDropdownOpen(true);
+            e.target.select();
+          }}
+          onBlur={() => {
+            const code = parseNcmCode(searchQuery);
+            if (/^\d{8}$/.test(code) && typeof ncmService?.getCatalogEntry === 'function') {
+              Promise.resolve(ncmService.getCatalogEntry(code))
+                .then((entry) => {
+                  if (entry?.official_description) {
+                    setCurrentDescription(entry.official_description);
+                    setSearchQuery(formatNcmDisplay(code, entry.official_description));
+                    onChange(code, entry.official_description);
+                  }
+                })
+                .catch(() => undefined);
+            }
+            setTimeout(() => onBlur?.(), 150);
+          }}
           placeholder={placeholder}
           className={`w-full pl-3 pr-7 py-1.5 bg-white dark:bg-slate-950 border-0 border-b-2 rounded-none outline-none text-xs font-mono font-bold transition-all ${
             hasError
@@ -162,8 +233,10 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
                   key={item.code}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onChange(item.code);
-                    setSearchQuery(item.code);
+                    const formatted = `${item.code} - ${item.official_description}`;
+                    setCurrentDescription(item.official_description);
+                    setSearchQuery(formatted);
+                    onChange(item.code, item.official_description);
                     setIsDropdownOpen(false);
                   }}
                   className="px-2.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/70 cursor-pointer transition-colors text-left rounded-xl group"
@@ -190,7 +263,7 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
               ))
             ) : (
               <div className="p-3 text-center text-xs text-slate-400">
-                Nenhum NCM encontrado para "{searchQuery}".
+                Nenhum NCM encontrado.
               </div>
             )}
           </div>,

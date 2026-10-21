@@ -5,27 +5,15 @@ import {
   extractMessageContent,
   processWhatsAppWebhookPayload,
 } from '@/pages/utils/customerSupport/whatsappWebhookProcessor';
-import {
-  normalizeToE164,
-  getPhoneLookupCandidates,
-  parseBrazilianPhone,
-  formatPhoneForDisplay,
-} from '@/pages/utils/customerSupport/phoneUtils';
-import {
-  matchCustomerByPhone,
-  manuallyLinkCustomer,
-  unlinkCustomer,
-} from '@/pages/utils/customerSupport/customerMatchingService';
+import { matchCustomerByPhone } from '@/pages/utils/customerSupport/customerMatchingService';
 import {
   getCustomerOrders,
-  mapOrderToSupportSummary,
   formatBRL,
 } from '@/pages/utils/customerSupport/supportOrdersService';
 import { whatsappSupportGuard } from '@/pages/utils/customerSupport/whatsappSupportGuard';
 import { canPerform } from '@/pages/utils/permissionService';
 import {
   fetchConversations,
-  fetchConversationMessages,
   markConversationAsRead,
   toggleArchiveConversation,
   assignConversation,
@@ -45,6 +33,7 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
   // 1. Recebimento de mensagem válida
   it('1. deve processar o recebimento de uma mensagem válida da Meta Cloud API', async () => {
     const mockSupabase: any = {
+      rpc: vi.fn().mockResolvedValue({ data: { conversation_id: 'conv-123', message_id: 'msg-123', inserted: true, reopened: false }, error: null }),
       from: vi.fn((table: string) => {
         if (table === 'whatsapp_messages') {
           return {
@@ -135,6 +124,7 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
   it('3. deve ignorar eventos duplicados com o mesmo api_message_id (idempotência)', async () => {
     const existingWamid = 'wamid.DUPLICATE_TEST_ID';
     const mockSupabase: any = {
+      rpc: vi.fn().mockResolvedValue({ data: { conversation_id: 'conv-123', message_id: 'msg-already-persisted', inserted: false, reopened: false }, error: null }),
       from: vi.fn((table: string) => {
         if (table === 'whatsapp_messages') {
           return {
@@ -179,11 +169,13 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
     const res = await processWhatsAppWebhookPayload(mockSupabase, payload);
     expect(res.processedMessages).toBe(0);
     expect(res.duplicatesIgnored).toBe(1);
+    expect(mockSupabase.rpc).toHaveBeenCalledTimes(1);
   });
 
   // 4. Processamento de múltiplas mensagens no mesmo payload
   it('4. deve processar todas as mensagens de múltiplos entries e changes no payload', async () => {
     const mockSupabase: any = {
+      rpc: vi.fn().mockResolvedValue({ data: { conversation_id: 'conv-1', message_id: 'msg-1', inserted: true, reopened: false }, error: null }),
       from: vi.fn((table: string) => {
         if (table === 'whatsapp_messages') {
           return {
@@ -405,6 +397,7 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
     const updateMock = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
     const mockSupabase: any = {
       from: vi.fn(() => ({ update: updateMock })),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     };
 
     await markConversationAsRead(mockSupabase, 'conv-abc');
@@ -413,9 +406,7 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
     );
 
     await toggleArchiveConversation(mockSupabase, 'conv-abc', false);
-    expect(updateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ is_archived: true })
-    );
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('customer_support_set_conversation_status', { p_conversation_id: 'conv-abc', p_status: 'closed' });
   });
 
   // 16. Bloqueio de envio pelo frontend
@@ -467,121 +458,38 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
     expect(grouped[1].dateLabel).toBe('Hoje');
   });
 
-  // 21. Atribuição de conversa a atendente e geração de evento de sistema
-  it('21. deve atribuir conversa a um atendente e registrar evento de sistema na timeline', async () => {
-    const updateMock = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
-    const insertMock = vi.fn().mockResolvedValue({ error: null });
-    const mockSupabase: any = {
-      from: vi.fn((table: string) => {
-        if (table === 'whatsapp_conversations') return { update: updateMock };
-        if (table === 'whatsapp_messages') return { insert: insertMock };
-        return {};
-      }),
-    };
-
-    const success = await assignConversation(
-      mockSupabase,
-      'conv-xyz',
-      'user-123',
-      'Matheus Morante',
-      'Admin'
-    );
-
-    expect(success).toBe(true);
-    expect(updateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ assigned_to: 'user-123' })
-    );
-    expect(insertMock).toHaveBeenCalledWith([
-      expect.objectContaining({
-        message_type: 'system_event',
-        text_content: expect.stringContaining('Matheus Morante'),
-      }),
-    ]);
+  // Internal commands: transport proof only; PostgreSQL transaction proof needs owned fixtures.
+  it('21. delega atribuição ao RPC sem enviar autoria nem gravar evento no navegador', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    const from = vi.fn();
+    expect(await assignConversation({ rpc, from } as any, 'conv-xyz', 'user-123', 'Nome falso', 'Autor falso')).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('customer_support_assign_conversation', { p_conversation_id: 'conv-xyz', p_assignee_id: 'user-123' });
+    expect(from).not.toHaveBeenCalled();
   });
 
-  // 22. Atualização de status da conversa (open, closed, snoozed)
-  it('22. deve atualizar status da conversa e registrar evento de sistema', async () => {
-    const updateMock = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
-    const insertMock = vi.fn().mockResolvedValue({ error: null });
-    const mockSupabase: any = {
-      from: vi.fn((table: string) => {
-        if (table === 'whatsapp_conversations') return { update: updateMock };
-        if (table === 'whatsapp_messages') return { insert: insertMock };
-        return {};
-      }),
-    };
-
-    const success = await updateConversationStatus(
-      mockSupabase,
-      'conv-xyz',
-      'closed',
-      [],
-      'Matheus'
-    );
-
-    expect(success).toBe(true);
-    expect(updateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ is_archived: true, tags: ['status:closed'] })
-    );
-    expect(insertMock).toHaveBeenCalledWith([
-      expect.objectContaining({
-        message_type: 'system_event',
-        text_content: expect.stringContaining('Fechado / Resolvido'),
-      }),
-    ]);
-
-    // Cálculo puro de status
+  it('22. delega status ao RPC sem enviar snapshot antigo de marcadores', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    const from = vi.fn();
+    expect(await updateConversationStatus({ rpc, from } as any, 'conv-xyz', 'closed', ['old-tag'], 'Autor falso')).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('customer_support_set_conversation_status', { p_conversation_id: 'conv-xyz', p_status: 'closed' });
+    expect(from).not.toHaveBeenCalled();
     expect(computeConversationStatus({ is_archived: true, tags: [] })).toBe('closed');
     expect(computeConversationStatus({ is_archived: false, tags: ['status:snoozed'] })).toBe('snoozed');
     expect(computeConversationStatus({ is_archived: false, tags: [] })).toBe('open');
   });
 
-  // 23. Criação de comentário/anotação interna da equipe no chat
-  it('23. deve criar comentário interno em whatsapp_messages sem disparar à Meta', async () => {
-    const insertMock = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({
-          data: {
-            id: 'msg-note-1',
-            conversation_id: 'conv-xyz',
-            direction: 'outbound',
-            message_type: 'internal_note',
-            text_content: 'Cliente solicitou entrega apenas no período da tarde.',
-            raw_payload: { author_name: 'Ana Silva', author_role: 'Vendedora' },
-            timestamp: new Date().toISOString(),
-          },
-          error: null,
-        }),
-      }),
-    });
-
-    const updateMock = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
-
-    const mockSupabase: any = {
-      from: vi.fn((table: string) => {
-        if (table === 'whatsapp_messages') return { insert: insertMock };
-        if (table === 'whatsapp_conversations') return { update: updateMock };
-        return {};
-      }),
-    };
-
-    const note = await createInternalNoteMessage(
-      mockSupabase,
-      'conv-xyz',
-      'Cliente solicitou entrega apenas no período da tarde.',
-      { id: 'user-456', name: 'Ana Silva', role: 'Vendedora' }
-    );
-
-    expect(note).not.toBeNull();
+  it('23. usa a autoria do comentário retornado pelo servidor sem despachar à Meta', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [{
+      id: 'msg-note-1', conversation_id: 'conv-xyz', direction: 'outbound', message_type: 'internal_note',
+      text_content: 'Comentário válido', raw_payload: { author_name: 'Ana Silva', author_role: 'Vendedora' },
+      timestamp: '2026-10-21T12:00:00Z',
+    }], error: null });
+    const from = vi.fn();
+    const note = await createInternalNoteMessage({ rpc, from } as any, 'conv-xyz', ' Comentário válido ', { id: 'forged', name: 'Autor falso' });
     expect(note?.messageType).toBe('internal_note');
     expect(note?.authorName).toBe('Ana Silva');
-    expect(note?.authorRole).toBe('Vendedora');
-    expect(insertMock).toHaveBeenCalledWith([
-      expect.objectContaining({
-        message_type: 'internal_note',
-        direction: 'outbound',
-      }),
-    ]);
+    expect(rpc).toHaveBeenCalledWith('customer_support_add_internal_note', { p_conversation_id: 'conv-xyz', p_text: 'Comentário válido' });
+    expect(from).not.toHaveBeenCalled();
   });
 
   // 24. Filtragem por filas "mine" e "unassigned" com hidratação

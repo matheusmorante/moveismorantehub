@@ -22,7 +22,7 @@ export const getVariationFormTabs = (
     ...(!isStockistOnly
       ? [
           { id: 'fotos' as const, label: 'Fotos vinculadas', icon: 'bi-images' },
-          { id: 'tecnico' as const, label: 'Características', icon: 'bi-gear' },
+          { id: 'tecnico' as const, label: 'Características específicas', icon: 'bi-gear' },
           { id: 'descricao' as const, label: 'Descrição', icon: 'bi-file-text' },
         ]
       : []),

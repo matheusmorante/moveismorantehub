@@ -412,16 +412,10 @@ port = 54327
 [functions.analyze-inbound-invoice]
 verify_jwt = false
 
-[functions.generate-delivery-summary-audio]
-verify_jwt = false
-
 [functions.gemini-live-token]
 verify_jwt = false
 
 [functions.mobile-gemini-proxy]
-verify_jwt = false
-
-[functions.refresh-delivery-summaries]
 verify_jwt = false
 
 [functions.get-android-apk-download]

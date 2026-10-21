@@ -1683,7 +1683,7 @@ function resolveOrderFiscalModel(order, options = {}) {
 function fiscalPresence(model, deliveryMethod, presence) {
   if (model === "65") {
     if (deliveryMethod === "delivery") return "4";
-    if (deliveryMethod === "pickup" && presence === "4") return "1";
+    if (deliveryMethod === "pickup") return "1";
     return presence || "1";
   }
   if (deliveryMethod === "delivery" && !["2", "3", "9"].includes(presence || "")) return "9";
@@ -3833,6 +3833,89 @@ function createHmlTechnicalRuleSet(snapshot, savedDecision, csosnConfiguration) 
   };
 }
 
+// shared-utils/fiscalTransportModel.ts
+function resolveEffectiveFiscalDeliveryMethod(input) {
+  if (input.fiscalModel === "65" && typeof input.hasTransport === "boolean") {
+    return input.hasTransport ? "delivery" : "pickup";
+  }
+  if (input.fiscalModel === "55") {
+    if (input.transportResponsible === "CUSTOMER") return "pickup";
+    if (input.transportResponsible === "OWN_COMPANY" || input.transportResponsible === "THIRD_PARTY") {
+      return "delivery";
+    }
+  }
+  return input.orderDeliveryMethod;
+}
+function resolveTransport(input) {
+  const { fiscalModel, deliveryMethod } = input;
+  if (fiscalModel === "65" && deliveryMethod === "pickup") {
+    return {
+      hasTransport: false,
+      transportResponsible: "NONE",
+      modFrete: "9",
+      modFreteDescription: "9 \u2014 Sem ocorr\xEAncia de transporte",
+      isEmitterTransporter: false,
+      requiresTransporterData: false,
+      allowsEditHasTransport: false,
+      derivedReason: "Definido pela modalidade selecionada para esta emiss\xE3o.",
+      statusBadge: "9 \u2014 Sem ocorr\xEAncia de transporte [OFF \u{1F512}]",
+      friendlyDescription: "Sem ocorr\xEAncia de transporte nesta NFC-e"
+    };
+  }
+  if (fiscalModel === "55" && deliveryMethod === "pickup") {
+    return {
+      hasTransport: true,
+      transportResponsible: "CUSTOMER",
+      modFrete: "4",
+      modFreteDescription: "4 \u2014 Transporte pr\xF3prio por conta do destinat\xE1rio",
+      isEmitterTransporter: false,
+      requiresTransporterData: false,
+      allowsEditHasTransport: false,
+      derivedReason: "Definido pela modalidade selecionada para esta emiss\xE3o.",
+      statusBadge: "4 \u2014 Transporte pr\xF3prio pelo destinat\xE1rio [ON \u{1F512}]",
+      friendlyDescription: "Transporte pr\xF3prio por conta do destinat\xE1rio nesta NF-e"
+    };
+  }
+  const responsible = input.transportResponsible === "THIRD_PARTY" ? "THIRD_PARTY" : "OWN_COMPANY";
+  if (responsible === "THIRD_PARTY") {
+    const contract = input.freightContractResponsible || "SENDER";
+    let modFrete = "0";
+    let modDesc = "0 \u2014 Contrata\xE7\xE3o do frete por conta do remetente (CIF)";
+    if (contract === "RECIPIENT") {
+      modFrete = "1";
+      modDesc = "1 \u2014 Contrata\xE7\xE3o do frete por conta do destinat\xE1rio (FOB)";
+    } else if (contract === "THIRD_PARTY") {
+      modFrete = "2";
+      modDesc = "2 \u2014 Contrata\xE7\xE3o do frete por conta de terceiros";
+    }
+    return {
+      hasTransport: true,
+      transportResponsible: "THIRD_PARTY",
+      freightContractResponsible: contract,
+      modFrete,
+      modFreteDescription: modDesc,
+      isEmitterTransporter: false,
+      requiresTransporterData: true,
+      allowsEditHasTransport: false,
+      derivedReason: "Definido automaticamente: pedido com entrega.",
+      statusBadge: `Transporte ${modFrete} \u2014 Transportador terceirizado [ON \u{1F512}]`,
+      friendlyDescription: "Transportador terceirizado \u2014 definido pelo pedido com entrega"
+    };
+  }
+  return {
+    hasTransport: true,
+    transportResponsible: "OWN_COMPANY",
+    modFrete: "3",
+    modFreteDescription: "3 \u2014 Transporte pr\xF3prio por conta do remetente",
+    isEmitterTransporter: true,
+    requiresTransporterData: false,
+    allowsEditHasTransport: false,
+    derivedReason: "Definido automaticamente: pedido com entrega.",
+    statusBadge: "3 \u2014 Entrega pela pr\xF3pria empresa [ON \u{1F512}]",
+    friendlyDescription: "Entrega pela pr\xF3pria empresa \u2014 definido pelo pedido com entrega"
+  };
+}
+
 // api/nfe/xml/xmlPrimitives.ts
 var escapeXml = (value) => String(value).replace(
   /[&<>"']/g,
@@ -3987,13 +4070,19 @@ function serializeFiscalDocument(snapshot, document, ruleSet, identity) {
     throw new Error("Opera\xE7\xE3o fiscal n\xE3o suportada pelo serializer.");
   if (document.model === "65" && operation.destination !== "1")
     throw new Error("NFC-e n\xE3o permite opera\xE7\xE3o interestadual.");
-  if (document.model === "65" && snapshot.order.data.shipping?.deliveryMethod === "delivery" && operation.presence !== "4")
+  const orderShipping = snapshot.order.data.shipping || {};
+  const effectiveDeliveryMethod = resolveEffectiveFiscalDeliveryMethod({
+    fiscalModel: document.model,
+    orderDeliveryMethod: String(orderShipping.deliveryMethod || ""),
+    hasTransport: snapshot.emissionRequest.hasTransport,
+    transportResponsible: snapshot.emissionRequest.transportResponsible
+  });
+  if (document.model === "65" && effectiveDeliveryMethod === "delivery" && operation.presence !== "4")
     throw new Error("NFC-e com entrega em domic\xEDlio exige indPres=4.");
   if (document.model === "65" && document.recipient.address && document.recipient.address.uf !== "PR")
     throw new Error("NFC-e n\xE3o permite destinat\xE1rio fora do estado.");
   if (operation.destination === "1" && document.recipient.address && document.recipient.address.uf !== "PR") {
-    const isPickup = snapshot.order.data.shipping?.deliveryMethod === "pickup";
-    if (!isPickup) {
+    if (effectiveDeliveryMethod !== "pickup") {
       throw new Error("Opera\xE7\xE3o interna (idDest=1) com entrega fora do estado \xE9 incoerente.");
     }
   }
@@ -4148,77 +4237,6 @@ function hasResponsibleTechnicianCsrt(xml) {
 
 // api/nfe/hml-normal-sale/constants.ts
 var HML_NORMAL_SALE_RULESET_VERSION = "HML_NORMAL_SALE_V2";
-
-// shared-utils/fiscalTransportModel.ts
-function resolveTransport(input) {
-  const { fiscalModel, deliveryMethod } = input;
-  if (fiscalModel === "65" && deliveryMethod === "pickup") {
-    return {
-      hasTransport: false,
-      transportResponsible: "NONE",
-      modFrete: "9",
-      modFreteDescription: "9 \u2014 Sem ocorr\xEAncia de transporte",
-      isEmitterTransporter: false,
-      requiresTransporterData: false,
-      allowsEditHasTransport: false,
-      derivedReason: "Definido automaticamente: pedido para retirada.",
-      statusBadge: "9 \u2014 Sem ocorr\xEAncia de transporte [OFF \u{1F512}]",
-      friendlyDescription: "Sem ocorr\xEAncia de transporte \u2014 definido pelo pedido de retirada"
-    };
-  }
-  if (fiscalModel === "55" && deliveryMethod === "pickup") {
-    return {
-      hasTransport: true,
-      transportResponsible: "CUSTOMER",
-      modFrete: "4",
-      modFreteDescription: "4 \u2014 Transporte pr\xF3prio por conta do destinat\xE1rio",
-      isEmitterTransporter: false,
-      requiresTransporterData: false,
-      allowsEditHasTransport: false,
-      derivedReason: "Definido automaticamente: pedido para retirada.",
-      statusBadge: "4 \u2014 Transporte pr\xF3prio pelo destinat\xE1rio [ON \u{1F512}]",
-      friendlyDescription: "Transporte pr\xF3prio pelo destinat\xE1rio \u2014 definido pelo pedido de retirada"
-    };
-  }
-  const responsible = input.transportResponsible === "THIRD_PARTY" ? "THIRD_PARTY" : "OWN_COMPANY";
-  if (responsible === "THIRD_PARTY") {
-    const contract = input.freightContractResponsible || "SENDER";
-    let modFrete = "0";
-    let modDesc = "0 \u2014 Contrata\xE7\xE3o do frete por conta do remetente (CIF)";
-    if (contract === "RECIPIENT") {
-      modFrete = "1";
-      modDesc = "1 \u2014 Contrata\xE7\xE3o do frete por conta do destinat\xE1rio (FOB)";
-    } else if (contract === "THIRD_PARTY") {
-      modFrete = "2";
-      modDesc = "2 \u2014 Contrata\xE7\xE3o do frete por conta de terceiros";
-    }
-    return {
-      hasTransport: true,
-      transportResponsible: "THIRD_PARTY",
-      freightContractResponsible: contract,
-      modFrete,
-      modFreteDescription: modDesc,
-      isEmitterTransporter: false,
-      requiresTransporterData: true,
-      allowsEditHasTransport: false,
-      derivedReason: "Definido automaticamente: pedido com entrega.",
-      statusBadge: `Transporte ${modFrete} \u2014 Transportador terceirizado [ON \u{1F512}]`,
-      friendlyDescription: "Transportador terceirizado \u2014 definido pelo pedido com entrega"
-    };
-  }
-  return {
-    hasTransport: true,
-    transportResponsible: "OWN_COMPANY",
-    modFrete: "3",
-    modFreteDescription: "3 \u2014 Transporte pr\xF3prio por conta do remetente",
-    isEmitterTransporter: true,
-    requiresTransporterData: false,
-    allowsEditHasTransport: false,
-    derivedReason: "Definido automaticamente: pedido com entrega.",
-    statusBadge: "3 \u2014 Entrega pela pr\xF3pria empresa [ON \u{1F512}]",
-    friendlyDescription: "Entrega pela pr\xF3pria empresa \u2014 definido pelo pedido com entrega"
-  };
-}
 
 // shared-utils/orderItemFiscalSnapshot.ts
 var record2 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -5625,7 +5643,13 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
       `${modelDecision.reason} Esta opera\xE7\xE3o exige matriz tribut\xE1ria espec\xEDfica aprovada.`
     );
   }
-  const deliveryMethod = shippingData.deliveryMethod;
+  const persistedDeliveryMethod = shippingData.deliveryMethod;
+  const deliveryMethod = resolveEffectiveFiscalDeliveryMethod({
+    fiscalModel: modelDecision.model,
+    orderDeliveryMethod: persistedDeliveryMethod,
+    hasTransport: facts.emissionRequest.hasTransport,
+    transportResponsible: facts.emissionRequest.transportResponsible
+  });
   validateInterstateNormalSaleMatrix({
     facts,
     operationScope,
@@ -5753,13 +5777,11 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         uf: required2(issuer.companyUF, "UF emitente"),
         postalCode: required2(issuer.companyCEP, "CEP emitente").replace(/\D/g, "")
       };
-      const isDelivery = shipping.deliveryMethod === "delivery";
-      const snapshotDeliveryMethod = isDelivery ? "delivery" : "pickup";
       const effectiveTransporter = snapshot.emissionRequest.transporter || shipping.transporter;
       const rawResponsible = snapshot.emissionRequest.transportResponsible || (snapshot.emissionRequest.deliveryByIssuer === true ? "OWN_COMPANY" : snapshot.emissionRequest.deliveryByIssuer === false && effectiveTransporter ? "THIRD_PARTY" : void 0);
       const resolvedTransport = resolveTransport({
         fiscalModel: modelDecision.model,
-        deliveryMethod: snapshotDeliveryMethod,
+        deliveryMethod,
         hasTransport: snapshot.emissionRequest.hasTransport,
         transportResponsible: rawResponsible,
         freightContractResponsible: snapshot.emissionRequest.freightContractResponsible

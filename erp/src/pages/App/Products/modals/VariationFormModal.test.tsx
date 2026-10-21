@@ -105,7 +105,10 @@ describe('composição real do formulário de variações', () => {
     const dialog = await screen.findByRole('dialog', { name: /fotos/i });
     fireEvent.click(within(dialog).getByRole('img', { name: /Foto 2/ }));
     fireEvent.click(within(dialog).getByRole('button', { name: /Confirmar/ })); await waitFor(() => expect(screen.queryByRole('dialog', { name: /fotos/i })).toBeNull());
-    submit(); await waitFor(() => expect(view.onSave).toHaveBeenCalled()); expect(view.onSave.mock.calls[0][0].images).toContain('https://img.test/verde.jpg');
+    submit(); await waitFor(() => {
+      expect(view.onSave).toHaveBeenCalled();
+      expect(view.onSave.mock.calls[0][0].images).toContain('https://img.test/verde.jpg');
+    });
   });
   it('contrato de rascunho preserva componentes/atributos incompletos; conclusão rejeita', () => {
     const draft = { ...variation, attributes: [{ name: 'Cor', value: '' }], comboItems: [{ productId: '', description: '', quantity: 0, unitPrice: 0, stock: 0 }] };
@@ -153,10 +156,10 @@ describe('composição real do formulário de variações', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Consultar novamente' })).toBeNull());
   });
   it('campos técnicos reais alterados chegam ao resolver e ao payload', async () => {
-    const view = mount(); tab('Características');
-    const label = await screen.findByTitle('Modelo'); const field = label.parentElement!.parentElement!;
+    const view = mount(); tab('Características específicas');
+    const label = await screen.findByTitle('Marca'); const field = label.parentElement!.parentElement!;
     fireEvent.change(within(field).getByRole('textbox'), { target: { value: 'Moderno' } }); submit();
-    await waitFor(() => expect(view.onSave).toHaveBeenCalledWith(expect.objectContaining({ technicalValues: expect.objectContaining({ Modelo: 'Moderno' }) })));
+    await waitFor(() => expect(view.onSave).toHaveBeenCalledWith(expect.objectContaining({ technicalValues: expect.objectContaining({ Marca: 'Moderno' }) })));
   });
   it('autocomplete real preserva preço e estoque zero da variação componente', async () => {
     mocks.fetchProductsPage.mockResolvedValue({ data: [{ ...parent, id: 'componente', name: 'Banco', unitPrice: 80, stock: 10, variations: [{ ...variation, id: 'banco-azul', name: 'Banco Azul', unitPrice: 0, stock: 0 }] }] });
@@ -186,12 +189,12 @@ describe('composição real do formulário de variações', () => {
     expect(images.some((image) => image.getAttribute('src')?.includes('antiga.jpg'))).toBe(false); expect(images.length).toBe(1);
   });
   it('características sem resposta têm erro em 15s e repetição com consulta nova', async () => {
-    vi.useFakeTimers(); mocks.response.mockImplementation(() => new Promise(() => {})); mount(); tab('Características');
+    vi.useFakeTimers(); mocks.response.mockImplementation(() => new Promise(() => {})); mount(); tab('Características específicas');
     await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
     expect(screen.queryByText('Carregando especificações técnicas...')).toBeNull(); expect(screen.queryByText('Nenhuma característica cadastrada.')).toBeNull();
     mocks.response.mockImplementation((table: string) => ({ data: table === 'attributes' ? fields : [], error: null }));
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Consultar características novamente' })); });
-    expect(screen.getByTitle('Modelo')).toBeTruthy(); expect(screen.queryByRole('button', { name: 'Consultar características novamente' })).toBeNull();
+    expect(screen.getByTitle('Marca')).toBeTruthy(); expect(screen.queryByRole('button', { name: 'Consultar características novamente' })).toBeNull();
   });
   it.each([
     { attributes: [{ name: 'Cor', value: 'Azul' }, { name: ' cor ', value: 'Verde' }] },
@@ -264,6 +267,4 @@ describe('recorte com modal, proprietário e cropper reais', () => {
   it('bounds an uncertain application without resending the image', async () => {
     const apply = vi.fn().mockReturnValue(new Promise(() => {})); mount(variation, parent, { onReplaceImageGlobal: apply }); const finish = await openCrop(); vi.useFakeTimers();
     await act(async () => { fireEvent.click(finish); await vi.advanceTimersByTimeAsync(30_001); });
-    expect(mocks.upload).toHaveBeenCalledOnce(); expect(apply).toHaveBeenCalledOnce(); expect(screen.getByRole('button', { name: 'Salvar Alterações' })).toHaveProperty('disabled', true); fireEvent.click(finish); expect(mocks.upload).toHaveBeenCalledOnce();
-  });
-});
+    expect(mocks.upload).toHaveBeenCalledOnce(); expect(apply).toHaveBeenCalledOnce(); expect(screen.getByRole('button', { name: 'Salvar Alterações' })).toHaveProperty('disabled', true); fireEvent.click(finish); expect(mocks.upload).toHaveBe

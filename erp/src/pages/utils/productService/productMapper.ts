@@ -4,6 +4,7 @@ import { mapDbVariations, createDefaultVariation } from './productVariationMappe
 import { extractProductImages, extractProductDimensions } from './productDimensionsExtractor';
 import { getProductKind, isNonConventionalProduct } from '../productKindRules';
 import { restoreProductDraft } from './productDraftSnapshot';
+import { getLegacyVariableTechnicalFieldNames } from '../technicalValuesService';
 
 export { mapToDB };
 
@@ -50,6 +51,10 @@ export const mapFromDB = (data: any, index?: number): Product => {
     (!data.item_type || data.item_type === 'product')
       ? createDefaultVariation(data, parentCode, rawName, productImages)
       : mappedVariations;
+  const savedVariableTechnicalFields = data.technical_specs?.variableTechnicalFields;
+  const variableTechnicalFields = Array.isArray(savedVariableTechnicalFields)
+    ? savedVariableTechnicalFields
+    : getLegacyVariableTechnicalFieldNames(finalVariations);
 
   const productKind = getProductKind({ productKind: data.product_kind, product_kind: data.product_kind, condition: data.condition, is_salvado: data.is_salvado });
 
@@ -108,9 +113,11 @@ export const mapFromDB = (data: any, index?: number): Product => {
     whatsappTemplate: data.whatsapp_template || '',
     ecommerceTemplate: data.ecommerce_template || '',
     hasVariations:
-      !isDraftProduct && (data.item_type === 'product' || !data.item_type)
-        ? true
-        : Boolean(data.has_variations),
+      isDraftProduct
+        ? Boolean(data.has_variations)
+        : (data.item_type === 'product' || !data.item_type)
+          ? finalVariations.length > 1
+          : Boolean(data.has_variations),
     variations: isNonConventionalProduct({ productKind })
       ? finalVariations.map((v) => ({ ...v, active: false }))
       : finalVariations,
@@ -188,6 +195,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
     lastWhatsappSync: data.last_whatsapp_sync,
     technicalValues: data.technical_specs?.technicalValues || {},
     technicalSpecs: data.technical_specs || {},
+    variableTechnicalFields,
   };
   return restoreProductDraft(product);
 };

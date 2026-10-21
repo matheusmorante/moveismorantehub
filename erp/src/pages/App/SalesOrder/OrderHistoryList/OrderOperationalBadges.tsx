@@ -64,29 +64,32 @@ export const OrderOperationalBadges = ({
       className={`flex flex-wrap items-center gap-1 ${isCancelled ? 'opacity-60 pointer-events-none' : ''}`}
     >
       {/* 1. Stock Check Badge — Selo de Etiquetado */}
-      {!showTrash && order.orderType !== 'assistance' && order.orderType !== 'return' && (
-        <div
-          className="flex items-center"
-          onClick={isCancelled ? undefined : (e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            onClick={() => onStockCheckUpdate?.(order.id!, !order.isStockChecked)}
-            className={`relative flex h-6 w-6 items-center justify-center rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs ${binaryOrderBadgeClass(Boolean(order.isStockChecked))}`}
-            title={
-              order.isStockChecked
-                ? 'Etiquetado (Clique para desmarcar)'
-                : 'Não Etiquetado (Clique para marcar)'
-            }
+      {!showTrash &&
+        order.status !== 'draft' &&
+        order.orderType !== 'assistance' &&
+        order.orderType !== 'return' && (
+          <div
+            className="flex items-center"
+            onClick={isCancelled ? undefined : (e) => e.stopPropagation()}
           >
-            <i className="bi bi-tag-fill text-[16px] leading-none text-white" />
-            {order.isStockChecked && (
-              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
-                <i className="bi bi-check text-[8px] font-black leading-none" />
-              </span>
-            )}
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => onStockCheckUpdate?.(order.id!, !order.isStockChecked)}
+              className={`relative flex h-6 w-6 items-center justify-center rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs ${binaryOrderBadgeClass(Boolean(order.isStockChecked))}`}
+              title={
+                order.isStockChecked
+                  ? 'Etiquetado (Clique para desmarcar)'
+                  : 'Não Etiquetado (Clique para marcar)'
+              }
+            >
+              <i className="bi bi-tag-fill text-[16px] leading-none text-white" />
+              {order.isStockChecked && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
+                  <i className="bi bi-check text-[8px] font-black leading-none" />
+                </span>
+              )}
+            </button>
+          </div>
       )}
 
       {/* 2. Bling Status Badge — Selo do Bling */}
@@ -218,22 +221,23 @@ export const OrderOperationalBadges = ({
       {/* 6. Stock Processed Indicator */}
       {(order.orderType === 'sale' ||
         order.orderType === 'showroom' ||
-        order.orderType === 'return') && (
-        <InventoryMovementBadge
-          orderType={order.orderType}
-          order={order}
-          hasMovement={
-            order.orderType === 'return'
-              ? Boolean(order.returnStockProcessed)
-              : Boolean(order.stockProcessed)
-          }
-          isReversed={
-            order.orderType === 'return'
-              ? Boolean(order.returnStockReversed)
-              : Boolean(order.stockReversed)
-          }
-          isPartial={isPartialSaleStockMovement(order, order.movedProductIds)}
-        />
+        order.orderType === 'return') &&
+        order.status !== 'draft' && (
+          <InventoryMovementBadge
+            orderType={order.orderType}
+            order={order}
+            hasMovement={
+              order.orderType === 'return'
+                ? Boolean(order.returnStockProcessed)
+                : Boolean(order.stockProcessed)
+            }
+            isReversed={
+              order.orderType === 'return'
+                ? Boolean(order.returnStockReversed)
+                : Boolean(order.stockReversed)
+            }
+            isPartial={isPartialSaleStockMovement(order, order.movedProductIds)}
+          />
       )}
 
     </div>

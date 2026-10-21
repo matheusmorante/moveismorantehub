@@ -3,6 +3,23 @@ import Product from '../../../../../types/product.type';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 import type { PendingNcmSuggestion } from '../../../hooks/fiscal/useProductJevClassification';
 
+function formatNcmDisplay(code?: string, description?: string | null): string {
+  if (!code) return '';
+  const cleanCode = code.replace(/\D/g, '').slice(0, 8);
+  if (!cleanCode) return code;
+  if (description && description.trim()) {
+    return `${cleanCode} - ${description.trim()}`;
+  }
+  return cleanCode;
+}
+
+function parseNcmCode(val: string): string {
+  if (!val) return '';
+  const firstPart = val.includes(' - ') ? val.split(' - ')[0] : val;
+  const digits = firstPart.replace(/\D/g, '');
+  return digits.length >= 8 ? digits.slice(0, 8) : firstPart.trim();
+}
+
 interface ProductNcmSelectorProps {
   formData: Partial<Product>;
   setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
@@ -20,11 +37,45 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
   onAcceptSuggestion,
   onRejectSuggestion,
 }) => {
-  const [searchQuery, setSearchQuery] = useState(formData.fiscal?.ncm || '');
+  const initialCode = formData.fiscal?.ncm || '';
+  const initialDesc = formData.fiscal?.ncmDescription || '';
+  const [searchQuery, setSearchQuery] = useState(() => formatNcmDisplay(initialCode, initialDesc));
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [results, setResults] = useState<NcmSearchResult[]>([]);
+  const [isLoadingNcms, setIsLoadingNcms] = useState(false);
+  const [currentCatalogEntry, setCurrentCatalogEntry] =
+    useState<Awaited<ReturnType<typeof ncmService.getCatalogEntry>>>(null);
+  const [hasCheckedCatalogEntry, setHasCheckedCatalogEntry] = useState(false);
 
-  useEffect(() => setSearchQuery(formData.fiscal?.ncm || ''), [formData.fiscal?.ncm]);
+  useEffect(() => {
+    const rawCode = (formData.fiscal?.ncm || '').trim();
+    if (!rawCode) {
+      setSearchQuery('');
+      return;
+    }
+    const clean = rawCode.replace(/\D/g, '').slice(0, 8);
+    const desc = formData.fiscal?.ncmDescription || currentCatalogEntry?.official_description || '';
+    setSearchQuery(formatNcmDisplay(clean || rawCode, desc));
+  }, [formData.fiscal?.ncm, formData.fiscal?.ncmDescription]);
+
+  useEffect(() => {
+    if (currentCatalogEntry?.code) {
+      const currentCode = (formData.fiscal?.ncm || '').replace(/\D/g, '').slice(0, 8);
+      if (currentCatalogEntry.code === currentCode && currentCatalogEntry.official_description) {
+        setSearchQuery(formatNcmDisplay(currentCatalogEntry.code, currentCatalogEntry.official_description));
+        if (!formData.fiscal?.ncmDescription) {
+          setFormData((prev) => ({
+            ...prev,
+            fiscal: {
+              ...prev.fiscal!,
+              ncmDescription: currentCatalogEntry.official_description,
+            },
+          }));
+        }
+      }
+    }
+  }, [currentCatalogEntry]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -36,35 +87,36 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const [results, setResults] = useState<NcmSearchResult[]>([]);
-  const [isLoadingNcms, setIsLoadingNcms] = useState(false);
-  const [currentCatalogEntry, setCurrentCatalogEntry] =
-    useState<Awaited<ReturnType<typeof ncmService.getCatalogEntry>>>(null);
-  const [hasCheckedCatalogEntry, setHasCheckedCatalogEntry] = useState(false);
-
   useEffect(() => {
-    const fetchNcms = async () => {
-      if (searchQuery.trim().length < 2) {
-        setResults([]);
-        return;
-      }
-      setIsLoadingNcms(true);
+    const term = searchQuery.includes(' - ') ? searchQuery.split(' - ')[0].trim() : searchQuery.trim();
+    if (term.length < 2) {
+      setResults([]);
+      return;
+    }
+    if (!isDropdownOpen && searchQuery.includes(' - ')) {
+      return;
+    }
+    setIsLoadingNcms(true);
+    let cancelled = false;
+    const timer = setTimeout(async () => {
       try {
-        const res = await ncmService.searchNcms(searchQuery, 10);
-        setResults(res);
+        const res = await ncmService.searchNcms(term, 10);
+        if (!cancelled) setResults(res);
       } catch (err) {
         console.error('Erro ao buscar NCMs:', err);
-        setResults([]);
+        if (!cancelled) setResults([]);
       } finally {
-        setIsLoadingNcms(false);
+        if (!cancelled) setIsLoadingNcms(false);
       }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
     };
-    const timer = setTimeout(fetchNcms, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, isDropdownOpen]);
 
   useEffect(() => {
-    const code = (formData.fiscal?.ncm || '').replace(/\D/g, '');
+    const code = (formData.fiscal?.ncm || '').replace(/\D/g, '').slice(0, 8);
     if (code.length !== 8) {
       setCurrentCatalogEntry(null);
       setHasCheckedCatalogEntry(false);
@@ -98,22 +150,50 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
         <input
           type="text"
           aria-label="NCM do produto"
+          title={searchQuery}
           aria-invalid={hasError}
           aria-describedby={hasError ? 'product-ncm-error' : undefined}
           value={searchQuery}
           onChange={(e) => {
             const val = e.target.value;
             setSearchQuery(val);
+            const code = val.includes(' - ') ? parseNcmCode(val) : val;
             setFormData((prev) => ({
               ...prev,
               fiscal: {
                 ...prev.fiscal!,
-                ncm: val,
+                ncm: code,
+                ...(code !== (prev.fiscal?.ncm || '').replace(/\D/g, '') ? { ncmDescription: '' } : {}),
               },
             }));
             setIsDropdownOpen(true);
           }}
-          onFocus={() => setIsDropdownOpen(true)}
+          onFocus={(e) => {
+            setIsDropdownOpen(true);
+            e.target.select();
+          }}
+          onBlur={() => {
+            const code = parseNcmCode(searchQuery);
+            if (/^\d{8}$/.test(code)) {
+              if (currentCatalogEntry?.code === code && currentCatalogEntry.official_description) {
+                setSearchQuery(formatNcmDisplay(code, currentCatalogEntry.official_description));
+              } else {
+                void ncmService.getCatalogEntry(code).then((entry) => {
+                  if (entry?.official_description) {
+                    setSearchQuery(formatNcmDisplay(code, entry.official_description));
+                    setFormData((prev) => ({
+                      ...prev,
+                      fiscal: {
+                        ...prev.fiscal!,
+                        ncm: code,
+                        ncmDescription: entry.official_description,
+                      },
+                    }));
+                  }
+                }).catch(() => undefined);
+              }
+            }
+          }}
           placeholder="Digite ou pesquise o NCM..."
           className={`w-full pl-1 pr-8 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 outline-none text-xs font-bold dark:text-slate-200 tracking-wider font-mono transition-colors ${
             hasError
@@ -184,6 +264,15 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
           emitir documentos fiscais.
         </p>
       )}
+      {currentCatalogEntry?.active && currentCatalogEntry.is_active && currentCatalogEntry.official_description && (
+        <p
+          data-testid="product-ncm-official-description"
+          className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium leading-relaxed bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 rounded-lg px-2.5 py-1.5 flex items-start gap-1.5"
+        >
+          <i className="bi bi-check-circle-fill text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+          <span>{currentCatalogEntry.official_description}</span>
+        </p>
+      )}
       {isDropdownOpen && (
         <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
           {isLoadingNcms ? (
@@ -196,6 +285,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                 key={item.code}
                 onClick={(e) => {
                   e.stopPropagation();
+                  const formatted = `${item.code} - ${item.official_description}`;
                   setFormData((prev) => ({
                     ...prev,
                     fiscal: {
@@ -204,7 +294,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                       ncmDescription: item.official_description,
                     },
                   }));
-                  setSearchQuery(item.code);
+                  setSearchQuery(formatted);
                   setIsDropdownOpen(false);
                 }}
                 className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors text-left rounded-xl group"

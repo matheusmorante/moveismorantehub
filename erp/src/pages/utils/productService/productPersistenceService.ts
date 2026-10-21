@@ -233,10 +233,7 @@ export const syncProductToSupabase = async (
           usedSkus.add(resolvedSku);
           v.sku = resolvedSku;
 
-          const effectiveImages =
-            variationsToPersist.length === 1
-              ? (product.images ?? []).slice(0, MAX_VARIATION_IMAGES)
-              : v.images || [];
+          const effectiveImages = v.images || [];
           return {
             ...(v.id ? { id: v.id } : {}),
             product_id: product.id,

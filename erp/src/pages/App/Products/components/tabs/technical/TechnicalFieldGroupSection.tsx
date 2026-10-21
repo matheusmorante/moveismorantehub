@@ -13,12 +13,15 @@ import {
   isHasFeetActive,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldRow } from './TechnicalFieldRow';
+import { isTechnicalFieldVariable } from '@/pages/utils/technicalValuesService';
 
 export interface TechnicalFieldGroupSectionProps {
   readonly group: CharacteristicGroup<TechnicalFieldDefinition>;
   readonly formData: Partial<Product>;
   readonly manualFieldNames: string[];
   readonly validationErrors?: Record<string, boolean>;
+  readonly variableTechnicalFieldNames?: readonly string[];
+  readonly onToggleVariableField?: (fieldName: string) => void;
   readonly onValueChange: (fieldName: string, value: unknown) => void;
   readonly onOpenAttributeModal: () => void;
   readonly onToggleDepthLength: (field: TechnicalFieldDefinition) => void;
@@ -68,6 +71,8 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
   formData,
   manualFieldNames,
   validationErrors,
+  variableTechnicalFieldNames = [],
+  onToggleVariableField,
   onValueChange,
   onOpenAttributeModal,
   onToggleDepthLength,
@@ -118,6 +123,8 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
           formData={formData}
           manualFieldNames={manualFieldNames}
           validationErrors={validationErrors}
+          isVariable={isTechnicalFieldVariable(field.name, variableTechnicalFieldNames)}
+          onToggleVariable={onToggleVariableField}
           onValueChange={onValueChange}
           onOpenAttributeModal={onOpenAttributeModal}
           onToggleDepthLength={onToggleDepthLength}

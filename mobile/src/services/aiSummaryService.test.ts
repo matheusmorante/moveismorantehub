@@ -50,7 +50,6 @@ describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
         scope: 'today',
         targetDates: ['2026-09-06'],
         generatorVersion: 'v1',
-        ttsVersion: 'v1',
         orders: [
           {
             id: 'ord-1',
@@ -124,7 +123,6 @@ describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
         scope: 'next_days',
         targetDates: ['2026-09-07', '2026-09-08'],
         generatorVersion: 'v1',
-        ttsVersion: 'v1',
         orders: [
           // Dia 1: 2026-09-07 (Amanhã)
           {
@@ -227,7 +225,6 @@ describe('aiSummaryService - Resumo Inteligente de Entregas', () => {
         scope: 'next_days',
         targetDates: [],
         generatorVersion: 'v1',
-        ttsVersion: 'v1',
         orders: [],
       };
 

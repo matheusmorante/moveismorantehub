@@ -33,6 +33,7 @@ export const ProductAiCharacteristicsModal: React.FC<ProductAiCharacteristicsMod
     selectedKeys,
     editedValues,
     stats,
+    isMinuteLimitReached,
     isHourlyLimitReached,
     isBlocked,
     productName,
@@ -80,6 +81,7 @@ export const ProductAiCharacteristicsModal: React.FC<ProductAiCharacteristicsMod
         {/* Barra de Consumo / Cota */}
         <CharacteristicsQuotaBar
           stats={stats}
+          isMinuteLimitReached={isMinuteLimitReached}
           isHourlyLimitReached={isHourlyLimitReached}
           isBlocked={isBlocked}
         />

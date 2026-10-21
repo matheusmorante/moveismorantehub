@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ProductGeneralTab from './ProductGeneralTab';
 
@@ -128,5 +128,87 @@ describe('ProductGeneralTab product name field', () => {
     // Não deve renderizar container de preenchimento com IA com borda amarela
     expect(screen.queryByText('Preenchimento com IA')).toBeNull();
   });
-});
+  it('não renderiza card ou botões de sugestão de categoria quando o nome é digitado', () => {
+    const mockCategories = [
+      { id: 'env-sala', name: 'Sala de Estar', parents: [] },
+      { id: 'cat-sofas', name: 'Sofás', parents: ['env-sala'] },
+    ];
+    render(
+      <ProductGeneralTab
+        onOpenCategorySearch={vi.fn()}
+        isService={false}
+        formData={{ name: 'Sofá Retrátil 3 Lugares', categoryIds: [] }}
+        setFormData={vi.fn()}
+        availableCategories={mockCategories}
+      />
+    );
 
+    expect(screen.queryByText(/Confira a sugestão pelo nome/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Usar Sofás/i })).toBeNull();
+  });
+
+  it('seleciona a categoria automaticamente no onBlur sem exigir clique em sugestão', () => {
+    const mockCategories = [
+      { id: 'env-sala', name: 'Sala de Estar', parents: [] },
+      { id: 'cat-sofas', name: 'Sofás', parents: ['env-sala'] },
+    ];
+    const mockSetFormData = vi.fn();
+    const mockSetValidationErrors = vi.fn();
+
+    render(
+      <ProductGeneralTab
+        onOpenCategorySearch={vi.fn()}
+        isService={false}
+        formData={{ name: 'Sofá Retrátil 3 Lugares', categoryIds: [] }}
+        setFormData={mockSetFormData}
+        availableCategories={mockCategories}
+        setValidationErrors={mockSetValidationErrors}
+      />
+    );
+
+    const input = screen.getByPlaceholderText(/Digite o nome do produto/i);
+    fireEvent.blur(input);
+
+    expect(mockSetFormData).toHaveBeenCalled();
+    const calls = mockSetFormData.mock.calls;
+    const categoryUpdateCall = calls.find(call => {
+      const fn = call[0];
+      if (typeof fn !== 'function') return false;
+      const res = fn({ name: 'Sofá Retrátil 3 Lugares', categoryIds: [] });
+      return res && res.categoryIds && res.categoryIds.includes('cat-sofas');
+    });
+    expect(categoryUpdateCall).toBeTruthy();
+  });
+
+  it('seleciona a categoria automaticamente via debounce quando o nome é digitado', () => {
+    vi.useFakeTimers();
+    const mockCategories = [
+      { id: 'env-sala', name: 'Sala de Estar', parents: [] },
+      { id: 'cat-sofas', name: 'Sofás', parents: ['env-sala'] },
+    ];
+    const mockSetFormData = vi.fn();
+
+    render(
+      <ProductGeneralTab
+        onOpenCategorySearch={vi.fn()}
+        isService={false}
+        formData={{ name: 'Sofá Retrátil 3 Lugares', categoryIds: [] }}
+        setFormData={mockSetFormData}
+        availableCategories={mockCategories}
+      />
+    );
+
+    vi.advanceTimersByTime(350);
+
+    expect(mockSetFormData).toHaveBeenCalled();
+    const calls = mockSetFormData.mock.calls;
+    const categoryUpdateCall = calls.find(call => {
+      const fn = call[0];
+      if (typeof fn !== 'function') return false;
+      const res = fn({ name: 'Sofá Retrátil 3 Lugares', categoryIds: [] });
+      return res && res.categoryIds && res.categoryIds.includes('cat-sofas');
+    });
+    expect(categoryUpdateCall).toBeTruthy();
+    vi.useRealTimers();
+  });
+});

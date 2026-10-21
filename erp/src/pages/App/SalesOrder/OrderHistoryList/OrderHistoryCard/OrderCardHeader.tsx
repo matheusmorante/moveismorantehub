@@ -80,7 +80,7 @@ export const OrderCardHeader: React.FC<OrderCardHeaderProps> = ({
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
-        {order.orderType !== 'return' && (
+        {order.orderType !== 'return' && order.status !== 'draft' && (
           <>
             <OrderFiscalBadge
               status={fiscalBadgeStatus}
@@ -113,6 +113,11 @@ export const OrderCardHeader: React.FC<OrderCardHeaderProps> = ({
           className={`flex items-center gap-1.5 flex-wrap justify-end ${isCancelled ? 'opacity-70 pointer-events-none' : ''}`}
           onClick={isCancelled ? undefined : (e) => e.stopPropagation()}
         >
+          <OrderAssemblyBadges
+            hasAssemblyDepot={hasAssemblyDepot}
+            hasAssemblyOutside={hasAssemblyOutside}
+            size="sm"
+          />
           <OrderOperationalBadges
             order={order}
             showTrash={showTrash}
@@ -121,11 +126,6 @@ export const OrderCardHeader: React.FC<OrderCardHeaderProps> = ({
             onStatusUpdate={onStatusUpdate}
             onBlingUpdate={onBlingUpdate}
             onStockCheckUpdate={onStockCheckUpdate}
-          />
-          <OrderAssemblyBadges
-            hasAssemblyDepot={hasAssemblyDepot}
-            hasAssemblyOutside={hasAssemblyOutside}
-            size="sm"
           />
         </div>
       </div>

@@ -6,6 +6,10 @@ import {
   type CategoryCandidate,
   type NcmCandidate,
 } from '../../../../../../../api/products/classificationCore';
+import {
+  isWoodenBedroomFurnitureByName,
+  WOODEN_BEDROOM_FURNITURE_NCM,
+} from '../../../../../../../shared-utils/ncmClassification';
 
 describe('Jev: validação determinística no backend', () => {
   const category: CategoryCandidate = {
@@ -71,7 +75,27 @@ describe('Jev: validação determinística no backend', () => {
 
   it('mantém busca de shortlist limitada e sem dados pessoais', () => {
     const terms = buildNcmSearchTerms('Guarda Roupa Sidney 6 Portas', 'Dormitório', 'MDP');
-    expect(terms.length).toBeLessThanOrEqual(5);
+    expect(terms.length).toBeLessThanOrEqual(8);
     expect(terms).toContain('guarda roupa');
+  });
+
+  it('normaliza erro comum de digitação e preserva categoria/material em títulos longos', () => {
+    const typoTerms = buildNcmSearchTerms('Geroupa Sidney 6 Portas 2 Gavetas', '', 'MDP');
+    const detailedTerms = buildNcmSearchTerms(
+      'Produto Linha Modelo Com Muitas Especificações e Palavras Adicionais',
+      'Dormitório',
+      'Madeira Maciça'
+    );
+    expect(typoTerms).toContain('guarda roupa');
+    expect(detailedTerms).toContain('madeira macica');
+    expect(detailedTerms).toContain('dormitorio');
+  });
+
+  it('usa a regra de móvel de dormitório só sem material explicitamente não madeireiro', () => {
+    expect(WOODEN_BEDROOM_FURNITURE_NCM).toBe('94035000');
+    expect(isWoodenBedroomFurnitureByName('Geroupa Sidney')).toBe(true);
+    expect(isWoodenBedroomFurnitureByName('Guarda-Roupa Sidney', 'MDP')).toBe(true);
+    expect(isWoodenBedroomFurnitureByName('Guarda-Roupa de aço')).toBe(false);
+    expect(isWoodenBedroomFurnitureByName('Guarda-Roupa Sidney', 'Metal')).toBe(false);
   });
 });

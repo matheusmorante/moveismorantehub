@@ -113,6 +113,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
   } = useProductDraftCapture({
     editingVariationId: variations.editingVariationId,
     scheduleDraftAutoSave,
+    onFieldBlur: jev.onFieldBlur,
   });
 
   const [isAiCharacteristicsModalOpen, setIsAiCharacteristicsModalOpen] = useState(false);
@@ -174,6 +175,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           isService={isService}
           isStockistOnly={isStockistOnly}
           isRegisteredProduct={isRegisteredProduct}
+          isExistingProduct={Boolean(product?.id)}
           canConfigureProductTaxes={canConfigureProductTaxes}
           formData={formData}
           setFormData={setFormData}

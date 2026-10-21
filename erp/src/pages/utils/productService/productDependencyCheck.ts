@@ -4,6 +4,7 @@ import { getProductKind } from '../productKindRules';
 import { getLocalProducts, notifySubscribers, saveLocalProducts } from './productLocalCache';
 import type { ProductMutationOptions } from './productMutationService';
 import { updateProduct } from './productMutationService';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export const checkProductLinkedToSales = async (id: string | number): Promise<string | null> => {
   const realId = String(id).split('_')[0];
@@ -340,9 +341,9 @@ export const checkVariationIsUsed = async (variationId: string): Promise<boolean
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       variationId
     );
-    if (!isUUID) return false;
+    if (!isUUID) return true;
 
-    const [movesRes, orderItemsRes, receiptsRes, inboundRes] = await Promise.all([
+    const results = await withTimeout(Promise.all([
       supabase.from('inventory_moves').select('id').eq('variation_id', variationId).limit(1),
       supabase.from('order_items').select('id').eq('variation_id', variationId).limit(1),
       supabase.from('goods_receipt_items').select('id').eq('variation_id', variationId).limit(1),
@@ -351,7 +352,9 @@ export const checkVariationIsUsed = async (variationId: string): Promise<boolean
         .select('id')
         .filter('items', 'cs', `[{"variationId": "${variationId}"}]`)
         .limit(1),
-    ]);
+    ]), 10000, null, 'produto:verificar-vinculos-variacao');
+    if (!results) return true;
+    const [movesRes, orderItemsRes, receiptsRes, inboundRes] = results;
 
     if (movesRes.error || orderItemsRes.error || receiptsRes.error || inboundRes.error) {
       throw movesRes.error || orderItemsRes.error || receiptsRes.error || inboundRes.error;

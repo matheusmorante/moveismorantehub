@@ -17,6 +17,8 @@ export interface TechnicalFieldRowProps {
   readonly formData: Partial<Product>;
   readonly manualFieldNames: string[];
   readonly validationErrors?: Record<string, boolean>;
+  readonly isVariable?: boolean;
+  readonly onToggleVariable?: (fieldName: string) => void;
   readonly onValueChange: (fieldName: string, value: unknown) => void;
   readonly onOpenAttributeModal: () => void;
   readonly onToggleDepthLength: (field: TechnicalFieldDefinition) => void;
@@ -28,6 +30,8 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   formData,
   manualFieldNames,
   validationErrors,
+  isVariable = false,
+  onToggleVariable,
   onValueChange,
   onOpenAttributeModal,
   onToggleDepthLength,
@@ -93,6 +97,28 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
           )}
         </label>
         <div className="flex items-center gap-1.5">
+          {onToggleVariable && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!isVariable}
+              aria-label={`Definir ${field.name} como ${isVariable ? 'fixa' : 'variável'}`}
+              title={
+                isVariable
+                  ? 'Variável — cada variação pode ter seu próprio valor'
+                  : 'Fixo — todas as variações herdam o valor do produto pai'
+              }
+              onClick={() => onToggleVariable(field.name)}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[9px] font-black transition-colors ${
+                isVariable
+                  ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-300'
+                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300'
+              }`}
+            >
+              <i className={`bi ${isVariable ? 'bi-toggle-off' : 'bi-toggle-on'}`} aria-hidden="true" />
+              {isVariable ? 'Variável' : 'Fixo'}
+            </button>
+          )}
           {isColorField && (
             <span className="inline-flex shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
               <button

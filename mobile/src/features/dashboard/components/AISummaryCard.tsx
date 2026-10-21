@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { RefreshCw, Sparkles } from 'lucide-react-native';
-import { AISummaryAudioPlayer } from './AISummaryAudioPlayer';
 import { subscribeSummaryQuota } from '../../../services/aiSummaryService';
 
 interface Props {
@@ -13,14 +12,6 @@ interface Props {
   aiSummaryTomorrow: string;
   isGeneratingAISummary: boolean;
   onRefreshSummary: () => void;
-  isSpeakingSummary: boolean;
-  speechIsPaused: boolean;
-  speechCurrentTime: number;
-  speechTotalDuration: number;
-  handleToggleSpeech: (text: string) => void;
-  finishSeekToPosition: (secs: number, fullText?: string) => void;
-  setSpeechCurrentTime: (secs: number) => void;
-  formatAudioTime: (secs: number) => string;
 }
 
 export const AISummaryCard: React.FC<Props> = ({
@@ -32,14 +23,6 @@ export const AISummaryCard: React.FC<Props> = ({
   aiSummaryTomorrow,
   isGeneratingAISummary,
   onRefreshSummary,
-  isSpeakingSummary,
-  speechIsPaused,
-  speechCurrentTime,
-  speechTotalDuration,
-  handleToggleSpeech,
-  finishSeekToPosition,
-  setSpeechCurrentTime,
-  formatAudioTime,
 }) => {
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
 
@@ -207,22 +190,6 @@ export const AISummaryCard: React.FC<Props> = ({
         </Text>
       )}
 
-      <AISummaryAudioPlayer
-        isDarkMode={isDarkMode}
-        title={aiSummaryTab === 'today' ? 'Ouvir resumo de hoje' : 'Ouvir resumo de amanhã'}
-        text={activeSummaryText}
-        isGenerating={isGeneratingAISummary}
-        isQuotaExceeded={isQuotaExceeded}
-        isSpeaking={isSpeakingSummary}
-        isPaused={speechIsPaused}
-        currentTime={speechCurrentTime}
-        totalDuration={speechTotalDuration}
-        onToggle={handleToggleSpeech}
-        onRefresh={onRefreshSummary}
-        onSeekEnd={finishSeekToPosition}
-        setCurrentTime={setSpeechCurrentTime}
-        formatTime={formatAudioTime}
-      />
     </View>
   );
 };

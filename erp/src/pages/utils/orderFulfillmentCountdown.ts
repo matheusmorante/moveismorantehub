@@ -53,6 +53,17 @@ const getReturnMethod = (order: Order): string => {
   ).toLowerCase();
 };
 
+const isDeliveryOrder = (order: Order): boolean => {
+  const source = order as any;
+  const method = String(
+    source.shipping?.deliveryMethod ||
+      source.order_data?.shipping?.deliveryMethod ||
+      source.order_data?.deliveryMethod ||
+      'delivery'
+  ).toLowerCase();
+  return method !== 'pickup' && method !== 'retirada';
+};
+
 const isScheduledReturnCollection = (order: Order): boolean =>
   getOrderType(order) === 'return' &&
   order.status === 'scheduled' &&
@@ -242,7 +253,9 @@ export function getOrderFulfillmentCountdown(
 
   if (diffDays < 0) return defaultResult;
 
-  const scheduledTime = parseScheduleTime(order);
+  // Para pedidos de entrega, o prazo vence à meia-noite ao virar o dia agendado (e não ao fim do período da entrega)
+  const isDelivery = isDeliveryOrder(order);
+  const scheduledTime = isDelivery ? null : parseScheduleTime(order);
   const deadline = new Date(deliveryDate);
   if (scheduledTime) {
     deadline.setHours(scheduledTime.hours, scheduledTime.minutes, 0, 0);

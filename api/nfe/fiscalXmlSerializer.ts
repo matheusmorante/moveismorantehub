@@ -3,6 +3,7 @@ import {
   decideFiscalRecipientRequirements,
   getHomologationRecipientName,
 } from '../../shared-utils/fiscalDocumentModel';
+import { resolveEffectiveFiscalDeliveryMethod } from '../../shared-utils/fiscalTransportModel';
 import {
   isValidRecipientTaxId,
   normalizeRecipientTaxId,
@@ -75,10 +76,17 @@ export function serializeFiscalDocument(
     throw new Error('Operação fiscal não suportada pelo serializer.');
   if (document.model === '65' && operation.destination !== '1')
     throw new Error('NFC-e não permite operação interestadual.');
+  const orderShipping =
+    (snapshot.order.data.shipping as Record<string, unknown> | undefined) || {};
+  const effectiveDeliveryMethod = resolveEffectiveFiscalDeliveryMethod({
+    fiscalModel: document.model,
+    orderDeliveryMethod: String(orderShipping.deliveryMethod || '') as 'delivery' | 'pickup',
+    hasTransport: snapshot.emissionRequest.hasTransport,
+    transportResponsible: snapshot.emissionRequest.transportResponsible,
+  });
   if (
     document.model === '65' &&
-    (snapshot.order.data.shipping as Record<string, unknown> | undefined)?.deliveryMethod ===
-      'delivery' &&
+    effectiveDeliveryMethod === 'delivery' &&
     operation.presence !== '4'
   )
     throw new Error('NFC-e com entrega em domicílio exige indPres=4.');
@@ -93,10 +101,7 @@ export function serializeFiscalDocument(
     document.recipient.address &&
     document.recipient.address.uf !== 'PR'
   ) {
-    const isPickup =
-      (snapshot.order.data.shipping as Record<string, unknown> | undefined)?.deliveryMethod ===
-      'pickup';
-    if (!isPickup) {
+    if (effectiveDeliveryMethod !== 'pickup') {
       throw new Error('Operação interna (idDest=1) com entrega fora do estado é incoerente.');
     }
   }

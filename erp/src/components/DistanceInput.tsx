@@ -3,20 +3,28 @@ import { MaskedNumericInput, MaskedNumericInputProps } from './MaskedNumericInpu
 
 export type DistanceInputProps = Omit<
   MaskedNumericInputProps,
-  'fractionDigits' | 'prefix' | 'suffix' | 'typingMode' | 'showBadge' | 'badgeText'
->;
+  'fractionDigits' | 'prefix' | 'suffix' | 'typingMode' | 'badgeText'
+> & {
+  suffix?: string;
+  showBadge?: boolean;
+};
 
 /**
  * Componente DistanceInput (Ex: 12,3 km)
- * Possui exata 1 casa decimal. RTL TypingMode.
+ * Possui exata 1 casa decimal. RTL TypingMode (empurrando para a esquerda).
  */
-export const DistanceInput = (props: DistanceInputProps) => {
+export const DistanceInput = ({
+  suffix = ' km',
+  showBadge = true,
+  ...props
+}: DistanceInputProps) => {
   return (
     <MaskedNumericInput
       {...props}
       fractionDigits={1}
-      suffix=" km"
-      showBadge={true}
+      suffix={suffix}
+      badgeText={suffix.trim()}
+      showBadge={showBadge}
       typingMode="rtl"
     />
   );

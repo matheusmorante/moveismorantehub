@@ -290,7 +290,7 @@ const OrderHistoryRow = ({
               </span>
               <OrderCancellationFailureNotice state={fiscalCancellationState} />
               <div className="flex flex-wrap items-center gap-1">
-                {order.orderType !== 'return' && (
+                {order.orderType !== 'return' && !isDraft && (
                   <>
                     <OrderFiscalBadge
                       status={fiscalBadgeStatus}
@@ -319,6 +319,11 @@ const OrderHistoryRow = ({
                     />
                   </>
                 )}
+                <OrderAssemblyBadges
+                  hasAssemblyDepot={hasAssemblyDepot}
+                  hasAssemblyOutside={hasAssemblyOutside}
+                  size="sm"
+                />
                 <OrderOperationalBadges
                   order={order}
                   showTrash={showTrash}
@@ -327,11 +332,6 @@ const OrderHistoryRow = ({
                   onStatusUpdate={onStatusUpdate}
                   onBlingUpdate={onBlingUpdate}
                   onStockCheckUpdate={onStockCheckUpdate}
-                />
-                <OrderAssemblyBadges
-                  hasAssemblyDepot={hasAssemblyDepot}
-                  hasAssemblyOutside={hasAssemblyOutside}
-                  size="sm"
                 />
               </div>
             </div>

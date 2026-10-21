@@ -71,7 +71,7 @@ export const InboxSectionCustom: React.FC<InboxSectionCustomProps> = ({
                     <span className="truncate">{folder.name}</span>
                   </button>
                   {isOwner && (
-                    <div className="hidden group-hover:flex items-center gap-0.5">
+                    <div className="flex items-center gap-0.5">
                       <button type="button" aria-label={`Editar pasta ${folder.name}`} title="Editar pasta" onClick={() => onEditFolder(folder)} className="w-6 h-6 rounded hover:bg-white/70 dark:hover:bg-slate-700"><i className="bi bi-pencil text-[10px]" /></button>
                       <button type="button" aria-label={`Excluir pasta ${folder.name}`} title="Excluir pasta" onClick={() => onDeleteFolder(folder)} className="w-6 h-6 rounded hover:bg-red-100 text-red-500"><i className="bi bi-trash text-[10px]" /></button>
                     </div>

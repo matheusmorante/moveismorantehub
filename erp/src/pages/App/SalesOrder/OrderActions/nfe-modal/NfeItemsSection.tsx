@@ -7,6 +7,7 @@ import {
   type RecipientIeIndicator,
 } from '../../../../../../../shared-utils/recipientIeIndicator';
 import { fiscalPresence } from '../../../../../../../shared-utils/fiscalDocumentModel';
+import type { DeliveryMethod } from '../../../../../../../shared-utils/fiscalTransportModel';
 import { normalizeRecipientTaxId } from '../../../../../../../shared-utils/recipientTaxId';
 import { getSettings } from '@/pages/utils/settingsService';
 import { NfeItemRow } from './NfeItemRow';
@@ -37,6 +38,7 @@ interface Props {
   order: Order;
   environment: 1 | 2;
   fiscalModel: '55' | '65';
+  deliveryMethod: DeliveryMethod;
   finalConsumer: boolean;
   recipientIeIndicator?: RecipientIeIndicator;
   recipientIe?: string;
@@ -56,6 +58,7 @@ export const NfeItemsSection: React.FC<Props> = ({
   order,
   environment,
   fiscalModel,
+  deliveryMethod,
   finalConsumer,
   recipientIeIndicator,
   recipientIe,
@@ -107,7 +110,7 @@ export const NfeItemsSection: React.FC<Props> = ({
           : operationScope.reason || 'Não foi possível determinar o local físico da operação.';
   const presence = fiscalPresence(
     fiscalModel,
-    String(shipping.deliveryMethod || ''),
+    deliveryMethod,
     typeof fiscalContext.presence === 'string' ? fiscalContext.presence : undefined
   );
   const matrixWarning =

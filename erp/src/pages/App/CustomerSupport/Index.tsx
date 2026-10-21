@@ -1,4 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { supportFolderDeleteSchema, type SupportFolderDeleteInput } from '../../../../../shared-utils/customerSupportFormSchemas';
+import { getTestArtifactContext } from '../../../../../shared-utils/testArtifactContext';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
@@ -24,7 +28,11 @@ import {
 } from './components';
 
 export default function CustomerSupport() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
+  const currentTestIdentity = import.meta.env.DEV && isAdmin ? getTestArtifactContext() : null;
+  const folderTestIdentity = currentTestIdentity?.ownerId === user?.id ? currentTestIdentity : null;
+  const folderDeleteLock = useRef(false);
+  const folderDeleteForm = useForm<SupportFolderDeleteInput>({ resolver: zodResolver(supportFolderDeleteSchema) });
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
   const [isInboxSidebarOpen, setIsInboxSidebarOpen] = useState(true);
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
@@ -61,11 +69,11 @@ export default function CustomerSupport() {
     mineCountTotal,
     unassignedCountTotal,
     isLoadingMore,
+    conversationsError,
     hasMoreConversations,
     totalCount,
     loadMoreConversations,
   } = useCustomerSupportConversations({
-    userId: user?.id,
     agentId: activeAgentId,
     folderCriteria: selectedFolder?.criteria || null,
     canViewCommercialInfo,
@@ -91,6 +99,7 @@ export default function CustomerSupport() {
     hasOlderMessages,
     loadOlderMessages,
     isRefreshingMessages,
+    messagesError,
     refreshMessages,
   } = useCustomerSupportMessages({
     selectedConversation,
@@ -146,14 +155,25 @@ export default function CustomerSupport() {
   };
 
   const handleDeleteFolder = async (folder: CustomerSupportFolder) => {
-    if (!window.confirm(`Excluir a pasta compartilhada "${folder.name}"?`)) return;
-    const error = await removeFolder(folder.id);
-    if (error) toast.error(error);
-    else toast.success(`Pasta "${folder.name}" excluída.`);
+    if (folderDeleteLock.current) return;
+    folderDeleteLock.current = true;
+    folderDeleteForm.reset({ folderId: folder.id, createdBy: folder.createdBy, currentUserId: user?.id || '' });
+    try {
+      await folderDeleteForm.handleSubmit(async (data) => {
+        if (!window.confirm(`Excluir a pasta compartilhada "${folder.name}"?`)) return;
+        const error = await removeFolder(data.folderId);
+        if (error) toast.error(error);
+        else toast.success(`Pasta "${folder.name}" excluída.`);
+      }, () => toast.error('Não foi possível validar a pasta e seu autor para exclusão.'))();
+    } catch {
+      toast.error('Não foi possível excluir a pasta. Tente novamente.');
+    } finally {
+      folderDeleteLock.current = false;
+    }
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-white dark:bg-slate-900 select-none">
+    <div className="flex flex-1 min-h-0 h-full w-full overflow-hidden bg-white dark:bg-slate-900 select-none">
       {/* Coluna 1: Barra Vertical de Navegação (~56-60px) */}
       <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
         <NavigationRail
@@ -210,6 +230,7 @@ export default function CustomerSupport() {
           }}
           onDeleteFolder={handleDeleteFolder}
           canViewCommercialInfo={canViewCommercialInfo}
+          testIdentity={folderTestIdentity}
         />
       </div>
 
@@ -235,6 +256,7 @@ export default function CustomerSupport() {
           onSortChange={setSortOrder}
           hasMore={hasMoreConversations}
           isLoadingMore={isLoadingMore}
+          error={conversationsError}
           totalCount={totalCount}
           onLoadMore={loadMoreConversations}
           canViewCommercialInfo={canViewCommercialInfo}
@@ -245,9 +267,11 @@ export default function CustomerSupport() {
       {selectedConversation ? (
         <div className="flex-1 flex h-full min-w-0 relative">
           <ChatArea
+            key={selectedConversation.id}
             conversation={selectedConversation}
             messages={messages}
             isLoadingMessages={isLoadingMessages}
+            messagesError={messagesError}
             hasOlderMessages={hasOlderMessages}
             isLoadingOlderMessages={isLoadingOlderMessages}
             onLoadOlderMessages={loadOlderMessages}
@@ -272,6 +296,7 @@ export default function CustomerSupport() {
 
           {/* Coluna 5: Painel Contextual do ERP (Dados do Cliente e Pedidos) */}
           <CustomerInfoPanel
+            key={selectedConversation.id}
             conversation={selectedConversation}
             messages={messages}
             isOpen={isInfoPanelOpen}

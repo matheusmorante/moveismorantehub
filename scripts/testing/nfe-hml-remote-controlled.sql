@@ -44,22 +44,17 @@ BEGIN
   IF v_queue <> (SELECT count(*) FROM net.http_request_queue)
       OR v_metrics <> (SELECT md5(COALESCE(jsonb_agg(to_jsonb(m) ORDER BY metric_date)::text,''))
           FROM public.dashboard_daily_metrics m) THEN
-    RAISE EXCEPTION 'Operational HML test orders changed metrics or enqueued operational refreshes';
+    RAISE EXCEPTION 'Operational HML test orders changed metrics or enqueued HTTP jobs';
   END IF;
-  IF v_queue <> (SELECT count(*) FROM net.http_request_queue) THEN RAISE EXCEPTION 'delivery queue changed'; END IF;
   IF v_metrics <> (SELECT md5(COALESCE(jsonb_agg(to_jsonb(m) ORDER BY metric_date)::text,'')) FROM public.dashboard_daily_metrics m) THEN RAISE EXCEPTION 'metrics changed'; END IF;
-  -- A synthetic row outside the HML predicate still exercises the original path.
-  -- The subtransaction rolls back its queue entry before pg_net can send it.
+  -- A synthetic row outside the HML predicate still exercises the normal metrics path.
+  -- The subtransaction rolls back the fixture before it can persist.
   BEGIN
     INSERT INTO public.orders(id,order_type,status,deleted,items,order_data,updated_at)
       VALUES('TEST_AUT_'||gen_random_uuid()::text,'sale','pending',true,'[]',
         '{"date":"2030-01-01","payments":[],"items":[],"deleted":true}',now());
     IF NOT EXISTS(SELECT 1 FROM public.dashboard_daily_metrics WHERE metric_date='2030-01-01')
       THEN RAISE EXCEPTION 'ordinary metrics path was suppressed'; END IF;
-    IF EXISTS(SELECT 1 FROM vault.decrypted_secrets WHERE name='delivery_summary_job_secret'
-        AND COALESCE(decrypted_secret,'') <> '') AND
-        (SELECT count(*) FROM net.http_request_queue) <> v_queue+1
-      THEN RAISE EXCEPTION 'ordinary delivery path was suppressed'; END IF;
     RAISE EXCEPTION 'TEST_AUT_ROLLBACK_BASELINE';
   EXCEPTION WHEN raise_exception THEN
     IF SQLERRM <> 'TEST_AUT_ROLLBACK_BASELINE' THEN RAISE; END IF;

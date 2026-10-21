@@ -147,12 +147,23 @@ export const NfeItemRow: React.FC<Props> = ({
               id={`nfe-item-ncm-${itemIndex}`}
               hasError={hasNcmError}
               value={item.fiscal?.ncm || ''}
+              description={item.fiscal?.ncmDescription}
               onBlur={onUpdateFiscalBlur}
-              onChange={(val) => {
+              onChange={(val, desc) => {
                 if (hasNcmError && onClearFieldError) onClearFieldError();
                 onUpdateFiscal('ncm', val);
+                if (desc) onUpdateFiscal('ncmDescription', desc);
               }}
             />
+            {item.fiscal?.ncmDescription && isNcmValid && (
+              <p
+                data-testid={`nfe-item-ncm-desc-${itemIndex}`}
+                className="text-[9px] text-slate-500 dark:text-slate-400 truncate max-w-[220px]"
+                title={item.fiscal.ncmDescription}
+              >
+                {item.fiscal.ncmDescription}
+              </p>
+            )}
           </div>
 
           {/* Botão de Expandir Campos Fiscais Avançados */}

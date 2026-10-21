@@ -1,4 +1,9 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
+import {
+  inferNcmFromProductFacts,
+  type NcmInferenceFacts,
+  type NcmInferenceResult,
+} from './ncmInferenceService';
 
 export interface NcmSearchResult {
   code: string;
@@ -6,6 +11,9 @@ export interface NcmSearchResult {
   alias_match: string | null;
   rank: number;
 }
+
+export type { NcmInferenceFacts, NcmInferenceResult };
+export { inferNcmFromProductFacts };
 
 export interface NcmShortlistParams {
   title?: string;
@@ -15,6 +23,14 @@ export interface NcmShortlistParams {
 }
 
 class NcmService {
+  /**
+   * Inferência inteligente e determinística de NCM baseada no título/descrição/categoria/material,
+   * validada contra o catálogo de NCMs vigentes e ativos na loja.
+   */
+  async inferProductNcm(params: NcmInferenceFacts): Promise<NcmInferenceResult | null> {
+    return inferNcmFromProductFacts(params);
+  }
+
   /**
    * Pesquisa NCMs no banco por código (exato ou parcial) ou texto
    * Busca tanto na descrição oficial quanto nos aliases comerciais
@@ -53,7 +69,10 @@ class NcmService {
       }
 
       const usableCodes = new Set((usableNcms || []).map(({ code }) => code));
-      return candidates.filter(({ code }) => usableCodes.has(code)).slice(0, maxResults);
+      return candidates
+        .filter(({ code }) => usableCodes.has(code))
+        .sort((left, right) => right.rank - left.rank)
+        .slice(0, maxResults);
     } catch (error) {
       console.error('Erro no NcmService.searchNcms.', error);
       throw error;

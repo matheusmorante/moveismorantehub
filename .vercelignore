@@ -46,3 +46,4 @@ tests/
 !erp/scripts
 !erp/scripts/build-fiscal.cjs
 !erp/scripts/check-fiscal-startup.cjs
+!erp/scripts/build-customer-support.cjs

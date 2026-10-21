@@ -1,11 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import {
+import { handleWhatsAppMedia } from '../src/pages/utils/customerSupport/whatsappMediaProxy.js';
+import processor from '../server/customer-support/whatsapp-processor.cjs';
+
+const {
   parseMetaStatusFailure,
   processWhatsAppWebhookPayload,
   readRawWebhookBody,
   verifyMetaSignature,
-} from '../src/pages/utils/customerSupport/whatsappWebhookProcessor';
+} = processor;
 
 export { parseMetaStatusFailure, verifyMetaSignature };
 export const config = { api: { bodyParser: false } };
@@ -31,28 +34,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (operation === 'media') {
-    const mediaId = req.query.id as string | undefined;
-    if (!mediaId) return res.status(400).json({ error: 'Parâmetro "id" de mídia obrigatório.' });
-    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN;
-    if (!accessToken) return res.status(500).json({ error: 'Token da WhatsApp Cloud API não configurado.' });
-    try {
-      const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!metaRes.ok) return res.status(metaRes.status).json({ error: 'Mídia não encontrada na Meta.' });
-      const metaData = await metaRes.json();
-      if (!metaData.url) return res.status(404).json({ error: 'URL da mídia indisponível na Meta.' });
-      const fileRes = await fetch(metaData.url, { headers: { Authorization: `Bearer ${accessToken}` } });
-      if (!fileRes.ok) return res.status(fileRes.status).json({ error: 'Falha ao baixar mídia dos servidores Meta.' });
-      const buffer = Buffer.from(await fileRes.arrayBuffer());
-      res.setHeader('Content-Type', metaData.mime_type || 'application/octet-stream');
-      res.setHeader('Content-Length', buffer.length.toString());
-      res.setHeader('Cache-Control', 'private, max-age=86400');
-      return res.status(200).send(buffer);
-    } catch (error: any) {
-      console.error('[WhatsApp Media Proxy] Erro:', error);
-      return res.status(500).json({ error: error.message || 'Erro ao processar mídia.' });
-    }
+    return handleWhatsAppMedia(req, res, {
+      supabaseUrl,
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
+      supabaseSecretKey: supabaseServiceKey,
+    });
   }
 
   if (req.method === 'GET') {

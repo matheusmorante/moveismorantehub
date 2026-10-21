@@ -5,9 +5,13 @@ import { getVariationRegistrationIssue } from '../../domain/variationRegistratio
 
 export type ProductFormValidationResult = {
   errors: Record<string, boolean>;
+  errorMessage?: string;
   invalidVariation?: {
     variation: NonNullable<Product['variations']>[number];
-    issue: NonNullable<ReturnType<typeof getVariationRegistrationIssue>>;
+    issue: {
+      message: string;
+      tab: string;
+    };
   };
   singleVariationParentIssue?: {
     tab: 'technical' | 'estoque' | 'fiscal' | 'geral';
@@ -110,15 +114,6 @@ export function mapSingleVariationIssueToParent(
       errorKeys: ['unitPrice'],
     };
   }
-  if (issue.tab === 'fiscal') {
-    return {
-      tab: 'fiscal',
-      fieldKey: 'ncm',
-      message: issue.message,
-      errorKeys: ['ncm'],
-    };
-  }
-
   return {
     tab: 'geral',
     fieldKey: 'name',
@@ -141,7 +136,10 @@ export const validateProductFormSubmission = (
   const schema = createProductFormSchema(options);
   const result = schema.safeParse(formData);
 
+  let schemaErrorMessage: string | undefined;
+
   if (!result.success) {
+    schemaErrorMessage = result.error.issues[0]?.message;
     for (const issue of result.error.issues) {
       const field = issue.path[0];
       if (field) {
@@ -151,18 +149,48 @@ export const validateProductFormSubmission = (
   }
 
   if (options.saveAsDraft) {
-    return { errors };
+    return { errors, errorMessage: schemaErrorMessage };
   }
 
   const variations = formData.variations || [];
-  const isSingleVariation = variations.length === 1;
+  const isMultiVariationMode = Boolean(formData.hasVariations) || variations.length > 1;
+  const isSingleVariation = variations.length === 1 && !isMultiVariationMode;
+  const parentImages = Array.isArray(formData.images) ? formData.images.filter(Boolean) : [];
 
-  const invalidVariation = variations
+  // Validação de conformidade: cada variação deve ter pelo menos 1 foto vinculada para concluir o cadastro
+  const variationMissingImage = variations.find((v) => {
+    if (!v || typeof v !== 'object') return false;
+    const imgs = Array.isArray(v.images)
+      ? v.images.filter(Boolean)
+      : typeof (v as any).image_url === 'string' && (v as any).image_url.trim()
+        ? (v as any).image_url.split(',').filter(Boolean)
+        : [];
+    return imgs.length === 0 && (isMultiVariationMode || parentImages.length === 0);
+  });
+
+  if (variationMissingImage) {
+    errors.variations = true;
+    errors.variationRegistration = true;
+    const message = `A variação "${variationMissingImage.name || variationMissingImage.sku || 'sem nome'}" deve ter pelo menos 1 foto vinculada para concluir o cadastro.`;
+    return {
+      errors,
+      errorMessage: message,
+      invalidVariation: {
+        variation: variationMissingImage,
+        issue: {
+          message,
+          tab: 'fotos',
+        },
+      },
+    };
+  }
+
+  const invalidEntry = variations
     .map((variation) => ({ variation, issue: getVariationRegistrationIssue(formData, variation) }))
-    .find(
-      (entry): entry is NonNullable<ProductFormValidationResult['invalidVariation']> =>
-        entry.issue !== null
-    );
+    .find((entry) => entry.issue !== null);
+  const invalidVariation = invalidEntry?.issue
+    ? { variation: invalidEntry.variation, issue: invalidEntry.issue }
+    : undefined;
 
   if (invalidVariation) {
     if (isSingleVariation) {
@@ -172,6 +200,7 @@ export const validateProductFormSubmission = (
       }
       return {
         errors,
+        errorMessage: invalidVariation.issue.message,
         singleVariationParentIssue: {
           tab: parentIssue.tab,
           fieldKey: parentIssue.fieldKey,
@@ -183,5 +212,5 @@ export const validateProductFormSubmission = (
     errors.variationRegistration = true;
   }
 
-  return { errors, invalidVariation };
+  return { errors, invalidVariation, errorMessage: schemaErrorMessage };
 };

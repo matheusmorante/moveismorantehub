@@ -2,7 +2,7 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
-import { fetchConversationCounts, fetchConversations, fetchTeamProfiles } from '@/pages/utils/customerSupport/customerSupportService';
+import { fetchConversationCounts, fetchConversations, fetchTeamProfiles, type FetchConversationsOptions } from '@/pages/utils/customerSupport/customerSupportService';
 import {
   DEFAULT_SUPPORT_FOLDER_CRITERIA,
   fetchCustomerSupportFolders,
@@ -52,7 +52,7 @@ describe('Inbox da Central de Atendimento', () => {
       data: args.p_page === 1 ? firstPage : [row],
       error: null,
     }));
-    const options = {
+    const options: Omit<FetchConversationsOptions, 'page'> = {
       pageSize: 50,
       filter: 'all',
       agentId: 'agent-2',
@@ -87,6 +87,20 @@ describe('Inbox da Central de Atendimento', () => {
     await expect(fetchConversationCounts(supabase)).resolves.toEqual({ all: 120, mine: 14, unassigned: 8, unread: 17 });
     await expect(fetchTeamProfiles(supabase)).resolves.toEqual([{ id: 'agent-1', fullName: 'Ana', role: 'seller' }]);
     expect(rpc).toHaveBeenNthCalledWith(2, 'customer_support_list_agents');
+  });
+
+  it.each([
+    ['CUSTOMER_SUPPORT_COMMERCIAL_PERMISSION_DENIED', 'Você não tem permissão para consultar pedidos nesta fila ou pasta.'],
+    ['CUSTOMER_SUPPORT_PERMISSION_DENIED', 'Você não tem permissão para acessar a Central de Atendimento.'],
+  ])('apresenta a recusa de permissão %s sem buscar dados comerciais', async (message, feedback) => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: '42501', message } });
+    await expect(fetchConversations({ rpc } as any, { canViewCommercialInfo: true })).rejects.toThrow(feedback);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('mantém o feedback genérico para falhas sem um contrato conhecido de permissão', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: 'XX000', message: 'Detalhe técnico interno' } });
+    await expect(fetchConversations({ rpc } as any)).rejects.toThrow('Não foi possível carregar as conversas. Tente atualizar a lista.');
   });
 
   it('persiste pastas compartilhadas com autor e reabre os critérios salvos', async () => {
@@ -178,7 +192,7 @@ describe('Inbox da Central de Atendimento', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
     await waitFor(() => expect(screen.getByText('Digite um marcador.')).toBeTruthy());
     expect(addTag).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'prioridade' } });
+    fireEvent.change(screen.getByPlaceholderText('Adicionar marcador'), { target: { value: 'prioridade' } });
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
     await waitFor(() => expect(screen.getByText('Não foi possível salvar o marcador.')).toBeTruthy());
     expect(addTag).toHaveBeenCalledWith('prioridade');

@@ -1,6 +1,7 @@
 import type Order from '@/pages/types/order.type';
 import type { NfeItemWithFiscal } from '../NfeItemsSection';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
+import type { DeliveryMethod } from '../../../../../../../../shared-utils/fiscalTransportModel';
 import {
   decideFiscalRecipientRequirements,
   fiscalPresence,
@@ -64,19 +65,21 @@ export function resolveNumberPreviewContext({
 export function resolveRecipientRequirementsForModal({
   selectedModel,
   order,
+  deliveryMethod,
   invoiceTotal,
   customerPersonType,
   recipientTaxId,
 }: {
   selectedModel?: '55' | '65';
   order: Order;
+  deliveryMethod: DeliveryMethod;
   invoiceTotal: number;
   customerPersonType?: string;
   recipientTaxId: string;
 }) {
   const presence = fiscalPresence(
     selectedModel || '55',
-    order.shipping?.deliveryMethod,
+    deliveryMethod,
     order.fiscalContext?.presence
   );
 

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { WhatsAppMessage } from '../types';
+import { useCustomerSupportMedia } from '../hooks/useCustomerSupportMedia';
+import { MediaLoadStatus } from './chat/bubble/MediaLoadStatus';
 import {
   renderFormattedText,
   SystemEventBubble,
@@ -19,6 +21,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, contactNa
   const isInbound = message.direction === 'inbound';
   const isInternalNote = message.messageType === 'internal_note';
   const isSystemEvent = message.messageType === 'system_event';
+  const { mediaUrl, isLoadingMedia, mediaError, retryMedia } = useCustomerSupportMedia(
+    ['image', 'document', 'audio', 'video', 'sticker'].includes(message.messageType) ? message.mediaId : null
+  );
 
   const timeFormatted = message.timestamp
     ? new Date(message.timestamp).toLocaleTimeString('pt-BR', {
@@ -26,9 +31,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, contactNa
         minute: '2-digit',
       })
     : '';
-
-  const mediaUrl =
-    message.mediaUrl || (message.mediaId ? `/api/whatsapp-media?id=${message.mediaId}` : null);
 
   // 1. Eventos de Sistema / Automação (Centralizados na timeline)
   if (isSystemEvent) {
@@ -89,6 +91,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, contactNa
         )}
 
         {/* Mídias diversas (Imagem, Documento, Áudio, Vídeo, Interativo) */}
+        <MediaLoadStatus loading={isLoadingMedia} error={mediaError} onRetry={retryMedia} />
         <MessageBubbleMedia
           message={message}
           mediaUrl={mediaUrl}

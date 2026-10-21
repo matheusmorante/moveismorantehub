@@ -35,8 +35,7 @@ export async function fetchCustomerSupportFolders(
   const { data, error } = response || { data: null, error: new Error('Timeout ao carregar pastas') };
 
   if (error || !data) {
-    console.error('[CustomerSupportInboxService] Erro ao buscar pastas:', error);
-    return [];
+    throw new Error('Não foi possível carregar as pastas. Tente atualizar.');
   }
   return data.map(mapFolder);
 }

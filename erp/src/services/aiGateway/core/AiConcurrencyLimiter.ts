@@ -6,12 +6,28 @@ export class AiConcurrencyLimiter {
   private static categoryActive: Record<AiCategory, number> = {
     TEXT: 0,
     IMAGE: 0,
-    TTS: 0,
   };
+  private static operationActive: Record<string, number> = {};
 
-  public static tryAcquire(category: AiCategory): { acquired: boolean; reason?: string } {
+  public static tryAcquire(
+    category: AiCategory,
+    operationKey?: string,
+    operationLimit?: number
+  ): { acquired: boolean; reason?: string } {
     const categoryConfig = AI_LIMITS.categories[category];
     const globalConfig = AI_LIMITS.global;
+    const scopedOperationKey = operationKey ? `${category}:${operationKey}` : undefined;
+
+    if (
+      scopedOperationKey &&
+      operationLimit !== undefined &&
+      (this.operationActive[scopedOperationKey] || 0) >= operationLimit
+    ) {
+      return {
+        acquired: false,
+        reason: `Limite de concorrência da operação ${operationKey} atingido (${this.operationActive[scopedOperationKey]}/${operationLimit} requisições ativas).`,
+      };
+    }
 
     if (this.globalActive >= globalConfig.concurrent) {
       return {
@@ -29,13 +45,25 @@ export class AiConcurrencyLimiter {
 
     this.globalActive++;
     this.categoryActive[category]++;
+    if (scopedOperationKey) {
+      this.operationActive[scopedOperationKey] = (this.operationActive[scopedOperationKey] || 0) + 1;
+    }
 
     return { acquired: true };
   }
 
-  public static release(category: AiCategory): void {
+  public static release(category: AiCategory, operationKey?: string): void {
     if (this.globalActive > 0) this.globalActive--;
     if (this.categoryActive[category] > 0) this.categoryActive[category]--;
+    if (operationKey) {
+      const scopedOperationKey = `${category}:${operationKey}`;
+      const active = this.operationActive[scopedOperationKey] || 0;
+      if (active <= 1) {
+        delete this.operationActive[scopedOperationKey];
+      } else {
+        this.operationActive[scopedOperationKey] = active - 1;
+      }
+    }
   }
 
   public static getActiveCount(category?: AiCategory): number {
@@ -45,6 +73,7 @@ export class AiConcurrencyLimiter {
 
   public static reset(): void {
     this.globalActive = 0;
-    this.categoryActive = { TEXT: 0, IMAGE: 0, TTS: 0 };
+    this.categoryActive = { TEXT: 0, IMAGE: 0 };
+    this.operationActive = {};
   }
 }

@@ -28,7 +28,6 @@ describe('AiGateway - Camada Global de Proteção de IA', () => {
     AiCircuitBreaker.resetGlobal();
     AiCircuitBreaker.resetCategory('TEXT');
     AiCircuitBreaker.resetCategory('IMAGE');
-    AiCircuitBreaker.resetCategory('TTS');
     AiDeduplicator.clear();
     vi.restoreAllMocks();
   });
@@ -103,16 +102,64 @@ describe('AiGateway - Camada Global de Proteção de IA', () => {
     expect(apiCallCount).toBe(1); // APENAS 1 CHAMADA REAL Á API
   });
 
-  it('deve acionar o Fallback de TTS nativo caso a cota diária de voz (30/dia) seja atingida', async () => {
-    vi.spyOn(AiQuotaManager, 'reserveQuota').mockResolvedValue({
-      allowed: false,
-      errorCode: 'AI_DAILY_LIMIT_REACHED',
-      errorMessage: 'Limite Diário de TTS Atingido: 30/30',
+  it('deve permitir uma nova chamada explícita após a chamada anterior terminar', async () => {
+    vi.spyOn(AiQuotaManager, 'reserveQuota').mockResolvedValue({ allowed: true });
+    let apiCallCount = 0;
+    vi.spyOn(AiGateway as any, 'callGeminiApiProxied').mockImplementation(async () => {
+      apiCallCount++;
+      return 'Resposta';
     });
 
-    const ttsRes = await AiGateway.requestTts('Mensagem de aviso importante');
-    expect(ttsRes.success).toBe(true); // O gateway resolve com sucesso pelo fallback nativo
-    expect(ttsRes.fallbackUsed).toBe(true);
-    expect(ttsRes.modelUsed).toContain('native-speech-fallback');
+    const request = { operation: 'generate_desc', payload: { prompt: 'Guarda-roupa' } };
+    await AiGateway.requestText(request);
+    await AiGateway.requestText(request);
+
+    expect(apiCallCount).toBe(2);
   });
+
+  it('deve limitar a uma chamada simultânea para extração de características, mesmo com payloads distintos', async () => {
+    vi.spyOn(AiQuotaManager, 'reserveCharacteristicsQuota').mockResolvedValue({ allowed: true });
+    let resolveFirstRequest!: (value: string) => void;
+    const firstApiCall = new Promise<string>((resolve) => {
+      resolveFirstRequest = resolve;
+    });
+    const apiCall = vi
+      .spyOn(AiGateway as any, 'callGeminiApiProxied')
+      .mockImplementation(() => firstApiCall);
+
+    const first = AiGateway.requestText({
+      operation: 'catalog_extract_technical_specs',
+      payload: { product: 'A' },
+    });
+    const second = await AiGateway.requestText({
+      operation: 'catalog_extract_technical_specs',
+      payload: { product: 'B' },
+    });
+
+    expect(second.success).toBe(false);
+    expect(second.errorCode).toBe('AI_CONCURRENCY_LIMIT_REACHED');
+    expect(apiCall).toHaveBeenCalledTimes(1);
+
+    resolveFirstRequest('OK');
+    await first;
+  });
+
+  it('não deve chamar o Gemini quando a cota de características bloquear a requisição', async () => {
+    vi.spyOn(AiQuotaManager, 'reserveCharacteristicsQuota').mockResolvedValue({
+      allowed: false,
+      errorCode: 'AI_RATE_LIMIT_REACHED',
+      errorMessage: 'Limite por minuto atingido.',
+    });
+    const apiCall = vi.spyOn(AiGateway as any, 'callGeminiApiProxied');
+
+    const result = await AiGateway.requestText({
+      operation: 'catalog_extract_technical_specs',
+      payload: { product: 'Cômoda' },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe('AI_RATE_LIMIT_REACHED');
+    expect(apiCall).not.toHaveBeenCalled();
+  });
+
 });

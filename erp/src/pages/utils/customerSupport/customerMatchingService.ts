@@ -1,6 +1,6 @@
-import { SupabaseClient } from '@supabase/supabase-js';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
-import { getPhoneLookupCandidates, extractDigits, parseBrazilianPhone } from './phoneUtils';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { withTimeout } from '../../../../../shared-utils/withTimeout.js';
+import { getPhoneLookupCandidates, extractDigits, parseBrazilianPhone } from './phoneUtils.js';
 
 export interface CustomerSummary {
   id: string;

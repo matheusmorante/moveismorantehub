@@ -20,6 +20,17 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
 }) => {
   const erpStatus = checkERPLegibility(formData);
   const isSalvado = getProductKind(formData) === 'salvado';
+  const hasVariationPhotos = Boolean(
+    formData.variations?.length &&
+      formData.variations.every((v) => {
+        const imgs = Array.isArray(v.images)
+          ? v.images.filter(Boolean)
+          : typeof (v as any).image_url === 'string' && (v as any).image_url.trim()
+            ? (v as any).image_url.split(',').filter(Boolean)
+            : [];
+        return imgs.length > 0;
+      })
+  );
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -140,6 +151,26 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
                     }
                   >
                     Origem do Estoque Convencional
+                  </span>
+                </div>
+                <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>
+              </li>
+              <li
+                onClick={() => navigateToRequirementField('variations')}
+                className="flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-colors group/item"
+              >
+                <div className="flex items-center gap-2">
+                  <i
+                    className={`bi ${hasVariationPhotos ? 'bi-check-circle-fill text-blue-500' : 'bi-x-circle-fill text-amber-500'}`}
+                  ></i>
+                  <span
+                    className={
+                      hasVariationPhotos
+                        ? 'text-blue-700 dark:text-blue-400'
+                        : 'text-slate-500 dark:text-slate-400 font-bold'
+                    }
+                  >
+                    Fotos das Variações (mín. 1 vinculada por variação)
                   </span>
                 </div>
                 <i className="bi bi-arrow-right-short text-slate-400 group-hover/item:translate-x-1 transition-transform"></i>

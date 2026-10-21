@@ -19,10 +19,13 @@ vi.mock('../hooks/useAiCharacteristicsQuota', () => ({
       limitToday: 80,
       usedHour: 2,
       limitHour: 20,
+      usedMinute: 0,
+      limitMinute: 2,
       remainingToday: 75,
       remainingHour: 18,
     },
     refresh: vi.fn(),
+    isMinuteLimitReached: false,
     isHourlyLimitReached: false,
     isBlocked: false,
   }),
@@ -128,6 +131,45 @@ describe('ProductAiCharacteristicsModal Component', () => {
     expect(await screen.findByText('Guarda Roupa 6 Portas Capri')).toBeDefined();
     expect(screen.getByText('Moval')).toBeDefined();
     expect(screen.getAllByDisplayValue('MDP').length).toBeGreaterThan(0);
+  });
+
+  it('envia apenas uma chamada quando o formulário é submetido duas vezes enquanto a análise está em andamento', async () => {
+    let resolveRequest!: (result: any) => void;
+    const pendingRequest = new Promise<any>((resolve) => {
+      resolveRequest = resolve;
+    });
+    vi.mocked(aiService.extractFromDescriptiveTextWithAI).mockReturnValue(pendingRequest);
+
+    render(
+      <ProductAiCharacteristicsModal
+        isOpen={true}
+        onClose={vi.fn()}
+        formData={{}}
+        setFormData={vi.fn()}
+        availableAttributes={defaultAvailableAttributes}
+        initialMode="descriptive_text"
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/Cole aqui o texto completo recebido do fornecedor/i), {
+      target: { value: 'Guarda Roupa Moval Capri 6 portas em MDP altura 200cm' },
+    });
+
+    const form = document.getElementById('ai-descriptive-text-form');
+    expect(form).not.toBeNull();
+    fireEvent.submit(form!);
+    fireEvent.submit(form!);
+
+    await waitFor(() => {
+      expect(aiService.extractFromDescriptiveTextWithAI).toHaveBeenCalledTimes(1);
+    });
+
+    resolveRequest({
+      identifiedProduct: { name: 'Guarda Roupa Moval Capri', confidence: 'alta' },
+      technicalValues: { Material: 'MDP' },
+      itemConfidence: { Material: 'alta' },
+    });
+    expect((await screen.findAllByDisplayValue('MDP')).length).toBeGreaterThan(0);
   });
 
   it('apresenta o modal de revisão responsivo com identificação e status Já preenchido para dados existentes', async () => {

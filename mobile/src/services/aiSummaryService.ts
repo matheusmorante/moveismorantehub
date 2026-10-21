@@ -108,8 +108,7 @@ export const generateDeliveryAISummary = async (
 
     if (!forceRefresh && savedRecord) {
       if (savedRecord.text_status === 'READY' && savedRecord.text) {
-        // REUTILIZAÇÃO PERFEITA: Mesmos dados -> Mesmo Texto + Mesmo Áudio
-        // ZERO chamadas adicionais de Gemini e ZERO chamadas de TTS!
+        // Mesmo estado dos pedidos -> mesmo texto e nenhuma chamada adicional de Gemini.
         summaryTextMemoryCache.set(memoryCacheKey, savedRecord.text);
         if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(savedRecord.text);
         else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)
@@ -139,11 +138,10 @@ export const generateDeliveryAISummary = async (
       data_fingerprint: currentFingerprint,
       text: savedRecord?.text || null,
       text_status: 'GENERATING',
-      audio_status: savedRecord?.audio_status || 'MISSING',
       generation_started_at: new Date().toISOString(),
     });
 
-    // Se já tiver um texto válido prévio com apenas o áudio pendente, reutiliza o texto!
+    // Se já existir um texto válido, reutiliza o texto.
     let smartText = '';
     const shouldReuseText =
       savedRecord?.text_status === 'READY' && Boolean(savedRecord.text) && !forceRefresh;
@@ -204,15 +202,9 @@ export const generateDeliveryAISummary = async (
       data_fingerprint: currentFingerprint,
       text: smartText,
       text_status: 'READY',
-      // A síntese de voz é sob demanda. O player usa cache por texto e só
-      // muda de chave quando esta versão do resumo realmente mudar.
-      audio_status: 'MISSING',
       generation_started_at: null,
       error_message: null,
     });
-
-    // O trigger do banco enfileira o áudio após salvar a nova versão. A tela
-    // apenas acompanha o estado pelo Realtime, sem consumir IA no aparelho.
 
     summaryTextMemoryCache.set(memoryCacheKey, smartText);
 

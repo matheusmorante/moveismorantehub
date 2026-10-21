@@ -1,6 +1,37 @@
 import { z } from 'zod';
 import { productVariationDraftSchema } from './productVariationValidation';
 
+const normalizeCompleteVariationName = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+const getCompleteVariationName = (
+  variation: Record<string, any>,
+  parentName: string
+): string => {
+  const name = String(variation.name || '').trim();
+  const suffix = name.toLocaleLowerCase('pt-BR').startsWith(parentName.toLocaleLowerCase('pt-BR'))
+    ? name.slice(parentName.length).replace(/^[\s\-_:]+/u, '').trim()
+    : name;
+  const isPlaceholder = !name || !suffix || ['produto', 'variação', 'nova variação'].includes(suffix.toLocaleLowerCase('pt-BR'));
+  if (!isPlaceholder) {
+    return parentName && !name.toLocaleLowerCase('pt-BR').startsWith(parentName.toLocaleLowerCase('pt-BR'))
+      ? `${parentName} ${name}`
+      : name;
+  }
+
+  const values = Array.isArray(variation.attributes)
+    ? variation.attributes
+        .filter((attribute: any) => attribute?.showName !== false && String(attribute?.value || '').trim())
+        .map((attribute: any) => String(attribute.value).trim())
+    : [];
+  return [parentName, ...values].filter(Boolean).join(' ');
+};
+
 const productNumericFields = productVariationDraftSchema.pick({
   unitPrice: true, promoPrice: true, costPrice: true, freightCost: true, ipiPercent: true,
   finalPurchasePrice: true, stock: true, minStock: true, leadTime: true, avgMonthlySales: true,
@@ -77,13 +108,67 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
         });
       }
 
-      const hasVars =
-        Boolean(data.hasVariations) && Array.isArray(data.variations) && data.variations.length > 0;
-      if (!hasVars) {
+      const variations = Array.isArray(data.variations) ? data.variations : [];
+      const isMultiVariationMode = Boolean(data.hasVariations) || variations.length > 1;
+      if (variations.length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: 'Adicione pelo menos uma variação ao produto.',
           path: ['variations'],
+        });
+      }
+
+      if (isMultiVariationMode && variations.length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Produto com variações precisa ter pelo menos 2 variações para concluir o cadastro.',
+          path: ['variations'],
+        });
+      }
+
+      const parentImages = Array.isArray((data as any).images)
+        ? (data as any).images.filter(Boolean)
+        : [];
+      variations.forEach((variation, index) => {
+        const varImages = Array.isArray(variation.images)
+          ? variation.images.filter(Boolean)
+          : typeof (variation as any).image_url === 'string' && (variation as any).image_url.trim()
+            ? (variation as any).image_url.split(',').filter(Boolean)
+            : [];
+        if (varImages.length === 0 && (isMultiVariationMode || parentImages.length === 0)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `A variação "${variation.name || `Variação ${index + 1}`}" deve ter pelo menos 1 foto vinculada para concluir o cadastro.`,
+            path: ['variations', index, 'images'],
+          });
+        }
+      });
+
+      if (isMultiVariationMode && variations.length > 1) {
+        const parentName = enteredName;
+        const completeNames = variations.map((variation) =>
+          normalizeCompleteVariationName(getCompleteVariationName(variation, parentName))
+        );
+        const firstIndexByName = new Map<string, number>();
+        completeNames.forEach((normalizedName, index) => {
+          if (!normalizedName) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Informe o nome completo da variação ${index + 1}.`,
+              path: ['variations', index, 'name'],
+            });
+            return;
+          }
+          const duplicateIndex = firstIndexByName.get(normalizedName);
+          if (duplicateIndex !== undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'Os nomes completos das variações devem ser diferentes entre si.',
+              path: ['variations', index, 'name'],
+            });
+          } else {
+            firstIndexByName.set(normalizedName, index);
+          }
         });
       }
 

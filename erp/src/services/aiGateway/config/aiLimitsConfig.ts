@@ -27,10 +27,8 @@ export interface AiLimitsConfig {
 export const AI_MODELS = {
   LITE: 'gemini-3.5-flash-lite',
   REASONING: 'gemini-3.8-flash',
-  FLASH_2_5: 'gemini-2.5-flash',
   EMBEDDING: 'gemini-embedding-2',
   IMAGE: 'gemini-2.5-flash-image',
-  TTS: 'gemini-3.1-flash-tts',
 } as const;
 
 export const CHARACTERISTICS_AI_LIMITS = {
@@ -38,7 +36,7 @@ export const CHARACTERISTICS_AI_LIMITS = {
   perMinute: 2,
   perHour: 20,
   perDay: 80,
-  model: AI_MODELS.FLASH_2_5,
+  model: AI_MODELS.LITE,
   operation: 'catalog_extract_technical_specs',
 } as const;
 
@@ -66,14 +64,6 @@ export const AI_LIMITS: AiLimitsConfig = {
       monthlyBudgetBRL: 30.0, // Cota financeira máxima mensal de R$ 30,00
       estimatedCostPerUnitBRL: 0.2,
       model: AI_MODELS.IMAGE,
-    },
-    TTS: {
-      concurrent: 1,
-      perMinute: 5,
-      perHour: 30,
-      perDay: 30,
-      voice: 'Aoede', // Voz feminina informativa e profissional do Gemini
-      model: AI_MODELS.TTS,
     },
   },
 };

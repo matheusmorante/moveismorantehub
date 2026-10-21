@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { supportCustomerLinkSchema, type SupportCustomerLinkInput } from '../../../../../../shared-utils/customerSupportFormSchemas';
 import { WhatsAppConversation, WhatsAppMessage } from '../types';
 import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
 import { whatsappSupportGuard } from '@/pages/utils/customerSupport/whatsappSupportGuard';
@@ -10,7 +13,7 @@ import {
   unlinkCustomer,
   CustomerSummary,
 } from '@/pages/utils/customerSupport/customerMatchingService';
-import { updateInternalNotesAndTags } from '@/pages/utils/customerSupport/customerSupportService';
+import { updateConversationNotes, updateConversationTag } from '@/pages/utils/customerSupport/customerSupportService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { ManualLinkModal } from './ManualLinkModal';
 import { useAuth } from '@/context/AuthContext';
@@ -47,6 +50,9 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [tags, setTags] = useState<string[]>(conversation.tags || []);
+  const [customerActionError, setCustomerActionError] = useState('');
+  const unlinkForm = useForm<SupportCustomerLinkInput>({ resolver: zodResolver(supportCustomerLinkSchema) });
+  const unlinkLock = useRef(false);
 
   const careWindow = whatsappSupportGuard.calculateCareWindow(conversation.lastCustomerMessageAt);
   const customer = conversation.customer;
@@ -87,16 +93,25 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
   if (!isOpen) return null;
 
   const handleUnlink = async () => {
-    if (!window.confirm('Deseja realmente desvincular este cliente da conversa?')) return;
-    const res = await unlinkCustomer(supabase, conversation.id);
-    if (res.success) {
-      onConversationUpdated({
-        customerId: null,
-        customerLinkStatus: 'unlinked',
-        customer: null,
-        orders: [],
-      });
-      setOrders([]);
+    if (unlinkLock.current) return;
+    unlinkLock.current = true;
+    unlinkForm.reset({ conversationId: conversation.id, customerId: conversation.customerId || '' });
+    setCustomerActionError('');
+    try {
+      await unlinkForm.handleSubmit(async (data) => {
+        if (!window.confirm('Deseja realmente desvincular este cliente da conversa?')) return;
+        const res = await unlinkCustomer(supabase, data.conversationId);
+        if (!res.success) {
+          setCustomerActionError(res.error || 'Não foi possível desvincular o cliente.');
+          return;
+        }
+        onConversationUpdated({ customerId: null, customerLinkStatus: 'unlinked', customer: null, orders: [] });
+        setOrders([]);
+      }, () => setCustomerActionError('Conversa ou cliente inválido para desvincular.'))();
+    } catch {
+      setCustomerActionError('Não foi possível desvincular o cliente. Tente novamente.');
+    } finally {
+      unlinkLock.current = false;
     }
   };
 
@@ -108,36 +123,23 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
     });
   };
 
-  const handleSaveNotes = async (notes: string) => {
-    const saved = await updateInternalNotesAndTags(supabase, conversation.id, notes, tags);
-    if (saved) onConversationUpdated({ internalNotes: notes, tags });
+  const handleSaveNotes = async (notes: string, expectedNotes: string | null) => {
+    const saved = await updateConversationNotes(supabase, conversation.id, notes, expectedNotes);
+    if (saved) onConversationUpdated({ internalNotes: notes });
     return saved;
   };
 
   const handleAddTag = async (newTag: string) => {
-    if (tags.includes(newTag)) return true;
-    const nextTags = [...tags, newTag];
-    const saved = await updateInternalNotesAndTags(
-      supabase,
-      conversation.id,
-      conversation.internalNotes || '',
-      nextTags
-    );
-    if (!saved) return false;
+    const nextTags = await updateConversationTag(supabase, conversation.id, newTag, false);
+    if (!nextTags) return false;
     setTags(nextTags);
     onConversationUpdated({ tags: nextTags });
     return true;
   };
 
   const handleRemoveTag = async (tagToRemove: string) => {
-    const nextTags = tags.filter((t) => t !== tagToRemove);
-    const saved = await updateInternalNotesAndTags(
-      supabase,
-      conversation.id,
-      conversation.internalNotes || '',
-      nextTags
-    );
-    if (!saved) return false;
+    const nextTags = await updateConversationTag(supabase, conversation.id, tagToRemove, true);
+    if (!nextTags) return false;
     setTags(nextTags);
     onConversationUpdated({ tags: nextTags });
     return true;
@@ -160,6 +162,7 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
       />
 
       <aside className="fixed inset-y-0 right-0 z-40 xl:static xl:z-20 w-80 sm:w-[360px] lg:w-[380px] border-l border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full shrink-0 shadow-xl xl:shadow-none animate-slide-left select-none transition-colors">
+        {customerActionError && <p role="alert" className="p-3 text-xs text-red-600">{customerActionError}</p>}
         {/* 1. Header do Painel */}
         <div className="h-16 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
           <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
@@ -252,9 +255,9 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
               customer={customer}
               isLinked={isLinked}
               canViewCommercial={canViewCommercial}
-              displayName={displayName}
               onOpenLinkModal={() => setIsLinkModalOpen(true)}
               onUnlink={handleUnlink}
+              isUnlinking={unlinkForm.formState.isSubmitting}
             />
           )}
 
@@ -269,6 +272,7 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
 
           {activeTab === 'support' && (
             <CustomerNotesTab
+              key={conversation.id}
               careWindow={careWindow}
               lastCustomerMessageAt={conversation.lastCustomerMessageAt}
               initialNotes={conversation.internalNotes}

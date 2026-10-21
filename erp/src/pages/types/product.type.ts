@@ -153,6 +153,8 @@ export type Product = {
   pkgDepth?: number; // Profundidade da embalagem
   extraDimensions?: ExtraDimension[];
   line?: string;
+  model?: string;
+  color?: string;
   mainDifferential?: string;
   material?: string;
   colors?: string;
@@ -195,6 +197,9 @@ export type Product = {
   technicalValues?: Record<string, any>;
 
   technicalSpecs?: Record<string, unknown>;
+
+  /** Características que podem receber valores próprios em cada variação. */
+  variableTechnicalFields?: string[];
 
   // Production / Origin
   merchandiseOrigin?: 'third_party' | 'own_production';

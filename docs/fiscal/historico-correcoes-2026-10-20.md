@@ -1,5 +1,21 @@
 # Histórico de Correções Fiscais — 2026-10-20
 
+## Cópia do contexto da tentativa fiscal para o agente
+
+- **Problema e sintomas observados:** no aviso de falha da nota, a ação existente copiava somente as linhas técnicas. Para pedir análise, o operador precisava reconstruir manualmente o contexto do pedido e da tentativa.
+- **Causa raiz técnica comprovada:** `FiscalIssueCard` oferecia a cópia dos campos técnicos exibidos, mas não havia um texto de prompt que juntasse esses campos com o resumo do erro e o estado do pedido/emissão.
+- **Arquivos e linhas modificados:** `erp/src/pages/App/shared/components/FiscalIssueCard.tsx:18-27,67-166,237-255` compõe o prompt com resumo, número/ID do pedido, ambiente, modelo e campos diagnósticos, aplicando redação de CPF/CNPJ, e-mail, telefone, valores conhecidos do cliente e padrões de credenciais; `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/components/NfeFiscalIssueModal.tsx:31,52,141-156` fornece o estado fiscal explícito da tentativa; `erp/src/pages/App/SalesOrder/OrderActions/NfeEmissionModal.tsx:42-57,366-367` encaminha a identidade do pedido e os valores pessoais usados para redação; `docs/fiscal/README.md:9` adiciona este registro às referências atuais.
+- **Solução técnica:** junto de “Copiar detalhes”, o aviso agora oferece “Copiar detalhes completos para o agente”. O texto pronto para colar inclui o aviso mostrado, próxima ação, pedido e dados técnicos/status disponíveis. O prompt pede análise sem transmissão nem alteração de banco e reforça consulta da mesma tentativa quando o estado for incerto. O conteúdo copiado exclui nome/documentos/endereço do cliente, pagamentos e XML; credenciais e contatos detectáveis são redigidos. A cópia técnica existente permanece disponível.
+- **Validação:** inspeção estática dos campos encaminhados e regras de sanitização, ESLint focado nos três componentes alterados e `git diff --check`; testes automatizados não foram executados nesta solicitação. Nenhuma consulta/escrita remota ou transmissão SEFAZ foi realizada.
+
+### Complemento: evidências fiscais sem identificadores no prompt do agente
+
+- **Problema e sintomas observados:** o prompt completo ainda não levava os fatos necessários para avaliar a obrigatoriedade do CPF/CNPJ, como modelo, total, presença/entrega e se o documento estava no cadastro, rascunho fiscal ou campo da emissão. A análise precisava pedir esses dados depois da cópia.
+- **Causa raiz técnica comprovada:** `buildAgentPrompt` recebia apenas o estado da tentativa e o diagnóstico técnico; `NfeEmissionModal` não encaminhava os dados fiscais não identificadores que já estavam disponíveis no emissor.
+- **Arquivos e linhas modificados:** `erp/src/pages/App/shared/components/FiscalIssueCard.tsx:12-24,162-206,217,227` adiciona o contrato e as linhas do prompt; `erp/src/pages/App/SalesOrder/OrderActions/nfe-modal/components/NfeFiscalIssueModal.tsx:35,57,146-158` encaminha o contexto ao cartão; `erp/src/pages/App/SalesOrder/OrderActions/NfeEmissionModal.tsx:10-11,33-35,143,376-410` calcula presença e status do documento e fornece modelo, total, modalidade, transporte, tipo de pessoa e exigência calculada; `docs/fiscal/README.md:9` atualiza a referência vigente; `docs/fiscal/historico-correcoes-2026-10-20.md:11-17` registra a alteração.
+- **Solução técnica:** “Copiar detalhes completos para o agente” agora inclui modelo e total calculados no emissor, modalidade de entrega, indicador de presença, transporte informado, PF/PJ, status de CPF/CNPJ no cadastro carregado, rascunho fiscal e campo do formulário, e exigência/motivos calculados pelo modal. O prompt inclui apenas estados “ausente”, “presente, válido” ou “presente, inválido”; nenhum valor de CPF/CNPJ é copiado. Ele identifica que esses dados são o estado disponível no emissor no momento da cópia e podem diferir do envio se houve edição posterior.
+- **Validação:** revisão estática da origem e do conteúdo dos campos; o checkout continua sem testes automatizados executados nesta solicitação. Nenhuma consulta/escrita remota, alteração de Produção ou transmissão SEFAZ foi realizada.
+
 ## NFC-e sem transporte usa presença presencial na emissão
 
 - **Problema e sintomas observados:** no pedido 7245, a aba Transporte mostrava a NFC-e com transporte desligado e modalidade 9, mas o backend ainda exigia CPF do destinatário.

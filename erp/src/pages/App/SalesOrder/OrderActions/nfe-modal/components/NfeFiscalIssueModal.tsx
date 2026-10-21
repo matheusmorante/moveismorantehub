@@ -1,6 +1,9 @@
 import type React from 'react';
 import { useEffect } from 'react';
-import { FiscalIssueCard } from '@/pages/App/shared/components/FiscalIssueCard';
+import {
+  FiscalIssueCard,
+  type FiscalIssuePromptFiscalEvidence,
+} from '@/pages/App/shared/components/FiscalIssueCard';
 import {
   getFiscalIssuePresentation,
   getFiscalIssueTechnicalDetails,
@@ -28,6 +31,8 @@ export interface NfeFiscalIssueModalProps {
   onCorrectFiscalData?: () => void;
   orderId?: string;
   orderNumber?: number;
+  orderSensitiveValues?: string[];
+  fiscalEvidence?: FiscalIssuePromptFiscalEvidence;
 }
 
 export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
@@ -48,6 +53,8 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
   onCorrectFiscalData,
   orderId,
   orderNumber,
+  orderSensitiveValues,
+  fiscalEvidence,
 }) => {
   useEffect(() => {
     if (!isOpen) return;
@@ -144,6 +151,11 @@ export const NfeFiscalIssueModal: React.FC<NfeFiscalIssueModalProps> = ({
                     attemptState: emissionResult.status || emissionResult.state,
                     pending: emissionResult.pending,
                     sefazContacted: emissionResult.sefazContacted,
+                    numberReserved: emissionResult.numberReserved,
+                    preparationReconciled: emissionResult.preparationReconciled,
+                    reservationRecoveryRequired: emissionResult.reservationRecoveryRequired,
+                    redactValues: orderSensitiveValues,
+                    fiscalEvidence,
                   }
                 : undefined
             }

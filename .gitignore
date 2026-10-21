@@ -35,6 +35,9 @@ test-results/
 **/test-results/
 .playwright-cli/
 **/.playwright-cli/
+
+# Generated local API bundle for the Customer Support endpoints.
+/erp/server/customer-support/
 pet-runs/
 **/pet-runs/
 

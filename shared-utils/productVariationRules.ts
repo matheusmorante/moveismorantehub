@@ -5,7 +5,11 @@ import { checkProductErpLegibility as checkERPLegibility } from './productErpLeg
 import type { VariationTabId } from '../erp/src/pages/App/Products/hooks/variation/variationForm.types';
 
 export function resolveVariationDimensions(parent: Partial<Product>, variation: Variation) {
-  const values = getEffectiveVariationTechnicalValues(parent.technicalValues || {}, variation);
+  const values = getEffectiveVariationTechnicalValues(
+    parent.technicalValues || {},
+    variation,
+    parent.variableTechnicalFields
+  );
   const dimension = (
     field: 'width' | 'height' | 'depth',
     sync: boolean | undefined,
@@ -38,7 +42,7 @@ export function getVariationRegistrationIssue(
   }
   if (
     parent.variations?.some(
-      (item) => item.id !== variation.id && item.sku?.toUpperCase() === variation.sku?.toUpperCase()
+      (item) => item && item.id !== variation.id && item.sku?.toUpperCase() === variation.sku?.toUpperCase()
     )
   ) {
     return {

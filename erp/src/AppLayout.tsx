@@ -38,7 +38,7 @@ export default function AppLayout() {
   } = useGlobalAppEvents({ isAdmin });
 
   return (
-    <div className="flex flex-col bg-slate-50 dark:bg-slate-950 min-h-screen font-['Inter',_sans-serif] transition-colors duration-300">
+    <div className={`flex flex-col bg-slate-50 dark:bg-slate-950 ${isCustomerSupport ? 'h-dvh overflow-hidden' : 'min-h-screen'} font-['Inter',_sans-serif] transition-colors duration-300`}>
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -82,7 +82,7 @@ export default function AppLayout() {
       />
 
       {/* Conteúdo Principal das Rotas */}
-      <main className={`flex-1 ${mainContentClassName} overflow-x-clip`}>
+      <main className={`flex-1 ${isCustomerSupport ? 'min-h-0' : ''} ${mainContentClassName} overflow-x-clip`}>
         <Outlet />
       </main>
 

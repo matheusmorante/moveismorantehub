@@ -26,12 +26,20 @@ export const isDefaultVariation = (variation: any, index?: number): boolean => {
  */
 export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): T => {
   if (product.itemType === 'service') return product;
-  if (product.variations?.length) return { ...product, hasVariations: true };
+  const isDraft = Boolean(product.isDraft ?? (product as any).is_draft) || product.status === 'draft';
+  if (product.variations?.length) {
+    return {
+      ...product,
+      hasVariations: isDraft && typeof product.hasVariations === 'boolean'
+        ? product.hasVariations
+        : product.variations.length > 1,
+    };
+  }
   const name = toTitleCase(product.name || product.title || product.description || '');
   const sku = product.code ? `${product.code}-01` : '';
   return {
     ...product,
-    hasVariations: true,
+    hasVariations: isDraft && typeof product.hasVariations === 'boolean' ? product.hasVariations : false,
     // A variação principal é um novo registro físico e recebe seu próprio UUID.
     variations: [
       {
@@ -40,11 +48,25 @@ export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): 
         name,
         stock: Number(product.stock || 0),
         unitPrice: Number(product.unitPrice || 0),
+        promoPrice: Number(product.promoPrice || 0),
         costPrice: Number(product.costPrice || 0),
+        condition: product.condition || 'novo',
+        description: product.description || '',
+        fiscal: product.fiscal ? { ...product.fiscal } : undefined,
+        width: Number(product.width || 0),
+        height: Number(product.height || 0),
+        depth: Number(product.depth || 0),
+        weight: Number(product.weight || 0),
+        ipiPercent: Number(product.ipiPercent || 0),
+        ipiType: product.ipiType || 'percentage',
+        freightCost: Number(product.freightCost || 0),
+        freightType: product.freightType || 'fixed',
+        finalPurchasePrice: Number(product.finalPurchasePrice || 0),
+        minStock: Number(product.minStock || 0),
         active: product.active !== false,
         status: product.status || 'hidden',
         attributes: [],
-        images: (product.images || []).slice(0, MAX_VARIATION_IMAGES),
+        images: [],
         syncUnitPrice: true,
         syncPromoPrice: true,
         syncCostPrice: true,

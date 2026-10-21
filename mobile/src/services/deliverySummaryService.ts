@@ -8,13 +8,8 @@ export interface DeliverySummaryRecord {
   scope: 'today' | 'tomorrow' | 'next_days' | 'next5days';
   data_fingerprint: string;
   text: string | null;
-  audio_url: string | null;
-  audio_cache_key?: string | null;
-  audio_storage_path?: string | null;
   text_status: SummaryStatus;
-  audio_status: SummaryStatus;
   generator_version: string;
-  tts_version: string;
   generation_started_at: string | null;
   error_message: string | null;
   created_at?: string;
@@ -81,11 +76,8 @@ export const saveSummaryRecord = async (
     scope: record.scope,
     data_fingerprint: record.data_fingerprint,
     text: record.text || null,
-    audio_url: record.audio_url || null,
     text_status: record.text_status || 'MISSING',
-    audio_status: record.audio_status || 'MISSING',
     generator_version: record.generator_version || 'v1',
-    tts_version: record.tts_version || 'v1',
     generation_started_at: record.generation_started_at || new Date().toISOString(),
     error_message: record.error_message || null,
     created_at: record.created_at || new Date().toISOString(),

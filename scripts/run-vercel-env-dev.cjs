@@ -19,7 +19,14 @@ if (!projectId || !orgId) {
 const vercelEnvCwd = path.join(projectRoot, '.vercel');
 const executable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const mode = process.argv[2];
-const command = mode === 'api' ? 'dev:api:serve' : mode === 'erp' ? 'dev:erp:serve' : 'dev:stack';
+const command = mode === 'api' ? 'dev:api:serve'
+  : mode === 'erp' ? 'dev:erp:serve'
+  : mode === 'support-readonly' ? 'test:support:readonly:serve'
+  : mode === 'support-provision' ? 'test:support:provision:serve'
+  : mode === 'support-owned' ? 'test:support:owned:serve'
+  : mode === 'support-cleanup' ? 'test:support:cleanup:serve'
+  : mode === 'support-reopening' ? 'test:support:reopening:serve'
+  : mode === 'support-reopening-ui' ? 'test:support:reopening:ui:serve' : 'dev:stack';
 const args = [
   '-y',
   'vercel',

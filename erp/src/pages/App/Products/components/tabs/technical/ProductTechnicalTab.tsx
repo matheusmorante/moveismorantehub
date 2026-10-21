@@ -5,6 +5,7 @@ import { useProductTechnicalTab } from './useProductTechnicalTab';
 import { TechnicalCharacteristicSearch } from './TechnicalCharacteristicSearch';
 import { TechnicalFieldGroupSection } from './TechnicalFieldGroupSection';
 import { TechnicalTabFeedbackState } from './TechnicalTabFeedbackState';
+import { resolveVariableTechnicalFieldNames } from '@/pages/utils/technicalValuesService';
 
 export interface ProductTechnicalTabProps {
   readonly formData: Partial<Product>;
@@ -46,6 +47,7 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     isAttributeModalOpen,
     setCharacteristicSearchTerm,
     handleTechnicalValueChange,
+    handleToggleVariableField,
     handleAddManualField,
     handleAddGroup,
     handleRemoveManualField,
@@ -58,6 +60,10 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     categoryName,
     requiredFieldsOnly,
   });
+  const variableTechnicalFieldNames = resolveVariableTechnicalFieldNames(
+    formData.variableTechnicalFields,
+    formData.variations || []
+  );
 
   const searchControl = !requiredFieldsOnly ? (
     <TechnicalCharacteristicSearch
@@ -98,6 +104,8 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                   formData={formData}
                   manualFieldNames={manualFieldNames}
                   validationErrors={validationErrors}
+                  variableTechnicalFieldNames={variableTechnicalFieldNames}
+                  onToggleVariableField={handleToggleVariableField}
                   onValueChange={handleTechnicalValueChange}
                   onOpenAttributeModal={openAttributeModal}
                   onToggleDepthLength={handleToggleDepthLength}

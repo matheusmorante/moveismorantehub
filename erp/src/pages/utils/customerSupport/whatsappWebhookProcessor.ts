@@ -1,7 +1,7 @@
 import crypto from 'crypto';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { normalizeToE164 } from './phoneUtils';
-import { matchCustomerByPhone } from './customerMatchingService';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { normalizeToE164 } from './phoneUtils.js';
+import { matchCustomerByPhone } from './customerMatchingService.js';
 
 export interface WebhookProcessResult {
   processedMessages: number;
@@ -19,7 +19,7 @@ export function parseMetaStatusFailure(errors?: any[]): {
   const first = errors[0] || {};
   const code = String(first.code || '');
   const details = first.error_data?.details || first.message || first.title || '';
-  let failureReason = '';
+  let failureReason: string;
   if (code === '131056') {
     failureReason = 'Mensagem descartada pela Meta (proteção anti-spam ou envio repetido). Aguarde 1 minuto ou altere o conteúdo do pedido antes de reenviar.';
   } else if (code === '131049') {
@@ -71,7 +71,8 @@ export function verifyMetaSignature(
   }
 }
 
-export async function readRawWebhookBody(request: AsyncIterable<Buffer | string>): Promise<Buffer> {
+export async function readRawWebhookBody(request: AsyncIterable<Buffer | string> & { rawBody?: Buffer }): Promise<Buffer> {
+  if (Buffer.isBuffer(request.rawBody)) return request.rawBody;
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -237,16 +238,13 @@ export async function processWhatsAppWebhookPayload(
             }
 
             // IDEMPOTÊNCIA: Verifica se a mensagem já foi salva anteriormente
-            const { data: existingMsg } = await supabase
+            const { data: existingMsg, error: duplicateError } = await supabase
               .from('whatsapp_messages')
               .select('id')
               .eq('api_message_id', wamid)
               .maybeSingle();
 
-            if (existingMsg) {
-              result.duplicatesIgnored++;
-              continue;
-            }
+            if (duplicateError) throw duplicateError;
 
             // Extrai nome de perfil enviado pela Meta
             const contactProfile =
@@ -259,99 +257,61 @@ export async function processWhatsAppWebhookPayload(
               ? new Date(Number(message.timestamp) * 1000).toISOString()
               : new Date().toISOString();
 
-            // Localiza ou inicializa conversa
-            let conversationId: string | null = null;
-            let existingCustomerId: string | null = null;
-            let existingUnreadCount = 0;
+            let matchedCustomerId: string | null = null;
+            let customerLinkStatus = 'unlinked';
+            // A known ID only skips matching. The RPC must still validate its
+            // channel/contact and direction before classifying it as duplicate.
+            if (!existingMsg) {
+              // Matching stays outside the transaction. The RPC rechecks the
+              // current link under its row lock before applying any match.
+              const { data: convData, error: conversationError } = await supabase
+                .from('whatsapp_conversations')
+                .select('id, customer_id, customer_link_status')
+                .eq('business_phone_number_id', businessPhoneNumberId)
+                .eq('contact_wa_id', from)
+                .maybeSingle();
+              if (conversationError) throw conversationError;
 
-            const { data: convData } = await supabase
-              .from('whatsapp_conversations')
-              .select('id, customer_id, customer_link_status, unread_count')
-              .eq('business_phone_number_id', businessPhoneNumberId)
-              .eq('contact_wa_id', from)
-              .maybeSingle();
-
-            if (convData) {
-              conversationId = convData.id;
-              existingCustomerId = convData.customer_id;
-              existingUnreadCount = convData.unread_count || 0;
-            }
-
-            // Se a conversa ainda não existir ou não estiver vinculada a cliente
-            let matchedCustomerId: string | null = existingCustomerId;
-            let customerLinkStatus = convData?.customer_link_status || 'unlinked';
-
-            if (!existingCustomerId && customerLinkStatus !== 'manually_linked') {
-              const matchResult = await matchCustomerByPhone(supabase, from);
-              if (matchResult.status === 'auto_matched' && matchResult.customer) {
-                matchedCustomerId = matchResult.customer.id;
-                customerLinkStatus = 'auto_matched';
-              } else if (matchResult.status === 'ambiguous') {
-                customerLinkStatus = 'ambiguous';
-              } else {
-                customerLinkStatus = 'unlinked';
+              if (!convData?.customer_id && convData?.customer_link_status !== 'manually_linked') {
+                const matchResult = await matchCustomerByPhone(supabase, from);
+                if (matchResult.status === 'auto_matched' && matchResult.customer) {
+                  matchedCustomerId = matchResult.customer.id;
+                  customerLinkStatus = 'auto_matched';
+                } else if (matchResult.status === 'ambiguous') {
+                  customerLinkStatus = 'ambiguous';
+                }
               }
             }
 
             const extracted = extractMessageContent(message);
 
-            // Cria ou atualiza a conversa
-            if (!conversationId) {
-              const { data: newConv, error: convErr } = await supabase
-                .from('whatsapp_conversations')
-                .insert({
-                  business_phone_number_id: businessPhoneNumberId,
-                  contact_phone: contactPhoneE164,
-                  contact_wa_id: from,
-                  contact_name: contactProfile,
-                  customer_id: matchedCustomerId,
-                  customer_link_status: customerLinkStatus,
-                  last_message_text: extracted.text,
-                  last_message_at: messageTimestamp,
-                  last_customer_message_at: messageTimestamp,
-                  unread_count: 1,
-                  is_archived: false,
-                })
-                .select('id')
-                .single();
-
-              if (convErr) throw convErr;
-              conversationId = newConv.id;
-            } else {
-              await supabase
-                .from('whatsapp_conversations')
-                .update({
-                  contact_name: contactProfile || undefined,
-                  customer_id: matchedCustomerId || undefined,
-                  customer_link_status: customerLinkStatus,
-                  last_message_text: extracted.text,
-                  last_message_at: messageTimestamp,
-                  last_customer_message_at: messageTimestamp,
-                  unread_count: existingUnreadCount + 1,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', conversationId);
-            }
-
-            // Insere mensagem
-            const { error: msgErr } = await supabase.from('whatsapp_messages').insert({
-              conversation_id: conversationId,
-              api_message_id: wamid,
-              direction: 'inbound',
-              message_type: extracted.type,
-              text_content: extracted.text,
-              media_id: extracted.mediaId,
-              media_mime_type: extracted.mediaMimeType,
-              media_filename: extracted.mediaFilename,
-              media_caption: extracted.mediaCaption,
-              reply_to_wamid: extracted.replyToWamid,
-              status: 'received',
-              timestamp: messageTimestamp,
+            // The provider ID, inbound row, summary/count and persisted reopening
+            // event are committed together. No fallback to separate writes.
+            const { data: receipt, error: receiptError } = await supabase.rpc('customer_support_receive_message', {
+              p_business_phone_number_id: businessPhoneNumberId,
+              p_contact_wa_id: from,
+              p_contact_phone: contactPhoneE164,
+              p_contact_name: contactProfile,
+              p_customer_id: matchedCustomerId,
+              p_customer_link_status: customerLinkStatus,
+              p_message: {
+                api_message_id: wamid,
+                message_type: extracted.type,
+                text_content: extracted.text,
+                media_id: extracted.mediaId ?? null,
+                media_mime_type: extracted.mediaMimeType ?? null,
+                media_filename: extracted.mediaFilename ?? null,
+                media_caption: extracted.mediaCaption ?? null,
+                reply_to_wamid: extracted.replyToWamid ?? null,
+                timestamp: messageTimestamp,
+              },
             });
-
-            if (msgErr) throw msgErr;
-
-            result.processedMessages++;
+            if (receiptError) throw receiptError;
+            if (!receipt?.conversation_id || !receipt?.message_id || typeof receipt.inserted !== 'boolean') {
+              throw new Error('Recebimento da mensagem não confirmado pelo servidor.');
+            }
+            if (receipt.inserted) result.processedMessages++;
+            else result.duplicatesIgnored++;
           } catch (err: any) {
             console.error('[WhatsApp Webhook] Erro ao processar mensagem individual:', err);
             result.errors.push(err.message || String(err));

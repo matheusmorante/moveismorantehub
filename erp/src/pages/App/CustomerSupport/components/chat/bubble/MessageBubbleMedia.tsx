@@ -13,13 +13,13 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
   onOpenLightbox,
 }) => {
   // 1. Imagem
-  if (message.messageType === 'image') {
+  if (message.messageType === 'image' || message.messageType === 'sticker') {
     return (
       <div className="mb-2 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700">
         {mediaUrl ? (
           <img
             src={mediaUrl}
-            alt={message.mediaCaption || 'Foto compartilhada no WhatsApp'}
+            alt={message.mediaCaption || (message.messageType === 'sticker' ? 'Figurinha recebida no WhatsApp' : 'Foto compartilhada no WhatsApp')}
             loading="lazy"
             onClick={onOpenLightbox}
             className="w-full max-h-72 object-cover cursor-pointer hover:opacity-95 transition-opacity"
@@ -27,7 +27,7 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
         ) : (
           <div className="p-4 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
             <i className="bi bi-image text-lg"></i>
-            Foto recebida
+            {message.messageType === 'sticker' ? 'Figurinha recebida' : 'Foto recebida'}
           </div>
         )}
         {message.mediaCaption && (
@@ -114,6 +114,10 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
         {message.textContent}
       </div>
     );
+  }
+
+  if (message.messageType === 'location' || message.messageType === 'contacts') {
+    return <p className="whitespace-pre-wrap break-words text-[13px]">{message.textContent || (message.messageType === 'location' ? 'Localização compartilhada' : 'Contato compartilhado')}</p>;
   }
 
   // 6. Formato não suportado

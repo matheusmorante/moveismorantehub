@@ -72,7 +72,26 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
 }) => {
   return (
     <View style={styles.badgesContainer}>
-      {/* 1. Selo de Tipo de Pedido (Entrega / Retirada / Assistência / Devolução) */}
+      {/* 1. Selos de Montagem (Parafusadeira: Montagem no Local / Depósito ou Montagem Fora) - início / lado esquerdo */}
+      {!cancelled && hasAssemblyDepot && (
+        <View
+          style={[styles.iconBadge, styles.badgeAmber]}
+          accessibilityLabel="Montagem no Local/Depósito"
+        >
+          <MobileDrill size={11} color="#ffffff" />
+        </View>
+      )}
+
+      {!cancelled && hasAssemblyOutside && (
+        <View
+          style={[styles.iconBadge, styles.badgeRed]}
+          accessibilityLabel="Montagem Fora"
+        >
+          <MobileDrill size={11} color="#ffffff" />
+        </View>
+      )}
+
+      {/* 2. Selo de Tipo de Pedido (Entrega / Retirada / Assistência / Devolução) */}
       <View
         style={[
           styles.iconBadge,
@@ -96,7 +115,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
         )}
       </View>
 
-      {/* 2. Selo de Etiquetado (Stock Check - idêntico ao ERP) */}
+      {/* 3. Selo de Etiquetado (Stock Check - idêntico ao ERP) */}
       {!isReturn && !isAssistance && !cancelled && (
         <View
           style={[styles.iconBadge, isStockChecked ? styles.badgeSuccess : styles.badgeMuted]}
@@ -111,7 +130,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
         </View>
       )}
 
-      {/* 3. Selo do Bling (idêntico ao ERP) */}
+      {/* 4. Selo do Bling (idêntico ao ERP) */}
       {!isReturn && !isAssistance && !isDraft && !cancelled && (
         <View
           style={[styles.blingBadge, isRegisteredInBling ? styles.badgeSuccess : styles.badgeMuted]}
@@ -126,7 +145,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
         </View>
       )}
 
-      {/* 4. Selo de Movimentação de Estoque (idêntico ao ERP) */}
+      {/* 5. Selo de Movimentação de Estoque (idêntico ao ERP) */}
       {(orderType === 'sale' || orderType === 'showroom' || orderType === 'return') && (
         <View
           style={[
@@ -150,7 +169,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
         </View>
       )}
 
-      {/* 5. Selo de Devolução Vinculada no pedido de origem */}
+      {/* 6. Selo de Devolução Vinculada no pedido de origem */}
       {Boolean(returnOrderId) && (
         <View
           style={[styles.textBadge, styles.badgeAmber]}
@@ -165,28 +184,14 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
         </View>
       )}
 
-      {/* 6. Selo de Tráfego Pago */}
+      {/* 7. Selo de Tráfego Pago */}
       {isPaidTraffic && !isReturn && (
         <View style={[styles.iconBadge, styles.badgeOrange]}>
           <Megaphone size={11} color="#ffffff" />
         </View>
       )}
 
-      {/* 7. Selo de Montagem Fora */}
-      {!cancelled && hasAssemblyOutside && (
-        <View style={[styles.iconBadge, styles.badgeRed]}>
-          <MobileDrill size={11} color="#ffffff" />
-        </View>
-      )}
-
-      {/* 8. Selo de Montagem Depósito */}
-      {!cancelled && hasAssemblyDepot && (
-        <View style={[styles.iconBadge, styles.badgeAmber]}>
-          <MobileDrill size={11} color="#ffffff" />
-        </View>
-      )}
-
-      {/* 9-12. Selos Fiscais (NF, NFH, NFE, NFD) */}
+      {/* 8-11. Selos Fiscais (NF, NFH, NFE, NFD) */}
       <OrderCardFiscalBadges
         fiscalBadgeStatus={fiscalBadgeStatus}
         fiscalHmlBadgeStatus={fiscalHmlBadgeStatus}

@@ -1,4 +1,4 @@
-export type AiCategory = 'TEXT' | 'IMAGE' | 'TTS';
+export type AiCategory = 'TEXT' | 'IMAGE';
 
 export type AiErrorCode =
   | 'AI_DAILY_LIMIT_REACHED'

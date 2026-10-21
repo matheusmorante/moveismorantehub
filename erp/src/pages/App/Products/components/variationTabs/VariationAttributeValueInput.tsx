@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { bulkAttributeFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import { saveAttributeValue } from '@/pages/utils/variationService';
+import { isWeightCharacteristicName } from '@/pages/utils/technicalValuesService';
 import type { DbAttributeValueItem } from './VariationIdentificationTab';
 
 interface VariationAttributeValueInputProps {
@@ -109,23 +110,27 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
 
     if (dataType === 'integer' || dataType === 'decimal' || dataType === 'measure') {
       const isDecimal = dataType === 'decimal' || dataType === 'measure';
+      const isWeight = isWeightCharacteristicName(attributeName || '');
+      const decimalPlaces = isWeight ? 1 : 2;
       return (
         <div className="relative flex items-center">
           <input
             type={isDecimal ? 'text' : 'number'}
-            inputMode={isDecimal ? 'decimal' : 'numeric'}
-            step={dataType === 'integer' ? '1' : '0.01'}
+            inputMode="numeric"
+            step={dataType === 'integer' ? '1' : isWeight ? '0.1' : '0.01'}
             placeholder={
               isDecimal
-                ? '0,00'
+                ? decimalPlaces === 1
+                  ? '0,0'
+                  : '0,00'
                 : /porta|gaveta/i.test(attributeName || '')
                   ? 'Insira a quantidade de portas'
                   : 'Insira um número inteiro'
             }
-            value={isDecimal ? formatDecimalValue(value) : value}
+            value={isDecimal ? formatDecimalValue(value, decimalPlaces) : value}
             onChange={(e) => {
               if (isDecimal) {
-                onChange(maskDecimalValue(e.target.value));
+                onChange(maskDecimalValue(e.target.value, decimalPlaces));
               } else {
                 let val = e.target.value;
                 if (/quantidade de (portas?|gavetas?)/i.test(attributeName || '') && Number(val) > 50) {
@@ -254,14 +259,15 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
   );
 };
 
-function maskDecimalValue(input: string): string {
+function maskDecimalValue(input: string, decimalPlaces: number = 2): string {
   const digits = input.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
   if (!digits) return '';
-  return (Number(digits) / 100).toFixed(2);
+  const divisor = Math.pow(10, decimalPlaces);
+  return (Number(digits) / divisor).toFixed(decimalPlaces);
 }
 
-function formatDecimalValue(value: string): string {
+function formatDecimalValue(value: string, decimalPlaces: number = 2): string {
   if (!value) return '';
   const numeric = Number(value.replace(',', '.'));
-  return Number.isFinite(numeric) ? numeric.toFixed(2).replace('.', ',') : '';
+  return Number.isFinite(numeric) ? numeric.toFixed(decimalPlaces).replace('.', ',') : '';
 }

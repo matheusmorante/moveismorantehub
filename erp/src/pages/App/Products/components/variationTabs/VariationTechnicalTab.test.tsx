@@ -81,6 +81,12 @@ const mockParentProduct: Product = {
     'Profundidade total': '60',
     'Quantidade de portas': '6',
   },
+  variableTechnicalFields: [
+    'Cor',
+    'Profundidade total',
+    'Comprimento total',
+    'Quantidade de portas',
+  ],
   variations: [],
 };
 
@@ -116,7 +122,7 @@ describe('VariationTechnicalTab', () => {
     cleanup();
   });
 
-  it('carrega e renderiza os campos agrupados da variação', async () => {
+  it('renderiza características variáveis e permite editar o valor herdado sem botão de fixar', async () => {
     render(<TestHarness />);
 
     // Espera os campos carregarem
@@ -125,10 +131,33 @@ describe('VariationTechnicalTab', () => {
       expect(screen.getByText('Profundidade total')).toBeInTheDocument();
     });
 
-    // Campo herdado do pai
+    // A característica variável parte do valor do pai e pode ser alterada nesta variação.
     const corInput = screen.getByTestId('input-Cor') as HTMLInputElement;
     expect(corInput.value).toBe('Branco');
-    expect(corInput).toBeDisabled();
+    expect(corInput).not.toBeDisabled();
+    expect(screen.queryByTitle(/Sincronizado com o pai|Manual — clique para sincronizar/)).toBeNull();
+  });
+
+  it('oculta características fixas na aba da variação mesmo que haja um valor legado', async () => {
+    const parentProduct = { ...mockParentProduct, variableTechnicalFields: [] };
+    const variation = {
+      ...mockVariation,
+      technicalValues: { Cor: 'Azul' },
+      attributes: [{ name: 'Cor', value: 'Azul' }],
+    };
+    const handleChange = vi.fn();
+
+    render(
+      <VariationTechnicalTab
+        formData={variation}
+        parentProduct={parentProduct}
+        handleChange={handleChange}
+        initialTechnicalFields={mockFields}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText('Características específicas')).toBeInTheDocument());
+    expect(screen.queryByText('Cor')).toBeNull();
   });
 
   it('permite alternar entre Profundidade total e Comprimento total', async () => {

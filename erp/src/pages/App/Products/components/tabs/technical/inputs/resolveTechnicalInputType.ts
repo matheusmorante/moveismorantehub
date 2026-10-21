@@ -1,4 +1,5 @@
 import {
+  isDimensionCharacteristicName,
   isWeightCharacteristicName,
   TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
@@ -20,6 +21,8 @@ export function resolveTechnicalInputType(field: TechnicalFieldDefinition): stri
     type = 'multi_select';
   } else if (type === 'weight' || isWeightCharacteristicName(field.name)) {
     type = 'decimal';
+  } else if (type === 'measure' || isDimensionCharacteristicName(field.name)) {
+    type = 'measure';
   }
   return type;
 }

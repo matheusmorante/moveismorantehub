@@ -31,6 +31,43 @@ function extractDescriptionText(rawResponse: string): string {
 }
 
 /**
+ * Sanitiza a descrição gerada pela IA para garantir conformidade estrita com as regras de catálogo:
+ * 1. A característica 'Cor' NUNCA deve ser apresentada na descrição do produto (pertence às variações)
+ * 2. O termo com barra 'Modelo/Linha' ou 'Linha/Modelo' NUNCA deve ser apresentado com a barra '/'
+ */
+export function sanitizeGeneratedProductDescription(text: string): string {
+  if (!text) return '';
+  return text
+    .split('\n')
+    .filter((line) => {
+      const trimmed = line.trim();
+      // Remove linhas de características de Cor (ex: "Cor: Azul", "- Cor: Castor", "* Cor: Bege")
+      if (/^[-*•]?\s*cor\s*:\s*.+/i.test(trimmed)) {
+        return false;
+      }
+      return true;
+    })
+    .map((line) => {
+      // Converte ocorrências de "Modelo/Linha:" ou "Linha/Modelo:" em formato sem a barra '/'
+      const match = line.match(/^([-*•]?\s*)(?:modelo\s*\/\s*linha|linha\s*\/\s*modelo)\s*:\s*(.+)$/i);
+      if (match) {
+        const [, prefix, value] = match;
+        const valTrimmed = value.trim();
+        const valLower = valTrimmed.toLowerCase();
+        if (valLower.startsWith('linha ')) {
+          return `${prefix}Linha: ${valTrimmed.replace(/^linha\s+/i, '')}`;
+        }
+        if (valLower.startsWith('modelo ')) {
+          return `${prefix}Modelo: ${valTrimmed.replace(/^modelo\s+/i, '')}`;
+        }
+        return `${prefix}Modelo: ${valTrimmed}`;
+      }
+      return line;
+    })
+    .join('\n');
+}
+
+/**
  * Sanitiza e decodifica JSON envolto em blocos markdown ou texto adicional
  */
 function parseJsonSafe<T>(rawText: string, fallback: T): T {
@@ -242,6 +279,8 @@ Retorne APENAS um JSON no formato:
     material?: string;
     brand?: string;
     line?: string;
+    model?: string;
+    modelOrLine?: string;
     width?: string | number;
     height?: string | number;
     depth?: string | number;
@@ -251,8 +290,25 @@ Retorne APENAS um JSON no formato:
     const technicalInfoText =
       data.technicalValues && Object.keys(data.technicalValues).length > 0
         ? Object.entries(data.technicalValues)
-            .filter(([_, val]) => val !== undefined && val !== null && String(val).trim() !== '')
-            .map(([key, val]) => `- ${key}: ${val}`)
+            .filter(([key, val]) => {
+              if (val === undefined || val === null || String(val).trim() === '') return false;
+              const lowerKey = key.trim().toLowerCase();
+              // Cor NUNCA deve ser incluída na descrição do produto (pertence às variações)
+              if (lowerKey === 'cor') return false;
+              return true;
+            })
+            .map(([key, val]) => {
+              const lowerKey = key.trim().toLowerCase();
+              if (
+                lowerKey === 'modelo/linha' ||
+                lowerKey === 'linha/modelo' ||
+                lowerKey === 'modelo / linha' ||
+                lowerKey === 'linha / modelo'
+              ) {
+                return `- Linha e/ou Modelo informado: ${val}`;
+              }
+              return `- ${key}: ${val}`;
+            })
             .join('\n')
         : '';
 
@@ -266,13 +322,24 @@ REGRA ABSOLUTA — NUNCA INVENTE NADA:
 • Seu papel é REESCREVER com linguagem melhor e rica, incorporando harmoniosamente todas as especificações técnicas, não CRIAR informações novas.
 ═══════════════════════════════════════
 
+DIRETRIZ MANDATÓRIA — MODELO E LINHA:
+• NUNCA escreva o termo "Modelo/Linha" ou "Linha/Modelo" com barra "/" na descrição gerada ou na lista de características. A barra "/" é estritamente proibida.
+• Um produto pode ter somente a Linha, somente o Modelo, ou ter ambos (Linha e Modelo):
+  - Se houver apenas a Linha: apresente como "Linha: [Nome da Linha]".
+  - Se houver apenas o Modelo: apresente como "Modelo: [Nome do Modelo]".
+  - Se houver ambos (Linha e Modelo): apresente ambos separadamente ("Linha: [Nome da Linha]" e "Modelo: [Nome do Modelo]").
+  - Se o dado fornecido for um valor único informado para Modelo/Linha (ex: "Paris", "Dallas", "Supreme"): analise pelo contexto se corresponde a uma Linha (coleção de móveis) ou a um Modelo do produto e apresente como "Linha: [Valor]" ou "Modelo: [Valor]". Caso represente ambos, apresente de forma elegante sem nenhuma barra "/".
+
+DIRETRIZ MANDATÓRIA — COR:
+• A característica "Cor" NUNCA deve ser apresentada na descrição nem na lista de características. As cores pertencem às variações do produto no e-commerce e cada variação terá sua própria cor selecionável pelo cliente. Portanto, NUNCA inclua "Cor:" na lista de características e não mencione cores específicas no texto comercial.
+
 COMO INTERPRETAR O NOME DO PRODUTO (MUITO IMPORTANTE):
 • O nome do produto geralmente segue o padrão: [Tipo] [Linha/Modelo] [Complemento].
 • Exemplos de nomes e como interpretá-los:
   - "Balcão Copa para Pia" → Tipo: Balcão | Linha/Modelo: Copa | Uso: para pia (ambiente: cozinha)
   - "Guarda Roupa Sidney 6 Portas" → Tipo: Guarda Roupa | Linha/Modelo: Sidney | Especificações: 6 Portas
   - "Cômoda Arizona 4 Gavetas" → Tipo: Cômoda | Linha/Modelo: Arizona | Especificações: 4 Gavetas
-• Palavras como "Copa", "Sidney", "Arizona", "Dallas" são NOMES DE LINHA/MODELO, não ambientes.
+• Palavras como "Copa", "Sidney", "Arizona", "Dallas" são NOMES DE LINHA OU MODELO, não ambientes.
 • O ambiente real é inferido pelo tipo e uso do produto (pia → cozinha, guarda roupa → quarto, etc.).
 • NUNCA use o nome da linha como se fosse um ambiente.
 
@@ -285,6 +352,8 @@ ESTRUTURA OBRIGATÓRIA DA RESPOSTA:
 2. Uma linha vazia.
 3. A linha "Características:" (obrigatória caso haja características ou informações técnicas informadas).
 4. Lista das características — inclua detalhadamente as Informações Técnicas informadas (ex: Tipo de Porta, Quantidade de portas, Quantidade de gavetas, Material, Tecido, etc.), sem asteriscos e sem hífens no início de cada linha.
+   • Apresente "Linha: ..." e/ou "Modelo: ..." conforme aplicável (NUNCA com barra "/").
+   • NUNCA inclua a característica "Cor: ...".
 5. Uma linha vazia (somente se houver dimensões informadas).
 6. A linha "Dimensões:" seguida de Altura, Largura, Profundidade e Peso — somente os campos que foram informados.
 
@@ -293,7 +362,9 @@ DADOS DO PRODUTO (use SOMENTE estes):
 - Descrição atual: ${data.currentDescription || 'Não informada'}
 - Material: ${data.material || 'Não informado'}
 - Marca/Fornecedor: ${data.brand || 'Não informado'}
-- Linha/Modelo: ${data.line || 'Não informado'}
+${data.line ? `- Linha: ${data.line}` : ''}
+${data.model ? `- Modelo: ${data.model}` : ''}
+${!data.line && !data.model && data.modelOrLine ? `- Linha e/ou Modelo: ${data.modelOrLine}` : ''}
 - Altura: ${data.height ? data.height + ' cm' : 'Não informada'}
 - Largura: ${data.width ? data.width + ' cm' : 'Não informada'}
 - Profundidade: ${data.depth ? data.depth + ' cm' : 'Não informada'}
@@ -317,8 +388,12 @@ REGRAS FINAIS:
         );
       }
 
+      const improvedDescription = sanitizeGeneratedProductDescription(
+        extractDescriptionText(textResponse)
+      ).trim();
+
       return {
-        improvedDescription: textResponse.trim(),
+        improvedDescription,
       };
     } catch (error: any) {
       console.error('Erro ao aperfeiçoar descrição com IA:', error);
@@ -356,7 +431,7 @@ Sua missão é gerar uma descrição comercial elegante, atraente e vendedora pa
 DADOS BASE DO PRODUTO:
 - Nome do Produto: ${data.productName}
 - Marca / Fabricante: ${data.brand || 'Não informada'}
-- Modelo / Linha: ${data.model || 'Não informado'}
+- Modelo e/ou Linha: ${data.model || 'Não informado'}
 - Categoria: ${data.categoryName || 'Móveis'}
 
 TEXTO INFORMATIVO / ANOTAÇÕES BRUTAS:
@@ -373,7 +448,9 @@ ESTRUTURA OBRIGATÓRIA DA RESPOSTA:
 
 REGRAS:
 - Retorne apenas o texto da descrição gerada, sem blocos markdown (\`\`\`), sem saudações e sem comentários fora da descrição.
-- Use exclusivamente dados presentes no texto informativo ou inferíveis do tipo de móvel sem inventar especificações técnicas inexistentes.`;
+- Use exclusivamente dados presentes no texto informativo ou inferíveis do tipo de móvel sem inventar especificações técnicas inexistentes.
+- NUNCA use o termo com barra "Modelo/Linha" ou "Linha/Modelo". Se houver linha, use "Linha: [Nome]"; se houver modelo, use "Modelo: [Nome]"; se houver ambos, apresente separadamente.
+- NUNCA inclua a característica "Cor" na descrição nem na lista de características (as cores são definidas pelas variações do produto no catálogo).`;
 
     try {
       const textResponse = await callGeminiDirect(prompt, false, {
@@ -384,7 +461,10 @@ REGRAS:
       if (!textResponse.trim()) {
         throw new Error('A IA retornou uma resposta vazia. Tente novamente com mais detalhes.');
       }
-      return { description: extractDescriptionText(textResponse) };
+      const description = sanitizeGeneratedProductDescription(
+        extractDescriptionText(textResponse)
+      ).trim();
+      return { description };
     } catch (error: any) {
       console.error('[aiProductCatalogService.generateDescriptionFromInformativeText] Erro:', error);
       throw new Error(

@@ -62,19 +62,27 @@ describe('ProductDescriptionTab', () => {
   });
 
   it('valida os pré-requisitos para geração da descrição por características (Modo 1)', () => {
-    // Vazio: faltam nome, marca, modelo e cor
+    // Vazio: faltam nome, marca e modelo (cor NÃO é exigida para descrição pois pertence a variações)
     const emptyResult = validateProductDescriptionPrerequisites({});
     expect(emptyResult).toContain('Nome do produto');
     expect(emptyResult).toContain('Marca');
     expect(emptyResult).toContain('Modelo');
-    expect(emptyResult).toContain('Cor');
+    expect(emptyResult).not.toContain('Cor');
 
-    // Apenas com nome: faltam características
+    // Apenas com nome: faltam marca e modelo
     const withNameOnly = validateProductDescriptionPrerequisites({ name: 'Sofá Retrátil' });
     expect(withNameOnly).not.toContain('Nome do produto');
     expect(withNameOnly).toContain('Marca');
     expect(withNameOnly).toContain('Modelo');
-    expect(withNameOnly).toContain('Cor');
+    expect(withNameOnly).not.toContain('Cor');
+
+    // Completo mesmo sem cor informada
+    const completeWithoutColor = validateProductDescriptionPrerequisites({
+      name: 'Sofá Retrátil 3 Lugares',
+      brand: 'Morante Estofados',
+      model: 'Dallas',
+    });
+    expect(completeWithoutColor).toHaveLength(0);
 
     // Completo com direct fields e technicalValues
     const complete = validateProductDescriptionPrerequisites({
@@ -131,7 +139,7 @@ describe('ProductDescriptionTab', () => {
     fireEvent.click(charTabBtn);
 
     expect(screen.getByText(/campos recomendados pendentes/i)).toBeDefined();
-    expect(screen.getByText(/marca, modelo, cor/i)).toBeDefined();
+    expect(screen.getByText(/marca, modelo/i)).toBeDefined();
 
     const submitCharBtn = screen.getByRole('button', { name: /gerar descrição a partir das características/i });
     expect(submitCharBtn.hasAttribute('disabled')).toBe(true);
@@ -180,6 +188,16 @@ describe('ProductDescriptionTab', () => {
     resolveAi({ improvedDescription: 'Nova descrição estruturada e persuasiva gerada pela IA.' });
 
     await waitFor(() => {
+      expect(aiService.improveProductDescription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sofá Confort',
+          brand: 'Morante',
+          model: 'Premium',
+          technicalValues: expect.not.objectContaining({
+            Cor: expect.anything(),
+          }),
+        })
+      );
       expect(setFormData).toHaveBeenCalled();
       expect(toast.success).toHaveBeenCalledWith(
         expect.stringContaining('Descrição gerada com IA a partir das características!')

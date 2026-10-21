@@ -131,7 +131,7 @@ describe('OrderFiscalBadge', () => {
     expect(badge?.className).toContain('bg-rose-600');
   });
 
-  it('renderiza o rótulo NF com status reissue_required em amarelo com texto escuro e ícone de exclamação', () => {
+  it('renderiza o rótulo NF com status reissue_required em âmbar com texto branco e ícone de exclamação', () => {
     const { container } = render(
       <MemoryRouter>
         <OrderFiscalBadge status="reissue_required" variant="production" loading={false} />
@@ -143,7 +143,7 @@ describe('OrderFiscalBadge', () => {
     const badge = container.querySelector('span[title*="Nova nota fiscal necessária"]');
     expect(badge).not.toBeNull();
     expect(badge?.className).toContain('bg-amber-500');
-    expect(badge?.className).toContain('text-[#3b1900]');
+    expect(badge?.className).toContain('text-white');
     expect(badge?.className).toContain('border-amber-700');
   });
 
