@@ -7,12 +7,16 @@ import { canGenerateReturn } from '@/pages/utils/returnPolicy';
 import { canGenerateAssistance } from '@/pages/utils/assistancePolicy';
 import { createSalesOrderDuplicate } from '@/pages/utils/duplicateOrder';
 import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
+import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
+import { beginConfirmedFiscalEmissionReplacement } from '@/pages/utils/nfe/nfeEmissionRequestState';
+import { isFiscalRegularizationBlockingStatus } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import { fetchReturnFiscalEligibility } from '../../FiscalDocuments/services/fiscalOperationDraftService';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
 import type {
   ReturnFiscalEligibility,
   SourceDocument,
 } from '../../FiscalDocuments/types/fiscalOperationDraft.types';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 export interface UseSalesOrderModalsProps {
   orderListRef: React.RefObject<OrderHistoryListRef | null>;
@@ -117,6 +121,24 @@ export function useSalesOrderModals({
     nfeSnapshotPreparationInProgress.current = true;
     setNfeSnapshotPreparationOrderId(order.id || 'pending');
     try {
+      if (!order.id) throw new Error('Salve o pedido antes de iniciar a emissão da nota fiscal.');
+      const statusesByOrder = await withTimeout(
+        fetchOrderFiscalBadgeStatuses([order.id]),
+        15_000,
+        null,
+        'nfe:conferir-situacao-fiscal-pedido'
+      );
+      const fiscalStatuses = statusesByOrder?.[order.id];
+      if (!fiscalStatuses) {
+        throw new Error('Não foi possível conferir a situação fiscal do pedido antes da emissão.');
+      }
+      const environmentStatus =
+        environment === 2 ? fiscalStatuses.homologation : fiscalStatuses.production;
+      if (isFiscalRegularizationBlockingStatus(environmentStatus)) {
+        throw new Error('Consulte e regularize a situação da nota anterior antes de emitir outra nota.');
+      }
+      beginConfirmedFiscalEmissionReplacement(order.id, environment, fiscalStatuses);
+
       const preparedOrder = await prepareOrderFiscalSnapshotForEmission(order, environment);
       setChosenNfeEnvironment(environment);
       setNfeEmissionOpenedAt(performance.now());

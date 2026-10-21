@@ -1,123 +1,82 @@
 import React from 'react';
-
-export interface CustomInboxItem {
-  id: string;
-  name: string;
-  isLocked: boolean;
-}
+import { CustomerSupportFolder } from '../../types';
 
 interface InboxSectionCustomProps {
-  customInboxList: CustomInboxItem[];
-  activeCustomInbox: string | null;
-  onSelectCustomInbox: (id: string) => void;
+  folders: CustomerSupportFolder[];
+  activeFolderId: string | null;
+  currentUserId?: string;
+  onSelectFolder: (folder: CustomerSupportFolder) => void;
+  onEditFolder: (folder: CustomerSupportFolder) => void;
+  onDeleteFolder: (folder: CustomerSupportFolder) => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
   customInboxTab: 'all' | 'by_me' | 'by_others';
   onTabChange: (tab: 'all' | 'by_me' | 'by_others') => void;
   onOpenAddModal: () => void;
-  onResetTeam: () => void;
 }
 
 export const InboxSectionCustom: React.FC<InboxSectionCustomProps> = ({
-  customInboxList,
-  activeCustomInbox,
-  onSelectCustomInbox,
+  folders,
+  activeFolderId,
+  currentUserId,
+  onSelectFolder,
+  onEditFolder,
+  onDeleteFolder,
   isExpanded,
   onToggleExpand,
   customInboxTab,
   onTabChange,
   onOpenAddModal,
-  onResetTeam,
 }) => {
+  const visibleFolders = folders.filter((folder) => {
+    if (customInboxTab === 'by_me') return folder.createdBy === currentUserId;
+    if (customInboxTab === 'by_others') return folder.createdBy !== currentUserId;
+    return true;
+  });
+
   return (
     <div className="p-3 flex-1">
       <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-400 mb-2">
-        <button
-          type="button"
-          onClick={onToggleExpand}
-          className="flex items-center gap-2 hover:text-slate-900 dark:hover:text-slate-100 transition-colors cursor-pointer"
-        >
-          <i className="bi bi-folder2 text-sm"></i>
-          <span>Custom Inbox</span>
-          <i
-            className={`bi bi-chevron-down text-[10px] transition-transform ${
-              isExpanded ? 'rotate-180' : ''
-            }`}
-          ></i>
+        <button type="button" onClick={onToggleExpand} className="flex items-center gap-2 hover:text-slate-900 dark:hover:text-slate-100">
+          <i className="bi bi-folder2 text-sm" /><span>Pastas compartilhadas</span>
+          <i className={`bi bi-chevron-down text-[10px] transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </button>
-
-        <button
-          type="button"
-          onClick={onOpenAddModal}
-          title="Criar nova pasta / fila personalizada"
-          className="w-5 h-5 rounded flex items-center justify-center hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors cursor-pointer"
-        >
-          <i className="bi bi-plus text-base leading-none"></i>
+        <button type="button" onClick={onOpenAddModal} title="Criar pasta compartilhada" aria-label="Criar pasta compartilhada" className="w-5 h-5 rounded flex items-center justify-center hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100">
+          <i className="bi bi-plus text-base leading-none" />
         </button>
       </div>
 
       {isExpanded && (
         <div className="space-y-2 animate-fade-in">
-          {/* Abas: All | By Me | By Others */}
           <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-200/60 dark:bg-slate-800/80 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-            <button
-              type="button"
-              onClick={() => onTabChange('all')}
-              className={`flex-1 py-1 rounded-md text-center transition-all cursor-pointer ${
-                customInboxTab === 'all'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-300 font-bold shadow-xs'
-                  : 'hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              Todas
-            </button>
-            <button
-              type="button"
-              onClick={() => onTabChange('by_me')}
-              className={`flex-1 py-1 rounded-md text-center transition-all cursor-pointer ${
-                customInboxTab === 'by_me'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-300 font-bold shadow-xs'
-                  : 'hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              Por mim
-            </button>
-            <button
-              type="button"
-              onClick={() => onTabChange('by_others')}
-              className={`flex-1 py-1 rounded-md text-center transition-all cursor-pointer ${
-                customInboxTab === 'by_others'
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-300 font-bold shadow-xs'
-                  : 'hover:text-slate-700 dark:hover:text-slate-200'
-              }`}
-            >
-              Outras
-            </button>
+            {([
+              ['all', 'Todas'], ['by_me', 'Por mim'], ['by_others', 'Outras'],
+            ] as const).map(([tab, label]) => (
+              <button key={tab} type="button" onClick={() => onTabChange(tab)} className={`flex-1 py-1 rounded-md text-center ${customInboxTab === tab ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-300 font-bold shadow-xs' : 'hover:text-slate-700 dark:hover:text-slate-200'}`}>
+                {label}
+              </button>
+            ))}
           </div>
 
-          {/* Lista de Pastas Customizadas */}
           <div className="space-y-1">
-            {customInboxList.map((folder) => {
-              const isActive = activeCustomInbox === folder.id;
+            {visibleFolders.length === 0 ? (
+              <p className="text-[11px] text-slate-400 italic px-2 py-2">Nenhuma pasta nesta aba.</p>
+            ) : visibleFolders.map((folder) => {
+              const isActive = activeFolderId === folder.id;
+              const isOwner = folder.createdBy === currentUserId;
               return (
-                <button
-                  key={folder.id}
-                  type="button"
-                  onClick={() => {
-                    onSelectCustomInbox(folder.id);
-                    onResetTeam();
-                  }}
-                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${
-                    isActive
-                      ? 'bg-blue-100/70 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-bold'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/50'
-                  }`}
-                >
-                  <i
-                    className={`bi ${folder.isLocked ? 'bi-lock' : 'bi-folder'} text-xs text-slate-400`}
-                  ></i>
-                  <span className="truncate flex-1">{folder.name}</span>
-                </button>
+                <div key={folder.id} className={`group w-full flex items-center gap-1 px-2 rounded-lg ${isActive ? 'bg-blue-100/70 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/50'}`}>
+                  <button type="button" onClick={() => onSelectFolder(folder)} title={`Pasta compartilhada: ${folder.name}`} className={`min-w-0 flex-1 flex items-center gap-2 py-1.5 text-xs text-left ${isActive ? 'font-bold' : ''}`}>
+                    <i className="bi bi-folder text-xs text-slate-400" />
+                    <span className="truncate">{folder.name}</span>
+                  </button>
+                  {isOwner && (
+                    <div className="hidden group-hover:flex items-center gap-0.5">
+                      <button type="button" aria-label={`Editar pasta ${folder.name}`} title="Editar pasta" onClick={() => onEditFolder(folder)} className="w-6 h-6 rounded hover:bg-white/70 dark:hover:bg-slate-700"><i className="bi bi-pencil text-[10px]" /></button>
+                      <button type="button" aria-label={`Excluir pasta ${folder.name}`} title="Excluir pasta" onClick={() => onDeleteFolder(folder)} className="w-6 h-6 rounded hover:bg-red-100 text-red-500"><i className="bi bi-trash text-[10px]" /></button>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

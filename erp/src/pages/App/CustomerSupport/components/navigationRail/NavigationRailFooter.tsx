@@ -1,13 +1,10 @@
 import React from 'react';
-import { FreeTierUsageInfo } from '@/pages/utils/customerSupport/freeTierTracker';
 
 interface NavigationRailFooterProps {
   userInitials: string;
   userName?: string;
   userRole?: string;
-  unreadCountTotal: number;
-  usageInfo: FreeTierUsageInfo | null;
-  onOpenUsageModal: () => void;
+  onOpenPolicy: () => void;
   isLoading: boolean;
   onRefresh: () => void;
   isRealtimeConnected: boolean;
@@ -17,9 +14,7 @@ export const NavigationRailFooter: React.FC<NavigationRailFooterProps> = ({
   userInitials,
   userName = 'Operador',
   userRole = 'Colaborador',
-  unreadCountTotal,
-  usageInfo,
-  onOpenUsageModal,
+  onOpenPolicy,
   isLoading,
   onRefresh,
   isRealtimeConnected,
@@ -35,47 +30,15 @@ export const NavigationRailFooter: React.FC<NavigationRailFooterProps> = ({
         <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white dark:border-slate-900" />
       </div>
 
-      {/* Notificação / Bell */}
+      {/* Aviso de política empresarial de envio */}
       <button
         type="button"
-        title="Notificações da Central"
-        className="relative w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+        onClick={onOpenPolicy}
+        title="Envio de mensagens bloqueado por política da empresa"
+        className="relative w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/50"
+        aria-label="Política de envio da Central"
       >
-        <i className="bi bi-bell-fill text-sm"></i>
-        {unreadCountTotal > 0 && (
-          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
-        )}
-      </button>
-
-      {/* Indicador de Consumo da Franquia Meta (1.000 mensagens) */}
-      <button
-        type="button"
-        onClick={onOpenUsageModal}
-        title={
-          usageInfo?.reconciliationStatus === 'unconfirmed'
-            ? 'Franquia Meta: Consumo não confirmado (clique para detalhes)'
-            : `Consumo da franquia gratuita: ${usageInfo?.serviceMessagesCount || 0}/1.000 msgs (${usageInfo?.percentageUsed || 0}%)`
-        }
-        className="relative w-8 h-8 rounded-lg flex flex-col items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
-        aria-label="Ver consumo da franquia Meta"
-      >
-        <i className="bi bi-speedometer2 text-sm text-emerald-600 dark:text-emerald-400"></i>
-        {usageInfo && usageInfo.reconciliationStatus !== 'unconfirmed' && (
-          <div className="w-5 h-1 bg-slate-300 dark:bg-slate-700 rounded-full mt-0.5 overflow-hidden">
-            <div
-              className={`h-full ${
-                usageInfo.alertLevel === 'exceeded'
-                  ? 'bg-red-500'
-                  : usageInfo.alertLevel === 'danger'
-                    ? 'bg-orange-500'
-                    : usageInfo.alertLevel === 'warning'
-                      ? 'bg-amber-500'
-                      : 'bg-emerald-500'
-              }`}
-              style={{ width: `${Math.min(usageInfo.percentageUsed, 100)}%` }}
-            />
-          </div>
-        )}
+        <i className="bi bi-shield-lock-fill text-sm text-amber-600 dark:text-amber-400" />
       </button>
 
       {/* Botão de Atualização Manual */}

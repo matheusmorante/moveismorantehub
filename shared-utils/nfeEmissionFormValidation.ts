@@ -143,7 +143,7 @@ export function validateNfeEmission(params: ValidationParams): ValidationResult 
     effectiveItemsTotal + effectiveFreightTotal - effectiveDiscountTotal;
 
   const registeredPersonType = order.customerData?.personType;
-  const hasSelectedCustomer = Boolean(order.customerData?.id || order.customerData?.fullName);
+  const hasSelectedCustomer = Boolean(order.customerData?.id?.trim());
   if (
     hasSelectedCustomer &&
     registeredPersonType !== 'PF' &&

@@ -272,7 +272,14 @@ export function useIssuedFiscalDocumentDetails(props: IssuedFiscalDocumentDetail
           }
         }
         if (orderToEmit) {
-          onIssueNfe(orderToEmit, targetEnv);
+          onIssueNfe(
+            orderToEmit,
+            targetEnv,
+            actionKind,
+            actionKind === 'awaiting_new_invoice'
+              ? details?.fiscalSituation?.previousDocumentId
+              : undefined
+          );
           onClose();
           return;
         }

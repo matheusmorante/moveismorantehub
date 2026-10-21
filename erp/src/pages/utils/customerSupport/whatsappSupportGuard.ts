@@ -1,16 +1,22 @@
 /**
  * Camada de segurança e guarda de envio para a Central de Atendimento WhatsApp.
  * 
- * Regra fundamental: o módulo opera exclusivamente em modo de visualização gratuita,
- * bloqueando de forma absoluta qualquer envio que possa gerar custos na Meta.
+ * A política da empresa mantém a Central em modo de consulta e recebimento.
+ * O envio fica bloqueado em todas as circunstâncias até uma mudança explícita dessa política.
  */
 
 export interface SendingAuthorizationCheck {
   allowed: boolean;
   reason: string;
   careWindowOpen?: boolean;
-  freeTierBalance?: number;
-  riskOfBilling?: boolean;
+}
+
+export interface CareWindow {
+  isOpen: boolean;
+  remainingMs: number;
+  remainingHours: number;
+  remainingMinutes: number;
+  expiresAt: Date | null;
 }
 
 export const whatsappSupportGuard = {
@@ -24,8 +30,7 @@ export const whatsappSupportGuard = {
   ): Promise<SendingAuthorizationCheck> => {
     return {
       allowed: false,
-      reason: 'Envio indisponível. Central em modo de visualização gratuita.',
-      riskOfBilling: true,
+      reason: 'Envio desativado por política da empresa.',
     };
   },
 
@@ -33,20 +38,14 @@ export const whatsappSupportGuard = {
    * Bloqueador estrito para interceptar tentativas de envio
    */
   assertSendingAllowed: async (): Promise<never> => {
-    throw new Error('Envio indisponível. Central em modo de visualização gratuita.');
+    throw new Error('Envio desativado por política da empresa.');
   },
 
   /**
    * Calcula se a Janela de Atendimento de 24 horas da Meta está aberta.
    * Regra oficial da Meta: a janela abre quando o cliente envia uma mensagem e expira após 24h.
    */
-  calculateCareWindow: (lastCustomerMessageAt: string | null | undefined): {
-    isOpen: boolean;
-    remainingMs: number;
-    remainingHours: number;
-    remainingMinutes: number;
-    expiresAt: Date | null;
-  } => {
+  calculateCareWindow: (lastCustomerMessageAt: string | null | undefined): CareWindow => {
     if (!lastCustomerMessageAt) {
       return {
         isOpen: false,

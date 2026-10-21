@@ -47,7 +47,7 @@ const replacements = [
         ]
     },
     {
-        file: 'pages/App/Stock/InboundInvoices/Index.tsx',
+        file: 'pages/App/Stock/InboundInvoices/screens/InboundInvoicesScreen.tsx',
         replacements: [
             { from: 'pageSize: 30,', to: 'pageSize: 15,' }
         ]

@@ -10,6 +10,7 @@ import PostOrderActionsModal from '../OrderActions/PostOrderActionsModal';
 import ReturnOrderModal from '../OrderActions/ReturnOrderModal';
 import NfeEmissionModal from '../OrderActions/NfeEmissionModal';
 import NfeEnvironmentChoiceModal from '../OrderActions/nfe-modal/NfeEnvironmentChoiceModal';
+import { beginFiscalEmissionReplacement } from '@/pages/utils/nfe/nfeEmissionRequestState';
 import OrderDetailsModal from '../../DeliverySchedule/OrderDetailsModal';
 import { IssuedFiscalDocumentDetailsModal } from '../../FiscalDocuments/modals/IssuedFiscalDocumentDetailsModal';
 import NfeOperationDraftModal from '../../FiscalDocuments/modals/NfeOperationDraftModal';
@@ -285,8 +286,15 @@ export const SalesOrderModalsContainer: React.FC<SalesOrderModalsContainerProps>
           emissionResult={issuedFiscalDocument.result}
           order={issuedFiscalDocument.order}
           onClose={() => setIssuedFiscalDocument(null)}
-          onIssueNfe={(targetOrder, env) => {
+          onIssueNfe={(targetOrder, env, actionKind, originalDocumentId) => {
             setIssuedFiscalDocument(null);
+            if (actionKind === 'awaiting_new_invoice') {
+              beginFiscalEmissionReplacement(
+                String(targetOrder.id),
+                env,
+                originalDocumentId
+              );
+            }
             setChosenNfeEnvironment(env);
             setNfeEmissionOpenedAt(performance.now());
             setNfeModalOrder(targetOrder);
@@ -300,8 +308,15 @@ export const SalesOrderModalsContainer: React.FC<SalesOrderModalsContainerProps>
           initialEnvironment={fiscalDocumentToView.environment}
           fullScreen={fiscalDocumentToView.environment === 1}
           onClose={() => setFiscalDocumentToView(null)}
-          onIssueNfe={(targetOrder, env) => {
+          onIssueNfe={(targetOrder, env, actionKind, originalDocumentId) => {
             setFiscalDocumentToView(null);
+            if (actionKind === 'awaiting_new_invoice') {
+              beginFiscalEmissionReplacement(
+                String(targetOrder.id),
+                env,
+                originalDocumentId
+              );
+            }
             setChosenNfeEnvironment(env);
             setNfeEmissionOpenedAt(performance.now());
             setNfeModalOrder(targetOrder);

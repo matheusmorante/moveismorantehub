@@ -1,5 +1,6 @@
 import type { Order } from '@/pages/types/order.type';
 import type { NfeEmissionResult } from '@/pages/utils/nfe/nfeService';
+import type { ReplacementPendingAction } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import type { NfeDocumentRecord } from '../../types/fiscalDocuments.types';
 
 export interface IssuedFiscalDocumentDetailsModalProps {
@@ -12,7 +13,12 @@ export interface IssuedFiscalDocumentDetailsModalProps {
   orderNumber?: number;
   onClose: () => void;
   /** Inicia ou retoma a emissão no ERP para o pedido e ambiente da nota */
-  onIssueNfe?: (order: Order, environment: 1 | 2) => void;
+  onIssueNfe?: (
+    order: Order,
+    environment: 1 | 2,
+    actionKind: ReplacementPendingAction,
+    originalDocumentId?: string | null
+  ) => void;
   /** Consulta e reconcilia a situação da nota fiscal na SEFAZ */
   onConsultSefaz?: (documentId: string, environment: 1 | 2) => void;
 }

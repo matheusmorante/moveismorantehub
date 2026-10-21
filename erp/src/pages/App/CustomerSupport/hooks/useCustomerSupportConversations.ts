@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { WhatsAppConversation, ConversationFilter } from '../types';
+import { WhatsAppConversation, ConversationFilter, CustomerSupportFolderCriteria } from '../types';
 import {
+  fetchConversationCounts,
   fetchConversations,
   mapRowToConversation,
 } from '@/pages/utils/customerSupport/customerSupportService';
@@ -9,91 +10,123 @@ import { SortOrder } from '../components/ConversationSidebar';
 
 interface UseCustomerSupportConversationsParams {
   userId?: string;
+  agentId?: string | null;
+  folderCriteria?: CustomerSupportFolderCriteria | null;
+  canViewCommercialInfo?: boolean;
 }
 
-export function useCustomerSupportConversations({ userId }: UseCustomerSupportConversationsParams) {
+const PAGE_SIZE = 50;
+
+export function useCustomerSupportConversations({
+  userId,
+  agentId = null,
+  folderCriteria = null,
+  canViewCommercialInfo = false,
+}: UseCustomerSupportConversationsParams) {
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
   const [filter, setFilter] = useState<ConversationFilter>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [search, setSearch] = useState('');
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshingConversations, setIsRefreshingConversations] = useState(false);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [counts, setCounts] = useState({ all: 0, mine: 0, unassigned: 0, unread: 0 });
 
   const selectedConvIdRef = useRef<string | null>(null);
   selectedConvIdRef.current = selectedConversation?.id || null;
+  const loadedPagesRef = useRef(1);
+  const requestIdRef = useRef(0);
 
-  // Carrega conversas do banco com paginação e busca seletiva
-  const loadConversations = useCallback(
-    async (isSilent = false) => {
-      if (!isSilent) {
-        setIsLoadingConversations(true);
-      } else {
-        setIsRefreshingConversations(true);
-      }
-      try {
-        const res = await fetchConversations(supabase, {
-          filter,
+  const loadConversations = useCallback(async (isSilent = false) => {
+    const requestId = ++requestIdRef.current;
+    if (!isSilent) {
+      loadedPagesRef.current = 1;
+      setIsLoadingConversations(true);
+    } else {
+      setIsRefreshingConversations(true);
+    }
+
+    const pagesToLoad = isSilent ? loadedPagesRef.current : 1;
+    try {
+      const pageResults = await Promise.all(
+        Array.from({ length: pagesToLoad }, (_, index) => fetchConversations(supabase, {
+          filter: folderCriteria ? 'all' : filter,
           search,
-          page: 1,
-          pageSize: 50,
-          currentUserId: userId,
-        });
-        setConversations(res.conversations);
+          page: index + 1,
+          pageSize: PAGE_SIZE,
+          agentId: folderCriteria ? null : agentId,
+          criteria: folderCriteria,
+          canViewCommercialInfo,
+          sortOrder,
+        }))
+      );
+      const rows = pageResults.flatMap((result) => result.conversations);
+      const deduplicated = Array.from(new Map(rows.map((row) => [row.id, row])).values());
+      if (requestId !== requestIdRef.current) return;
+      setConversations(deduplicated);
+      setTotalCount(pageResults[0]?.totalCount || 0);
 
-        // Mantém a conversa selecionada sincronizada com as atualizações
-        if (selectedConvIdRef.current) {
-          const found = res.conversations.find((c) => c.id === selectedConvIdRef.current);
-          if (found) {
-            setSelectedConversation((prev) => {
-              if (!prev) return found;
-              if (
-                prev.id === found.id &&
-                prev.lastMessageAt === found.lastMessageAt &&
-                prev.lastMessageText === found.lastMessageText &&
-                prev.unreadCount === found.unreadCount &&
-                prev.status === found.status &&
-                prev.assignedTo === found.assignedTo &&
-                prev.customerLinkStatus === found.customerLinkStatus &&
-                prev.customerId === found.customerId &&
-                prev.isArchived === found.isArchived
-              ) {
-                return prev;
-              }
-              return found;
-            });
-          }
-        }
-      } finally {
+      if (selectedConvIdRef.current) {
+        const found = deduplicated.find((conversation) => conversation.id === selectedConvIdRef.current);
+        if (found) setSelectedConversation(found);
+      }
+
+      const nextCounts = await fetchConversationCounts(supabase);
+      if (requestId === requestIdRef.current) setCounts(nextCounts);
+    } finally {
+      if (requestId === requestIdRef.current) {
         if (!isSilent) setIsLoadingConversations(false);
         setIsRefreshingConversations(false);
       }
-    },
-    [filter, search, userId]
-  );
+    }
+  }, [filter, search, userId, agentId, folderCriteria, canViewCommercialInfo, sortOrder]);
+
+  const loadMoreConversations = useCallback(async () => {
+    if (isLoadingMore || conversations.length >= totalCount) return;
+    const nextPage = loadedPagesRef.current + 1;
+    setIsLoadingMore(true);
+    try {
+      const result = await fetchConversations(supabase, {
+        filter: folderCriteria ? 'all' : filter,
+        search,
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+        agentId: folderCriteria ? null : agentId,
+        criteria: folderCriteria,
+        canViewCommercialInfo,
+        sortOrder,
+      });
+      if (result.conversations.length) {
+        loadedPagesRef.current = nextPage;
+        setConversations((current) => {
+          const existing = new Set(current.map((conversation) => conversation.id));
+          return [...current, ...result.conversations.filter((conversation) => !existing.has(conversation.id))];
+        });
+      }
+      if (result.totalCount) setTotalCount(result.totalCount);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, conversations.length, totalCount, folderCriteria, filter, search, userId, agentId, canViewCommercialInfo, sortOrder]);
 
   useEffect(() => {
-    loadConversations();
+    void loadConversations();
   }, [loadConversations]);
 
-  // Atualização periódica automática em segundo plano (auto-reload a cada 6 segundos)
   useEffect(() => {
     const interval = setInterval(() => {
       if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-        loadConversations(true);
+        void loadConversations(true);
       }
     }, 6000);
-
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        loadConversations(true);
-      }
+      if (document.visibilityState === 'visible') void loadConversations(true);
     };
-
     window.addEventListener('focus', handleVisibilityChange);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleVisibilityChange);
@@ -101,83 +134,31 @@ export function useCustomerSupportConversations({ userId }: UseCustomerSupportCo
     };
   }, [loadConversations]);
 
-  // Supabase Realtime para a tabela whatsapp_conversations com reconexão resiliente
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
-    let reconnectTimer: any = null;
-
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     const setupChannel = () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-
+      if (channel) void supabase.removeChannel(channel);
       channel = supabase
         .channel(`whatsapp-conversations-realtime-${Date.now()}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'whatsapp_conversations' },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              const newConv = mapRowToConversation(payload.new);
-              setConversations((prev) => [newConv, ...prev.filter((c) => c.id !== newConv.id)]);
-            } else if (payload.eventType === 'UPDATE') {
-              const updated = mapRowToConversation(payload.new);
-              setConversations((prev) =>
-                prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
-              );
-              if (selectedConvIdRef.current === updated.id) {
-                setSelectedConversation((prev) => {
-                  if (!prev) return null;
-                  if (
-                    prev.id === updated.id &&
-                    prev.lastMessageAt === updated.lastMessageAt &&
-                    prev.lastMessageText === updated.lastMessageText &&
-                    prev.unreadCount === updated.unreadCount &&
-                    prev.status === updated.status &&
-                    prev.assignedTo === updated.assignedTo &&
-                    prev.customerLinkStatus === updated.customerLinkStatus &&
-                    prev.customerId === updated.customerId &&
-                    prev.isArchived === updated.isArchived
-                  ) {
-                    return prev;
-                  }
-                  return { ...prev, ...updated };
-                });
-              }
-            }
-          }
-        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_conversations' }, () => {
+          void loadConversations(true);
+        })
         .subscribe((status) => {
-          const ok = status === 'SUBSCRIBED';
-          setIsRealtimeConnected(ok);
+          const connected = status === 'SUBSCRIBED';
+          setIsRealtimeConnected(connected);
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            clearTimeout(reconnectTimer);
-            reconnectTimer = setTimeout(() => {
-              setupChannel();
-            }, 3000);
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(setupChannel, 3000);
           }
         });
     };
-
     setupChannel();
-
     return () => {
-      clearTimeout(reconnectTimer);
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (channel) void supabase.removeChannel(channel);
     };
-  }, []);
-
-  const totalAll = conversations.length;
-  const unreadCountTotal = conversations.reduce(
-    (acc, c) => acc + (c.unreadCount > 0 ? 1 : 0),
-    0
-  );
-  const mineCountTotal = userId
-    ? conversations.filter((c) => c.assignedTo === userId).length
-    : 0;
-  const unassignedCountTotal = conversations.filter((c) => !c.assignedTo).length;
+  }, [loadConversations]);
 
   return {
     conversations,
@@ -191,12 +172,16 @@ export function useCustomerSupportConversations({ userId }: UseCustomerSupportCo
     search,
     setSearch,
     isLoadingConversations,
+    isLoadingMore,
     isRefreshingConversations,
     isRealtimeConnected,
     loadConversations,
-    totalAll,
-    unreadCountTotal,
-    mineCountTotal,
-    unassignedCountTotal,
+    loadMoreConversations,
+    totalCount,
+    hasMoreConversations: conversations.length < totalCount,
+    totalAll: counts.all,
+    unreadCountTotal: counts.unread,
+    mineCountTotal: counts.mine,
+    unassignedCountTotal: counts.unassigned,
   };
 }

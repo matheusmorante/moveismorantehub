@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const internalCommentSchema = z.object({
+  comment: z.string().trim().min(1, 'Escreva um comentário antes de salvar.').max(2000, 'O comentário deve ter no máximo 2000 caracteres.'),
+});
+
+type InternalCommentForm = z.infer<typeof internalCommentSchema>;
 
 interface ChatComposerProps {
-  onAddInternalNote?: (text: string) => Promise<void>;
+  onAddInternalNote?: (text: string) => Promise<boolean | void>;
   onOpenSnippets: () => void;
 }
 
@@ -10,26 +19,37 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   onOpenSnippets,
 }) => {
   const [composerMode, setComposerMode] = useState<'whatsapp' | 'comment'>('whatsapp');
-  const [commentText, setCommentText] = useState('');
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<InternalCommentForm>({
+    resolver: zodResolver(internalCommentSchema),
+    defaultValues: { comment: '' },
+  });
 
-  const handleSubmitComment = async () => {
-    if (!commentText.trim() || !onAddInternalNote || isSubmittingComment) return;
-    setIsSubmittingComment(true);
+  const handleSubmitComment = handleSubmit(async (data) => {
+    if (!onAddInternalNote) return;
     try {
-      await onAddInternalNote(commentText.trim());
-      setCommentText('');
+      const saved = await onAddInternalNote(data.comment);
+      if (saved === false) {
+        setError('root.server', { message: 'Não foi possível salvar o comentário.' });
+        return;
+      }
+      reset({ comment: '' });
       setComposerMode('whatsapp');
-    } finally {
-      setIsSubmittingComment(false);
+    } catch {
+      setError('root.server', { message: 'Não foi possível salvar o comentário. Tente novamente.' });
     }
-  };
+  });
 
   return (
     <div className="p-3 bg-white/95 dark:bg-slate-900/95 border-t border-slate-200/80 dark:border-slate-800 shrink-0 select-none z-10 transition-colors">
       {composerMode === 'comment' ? (
         /* MODO COMENTÁRIO INTERNO: Card âmbar de colaboração da equipe */
-        <div className="rounded-2xl border-2 border-amber-400/80 dark:border-amber-600/70 bg-amber-50/80 dark:bg-amber-950/30 p-3 shadow-md animate-fade-in flex flex-col gap-2">
+        <form onSubmit={handleSubmitComment} className="rounded-2xl border-2 border-amber-400/80 dark:border-amber-600/70 bg-amber-50/80 dark:bg-amber-950/30 p-3 shadow-md animate-fade-in flex flex-col gap-2">
           <div className="flex items-center justify-between text-xs text-amber-900 dark:text-amber-200 font-bold border-b border-amber-200/70 dark:border-amber-800/60 pb-1.5">
             <span className="flex items-center gap-1.5">
               <i className="bi bi-lock-fill text-amber-600"></i>
@@ -45,12 +65,11 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           </div>
 
           <textarea
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
+            {...register('comment')}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
-                handleSubmitComment();
+                void handleSubmitComment();
               }
             }}
             rows={3}
@@ -58,6 +77,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             className="w-full bg-white dark:bg-slate-900 rounded-xl p-2.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 border border-amber-200 dark:border-amber-700/60 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none select-text"
             autoFocus
           />
+          {errors.comment && <p role="alert" className="text-[11px] text-red-600">{errors.comment.message}</p>}
+          {errors.root?.server && <p role="alert" className="text-[11px] text-red-600">{errors.root.server.message}</p>}
 
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2">
@@ -80,17 +101,16 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                 Cancelar
               </button>
               <button
-                type="button"
-                disabled={!commentText.trim() || isSubmittingComment}
-                onClick={handleSubmitComment}
+                type="submit"
+                disabled={isSubmitting}
                 className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <i className="bi bi-check-lg"></i>
-                <span>Salvar Comentário</span>
+                <span>{isSubmitting ? 'Salvando…' : 'Salvar Comentário'}</span>
               </button>
             </div>
           </div>
-        </div>
+        </form>
       ) : (
         /* MODO WHATSAPP: Card idêntico ao do print de referência */
         <div className="flex flex-col gap-2">
@@ -116,7 +136,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                 readOnly
                 disabled
                 rows={2}
-                placeholder='Try "/" for Snippets (Envio para o cliente desativado por segurança de custo zero)'
+                placeholder='O envio para o cliente está desativado pela política da empresa.'
                 className="w-full bg-transparent border-none text-xs text-slate-500 dark:text-slate-400 placeholder-slate-400 resize-none focus:outline-none cursor-not-allowed select-none"
               />
             </div>
@@ -196,7 +216,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                 <button
                   type="button"
                   disabled
-                  title="O envio de mensagens para o cliente está bloqueado para proteger a franquia gratuita da Meta Cloud API"
+                  title="O envio de mensagens para o cliente está bloqueado pela política da empresa"
                   className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center shadow-xs cursor-not-allowed"
                 >
                   <i className="bi bi-send-fill text-xs"></i>
@@ -218,7 +238,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
             <span className="text-[11px] text-slate-400 flex items-center gap-1">
               <i className="bi bi-lock-fill text-amber-500"></i>
-              Custo zero ativo (somente leitura cliente)
+              Envio bloqueado pela política da empresa
             </span>
           </div>
         </div>

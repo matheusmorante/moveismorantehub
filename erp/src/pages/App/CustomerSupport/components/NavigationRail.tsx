@@ -1,6 +1,5 @@
 import React from 'react';
 import { ConversationFilter } from '../types';
-import { FreeTierUsageInfo } from '@/pages/utils/customerSupport/freeTierTracker';
 import { useAuth } from '@/context/AuthContext';
 import { NavigationRailItem, NavigationRailFooter } from './navigationRail/index';
 
@@ -10,8 +9,7 @@ export interface NavigationRailProps {
   unreadCountTotal: number;
   mineCountTotal?: number;
   unassignedCountTotal?: number;
-  usageInfo: FreeTierUsageInfo | null;
-  onOpenUsageModal: () => void;
+  onOpenPolicy: () => void;
   isLoading: boolean;
   onRefresh: () => void;
   isRealtimeConnected: boolean;
@@ -23,8 +21,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
   activeFilter,
   onFilterChange,
   unreadCountTotal,
-  usageInfo,
-  onOpenUsageModal,
+  onOpenPolicy,
   isLoading,
   onRefresh,
   isRealtimeConnected,
@@ -57,13 +54,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
 
         <div className="w-7 h-px bg-slate-200 dark:bg-slate-800/80 my-0.5" />
 
-        {/* 1. Dashboard / Visão Geral */}
-        <NavigationRailItem
-          icon="bi-grid-fill"
-          title="Dashboard e Métricas de Atendimento"
-        />
-
-        {/* 2. Inbox (Caixa de Entrada com badge e destaque) */}
+        {/* Inbox (Caixa de Entrada com badge e destaque) */}
         <NavigationRailItem
           icon="bi-inbox-fill"
           title="Inbox (Caixa de Entrada e Filas)"
@@ -78,7 +69,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
           }}
         />
 
-        {/* 3. Contatos / Clientes */}
+        {/* Contatos / Clientes */}
         <NavigationRailItem
           icon="bi-person-lines-fill"
           title="Contatos e Clientes do ERP"
@@ -86,29 +77,11 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
           onClick={() => onFilterChange('linked')}
         />
 
-        {/* 4. Campanhas / Megafone */}
+        {/* Política de uso da Central */}
         <NavigationRailItem
-          icon="bi-megaphone-fill"
-          title="Campanhas e Avisos"
-        />
-
-        {/* 5. Automação / Fluxos */}
-        <NavigationRailItem
-          icon="bi-diagram-3-fill"
-          title="Fluxos e Automações de Atendimento"
-        />
-
-        {/* 6. Integrações / Links */}
-        <NavigationRailItem
-          icon="bi-link-45deg"
-          title="Canais e Integrações (WhatsApp Cloud API)"
-        />
-
-        {/* 7. Configurações da Central */}
-        <NavigationRailItem
-          icon="bi-gear-fill"
-          title="Configurações e Limites da Central"
-          onClick={onOpenUsageModal}
+          icon="bi-shield-lock-fill"
+          title="Política de envio da Central"
+          onClick={onOpenPolicy}
         />
       </div>
 
@@ -117,9 +90,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         userInitials={userInitials}
         userName={profile?.full_name}
         userRole={profile?.role}
-        unreadCountTotal={unreadCountTotal}
-        usageInfo={usageInfo}
-        onOpenUsageModal={onOpenUsageModal}
+        onOpenPolicy={onOpenPolicy}
         isLoading={isLoading}
         onRefresh={onRefresh}
         isRealtimeConnected={isRealtimeConnected}

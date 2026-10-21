@@ -101,7 +101,7 @@ describe('nfeValidationService', () => {
     const result = validateNfeEmission({
       order: {
         ...baseOrder,
-        customerData: { ...baseOrder.customerData, personType: undefined },
+        customerData: { ...baseOrder.customerData, id: 'customer-123', personType: undefined },
       },
       currentModel: '55',
       deliveryMethod: 'delivery',
@@ -118,6 +118,31 @@ describe('nfeValidationService', () => {
 
     expect(result.valid).toBe(false);
     expect(result.toastError).toContain('tipo de pessoa do cliente não foi encontrado no cadastro');
+  });
+
+  it('permite NFC-e de consumidor final sem cliente vinculado quando não exige documento', () => {
+    const result = validateNfeEmission({
+      issuerUf: 'PR',
+      order: {
+        ...baseOrder,
+        customerData: {
+          fullName: 'Consumidor Final',
+          personType: undefined,
+          cpfCnpj: undefined,
+        },
+        shipping: { ...baseOrder.shipping, deliveryMethod: 'pickup' },
+      },
+      currentModel: '65',
+      deliveryMethod: 'pickup',
+      recipientTaxId: '',
+      finalConsumer: true,
+      nfeItems: baseOrder.items as any,
+      isLoadingFiscalData: false,
+      fiscalPreparationError: null,
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.toastError).toBeUndefined();
   });
 
   it('bloqueia emissão se o NCM for inválido (menos de 8 dígitos)', () => {

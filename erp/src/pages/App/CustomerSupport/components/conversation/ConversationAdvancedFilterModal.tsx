@@ -6,6 +6,7 @@ interface ConversationAdvancedFilterModalProps {
   onToggle: () => void;
   onClose: () => void;
   onFilterChange: (filter: ConversationFilter) => void;
+  canViewCommercialInfo?: boolean;
 }
 
 export const ConversationAdvancedFilterModal: React.FC<ConversationAdvancedFilterModalProps> = ({
@@ -13,6 +14,7 @@ export const ConversationAdvancedFilterModal: React.FC<ConversationAdvancedFilte
   onToggle,
   onClose,
   onFilterChange,
+  canViewCommercialInfo = false,
 }) => {
   return (
     <div className="relative">
@@ -33,14 +35,14 @@ export const ConversationAdvancedFilterModal: React.FC<ConversationAdvancedFilte
           <div className="px-3.5 py-1 text-[10px] font-black uppercase text-slate-400 border-b border-slate-100 dark:border-slate-800">
             Filtros Avançados
           </div>
-          <button
+          {canViewCommercialInfo && <button
             type="button"
             onClick={() => onFilterChange('with_orders')}
             className="w-full px-3.5 py-2 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
           >
             <i className="bi bi-bag-check text-purple-500"></i>
             Com pedidos de venda
-          </button>
+          </button>}
           <button
             type="button"
             onClick={() => onFilterChange('linked')}

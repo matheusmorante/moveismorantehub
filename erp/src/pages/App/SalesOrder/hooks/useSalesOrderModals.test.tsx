@@ -4,13 +4,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSalesOrderModals } from './useSalesOrderModals';
 import type Order from '@/pages/types/order.type';
 
-const mocks = vi.hoisted(() => ({ prepare: vi.fn(), eligibility: vi.fn(), error: vi.fn(), navigate: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  prepare: vi.fn(),
+  eligibility: vi.fn(),
+  fetchFiscalStatuses: vi.fn(),
+  beginReplacement: vi.fn(),
+  error: vi.fn(),
+  navigate: vi.fn(),
+}));
 vi.mock('react-router-dom', () => ({ useNavigate: () => mocks.navigate }));
 vi.mock('@/pages/utils/nfeEmissionSnapshotService', () => ({ prepareOrderFiscalSnapshotForEmission: mocks.prepare }));
+vi.mock('@/pages/utils/nfe/orderFiscalBadgeService', () => ({ fetchOrderFiscalBadgeStatuses: mocks.fetchFiscalStatuses }));
+vi.mock('@/pages/utils/nfe/nfeEmissionRequestState', () => ({ beginConfirmedFiscalEmissionReplacement: mocks.beginReplacement }));
 vi.mock('../../FiscalDocuments/services/fiscalOperationDraftService', () => ({ fetchReturnFiscalEligibility: mocks.eligibility }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error } }));
 afterEach(cleanup);
-beforeEach(() => { vi.clearAllMocks(); mocks.prepare.mockImplementation(async (order: Order) => order); });
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.prepare.mockImplementation(async (order: Order) => order);
+  mocks.fetchFiscalStatuses.mockResolvedValue({ order: { production: 'not_issued' } });
+});
 const order = { id: 'order', orderType: 'sale', status: 'fulfilled' } as Order;
 const setup = () => renderHook(() => useSalesOrderModals({ orderListRef: { current: null }, draftsListRef: { current: null }, setHighlightOrderId: vi.fn() }));
 
@@ -45,6 +58,26 @@ describe('sales order modal imports and actions', () => {
     expect(result.current.chosenNfeEnvironment).toBe(2);
     expect(result.current.nfeModalOrder).toBe(order);
     expect(result.current.nfeSnapshotPreparationOrderId).toBeNull();
+  });
+
+  it('starts a fresh linked intent when the direct order-list action is a confirmed reissue', async () => {
+    const fiscalStatuses = {
+      production: 'not_issued' as const,
+      homologation: 'reissue_required' as const,
+      readyToReissueHml: true,
+      homologationBadges: [
+        { id: 'original-hml-document', status: 'reversed' as const, sequenceNumber: 1, label: 'NFH' },
+      ],
+    };
+    mocks.fetchFiscalStatuses.mockResolvedValueOnce({ order: fiscalStatuses });
+    const { result } = setup();
+
+    await act(async () => { await result.current.handleDirectIssueNfe(order, 2); });
+
+    expect(mocks.fetchFiscalStatuses).toHaveBeenCalledWith([order.id]);
+    expect(mocks.beginReplacement).toHaveBeenCalledWith(order.id, 2, fiscalStatuses);
+    expect(mocks.prepare).toHaveBeenCalledWith(order, 2);
+    expect(result.current.nfeModalOrder).toBe(order);
   });
 
   it('preserves the default production environment and releases preparation after a failure', async () => {

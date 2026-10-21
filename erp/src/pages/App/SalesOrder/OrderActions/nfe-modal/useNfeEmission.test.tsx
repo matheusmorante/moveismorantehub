@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => ({
   abandonAttempt: vi.fn(),
   clearRequest: vi.fn(),
   setReplacementSource: vi.fn(),
+  beginConfirmedReplacement: vi.fn(),
   buildFiscalChoices: vi.fn(),
   updateOrder: vi.fn(),
   fetchOrderById: vi.fn(),
@@ -50,6 +51,7 @@ vi.mock('@/pages/utils/nfe/csosnConfigurationService', () => ({
 }));
 vi.mock('@/pages/utils/nfe/nfeEmissionRequestState', () => ({
   findPendingFiscalEmission: mocks.pendingAttempt,
+  beginConfirmedFiscalEmissionReplacement: mocks.beginConfirmedReplacement,
 }));
 vi.mock('@/pages/utils/nfe/nfeService', () => ({
   emitNfeForOrder: (...args: any[]) => {
@@ -2224,6 +2226,42 @@ describe('preenchimento dos itens da NF-e', () => {
       expect(mocks.prepareOrderSnapshot).toHaveBeenCalledWith(orderForTest, 1)
     );
     expect(onSelectEnvironment).toHaveBeenCalledWith(1, orderForTest);
+  });
+
+  it('inicia uma nova intenção vinculada à nota estornada antes da reemissão em homologação', async () => {
+    const orderForTest: any = { ...order, id: 'hml-reissue-order', nfeData: null };
+    const fiscalStatuses = {
+      production: 'not_issued' as const,
+      homologation: 'reissue_required' as const,
+      readyToReissueHml: true,
+      homologationBadges: [
+        { id: 'original-hml-document', status: 'reversed' as const, sequenceNumber: 1, label: 'NFH' },
+      ],
+    };
+    vi.mocked(fetchOrderFiscalBadgeStatuses).mockResolvedValueOnce({ [orderForTest.id]: fiscalStatuses });
+    const onSelectEnvironment = vi.fn();
+
+    render(
+      <NfeEnvironmentChoiceModal
+        isOpen
+        order={orderForTest}
+        onClose={vi.fn()}
+        onSelectEnvironment={onSelectEnvironment}
+      />
+    );
+
+    await waitFor(() => expect(fetchOrderFiscalBadgeStatuses).toHaveBeenCalledWith([orderForTest.id]));
+    const hmlButton = screen.getByText('Homologação').closest('button');
+    fireEvent.click(hmlButton!);
+
+    await waitFor(() =>
+      expect(mocks.beginConfirmedReplacement).toHaveBeenCalledWith(
+        orderForTest.id,
+        2,
+        fiscalStatuses
+      )
+    );
+    expect(onSelectEnvironment).toHaveBeenCalledWith(2, orderForTest);
   });
 
   it('mantém Produção disponível quando o pedido tem somente uma NFC-e de homologação', async () => {

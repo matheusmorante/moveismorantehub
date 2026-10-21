@@ -70,10 +70,10 @@ export const EmptyChatState: React.FC = () => {
           </div>
         </div>
 
-        {/* Nota Discreta de Modo Visualização e Custo Zero */}
+        {/* Aviso da política de envio */}
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-200/60 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 text-[11px] font-medium border border-slate-300/40 dark:border-slate-700/40">
           <i className="bi bi-lock-fill text-amber-500 text-xs"></i>
-          <span>Modo de visualização gratuito ativo • Envio de saída desativado</span>
+          <span>Envio de mensagens desativado pela política da empresa</span>
         </div>
       </div>
     </div>

@@ -9,7 +9,7 @@ import FiscalDocumentsPage from '../index';
 
 const mocks = vi.hoisted(() => ({
   pending: null as FiscalPendencyItem | null,
-  fetchOrder: vi.fn(), reload: vi.fn(), info: vi.fn(),
+  fetchOrder: vi.fn(), beginReplacement: vi.fn(), reload: vi.fn(), info: vi.fn(),
 }));
 
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: { id: 'operator' } }) }));
@@ -18,6 +18,9 @@ vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => true }));
 vi.mock('@/pages/utils/nfe/fiscalAuthorization', () => ({ hasFiscalOperationRole: () => true }));
 vi.mock('@/pages/utils/nfe/nfeNumberPreviewPrefetch', () => ({ prefetchNfeNumberPreviews: vi.fn() }));
 vi.mock('@/pages/utils/orderHistoryService', () => ({ fetchOrderById: mocks.fetchOrder }));
+vi.mock('@/pages/utils/nfe/nfeEmissionRequestState', () => ({
+  beginFiscalEmissionReplacement: mocks.beginReplacement,
+}));
 vi.mock('react-toastify', () => ({ toast: { info: mocks.info } }));
 vi.mock('../hooks/useFiscalDocumentsList', () => ({ useFiscalDocumentsList: () => ({
   documents: [], orderNumbers: {}, cancellationEligibility: {}, documentCount: 0,
@@ -74,6 +77,9 @@ describe('ações da Central na página fiscal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Emitir nova NF' }));
     expect((await screen.findByLabelText('Emissão')).textContent).toBe(`owned-order | ${environment}`);
     expect(mocks.fetchOrder).toHaveBeenCalledWith('owned-order');
+    expect(mocks.beginReplacement).toHaveBeenCalledWith(
+      'owned-order', environment, 'original-document'
+    );
   });
 
   it.each([

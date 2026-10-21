@@ -134,7 +134,7 @@ export async function createNormalSaleRuleSet(
   // NFC-e without transport represents an effective pickup for this emission,
   // even when the commercial order was originally saved as delivery.
   const deliveryMethod: DeliveryMethod =
-    modelDecision.model === '65' && snapshot.emissionRequest.hasTransport === false
+    modelDecision.model === '65' && facts.emissionRequest.hasTransport === false
       ? 'pickup'
       : persistedDeliveryMethod;
 

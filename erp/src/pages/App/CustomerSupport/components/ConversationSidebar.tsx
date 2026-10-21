@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { WhatsAppConversation, ConversationFilter } from '../types';
 import { ConversationItem } from './ConversationItem';
-import { FreeTierUsageInfo } from '@/pages/utils/customerSupport/freeTierTracker';
 import {
   ConversationScopeMenu,
   ConversationSortMenu,
@@ -21,13 +20,17 @@ export interface ConversationSidebarProps {
   onFilterChange: (filter: ConversationFilter) => void;
   search: string;
   onSearchChange: (search: string) => void;
-  usageInfo: FreeTierUsageInfo | null;
-  onOpenUsageModal: () => void;
+  onOpenPolicy: () => void;
   isLoading: boolean;
   onRefresh: () => void;
   currentUserId?: string;
   sortOrder?: SortOrder;
   onSortChange?: (sort: SortOrder) => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  totalCount?: number;
+  onLoadMore?: () => Promise<void>;
+  canViewCommercialInfo?: boolean;
 }
 
 export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
@@ -38,12 +41,16 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   onFilterChange,
   search,
   onSearchChange,
-  usageInfo,
-  onOpenUsageModal,
+  onOpenPolicy,
   isLoading,
   onRefresh,
   sortOrder = 'newest',
   onSortChange,
+  hasMore = false,
+  isLoadingMore = false,
+  totalCount = conversations.length,
+  onLoadMore,
+  canViewCommercialInfo = false,
 }) => {
   const [isScopeMenuOpen, setIsScopeMenuOpen] = useState(false);
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
@@ -95,8 +102,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
           <button
             type="button"
-            onClick={onOpenUsageModal}
-            title="Consumo de Franquia Meta / SLA"
+            onClick={onOpenPolicy}
+            title="Política de envio da Central"
             className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <i className="bi bi-sliders text-xs"></i>
@@ -141,6 +148,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
           onToggle={() => setIsFilterModalOpen((prev) => !prev)}
           onClose={() => setIsFilterModalOpen(false)}
           onFilterChange={onFilterChange}
+          canViewCommercialInfo={canViewCommercialInfo}
         />
       </div>
 
@@ -152,7 +160,15 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       />
 
       {/* 4. Lista de Conversas com Cards Arredondados */}
-      <div className="flex-1 overflow-y-auto py-2">
+        <div
+          className="flex-1 overflow-y-auto py-2"
+          onScroll={(event) => {
+            const container = event.currentTarget;
+            if (hasMore && !isLoadingMore && onLoadMore && container.scrollHeight - container.scrollTop - container.clientHeight < 140) {
+              void onLoadMore();
+            }
+          }}
+        >
         <ConversationListSkeleton
           isLoading={isLoading}
           count={sortedConversations.length}
@@ -167,6 +183,10 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
             onSelect={onSelectConversation}
           />
         ))}
+        {isLoadingMore && <div role="status" className="py-3 text-center text-xs text-slate-400">Carregando mais conversas…</div>}
+        {!isLoading && !isLoadingMore && sortedConversations.length > 0 && (
+          <p className="py-2 text-center text-[10px] text-slate-400">{sortedConversations.length} de {totalCount} conversas</p>
+        )}
       </div>
     </div>
   );

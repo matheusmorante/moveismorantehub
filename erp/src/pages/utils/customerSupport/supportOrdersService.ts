@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export interface SupportOrderSummary {
   id: string;
@@ -85,13 +86,10 @@ export async function getCustomerOrders(
 ): Promise<SupportOrderSummary[]> {
   if (!customerId) return [];
 
-  const { data, error } = await supabase
-    .from('orders')
-    .select(SUPPORT_ORDER_QUERY_COLUMNS)
-    .eq('customer_id', customerId)
-    .or('deleted.is.null,deleted.eq.false')
-    .order('created_at', { ascending: false })
-    .limit(20);
+  const response = await withTimeout<any>(supabase.rpc('customer_support_list_customer_orders', {
+    p_customer_id: customerId,
+  }), 15_000, null, 'central:pedidos-cliente');
+  const { data, error } = response || { data: null, error: new Error('Timeout ao carregar pedidos') };
 
   if (error || !data) {
     console.error('[SupportOrdersService] Erro ao carregar pedidos do cliente:', error);

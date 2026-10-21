@@ -6,7 +6,7 @@ import {
   type OrderFiscalBadgeStatuses,
 } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
-import { clearFiscalEmissionRequest } from '@/pages/utils/nfe/nfeEmissionRequestState';
+import { beginConfirmedFiscalEmissionReplacement } from '@/pages/utils/nfe/nfeEmissionRequestState';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface NfeEnvironmentChoiceModalProps {
@@ -82,7 +82,9 @@ export const NfeEnvironmentChoiceModal: React.FC<NfeEnvironmentChoiceModalProps>
           environment === 2
             ? fiscalStatuses?.readyToReissueHml
             : fiscalStatuses?.readyToReissueProd;
-        if (isConfirmedReissue) clearFiscalEmissionRequest(String(order.id), environment);
+        if (isConfirmedReissue) {
+          beginConfirmedFiscalEmissionReplacement(String(order.id), environment, fiscalStatuses);
+        }
         onSelectEnvironment(environment, preparedOrder);
       }
     } catch (error: unknown) {

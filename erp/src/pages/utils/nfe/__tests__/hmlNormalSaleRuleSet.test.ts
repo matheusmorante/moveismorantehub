@@ -521,6 +521,44 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
     });
     expect(xml).toContain('<detPag><indPag>0</indPag><tPag>17</tPag><vPag>569.00</vPag><card><tpIntegra>2</tpIntegra></card></detPag>');
   });
+  it('converte presença de entrega em presencial quando o transporte é desligado só para esta NFC-e', async () => {
+    const facts = makeFacts();
+    facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
+    facts.emissionRequest.hasTransport = false;
+    facts.emissionRequest.freightMode = '9';
+    facts.order.data.shipping = {
+      value: 0,
+      deliveryMethod: 'delivery',
+      deliveryAddress: { city: 'Curitiba', state: 'PR' },
+    };
+    facts.order.data.fiscalContext = { presence: '4' };
+    facts.order.data.items = [
+      {
+        productId: 'P-1',
+        quantity: 1,
+        description: 'ITEM TESTE',
+        unitPrice: 569,
+        unitDiscount: 0,
+        discountType: 'fixed',
+      },
+    ];
+    facts.order.data.payments = [{ method: 'Pix', amount: 569 }];
+    (facts.fiscalInputs!.customer as any).cpfCnpj = '';
+    facts.emissionRequest.recipientTaxId = '';
+
+    const rules = await createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration());
+    const result = resolveFiscalDocument(facts, rules);
+
+    if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
+    expect(result.status).toBe('ready');
+    expect(result.document).toMatchObject({
+      model: '65',
+      recipient: { cpfCnpj: '' },
+      operation: { presence: '1', freightMode: '9' },
+    });
+  });
   it('rejeita CPF com dígitos verificadores inválidos e rejeita CPF/CNPJ incompatível com PF/PJ', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;

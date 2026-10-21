@@ -157,7 +157,10 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
           {isAdmin && isAdminMode && (
             <button
               onClick={handleEditClick}
-              className="absolute top-2 right-2 bg-amber-500 text-white p-2 rounded-full shadow-lg hover:bg-amber-600 transition-all z-20 hover:scale-110 opacity-0 group-hover:opacity-100"
+              className={cn(
+                'absolute right-2 bg-amber-500 text-white p-2 rounded-full shadow-lg hover:bg-amber-600 transition-all z-20 hover:scale-110 opacity-0 group-hover:opacity-100',
+                product.opportunity ? 'top-9' : 'top-2'
+              )}
               title="Editar Produto"
             >
               <Pencil className="h-4 w-4" />
@@ -169,14 +172,14 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
       {product.opportunity && (
         <Badge
           className={cn(
-            'pointer-events-none absolute top-0 right-0 font-black px-2.5 py-1 rounded-none shadow-lg z-10 text-[11px] uppercase tracking-normal border border-white/20 flex items-center gap-2',
+            'pointer-events-none absolute top-0 inset-x-0 w-full font-black px-3 py-2 h-auto min-h-[30px] rounded-none shadow-xs z-10 text-[11px] uppercase tracking-normal border-0 border-b flex items-center justify-center gap-1.5 [&>svg]:size-3.5! [&>svg]:shrink-0',
             isSalvados
-              ? 'bg-orange-500 text-white border-orange-600/20'
+              ? 'bg-orange-500 text-white border-orange-600/30'
               : isMegaLiquidacao
                 ? isMegaLiquidacaoLastUnit
                   ? 'bg-amber-400 text-black border-red-600'
-                  : 'bg-amber-400 text-black border-amber-500/20'
-                : 'text-white',
+                  : 'bg-amber-400 text-black border-amber-500/30'
+                : 'text-white border-white/20',
             getAnimationClass(product.opportunity.badge_animation || style.opportunity_emphasis)
           )}
           style={
@@ -185,15 +188,30 @@ export function ProductCard({ product, style = defaultProductCardStyle }: Produc
               : { backgroundColor: opportunityBadgeBackground }
           }
         >
-          {isSalvados && <Flame className="h-3.5 w-3.5 shrink-0 text-white fill-white" />}
-          {isMegaLiquidacao && <Zap className="h-3.5 w-3.5 shrink-0 fill-current text-black" />}
+          {isSalvados && <Flame className="size-3.5 shrink-0 text-white fill-white" />}
+          {isMegaLiquidacao && <Zap className="size-3.5 shrink-0 fill-current text-black" />}
           {isMegaLiquidacaoLastUnit ? (
-            <span className="flex flex-col items-start normal-case tracking-normal leading-[1.05]">
-              <span className="text-black">Mega Liquidação</span>
-              <span className="text-red-600">Última Unidade</span>
+            <span className="flex flex-col items-center justify-center text-center normal-case tracking-normal leading-[1.05]">
+              <span
+                className="text-black font-black uppercase text-[11px] leading-none [text-box:trim-both_cap_alphabetic]"
+                style={{ textBox: 'trim-both cap alphabetic' }}
+              >
+                Mega Liquidação
+              </span>
+              <span
+                className="text-red-600 font-black uppercase text-[10px] leading-none mt-0.5 [text-box:trim-both_cap_alphabetic]"
+                style={{ textBox: 'trim-both cap alphabetic' }}
+              >
+                Última Unidade
+              </span>
             </span>
           ) : (
-            product.opportunity.name
+            <span
+              className="inline-flex items-center leading-none tracking-normal [text-box:trim-both_cap_alphabetic]"
+              style={{ textBox: 'trim-both cap alphabetic' }}
+            >
+              {product.opportunity.name}
+            </span>
           )}
         </Badge>
       )}

@@ -7,7 +7,7 @@ import {
   resumeFiscalOrderEdit,
   type FiscalOrderEditReplacement,
 } from '@/pages/utils/nfe/orderEditFiscalService';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 
 interface UseOrderEditFiscalFlowParams {
   readonly effectiveOrder: Order | null;

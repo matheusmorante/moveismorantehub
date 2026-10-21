@@ -1,9 +1,8 @@
 import React from 'react';
-import { WhatsAppConversation, WhatsAppMessage } from '../types';
+import { WhatsAppMessage } from '../types';
 import { formatTimeAgo } from './ConversationItem';
 
 interface ActivityTimelineDrawerProps {
-  conversation: WhatsAppConversation;
   messages: WhatsAppMessage[];
   isOpen: boolean;
   onClose: () => void;
@@ -20,89 +19,26 @@ interface TimelineEvent {
 }
 
 export const ActivityTimelineDrawer: React.FC<ActivityTimelineDrawerProps> = ({
-  conversation,
   messages,
   isOpen,
   onClose,
 }) => {
   if (!isOpen) return null;
 
-  // Monta lista de eventos cronológicos a partir das mensagens e estados da conversa
-  const events: TimelineEvent[] = [];
-
-  // 1. Início do Atendimento / Workflow
-  if (conversation.createdAt) {
-    events.push({
-      id: 'event-start',
-      type: 'workflow',
-      title: 'Conversa iniciada via WhatsApp',
-      description: 'Webhook oficial WhatsApp Cloud API recebeu o contato.',
-      timestamp: conversation.createdAt,
-      icon: 'bi-whatsapp',
-      badgeColor: 'bg-emerald-500 text-white',
-    });
-
-    events.push({
-      id: 'event-automation',
-      type: 'workflow',
-      title: 'Fluxo Automático Iniciado',
-      description: 'Automation Workflow Welcome Message started',
-      timestamp: conversation.createdAt,
-      icon: 'bi-robot',
-      badgeColor: 'bg-indigo-500 text-white',
-    });
-  }
-
-  // 2. Mensagens Internas e Relevantes
-  for (const m of messages) {
-    if (m.messageType === 'internal_note') {
-      events.push({
-        id: `event-${m.id}`,
-        type: 'comment',
-        title: `Comentário interno adicionado`,
-        description: m.textContent || '',
-        timestamp: m.timestamp,
-        icon: 'bi-chat-left-dots-fill',
-        badgeColor: 'bg-amber-500 text-white',
-      });
-    }
-  }
-
-  // 3. Atribuição
-  if (conversation.assignedProfile) {
-    events.push({
-      id: 'event-assigned',
-      type: 'assignment',
-      title: `Atribuído a ${conversation.assignedProfile.fullName}`,
-      description: 'Operador selecionado para conduzir o atendimento.',
-      timestamp: conversation.updatedAt || conversation.lastMessageAt || new Date().toISOString(),
-      icon: 'bi-person-badge-fill',
-      badgeColor: 'bg-blue-500 text-white',
-    });
-  }
-
-  // 4. Status atual
-  if (conversation.status === 'closed') {
-    events.push({
-      id: 'event-closed',
-      type: 'status',
-      title: 'Atendimento Fechado',
-      description: 'Conversa marcada como resolvida/fechada pelo operador.',
-      timestamp: conversation.updatedAt || new Date().toISOString(),
-      icon: 'bi-check2-circle',
-      badgeColor: 'bg-emerald-600 text-white',
-    });
-  } else if (conversation.status === 'snoozed') {
-    events.push({
-      id: 'event-snoozed',
-      type: 'status',
-      title: 'Atendimento Adiado',
-      description: 'Conversa adiada para retorno posterior.',
-      timestamp: conversation.updatedAt || new Date().toISOString(),
-      icon: 'bi-alarm-fill',
-      badgeColor: 'bg-amber-600 text-white',
-    });
-  }
+  // A linha do tempo deriva apenas de mensagens/eventos gravados no histórico.
+  const events: TimelineEvent[] = Array.from(new Map(
+    messages
+      .filter((message) => message.messageType === 'internal_note' || message.messageType === 'system_event')
+      .map((message) => [message.id, message])
+  ).values()).map((message) => ({
+    id: message.id,
+    type: message.messageType === 'internal_note' ? 'comment' : 'status',
+    title: message.messageType === 'internal_note' ? 'Comentário interno' : 'Evento do atendimento',
+    description: message.textContent || '',
+    timestamp: message.timestamp,
+    icon: message.messageType === 'internal_note' ? 'bi-chat-left-dots-fill' : 'bi-clock-history',
+    badgeColor: message.messageType === 'internal_note' ? 'bg-amber-500 text-white' : 'bg-blue-500 text-white',
+  }));
 
   // Ordena por data decrescente (mais recente no topo)
   events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());

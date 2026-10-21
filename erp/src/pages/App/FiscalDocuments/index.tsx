@@ -11,6 +11,7 @@ import type { FiscalPendencyItem } from './types/fiscalPendencies.types';
 import type { ReplacementPendingAction } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import type Order from '@/pages/types/order.type';
 import { fetchOrderById } from '@/pages/utils/orderHistoryService';
+import { beginFiscalEmissionReplacement } from '@/pages/utils/nfe/nfeEmissionRequestState';
 
 import { useFiscalDocumentsList } from './hooks/useFiscalDocumentsList';
 import { useFiscalDocumentDetails } from './hooks/useFiscalDocumentDetails';
@@ -110,6 +111,7 @@ export default function FiscalDocumentsPage() {
     if (actionKind === 'awaiting_new_invoice') {
       const order = await fetchOrderById(item.orderId);
       if (order) {
+        beginFiscalEmissionReplacement(order.id!, item.environment, item.originalDocumentId);
         setEmissionModalEnv(item.environment);
         setEmissionModalOrder(order);
         return;
@@ -316,8 +318,15 @@ export default function FiscalDocumentsPage() {
           initialEnvironment={selectedDocument.ambiente}
           orderNumber={selectedDocument.order_id ? orderNumbers[selectedDocument.order_id] : undefined}
           onClose={() => setSelectedDocument(null)}
-          onIssueNfe={(targetOrder, env) => {
+          onIssueNfe={(targetOrder, env, actionKind, originalDocumentId) => {
             setSelectedDocument(null);
+            if (actionKind === 'awaiting_new_invoice') {
+              beginFiscalEmissionReplacement(
+                String(targetOrder.id),
+                env,
+                originalDocumentId
+              );
+            }
             setEmissionModalEnv(env);
             setEmissionModalOrder(targetOrder);
           }}

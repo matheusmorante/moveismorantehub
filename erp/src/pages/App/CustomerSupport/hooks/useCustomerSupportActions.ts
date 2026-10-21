@@ -75,32 +75,6 @@ export function useCustomerSupportActions({
         )
       );
 
-      // Evento de sistema na timeline
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `local-assign-${Date.now()}`,
-          conversationId: selectedConversation.id,
-          apiMessageId: null,
-          direction: 'outbound',
-          messageType: 'system_event',
-          textContent: profileName
-            ? `Atendimento atribuído a ${profileName} por ${currentUserName}`
-            : `Atendimento retornado para a fila geral por ${currentUserName}`,
-          mediaId: null,
-          mediaMimeType: null,
-          mediaUrl: null,
-          mediaFilename: null,
-          mediaCaption: null,
-          replyToMessageId: null,
-          replyToWamid: null,
-          status: 'received',
-          errorCode: null,
-          failureReason: null,
-          timestamp: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-        },
-      ]);
     }
   };
 
@@ -122,43 +96,12 @@ export function useCustomerSupportActions({
         prev.map((c) => (c.id === updated.id ? { ...c, status, isArchived } : c))
       );
 
-      const statusLabel =
-        status === 'closed'
-          ? 'Fechado / Resolvido'
-          : status === 'snoozed'
-            ? 'Adiado'
-            : 'Reaberto';
-
-      // Evento de sistema na timeline
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `local-status-${Date.now()}`,
-          conversationId: selectedConversation.id,
-          apiMessageId: null,
-          direction: 'outbound',
-          messageType: 'system_event',
-          textContent: `Status do atendimento alterado para "${statusLabel}" por ${currentUserName}`,
-          mediaId: null,
-          mediaMimeType: null,
-          mediaUrl: null,
-          mediaFilename: null,
-          mediaCaption: null,
-          replyToMessageId: null,
-          replyToWamid: null,
-          status: 'received',
-          errorCode: null,
-          failureReason: null,
-          timestamp: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-        },
-      ]);
     }
   };
 
   // 5. Adicionar comentário interno da equipe
   const handleAddInternalNote = async (text: string) => {
-    if (!selectedConversation || !text.trim()) return;
+    if (!selectedConversation || !text.trim()) return false;
     const author = {
       id: currentUserId || 'unknown',
       name: currentUserName,
@@ -173,9 +116,13 @@ export function useCustomerSupportActions({
     );
 
     if (created) {
-      setMessages((prev) => [...prev, created]);
+      setMessages((prev) => prev.some((message) => message.id === created.id)
+        ? prev
+        : [...prev, created].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id))
+      );
       setSelectedConversation((prev) => (prev ? { ...prev, internalNotes: text } : null));
     }
+    return Boolean(created);
   };
 
   return {

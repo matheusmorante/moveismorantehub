@@ -26,9 +26,13 @@ async function prepareOrderFiscalSnapshot(order: Order, environment: 1 | 2): Pro
   if (!order.id) {
     throw new Error('Salve o pedido antes de iniciar a emissão da nota fiscal.');
   }
-  if (!needsSnapshot(order.items || [])) return order;
 
-  const persistedOrder = await fetchOrderById(order.id);
+  const persistedOrder = await withTimeout(
+    fetchOrderById(order.id),
+    15_000,
+    null,
+    'nfe:recarregar-pedido-antes-da-emissao'
+  );
   if (!persistedOrder?.id) {
     throw new Error('Não foi possível recarregar o pedido para preparar os dados fiscais.');
   }

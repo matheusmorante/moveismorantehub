@@ -171,11 +171,24 @@ describe('emissão NF-e no ERP', () => {
       json: async () => ({ error: 'TEST_AUT_CONTROLLED' }),
     });
     vi.stubGlobal('fetch', fetchMock);
-    const { emitNfeForOrder, setFiscalEmissionReplacementSource } = await import('../nfeService');
+    const { emitNfeForOrder } = await import('../nfeService');
+    const { beginConfirmedFiscalEmissionReplacement } = await import('../nfeEmissionRequestState');
     const order = { id: 'TEST_AUT_hml-replacement-source' } as any;
     const staleRequestId = '4f6d123e-9c93-4c17-9a27-a08c4f909f31';
     memory.set(`nfe-emission-request:${order.id}:outbound:2`, staleRequestId);
-    setFiscalEmissionReplacementSource(order.id, 2, 'old-abandoned-document');
+    const started = beginConfirmedFiscalEmissionReplacement(order.id, 2, {
+      production: 'not_issued',
+      homologation: 'reissue_required',
+      readyToReissueHml: true,
+      homologationBadges: [
+        { id: 'old-abandoned-document', status: 'reversed', sequenceNumber: 1, label: 'NFH' },
+      ],
+    });
+    expect(started).toBe(true);
+    expect(memory.has(`nfe-emission-request:${order.id}:outbound:2`)).toBe(false);
+    expect(memory.get(`nfe-emission-replacement-source:${order.id}:outbound:2`)).toBe(
+      'old-abandoned-document'
+    );
 
     await emitNfeForOrder(order, 2);
     await emitNfeForOrder(order, 2);

@@ -11,6 +11,24 @@ export interface AssignedProfileSummary {
   avatarUrl?: string | null;
 }
 
+export interface CustomerSupportFolderCriteria {
+  status: 'all' | ConversationStatus;
+  assigneeId: 'all' | 'unassigned' | 'mine' | string;
+  unread: boolean;
+  customerLink: 'all' | 'linked' | 'unlinked';
+  orders: 'all' | 'with_orders' | 'without_orders';
+  search: string;
+}
+
+export interface CustomerSupportFolder {
+  id: string;
+  name: string;
+  criteria: CustomerSupportFolderCriteria;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface WhatsAppConversation {
   id: string;
   businessPhoneNumberId: string;

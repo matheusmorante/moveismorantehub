@@ -9,10 +9,10 @@ import {
 } from '@/pages/App/CustomerSupport/types';
 import {
   CustomerSummary,
-  CUSTOMER_QUERY_COLUMNS,
   mapPersonToSummary,
 } from './customerMatchingService';
 import { SupportOrderSummary } from './supportOrdersService';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export const CONVERSATION_SELECT_COLUMNS =
   'id, business_phone_number_id, contact_phone, contact_wa_id, contact_name, customer_id, customer_link_status, last_message_text, last_message_at, last_customer_message_at, unread_count, is_archived, internal_notes, tags, assigned_to, created_at, updated_at';
@@ -133,7 +133,10 @@ export interface FetchConversationsOptions {
   pageSize?: number;
   filter?: ConversationFilter;
   search?: string;
-  currentUserId?: string;
+  agentId?: string | null;
+  criteria?: import('@/pages/App/CustomerSupport/types').CustomerSupportFolderCriteria | null;
+  canViewCommercialInfo?: boolean;
+  sortOrder?: 'newest' | 'oldest' | 'unread';
 }
 
 /**
@@ -143,83 +146,45 @@ export async function fetchConversations(
   supabase: SupabaseClient,
   options: FetchConversationsOptions = {}
 ): Promise<{ conversations: WhatsAppConversation[]; totalCount: number }> {
-  const { page = 1, pageSize = 30, filter = 'all', search = '', currentUserId } = options;
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+  const {
+    page = 1,
+    pageSize = 50,
+    filter = 'all',
+    search = '',
+    agentId = null,
+    criteria = null,
+    canViewCommercialInfo = false,
+    sortOrder = 'newest',
+  } = options;
+  const response = await withTimeout<any>(supabase.rpc('customer_support_list_conversations', {
+    p_filter: filter,
+    p_search: search.trim(),
+    p_agent_id: agentId,
+    p_criteria: criteria || {},
+    p_page: page,
+    p_page_size: pageSize,
+    p_sort_order: sortOrder,
+  }), 15_000, null, 'central:conversations');
+  const { data, error } = response || { data: null, error: new Error('Timeout na consulta de conversas') };
 
-  let query = supabase
-    .from('whatsapp_conversations')
-    .select(CONVERSATION_SELECT_COLUMNS, { count: 'exact' });
-
-  // Filtros de estado / arquivamento
-  if (filter === 'archived' || filter === 'closed') {
-    query = query.eq('is_archived', true);
-  } else {
-    query = query.eq('is_archived', false);
-  }
-
-  // Filtros de fila de atendimento
-  if (filter === 'mine' && currentUserId) {
-    query = query.eq('assigned_to', currentUserId);
-  } else if (filter === 'unassigned') {
-    query = query.is('assigned_to', null);
-  } else if (filter === 'unread') {
-    query = query.gt('unread_count', 0);
-  } else if (filter === 'linked') {
-    query = query.not('customer_id', 'is', null);
-  } else if (filter === 'unlinked') {
-    query = query.is('customer_id', null);
-  } else if (filter === 'snoozed') {
-    query = query.contains('tags', ['status:snoozed']);
-  }
-
-  // Pesquisa por texto, nome ou telefone
-  if (search && search.trim().length > 0) {
-    const term = search.trim();
-    const cleanDigits = term.replace(/\D/g, '');
-    const searchConditions = [`contact_name.ilike.%${term}%`, `last_message_text.ilike.%${term}%`];
-    if (cleanDigits.length >= 3) {
-      searchConditions.push(`contact_phone.ilike.%${cleanDigits}%`);
-      searchConditions.push(`contact_wa_id.ilike.%${cleanDigits}%`);
-    }
-    query = query.or(searchConditions.join(','));
-  }
-
-  // Ordenação da mais recente para a mais antiga
-  query = query.order('last_message_at', { ascending: false }).range(from, to);
-
-  const { data, count, error } = await query;
   if (error || !data) {
     console.error('[CustomerSupportService] Erro ao buscar conversas:', error);
     return { conversations: [], totalCount: 0 };
   }
 
-  const rawConversations = data.map(mapRowToConversation);
+  const rawConversations: Array<WhatsAppConversation & { assignedProfile: AssignedProfileSummary | null }> =
+    (data as Array<Record<string, any>>).map((row) => ({
+    ...mapRowToConversation(row),
+    assignedProfile: row.assigned_to
+      ? {
+          id: row.assigned_to,
+          fullName: row.assigned_profile_name || 'Atendente',
+          role: row.assigned_profile_role || undefined,
+        }
+      : null,
+    }));
 
-  // 1. Hidratação de atendentes responsáveis (assigned_to)
-  const assignedIds = Array.from(
-    new Set(rawConversations.map((c) => c.assignedTo).filter(Boolean) as string[])
-  );
-  const profilesMap = new Map<string, AssignedProfileSummary>();
-  if (assignedIds.length > 0) {
-    const { data: profilesData } = await supabase
-      .from('profiles')
-      .select('id, full_name, role, email')
-      .in('id', assignedIds);
-
-    if (profilesData) {
-      for (const p of profilesData) {
-        profilesMap.set(String(p.id), {
-          id: p.id,
-          fullName: p.full_name || p.email || 'Atendente',
-          role: p.role,
-          email: p.email,
-        });
-      }
-    }
-  }
-
-  // 2. Hidratação em LOTE de clientes (sem N+1 queries, consumo ultra-reduzido de Egress)
+  // Dados comerciais só são hidratados quando a permissão específica foi comprovada.
   const customerIds = Array.from(
     new Set(rawConversations.map((c) => c.customerId).filter(Boolean) as string[])
   );
@@ -227,11 +192,11 @@ export async function fetchConversations(
   let customersMap = new Map<string, CustomerSummary>();
   let customerOrdersCountMap = new Map<string, number>();
 
-  if (customerIds.length > 0) {
-    const { data: customersData } = await supabase
-      .from('people')
-      .select(CUSTOMER_QUERY_COLUMNS)
-      .in('id', customerIds);
+  if (canViewCommercialInfo && customerIds.length > 0) {
+    const customerResponse = await withTimeout<any>(supabase.rpc('customer_support_list_customer_summaries', {
+      p_customer_ids: customerIds,
+    }), 15_000, null, 'central:clientes');
+    const customersData = customerResponse?.data;
 
     if (customersData) {
       for (const c of customersData) {
@@ -239,46 +204,50 @@ export async function fetchConversations(
       }
     }
 
-    const { data: ordersData } = await supabase
-      .from('orders')
-      .select('id, customer_id')
-      .in('customer_id', customerIds)
-      .or('deleted.is.null,deleted.eq.false');
+    const ordersResponse = await withTimeout<any>(supabase.rpc('customer_support_count_customer_orders', {
+      p_customer_ids: customerIds,
+    }), 15_000, null, 'central:contagem-pedidos');
+    const ordersData = ordersResponse?.data;
 
     if (ordersData) {
-      for (const o of ordersData) {
-        if (o.customer_id) {
-          const current = customerOrdersCountMap.get(o.customer_id) || 0;
-          customerOrdersCountMap.set(o.customer_id, current + 1);
-        }
+      for (const row of ordersData) {
+        if (row.customer_id) customerOrdersCountMap.set(row.customer_id, Number(row.order_count) || 0);
       }
     }
   }
 
   // Hidrata conversas com clientes, pedidos e atendentes
-  let hydrated = rawConversations.map((c) => {
+  const hydrated = rawConversations.map((c) => {
     const cust = c.customerId ? customersMap.get(c.customerId) || null : null;
     const ordersCount = c.customerId ? customerOrdersCountMap.get(c.customerId) || 0 : 0;
-    const assignedProf = c.assignedTo ? profilesMap.get(c.assignedTo) || null : null;
 
     return {
       ...c,
-      assignedProfile: assignedProf,
       customer: cust,
       orders: ordersCount > 0 ? (Array(ordersCount).fill({}) as SupportOrderSummary[]) : [],
     };
   });
 
-  // Filtros em memória pós-hidratação de pedidos
-  if (filter === 'with_orders') {
-    hydrated = hydrated.filter((c) => (c.orders?.length || 0) > 0);
-  } else if (filter === 'without_orders') {
-    hydrated = hydrated.filter((c) => (c.orders?.length || 0) === 0);
-  }
-
   return {
     conversations: hydrated,
-    totalCount: count || hydrated.length,
+    totalCount: Number(data[0]?.total_count || 0),
+  };
+}
+
+export async function fetchConversationCounts(
+  supabase: SupabaseClient
+): Promise<{ all: number; mine: number; unassigned: number; unread: number }> {
+  const response = await withTimeout<any>(supabase.rpc('customer_support_conversation_counts'), 15_000, null, 'central:contagens');
+  const { data, error } = response || { data: null, error: new Error('Timeout nas contagens da Central') };
+  if (error || !data?.[0]) {
+    console.error('[CustomerSupportService] Erro ao buscar contagens da Inbox:', error);
+    return { all: 0, mine: 0, unassigned: 0, unread: 0 };
+  }
+  return {
+    all: Number(data[0].all_count) || 0,
+    mine: Number(data[0].mine_count) || 0,
+    unassigned: Number(data[0].unassigned_count) || 0,
+    unread: Number(data[0].unread_count) || 0,
   };
 }
 
@@ -292,19 +261,45 @@ export async function fetchConversationMessages(
 ): Promise<WhatsAppMessage[]> {
   if (!conversationId) return [];
 
-  const { data, error } = await supabase
+  const response = await withTimeout<any>(supabase
     .from('whatsapp_messages')
     .select(MESSAGE_SELECT_COLUMNS)
     .eq('conversation_id', conversationId)
-    .order('timestamp', { ascending: true })
-    .limit(limit);
+    .order('timestamp', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit), 15_000, null, 'central:mensagens');
+  const { data, error } = response || { data: null, error: new Error('Timeout ao carregar mensagens') };
 
   if (error || !data) {
     console.error('[CustomerSupportService] Erro ao buscar mensagens da conversa:', error);
     return [];
   }
 
-  return data.map(mapRowToMessage);
+  return data.reverse().map(mapRowToMessage);
+}
+
+export async function fetchPreviousConversationMessages(
+  supabase: SupabaseClient,
+  conversationId: string,
+  before: { timestamp: string; id: string },
+  limit: number = 50
+): Promise<WhatsAppMessage[]> {
+  if (!conversationId) return [];
+  const response = await withTimeout<any>(supabase
+    .from('whatsapp_messages')
+    .select(MESSAGE_SELECT_COLUMNS)
+    .eq('conversation_id', conversationId)
+    .or(`timestamp.lt.${before.timestamp},and(timestamp.eq.${before.timestamp},id.lt.${before.id})`)
+    .order('timestamp', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit), 15_000, null, 'central:mensagens-anteriores');
+  const { data, error } = response || { data: null, error: new Error('Timeout ao carregar mensagens anteriores') };
+
+  if (error || !data) {
+    console.error('[CustomerSupportService] Erro ao buscar mensagens anteriores:', error);
+    return [];
+  }
+  return data.reverse().map(mapRowToMessage);
 }
 
 /**
@@ -392,7 +387,7 @@ export async function assignConversation(
     ? `Atendimento atribuído a ${profileName} por ${currentUserName}`
     : `Atendimento retornado para a fila geral por ${currentUserName}`;
 
-  await supabase.from('whatsapp_messages').insert([
+  const { error: eventError } = await supabase.from('whatsapp_messages').insert([
     {
       conversation_id: conversationId,
       direction: 'outbound',
@@ -403,7 +398,7 @@ export async function assignConversation(
     },
   ]);
 
-  return true;
+  return !eventError;
 }
 
 /**
@@ -447,7 +442,7 @@ export async function updateConversationStatus(
         ? 'Adiado'
         : 'Reaberto';
 
-  await supabase.from('whatsapp_messages').insert([
+  const { error: eventError } = await supabase.from('whatsapp_messages').insert([
     {
       conversation_id: conversationId,
       direction: 'outbound',
@@ -458,7 +453,7 @@ export async function updateConversationStatus(
     },
   ]);
 
-  return true;
+  return !eventError;
 }
 
 /**
@@ -515,17 +510,14 @@ export async function createInternalNoteMessage(
 export async function fetchTeamProfiles(
   supabase: SupabaseClient
 ): Promise<AssignedProfileSummary[]> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, full_name, role, email')
-    .order('full_name', { ascending: true });
+  const response = await withTimeout<any>(supabase.rpc('customer_support_list_agents'), 15_000, null, 'central:atendentes');
+  const { data, error } = response || { data: null, error: new Error('Timeout ao carregar atendentes') };
 
   if (error || !data) return [];
 
-  return data.map((p) => ({
+  return (data as Array<{ id: string; full_name: string | null; role: string | null }>).map((p) => ({
     id: p.id,
-    fullName: p.full_name || p.email || 'Atendente',
-    role: p.role,
-    email: p.email,
+    fullName: p.full_name || 'Atendente',
+    role: p.role || undefined,
   }));
 }

@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/pages/utils/supabaseConfig';
-import { getMonthlyUsage, FreeTierUsageInfo } from '@/pages/utils/customerSupport/freeTierTracker';
+import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
+import { canPerform } from '@/pages/utils/permissionService';
+import { getProfileRoles } from '@/pages/utils/accessRoles';
+import { fetchTeamProfiles } from '@/pages/utils/customerSupport/customerSupportService';
+import { supabase } from '@/pages/utils/supabaseConfig';
+import { AssignedProfileSummary, CustomerSupportFolder } from './types';
 import {
   useCustomerSupportConversations,
   useCustomerSupportMessages,
   useCustomerSupportActions,
+  useCustomerSupportFolders,
 } from './hooks';
 import {
   NavigationRail,
@@ -20,11 +25,21 @@ import {
 
 export default function CustomerSupport() {
   const { user, profile } = useAuth();
-  const [usageInfo, setUsageInfo] = useState<FreeTierUsageInfo | null>(null);
+  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
   const [isInboxSidebarOpen, setIsInboxSidebarOpen] = useState(true);
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-  const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
+  const [agents, setAgents] = useState<AssignedProfileSummary[]>([]);
+  const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
+  const roles = profile ? getProfileRoles(profile) : [];
+  const canViewCommercialInfo = canPerform('viewCustomerCommercialInfo', roles);
+  const {
+    folders,
+    selectedFolder,
+    setSelectedFolder,
+    saveFolder,
+    removeFolder,
+  } = useCustomerSupportFolders(user?.id);
 
   // 1. Gerenciamento de conversas, filtros, busca e sincronização Realtime
   const {
@@ -45,7 +60,16 @@ export default function CustomerSupport() {
     unreadCountTotal,
     mineCountTotal,
     unassignedCountTotal,
-  } = useCustomerSupportConversations({ userId: user?.id });
+    isLoadingMore,
+    hasMoreConversations,
+    totalCount,
+    loadMoreConversations,
+  } = useCustomerSupportConversations({
+    userId: user?.id,
+    agentId: activeAgentId,
+    folderCriteria: selectedFolder?.criteria || null,
+    canViewCommercialInfo,
+  });
 
   // 2. Gerenciamento de mensagens da conversa selecionada e canal Realtime
   const handleClearUnread = useCallback(
@@ -63,6 +87,9 @@ export default function CustomerSupport() {
     messages,
     setMessages,
     isLoadingMessages,
+    isLoadingOlderMessages,
+    hasOlderMessages,
+    loadOlderMessages,
     isRefreshingMessages,
     refreshMessages,
   } = useCustomerSupportMessages({
@@ -88,15 +115,42 @@ export default function CustomerSupport() {
     currentUserRole: profile?.role,
   });
 
-  // 4. Franquia gratuita da Meta Cloud API
-  const loadUsage = useCallback(async () => {
-    const info = await getMonthlyUsage(supabase);
-    setUsageInfo(info);
+  useEffect(() => {
+    let active = true;
+    fetchTeamProfiles(supabase).then((profiles) => {
+      if (active) setAgents(profiles);
+    });
+    return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    loadUsage();
-  }, [loadUsage]);
+  const handleFilterChange = (nextFilter: typeof filter) => {
+    setSelectedFolder(null);
+    setActiveAgentId(null);
+    setFilter(nextFilter);
+  };
+
+  const handleSelectAgent = (agentId: string | null) => {
+    setSelectedFolder(null);
+    setActiveAgentId(agentId);
+    setFilter('all');
+  };
+
+  const handleSelectFolder = (folder: CustomerSupportFolder) => {
+    if (folder.criteria.orders !== 'all' && !canViewCommercialInfo) {
+      toast.error('Esta pasta exige a permissão de informações comerciais para consultar pedidos.');
+      return;
+    }
+    setActiveAgentId(null);
+    setFilter('all');
+    setSelectedFolder(folder);
+  };
+
+  const handleDeleteFolder = async (folder: CustomerSupportFolder) => {
+    if (!window.confirm(`Excluir a pasta compartilhada "${folder.name}"?`)) return;
+    const error = await removeFolder(folder.id);
+    if (error) toast.error(error);
+    else toast.success(`Pasta "${folder.name}" excluída.`);
+  };
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-white dark:bg-slate-900 select-none">
@@ -104,12 +158,11 @@ export default function CustomerSupport() {
       <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
         <NavigationRail
           activeFilter={filter}
-          onFilterChange={setFilter}
+          onFilterChange={handleFilterChange}
           unreadCountTotal={unreadCountTotal}
           mineCountTotal={mineCountTotal}
           unassignedCountTotal={unassignedCountTotal}
-          usageInfo={usageInfo}
-          onOpenUsageModal={() => setIsUsageModalOpen(true)}
+          onOpenPolicy={() => setIsPolicyModalOpen(true)}
           isLoading={isLoadingConversations}
           onRefresh={loadConversations}
           isRealtimeConnected={isRealtimeConnected}
@@ -132,13 +185,31 @@ export default function CustomerSupport() {
       >
         <InboxSidebar
           activeFilter={filter}
-          onFilterChange={setFilter}
+          onFilterChange={handleFilterChange}
           totalAll={totalAll}
           totalMine={mineCountTotal}
           totalUnassigned={unassignedCountTotal}
           totalUnread={unreadCountTotal}
           isOpen={isInboxSidebarOpen}
           onToggleCollapse={() => setIsInboxSidebarOpen(false)}
+          agents={agents}
+          activeAgentId={activeAgentId}
+          onSelectAgent={handleSelectAgent}
+          folders={folders}
+          selectedFolder={selectedFolder}
+          currentUserId={user?.id}
+          onSelectFolder={handleSelectFolder}
+          onClearFolder={() => setSelectedFolder(null)}
+          onSaveFolder={async (name, criteria, folderId) => {
+            const error = await saveFolder({ id: folderId, name, criteria });
+            if (!error && !folderId) {
+              setActiveAgentId(null);
+              setFilter('all');
+            }
+            return error;
+          }}
+          onDeleteFolder={handleDeleteFolder}
+          canViewCommercialInfo={canViewCommercialInfo}
         />
       </div>
 
@@ -153,16 +224,20 @@ export default function CustomerSupport() {
           selectedConversation={selectedConversation}
           onSelectConversation={setSelectedConversation}
           filter={filter}
-          onFilterChange={setFilter}
+          onFilterChange={handleFilterChange}
           search={search}
           onSearchChange={setSearch}
-          usageInfo={usageInfo}
-          onOpenUsageModal={() => setIsUsageModalOpen(true)}
+          onOpenPolicy={() => setIsPolicyModalOpen(true)}
           isLoading={isLoadingConversations}
           onRefresh={loadConversations}
           currentUserId={user?.id}
           sortOrder={sortOrder}
           onSortChange={setSortOrder}
+          hasMore={hasMoreConversations}
+          isLoadingMore={isLoadingMore}
+          totalCount={totalCount}
+          onLoadMore={loadMoreConversations}
+          canViewCommercialInfo={canViewCommercialInfo}
         />
       </div>
 
@@ -173,6 +248,9 @@ export default function CustomerSupport() {
             conversation={selectedConversation}
             messages={messages}
             isLoadingMessages={isLoadingMessages}
+            hasOlderMessages={hasOlderMessages}
+            isLoadingOlderMessages={isLoadingOlderMessages}
+            onLoadOlderMessages={loadOlderMessages}
             onBackMobile={() => setSelectedConversation(null)}
             isInfoPanelOpen={isInfoPanelOpen}
             onToggleInfoPanel={() => {
@@ -203,7 +281,6 @@ export default function CustomerSupport() {
 
           {/* Linha do Tempo / Histórico de Atividades (Ativado via botão 🕒 do cabeçalho) */}
           <ActivityTimelineDrawer
-            conversation={selectedConversation}
             messages={messages}
             isOpen={isTimelineOpen}
             onClose={() => setIsTimelineOpen(false)}
@@ -215,11 +292,10 @@ export default function CustomerSupport() {
         </div>
       )}
 
-      {/* Modal de Consumo da Franquia Meta */}
+      {/* Aviso de política do módulo */}
       <UsageConsumptionModal
-        isOpen={isUsageModalOpen}
-        onClose={() => setIsUsageModalOpen(false)}
-        usageInfo={usageInfo}
+        isOpen={isPolicyModalOpen}
+        onClose={() => setIsPolicyModalOpen(false)}
       />
     </div>
   );

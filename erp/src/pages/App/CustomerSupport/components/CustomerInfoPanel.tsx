@@ -109,34 +109,38 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
   };
 
   const handleSaveNotes = async (notes: string) => {
-    await updateInternalNotesAndTags(supabase, conversation.id, notes, tags);
-    onConversationUpdated({ internalNotes: notes, tags });
+    const saved = await updateInternalNotesAndTags(supabase, conversation.id, notes, tags);
+    if (saved) onConversationUpdated({ internalNotes: notes, tags });
+    return saved;
   };
 
-  const handleAddTag = (newTag: string) => {
-    if (!tags.includes(newTag)) {
-      const nextTags = [...tags, newTag];
-      setTags(nextTags);
-      updateInternalNotesAndTags(
-        supabase,
-        conversation.id,
-        conversation.internalNotes || '',
-        nextTags
-      );
-      onConversationUpdated({ tags: nextTags });
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    const nextTags = tags.filter((t) => t !== tagToRemove);
-    setTags(nextTags);
-    updateInternalNotesAndTags(
+  const handleAddTag = async (newTag: string) => {
+    if (tags.includes(newTag)) return true;
+    const nextTags = [...tags, newTag];
+    const saved = await updateInternalNotesAndTags(
       supabase,
       conversation.id,
       conversation.internalNotes || '',
       nextTags
     );
+    if (!saved) return false;
+    setTags(nextTags);
     onConversationUpdated({ tags: nextTags });
+    return true;
+  };
+
+  const handleRemoveTag = async (tagToRemove: string) => {
+    const nextTags = tags.filter((t) => t !== tagToRemove);
+    const saved = await updateInternalNotesAndTags(
+      supabase,
+      conversation.id,
+      conversation.internalNotes || '',
+      nextTags
+    );
+    if (!saved) return false;
+    setTags(nextTags);
+    onConversationUpdated({ tags: nextTags });
+    return true;
   };
 
   // Separação de mídias por tipo
@@ -247,6 +251,7 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
               conversation={conversation}
               customer={customer}
               isLinked={isLinked}
+              canViewCommercial={canViewCommercial}
               displayName={displayName}
               onOpenLinkModal={() => setIsLinkModalOpen(true)}
               onUnlink={handleUnlink}
@@ -283,12 +288,14 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
         </div>
 
         {/* Modal de Vinculação Manual */}
-        <ManualLinkModal
-          isOpen={isLinkModalOpen}
-          onClose={() => setIsLinkModalOpen(false)}
-          conversationId={conversation.id}
-          onLinked={handleLinked}
-        />
+        {canViewCommercial && (
+          <ManualLinkModal
+            isOpen={isLinkModalOpen}
+            onClose={() => setIsLinkModalOpen(false)}
+            conversationId={conversation.id}
+            onLinked={handleLinked}
+          />
+        )}
       </aside>
     </>
   );

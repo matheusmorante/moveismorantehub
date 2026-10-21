@@ -11,6 +11,32 @@ export interface WebhookProcessResult {
   errors: string[];
 }
 
+export function parseMetaStatusFailure(errors?: any[]): {
+  failureReason: string | null;
+  errorCode: string | null;
+} {
+  if (!Array.isArray(errors) || errors.length === 0) return { failureReason: null, errorCode: null };
+  const first = errors[0] || {};
+  const code = String(first.code || '');
+  const details = first.error_data?.details || first.message || first.title || '';
+  let failureReason = '';
+  if (code === '131056') {
+    failureReason = 'Mensagem descartada pela Meta (proteção anti-spam ou envio repetido). Aguarde 1 minuto ou altere o conteúdo do pedido antes de reenviar.';
+  } else if (code === '131049') {
+    failureReason = 'Disparo bloqueado por restrições de integridade ou política da Meta.';
+  } else if (code === '131047') {
+    failureReason = 'Janela de 24h fechada. É obrigatório o uso de modelo de mensagem aprovado.';
+  } else if (code === '131026') {
+    failureReason = 'Número não encontrado ou incapaz de receber mensagens no WhatsApp.';
+  } else if (code === '130429') {
+    failureReason = 'Limite temporário de taxa de envio atingido na Meta Cloud API. Aguarde alguns instantes.';
+  } else {
+    failureReason = first.title || first.message || `Falha reportada pela Meta (Código #${code})`;
+  }
+  if (details && !failureReason.includes(details)) failureReason += ` Detalhes: ${details}`;
+  return { failureReason, errorCode: code || null };
+}
+
 /**
  * Valida a assinatura HMAC SHA-256 enviada no cabeçalho X-Hub-Signature-256
  */
@@ -20,13 +46,12 @@ export function verifyMetaSignature(
   appSecret: string | undefined
 ): boolean {
   if (!appSecret || appSecret.trim() === '') {
-    // Em homologação/desenvolvimento sem segredo configurado, não bloqueia
-    return true;
+    return false;
   }
   if (!signatureHeader) return false;
 
-  const parts = signatureHeader.split('=');
-  const signatureHex = parts.length === 2 ? parts[1] : parts[0];
+  const signatureMatch = /^sha256=([a-f0-9]{64})$/i.exec(signatureHeader.trim());
+  const signatureHex = signatureMatch?.[1];
   if (!signatureHex) return false;
 
   try {
@@ -44,6 +69,14 @@ export function verifyMetaSignature(
     console.error('[verifyMetaSignature] Erro ao validar assinatura:', err);
     return false;
   }
+}
+
+export async function readRawWebhookBody(request: AsyncIterable<Buffer | string>): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
 }
 
 /**
@@ -344,6 +377,7 @@ export async function processWhatsAppWebhookPayload(
             const updatedAt = statusItem.timestamp
               ? new Date(Number(statusItem.timestamp) * 1000).toISOString()
               : new Date().toISOString();
+            const { failureReason, errorCode } = parseMetaStatusFailure(statusItem.errors);
 
             // Atualiza tabela de despachos (PRESERVAÇÃO DO FLUXO EXISTENTE)
             await supabase
@@ -352,6 +386,8 @@ export async function processWhatsAppWebhookPayload(
                 status: deliveryStatus,
                 updated_at: updatedAt,
                 raw_payload: statusItem,
+                ...(failureReason ? { failure_reason: failureReason } : {}),
+                ...(errorCode ? { error_code: errorCode } : {}),
               })
               .eq('api_message_id', msgId);
 
@@ -361,6 +397,7 @@ export async function processWhatsAppWebhookPayload(
               .update({
                 delivery_status: deliveryStatus,
                 delivery_status_updated_at: updatedAt,
+                ...(failureReason ? { failure_reason: failureReason } : {}),
               })
               .eq('api_message_id', msgId);
 
@@ -369,6 +406,8 @@ export async function processWhatsAppWebhookPayload(
               .from('whatsapp_messages')
               .update({
                 status: deliveryStatus,
+                ...(failureReason ? { failure_reason: failureReason } : {}),
+                ...(errorCode ? { error_code: errorCode } : {}),
               })
               .eq('api_message_id', msgId);
 

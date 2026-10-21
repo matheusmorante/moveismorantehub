@@ -5,11 +5,11 @@ import { z } from 'zod';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import {
   CustomerSummary,
-  CUSTOMER_QUERY_COLUMNS,
   mapPersonToSummary,
   manuallyLinkCustomer,
 } from '@/pages/utils/customerSupport/customerMatchingService';
 import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 const searchSchema = z.object({
   searchTerm: z
@@ -53,22 +53,10 @@ export const ManualLinkModal: React.FC<ManualLinkModalProps> = ({
     setErrorMessage(null);
     try {
       const term = data.searchTerm.trim();
-      const cleanDigits = term.replace(/\D/g, '');
-
-      let query = supabase
-        .from('people')
-        .select(CUSTOMER_QUERY_COLUMNS)
-        .or('deleted.is.null,deleted.eq.false');
-
-      if (cleanDigits.length >= 3) {
-        query = query.or(
-          `full_name.ilike.%${term}%,cpf_cnpj.ilike.%${cleanDigits}%,phone.ilike.%${cleanDigits}%`
-        );
-      } else {
-        query = query.ilike('full_name', `%${term}%`);
-      }
-
-      const { data: peopleData, error } = await query.limit(15);
+      const response = await withTimeout<any>(supabase.rpc('customer_support_search_customers', {
+        p_search: term,
+      }), 15_000, null, 'central:pesquisa-cliente');
+      const { data: peopleData, error } = response || { data: null, error: new Error('Timeout na busca de clientes') };
       if (error) throw error;
 
       setResults((peopleData || []).map(mapPersonToSummary));

@@ -3,6 +3,7 @@ import { parseFiscalItemSelections } from '../../../../../shared-utils/fiscalIte
 import { supabase } from '../supabaseConfig';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { isFiscalNumber } from '../../../../../shared-utils/fiscalNumbering';
+import type { OrderFiscalBadgeStatuses } from './orderFiscalBadgeRules';
 
 export const fiscalEmissionRequestIds = new Map<string, string>();
 export const fiscalReplacementSources = new Map<string, string>();
@@ -88,6 +89,47 @@ export function setFiscalEmissionReplacementSource(
   } catch {
     /* armazenamento indisponível */
   }
+}
+
+/** Starts a distinct outbound intent after the prior document was fiscally regularized. */
+export function beginFiscalEmissionReplacement(
+  orderId: string,
+  environment: 1 | 2,
+  originalDocumentId?: string | null
+): void {
+  clearFiscalEmissionRequest(orderId, environment);
+  if (originalDocumentId) setFiscalEmissionReplacementSource(orderId, environment, originalDocumentId);
+}
+
+/** Starts a replacement only after a confirmed fiscal reversal and links its source document. */
+export function beginConfirmedFiscalEmissionReplacement(
+  orderId: string,
+  environment: 1 | 2,
+  statuses?: OrderFiscalBadgeStatuses
+): boolean {
+  const readyToReissue =
+    environment === 2
+      ? statuses?.readyToReissueHml
+      : statuses?.readyToReissueProd;
+  if (!readyToReissue) return false;
+
+  const badges =
+    environment === 2
+      ? statuses?.homologationBadges
+      : statuses?.productionBadges;
+  const originalDocumentId =
+    [...(badges || [])].reverse().find((badge) => badge.status === 'reversed' && badge.id)?.id ||
+    (environment === 2
+      ? statuses?.homologationDocumentId
+      : statuses?.productionDocumentId);
+  if (!originalDocumentId) {
+    throw new Error(
+      'Não foi possível identificar a nota regularizada para vincular a nova emissão. Atualize a situação fiscal antes de continuar.'
+    );
+  }
+
+  beginFiscalEmissionReplacement(orderId, environment, originalDocumentId);
+  return true;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { getPhoneLookupCandidates, extractDigits, parseBrazilianPhone } from './phoneUtils';
 
 export interface CustomerSummary {
@@ -140,18 +141,15 @@ export async function manuallyLinkCustomer(
   conversationId: string,
   customerId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase
-    .from('whatsapp_conversations')
-    .update({
-      customer_id: customerId,
-      customer_link_status: 'manually_linked',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', conversationId);
+  const response = await withTimeout<any>(supabase.rpc('customer_support_link_customer', {
+    p_conversation_id: conversationId,
+    p_customer_id: customerId,
+  }), 15_000, null, 'central:vincular-cliente');
+  const { data, error } = response || { data: null, error: new Error('Timeout ao vincular cliente') };
 
-  if (error) {
+  if (error || data !== true) {
     console.error('[CustomerMatching] Erro ao vincular cliente manualmente:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error?.message || 'Cliente ou conversa não encontrados.' };
   }
 
   return { success: true };
@@ -164,18 +162,14 @@ export async function unlinkCustomer(
   supabase: SupabaseClient,
   conversationId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase
-    .from('whatsapp_conversations')
-    .update({
-      customer_id: null,
-      customer_link_status: 'unlinked',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', conversationId);
+  const response = await withTimeout<any>(supabase.rpc('customer_support_unlink_customer', {
+    p_conversation_id: conversationId,
+  }), 15_000, null, 'central:desvincular-cliente');
+  const { data, error } = response || { data: null, error: new Error('Timeout ao desvincular cliente') };
 
-  if (error) {
+  if (error || data !== true) {
     console.error('[CustomerMatching] Erro ao desvincular cliente:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error?.message || 'Conversa não encontrada.' };
   }
 
   return { success: true };

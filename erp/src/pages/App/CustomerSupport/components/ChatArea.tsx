@@ -26,7 +26,10 @@ export interface ChatAreaProps {
   onToggleArchive: () => void;
   onAssign?: (profileId: string | null, profileName?: string) => Promise<void>;
   onUpdateStatus?: (status: ConversationStatus) => Promise<void>;
-  onAddInternalNote?: (text: string) => Promise<void>;
+  onAddInternalNote?: (text: string) => Promise<boolean | void>;
+  hasOlderMessages?: boolean;
+  isLoadingOlderMessages?: boolean;
+  onLoadOlderMessages?: () => Promise<number>;
   onRefreshMessages?: () => Promise<void> | void;
   isRefreshingMessages?: boolean;
 }
@@ -44,6 +47,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onAssign,
   onUpdateStatus,
   onAddInternalNote,
+  hasOlderMessages = false,
+  isLoadingOlderMessages = false,
+  onLoadOlderMessages,
   onRefreshMessages,
   isRefreshingMessages = false,
 }) => {
@@ -129,6 +135,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         inChatSearch={inChatSearch}
         isLoadingMessages={isLoadingMessages}
         conversationId={conversation.id}
+        hasOlderMessages={hasOlderMessages}
+        isLoadingOlderMessages={isLoadingOlderMessages}
+        onLoadOlderMessages={onLoadOlderMessages}
       />
 
       {/* 4. Rodapé de Composição (WhatsApp vs Comentário Interno) */}
@@ -141,11 +150,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       <QuickSnippetsModal
         isOpen={isSnippetsModalOpen}
         onClose={() => setIsSnippetsModalOpen(false)}
-        onSelectSnippet={(content) => {
-          if (onAddInternalNote) {
-            onAddInternalNote(content);
-          }
-        }}
       />
     </div>
   );

@@ -87,6 +87,26 @@ describe('prepareOrderFiscalSnapshotForEmission', () => {
     expect(mocks.updateOrder).not.toHaveBeenCalled();
   });
 
+  it('recarrega a versão persistida mesmo quando os itens já têm snapshot fiscal', async () => {
+    const staleOrder = {
+      ...persistedOrder,
+      updatedAt: '2026-10-08T13:19:10.716Z',
+      items: [snapshotItem],
+    } as unknown as Order;
+    const currentOrder = {
+      ...persistedOrder,
+      updatedAt: '2026-10-08T13:21:10.716Z',
+      items: [snapshotItem],
+    } as unknown as Order;
+    mocks.fetchOrderById.mockResolvedValueOnce(currentOrder);
+
+    const prepared = await prepareOrderFiscalSnapshotForEmission(staleOrder, 2);
+
+    expect(mocks.fetchOrderById).toHaveBeenCalledWith(staleOrder.id);
+    expect(prepared).toBe(currentOrder);
+    expect(mocks.updateOrder).not.toHaveBeenCalled();
+  });
+
   it('continua persistindo snapshot de catálogo quando não existe nota autorizada', async () => {
     mocks.findAuthorizedFiscalDocument.mockResolvedValue(null);
     mocks.fetchOrderById.mockResolvedValueOnce(persistedOrder).mockResolvedValueOnce({

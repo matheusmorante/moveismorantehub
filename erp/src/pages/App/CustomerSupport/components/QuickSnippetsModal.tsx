@@ -6,13 +6,11 @@ import { DEFAULT_QUICK_SNIPPETS } from '@/pages/utils/customerSupport/customerSu
 interface QuickSnippetsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectSnippet?: (content: string) => void;
 }
 
 export const QuickSnippetsModal: React.FC<QuickSnippetsModalProps> = ({
   isOpen,
   onClose,
-  onSelectSnippet,
 }) => {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
@@ -38,11 +36,12 @@ export const QuickSnippetsModal: React.FC<QuickSnippetsModalProps> = ({
     return matchesCat && matchesSearch;
   });
 
-  const handleCopy = (snippet: QuickSnippet) => {
-    navigator.clipboard.writeText(snippet.content);
-    toast.success(`Modelo "${snippet.title}" copiado para a área de transferência! ✨`);
-    if (onSelectSnippet) {
-      onSelectSnippet(snippet.content);
+  const handleCopy = async (snippet: QuickSnippet) => {
+    try {
+      await navigator.clipboard.writeText(snippet.content);
+      toast.success(`Modelo "${snippet.title}" copiado para a área de transferência.`);
+    } catch {
+      toast.error('Não foi possível copiar o modelo. Verifique a permissão da área de transferência.');
     }
   };
 
@@ -68,7 +67,7 @@ export const QuickSnippetsModal: React.FC<QuickSnippetsModalProps> = ({
                 Respostas Rápidas & Modelos
               </h3>
               <p className="text-xs text-slate-400">
-                Selecione um modelo pré-definido para copiar ou inserir
+                Selecione um modelo pré-definido para copiar o texto
               </p>
             </div>
           </div>

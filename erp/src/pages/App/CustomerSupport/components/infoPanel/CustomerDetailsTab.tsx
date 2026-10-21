@@ -8,6 +8,7 @@ interface CustomerDetailsTabProps {
   conversation: WhatsAppConversation;
   customer: CustomerSummary | null | undefined;
   isLinked: boolean;
+  canViewCommercial: boolean;
   displayName: string;
   onOpenLinkModal: () => void;
   onUnlink: () => void;
@@ -17,10 +18,26 @@ export const CustomerDetailsTab: React.FC<CustomerDetailsTabProps> = ({
   conversation,
   customer,
   isLinked,
+  canViewCommercial,
   displayName,
   onOpenLinkModal,
   onUnlink,
 }) => {
+  if (!canViewCommercial) {
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-200">
+          <strong className="block font-bold">Dados comerciais restritos</strong>
+          <p className="mt-1 text-[11px] leading-relaxed">É necessária a permissão de informações comerciais para consultar o cadastro ou alterar o vínculo deste cliente.</p>
+        </div>
+        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Metadados do WhatsApp</span>
+          <div className="flex justify-between"><span className="text-slate-400">Nome de Perfil:</span><span className="font-semibold text-slate-800 dark:text-slate-200">{conversation.contactName || 'Não informado'}</span></div>
+          <div className="flex justify-between"><span className="text-slate-400">Telefone:</span><span className="font-mono text-[11px] text-slate-800 dark:text-slate-200">{formatPhoneForDisplay(conversation.contactPhone)}</span></div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-4 animate-fade-in">
       {isLinked && customer ? (

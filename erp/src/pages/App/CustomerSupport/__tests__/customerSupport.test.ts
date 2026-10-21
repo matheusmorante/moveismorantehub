@@ -21,10 +21,6 @@ import {
   mapOrderToSupportSummary,
   formatBRL,
 } from '@/pages/utils/customerSupport/supportOrdersService';
-import {
-  computeAlertLevel,
-  getMonthlyUsage,
-} from '@/pages/utils/customerSupport/freeTierTracker';
 import { whatsappSupportGuard } from '@/pages/utils/customerSupport/whatsappSupportGuard';
 import { canPerform } from '@/pages/utils/permissionService';
 import {
@@ -349,12 +345,7 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
   // 9. Vinculação de pedidos de venda
   it('9. deve consultar pedidos de venda vinculados ao cliente sem carregar dados excessivos', async () => {
     const mockSupabase: any = {
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        or: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({
+      rpc: vi.fn().mockResolvedValue({
           data: [
             {
               id: 'order-4268',
@@ -370,7 +361,6 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
           ],
           error: null,
         }),
-      })),
     };
 
     const orders = await getCustomerOrders(mockSupabase, 'customer-101');
@@ -398,18 +388,16 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
 
   // 11. Paginação de conversas
   it('11. deve aplicar range de paginação server-side na listagem de conversas', async () => {
-    const rangeMock = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
     const mockSupabase: any = {
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        order: vi.fn(() => ({ range: rangeMock })),
-      })),
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
     };
 
     await fetchConversations(mockSupabase, { page: 2, pageSize: 30, filter: 'all' });
-    // Página 2 com pageSize 30: range(30, 59)
-    expect(rangeMock).toHaveBeenCalledWith(30, 59);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('customer_support_list_conversations', expect.objectContaining({
+      p_page: 2,
+      p_page_size: 30,
+      p_filter: 'all',
+    }));
   });
 
   // 12. Atualização incremental (zerar não lidas e arquivar)
@@ -430,66 +418,17 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
     );
   });
 
-  // 13. Contador de consumo
-  it('13. deve calcular o saldo disponível e percentual da franquia de 1.000 mensagens', async () => {
-    const mockSupabase: any = {
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: {
-            service_messages_count: 350,
-            reconciliation_status: 'estimated',
-          },
-        }),
-      })),
-    };
-
-    const usage = await getMonthlyUsage(mockSupabase);
-    expect(usage.freeTierLimit).toBe(1000);
-    expect(usage.serviceMessagesCount).toBe(350);
-    expect(usage.availableBalance).toBe(650);
-    expect(usage.percentageUsed).toBe(35);
-    expect(usage.alertLevel).toBe('normal');
-  });
-
-  // 14. Alertas aos 900 e 1.000
-  it('14. deve emitir alertas adequados nas faixas de 800, 900 e 1.000 mensagens', () => {
-    expect(computeAlertLevel(250)).toBe('normal');
-    expect(computeAlertLevel(820)).toBe('warning');
-    expect(computeAlertLevel(910)).toBe('danger');
-    expect(computeAlertLevel(1000)).toBe('exceeded');
-    expect(computeAlertLevel(1050)).toBe('exceeded');
-  });
-
-  // 15. Contador com consumo desconhecido
-  it('15. deve apresentar estado "Consumo não confirmado" em caso de falha de consulta', async () => {
-    const mockSupabase: any = {
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockRejectedValue(new Error('Network error')),
-      })),
-    };
-
-    const usage = await getMonthlyUsage(mockSupabase);
-    expect(usage.reconciliationStatus).toBe('unconfirmed');
-    expect(usage.statusLabel).toBe('Consumo não confirmado — envio bloqueado.');
-  });
-
   // 16. Bloqueio de envio pelo frontend
   it('16. deve manter o envio estritamente bloqueado no frontend com mensagem explicativa', async () => {
     const check = await whatsappSupportGuard.checkAuthorization('5511999999999', 'Olá');
     expect(check.allowed).toBe(false);
-    expect(check.reason).toBe('Envio indisponível. Central em modo de visualização gratuita.');
+    expect(check.reason).toBe('Envio desativado por política da empresa.');
   });
 
   // 17. Bloqueio de envio pelo backend
   it('17. deve lançar erro imediato caso qualquer endpoint ou serviço tente disparar mensagens', async () => {
     await expect(whatsappSupportGuard.assertSendingAllowed()).rejects.toThrow(
-      'Envio indisponível. Central em modo de visualização gratuita.'
+      'Envio desativado por política da empresa.'
     );
   });
 
@@ -647,49 +586,30 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
 
   // 24. Filtragem por filas "mine" e "unassigned" com hidratação
   it('24. deve filtrar conversas por fila "mine" e "unassigned"', async () => {
-    const eqMock = vi.fn().mockReturnThis();
-    const isMock = vi.fn().mockReturnThis();
-    const rangeMock = vi.fn().mockResolvedValue({
-      data: [
+    const mockSupabase: any = {
+      rpc: vi.fn().mockResolvedValue({
+        data: [
         {
           id: 'conv-1',
+          business_phone_number_id: '',
           contact_phone: '+5511999999999',
           contact_wa_id: '5511999999999',
           assigned_to: 'user-me',
+          assigned_profile_name: 'Meu Atendente',
           is_archived: false,
           created_at: new Date().toISOString(),
+          total_count: 1,
         },
       ],
-      count: 1,
-      error: null,
-    });
-
-    const mockSupabase: any = {
-      from: vi.fn((table: string) => {
-        if (table === 'profiles') {
-          return {
-            select: vi.fn().mockReturnValue({
-              in: vi.fn().mockResolvedValue({
-                data: [{ id: 'user-me', full_name: 'Meu Atendente' }],
-              }),
-            }),
-          };
-        }
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: eqMock,
-          is: isMock,
-          order: vi.fn(() => ({ range: rangeMock })),
-        };
+        error: null,
       }),
     };
 
     const resMine = await fetchConversations(mockSupabase, {
       filter: 'mine',
-      currentUserId: 'user-me',
     });
 
-    expect(eqMock).toHaveBeenCalledWith('assigned_to', 'user-me');
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('customer_support_list_conversations', expect.objectContaining({ p_filter: 'mine' }));
     expect(resMine.conversations[0].assignedProfile?.fullName).toBe('Meu Atendente');
   });
 

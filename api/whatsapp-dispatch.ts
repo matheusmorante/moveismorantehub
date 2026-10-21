@@ -7,11 +7,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Bloqueio categórico de envio no backend (Segurança de Custo Zero da Meta)
+  // Bloqueio categórico de envio por política empresarial.
   return res.status(403).json({
-    error: 'Envio indisponível. Central em modo de visualização gratuita.',
+    error: 'Envio indisponível por política da empresa.',
     status: 'BLOCKED_FREE_TIER_PROTECTION',
     reason:
-      'O módulo Central de Atendimento opera exclusivamente em modo de visualização e recebimento para impedir qualquer risco de cobrança da Meta.',
+      'A Central de Atendimento permite consulta e recebimento, mas não despacha mensagens para clientes.',
   });
 }
