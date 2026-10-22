@@ -15,4 +15,5 @@ export interface DanfeData {
   status: 'autorizada' | 'homologada' | 'pendente';
   natOp?: string;
   fiscalDetails?: ParsedFiscalDetails;
+  printFormat?: 'thermal_80mm' | 'a4';
 }

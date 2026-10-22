@@ -7,8 +7,12 @@ import { supabase } from '../supabaseConfig';
 
 /**
  * Abre a janela de visualização e impressão do DANFE para um pedido que possui NF-e autorizada.
+ * Suporta o formato A4 para NFC-e (modelo 65) ou cupom 80mm padrão.
  */
-export async function printOrderDanfe(order: Order): Promise<void> {
+export async function printOrderDanfe(
+  order: Order,
+  format: 'thermal_80mm' | 'a4' = 'thermal_80mm'
+): Promise<void> {
   const nfeData = (order as any).nfeData;
   if (!nfeData) {
     throw new Error('Este pedido ainda não possui NF-e emitida.');
@@ -53,18 +57,22 @@ export async function printOrderDanfe(order: Order): Promise<void> {
 
   const settings: AppSettings = await getSettings();
 
-  openDanfePrintWindow({
-    order,
-    settings,
-    accessKey: nfeData.accessKey,
-    nfeNumber: nfeData.nfeNumber,
-    series: nfeData.series,
-    protocolNumber: nfeData.protocolNumber,
-    protocolDate: nfeData.protocolDate,
-    model: nfeData.model,
-    environment: nfeData.environment,
-    status: nfeData.status,
-    natOp: fiscalDetails.general.natureOperation,
-    fiscalDetails,
-  });
+  openDanfePrintWindow(
+    {
+      order,
+      settings,
+      accessKey: nfeData.accessKey,
+      nfeNumber: nfeData.nfeNumber,
+      series: nfeData.series,
+      protocolNumber: nfeData.protocolNumber,
+      protocolDate: nfeData.protocolDate,
+      model: nfeData.model,
+      environment: nfeData.environment,
+      status: nfeData.status,
+      natOp: fiscalDetails.general.natureOperation,
+      fiscalDetails,
+      printFormat: nfeData.model === '65' ? format : undefined,
+    },
+    nfeData.model === '65' ? format : undefined
+  );
 }

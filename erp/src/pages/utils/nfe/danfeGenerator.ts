@@ -11,15 +11,22 @@ import {
   buildDanfeTransportOfficialHtml,
   buildDanfeItemsOfficialHtml,
   buildDanfeAdditionalInfoOfficialHtml,
+  generateDanfeNfceA4Html,
 } from './danfe';
 
 export type { DanfeData };
 
 /**
  * Gera o documento HTML do DANFE oficial A4 Retrato 100% conforme MOC 7.0 (Anexo II)
+ * ou DANFE NFC-e conforme Manual v6.0 (Cupom 80mm ou Folha A4).
  */
 export function generateDanfeHtml(data: DanfeData): string {
-  if (data.model === '65') return generateDanfeNfceHtml(data);
+  if (data.model === '65') {
+    if (data.printFormat === 'a4') {
+      return generateDanfeNfceA4Html(data);
+    }
+    return generateDanfeNfceHtml(data);
+  }
   const {
     order,
     settings,
@@ -233,15 +240,16 @@ function generateDanfeNfceHtml(data: DanfeData): string {
 /**
  * Imprime o DANFE diretamente via agente local ou abre em uma nova janela para impressão/visualização.
  */
-export function openDanfePrintWindow(data: DanfeData): void {
+export function openDanfePrintWindow(data: DanfeData, format?: 'thermal_80mm' | 'a4'): void {
+  const preparedData: DanfeData = format ? { ...data, printFormat: format } : data;
   import('../printing/printService')
     .then(({ printDanfe }) => {
-      printDanfe(data).catch(() => {
-        fallbackDanfeWindow(data);
+      printDanfe(preparedData).catch(() => {
+        fallbackDanfeWindow(preparedData);
       });
     })
     .catch(() => {
-      fallbackDanfeWindow(data);
+      fallbackDanfeWindow(preparedData);
     });
 }
 

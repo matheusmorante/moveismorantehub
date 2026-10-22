@@ -119,8 +119,15 @@ async function buildDanfeData(doc: NfeDocumentRecord): Promise<DanfeData> {
   };
 }
 
-export async function printDanfe(doc: NfeDocumentRecord): Promise<void> {
-  openDanfePrintWindow(await buildDanfeData(doc));
+export async function printDanfe(
+  doc: NfeDocumentRecord,
+  format: 'thermal_80mm' | 'a4' = 'thermal_80mm'
+): Promise<void> {
+  const danfeData = await buildDanfeData(doc);
+  if (doc.modelo === '65') {
+    danfeData.printFormat = format;
+  }
+  openDanfePrintWindow(danfeData, doc.modelo === '65' ? format : undefined);
 }
 
 export async function createDanfeShareFile(doc: NfeDocumentRecord): Promise<File> {
@@ -155,7 +162,9 @@ export async function createDanfeShareFile(doc: NfeDocumentRecord): Promise<File
 
     const frameDocument = iframe.contentDocument;
     const danfeElement = frameDocument?.querySelector<HTMLElement>(
-      doc.modelo === '65' ? '.danfe-nfce' : '.danfe-a4'
+      doc.modelo === '65'
+        ? (danfeData.printFormat === 'a4' ? '.danfe-nfce-a4' : '.danfe-nfce')
+        : '.danfe-a4'
     );
     if (!frameDocument || !danfeElement) {
       throw new Error('Não foi possível montar a imagem do DANFE.');
