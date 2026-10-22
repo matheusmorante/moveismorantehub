@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../supabaseConfig', () => ({
   supabase: {
@@ -34,6 +34,11 @@ import { printSalesOrder, printReceipt, printDanfe, printConventional } from '..
 describe('printService (impressão pelo navegador)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   const mockOrder: Order = {
@@ -125,9 +130,67 @@ describe('printService (impressão pelo navegador)', () => {
     };
 
     const result = await printDanfe(mockDanfeData);
-    expect(fallbackSpy).toHaveBeenCalledWith('danfe', mockOrder, expect.any(String));
+    expect(fallbackSpy).toHaveBeenCalledWith('danfe', mockOrder, expect.any(String), undefined);
     expect(result.success).toBe(true);
     expect(result.status).toBe('fallback_browser');
+  });
+
+  it('deve reutilizar a janela aberta ao selecionar o formato da NFC-e', async () => {
+    const fallbackSpy = vi.spyOn(printFallbackHandler, 'executePrintFallback').mockReturnValue({
+      success: true,
+      status: 'fallback_browser',
+    });
+    const selectedPrintWindow = {} as Window;
+
+    await printDanfe(
+      {
+        order: mockOrder,
+        settings: { companyName: 'Morante Móveis' } as any,
+        accessKey: '41260900000000000000550010000000011000000010',
+        nfeNumber: 1,
+        series: 1,
+        protocolNumber: '141260000000000',
+        protocolDate: '2026-09-24T10:00:00Z',
+        model: '65',
+        environment: 2,
+      },
+      selectedPrintWindow
+    );
+
+    expect(fallbackSpy).toHaveBeenCalledWith(
+      'danfe',
+      mockOrder,
+      expect.any(String),
+      selectedPrintWindow
+    );
+  });
+
+  it('abre a impressão automaticamente quando o HTML do DANFE termina de carregar', () => {
+    const listeners = new Map<string, EventListener>();
+    const printWindow = {
+      document: { open: vi.fn(), write: vi.fn(), close: vi.fn() },
+      addEventListener: vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') listeners.set(type, listener);
+      }),
+      focus: vi.fn(),
+      print: vi.fn(),
+      close: vi.fn(),
+      closed: false,
+    } as unknown as Window;
+    const openWindow = vi.fn().mockReturnValue(printWindow);
+    vi.stubGlobal('window', { open: openWindow });
+
+    const result = printFallbackHandler.executePrintFallback('danfe', mockOrder, '<!doctype html><html></html>');
+
+    expect(result.success).toBe(true);
+    expect(openWindow).toHaveBeenCalledWith('', '_blank');
+    expect(printWindow.document.write).toHaveBeenCalledWith('<!doctype html><html></html>');
+    expect(printWindow.print).not.toHaveBeenCalled();
+    listeners.get('load')?.(new Event('load'));
+    expect(printWindow.focus).toHaveBeenCalledOnce();
+    expect(printWindow.print).toHaveBeenCalledOnce();
+    listeners.get('afterprint')?.(new Event('afterprint'));
+    expect(printWindow.close).toHaveBeenCalledOnce();
   });
 
   it('deve permitir impressão convencional explicitamente quando acionada', () => {

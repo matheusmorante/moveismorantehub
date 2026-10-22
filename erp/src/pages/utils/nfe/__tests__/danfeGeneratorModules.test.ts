@@ -9,6 +9,8 @@ import { buildDanfeAdditionalInfoOfficialHtml } from '../danfe/danfeAdditionalIn
 import { parseFiscalXmlDetails } from '@/pages/App/FiscalDocuments/utils/fiscalXmlParser';
 import Order from '@/pages/types/order.type';
 import { AppSettings } from '../../settingsService';
+import { generateNfeAccessKey } from '../nfeAccessKey';
+import { getDanfeNfceA4UnavailableReason } from '../danfe/danfeNfceA4';
 
 describe('DANFE Generator & Submódulos de Layout Oficial MOC 7.0', () => {
   const mockOrder: Order = {
@@ -87,16 +89,36 @@ describe('DANFE Generator & Submódulos de Layout Oficial MOC 7.0', () => {
   const authorizedHmlXml = `
     <nfeProc xmlns="http://www.portalfiscal.inf.br/nfe">
       <NFe><infNFe>
-        <ide><natOp>VENDA TESTE XML</natOp><dhEmi>2026-10-01T15:20:30-03:00</dhEmi><dhSaiEnt>2026-10-01T18:45:00-03:00</dhSaiEnt><tpNF>0</tpNF><idDest>1</idDest><tpAmb>2</tpAmb><mod>55</mod><serie>3</serie><nNF>77</nNF></ide>
+        <ide><cUF>41</cUF><natOp>VENDA TESTE XML</natOp><dhEmi>2026-10-01T15:20:30-03:00</dhEmi><dhSaiEnt>2026-10-01T18:45:00-03:00</dhSaiEnt><tpNF>0</tpNF><idDest>1</idDest><tpAmb>2</tpAmb><mod>55</mod><serie>3</serie><nNF>77</nNF><tpEmis>1</tpEmis></ide>
         <emit><CNPJ>44512248000107</CNPJ><xNome>EMITENTE DO XML LTDA</xNome><IE>1234567890</IE><IEST>9876543210</IEST><enderEmit><xLgr>Rua XML</xLgr><nro>55</nro><xBairro>Centro XML</xBairro><xMun>Colombo XML</xMun><UF>PR</UF><CEP>83410000</CEP><fone>4133334444</fone></enderEmit></emit>
         <dest><CPF>12345678900</CPF><xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome><enderDest><xLgr>Rua Destino XML</xLgr><nro>10</nro><xBairro>Bairro XML</xBairro><xMun>Curitiba XML</xMun><UF>PR</UF><CEP>80000000</CEP><fone>4199999999</fone></enderDest></dest>
         <det nItem="1"><prod><cProd>SKU-XML</cProd><xProd>PRODUTO DO XML</xProd><NCM>94016100</NCM><CFOP>5102</CFOP><uCom>UN</uCom><qCom>2.0000</qCom><vUnCom>60.0000</vUnCom><vProd>120.00</vProd><vDesc>3.00</vDesc></prod><imposto><ICMS><ICMS00><orig>0</orig><CST>00</CST><modBC>3</modBC><vBC>80.00</vBC><pICMS>18.00</pICMS><vICMS>14.40</vICMS></ICMS00></ICMS><IPI><IPITrib><pIPI>4.00</pIPI><vIPI>5.00</vIPI></IPITrib></IPI></imposto></det>
         <total><ICMSTot><vBC>80.00</vBC><vICMS>14.40</vICMS><vBCST>0.00</vBCST><vST>0.00</vST><vProd>120.00</vProd><vFrete>10.00</vFrete><vSeg>2.00</vSeg><vDesc>3.00</vDesc><vOutro>4.00</vOutro><vIPI>5.00</vIPI><vNF>138.00</vNF></ICMSTot></total>
         <transp><modFrete>0</modFrete><transporta><CNPJ>12345678000199</CNPJ><xNome>TRANSPORTADORA DO XML</xNome><IE>123123123</IE><xEnder>Rua Transportadora</xEnder><xMun>São José dos Pinhais</xMun><UF>PR</UF></transporta><veicTransp><placa>ABC1234</placa><UF>PR</UF><RNTC>ANTT-7</RNTC></veicTransp><vol><qVol>2</qVol><esp>CAIXAS</esp><marca>MARCA XML</marca><nVol>1-2</nVol><pesoB>20.000</pesoB><pesoL>18.000</pesoL></vol></transp>
         <cobr><fat><nFat>FAT-77</nFat><vOrig>138.00</vOrig><vDesc>0.00</vDesc><vLiq>138.00</vLiq></fat><dup><nDup>001</nDup><dVenc>2026-10-30</dVenc><vDup>138.00</vDup></dup></cobr>
+        <pag><detPag><tPag>01</tPag><vPag>138.00</vPag></detPag><vTroco>0.00</vTroco></pag>
         <infAdic><infAdFisco>RESERVADO PARA O FISCO</infAdFisco><infCpl>INFORMAÇÃO COMPLEMENTAR DO XML</infCpl></infAdic>
       </infNFe></NFe>
     </nfeProc>`;
+
+  const nfceAccessKey = generateNfeAccessKey({
+    ufCode: '41',
+    yearMonth: '2610',
+    cnpj: '44512248000107',
+    model: '65',
+    series: '3',
+    number: '77',
+    emissionType: '1',
+    randomCode: '12345678',
+  }).accessKey;
+
+  const authorizedNfceXml = authorizedHmlXml
+    .replace('<NFe><infNFe>', `<NFe><infNFe Id="NFe${nfceAccessKey}">`)
+    .replace('<mod>55</mod>', '<mod>65</mod>')
+    .replace(
+      '</infNFe></NFe>',
+      `</infNFe><infNFeSupl><qrCode>https://www.fazenda.pr.gov.br/nfce/qrcode?p=${nfceAccessKey}|2|2|1|${'A'.repeat(40)}</qrCode><urlChave>https://www.fazenda.pr.gov.br/nfce/consulta</urlChave></infNFeSupl></NFe>`
+    );
 
   describe('generateDanfeHtml', () => {
     it('gera o documento HTML completo com cabeçalho, estilos e todos os blocos oficiais', () => {
@@ -195,6 +217,256 @@ describe('DANFE Generator & Submódulos de Layout Oficial MOC 7.0', () => {
         expect(html).not.toContain('INFORMAÇÕES COMPLEMENTARES');
         expect(html).not.toContain('Entregar no período da tarde');
       }
+    });
+
+    it('gera o DANFE NFC-e A4 com paginação nativa, QR vetorial e infCpl sem forçar bloco longo em uma página', () => {
+      const parsed = parseFiscalXmlDetails(authorizedNfceXml.replace('INFORMAÇÃO COMPLEMENTAR DO XML', 'Informação complementar do XML'))!;
+      parsed.general.additionalInfo = Array.from({ length: 80 }, (_, index) => `Linha complementar ${index + 1}`).join('\n');
+
+      const html = generateDanfeHtml({
+        ...baseDanfeData,
+        model: '65',
+        accessKey: nfceAccessKey,
+        environment: 2,
+        nfeNumber: 77,
+        series: '3',
+        printFormat: 'a4',
+        fiscalDetails: parsed,
+      });
+
+      expect(html).toContain('<title>DANFE NFC-e - Nº 77 (A4)</title>');
+      expect(html).toContain('size: A4 portrait;');
+      expect(html).toContain('margin: 10mm;');
+      expect(html).toContain('display: table-header-group;');
+      expect(html).toContain('break-inside: avoid;');
+      expect(html).toContain('width: 37mm;');
+      expect(html).toContain('padding: 3mm;');
+      expect(html).toContain('<svg');
+      expect(html).toContain('PRODUTO DO XML');
+      expect(html).toContain('Linha complementar 1');
+      expect(html).toContain('Linha complementar 80');
+      expect(html).toContain('.additional-info-section {');
+      expect(html).toContain('break-inside: auto;');
+      expect(html).toContain('RESERVADO PARA O FISCO');
+      expect(html).toContain('/images/logo-morante.svg');
+      expect(html).toContain('44.512.248/0001-07');
+      expect(html).toContain('https://www.fazenda.pr.gov.br/nfce/consulta');
+      expect(html).toContain('EMITENTE DO XML LTDA');
+      expect(html).not.toContain('MÓVEIS MORANTE LTDA');
+      expect(html).toContain('Rua XML, 55');
+      expect(html).toContain('Colombo XML - PR');
+      expect(html).not.toContain('Troco');
+      expect(html).not.toContain('Obrigado pela preferência');
+      expect(html).not.toContain('MoranteHub ERP · Sistema de Gestão Empresarial');
+      expect(html).not.toContain('Informação dos Tributos Totais Incidentes');
+      expect(html).not.toContain('additional-info-section avoid-break');
+    });
+
+    it('organiza o cabeçalho, consumidor, CFOP e pagamentos do XML no A4', () => {
+      const xmlWithMultiplePayments = authorizedNfceXml
+        .replace(
+          '<detPag><tPag>01</tPag><vPag>138.00</vPag></detPag>',
+          '<detPag><tPag>01</tPag><vPag>100.00</vPag></detPag><detPag><tPag>03</tPag><vPag>38.00</vPag></detPag>'
+        )
+        .replace(
+          '<xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome>',
+          '<xNome>Maria da Silva</xNome>'
+        );
+      const parsed = parseFiscalXmlDetails(xmlWithMultiplePayments)!;
+      parsed.items[0].description = 'Descrição de móvel com embalagem longa '.repeat(12);
+
+      const html = generateDanfeHtml({
+        ...baseDanfeData,
+        model: '65',
+        accessKey: nfceAccessKey,
+        environment: 2,
+        nfeNumber: 77,
+        series: '3',
+        printFormat: 'a4',
+        fiscalDetails: parsed,
+      });
+      const documentMarkup = html.slice(html.indexOf('<main'));
+      expect(documentMarkup.indexOf('EMITENTE DO XML LTDA')).toBeLessThan(documentMarkup.indexOf('DANFE NFC-e'));
+      expect(documentMarkup.indexOf('DANFE NFC-e')).toBeLessThan(documentMarkup.indexOf('Chave de acesso'));
+      expect(documentMarkup.indexOf('Chave de acesso')).toBeLessThan(documentMarkup.indexOf('Dados do Consumidor'));
+      expect(html).toContain('CFOP');
+      expect(html).toContain('5102');
+      expect(html).toContain('Maria da Silva');
+      expect(html).toContain('Rua Destino XML, 10');
+      expect(html).toContain('Descrição de móvel com embalagem longa');
+      expect(html).toContain('Seguro:');
+      expect(html).toContain('100,00');
+      expect(html).toContain('38,00');
+      expect(html).toContain('Valor pago');
+      expect(html).toContain('138,00');
+      expect(html).toContain('Homologação (tpAmb=2)');
+      expect(html).not.toContain('ISSQN');
+      expect(html).not.toContain('BASE DE CÁLCULO ICMS');
+    });
+
+    it('identifica consumidor ausente sem reaproveitar um nome genérico como identificação', () => {
+      const anonymousXml = authorizedNfceXml
+        .replace('<CPF>12345678900</CPF>', '')
+        .replace(
+          '<xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome>',
+          '<xNome>Consumidor Final</xNome>'
+        );
+      const fiscalDetails = parseFiscalXmlDetails(anonymousXml)!;
+      const html = generateDanfeHtml({
+        ...baseDanfeData,
+        model: '65',
+        accessKey: nfceAccessKey,
+        environment: 2,
+        nfeNumber: 77,
+        series: '3',
+        printFormat: 'a4',
+        fiscalDetails,
+      });
+
+      expect(html).toContain('Consumidor não identificado');
+      expect(html).toContain('CPF / CNPJ');
+      expect(html).not.toContain('123.456.789-00');
+    });
+
+    it('omite as colunas NCM e CFOP quando esses dados não constam nos itens do XML', () => {
+      const fiscalDetails = parseFiscalXmlDetails(authorizedNfceXml)!;
+      fiscalDetails.items[0].ncm = '';
+      fiscalDetails.items[0].cfop = '';
+      const html = generateDanfeHtml({
+        ...baseDanfeData,
+        model: '65',
+        accessKey: nfceAccessKey,
+        environment: 2,
+        nfeNumber: 77,
+        series: '3',
+        printFormat: 'a4',
+        fiscalDetails,
+      });
+
+      expect(html).not.toContain('<th>NCM</th>');
+      expect(html).not.toContain('<th>CFOP</th>');
+      expect(html).toContain('<th>Descrição do Produto / Serviço</th>');
+    });
+
+    it('mostra ambiente de produção a partir do XML sem faixa de homologação', () => {
+      const productionXml = authorizedNfceXml
+        .replace('<tpAmb>2</tpAmb>', '<tpAmb>1</tpAmb>')
+        .replace('|2|2|1|', '|2|1|1|');
+      const fiscalDetails = parseFiscalXmlDetails(productionXml)!;
+      const html = generateDanfeHtml({
+        ...baseDanfeData,
+        model: '65',
+        accessKey: nfceAccessKey,
+        environment: 1,
+        nfeNumber: 77,
+        series: '3',
+        printFormat: 'a4',
+        fiscalDetails,
+      });
+
+      expect(html).toContain('Produção (tpAmb=1)');
+      expect(html).not.toContain('AMBIENTE DE HOMOLOGAÇÃO - SEM VALOR FISCAL');
+      expect(html).not.toContain('Homologação (tpAmb=2)');
+    });
+
+    it('permite retirar o logotipo e imprime troco apenas quando há valor positivo no XML', () => {
+      const fiscalDetails = parseFiscalXmlDetails(authorizedNfceXml.replace('<vTroco>0.00</vTroco>', '<vTroco>5.00</vTroco>'))!;
+      const data = {
+        ...baseDanfeData,
+        model: '65' as const,
+        accessKey: nfceAccessKey,
+        environment: 2,
+        nfeNumber: 77,
+        series: '3',
+        printFormat: 'a4' as const,
+        settings: { ...mockSettings, companyDanfeLogoUrl: '' },
+        fiscalDetails,
+      };
+      const html = generateDanfeHtml(data);
+
+      expect(html).not.toContain('<img class="issuer-logo"');
+      expect(html).toContain('issuer-card without-logo');
+      expect(html).toContain('Troco');
+      expect(html).toContain('5,00');
+    });
+
+    it.each([1, 20, 100])('preserva todos os itens no HTML A4 para impressão com %s produtos', (count) => {
+      const parsed = parseFiscalXmlDetails(authorizedNfceXml)!;
+      const sourceItem = parsed.items[0];
+      parsed.items = Array.from({ length: count }, (_, index) => ({
+        ...sourceItem,
+        code: `SKU-${index + 1}`,
+        description: `Produto de teste ${index + 1}`,
+      }));
+      const html = generateDanfeHtml({
+        ...baseDanfeData,
+        model: '65',
+        accessKey: nfceAccessKey,
+        environment: 2,
+        nfeNumber: 77,
+        series: '3',
+        printFormat: 'a4',
+        fiscalDetails: parsed,
+      });
+
+      expect((html.match(/<td class="text-center">\d+<\/td>/g) || []).length).toBe(count);
+      expect(html).toContain(`Produto de teste ${count}`);
+      expect(html).toContain('display: table-header-group;');
+      expect(html).toContain('break-inside: avoid;');
+    });
+
+    it('blocks A4 when the document key does not match the authorized XML key', () => {
+      const fiscalDetails = parseFiscalXmlDetails(authorizedNfceXml)!;
+      const data = {
+        ...baseDanfeData,
+        model: '65' as const,
+        accessKey: nfceAccessKey,
+        environment: 2,
+        nfeNumber: 77,
+        series: '3',
+        fiscalDetails,
+      };
+
+      expect(getDanfeNfceA4UnavailableReason(data)).toBeNull();
+      expect(getDanfeNfceA4UnavailableReason({ ...data, accessKey: baseDanfeData.accessKey })).toContain('não corresponde ao documento selecionado');
+      expect(getDanfeNfceA4UnavailableReason({
+        ...data,
+        fiscalDetails: { ...fiscalDetails, issuer: { ...fiscalDetails.issuer, stateRegistration: '' } },
+      })).toContain('Inscrição Estadual do emitente');
+      expect(() => generateDanfeHtml({ ...data, printFormat: 'a4', accessKey: baseDanfeData.accessKey })).toThrow('não corresponde ao documento selecionado');
+    });
+
+    it('identifica emissão em contingência e não aceita versão QR Code fora do manual vigente', () => {
+      const contingencyAccessKey = generateNfeAccessKey({
+        ufCode: '41',
+        yearMonth: '2610',
+        cnpj: '44512248000107',
+        model: '65',
+        series: '3',
+        number: '77',
+        emissionType: '9',
+        randomCode: '12345678',
+      }).accessKey;
+      const contingencyXml = authorizedNfceXml
+        .replaceAll(nfceAccessKey, contingencyAccessKey)
+        .replace('<tpEmis>1</tpEmis>', '<tpEmis>9</tpEmis>')
+        .replace(`|2|2|1|${'A'.repeat(40)}`, `|1|2|1|${'A'.repeat(40)}`);
+      const fiscalDetails = parseFiscalXmlDetails(contingencyXml)!;
+      const data = {
+        ...baseDanfeData,
+        model: '65' as const,
+        accessKey: contingencyAccessKey,
+        environment: 2,
+        nfeNumber: 77,
+        series: '3',
+        fiscalDetails,
+      };
+
+      expect(getDanfeNfceA4UnavailableReason(data)).toContain('não corresponde à chave, versão ou ambiente');
+
+      fiscalDetails.general.qrCode = fiscalDetails.general.qrCode.replace('|1|2|1|', '|2|2|1|');
+      const html = generateDanfeHtml({ ...data, printFormat: 'a4' });
+      expect(html).toContain('EMISSÃO EM CONTINGÊNCIA (9)');
     });
   });
 

@@ -33,6 +33,8 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   let rejectedReadWrites = 0;
   let customerOrderRequests = 0;
   let clipboardGranted = false;
+  let failFolderReads = false;
+  let rejectedFolderReads = 0;
 
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9225');
   const context = browser.contexts()[0];
@@ -50,6 +52,12 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     const request = route.request();
     const url = new URL(request.url());
     const method = request.method();
+    if (failFolderReads && method === 'GET' && url.pathname === '/rest/v1/customer_support_inboxes') {
+      rejectedFolderReads++;
+      await route.fulfill({ status: 403, contentType: 'application/json',
+        body: JSON.stringify({ code: '42501', message: 'SUPPORT_TEST_FOLDER_READ_DENIED' }) });
+      return;
+    }
     if (url.pathname === '/rest/v1/rpc/customer_support_list_customer_orders') customerOrderRequests++;
     const read = ['GET', 'HEAD', 'OPTIONS'].includes(method);
     const auth = method === 'POST' && (url.pathname === '/auth/v1/token'
@@ -113,8 +121,22 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     });
     expect(operatorGateStatus, 'A identidade deve passar pelo gate real do operador.').toBe(204);
     console.info('[support-readonly] Identidade e gate do operador confirmados.');
+    failFolderReads = true;
     await page.goto('http://localhost:5173/atendimento');
     await expect(page.getByText('Pastas compartilhadas', { exact: true })).toBeVisible();
+    await expect(page.getByText('Não foi possível carregar as pastas. Tente atualizar.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Nenhuma pasta nesta aba.', { exact: true })).toHaveCount(0);
+    expect(rejectedFolderReads).toBeGreaterThan(0);
+    failFolderReads = false;
+    const [folderRetry] = await Promise.all([
+      page.waitForResponse(response => new URL(response.url()).pathname === '/rest/v1/customer_support_inboxes'
+        && response.request().method() === 'GET'),
+      page.getByRole('button', { name: 'Tentar carregar pastas novamente', exact: true }).click(),
+    ]);
+    expect(folderRetry.status()).toBe(200);
+    await expect(page.getByText('Não foi possível carregar as pastas. Tente atualizar.', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Carregando pastas...', { exact: true })).toHaveCount(0);
+    console.info('[support-readonly] Falha de pastas simulada e recuperação por consulta remota confirmadas.');
     await expect(page.getByText('Conversas', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('textbox', { name: '••••••••' })).toHaveCount(0);
     console.info('[support-readonly] Inbox carregada sem formulário de credenciais.');
@@ -205,6 +227,20 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       await expect(page.getByText('Não foi possível confirmar a leitura. Atualize a conversa para tentar novamente.', { exact: true })).toBeVisible();
       const history = page.getByRole('region', { name: 'Histórico da conversa', exact: true });
       await expect(history.locator('[data-message-id]').first()).toBeVisible();
+      for (const title of [
+        'Emojis',
+        'Gravar áudio',
+        'Anexar arquivo',
+        'Inserir Variável / Tag',
+        'Canal WhatsApp',
+        'Assistente de IA / Respostas Inteligentes',
+        'Expandir editor',
+      ]) {
+        await expect(page.getByTitle(title, { exact: true })).toHaveCount(0);
+      }
+      await expect(page.getByTitle('Modelos Rápidos / Snippets', { exact: true })).toBeVisible();
+      await expect(page.getByTitle('O envio de mensagens para o cliente está bloqueado pela política da empresa', { exact: true })).toBeDisabled();
+      await expect(page.getByText('Envio bloqueado pela política da empresa', { exact: true })).toBeVisible();
       expect(rejectedReadWrites).toBeGreaterThan(0);
       await page.getByRole('button', { name: 'Recarregar mensagens', exact: true }).click();
       await expect.poll(() => rejectedReadWrites).toBeGreaterThan(1);

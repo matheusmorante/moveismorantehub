@@ -78,6 +78,7 @@ export interface AppSettings {
   geminiApiKey?: string;
   storeOriginCoords: [number, number]; // [lng, lat]
   companyName: string;
+  companyDanfeLogoUrl?: string;
   companyAddress: string;
   companyCnpj: string;
   companyPhone: string;

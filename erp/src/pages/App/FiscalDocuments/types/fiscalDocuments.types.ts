@@ -169,6 +169,9 @@ export interface ParsedFiscalItem {
 }
 
 export interface ParsedFiscalGeneral {
+  accessKey?: string;
+  stateCode?: string;
+  emissionType?: string;
   natureOperation: string;
   issueDate: string;
   exitDate?: string;
@@ -185,6 +188,7 @@ export interface ParsedFiscalGeneral {
   total: string;
   additionalInfo: string;
   qrCode?: string;
+  consultationUrl?: string;
   taxAuthorityInfo?: string;
 }
 

@@ -53,6 +53,19 @@ export default function CompanySettingsSection({ settings, onChange }: Props) {
           className={`${inputClass} md:w-80`}
         />
       </Field>
+      <Field
+        title="Logotipo do DANFE NFC-e"
+        description="Caminho público da aplicação ou URL HTTPS; deixe vazio para não imprimir logotipo. A razão social oficial do XML continua impressa."
+      >
+        <input
+          type="text"
+          aria-label="Logotipo do DANFE NFC-e"
+          value={settings.companyDanfeLogoUrl || ''}
+          onChange={(event) => onChange('companyDanfeLogoUrl', event.target.value)}
+          placeholder="/images/logo-morante.svg"
+          className={`${inputClass} md:w-80`}
+        />
+      </Field>
       <Field title="CNPJ" description="Cadastro Nacional da Pessoa Jurídica da empresa.">
         <div className="w-full md:w-80">
           <input

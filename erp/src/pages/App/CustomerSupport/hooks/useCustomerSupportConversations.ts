@@ -174,26 +174,35 @@ export function useCustomerSupportConversations({
   }, [loadConversations]);
 
   useEffect(() => {
+    let active = true;
+    let channelGeneration = 0;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     const setupChannel = () => {
+      if (!active) return;
+      const generation = ++channelGeneration;
+      const isCurrent = () => active && generation === channelGeneration;
       if (channel) void supabase.removeChannel(channel);
       channel = supabase
         .channel(`whatsapp-conversations-realtime-${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_conversations' }, () => {
+          if (!isCurrent()) return;
           void loadConversations(true);
         })
         .subscribe((status) => {
+          if (!isCurrent()) return;
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          reconnectTimer = null;
           const connected = status === 'SUBSCRIBED';
           setIsRealtimeConnected(connected);
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            if (reconnectTimer) clearTimeout(reconnectTimer);
             reconnectTimer = setTimeout(setupChannel, 3000);
           }
         });
     };
     setupChannel();
     return () => {
+      active = false;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (channel) void supabase.removeChannel(channel);
     };

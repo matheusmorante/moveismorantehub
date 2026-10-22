@@ -324,14 +324,17 @@ export function useNfeEmissionActions({
     handleEmit,
   });
 
-  const handlePrintDanfe = () => {
+  const handlePrintDanfe = async () => {
     if (!order) return;
-    if (emissionResult?.danfeData) {
-      import('@/pages/utils/nfe/danfeGenerator').then((m) => {
-        m.openDanfePrintWindow(emissionResult.danfeData!);
-      });
-    } else if ((order as unknown as { nfeData?: unknown }).nfeData) {
-      printOrderDanfe(order);
+    try {
+      if (emissionResult?.danfeData) {
+        const { openDanfePrintWindow } = await import('@/pages/utils/nfe/danfeGenerator');
+        await openDanfePrintWindow(emissionResult.danfeData);
+      } else if ((order as unknown as { nfeData?: unknown }).nfeData) {
+        await printOrderDanfe(order);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível abrir o DANFE.');
     }
   };
 

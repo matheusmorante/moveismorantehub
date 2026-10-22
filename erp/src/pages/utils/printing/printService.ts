@@ -34,9 +34,17 @@ export const printReceipt = async (order: Order): Promise<PrintJobResult> => {
   return executePrintFallback('receipt', order);
 };
 
-/** Abre o DANFE no navegador para impressão. */
-export const printDanfe = async (danfeData: DanfeData): Promise<PrintJobResult> => {
-  return executePrintFallback('danfe', danfeData.order, buildDanfeHtml(danfeData));
+/** Abre o diálogo de impressão do DANFE, reutilizando a janela aberta no clique quando houver. */
+export const printDanfe = async (
+  danfeData: DanfeData,
+  existingPrintWindow?: Window
+): Promise<PrintJobResult> => {
+  return executePrintFallback(
+    'danfe',
+    danfeData.order,
+    buildDanfeHtml(danfeData),
+    existingPrintWindow
+  );
 };
 
 /** Abre a janela padrão do navegador para os demais documentos. */

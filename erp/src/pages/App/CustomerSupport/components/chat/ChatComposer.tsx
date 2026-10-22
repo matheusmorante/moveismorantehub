@@ -113,12 +113,11 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         <div className="flex flex-col gap-2">
           {/* Card Flutuante do Composer */}
           <div className="rounded-2xl border border-slate-200/90 dark:border-slate-700/80 bg-white dark:bg-slate-850 shadow-sm p-3 flex flex-col gap-2">
-            {/* Topo dentro do card: Seletor de Canal "Whatsapp ▾" */}
+            {/* Topo dentro do card: canal atual */}
             <div className="flex items-center justify-between">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200/60 dark:border-emerald-800/60 cursor-pointer">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200/60 dark:border-emerald-800/60">
                 <i className="bi bi-whatsapp text-sm text-emerald-500"></i>
                 <span>Whatsapp</span>
-                <i className="bi bi-chevron-down text-[9px] text-slate-400"></i>
               </div>
 
               <div className="flex items-center gap-1 text-slate-400 text-xs">
@@ -144,72 +143,16 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
-                  disabled
-                  title="Emojis"
-                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-not-allowed text-slate-400"
-                >
-                  <i className="bi bi-emoji-smile text-sm"></i>
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  title="Gravar áudio"
-                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-not-allowed text-slate-400"
-                >
-                  <i className="bi bi-mic text-sm"></i>
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  title="Anexar arquivo"
-                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-not-allowed text-slate-400"
-                >
-                  <i className="bi bi-paperclip text-sm"></i>
-                </button>
-                <button
-                  type="button"
                   onClick={onOpenSnippets}
                   title="Modelos Rápidos / Snippets"
                   className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-amber-50 hover:text-amber-500 dark:hover:bg-slate-800 transition-colors cursor-pointer text-amber-500"
                 >
                   <i className="bi bi-card-text text-sm"></i>
                 </button>
-                <button
-                  type="button"
-                  disabled
-                  title="Inserir Variável / Tag"
-                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-not-allowed text-slate-400"
-                >
-                  <i className="bi bi-tag text-sm"></i>
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  title="Canal WhatsApp"
-                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-not-allowed text-emerald-500"
-                >
-                  <i className="bi bi-whatsapp text-sm"></i>
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  title="Assistente de IA / Respostas Inteligentes"
-                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-purple-50 hover:text-purple-500 dark:hover:bg-slate-800 transition-colors cursor-not-allowed text-purple-400"
-                >
-                  <i className="bi bi-stars text-sm"></i>
-                </button>
               </div>
 
               {/* Ícones da direita */}
               <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled
-                  title="Expandir editor"
-                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-not-allowed text-slate-400"
-                >
-                  <i className="bi bi-arrows-angle-expand text-xs"></i>
-                </button>
                 <button
                   type="button"
                   disabled

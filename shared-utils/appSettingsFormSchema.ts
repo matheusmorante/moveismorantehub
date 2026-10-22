@@ -76,6 +76,7 @@ export const AppSettingsFormSchema = z.object({
   "geminiApiKey": z.string().optional(),
   "storeOriginCoords": z.tuple([z.number(), z.number()]),
   "companyName": z.string(),
+  "companyDanfeLogoUrl": z.string().trim().max(2048).refine((value) => !value || ((value.startsWith('/') && !value.startsWith('//') && !value.includes('..') && !value.includes('\\')) || /^https:\/\/\S+$/i.test(value)), 'Use um caminho público da aplicação ou uma URL HTTPS para o logotipo.').optional(),
   "companyAddress": z.string(),
   "companyCnpj": z.string(),
   "companyPhone": z.string(),

@@ -70,3 +70,5 @@ A primeira seleção isolada não tinha ambiente remoto e aprovou 238 casos, sem
 O build emitiu os avisos existentes de anotação de dependência e tamanho de chunks. Isso não é prova de TypeScript global do ERP: o gate tipado deste lote é o harness. Sem nova migration, fixtures, conta, operação comercial/fiscal, mensagem à Meta, commit ou push. Publicação deste novo candidato ainda requer autorização específica; conferir novamente o alias antes de qualquer operação para preservar uma produção posterior.
 
 Linhas de referência: `supportOrdersService.ts:24` e `:92`; `CustomerInfoPanel.tsx:75`; `CustomerOrdersTab.tsx:24`; `AddCustomInboxModal.tsx:101`; `customerSupportOrdersQuery.test.ts:8`; `customerSupportLinkForms.test.tsx:33`; `customerSupportFolderForm.test.tsx:12`; harness `support-login.spec.ts:214`.
+
+Atualização de 22/10/2026: a publicação autorizada e a comparação com a produção atual estão registradas em central-de-atendimento-publicacao-2026-10-22.md. O commit Git de produção da8b0189390c39723e55d1235b5f2ae7da497570 já contém os mesmos hashes dos sete arquivos centrais; sete verificações HTTP passaram. Não foi feita promoção redundante.

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-import { Flame, Tag, ChevronDown, Menu } from 'lucide-react';
+import { Flame, Tag, ChevronDown, Home, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -26,6 +26,7 @@ export function SubHeader() {
   const activeEnvId = searchParams.get('ambientes') || searchParams.get('envs');
   const activeCatId = searchParams.get('categorias') || searchParams.get('cats');
   const activeType = searchParams.get('type');
+  const isHomeActive = !activeEnvId && !activeCatId && !activeType && !searchParams.get('search');
   const currentSearch = searchParams.toString();
   const mounted = useSyncExternalStore(
     subscribeToHydration,
@@ -94,6 +95,15 @@ export function SubHeader() {
               : ''
           }`}
         >
+          <Link
+            href="/"
+            aria-current={isHomeActive ? 'page' : undefined}
+            className={`flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-1.5 leading-tight rounded-none text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs ${isHomeActive ? 'bg-white/15 text-white ring-1 ring-white/70' : 'text-white/90 hover:text-white hover:bg-white/10'}`}
+          >
+            <Home className="h-3.5 w-3.5 shrink-0" />
+            Início
+          </Link>
+
           {/* Oportunidade de Salvados */}
           {(() => {
             const SALVADOS_OPP_ID = '9d8bedae-b366-4f8c-ac49-74b85b882bde';
@@ -229,6 +239,14 @@ export function SubHeader() {
                   <SheetDescription>Escolha uma oferta ou ambiente.</SheetDescription>
                 </SheetHeader>
                 <div className="flex-1 space-y-5 overflow-y-auto p-5">
+                  <Link
+                    href="/"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-800 hover:bg-primary/5 hover:text-primary"
+                  >
+                    <Home className="h-4 w-4 shrink-0" />
+                    Início
+                  </Link>
                   <nav aria-label="Ofertas">
                     <div className="space-y-2">
                       <Link

@@ -45,6 +45,14 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
       descendants(root, name)[0]?.textContent?.trim() || '';
 
     const infNfeNode = descendants(parsed, 'infNFe')[0] || parsed.documentElement;
+    const infNfeId = infNfeNode.getAttribute('Id') || '';
+    const protocolInfoNode = descendants(parsed, 'infProt')[0];
+    const accessKey = infNfeId.startsWith('NFe')
+      ? infNfeId.slice(3)
+      : protocolInfoNode
+        ? value(protocolInfoNode, 'chNFe')
+        : '';
+    const supplementalNode = descendants(parsed, 'infNFeSupl')[0];
     const totalsNode = descendants(parsed, 'ICMSTot')[0];
     const ideNode = descendants(infNfeNode, 'ide')[0];
     const issuerNode = descendants(infNfeNode, 'emit')[0];
@@ -163,6 +171,9 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
         phone: issuerAddressNode ? value(issuerAddressNode, 'fone') : '',
       },
       general: {
+        accessKey,
+        stateCode: ideNode ? value(ideNode, 'cUF') : '',
+        emissionType: ideNode ? value(ideNode, 'tpEmis') : '',
         natureOperation: ideNode ? value(ideNode, 'natOp') : '',
         issueDate: ideNode ? value(ideNode, 'dhEmi') || value(ideNode, 'dEmi') : '',
         exitDate: ideNode ? value(ideNode, 'dhSaiEnt') || value(ideNode, 'dSaiEnt') : '',
@@ -178,6 +189,7 @@ export function parseFiscalXmlDetails(xml: string): ParsedFiscalDetails | null {
         referencedKey: value(parsed, 'refNFe') || (ideNode ? value(ideNode, 'refNFe') : ''),
         total: totalNode ? value(totalNode, 'vNF') : '',
         additionalInfo: additionalInfoNode ? value(additionalInfoNode, 'infCpl') : '',
+        consultationUrl: supplementalNode ? value(supplementalNode, 'urlChave') : '',
         taxAuthorityInfo: additionalInfoNode ? value(additionalInfoNode, 'infAdFisco') : '',
         qrCode: value(parsed, 'qrCode'),
       },

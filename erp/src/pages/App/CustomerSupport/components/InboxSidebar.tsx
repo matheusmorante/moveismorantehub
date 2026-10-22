@@ -17,6 +17,9 @@ export interface InboxSidebarProps {
   activeAgentId: string | null;
   onSelectAgent: (agentId: string | null) => void;
   folders: CustomerSupportFolder[];
+  isLoadingFolders?: boolean;
+  foldersError?: string | null;
+  onReloadFolders?: () => void;
   selectedFolder: CustomerSupportFolder | null;
   currentUserId?: string;
   onSelectFolder: (folder: CustomerSupportFolder) => void;
@@ -40,6 +43,9 @@ export const InboxSidebar: React.FC<InboxSidebarProps> = ({
   activeAgentId,
   onSelectAgent,
   folders,
+  isLoadingFolders,
+  foldersError,
+  onReloadFolders,
   selectedFolder,
   currentUserId,
   onSelectFolder,
@@ -130,6 +136,9 @@ export const InboxSidebar: React.FC<InboxSidebarProps> = ({
       <div className="h-px bg-slate-200/70 dark:bg-slate-800/80 mx-3 my-1" />
       <InboxSectionCustom
         folders={visibleFolders}
+        isLoading={isLoadingFolders}
+        error={foldersError}
+        onRetry={onReloadFolders}
         activeFolderId={selectedFolder?.id || null}
         currentUserId={currentUserId}
         onSelectFolder={onSelectFolder}

@@ -171,13 +171,19 @@ export function useCustomerSupportMessages({
   }, [loadMessages]);
 
   useEffect(() => {
+    let active = true;
+    let channelGeneration = 0;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     const setupChannel = () => {
+      if (!active) return;
+      const generation = ++channelGeneration;
+      const isCurrent = () => active && generation === channelGeneration;
       if (channel) void supabase.removeChannel(channel);
       channel = supabase
         .channel(`whatsapp-messages-realtime-${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_messages' }, (payload) => {
+          if (!isCurrent()) return;
           if (payload.eventType === 'INSERT') {
             const newMessage = mapRowToMessage(payload.new);
             if (activeConvIdRef.current !== newMessage.conversationId) return;
@@ -202,14 +208,17 @@ export function useCustomerSupportMessages({
           }
         })
         .subscribe((status) => {
+          if (!isCurrent()) return;
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          reconnectTimer = null;
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            if (reconnectTimer) clearTimeout(reconnectTimer);
             reconnectTimer = setTimeout(setupChannel, 5000);
           }
         });
     };
     setupChannel();
     return () => {
+      active = false;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (channel) void supabase.removeChannel(channel);
     };

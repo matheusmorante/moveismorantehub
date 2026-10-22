@@ -47,6 +47,9 @@ export default function CustomerSupport() {
     setSelectedFolder,
     saveFolder,
     removeFolder,
+    isLoadingFolders,
+    foldersError,
+    loadFolders,
   } = useCustomerSupportFolders(user?.id);
 
   // 1. Gerenciamento de conversas, filtros, busca e sincronização Realtime
@@ -216,6 +219,9 @@ export default function CustomerSupport() {
           activeAgentId={activeAgentId}
           onSelectAgent={handleSelectAgent}
           folders={folders}
+          isLoadingFolders={isLoadingFolders}
+          foldersError={foldersError}
+          onReloadFolders={loadFolders}
           selectedFolder={selectedFolder}
           currentUserId={user?.id}
           onSelectFolder={handleSelectFolder}

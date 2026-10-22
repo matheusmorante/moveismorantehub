@@ -1,6 +1,10 @@
 # Inbox — conferência de aceite em 21/10/2026
 
-## Continuidade técnica mais recente
+## Estado local de 22/10/2026
+
+Os atalhos sem função do compositor foram removidos e passaram em RTL, Playwright e build isolado. A continuidade seguinte corrigiu [reconexões após sair da Inbox e falhas de pastas tratadas como lista vazia](central-de-atendimento-realtime-pastas-2026-10-22.md): 53 testes focados, lint e Playwright visível na 5173 aprovados; compilação do novo candidato em preparação. Esses lotes locais não foram publicados. A última conferência de produção está registrada em [publicação de 22/10](central-de-atendimento-publicacao-2026-10-22.md); este lote não fez nova consulta de metadados de deploy. Os checkpoints seguintes são históricos.
+
+## Checkpoints históricos de 21/10/2026
 
 **Novo candidato local, ainda não publicado:** [tratamento de falhas de pedidos e sobreposição do modal de pasta](central-de-atendimento-erros-consulta-pedidos-2026-10-21.md). Quatro arquivos de runtime, **244/244 em 24 arquivos**, build completo Vite **1m50s**, lint e TypeScript do harness aprovados, Playwright visível **1/1 em 11,2s** na 5173. O candidato isolado preserva a produção ECK descrita abaixo; não altera a consulta comercial nem cria dados. Erro/retry comercial tem prova RTL, enquanto a UI real comprova o painel sem vínculo e o formulário de pasta recebendo clique normal. A autorização anterior já foi consumida pela publicação ECK.
 
@@ -56,3 +60,7 @@ Arquivos: `erp/src/pages/utils/customerSupport/customerSupportService.ts` e `erp
 ## Limites de execução e validação futura
 
 A [operação limitada de reabertura](central-de-atendimento-reabertura-execucao-2026-10-21.md) foi autorizada e concluída, inclusive limpeza. A produção Git encontrada já contém as mudanças daquele lote; não é necessário publicar o snapshot anterior. A consulta de nomes/metadados das variáveis Vercel Development, sem descriptografar valores, encontrou somente o par de credenciais do operador atual. O proprietário adiou a validação entre contas para sua conferência futura; não solicitar novamente outra conta como gate desta etapa. Este lote não cria usuários nem amplia permissões. Vínculos comerciais próprios exigem uma operação concreta autorizada; a atual excluiu pastas/clientes/pedidos novos e está encerrada. Webhook legítimo/mídia própria da Meta e o questionário comparativo mais amplo continuam com as limitações explicitadas nesta conferência.
+
+Atualização de 22/10/2026: a publicação autorizada e a comparação com a produção atual estão registradas em central-de-atendimento-publicacao-2026-10-22.md. O commit Git de produção da8b0189390c39723e55d1235b5f2ae7da497570 já contém os mesmos hashes dos sete arquivos centrais; sete verificações HTTP passaram. Não foi feita promoção redundante.
+
+Atualização de 22/10/2026: controles sem função do compositor removidos localmente, mantendo snippets, notas internas e envio bloqueado. **17/17 RTL, 1/1 Playwright somente leitura na porta 5173 e build Vite isolado (1m44s)** passaram. Candidato preparado sobre a cópia congelada da produção, com cinco caminhos selecionados; o lote não foi publicado. Manifesto e hashes: `C:\Users\mathe\morantehub-central-inactive-shortcuts-release-20261022\release-manifest.json`; detalhes em [atalhos inativos](central-de-atendimento-atalhos-inativos-2026-10-22.md).

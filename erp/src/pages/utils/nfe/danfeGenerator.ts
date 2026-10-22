@@ -1,7 +1,10 @@
 import { formatToBRDate } from '../formatters';
 import { formatAccessKey } from './nfeAccessKey';
 import bwipjs from 'bwip-js';
+import { toast } from 'react-toastify';
 import { escapeDanfeHtml } from './danfe/danfeHtmlUtils';
+import { chooseNfcePrintFormat } from './danfe/nfcePrintFormatDialog';
+import { executeDanfePrintFallback } from '../printing/printFallbackHandler';
 import {
   DanfeData,
   getDanfeOfficialStyles,
@@ -11,6 +14,7 @@ import {
   buildDanfeTransportOfficialHtml,
   buildDanfeItemsOfficialHtml,
   buildDanfeAdditionalInfoOfficialHtml,
+  getDanfeNfceA4UnavailableReason,
   generateDanfeNfceA4Html,
 } from './danfe';
 
@@ -240,8 +244,41 @@ function generateDanfeNfceHtml(data: DanfeData): string {
 /**
  * Imprime o DANFE diretamente via agente local ou abre em uma nova janela para impressão/visualização.
  */
-export function openDanfePrintWindow(data: DanfeData, format?: 'thermal_80mm' | 'a4'): void {
-  const preparedData: DanfeData = format ? { ...data, printFormat: format } : data;
+export async function openDanfePrintWindow(
+  data: DanfeData,
+  format?: 'thermal_80mm' | 'a4'
+): Promise<void> {
+  let selectedFormat = format || data.printFormat;
+  let selectedWindow: Window | null = null;
+  const a4UnavailableReason = getDanfeNfceA4UnavailableReason(data);
+
+  if (data.model === '65' && !selectedFormat) {
+    const selection = await chooseNfcePrintFormat({
+      a4Available: !a4UnavailableReason,
+      a4UnavailableReason: a4UnavailableReason || undefined,
+    });
+    if (!selection) return;
+    selectedFormat = selection.format;
+    selectedWindow = selection.printWindow;
+  }
+
+  if (data.model === '65' && selectedFormat === 'a4' && a4UnavailableReason) {
+    toast.error(`DANFE A4 indisponível: ${a4UnavailableReason}`);
+    return;
+  }
+
+  const preparedData: DanfeData =
+    data.model === '65' && selectedFormat ? { ...data, printFormat: selectedFormat } : data;
+
+  const targetWindow = selectedWindow;
+  if (targetWindow) {
+    const html = generateDanfeHtml(preparedData);
+    await import('../printing/printService')
+      .then(({ printDanfe }) => printDanfe(preparedData, targetWindow))
+      .catch(() => executeDanfePrintFallback(html, targetWindow));
+    return;
+  }
+
   import('../printing/printService')
     .then(({ printDanfe }) => {
       printDanfe(preparedData).catch(() => {
@@ -255,11 +292,7 @@ export function openDanfePrintWindow(data: DanfeData, format?: 'thermal_80mm' | 
 
 function fallbackDanfeWindow(data: DanfeData): void {
   const html = generateDanfeHtml(data);
-  const printWindow = window.open('', '_blank');
-  if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-  }
+  executeDanfePrintFallback(html);
 }
 
 export * from './danfe';

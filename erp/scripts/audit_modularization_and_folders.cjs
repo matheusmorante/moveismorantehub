@@ -76,8 +76,3 @@ console.log('\n=== TOP 20 PASTAS COM MAIOR NÚMERO DE ARQUIVOS SOLTOS (CANDIDATO
 folderAudits.slice(0, 25).forEach((d, idx) => {
     console.log(`${idx + 1}. [${d.count} arquivos soltos] ${d.dir}`);
 });
-
-fs.writeFileSync(
-    path.resolve(__dirname, 'audit_report.json'),
-    JSON.stringify({ topFiles: allFiles.slice(0, 70), topDirs: folderAudits.slice(0, 30) }, null, 2)
-);

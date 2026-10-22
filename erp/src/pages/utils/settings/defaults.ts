@@ -68,6 +68,7 @@ export const getDefaultSettings = (): AppSettings => ({
   geminiApiKey: '',
   storeOriginCoords: [-49.16948, -25.35205],
   companyName: 'Móveis Morante',
+  companyDanfeLogoUrl: '/images/logo-morante.svg',
   companyAddress: 'R. Cascavel, 306 - Guaraituba, Colombo - PR, 83410-270',
   companyCnpj: '44.512.248.0001/07',
   companyPhone: '(41) 99749-3547',

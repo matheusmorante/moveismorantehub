@@ -18,6 +18,34 @@ describe('FiscalDocuments - fiscalXmlParser', () => {
     expect(parseFiscalXmlDetails('not an xml')).toBeNull();
   });
 
+  it('extrai chave, ambiente, tipo de emissão e URLs do XML autorizado de NFC-e', () => {
+    const accessKey = '41261044512248000107650010000000011000000010';
+    const xml = `<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe">
+      <NFe>
+        <infNFe>
+          <ide><cUF>41</cUF><dhEmi>2026-10-22T10:00:00-03:00</dhEmi><tpAmb>2</tpAmb><mod>65</mod><serie>1</serie><nNF>1</nNF><tpEmis>9</tpEmis></ide>
+          <emit><CNPJ>44512248000107</CNPJ><xNome>Emitente de teste</xNome></emit>
+          <det><prod><cProd>SKU-1</cProd><xProd>Produto</xProd><qCom>1</qCom><uCom>UN</uCom><vUnCom>10</vUnCom><vProd>10</vProd></prod></det>
+          <total><ICMSTot><vProd>10</vProd><vNF>10</vNF></ICMSTot></total>
+          <pag><detPag><tPag>01</tPag><vPag>10</vPag></detPag></pag>
+        </infNFe>
+        <infNFeSupl><qrCode>https://www.fazenda.pr.gov.br/nfce/qrcode?p=${accessKey}|2|2|1|${'A'.repeat(40)}</qrCode><urlChave>https://www.fazenda.pr.gov.br/nfce/consulta</urlChave></infNFeSupl>
+      </NFe>
+      <protNFe><infProt><chNFe>${accessKey}</chNFe></infProt></protNFe>
+    </nfeProc>`;
+
+    const parsed = parseFiscalXmlDetails(xml);
+    expect(parsed?.general).toMatchObject({
+      accessKey,
+      stateCode: '41',
+      emissionType: '9',
+      model: '65',
+      environment: '2',
+      consultationUrl: 'https://www.fazenda.pr.gov.br/nfce/consulta',
+      qrCode: expect.stringContaining(`p=${accessKey}|2|2|1|`),
+    });
+  });
+
   it('extrai itens, totais, transporte e pagamentos de um XML válido de NF-e', () => {
     const mockXml = `<?xml version="1.0" encoding="UTF-8"?>
 <nfeProc xmlns="http://www.portalfiscal.inf.br/nfe">

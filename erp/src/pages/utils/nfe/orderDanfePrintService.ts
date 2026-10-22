@@ -11,7 +11,7 @@ import { supabase } from '../supabaseConfig';
  */
 export async function printOrderDanfe(
   order: Order,
-  format: 'thermal_80mm' | 'a4' = 'thermal_80mm'
+  format?: 'thermal_80mm' | 'a4'
 ): Promise<void> {
   const nfeData = (order as any).nfeData;
   if (!nfeData) {
@@ -57,7 +57,7 @@ export async function printOrderDanfe(
 
   const settings: AppSettings = await getSettings();
 
-  openDanfePrintWindow(
+  await openDanfePrintWindow(
     {
       order,
       settings,

@@ -121,13 +121,13 @@ async function buildDanfeData(doc: NfeDocumentRecord): Promise<DanfeData> {
 
 export async function printDanfe(
   doc: NfeDocumentRecord,
-  format: 'thermal_80mm' | 'a4' = 'thermal_80mm'
+  format?: 'thermal_80mm' | 'a4'
 ): Promise<void> {
   const danfeData = await buildDanfeData(doc);
-  if (doc.modelo === '65') {
+  if (doc.modelo === '65' && format) {
     danfeData.printFormat = format;
   }
-  openDanfePrintWindow(danfeData, doc.modelo === '65' ? format : undefined);
+  await openDanfePrintWindow(danfeData, doc.modelo === '65' ? format : undefined);
 }
 
 export async function createDanfeShareFile(doc: NfeDocumentRecord): Promise<File> {

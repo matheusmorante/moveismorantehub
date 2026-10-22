@@ -165,6 +165,27 @@ describe('Inbox da Central de Atendimento', () => {
     expect(screen.getByText('Pasta da Ana')).toBeTruthy();
   });
 
+  it('mostra a falha de pastas, permite repetir e só mostra vazio após uma consulta concluída', () => {
+    const retry = vi.fn();
+    const props = { folders: [], activeFolderId: null, onSelectFolder: vi.fn(), onEditFolder: vi.fn(),
+      onDeleteFolder: vi.fn(), isExpanded: true, onToggleExpand: vi.fn(), customInboxTab: 'all' as const,
+      onTabChange: vi.fn(), onOpenAddModal: vi.fn(), onRetry: retry };
+    const error = 'Não foi possível carregar as pastas. Tente atualizar.';
+    const { rerender } = render(<InboxSectionCustom {...props} error={error} />);
+    expect(screen.getByRole('alert').textContent).toContain(error);
+    expect(screen.queryByText('Nenhuma pasta nesta aba.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar carregar pastas novamente' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+    rerender(<InboxSectionCustom {...props} isLoading />);
+    expect(screen.getByRole('status').textContent).toContain('Carregando pastas');
+    expect(screen.queryByText('Nenhuma pasta nesta aba.')).toBeNull();
+    rerender(<InboxSectionCustom {...props} />);
+    expect(screen.getByText('Nenhuma pasta nesta aba.')).toBeTruthy();
+    rerender(<InboxSectionCustom {...props} folders={[makeFolder('retained', 'Pasta mantida', 'owner')]} error={error} />);
+    expect(screen.getByText('Pasta mantida')).toBeTruthy();
+    expect(screen.getByRole('alert')).toBeTruthy();
+  });
+
   it('edita critérios de pasta compartilhada sem enviar novo autor ou identidade', async () => {
     const update = vi.fn();
     const row = { id: 'other-folder', name: 'Retornos', criteria: DEFAULT_SUPPORT_FOLDER_CRITERIA,
@@ -224,6 +245,31 @@ describe('Inbox da Central de Atendimento', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
     await waitFor(() => expect(screen.getByText('Não foi possível salvar o marcador.')).toBeTruthy());
     expect(addTag).toHaveBeenCalledWith('prioridade');
+  });
+
+  it('oculta ferramentas sem função e mantém visível o bloqueio de envio', () => {
+    render(<ChatComposer onAddInternalNote={vi.fn()} onOpenSnippets={vi.fn()} />);
+
+    for (const title of [
+      'Emojis',
+      'Gravar áudio',
+      'Anexar arquivo',
+      'Inserir Variável / Tag',
+      'Canal WhatsApp',
+      'Assistente de IA / Respostas Inteligentes',
+      'Expandir editor',
+    ]) {
+      expect(screen.queryByTitle(title)).toBeNull();
+    }
+
+    expect(screen.getByTitle('Modelos Rápidos / Snippets')).toBeTruthy();
+    expect(screen.getByText('Whatsapp')).toBeTruthy();
+    expect(screen.getByText('Envio bloqueado pela política da empresa')).toBeTruthy();
+    expect(
+      screen
+        .getByTitle('O envio de mensagens para o cliente está bloqueado pela política da empresa')
+        .hasAttribute('disabled'),
+    ).toBe(true);
   });
 
   it('copia um snippet sem criar um comentário interno', async () => {
