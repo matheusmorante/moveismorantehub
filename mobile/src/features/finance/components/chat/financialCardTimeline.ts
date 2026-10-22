@@ -1,5 +1,5 @@
 import type { ParsedFinancialIntent } from '../../../../services/financialAiAssistantService';
-import type { CardVisualState } from '../TransactionPreviewCard';
+import type { CardVisualState } from '../../types/CardVisualState';
 
 export interface FinancialCardTimelineEntry {
   id: string;

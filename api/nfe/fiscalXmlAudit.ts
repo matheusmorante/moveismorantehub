@@ -11,6 +11,12 @@ import {
   composeServiceFiscalValues,
 } from '../../erp/src/pages/utils/nfe/serviceFiscalComposition';
 import { canonicalFiscalCommand } from './normal-sale/attemptPolicy';
+import {
+  composePaymentFeeVoutro,
+  joinFiscalAdditionalInformation,
+  resolvePaymentFeeRows,
+} from './normal-sale/paymentFeeVoutro';
+import { resolveNormalSalePayments } from './normal-sale/payments';
 import type {
   DeterminedFiscalItem,
   DeterminedTaxGroup,
@@ -402,6 +408,11 @@ export function assertFiscalDocumentMatchesCommercialSnapshot(
   const orderItems = snapshot.order.data.items;
   if (!Array.isArray(orderItems)) throw new Error('Snapshot comercial sem itens do pedido.');
   const composition = composeServiceFiscalValues(orderItems as never[], document.model);
+  const paymentFeeComposition = composePaymentFeeVoutro({
+    snapshot,
+    model: document.model,
+    itemNetCents: composition.products.map((item) => item.vProdCents - item.vDescCents),
+  });
   const mismatches: FiscalXmlAuditMismatch[] = [];
   if (composition.products.length !== document.items.length)
     mismatches.push({ field: 'itens.count', expected: composition.products.length, actual: document.items.length });
@@ -415,7 +426,10 @@ export function assertFiscalDocumentMatchesCommercialSnapshot(
     const quantity = Number(item.quantity) || 1;
     const gross = vProdCents / 100;
     const freight = index === 0 ? Number((snapshot.order.data.shipping as Record<string, unknown> | undefined)?.value || 0) : 0;
-    const otherExpenses = index === 0 ? composition.vOutroCents / 100 : 0;
+    const otherExpenses =
+      ((index === 0 ? composition.vOutroCents : 0) +
+        (paymentFeeComposition.itemFeeCents[index] || 0)) /
+      100;
     const fields: Array<[string, string | number, string | number, number?]> = [
       [`itens[${n}].codigo`, code, fiscalItem.product.code],
       [`itens[${n}].descricao`, description, fiscalItem.product.description],
@@ -439,7 +453,8 @@ export function assertFiscalDocumentMatchesCommercialSnapshot(
   const freight = Number(shipping.value || 0);
   const expectedCommercialTotal =
     (composition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) +
-      composition.vOutroCents) /
+      composition.vOutroCents +
+      paymentFeeComposition.totalFeeCents) /
       100 +
     freight;
   if (Math.abs(expectedCommercialTotal - document.totals.invoice) > 0.005)
@@ -449,13 +464,54 @@ export function assertFiscalDocumentMatchesCommercialSnapshot(
       actual: document.totals.invoice,
     });
 
-  const expectedAdditionalInformation = composition.additionalInformation || '';
+  const expectedAdditionalInformation =
+    joinFiscalAdditionalInformation(
+      composition.additionalInformation,
+      paymentFeeComposition.additionalInformation
+    ) || '';
   if ((document.additionalInformation || '') !== expectedAdditionalInformation)
     mismatches.push({
       field: 'informacoesAdicionais.infCpl',
       expected: expectedAdditionalInformation || '(ausente)',
       actual: document.additionalInformation || '(ausente)',
     });
+
+  if (document.modelDecision?.status === 'ready') {
+    const expectedPayments = resolveNormalSalePayments({
+      snapshot,
+      data: snapshot.order.data,
+      shipping: objectValue(snapshot.order.data.shipping),
+      modelDecision: document.modelDecision,
+      traces: [...document.decisions],
+      invoice: Math.round(document.totals.invoice * 100),
+      feeCentsByPayment: resolvePaymentFeeRows(snapshot.order.data).feeCentsByPayment,
+    }).payments;
+    const paymentCount = Math.max(expectedPayments.length, document.payments.length);
+    for (let index = 0; index < paymentCount; index += 1) {
+      const expected = expectedPayments[index];
+      const actual = document.payments[index];
+      if (!expected || !actual) {
+        mismatches.push({
+          field: `pagamentos[${index + 1}]`,
+          expected: expected ? 'presente' : '(ausente)',
+          actual: actual ? 'presente' : '(ausente)',
+        });
+        continue;
+      }
+      if (expected.methodCode !== actual.methodCode)
+        mismatches.push({ field: `pagamentos[${index + 1}].meio`, expected: expected.methodCode, actual: actual.methodCode });
+      if (Math.abs(expected.amount - actual.amount) > 0.005)
+        mismatches.push({ field: `pagamentos[${index + 1}].valor`, expected: expected.amount, actual: actual.amount });
+      if (expected.paymentIndicator !== actual.paymentIndicator)
+        mismatches.push({ field: `pagamentos[${index + 1}].indicador`, expected: expected.paymentIndicator || '', actual: actual.paymentIndicator || '' });
+      if ((expected.description || '') !== (actual.description || ''))
+        mismatches.push({ field: `pagamentos[${index + 1}].descrição`, expected: expected.description || '', actual: actual.description || '' });
+      if ((expected.paymentDate || '') !== (actual.paymentDate || ''))
+        mismatches.push({ field: `pagamentos[${index + 1}].data`, expected: expected.paymentDate || '', actual: actual.paymentDate || '' });
+      if (JSON.stringify(expected.card || null) !== JSON.stringify(actual.card || null))
+        mismatches.push({ field: `pagamentos[${index + 1}].cartão`, expected: 'dados do pedido', actual: 'dados divergentes' });
+    }
+  }
 
   const orderCustomer = objectValue(snapshot.order.data.customerData);
   const fiscalCustomer = objectValue(snapshot.fiscalInputs?.customer);

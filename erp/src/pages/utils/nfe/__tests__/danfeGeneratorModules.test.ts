@@ -149,6 +149,53 @@ describe('DANFE Generator & Submódulos de Layout Oficial MOC 7.0', () => {
       expect(html).not.toContain('VENDA DE MERCADORIA ADQUIRIDA DE TERCEIROS');
       expect(html).not.toContain('960,00');
     });
+
+    it.each([1, 2] as const)('imprime o infCpl do XML no rodapé da NFC-e no ambiente %s', (environment) => {
+      const complementaryInfo = 'Taxas de pagamento: R$ 4,00. Serviço: montagem.\nObservação: A & B <script>alert("teste")</script>.';
+      const xml = authorizedHmlXml
+        .replace('<mod>55</mod>', '<mod>65</mod>')
+        .replace('<tpAmb>2</tpAmb>', `<tpAmb>${environment}</tpAmb>`)
+        .replace('INFORMAÇÃO COMPLEMENTAR DO XML', 'Taxas de pagamento: R$ 4,00. Serviço: montagem.\nObservação: A &amp; B &lt;script&gt;alert(&quot;teste&quot;)&lt;/script&gt;.');
+      const fiscalDetails = parseFiscalXmlDetails(xml)!;
+      const snapshot = JSON.stringify(fiscalDetails);
+
+      const html = generateDanfeHtml({ ...baseDanfeData, model: '65', environment, fiscalDetails });
+
+      expect(fiscalDetails.general.additionalInfo).toBe(complementaryInfo);
+      expect(html).toContain('INFORMAÇÕES COMPLEMENTARES');
+      expect(html).toContain('Taxas de pagamento: R$ 4,00. Serviço: montagem.');
+      expect(html).toContain('Observação: A &amp; B &lt;script&gt;alert(&quot;teste&quot;)&lt;/script&gt;.');
+      expect(html).not.toContain('<script>alert(');
+      expect(html).not.toContain('Entregar no período da tarde');
+      expect(html).not.toContain('RESERVADO PARA O FISCO');
+      expect(html.indexOf('INFORMAÇÕES COMPLEMENTARES')).toBeGreaterThan(html.indexOf('Protocolo de autorização:'));
+      expect(html.indexOf('INFORMAÇÕES COMPLEMENTARES')).toBeLessThan(html.indexOf('Obrigado pela preferência'));
+      expect(JSON.stringify(fiscalDetails)).toBe(snapshot);
+    });
+
+    it.each(['', '   \n  '])('omite a seção complementar da NFC-e quando o infCpl está vazio (%j)', (content) => {
+      const fiscalDetails = parseFiscalXmlDetails(authorizedHmlXml
+        .replace('<mod>55</mod>', '<mod>65</mod>')
+        .replace('INFORMAÇÃO COMPLEMENTAR DO XML', content))!;
+
+      const html = generateDanfeHtml({ ...baseDanfeData, model: '65', fiscalDetails });
+
+      expect(html).not.toContain('INFORMAÇÕES COMPLEMENTARES');
+      expect(html).not.toContain('Entregar no período da tarde');
+      expect(html).toContain('DANFE NFC-e');
+    });
+
+    it('não inventa informações complementares na NFC-e sem infCpl ou sem XML', () => {
+      const fiscalDetails = parseFiscalXmlDetails(authorizedHmlXml
+        .replace('<mod>55</mod>', '<mod>65</mod>')
+        .replace('<infCpl>INFORMAÇÃO COMPLEMENTAR DO XML</infCpl>', ''))!;
+
+      for (const details of [fiscalDetails, undefined]) {
+        const html = generateDanfeHtml({ ...baseDanfeData, model: '65', fiscalDetails: details });
+        expect(html).not.toContain('INFORMAÇÕES COMPLEMENTARES');
+        expect(html).not.toContain('Entregar no período da tarde');
+      }
+    });
   });
 
   describe('Submódulos individuais', () => {

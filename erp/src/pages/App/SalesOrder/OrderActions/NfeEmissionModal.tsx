@@ -107,6 +107,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     nfeNumberSequence,
     isLoadingNfeNumber,
     nfeNumberError,
+    retryNfeNumberPreview,
     isLoadingFiscalData,
     fiscalPreparationError,
     fiscalFieldError,
@@ -283,6 +284,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         setNumberPreview={setNumberPreview}
         numberPreviewContext={numberPreviewContext}
         nfeNumberError={nfeNumberError}
+        onRetryNfeNumberPreview={retryNfeNumberPreview}
         isSubmitting={isSubmitting}
         isLocked={isLocked || isSavingAcquisitionPurpose || preparationSaveBlocked}
         emissionResult={emissionResult}

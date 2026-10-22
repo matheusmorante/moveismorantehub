@@ -7,12 +7,14 @@ import { FiscalPendenciesTable } from './FiscalPendenciesTable';
 
 interface FiscalPendenciesViewProps {
   readonly state: ReturnType<typeof useFiscalPendencies>;
+  readonly canOperateFiscal: boolean;
   readonly onOpenPendencyAction: (item: FiscalPendencyItem, actionKind: ReplacementPendingAction) => void;
   readonly onViewPendencyDetails: (item: FiscalPendencyItem) => void;
 }
 
 export const FiscalPendenciesView: React.FC<FiscalPendenciesViewProps> = ({
   state,
+  canOperateFiscal,
   onOpenPendencyAction,
   onViewPendencyDetails,
 }) => {
@@ -159,6 +161,7 @@ export const FiscalPendenciesView: React.FC<FiscalPendenciesViewProps> = ({
         <FiscalPendenciesTable
           pendencies={pendencies}
           loading={loading}
+          canOperateFiscal={canOperateFiscal}
           onOpenAction={onOpenPendencyAction}
           onViewDetails={onViewPendencyDetails}
         />

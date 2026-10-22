@@ -4,6 +4,7 @@ import {
   assertSignedFiscalXmlMatchesSnapshot,
 } from './fiscalXmlAudit';
 import { resolveNormalSalePayments } from './normal-sale/payments';
+import { resolvePaymentFeeRows } from './normal-sale/paymentFeeVoutro';
 import type {
   DeterminedFiscalItem,
   FiscalDocument,
@@ -385,6 +386,7 @@ function compareEditedPayments(
       modelDecision,
       traces: [...document.decisions],
       invoice: Math.round(document.totals.invoice * 100),
+      feeCentsByPayment: resolvePaymentFeeRows(proposedData).feeCentsByPayment,
     });
     const expectedPayments = resolved.payments.map(paymentProjection);
     const actualPayments = document.payments.map(paymentProjection);

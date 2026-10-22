@@ -108,7 +108,10 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
               desta galeria para mostrar imagens específicas de cada modelo.
             </p>
             <p className="font-black">Limite da galeria: {maxPhotos} fotos.</p>
-            <p>Cada variação pode vincular até {MAX_VARIATION_IMAGES} fotos desta galeria.</p>
+            <p>
+              Produtos com várias variações podem vincular até {MAX_VARIATION_IMAGES} fotos por
+              variação. Com uma única variação, toda a galeria é vinculada automaticamente.
+            </p>
             {currentCount > maxPhotos && (
               <p className="font-semibold">
                 Este cadastro já possui {currentCount} fotos, acima do limite de {maxPhotos}. As
@@ -149,7 +152,13 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     if (draggedIndex === null || draggedIndex === index) return;
                     const newImages = moveProductImage(formData.images || [], draggedIndex, index);
                     setDraggedIndex(index);
-                    setFormData({ ...formData, images: newImages });
+                    setFormData((prev) => ({
+                      ...prev,
+                      images: newImages,
+                      ...(prev.variations?.length === 1
+                        ? { variations: [{ ...prev.variations[0], images: newImages }] }
+                        : {}),
+                    }));
                   }}
                   onDragEnd={() => setDraggedIndex(null)}
                   className={`group relative aspect-square w-full rounded-none overflow-hidden border-2 cursor-move transition-all shadow-sm ${borderClass}`}

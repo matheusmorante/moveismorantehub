@@ -124,7 +124,7 @@ export const FiscalDocumentCard: React.FC<FiscalDocumentRowProps> = ({
         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
           Último retorno
         </p>
-        <p className="mt-1 max-h-20 overflow-y-auto text-slate-600 dark:text-slate-300 [overflow-wrap:anywhere]">
+        <p className="mt-1 text-slate-600 dark:text-slate-300 [overflow-wrap:anywhere]">
           {document.motivo_status || '—'}
         </p>
         {document.supersedes_document_id && (

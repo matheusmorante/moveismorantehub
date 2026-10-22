@@ -290,6 +290,16 @@ export function getFiscalIssuePresentation(result: FiscalIssueResult): FiscalIss
     };
   }
 
+  if (code === 'FISCAL_PREPARATION_BUSY') {
+    return {
+      tone: 'attention',
+      title: 'A preparação deste pedido já está em andamento',
+      description: 'Outra preparação fiscal está usando o pedido ou a mesma tentativa.',
+      nextStep: 'Consulte a mesma tentativa pelo ERP antes de continuar. O identificador será preservado.',
+      action: 'consult',
+    };
+  }
+
   if (code === 'FISCAL_PREPARATION_UNCONFIRMED' && result.sefazContacted === false) {
     if (result.databaseReason === 'PREPARED_ATTEMPT_FOUND') {
       return {

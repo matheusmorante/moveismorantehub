@@ -36,6 +36,7 @@ export function useNfeSequencePreview({
   const [isResolvingNfeNumber, setIsResolvingNfeNumber] = useState(Boolean(orderId));
   const [nfeNumberLookupError, setNfeNumberLookupError] = useState<string | null>(null);
   const [manualNumberInput, setManualNumberInput] = useState<string | null>(null);
+  const [sequencePreviewRetry, setSequencePreviewRetry] = useState(0);
 
   const { nfeNumberSequence, numberPreview, isLoadingNfeNumber, nfeNumberError } =
     computeDerivedSequencePreview({
@@ -103,7 +104,11 @@ export function useNfeSequencePreview({
       .catch((error) => {
         if (active) {
           console.error('Falha ao consultar sequência NF-e:', error);
-          setNfeNumberLookupError('Não foi possível consultar o próximo número fiscal.');
+          setNfeNumberLookupError(
+            error instanceof Error && error.message
+              ? error.message
+              : 'Não foi possível consultar o próximo número fiscal.'
+          );
         }
       })
       .finally(() => {
@@ -113,7 +118,14 @@ export function useNfeSequencePreview({
     return () => {
       active = false;
     };
-  }, [orderId, currentModel, environment]);
+  }, [orderId, currentModel, environment, sequencePreviewRetry]);
+
+  const retryNfeNumberPreview = () => {
+    setNumberPreviewState(null);
+    setNfeNumberLookupError(null);
+    setIsResolvingNfeNumber(Boolean(orderId));
+    setSequencePreviewRetry((retry) => retry + 1);
+  };
 
   return {
     numberPreview,
@@ -121,6 +133,7 @@ export function useNfeSequencePreview({
     nfeNumberSequence,
     isLoadingNfeNumber,
     nfeNumberError,
+    retryNfeNumberPreview,
     numberPreviewState,
     setNumberPreviewState,
     setManualNumberInput,

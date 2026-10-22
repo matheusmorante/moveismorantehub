@@ -16,6 +16,7 @@ interface NfeGeneralTabProps {
   onNumberPreviewChange: (num: string) => void;
   numberPreviewContext: string;
   nfeNumberError: string | null;
+  onRetryNfeNumberPreview: () => void;
   isSubmitting: boolean;
   isSavingAcquisitionPurpose: boolean;
   isLocked: boolean;
@@ -44,6 +45,7 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
   onNumberPreviewChange,
   numberPreviewContext,
   nfeNumberError,
+  onRetryNfeNumberPreview,
   isSubmitting,
   isSavingAcquisitionPurpose,
   isLocked,
@@ -144,7 +146,13 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
                 }
                 readOnly={isLocked || isSubmitting || isLoadingNfeNumber}
                 onChange={(e) => onNumberPreviewChange(e.target.value.replace(/\D/g, ''))}
-                placeholder="Consultando..."
+                placeholder={
+                  isLoadingNfeNumber
+                    ? 'Consultando...'
+                    : nfeNumberError
+                      ? 'Prévia indisponível'
+                      : ''
+                }
                 className="mt-1 w-full rounded-none border-0 border-b-2 border-slate-200 bg-white px-3 py-2 font-mono text-sm outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:focus:border-blue-500"
               />
             </label>
@@ -166,13 +174,21 @@ export const NfeGeneralTab: React.FC<NfeGeneralTabProps> = ({
               </p>
             )}
             {nfeNumberError && (
-              <p
-                role="status"
-                className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-300"
-              >
-                Prévia indisponível. {nfeNumberError} A reserva automática continua no backend ao
-                emitir.
-              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                <p role="status">
+                  Prévia indisponível. {nfeNumberError} A reserva automática continua no backend ao
+                  emitir.
+                </p>
+                <button
+                  type="button"
+                  data-testid="nfe-number-preview-retry"
+                  disabled={isSubmitting || isLocked}
+                  onClick={onRetryNfeNumberPreview}
+                  className="font-bold underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Tentar novamente
+                </button>
+              </div>
             )}
           </div>
         </section>

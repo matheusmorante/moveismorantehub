@@ -1131,11 +1131,23 @@ describe('preenchimento dos itens da NF-e', () => {
   });
 
   it('mantém a reserva automática se a consulta da prévia falhar', async () => {
-    mocks.nextNumber.mockRejectedValue(new Error('preview unavailable'));
+    mocks.nextNumber
+      .mockRejectedValueOnce(new Error('preview unavailable'))
+      .mockResolvedValueOnce(120);
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
     render(<NfeEmissionModal isOpen order={order} onClose={vi.fn()} />);
 
     expect(await screen.findByText(/Prévia indisponível/)).toBeTruthy();
+    const numberField = screen.getByRole('spinbutton', { name: 'Número da nota' }) as HTMLInputElement;
+    expect(numberField.placeholder).toBe('Prévia indisponível');
+    expect(numberField.readOnly).toBe(false);
+    expect(mocks.nextNumber).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByTestId('nfe-number-preview-retry'));
+    await waitFor(() => expect(numberField.value).toBe('120'));
+    expect(screen.queryByTestId('nfe-number-preview-retry')).toBeNull();
+    expect(mocks.nextNumber).toHaveBeenCalledTimes(2);
+
     await prepareNfeEmission();
     fireEvent.click(screen.getByTestId('nfe-emit-button'));
     await waitFor(() => expect(mocks.emit).toHaveBeenCalledTimes(1));

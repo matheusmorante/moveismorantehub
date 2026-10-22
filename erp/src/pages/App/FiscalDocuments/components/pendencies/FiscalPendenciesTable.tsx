@@ -9,6 +9,7 @@ import { FiscalPendencyTypeBadge } from './FiscalPendencyTypeBadge';
 interface FiscalPendenciesTableProps {
   readonly pendencies: readonly FiscalPendencyItem[];
   readonly loading: boolean;
+  readonly canOperateFiscal: boolean;
   readonly onOpenAction: (item: FiscalPendencyItem, actionKind: ReplacementPendingAction) => void;
   readonly onViewDetails: (item: FiscalPendencyItem) => void;
 }
@@ -16,6 +17,7 @@ interface FiscalPendenciesTableProps {
 export const FiscalPendenciesTable: React.FC<FiscalPendenciesTableProps> = ({
   pendencies,
   loading,
+  canOperateFiscal,
   onOpenAction,
   onViewDetails,
 }) => {
@@ -55,7 +57,7 @@ export const FiscalPendenciesTable: React.FC<FiscalPendenciesTableProps> = ({
             <th scope="col" className="px-4 py-3">Nota Anterior</th>
             <th scope="col" className="px-4 py-3">Situação Atual / Motivo</th>
             <th scope="col" className="px-4 py-3">Identificado em</th>
-            <th scope="col" className="px-4 py-3 text-right">Ação</th>
+            {canOperateFiscal && <th scope="col" className="px-4 py-3 text-right">Ação</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -149,19 +151,21 @@ export const FiscalPendenciesTable: React.FC<FiscalPendenciesTableProps> = ({
                 </td>
 
                 {/* Ação */}
-                <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenAction(item, item.actionKind);
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#3b1900] px-3 py-1.5 text-xs font-black text-amber-300 shadow transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b1900] dark:bg-amber-400 dark:text-amber-950 dark:hover:bg-amber-300"
-                  >
-                    <i aria-hidden="true" className={`bi ${item.actionIcon}`} />
-                    <span>{item.actionLabel}</span>
-                  </button>
-                </td>
+                {canOperateFiscal && (
+                  <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenAction(item, item.actionKind);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#3b1900] px-3 py-1.5 text-xs font-black text-amber-300 shadow transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b1900] dark:bg-amber-400 dark:text-amber-950 dark:hover:bg-amber-300"
+                    >
+                      <i aria-hidden="true" className={`bi ${item.actionIcon}`} />
+                      <span>{item.actionLabel}</span>
+                    </button>
+                  </td>
+                )}
               </tr>
             );
           })}

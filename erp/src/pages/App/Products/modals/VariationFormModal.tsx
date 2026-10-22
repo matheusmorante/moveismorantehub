@@ -75,8 +75,8 @@ const VariationFormSession: React.FC<
   const isStockistOnly = isStockistOnlyProfile(profile);
 
   const isSingleVariation = variation
-    ? !parentProduct.hasVariations && (parentProduct.variations || []).length === 1
-    : !parentProduct.hasVariations && (parentProduct.variations || []).length === 0;
+    ? (parentProduct.variations || []).length === 1
+    : (parentProduct.variations || []).length === 0;
   const isSingleExistingVariation = Boolean(variation) && isSingleVariation;
 
   const {
@@ -114,6 +114,7 @@ const VariationFormSession: React.FC<
     handleCropPhoto,
     onImageProcessingChange,
   } = useVariationForm({ ...props, isStockistOnly });
+  const parentImageGallery = allParentImages.length > 0 ? allParentImages : parentProduct.images || [];
 
   useEffect(() => {
     if (!isOpen) return;
@@ -230,19 +231,27 @@ const VariationFormSession: React.FC<
 
               {!isStockistOnly && activeTab === 'fotos' && (
                 <VariationPhotosTab
-                  images={(formData.images && formData.images.length > 0
-                    ? formData.images
-                    : allParentImages.length > 0
-                      ? allParentImages
-                      : parentProduct?.images || []
-                  ).slice(0, MAX_VARIATION_IMAGES)}
-                  parentImages={
-                    allParentImages.length > 0 ? allParentImages : parentProduct?.images || []
+                  images={
+                    isSingleVariation
+                      ? parentImageGallery
+                      : (
+                          formData.images && formData.images.length > 0
+                            ? formData.images
+                            : parentImageGallery
+                        ).slice(0, MAX_VARIATION_IMAGES)
                   }
+                  parentImages={parentImageGallery}
                   isSingleVariation={isSingleVariation}
                   onChangeImages={(newImages) =>
                     setFormData((prev) =>
-                      prev ? { ...prev, images: newImages.slice(0, MAX_VARIATION_IMAGES) } : null
+                      prev
+                        ? {
+                            ...prev,
+                            images: isSingleVariation
+                              ? parentImageGallery
+                              : newImages.slice(0, MAX_VARIATION_IMAGES),
+                          }
+                        : null
                     )
                   }
                   onReplaceImageGlobal={handleReplaceImageGlobal}

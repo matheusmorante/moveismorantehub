@@ -72,6 +72,51 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
     } finally { operation.current = false; }
   };
 
+  if (isSingleVariation) {
+    return (
+      <div className="space-y-4 animate-in fade-in duration-350">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
+              Fotos vinculadas
+            </h3>
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              Esta variação única herda automaticamente todas as fotos da galeria do produto.
+            </p>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">
+            {parentImages.length} foto(s) vinculada(s)
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {parentImages.map((url, index) => (
+            <div
+              key={url}
+              className="relative aspect-square overflow-hidden border-2 border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
+            >
+              <ProductImage
+                src={url}
+                alt={`Foto ${index + 1}`}
+                className="h-full w-full select-none object-cover"
+                size="thumbnail"
+              />
+              {index === 0 && (
+                <span className="absolute left-2 top-2 rounded-full bg-blue-600 px-2 py-0.5 text-[9px] font-black uppercase text-white">
+                  Capa
+                </span>
+              )}
+              {index === 1 && (
+                <span className="absolute left-2 top-2 rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-black uppercase text-white">
+                  Secundária
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 animate-in fade-in duration-350">
       {errorMessage && <p role="alert" className="text-sm text-red-600">{errorMessage}</p>}

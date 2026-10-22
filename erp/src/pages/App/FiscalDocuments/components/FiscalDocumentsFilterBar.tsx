@@ -8,10 +8,12 @@ import type {
 
 interface FiscalDocumentsFilterBarProps {
   filters: FiscalDocumentFilters;
+  accountantView: boolean;
   searchInput: string;
   onSearchInputChange: (value: string) => void;
   onSearchSubmit: (e?: React.FormEvent) => void;
   onModelChange: (model: string) => void;
+  onDocumentTypeChange: (documentType: NonNullable<FiscalDocumentFilters['documentType']>) => void;
   onStatusChange: (status: string) => void;
   onEnvironmentChange: (env: string) => void;
   period: FiscalDocumentPeriod;
@@ -21,6 +23,33 @@ interface FiscalDocumentsFilterBarProps {
   onCustomDateFromChange: (date: string) => void;
   onCustomDateToChange: (date: string) => void;
 }
+
+const FULL_STATUS_OPTIONS = [
+  { label: 'Todos os status', value: 'all' },
+  { label: 'Aguardando autorização', value: 'pendente' },
+  { label: 'Em processamento', value: 'processando' },
+  { label: 'Autorizadas', value: 'autorizada' },
+  { label: 'Homologadas', value: 'homologada' },
+  { label: 'Canceladas', value: 'cancelada' },
+  { label: 'Rejeitadas', value: 'rejeitada' },
+  { label: 'Denegadas', value: 'denegada' },
+  { label: 'Erro', value: 'erro' },
+  { label: 'Encerrada antes da transmissão', value: 'abandoned' },
+];
+
+const ACCOUNTANT_STATUS_OPTIONS = [
+  { label: 'Todas as situações', value: 'all' },
+  { label: 'Autorizadas', value: 'autorizada' },
+  { label: 'Canceladas', value: 'cancelada' },
+  { label: 'Rejeitadas', value: 'rejeitada' },
+  { label: 'Denegadas', value: 'denegada' },
+];
+
+const DOCUMENT_TYPE_OPTIONS = [
+  { label: 'Todos os tipos', value: 'all' },
+  { label: 'Saída normal', value: 'outbound' },
+  { label: 'Estorno fiscal', value: 'estorno' },
+] as const;
 
 const PERIOD_OPTIONS: { label: string; value: FiscalDocumentPeriod }[] = [
   { label: 'Últimos 30 dias', value: 'last_30_days' },
@@ -124,10 +153,12 @@ const EnvironmentCheckboxes: React.FC<EnvironmentCheckboxesProps> = ({
 
 export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> = ({
   filters,
+  accountantView,
   searchInput,
   onSearchInputChange,
   onSearchSubmit,
   onModelChange,
+  onDocumentTypeChange,
   onStatusChange,
   onEnvironmentChange,
   period,
@@ -137,6 +168,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
   onCustomDateFromChange,
   onCustomDateToChange,
 }) => {
+  const statusOptions = accountantView ? ACCOUNTANT_STATUS_OPTIONS : FULL_STATUS_OPTIONS;
   const [isMoreFiltersOpen, setIsMoreFiltersOpen] = useState(false);
   const moreFiltersDialogRef = useRef<HTMLDialogElement>(null);
 
@@ -161,7 +193,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
       onSubmit={onSearchSubmit}
       className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900/70"
     >
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_auto_auto] lg:grid-cols-[minmax(0,1fr)_9rem_10rem_auto_auto] 2xl:flex 2xl:flex-nowrap 2xl:items-end">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_auto_auto] lg:grid-cols-[minmax(0,1fr)_9rem_10rem_10rem_auto_auto] 2xl:flex 2xl:flex-nowrap 2xl:items-end">
         <label className="col-span-2 min-w-0 md:col-span-1 lg:flex-1 2xl:min-w-[190px]">
           <span className="sr-only">Buscar notas fiscais</span>
           <span className="relative block">
@@ -191,21 +223,25 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
         </select>
 
         <select
-          aria-label="Status fiscal"
+          aria-label="Tipo de documento"
+          value={filters.documentType}
+          onChange={(event) => onDocumentTypeChange(event.target.value as NonNullable<FiscalDocumentFilters['documentType']>)}
+          className="hidden min-h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950 lg:block lg:w-40 lg:min-w-40 2xl:w-auto 2xl:flex-none"
+        >
+          {DOCUMENT_TYPE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+
+        <select
+          aria-label={accountantView ? 'Situação fiscal' : 'Status fiscal'}
           value={filters.status}
           onChange={(event) => onStatusChange(event.target.value)}
           className="hidden min-h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950 lg:block lg:w-40 lg:min-w-40 2xl:w-auto 2xl:flex-none"
         >
-          <option value="all">Todos os status</option>
-          <option value="pendente">Aguardando autorização</option>
-          <option value="processando">Em processamento</option>
-          <option value="autorizada">Autorizadas</option>
-          <option value="homologada">Homologadas</option>
-          <option value="cancelada">Canceladas</option>
-          <option value="rejeitada">Rejeitadas</option>
-          <option value="denegada">Denegadas</option>
-          <option value="erro">Erro</option>
-          <option value="abandoned">Encerrada antes da transmissão</option>
+          {statusOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
         </select>
 
         <EnvironmentCheckboxes
@@ -282,23 +318,30 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
           </label>
 
           <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 lg:hidden">
-            Status fiscal
+            Tipo de documento
             <select
-              aria-label="Status fiscal"
+              aria-label="Tipo de documento"
+              value={filters.documentType}
+              onChange={(event) => onDocumentTypeChange(event.target.value as NonNullable<FiscalDocumentFilters['documentType']>)}
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+            >
+              {DOCUMENT_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 lg:hidden">
+            {accountantView ? 'Situação fiscal' : 'Status fiscal'}
+            <select
+              aria-label={accountantView ? 'Situação fiscal' : 'Status fiscal'}
               value={filters.status}
               onChange={(event) => onStatusChange(event.target.value)}
               className="min-h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
             >
-              <option value="all">Todos os status</option>
-              <option value="pendente">Aguardando autorização</option>
-              <option value="processando">Em processamento</option>
-              <option value="autorizada">Autorizadas</option>
-              <option value="homologada">Homologadas</option>
-              <option value="cancelada">Canceladas</option>
-              <option value="rejeitada">Rejeitadas</option>
-              <option value="denegada">Denegadas</option>
-              <option value="erro">Erro</option>
-              <option value="abandoned">Encerrada antes da transmissão</option>
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </label>
 

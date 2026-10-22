@@ -106,6 +106,9 @@ export function useProductFormImages(
       setFormData((prev: Partial<Product>) => ({
         ...prev,
         images: [...(prev.images || []), ...urls],
+        ...(prev.variations?.length === 1
+          ? { variations: [{ ...prev.variations[0], images: [...(prev.images || []), ...urls] }] }
+          : {}),
       }));
       onImagesSaved?.();
       toast.success(`${urls.length} foto(s) otimizada(s) e enviada(s) com sucesso!`);
@@ -124,6 +127,9 @@ export function useProductFormImages(
     setFormData((prev: Partial<Product>) => {
       const updatedImages = prev.images?.filter((i: string) => i !== url);
       const updatedVariations = prev.variations?.map((variation) => {
+        if (prev.variations?.length === 1) {
+          return { ...variation, images: updatedImages || [] };
+        }
         if (variation.images?.includes(url)) {
           return {
             ...variation,

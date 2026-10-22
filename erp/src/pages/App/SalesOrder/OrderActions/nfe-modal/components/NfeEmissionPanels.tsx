@@ -28,6 +28,7 @@ export interface NfeEmissionPanelsProps {
   setNumberPreview: (val: string | null) => void;
   numberPreviewContext: string;
   nfeNumberError: string | null;
+  onRetryNfeNumberPreview: () => void;
   isSubmitting: boolean;
   isLocked: boolean;
   emissionResult: NfeEmissionResult | null;
@@ -90,6 +91,7 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
   setNumberPreview,
   numberPreviewContext,
   nfeNumberError,
+  onRetryNfeNumberPreview,
   isSubmitting,
   isLocked,
   emissionResult,
@@ -157,6 +159,7 @@ export const NfeEmissionPanels: React.FC<NfeEmissionPanelsProps> = ({
             onNumberPreviewChange={setNumberPreview}
             numberPreviewContext={numberPreviewContext}
             nfeNumberError={nfeNumberError}
+            onRetryNfeNumberPreview={onRetryNfeNumberPreview}
             isSubmitting={isSubmitting}
             isSavingAcquisitionPurpose={isSavingAcquisitionPurpose}
             isLocked={isLocked}

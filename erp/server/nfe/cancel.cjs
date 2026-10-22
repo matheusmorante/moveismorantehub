@@ -69,16 +69,18 @@ function getSupabaseSecretKey() {
 // erp/src/pages/utils/nfe/fiscalAuthorization.ts
 var FISCAL_OPERATOR_ROLES = ["manager", "administrator"];
 var fiscalOperatorRoles = new Set(FISCAL_OPERATOR_ROLES);
-function hasFiscalOperationRole(profile) {
-  if (!profile) return false;
+function getFiscalProfileRoles(profile) {
   const roles = /* @__PURE__ */ new Set();
-  if (typeof profile.role === "string") roles.add(profile.role);
-  if (Array.isArray(profile.roles)) {
+  if (typeof profile?.role === "string") roles.add(profile.role);
+  if (Array.isArray(profile?.roles)) {
     for (const role of profile.roles) {
       if (typeof role === "string") roles.add(role);
     }
   }
-  return Array.from(roles).some((role) => fiscalOperatorRoles.has(role));
+  return roles;
+}
+function hasFiscalOperationRole(profile) {
+  return Array.from(getFiscalProfileRoles(profile)).some((role) => fiscalOperatorRoles.has(role));
 }
 function hasFiscalAdministratorRole(profile) {
   return profile?.role === "administrator" || Array.isArray(profile?.roles) && profile.roles.includes("administrator");
@@ -1554,6 +1556,346 @@ function saoPauloEmissionTimestamp(iso) {
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
 }
 
+// api/nfe/normal-sale/values.ts
+var obj = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Fatos fiscais obrigat\xF3rios ausentes.");
+  return value;
+};
+var normalize = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+var money = (value, field, positive = false) => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < (positive ? 0.01 : 0) || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6)
+    throw new Error(`${field} inv\xE1lido ou fora da precis\xE3o de centavos.`);
+  return Math.round(value * 100);
+};
+
+// api/nfe/normal-sale/paymentFeeVoutro.ts
+function record(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function exactFeeCents(payment, index) {
+  const fee = payment.fee ?? 0;
+  if (typeof fee !== "number" || !Number.isFinite(fee) || fee < 0)
+    throw new Error(`Taxa do pagamento ${index + 1} inv\xE1lida.`);
+  if (fee === 0) return 0;
+  const amount = payment.amount;
+  if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0)
+    throw new Error(`Taxa do pagamento ${index + 1} n\xE3o tem valor-base v\xE1lido.`);
+  const amountCents = Math.round(amount * 100);
+  if (!Number.isSafeInteger(amountCents) || Math.abs(amount * 100 - amountCents) > 1e-6)
+    throw new Error(`Valor do pagamento ${index + 1} est\xE1 fora da precis\xE3o de centavos.`);
+  const feeType = payment.feeType ?? "fixed";
+  if (feeType === "fixed") {
+    const feeCents = Math.round(fee * 100);
+    if (Math.abs(fee * 100 - feeCents) > 1e-6)
+      throw new Error(`Taxa fixa do pagamento ${index + 1} est\xE1 fora da precis\xE3o de centavos.`);
+    return feeCents;
+  }
+  if (feeType !== "percentage")
+    throw new Error(`Tipo da taxa do pagamento ${index + 1} inv\xE1lido.`);
+  const exactCents = amountCents * fee / 100;
+  if (!Number.isFinite(exactCents) || exactCents > Number.MAX_SAFE_INTEGER)
+    throw new Error(`Taxa percentual do pagamento ${index + 1} inv\xE1lida.`);
+  return exactCents;
+}
+function allocateRoundedRows(exactCents, targetCents) {
+  if (targetCents <= 0) return exactCents.map(() => 0);
+  const rows = exactCents.map((exact, index) => ({
+    index,
+    cents: Math.floor(exact),
+    remainder: exact - Math.floor(exact)
+  }));
+  const remaining = targetCents - rows.reduce((sum, row) => sum + row.cents, 0);
+  const order = [...rows].sort(
+    (left, right) => right.remainder - left.remainder || left.index - right.index
+  );
+  for (let index = 0; index < remaining; index += 1) order[index].cents += 1;
+  return rows.sort((left, right) => left.index - right.index).map((row) => row.cents);
+}
+function resolvePaymentFeeRows(data) {
+  const payments = Array.isArray(data.payments) ? data.payments.map(record) : [];
+  const exactCents = payments.map(exactFeeCents);
+  const exactTotalCents = exactCents.reduce((sum, value) => sum + value, 0);
+  const rawSummary = record(data.paymentsSummary).totalPaymentsFee;
+  if (exactTotalCents === 0 && (rawSummary === void 0 || rawSummary === null))
+    return { feeCentsByPayment: exactCents.map(() => 0), totalFeeCents: 0 };
+  if (typeof rawSummary !== "number" || !Number.isFinite(rawSummary) || rawSummary < 0)
+    throw new Error("O resumo consolidado das taxas de pagamento est\xE1 ausente ou inv\xE1lido.");
+  const totalFeeCents = Math.round(rawSummary * 100);
+  if (Math.abs(rawSummary * 100 - exactTotalCents) > 1e-4 || totalFeeCents !== Math.round(exactTotalCents))
+    throw new Error(
+      "As taxas dos pagamentos n\xE3o reconciliam com o total consolidado do pedido; revise o resumo antes de emitir."
+    );
+  return {
+    feeCentsByPayment: allocateRoundedRows(exactCents, totalFeeCents),
+    totalFeeCents
+  };
+}
+function fiscalPaymentMethodCode(method) {
+  if (typeof method !== "string") return void 0;
+  const normalized = normalize(method);
+  if (normalized.includes("CREDITO") || normalized.includes("CREDIT")) return "03";
+  if (normalized.includes("DEBITO") || normalized.includes("DEBIT")) return "04";
+  return void 0;
+}
+function paymentInstallments(payment) {
+  if (payment.installments !== void 0 && payment.installments !== null)
+    return Number(payment.installments);
+  const label = typeof payment.method === "string" ? payment.method : "";
+  const fromLabel = label.match(/\b(\d{1,3})\s*x\b/i);
+  return fromLabel ? Number(fromLabel[1]) : 1;
+}
+function formatBrl2(cents) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100).replace(/\u00a0/g, " ");
+}
+function paymentFeeInformation(data, feeCentsByPayment, totalFeeCents, model) {
+  const payments = Array.isArray(data.payments) ? data.payments.map(record) : [];
+  const groups = /* @__PURE__ */ new Map();
+  payments.forEach((payment, index) => {
+    const cents = feeCentsByPayment[index] || 0;
+    if (!cents) return;
+    const method = fiscalPaymentMethodCode(payment.method);
+    if (!method) throw new Error(`Origem da taxa do pagamento ${index + 1} n\xE3o est\xE1 classificada.`);
+    const installments = paymentInstallments(payment);
+    const key = method === "03" && installments > 1 ? "credit_installments" : method;
+    const description = key === "credit_installments" ? "processamento do cart\xE3o de cr\xE9dito e \xE0s condi\xE7\xF5es de parcelamento escolhidas" : method === "03" ? "processamento do cart\xE3o de cr\xE9dito" : "processamento do cart\xE3o de d\xE9bito";
+    const current = groups.get(key) || { cents: 0, description };
+    current.cents += cents;
+    groups.set(key, current);
+  });
+  const origins = [...groups.values()].map(({ cents, description }) => `${formatBrl2(cents)} referentes aos custos de ${description}`).join("; ");
+  return `O valor total desta ${model === "65" ? "NFC-e" : "NF-e"} inclui ${formatBrl2(totalFeeCents)} em acr\xE9scimos da modalidade de pagamento, j\xE1 considerados no total do pedido e repassados ao comprador: ${origins}. As taxas de maquininha foram rateadas proporcionalmente ao valor l\xEDquido dos produtos, compondo as outras despesas acess\xF3rias de cada item.`;
+}
+function allocateAcrossItems(totalCents, weights) {
+  if (!totalCents) return weights.map(() => 0);
+  const eligibleWeights = weights.map((weight) => Math.max(0, Math.round(weight)));
+  const weightTotal = eligibleWeights.reduce((sum, weight) => sum + weight, 0);
+  if (!eligibleWeights.length || weightTotal <= 0)
+    throw new Error("N\xE3o h\xE1 itens fiscais com valor l\xEDquido para ratear as taxas de pagamento.");
+  const exact = eligibleWeights.map((weight) => totalCents * weight / weightTotal);
+  const roundedDown = exact.map(Math.floor);
+  let remaining = totalCents - roundedDown.reduce((sum, cents) => sum + cents, 0);
+  const order = exact.map((share, index) => ({ index, remainder: share - roundedDown[index] })).sort((left, right) => right.remainder - left.remainder || left.index - right.index);
+  for (let index = 0; index < remaining; index += 1) roundedDown[order[index].index] += 1;
+  return roundedDown;
+}
+function composePaymentFeeVoutro(params) {
+  const { snapshot, model, itemNetCents } = params;
+  const paymentFees = params.paymentFees || resolvePaymentFeeRows(snapshot.order.data);
+  const itemFeeCents = itemNetCents.map(() => 0);
+  if (!paymentFees.totalFeeCents)
+    return { ...paymentFees, itemFeeCents };
+  const payments = Array.isArray(snapshot.order.data.payments) ? snapshot.order.data.payments.map(record) : [];
+  payments.forEach((payment, index) => {
+    if (!(paymentFees.feeCentsByPayment[index] > 0)) return;
+    const method = fiscalPaymentMethodCode(payment.method);
+    if (!method)
+      throw new Error(
+        `A taxa do pagamento ${index + 1} n\xE3o est\xE1 vinculada a uma modalidade de cart\xE3o aprovada para classifica\xE7\xE3o fiscal.`
+      );
+    const installments = paymentInstallments(payment);
+    if (!Number.isInteger(installments) || installments < 1 || method === "04" && installments > 1)
+      throw new Error(`Parcelamento do pagamento ${index + 1} n\xE3o suportado para esta decis\xE3o fiscal.`);
+  });
+  const allocations = allocateAcrossItems(paymentFees.totalFeeCents, itemNetCents);
+  const additionalInformation = paymentFeeInformation(
+    snapshot.order.data,
+    paymentFees.feeCentsByPayment,
+    paymentFees.totalFeeCents,
+    model
+  );
+  if (additionalInformation.length > 5e3)
+    throw new Error("A explica\xE7\xE3o das taxas excede o limite de informa\xE7\xF5es adicionais da NF-e.");
+  return {
+    ...paymentFees,
+    itemFeeCents: allocations,
+    additionalInformation
+  };
+}
+function joinFiscalAdditionalInformation(...sections) {
+  const value = sections.filter((section) => Boolean(section?.trim())).join("; ");
+  if (value.length > 5e3)
+    throw new Error("As informa\xE7\xF5es adicionais excedem o limite fiscal da NF-e.");
+  return value || void 0;
+}
+
+// shared-utils/orderPaymentState.ts
+var normalize2 = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+function classifyOrderPaymentSettlement(status) {
+  if (status === void 0 || status === null) return "paid";
+  const normalized = normalize2(String(status));
+  if (normalized.startsWith("pago")) return "paid";
+  if (normalized.startsWith("pendente")) return "pending";
+  return "unconfirmed";
+}
+function isPromissoryPaymentMethod(method) {
+  return typeof method === "string" && normalize2(method).includes("promissoria");
+}
+function getOrderFulfillmentPaymentCondition(deliveryMethod) {
+  if (deliveryMethod === "pickup") return "Pagamento na retirada";
+  if (deliveryMethod === "delivery") return "Pagamento na entrega";
+  return void 0;
+}
+function parseDateOnly(value) {
+  if (typeof value !== "string") return void 0;
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})(?:$|T|\s)/);
+  if (!match) return void 0;
+  const date = /* @__PURE__ */ new Date(`${match[1]}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== match[1] ? void 0 : match[1];
+}
+function getOrderPaymentDueDate(payment, shipping) {
+  const explicitDate = parseDateOnly(payment.dueDate);
+  if (explicitDate) return explicitDate;
+  if (isPromissoryPaymentMethod(payment.method)) return void 0;
+  const scheduling = shipping?.scheduling;
+  if (!getOrderFulfillmentPaymentCondition(shipping?.deliveryMethod) || scheduling?.pendingScheduling === true || scheduling?.dateType === "range" || scheduling?.type === "range")
+    return void 0;
+  return parseDateOnly(scheduling?.date);
+}
+function getOrderPaymentActualDate(payment) {
+  return parseDateOnly(payment.paymentDate);
+}
+
+// api/nfe/normal-sale/payments.ts
+function resolveNormalSalePayments(params) {
+  const { snapshot, data, shipping, modelDecision, traces, invoice, feeCentsByPayment } = params;
+  const emissionDate = saoPauloEmissionTimestamp(snapshot.capturedAt).slice(0, 10);
+  const rawPayments = Array.isArray(data.payments) ? data.payments.map(obj) : [];
+  const resolvedPayments = [];
+  let paidCents = 0;
+  let pendingCents = 0;
+  for (let index = 0; index < rawPayments.length; index += 1) {
+    const payment2 = rawPayments[index];
+    const feeCents = feeCentsByPayment[index] || 0;
+    const amountValue = Number(payment2.amount ?? 0);
+    if (!Number.isFinite(amountValue) || amountValue < 0)
+      throw new Error(`Valor do pagamento ${index + 1} inv\xE1lido.`);
+    if (amountValue === 0) continue;
+    const amountCents = money(amountValue, `Pagamento ${index + 1}`, true) + feeCents;
+    const settlement = classifyOrderPaymentSettlement(payment2.status);
+    if (settlement === "unconfirmed")
+      throw new Error(
+        `Pagamento ${index + 1} est\xE1 como \u201C${String(payment2.status)}\u201D; confirme se foi recebido ou permanece pendente antes de transmitir.`
+      );
+    const originalMethod = typeof payment2.method === "string" ? payment2.method.trim() : "";
+    const method = normalize(originalMethod);
+    const isPromissory = isPromissoryPaymentMethod(originalMethod);
+    const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
+    let methodCode = method.includes("PIX") ? "17" : method.includes("CREDITO") || method.includes("CREDIT") ? "03" : method.includes("DEBITO") || method.includes("DEBIT") ? "04" : method.includes("DINHEIRO") || method.includes("CASH") ? "01" : method.includes("BOLETO") ? "15" : isPromissory ? "99" : void 0;
+    let description = methodCode === "99" ? originalMethod : void 0;
+    if (!methodCode && settlement === "pending" && (!method || method === "VERIFICAR")) {
+      if (!fulfillmentCondition)
+        throw new Error("O pedido pendente n\xE3o informa se a entrega ser\xE1 por entrega ou retirada.");
+      methodCode = "99";
+      description = fulfillmentCondition;
+    }
+    if (!methodCode)
+      throw new Error(
+        `Meio de pagamento \u201C${originalMethod || "n\xE3o informado"}\u201D do item ${index + 1} exige mapeamento fiscal espec\xEDfico.`
+      );
+    const paymentCard = payment2.fiscalCard;
+    const rawInstallments = Number(payment2.installments ?? 1);
+    if (!Number.isInteger(rawInstallments) || rawInstallments < 1 || rawInstallments > 120)
+      throw new Error(`Quantidade de parcelas inv\xE1lida no pagamento ${index + 1}.`);
+    const canDeclareNotIntegrated = settlement === "pending" || snapshot.emissionRequest.cardNotIntegrated || modelDecision.model === "65" && methodCode === "17";
+    const card = paymentCard || (canDeclareNotIntegrated && ["03", "04", "17"].includes(methodCode) ? { integrationType: "2" } : void 0);
+    if (modelDecision.model === "65" && ["03", "04", "17"].includes(methodCode) && (!card || !["1", "2"].includes(card.integrationType) || card.integrationType === "1" && ["03", "04"].includes(methodCode) && (!/^[A-Z0-9]{12}[0-9]{2}$/.test(card.acquirerCnpj || "") || !card.authorization)))
+      throw new Error(
+        `Pagamento ${index + 1}: informe a integra\xE7\xE3o e os dados fiscais reais do cart\xE3o/PIX para NFC-e.`
+      );
+    const resolved = {
+      methodCode,
+      amountCents,
+      settlement,
+      ...description ? { description } : {},
+      ...settlement === "paid" && getOrderPaymentActualDate(payment2) ? { paymentDate: getOrderPaymentActualDate(payment2) } : {},
+      ...settlement === "pending" ? { dueDate: getOrderPaymentDueDate(payment2, shipping) } : {},
+      installments: rawInstallments,
+      ...card ? { card } : {}
+    };
+    resolvedPayments.push(resolved);
+    if (settlement === "paid") paidCents += amountCents;
+    else pendingCents += amountCents;
+  }
+  const orderPaymentSummary = data.paymentsSummary && typeof data.paymentsSummary === "object" && !Array.isArray(data.paymentsSummary) ? data.paymentsSummary : {};
+  const summaryPaid = Number(orderPaymentSummary.totalAmountPaid ?? 0);
+  if (!resolvedPayments.length && Number.isFinite(summaryPaid) && summaryPaid > 0)
+    throw new Error(
+      "O Pedido de Venda informa valor recebido, mas n\xE3o tem os meios de pagamento correspondentes; revise os pagamentos antes de transmitir."
+    );
+  const amountDueCents = invoice - paidCents;
+  if (amountDueCents < 0)
+    throw new Error("Os valores marcados como pagos excedem o total fiscal da nota.");
+  if (pendingCents > amountDueCents)
+    throw new Error("Os valores pendentes do pedido excedem o saldo ainda devido da nota.");
+  if (pendingCents < amountDueCents) {
+    if (resolvedPayments.some(
+      (payment2) => payment2.settlement === "pending" && payment2.methodCode === "99" && isPromissoryPaymentMethod(payment2.description)
+    ))
+      throw new Error(
+        "O valor pendente da promiss\xF3ria n\xE3o cobre todo o saldo da nota; revise as parcelas registradas no Pedido de Venda."
+      );
+    const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
+    if (!fulfillmentCondition)
+      throw new Error(
+        "O saldo pendente n\xE3o tem condi\xE7\xE3o de retirada ou entrega definida no pedido."
+      );
+    const fallbackDueDate = getOrderPaymentDueDate({}, shipping);
+    resolvedPayments.push({
+      methodCode: "99",
+      amountCents: amountDueCents - pendingCents,
+      settlement: "pending",
+      description: fulfillmentCondition,
+      ...fallbackDueDate ? { dueDate: fallbackDueDate } : {},
+      installments: 1
+    });
+    pendingCents = amountDueCents;
+  }
+  if (paidCents + pendingCents !== invoice)
+    throw new Error("Os valores recebidos e pendentes n\xE3o reconciliam com o total fiscal da nota.");
+  const payments = resolvedPayments.map((payment2) => ({
+    methodCode: payment2.methodCode,
+    amount: payment2.amountCents / 100,
+    paymentIndicator: payment2.settlement === "paid" || payment2.dueDate === emissionDate ? "0" : "1",
+    ...payment2.description ? { description: payment2.description } : {},
+    ...payment2.paymentDate ? { paymentDate: payment2.paymentDate } : {},
+    ...payment2.card ? { card: payment2.card } : {},
+    decision: traces[0]
+  }));
+  const payment = paidCents + pendingCents;
+  const pendingPayments = resolvedPayments.filter((item) => item.settlement === "pending");
+  const billingParts = [];
+  for (const pendingPayment of pendingPayments) {
+    if (pendingPayment.dueDate === emissionDate) continue;
+    if (isPromissoryPaymentMethod(pendingPayment.description) && pendingPayment.installments > 1) {
+      const perInstallment = Math.floor(pendingPayment.amountCents / pendingPayment.installments);
+      const remainder = pendingPayment.amountCents % pendingPayment.installments;
+      if (perInstallment < 1)
+        throw new Error("O valor da promiss\xF3ria n\xE3o cobre a quantidade de parcelas registrada.");
+      for (let index = 0; index < pendingPayment.installments; index += 1)
+        billingParts.push({
+          amountCents: perInstallment + (index < remainder ? 1 : 0)
+        });
+    } else {
+      billingParts.push({
+        ...pendingPayment.dueDate ? { dueDate: pendingPayment.dueDate } : {},
+        amountCents: pendingPayment.amountCents
+      });
+    }
+  }
+  if (billingParts.length > 120)
+    throw new Error("A condi\xE7\xE3o a prazo excede o limite fiscal de 120 parcelas.");
+  const billingInstallments = (
+    // cobr is optional; a partial schedule cannot describe the full deferred balance.
+    modelDecision.model === "55" && billingParts.length > 0 && billingParts.every((part) => part.dueDate) ? billingParts.sort((left, right) => left.dueDate.localeCompare(right.dueDate)).map((part, index) => ({
+      number: String(index + 1).padStart(3, "0"),
+      dueDate: part.dueDate,
+      amount: part.amountCents / 100
+    })) : void 0
+  );
+  return { payments, payment, billingInstallments };
+}
+
 // api/nfe/fiscalXmlAudit.ts
 function createStrictXmlParser(parseErrors) {
   return new import_xmldom2.DOMParser({
@@ -1823,6 +2165,11 @@ function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
   const orderItems = snapshot.order.data.items;
   if (!Array.isArray(orderItems)) throw new Error("Snapshot comercial sem itens do pedido.");
   const composition = composeServiceFiscalValues(orderItems, document.model);
+  const paymentFeeComposition = composePaymentFeeVoutro({
+    snapshot,
+    model: document.model,
+    itemNetCents: composition.products.map((item) => item.vProdCents - item.vDescCents)
+  });
   const mismatches = [];
   if (composition.products.length !== document.items.length)
     mismatches.push({ field: "itens.count", expected: composition.products.length, actual: document.items.length });
@@ -1835,7 +2182,7 @@ function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
     const quantity = Number(item.quantity) || 1;
     const gross = vProdCents / 100;
     const freight2 = index === 0 ? Number(snapshot.order.data.shipping?.value || 0) : 0;
-    const otherExpenses = index === 0 ? composition.vOutroCents / 100 : 0;
+    const otherExpenses = ((index === 0 ? composition.vOutroCents : 0) + (paymentFeeComposition.itemFeeCents[index] || 0)) / 100;
     const fields = [
       [`itens[${n}].codigo`, code, fiscalItem.product.code],
       [`itens[${n}].descricao`, description, fiscalItem.product.description],
@@ -1853,20 +2200,59 @@ function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
   });
   const shipping = objectValue(snapshot.order.data.shipping);
   const freight = Number(shipping.value || 0);
-  const expectedCommercialTotal = (composition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + composition.vOutroCents) / 100 + freight;
+  const expectedCommercialTotal = (composition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + composition.vOutroCents + paymentFeeComposition.totalFeeCents) / 100 + freight;
   if (Math.abs(expectedCommercialTotal - document.totals.invoice) > 5e-3)
     mismatches.push({
       field: "total.valorPedidoCalculado",
       expected: expectedCommercialTotal,
       actual: document.totals.invoice
     });
-  const expectedAdditionalInformation = composition.additionalInformation || "";
+  const expectedAdditionalInformation = joinFiscalAdditionalInformation(
+    composition.additionalInformation,
+    paymentFeeComposition.additionalInformation
+  ) || "";
   if ((document.additionalInformation || "") !== expectedAdditionalInformation)
     mismatches.push({
       field: "informacoesAdicionais.infCpl",
       expected: expectedAdditionalInformation || "(ausente)",
       actual: document.additionalInformation || "(ausente)"
     });
+  if (document.modelDecision?.status === "ready") {
+    const expectedPayments = resolveNormalSalePayments({
+      snapshot,
+      data: snapshot.order.data,
+      shipping: objectValue(snapshot.order.data.shipping),
+      modelDecision: document.modelDecision,
+      traces: [...document.decisions],
+      invoice: Math.round(document.totals.invoice * 100),
+      feeCentsByPayment: resolvePaymentFeeRows(snapshot.order.data).feeCentsByPayment
+    }).payments;
+    const paymentCount = Math.max(expectedPayments.length, document.payments.length);
+    for (let index = 0; index < paymentCount; index += 1) {
+      const expected = expectedPayments[index];
+      const actual = document.payments[index];
+      if (!expected || !actual) {
+        mismatches.push({
+          field: `pagamentos[${index + 1}]`,
+          expected: expected ? "presente" : "(ausente)",
+          actual: actual ? "presente" : "(ausente)"
+        });
+        continue;
+      }
+      if (expected.methodCode !== actual.methodCode)
+        mismatches.push({ field: `pagamentos[${index + 1}].meio`, expected: expected.methodCode, actual: actual.methodCode });
+      if (Math.abs(expected.amount - actual.amount) > 5e-3)
+        mismatches.push({ field: `pagamentos[${index + 1}].valor`, expected: expected.amount, actual: actual.amount });
+      if (expected.paymentIndicator !== actual.paymentIndicator)
+        mismatches.push({ field: `pagamentos[${index + 1}].indicador`, expected: expected.paymentIndicator || "", actual: actual.paymentIndicator || "" });
+      if ((expected.description || "") !== (actual.description || ""))
+        mismatches.push({ field: `pagamentos[${index + 1}].descri\xE7\xE3o`, expected: expected.description || "", actual: actual.description || "" });
+      if ((expected.paymentDate || "") !== (actual.paymentDate || ""))
+        mismatches.push({ field: `pagamentos[${index + 1}].data`, expected: expected.paymentDate || "", actual: actual.paymentDate || "" });
+      if (JSON.stringify(expected.card || null) !== JSON.stringify(actual.card || null))
+        mismatches.push({ field: `pagamentos[${index + 1}].cart\xE3o`, expected: "dados do pedido", actual: "dados divergentes" });
+    }
+  }
   const orderCustomer = objectValue(snapshot.order.data.customerData);
   const fiscalCustomer = objectValue(snapshot.fiscalInputs?.customer);
   const selectedTaxId = normalizeTaxId(
@@ -2093,195 +2479,6 @@ function assertSignedFiscalXmlMatchesSnapshot(snapshot, document, xml, identity,
     mismatches.push({ field: "infNFeSupl", expected: "(ausente)", actual: "(presente)" });
   }
   if (mismatches.length) throw new FiscalXmlAuditError(mismatches);
-}
-
-// shared-utils/orderPaymentState.ts
-var normalize = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
-function classifyOrderPaymentSettlement(status) {
-  if (status === void 0 || status === null) return "paid";
-  const normalized = normalize(String(status));
-  if (normalized.startsWith("pago")) return "paid";
-  if (normalized.startsWith("pendente")) return "pending";
-  return "unconfirmed";
-}
-function isPromissoryPaymentMethod(method) {
-  return typeof method === "string" && normalize(method).includes("promissoria");
-}
-function getOrderFulfillmentPaymentCondition(deliveryMethod) {
-  if (deliveryMethod === "pickup") return "Pagamento na retirada";
-  if (deliveryMethod === "delivery") return "Pagamento na entrega";
-  return void 0;
-}
-function parseDateOnly(value) {
-  if (typeof value !== "string") return void 0;
-  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})(?:$|T|\s)/);
-  if (!match) return void 0;
-  const date = /* @__PURE__ */ new Date(`${match[1]}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== match[1] ? void 0 : match[1];
-}
-function getOrderPaymentDueDate(payment, shipping) {
-  const explicitDate = parseDateOnly(payment.dueDate);
-  if (explicitDate) return explicitDate;
-  if (isPromissoryPaymentMethod(payment.method)) return void 0;
-  const scheduling = shipping?.scheduling;
-  if (!getOrderFulfillmentPaymentCondition(shipping?.deliveryMethod) || scheduling?.pendingScheduling === true || scheduling?.dateType === "range" || scheduling?.type === "range")
-    return void 0;
-  return parseDateOnly(scheduling?.date);
-}
-function getOrderPaymentActualDate(payment) {
-  return parseDateOnly(payment.paymentDate);
-}
-
-// api/nfe/normal-sale/values.ts
-var obj = (value) => {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("Fatos fiscais obrigat\xF3rios ausentes.");
-  return value;
-};
-var normalize2 = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-var money = (value, field, positive = false) => {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < (positive ? 0.01 : 0) || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6)
-    throw new Error(`${field} inv\xE1lido ou fora da precis\xE3o de centavos.`);
-  return Math.round(value * 100);
-};
-
-// api/nfe/normal-sale/payments.ts
-function resolveNormalSalePayments(params) {
-  const { snapshot, data, shipping, modelDecision, traces, invoice } = params;
-  const emissionDate = saoPauloEmissionTimestamp(snapshot.capturedAt).slice(0, 10);
-  const rawPayments = Array.isArray(data.payments) ? data.payments.map(obj) : [];
-  const resolvedPayments = [];
-  let paidCents = 0;
-  let pendingCents = 0;
-  for (let index = 0; index < rawPayments.length; index += 1) {
-    const payment2 = rawPayments[index];
-    const amountValue = Number(payment2.amount ?? 0);
-    if (!Number.isFinite(amountValue) || amountValue < 0)
-      throw new Error(`Valor do pagamento ${index + 1} inv\xE1lido.`);
-    if (amountValue === 0) continue;
-    const amountCents = money(amountValue, `Pagamento ${index + 1}`, true);
-    const settlement = classifyOrderPaymentSettlement(payment2.status);
-    if (settlement === "unconfirmed")
-      throw new Error(
-        `Pagamento ${index + 1} est\xE1 como \u201C${String(payment2.status)}\u201D; confirme se foi recebido ou permanece pendente antes de transmitir.`
-      );
-    const originalMethod = typeof payment2.method === "string" ? payment2.method.trim() : "";
-    const method = normalize2(originalMethod);
-    const isPromissory = isPromissoryPaymentMethod(originalMethod);
-    const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
-    let methodCode = method.includes("PIX") ? "17" : method.includes("CREDITO") || method.includes("CREDIT") ? "03" : method.includes("DEBITO") || method.includes("DEBIT") ? "04" : method.includes("DINHEIRO") || method.includes("CASH") ? "01" : method.includes("BOLETO") ? "15" : isPromissory ? "99" : void 0;
-    let description = methodCode === "99" ? originalMethod : void 0;
-    if (!methodCode && settlement === "pending" && (!method || method === "VERIFICAR")) {
-      if (!fulfillmentCondition)
-        throw new Error("O pedido pendente n\xE3o informa se a entrega ser\xE1 por entrega ou retirada.");
-      methodCode = "99";
-      description = fulfillmentCondition;
-    }
-    if (!methodCode)
-      throw new Error(
-        `Meio de pagamento \u201C${originalMethod || "n\xE3o informado"}\u201D do item ${index + 1} exige mapeamento fiscal espec\xEDfico.`
-      );
-    const paymentCard = payment2.fiscalCard;
-    const rawInstallments = Number(payment2.installments ?? 1);
-    if (!Number.isInteger(rawInstallments) || rawInstallments < 1 || rawInstallments > 120)
-      throw new Error(`Quantidade de parcelas inv\xE1lida no pagamento ${index + 1}.`);
-    const canDeclareNotIntegrated = settlement === "pending" || snapshot.emissionRequest.cardNotIntegrated || modelDecision.model === "65" && methodCode === "17";
-    const card = paymentCard || (canDeclareNotIntegrated && ["03", "04", "17"].includes(methodCode) ? { integrationType: "2" } : void 0);
-    if (modelDecision.model === "65" && ["03", "04", "17"].includes(methodCode) && (!card || !["1", "2"].includes(card.integrationType) || card.integrationType === "1" && ["03", "04"].includes(methodCode) && (!/^[A-Z0-9]{12}[0-9]{2}$/.test(card.acquirerCnpj || "") || !card.authorization)))
-      throw new Error(
-        `Pagamento ${index + 1}: informe a integra\xE7\xE3o e os dados fiscais reais do cart\xE3o/PIX para NFC-e.`
-      );
-    const resolved = {
-      methodCode,
-      amountCents,
-      settlement,
-      ...description ? { description } : {},
-      ...settlement === "paid" && getOrderPaymentActualDate(payment2) ? { paymentDate: getOrderPaymentActualDate(payment2) } : {},
-      ...settlement === "pending" ? { dueDate: getOrderPaymentDueDate(payment2, shipping) } : {},
-      installments: rawInstallments,
-      ...card ? { card } : {}
-    };
-    resolvedPayments.push(resolved);
-    if (settlement === "paid") paidCents += amountCents;
-    else pendingCents += amountCents;
-  }
-  const orderPaymentSummary = data.paymentsSummary && typeof data.paymentsSummary === "object" && !Array.isArray(data.paymentsSummary) ? data.paymentsSummary : {};
-  const summaryPaid = Number(orderPaymentSummary.totalAmountPaid ?? 0);
-  if (!resolvedPayments.length && Number.isFinite(summaryPaid) && summaryPaid > 0)
-    throw new Error(
-      "O Pedido de Venda informa valor recebido, mas n\xE3o tem os meios de pagamento correspondentes; revise os pagamentos antes de transmitir."
-    );
-  const amountDueCents = invoice - paidCents;
-  if (amountDueCents < 0)
-    throw new Error("Os valores marcados como pagos excedem o total fiscal da nota.");
-  if (pendingCents > amountDueCents)
-    throw new Error("Os valores pendentes do pedido excedem o saldo ainda devido da nota.");
-  if (pendingCents < amountDueCents) {
-    if (resolvedPayments.some(
-      (payment2) => payment2.settlement === "pending" && payment2.methodCode === "99" && isPromissoryPaymentMethod(payment2.description)
-    ))
-      throw new Error(
-        "O valor pendente da promiss\xF3ria n\xE3o cobre todo o saldo da nota; revise as parcelas registradas no Pedido de Venda."
-      );
-    const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
-    if (!fulfillmentCondition)
-      throw new Error(
-        "O saldo pendente n\xE3o tem condi\xE7\xE3o de retirada ou entrega definida no pedido."
-      );
-    const fallbackDueDate = getOrderPaymentDueDate({}, shipping);
-    resolvedPayments.push({
-      methodCode: "99",
-      amountCents: amountDueCents - pendingCents,
-      settlement: "pending",
-      description: fulfillmentCondition,
-      ...fallbackDueDate ? { dueDate: fallbackDueDate } : {},
-      installments: 1
-    });
-    pendingCents = amountDueCents;
-  }
-  if (paidCents + pendingCents !== invoice)
-    throw new Error("Os valores recebidos e pendentes n\xE3o reconciliam com o total fiscal da nota.");
-  const payments = resolvedPayments.map((payment2) => ({
-    methodCode: payment2.methodCode,
-    amount: payment2.amountCents / 100,
-    paymentIndicator: payment2.settlement === "paid" || payment2.dueDate === emissionDate ? "0" : "1",
-    ...payment2.description ? { description: payment2.description } : {},
-    ...payment2.paymentDate ? { paymentDate: payment2.paymentDate } : {},
-    ...payment2.card ? { card: payment2.card } : {},
-    decision: traces[0]
-  }));
-  const payment = paidCents + pendingCents;
-  const pendingPayments = resolvedPayments.filter((item) => item.settlement === "pending");
-  const billingParts = [];
-  for (const pendingPayment of pendingPayments) {
-    if (pendingPayment.dueDate === emissionDate) continue;
-    if (isPromissoryPaymentMethod(pendingPayment.description) && pendingPayment.installments > 1) {
-      const perInstallment = Math.floor(pendingPayment.amountCents / pendingPayment.installments);
-      const remainder = pendingPayment.amountCents % pendingPayment.installments;
-      if (perInstallment < 1)
-        throw new Error("O valor da promiss\xF3ria n\xE3o cobre a quantidade de parcelas registrada.");
-      for (let index = 0; index < pendingPayment.installments; index += 1)
-        billingParts.push({
-          amountCents: perInstallment + (index < remainder ? 1 : 0)
-        });
-    } else {
-      billingParts.push({
-        ...pendingPayment.dueDate ? { dueDate: pendingPayment.dueDate } : {},
-        amountCents: pendingPayment.amountCents
-      });
-    }
-  }
-  if (billingParts.length > 120)
-    throw new Error("A condi\xE7\xE3o a prazo excede o limite fiscal de 120 parcelas.");
-  const billingInstallments = (
-    // cobr is optional; a partial schedule cannot describe the full deferred balance.
-    modelDecision.model === "55" && billingParts.length > 0 && billingParts.every((part) => part.dueDate) ? billingParts.sort((left, right) => left.dueDate.localeCompare(right.dueDate)).map((part, index) => ({
-      number: String(index + 1).padStart(3, "0"),
-      dueDate: part.dueDate,
-      amount: part.amountCents / 100
-    })) : void 0
-  );
-  return { payments, payment, billingInstallments };
 }
 
 // api/nfe/orderEditFiscalAudit.ts
@@ -2561,7 +2758,8 @@ function compareEditedPayments(changes, snapshot, proposedData, document) {
       shipping: objectValue2(proposedData.shipping),
       modelDecision,
       traces: [...document.decisions],
-      invoice: Math.round(document.totals.invoice * 100)
+      invoice: Math.round(document.totals.invoice * 100),
+      feeCentsByPayment: resolvePaymentFeeRows(proposedData).feeCentsByPayment
     });
     const expectedPayments = resolved.payments.map(paymentProjection);
     const actualPayments = document.payments.map(paymentProjection);

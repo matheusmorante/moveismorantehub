@@ -183,6 +183,7 @@ function generateDanfeNfceHtml(data: DanfeData): string {
   const protocol = protocolNumber
     ? `<div class="protocol">Protocolo de autorização: ${escapeDanfeHtml(protocolNumber)}${protocolDate ? ` · ${escapeDanfeHtml(protocolDate)}` : ''}</div>`
     : '';
+  const complementaryInfo = fiscalDetails?.general.additionalInfo || '';
   const css = `
     @page { size: 80mm auto; margin: 4mm; }
     * { box-sizing: border-box; }
@@ -205,6 +206,8 @@ function generateDanfeNfceHtml(data: DanfeData): string {
     .key { overflow-wrap:anywhere; font-size:10px; }
     .qr { width:48mm; height:48mm; margin:8px auto; display:block; }
     .protocol { font-size:10px; margin-top:5px; }
+    .additional-info { border-top:1px dashed #333; margin-top:8px; padding-top:7px; font-size:11px; overflow-wrap:anywhere; }
+    .additional-info-text { margin-top:4px; white-space:pre-wrap; }
     .homologation { border:1px dashed #b91c1c; color:#b91c1c; padding:5px; margin-bottom:8px; text-align:center; font-weight:bold; }
     @media print { .no-print { display:none; } .danfe-nfce { width:72mm; } }
   `;
@@ -221,7 +224,9 @@ function generateDanfeNfceHtml(data: DanfeData): string {
       ${estimatedTaxes ? `<div class="taxes">${estimatedTaxes}</div>` : ''}
       <div>Consulte pela chave de acesso:</div><div class="key">${escapeDanfeHtml(formattedKey)}</div>
       ${qrSvg ? `<div class="center">Consulta via QR Code</div>${qrSvg.replace('<svg ', '<svg class="qr" ')}` : '<div class="center">QR Code da consulta indisponível no XML armazenado.</div>'}
-      ${protocol}<div class="center" style="margin-top:8px">Obrigado pela preferência</div>
+      ${protocol}
+      ${complementaryInfo.trim() ? `<section class="additional-info"><strong>INFORMAÇÕES COMPLEMENTARES</strong><div class="additional-info-text">${escapeDanfeHtml(complementaryInfo)}</div></section>` : ''}
+      <div class="center" style="margin-top:8px">Obrigado pela preferência</div>
     </main></body></html>`;
 }
 

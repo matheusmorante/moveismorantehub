@@ -5,6 +5,7 @@ import orderCancellationPolicy from '../../server/nfe/order-cancellation-policy.
 import orderFiscalBadges from '../../server/nfe/order-fiscal-badges.cjs';
 import returnFiscalEligibility from '../../server/nfe/return-fiscal-eligibility.cjs';
 import fiscalPendencies from '../../server/nfe/fiscal-pendencies.cjs';
+import exportDocuments from '../../server/nfe/export-documents.cjs';
 
 type Handler = (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
 const unwrap = (handler: Handler): Handler =>
@@ -16,6 +17,7 @@ const handlers: Record<string, Handler> = {
   'order-fiscal-badges': unwrap(orderFiscalBadges),
   'return-fiscal-eligibility': unwrap(returnFiscalEligibility),
   'fiscal-pendencies': unwrap(fiscalPendencies),
+  'export-documents': unwrap(exportDocuments),
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

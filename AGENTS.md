@@ -105,3 +105,12 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 * Se o login falhar, investigar e corrigir a causa — configuração, carregamento das variáveis, formulário, sessão, permissões ou automação do navegador — e repetir o fluxo apropriado. Resolver os impedimentos técnicos de autonomia antes de transferir trabalho ao usuário.
 * Carregar credenciais somente em memória durante a execução. Não expor senhas, tokens ou sessões em mensagens, argumentos de comando, snapshots, screenshots, traces, logs ou arquivos de evidência.
 * A autonomia de login preserva as permissões da conta, os gates de ownership e isolamento dos testes e as autorizações exigidas para operações fiscais ou outras ações externas.
+
+---
+
+## 10. Inicialização e Reinício dos Servidores de Desenvolvimento
+
+* Sempre que o usuário pedir para iniciar, subir ou reiniciar um servidor, executar **`npm run dev` na raiz do repositório**, iniciando toda a pilha de serviços orquestrada por esse comando.
+* Expressões como “iniciar o servidor do ERP”, “servidor do app” ou referências a um módulo também significam iniciar a pilha completa. Usar o comando padrão da raiz, com os mecanismos de ambiente existentes.
+* Ao reiniciar, encerrar a execução anterior da mesma pilha antes de iniciar a nova, evitando processos duplicados e conflitos de portas.
+* Confirmar que o ERP está disponível na porta `5173` com `strictPort` e que a API da porta `3000` responde antes de informar que o ambiente está pronto.

@@ -24,6 +24,9 @@ import { readOutboundAttemptStatus } from './outboundStatus';
 import { withNfeEmissionStage } from '../nfeEmissionPerformance';
 import { appendResponsibleTechnician } from '../responsibleTechnician';
 import { validateNfeAgainstOfficialSchema, validateUnsignedNfeStructure } from '../schemaValidator';
+import { withTimeout } from '../../../shared-utils/withTimeout';
+
+export const OUTBOUND_PREPARATION_TIMEOUT_MS = 20_000;
 
 export interface CasPreparationContext {
   db: OutboundDatabase;
@@ -101,6 +104,17 @@ async function resolvePreparationRpcFailure(
     ...diagnostic,
   };
 
+  if (
+    status.kind === 'not_found' &&
+    (diagnostic.databaseCode === '55P03' || confirmedFailure?.body.code === 'FISCAL_PREPARATION_BUSY')
+  )
+    return outboundFailure(
+      409,
+      'FISCAL_PREPARATION_BUSY',
+      'Outra preparação fiscal está usando este pedido ou esta tentativa. Consulte a mesma tentativa antes de continuar.',
+      { ...identity, pending: true, sefazContacted: false }
+    );
+
   if (status.kind === 'not_found' && confirmedFailure)
     return {
       status: confirmedFailure.status,
@@ -117,14 +131,11 @@ async function resolvePreparationRpcFailure(
     return outboundFailure(
       503,
       'FISCAL_PREPARATION_UNCONFIRMED',
-      'A consulta local confirmou que a tentativa não foi persistida. Preserve o identificador e retome a mesma tentativa quando estiver pronto.',
+      'A resposta da preparação não foi confirmada e ainda não há registro durável visível. Preserve o identificador e consulte a mesma tentativa antes de continuar.',
       {
         ...identity,
-        pending: false,
-        preparationReconciled: true,
-        numberReserved: false,
+        pending: true,
         sefazContacted: false,
-        databaseReason: 'PREPARATION_NOT_PERSISTED',
       }
     );
 
@@ -385,16 +396,27 @@ export async function executeCasPreparationLoop(
     try {
       saved = await withNfeEmissionStage(
         'prepare_attempt_rpc',
-        () =>
-          db.rpc('prepare_nfe_outbound_attempt', {
-            p_snapshot: { ...snapshot, decisionTrace: resolved.document.decisions },
-            p_signed_xml: signedXml,
-            p_access_key: accessKey,
-            p_request_command: fiscalAttemptCommand(command),
-            p_attempt_token: token,
-            p_actor_id: actorId,
-            p_minimum_number: minimum,
-          }),
+        async () => {
+          const response = await withTimeout(
+            db.rpc('prepare_nfe_outbound_attempt', {
+              p_snapshot: { ...snapshot, decisionTrace: resolved.document.decisions },
+              p_signed_xml: signedXml,
+              p_access_key: accessKey,
+              p_request_command: fiscalAttemptCommand(command),
+              p_attempt_token: token,
+              p_actor_id: actorId,
+              p_minimum_number: minimum,
+            }),
+            OUTBOUND_PREPARATION_TIMEOUT_MS,
+            null,
+            'nfe:prepare-attempt-rpc'
+          );
+          if (response === null)
+            throw Object.assign(new Error('FISCAL_PREPARATION_TIMEOUT'), {
+              code: 'FISCAL_PREPARATION_TIMEOUT',
+            });
+          return response;
+        },
         { emissionRequestId: command.emissionRequestId }
       );
     } catch (error) {
@@ -429,7 +451,7 @@ export async function executeCasPreparationLoop(
             reason === 'FISCAL_PREPARATION_FAILED'
               ? undefined
               : outboundFailure(
-                  reason === 'IDEMPOTENCY_KEY_REUSED' ? 409 : 503,
+                  ['IDEMPOTENCY_KEY_REUSED', 'FISCAL_SOURCE_CHANGED'].includes(reason) ? 409 : 503,
                   reason,
                   reason === 'FISCAL_SOURCE_CHANGED'
                     ? 'Os dados do pedido, produtos ou cliente foram alterados durante a preparação. Atualize os dados fiscais e tente novamente.'

@@ -1,9 +1,48 @@
+import type { Payment } from '../../../types/payments.type';
+import { getFixedFee } from '../../../utils/calculations';
+
+const formatCurrency = (value: number) =>
+  Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const getPaymentFeeAmount = (payment: Payment) =>
+  Number(
+    getFixedFee({
+      ...payment,
+      amount: Number(payment.amount) || 0,
+      feeType: payment.feeType || 'fixed',
+    })
+  ) || 0;
+
+const getTotalPaymentsFee = (payments: Payment[]) =>
+  payments.reduce((total, payment) => total + getPaymentFeeAmount(payment), 0);
+
+const PaymentAmount = ({ payment }: { payment: Payment }) => {
+  const amount = Number(payment.amount) || 0;
+  const feeAmount = getPaymentFeeAmount(payment);
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-end gap-x-2 text-right">
+      <span className="text-sm font-black text-slate-700 dark:text-slate-200">
+        {formatCurrency(amount)}
+      </span>
+      {feeAmount > 0 && (
+        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+          Taxa: {formatCurrency(feeAmount)} · Total com taxa:{' '}
+          <strong className="text-slate-700 dark:text-slate-200">
+            {formatCurrency(amount + feeAmount)}
+          </strong>
+        </span>
+      )}
+    </div>
+  );
+};
+
 export const PaymentDetails = ({
   payments = [],
   totalPaid = 0,
   amountRemaining = 0,
 }: {
-  payments?: any[];
+  payments?: Payment[];
   totalPaid?: number;
   amountRemaining?: number;
 }) => (
@@ -29,12 +68,7 @@ export const PaymentDetails = ({
                 </p>
               )}
             </div>
-            <span className="shrink-0 text-sm font-black text-slate-700 dark:text-slate-200">
-              {Number(payment.amount || 0).toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              })}
-            </span>
+            <PaymentAmount payment={payment} />
           </div>
         ))}
       </div>
@@ -42,20 +76,27 @@ export const PaymentDetails = ({
       <p className="py-2 text-xs font-bold text-slate-400">Nenhuma forma de pagamento informada.</p>
     )}
 
-    <div className="flex justify-between items-center pt-3 mt-1 border-t border-slate-200 dark:border-slate-700 text-xs">
-      <span className="font-bold text-slate-500">
-        Pago:{' '}
-        <strong className="text-slate-700 dark:text-slate-200">
-          {Number(totalPaid || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-        </strong>
-      </span>
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-3 mt-1 border-t border-slate-200 dark:border-slate-700 text-xs">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-bold text-slate-500">
+        {getTotalPaymentsFee(payments) > 0 && (
+          <span>
+            Taxas:{' '}
+            <strong className="text-slate-700 dark:text-slate-200">
+              {formatCurrency(getTotalPaymentsFee(payments))}
+            </strong>
+          </span>
+        )}
+        <span>
+          Pago:{' '}
+          <strong className="text-slate-700 dark:text-slate-200">
+            {formatCurrency(totalPaid)}
+          </strong>
+        </span>
+      </div>
       <span className="font-bold text-slate-500">
         Em aberto:{' '}
         <strong className="text-slate-700 dark:text-slate-200">
-          {Number(amountRemaining || 0).toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-          })}
+          {formatCurrency(amountRemaining)}
         </strong>
       </span>
     </div>

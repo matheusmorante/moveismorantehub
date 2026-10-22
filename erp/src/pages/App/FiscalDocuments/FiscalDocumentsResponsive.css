@@ -1,0 +1,146 @@
+.fiscal-documents-page {
+  container-name: fiscal-documents;
+  container-type: inline-size;
+}
+
+.fiscal-documents-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.fiscal-summary-panel,
+.fiscal-documents-results {
+  min-width: 0;
+}
+
+.fiscal-summary-layout-control,
+.fiscal-documents-table {
+  display: none;
+}
+
+.fiscal-document-cards {
+  display: block;
+}
+
+.fiscal-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.fiscal-summary-card--secondary {
+  display: none;
+}
+
+.fiscal-summary-expand-control {
+  display: inline-flex;
+}
+
+@container fiscal-documents (min-width: 768px) {
+  .fiscal-document-cards {
+    display: none;
+  }
+
+  .fiscal-documents-table {
+    display: block;
+  }
+}
+
+@container fiscal-documents (min-width: 768px) and (max-width: 1023px) {
+  .fiscal-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container fiscal-documents (min-width: 1024px) and (max-width: 1279px) {
+  .fiscal-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fiscal-documents-page[data-summary-expanded='true'] .fiscal-summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@container fiscal-documents (max-width: 1279px) {
+  .fiscal-documents-page[data-summary-expanded='true'] .fiscal-summary-card--secondary {
+    display: flex;
+  }
+}
+
+@container fiscal-documents (min-width: 1280px) and (max-width: 1599px) {
+  .fiscal-documents-workspace {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+
+  .fiscal-documents-workspace[data-summary-collapsed='true'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fiscal-summary-panel {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .fiscal-documents-results {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .fiscal-documents-workspace[data-summary-collapsed='true'] .fiscal-summary-panel {
+    display: none;
+  }
+
+  .fiscal-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fiscal-summary-card--secondary {
+    display: flex;
+  }
+
+  .fiscal-summary-expand-control {
+    display: none;
+  }
+
+  .fiscal-summary-layout-control {
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+@container fiscal-documents (min-width: 1600px) {
+  .fiscal-documents-workspace,
+  .fiscal-documents-workspace[data-summary-collapsed='true'] {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .fiscal-summary-panel,
+  .fiscal-documents-workspace[data-summary-collapsed='true'] .fiscal-summary-panel {
+    position: sticky;
+    top: 5rem;
+    grid-column: 2;
+    grid-row: 1;
+    display: block;
+  }
+
+  .fiscal-documents-results {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .fiscal-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fiscal-summary-card--secondary {
+    display: flex;
+  }
+
+  .fiscal-summary-expand-control,
+  .fiscal-summary-layout-control {
+    display: none;
+  }
+}

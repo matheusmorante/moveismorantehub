@@ -63,11 +63,11 @@ export const saveProduct = async (
   const existingProduct = !forceInsert
     ? products.find((item) => String(item.id) === String(product.id))
     : undefined;
-  validateProductImageLimits(product, existingProduct);
   formatProductTextData(product);
   if (!isProductDraft(product)) {
     Object.assign(product, ensureDefaultVariation(product));
   }
+  validateProductImageLimits(product, existingProduct);
   const legacyId = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     product.id || ''
   )
@@ -175,12 +175,15 @@ export const updateProduct = async (
   const products = getLocalProducts();
   const index = products.findIndex((p) => String(p.id) === String(id));
   const existingProduct = index === -1 ? undefined : products[index];
-  const productForValidation: Partial<Product> = {
+  const productForValidationInput: Partial<Product> = {
     ...existingProduct,
     ...productToUpdate,
     images: productToUpdate.images ?? existingProduct?.images,
     variations: productToUpdate.variations ?? existingProduct?.variations,
   };
+  const productForValidation = productForValidationInput.variations?.length === 1
+    ? ensureDefaultVariation(productForValidationInput)
+    : productForValidationInput;
   validateProductImageLimits(productForValidation, existingProduct);
   formatProductTextData(productToUpdate as Product);
   if (productToUpdate.id && String(productToUpdate.id) !== String(id)) {
@@ -307,12 +310,12 @@ export const updateProduct = async (
 
   const currentItem = products[index];
 
-  const updatedProduct = {
+  const updatedProduct = ensureDefaultVariation({
     ...currentItem,
     ...productToUpdate,
     id: resolvedId,
     updatedAt: new Date().toISOString(),
-  };
+  } as Product);
 
   products[index] = updatedProduct;
   saveLocalProducts(products);

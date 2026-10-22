@@ -40,6 +40,7 @@ async function check() {
     'order-cancellation-policy': 'auxiliary',
     'order-fiscal-badges': 'auxiliary',
     'fiscal-pendencies': 'auxiliary',
+    'export-documents': 'auxiliary',
   };
   const config = JSON.parse(await readFile(resolve(__dirname, '../vercel.json'), 'utf8'));
   const rewrites = new Map(config.rewrites.map(({ source, destination }) => [source, destination]));

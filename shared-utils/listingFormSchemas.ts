@@ -20,6 +20,7 @@ export const fiscalDocumentsListFormSchema = z.object({
   pageIndex: z.number().int().nonnegative(), targetDocumentId: z.string().uuid('Identificação da nota inválida.').nullish(),
   filters: z.object({
     search: z.string(), model: z.enum(['all', '55', '65']), environment: z.enum(['all', '1', '2']),
+    documentType: z.enum(['all', 'outbound', 'estorno']),
     status: z.enum(['all', 'pendente', 'processando', 'autorizada', 'homologada', 'cancelada', 'rejeitada', 'denegada', 'erro', 'abandoned']),
     dateFrom: z.string(), dateTo: z.string(),
   }),

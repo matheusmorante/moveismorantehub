@@ -29,6 +29,11 @@ import {
 import { determineNormalSaleItems } from './normal-sale/items';
 import { resolveNormalSalePayments } from './normal-sale/payments';
 import {
+  composePaymentFeeVoutro,
+  joinFiscalAdditionalInformation,
+  resolvePaymentFeeRows,
+} from './normal-sale/paymentFeeVoutro';
+import {
   resolveNormalSaleCustomer,
   resolveNormalSaleRecipientAddress,
   resolveRecipientIeContext,
@@ -49,6 +54,7 @@ export async function createNormalSaleRuleSet(
 
   const inputs = obj(facts.fiscalInputs);
   const orderData = facts.order.data;
+  const paymentFees = resolvePaymentFeeRows(orderData);
   const contextData = orderData.fiscalContext ? obj(orderData.fiscalContext) : {};
   const shippingData = orderData.shipping ? obj(orderData.shipping) : {};
 
@@ -103,7 +109,8 @@ export async function createNormalSaleRuleSet(
 
   const modelSelectionTotal =
     (orderData.items as any[]).reduce((sum, item) => sum + getItemNetCents(item), 0) +
-    money(shippingData.value ?? 0, 'Frete comercial');
+    money(shippingData.value ?? 0, 'Frete comercial') +
+    paymentFees.totalFeeCents;
 
   const decisionOrder = {
     ...fiscalOrderData,
@@ -157,7 +164,14 @@ export async function createNormalSaleRuleSet(
   const modelTotal =
     initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) +
     initialComposition.vOutroCents +
+    paymentFees.totalFeeCents +
     money(shippingData.value ?? 0, 'Frete comercial');
+  composePaymentFeeVoutro({
+    snapshot: facts,
+    model: modelDecision.model,
+    itemNetCents: initialComposition.products.map((item) => item.vProdCents - item.vDescCents),
+    paymentFees,
+  });
 
   const deliveryMethod = resolveEffectiveFiscalDeliveryMethod({
     fiscalModel: modelDecision.model,
@@ -280,6 +294,13 @@ export async function createNormalSaleRuleSet(
         modelDecision.model
       );
 
+      const paymentFeeComposition = composePaymentFeeVoutro({
+        snapshot,
+        model: modelDecision.model,
+        itemNetCents: composition.products.map((item) => item.vProdCents - item.vDescCents),
+        paymentFees: resolvePaymentFeeRows(data),
+      });
+
       assertServiceFiscalCompositionReady(
         composition
       );
@@ -330,6 +351,8 @@ export async function createNormalSaleRuleSet(
         ruleSetVersion,
         code,
         freight,
+        paymentFeeTotalCents: paymentFeeComposition.totalFeeCents,
+        paymentFeeItemCents: paymentFeeComposition.itemFeeCents,
       });
 
       const { payments, payment, billingInstallments } = resolveNormalSalePayments({
@@ -339,6 +362,7 @@ export async function createNormalSaleRuleSet(
         modelDecision,
         traces,
         invoice,
+        feeCentsByPayment: paymentFeeComposition.feeCentsByPayment,
       });
 
       const issuer = snapshot.issuerProfile;
@@ -381,6 +405,10 @@ export async function createNormalSaleRuleSet(
           : resolvedTransport.requiresTransporterData && effectiveTransporter
             ? effectiveTransporter
             : undefined;
+      const additionalInformation = joinFiscalAdditionalInformation(
+        composition.additionalInformation,
+        paymentFeeComposition.additionalInformation
+      );
 
       return {
         snapshotHash: hash,
@@ -418,9 +446,7 @@ export async function createNormalSaleRuleSet(
         },
         items: determinedItems,
         payments,
-        ...(composition.additionalInformation
-          ? { additionalInformation: composition.additionalInformation }
-          : {}),
+        ...(additionalInformation ? { additionalInformation } : {}),
         ...(billingInstallments?.length ? { billingInstallments } : {}),
         decisions: traces,
         totals: {
@@ -429,7 +455,7 @@ export async function createNormalSaleRuleSet(
           discount: discount / 100,
           freight: freight / 100,
           insurance: 0,
-          otherExpenses: composition.vOutroCents / 100,
+          otherExpenses: (composition.vOutroCents + paymentFeeComposition.totalFeeCents) / 100,
           icms: 0,
           icmsExempt: 0,
           fcp: 0,

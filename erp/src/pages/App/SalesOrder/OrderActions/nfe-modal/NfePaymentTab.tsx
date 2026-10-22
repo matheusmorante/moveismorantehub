@@ -2,6 +2,11 @@ import type React from 'react';
 import type Order from '@/pages/types/order.type';
 import type { Payment } from '@/pages/types/payments.type';
 import {
+  calcPaymentTotalValue,
+  calcPaymentsTotalValue,
+  getFixedFee,
+} from '../../../../../../../shared-utils/orderCalculations';
+import {
   assessOrderPayments,
   classifyOrderPaymentSettlement,
   getOrderFulfillmentPaymentCondition,
@@ -43,7 +48,11 @@ export const NfePaymentTab: React.FC<NfePaymentTabProps> = ({
   invoiceTotal,
 }) => {
   const payments: Payment[] = order.payments || [];
-  const assessment = assessOrderPayments(payments, invoiceTotal);
+  const assessment = assessOrderPayments(
+    payments.map((payment) => ({ ...payment, amount: calcPaymentTotalValue(payment) })),
+    invoiceTotal
+  );
+  const paymentFees = payments.reduce((sum, payment) => sum + getFixedFee(payment), 0);
   const totalPaid = assessment.paidCents / 100;
   const amountRemaining = Math.max(0, assessment.totalCents - assessment.paidCents) / 100;
   const pendingPayments = payments.filter(
@@ -113,7 +122,7 @@ export const NfePaymentTab: React.FC<NfePaymentTabProps> = ({
           )}
         </div>
 
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
               Produtos
@@ -138,6 +147,15 @@ export const NfePaymentTab: React.FC<NfePaymentTabProps> = ({
             </span>
             <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-1">
               {formatCurrency(discountTotal)}
+            </p>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Taxas de pagamento
+            </span>
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-1">
+              {formatCurrency(paymentFees)}
             </p>
           </div>
 
@@ -218,8 +236,13 @@ export const NfePaymentTab: React.FC<NfePaymentTabProps> = ({
 
                   <div className="text-right">
                     <span className="text-sm font-black text-slate-800 dark:text-slate-100">
-                      {formatCurrency(Number(p.amount) || 0)}
+                      {formatCurrency(calcPaymentTotalValue(p))}
                     </span>
+                    {getFixedFee(p) > 0 && (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Inclui {formatCurrency(getFixedFee(p))} de taxa
+                      </p>
+                    )}
                   </div>
                 </div>
               );
@@ -232,7 +255,7 @@ export const NfePaymentTab: React.FC<NfePaymentTabProps> = ({
             Total das condições registradas:
           </span>
           <span className="font-black text-slate-900 dark:text-slate-100 text-sm">
-            {formatCurrency(payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0))}
+            {formatCurrency(calcPaymentsTotalValue(payments))}
           </span>
         </div>
       </section>

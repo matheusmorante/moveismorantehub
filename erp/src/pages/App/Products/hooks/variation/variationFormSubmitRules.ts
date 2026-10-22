@@ -46,11 +46,9 @@ export function prepareFinalVariation(
     }
   }
 
-  const resolvedVariationImages = (
-    formData.images && formData.images.length > 0
-      ? formData.images
-      : []
-  ).slice(0, MAX_VARIATION_IMAGES);
+  const resolvedVariationImages = isSingleVariation
+    ? [...(allParentImages.length > 0 ? allParentImages : parentProduct.images || [])]
+    : (formData.images || []).slice(0, MAX_VARIATION_IMAGES);
 
   const finalVariation: Variation = {
     ...formData,

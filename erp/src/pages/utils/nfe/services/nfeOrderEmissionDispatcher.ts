@@ -17,6 +17,8 @@ import {
   resolveEmissionErrorMessage,
 } from './nfeEmissionErrorMessage';
 
+const EMISSION_BACKEND_REQUEST_TIMEOUT_MS = 45_000;
+
 export interface DispatchOrderEmissionParams {
   order: Order;
   environment: 1 | 2;
@@ -70,6 +72,8 @@ export async function dispatchOrderEmission({
   const existingEmissionRequestId = previewOptions.existingEmissionRequestId;
 
   let dispatchedRequestId: string | undefined;
+  let backendRequestStarted = false;
+  let backendRequestDeadline: AbortSignal | undefined;
   try {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError || !sessionData.session?.access_token)
@@ -174,6 +178,9 @@ export async function dispatchOrderEmission({
       { environment }
     );
 
+    const requestDeadline = AbortSignal.timeout(EMISSION_BACKEND_REQUEST_TIMEOUT_MS);
+    backendRequestDeadline = requestDeadline;
+    backendRequestStarted = true;
     const response = await withNfeEmissionStage(
       'backend_request',
       () =>
@@ -184,11 +191,16 @@ export async function dispatchOrderEmission({
             Authorization: `Bearer ${sessionData.session.access_token}`,
           },
           body: requestBody,
+          signal: requestDeadline,
         }),
       { environment }
     );
 
-    const result = await response.json().catch(() => ({}));
+    const result = await response.json().catch((error: unknown) => {
+      // An interrupted body read is just as uncertain as a request timeout.
+      if (requestDeadline.aborted) throw error;
+      return {};
+    });
 
     if (response.ok && result.success === true && result.preview === true) {
       const proof = result.previewProof;
@@ -393,13 +405,19 @@ export async function dispatchOrderEmission({
     const errorMessage = resolveEmissionErrorMessage(result, activeAttemptConflict);
     return { success: false, ...metadata, error: errorMessage };
   } catch (error) {
+    const timedOut =
+      backendRequestDeadline?.aborted === true ||
+      (error instanceof Error && error.name === 'TimeoutError');
+    const pending = Boolean(dispatchedRequestId && backendRequestStarted && !previewOnly);
     return {
       success: false,
       environment,
       emissionRequestId: dispatchedRequestId,
-      pending: Boolean(dispatchedRequestId),
-      error: dispatchedRequestId
-        ? 'A resposta da emissão não foi confirmada. Consulte a tentativa existente antes de emitir novamente.'
+      pending,
+      error: pending
+        ? timedOut
+          ? 'A solicitação passou de 45 segundos sem confirmação. A tentativa pode continuar no servidor; consulte o mesmo identificador antes de qualquer nova emissão.'
+          : 'A resposta da emissão não foi confirmada. Consulte a tentativa existente antes de emitir novamente.'
         : error instanceof Error
           ? error.message
           : 'Falha ao solicitar emissão fiscal.',

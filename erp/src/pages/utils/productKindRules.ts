@@ -81,13 +81,11 @@ export const normalizeProductForSave = (
       status: options.catalogStatus,
       variations: (formData.variations || []).map((variation) => {
         const varName = variation.name || effectiveName;
-        const candidateImages =
-          variation.images && variation.images.length > 0
-            ? variation.images
-            : (formData.variations?.length === 1 && formData.images && formData.images.length > 0)
-              ? formData.images
-              : [];
-        const cappedImages = candidateImages.slice(0, MAX_VARIATION_IMAGES);
+        const isSingleVariation = formData.variations?.length === 1;
+        const candidateImages = isSingleVariation ? formData.images || [] : variation.images || [];
+        const cappedImages = isSingleVariation
+          ? [...candidateImages]
+          : candidateImages.slice(0, MAX_VARIATION_IMAGES);
 
         return {
           ...variation,

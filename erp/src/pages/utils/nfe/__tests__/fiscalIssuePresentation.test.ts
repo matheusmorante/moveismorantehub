@@ -60,13 +60,19 @@ describe('mensagens fiscais para a interface', () => {
       action: 'consult',
       tone: 'attention',
     });
-    expect(initial.description).toContain('antes de iniciar o contato com a SEFAZ');
+    expect(initial.description).toContain('este fluxo não iniciou contato com a SEFAZ');
     expect(reconciled).toMatchObject({
       title: 'A preparação não foi registrada',
       action: 'resume-same-attempt',
       tone: 'attention',
     });
     expect(reconciled.description).toContain('a SEFAZ não foi contatada');
+  });
+
+  it('explica preparação ocupada com consulta da mesma tentativa, sem sugerir emissão', () => {
+    const issue = getFiscalIssuePresentation({ code: 'FISCAL_PREPARATION_BUSY', pending: true, sefazContacted: false });
+    expect(issue).toMatchObject({ title: 'A preparação deste pedido já está em andamento', action: 'consult' });
+    expect(issue.nextStep).toContain('mesma tentativa');
   });
 
   it('não apresenta preparação inválida confirmada antes da transmissão como pendente', () => {

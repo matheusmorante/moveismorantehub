@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { ParsedFinancialIntent } from '../../../services/financialAiAssistantService';
 import { FinancialCategory } from '../../../services/mobileFinanceService';
+import type { CardVisualState } from '../types/CardVisualState';
 import { CardHeaderSection } from './card/CardHeaderSection';
 import { CardTotalBlock } from './card/CardTotalBlock';
 import { CardInstallmentList } from './card/CardInstallmentList';
@@ -9,14 +10,7 @@ import { CardCandidatesBox } from './card/CardCandidatesBox';
 import { CardNeedsInputBox } from './card/CardNeedsInputBox';
 import { CardActionsSection } from './card/CardActionsSection';
 
-export type CardVisualState =
-  | 'DRAFT'
-  | 'NEEDS_INPUT'
-  | 'READY_TO_CONFIRM'
-  | 'SAVING'
-  | 'SAVED'
-  | 'ERROR'
-  | 'DISCARDED';
+export type { CardVisualState } from '../types/CardVisualState';
 
 interface Props {
   intent: ParsedFinancialIntent;

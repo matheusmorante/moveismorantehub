@@ -525,7 +525,7 @@ async function withNfeEmissionStage(stage, operation, attributes = {}) {
 }
 
 // api/nfe/emit.ts
-var import_node_crypto13 = require("node:crypto");
+var import_node_crypto14 = require("node:crypto");
 
 // erp/src/pages/utils/nfe/sefazResponseParser.ts
 function firstTag(xml, tag2) {
@@ -626,16 +626,18 @@ var getNfeAuthorizationEndpoint = (model, environment) => getNfeServiceEndpoint(
 // erp/src/pages/utils/nfe/fiscalAuthorization.ts
 var FISCAL_OPERATOR_ROLES = ["manager", "administrator"];
 var fiscalOperatorRoles = new Set(FISCAL_OPERATOR_ROLES);
-function hasFiscalOperationRole(profile) {
-  if (!profile) return false;
+function getFiscalProfileRoles(profile) {
   const roles = /* @__PURE__ */ new Set();
-  if (typeof profile.role === "string") roles.add(profile.role);
-  if (Array.isArray(profile.roles)) {
+  if (typeof profile?.role === "string") roles.add(profile.role);
+  if (Array.isArray(profile?.roles)) {
     for (const role of profile.roles) {
       if (typeof role === "string") roles.add(role);
     }
   }
-  return Array.from(roles).some((role) => fiscalOperatorRoles.has(role));
+  return roles;
+}
+function hasFiscalOperationRole(profile) {
+  return Array.from(getFiscalProfileRoles(profile)).some((role) => fiscalOperatorRoles.has(role));
 }
 function hasFiscalAdministratorRole(profile) {
   return profile?.role === "administrator" || Array.isArray(profile?.roles) && profile.roles.includes("administrator");
@@ -1406,8 +1408,8 @@ function addressUf(value) {
     }
   }
   if (!address2 || typeof address2 !== "object") return null;
-  const record3 = address2;
-  const rawUf = record3.state || record3.uf;
+  const record4 = address2;
+  const rawUf = record4.state || record4.uf;
   if (typeof rawUf !== "string") return null;
   const uf = rawUf.trim().toUpperCase();
   return BRAZILIAN_UFS.has(uf) || uf === "EX" ? uf : null;
@@ -2624,6 +2626,350 @@ function composeServiceFiscalValues(items = [], mode = "55") {
   };
 }
 
+// api/nfe/normal-sale/values.ts
+var obj = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Fatos fiscais obrigat\xF3rios ausentes.");
+  return value;
+};
+var required2 = (value, field) => {
+  if (typeof value !== "string" || !value.trim()) throw new Error(`${field} ausente.`);
+  return value.trim();
+};
+var normalize = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+var money = (value, field, positive = false) => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < (positive ? 0.01 : 0) || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6)
+    throw new Error(`${field} inv\xE1lido ou fora da precis\xE3o de centavos.`);
+  return Math.round(value * 100);
+};
+
+// api/nfe/normal-sale/paymentFeeVoutro.ts
+function record(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function exactFeeCents(payment, index) {
+  const fee = payment.fee ?? 0;
+  if (typeof fee !== "number" || !Number.isFinite(fee) || fee < 0)
+    throw new Error(`Taxa do pagamento ${index + 1} inv\xE1lida.`);
+  if (fee === 0) return 0;
+  const amount2 = payment.amount;
+  if (typeof amount2 !== "number" || !Number.isFinite(amount2) || amount2 <= 0)
+    throw new Error(`Taxa do pagamento ${index + 1} n\xE3o tem valor-base v\xE1lido.`);
+  const amountCents = Math.round(amount2 * 100);
+  if (!Number.isSafeInteger(amountCents) || Math.abs(amount2 * 100 - amountCents) > 1e-6)
+    throw new Error(`Valor do pagamento ${index + 1} est\xE1 fora da precis\xE3o de centavos.`);
+  const feeType = payment.feeType ?? "fixed";
+  if (feeType === "fixed") {
+    const feeCents = Math.round(fee * 100);
+    if (Math.abs(fee * 100 - feeCents) > 1e-6)
+      throw new Error(`Taxa fixa do pagamento ${index + 1} est\xE1 fora da precis\xE3o de centavos.`);
+    return feeCents;
+  }
+  if (feeType !== "percentage")
+    throw new Error(`Tipo da taxa do pagamento ${index + 1} inv\xE1lido.`);
+  const exactCents = amountCents * fee / 100;
+  if (!Number.isFinite(exactCents) || exactCents > Number.MAX_SAFE_INTEGER)
+    throw new Error(`Taxa percentual do pagamento ${index + 1} inv\xE1lida.`);
+  return exactCents;
+}
+function allocateRoundedRows(exactCents, targetCents) {
+  if (targetCents <= 0) return exactCents.map(() => 0);
+  const rows = exactCents.map((exact, index) => ({
+    index,
+    cents: Math.floor(exact),
+    remainder: exact - Math.floor(exact)
+  }));
+  const remaining = targetCents - rows.reduce((sum, row) => sum + row.cents, 0);
+  const order = [...rows].sort(
+    (left, right) => right.remainder - left.remainder || left.index - right.index
+  );
+  for (let index = 0; index < remaining; index += 1) order[index].cents += 1;
+  return rows.sort((left, right) => left.index - right.index).map((row) => row.cents);
+}
+function resolvePaymentFeeRows(data) {
+  const payments = Array.isArray(data.payments) ? data.payments.map(record) : [];
+  const exactCents = payments.map(exactFeeCents);
+  const exactTotalCents = exactCents.reduce((sum, value) => sum + value, 0);
+  const rawSummary = record(data.paymentsSummary).totalPaymentsFee;
+  if (exactTotalCents === 0 && (rawSummary === void 0 || rawSummary === null))
+    return { feeCentsByPayment: exactCents.map(() => 0), totalFeeCents: 0 };
+  if (typeof rawSummary !== "number" || !Number.isFinite(rawSummary) || rawSummary < 0)
+    throw new Error("O resumo consolidado das taxas de pagamento est\xE1 ausente ou inv\xE1lido.");
+  const totalFeeCents = Math.round(rawSummary * 100);
+  if (Math.abs(rawSummary * 100 - exactTotalCents) > 1e-4 || totalFeeCents !== Math.round(exactTotalCents))
+    throw new Error(
+      "As taxas dos pagamentos n\xE3o reconciliam com o total consolidado do pedido; revise o resumo antes de emitir."
+    );
+  return {
+    feeCentsByPayment: allocateRoundedRows(exactCents, totalFeeCents),
+    totalFeeCents
+  };
+}
+function fiscalPaymentMethodCode(method) {
+  if (typeof method !== "string") return void 0;
+  const normalized2 = normalize(method);
+  if (normalized2.includes("CREDITO") || normalized2.includes("CREDIT")) return "03";
+  if (normalized2.includes("DEBITO") || normalized2.includes("DEBIT")) return "04";
+  return void 0;
+}
+function paymentInstallments(payment) {
+  if (payment.installments !== void 0 && payment.installments !== null)
+    return Number(payment.installments);
+  const label = typeof payment.method === "string" ? payment.method : "";
+  const fromLabel = label.match(/\b(\d{1,3})\s*x\b/i);
+  return fromLabel ? Number(fromLabel[1]) : 1;
+}
+function formatBrl2(cents2) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents2 / 100).replace(/\u00a0/g, " ");
+}
+function paymentFeeInformation(data, feeCentsByPayment, totalFeeCents, model) {
+  const payments = Array.isArray(data.payments) ? data.payments.map(record) : [];
+  const groups = /* @__PURE__ */ new Map();
+  payments.forEach((payment, index) => {
+    const cents2 = feeCentsByPayment[index] || 0;
+    if (!cents2) return;
+    const method = fiscalPaymentMethodCode(payment.method);
+    if (!method) throw new Error(`Origem da taxa do pagamento ${index + 1} n\xE3o est\xE1 classificada.`);
+    const installments = paymentInstallments(payment);
+    const key = method === "03" && installments > 1 ? "credit_installments" : method;
+    const description = key === "credit_installments" ? "processamento do cart\xE3o de cr\xE9dito e \xE0s condi\xE7\xF5es de parcelamento escolhidas" : method === "03" ? "processamento do cart\xE3o de cr\xE9dito" : "processamento do cart\xE3o de d\xE9bito";
+    const current = groups.get(key) || { cents: 0, description };
+    current.cents += cents2;
+    groups.set(key, current);
+  });
+  const origins = [...groups.values()].map(({ cents: cents2, description }) => `${formatBrl2(cents2)} referentes aos custos de ${description}`).join("; ");
+  return `O valor total desta ${model === "65" ? "NFC-e" : "NF-e"} inclui ${formatBrl2(totalFeeCents)} em acr\xE9scimos da modalidade de pagamento, j\xE1 considerados no total do pedido e repassados ao comprador: ${origins}. As taxas de maquininha foram rateadas proporcionalmente ao valor l\xEDquido dos produtos, compondo as outras despesas acess\xF3rias de cada item.`;
+}
+function allocateAcrossItems(totalCents, weights) {
+  if (!totalCents) return weights.map(() => 0);
+  const eligibleWeights = weights.map((weight) => Math.max(0, Math.round(weight)));
+  const weightTotal = eligibleWeights.reduce((sum, weight) => sum + weight, 0);
+  if (!eligibleWeights.length || weightTotal <= 0)
+    throw new Error("N\xE3o h\xE1 itens fiscais com valor l\xEDquido para ratear as taxas de pagamento.");
+  const exact = eligibleWeights.map((weight) => totalCents * weight / weightTotal);
+  const roundedDown = exact.map(Math.floor);
+  let remaining = totalCents - roundedDown.reduce((sum, cents2) => sum + cents2, 0);
+  const order = exact.map((share, index) => ({ index, remainder: share - roundedDown[index] })).sort((left, right) => right.remainder - left.remainder || left.index - right.index);
+  for (let index = 0; index < remaining; index += 1) roundedDown[order[index].index] += 1;
+  return roundedDown;
+}
+function composePaymentFeeVoutro(params) {
+  const { snapshot, model, itemNetCents } = params;
+  const paymentFees = params.paymentFees || resolvePaymentFeeRows(snapshot.order.data);
+  const itemFeeCents = itemNetCents.map(() => 0);
+  if (!paymentFees.totalFeeCents)
+    return { ...paymentFees, itemFeeCents };
+  const payments = Array.isArray(snapshot.order.data.payments) ? snapshot.order.data.payments.map(record) : [];
+  payments.forEach((payment, index) => {
+    if (!(paymentFees.feeCentsByPayment[index] > 0)) return;
+    const method = fiscalPaymentMethodCode(payment.method);
+    if (!method)
+      throw new Error(
+        `A taxa do pagamento ${index + 1} n\xE3o est\xE1 vinculada a uma modalidade de cart\xE3o aprovada para classifica\xE7\xE3o fiscal.`
+      );
+    const installments = paymentInstallments(payment);
+    if (!Number.isInteger(installments) || installments < 1 || method === "04" && installments > 1)
+      throw new Error(`Parcelamento do pagamento ${index + 1} n\xE3o suportado para esta decis\xE3o fiscal.`);
+  });
+  const allocations = allocateAcrossItems(paymentFees.totalFeeCents, itemNetCents);
+  const additionalInformation = paymentFeeInformation(
+    snapshot.order.data,
+    paymentFees.feeCentsByPayment,
+    paymentFees.totalFeeCents,
+    model
+  );
+  if (additionalInformation.length > 5e3)
+    throw new Error("A explica\xE7\xE3o das taxas excede o limite de informa\xE7\xF5es adicionais da NF-e.");
+  return {
+    ...paymentFees,
+    itemFeeCents: allocations,
+    additionalInformation
+  };
+}
+function joinFiscalAdditionalInformation(...sections) {
+  const value = sections.filter((section) => Boolean(section?.trim())).join("; ");
+  if (value.length > 5e3)
+    throw new Error("As informa\xE7\xF5es adicionais excedem o limite fiscal da NF-e.");
+  return value || void 0;
+}
+
+// shared-utils/orderPaymentState.ts
+var normalize2 = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+function classifyOrderPaymentSettlement(status) {
+  if (status === void 0 || status === null) return "paid";
+  const normalized2 = normalize2(String(status));
+  if (normalized2.startsWith("pago")) return "paid";
+  if (normalized2.startsWith("pendente")) return "pending";
+  return "unconfirmed";
+}
+function isPromissoryPaymentMethod(method) {
+  return typeof method === "string" && normalize2(method).includes("promissoria");
+}
+function getOrderFulfillmentPaymentCondition(deliveryMethod) {
+  if (deliveryMethod === "pickup") return "Pagamento na retirada";
+  if (deliveryMethod === "delivery") return "Pagamento na entrega";
+  return void 0;
+}
+function parseDateOnly(value) {
+  if (typeof value !== "string") return void 0;
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})(?:$|T|\s)/);
+  if (!match) return void 0;
+  const date = /* @__PURE__ */ new Date(`${match[1]}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== match[1] ? void 0 : match[1];
+}
+function getOrderPaymentDueDate(payment, shipping) {
+  const explicitDate = parseDateOnly(payment.dueDate);
+  if (explicitDate) return explicitDate;
+  if (isPromissoryPaymentMethod(payment.method)) return void 0;
+  const scheduling = shipping?.scheduling;
+  if (!getOrderFulfillmentPaymentCondition(shipping?.deliveryMethod) || scheduling?.pendingScheduling === true || scheduling?.dateType === "range" || scheduling?.type === "range")
+    return void 0;
+  return parseDateOnly(scheduling?.date);
+}
+function getOrderPaymentActualDate(payment) {
+  return parseDateOnly(payment.paymentDate);
+}
+
+// api/nfe/normal-sale/payments.ts
+function resolveNormalSalePayments(params) {
+  const { snapshot, data, shipping, modelDecision, traces, invoice, feeCentsByPayment } = params;
+  const emissionDate = saoPauloEmissionTimestamp(snapshot.capturedAt).slice(0, 10);
+  const rawPayments = Array.isArray(data.payments) ? data.payments.map(obj) : [];
+  const resolvedPayments = [];
+  let paidCents = 0;
+  let pendingCents = 0;
+  for (let index = 0; index < rawPayments.length; index += 1) {
+    const payment2 = rawPayments[index];
+    const feeCents = feeCentsByPayment[index] || 0;
+    const amountValue = Number(payment2.amount ?? 0);
+    if (!Number.isFinite(amountValue) || amountValue < 0)
+      throw new Error(`Valor do pagamento ${index + 1} inv\xE1lido.`);
+    if (amountValue === 0) continue;
+    const amountCents = money(amountValue, `Pagamento ${index + 1}`, true) + feeCents;
+    const settlement = classifyOrderPaymentSettlement(payment2.status);
+    if (settlement === "unconfirmed")
+      throw new Error(
+        `Pagamento ${index + 1} est\xE1 como \u201C${String(payment2.status)}\u201D; confirme se foi recebido ou permanece pendente antes de transmitir.`
+      );
+    const originalMethod = typeof payment2.method === "string" ? payment2.method.trim() : "";
+    const method = normalize(originalMethod);
+    const isPromissory = isPromissoryPaymentMethod(originalMethod);
+    const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
+    let methodCode = method.includes("PIX") ? "17" : method.includes("CREDITO") || method.includes("CREDIT") ? "03" : method.includes("DEBITO") || method.includes("DEBIT") ? "04" : method.includes("DINHEIRO") || method.includes("CASH") ? "01" : method.includes("BOLETO") ? "15" : isPromissory ? "99" : void 0;
+    let description = methodCode === "99" ? originalMethod : void 0;
+    if (!methodCode && settlement === "pending" && (!method || method === "VERIFICAR")) {
+      if (!fulfillmentCondition)
+        throw new Error("O pedido pendente n\xE3o informa se a entrega ser\xE1 por entrega ou retirada.");
+      methodCode = "99";
+      description = fulfillmentCondition;
+    }
+    if (!methodCode)
+      throw new Error(
+        `Meio de pagamento \u201C${originalMethod || "n\xE3o informado"}\u201D do item ${index + 1} exige mapeamento fiscal espec\xEDfico.`
+      );
+    const paymentCard = payment2.fiscalCard;
+    const rawInstallments = Number(payment2.installments ?? 1);
+    if (!Number.isInteger(rawInstallments) || rawInstallments < 1 || rawInstallments > 120)
+      throw new Error(`Quantidade de parcelas inv\xE1lida no pagamento ${index + 1}.`);
+    const canDeclareNotIntegrated = settlement === "pending" || snapshot.emissionRequest.cardNotIntegrated || modelDecision.model === "65" && methodCode === "17";
+    const card = paymentCard || (canDeclareNotIntegrated && ["03", "04", "17"].includes(methodCode) ? { integrationType: "2" } : void 0);
+    if (modelDecision.model === "65" && ["03", "04", "17"].includes(methodCode) && (!card || !["1", "2"].includes(card.integrationType) || card.integrationType === "1" && ["03", "04"].includes(methodCode) && (!/^[A-Z0-9]{12}[0-9]{2}$/.test(card.acquirerCnpj || "") || !card.authorization)))
+      throw new Error(
+        `Pagamento ${index + 1}: informe a integra\xE7\xE3o e os dados fiscais reais do cart\xE3o/PIX para NFC-e.`
+      );
+    const resolved = {
+      methodCode,
+      amountCents,
+      settlement,
+      ...description ? { description } : {},
+      ...settlement === "paid" && getOrderPaymentActualDate(payment2) ? { paymentDate: getOrderPaymentActualDate(payment2) } : {},
+      ...settlement === "pending" ? { dueDate: getOrderPaymentDueDate(payment2, shipping) } : {},
+      installments: rawInstallments,
+      ...card ? { card } : {}
+    };
+    resolvedPayments.push(resolved);
+    if (settlement === "paid") paidCents += amountCents;
+    else pendingCents += amountCents;
+  }
+  const orderPaymentSummary = data.paymentsSummary && typeof data.paymentsSummary === "object" && !Array.isArray(data.paymentsSummary) ? data.paymentsSummary : {};
+  const summaryPaid = Number(orderPaymentSummary.totalAmountPaid ?? 0);
+  if (!resolvedPayments.length && Number.isFinite(summaryPaid) && summaryPaid > 0)
+    throw new Error(
+      "O Pedido de Venda informa valor recebido, mas n\xE3o tem os meios de pagamento correspondentes; revise os pagamentos antes de transmitir."
+    );
+  const amountDueCents = invoice - paidCents;
+  if (amountDueCents < 0)
+    throw new Error("Os valores marcados como pagos excedem o total fiscal da nota.");
+  if (pendingCents > amountDueCents)
+    throw new Error("Os valores pendentes do pedido excedem o saldo ainda devido da nota.");
+  if (pendingCents < amountDueCents) {
+    if (resolvedPayments.some(
+      (payment2) => payment2.settlement === "pending" && payment2.methodCode === "99" && isPromissoryPaymentMethod(payment2.description)
+    ))
+      throw new Error(
+        "O valor pendente da promiss\xF3ria n\xE3o cobre todo o saldo da nota; revise as parcelas registradas no Pedido de Venda."
+      );
+    const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
+    if (!fulfillmentCondition)
+      throw new Error(
+        "O saldo pendente n\xE3o tem condi\xE7\xE3o de retirada ou entrega definida no pedido."
+      );
+    const fallbackDueDate = getOrderPaymentDueDate({}, shipping);
+    resolvedPayments.push({
+      methodCode: "99",
+      amountCents: amountDueCents - pendingCents,
+      settlement: "pending",
+      description: fulfillmentCondition,
+      ...fallbackDueDate ? { dueDate: fallbackDueDate } : {},
+      installments: 1
+    });
+    pendingCents = amountDueCents;
+  }
+  if (paidCents + pendingCents !== invoice)
+    throw new Error("Os valores recebidos e pendentes n\xE3o reconciliam com o total fiscal da nota.");
+  const payments = resolvedPayments.map((payment2) => ({
+    methodCode: payment2.methodCode,
+    amount: payment2.amountCents / 100,
+    paymentIndicator: payment2.settlement === "paid" || payment2.dueDate === emissionDate ? "0" : "1",
+    ...payment2.description ? { description: payment2.description } : {},
+    ...payment2.paymentDate ? { paymentDate: payment2.paymentDate } : {},
+    ...payment2.card ? { card: payment2.card } : {},
+    decision: traces[0]
+  }));
+  const payment = paidCents + pendingCents;
+  const pendingPayments = resolvedPayments.filter((item) => item.settlement === "pending");
+  const billingParts = [];
+  for (const pendingPayment of pendingPayments) {
+    if (pendingPayment.dueDate === emissionDate) continue;
+    if (isPromissoryPaymentMethod(pendingPayment.description) && pendingPayment.installments > 1) {
+      const perInstallment = Math.floor(pendingPayment.amountCents / pendingPayment.installments);
+      const remainder = pendingPayment.amountCents % pendingPayment.installments;
+      if (perInstallment < 1)
+        throw new Error("O valor da promiss\xF3ria n\xE3o cobre a quantidade de parcelas registrada.");
+      for (let index = 0; index < pendingPayment.installments; index += 1)
+        billingParts.push({
+          amountCents: perInstallment + (index < remainder ? 1 : 0)
+        });
+    } else {
+      billingParts.push({
+        ...pendingPayment.dueDate ? { dueDate: pendingPayment.dueDate } : {},
+        amountCents: pendingPayment.amountCents
+      });
+    }
+  }
+  if (billingParts.length > 120)
+    throw new Error("A condi\xE7\xE3o a prazo excede o limite fiscal de 120 parcelas.");
+  const billingInstallments = (
+    // cobr is optional; a partial schedule cannot describe the full deferred balance.
+    modelDecision.model === "55" && billingParts.length > 0 && billingParts.every((part) => part.dueDate) ? billingParts.sort((left, right) => left.dueDate.localeCompare(right.dueDate)).map((part, index) => ({
+      number: String(index + 1).padStart(3, "0"),
+      dueDate: part.dueDate,
+      amount: part.amountCents / 100
+    })) : void 0
+  );
+  return { payments, payment, billingInstallments };
+}
+
 // api/nfe/fiscalXmlAudit.ts
 function createStrictXmlParser(parseErrors) {
   return new import_xmldom.DOMParser({
@@ -2908,6 +3254,11 @@ function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
   const orderItems = snapshot.order.data.items;
   if (!Array.isArray(orderItems)) throw new Error("Snapshot comercial sem itens do pedido.");
   const composition = composeServiceFiscalValues(orderItems, document.model);
+  const paymentFeeComposition = composePaymentFeeVoutro({
+    snapshot,
+    model: document.model,
+    itemNetCents: composition.products.map((item) => item.vProdCents - item.vDescCents)
+  });
   const mismatches = [];
   if (composition.products.length !== document.items.length)
     mismatches.push({ field: "itens.count", expected: composition.products.length, actual: document.items.length });
@@ -2920,7 +3271,7 @@ function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
     const quantity = Number(item.quantity) || 1;
     const gross = vProdCents / 100;
     const freight2 = index === 0 ? Number(snapshot.order.data.shipping?.value || 0) : 0;
-    const otherExpenses = index === 0 ? composition.vOutroCents / 100 : 0;
+    const otherExpenses = ((index === 0 ? composition.vOutroCents : 0) + (paymentFeeComposition.itemFeeCents[index] || 0)) / 100;
     const fields2 = [
       [`itens[${n}].codigo`, code, fiscalItem.product.code],
       [`itens[${n}].descricao`, description, fiscalItem.product.description],
@@ -2938,20 +3289,59 @@ function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
   });
   const shipping = objectValue(snapshot.order.data.shipping);
   const freight = Number(shipping.value || 0);
-  const expectedCommercialTotal = (composition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + composition.vOutroCents) / 100 + freight;
+  const expectedCommercialTotal = (composition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + composition.vOutroCents + paymentFeeComposition.totalFeeCents) / 100 + freight;
   if (Math.abs(expectedCommercialTotal - document.totals.invoice) > 5e-3)
     mismatches.push({
       field: "total.valorPedidoCalculado",
       expected: expectedCommercialTotal,
       actual: document.totals.invoice
     });
-  const expectedAdditionalInformation = composition.additionalInformation || "";
+  const expectedAdditionalInformation = joinFiscalAdditionalInformation(
+    composition.additionalInformation,
+    paymentFeeComposition.additionalInformation
+  ) || "";
   if ((document.additionalInformation || "") !== expectedAdditionalInformation)
     mismatches.push({
       field: "informacoesAdicionais.infCpl",
       expected: expectedAdditionalInformation || "(ausente)",
       actual: document.additionalInformation || "(ausente)"
     });
+  if (document.modelDecision?.status === "ready") {
+    const expectedPayments = resolveNormalSalePayments({
+      snapshot,
+      data: snapshot.order.data,
+      shipping: objectValue(snapshot.order.data.shipping),
+      modelDecision: document.modelDecision,
+      traces: [...document.decisions],
+      invoice: Math.round(document.totals.invoice * 100),
+      feeCentsByPayment: resolvePaymentFeeRows(snapshot.order.data).feeCentsByPayment
+    }).payments;
+    const paymentCount = Math.max(expectedPayments.length, document.payments.length);
+    for (let index = 0; index < paymentCount; index += 1) {
+      const expected = expectedPayments[index];
+      const actual = document.payments[index];
+      if (!expected || !actual) {
+        mismatches.push({
+          field: `pagamentos[${index + 1}]`,
+          expected: expected ? "presente" : "(ausente)",
+          actual: actual ? "presente" : "(ausente)"
+        });
+        continue;
+      }
+      if (expected.methodCode !== actual.methodCode)
+        mismatches.push({ field: `pagamentos[${index + 1}].meio`, expected: expected.methodCode, actual: actual.methodCode });
+      if (Math.abs(expected.amount - actual.amount) > 5e-3)
+        mismatches.push({ field: `pagamentos[${index + 1}].valor`, expected: expected.amount, actual: actual.amount });
+      if (expected.paymentIndicator !== actual.paymentIndicator)
+        mismatches.push({ field: `pagamentos[${index + 1}].indicador`, expected: expected.paymentIndicator || "", actual: actual.paymentIndicator || "" });
+      if ((expected.description || "") !== (actual.description || ""))
+        mismatches.push({ field: `pagamentos[${index + 1}].descri\xE7\xE3o`, expected: expected.description || "", actual: actual.description || "" });
+      if ((expected.paymentDate || "") !== (actual.paymentDate || ""))
+        mismatches.push({ field: `pagamentos[${index + 1}].data`, expected: expected.paymentDate || "", actual: actual.paymentDate || "" });
+      if (JSON.stringify(expected.card || null) !== JSON.stringify(actual.card || null))
+        mismatches.push({ field: `pagamentos[${index + 1}].cart\xE3o`, expected: "dados do pedido", actual: "dados divergentes" });
+    }
+  }
   const orderCustomer = objectValue(snapshot.order.data.customerData);
   const fiscalCustomer = objectValue(snapshot.fiscalInputs?.customer);
   const selectedTaxId = normalizeTaxId(
@@ -3822,7 +4212,7 @@ function validateContributorNfeSeries(value) {
 
 // api/nfe/hmlTechnicalRuleSet.ts
 var HML_TECHNICAL_RULESET_VERSION = "HML_TECHNICAL_V1";
-var record = (value) => {
+var record2 = (value) => {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Dado sint\xE9tico fiscal ausente.");
   return value;
@@ -3880,10 +4270,10 @@ function createHmlTechnicalRuleSet(snapshot, savedDecision, csosnConfiguration) 
       const payments = data.fiscalTestPayments;
       if (!Array.isArray(items) || items.length !== 1 || !Array.isArray(payments) || payments.length !== 1)
         throw new Error("HML t\xE9cnico exige um item e um pagamento sint\xE9ticos.");
-      const item = record(items[0]);
+      const item = record2(items[0]);
       if (Object.keys(facts.emissionRequest.itemCsosnOverrides || {}).some((key) => key !== "1"))
         throw new Error("Escolha de CSOSN referencia item inexistente no cen\xE1rio HML.");
-      const fiscal = item.fiscal ? record(item.fiscal) : {};
+      const fiscal = item.fiscal ? record2(item.fiscal) : {};
       const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
       if (Object.keys(selections).some((key) => key !== "1"))
         throw new Error("Sele\xE7\xE3o fiscal referencia item inexistente.");
@@ -3900,16 +4290,16 @@ function createHmlTechnicalRuleSet(snapshot, savedDecision, csosnConfiguration) 
         );
       const origin = selected?.origem ?? (fiscal.origem === void 0 || fiscal.origem === "" ? "0" : String(fiscal.origem));
       if (!/^[0-8]$/.test(origin)) throw new Error("Origem fiscal inv\xE1lida no item HML.");
-      const payment = record(payments[0]);
+      const payment = record2(payments[0]);
       if (item.isTemporaryProduct !== true || item.productId || item.unitDiscount !== 0 || item.discountType || Number(item.quantity) !== 1 || String(payment.method).toLowerCase() !== "pix")
         throw new Error("Produto tempor\xE1rio sem estoque, sem desconto e PIX s\xE3o obrigat\xF3rios.");
       const price = amount(item.unitPrice, "Pre\xE7o sint\xE9tico");
       if (amount(payment.amount, "Pagamento sint\xE9tico") !== price)
         throw new Error("Pagamento sint\xE9tico n\xE3o reconcilia com o item.");
-      const customer = record(data.customerData);
+      const customer = record2(data.customerData);
       if (customer.id || customer.cpfCnpj !== "12345678909" || !String(customer.fullName || "").includes("TEST_AUT_") || !String(item.description || "").includes("TEST_AUT_"))
         throw new Error("Produto e destinat\xE1rio devem identificar o teste.");
-      const recipientAddress = address(record(customer.fiscalAddress), "");
+      const recipientAddress = address(record2(customer.fiscalAddress), "");
       if (recipientAddress.uf !== "PR" || recipientAddress.street !== "RUA TESTE" || recipientAddress.number !== "10" || recipientAddress.district !== "CENTRO" || recipientAddress.municipalityCode !== "4105805" || recipientAddress.municipality !== "COLOMBO" || recipientAddress.postalCode !== "83410270")
         throw new Error("Fixture HML exige endere\xE7o sint\xE9tico fixo no PR.");
       const issuer = facts.issuerProfile;
@@ -4054,7 +4444,7 @@ var escapeXml = (value) => String(value).replace(
   })[char] || char
 );
 var tag = (name, value) => `<${name}>${escapeXml(value)}</${name}>`;
-var money = (value) => value.toFixed(2);
+var money2 = (value) => value.toFixed(2);
 var decimal2 = (value, scale) => value.toFixed(scale);
 var dateOnly = (value, field) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${field} inv\xE1lida.`);
@@ -4116,7 +4506,7 @@ function serializeFiscalTaxes(taxes, origin) {
     const amount2 = taxAmount(icms, "vICMS");
     if (Math.abs(Math.round(base * rate) - Math.round(amount2 * 100)) > 1)
       throw new Error("ICMS do item n\xE3o reconcilia com base e al\xEDquota.");
-    icmsGroup = `<ICMS00>${tag("orig", origin)}${tag("CST", icms.code)}${tag("modBC", requireCode(String(icms.values.modBC), /^[0-3]$/, "Modalidade da base ICMS"))}${tag("vBC", money(base))}${tag("pICMS", percent(rate))}${tag("vICMS", money(amount2))}</ICMS00>`;
+    icmsGroup = `<ICMS00>${tag("orig", origin)}${tag("CST", icms.code)}${tag("modBC", requireCode(String(icms.values.modBC), /^[0-3]$/, "Modalidade da base ICMS"))}${tag("vBC", money2(base))}${tag("pICMS", percent(rate))}${tag("vICMS", money2(amount2))}</ICMS00>`;
   } else throw new Error(`Grupo ICMS ${icms.codeSystem}/${icms.code} ainda n\xE3o suportado.`);
   const contribution = (tax, group) => {
     if (tax.codeSystem !== "CST") throw new Error(`${group} exige CST expl\xEDcito.`);
@@ -4134,7 +4524,7 @@ function serializeFiscalTaxes(taxes, origin) {
     if (Math.abs(Math.round(base * rate) - Math.round(amount2 * 100)) > 1)
       throw new Error(`${group} do item n\xE3o reconcilia com base e al\xEDquota.`);
     const variant = ["01", "02"].includes(tax.code) ? `${group}Aliq` : `${group}Outr`;
-    return `<${group}><${variant}>${tag("CST", tax.code)}${tag("vBC", money(base))}${tag(rateName, percent(rate))}${tag(valueName, money(amount2))}</${variant}></${group}>`;
+    return `<${group}><${variant}>${tag("CST", tax.code)}${tag("vBC", money2(base))}${tag(rateName, percent(rate))}${tag(valueName, money2(amount2))}</${variant}></${group}>`;
   };
   return `<imposto><ICMS>${icmsGroup}</ICMS>${contribution(pis, "PIS")}${contribution(cofins, "COFINS")}</imposto>`;
 }
@@ -4167,7 +4557,7 @@ function serializeFiscalItems(document) {
       environment: document.environment,
       printType
     });
-    const product = `<prod>${tag("cProd", p.code)}${tag("cEAN", p.gtin)}${tag("xProd", isHomologationFirstItem ? HOMOLOGATION_FIRST_ITEM_DESCRIPTION : p.description)}${tag("NCM", c.ncm)}${c.cest ? tag("CEST", requireCode(c.cest, /^\d{7}$/, "CEST")) : ""}${c.benefitCode ? tag("cBenef", c.benefitCode) : ""}${tag("CFOP", c.cfop)}${tag("uCom", c.unit)}${tag("qCom", decimal2(p.quantity, 4))}${tag("vUnCom", decimal2(p.unitValue, 10))}${tag("vProd", money(p.gross))}${tag("cEANTrib", p.gtin)}${tag("uTrib", c.unit)}${tag("qTrib", decimal2(p.quantity, 4))}${tag("vUnTrib", decimal2(p.unitValue, 10))}${p.freight ? tag("vFrete", money(p.freight)) : ""}${p.insurance ? tag("vSeg", money(p.insurance)) : ""}${p.discount ? tag("vDesc", money(p.discount)) : ""}${p.otherExpenses ? tag("vOutro", money(p.otherExpenses)) : ""}${tag("indTot", "1")}</prod>`;
+    const product = `<prod>${tag("cProd", p.code)}${tag("cEAN", p.gtin)}${tag("xProd", isHomologationFirstItem ? HOMOLOGATION_FIRST_ITEM_DESCRIPTION : p.description)}${tag("NCM", c.ncm)}${c.cest ? tag("CEST", requireCode(c.cest, /^\d{7}$/, "CEST")) : ""}${c.benefitCode ? tag("cBenef", c.benefitCode) : ""}${tag("CFOP", c.cfop)}${tag("uCom", c.unit)}${tag("qCom", decimal2(p.quantity, 4))}${tag("vUnCom", decimal2(p.unitValue, 10))}${tag("vProd", money2(p.gross))}${tag("cEANTrib", p.gtin)}${tag("uTrib", c.unit)}${tag("qTrib", decimal2(p.quantity, 4))}${tag("vUnTrib", decimal2(p.unitValue, 10))}${p.freight ? tag("vFrete", money2(p.freight)) : ""}${p.insurance ? tag("vSeg", money2(p.insurance)) : ""}${p.discount ? tag("vDesc", money2(p.discount)) : ""}${p.otherExpenses ? tag("vOutro", money2(p.otherExpenses)) : ""}${tag("indTot", "1")}</prod>`;
     const taxes = serializeFiscalTaxes(item.taxes, c.origin);
     const additionalProductInfo = isHomologationFirstItem ? tag("infAdProd", p.description) : "";
     return `<det nItem="${item.itemNumber}">${product}${taxes}${additionalProductInfo}</det>`;
@@ -4246,7 +4636,7 @@ function serializeFiscalDocument(snapshot, document, ruleSet, identity) {
   }))}${document.recipient.address ? addressXml(document.recipient.address, "enderDest") : ""}${tag("indIEDest", document.model === "65" ? "9" : document.recipient.ieIndicator)}${document.model !== "65" && document.recipient.ie && document.recipient.ieIndicator !== "2" ? tag("IE", document.recipient.ie) : ""}</dest>`;
   const items = serializeFiscalItems(document);
   const t = document.totals;
-  const total = `<total><ICMSTot>${tag("vBC", money(t.icmsBase))}${tag("vICMS", money(t.icms))}${tag("vICMSDeson", money(t.icmsExempt))}${tag("vFCP", money(t.fcp))}${tag("vBCST", money(t.icmsStBase))}${tag("vST", money(t.icmsSt))}${tag("vFCPST", money(t.fcpSt))}${tag("vFCPSTRet", money(t.fcpStRetained))}${tag("vProd", money(t.products))}${tag("vFrete", money(t.freight))}${tag("vSeg", money(t.insurance))}${tag("vDesc", money(t.discount))}${tag("vII", money(t.ii))}${tag("vIPI", money(t.ipi))}${tag("vIPIDevol", money(t.ipiReturned))}${tag("vPIS", money(t.pis))}${tag("vCOFINS", money(t.cofins))}${tag("vOutro", money(t.otherExpenses))}${tag("vNF", money(t.invoice))}</ICMSTot></total>`;
+  const total = `<total><ICMSTot>${tag("vBC", money2(t.icmsBase))}${tag("vICMS", money2(t.icms))}${tag("vICMSDeson", money2(t.icmsExempt))}${tag("vFCP", money2(t.fcp))}${tag("vBCST", money2(t.icmsStBase))}${tag("vST", money2(t.icmsSt))}${tag("vFCPST", money2(t.fcpSt))}${tag("vFCPSTRet", money2(t.fcpStRetained))}${tag("vProd", money2(t.products))}${tag("vFrete", money2(t.freight))}${tag("vSeg", money2(t.insurance))}${tag("vDesc", money2(t.discount))}${tag("vII", money2(t.ii))}${tag("vIPI", money2(t.ipi))}${tag("vIPIDevol", money2(t.ipiReturned))}${tag("vPIS", money2(t.pis))}${tag("vCOFINS", money2(t.cofins))}${tag("vOutro", money2(t.otherExpenses))}${tag("vNF", money2(t.invoice))}</ICMSTot></total>`;
   const payments = `<pag>${document.payments.map((payment) => {
     requireCode(payment.methodCode, /^\d{2}$/, "Meio de pagamento");
     if (document.model === "65" && ["03", "04", "17"].includes(payment.methodCode) && !payment.card)
@@ -4256,11 +4646,11 @@ function serializeFiscalDocument(snapshot, document, ruleSet, identity) {
       throw new Error(
         "Descreva o meio de pagamento classificado como Outros (2 a 60 caracteres)."
       );
-    return `<detPag>${payment.paymentIndicator ? tag("indPag", requireCode(payment.paymentIndicator, /^[01]$/, "Indicador do pagamento")) : ""}${tag("tPag", payment.methodCode)}${payment.methodCode === "99" ? tag("xPag", paymentDescription) : ""}${tag("vPag", money(payment.amount))}${payment.paymentDate ? tag("dPag", dateOnly(payment.paymentDate, "Data real do pagamento")) : ""}${payment.card ? "<card>" + tag(
+    return `<detPag>${payment.paymentIndicator ? tag("indPag", requireCode(payment.paymentIndicator, /^[01]$/, "Indicador do pagamento")) : ""}${tag("tPag", payment.methodCode)}${payment.methodCode === "99" ? tag("xPag", paymentDescription) : ""}${tag("vPag", money2(payment.amount))}${payment.paymentDate ? tag("dPag", dateOnly(payment.paymentDate, "Data real do pagamento")) : ""}${payment.card ? "<card>" + tag(
       "tpIntegra",
       requireCode(payment.card.integrationType, /^[12]$/, "Integra\xE7\xE3o cart\xE3o")
     ) + (payment.card.acquirerCnpj ? tag("CNPJ", requireCode(payment.card.acquirerCnpj, /^[A-Z0-9]{12}[0-9]{2}$/, "CNPJ adquirente")) : "") + (payment.card.brand ? tag("tBand", requireCode(payment.card.brand, /^\d{2}$/, "Bandeira")) : "") + (payment.card.authorization ? tag("cAut", payment.card.authorization) : "") + "</card>" : ""}</detPag>`;
-  }).join("")}${t.change ? tag("vTroco", money(t.change)) : ""}</pag>`;
+  }).join("")}${t.change ? tag("vTroco", money2(t.change)) : ""}</pag>`;
   let billing = "";
   if (document.model === "55" && document.billingInstallments?.length) {
     const installments = document.billingInstallments;
@@ -4290,9 +4680,9 @@ function serializeFiscalDocument(snapshot, document, ruleSet, identity) {
       if (installments.length === 1 && dueDate === emissionDate)
         throw new Error("A cobran\xE7a com parcela \xFAnica n\xE3o deve ter vencimento na data da emiss\xE3o.");
       previousDueDate = dueDate;
-      return `<dup>${tag("nDup", installment.number)}${tag("dVenc", dueDate)}${tag("vDup", money(installment.amount))}</dup>`;
+      return `<dup>${tag("nDup", installment.number)}${tag("dVenc", dueDate)}${tag("vDup", money2(installment.amount))}</dup>`;
     }).join("");
-    const netBilling = money(billingCents / 100);
+    const netBilling = money2(billingCents / 100);
     billing = `<cobr><fat>${tag("nFat", identity.number)}${tag("vOrig", netBilling)}${tag("vLiq", netBilling)}</fat>${duplicates}</cobr>`;
   }
   const transporter = operation.transporter;
@@ -4366,12 +4756,12 @@ function hasResponsibleTechnicianCsrt(xml) {
 var HML_NORMAL_SALE_RULESET_VERSION = "HML_NORMAL_SALE_V2";
 
 // shared-utils/orderItemFiscalSnapshot.ts
-var record2 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
+var record3 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 var nonEmptyString = (value) => typeof value === "string" && value.trim() ? value.trim() : void 0;
 function hasFiscalItemSnapshot(item) {
-  const itemRecord = record2(item);
+  const itemRecord = record3(item);
   const version = itemRecord.fiscalSnapshotVersion;
-  const fiscal = record2(itemRecord.fiscal);
+  const fiscal = record3(itemRecord.fiscal);
   return typeof version === "number" && Number.isInteger(version) && version > 0 && Boolean(nonEmptyString(fiscal.commercialUnit)) && Boolean(nonEmptyString(fiscal.taxableUnit));
 }
 
@@ -4951,23 +5341,6 @@ function resolveInterstateOutboundFiscalMatrix(facts, rules = INTERSTATE_OUTBOUN
   return notApproved("Nenhuma regra APPROVED completa e vigente corresponde aos fatos.");
 }
 
-// api/nfe/normal-sale/values.ts
-var obj = (value) => {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("Fatos fiscais obrigat\xF3rios ausentes.");
-  return value;
-};
-var required2 = (value, field) => {
-  if (typeof value !== "string" || !value.trim()) throw new Error(`${field} ausente.`);
-  return value.trim();
-};
-var normalize = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-var money2 = (value, field, positive = false) => {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < (positive ? 0.01 : 0) || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6)
-    throw new Error(`${field} inv\xE1lido ou fora da precis\xE3o de centavos.`);
-  return Math.round(value * 100);
-};
-
 // api/nfe/normal-sale/interstateValidation.ts
 function resolveInterstateFinalConsumer(operationScope, contextData, requestFinalConsumer) {
   if (operationScope.scope !== "interstate") {
@@ -5106,7 +5479,9 @@ function determineNormalSaleItems(params) {
     modelDecision,
     ruleSetVersion,
     code,
-    freight
+    freight,
+    paymentFeeTotalCents,
+    paymentFeeItemCents
   } = params;
   const catalog = obj(obj(snapshot.fiscalInputs).products);
   const allowedSavedCfops = ["5101", "5102", "6101", "6102", "6107", "6108"];
@@ -5204,7 +5579,7 @@ function determineNormalSaleItems(params) {
           discount: vDescCents / 100,
           freight: index === 0 ? freight / 100 : 0,
           insurance: 0,
-          otherExpenses: index === 0 ? composition.vOutroCents / 100 : 0
+          otherExpenses: ((index === 0 ? composition.vOutroCents : 0) + (paymentFeeItemCents[index] || 0)) / 100
         },
         classification: {
           ncm: selected.ncm,
@@ -5250,184 +5625,8 @@ function determineNormalSaleItems(params) {
   );
   const products = composition.products.reduce((sum, item) => sum + item.vProdCents, 0);
   const discount = composition.products.reduce((sum, item) => sum + item.vDescCents, 0);
-  const invoice = products - discount + freight + composition.vOutroCents;
+  const invoice = products - discount + freight + composition.vOutroCents + paymentFeeTotalCents;
   return { traces, determinedItems, products, discount, invoice };
-}
-
-// shared-utils/orderPaymentState.ts
-var normalize2 = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
-function classifyOrderPaymentSettlement(status) {
-  if (status === void 0 || status === null) return "paid";
-  const normalized2 = normalize2(String(status));
-  if (normalized2.startsWith("pago")) return "paid";
-  if (normalized2.startsWith("pendente")) return "pending";
-  return "unconfirmed";
-}
-function isPromissoryPaymentMethod(method) {
-  return typeof method === "string" && normalize2(method).includes("promissoria");
-}
-function getOrderFulfillmentPaymentCondition(deliveryMethod) {
-  if (deliveryMethod === "pickup") return "Pagamento na retirada";
-  if (deliveryMethod === "delivery") return "Pagamento na entrega";
-  return void 0;
-}
-function parseDateOnly(value) {
-  if (typeof value !== "string") return void 0;
-  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})(?:$|T|\s)/);
-  if (!match) return void 0;
-  const date = /* @__PURE__ */ new Date(`${match[1]}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== match[1] ? void 0 : match[1];
-}
-function getOrderPaymentDueDate(payment, shipping) {
-  const explicitDate = parseDateOnly(payment.dueDate);
-  if (explicitDate) return explicitDate;
-  if (isPromissoryPaymentMethod(payment.method)) return void 0;
-  const scheduling = shipping?.scheduling;
-  if (!getOrderFulfillmentPaymentCondition(shipping?.deliveryMethod) || scheduling?.pendingScheduling === true || scheduling?.dateType === "range" || scheduling?.type === "range")
-    return void 0;
-  return parseDateOnly(scheduling?.date);
-}
-function getOrderPaymentActualDate(payment) {
-  return parseDateOnly(payment.paymentDate);
-}
-
-// api/nfe/normal-sale/payments.ts
-function resolveNormalSalePayments(params) {
-  const { snapshot, data, shipping, modelDecision, traces, invoice } = params;
-  const emissionDate = saoPauloEmissionTimestamp(snapshot.capturedAt).slice(0, 10);
-  const rawPayments = Array.isArray(data.payments) ? data.payments.map(obj) : [];
-  const resolvedPayments = [];
-  let paidCents = 0;
-  let pendingCents = 0;
-  for (let index = 0; index < rawPayments.length; index += 1) {
-    const payment2 = rawPayments[index];
-    const amountValue = Number(payment2.amount ?? 0);
-    if (!Number.isFinite(amountValue) || amountValue < 0)
-      throw new Error(`Valor do pagamento ${index + 1} inv\xE1lido.`);
-    if (amountValue === 0) continue;
-    const amountCents = money2(amountValue, `Pagamento ${index + 1}`, true);
-    const settlement = classifyOrderPaymentSettlement(payment2.status);
-    if (settlement === "unconfirmed")
-      throw new Error(
-        `Pagamento ${index + 1} est\xE1 como \u201C${String(payment2.status)}\u201D; confirme se foi recebido ou permanece pendente antes de transmitir.`
-      );
-    const originalMethod = typeof payment2.method === "string" ? payment2.method.trim() : "";
-    const method = normalize(originalMethod);
-    const isPromissory = isPromissoryPaymentMethod(originalMethod);
-    const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
-    let methodCode = method.includes("PIX") ? "17" : method.includes("CREDITO") || method.includes("CREDIT") ? "03" : method.includes("DEBITO") || method.includes("DEBIT") ? "04" : method.includes("DINHEIRO") || method.includes("CASH") ? "01" : method.includes("BOLETO") ? "15" : isPromissory ? "99" : void 0;
-    let description = methodCode === "99" ? originalMethod : void 0;
-    if (!methodCode && settlement === "pending" && (!method || method === "VERIFICAR")) {
-      if (!fulfillmentCondition)
-        throw new Error("O pedido pendente n\xE3o informa se a entrega ser\xE1 por entrega ou retirada.");
-      methodCode = "99";
-      description = fulfillmentCondition;
-    }
-    if (!methodCode)
-      throw new Error(
-        `Meio de pagamento \u201C${originalMethod || "n\xE3o informado"}\u201D do item ${index + 1} exige mapeamento fiscal espec\xEDfico.`
-      );
-    const paymentCard = payment2.fiscalCard;
-    const rawInstallments = Number(payment2.installments ?? 1);
-    if (!Number.isInteger(rawInstallments) || rawInstallments < 1 || rawInstallments > 120)
-      throw new Error(`Quantidade de parcelas inv\xE1lida no pagamento ${index + 1}.`);
-    const canDeclareNotIntegrated = settlement === "pending" || snapshot.emissionRequest.cardNotIntegrated || modelDecision.model === "65" && methodCode === "17";
-    const card = paymentCard || (canDeclareNotIntegrated && ["03", "04", "17"].includes(methodCode) ? { integrationType: "2" } : void 0);
-    if (modelDecision.model === "65" && ["03", "04", "17"].includes(methodCode) && (!card || !["1", "2"].includes(card.integrationType) || card.integrationType === "1" && ["03", "04"].includes(methodCode) && (!/^[A-Z0-9]{12}[0-9]{2}$/.test(card.acquirerCnpj || "") || !card.authorization)))
-      throw new Error(
-        `Pagamento ${index + 1}: informe a integra\xE7\xE3o e os dados fiscais reais do cart\xE3o/PIX para NFC-e.`
-      );
-    const resolved = {
-      methodCode,
-      amountCents,
-      settlement,
-      ...description ? { description } : {},
-      ...settlement === "paid" && getOrderPaymentActualDate(payment2) ? { paymentDate: getOrderPaymentActualDate(payment2) } : {},
-      ...settlement === "pending" ? { dueDate: getOrderPaymentDueDate(payment2, shipping) } : {},
-      installments: rawInstallments,
-      ...card ? { card } : {}
-    };
-    resolvedPayments.push(resolved);
-    if (settlement === "paid") paidCents += amountCents;
-    else pendingCents += amountCents;
-  }
-  const orderPaymentSummary = data.paymentsSummary && typeof data.paymentsSummary === "object" && !Array.isArray(data.paymentsSummary) ? data.paymentsSummary : {};
-  const summaryPaid = Number(orderPaymentSummary.totalAmountPaid ?? 0);
-  if (!resolvedPayments.length && Number.isFinite(summaryPaid) && summaryPaid > 0)
-    throw new Error(
-      "O Pedido de Venda informa valor recebido, mas n\xE3o tem os meios de pagamento correspondentes; revise os pagamentos antes de transmitir."
-    );
-  const amountDueCents = invoice - paidCents;
-  if (amountDueCents < 0)
-    throw new Error("Os valores marcados como pagos excedem o total fiscal da nota.");
-  if (pendingCents > amountDueCents)
-    throw new Error("Os valores pendentes do pedido excedem o saldo ainda devido da nota.");
-  if (pendingCents < amountDueCents) {
-    if (resolvedPayments.some(
-      (payment2) => payment2.settlement === "pending" && payment2.methodCode === "99" && isPromissoryPaymentMethod(payment2.description)
-    ))
-      throw new Error(
-        "O valor pendente da promiss\xF3ria n\xE3o cobre todo o saldo da nota; revise as parcelas registradas no Pedido de Venda."
-      );
-    const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
-    if (!fulfillmentCondition)
-      throw new Error(
-        "O saldo pendente n\xE3o tem condi\xE7\xE3o de retirada ou entrega definida no pedido."
-      );
-    const fallbackDueDate = getOrderPaymentDueDate({}, shipping);
-    resolvedPayments.push({
-      methodCode: "99",
-      amountCents: amountDueCents - pendingCents,
-      settlement: "pending",
-      description: fulfillmentCondition,
-      ...fallbackDueDate ? { dueDate: fallbackDueDate } : {},
-      installments: 1
-    });
-    pendingCents = amountDueCents;
-  }
-  if (paidCents + pendingCents !== invoice)
-    throw new Error("Os valores recebidos e pendentes n\xE3o reconciliam com o total fiscal da nota.");
-  const payments = resolvedPayments.map((payment2) => ({
-    methodCode: payment2.methodCode,
-    amount: payment2.amountCents / 100,
-    paymentIndicator: payment2.settlement === "paid" || payment2.dueDate === emissionDate ? "0" : "1",
-    ...payment2.description ? { description: payment2.description } : {},
-    ...payment2.paymentDate ? { paymentDate: payment2.paymentDate } : {},
-    ...payment2.card ? { card: payment2.card } : {},
-    decision: traces[0]
-  }));
-  const payment = paidCents + pendingCents;
-  const pendingPayments = resolvedPayments.filter((item) => item.settlement === "pending");
-  const billingParts = [];
-  for (const pendingPayment of pendingPayments) {
-    if (pendingPayment.dueDate === emissionDate) continue;
-    if (isPromissoryPaymentMethod(pendingPayment.description) && pendingPayment.installments > 1) {
-      const perInstallment = Math.floor(pendingPayment.amountCents / pendingPayment.installments);
-      const remainder = pendingPayment.amountCents % pendingPayment.installments;
-      if (perInstallment < 1)
-        throw new Error("O valor da promiss\xF3ria n\xE3o cobre a quantidade de parcelas registrada.");
-      for (let index = 0; index < pendingPayment.installments; index += 1)
-        billingParts.push({
-          amountCents: perInstallment + (index < remainder ? 1 : 0)
-        });
-    } else {
-      billingParts.push({
-        ...pendingPayment.dueDate ? { dueDate: pendingPayment.dueDate } : {},
-        amountCents: pendingPayment.amountCents
-      });
-    }
-  }
-  if (billingParts.length > 120)
-    throw new Error("A condi\xE7\xE3o a prazo excede o limite fiscal de 120 parcelas.");
-  const billingInstallments = (
-    // cobr is optional; a partial schedule cannot describe the full deferred balance.
-    modelDecision.model === "55" && billingParts.length > 0 && billingParts.every((part) => part.dueDate) ? billingParts.sort((left, right) => left.dueDate.localeCompare(right.dueDate)).map((part, index) => ({
-      number: String(index + 1).padStart(3, "0"),
-      dueDate: part.dueDate,
-      amount: part.amountCents / 100
-    })) : void 0
-  );
-  return { payments, payment, billingInstallments };
 }
 
 // shared-utils/recipientIeIndicator.ts
@@ -5708,6 +5907,7 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
   if (environment !== 1 && environment !== 2) throw new Error("Ambiente fiscal inv\xE1lido.");
   const inputs = obj(facts.fiscalInputs);
   const orderData = facts.order.data;
+  const paymentFees = resolvePaymentFeeRows(orderData);
   const contextData = orderData.fiscalContext ? obj(orderData.fiscalContext) : {};
   const shippingData = orderData.shipping ? obj(orderData.shipping) : {};
   if (!["delivery", "pickup"].includes(String(shippingData.deliveryMethod || ""))) {
@@ -5752,7 +5952,7 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
     contextData,
     facts.emissionRequest.finalConsumer
   );
-  const modelSelectionTotal = orderData.items.reduce((sum, item) => sum + getItemNetCents(item), 0) + money2(shippingData.value ?? 0, "Frete comercial");
+  const modelSelectionTotal = orderData.items.reduce((sum, item) => sum + getItemNetCents(item), 0) + money(shippingData.value ?? 0, "Frete comercial") + paymentFees.totalFeeCents;
   const decisionOrder = {
     ...fiscalOrderData,
     orderType: facts.order.type,
@@ -5788,7 +5988,13 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
     modelDecision.model
   );
   assertServiceFiscalCompositionReady(initialComposition);
-  const modelTotal = initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + initialComposition.vOutroCents + money2(shippingData.value ?? 0, "Frete comercial");
+  const modelTotal = initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + initialComposition.vOutroCents + paymentFees.totalFeeCents + money(shippingData.value ?? 0, "Frete comercial");
+  composePaymentFeeVoutro({
+    snapshot: facts,
+    model: modelDecision.model,
+    itemNetCents: initialComposition.products.map((item) => item.vProdCents - item.vDescCents),
+    paymentFees
+  });
   const deliveryMethod = resolveEffectiveFiscalDeliveryMethod({
     fiscalModel: modelDecision.model,
     orderDeliveryMethod: persistedDeliveryMethod,
@@ -5892,6 +6098,12 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         items,
         modelDecision.model
       );
+      const paymentFeeComposition = composePaymentFeeVoutro({
+        snapshot,
+        model: modelDecision.model,
+        itemNetCents: composition.products.map((item) => item.vProdCents - item.vDescCents),
+        paymentFees: resolvePaymentFeeRows(data)
+      });
       assertServiceFiscalCompositionReady(
         composition
       );
@@ -5902,8 +6114,8 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         if (typeof item.quantity !== "number" || item.quantity <= 0 || !Number.isFinite(item.quantity)) {
           throw new Error("Quantidade comercial inv\xE1lida.");
         }
-        money2(item.unitPrice, "Pre\xE7o comercial", true);
-        if (item.unitDiscount !== void 0) money2(item.unitDiscount, "Desconto comercial");
+        money(item.unitPrice, "Pre\xE7o comercial", true);
+        if (item.unitDiscount !== void 0) money(item.unitDiscount, "Desconto comercial");
         if (item.unitDiscount && !["fixed", "percentage"].includes(item.discountType)) {
           throw new Error("Tipo de desconto ausente ou n\xE3o suportado.");
         }
@@ -5912,7 +6124,7 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         }
       }
       const shipping = data.shipping ? obj(data.shipping) : {};
-      const freight = money2(shipping.value ?? 0, "Frete comercial");
+      const freight = money(shipping.value ?? 0, "Frete comercial");
       const isNonTaxpayerInterstate = snapshotScope.scope === "interstate" && ieIndicator === "9";
       const expectedCfop = snapshotScope.scope === "internal" ? "5102" : isNonTaxpayerInterstate ? "6108" : "6102";
       const { traces, determinedItems, products, discount, invoice } = determineNormalSaleItems({
@@ -5926,7 +6138,9 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         modelDecision,
         ruleSetVersion,
         code,
-        freight
+        freight,
+        paymentFeeTotalCents: paymentFeeComposition.totalFeeCents,
+        paymentFeeItemCents: paymentFeeComposition.itemFeeCents
       });
       const { payments, payment, billingInstallments } = resolveNormalSalePayments({
         snapshot,
@@ -5934,7 +6148,8 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         shipping,
         modelDecision,
         traces,
-        invoice
+        invoice,
+        feeCentsByPayment: paymentFeeComposition.feeCentsByPayment
       });
       const issuer = snapshot.issuerProfile;
       const issuerAddress = {
@@ -5962,6 +6177,10 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         city: issuerAddress.municipality,
         uf: issuerAddress.uf
       } : resolvedTransport.requiresTransporterData && effectiveTransporter ? effectiveTransporter : void 0;
+      const additionalInformation = joinFiscalAdditionalInformation(
+        composition.additionalInformation,
+        paymentFeeComposition.additionalInformation
+      );
       return {
         snapshotHash: hash,
         ruleSetVersion,
@@ -5996,7 +6215,7 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         },
         items: determinedItems,
         payments,
-        ...composition.additionalInformation ? { additionalInformation: composition.additionalInformation } : {},
+        ...additionalInformation ? { additionalInformation } : {},
         ...billingInstallments?.length ? { billingInstallments } : {},
         decisions: traces,
         totals: {
@@ -6005,7 +6224,7 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
           discount: discount / 100,
           freight: freight / 100,
           insurance: 0,
-          otherExpenses: composition.vOutroCents / 100,
+          otherExpenses: (composition.vOutroCents + paymentFeeComposition.totalFeeCents) / 100,
           icms: 0,
           icmsExempt: 0,
           fcp: 0,
@@ -7308,7 +7527,246 @@ async function emitHmlTechnical(db, command, candidate, appSettings) {
 }
 
 // api/nfe/normal-sale/normalSalePreparation.ts
+var import_node_crypto12 = require("node:crypto");
+
+// api/nfe/normal-sale/outboundStatus.ts
 var import_node_crypto11 = require("node:crypto");
+
+// shared-utils/withTimeout.ts
+async function withTimeout(promise, timeoutMs, fallbackValue, label) {
+  let timer;
+  const timeoutPromise = new Promise((resolve2) => {
+    timer = setTimeout(() => {
+      console.warn(`[Request] Timeout de ${timeoutMs}ms atingido em: ${label}.`);
+      resolve2(fallbackValue);
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+// api/nfe/normal-sale/outboundStatus.ts
+var OUTBOUND_ATTEMPT_STATUS_TIMEOUT_MS = 5e3;
+async function readOutboundAttemptStatus(db, orderId, environment, emissionRequestId, diagnosticId = (0, import_node_crypto11.randomUUID)()) {
+  const queryResults = await withTimeout(
+    Promise.all([
+      db.from("nfe_outbound_attempts").select(
+        "document_id,emission_request_id,order_id,model,environment,series,number,state,transmission_started_at"
+      ).eq("emission_request_id", emissionRequestId).maybeSingle(),
+      db.from("nfe_documents").select("id,status,modelo,ambiente,numero_nfe,serie,numero_protocolo").eq("emission_request_id", emissionRequestId).eq("order_id", orderId).eq("ambiente", environment).eq("document_type", "outbound").maybeSingle(),
+      db.from("nfe_fiscal_snapshots").select("id,requested_model,environment,series,reserved_number").eq("emission_request_id", emissionRequestId).eq("order_id", orderId).eq("environment", environment).maybeSingle()
+    ]),
+    OUTBOUND_ATTEMPT_STATUS_TIMEOUT_MS,
+    null,
+    "nfe:read-only-attempt-status"
+  ).catch((error) => {
+    const errorType = error instanceof Error ? error.name : void 0;
+    console.error("[NF-e attempt status] read failed", {
+      diagnosticId,
+      diagnosticStage: "read-only-attempt-status",
+      ...errorType && /^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(errorType) ? { errorType } : {}
+    });
+    return null;
+  });
+  if (!queryResults) return { kind: "unavailable", diagnosticId };
+  const [attemptResult, documentResult, snapshotResult] = queryResults;
+  const queryErrors = [
+    { query: "attempt", error: attemptResult.error },
+    { query: "document", error: documentResult.error },
+    { query: "snapshot", error: snapshotResult.error }
+  ].flatMap(({ query, error }) => {
+    if (!error) return [];
+    const code = typeof error.code === "string" ? error.code : "";
+    return [
+      {
+        query,
+        code: /^[A-Za-z0-9_.-]{1,48}$/.test(code) ? code : "UNKNOWN"
+      }
+    ];
+  });
+  if (queryErrors.length) {
+    console.error("[NF-e attempt status] read failed", {
+      diagnosticId,
+      diagnosticStage: "read-only-attempt-status",
+      queries: queryErrors
+    });
+    return { kind: "unavailable", diagnosticId };
+  }
+  const attempt = attemptResult.data;
+  const document = documentResult.data;
+  const snapshot = snapshotResult.data;
+  if (attempt) {
+    if (attempt.order_id !== orderId || attempt.environment !== environment)
+      return { kind: "inconsistent" };
+    if (!document || !snapshot || document.id !== attempt.document_id || document.modelo !== attempt.model || Number(document.ambiente) !== attempt.environment || Number(document.numero_nfe) !== attempt.number || String(document.serie) !== attempt.series || snapshot.requested_model !== attempt.model || Number(snapshot.environment) !== attempt.environment || Number(snapshot.reserved_number) !== attempt.number || String(snapshot.series) !== attempt.series)
+      return {
+        kind: "inconsistent",
+        documentId: attempt.document_id,
+        numberReserved: true
+      };
+    return { kind: "found", attempt, document };
+  }
+  if (document || snapshot)
+    return {
+      kind: "inconsistent",
+      documentId: document?.id,
+      numberReserved: true
+    };
+  return { kind: "not_found" };
+}
+
+// api/nfe/normal-sale/normalSalePreparation.ts
+var OUTBOUND_PREPARATION_TIMEOUT_MS = 2e4;
+function recordPreparationRpcFailure(emissionRequestId, error) {
+  const diagnosticId = (0, import_node_crypto12.randomUUID)();
+  const candidate = error && typeof error === "object" ? error : {};
+  const rawCode = typeof candidate.code === "string" ? candidate.code : void 0;
+  const databaseCode = rawCode && /^[A-Za-z0-9_.-]{1,48}$/.test(rawCode) ? rawCode : void 0;
+  const errorType = typeof candidate.name === "string" && /^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(candidate.name) ? candidate.name : void 0;
+  const httpStatus = Number.isInteger(candidate.status) && Number(candidate.status) >= 100 && Number(candidate.status) <= 599 ? Number(candidate.status) : void 0;
+  console.error("[NF-e preparation] prepare-attempt RPC was not confirmed", {
+    diagnosticId,
+    diagnosticStage: "prepare-attempt-rpc",
+    emissionRequestId,
+    ...databaseCode ? { databaseCode } : {},
+    ...errorType ? { errorType } : {},
+    ...httpStatus ? { httpStatus } : {}
+  });
+  return {
+    diagnosticId,
+    diagnosticStage: "prepare-attempt-rpc",
+    ...databaseCode ? { databaseCode } : {}
+  };
+}
+async function resolvePreparationRpcFailure(db, command, error, confirmedFailure) {
+  const diagnostic = recordPreparationRpcFailure(command.emissionRequestId, error);
+  let status;
+  try {
+    status = await readOutboundAttemptStatus(
+      db,
+      command.orderId,
+      command.environment,
+      command.emissionRequestId,
+      diagnostic.diagnosticId
+    );
+  } catch {
+    status = { kind: "unavailable", diagnosticId: diagnostic.diagnosticId };
+  }
+  const identity = {
+    emissionRequestId: command.emissionRequestId,
+    orderId: command.orderId,
+    environment: command.environment,
+    ...diagnostic
+  };
+  if (status.kind === "not_found" && (diagnostic.databaseCode === "55P03" || confirmedFailure?.body.code === "FISCAL_PREPARATION_BUSY"))
+    return outboundFailure(
+      409,
+      "FISCAL_PREPARATION_BUSY",
+      "Outra prepara\xE7\xE3o fiscal est\xE1 usando este pedido ou esta tentativa. Consulte a mesma tentativa antes de continuar.",
+      { ...identity, pending: true, sefazContacted: false }
+    );
+  if (status.kind === "not_found" && confirmedFailure)
+    return {
+      status: confirmedFailure.status,
+      body: {
+        ...confirmedFailure.body,
+        ...identity,
+        pending: false,
+        numberReserved: false,
+        sefazContacted: false
+      }
+    };
+  if (status.kind === "not_found")
+    return outboundFailure(
+      503,
+      "FISCAL_PREPARATION_UNCONFIRMED",
+      "A resposta da prepara\xE7\xE3o n\xE3o foi confirmada e ainda n\xE3o h\xE1 registro dur\xE1vel vis\xEDvel. Preserve o identificador e consulte a mesma tentativa antes de continuar.",
+      {
+        ...identity,
+        pending: true,
+        sefazContacted: false
+      }
+    );
+  if (status.kind === "unavailable")
+    return outboundFailure(
+      503,
+      "FISCAL_RECOVERY_UNAVAILABLE",
+      "A grava\xE7\xE3o n\xE3o foi confirmada e a consulta local da mesma tentativa tamb\xE9m falhou. Preserve o identificador e consulte novamente.",
+      { ...identity, pending: true, sefazContacted: false }
+    );
+  if (status.kind === "inconsistent")
+    return outboundFailure(
+      503,
+      "FISCAL_ATTEMPT_STATUS_INCONSISTENT",
+      "A consulta encontrou registros locais incompletos para esta tentativa. Preserve-a para confer\xEAncia antes de continuar.",
+      {
+        ...identity,
+        ...status.documentId ? { documentId: status.documentId } : {},
+        pending: true,
+        numberReserved: status.numberReserved
+      }
+    );
+  const { attempt, document } = status;
+  const metadata3 = {
+    ...identity,
+    documentId: attempt.document_id,
+    model: attempt.model,
+    series: attempt.series,
+    nfeNumber: attempt.number,
+    state: attempt.state,
+    numberReserved: true,
+    sefazContacted: attempt.transmission_started_at ? void 0 : false
+  };
+  if (attempt.state === "authorized" && ["autorizada", "homologada"].includes(document.status) && document.numero_protocolo)
+    return {
+      status: 200,
+      body: {
+        success: true,
+        ...metadata3,
+        pending: false,
+        protocolNumber: document.numero_protocolo || void 0
+      }
+    };
+  if (attempt.state === "rejected" && document.status === "erro")
+    return outboundFailure(422, "FISCAL_SEFAZ_REJECTED", "A tentativa original est\xE1 registrada como rejeitada.", {
+      ...metadata3,
+      pending: false
+    });
+  if (attempt.state === "confirmed_not_found" && document.status === "erro")
+    return outboundFailure(
+      409,
+      "FISCAL_CONFIRMED_NOT_FOUND",
+      "A tentativa original foi consultada e consta como n\xE3o encontrada na SEFAZ.",
+      { ...metadata3, pending: false }
+    );
+  if (["authorized", "rejected", "confirmed_not_found"].includes(attempt.state))
+    return outboundFailure(
+      503,
+      "FISCAL_ATTEMPT_STATUS_INCONSISTENT",
+      "O estado local do documento diverge da tentativa. Preserve-a para confer\xEAncia fiscal.",
+      { ...metadata3, pending: true }
+    );
+  if (attempt.state === "prepared" && !attempt.transmission_started_at)
+    return outboundFailure(
+      503,
+      "FISCAL_PREPARATION_UNCONFIRMED",
+      "A tentativa foi gravada e reservou o n\xFAmero; a transmiss\xE3o ainda n\xE3o come\xE7ou. Retome somente esta tentativa.",
+      {
+        ...metadata3,
+        pending: true,
+        databaseReason: "PREPARED_ATTEMPT_FOUND"
+      }
+    );
+  return outboundFailure(
+    502,
+    "FISCAL_TRANSMISSION_UNCERTAIN",
+    "A tentativa persistida j\xE1 iniciou o fluxo de transmiss\xE3o. Consulte o estado da mesma nota antes de continuar.",
+    { ...metadata3, pending: true, state: "unknown" }
+  );
+}
 async function executeCasPreparationLoop(ctx) {
   const {
     db,
@@ -7454,79 +7912,70 @@ async function executeCasPreparationLoop(ctx) {
           }
         }
       };
-    const token = (0, import_node_crypto11.randomUUID)();
+    const token = (0, import_node_crypto12.randomUUID)();
     let saved;
     try {
       saved = await withNfeEmissionStage(
         "prepare_attempt_rpc",
-        () => db.rpc("prepare_nfe_outbound_attempt", {
-          p_snapshot: { ...snapshot, decisionTrace: resolved.document.decisions },
-          p_signed_xml: signedXml,
-          p_access_key: accessKey,
-          p_request_command: fiscalAttemptCommand(command),
-          p_attempt_token: token,
-          p_actor_id: actorId,
-          p_minimum_number: minimum
-        }),
+        async () => {
+          const response = await withTimeout(
+            db.rpc("prepare_nfe_outbound_attempt", {
+              p_snapshot: { ...snapshot, decisionTrace: resolved.document.decisions },
+              p_signed_xml: signedXml,
+              p_access_key: accessKey,
+              p_request_command: fiscalAttemptCommand(command),
+              p_attempt_token: token,
+              p_actor_id: actorId,
+              p_minimum_number: minimum
+            }),
+            OUTBOUND_PREPARATION_TIMEOUT_MS,
+            null,
+            "nfe:prepare-attempt-rpc"
+          );
+          if (response === null)
+            throw Object.assign(new Error("FISCAL_PREPARATION_TIMEOUT"), {
+              code: "FISCAL_PREPARATION_TIMEOUT"
+            });
+          return response;
+        },
         { emissionRequestId: command.emissionRequestId }
       );
-    } catch {
-      try {
-        const recovery = await recoverNormalSale2(db, command);
-        if (recovery) return { result: recovery };
-      } catch {
-      }
-      return {
-        result: outboundFailure(
-          503,
-          "FISCAL_PREPARATION_UNCONFIRMED",
-          "A resposta da prepara\xE7\xE3o n\xE3o foi confirmada. Preserve esta inten\xE7\xE3o e consulte antes de repetir.",
-          {
-            pending: true,
-            emissionRequestId: command.emissionRequestId,
-            orderId: command.orderId,
-            environment: command.environment,
-            sefazContacted: false
-          }
-        )
-      };
+    } catch (error) {
+      return { result: await resolvePreparationRpcFailure(db, command, error) };
     }
     if (saved.error?.message.includes("FISCAL_SEQUENCE_CHANGED") && command.requestedNumber === void 0) {
       continue;
     }
     if (saved.error || !saved.data?.documentId) {
-      const recovery = await recoverNormalSale2(db, command);
-      if (recovery) return { result: recovery };
-      const reason = saved.error?.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || "FISCAL_PREPARATION_FAILED";
-      if (reason === "ALREADY_ACTIVE_FISCAL_ATTEMPT") {
-        const conflict = await describeActiveNormalSaleConflict(
-          db,
-          command,
-          resolved.document.issuer.cnpj
-        );
-        return { result: conflict };
-      }
-      if (!saved.error?.code && (!reason || reason === "FISCAL_PREPARATION_FAILED"))
+      if (saved.error) {
+        const reason = saved.error.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || "FISCAL_PREPARATION_FAILED";
+        if (reason === "ALREADY_ACTIVE_FISCAL_ATTEMPT") {
+          const conflict = await describeActiveNormalSaleConflict(
+            db,
+            command,
+            resolved.document.issuer.cnpj
+          );
+          return { result: conflict };
+        }
         return {
-          result: outboundFailure(
-            503,
-            "FISCAL_PREPARATION_UNCONFIRMED",
-            "A resposta da prepara\xE7\xE3o n\xE3o foi confirmada. Preserve esta inten\xE7\xE3o e consulte antes de repetir.",
-            {
-              pending: true,
-              emissionRequestId: command.emissionRequestId,
-              orderId: command.orderId,
-              environment: command.environment,
-              sefazContacted: false
-            }
+          result: await resolvePreparationRpcFailure(
+            db,
+            command,
+            saved.error,
+            reason === "FISCAL_PREPARATION_FAILED" ? void 0 : outboundFailure(
+              ["IDEMPOTENCY_KEY_REUSED", "FISCAL_SOURCE_CHANGED"].includes(reason) ? 409 : 503,
+              reason,
+              reason === "FISCAL_SOURCE_CHANGED" ? "Os dados do pedido, produtos ou cliente foram alterados durante a prepara\xE7\xE3o. Atualize os dados fiscais e tente novamente." : "A prepara\xE7\xE3o fiscal foi recusada. Consulte o c\xF3digo t\xE9cnico antes de corrigir os dados.",
+              { pending: false }
+            )
           )
         };
+      }
       return {
-        result: outboundFailure(
-          reason === "IDEMPOTENCY_KEY_REUSED" ? 409 : 503,
-          reason,
-          reason === "FISCAL_SOURCE_CHANGED" ? "Os dados do pedido, produtos ou cliente foram alterados durante a prepara\xE7\xE3o. Atualize os dados fiscais e tente novamente." : saved.error?.message || "A prepara\xE7\xE3o fiscal n\xE3o foi conclu\xEDda. Atualize os dados ou consulte a tentativa original.",
-          { numberReserved: false, sefazContacted: false, pending: false }
+        result: await resolvePreparationRpcFailure(
+          db,
+          command,
+          new Error("MissingPreparedDocumentId")
         )
       };
     }
@@ -7544,7 +7993,7 @@ async function executeCasPreparationLoop(ctx) {
 }
 
 // api/nfe/normal-sale/normalSaleContext.ts
-var import_node_crypto12 = require("node:crypto");
+var import_node_crypto13 = require("node:crypto");
 
 // api/nfe/normal-sale/testOrderProductionGuard.ts
 var isSyntheticOrderBlockedInProduction = (environment, persistedOrderData) => {
@@ -7666,7 +8115,7 @@ async function resolveNormalSaleCredentials(command, model, facts, appSettings) 
     { emissionRequestId: command.emissionRequestId }
   );
   const issuedAt = saoPauloEmissionTimestamp(facts.capturedAt);
-  const code = (0, import_node_crypto12.createHash)("sha256").update(command.emissionRequestId).digest("hex");
+  const code = (0, import_node_crypto13.createHash)("sha256").update(command.emissionRequestId).digest("hex");
   const randomCode = String(Number.parseInt(code.slice(0, 10), 16) % 1e8).padStart(8, "0");
   return {
     outcome: {
@@ -8257,7 +8706,7 @@ async function handler(req, res) {
         { environment: selectedEnvironment, model }
       );
     } catch (soapErr) {
-      const diagnosticId = (0, import_node_crypto13.randomUUID)();
+      const diagnosticId = (0, import_node_crypto14.randomUUID)();
       const transportDiagnostic = sefazTransportDiagnostic(soapErr);
       const attemptDiagnostic = { diagnosticId, emissionRequestId, ...transportDiagnostic };
       console.error("[NF-e Emit] Falha de transporte:", { documentId, ...attemptDiagnostic });

@@ -116,6 +116,7 @@ export function useNfeEmission(
     nfeNumberSequence,
     isLoadingNfeNumber,
     nfeNumberError,
+    retryNfeNumberPreview,
     setNumberPreviewState,
     setManualNumberInput,
   } = useNfeSequencePreview({ orderId: order?.id, currentModel, environment });
@@ -193,6 +194,7 @@ export function useNfeEmission(
     nfeNumberSequence,
     isLoadingNfeNumber,
     nfeNumberError,
+    retryNfeNumberPreview,
     setNumberPreview: setManualNumberInput,
     emissionResult,
     xmlPreview,

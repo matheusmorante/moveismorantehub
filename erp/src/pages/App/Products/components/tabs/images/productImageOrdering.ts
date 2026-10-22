@@ -69,6 +69,10 @@ export function replaceProductImageGlobally<
   }
 
   const updatedVariations = product.variations?.map((v) => {
+    if (product.variations?.length === 1) {
+      return { ...v, images: [...updatedImages] };
+    }
+
     const hasOldInImages = Boolean(v.images && oldUrl && v.images.includes(oldUrl));
     const hasOldInImageUrl = Boolean(oldUrl && (v as any).image_url === oldUrl);
 

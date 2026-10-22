@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { AlertTriangle } from 'lucide-react-native';
-import { CardVisualState } from '../TransactionPreviewCard';
+import type { CardVisualState } from '../../types/CardVisualState';
 
 interface Props {
   cardState: CardVisualState;

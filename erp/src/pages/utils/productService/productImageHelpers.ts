@@ -15,11 +15,19 @@ export const validateProductImageLimits = (
   const variations = product.variations ?? existingProduct?.variations ?? [];
   const maxParentImages = MAX_PARENT_PRODUCT_IMAGES;
   const existingImageCount = existingProduct?.images?.length ?? 0;
+  const singleVariationImages = variations.length === 1 ? variations[0].images || [] : [];
+  const singleVariationUsesFullGallery =
+    variations.length === 1 &&
+    singleVariationImages.length === images.length &&
+    images.every((image, index) => singleVariationImages[index] === image);
 
   if (images.length > maxParentImages && images.length > existingImageCount) {
     throw new Error(`O produto pai pode ter no máximo ${maxParentImages} fotos neste cadastro.`);
   }
-  if (variations.some((variation) => (variation.images || []).length > MAX_VARIATION_IMAGES)) {
+  if (
+    !singleVariationUsesFullGallery &&
+    variations.some((variation) => (variation.images || []).length > MAX_VARIATION_IMAGES)
+  ) {
     throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
   }
 };

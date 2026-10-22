@@ -11,9 +11,6 @@ import { variationMergeCommandSchema, variationMergeAckSchema, variationMergeIde
 
 export const saveVariation = async (productId: string, variation: any): Promise<void> => {
   try {
-    if ((variation.images || []).length > MAX_VARIATION_IMAGES) {
-      throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
-    }
     const products = getLocalProducts();
     const index = products.findIndex(
       (p) => String(p.id).toLowerCase() === String(productId).toLowerCase()
@@ -98,6 +95,17 @@ export const saveVariation = async (productId: string, variation: any): Promise<
       if (idKey && seenIds.has(idKey)) continue;
       if (idKey) seenIds.add(idKey);
       deduplicatedVariations.push(v);
+    }
+
+    if (deduplicatedVariations.length === 1) {
+      deduplicatedVariations[0] = {
+        ...deduplicatedVariations[0],
+        images: [...(parent.images || [])],
+      };
+    } else if (
+      deduplicatedVariations.some((item) => (item.images || []).length > MAX_VARIATION_IMAGES)
+    ) {
+      throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
     }
 
     parent.variations = deduplicatedVariations;

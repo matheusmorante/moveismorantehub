@@ -33,6 +33,9 @@ export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): 
       hasVariations: isDraft && typeof product.hasVariations === 'boolean'
         ? product.hasVariations
         : product.variations.length > 1,
+      ...(product.variations.length === 1
+        ? { variations: [{ ...product.variations[0], images: [...(product.images || [])] }] }
+        : {}),
     };
   }
   const name = toTitleCase(product.name || product.title || product.description || '');
@@ -66,7 +69,7 @@ export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): 
         active: product.active !== false,
         status: product.status || 'hidden',
         attributes: [],
-        images: [],
+        images: [...(product.images || [])],
         syncUnitPrice: true,
         syncPromoPrice: true,
         syncCostPrice: true,

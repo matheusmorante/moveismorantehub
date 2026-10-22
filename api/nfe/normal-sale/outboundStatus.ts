@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { OutboundDatabase } from './outboundTypes';
+import { withTimeout } from '../../../shared-utils/withTimeout';
+
+export const OUTBOUND_ATTEMPT_STATUS_TIMEOUT_MS = 5_000;
 
 type ReadOnlyAttempt = {
   document_id: string;
@@ -57,32 +60,37 @@ export async function readOutboundAttemptStatus(
   orderId: string,
   environment: 1 | 2,
   emissionRequestId: string,
-  diagnosticId = randomUUID()
+  diagnosticId: string = randomUUID()
 ): Promise<OutboundAttemptStatus> {
-  const queryResults = await Promise.all([
-    db
-      .from('nfe_outbound_attempts')
-      .select(
-        'document_id,emission_request_id,order_id,model,environment,series,number,state,transmission_started_at'
-      )
-      .eq('emission_request_id', emissionRequestId)
-      .maybeSingle(),
-    db
-      .from('nfe_documents')
-      .select('id,status,modelo,ambiente,numero_nfe,serie,numero_protocolo')
-      .eq('emission_request_id', emissionRequestId)
-      .eq('order_id', orderId)
-      .eq('ambiente', environment)
-      .eq('document_type', 'outbound')
-      .maybeSingle(),
-    db
-      .from('nfe_fiscal_snapshots')
-      .select('id,requested_model,environment,series,reserved_number')
-      .eq('emission_request_id', emissionRequestId)
-      .eq('order_id', orderId)
-      .eq('environment', environment)
-      .maybeSingle(),
-  ]).catch((error: unknown) => {
+  const queryResults = await withTimeout(
+    Promise.all([
+      db
+        .from('nfe_outbound_attempts')
+        .select(
+          'document_id,emission_request_id,order_id,model,environment,series,number,state,transmission_started_at'
+        )
+        .eq('emission_request_id', emissionRequestId)
+        .maybeSingle(),
+      db
+        .from('nfe_documents')
+        .select('id,status,modelo,ambiente,numero_nfe,serie,numero_protocolo')
+        .eq('emission_request_id', emissionRequestId)
+        .eq('order_id', orderId)
+        .eq('ambiente', environment)
+        .eq('document_type', 'outbound')
+        .maybeSingle(),
+      db
+        .from('nfe_fiscal_snapshots')
+        .select('id,requested_model,environment,series,reserved_number')
+        .eq('emission_request_id', emissionRequestId)
+        .eq('order_id', orderId)
+        .eq('environment', environment)
+        .maybeSingle(),
+    ]),
+    OUTBOUND_ATTEMPT_STATUS_TIMEOUT_MS,
+    null,
+    'nfe:read-only-attempt-status'
+  ).catch((error: unknown) => {
     const errorType = error instanceof Error ? error.name : undefined;
     console.error('[NF-e attempt status] read failed', {
       diagnosticId,

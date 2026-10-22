@@ -21,19 +21,34 @@ import { useFiscalPendencies } from './hooks/useFiscalPendencies';
 
 import { FiscalDocumentsHeader, type FiscalDocumentsMainTab } from './components/FiscalDocumentsHeader';
 import { FiscalDocumentsFilterBar } from './components/FiscalDocumentsFilterBar';
+import { FiscalDocumentsSummary } from './components/FiscalDocumentsSummary';
 import { FiscalDocumentsTable } from './components/FiscalDocumentsTable';
 import { FiscalDocumentsPagination } from './components/FiscalDocumentsPagination';
 import { FiscalPendenciesView } from './components/pendencies/FiscalPendenciesView';
 import { FiscalCancelModal } from './modals/FiscalCancelModal';
+import { FiscalExportModal } from './modals/FiscalExportModal';
 import NfeOperationDraftModal from './modals/NfeOperationDraftModal';
 import { IssuedFiscalDocumentDetailsModal } from './modals/IssuedFiscalDocumentDetailsModal';
 import NfeEmissionModal from '@/pages/App/SalesOrder/OrderActions/NfeEmissionModal';
+import './FiscalDocumentsResponsive.css';
+
+const FISCAL_SUMMARY_COLLAPSED_KEY = 'morantehub:fiscal-documents:summary-collapsed';
+
+function readFiscalSummaryCollapsedPreference() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(FISCAL_SUMMARY_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
 
 export default function FiscalDocumentsPage() {
   const { profile } = useAuth();
   const roles = profile ? getProfileRoles(profile) : [];
   const canViewFiscal = canPerform('viewFiscal', roles);
   const canOperateFiscal = hasFiscalOperationRole(profile);
+  const accountantView = roles.includes('accountant') && !canOperateFiscal;
 
   React.useEffect(() => {
     if (!canOperateFiscal) return;
@@ -41,6 +56,9 @@ export default function FiscalDocumentsPage() {
   }, [canOperateFiscal]);
 
   const [activeMainTab, setActiveMainTab] = useState<FiscalDocumentsMainTab>('documents');
+  const [summaryCollapsed, setSummaryCollapsed] = useState(readFiscalSummaryCollapsedPreference);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [showFiscalExportModal, setShowFiscalExportModal] = useState(false);
   const [operationSourceDoc, setOperationSourceDoc] = useState<NfeDocumentRecord | null>(null);
   const [automaticDraftId, setAutomaticDraftId] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Pick<NfeDocumentRecord, 'id' | 'order_id' | 'ambiente'> | null>(null);
@@ -55,6 +73,10 @@ export default function FiscalDocumentsPage() {
     pageIndex,
     setPageIndex,
     documentCount,
+    summary,
+    summaryLoading,
+    summaryLoadError,
+    reloadSummary,
     orderNumbers,
     cancellationEligibility,
     loadDocuments,
@@ -64,6 +86,7 @@ export default function FiscalDocumentsPage() {
     handleSearchSubmit,
     setStatusFilter,
     setModelFilter,
+    setDocumentTypeFilter,
     setEnvironmentFilter,
     period,
     setPeriod,
@@ -71,9 +94,16 @@ export default function FiscalDocumentsPage() {
     customDateTo,
     setCustomDateFrom,
     setCustomDateTo,
-  } = useFiscalDocumentsList(canViewFiscal);
+  } = useFiscalDocumentsList(canViewFiscal, false, accountantView);
 
-  // Hook de Pendências Fiscais (para contador no cabeçalho e sincronização)
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(FISCAL_SUMMARY_COLLAPSED_KEY, String(summaryCollapsed));
+    } catch {
+      // A preferência de layout é opcional quando o navegador bloqueia o armazenamento.
+    }
+  }, [summaryCollapsed]);
+
   const pendenciesHook = useFiscalPendencies(canViewFiscal);
 
   // Hook de Detalhes Fiscais
@@ -108,6 +138,11 @@ export default function FiscalDocumentsPage() {
     item: FiscalPendencyItem,
     actionKind: ReplacementPendingAction
   ) => {
+    if (!canOperateFiscal) {
+      handleViewPendencyDetails(item);
+      return;
+    }
+
     if (actionKind === 'awaiting_new_invoice') {
       const order = await fetchOrderById(item.orderId);
       if (order) {
@@ -139,16 +174,22 @@ export default function FiscalDocumentsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1700px] space-y-4 px-3 pt-4 pb-16 md:px-5 md:pt-4 md:pb-5">
+    <div
+      className="fiscal-documents-page mx-auto max-w-[1700px] space-y-4 px-3 pt-4 pb-16 md:px-5 md:pt-4 md:pb-5"
+      data-summary-expanded={summaryExpanded}
+    >
       <FiscalDocumentsHeader
         activeTab={activeMainTab}
         onTabChange={setActiveMainTab}
         openPendenciesCount={pendenciesHook.metrics.openCount}
+        canExport={accountantView || canOperateFiscal}
+        onExport={() => setShowFiscalExportModal(true)}
       />
 
       {activeMainTab === 'pendencies' ? (
         <FiscalPendenciesView
           state={pendenciesHook}
+          canOperateFiscal={canOperateFiscal}
           onOpenPendencyAction={handleOpenPendencyAction}
           onViewPendencyDetails={handleViewPendencyDetails}
         />
@@ -203,10 +244,12 @@ export default function FiscalDocumentsPage() {
 
           <FiscalDocumentsFilterBar
             filters={filters}
+            accountantView={accountantView}
             searchInput={searchInput}
             onSearchInputChange={setSearchInput}
             onSearchSubmit={handleSearchSubmit}
             onModelChange={setModelFilter}
+            onDocumentTypeChange={setDocumentTypeFilter}
             onStatusChange={setStatusFilter}
             onEnvironmentChange={setEnvironmentFilter}
             period={period}
@@ -226,38 +269,60 @@ export default function FiscalDocumentsPage() {
             </div>
           )}
 
-          <div className="bg-white dark:bg-slate-900/70 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-            <FiscalDocumentsTable
-              documents={documents}
-              allDocuments={documents}
-              loading={loading}
-              orderNumbers={orderNumbers}
-              cancellationEligibility={cancellationEligibility}
-              detailsDocumentId={detailsDocumentId}
-              detailsLoadingId={detailsLoadingId}
-              fiscalDetails={fiscalDetails}
-              canOperateFiscal={canOperateFiscal}
-              retryingHmlDocumentId={sefaz.retryingHmlDocumentId}
-              onViewDetails={setSelectedDocument}
-              onToggleDetails={toggleDetails}
-              onPrintDanfe={sefaz.handlePrint}
-              onDownloadXml={sefaz.handleDownload}
-              onConsultSituation={sefaz.handleConsultSituation}
-              onOpenFiscalTreatment={(doc) =>
-                cancelModal.openCancel(doc, cancellationEligibility[doc.id])
-              }
-              onPrepareLinkedOperation={setOperationSourceDoc}
-              onRetryHml={sefaz.handleRetryHmlDocument}
+          <div className="fiscal-summary-layout-control">
+            <button
+              type="button"
+              aria-expanded={!summaryCollapsed}
+              onClick={() => setSummaryCollapsed((collapsed) => !collapsed)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              {summaryCollapsed ? 'Exibir resumo fiscal' : 'Recolher resumo fiscal'}
+            </button>
+          </div>
+
+          <div className="fiscal-documents-workspace" data-summary-collapsed={summaryCollapsed}>
+            <FiscalDocumentsSummary
+              data={summary}
+              loading={summaryLoading}
+              error={summaryLoadError}
+              expanded={summaryExpanded}
+              onToggleExpanded={() => setSummaryExpanded((expanded) => !expanded)}
+              onRetry={() => void reloadSummary()}
             />
 
-            {documentCount > 0 && (
-              <FiscalDocumentsPagination
-                documentCount={documentCount}
-                pageIndex={pageIndex}
-                onPageChange={setPageIndex}
+            <div className="fiscal-documents-results overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
+              <FiscalDocumentsTable
+                documents={documents}
+                allDocuments={documents}
                 loading={loading}
+                orderNumbers={orderNumbers}
+                cancellationEligibility={cancellationEligibility}
+                detailsDocumentId={detailsDocumentId}
+                detailsLoadingId={detailsLoadingId}
+                fiscalDetails={fiscalDetails}
+                canOperateFiscal={canOperateFiscal}
+                retryingHmlDocumentId={sefaz.retryingHmlDocumentId}
+                onViewDetails={setSelectedDocument}
+                onToggleDetails={toggleDetails}
+                onPrintDanfe={sefaz.handlePrint}
+                onDownloadXml={sefaz.handleDownload}
+                onConsultSituation={sefaz.handleConsultSituation}
+                onOpenFiscalTreatment={(doc) =>
+                  cancelModal.openCancel(doc, cancellationEligibility[doc.id])
+                }
+                onPrepareLinkedOperation={setOperationSourceDoc}
+                onRetryHml={sefaz.handleRetryHmlDocument}
               />
-            )}
+
+              {documentCount > 0 && (
+                <FiscalDocumentsPagination
+                  documentCount={documentCount}
+                  pageIndex={pageIndex}
+                  onPageChange={setPageIndex}
+                  loading={loading}
+                />
+              )}
+            </div>
           </div>
         </>
       )}
@@ -346,6 +411,12 @@ export default function FiscalDocumentsPage() {
           }}
         />
       )}
+
+      <FiscalExportModal
+        isOpen={showFiscalExportModal}
+        accountantView={accountantView}
+        onClose={() => setShowFiscalExportModal(false)}
+      />
     </div>
   );
 }

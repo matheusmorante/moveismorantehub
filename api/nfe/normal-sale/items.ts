@@ -26,6 +26,8 @@ export function determineNormalSaleItems(params: {
   ruleSetVersion: string;
   code: string;
   freight: number;
+  paymentFeeTotalCents: number;
+  paymentFeeItemCents: number[];
 }) {
   const {
     snapshot,
@@ -39,6 +41,8 @@ export function determineNormalSaleItems(params: {
     ruleSetVersion,
     code,
     freight,
+    paymentFeeTotalCents,
+    paymentFeeItemCents,
   } = params;
   const catalog = obj(obj(snapshot.fiscalInputs).products);
   const allowedSavedCfops = ['5101', '5102', '6101', '6102', '6107', '6108'];
@@ -158,7 +162,8 @@ export function determineNormalSaleItems(params: {
           discount: vDescCents / 100,
           freight: index === 0 ? freight / 100 : 0,
           insurance: 0,
-          otherExpenses: index === 0 ? composition.vOutroCents / 100 : 0,
+          otherExpenses:
+            ((index === 0 ? composition.vOutroCents : 0) + (paymentFeeItemCents[index] || 0)) / 100,
         },
         classification: {
           ncm: selected.ncm,
@@ -204,6 +209,6 @@ export function determineNormalSaleItems(params: {
   );
   const products = composition.products.reduce((sum, item) => sum + item.vProdCents, 0);
   const discount = composition.products.reduce((sum, item) => sum + item.vDescCents, 0);
-  const invoice = products - discount + freight + composition.vOutroCents;
+  const invoice = products - discount + freight + composition.vOutroCents + paymentFeeTotalCents;
   return { traces, determinedItems, products, discount, invoice };
 }

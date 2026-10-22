@@ -46,6 +46,10 @@
       "destination": "/api/nfe/auxiliary?operation=fiscal-pendencies"
     },
     {
+      "source": "/api/nfe/export-documents",
+      "destination": "/api/nfe/auxiliary?operation=export-documents"
+    },
+    {
       "source": "/api/facebook-catalog.csv",
       "destination": "https://moveismorante.com.br/api/facebook-catalog.csv"
     },

@@ -20,6 +20,8 @@ export interface NfeDocumentRecord {
     | 'cancelada'
     | 'rejeitada'
     | 'pendente'
+    | 'processando'
+    | 'denegada'
     | 'erro'
     | 'abandoned';
   motivo_status?: string;
@@ -263,6 +265,7 @@ export type FiscalDocumentFilters = {
   status: string;
   model: string;
   environment: string;
+  documentType?: 'all' | 'outbound' | 'estorno';
   dateFrom: string;
   dateTo: string;
 };

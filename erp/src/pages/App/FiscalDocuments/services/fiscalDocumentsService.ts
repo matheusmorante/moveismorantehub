@@ -11,8 +11,10 @@
 
 export {
   fetchFiscalDocumentsList,
+  fetchFiscalDocumentsSummary,
   type FetchFiscalDocumentsParams,
   type FetchFiscalDocumentsResult,
+  type FiscalDocumentsSummary,
 } from './fiscalDocuments/fiscalDocumentsListService';
 
 export { fetchFiscalDocumentDetails } from './fiscalDocuments/fiscalDocumentDetailsService';

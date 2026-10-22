@@ -11,6 +11,7 @@ export interface FetchFiscalDocumentsParams {
   filters: FiscalDocumentFilters;
   pageIndex: number;
   targetDocumentId?: string | null;
+  accountantView?: boolean;
 }
 
 export interface FetchFiscalDocumentsResult {
@@ -18,6 +19,23 @@ export interface FetchFiscalDocumentsResult {
   totalCount: number;
   orderNumbers: Record<string, number>;
   cancellationEligibility: Record<string, CancellationEligibility>;
+}
+
+export interface FiscalDocumentsSummary {
+  totalCount: number;
+  totalValue: number;
+  authorizedCount: number;
+  authorizedValue: number;
+  canceledCount: number;
+  canceledValue: number;
+  estornoCount: number;
+  estornoValue: number;
+  pendingCount: number;
+  pendingValue: number;
+  rejectedCount: number;
+  rejectedValue: number;
+  abandonedCount: number;
+  abandonedValue: number;
 }
 
 const NFE_LIST_COLUMNS =
@@ -117,8 +135,10 @@ export async function fetchFiscalDocumentsList({
   filters,
   pageIndex,
   targetDocumentId,
+  accountantView = false,
 }: FetchFiscalDocumentsParams): Promise<FetchFiscalDocumentsResult> {
   const normalizedSearch = filters.search.trim();
+  const documentType = filters.documentType || 'all';
   const orderIds = await resolveOrderIdsFromSearch(normalizedSearch);
 
   let query = supabase.from('nfe_documents').select(NFE_LIST_COLUMNS, { count: 'exact' });
@@ -126,10 +146,28 @@ export async function fetchFiscalDocumentsList({
   if (targetDocumentId) {
     query = query.eq('id', targetDocumentId);
   } else {
-    query = query.neq('document_type', 'estorno');
+    if (documentType === 'outbound') {
+      query = query.or('document_type.eq.outbound,document_type.is.null');
+    } else if (documentType === 'estorno') {
+      query = query.eq('document_type', 'estorno');
+    } else {
+      query = query.or(
+        'document_type.eq.outbound,document_type.eq.estorno,document_type.is.null'
+      );
+    }
   }
 
-  if (filters.status !== 'all') query = query.eq('status', filters.status);
+  if (filters.status === 'autorizada' && accountantView) {
+    const authorizationStatuses =
+      filters.environment === '1'
+        ? ['autorizada']
+        : filters.environment === '2'
+          ? ['homologada']
+          : ['autorizada', 'homologada'];
+    query = query.in('status', authorizationStatuses);
+  } else if (filters.status !== 'all') {
+    query = query.eq('status', filters.status);
+  }
   if (filters.model !== 'all') query = query.eq('modelo', filters.model);
   if (filters.environment !== 'all') query = query.eq('ambiente', Number(filters.environment));
 
@@ -177,5 +215,51 @@ export async function fetchFiscalDocumentsList({
     totalCount,
     orderNumbers,
     cancellationEligibility,
+  };
+}
+
+export async function fetchFiscalDocumentsSummary({
+  filters,
+  targetDocumentId,
+  accountantView = false,
+}: {
+  filters: FiscalDocumentFilters;
+  targetDocumentId?: string | null;
+  accountantView?: boolean;
+}): Promise<FiscalDocumentsSummary> {
+  const { data, error } = await supabase
+    .rpc('get_fiscal_documents_summary', {
+      p_search: filters.search,
+      p_status: filters.status,
+      p_model: filters.model,
+      p_environment: filters.environment === 'all' ? null : Number(filters.environment),
+      p_document_type: filters.documentType || 'all',
+      p_date_from: filters.dateFrom || null,
+      p_date_to: filters.dateTo || null,
+      p_target_document_id: targetDocumentId || null,
+      p_accountant_view: accountantView,
+    })
+    .abortSignal(AbortSignal.timeout(8_000))
+    .single();
+
+  if (error) throw error;
+  if (!data) throw new Error('O resumo fiscal não retornou totalizadores.');
+
+  const row = data as Record<string, number | string | null>;
+  return {
+    totalCount: Number(row.total_count ?? 0),
+    totalValue: Number(row.total_value ?? 0),
+    authorizedCount: Number(row.authorized_count ?? 0),
+    authorizedValue: Number(row.authorized_value ?? 0),
+    canceledCount: Number(row.canceled_count ?? 0),
+    canceledValue: Number(row.canceled_value ?? 0),
+    estornoCount: Number(row.estorno_count ?? 0),
+    estornoValue: Number(row.estorno_value ?? 0),
+    pendingCount: Number(row.pending_count ?? 0),
+    pendingValue: Number(row.pending_value ?? 0),
+    rejectedCount: Number(row.rejected_count ?? 0),
+    rejectedValue: Number(row.rejected_value ?? 0),
+    abandonedCount: Number(row.abandoned_count ?? 0),
+    abandonedValue: Number(row.abandoned_value ?? 0),
   };
 }

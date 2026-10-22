@@ -92,13 +92,13 @@ export const FiscalDocumentsTable: React.FC<FiscalDocumentsTableProps> = ({
 
   return (
     <>
-      <div className="space-y-3 p-3 xl:hidden">
+      <div className="fiscal-document-cards space-y-3 p-3">
         {documents.map((doc) => (
           <FiscalDocumentCard key={doc.id} {...getDocumentViewProps(doc)} />
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto xl:block">
+      <div className="fiscal-documents-table overflow-x-auto">
         <table className="w-full min-w-[1120px] border-collapse text-left">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/70 text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-400">

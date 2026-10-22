@@ -19,8 +19,9 @@ export function resolveNormalSalePayments(params: {
   modelDecision: ReadyFiscalModelDecision;
   traces: FiscalDecisionTrace[];
   invoice: number;
+  feeCentsByPayment: number[];
 }) {
-  const { snapshot, data, shipping, modelDecision, traces, invoice } = params;
+  const { snapshot, data, shipping, modelDecision, traces, invoice, feeCentsByPayment } = params;
   const emissionDate = saoPauloEmissionTimestamp(snapshot.capturedAt).slice(0, 10);
   const rawPayments = Array.isArray(data.payments) ? data.payments.map(obj) : [];
   const resolvedPayments: Array<{
@@ -43,11 +44,12 @@ export function resolveNormalSalePayments(params: {
 
   for (let index = 0; index < rawPayments.length; index += 1) {
     const payment = rawPayments[index];
+    const feeCents = feeCentsByPayment[index] || 0;
     const amountValue = Number(payment.amount ?? 0);
     if (!Number.isFinite(amountValue) || amountValue < 0)
       throw new Error(`Valor do pagamento ${index + 1} inválido.`);
     if (amountValue === 0) continue;
-    const amountCents = money(amountValue, `Pagamento ${index + 1}`, true);
+    const amountCents = money(amountValue, `Pagamento ${index + 1}`, true) + feeCents;
     const settlement = classifyOrderPaymentSettlement(payment.status);
     if (settlement === 'unconfirmed')
       throw new Error(

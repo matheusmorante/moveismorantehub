@@ -76,16 +76,18 @@ var import_supabase_js = require("@supabase/supabase-js");
 // erp/src/pages/utils/nfe/fiscalAuthorization.ts
 var FISCAL_OPERATOR_ROLES = ["manager", "administrator"];
 var fiscalOperatorRoles = new Set(FISCAL_OPERATOR_ROLES);
-function hasFiscalOperationRole(profile) {
-  if (!profile) return false;
+function getFiscalProfileRoles(profile) {
   const roles = /* @__PURE__ */ new Set();
-  if (typeof profile.role === "string") roles.add(profile.role);
-  if (Array.isArray(profile.roles)) {
+  if (typeof profile?.role === "string") roles.add(profile.role);
+  if (Array.isArray(profile?.roles)) {
     for (const role of profile.roles) {
       if (typeof role === "string") roles.add(role);
     }
   }
-  return Array.from(roles).some((role) => fiscalOperatorRoles.has(role));
+  return roles;
+}
+function hasFiscalOperationRole(profile) {
+  return Array.from(getFiscalProfileRoles(profile)).some((role) => fiscalOperatorRoles.has(role));
 }
 function hasFiscalAdministratorRole(profile) {
   return profile?.role === "administrator" || Array.isArray(profile?.roles) && profile.roles.includes("administrator");

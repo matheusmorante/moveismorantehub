@@ -50,17 +50,17 @@ export function buildInitialVariationFormData(
   discountFixed: string;
   discountPercent: string;
 } {
-  const defaultImages: string[] = [];
+  const inheritedImages = parentImages.length > 0 ? parentImages : parentProduct.images || [];
+  const defaultImages: string[] = isSingleVariation ? [...inheritedImages] : [];
 
   if (variation) {
     const existingImages = parseVariationImages(
       (variation as any).image_url,
       variation.images
     );
-    const resolvedImages =
-      existingImages.length > 0
-        ? existingImages.slice(0, MAX_VARIATION_IMAGES)
-        : [];
+    const resolvedImages = isSingleVariation
+      ? [...inheritedImages]
+      : existingImages.slice(0, MAX_VARIATION_IMAGES);
 
     const formData: Variation = {
       ...variation,

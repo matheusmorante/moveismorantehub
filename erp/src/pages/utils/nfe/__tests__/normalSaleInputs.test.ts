@@ -8,6 +8,8 @@ import {
   resolveNormalSaleContribution,
 } from '../../../../../../api/nfe/simplesNormalSaleContribution';
 
+const paymentFeeVoutroSettingsId = 'fiscal_decision_payment_fee_voutro_v1';
+
 const contribution = () => ({
   scope: { models: ['55', '65'], operation: 'normal_sale', issuerCrt: '1' },
   pis: { cst: '99', base: 0, rate: 0, value: 0 },
@@ -40,7 +42,7 @@ const facts = (): FiscalSnapshotCandidate => ({
   },
 });
 
-function database(includeDecision: boolean) {
+function database(includeDecision: boolean, paymentFeeDecision: Record<string, string> | null = null) {
   const requestedSettings = vi.fn();
   const from = vi.fn((table: string) => ({
     select: vi.fn(() => ({
@@ -63,9 +65,10 @@ function database(includeDecision: boolean) {
           requestedSettings(ids);
           return {
             error: null,
-            data: includeDecision
-              ? [{ id: normalSaleContributionSettingsId(), data: contribution() }]
-              : [],
+            data: [
+              ...(includeDecision ? [{ id: normalSaleContributionSettingsId(), data: contribution() }] : []),
+              ...(paymentFeeDecision ? [{ id: paymentFeeVoutroSettingsId, data: paymentFeeDecision }] : []),
+            ],
           };
         }
         return {
@@ -105,6 +108,14 @@ describe('carregamento da decisão de venda normal', () => {
     );
     expect(from).not.toHaveBeenCalledWith('services');
     expect(candidate.fiscalInputs).not.toHaveProperty('services');
+    expect(candidate.fiscalInputs).not.toHaveProperty('paymentFeeDecision');
+  });
+  it('não injeta configuração auxiliar de taxa no snapshot fiscal', async () => {
+    const feeDecision = { decisionId: paymentFeeVoutroSettingsId, confirmedBy: 'TEST_UNIT_APPROVAL' };
+    const { db } = database(true, feeDecision);
+    const candidate = facts();
+    await loadNormalSaleInputs(db, candidate, {});
+    expect(candidate.fiscalInputs).not.toHaveProperty('paymentFeeDecision');
   });
   it('bloqueia ambos os modelos quando falta a decisão compartilhada', async () => {
     const { db } = database(false);

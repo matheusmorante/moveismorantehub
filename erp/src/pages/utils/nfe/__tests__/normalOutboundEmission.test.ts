@@ -5,6 +5,11 @@ import type {
   FiscalSnapshotCandidate,
 } from '../../../../../../api/nfe/fiscalSnapshot';
 import { fiscalAttemptCommand } from '../../../../../../api/nfe/normal-sale/attemptPolicy';
+import { OUTBOUND_PREPARATION_TIMEOUT_MS } from '../../../../../../api/nfe/normal-sale/normalSalePreparation';
+import {
+  OUTBOUND_ATTEMPT_STATUS_TIMEOUT_MS,
+  readOutboundAttemptStatus,
+} from '../../../../../../api/nfe/normal-sale/outboundStatus';
 import {
   reconcileNormalSale,
   recoverNormalSale,
@@ -84,6 +89,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
@@ -313,6 +319,85 @@ describe('common outbound orchestration (SOAP and PostgreSQL mocked)', () => {
     expect(d.counters.size).toBe(0);
     expect(d.snapshots).toHaveLength(0);
     expect(d.attempts).toHaveLength(0);
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+  it('returns a confirmed snapshot conflict once, without turning it into an uncertain transmission', async () => {
+    const d = database();
+    const rpc = d.rpc.getMockImplementation()!;
+    d.rpc.mockImplementation(async (name, args) => name === 'prepare_nfe_outbound_attempt'
+      ? { data: null, error: { code: 'PT409', message: 'FISCAL_SOURCE_CHANGED' } }
+      : rpc(name, args));
+    const result = await emit(d);
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ code: 'FISCAL_SOURCE_CHANGED', pending: false, numberReserved: false, sefazContacted: false });
+    expect(d.rpc.mock.calls.filter(([name]) => name === 'prepare_nfe_outbound_attempt')).toHaveLength(1);
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+  it('keeps an anonymous model 65 customer witness and omits absent payment-fee decisions', async () => {
+    const d = database();
+    const c = command(2, true);
+    const candidate = facts(c);
+    candidate.order.data.customerData = {};
+    const prepared = await emitNormalSale(d.db, { ...c, previewOnly: true }, candidate, {}, 'TEST_UNIT_ACTOR');
+    expect(prepared.body.preview).toBe(true);
+    const result = await emitNormalSale(d.db, { ...c, previewProof: prepared.body.previewProof as any }, candidate, {}, 'TEST_UNIT_ACTOR');
+    expect(result.body.success).toBe(true);
+    const preparation = d.rpc.mock.calls.find(([name]) => name === 'prepare_nfe_outbound_attempt')!;
+    expect(preparation[1].p_snapshot.fiscalInputs.customer).toEqual({});
+    expect(preparation[1].p_snapshot.fiscalInputs).not.toHaveProperty('paymentFeeDecision');
+  });
+  it.each([
+    { code: '55P03', message: 'FISCAL_PREPARATION_BUSY' },
+    { code: '55P03', message: 'canceling statement due to lock timeout' },
+  ])('preserves a busy preparation for consultation without reserving or sending ($message)', async (error) => {
+    const d = database();
+    const rpc = d.rpc.getMockImplementation()!;
+    d.rpc.mockImplementation(async (name, args) => name === 'prepare_nfe_outbound_attempt'
+      ? { data: null, error }
+      : rpc(name, args));
+    const result = await emit(d);
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ code: 'FISCAL_PREPARATION_BUSY', pending: true, emissionRequestId: requestId, sefazContacted: false });
+    expect(result.body.numberReserved).toBeUndefined();
+    expect(d.counters.size).toBe(0);
+    expect(d.rpc.mock.calls.filter(([name]) => name === 'prepare_nfe_outbound_attempt')).toHaveLength(1);
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+  it('returns before the browser deadline and never transmits if preparation commits late', async () => {
+    const d = database();
+    const c = command();
+    const prepared = await preview(d, c);
+    const rpc = d.rpc.getMockImplementation()!;
+    let commitLate: (() => Promise<void>) | undefined;
+    d.rpc.mockImplementation((name, args) => name === 'prepare_nfe_outbound_attempt'
+      ? new Promise((resolve) => { commitLate = async () => { resolve(await rpc(name, args)); }; })
+      : rpc(name, args));
+    vi.useFakeTimers();
+    const running = emitFromPreview(d, c, prepared);
+    await vi.waitFor(() => expect(commitLate).toBeTypeOf('function'));
+    await vi.advanceTimersByTimeAsync(OUTBOUND_PREPARATION_TIMEOUT_MS);
+    const result = await running;
+    expect(result.body).toMatchObject({ code: 'FISCAL_PREPARATION_UNCONFIRMED', databaseCode: 'FISCAL_PREPARATION_TIMEOUT', pending: true, sefazContacted: false, emissionRequestId: requestId });
+    expect(result.body.numberReserved).toBeUndefined();
+    expect(d.attempts).toHaveLength(0);
+    await commitLate?.();
+    expect(d.attempts).toHaveLength(1);
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(d.rpc.mock.calls.some(([name]) => name === 'start_nfe_outbound_transmission')).toBe(false);
+  });
+  it('bounds a stalled read-only status query without starting a fiscal operation', async () => {
+    const d = database();
+    const from = vi.mocked(d.db.from).getMockImplementation()!;
+    vi.spyOn(d.db, 'from').mockImplementation(((table: string) => {
+      const query = from(table as any) as any;
+      query.maybeSingle = () => new Promise(() => {});
+      return query;
+    }) as any);
+    vi.useFakeTimers();
+    const running = readOutboundAttemptStatus(d.db, command().orderId, 1, requestId);
+    await vi.advanceTimersByTimeAsync(OUTBOUND_ATTEMPT_STATUS_TIMEOUT_MS);
+    expect(await running).toMatchObject({ kind: 'unavailable' });
+    expect(d.rpc).not.toHaveBeenCalled();
     expect(mocks.send).not.toHaveBeenCalled();
   });
   it('lost preparation response preserves the committed attempt without starting transmission', async () => {

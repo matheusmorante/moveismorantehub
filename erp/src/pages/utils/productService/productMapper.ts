@@ -45,12 +45,16 @@ export const mapFromDB = (data: any, index?: number): Product => {
   const isDraftProduct = Boolean(data.is_draft ?? data.isDraft) || data.status === 'draft';
   const mappedVariations = mapDbVariations(variationRecords, data, parentCode);
 
-  const finalVariations =
+  const mappedFinalVariations =
     !isDraftProduct &&
     mappedVariations.length === 0 &&
     (!data.item_type || data.item_type === 'product')
       ? createDefaultVariation(data, parentCode, rawName, productImages)
       : mappedVariations;
+  const finalVariations =
+    !isDraftProduct && mappedFinalVariations.length === 1
+      ? [{ ...mappedFinalVariations[0], images: [...productImages] }]
+      : mappedFinalVariations;
   const savedVariableTechnicalFields = data.technical_specs?.variableTechnicalFields;
   const variableTechnicalFields = Array.isArray(savedVariableTechnicalFields)
     ? savedVariableTechnicalFields

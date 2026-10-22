@@ -21,7 +21,7 @@ import { MobileAgentService } from '../../../services/aiAgent/mobileAgentService
 import { GeminiLiveSession, type LiveState, type Quota } from '../../../services/geminiLiveService';
 import { GeminiContent, ExecutedToolRecord } from '../../../services/aiAgent/mobileAgentTypes';
 import { VoiceSessionState } from '../types/VoiceSessionState';
-import { CardVisualState } from '../components/TransactionPreviewCard';
+import type { CardVisualState } from '../types/CardVisualState';
 import {
   appendFinancialTimelineCard,
   updateFinancialTimelineCardState,
