@@ -75,15 +75,15 @@ Atualização de 18/10 — chat financeiro: proprietário e quatro filhos vincul
 | [x] | `mobile/src/features/schedule/components/CreateEventModal.tsx:110` | TextInput | handleSave | Validação com calendarEventFormSchema via form.validateAndRun antes de criar evento. |
 | [ ] | `mobile/src/features/settings/screens/NativeSettingsScreen.tsx:132` | Switch | props/contexto; conferir proprietário | conferir proprietário |
 | [ ] | `mobile/src/features/stock/inventory/components/InventoryFocusItemCard.tsx:60` | TextInput | props/contexto; conferir proprietário | conferir proprietário |
-| [ ] | `mobile/src/features/stock/inventory/components/InventoryOperationFilterBar.tsx:36` | Search, TextInput | props/contexto; conferir proprietário | conferir proprietário |
-| [ ] | `mobile/src/features/stock/inventory/components/InventoryOperationItemCard.tsx:49` | Search, TextInput | props/contexto; conferir proprietário | conferir proprietário |
+| [ ] | `mobile/src/features/stock/inventory/components/inventory-operation/InventoryOperationFilterBar.tsx:36` | Search, TextInput | props/contexto; conferir proprietário | conferir proprietário |
+| [ ] | `mobile/src/features/stock/inventory/components/inventory-operation/InventoryOperationItemCard.tsx:49` | Search, TextInput | props/contexto; conferir proprietário | conferir proprietário |
 | [ ] | `mobile/src/features/stock/inventory/components/InventoryScopeTypeSelector.tsx:69` | Filter | props/contexto; conferir proprietário | conferir proprietário |
 | [x] | `mobile/src/features/stock/inventory/hooks/useInventoryAuditWorkflow.ts:1` | hook/proprietário | handleConfirmScope, handleUpdateCount, handleFinalize | Validação de escopo e conclusão via scopeForm.validateAndRun e completionForm.validateAndRun. |
 | [x] | `mobile/src/features/stock/inventory/hooks/useInventoryPersistenceQueue.ts:1` | hook/proprietário | props/contexto; conferir proprietário | Fila serializada atômica para persistência com validação de rascunhos em SQLite. |
 | [ ] | `mobile/src/features/stock/inventory/hooks/useInventoryScopeBuilder.ts:1` | hook/proprietário | handleNextStep | conferir proprietário |
 | [ ] | `mobile/src/features/stock/inventory/modals/InventoryProductSearchModal.tsx:163` | Search, TextInput | handleSelect | conferir proprietário |
 | [ ] | `mobile/src/features/stock/inventory/screens/InventoryAuditFlow.tsx:217` | InventoryProductSearchModal | handleAddBlankItem, handleAddProductFromSearch | conferir proprietário |
-| [ ] | `mobile/src/features/stock/inventory/screens/InventoryOperationScreen.tsx:171` | InventoryOperationFilterBar | handleScan | conferir proprietário |
+| [ ] | `mobile/src/features/stock/inventory/screens/InventoryOperationScreenContent.tsx:171` | InventoryOperationFilterBar | handleScan | conferir proprietário |
 | [ ] | `mobile/src/features/stock/inventory/screens/InventoryScopeScreen.tsx:242` | InventoryScopeTypeSelector, InventoryProductSearchModal | props/contexto; conferir proprietário | conferir proprietário |
 | [ ] | `mobile/src/features/stock/invoices/hooks/useInvoices.ts:1` | hook/proprietário | props/contexto; conferir proprietário | RHF/Zod localizado; conferir callback |
 | [ ] | `mobile/src/features/stock/invoices/modals/InboundInvoiceMappingsModal.tsx:735` | Search, TextInput, SupplierFormModal, ProductFormScreen | props/contexto; conferir proprietário | RHF/Zod localizado; conferir callback |

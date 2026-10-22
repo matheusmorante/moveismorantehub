@@ -54,7 +54,7 @@ describe('NCM exibido e submetido pelo modal', () => {
     }
   );
 
-  it('mantém o resultado do portal aberto até selecionar e propaga o código escolhido com descrição no select', async () => {
+  it('mantém o resultado do portal aberto até selecionar e propaga a descrição como subtítulo do código', async () => {
     const onChange = vi.fn();
     render(<NcmSelect value="" onChange={onChange} />);
 
@@ -76,11 +76,14 @@ describe('NCM exibido e submetido pelo modal', () => {
     );
     expect(screen.getByRole('textbox', { name: 'NCM' })).toHaveProperty(
       'value',
-      '94035000 - Móveis de madeira, do tipo utilizado em quartos de dormir'
+      '94035000'
+    );
+    expect(screen.getByTestId('ncm-select-description').textContent).toBe(
+      'Móveis de madeira, do tipo utilizado em quartos de dormir'
     );
   });
 
-  it('exibe o número do ncm - descrição da sefaz no campo do select quando carregado com descrição', () => {
+  it('exibe somente o código no input e a descrição da sefaz como subtítulo quando carregado', () => {
     render(
       <NcmSelect
         value="94035000"
@@ -90,7 +93,10 @@ describe('NCM exibido e submetido pelo modal', () => {
     );
     expect(screen.getByRole('textbox', { name: 'NCM' })).toHaveProperty(
       'value',
-      '94035000 - Móveis de madeira, do tipo utilizado em quartos de dormir'
+      '94035000'
+    );
+    expect(screen.getByTestId('ncm-select-description').textContent).toBe(
+      'Móveis de madeira, do tipo utilizado em quartos de dormir'
     );
   });
 });

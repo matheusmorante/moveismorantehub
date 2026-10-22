@@ -29,7 +29,8 @@ export const resolveVariationFieldState = (
   field: TechnicalFieldDefinition,
   parentNormalizedValues: Record<string, any>,
   variationAttributeValues: Record<string, any>,
-  formDataTechnicalValues: Record<string, any> = {}
+  formDataTechnicalValues: Record<string, any> = {},
+  isVariable = false
 ): ResolvedVariationFieldState => {
   const fieldLower = field.name.trim().toLowerCase();
   const hasExplicitOverride = hasVariationOverride(formDataTechnicalValues, field.name);
@@ -39,7 +40,7 @@ export const resolveVariationFieldState = (
   const isOverridden = hasExplicitOverride || hasAttributeValue;
 
   const rawEffectiveVal = getEffectiveTechnicalValue(
-    parentNormalizedValues,
+    isVariable ? {} : parentNormalizedValues,
     { ...variationAttributeValues, ...formDataTechnicalValues },
     field.name
   );
@@ -55,7 +56,7 @@ export const resolveVariationFieldState = (
     parentText !== '' &&
     parentText.toLocaleLowerCase('pt-BR') !== 'não se aplica' &&
     !parentIsZero;
-  const isInheritedFromParent = !isOverridden && hasMeaningfulParentValue;
+  const isInheritedFromParent = !isVariable && !isOverridden && hasMeaningfulParentValue;
   const isAlwaysApplicable = field.isRequired;
 
   const normalizedEffectiveValue = String(effectiveVal ?? '')
@@ -87,6 +88,7 @@ export interface VariationTechnicalFieldItemProps {
   readonly variationAttributeValues: Record<string, any>;
   readonly formDataTechnicalValues?: Record<string, any>;
   readonly isManual: boolean;
+  readonly isVariable?: boolean;
   readonly isSingleVariation?: boolean;
   readonly onSetOverride: (fieldName: string, value: any) => void;
   readonly onRemoveManualField: (fieldName: string) => void;
@@ -100,6 +102,7 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
   variationAttributeValues,
   formDataTechnicalValues = {},
   isManual,
+  isVariable = false,
   isSingleVariation = false,
   onSetOverride,
   onRemoveManualField,
@@ -112,7 +115,8 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
     field,
     parentNormalizedValues,
     variationAttributeValues,
-    formDataTechnicalValues
+    formDataTechnicalValues,
+    isVariable
   );
 
   const combinedValues = {
@@ -152,6 +156,9 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
           title={field.name}
         >
           {field.name}
+          {field.isRequired && !isDependencyDisabled && (
+            <span className="ml-1 text-red-500" aria-hidden="true">*</span>
+          )}
           {isDependencyDisabled && (
             <DisabledFieldInfoButton
               disabledReason={dep.disabledReason}

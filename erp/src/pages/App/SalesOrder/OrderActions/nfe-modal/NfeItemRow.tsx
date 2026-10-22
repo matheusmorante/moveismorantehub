@@ -2,7 +2,10 @@ import React, { useMemo, useRef, useState } from 'react';
 import { NfeItemWithFiscal, NfeItemFiscal } from './NfeItemsSection';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { NcmSelect } from './NcmSelect';
-import { composeServiceFiscalValues } from '@/pages/utils/nfe/serviceFiscalComposition';
+import {
+  composeServiceFiscalValues,
+  type FiscalProductItem,
+} from '@/pages/utils/nfe/serviceFiscalComposition';
 import { UnregisteredProductIndicator } from '@/pages/App/SalesOrder/components/UnregisteredProductIndicator';
 import { CSOSN_OPTIONS, ORIGEM_OPTIONS, CEST_OPTIONS } from '@/pages/utils/nfe/fiscalConstants';
 import type { NfeItemCfopOption } from './domain/itemFiscalCfopOptions';
@@ -14,6 +17,7 @@ interface Props {
   cfopContextMessage?: string;
   fieldError?: { field: 'ncm' | 'cfop' | 'cst' | 'origem'; message: string } | null;
   onUpdateFiscal: (field: keyof NfeItemFiscal, value: string) => void;
+  fiscalComposition?: FiscalProductItem;
   onUpdateFiscalBlur?: () => void;
   onClearFieldError?: () => void;
 }
@@ -25,6 +29,7 @@ export const NfeItemRow: React.FC<Props> = ({
   cfopContextMessage,
   fieldError,
   onUpdateFiscal,
+  fiscalComposition,
   onClearFieldError,
   onUpdateFiscalBlur,
 }) => {
@@ -37,8 +42,16 @@ export const NfeItemRow: React.FC<Props> = ({
     advancedChanged.current = false;
     onUpdateFiscalBlur?.();
   };
-  const values = composeServiceFiscalValues([item]).products[0];
+  const values = fiscalComposition || composeServiceFiscalValues([item], '55').products[0];
+  const quantity = Number(item.quantity) || 1;
   const itemTotal = (values.vProdCents - values.vDescCents) / 100;
+  const fiscalUnitValue = (values.vProdCents / 100) / quantity;
+  const formattedFiscalUnitValue = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 10,
+  }).format(fiscalUnitValue);
   const cleanNcm = (item.fiscal?.ncm || '').replace(/\D/g, '');
   const isNcmValid = cleanNcm.length === 8;
 
@@ -106,15 +119,23 @@ export const NfeItemRow: React.FC<Props> = ({
               <span className="font-bold text-slate-600 dark:text-slate-300">
                 {item.quantity} UN
               </span>{' '}
-              • Preço Un:{' '}
+              • Preço comercial un.:{' '}
               <span className="font-bold text-slate-600 dark:text-slate-300">
                 {formatCurrency(item.unitPrice || 0)}
               </span>{' '}
-              • Total:{' '}
+              • Unitário fiscal: <span className="font-bold text-slate-600 dark:text-slate-300">{formattedFiscalUnitValue}</span>{' '}
+              • Total fiscal:{' '}
               <span className="font-black text-slate-700 dark:text-slate-200">
                 {formatCurrency(itemTotal)}
               </span>
             </p>
+            {values.incorporatedServices.length > 0 && (
+              <p className="mt-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                Serviços incorporados: {values.incorporatedServices.map((service) =>
+                  `${service.description || 'Serviço'} ${formatCurrency(service.allocatedCents / 100)} (total ${formatCurrency(service.totalServiceCents / 100)})`
+                ).join(' · ')}
+              </p>
+            )}
           </div>
         </div>
 
@@ -152,18 +173,9 @@ export const NfeItemRow: React.FC<Props> = ({
               onChange={(val, desc) => {
                 if (hasNcmError && onClearFieldError) onClearFieldError();
                 onUpdateFiscal('ncm', val);
-                if (desc) onUpdateFiscal('ncmDescription', desc);
+                onUpdateFiscal('ncmDescription', desc || '');
               }}
             />
-            {item.fiscal?.ncmDescription && isNcmValid && (
-              <p
-                data-testid={`nfe-item-ncm-desc-${itemIndex}`}
-                className="text-[9px] text-slate-500 dark:text-slate-400 truncate max-w-[220px]"
-                title={item.fiscal.ncmDescription}
-              >
-                {item.fiscal.ncmDescription}
-              </p>
-            )}
           </div>
 
           {/* Botão de Expandir Campos Fiscais Avançados */}

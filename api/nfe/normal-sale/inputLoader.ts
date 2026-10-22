@@ -25,7 +25,7 @@ export async function loadNormalSaleInputs(
         )
     )
   );
-  const customerId = obj(facts.order.data.customerData).id;
+  const customerId = String(obj(facts.order.data.customerData).id || '').trim();
   const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
   const codes = [...new Set(Object.values(selections).map((selected) => selected.ncm))];
   if (!codes.length) throw new Error('Confirme os campos fiscais de todos os itens no modal.');
@@ -34,11 +34,13 @@ export async function loadNormalSaleInputs(
     ids.length
       ? db.from('products').select('id,fiscal,unit').in('id', ids)
       : Promise.resolve({ data: [], error: null }),
-    db
-      .from('people')
-      .select('id,full_name,cpf_cnpj,address,rg_ie,person_type_pf_pj,deleted')
-      .eq('id', String(customerId || ''))
-      .maybeSingle(),
+    customerId
+      ? db
+          .from('people')
+          .select('id,full_name,cpf_cnpj,address,rg_ie,person_type_pf_pj,deleted')
+          .eq('id', customerId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     db.from('settings').select('id,data').in('id', [normalSaleContributionSettingsId()]),
     db.from('ncms').select('code,active,is_active,start_date,end_date').in('code', codes),
   ]);
@@ -47,8 +49,7 @@ export async function loadNormalSaleInputs(
     customer.error ||
     decision.error ||
     ncms.error ||
-    !customer.data ||
-    customer.data.deleted
+    (customerId && (!customer.data || customer.data.deleted))
   )
     throw new Error('Cadastro real do destinatário ou fatos fiscais indisponíveis.');
   facts.fiscalInputs = {
@@ -58,14 +59,16 @@ export async function loadNormalSaleInputs(
         row.fiscal || {},
       ])
     ) as unknown as FiscalJsonValue,
-    customer: {
-      id: customer.data.id,
-      fullName: customer.data.full_name,
-      cpfCnpj: customer.data.cpf_cnpj,
-      address: customer.data.address,
-      ie: customer.data.rg_ie,
-      personType: customer.data.person_type_pf_pj,
-    },
+    customer: customer.data
+      ? {
+          id: customer.data.id,
+          fullName: customer.data.full_name,
+          cpfCnpj: customer.data.cpf_cnpj,
+          address: customer.data.address,
+          ie: customer.data.rg_ie,
+          personType: customer.data.person_type_pf_pj,
+        }
+      : {},
     contributionDecision: (decision.data?.find(
       (row) => row.id === normalSaleContributionSettingsId()
     )?.data || null) as FiscalJsonValue,

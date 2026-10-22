@@ -125,7 +125,7 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
   {
     id: 'registrations',
     name: 'Pessoas e cadastros',
-    description: 'Clientes, colaboradores, serviços e necessidades de clientes.',
+    description: 'Clientes, colaboradores e necessidades de clientes.',
     icon: 'bi-people-fill',
     actions: [
       action('viewPeople', 'Acesso ao módulo', 'view', 'Acessar módulo', 'Abrir a área de cadastros de pessoas.', 'bi-eye-fill', managers),
@@ -133,7 +133,6 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
       action('createEditPeople', 'Clientes', 'edit', 'Criar e editar', 'Cadastrar e atualizar clientes e cadastros de pessoas.', 'bi-person-plus-fill', managers),
       action('deletePeople', 'Clientes', 'delete', 'Excluir e inativar', 'Excluir ou inativar cadastros de pessoas.', 'bi-person-x-fill', managers),
       action('viewEmployees', 'Colaboradores', 'view', 'Acessar', 'Consultar colaboradores e seus perfis.', 'bi-person-badge-fill', managers),
-      action('viewServices', 'Serviços', 'view', 'Acessar', 'Consultar serviços cadastrados.', 'bi-tools', managers),
       action('viewCustomerDesires', 'Necessidades de clientes', 'view', 'Acessar', 'Consultar preferências e necessidades registradas por clientes.', 'bi-heart', managers),
     ],
   },

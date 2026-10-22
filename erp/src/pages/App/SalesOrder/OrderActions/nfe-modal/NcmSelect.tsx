@@ -1,16 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
-
-function formatNcmDisplay(code?: string, desc?: string | null): string {
-  if (!code) return '';
-  const clean = code.replace(/\D/g, '').slice(0, 8);
-  if (!clean) return code;
-  if (desc && desc.trim()) {
-    return `${clean} - ${desc.trim()}`;
-  }
-  return clean;
-}
+import { formatNcmSubtitle } from '@/services/fiscal/ncmDisplay';
 
 function parseNcmCode(val: string): string {
   if (!val) return '';
@@ -39,7 +30,8 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
   hasError = false,
 }) => {
   const [currentDescription, setCurrentDescription] = useState(description || '');
-  const [searchQuery, setSearchQuery] = useState(() => formatNcmDisplay(value, description));
+  const [currentInternalDescription, setCurrentInternalDescription] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => parseNcmCode(value || ''));
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [results, setResults] = useState<NcmSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -77,32 +69,27 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
   }, [isDropdownOpen, searchQuery, results.length]);
 
   useEffect(() => {
-    if (description) {
-      setCurrentDescription(description);
-      setSearchQuery(formatNcmDisplay(value, description));
-    } else {
-      const clean = (value || '').replace(/\D/g, '').slice(0, 8);
-      if (clean.length === 8 && typeof ncmService?.getCatalogEntry === 'function') {
-        let cancelled = false;
-        Promise.resolve(ncmService.getCatalogEntry(clean))
-          .then((entry) => {
-            if (!cancelled && entry?.official_description) {
-              setCurrentDescription(entry.official_description);
-              setSearchQuery(formatNcmDisplay(clean, entry.official_description));
-            } else if (!cancelled) {
-              setSearchQuery(value || '');
-            }
-          })
-          .catch(() => {
-            if (!cancelled) setSearchQuery(value || '');
-          });
-        return () => {
-          cancelled = true;
-        };
-      } else {
-        setSearchQuery(value || '');
-      }
-    }
+    const clean = (value || '').trim();
+    const code = parseNcmCode(clean);
+    const digits = clean.replace(/\D/g, '').slice(0, 8);
+    setCurrentDescription(description || '');
+    setCurrentInternalDescription('');
+    setSearchQuery(digits.length === 8 ? digits : clean);
+    if (digits.length !== 8 || typeof ncmService?.getCatalogEntry !== 'function') return;
+
+    let cancelled = false;
+    Promise.resolve(ncmService.getCatalogEntry(digits))
+      .then((entry) => {
+        if (!cancelled && entry) {
+          setCurrentDescription(description || entry.official_description || '');
+          setCurrentInternalDescription(entry.internal_description || '');
+          setSearchQuery(digits);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, [value, description]);
 
   useEffect(() => {
@@ -126,7 +113,8 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
       setResults([]);
       return;
     }
-    if (!isDropdownOpen && searchQuery.includes(' - ')) {
+    if (!isDropdownOpen && /^\d{8}$/.test(term.replace(/\D/g, ''))) {
+      setResults([]);
       return;
     }
     setIsLoading(true);
@@ -150,20 +138,26 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
 
   const cleanVal = parseNcmCode(searchQuery).replace(/\D/g, '').slice(0, 8);
   const isNcmValid = cleanVal.length === 8;
+  const displayDescription = formatNcmSubtitle(currentDescription, currentInternalDescription);
+  const hasDescription = isNcmValid && Boolean(displayDescription);
+  const descriptionId = id ? `${id}-description` : undefined;
 
   return (
     <div className="relative w-full" ref={dropdownRef}>
-      <div className="relative flex items-center">
+      <div className="relative">
         <input
           id={id}
           ref={inputRef}
           aria-label="NCM"
-          title={searchQuery}
+          aria-describedby={hasDescription ? descriptionId : undefined}
+          title={displayDescription || searchQuery}
           type="text"
           value={searchQuery}
           onChange={(e) => {
             const val = e.target.value;
             setSearchQuery(val);
+            setCurrentDescription('');
+            setCurrentInternalDescription('');
             const code = val.includes(' - ') ? parseNcmCode(val) : val;
             onChange(code);
             setIsDropdownOpen(true);
@@ -179,7 +173,8 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
                 .then((entry) => {
                   if (entry?.official_description) {
                     setCurrentDescription(entry.official_description);
-                    setSearchQuery(formatNcmDisplay(code, entry.official_description));
+                    setCurrentInternalDescription(entry.internal_description || '');
+                    setSearchQuery(code);
                     onChange(code, entry.official_description);
                   }
                 })
@@ -188,7 +183,7 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
             setTimeout(() => onBlur?.(), 150);
           }}
           placeholder={placeholder}
-          className={`w-full pl-3 pr-7 py-1.5 bg-white dark:bg-slate-950 border-0 border-b-2 rounded-none outline-none text-xs font-mono font-bold transition-all ${
+          className={`h-[62px] w-full pl-3 pr-7 pt-2 pb-7 bg-white dark:bg-slate-950 border-0 border-b-2 rounded-none outline-none text-xs leading-4 font-mono font-bold transition-all ${
             hasError
               ? 'border-rose-500 bg-rose-50/50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 focus:border-rose-600 ring-1 ring-rose-500/30'
               : isNcmValid
@@ -196,13 +191,23 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
                 : 'border-red-400 bg-red-50/40 dark:bg-red-950/30 text-red-700 dark:text-red-300 focus:border-red-500'
           }`}
         />
+        {hasDescription && (
+          <p
+            id={descriptionId}
+            data-testid={id ? `${id}-description` : 'ncm-select-description'}
+            title={displayDescription}
+            className="pointer-events-none absolute left-3 right-7 top-8 line-clamp-2 text-[9px] leading-3 text-slate-500 dark:text-slate-400"
+          >
+            {displayDescription}
+          </p>
+        )}
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             setIsDropdownOpen((prev) => !prev);
           }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-transform p-0.5"
+          className="absolute right-2 top-3 text-slate-400 hover:text-slate-600 transition-transform p-0.5"
         >
           <i
             className={`bi bi-chevron-down text-[10px] transition-transform block ${isDropdownOpen ? 'rotate-180' : ''}`}
@@ -233,9 +238,9 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
                   key={item.code}
                   onClick={(e) => {
                     e.stopPropagation();
-                    const formatted = `${item.code} - ${item.official_description}`;
                     setCurrentDescription(item.official_description);
-                    setSearchQuery(formatted);
+                    setCurrentInternalDescription(item.internal_description || '');
+                    setSearchQuery(item.code);
                     onChange(item.code, item.official_description);
                     setIsDropdownOpen(false);
                   }}
@@ -251,14 +256,12 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] text-slate-600 dark:text-slate-300 font-semibold leading-tight mt-0.5 line-clamp-2">
-                    {item.official_description}
+                  <p
+                    title={formatNcmSubtitle(item.official_description, item.internal_description)}
+                    className="text-[10px] text-slate-600 dark:text-slate-300 font-semibold leading-tight mt-0.5 line-clamp-2"
+                  >
+                    {formatNcmSubtitle(item.official_description, item.internal_description)}
                   </p>
-                  {item.alias_match && (
-                    <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1 italic flex items-center gap-1">
-                      <i className="bi bi-tag-fill" /> {item.alias_match}
-                    </p>
-                  )}
                 </div>
               ))
             ) : (

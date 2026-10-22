@@ -281,6 +281,8 @@ export type FiscalDocument = {
   recipient: DeterminedFiscalRecipient;
   operation: DeterminedFiscalOperation;
   items: ReadonlyArray<DeterminedFiscalItem>;
+  /** Fiscal complementary information derived only from the immutable order snapshot. */
+  additionalInformation?: string;
   payments: ReadonlyArray<DeterminedPayment>;
   billingInstallments?: ReadonlyArray<DeterminedBillingInstallment>;
   totals: ReconciledFiscalTotals;

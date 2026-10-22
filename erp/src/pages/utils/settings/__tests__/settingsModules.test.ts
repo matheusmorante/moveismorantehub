@@ -76,13 +76,14 @@ describe('settings modular architecture', () => {
 
     it('atualiza rolePermissions para a versão mais recente', () => {
       const input = {
-        rolePermissions: {},
+        rolePermissions: { viewServices: ['seller'] },
         rolePermissionsMigrationVersion: 0,
       };
       const migrated = migrateSettings(input);
-      expect(migrated.rolePermissionsMigrationVersion).toBe(8);
+      expect(migrated.rolePermissionsMigrationVersion).toBe(9);
       expect(migrated.rolePermissions).toBeDefined();
       expect(migrated.rolePermissions?.viewFiscal).toContain('accountant');
+      expect(migrated.rolePermissions).not.toHaveProperty('viewServices');
     });
   });
 

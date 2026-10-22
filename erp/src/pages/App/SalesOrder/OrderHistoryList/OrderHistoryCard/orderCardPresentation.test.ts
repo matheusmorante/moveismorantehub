@@ -41,10 +41,11 @@ describe('orderCardPresentation', () => {
     expect(accent).toContain('bg-red-100');
   });
 
-  it('resolveCardHeaderAccentClass respeita as cores de entrega (verde), retirada (roxo) e assistência (laranja)', () => {
+  it('resolveCardHeaderAccentClass respeita as cores de entrega (verde), retirada (roxo), assistência (âmbar) e devolução (laranja)', () => {
     const order = { orderType: 'sale' } as Order;
     expect(resolveCardHeaderAccentClass(order, 'green', false, false)).toContain('bg-emerald-200');
     expect(resolveCardHeaderAccentClass(order, 'purple', false, false)).toContain('bg-purple-400');
+    expect(resolveCardHeaderAccentClass(order, 'amber', false, false)).toContain('bg-amber-100');
     expect(resolveCardHeaderAccentClass(order, 'orange', false, false)).toContain('bg-orange-50');
   });
 

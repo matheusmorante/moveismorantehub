@@ -157,12 +157,6 @@ const menuItems: any[] = [
         iconColor: 'text-violet-600',
         label: 'Colaboradores',
       },
-      {
-        to: '/registrations/services',
-        icon: 'bi-tools',
-        iconColor: 'text-violet-500',
-        label: 'Serviços',
-      },
     ],
   },
   {
@@ -187,13 +181,13 @@ const menuItems: any[] = [
       {
         to: '/assistance-orders',
         icon: 'bi-tools',
-        iconColor: 'text-orange-500',
+        iconColor: 'text-amber-500 dark:text-amber-400',
         label: 'Assistências',
       },
       {
         to: '/returns',
         icon: 'bi-arrow-return-left',
-        iconColor: 'text-rose-500',
+        iconColor: 'text-orange-500',
         label: 'Devoluções',
       },
       {
@@ -345,7 +339,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
   const canViewPeople = [
     'viewCustomers',
     'viewEmployees',
-    'viewServices',
     'viewCustomerDesires',
   ].some((action) => canPerform(action, roles));
   const canViewOrders = [
@@ -406,7 +399,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
       '/registrations/variations': 'viewProductCharacteristics',
       '/registrations/customers': 'viewCustomers',
       '/registrations/employees': 'viewEmployees',
-      '/registrations/services': 'viewServices',
       '/customers/desires': 'viewCustomerDesires',
       '/estoque/movimentacoes': 'viewStockMovements',
       '/estoque/inventarios': 'viewStockInventory',
@@ -583,7 +575,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                           className="w-full flex items-center gap-3 px-4 py-2.5 max-[480px]:px-3 max-[480px]:py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100 transition-all text-sm font-semibold text-left"
                         >
                           {link.to === '/returns' ? (
-                            <ReturnIcon className="h-6 w-6" />
+                            <ReturnIcon className={`h-6 w-6 ${link.iconColor || 'text-orange-500'}`} />
                           ) : (
                             <i className={`bi ${link.icon} text-base ${link.iconColor}`}></i>
                           )}

@@ -29,9 +29,10 @@ export function useOrderProductSelection(
 ) {
   const handleSelectProduct = useCallback(
     (index: number, product: any, variation?: any) => {
-      if (product.isComposition) {
+      if (product.isComposition || product.itemType === 'composition') {
         // EXPLOSÃO DO KIT (COMPOSIÇÃO)
-        const compositionItems = variation ? variation.items : product.variations?.[0]?.items;
+        const compositionItems =
+          variation?.items || product.items || product.variations?.[0]?.items;
 
         if (!compositionItems || compositionItems.length === 0) {
           console.warn('Composição sem itens reais vinculados.');
@@ -41,6 +42,7 @@ export function useOrderProductSelection(
         setItems((currentItems) => {
           const newItems = [...currentItems];
           const chosenOrigin = currentItems[index]?.condition;
+          const requestedQuantity = Number(currentItems[index]?.quantity ?? 1);
           const explodedItems = compositionItems.map((compItem: any) => {
             const realProduct = compItem.product;
             const realVariation = compItem.variation;
@@ -72,10 +74,12 @@ export function useOrderProductSelection(
                 unitPrice: pricing.unitPrice,
                 unitDiscount: pricing.unitDiscount,
                 discountType: pricing.discountType,
-                quantity: compItem.quantity,
+                quantity: Number(compItem.quantity ?? 1) * requestedQuantity,
                 total: Math.max(
                   0,
-                  (pricing.unitPrice - (pricing.unitDiscount || 0)) * compItem.quantity
+                  (pricing.unitPrice - (pricing.unitDiscount || 0)) *
+                    Number(compItem.quantity ?? 1) *
+                    requestedQuantity
                 ),
                 costPrice: Number(selectedCost) || 0,
                 handlingType: '',

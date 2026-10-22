@@ -1477,6 +1477,9 @@ var HML_NORMAL_SALE_RULESET_VERSION = "HML_NORMAL_SALE_V2";
 
 // erp/src/pages/utils/nfe/serviceFiscalComposition.ts
 var toCents = (value) => Math.round((Number(value) || 0) * 100);
+var normalizeLabel = (value) => String(value || "").replace(/\s+/g, " ").trim();
+var formatBrl = (cents) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100).replace(/\u00a0/g, " ");
+var normalizeInfCplText = (value) => value.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[–—]/g, "-").replace(/…/g, "...").replace(/[^\u0009\u000a\u000d\u0020-\u00ff]/g, "");
 var getItemNetCents = (item) => {
   const unitPrice = Number(item.unitPrice) || 0;
   const quantity = Number(item.quantity) || 1;
@@ -1484,34 +1487,95 @@ var getItemNetCents = (item) => {
   const fixedDiscount = item.discountType === "fixed" ? unitDiscount : unitPrice * unitDiscount / 100;
   return toCents(Math.max(0, unitPrice - fixedDiscount) * quantity);
 };
-function composeServiceFiscalValues(items = []) {
+function allocateCentsByQuantity(amountCents, targets) {
+  const totalQuantity = targets.reduce((sum, target) => sum + target.quantity, 0);
+  const exactShares = targets.map((target) => amountCents * target.quantity / totalQuantity);
+  const shares = exactShares.map(Math.floor);
+  let remainingCents = amountCents - shares.reduce((sum, share) => sum + share, 0);
+  const byLargestRemainder = exactShares.map((exact, index) => ({ index, remainder: exact - shares[index] })).sort((left, right) => right.remainder - left.remainder || left.index - right.index);
+  for (let index = 0; index < remainingCents; index += 1) {
+    shares[byLargestRemainder[index % byLargestRemainder.length].index] += 1;
+  }
+  return shares;
+}
+function linkedProductIds(service) {
+  const configuredIds = Array.isArray(service.linkedProductOrderItemIds) && service.linkedProductOrderItemIds.length ? service.linkedProductOrderItemIds : service.linkedProductOrderItemId ? [service.linkedProductOrderItemId] : [];
+  const ids = configuredIds.filter((id) => typeof id === "string" && Boolean(id.trim())).map((id) => id.trim());
+  return { ids: [...new Set(ids)], malformed: ids.length !== configuredIds.length };
+}
+function composeServiceFiscalValues(items = [], mode = "55") {
   const products = items.map((item, itemIndex) => ({ item, itemIndex })).filter(({ item }) => item.itemType !== "service");
   const services = items.filter((item) => item.itemType === "service");
   const linkedServiceCents = /* @__PURE__ */ new Map();
-  let vOutroCents = 0;
+  const linkedServiceLines = /* @__PURE__ */ new Map();
+  const pendingServices = [];
+  let incorporatedServiceCents = 0;
   for (const service of services) {
     const netCents = getItemNetCents(service);
-    const targetId = service.linkedProductOrderItemId;
-    if (targetId && products.some(({ item }) => item.orderItemId === targetId)) {
-      linkedServiceCents.set(targetId, (linkedServiceCents.get(targetId) || 0) + netCents);
-    } else {
-      vOutroCents += netCents;
+    if (netCents <= 0) continue;
+    const { ids, malformed } = linkedProductIds(service);
+    const targets = ids.map((id) => products.find(({ item }) => item.orderItemId === id)?.item).filter((item) => Boolean(item)).sort(
+      (left, right) => products.findIndex(({ item }) => item === left) - products.findIndex(({ item }) => item === right)
+    );
+    if (!ids.length || malformed || targets.length !== ids.length) {
+      pendingServices.push({ item: service, amountCents: netCents, reason: "missing_product_link" });
+      continue;
     }
+    const targetsWithQuantity = targets.map((item) => ({ item, quantity: Number(item.quantity) }));
+    if (targetsWithQuantity.some(
+      ({ quantity }) => !Number.isFinite(quantity) || quantity <= 0
+    )) {
+      pendingServices.push({ item: service, amountCents: netCents, reason: "invalid_product_quantity" });
+      continue;
+    }
+    const allocations = allocateCentsByQuantity(netCents, targetsWithQuantity);
+    targetsWithQuantity.forEach(({ item }, index) => {
+      const productId = item.orderItemId;
+      const allocatedCents = allocations[index];
+      if (allocatedCents <= 0) return;
+      linkedServiceCents.set(
+        productId,
+        (linkedServiceCents.get(productId) || 0) + allocatedCents
+      );
+      const lines = linkedServiceLines.get(productId) || [];
+      lines.push({
+        description: normalizeLabel(service.description),
+        allocatedCents,
+        totalServiceCents: netCents
+      });
+      linkedServiceLines.set(productId, lines);
+    });
+    incorporatedServiceCents += netCents;
   }
+  const fiscalProducts = products.map(({ item, itemIndex }) => {
+    const quantity = Number(item.quantity) || 1;
+    const grossCents = toCents((Number(item.unitPrice) || 0) * quantity);
+    const netCents = getItemNetCents(item);
+    const incorporatedServices = item.orderItemId ? linkedServiceLines.get(item.orderItemId) || [] : [];
+    return {
+      item,
+      itemIndex,
+      vProdCents: grossCents + (item.orderItemId ? linkedServiceCents.get(item.orderItemId) || 0 : 0),
+      vDescCents: Math.max(0, grossCents - netCents),
+      incorporatedServices
+    };
+  });
+  const invoiceModel = mode === "65" ? "NFC-e" : "NF-e";
+  const additionalInformation = fiscalProducts.flatMap(
+    ({ item, incorporatedServices }) => incorporatedServices.map(
+      ({ description, allocatedCents, totalServiceCents }) => normalizeInfCplText(
+        `O valor fiscal do item "${normalizeLabel(item.description)}" inclui ${formatBrl(allocatedCents)} do rateio do servi\xE7o "${description || "Servi\xE7o sem descri\xE7\xE3o"}" (valor total do servi\xE7o no pedido: ${formatBrl(totalServiceCents)}). O rateio considera as quantidades dos produtos vinculados e \xE9 matem\xE1tico; n\xE3o afirma que o servi\xE7o foi executado em cada unidade. O servi\xE7o n\xE3o \xE9 cobrado novamente em separado na ${invoiceModel}.`
+      )
+    )
+  ).join("; ");
+  if (additionalInformation.length > 5e3)
+    throw new Error("O detalhamento dos servi\xE7os incorporados excede o limite de informa\xE7\xF5es adicionais da nota fiscal.");
   return {
-    products: products.map(({ item, itemIndex }) => {
-      const quantity = item.quantity || 1;
-      const grossCents = toCents((Number(item.unitPrice) || 0) * quantity);
-      const netCents = getItemNetCents(item);
-      const discountCents = Math.max(0, grossCents - netCents);
-      return {
-        item,
-        itemIndex,
-        vProdCents: grossCents + (item.orderItemId ? linkedServiceCents.get(item.orderItemId) || 0 : 0),
-        vDescCents: discountCents
-      };
-    }),
-    vOutroCents
+    products: fiscalProducts,
+    vOutroCents: 0,
+    pendingServices,
+    ...additionalInformation ? { additionalInformation } : {},
+    incorporatedServiceCents
   };
 }
 
@@ -2823,7 +2887,7 @@ function assertNfeSignature(xml, expectedCertificatePem) {
 function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
   const orderItems = snapshot.order.data.items;
   if (!Array.isArray(orderItems)) throw new Error("Snapshot comercial sem itens do pedido.");
-  const composition = composeServiceFiscalValues(orderItems);
+  const composition = composeServiceFiscalValues(orderItems, document.model);
   const mismatches = [];
   if (composition.products.length !== document.items.length)
     mismatches.push({ field: "itens.count", expected: composition.products.length, actual: document.items.length });
@@ -2860,6 +2924,13 @@ function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
       field: "total.valorPedidoCalculado",
       expected: expectedCommercialTotal,
       actual: document.totals.invoice
+    });
+  const expectedAdditionalInformation = composition.additionalInformation || "";
+  if ((document.additionalInformation || "") !== expectedAdditionalInformation)
+    mismatches.push({
+      field: "informacoesAdicionais.infCpl",
+      expected: expectedAdditionalInformation || "(ausente)",
+      actual: document.additionalInformation || "(ausente)"
     });
   const orderCustomer = objectValue(snapshot.order.data.customerData);
   const fiscalCustomer = objectValue(snapshot.fiscalInputs?.customer);
@@ -3020,6 +3091,12 @@ function assertSignedFiscalXmlMatchesSnapshot(snapshot, document, xml, identity,
   ];
   for (const [xmlName, expected] of totalFields)
     addNumberMismatch(mismatches, `total.ICMSTot.${xmlName}`, expected, text(totals, xmlName));
+  addTextMismatch(
+    mismatches,
+    "infAdic.infCpl",
+    document.additionalInformation || "",
+    text(child(infNfe, "infAdic"), "infCpl")
+  );
   const paymentDetails = childElements(child(infNfe, "pag"), "detPag");
   if (paymentDetails.length !== document.payments.length)
     mismatches.push({ field: "pag.detPag.count", expected: document.payments.length, actual: paymentDetails.length });

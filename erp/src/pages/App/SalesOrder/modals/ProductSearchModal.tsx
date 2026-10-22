@@ -4,6 +4,7 @@ import ProductFormModal from '@/pages/App/Products/modals/ProductFormModal';
 import { useProductSearch_new } from '../hooks/useProductSearch_new';
 import { fetchSelectableDeep } from '../hooks/productSearchDeepFetch';
 import { ProductSearchItem } from '../components/ProductSearchItem';
+import { toast } from 'react-toastify';
 
 interface Props {
   onSelect: (product: Product, variation?: Variation) => void;
@@ -25,8 +26,12 @@ const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) =>
       onClose();
     } catch (err) {
       console.error('[ProductSearchModal] Erro ao buscar entidade detalhada:', err);
-      onSelect(item.p, item.v);
-      onClose();
+      const isComposition = item.p?.itemType === 'composition' || item.isComposition;
+      toast.error(
+        isComposition
+          ? 'Não foi possível carregar os produtos componentes. Confira a composição e tente novamente.'
+          : 'Não foi possível carregar o produto completo. Tente novamente.'
+      );
     } finally {
       setSelectingKey(null);
     }

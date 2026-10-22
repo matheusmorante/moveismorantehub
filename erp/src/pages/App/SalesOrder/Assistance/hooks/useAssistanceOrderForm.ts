@@ -233,6 +233,12 @@ export const useAssistanceOrderForm = ({
   };
 
   const getOrderData = (isDraft: boolean): Order => {
+    const linkedCode = currentLinkedOrder
+      ? String(currentLinkedOrder.orderIndex || currentLinkedOrder.orderNumber || '')
+      : order?.linkedOrderCode;
+    const linkedDeliveryMethod =
+      currentLinkedOrder?.shipping?.deliveryMethod || order?.linkedOrderDeliveryMethod;
+
     const payload = buildAssistanceOrderPayload({
       baseOrder: order,
       currentOrderId: confirmedId.current || currentOrderId,
@@ -244,6 +250,8 @@ export const useAssistanceOrderForm = ({
       scheduling,
       isLinked,
       linkedOrderId,
+      linkedOrderCode: linkedCode,
+      linkedOrderDeliveryMethod: linkedDeliveryMethod,
       selectedAssistanceItems,
       extraItems,
       assistanceCost,

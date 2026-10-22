@@ -42,9 +42,9 @@ export const getDefaultSettings = (): AppSettings => ({
   orderTypeColors: {
     delivery: 'green',
     pickup: 'purple',
-    assistance: 'orange',
+    assistance: 'amber',
     budget: 'blue',
-    return: 'amber',
+    return: 'orange',
   },
   deliveryHandlingOptions: MORANTE_DELIVERY_HANDLING_OPTIONS,
   pickupHandlingOptions: MORANTE_PICKUP_HANDLING_OPTIONS,

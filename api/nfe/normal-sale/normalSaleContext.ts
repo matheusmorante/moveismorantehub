@@ -97,7 +97,12 @@ export async function resolveNormalSaleFactsAndRules(
         422,
         'FISCAL_DETERMINATION_REQUIRED',
         'O pedido não passou pela determinação fiscal.',
-        { blockers: preflight.blockers, numberReserved: false, sefazContacted: false }
+        {
+          blockers: preflight.blockers,
+          pending: false,
+          numberReserved: false,
+          sefazContacted: false,
+        }
       ),
     };
   }

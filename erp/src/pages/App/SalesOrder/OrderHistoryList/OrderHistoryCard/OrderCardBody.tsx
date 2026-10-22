@@ -38,6 +38,11 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
   timeDisplay,
 }) => {
   const sched = order.shipping?.scheduling;
+  const effectiveDeliveryMethod =
+    order.orderType === 'assistance'
+      ? (order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod)
+      : order.shipping?.deliveryMethod;
+  const isPickupDeliveryMethod = effectiveDeliveryMethod === 'pickup';
 
   return (
     <div className="px-3 pt-2.5 pb-3">
@@ -67,23 +72,46 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
       )}
 
       {order.linkedOrderId && (
-        <button
-          type="button"
-          disabled={isCancelled}
-          onClick={
-            isCancelled
-              ? undefined
-              : (event) => {
-                  event.stopPropagation();
-                  onFilterByOrderId?.(order.linkedOrderId!);
-                }
-          }
-          className="mt-2 flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-400"
-          title={isCancelled ? 'Pedido cancelado' : 'Abrir pedido de venda vinculado'}
-        >
-          <i className="bi bi-link-45deg" />
-          Pedido #{order.linkedOrderCode || formatOrderCode(order)}
-        </button>
+        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            disabled={isCancelled}
+            onClick={
+              isCancelled
+                ? undefined
+                : (event) => {
+                    event.stopPropagation();
+                    onFilterByOrderId?.(order.linkedOrderId!);
+                  }
+            }
+            className="flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-900/30 dark:bg-blue-900/20 dark:text-blue-400"
+            title={isCancelled ? 'Pedido cancelado' : 'Abrir pedido de venda vinculado'}
+          >
+            <i className="bi bi-link-45deg" />
+            Pedido #{order.linkedOrderCode || formatOrderCode(order)}
+          </button>
+          {order.orderType === 'assistance' && (
+            <span
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                isPickupDeliveryMethod
+                  ? 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800'
+                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800'
+              }`}
+            >
+              {isPickupDeliveryMethod ? (
+                <>
+                  <PickupIcon className="h-2.5 w-2.5" />
+                  Retirada
+                </>
+              ) : (
+                <>
+                  <DeliveryTruckIcon className="h-2.5 w-2.5" />
+                  Entrega
+                </>
+              )}
+            </span>
+          )}
+        </div>
       )}
 
       <OrderDeliveryPrompt
@@ -116,7 +144,7 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
             <span className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">
               {order.orderType === 'return'
                 ? 'Data de coleta'
-                : order.shipping?.deliveryMethod === 'pickup'
+                : isPickupDeliveryMethod
                   ? 'Retirada'
                   : 'Entrega'}
             </span>
@@ -129,7 +157,7 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
               </div>
             ) : (
               <div className="flex items-center justify-end gap-1.5 font-bold text-blue-500 dark:text-blue-400">
-                {order.shipping?.deliveryMethod === 'pickup' ? (
+                {isPickupDeliveryMethod ? (
                   <PickupIcon className="h-3 w-3" />
                 ) : (
                   <DeliveryTruckIcon className="h-3 w-3" />

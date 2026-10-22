@@ -13,6 +13,7 @@ import { removeNonStockItemLinks } from '../saleInventoryRules';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
 import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
+import { assertOrderHasNoCompositionLines } from './orderCompositionRules';
 import {
   getPersistedOrderDataSnapshot,
   setPersistedOrderDataSnapshot,
@@ -177,6 +178,16 @@ export const executeUpdateOrder = async (
     }
 
     merged = applyTestArtifactUpdateRules(merged, previousOrderData, cleanUpdates);
+
+    if (
+      !options.metadataOnly &&
+      (Object.hasOwn(cleanUpdates, 'items') ||
+        Object.hasOwn(cleanUpdates, 'orderType') ||
+        orderToUpdate.status === 'scheduled' ||
+        orderToUpdate.status === 'fulfilled')
+    ) {
+      await assertOrderHasNoCompositionLines(merged as Order);
+    }
 
     const persistedCodeSource = getOrderIndex(previousOrderData) ? previousOrderData : currentOrder;
     const existingCode = resolveOrderIndexForUpdate(persistedCodeSource, cleanUpdates);

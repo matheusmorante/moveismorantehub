@@ -299,9 +299,12 @@ export function serializeFiscalDocument(
         `http://www.fazenda.pr.gov.br/nfce/qrcode?p=${key}|3|${document.environment}` +
         ']]></qrCode><urlChave>http://www.fazenda.pr.gov.br/nfce/consulta</urlChave></infNFeSupl>'
       : '';
+  const additionalInformation = document.additionalInformation?.trim()
+    ? `<infAdic>${tag('infCpl', document.additionalInformation.trim())}</infAdic>`
+    : '';
   return (
     `<?xml version="1.0" encoding="UTF-8"?><NFe xmlns="http://www.portalfiscal.inf.br/nfe">` +
     `<infNFe Id="NFe${key}" versao="4.00">${ide}${issuer}${recipient}${items}${total}` +
-    `${transport}${billing}${payments}</infNFe>${supplement}</NFe>`
+    `${transport}${billing}${payments}${additionalInformation}</infNFe>${supplement}</NFe>`
   );
 }

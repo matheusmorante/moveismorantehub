@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import type { Product, Variation } from '../erp/src/pages/types/product.type';
+import {
+  getCharacteristicDependencyState,
+  getEffectiveTechnicalValue,
+  getEffectiveVariationTechnicalValues,
+  resolveVariableTechnicalFieldNames,
+} from '../erp/src/pages/utils/technicalValuesService';
 import { getVariationRegistrationIssue } from './productVariationRules';
 
 const nonnegative = z.number().nonnegative('Informe um valor finito maior ou igual a zero.');
@@ -63,6 +69,45 @@ export const createProductVariationFormSchema = (parent: Partial<Product>, isSin
     }
     const issue = getVariationRegistrationIssue(parent, values as Variation);
     if (issue) context.addIssue({ code: 'custom', path: [issue.tab], message: issue.message });
+
+    const variation = values as Variation;
+    const variableFieldNames = resolveVariableTechnicalFieldNames(
+      parent.variableTechnicalFields,
+      [...(parent.variations || []), variation]
+    );
+    if (variableFieldNames.length > 0) {
+      const variationOverrides = getEffectiveVariationTechnicalValues(
+        {},
+        variation,
+        variableFieldNames
+      );
+      const dependencyValues = {
+        ...(parent.technicalValues || {}),
+        ...Object.fromEntries(
+          (variation.attributes || []).map(({ name, value }) => [name, value])
+        ),
+        ...(variation.technicalValues || {}),
+      };
+      const missingFieldNames = variableFieldNames.filter((fieldName) => {
+        if (getCharacteristicDependencyState(fieldName, dependencyValues).isDisabled) {
+          return false;
+        }
+        const value = getEffectiveTechnicalValue({}, variationOverrides, fieldName);
+        if (value === undefined || value === null) return true;
+        if (Array.isArray(value)) return value.length === 0;
+        if (typeof value !== 'string') return false;
+        return ['nao se aplica', 'não se aplica', 'n/a', ''].includes(
+          value.trim().toLocaleLowerCase('pt-BR')
+        );
+      });
+      if (missingFieldNames.length > 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['tecnico'],
+          message: `Informe nas características específicas: ${missingFieldNames.join(', ')}.`,
+        });
+      }
+    }
   });
 
 /** The displayed discount is part of the submit intent, even if preview math clamps it. */

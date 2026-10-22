@@ -25,6 +25,11 @@ const ServiceFormEditor = ({ onClose, service }: ServiceFormModalProps) => {
   const [formData, setFormData] = useState(() => ({
     description: service?.description ?? '', unitPrice: service?.unitPrice ?? 0,
     costPrice: service?.costPrice ?? 0, active: service?.active ?? true,
+    fiscalTreatment: service?.fiscalTreatment ?? {
+      nfeComposition: 'not_reviewed' as const,
+      incorporationConfirmed: false,
+      validationReference: '',
+    },
   }));
   const form = useZodForm(serviceFormSchema, formData);
   const close = () => { if (!locked.current) onClose(); };
@@ -118,6 +123,85 @@ const ServiceFormEditor = ({ onClose, service }: ServiceFormModalProps) => {
                 onChangeValue={(val) => setFormData({ ...formData, costPrice: val })}
                 className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-slate-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
               />
+            </div>
+            <div className="md:col-span-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-5 dark:border-amber-900/50 dark:bg-amber-950/20">
+              <h3 className="text-xs font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">
+                Tratamento fiscal do serviço na NF-e 55 / NFC-e 65
+              </h3>
+              <p className="mt-2 text-xs leading-relaxed text-amber-900/80 dark:text-amber-100/80">
+                Vincular um serviço a um produto no pedido não autoriza sua incorporação. Por padrão, o serviço fica fora da NF-e 55 e da NFC-e 65 até que o tratamento fiscal seja definido.
+              </p>
+              <label className="mt-4 flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                Enquadramento para composição fiscal
+                <select
+                  aria-label="Tratamento fiscal do serviço para NF-e 55 e NFC-e 65"
+                  value={formData.fiscalTreatment.nfeComposition}
+                  onChange={(event) => {
+                    const nfeComposition = event.target.value as typeof formData.fiscalTreatment.nfeComposition;
+                    setFormData((current) => ({
+                      ...current,
+                      fiscalTreatment: {
+                        ...current.fiscalTreatment,
+                        nfeComposition,
+                        ...(nfeComposition !== 'include_with_merchandise'
+                          ? { incorporationConfirmed: false }
+                          : {}),
+                      },
+                    }));
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  <option value="not_reviewed">Não validado — não incorporar</option>
+                  <option value="separate_document">Documento fiscal próprio — tratar separadamente</option>
+                  <option value="include_with_merchandise">Compor o valor da mercadoria — validado</option>
+                </select>
+              </label>
+              {formData.fiscalTreatment.nfeComposition === 'include_with_merchandise' ? (
+                <div className="mt-4 flex flex-col gap-3">
+                  <label className="flex items-start gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      aria-label="Confirmo a validação fiscal da composição do serviço"
+                      checked={Boolean(formData.fiscalTreatment.incorporationConfirmed)}
+                      onChange={(event) => setFormData((current) => ({
+                        ...current,
+                        fiscalTreatment: {
+                          ...current.fiscalTreatment,
+                          incorporationConfirmed: event.target.checked,
+                        },
+                      }))}
+                      className="mt-0.5"
+                    />
+                    <span>Confirmo que a análise fiscal permite compor este serviço ao valor da mercadoria e que a prestação não deve ser faturada separadamente neste tratamento.</span>
+                  </label>
+                  <label className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                    Referência da validação fiscal
+                    <input
+                      aria-label="Referência da validação fiscal do serviço"
+                      value={formData.fiscalTreatment.validationReference || ''}
+                      onChange={(event) => setFormData((current) => ({
+                        ...current,
+                        fiscalTreatment: {
+                          ...current.fiscalTreatment,
+                          validationReference: event.target.value,
+                        },
+                      }))}
+                      placeholder="Registre o parecer ou orientação fiscal que sustenta o enquadramento"
+                      maxLength={500}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs font-semibold normal-case tracking-normal text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    />
+                  </label>
+                  <p className="text-[10px] text-amber-800 dark:text-amber-200">
+                    A confirmação fica registrada com usuário e data. Se houver obrigação de NFS-e ou dúvida de enquadramento, escolha documento fiscal próprio ou mantenha como não validado.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-3 text-[10px] font-semibold text-amber-800 dark:text-amber-200">
+                  {formData.fiscalTreatment.nfeComposition === 'separate_document'
+                    ? 'Este serviço não será incorporado à NF-e; verifique e trate o documento fiscal próprio, inclusive eventual NFS-e.'
+                    : 'Serviços sem validação fiscal documentada não serão incorporados automaticamente à NF-e.'}
+                </p>
+              )}
             </div>
             <div className="md:col-span-2 flex items-center gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
               <div className="flex-1">

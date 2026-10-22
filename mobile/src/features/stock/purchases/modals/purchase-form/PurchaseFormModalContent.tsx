@@ -19,9 +19,9 @@ import {
   MobilePurchase,
 } from '../../mobilePurchaseService';
 import { usePurchaseForm, formatMoney } from '../../hooks/usePurchaseForm';
-import { PurchaseOrderDetailsSection } from '../../components/PurchaseOrderDetailsSection';
-import { PurchaseItemsSection } from '../../components/PurchaseItemsSection';
-import { PurchaseSupplierPickerModal } from '../../components/PurchaseSupplierPickerModal';
+import { PurchaseOrderDetailsSection } from './PurchaseOrderDetailsSection';
+import { PurchaseItemsSection } from './PurchaseItemsSection';
+import { PurchaseSupplierPickerModal } from './PurchaseSupplierPickerModal';
 
 interface Props {
   visible: boolean;

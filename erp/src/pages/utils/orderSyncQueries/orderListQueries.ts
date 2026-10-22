@@ -6,6 +6,7 @@ import { TABLE_NAME, ORDER_LIST_COLUMNS } from './orderSyncConstants';
 import { FetchFulfilledOrdersOptions } from './orderSyncTypes';
 import { isValidOrderRow, enrichOrdersWithPeopleOrigins } from './orderPeopleEnrichment';
 import { enrichLinkedReturnMovements } from './orderReturnMovementSummary';
+import { enrichAssistanceLinkedOrders } from './assistanceLinkedOrderEnricher';
 
 export const fetchOrdersPage = async (
   page: number = 1,
@@ -85,6 +86,7 @@ export const fetchOrdersPage = async (
   const rawOrders = (data || []).filter(isValidOrderRow).map(mapOrderFromDatabase);
 
   await enrichLinkedReturnMovements(rawOrders);
+  await enrichAssistanceLinkedOrders(rawOrders);
 
   const enrichedOrders = await enrichOrdersWithPeopleOrigins(rawOrders);
   return { orders: enrichedOrders, total: count || 0 };

@@ -36,6 +36,8 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
 }) => {
   const legacyItemType = 'item_type' in formData ? formData.item_type : undefined;
   const isComposition = formData.itemType === 'composition' || legacyItemType === 'composition';
+  const isMultiVariationMode =
+    Boolean(formData.hasVariations) || (formData.variations?.length || 0) > 1;
 
   const formTabs: readonly ProductTabItem[] = [
     { id: 'geral', label: 'Informações Básicas', icon: 'bi-info-circle' },
@@ -49,7 +51,9 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
             ? [{ id: 'description' as const, label: 'Descrição', icon: 'bi-file-text' }]
             : []),
           { id: 'estoque' as const, label: 'Estoque e Precificação', icon: 'bi-box-seam' },
-          { id: 'variacoes' as const, label: 'Variações', icon: 'bi-grid-3x3-gap' },
+          ...(isMultiVariationMode
+            ? [{ id: 'variacoes' as const, label: 'Variações', icon: 'bi-grid-3x3-gap' }]
+            : []),
         ]
       : []),
     ...(!isComposition

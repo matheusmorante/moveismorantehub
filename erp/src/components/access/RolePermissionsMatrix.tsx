@@ -78,7 +78,6 @@ const moduleViewChildren: Record<string, string[]> = {
     'createEditPeople',
     'deletePeople',
     'viewEmployees',
-    'viewServices',
     'viewCustomerDesires',
   ],
   viewFinancials: [

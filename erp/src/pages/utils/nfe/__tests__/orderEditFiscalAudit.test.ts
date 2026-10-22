@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { FiscalDocument, FiscalSnapshotCandidate } from '../../../../../../api/nfe/fiscalSnapshot';
-import { findFiscalOrderEditChanges } from '../../../../../../api/nfe/orderEditFiscalAudit';
+import {
+  findFiscalOrderEditChanges,
+  hasPotentialFiscalOrderEdit,
+} from '../../../../../../api/nfe/orderEditFiscalAudit';
 
 const originalOrderData: Record<string, any> = {
   items: [
@@ -161,6 +164,29 @@ function createSnapshot(): FiscalSnapshotCandidate {
 }
 
 describe('auditoria fiscal de edição do pedido', () => {
+  it('trata mudança nos produtos vinculados ao serviço como edição fiscal potencial', () => {
+    const current = {
+      items: [
+        {
+          itemType: 'service',
+          orderItemId: 'service-installation',
+          linkedProductOrderItemIds: ['product-a'],
+        },
+      ],
+    };
+    const proposed = {
+      items: [
+        {
+          itemType: 'service',
+          orderItemId: 'service-installation',
+          linkedProductOrderItemIds: ['product-b'],
+        },
+      ],
+    };
+
+    expect(hasPotentialFiscalOrderEdit(current, proposed)).toBe(true);
+  });
+
   it('não pede cancelamento para mudanças exclusivamente administrativas', () => {
     const proposed = structuredClone(originalOrderData);
     proposed.scheduledDate = '2026-10-15';

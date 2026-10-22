@@ -20,7 +20,6 @@ import ProductTypes from './pages/App/Products/ProductTypes/Index';
 import Customers from './pages/App/Customers/Index';
 import Suppliers from './pages/App/Suppliers/Index';
 import Employees from './pages/App/Employees/Index';
-import Services from './pages/App/Services/Index';
 import Variations from './pages/App/Variations/Index';
 import Stock from './pages/App/Stock';
 import NcmCatalogPage from './pages/App/Stock/NcmCatalogPage';
@@ -498,9 +497,6 @@ function Router() {
                 </PermissionRoute>
               }
             />
-            <Route element={<PermissionRoute action="viewServices" />}>
-              <Route path="/registrations/services" element={<Services />} />
-            </Route>
             <Route element={<PermissionRoute action="viewCustomers" />}>
               <Route path="/registrations/customers" element={<Customers />} />
             </Route>

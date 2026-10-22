@@ -154,10 +154,16 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   );
 
   const visibleFields = useMemo(
-    () =>
-      (requiredFieldsOnly ? applicableFields.filter((field) => field.isRequired) : applicableFields)
-        .filter((field) => isTechnicalFieldVariable(field.name, variableFieldNames)),
-    [applicableFields, requiredFieldsOnly, variableFieldNames]
+    () => {
+      const fieldsByName = new Map<string, TechnicalFieldDefinition>();
+      [...applicableFields, ...allTechnicalFields].forEach((field) => {
+        if (!isTechnicalFieldVariable(field.name, variableFieldNames)) return;
+        const key = normalizeSearchTerm(field.name);
+        if (!fieldsByName.has(key)) fieldsByName.set(key, field);
+      });
+      return [...fieldsByName.values()].map((field) => ({ ...field, isRequired: true }));
+    },
+    [allTechnicalFields, applicableFields, variableFieldNames]
   );
 
   const requiredFields = useMemo(
@@ -401,6 +407,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         variationAttributeValues={variationAttributeValues}
                         formDataTechnicalValues={formData.technicalValues}
                         isManual={manualFieldNames.includes(field.name)}
+                        isVariable
                         isSingleVariation={isSingleVariation}
                         onSetOverride={handleSetOverride}
                         onRemoveManualField={handleRemoveManualField}

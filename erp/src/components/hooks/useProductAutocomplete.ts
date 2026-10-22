@@ -113,7 +113,11 @@ export function useProductAutocomplete({
 
           if (
             excludeCombos &&
-            (p.isCombo || (p as any).itemType === 'combo' || (p as any).item_type === 'combo')
+            (p.isCombo ||
+              (p as any).itemType === 'combo' ||
+              (p as any).item_type === 'combo' ||
+              p.itemType === 'composition' ||
+              (p as any).item_type === 'composition')
           ) {
             return;
           }

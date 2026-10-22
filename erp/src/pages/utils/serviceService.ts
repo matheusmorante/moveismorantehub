@@ -23,6 +23,38 @@ const throwWriteError = (error: any): never => {
   throw error;
 };
 
+const stampFiscalValidation = async (treatment: Service['fiscalTreatment']) => {
+  if (!treatment || treatment.nfeComposition !== 'include_with_merchandise') {
+    return {
+      ...(treatment || { nfeComposition: 'not_reviewed' as const }),
+      incorporationConfirmed: false,
+      validatedAt: undefined,
+      validatedBy: undefined,
+    };
+  }
+  if (!treatment.incorporationConfirmed || (treatment.validationReference || '').trim().length < 10) {
+    throw new Error('A composição fiscal exige confirmação e referência da validação.');
+  }
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user?.id) {
+    throw new Error('Não foi possível identificar o usuário que confirmou a validação fiscal do serviço.');
+  }
+  return {
+    ...treatment,
+    validationReference: treatment.validationReference.trim(),
+    validatedAt: new Date().toISOString(),
+    validatedBy: data.user.id,
+  };
+};
+
+const sameFiscalTreatment = (
+  left: Service['fiscalTreatment'] | undefined,
+  right: Service['fiscalTreatment'] | undefined
+) =>
+  (left?.nfeComposition || 'not_reviewed') === (right?.nfeComposition || 'not_reviewed') &&
+  Boolean(left?.incorporationConfirmed) === Boolean(right?.incorporationConfirmed) &&
+  (left?.validationReference || '').trim() === (right?.validationReference || '').trim();
+
 export const subscribeToServices = (callback: (services: Service[]) => void) => {
   let currentServices: Service[] = [];
 
@@ -58,6 +90,9 @@ export const saveService = async (service: Service): Promise<Service> => {
   }
 
   const serviceToSave = { ...service, ...values };
+  if (!flags.isDraft) {
+    serviceToSave.fiscalTreatment = await stampFiscalValidation(values.fiscalTreatment);
+  }
   delete serviceToSave.isDraft;
 
   const { data, error } = await supabase
@@ -90,6 +125,14 @@ export const updateService = async (
   if (lookupError) throw lookupError;
   if (!current?.service_data || typeof current.service_data !== 'object' || Array.isArray(current.service_data)) throw new Error('Serviço não encontrado.');
   const merged = { ...current.service_data, ...patch };
+  if (Object.hasOwn(patch, 'fiscalTreatment')) {
+    merged.fiscalTreatment = sameFiscalTreatment(
+      current.service_data.fiscalTreatment,
+      patch.fiscalTreatment
+    ) && current.service_data.fiscalTreatment
+      ? current.service_data.fiscalTreatment
+      : await stampFiscalValidation(patch.fiscalTreatment);
+  }
   const isDraftVal = patch.isDraft;
   const values = ((isDraftVal ?? current.is_draft) ? serviceDraftSchema : serviceFormSchema).parse(merged);
   Object.assign(merged, values);

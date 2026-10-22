@@ -112,8 +112,8 @@ export function useVariationForm({
 
   const isDraft = isProductDraft(parentProduct);
   const isSingleVariation = variation
-    ? (parentProduct.variations || []).length === 1
-    : (parentProduct.variations || []).length === 0;
+    ? !parentProduct.hasVariations && (parentProduct.variations || []).length === 1
+    : !parentProduct.hasVariations && (parentProduct.variations || []).length === 0;
 
   const schema = useMemo(
     () => createProductVariationSubmissionSchema(parentProduct, isSingleVariation),

@@ -75,8 +75,8 @@ const VariationFormSession: React.FC<
   const isStockistOnly = isStockistOnlyProfile(profile);
 
   const isSingleVariation = variation
-    ? (parentProduct.variations || []).length === 1
-    : (parentProduct.variations || []).length === 0;
+    ? !parentProduct.hasVariations && (parentProduct.variations || []).length === 1
+    : !parentProduct.hasVariations && (parentProduct.variations || []).length === 0;
   const isSingleExistingVariation = Boolean(variation) && isSingleVariation;
 
   const {

@@ -14,7 +14,7 @@ export { DeliveryPreparationScreen } from './screens/DeliveryPreparationScreen';
 export { MobileOrderCard } from './components/MobileOrderCard';
 export { OrdersHeader } from './components/OrdersHeader';
 export { MobileOrderPagination } from './components/MobileOrderPagination';
-export { SlideHoldToStart } from './components/SlideHoldToStart';
+export { SlideHoldToStart } from './components/delivery/SlideHoldToStart';
 export { OrderCardBadges } from './components/card/OrderCardBadges';
 export { OrderCardBody } from './components/card/OrderCardBody';
 export { OrderCardFiscalBadges } from './components/card/OrderCardFiscalBadges';

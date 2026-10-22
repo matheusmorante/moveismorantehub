@@ -84,6 +84,7 @@ export type Order = {
     quantity: number;
   }>;
   linkedOrderCode?: string;
+  linkedOrderDeliveryMethod?: string;
   collectionObservation?: string;
   assistanceItems?: AssistanceItem[];
   deleted?: boolean;

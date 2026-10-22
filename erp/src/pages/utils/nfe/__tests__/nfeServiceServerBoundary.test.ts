@@ -306,6 +306,41 @@ describe('emissão NF-e no ERP', () => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it('encerra como falha pré-transmissão quando a preparação inválida não deixou documento', async () => {
+    const chain: any = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      maybeSingle: mocks.maybeSingle,
+    };
+    const fetchMock = vi.fn();
+    mocks.from.mockReturnValue(chain);
+    mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
+    vi.stubGlobal('fetch', fetchMock);
+    const { consultSefazStatus } = await import(
+      '@/pages/App/SalesOrder/OrderActions/nfe-modal/services/nfeReconciliationService'
+    );
+
+    const outcome = await consultSefazStatus('TEST_AUT_lookup', 1, {
+      success: false,
+      pending: true,
+      orderId: 'TEST_AUT_lookup',
+      environment: 1,
+      emissionRequestId: 'aa1146c0-ea67-47aa-9ec6-8af7e5907dcd',
+      numberReserved: false,
+      sefazContacted: false,
+      technicalDetails: { apiCode: 'FISCAL_PREPARATION_INVALID' },
+    });
+
+    expect(outcome).toMatchObject({
+      state: 'error',
+      updatedResult: {
+        pending: false,
+        numberReserved: false,
+        sefazContacted: false,
+      },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   it('reusa o ID explícito ao retomar uma preparação não confirmada', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const fetchMock = vi.fn().mockResolvedValue({

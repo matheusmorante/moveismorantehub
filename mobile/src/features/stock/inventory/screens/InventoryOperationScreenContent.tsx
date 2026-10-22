@@ -20,10 +20,10 @@ import {
 import { InventoryScannerScreen, type InventoryScanFeedback } from './InventoryScannerScreen';
 import { InventoryStagesView } from '../components/inventory-stages/InventoryStagesView';
 import { InventoryFocusMode } from '../components/InventoryFocusMode';
-import { InventoryOperationHeader } from '../components/InventoryOperationHeader';
-import { InventoryOperationFilterBar } from '../components/InventoryOperationFilterBar';
-import { InventoryOperationItemCard } from '../components/InventoryOperationItemCard';
-import { InventoryOperationFooter } from '../components/InventoryOperationFooter';
+import { InventoryOperationHeader } from '../components/inventory-operation/InventoryOperationHeader';
+import { InventoryOperationFilterBar } from '../components/inventory-operation/InventoryOperationFilterBar';
+import { InventoryOperationItemCard } from '../components/inventory-operation/InventoryOperationItemCard';
+import { InventoryOperationFooter } from '../components/inventory-operation/InventoryOperationFooter';
 import { playInventoryCountSound } from '../../../../services/inventoryCountSound';
 
 import type { AuditItem } from '../types/inventoryWorkflow.types';

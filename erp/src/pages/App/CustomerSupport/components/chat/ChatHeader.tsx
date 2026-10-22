@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'react-toastify';
 import { supportConversationCommandSchema, type SupportConversationCommand } from '../../../../../../../shared-utils/customerSupportFormSchemas';
 import { WhatsAppConversation, ConversationStatus, AssignedProfileSummary } from '../../types';
 import { CareWindow } from '@/pages/utils/customerSupport/whatsappSupportGuard';
@@ -425,9 +426,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           >
             <button
               type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(conversation.contactPhone);
-                alert('Telefone copiado para a área de transferência.');
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(conversation.contactPhone);
+                  toast.success('Telefone copiado para a área de transferência.');
+                } catch {
+                  toast.error('Não foi possível copiar o telefone. Verifique a permissão da área de transferência.');
+                }
               }}
               className="w-full px-4 py-2.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
             >

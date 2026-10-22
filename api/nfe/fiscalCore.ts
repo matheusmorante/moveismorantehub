@@ -3,11 +3,13 @@ import { validateCsosn } from './csosnPolicy';
 import { assertFiscalSelectionIntegrity } from './fiscalSelectionIntegrity';
 import { isNormalSaleRuleSet } from './normal-sale/constants';
 import {
+  isRecord,
   resolveOrderFiscalModel,
   getFiscalRecipientAddress,
   isSameFiscalModelDecision,
   decideFiscalRecipientRequirements,
 } from '../../shared-utils/fiscalDocumentModel';
+import { resolveFiscalScopeDeliveryMethod } from '../../shared-utils/fiscalTransportModel';
 import {
   isValidRecipientTaxId,
   normalizeRecipientTaxId,
@@ -125,9 +127,23 @@ export function validateFiscalDocument(
       throw new Error(
         'Identificação do destinatário diverge do snapshot fiscal ou do cadastro PF/PJ.'
       );
+    const commercialShipping = snapshot.order.data.shipping;
+    const snapshotShipping = isRecord(commercialShipping) ? commercialShipping : {};
+    const orderDeliveryMethod = snapshotShipping.deliveryMethod;
+    if (orderDeliveryMethod !== 'delivery' && orderDeliveryMethod !== 'pickup')
+      throw new Error('Modalidade comercial do pedido ausente ou inválida.');
+    const fiscalDeliveryMethod = resolveFiscalScopeDeliveryMethod({
+      orderDeliveryMethod,
+      hasTransport: snapshot.emissionRequest.hasTransport,
+      transportResponsible: snapshot.emissionRequest.transportResponsible,
+    });
+    const fiscalOrderData = {
+      ...snapshot.order.data,
+      shipping: { ...snapshotShipping, deliveryMethod: fiscalDeliveryMethod },
+    };
     const decision = resolveOrderFiscalModel(
       {
-        ...snapshot.order.data,
+        ...fiscalOrderData,
         orderType: snapshot.order.type,
         paymentsSummary: { totalOrderValue: document.totals.invoice },
         items: document.items.map((item) => ({ fiscal: { cfop: item.classification.cfop } })),
@@ -136,7 +152,7 @@ export function validateFiscalDocument(
         issuerUf: String(snapshot.issuerProfile.companyUF || ''),
         finalConsumer: snapshot.emissionRequest.finalConsumer,
         recipientAddress: getFiscalRecipientAddress({
-          ...snapshot.order.data,
+          ...fiscalOrderData,
           customerData: { fullAddress: customer?.address },
         }),
       }

@@ -21,6 +21,9 @@ export interface SupportOrderSummary {
 export const SUPPORT_ORDER_QUERY_COLUMNS =
   'id, order_number, status, total_amount, payment_method, delivery_status, scheduled_date, delivery_finished_at, items, created_at';
 
+export const SUPPORT_ORDERS_LOAD_ERROR = 'Não foi possível carregar os pedidos deste cliente. Tente novamente.';
+export const SUPPORT_ORDERS_PERMISSION_ERROR = 'Você não tem permissão para consultar os pedidos deste cliente.';
+
 /**
  * Mapeia e normaliza um registro de pedido para resumo comercial no atendimento
  */
@@ -86,17 +89,22 @@ export async function getCustomerOrders(
 ): Promise<SupportOrderSummary[]> {
   if (!customerId) return [];
 
-  const response = await withTimeout<any>(supabase.rpc('customer_support_list_customer_orders', {
-    p_customer_id: customerId,
-  }), 15_000, null, 'central:pedidos-cliente');
-  const { data, error } = response || { data: null, error: new Error('Timeout ao carregar pedidos') };
-
-  if (error || !data) {
-    console.error('[SupportOrdersService] Erro ao carregar pedidos do cliente:', error);
-    return [];
+  let response;
+  try {
+    response = await withTimeout<any>(supabase.rpc('customer_support_list_customer_orders', {
+      p_customer_id: customerId,
+    }), 15_000, null, 'central:pedidos-cliente');
+  } catch {
+    throw new Error(SUPPORT_ORDERS_LOAD_ERROR);
+  }
+  if (response?.error?.code === '42501') {
+    throw new Error(SUPPORT_ORDERS_PERMISSION_ERROR);
+  }
+  if (response?.error || !Array.isArray(response?.data)) {
+    throw new Error(SUPPORT_ORDERS_LOAD_ERROR);
   }
 
-  return data.map(mapOrderToSupportSummary);
+  return response.data.map(mapOrderToSupportSummary);
 }
 
 /**

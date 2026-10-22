@@ -140,6 +140,185 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
       { number: '002', dueDate: '2026-10-10', amount: 179 },
     ]);
   });
+  it('incorpora serviço avulso vinculado ao item agrupado em HML e Produção', async () => {
+    const facts = makeFacts();
+    facts.order.data.items = [
+      {
+        orderItemId: 'line-armario',
+        productId: 'P-1',
+        quantity: 2,
+        description: 'ARMÁRIO AÉREO',
+        unitPrice: 500,
+        unitDiscount: 0,
+        discountType: 'fixed',
+      },
+      {
+        orderItemId: 'line-installation',
+        itemType: 'service',
+        linkedProductOrderItemIds: ['line-armario'],
+        quantity: 1,
+        description: 'Instalação de 1 armário',
+        unitPrice: 100,
+        unitDiscount: 0,
+        discountType: 'fixed',
+      },
+    ];
+    facts.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };
+    facts.order.data.payments = [{ method: 'Cartão de Crédito', amount: 1100 }];
+    facts.emissionRequest.itemFiscalSelections = {
+      '1': { ncm: '94034000', cfop: '5102', origem: '2', cest: '', csosn: '103' },
+    };
+
+    const rules = await createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration());
+    const result = resolveFiscalDocument(facts, rules);
+    if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
+    expect(result.document.items).toHaveLength(1);
+    expect(result.document.items[0].product).toMatchObject({
+      quantity: 2,
+      unitValue: 550,
+      gross: 1100,
+      otherExpenses: 0,
+    });
+    expect(result.document.totals).toMatchObject({ products: 1100, otherExpenses: 0, invoice: 1100, payment: 1100 });
+
+    const key = generateNfeAccessKey({
+      ufCode: '41',
+      yearMonth: '2609',
+      cnpj: '12345678000195',
+      model: '55',
+      series: 900,
+      number: 702,
+      emissionType: '1',
+      randomCode: '12345678',
+    }).accessKey;
+    const xml = serializeFiscalDocument(facts, result.document, rules, {
+      accessKey: key,
+      series: 900,
+      number: 702,
+      issuedAt: '2026-09-30T10:00:00-03:00',
+    });
+    expect(xml).toContain('<tpAmb>2</tpAmb>');
+    expect(xml).toContain('<qCom>2.0000</qCom><vUnCom>550.0000000000</vUnCom><vProd>1100.00</vProd>');
+    expect(xml).toContain('<vOutro>0.00</vOutro>');
+    expect(xml).toContain('<vNF>1100.00</vNF>');
+    expect(xml).toContain('<infCpl>O valor fiscal do item');
+    expect(xml).toContain('Instalação de 1 armário');
+    expect(xml).toContain('rateio considera as quantidades dos produtos vinculados');
+    expect(xml).toContain('não afirma que o serviço foi executado em cada unidade');
+    await expect(validateUnsignedNfeStructure(xml)).resolves.toBeUndefined();
+    const pair = forge.pki.rsa.generateKeyPair({ bits: 2048, workers: 0 });
+    const signed = signNfeXml(
+      xml,
+      forge.pki.privateKeyToPem(pair.privateKey),
+      Buffer.from('certificado sintético').toString('base64')
+    );
+    await expect(validateNfeAgainstOfficialSchema(signed)).resolves.toBeUndefined();
+
+    facts.emissionRequest.environment = 1;
+    const productionRules = await createNormalSaleRuleSet(facts);
+    const productionResult = resolveFiscalDocument(facts, productionRules);
+    if (productionResult.status !== 'ready')
+      throw new Error(JSON.stringify(productionResult.blockers));
+    expect(productionResult.document.items[0].product).toMatchObject({
+      quantity: 2,
+      unitValue: 550,
+      gross: 1100,
+      otherExpenses: 0,
+    });
+    const productionXml = serializeFiscalDocument(facts, productionResult.document, productionRules, {
+      accessKey: key,
+      series: 900,
+      number: 702,
+      issuedAt: '2026-09-30T10:00:00-03:00',
+    });
+    expect(productionXml).toContain('<tpAmb>1</tpAmb>');
+    expect(productionXml).toContain('<qCom>2.0000</qCom><vUnCom>550.0000000000</vUnCom><vProd>1100.00</vProd>');
+    expect(productionXml).toContain('<vOutro>0.00</vOutro>');
+    expect(productionXml).toContain('<vNF>1100.00</vNF>');
+    expect(productionXml).toContain('Instalação de 1 armário');
+  });
+  it('rateia serviço avulso entre vários produtos na NFC-e 65 e valida infCpl no XML de homologação', async () => {
+    const facts = makeFacts();
+    facts.emissionRequest.finalConsumer = true;
+    facts.emissionRequest.recipientIeIndicator = '9';
+    facts.emissionRequest.recipientIe = '';
+    facts.order.data.items = [
+      {
+        orderItemId: 'line-armario',
+        productId: 'P-1',
+        quantity: 2,
+        description: 'ARMÁRIO AÉREO',
+        unitPrice: 500,
+        unitDiscount: 0,
+        discountType: 'fixed',
+      },
+      {
+        orderItemId: 'line-balcony',
+        productId: 'P-2',
+        quantity: 1,
+        description: 'BALCÃO',
+        unitPrice: 300,
+        unitDiscount: 0,
+        discountType: 'fixed',
+      },
+      {
+        orderItemId: 'line-installation',
+        itemType: 'service',
+        linkedProductOrderItemIds: ['line-armario', 'line-balcony'],
+        quantity: 1,
+        description: 'Instalação de 1 armário',
+        unitPrice: 100,
+        unitDiscount: 0,
+        discountType: 'fixed',
+      },
+    ];
+    facts.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };
+    facts.order.data.payments = [{ method: 'Pix', amount: 1400 }];
+    facts.emissionRequest.itemFiscalSelections = {
+      '1': { ncm: '94034000', cfop: '5102', origem: '2', cest: '', csosn: '103' },
+      '2': { ncm: '94036000', cfop: '5102', origem: '2', cest: '', csosn: '103' },
+    };
+
+    const rules = await createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration());
+    const result = resolveFiscalDocument(facts, rules);
+    if (result.status !== 'ready') throw new Error(JSON.stringify(result.blockers));
+    expect(result.document.model).toBe('65');
+    expect(result.document.items).toHaveLength(2);
+    expect(result.document.items[0].product).toMatchObject({
+      quantity: 2,
+      unitValue: 533.335,
+      gross: 1066.67,
+      otherExpenses: 0,
+    });
+    expect(result.document.items[1].product).toMatchObject({
+      quantity: 1,
+      unitValue: 333.33,
+      gross: 333.33,
+      otherExpenses: 0,
+    });
+    expect(result.document.totals).toMatchObject({ products: 1400, otherExpenses: 0, invoice: 1400, payment: 1400 });
+    expect(result.document.additionalInformation).toContain('NFC-e');
+    expect(result.document.additionalInformation).toContain('rateio considera as quantidades dos produtos vinculados');
+    expect(result.document.additionalInformation).toContain('não afirma que o serviço foi executado em cada unidade');
+
+    const key = generateNfeAccessKey({
+      ufCode: '41', yearMonth: '2609', cnpj: '12345678000195', model: '65',
+      series: '1', number: 705, emissionType: '1', randomCode: '12345678',
+    }).accessKey;
+    const xml = serializeFiscalDocument(facts, result.document, rules, {
+      accessKey: key, series: 1, number: 705, issuedAt: '2026-09-30T10:00:00-03:00',
+    });
+    expect(xml).toContain('<mod>65</mod>');
+    expect(xml).toContain('<qCom>2.0000</qCom><vUnCom>533.3350000000</vUnCom><vProd>1066.67</vProd>');
+    expect(xml).toContain('<qCom>1.0000</qCom><vUnCom>333.3300000000</vUnCom><vProd>333.33</vProd>');
+    expect(xml).toContain('<vOutro>0.00</vOutro>');
+    expect(xml).toContain('<infCpl>O valor fiscal do item');
+    expect(xml).toContain('Instalação de 1 armário');
+    await expect(validateUnsignedNfeStructure(xml)).resolves.toBeUndefined();
+    const pair = forge.pki.rsa.generateKeyPair({ bits: 2048, workers: 0 });
+    const signed = signNfeXml(xml, forge.pki.privateKeyToPem(pair.privateKey), Buffer.from('certificado sintético').toString('base64'));
+    await expect(validateNfeAgainstOfficialSchema(signed)).resolves.toBeUndefined();
+  });
   it('classifica saldo vencível no dia da emissão como à vista e omite cobrança', async () => {
     const facts = makeFacts();
     facts.order.data.shipping = {
@@ -588,19 +767,23 @@ describe('pedido real no fluxo normal de homologação (fatos unitários control
       document: { model: '65', recipient: { cpfCnpj: '12345678909' } },
     });
   });
-  it('exige identificação para NFC-e não presencial abaixo de R$ 10.000', async () => {
+  it('permite NFC-e de retirada presencial sem CPF abaixo do limite de identificação', async () => {
     const facts = makeFacts();
     facts.emissionRequest.finalConsumer = true;
     facts.emissionRequest.recipientIeIndicator = '9';
     facts.emissionRequest.recipientIe = '';
     facts.order.data.shipping = { value: 0, deliveryMethod: 'pickup' };
     facts.order.data.fiscalContext = { presence: '2' };
+    facts.order.data.payments = [{ method: 'Cartão de Crédito', amount: 349 }];
+    facts.emissionRequest.cardNotIntegrated = true;
     (facts.fiscalInputs!.customer as any).cpfCnpj = '';
     facts.emissionRequest.recipientTaxId = '';
 
-    await expect(createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration())).rejects.toThrow(
-      'CPF do destinatário é obrigatório para esta operação fiscal.'
-    );
+    const rules = await createHmlNormalSaleRuleSet(facts, initialHmlCsosnConfiguration());
+    expect(resolveFiscalDocument(facts, rules)).toMatchObject({
+      status: 'ready',
+      document: { model: '65', operation: { presence: '1' }, recipient: { cpfCnpj: '' } },
+    });
   });
   it('serializa entrega própria NFC-e com CPF/endereço, indPres=4 e modFrete=3 sem dados de terceiro', async () => {
     const facts = makeFacts();

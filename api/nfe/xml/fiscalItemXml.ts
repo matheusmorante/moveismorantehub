@@ -43,9 +43,9 @@ export function serializeFiscalItems(document: FiscalDocument): string {
         `${tag('NCM', c.ncm)}${c.cest ? tag('CEST', requireCode(c.cest, /^\d{7}$/, 'CEST')) : ''}` +
         `${c.benefitCode ? tag('cBenef', c.benefitCode) : ''}${tag('CFOP', c.cfop)}` +
         `${tag('uCom', c.unit)}${tag('qCom', decimal(p.quantity, 4))}` +
-        `${tag('vUnCom', decimal(p.unitValue, 4))}${tag('vProd', money(p.gross))}` +
+        `${tag('vUnCom', decimal(p.unitValue, 10))}${tag('vProd', money(p.gross))}` +
         `${tag('cEANTrib', p.gtin)}${tag('uTrib', c.unit)}` +
-        `${tag('qTrib', decimal(p.quantity, 4))}${tag('vUnTrib', decimal(p.unitValue, 4))}` +
+        `${tag('qTrib', decimal(p.quantity, 4))}${tag('vUnTrib', decimal(p.unitValue, 10))}` +
         `${p.freight ? tag('vFrete', money(p.freight)) : ''}` +
         `${p.insurance ? tag('vSeg', money(p.insurance)) : ''}` +
         `${p.discount ? tag('vDesc', money(p.discount)) : ''}` +

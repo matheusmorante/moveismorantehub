@@ -69,9 +69,58 @@ describe('OrderOperationalBadges - Ícone de Retirada e Tipos Operacionais', () 
     expect(badge.querySelector('.bi-truck')).not.toBeNull();
   });
 
-  it('renderiza o ícone de ferramentas para pedidos de assistência', () => {
+  it('renderiza o selo de Entrega para assistência vinculada a pedido com método entrega', () => {
     const assistanceOrder = {
       id: 'order-assis-1',
+      status: 'scheduled',
+      orderType: 'assistance',
+      linkedOrderId: 'sale-1',
+      linkedOrderDeliveryMethod: 'delivery',
+      shipping: { deliveryMethod: 'delivery' },
+    } as unknown as Order;
+
+    render(
+      <OrderOperationalBadges
+        order={assistanceOrder}
+        isPaidTraffic={false}
+        statusConfig={defaultStatusConfig}
+        onStatusUpdate={vi.fn()}
+      />
+    );
+
+    const badge = screen.getByTitle('Entrega');
+    expect(badge).toBeTruthy();
+    expect(badge.className).toContain('bg-emerald-600');
+    expect(badge.querySelector('.bi-truck')).not.toBeNull();
+  });
+
+  it('renderiza o selo de Retirada para assistência vinculada a pedido com método retirada', () => {
+    const assistanceOrder = {
+      id: 'order-assis-2',
+      status: 'scheduled',
+      orderType: 'assistance',
+      linkedOrderId: 'sale-2',
+      linkedOrderDeliveryMethod: 'pickup',
+      shipping: { deliveryMethod: 'pickup' },
+    } as unknown as Order;
+
+    render(
+      <OrderOperationalBadges
+        order={assistanceOrder}
+        isPaidTraffic={false}
+        statusConfig={defaultStatusConfig}
+        onStatusUpdate={vi.fn()}
+      />
+    );
+
+    const badge = screen.getByTitle('Retirada');
+    expect(badge).toBeTruthy();
+    expect(badge.className).toContain('bg-purple-600');
+  });
+
+  it('não renderiza selo de entrega/retirada para assistência avulsa (sem pedido vinculado)', () => {
+    const assistanceOrder = {
+      id: 'order-assis-3',
       status: 'scheduled',
       orderType: 'assistance',
       shipping: { deliveryMethod: 'delivery' },
@@ -86,10 +135,9 @@ describe('OrderOperationalBadges - Ícone de Retirada e Tipos Operacionais', () 
       />
     );
 
-    const badge = screen.getByTitle('Assistência');
-    expect(badge).toBeTruthy();
-    expect(badge.className).toContain('bg-orange-500');
-    expect(badge.querySelector('.bi-tools')).not.toBeNull();
+    expect(screen.queryByTitle('Assistência')).toBeNull();
+    expect(screen.queryByTitle('Retirada')).toBeNull();
+    expect(screen.queryByTitle('Entrega')).toBeNull();
   });
 
   it('renderiza container redondo com ícone de relógio no canto superior direito do botão de agendado (calendário) quando pendingScheduling=true', () => {

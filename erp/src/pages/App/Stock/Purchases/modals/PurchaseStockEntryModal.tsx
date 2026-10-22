@@ -66,6 +66,12 @@ function PurchaseStockEntryEditor({ purchase, onClose }: PurchaseStockEntryModal
         const missing = data.items.find((item) => !catalog.current.products.some((product) => product.id === item.productId
           && (!item.variationId || product.variations?.some((variation) => variation.id === item.variationId))));
         if (missing) { setError(`Produto ou variação não encontrado: ${missing.description}.`); return; }
+        const composedItem = data.items.find((item) => catalog.current.products.some((product) =>
+          product.id === item.productId && product.itemType === 'composition'));
+        if (composedItem) {
+          setError(`"${composedItem.description}" é um produto composto. Registre a entrada diretamente nos produtos componentes.`);
+          return;
+        }
         const movementDate = new Date(`${data.date}T12:00:00`).toISOString();
         for (const item of data.items) {
           if (!mounted.current) return;

@@ -8,8 +8,67 @@ import {
 export interface NcmSearchResult {
   code: string;
   official_description: string;
+  internal_description?: string | null;
   alias_match: string | null;
   rank: number;
+}
+
+interface NcmAlias {
+  ncm_code: string;
+  term: string;
+  weight: number | null;
+}
+
+const GENERIC_EXAMPLE_WORDS = new Set([
+  'a', 'aco', 'as', 'com', 'da', 'das', 'de', 'dos', 'do', 'e', 'em', 'estofada', 'estofado',
+  'inox', 'madeira', 'madeiras', 'mdf', 'mdp', 'metal', 'metalica', 'metalico', 'metalicos',
+  'moveis', 'movel', 'na', 'nas', 'no', 'nos', 'o', 'os', 'outras', 'outros', 'para', 'plastico',
+  'plasticos',
+]);
+
+function getExampleCategory(term: string): string {
+  const words = term
+    .toLocaleLowerCase('pt-BR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  const firstSpecificWord = words.find((word) => !GENERIC_EXAMPLE_WORDS.has(word));
+  if (!firstSpecificWord) return words[0] || term.toLocaleLowerCase('pt-BR');
+  return firstSpecificWord;
+}
+
+function summarizeInternalDescription(
+  aliases: NcmAlias[],
+  priorityTerm?: string | null
+): string | null {
+  const ordered = [...aliases].sort(
+    (left, right) =>
+      (right.weight ?? 0) - (left.weight ?? 0) ||
+      right.term.length - left.term.length ||
+      left.term.localeCompare(right.term, 'pt-BR')
+  );
+  if (priorityTerm) {
+    const matchingIndex = ordered.findIndex(({ term }) => term === priorityTerm);
+    if (matchingIndex > 0) ordered.unshift(...ordered.splice(matchingIndex, 1));
+  }
+
+  const seenTerms = new Set<string>();
+  const seenCategories = new Set<string>();
+  const examples: string[] = [];
+  for (const { term } of ordered) {
+    const normalizedTerm = term.trim().toLocaleLowerCase('pt-BR');
+    const category = getExampleCategory(term);
+    if (!normalizedTerm || seenTerms.has(normalizedTerm) || seenCategories.has(category)) continue;
+    seenTerms.add(normalizedTerm);
+    seenCategories.add(category);
+    examples.push(term.trim());
+    if (examples.length === 3) break;
+  }
+
+  if (examples.length === 0) return null;
+  const categoryCount = new Set(ordered.map(({ term }) => getExampleCategory(term))).size;
+  return `${examples.join('; ')}${seenCategories.size < categoryCount ? '; entre outros' : ''}`;
 }
 
 export type { NcmInferenceFacts, NcmInferenceResult };
@@ -23,6 +82,29 @@ export interface NcmShortlistParams {
 }
 
 class NcmService {
+  private async getInternalAliases(codes: string[]): Promise<Map<string, NcmAlias[]>> {
+    if (codes.length === 0) return new Map();
+    const { data, error } = await supabase
+      .from('ncm_aliases')
+      .select('ncm_code, term, weight')
+      .in('ncm_code', codes)
+      .eq('active', true);
+
+    if (error) {
+      console.error('Erro ao carregar exemplos internos de NCM:', error);
+      return new Map();
+    }
+
+    const aliasesByCode = new Map<string, NcmAlias[]>();
+    for (const alias of (data || []) as NcmAlias[]) {
+      if (!alias?.ncm_code || !alias.term) continue;
+      const aliases = aliasesByCode.get(alias.ncm_code) || [];
+      aliases.push(alias);
+      aliasesByCode.set(alias.ncm_code, aliases);
+    }
+    return aliasesByCode;
+  }
+
   /**
    * Inferência inteligente e determinística de NCM baseada no título/descrição/categoria/material,
    * validada contra o catálogo de NCMs vigentes e ativos na loja.
@@ -69,10 +151,20 @@ class NcmService {
       }
 
       const usableCodes = new Set((usableNcms || []).map(({ code }) => code));
-      return candidates
+      const topCandidates = candidates
         .filter(({ code }) => usableCodes.has(code))
         .sort((left, right) => right.rank - left.rank)
         .slice(0, maxResults);
+      const aliasesByCode = await this.getInternalAliases(
+        [...new Set(topCandidates.map(({ code }) => code))]
+      );
+      return topCandidates.map((candidate) => ({
+        ...candidate,
+        internal_description: summarizeInternalDescription(
+          aliasesByCode.get(candidate.code) || [],
+          candidate.alias_match
+        ),
+      }));
     } catch (error) {
       console.error('Erro no NcmService.searchNcms.', error);
       throw error;
@@ -86,16 +178,24 @@ class NcmService {
     is_active: boolean;
     start_date: string | null;
     end_date: string | null;
+    internal_description?: string | null;
   } | null> {
     const normalizedCode = code.replace(/\D/g, '');
     if (normalizedCode.length !== 8) return null;
-    const { data, error } = await supabase
-      .from('ncms')
-      .select('code, official_description, active, is_active, start_date, end_date')
-      .eq('code', normalizedCode)
-      .maybeSingle();
+    const [{ data, error }, aliasesByCode] = await Promise.all([
+      supabase
+        .from('ncms')
+        .select('code, official_description, active, is_active, start_date, end_date')
+        .eq('code', normalizedCode)
+        .maybeSingle(),
+      this.getInternalAliases([normalizedCode]),
+    ]);
     if (error) throw error;
-    return data;
+    if (!data) return null;
+    return {
+      ...data,
+      internal_description: summarizeInternalDescription(aliasesByCode.get(normalizedCode) || []),
+    };
   }
 
   /**

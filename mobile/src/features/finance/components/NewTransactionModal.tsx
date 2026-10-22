@@ -13,9 +13,9 @@ import {
 import { X } from 'lucide-react-native';
 import { FinancialCategory, FinancialTransaction } from '../../../services/mobileFinanceService';
 import { CategorySelectModal } from './CategorySelectModal';
-import { TransactionDatePickerModal } from './TransactionDatePickerModal';
+import { TransactionDatePickerModal } from './transaction-date/TransactionDatePickerModal';
 import { TransactionTypeSelector } from './TransactionTypeSelector';
-import { TransactionDateSelector } from './TransactionDateSelector';
+import { TransactionDateSelector } from './transaction-date/TransactionDateSelector';
 import { TransactionPurposeSelector } from './TransactionPurposeSelector';
 import { TransactionCategoryField } from './TransactionCategoryField';
 import { PaymentMethodChips } from './PaymentMethodChips';

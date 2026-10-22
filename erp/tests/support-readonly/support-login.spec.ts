@@ -1,4 +1,6 @@
 import { chromium, expect, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 test('login autônomo e consulta da Inbox sem gravações de negócio', async () => {
   if (process.env.MORANTE_ENV_SOURCE !== 'vercel-development' || process.env.VERCEL_ENV !== 'development') {
@@ -13,24 +15,42 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   }
 
   const verifySlowRefresh = process.env.SUPPORT_READONLY_SLOW_REFRESH === '1';
+  const verifyReadReceipt = process.env.SUPPORT_READONLY_READ_RECEIPT === '1';
+  const verifyPhoneCopy = process.env.SUPPORT_READONLY_COPY_PHONE === '1';
+  const verifyOrdersPanel = process.env.SUPPORT_READONLY_ORDERS_PANEL === '1';
+  if (verifyPhoneCopy && !verifyReadReceipt) throw new Error('A prova de cópia exige a conversa própria retida e suas guardas de leitura.');
+  if (verifyOrdersPanel && !verifyReadReceipt) throw new Error('A prova de pedidos exige a conversa própria retida e suas guardas de leitura.');
+  const retainedManifest = verifyReadReceipt
+    ? JSON.parse(readFileSync(resolve(process.env.SUPPORT_REOPENING_MANIFEST || ''), 'utf8')) : null;
+  if (verifyReadReceipt && (retainedManifest?.projectRef !== 'hkoxhourxwlddgsfdgws'
+    || retainedManifest.runId !== '8eaed14f-364d-47ab-be41-66be54b3fb65'
+    || retainedManifest.ownerId !== '13eab361-be48-4e49-be4b-4ad79813b812'
+    || retainedManifest.cleanupCompleted !== true)) throw new Error('Manifesto de leitura retido não confirmado.');
   const slowSearch = '__central_readonly_sem_resultado_20261021__';
   let exerciseSlowList = false;
   let delayedListRequests = 0;
   let slowListCompleted = false;
+  let rejectedReadWrites = 0;
+  let customerOrderRequests = 0;
+  let clipboardGranted = false;
 
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9225');
   const context = browser.contexts()[0];
   const page = context?.pages()[0];
   if (!page) throw new Error('Navegador visível de desenvolvimento não encontrado.');
+  page.setDefaultTimeout(10_000);
+  page.setDefaultNavigationTimeout(15_000);
   const readOnlyRPCs = new Set([
     'customer_support_list_conversations', 'customer_support_conversation_counts', 'customer_support_list_agents',
     'customer_support_list_customer_summaries', 'customer_support_count_customer_orders',
     'customer_support_can_view', 'customer_support_can_view_commercial_info',
+    'customer_support_test_fixture_manifest',
   ]);
   const guard = async (route: import('@playwright/test').Route) => {
     const request = route.request();
     const url = new URL(request.url());
     const method = request.method();
+    if (url.pathname === '/rest/v1/rpc/customer_support_list_customer_orders') customerOrderRequests++;
     const read = ['GET', 'HEAD', 'OPTIONS'].includes(method);
     const auth = method === 'POST' && (url.pathname === '/auth/v1/token'
       || (url.pathname === '/auth/v1/logout' && url.searchParams.get('scope') === 'local'));
@@ -51,7 +71,10 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       }
     }
     if (read || auth || operator || rpc) await route.continue();
-    else await route.abort('blockedbyclient');
+    else {
+      if (verifyReadReceipt && method === 'PATCH' && url.pathname === '/rest/v1/whatsapp_conversations') rejectedReadWrites++;
+      await route.abort('blockedbyclient');
+    }
   };
   await context.route('**/*', guard);
   try {
@@ -89,10 +112,12 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       })).status;
     });
     expect(operatorGateStatus, 'A identidade deve passar pelo gate real do operador.').toBe(204);
+    console.info('[support-readonly] Identidade e gate do operador confirmados.');
     await page.goto('http://localhost:5173/atendimento');
     await expect(page.getByText('Pastas compartilhadas', { exact: true })).toBeVisible();
     await expect(page.getByText('Conversas', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('textbox', { name: '••••••••' })).toHaveCount(0);
+    console.info('[support-readonly] Inbox carregada sem formulário de credenciais.');
 
     if (verifySlowRefresh) {
       const list = page.getByRole('region', { name: 'Lista de conversas', exact: true });
@@ -114,6 +139,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     await expect(folderDialog.getByText('O nome deve ter pelo menos 2 caracteres.')).toBeVisible();
     await folderDialog.getByRole('button', { name: 'Cancelar', exact: true }).click();
     await expect(folderDialog).toHaveCount(0);
+    console.info('[support-readonly] Validação de pasta sem gravação concluída.');
 
     const agentSection = page.getByRole('button', { name: 'Atendentes', exact: true }).locator('..');
     const agentButton = agentSection.locator('button[aria-pressed]').first();
@@ -127,6 +153,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     const selectedAgentId = agentResponse.request().postDataJSON().p_agent_id;
     const agentRows = await agentResponse.json();
     expect(Array.isArray(agentRows) && agentRows.every((row: { assigned_to: string }) => row.assigned_to === selectedAgentId)).toBe(true);
+    console.info('[support-readonly] Consulta restrita por atendente confirmada.');
 
     const [resetResponse] = await Promise.all([page.waitForResponse((response) => {
       return response.url().endsWith('/rest/v1/rpc/customer_support_list_conversations')
@@ -154,11 +181,69 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       test.info().annotations.push({ type: 'limitation', description: 'Lista real com até 50 conversas; paginação exige fixture controlada.' });
     }
 
+    if (verifyReadReceipt) {
+      console.info('[support-readonly] Conferindo ownership do histórico próprio retido.');
+      const ownFixture = await page.evaluate(async manifest => {
+        const path = '/src/pages/utils/supabaseConfig.ts'; const { supabase } = await import(path);
+        const user = await supabase.auth.getUser();
+        if (user.data.user?.id !== manifest.ownerId) return null;
+        const remote = await supabase.rpc('customer_support_test_fixture_manifest', { p_run_id: manifest.runId });
+        if (remote.error || remote.data.ownerId !== manifest.ownerId
+          || JSON.stringify([...remote.data.conversationIds].sort()) !== JSON.stringify([...manifest.conversationIds].sort())) return null;
+        const rows = await supabase.from('whatsapp_conversations').select('id, contact_name, contact_phone, unread_count, customer_id, business_phone_number_id, is_archived').in('id', manifest.conversationIds);
+        if (rows.error || !rows.data.every((row: { customer_id: string | null; business_phone_number_id: string; is_archived: boolean }) =>
+          row.customer_id === null && row.business_phone_number_id === `test-artifact:${manifest.runId}` && row.is_archived)) return null;
+        return rows.data.find((row: { unread_count: number }) => row.unread_count > 0) || null;
+      }, retainedManifest);
+      expect(ownFixture, 'A prova usa somente conversa própria arquivada e com não lidas; não cria massa.').toBeTruthy();
+      const searchToggle = page.getByTitle('Alternar campo de busca', { exact: true });
+      if (!await page.getByPlaceholder('Pesquisar por cliente, telefone ou pedido...').isVisible()) await searchToggle.click();
+      await page.getByPlaceholder('Pesquisar por cliente, telefone ou pedido...').fill(ownFixture!.contact_name);
+      await page.getByRole('button', { name: /^[^A-Za-z]*All[^A-Za-z]*$/ }).click();
+      await page.getByRole('button', { name: /Closed \(Fechadas\)/ }).click();
+      await page.getByRole('region', { name: 'Lista de conversas', exact: true }).getByText(ownFixture!.contact_name, { exact: true }).click();
+      await expect(page.getByText('Não foi possível confirmar a leitura. Atualize a conversa para tentar novamente.', { exact: true })).toBeVisible();
+      const history = page.getByRole('region', { name: 'Histórico da conversa', exact: true });
+      await expect(history.locator('[data-message-id]').first()).toBeVisible();
+      expect(rejectedReadWrites).toBeGreaterThan(0);
+      await page.getByRole('button', { name: 'Recarregar mensagens', exact: true }).click();
+      await expect.poll(() => rejectedReadWrites).toBeGreaterThan(1);
+      await expect(page.getByText('Não foi possível confirmar a leitura. Atualize a conversa para tentar novamente.', { exact: true })).toBeVisible();
+      test.info().annotations.push({ type: 'read-receipt-refused', description: 'Histórico próprio retido renderizado; PATCH bloqueado antes do banco, erro de leitura visível e nova tentativa também bloqueada.' });
+      console.info('[support-readonly] Histórico próprio e recusa de gravação confirmados.');
+      if (verifyOrdersPanel) {
+        await page.getByRole('button', { name: 'Painel de informações do cliente', exact: true }).click();
+        const panel = page.locator('aside').filter({ has: page.getByRole('heading', { name: /Informações Comerciais/ }) });
+        await expect(panel).toBeVisible();
+        await panel.getByRole('button', { name: /^Pedidos/ }).click();
+        await expect(panel.getByText('Vincule um cliente à conversa para visualizar seus pedidos de venda.', { exact: true })).toBeVisible();
+        await expect(panel.getByRole('button', { name: 'Tentar carregar pedidos novamente', exact: true })).toHaveCount(0);
+        expect(customerOrderRequests, 'Conversa própria sem cliente não pode consultar pedidos comerciais.').toBe(0);
+        await panel.getByRole('button', { name: 'Fechar painel', exact: true }).click();
+        await expect(panel).toHaveCount(0);
+        test.info().annotations.push({ type: 'orders-panel-unlinked', description: 'Painel e aba Pedidos abertos pela UI na conversa própria sem cliente; zero consultas comerciais e zero escritas. Erro/retry comercial coberto somente em RTL.' });
+      }
+      if (verifyPhoneCopy) {
+        await page.bringToFront();
+        await context.grantPermissions(['clipboard-write'], { origin: 'http://localhost:5173' });
+        clipboardGranted = true;
+        await page.getByTitle('Mais opções da conversa', { exact: true }).click();
+        await page.getByRole('button', { name: /Copiar telefone/ }).click();
+        await expect(page.getByText('Telefone copiado para a área de transferência.', { exact: true })).toBeVisible();
+        test.info().annotations.push({ type: 'copy-own-phone', description: 'writeText nativo confirmado pela UI usando somente telefone sintético próprio; argumento coberto em RTL, conteúdo do sistema não relido. Sem mensagens ou notas.' });
+      }
+    }
+
     const anonymousMediaStatus = await page.evaluate(async () => {
       return (await fetch('/api/whatsapp-media?id=12345', { cache: 'no-store' })).status;
     });
     expect(anonymousMediaStatus).toBe(401);
   } finally {
+    if (clipboardGranted) {
+      await test.step('Limpar a área de transferência da prova própria', () =>
+        page.evaluate(() => navigator.clipboard.writeText('')), { timeout: 3_000 }).catch(() => undefined);
+      await context.clearPermissions();
+    }
     await context.unroute('**/*', guard);
     // Disconnect this runner; the CLI retains its visible browser and session.
     await browser.close();

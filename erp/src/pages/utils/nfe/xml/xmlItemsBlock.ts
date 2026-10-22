@@ -5,7 +5,11 @@ import {
 } from '../../../../../../shared-utils/fiscalDocumentModel';
 import { zeroOwnIcmsGroup } from '../../../../../../shared-utils/fiscalIcmsGroups';
 import type { AppSettings } from '../../settingsService';
-import { composeServiceFiscalValues, fiscalMoneyFromCents } from '../serviceFiscalComposition';
+import {
+  assertServiceFiscalCompositionReady,
+  composeServiceFiscalValues,
+  fiscalMoneyFromCents,
+} from '../serviceFiscalComposition';
 import { escapeXml } from './xmlEmitterBlock';
 
 export interface BuildItemsResult {
@@ -23,7 +27,8 @@ export function buildItemsXml(
   let vProdTotal = 0;
   let vDescTotal = 0;
 
-  const composition = composeServiceFiscalValues(order.items || []);
+  const composition = composeServiceFiscalValues(order.items || [], model);
+  assertServiceFiscalCompositionReady(composition);
   const itemsXml = composition.products
     .map(({ item, itemIndex: sourceIndex, vProdCents, vDescCents }, index) => {
       const itemIndex = index + 1;
@@ -68,12 +73,12 @@ export function buildItemsXml(
         <CFOP>${cfop}</CFOP>
         <uCom>UN</uCom>
         <qCom>${qCom.toFixed(4)}</qCom>
-        <vUnCom>${vUnCom.toFixed(4)}</vUnCom>
+        <vUnCom>${vUnCom.toFixed(10)}</vUnCom>
         <vProd>${vProd.toFixed(2)}</vProd>
         <cEANTrib>SEM GTIN</cEANTrib>
         <uTrib>UN</uTrib>
         <qTrib>${qCom.toFixed(4)}</qTrib>
-        <vUnTrib>${vUnCom.toFixed(4)}</vUnTrib>
+        <vUnTrib>${vUnCom.toFixed(10)}</vUnTrib>
         ${itemDiscount > 0 ? `<vDesc>${itemDiscount.toFixed(2)}</vDesc>` : ''}
         <indTot>1</indTot>
       </prod>

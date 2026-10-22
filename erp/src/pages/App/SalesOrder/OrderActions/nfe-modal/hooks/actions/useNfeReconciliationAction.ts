@@ -64,9 +64,10 @@ export function useNfeReconciliationAction({
     if (submissionInProgress.current) return;
 
     if (
-      emissionResult?.preparationReconciled &&
-      emissionResult.technicalDetails?.apiCode === 'FISCAL_PREPARATION_UNCONFIRMED' &&
-      emissionResult.sefazContacted === false
+      emissionResult?.technicalDetails?.apiCode === 'FISCAL_PREPARATION_UNCONFIRMED' &&
+      emissionResult.sefazContacted === false &&
+      (emissionResult.preparationReconciled ||
+        emissionResult.databaseReason === 'PREPARED_ATTEMPT_FOUND')
     ) {
       const requestId = emissionResult.emissionRequestId;
       if (

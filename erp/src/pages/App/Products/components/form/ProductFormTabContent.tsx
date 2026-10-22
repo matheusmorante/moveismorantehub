@@ -33,7 +33,7 @@ interface ProductFormTabContentProps {
   readonly onOpenCategorySearch: () => void;
   readonly scheduleDraftAutoSave: () => void;
   readonly deletingVariationId: string | null;
-  readonly handleDeleteVariation: (id: string) => Promise<void>;
+  readonly handleDeleteVariation: (id: string, skipConfirm?: boolean) => Promise<void>;
   readonly onOpenAiCharacteristicsModal?: (mode?: 'web_search' | 'descriptive_text') => void;
 }
 

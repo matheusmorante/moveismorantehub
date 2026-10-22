@@ -31,6 +31,18 @@ export interface TransportResolution {
   friendlyDescription: string;
 }
 
+export function resolveFiscalScopeDeliveryMethod(input: {
+  orderDeliveryMethod: DeliveryMethod;
+  hasTransport?: boolean;
+  transportResponsible?: TransportResponsible;
+}): DeliveryMethod {
+  if (input.hasTransport === false || input.transportResponsible === 'CUSTOMER') {
+    return 'pickup';
+  }
+  if (input.hasTransport === true) return 'delivery';
+  return input.orderDeliveryMethod;
+}
+
 export function resolveEffectiveFiscalDeliveryMethod(input: {
   fiscalModel: FiscalModel;
   orderDeliveryMethod: DeliveryMethod;

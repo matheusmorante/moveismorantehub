@@ -49,8 +49,8 @@ describe('ProductGeneralTab product name field', () => {
     );
 
     const modeGroup = screen.getByRole('group', { name: 'Tipo do produto' });
-    const simpleButton = screen.getByRole('button', { name: /Produto Simples/ });
-    const variationsButton = screen.getByRole('button', { name: /Produto com Variações/ });
+    const simpleButton = screen.getByRole('button', { name: /^Simples$/ });
+    const variationsButton = screen.getByRole('button', { name: /^Com variações$/i });
     expect(modeGroup.contains(simpleButton)).toBe(true);
     expect(modeGroup.contains(variationsButton)).toBe(true);
     expect(modeGroup.getAttribute('class')).toContain('bg-slate-200/70');
@@ -73,8 +73,8 @@ describe('ProductGeneralTab product name field', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: /Produto Simples/ }).getAttribute('aria-pressed')).toBe('false');
-    const selectedVariationsButton = screen.getByRole('button', { name: /Produto com Variações/ });
+    expect(screen.getByRole('button', { name: /^Simples$/ }).getAttribute('aria-pressed')).toBe('false');
+    const selectedVariationsButton = screen.getByRole('button', { name: /^Com variações$/i });
     expect(selectedVariationsButton.getAttribute('aria-pressed')).toBe('true');
     expect(selectedVariationsButton.getAttribute('class')).toContain('text-emerald-600');
   });
@@ -106,7 +106,7 @@ describe('ProductGeneralTab product name field', () => {
       />
     );
 
-    const simpleButton = screen.getByRole('button', { name: /Produto Simples/ });
+    const simpleButton = screen.getByRole('button', { name: /^Simples$/ });
     expect(simpleButton.getAttribute('aria-pressed')).toBe('false');
     expect(simpleButton.getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(simpleButton);
@@ -141,7 +141,7 @@ describe('ProductGeneralTab product name field', () => {
       />
     );
 
-    fireEvent.focus(screen.getByRole('button', { name: /Produto Simples/ }));
+    fireEvent.focus(screen.getByRole('button', { name: /^Simples$/ }));
 
     expect(screen.getByRole('tooltip').textContent).toBe(
       'Este produto se tornará simples automaticamente quando restar apenas 1 variação.'

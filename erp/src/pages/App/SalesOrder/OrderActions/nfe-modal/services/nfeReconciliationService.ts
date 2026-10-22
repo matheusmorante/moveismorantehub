@@ -19,12 +19,163 @@ export interface SefazConsultOutcome {
   toastError?: string;
 }
 
+const READ_ONLY_ATTEMPT_STATUS_CODES = new Set([
+  'FISCAL_PREPARATION_NOT_PERSISTED',
+  'FISCAL_ATTEMPT_STATUS_UNAVAILABLE',
+  'FISCAL_ATTEMPT_STATUS_INCONSISTENT',
+]);
+
+async function consultUnconfirmedPreparation(
+  orderId: string,
+  environment: 1 | 2,
+  currentResult: NfeEmissionResult
+): Promise<SefazConsultOutcome> {
+  const requestId = currentResult.emissionRequestId;
+  if (!requestId)
+    throw new Error('Identificador da tentativa ausente. Preserve a emissão e consulte novamente.');
+
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.access_token) throw new Error('Faça login novamente.');
+
+  const response = await fetch('/api/nfe/consult', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${data.session.access_token}`,
+    },
+    body: JSON.stringify({ emissionRequestId: requestId, orderId, environment }),
+  });
+  const result = await response.json();
+  const technicalDetails = {
+    ...currentResult.technicalDetails,
+    ...(typeof result.code === 'string' && !READ_ONLY_ATTEMPT_STATUS_CODES.has(result.code)
+      ? { apiCode: result.code }
+      : {}),
+    ...(typeof result.diagnosticStage === 'string'
+      ? { diagnosticStage: result.diagnosticStage }
+      : {}),
+    ...(typeof result.diagnosticId === 'string' ? { diagnosticId: result.diagnosticId } : {}),
+    httpStatus: response.status,
+  };
+
+  if (!response.ok || !result.success) {
+    return {
+      state: 'error',
+      updatedResult: {
+        pending: result.pending !== false,
+        error:
+          typeof result.error === 'string'
+            ? result.error
+            : 'A consulta local da tentativa não confirmou seu estado. Consulte novamente antes de emitir.',
+        technicalDetails,
+      },
+    };
+  }
+
+  if (result.state === 'not_found' && result.code === 'FISCAL_PREPARATION_NOT_PERSISTED')
+    return {
+      state: 'not_found',
+      updatedResult: {
+        pending: false,
+        preparationReconciled: true,
+        numberReserved: false,
+        sefazContacted: false,
+        databaseReason: 'PREPARATION_NOT_PERSISTED',
+        error: 'A consulta confirmou que a tentativa não foi gravada e que a SEFAZ não foi contatada.',
+        technicalDetails,
+      },
+    };
+
+  if (result.state === 'authorized')
+    return {
+      state: 'authorized',
+      toastSuccess: 'O ERP já registra a autorização desta tentativa fiscal.',
+      updatedResult: {
+        documentId: result.documentId,
+        success: true,
+        pending: false,
+        protocolNumber: result.protocolNumber,
+        numberReserved: true,
+        sefazContacted: true,
+        error: undefined,
+        technicalDetails,
+      },
+    };
+
+  if (result.state === 'rejected') {
+    clearFiscalEmissionRequest(orderId, environment);
+    return {
+      state: 'rejected',
+      updatedResult: {
+        documentId: result.documentId,
+        pending: false,
+        numberReserved: true,
+        sefazContacted: true,
+        error: result.error || 'A tentativa está registrada como rejeitada no ERP.',
+        technicalDetails,
+      },
+    };
+  }
+
+  if (result.state === 'not_found' && result.code === 'FISCAL_CONFIRMED_NOT_FOUND')
+    return {
+      state: 'not_found',
+      updatedResult: {
+        documentId: result.documentId,
+        pending: false,
+        numberReserved: true,
+        sefazContacted: true,
+        hmlConfirmedNotFound: environment === 2,
+        databaseReason: 'FISCAL_CONFIRMED_NOT_FOUND',
+        error: 'O ERP registra uma consulta anterior que confirmou que a nota não consta na SEFAZ.',
+        technicalDetails,
+      },
+    };
+
+  if (result.state === 'prepared')
+    return {
+      state: 'pending',
+      updatedResult: {
+        documentId: result.documentId,
+        pending: true,
+        preparationReconciled: false,
+        numberReserved: true,
+        sefazContacted: false,
+        databaseReason: 'PREPARED_ATTEMPT_FOUND',
+        error: result.error,
+        technicalDetails,
+      },
+    };
+
+  return {
+    state: 'pending',
+    updatedResult: {
+      documentId: result.state === 'transmitting' || result.state === 'reconciling'
+        ? result.documentId
+        : undefined,
+      pending: true,
+      numberReserved: result.numberReserved === true,
+      sefazContacted: result.sefazContacted === true ? true : undefined,
+      databaseReason: result.databaseReason,
+      error: result.error || 'A tentativa permanece em andamento; consulte a mesma nota antes de continuar.',
+      technicalDetails,
+    },
+  };
+}
+
 export async function consultSefazStatus(
   orderId: string,
   environment: 1 | 2,
   currentResult: NfeEmissionResult
 ): Promise<SefazConsultOutcome> {
   let documentId = currentResult.documentId;
+  if (
+    !documentId &&
+    currentResult.technicalDetails?.apiCode === 'FISCAL_PREPARATION_UNCONFIRMED' &&
+    currentResult.sefazContacted === false
+  )
+    return consultUnconfirmedPreparation(orderId, environment, currentResult);
+
   if (!documentId) {
     try {
       documentId = await findFiscalDocumentForRequest(
@@ -49,6 +200,23 @@ export async function consultSefazStatus(
             preparationReconciled: true,
             sefazContacted: false,
             error: 'A preparação não deixou um documento persistido para esta tentativa.',
+          },
+        };
+      }
+      if (
+        errorCode === 'FISCAL_REQUEST_DOCUMENT_NOT_FOUND' &&
+        currentResult.technicalDetails?.apiCode === 'FISCAL_PREPARATION_INVALID' &&
+        currentResult.numberReserved === false &&
+        currentResult.sefazContacted === false
+      ) {
+        return {
+          state: 'error',
+          updatedResult: {
+            pending: false,
+            numberReserved: false,
+            sefazContacted: false,
+            error:
+              'A tentativa terminou antes da reserva do número e do contato com a SEFAZ; não há documento fiscal persistido para consultar.',
           },
         };
       }

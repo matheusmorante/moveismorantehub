@@ -96,11 +96,18 @@ const Body = ({
       const removedItem = newItems[idx];
       newItems.splice(idx, 1);
       if (removedItem?.itemType !== 'service' && removedItem?.orderItemId) {
-        return newItems.map((item) =>
-          item.linkedProductOrderItemId === removedItem.orderItemId
-            ? { ...item, linkedProductOrderItemId: undefined }
-            : item
-        );
+        return newItems.map((item) => {
+          if (item.itemType !== 'service') return item;
+          const linkedIds = item.linkedProductOrderItemIds;
+          const updatedIds = linkedIds?.filter((id) => id !== removedItem.orderItemId);
+          const removedLegacyLink = item.linkedProductOrderItemId === removedItem.orderItemId;
+          if (!removedLegacyLink && (!linkedIds || updatedIds?.length === linkedIds.length)) return item;
+          return {
+            ...item,
+            linkedProductOrderItemIds: updatedIds,
+            linkedProductOrderItemId: removedLegacyLink ? undefined : item.linkedProductOrderItemId,
+          };
+        });
       }
       return newItems;
     });

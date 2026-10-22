@@ -26,6 +26,7 @@ export function useCustomerSupportMessages({
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
   const [isRefreshingMessages, setIsRefreshingMessages] = useState(false);
   const [messagesError, setMessagesError] = useState('');
+  const [readError, setReadError] = useState('');
   const activeConvIdRef = useRef<string | null>(null);
   const generationRef = useRef(0);
   const nextConvId = selectedConversation?.id || null;
@@ -39,6 +40,17 @@ export function useCustomerSupportMessages({
   const latestRequestRef = useRef(0);
   const pendingLatestRef = useRef<number | null>(null);
   const initializedHistoryRef = useRef<number | null>(null);
+  const readRequestRef = useRef(0);
+  const readNeedsRetryRef = useRef(false);
+  const confirmRead = useCallback(async (convId: string) => {
+    const generation = generationRef.current;
+    const request = ++readRequestRef.current;
+    const confirmed = await markConversationAsRead(supabase, convId);
+    if (generation !== generationRef.current || request !== readRequestRef.current) return;
+    readNeedsRetryRef.current = !confirmed;
+    setReadError(confirmed ? '' : 'Não foi possível confirmar a leitura. Atualize a conversa para tentar novamente.');
+    if (confirmed) onClearUnreadRef.current(convId);
+  }, []);
 
   const loadMessages = useCallback(async (convId: string, isSilent = false) => {
     if (!convId) return;
@@ -124,20 +136,21 @@ export function useCustomerSupportMessages({
       setIsLoadingMessages(false);
       setIsRefreshingMessages(false);
       setMessagesError('');
+      setReadError('');
+      readNeedsRetryRef.current = false;
       if (convId) {
         setMessages([]);
         setHasOlderMessages(false);
         void loadMessages(convId);
         if (unreadCount > 0) {
-          void markConversationAsRead(supabase, convId);
-          onClearUnreadRef.current(convId);
+          void confirmRead(convId);
         }
       } else {
         setMessages([]);
         setHasOlderMessages(false);
       }
     }
-  }, [selectedConversation?.id, selectedConversation?.unreadCount, loadMessages]);
+  }, [selectedConversation?.id, selectedConversation?.unreadCount, loadMessages, confirmRead]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -164,16 +177,13 @@ export function useCustomerSupportMessages({
       if (channel) void supabase.removeChannel(channel);
       channel = supabase
         .channel(`whatsapp-messages-realtime-${Date.now()}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_messages' }, async (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_messages' }, (payload) => {
           if (payload.eventType === 'INSERT') {
             const newMessage = mapRowToMessage(payload.new);
             if (activeConvIdRef.current !== newMessage.conversationId) return;
-            const generation = generationRef.current;
             if (newMessage.direction === 'inbound') {
-              await markConversationAsRead(supabase, newMessage.conversationId);
-              onClearUnreadRef.current(newMessage.conversationId);
+              void confirmRead(newMessage.conversationId);
             }
-            if (generation !== generationRef.current) return;
             setMessages((current) => {
               if (current.some((message) => message.id === newMessage.id || (
                 message.apiMessageId && message.apiMessageId === newMessage.apiMessageId
@@ -203,7 +213,7 @@ export function useCustomerSupportMessages({
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (channel) void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [confirmRead]);
 
   const refreshMessages = useCallback(async () => {
     const currentId = activeConvIdRef.current;
@@ -211,11 +221,11 @@ export function useCustomerSupportMessages({
     setIsRefreshingMessages(true);
     const generation = generationRef.current;
     try {
-      await loadMessages(currentId, true);
+      await Promise.all([loadMessages(currentId, true), readNeedsRetryRef.current ? confirmRead(currentId) : undefined]);
     } finally {
       if (generation === generationRef.current) setIsRefreshingMessages(false);
     }
-  }, [loadMessages]);
+  }, [loadMessages, confirmRead]);
 
   return {
     messages,
@@ -226,6 +236,6 @@ export function useCustomerSupportMessages({
     loadOlderMessages,
     isRefreshingMessages,
     refreshMessages,
-    messagesError,
+    messagesError: messagesError || readError,
   };
 }

@@ -1,11 +1,13 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type Product from '../../types/product.type';
-import type { Variation } from '../../types/product.type';
+import type { ComboItem, Variation } from '../../types/product.type';
 import { getProductSalesStats, searchHistoricalItems } from './productAnalyticsQueryService';
 import { applyProductFiltersAndSort, type ProductQueryFilterOptions } from './productFilterBuilder';
 import { getLocalProducts, saveLocalProducts } from './productLocalCache';
 import { mapFromDB } from './productMapper';
 import { TABLE_NAME } from './productSkuService';
+import { calculateCompositionAvailability } from '../compositionMath';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export { getProductSalesStats, searchHistoricalItems };
 
@@ -14,6 +16,102 @@ export const LIGHT_COLUMNS =
 export const LIGHT_COLUMNS_WITH_CATS =
   LIGHT_COLUMNS +
   ', product_categories(*, categories(*)), product_variations(*), product_images(*), category_details:categories!products_category_id_fkey(id, name)';
+
+/** Saldo de um produto composto é a quantidade de kits montáveis com o estoque atual dos componentes. */
+export const applyCompositionAvailability = async (products: Product[]): Promise<Product[]> => {
+  const compositions = products.filter((product) => product.itemType === 'composition');
+  if (!compositions.length) return products;
+
+  const unavailable = () =>
+    products.map((product) =>
+      product.itemType === 'composition'
+        ? {
+            ...product,
+            stock: 0,
+            variations: product.variations?.map((variation) => ({ ...variation, stock: 0 })),
+          }
+        : product
+    );
+
+  const componentIds = Array.from(
+    new Set(
+      compositions.flatMap((product) => [
+        ...(product.comboItems || []),
+        ...(product.variations || []).flatMap((variation) => variation.comboItems || []),
+      ])
+        .map((item) => String(item.productId || '').trim())
+        .filter(Boolean)
+    )
+  );
+  if (!componentIds.length) return unavailable();
+
+  const lookup = await withTimeout(
+    supabase
+      .from(TABLE_NAME)
+      .select('id, stock, product_variations(id, stock)')
+      .in('id', componentIds)
+      .then((result) => ({ result })),
+    10_000,
+    null,
+    'catalogo:saldo-produtos-compostos'
+  );
+  if (!lookup || lookup.result.error) {
+    console.warn('[ProductService] Não foi possível consultar o estoque atual dos componentes.');
+    return unavailable();
+  }
+
+  const currentComponents = new Map<string, { stock: number; variations: Map<string, number> }>();
+  for (const row of lookup.result.data || []) {
+    const variations = new Map<string, number>();
+    for (const variation of row.product_variations || []) {
+      variations.set(String(variation.id), Number(variation.stock) || 0);
+    }
+    currentComponents.set(String(row.id), {
+      stock: Number(row.stock) || 0,
+      variations,
+    });
+  }
+
+  const availabilityFor = (items: ComboItem[] | undefined): number => {
+    if (!items?.length) return 0;
+    const requirements = new Map<string, { currentStock: number; quantityNeeded: number }>();
+    for (const item of items) {
+      const component = currentComponents.get(String(item.productId));
+      const currentStock = item.variationId
+        ? component?.variations.get(String(item.variationId)) ?? 0
+        : component?.stock ?? 0;
+      const key = `${item.productId}:${item.variationId || ''}`;
+      const existing = requirements.get(key);
+      requirements.set(key, {
+        currentStock,
+        quantityNeeded: (existing?.quantityNeeded || 0) + Number(item.quantity),
+      });
+    }
+    const components = Array.from(requirements.values());
+    if (components.some((item) => !Number.isFinite(item.quantityNeeded) || item.quantityNeeded <= 0)) {
+      return 0;
+    }
+    return calculateCompositionAvailability(components);
+  };
+
+  return products.map((product) => {
+    if (product.itemType !== 'composition') return product;
+
+    const rootItems = product.comboItems || [];
+    const hasVariationComposition = (product.variations || []).some(
+      (variation) => Boolean(variation.comboItems?.length)
+    );
+    const variations = product.variations?.map((variation) => ({
+      ...variation,
+      stock: availabilityFor(variation.comboItems?.length ? variation.comboItems : rootItems),
+    }));
+    const stock = hasVariationComposition
+      ? (variations || []).reduce((total, variation) => total + (Number(variation.stock) || 0), 0)
+      : availabilityFor(rootItems);
+
+    return { ...product, stock, variations };
+  });
+};
 
 // Helper to initialize products from Supabase
 export const initializeProductsIfEmpty = async (): Promise<Product[]> => {
@@ -47,7 +145,9 @@ export const initializeProductsIfEmpty = async (): Promise<Product[]> => {
       }
     }
 
-    const fetchedProducts: Product[] = allData.map((p, idx) => mapFromDB(p, idx));
+    const fetchedProducts = await applyCompositionAvailability(
+      allData.map((p, idx) => mapFromDB(p, idx))
+    );
     saveLocalProducts(fetchedProducts);
     return fetchedProducts;
   } catch (e) {
@@ -146,7 +246,7 @@ export const fetchProductsPage = async (
     });
 
     return {
-      data: mapped,
+      data: await applyCompositionAvailability(mapped),
       total: count ?? 0,
     };
   } catch (e) {
@@ -167,7 +267,7 @@ export const getFullProduct = async (id: string): Promise<Product | null> => {
         .maybeSingle();
 
       if (!error && data) {
-        const mapped = mapFromDB(data);
+        const mapped = (await applyCompositionAvailability([mapFromDB(data)]))[0];
         const localProducts = getLocalProducts();
         const idx = localProducts.findIndex((p) => String(p.id) === String(id));
         if (idx !== -1) {
@@ -185,7 +285,9 @@ export const getFullProduct = async (id: string): Promise<Product | null> => {
 
   const products = getLocalProducts();
   const product = products.find((p) => String(p.id) === String(id));
-  return product || null;
+  return product
+    ? (await applyCompositionAvailability([product]))[0]
+    : null;
 };
 
 export const getProductsByIds = async (ids: string[]): Promise<Product[]> => {

@@ -311,16 +311,17 @@ export async function fetchPreviousConversationMessages(
 export async function markConversationAsRead(
   supabase: SupabaseClient,
   conversationId: string
-): Promise<void> {
-  const query = supabase
-    .from('whatsapp_conversations')
-    .update({ unread_count: 0 })
-    .eq('id', conversationId);
-
-  if (typeof (query as any).gt === 'function') {
-    await (query as any).gt('unread_count', 0);
-  } else {
-    await query;
+): Promise<boolean> {
+  try {
+    const query = supabase
+      .from('whatsapp_conversations')
+      .update({ unread_count: 0 })
+      .eq('id', conversationId);
+    const pending = typeof (query as any).gt === 'function' ? (query as any).gt('unread_count', 0) : query;
+    const response = await withTimeout<any>(pending, 10_000, null, 'central:confirmar-leitura');
+    return Boolean(response && !response.error);
+  } catch {
+    return false;
   }
 }
 

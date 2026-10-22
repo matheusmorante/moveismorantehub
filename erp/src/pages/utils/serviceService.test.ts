@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ from: vi.fn(), current: { service_data: {} } as any, lookupError: null as any, reply: {} as any, insert: vi.fn(), update: vi.fn() }));
-vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from } }));
+const mocks = vi.hoisted(() => ({ from: vi.fn(), getUser: vi.fn(), current: { service_data: {} } as any, lookupError: null as any, reply: {} as any, insert: vi.fn(), update: vi.fn() }));
+vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: mocks.from, auth: { getUser: mocks.getUser } } }));
 import { moveToTrash, saveService, updateService } from './serviceService';
 const service = { description: ' Existing ', unitPrice: 50, costPrice: 20, active: true };
 beforeEach(() => {
   vi.clearAllMocks(); mocks.current = { service_data: { ...service, id: 'wrong-json-id', retainedMetadata: { source: 'original' } }, is_draft: false }; mocks.lookupError = null;
+  mocks.getUser.mockResolvedValue({ data: { user: { id: 'operator-1' } }, error: null });
   mocks.reply = { data: { id: 'service-1', service_data: { ...service }, is_draft: false }, error: null };
   mocks.from.mockImplementation(() => {
     let writing = false;
@@ -32,7 +33,7 @@ describe('real service persistence boundary', () => {
   });
   it('preserves snapshot metadata, price and cost on a partial trash update', async () => {
     await moveToTrash('service-1');
-    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ service_data: { description: 'Existing', unitPrice: 50, costPrice: 20, active: false, deleted: true, retainedMetadata: { source: 'original' } } }));
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ service_data: { description: 'Existing', unitPrice: 50, costPrice: 20, active: false, deleted: true, retainedMetadata: { source: 'original' }, fiscalTreatment: { nfeComposition: 'not_reviewed', incorporationConfirmed: false, validationReference: '' } } }));
   });
   it('keeps an incomplete draft incomplete on a partial lifecycle update', async () => {
     mocks.current = { service_data: { description: '', retainedMetadata: { source: 'original' } }, is_draft: true };
@@ -46,6 +47,48 @@ describe('real service persistence boundary', () => {
   it('requires an acknowledgment for the same updated service', async () => {
     mocks.reply.data.id = 'other-service';
     await expect(updateService('service-1', { description: 'New' })).rejects.toEqual({ uncertain: true });
+  });
+  it('records who and when confirmed a validated fiscal composition', async () => {
+    await saveService({
+      ...service,
+      fiscalTreatment: {
+        nfeComposition: 'include_with_merchandise',
+        incorporationConfirmed: true,
+        validationReference: 'Parecer fiscal interno 2026-10',
+      },
+    });
+    const stored = mocks.insert.mock.calls[0][0][0].service_data.fiscalTreatment;
+    expect(stored).toMatchObject({
+      nfeComposition: 'include_with_merchandise',
+      incorporationConfirmed: true,
+      validationReference: 'Parecer fiscal interno 2026-10',
+      validatedBy: 'operator-1',
+    });
+    expect(Date.parse(stored.validatedAt)).not.toBeNaN();
+  });
+  it('preserves fiscal validation when only the commercial price changes', async () => {
+    const treatment = {
+      nfeComposition: 'include_with_merchandise',
+      incorporationConfirmed: true,
+      validationReference: 'Parecer fiscal interno 2026-09',
+      validatedAt: '2026-09-20T12:00:00.000Z',
+      validatedBy: 'operator-1',
+    } as const;
+    mocks.current = {
+      service_data: { ...service, fiscalTreatment: treatment },
+      is_draft: false,
+    };
+    mocks.reply = {
+      data: { id: 'service-1', service_data: { ...service, unitPrice: 75, fiscalTreatment: treatment }, is_draft: false },
+      error: null,
+    };
+
+    await updateService('service-1', { unitPrice: 75, fiscalTreatment: treatment });
+
+    expect(mocks.getUser).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({
+      service_data: expect.objectContaining({ unitPrice: 75, fiscalTreatment: treatment }),
+    }));
   });
   it('marks malformed provider responses as uncertain', async () => {
     mocks.reply = { data: null, error: { code: '', message: 'SyntaxError: Unexpected end of JSON input' } };

@@ -1,4 +1,8 @@
-import { composeServiceFiscalValues } from '../../erp/src/pages/utils/nfe/serviceFiscalComposition';
+import {
+  assertServiceFiscalCompositionReady,
+  composeServiceFiscalValues,
+  getItemNetCents,
+} from '../../erp/src/pages/utils/nfe/serviceFiscalComposition';
 import { resolveFiscalCfopOrderScope } from '../../shared-utils/fiscalCfopModel';
 import {
   decideFiscalRecipientRequirements,
@@ -10,6 +14,7 @@ import { parseFiscalItemSelections } from '../../shared-utils/fiscalItemSelectio
 import {
   type DeliveryMethod,
   resolveEffectiveFiscalDeliveryMethod,
+  resolveFiscalScopeDeliveryMethod,
   resolveTransport,
   type TransportResponsible,
 } from '../../shared-utils/fiscalTransportModel';
@@ -53,18 +58,33 @@ export async function createNormalSaleRuleSet(
     );
   }
 
+  const persistedDeliveryMethod = shippingData.deliveryMethod as DeliveryMethod;
+  const fiscalDeliveryMethod = resolveFiscalScopeDeliveryMethod({
+    orderDeliveryMethod: persistedDeliveryMethod,
+    hasTransport: facts.emissionRequest.hasTransport,
+    transportResponsible: facts.emissionRequest.transportResponsible,
+  });
+  const fiscalShippingData = {
+    ...shippingData,
+    deliveryMethod: fiscalDeliveryMethod,
+  };
+  const fiscalOrderData = {
+    ...orderData,
+    shipping: fiscalShippingData,
+  };
+
   const customer = resolveNormalSaleCustomer(orderData, inputs);
   const { ieIndicator, recipientIe } = resolveRecipientIeContext(facts, customer, contextData);
 
   const address = getFiscalRecipientAddress({
-    ...orderData,
+    ...fiscalOrderData,
     customerData: { ...obj(orderData.customerData || {}), fullAddress: customer.address },
   });
 
   const operationScope = resolveFiscalCfopOrderScope({
     issuerUf: String(facts.issuerProfile.companyUF || ''),
-    deliveryMethod: String(shippingData.deliveryMethod || ''),
-    shipping: shippingData,
+    deliveryMethod: fiscalDeliveryMethod,
+    shipping: fiscalShippingData,
     customerAddress: customer.address,
   });
 
@@ -81,16 +101,14 @@ export async function createNormalSaleRuleSet(
     facts.emissionRequest.finalConsumer
   );
 
-  const initialComposition = composeServiceFiscalValues(orderData.items as any);
-  const modelTotal =
-    initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) +
-    initialComposition.vOutroCents +
+  const modelSelectionTotal =
+    (orderData.items as any[]).reduce((sum, item) => sum + getItemNetCents(item), 0) +
     money(shippingData.value ?? 0, 'Frete comercial');
 
   const decisionOrder = {
-    ...orderData,
+    ...fiscalOrderData,
     orderType: facts.order.type,
-    paymentsSummary: { totalOrderValue: modelTotal / 100 },
+    paymentsSummary: { totalOrderValue: modelSelectionTotal / 100 },
     items: (orderData.items as Array<Record<string, any>>)
       .filter((item) => item.itemType !== 'service')
       .map((item, index) => ({
@@ -131,13 +149,25 @@ export async function createNormalSaleRuleSet(
     );
   }
 
-  const persistedDeliveryMethod = shippingData.deliveryMethod as DeliveryMethod;
+  const initialComposition = composeServiceFiscalValues(
+    orderData.items as any,
+    modelDecision.model
+  );
+  assertServiceFiscalCompositionReady(initialComposition);
+  const modelTotal =
+    initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) +
+    initialComposition.vOutroCents +
+    money(shippingData.value ?? 0, 'Frete comercial');
+
   const deliveryMethod = resolveEffectiveFiscalDeliveryMethod({
     fiscalModel: modelDecision.model,
     orderDeliveryMethod: persistedDeliveryMethod,
     hasTransport: facts.emissionRequest.hasTransport,
     transportResponsible: facts.emissionRequest.transportResponsible,
   });
+  if (deliveryMethod !== fiscalDeliveryMethod) {
+    throw new Error('Modalidade fiscal de entrega divergiu do escopo geográfico da operação.');
+  }
 
   validateInterstateNormalSaleMatrix({
     facts,
@@ -211,10 +241,25 @@ export async function createNormalSaleRuleSet(
       const data = snapshot.order.data;
       const snapshotShipping = data.shipping ? obj(data.shipping) : {};
       const snapshotCustomer = data.customerData ? obj(data.customerData) : {};
+      const snapshotPersistedDeliveryMethod = String(
+        snapshotShipping.deliveryMethod || ''
+      ) as DeliveryMethod;
+      const snapshotFiscalDeliveryMethod = resolveFiscalScopeDeliveryMethod({
+        orderDeliveryMethod: snapshotPersistedDeliveryMethod,
+        hasTransport: snapshot.emissionRequest.hasTransport,
+        transportResponsible: snapshot.emissionRequest.transportResponsible,
+      });
+      const snapshotFiscalShipping = {
+        ...snapshotShipping,
+        deliveryMethod: snapshotFiscalDeliveryMethod,
+      };
+      if (snapshotFiscalDeliveryMethod !== deliveryMethod) {
+        throw new Error('Modalidade fiscal divergiu durante a captura do snapshot.');
+      }
       const snapshotScope = resolveFiscalCfopOrderScope({
         issuerUf: String(snapshot.issuerProfile.companyUF || ''),
-        deliveryMethod: String(snapshotShipping.deliveryMethod || ''),
-        shipping: snapshotShipping,
+        deliveryMethod: snapshotFiscalDeliveryMethod,
+        shipping: snapshotFiscalShipping,
         customerAddress:
           snapshotCustomer.fullAddress || snapshotCustomer.address || customer.address || undefined,
       });
@@ -230,7 +275,14 @@ export async function createNormalSaleRuleSet(
       );
       const items = data.items as Array<Record<string, any>>;
       const selections = parseFiscalItemSelections(snapshot.emissionRequest.itemFiscalSelections);
-      const composition = composeServiceFiscalValues(items as any);
+      const composition = composeServiceFiscalValues(
+        items as any,
+        modelDecision.model
+      );
+
+      assertServiceFiscalCompositionReady(
+        composition
+      );
 
       if (
         !composition.products.length ||
@@ -366,6 +418,9 @@ export async function createNormalSaleRuleSet(
         },
         items: determinedItems,
         payments,
+        ...(composition.additionalInformation
+          ? { additionalInformation: composition.additionalInformation }
+          : {}),
         ...(billingInstallments?.length ? { billingInstallments } : {}),
         decisions: traces,
         totals: {

@@ -4,8 +4,9 @@ import { getVariationFormTabs } from '../components/variationModal/variationModa
 
 describe('productFormTabs e variationModalTabs para Estoquista vs Geral', () => {
   it('oculta a aba Características (technical) para estoquista no formulário principal de produto', () => {
-    const stockistTabs = getProductFormTabs(false, false, true);
-    const regularTabs = getProductFormTabs(false, false, false);
+    const stockistTabs = getProductFormTabs(false, false, true, true);
+    const regularTabs = getProductFormTabs(false, false, false, true);
+    const simpleTabs = getProductFormTabs(false, false, false, false);
 
     expect(stockistTabs.some((t) => t.id === 'technical')).toBe(false);
     expect(stockistTabs.some((t) => t.id === 'ecommerce')).toBe(false);
@@ -15,6 +16,7 @@ describe('productFormTabs e variationModalTabs para Estoquista vs Geral', () => 
 
     expect(regularTabs.some((t) => t.id === 'technical')).toBe(true);
     expect(regularTabs.some((t) => t.id === 'ecommerce')).toBe(true);
+    expect(simpleTabs.some((t) => t.id === 'variacoes')).toBe(false);
   });
 
   it('oculta a aba Características (tecnico) para estoquista no modal de variação', () => {

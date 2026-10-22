@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Item } from '@/pages/types/items.type';
-import { composeServiceFiscalValues } from '../serviceFiscalComposition';
+import { assertServiceFiscalCompositionReady, composeServiceFiscalValues } from '../serviceFiscalComposition';
 import { HOMOLOGATION_FIRST_ITEM_DESCRIPTION } from '../../../../../../shared-utils/fiscalDocumentModel';
 import { buildItemsXml } from '../xml/xmlItemsBlock';
 import { buildTotalsAndPaymentXml } from '../xml/xmlTotalsBlock';
@@ -23,7 +23,12 @@ const product = (
   handlingType: '',
   fiscal: { ncm: '94036000', cfop: '5102', cst: '103', origem: '2' },
 });
-const service = (unitPrice: number, linkedProductOrderItemId?: string, quantity = 1): Item => ({
+
+const service = (
+  unitPrice: number,
+  linkedProductOrderItemIds?: string | string[],
+  quantity = 1
+): Item => ({
   orderItemId: `serv-${unitPrice}`,
   itemType: 'service',
   description: 'Montagem',
@@ -32,8 +37,13 @@ const service = (unitPrice: number, linkedProductOrderItemId?: string, quantity 
   unitDiscount: 0,
   discountType: 'fixed',
   handlingType: '',
-  linkedProductOrderItemId,
+  linkedProductOrderItemIds: Array.isArray(linkedProductOrderItemIds)
+    ? linkedProductOrderItemIds
+    : linkedProductOrderItemIds
+      ? [linkedProductOrderItemIds]
+      : undefined,
 });
+
 const settings = { companyCRT: '1', fiscalDefaults: { ncm: '94036000' } } as any;
 
 describe('service fiscal composition', () => {
@@ -67,7 +77,7 @@ describe('service fiscal composition', () => {
     ).toThrow(/CRT 1/);
   });
 
-  it('routes unlinked services to vOutro; linked values attach to the exact product line', () => {
+  it('incorporates each linked service once and leaves services without links pending', () => {
     const result = composeServiceFiscalValues([
       product('A', 1500),
       product('B', 800),
@@ -77,31 +87,67 @@ describe('service fiscal composition', () => {
       service(20),
     ]);
     expect(result.products.map((line) => line.vProdCents)).toEqual([165000, 83000]);
-    expect(result.vOutroCents).toBe(2000);
+    expect(result.incorporatedServiceCents).toBe(18000);
+    expect(result.pendingServices.map((line) => line.amountCents)).toEqual([2000]);
+    expect(result.pendingServices[0].reason).toBe('missing_product_link');
+    expect(result.vOutroCents).toBe(0);
+    expect(result.additionalInformation).toContain('Produto A');
+    expect(result.additionalInformation).toContain('Produto B');
   });
 
-  it('treats moved, removed and unknown links as a fresh redistribution without mutating items', () => {
-    const original = [product('A', 1500), service(100, 'missing')];
-    const unlinked = composeServiceFiscalValues(original);
-    expect(unlinked.vOutroCents).toBe(10000);
-    original[1].linkedProductOrderItemId = 'A';
-    const linked = composeServiceFiscalValues(original);
-    expect(linked.products[0].vProdCents).toBe(160000);
-    expect(linked.vOutroCents).toBe(0);
-    expect(original[0].unitPrice).toBe(1500);
+  it('uses the order link without a service catalog or fiscal-treatment snapshot', () => {
+    const orderItems = [product('A', 1500), service(100, 'A')];
+    const before = structuredClone(orderItems);
+    const composition = composeServiceFiscalValues(orderItems, '55');
+    expect(composition.products[0].vProdCents).toBe(160000);
+    expect(composition.pendingServices).toEqual([]);
+    expect(composition.vOutroCents).toBe(0);
+    expect(orderItems).toEqual(before);
+    expect(orderItems[0].unitPrice).toBe(1500);
   });
 
-  it('handles quantity, discounts, empty/service-only orders and cents deterministically', () => {
+  it('distributes service cents by linked product quantities with a stable product-order remainder', () => {
+    const composition = composeServiceFiscalValues([
+      product('A', 10, 2),
+      product('B', 20, 1),
+      service(1, ['B', 'A']),
+    ]);
+    expect(composition.products.map((line) => line.vProdCents)).toEqual([2067, 2033]);
+    expect(composition.incorporatedServiceCents).toBe(100);
+    expect(composition.products.map((line) => line.incorporatedServices[0]?.allocatedCents)).toEqual([
+      67,
+      33,
+    ]);
+    expect(composition.vOutroCents).toBe(0);
+    expect(composition.additionalInformation).toContain('rateio do serviço "Montagem"');
+    expect(composition.additionalInformation).toContain('R$ 0,67');
+    expect(composition.additionalInformation).toContain('R$ 0,33');
+    expect(composition.additionalInformation).toContain('valor total do serviço no pedido: R$ 1,00');
+  });
+
+  it('preserves product discounts and rounds the final fiscal item totals in cents', () => {
     const result = composeServiceFiscalValues([
       { ...product('A', 10.01, 3), unitDiscount: 10, discountType: 'percentage' },
-      service(1.005, 'A'),
-      service(2.25),
+      service(1, 'A'),
     ]);
-    expect(result.products[0].vProdCents).toBe(3003 + 100);
+    expect(result.products[0].vProdCents).toBe(3103);
     expect(result.products[0].vDescCents).toBe(300);
-    expect(result.vOutroCents).toBe(225);
-    expect(composeServiceFiscalValues([])).toEqual({ products: [], vOutroCents: 0 });
-    expect(composeServiceFiscalValues([service(4)]).vOutroCents).toBe(400);
+    expect(result.vOutroCents).toBe(0);
+
+    const serialized = buildItemsXml(
+      {
+        items: [
+          { ...product('Q', 10.01, 3), unitDiscount: 10, discountType: 'percentage' },
+          service(1, 'Q'),
+        ],
+      } as any,
+      settings,
+      true,
+      '55'
+    );
+    expect(serialized.itemsXml).toContain('<qCom>3.0000</qCom>');
+    expect(serialized.itemsXml).toContain('<vUnCom>10.3433333333</vUnCom>');
+    expect(serialized.itemsXml).toContain('<vProd>31.03</vProd>');
   });
 
   it('uses the exact homologation description only on the first NFC-e item', () => {
@@ -118,24 +164,40 @@ describe('service fiscal composition', () => {
     expect(productionNfce).toContain('<xProd>Produto A</xProd>');
   });
 
-  it.each(['55', '65'] as const)(
-    'emits model %s composition once, keeping freight separate',
-    (model) => {
-      const order = {
-        items: [product('A', 1500), service(100, 'A'), service(25)],
-        shipping: { value: 12, deliveryMethod: model === '65' ? 'pickup' : 'delivery' },
-        payments: [],
-        orderIndex: 1,
-      } as any;
-      const first = buildItemsXml(order, settings, false, model);
-      const second = buildItemsXml(order, settings, false, model);
-      const totals = buildTotalsAndPaymentXml(order, first.vProdTotal, first.vDescTotal);
-      expect(first.itemsXml.match(/<det /g)).toHaveLength(1);
-      expect(first.vProdTotal).toBe(1600);
-      expect(first).toEqual(second);
-      expect(totals).toContain('<vOutro>25.00</vOutro>');
-      expect(totals).toContain('<vFrete>12.00</vFrete>');
-      expect(totals).toContain('<vNF>1637.00</vNF>');
+  it('composes two units at R$ 500 with a R$ 100 service as one item at R$ 550', () => {
+    const order = {
+      items: [product('A', 500, 2), service(100, 'A')],
+      shipping: { value: 0, deliveryMethod: 'pickup' },
+      payments: [],
+    } as any;
+
+    for (const model of ['55', '65'] as const) {
+      const composition = composeServiceFiscalValues(order.items, model);
+      const serialized = buildItemsXml(order, settings, true, model);
+      const totals = buildTotalsAndPaymentXml(order, serialized.vProdTotal, serialized.vDescTotal, model);
+      expect(composition.products[0].vProdCents).toBe(110000);
+      expect(serialized.itemsXml.match(/<det /g)).toHaveLength(1);
+      expect(serialized.itemsXml).toContain('<qCom>2.0000</qCom>');
+      expect(serialized.itemsXml).toContain('<vUnCom>550.0000000000</vUnCom>');
+      expect(serialized.itemsXml).toContain('<vProd>1100.00</vProd>');
+      expect(totals).toContain('<vOutro>0.00</vOutro>');
+      expect(totals).toContain('<vNF>1100.00</vNF>');
+      expect(totals).toContain('O valor fiscal do item');
+      expect(totals).toContain('rateio considera as quantidades dos produtos vinculados');
+      expect(totals).toContain('não afirma que o serviço foi executado em cada unidade');
     }
-  );
+  });
+
+  it('blocks a service without linked products and permits linked services in production', () => {
+    for (const model of ['55', '65'] as const) {
+      const unlinked = { items: [product('A', 500), service(100)] } as any;
+      expect(() => buildItemsXml(unlinked, settings, true, model)).toThrow(/precisa estar vinculado/);
+
+      const linkedOrder = { items: [product('A', 500), service(100, 'A')] } as any;
+      const composition = composeServiceFiscalValues(linkedOrder.items, model);
+      expect(() => assertServiceFiscalCompositionReady(composition)).not.toThrow();
+      const productionXml = buildItemsXml(linkedOrder, settings, false, model);
+      expect(productionXml.itemsXml).toContain('<vProd>600.00</vProd>');
+    }
+  });
 });

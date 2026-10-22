@@ -7,6 +7,8 @@ interface CustomerOrdersTabProps {
   canViewCommercial: boolean;
   isLoadingOrders: boolean;
   orders: SupportOrderSummary[];
+  ordersError?: string;
+  onRetryOrders?: () => void;
 }
 
 export const CustomerOrdersTab: React.FC<CustomerOrdersTabProps> = ({
@@ -14,23 +16,32 @@ export const CustomerOrdersTab: React.FC<CustomerOrdersTabProps> = ({
   canViewCommercial,
   isLoadingOrders,
   orders,
+  ordersError = '',
+  onRetryOrders,
 }) => {
   return (
     <div className="space-y-3 animate-fade-in">
-      {!isLinked ? (
-        <div className="p-6 text-center text-slate-400 text-xs">
-          <i className="bi bi-cart-x text-2xl block mb-2 opacity-50"></i>
-          Vincule um cliente à conversa para visualizar seus pedidos de venda.
-        </div>
-      ) : !canViewCommercial ? (
+      {!canViewCommercial ? (
         <div className="p-6 text-center text-slate-400 text-xs">
           <i className="bi bi-shield-lock text-2xl block mb-2 opacity-50 text-amber-500"></i>
           Seu perfil de acesso não possui permissão para visualizar dados comerciais de pedidos.
         </div>
+      ) : !isLinked ? (
+        <div className="p-6 text-center text-slate-400 text-xs">
+          <i className="bi bi-cart-x text-2xl block mb-2 opacity-50"></i>
+          Vincule um cliente à conversa para visualizar seus pedidos de venda.
+        </div>
       ) : isLoadingOrders ? (
-        <div className="py-8 flex flex-col items-center justify-center gap-2">
+        <div role="status" aria-live="polite" className="py-8 flex flex-col items-center justify-center gap-2">
           <div className="w-6 h-6 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
           <span className="text-xs text-slate-400">Consultando pedidos...</span>
+        </div>
+      ) : ordersError ? (
+        <div role="alert" className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 text-xs text-amber-900 dark:text-amber-200 space-y-2">
+          <p>{ordersError}</p>
+          {onRetryOrders && <button type="button" onClick={onRetryOrders} aria-label="Tentar carregar pedidos novamente" className="font-bold underline">
+            Tentar novamente
+          </button>}
         </div>
       ) : orders.length === 0 ? (
         <div className="p-6 text-center text-slate-400 text-xs">

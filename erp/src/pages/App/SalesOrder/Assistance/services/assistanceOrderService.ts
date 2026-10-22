@@ -15,6 +15,8 @@ export interface BuildAssistancePayloadOptions {
   scheduling: Scheduling;
   isLinked: boolean;
   linkedOrderId: string;
+  linkedOrderCode?: string;
+  linkedOrderDeliveryMethod?: string;
   selectedAssistanceItems: AssistanceItem[];
   extraItems: Item[];
   assistanceCost: number;
@@ -63,6 +65,8 @@ export const buildAssistanceOrderPayload = ({
   scheduling,
   isLinked,
   linkedOrderId,
+  linkedOrderCode,
+  linkedOrderDeliveryMethod,
   selectedAssistanceItems,
   extraItems,
   assistanceCost,
@@ -125,8 +129,19 @@ export const buildAssistanceOrderPayload = ({
 
   if (isLinked && linkedOrderId.trim()) {
     orderPayload.linkedOrderId = linkedOrderId.trim();
+    if (linkedOrderCode) {
+      orderPayload.linkedOrderCode = linkedOrderCode;
+    }
+    if (linkedOrderDeliveryMethod) {
+      orderPayload.linkedOrderDeliveryMethod = linkedOrderDeliveryMethod;
+      if (orderPayload.shipping) {
+        orderPayload.shipping.deliveryMethod = linkedOrderDeliveryMethod;
+      }
+    }
   } else {
     orderPayload.linkedOrderId = undefined;
+    orderPayload.linkedOrderCode = undefined;
+    orderPayload.linkedOrderDeliveryMethod = undefined;
   }
 
   return orderPayload;

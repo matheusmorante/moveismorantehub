@@ -291,6 +291,17 @@ export function getFiscalIssuePresentation(result: FiscalIssueResult): FiscalIss
   }
 
   if (code === 'FISCAL_PREPARATION_UNCONFIRMED' && result.sefazContacted === false) {
+    if (result.databaseReason === 'PREPARED_ATTEMPT_FOUND') {
+      return {
+        tone: 'attention',
+        title: 'Tentativa fiscal gravada; transmissão não iniciada',
+        description:
+          'A consulta local encontrou a reserva associada ao identificador original. Nenhum novo número foi reservado.',
+        nextStep: 'Retome a mesma tentativa quando estiver pronto para continuar a emissão.',
+        action: 'resume-same-attempt',
+      };
+    }
+
     return result.preparationReconciled
       ? {
           tone: 'attention',
@@ -305,11 +316,77 @@ export function getFiscalIssuePresentation(result: FiscalIssueResult): FiscalIss
           tone: 'attention',
           title: 'A preparação da nota não foi confirmada',
           description:
-            'O ERP não confirmou a gravação da tentativa antes de iniciar o contato com a SEFAZ.',
+            'O ERP não confirmou a gravação da tentativa. Esta resposta não confirma autorização ou rejeição, e este fluxo não iniciou contato com a SEFAZ.',
           nextStep:
-            'Consulte esta tentativa pelo ERP antes de continuar. O identificador original será preservado.',
+            'Consulte a mesma tentativa pelo ERP antes de continuar. O identificador original será preservado.',
           action: 'consult',
         };
+  }
+
+  if (
+    code === 'FISCAL_PREPARATION_UNCONFIRMED' &&
+    result.databaseReason === 'ATTEMPT_STATUS_FOUND'
+  ) {
+    return {
+      tone: 'attention',
+      title: 'Tentativa fiscal gravada; situação em andamento',
+      description:
+        'A tentativa original está persistida e a transmissão pode ter começado. O resultado fiscal ainda precisa ser confirmado.',
+      nextStep: 'Consulte a mesma nota antes de qualquer nova emissão.',
+      action: 'consult',
+    };
+  }
+
+  if (
+    code === 'FISCAL_PREPARATION_INVALID' &&
+    result.pending === false &&
+    result.numberReserved === false &&
+    result.sefazContacted === false
+  ) {
+    return {
+      tone: 'error',
+      title: 'Preparação fiscal interrompida',
+      description: safeFiscalIssueMessage(
+        result.error,
+        'A emissão foi interrompida antes de reservar o número e contatar a SEFAZ.'
+      ),
+      nextStep:
+        'Revise os dados fiscais e tente emitir novamente. Esta tentativa não reservou número nem contatou a SEFAZ.',
+      action: 'retry-safely',
+    };
+  }
+
+  if (
+    code === 'FISCAL_DETERMINATION_REQUIRED' &&
+    result.numberReserved === false &&
+    result.sefazContacted === false
+  ) {
+    if (result.pending === true) {
+      return {
+        tone: 'attention',
+        title: 'Situação da tentativa inconsistente',
+        description: `${safeFiscalIssueMessage(
+          result.error,
+          'A determinação fiscal foi bloqueada.'
+        )} Ao mesmo tempo, esta tentativa está marcada como pendente. A cópia não confirma o estado real da nota.`,
+        nextStep: 'Consulte a mesma tentativa pelo ERP antes de qualquer novo envio.',
+        action: 'consult',
+      };
+    }
+
+    if (result.pending === false) {
+      return {
+        tone: 'error',
+        title: 'Determinação fiscal interrompida',
+        description: safeFiscalIssueMessage(
+          result.error,
+          'O pedido não passou pela determinação fiscal.'
+        ),
+        nextStep:
+          'Corrija o bloqueio fiscal indicado. Esta resposta informa que não reservou número nem contatou a SEFAZ.',
+        action: 'none',
+      };
+    }
   }
 
   if (code === 'FISCAL_AUTHORIZED_CONSULT_UNKNOWN' ||

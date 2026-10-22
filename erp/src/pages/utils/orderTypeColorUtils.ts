@@ -198,7 +198,7 @@ export const resolveOrderColor = (
   deliveryMethod: string | undefined,
   colors: { delivery: OrderTypeColor; pickup: OrderTypeColor; assistance: OrderTypeColor }
 ): OrderTypeColor => {
-  if (orderType === 'return') return 'amber';
+  if (orderType === 'return') return 'orange';
   if (orderType === 'showroom') return 'rose';
   if (orderType === 'budget') return 'indigo';
   if (orderType === 'assistance') return colors.assistance;

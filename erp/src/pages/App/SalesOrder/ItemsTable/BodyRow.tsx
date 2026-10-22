@@ -1,7 +1,6 @@
 import React from 'react';
 import Product, { Variation } from '../../../types/product.type';
 import Item from '../../../types/items.type';
-import Service from '../../../types/service.type';
 import { ValidationErrors } from '../../../utils/validations';
 import { getNonStockOrigin } from '@/pages/utils/saleInventoryRules';
 import { useBodyRowPricing } from './useBodyRowPricing';
@@ -111,43 +110,69 @@ const BodyRow: React.FC<Props> = ({
     });
   };
 
-  const linkableProductItems = productItems.filter((product) =>
-    Boolean(product.description?.trim())
+  const linkableProductItems = productItems.filter(
+    (product) => Boolean(product.description?.trim() && product.orderItemId)
+  );
+
+  const selectedProductOrderItemIds = new Set(
+    Array.isArray(item.linkedProductOrderItemIds) && item.linkedProductOrderItemIds.length > 0
+      ? item.linkedProductOrderItemIds
+      : item.linkedProductOrderItemId
+        ? [item.linkedProductOrderItemId]
+        : []
   );
 
   const serviceProductLink = isService ? (
     <div className="mt-2">
-      <label className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
-        Vincular produto
-      </label>
-      <select
-        aria-label="Vincular produto"
-        value={item.linkedProductOrderItemId || ''}
-        onChange={(event) => onChange(idx, 'linkedProductOrderItemId', event.target.value)}
-        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-      >
-        <option value="">Sem vínculo</option>
-        {linkableProductItems.map((product, productIndex) => (
-          <option
-            key={product.orderItemId || productIndex}
-            value={product.orderItemId || ''}
-            disabled={!product.orderItemId}
-          >
-            {product.description} — {product.code || 'Sem SKU'} (linha {productIndex + 1})
-          </option>
-        ))}
-      </select>
+      <span className="mb-1 ml-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
+        Vincular aos produtos
+      </span>
+      {linkableProductItems.length > 0 ? (
+        <fieldset
+          aria-label="Produtos vinculados ao serviço"
+          className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800"
+        >
+          {linkableProductItems.map((product, productIndex) => {
+            const productOrderItemId = product.orderItemId!;
+            const inputId = `service-${idx}-product-${productOrderItemId}`;
+            const checked = selectedProductOrderItemIds.has(productOrderItemId);
+            return (
+              <label
+                key={productOrderItemId}
+                htmlFor={inputId}
+                className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700/60"
+              >
+                <input
+                  id={inputId}
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(event) => {
+                    const nextIds = new Set(selectedProductOrderItemIds);
+                    if (event.target.checked) nextIds.add(productOrderItemId);
+                    else nextIds.delete(productOrderItemId);
+                    onBatchChange(idx, {
+                      linkedProductOrderItemIds: [...nextIds],
+                      linkedProductOrderItemId: undefined,
+                    });
+                  }}
+                  className="mt-0.5 accent-blue-600"
+                />
+                <span>
+                  {product.quantity}x {product.description}
+                  {product.code ? ` — ${product.code}` : ''}
+                  <span className="ml-1 text-[10px] text-slate-400">(linha {productIndex + 1})</span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+      ) : (
+        <p className="rounded-xl border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-400 dark:border-slate-700">
+          Adicione um produto ao pedido para vinculá-lo a este serviço.
+        </p>
+      )}
     </div>
   ) : null;
-
-  const handleSelectService = (service: Service) => {
-    onBatchChange(idx, {
-      description: service.description,
-      unitPrice: service.unitPrice || 0,
-      costPrice: service.costPrice || 0,
-      itemType: 'service',
-    });
-  };
 
   const settings =
     (typeof useSettings === 'function' ? useSettings() : undefined) ??
@@ -178,7 +203,6 @@ const BodyRow: React.FC<Props> = ({
     onToggleDiscountType,
     onDelete,
     onSelectProduct,
-    handleSelectService,
     handleStockOriginChange,
     handleHandlingChange,
     isService,

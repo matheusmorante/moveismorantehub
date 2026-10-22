@@ -60,7 +60,7 @@ const OrderHistoryCard: React.FC<OrderHistoryCardProps> = ({
   const colors = settings.orderTypeColors ?? {
     delivery: 'green',
     pickup: 'purple',
-    assistance: 'orange',
+    assistance: 'amber',
   };
   const colorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, colors);
   const { hasAssemblyDepot, hasAssemblyOutside } = getOrderAssemblyFlags(order, settings);

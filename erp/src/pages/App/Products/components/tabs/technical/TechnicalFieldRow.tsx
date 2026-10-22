@@ -1,5 +1,4 @@
 import React from 'react';
-import { Globe, Layers2 } from 'lucide-react';
 import type { Product } from '../../../../../types/product.type';
 import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
@@ -11,7 +10,6 @@ import {
   computeTechnicalFieldItemState,
   normalizeTechnicalName,
 } from './technicalTabUtils';
-import { isYesNoCharacteristic } from '@/pages/utils/technicalValuesService';
 
 export interface TechnicalFieldRowProps {
   readonly field: TechnicalFieldDefinition;
@@ -19,7 +17,10 @@ export interface TechnicalFieldRowProps {
   readonly manualFieldNames: string[];
   readonly validationErrors?: Record<string, boolean>;
   readonly isVariable?: boolean;
-  readonly onToggleVariable?: (fieldName: string) => void;
+  readonly onToggleVariable?: (
+    fieldName: string,
+    scope?: 'not_inform' | 'global' | 'variation'
+  ) => void;
   readonly onValueChange: (fieldName: string, value: unknown) => void;
   readonly onOpenAttributeModal: () => void;
   readonly onToggleDepthLength: (field: TechnicalFieldDefinition) => void;
@@ -49,13 +50,18 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
     isDepthOrLengthField,
     isFieldDisabled,
     disabledReason,
+    hasConfiguredValue,
   } = computeTechnicalFieldItemState(field, formData, manualFieldNames, validationErrors);
 
   const normName = normalizeTechnicalName(field.name);
-  const isYesNoField = isYesNoCharacteristic(field);
   const displayName = /^retr[aá]til\??$/i.test(field.name.trim()) ? 'É Retrátil?' : field.name;
   const isOpenClosedSofaDepth =
     normName === 'profundidade aberto' || normName === 'profundidade fechado';
+  const scope = isVariable
+    ? 'variation'
+    : hasConfiguredValue
+      ? 'global'
+      : 'not_inform';
   const toggleDepthLengthTooltip = normName.includes('profundidade')
     ? normName.includes('total')
       ? 'Alternar para Comprimento total'
@@ -67,13 +73,13 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   return (
     <div
       id={`technical-field-${field.name}`}
-      className={`flex w-[280px] max-w-full ${isYesNoField ? 'flex-row items-center justify-between gap-3' : 'flex-col gap-1.5'} p-1 transition-all ${
+      className={`flex w-[280px] max-w-full flex-col gap-1.5 p-1 transition-all ${
         isFieldDisabled ? 'opacity-70' : ''
       }`}
     >
-      <div className={`flex items-center justify-between gap-2 ${isYesNoField ? 'min-w-0 flex-1' : 'w-full'}`}>
+      <div className="flex w-full flex-col items-start gap-2">
         <label
-          className={`min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
+          className={`w-full text-[10px] font-black uppercase tracking-widest truncate flex items-center gap-1.5 transition-colors ${
             isFieldInvalid
               ? 'text-red-600 dark:text-red-400'
               : isFieldDisabled
@@ -97,52 +103,24 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
             />
           )}
         </label>
-        <div className="flex items-center gap-1.5">
+        <div className="flex w-full items-center gap-1.5">
           {onToggleVariable && (
-            <div
-              role="group"
+            <select
               aria-label={`Escopo da característica ${field.name}`}
-              className="inline-flex min-w-[158px] shrink-0 rounded-xl bg-slate-200/70 p-0.5 text-[10px] font-bold dark:bg-slate-800"
+              title="Escolha onde esta característica será informada"
+              value={scope}
+              onChange={(event) =>
+                onToggleVariable(
+                  field.name,
+                  event.target.value as 'not_inform' | 'global' | 'variation'
+                )
+              }
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-blue-900/40"
             >
-              <button
-                type="button"
-                aria-pressed={!isVariable}
-                aria-label={`Global — ${field.name}`}
-                title="Global — todas as variações herdam o valor do produto pai"
-                onClick={() => {
-                  if (isVariable) onToggleVariable(field.name);
-                }}
-                className={`flex-1 whitespace-nowrap rounded-lg px-2 py-1.5 transition-all ${
-                  !isVariable
-                    ? 'bg-white font-black text-blue-600 shadow-sm dark:bg-slate-900 dark:text-blue-400'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                }`}
-              >
-                <span className="inline-flex items-center justify-center gap-1.5">
-                  <Globe size={13} aria-hidden="true" />
-                  Global
-                </span>
-              </button>
-              <button
-                type="button"
-                aria-pressed={isVariable}
-                aria-label={`Por variação — ${field.name}`}
-                title="Por variação — cada variação pode ter seu próprio valor"
-                onClick={() => {
-                  if (!isVariable) onToggleVariable(field.name);
-                }}
-                className={`flex-1 whitespace-nowrap rounded-lg px-2 py-1.5 transition-all ${
-                  isVariable
-                    ? 'bg-white font-black text-emerald-600 shadow-sm dark:bg-slate-900 dark:text-emerald-400'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                }`}
-              >
-                <span className="inline-flex items-center justify-center gap-1.5">
-                  <Layers2 size={13} aria-hidden="true" />
-                  Por variação
-                </span>
-              </button>
-            </div>
+              <option value="not_inform">Não informar</option>
+              <option value="global">Global</option>
+              <option value="variation">Por variação</option>
+            </select>
           )}
           {isColorField && (
             <span className="inline-flex shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
@@ -183,8 +161,8 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
         </div>
       </div>
 
-      {!isVariable && (
-        <div className={isYesNoField ? 'shrink-0' : 'w-full'}>
+      {scope === 'global' && (
+        <div className="w-full">
           <DisabledFieldWrapper
             isDisabled={isFieldDisabled}
             disabledReason={disabledReason}
@@ -205,7 +183,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               }
               isInvalid={isFieldInvalid}
               disabled={isFieldDisabled}
-              compact={isYesNoField}
               onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
             />
           </DisabledFieldWrapper>

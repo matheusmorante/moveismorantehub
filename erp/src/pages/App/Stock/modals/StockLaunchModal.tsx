@@ -26,9 +26,35 @@ interface VariationDisplayNameLike extends Partial<Variation> {
 /**
  * Modal rápido para lançamento manual de entrada, saída ou ajuste de inventário de produtos e variações.
  */
-export const StockLaunchModal: React.FC<StockLaunchModalProps> = (props) => props.isOpen && props.targetProduct
-  ? <StockLaunchEditor key={JSON.stringify([props.targetProduct.id, props.targetVariation?.id || props.targetProduct.variations?.[0]?.id])}
-      {...props} targetProduct={props.targetProduct} /> : null;
+export const StockLaunchModal: React.FC<StockLaunchModalProps> = (props) => {
+  if (!props.isOpen || !props.targetProduct) return null;
+  if (props.targetProduct.itemType === 'composition') {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Saldo de produto composto">
+        <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={props.onClose} aria-hidden="true" />
+        <div className="relative w-full max-w-md rounded-3xl border border-blue-100 bg-white p-7 shadow-2xl dark:border-blue-900 dark:bg-slate-900">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+            <i className="bi bi-boxes text-2xl" aria-hidden="true" />
+          </div>
+          <h3 className="text-base font-black text-slate-800 dark:text-slate-100">Produto Composto</h3>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            O saldo é calculado pelos produtos componentes. Registre entradas e saídas diretamente nos componentes; este produto não recebe movimentações.
+          </p>
+          <button type="button" onClick={props.onClose} className="mt-6 w-full rounded-xl bg-blue-600 px-4 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-blue-700">
+            Entendi
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <StockLaunchEditor
+      key={JSON.stringify([props.targetProduct.id, props.targetVariation?.id || props.targetProduct.variations?.[0]?.id])}
+      {...props}
+      targetProduct={props.targetProduct}
+    />
+  );
+};
 
 function StockLaunchEditor({ onClose, targetProduct, targetVariation, currentStock: propCurrentStock }:
   StockLaunchModalProps & { targetProduct: Product }) {

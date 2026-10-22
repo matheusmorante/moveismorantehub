@@ -10,6 +10,7 @@ vi.mock('@/components/CurrencyInput', () => ({ default: ({ value, onChangeValue 
 beforeEach(() => { vi.resetAllMocks(); mocks.save.mockResolvedValue({ id: 'new-1' }); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 const saved = { id: 'existing-1', description: 'Old', unitPrice: 10, costPrice: 5, active: false };
+const defaultFiscalTreatment = { nfeComposition: 'not_reviewed', incorporationConfirmed: false, validationReference: '' };
 function submit(view: ReturnType<typeof render>) { fireEvent.submit(view.container.querySelector('form')!); }
 
 describe('service form owner with real RHF', () => {
@@ -24,14 +25,14 @@ describe('service form owner with real RHF', () => {
     const view = render(<ServiceFormModal isOpen onClose={onClose} />);
     fireEvent.change(screen.getByPlaceholderText('Ex: Manutenção Preventiva'), { target: { value: ' Free service ' } });
     submit(view);
-    await waitFor(() => expect(mocks.save).toHaveBeenCalledWith({ id: undefined, description: 'Free service', unitPrice: 0, costPrice: 0, active: true, isDraft: false }));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledWith({ id: undefined, description: 'Free service', unitPrice: 0, costPrice: 0, active: true, fiscalTreatment: defaultFiscalTreatment, isDraft: false }));
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
   });
   it('preserves explicit zero prices and active=false when editing, without forwarding timestamps', async () => {
     mocks.save.mockResolvedValue({ id: saved.id });
     const view = render(<ServiceFormModal isOpen onClose={vi.fn()} service={{ ...saved, unitPrice: 0, costPrice: 0, createdAt: 'old' }} />);
     submit(view);
-    await waitFor(() => expect(mocks.save).toHaveBeenCalledWith({ ...saved, unitPrice: 0, costPrice: 0, isDraft: false }));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledWith({ ...saved, unitPrice: 0, costPrice: 0, active: false, fiscalTreatment: defaultFiscalTreatment, isDraft: false }));
   });
   it('blocks a negative cost through the real resolver', async () => {
     const view = render(<ServiceFormModal isOpen onClose={vi.fn()} service={saved} />);
@@ -39,6 +40,25 @@ describe('service form owner with real RHF', () => {
     submit(view);
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('custo não pode ser negativo'));
     expect(mocks.save).not.toHaveBeenCalled();
+  });
+  it('requires explicit confirmation and a reference before enabling NF-e incorporation', async () => {
+    const view = render(<ServiceFormModal isOpen onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText('Ex: Manutenção Preventiva'), { target: { value: 'Instalação' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Tratamento fiscal do serviço para NF-e 55 e NFC-e 65' }), { target: { value: 'include_with_merchandise' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Referência da validação fiscal do serviço' }), { target: { value: 'Parecer fiscal interno 2026-10' } });
+    submit(view);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Confirme que a validação fiscal'));
+    expect(mocks.save).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Confirmo a validação fiscal da composição do serviço' }));
+    submit(view);
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      fiscalTreatment: expect.objectContaining({
+        nfeComposition: 'include_with_merchandise',
+        incorporationConfirmed: true,
+        validationReference: 'Parecer fiscal interno 2026-10',
+      }),
+      isDraft: false,
+    })));
   });
   it('keeps one write active and prevents closing it', async () => {
     let finish!: () => void;

@@ -86,12 +86,12 @@ function database(includeDecision: boolean) {
       }),
     })),
   }));
-  return { db: { from } as unknown as SupabaseClient<FiscalDatabase>, requestedSettings };
+  return { db: { from } as unknown as SupabaseClient<FiscalDatabase>, requestedSettings, from };
 }
 
 describe('carregamento da decisão de venda normal', () => {
   it('busca uma decisão compartilhada e valida separadamente os dois modelos', async () => {
-    const { db, requestedSettings } = database(true);
+    const { db, requestedSettings, from } = database(true);
     const candidate = facts();
     await loadNormalSaleInputs(db, candidate, { fiscalDefaults: { pisCst: '99' } });
     expect(requestedSettings).toHaveBeenCalledWith([
@@ -103,6 +103,8 @@ describe('carregamento da decisão de venda normal', () => {
     expect(resolveNormalSaleContribution(candidate.fiscalInputs!, '65').confirmedBy).toBe(
       'TEST_UNIT_SHARED_DECISION'
     );
+    expect(from).not.toHaveBeenCalledWith('services');
+    expect(candidate.fiscalInputs).not.toHaveProperty('services');
   });
   it('bloqueia ambos os modelos quando falta a decisão compartilhada', async () => {
     const { db } = database(false);
@@ -113,5 +115,16 @@ describe('carregamento da decisão de venda normal', () => {
         'CONTRIBUTION_MODEL_SCOPE_REQUIRED'
       );
     }
+  });
+
+  it('não consulta cadastro de cliente quando o pedido não tem cliente vinculado', async () => {
+    const { db, from } = database(true);
+    const candidate = facts();
+    candidate.order.data.customerData = {};
+
+    await loadNormalSaleInputs(db, candidate, {});
+
+    expect(from).not.toHaveBeenCalledWith('people');
+    expect(candidate.fiscalInputs?.customer).toEqual({});
   });
 });

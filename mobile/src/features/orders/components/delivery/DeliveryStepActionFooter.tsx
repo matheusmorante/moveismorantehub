@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SlideHoldToStart } from '../SlideHoldToStart';
+import { SlideHoldToStart } from './SlideHoldToStart';
 
 export interface DeliveryStepActionFooterProps {
   currentStep: number; // 1: Preparação, 2: Em Rota, 3: Chegada, 4: Em Atendimento

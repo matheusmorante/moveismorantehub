@@ -9,6 +9,28 @@ import type { CustomerSupportFolder } from '../types';
 afterEach(cleanup);
 
 describe('Formulário de pasta compartilhada', () => {
+  it('renderiza o diálogo fora da camada da fila e remove o portal ao fechar', () => {
+    const props = { onClose: vi.fn(), agents: [], canViewCommercialInfo: false, onSave: vi.fn() };
+    const view = render(<aside aria-label="Fila"><AddCustomInboxModal {...props} isOpen /></aside>);
+    const dialog = screen.getByRole('dialog', { name: 'Nova pasta compartilhada' });
+    expect(dialog.parentElement === document.body).toBe(true);
+    expect(view.container.contains(dialog)).toBe(false);
+    view.rerender(<aside aria-label="Fila"><AddCustomInboxModal {...props} isOpen={false} /></aside>);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('edita pasta de outro autor preservando o critério comercial existente sem consultar pedidos', async () => {
+    const save = vi.fn().mockResolvedValue(null);
+    const folder: CustomerSupportFolder = { id: '581e4614-b7e9-4b14-8013-8f35924335f5', name: 'Fila compartilhada',
+      criteria: { ...DEFAULT_SUPPORT_FOLDER_CRITERIA, orders: 'with_orders' },
+      createdBy: 'b3a15cd2-ee03-46d3-8e28-d6835e20eed9', createdAt: '', updatedAt: '' };
+    render(<AddCustomInboxModal isOpen onClose={vi.fn()} agents={[]} canViewCommercialInfo={false} folder={folder} onSave={save} />);
+    fireEvent.change(screen.getByLabelText('Nome da pasta'), { target: { value: 'Fila revisada' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith('Fila revisada', { ...DEFAULT_SUPPORT_FOLDER_CRITERIA, orders: 'with_orders' }, folder.id));
+    expect(folder.createdBy).toBe('b3a15cd2-ee03-46d3-8e28-d6835e20eed9');
+  });
+
   const identity = { runId: '831efec0-724b-49d5-aadc-10b7c2e793df', ownerId: 'b3a15cd2-ee03-46d3-8e28-d6835e20eed9', scenarioKey: 'support_inbox' };
   it('rejeita um identificador de atendente inválido antes de persistir', async () => {
     const save = vi.fn();

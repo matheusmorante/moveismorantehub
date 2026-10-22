@@ -1,202 +1,233 @@
-import React from 'react';
-import type { Variation } from '../../../types/product.type';
-import { formatCurrency } from '@/pages/utils/formatters';
-import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
-import ProductImage from '@/components/ProductImage';
+import React from "react";
+import type { Variation } from "../../../types/product.type";
+import { formatCurrency } from "@/pages/utils/formatters";
+import { normalizeVariationSku } from "@/pages/utils/productVariationDefaults";
+import ProductImage from "@/components/ProductImage";
 
 export interface VariationRowProps {
-  readonly v: Variation;
-  readonly variationIndex?: number;
-  readonly updateVariation?: (id: string, field: keyof Variation, value: Variation[keyof Variation]) => void;
-  readonly removeVariation?: (id: string) => void;
-  readonly onDeleteVariation?: (id: string) => void;
-  readonly isDeleting?: boolean;
-  readonly isDeletionBlocked?: boolean;
-  readonly deletionDisabledReason?: string;
-  readonly isCombo?: boolean;
-  readonly onEditCombo?: (id: string) => void;
-  readonly onEdit?: (id: string) => void;
-  readonly parentPrice?: number;
-  readonly parentPromoPrice?: number;
-  readonly parentSku?: string;
-  readonly parentImage?: string | null;
-  readonly inheritParentImages?: boolean;
+	readonly v: Variation;
+	readonly variationIndex?: number;
+	readonly updateVariation?: (
+		id: string,
+		field: keyof Variation,
+		value: Variation[keyof Variation],
+	) => void;
+	readonly removeVariation?: (id: string) => void;
+	readonly onDeleteVariation?: (id: string) => void;
+	readonly isDeleting?: boolean;
+	readonly isDeletionBlocked?: boolean;
+	readonly deletionDisabledReason?: string;
+	readonly isCombo?: boolean;
+	readonly onEditCombo?: (id: string) => void;
+	readonly onEdit?: (id: string) => void;
+	readonly parentPrice?: number;
+	readonly parentPromoPrice?: number;
+	readonly parentSku?: string;
+	readonly parentImage?: string | null;
+	readonly inheritParentImages?: boolean;
 }
 
 /**
  * Linha de tabela representando uma variação de produto com SKU, preços formatados e ações de edição/exclusão.
  */
 export const VariationRow: React.FC<VariationRowProps> = React.memo(
-  ({
-    v,
-    variationIndex,
-    onDeleteVariation,
-    isDeleting = false,
-    isDeletionBlocked = false,
-    deletionDisabledReason,
-    isCombo,
-    onEditCombo,
-    onEdit,
-    parentPrice,
-    parentPromoPrice,
-    parentSku,
-    parentImage,
-    inheritParentImages = false,
-  }) => {
-    const isEditable = Boolean(onEdit);
-    const varImage = v.images && v.images.length > 0
-      ? v.images[0]
-      : inheritParentImages
-        ? parentImage || null
-        : null;
+	({
+		v,
+		variationIndex,
+		removeVariation,
+		onDeleteVariation,
+		isDeleting = false,
+		isDeletionBlocked = false,
+		deletionDisabledReason,
+		isCombo,
+		onEditCombo,
+		onEdit,
+		parentPrice,
+		parentPromoPrice,
+		parentSku,
+		parentImage,
+		inheritParentImages = false,
+	}) => {
+		const isEditable = Boolean(onEdit);
+		const handleDelete = onDeleteVariation || removeVariation;
+		const varImage =
+			v.images && v.images.length > 0
+				? v.images[0]
+				: inheritParentImages
+					? parentImage || null
+					: null;
 
-    const regularPrice = Number(v.syncUnitPrice ? parentPrice : v.unitPrice) || 0;
-    const promoPrice = Number(v.syncPromoPrice !== false ? parentPromoPrice : v.promoPrice) || 0;
-    const finalPrice = promoPrice > 0 && promoPrice < regularPrice ? promoPrice : regularPrice;
-    const hasDiscount = finalPrice < regularPrice;
+		const regularPrice =
+			Number(v.syncUnitPrice ? parentPrice : v.unitPrice) || 0;
+		const promoPrice =
+			Number(v.syncPromoPrice !== false ? parentPromoPrice : v.promoPrice) || 0;
+		const finalPrice =
+			promoPrice > 0 && promoPrice < regularPrice ? promoPrice : regularPrice;
+		const hasDiscount = finalPrice < regularPrice;
 
-    const fallbackSuffix = String((variationIndex ?? 0) + 1).padStart(2, '0');
-    const displaySku =
-      normalizeVariationSku(v.sku) || (parentSku ? `${parentSku}-${fallbackSuffix}` : '-');
+		const fallbackSuffix = String((variationIndex ?? 0) + 1).padStart(2, "0");
+		const displaySku =
+			normalizeVariationSku(v.sku) ||
+			(parentSku ? `${parentSku}-${fallbackSuffix}` : "-");
 
-    return (
-      <div
-        key={v.id}
-        className="flex flex-col gap-3 rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 xl:table-row xl:rounded-none xl:border-0 xl:bg-transparent xl:p-0 xl:shadow-none hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group relative"
-      >
-        <div className="flex xl:table-cell xl:px-6 xl:py-4 items-center gap-3">
-          <div
-            className={`relative h-14 w-14 xl:h-10 xl:w-10 rounded-2xl xl:rounded-xl border overflow-hidden flex items-center justify-center shrink-0 shadow-sm transition-all ${isEditable ? 'hover:scale-105 cursor-pointer' : 'cursor-not-allowed opacity-70'} ${
-              varImage
-                ? 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-400'
-                : 'border-amber-300 dark:border-amber-700/60 bg-amber-50/60 dark:bg-amber-955/20 text-amber-500'
-            }`}
-            title={isEditable ? (varImage ? 'Clique para editar detalhes da variação' : 'Sem foto vinculada — clique para vincular (obrigatório)') : 'Produto simples: a variação herda as fotos do produto e não pode ser editada.'}
-            onClick={() => onEdit?.(v.id)}
-          >
-            {varImage ? (
-              <ProductImage
-                src={varImage}
-                alt={`Variação ${v.name || displaySku}`}
-                className="object-cover h-full w-full"
-                size="thumbnail"
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center text-amber-500">
-                <i className="bi bi-camera text-sm" aria-hidden="true" />
-                <span className="text-[7px] font-black uppercase tracking-tighter hidden xl:block">Foto</span>
-              </div>
-            )}
-          </div>
+		return (
+			<div
+				key={v.id}
+				className="flex flex-col gap-3 rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 xl:table-row xl:rounded-none xl:border-0 xl:bg-transparent xl:p-0 xl:shadow-none hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group relative"
+			>
+				<div className="flex xl:table-cell xl:px-6 xl:py-4 items-center gap-3">
+					<div
+						className={`relative h-14 w-14 xl:h-10 xl:w-10 rounded-2xl xl:rounded-xl border overflow-hidden flex items-center justify-center shrink-0 shadow-sm transition-all ${isEditable ? "hover:scale-105 cursor-pointer" : "cursor-not-allowed opacity-70"} ${
+							varImage
+								? "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-400"
+								: "border-amber-300 dark:border-amber-700/60 bg-amber-50/60 dark:bg-amber-955/20 text-amber-500"
+						}`}
+						title={
+							isEditable
+								? varImage
+									? "Clique para editar detalhes da variação"
+									: "Sem foto vinculada — clique para vincular (obrigatório)"
+								: "Produto simples: a variação herda as fotos do produto e não pode ser editada."
+						}
+						onClick={() => onEdit?.(v.id)}
+					>
+						{varImage ? (
+							<ProductImage
+								src={varImage}
+								alt={`Variação ${v.name || displaySku}`}
+								className="object-cover h-full w-full"
+								size="thumbnail"
+							/>
+						) : (
+							<div className="flex flex-col items-center justify-center text-amber-500">
+								<i className="bi bi-camera text-sm" aria-hidden="true" />
+								<span className="text-[7px] font-black uppercase tracking-tighter hidden xl:block">
+									Foto
+								</span>
+							</div>
+						)}
+					</div>
 
-          {/* SKU exibido apenas no Mobile ao lado da imagem */}
-          <div className="xl:hidden flex flex-col items-start justify-center">
-            <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-              {displaySku}
-            </span>
-          </div>
-        </div>
+					{/* SKU exibido apenas no Mobile ao lado da imagem */}
+					<div className="xl:hidden flex flex-col items-start justify-center">
+						<span className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+							{displaySku}
+						</span>
+					</div>
+				</div>
 
-        {/* SKU na tabela (Oculto no Mobile) */}
-        <div className="hidden xl:table-cell px-6 py-4">
-          <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-            {displaySku}
-          </span>
-        </div>
+				{/* SKU na tabela (Oculto no Mobile) */}
+				<div className="hidden xl:table-cell px-6 py-4">
+					<span className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+						{displaySku}
+					</span>
+				</div>
 
-        <div className="flex flex-row flex-wrap items-center justify-between gap-4 xl:contents">
-          <div
-            className={`flex-1 min-w-[120px] xl:table-cell xl:px-6 xl:py-4 ${isEditable ? 'cursor-pointer' : 'cursor-default'}`}
-            onClick={() => onEdit?.(v.id)}
-          >
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Nome da Variação
-                </span>
-                {v.status === 'draft' && (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onEdit?.(v.id);
-                    }}
-                    title="Rascunho: revise os campos obrigatórios antes de disponibilizar."
-                    className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-                  >
-                    Rascunho
-                  </button>
-                )}
-              </div>
-              <input
-                value={v.name || v.title || 'Variação'}
-                readOnly
-                className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default font-sans truncate"
-                placeholder="Sem nome"
-              />
-            </div>
-          </div>
+				<div className="flex flex-row flex-wrap items-center justify-between gap-4 xl:contents">
+					<div
+						className={`flex-1 min-w-[120px] xl:table-cell xl:px-6 xl:py-4 ${isEditable ? "cursor-pointer" : "cursor-default"}`}
+						onClick={() => onEdit?.(v.id)}
+					>
+						<div className="flex flex-col">
+							<div className="flex items-center gap-2">
+								<span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+									Nome da Variação
+								</span>
+								{v.status === "draft" && (
+									<button
+										type="button"
+										onClick={(event) => {
+											event.stopPropagation();
+											onEdit?.(v.id);
+										}}
+										title="Rascunho: revise os campos obrigatórios antes de disponibilizar."
+										className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+									>
+										Rascunho
+									</button>
+								)}
+							</div>
+							<input
+								value={v.name || v.title || "Variação"}
+								readOnly
+								className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default font-sans truncate"
+								placeholder="Sem nome"
+							/>
+						</div>
+					</div>
 
-          <div className="flex flex-col xl:table-cell xl:px-6 xl:py-4 items-end xl:items-start justify-center">
-            {/* Rótulo de preço apenas no mobile */}
-            <span className="xl:hidden text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
-              Preço Venda
-            </span>
-            <div className="flex flex-col xl:gap-0.5 items-end xl:items-start">
-              {hasDiscount && (
-                <span className="text-xs font-bold text-red-500 line-through decoration-red-500">
-                  {formatCurrency(regularPrice)}
-                </span>
-              )}
-              <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                {formatCurrency(finalPrice)}
-              </span>
-            </div>
-          </div>
-        </div>
+					<div className="flex flex-col xl:table-cell xl:px-6 xl:py-4 items-end xl:items-start justify-center">
+						{/* Rótulo de preço apenas no mobile */}
+						<span className="xl:hidden text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
+							Preço Venda
+						</span>
+						<div className="flex flex-col xl:gap-0.5 items-end xl:items-start">
+							{hasDiscount && (
+								<span className="text-xs font-bold text-red-500 line-through decoration-red-500">
+									{formatCurrency(regularPrice)}
+								</span>
+							)}
+							<span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+								{formatCurrency(finalPrice)}
+							</span>
+						</div>
+					</div>
+				</div>
 
-        <div className="absolute right-4 top-4 flex items-center gap-1.5 xl:static xl:table-cell xl:px-6 xl:py-4 xl:text-right">
-          {isCombo && (
-            <button
-              type="button"
-              onClick={() => onEditCombo?.(v.id)}
-              className={`p-1.5 rounded-xl transition-all ${
-                v.comboItems?.length
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600'
-              }`}
-              title="Configurar itens deste kit/combo"
-              aria-label="Configurar itens do combo"
-            >
-              <i className="bi bi-layers-fill text-base" aria-hidden="true" />
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => onEdit?.(v.id)}
-            disabled={!isEditable}
-            className="p-1.5 rounded-xl transition-all bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
-            title={isEditable ? 'Editar características da variação' : 'Produto simples: a variação herda os campos do produto e não pode ser editada.'}
-            aria-label="Editar características da variação"
-          >
-            <i className="bi bi-pencil-square text-base" aria-hidden="true" />
-          </button>
-          {onDeleteVariation && (
-            <button
-              type="button"
-              onClick={() => onDeleteVariation(v.id)}
-              disabled={isDeleting || isDeletionBlocked}
-              className={`p-1.5 rounded-xl transition-all disabled:cursor-not-allowed disabled:opacity-40 ${isDeletionBlocked ? 'bg-slate-100 text-slate-400 opacity-40 dark:bg-slate-800 dark:text-slate-500' : 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40'}`}
-              title={isDeletionBlocked ? deletionDisabledReason || 'A variação possui vínculos de estoque ou vendas.' : 'Excluir variação'}
-              aria-label={`Excluir variação ${displaySku}`}
-            >
-              <i className={`bi ${isDeleting ? 'bi-arrow-repeat animate-spin' : 'bi-trash3'} text-base`} aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
+				<div className="absolute right-4 top-4 flex items-center gap-1.5 xl:static xl:table-cell xl:px-6 xl:py-4 xl:text-right">
+					{isCombo && (
+						<button
+							type="button"
+							onClick={() => onEditCombo?.(v.id)}
+							className={`p-1.5 rounded-xl transition-all ${
+								v.comboItems?.length
+									? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
+									: "bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600"
+							}`}
+							title="Configurar itens deste kit/combo"
+							aria-label="Configurar itens do combo"
+						>
+							<i className="bi bi-layers-fill text-base" aria-hidden="true" />
+						</button>
+					)}
+					<button
+						type="button"
+						onClick={() => onEdit?.(v.id)}
+						disabled={!isEditable}
+						className="p-1.5 rounded-xl transition-all bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+						title={
+							isEditable
+								? "Editar características da variação"
+								: "Produto simples: a variação herda os campos do produto e não pode ser editada."
+						}
+						aria-label="Editar características da variação"
+					>
+						<i className="bi bi-pencil-square text-base" aria-hidden="true" />
+					</button>
+					{handleDelete && (
+						<button
+							type="button"
+							onClick={() => handleDelete(v.id)}
+							disabled={isDeleting || isDeletionBlocked}
+							className={`p-1.5 rounded-xl transition-all disabled:cursor-not-allowed disabled:opacity-40 ${isDeletionBlocked ? "bg-slate-100 text-slate-400 opacity-40 dark:bg-slate-800 dark:text-slate-500" : "bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40"}`}
+							title={
+								isDeletionBlocked
+									? deletionDisabledReason ||
+										"A variação possui vínculos de estoque ou vendas."
+									: "Excluir variação"
+							}
+							aria-label={`Excluir variação ${displaySku}`}
+						>
+							<i
+								className={`bi ${isDeleting ? "bi-arrow-repeat animate-spin" : "bi-trash3"} text-base`}
+								aria-hidden="true"
+							/>
+						</button>
+					)}
+				</div>
+			</div>
+		);
+	},
 );
 
-VariationRow.displayName = 'VariationRow';
+VariationRow.displayName = "VariationRow";

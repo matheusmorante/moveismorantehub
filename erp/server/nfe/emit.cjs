@@ -1735,6 +1735,111 @@ function decideFiscalRecipientRequirements(facts) {
   };
 }
 
+// shared-utils/fiscalTransportModel.ts
+function resolveFiscalScopeDeliveryMethod(input) {
+  if (input.hasTransport === false || input.transportResponsible === "CUSTOMER") {
+    return "pickup";
+  }
+  if (input.hasTransport === true) return "delivery";
+  return input.orderDeliveryMethod;
+}
+function resolveEffectiveFiscalDeliveryMethod(input) {
+  if (input.fiscalModel === "65" && typeof input.hasTransport === "boolean") {
+    return input.hasTransport ? "delivery" : "pickup";
+  }
+  if (input.fiscalModel === "55") {
+    if (input.hasTransport === false || input.transportResponsible === "NONE") return "pickup";
+    if (input.transportResponsible === "CUSTOMER") return "pickup";
+    if (input.transportResponsible === "OWN_COMPANY" || input.transportResponsible === "THIRD_PARTY") {
+      return "delivery";
+    }
+  }
+  return input.orderDeliveryMethod;
+}
+function resolveTransport(input) {
+  const { fiscalModel, deliveryMethod } = input;
+  if (fiscalModel === "65" && deliveryMethod === "pickup") {
+    return {
+      hasTransport: false,
+      transportResponsible: "NONE",
+      modFrete: "9",
+      modFreteDescription: "9 \u2014 Sem ocorr\xEAncia de transporte",
+      isEmitterTransporter: false,
+      requiresTransporterData: false,
+      allowsEditHasTransport: false,
+      derivedReason: "Definido pela modalidade de transporte da NF.",
+      statusBadge: "9 \u2014 Sem ocorr\xEAncia de transporte [OFF \u{1F512}]",
+      friendlyDescription: "Sem ocorr\xEAncia de transporte nesta NFC-e"
+    };
+  }
+  if (fiscalModel === "55" && deliveryMethod === "pickup") {
+    if (input.hasTransport === false || input.transportResponsible !== "CUSTOMER") {
+      return {
+        hasTransport: false,
+        transportResponsible: "NONE",
+        modFrete: "9",
+        modFreteDescription: "9 \u2014 Sem ocorr\xEAncia de transporte",
+        isEmitterTransporter: false,
+        requiresTransporterData: false,
+        allowsEditHasTransport: false,
+        derivedReason: "Definido pela modalidade de transporte da NF.",
+        statusBadge: "9 \u2014 Sem ocorr\xEAncia de transporte [OFF \u{1F512}]",
+        friendlyDescription: "Sem ocorr\xEAncia de transporte nesta NF-e"
+      };
+    }
+    return {
+      hasTransport: true,
+      transportResponsible: "CUSTOMER",
+      modFrete: "4",
+      modFreteDescription: "4 \u2014 Transporte pr\xF3prio por conta do destinat\xE1rio",
+      isEmitterTransporter: false,
+      requiresTransporterData: false,
+      allowsEditHasTransport: false,
+      derivedReason: "Definido pela modalidade de transporte da NF.",
+      statusBadge: "4 \u2014 Transporte pr\xF3prio pelo destinat\xE1rio [ON \u{1F512}]",
+      friendlyDescription: "Transporte pr\xF3prio por conta do destinat\xE1rio nesta NF-e"
+    };
+  }
+  const responsible = input.transportResponsible === "THIRD_PARTY" ? "THIRD_PARTY" : "OWN_COMPANY";
+  if (responsible === "THIRD_PARTY") {
+    const contract = input.freightContractResponsible || "SENDER";
+    let modFrete = "0";
+    let modDesc = "0 \u2014 Contrata\xE7\xE3o do frete por conta do remetente (CIF)";
+    if (contract === "RECIPIENT") {
+      modFrete = "1";
+      modDesc = "1 \u2014 Contrata\xE7\xE3o do frete por conta do destinat\xE1rio (FOB)";
+    } else if (contract === "THIRD_PARTY") {
+      modFrete = "2";
+      modDesc = "2 \u2014 Contrata\xE7\xE3o do frete por conta de terceiros";
+    }
+    return {
+      hasTransport: true,
+      transportResponsible: "THIRD_PARTY",
+      freightContractResponsible: contract,
+      modFrete,
+      modFreteDescription: modDesc,
+      isEmitterTransporter: false,
+      requiresTransporterData: true,
+      allowsEditHasTransport: false,
+      derivedReason: "Definido automaticamente: pedido com entrega.",
+      statusBadge: `Transporte ${modFrete} \u2014 Transportador terceirizado [ON \u{1F512}]`,
+      friendlyDescription: "Transportador terceirizado \u2014 definido pelo pedido com entrega"
+    };
+  }
+  return {
+    hasTransport: true,
+    transportResponsible: "OWN_COMPANY",
+    modFrete: "3",
+    modFreteDescription: "3 \u2014 Transporte pr\xF3prio por conta do remetente",
+    isEmitterTransporter: true,
+    requiresTransporterData: false,
+    allowsEditHasTransport: false,
+    derivedReason: "Definido automaticamente: pedido com entrega.",
+    statusBadge: "3 \u2014 Entrega pela pr\xF3pria empresa [ON \u{1F512}]",
+    friendlyDescription: "Entrega pela pr\xF3pria empresa \u2014 definido pelo pedido com entrega"
+  };
+}
+
 // api/nfe/fiscalCore.ts
 var amountFields = [
   "icmsBase",
@@ -1799,9 +1904,23 @@ function validateFiscalDocument(snapshot, document, ruleSet) {
       throw new Error(
         "Identifica\xE7\xE3o do destinat\xE1rio diverge do snapshot fiscal ou do cadastro PF/PJ."
       );
+    const commercialShipping = snapshot.order.data.shipping;
+    const snapshotShipping = isRecord(commercialShipping) ? commercialShipping : {};
+    const orderDeliveryMethod = snapshotShipping.deliveryMethod;
+    if (orderDeliveryMethod !== "delivery" && orderDeliveryMethod !== "pickup")
+      throw new Error("Modalidade comercial do pedido ausente ou inv\xE1lida.");
+    const fiscalDeliveryMethod = resolveFiscalScopeDeliveryMethod({
+      orderDeliveryMethod,
+      hasTransport: snapshot.emissionRequest.hasTransport,
+      transportResponsible: snapshot.emissionRequest.transportResponsible
+    });
+    const fiscalOrderData = {
+      ...snapshot.order.data,
+      shipping: { ...snapshotShipping, deliveryMethod: fiscalDeliveryMethod }
+    };
     const decision = resolveOrderFiscalModel(
       {
-        ...snapshot.order.data,
+        ...fiscalOrderData,
         orderType: snapshot.order.type,
         paymentsSummary: { totalOrderValue: document.totals.invoice },
         items: document.items.map((item) => ({ fiscal: { cfop: item.classification.cfop } }))
@@ -1810,7 +1929,7 @@ function validateFiscalDocument(snapshot, document, ruleSet) {
         issuerUf: String(snapshot.issuerProfile.companyUF || ""),
         finalConsumer: snapshot.emissionRequest.finalConsumer,
         recipientAddress: getFiscalRecipientAddress({
-          ...snapshot.order.data,
+          ...fiscalOrderData,
           customerData: { fullAddress: customer?.address }
         })
       }
@@ -2390,6 +2509,9 @@ var import_xml_crypto2 = require("xml-crypto");
 
 // erp/src/pages/utils/nfe/serviceFiscalComposition.ts
 var toCents = (value) => Math.round((Number(value) || 0) * 100);
+var normalizeLabel = (value) => String(value || "").replace(/\s+/g, " ").trim();
+var formatBrl = (cents2) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents2 / 100).replace(/\u00a0/g, " ");
+var normalizeInfCplText = (value) => value.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[–—]/g, "-").replace(/…/g, "...").replace(/[^\u0009\u000a\u000d\u0020-\u00ff]/g, "");
 var getItemNetCents = (item) => {
   const unitPrice = Number(item.unitPrice) || 0;
   const quantity = Number(item.quantity) || 1;
@@ -2397,34 +2519,108 @@ var getItemNetCents = (item) => {
   const fixedDiscount = item.discountType === "fixed" ? unitDiscount : unitPrice * unitDiscount / 100;
   return toCents(Math.max(0, unitPrice - fixedDiscount) * quantity);
 };
-function composeServiceFiscalValues(items = []) {
+function allocateCentsByQuantity(amountCents, targets) {
+  const totalQuantity = targets.reduce((sum, target) => sum + target.quantity, 0);
+  const exactShares = targets.map((target) => amountCents * target.quantity / totalQuantity);
+  const shares = exactShares.map(Math.floor);
+  let remainingCents = amountCents - shares.reduce((sum, share) => sum + share, 0);
+  const byLargestRemainder = exactShares.map((exact, index) => ({ index, remainder: exact - shares[index] })).sort((left, right) => right.remainder - left.remainder || left.index - right.index);
+  for (let index = 0; index < remainingCents; index += 1) {
+    shares[byLargestRemainder[index % byLargestRemainder.length].index] += 1;
+  }
+  return shares;
+}
+function linkedProductIds(service) {
+  const configuredIds = Array.isArray(service.linkedProductOrderItemIds) && service.linkedProductOrderItemIds.length ? service.linkedProductOrderItemIds : service.linkedProductOrderItemId ? [service.linkedProductOrderItemId] : [];
+  const ids = configuredIds.filter((id) => typeof id === "string" && Boolean(id.trim())).map((id) => id.trim());
+  return { ids: [...new Set(ids)], malformed: ids.length !== configuredIds.length };
+}
+function servicesMissingProductLinksMessage(composition) {
+  if (!composition.pendingServices.length) return "";
+  const issues = composition.pendingServices.map(({ item, amountCents, reason }) => {
+    const name = normalizeLabel(item.description) || "Servi\xE7o sem descri\xE7\xE3o";
+    const amount2 = formatBrl(amountCents);
+    return reason === "invalid_product_quantity" ? `\u201C${name}\u201D (${amount2}) est\xE1 vinculado a um produto com quantidade inv\xE1lida.` : `\u201C${name}\u201D (${amount2}) precisa estar vinculado a pelo menos um produto do pedido.`;
+  });
+  return `A nota fiscal n\xE3o pode ser preparada enquanto houver servi\xE7os sem produto v\xE1lido vinculado: ${issues.join(" ")}`;
+}
+function assertServiceFiscalCompositionReady(composition) {
+  const missingProductLinksMessage = servicesMissingProductLinksMessage(composition);
+  if (missingProductLinksMessage) throw new Error(missingProductLinksMessage);
+}
+function composeServiceFiscalValues(items = [], mode = "55") {
   const products = items.map((item, itemIndex) => ({ item, itemIndex })).filter(({ item }) => item.itemType !== "service");
   const services = items.filter((item) => item.itemType === "service");
   const linkedServiceCents = /* @__PURE__ */ new Map();
-  let vOutroCents = 0;
+  const linkedServiceLines = /* @__PURE__ */ new Map();
+  const pendingServices = [];
+  let incorporatedServiceCents = 0;
   for (const service of services) {
     const netCents = getItemNetCents(service);
-    const targetId = service.linkedProductOrderItemId;
-    if (targetId && products.some(({ item }) => item.orderItemId === targetId)) {
-      linkedServiceCents.set(targetId, (linkedServiceCents.get(targetId) || 0) + netCents);
-    } else {
-      vOutroCents += netCents;
+    if (netCents <= 0) continue;
+    const { ids, malformed } = linkedProductIds(service);
+    const targets = ids.map((id) => products.find(({ item }) => item.orderItemId === id)?.item).filter((item) => Boolean(item)).sort(
+      (left, right) => products.findIndex(({ item }) => item === left) - products.findIndex(({ item }) => item === right)
+    );
+    if (!ids.length || malformed || targets.length !== ids.length) {
+      pendingServices.push({ item: service, amountCents: netCents, reason: "missing_product_link" });
+      continue;
     }
+    const targetsWithQuantity = targets.map((item) => ({ item, quantity: Number(item.quantity) }));
+    if (targetsWithQuantity.some(
+      ({ quantity }) => !Number.isFinite(quantity) || quantity <= 0
+    )) {
+      pendingServices.push({ item: service, amountCents: netCents, reason: "invalid_product_quantity" });
+      continue;
+    }
+    const allocations = allocateCentsByQuantity(netCents, targetsWithQuantity);
+    targetsWithQuantity.forEach(({ item }, index) => {
+      const productId = item.orderItemId;
+      const allocatedCents = allocations[index];
+      if (allocatedCents <= 0) return;
+      linkedServiceCents.set(
+        productId,
+        (linkedServiceCents.get(productId) || 0) + allocatedCents
+      );
+      const lines = linkedServiceLines.get(productId) || [];
+      lines.push({
+        description: normalizeLabel(service.description),
+        allocatedCents,
+        totalServiceCents: netCents
+      });
+      linkedServiceLines.set(productId, lines);
+    });
+    incorporatedServiceCents += netCents;
   }
+  const fiscalProducts = products.map(({ item, itemIndex }) => {
+    const quantity = Number(item.quantity) || 1;
+    const grossCents = toCents((Number(item.unitPrice) || 0) * quantity);
+    const netCents = getItemNetCents(item);
+    const incorporatedServices = item.orderItemId ? linkedServiceLines.get(item.orderItemId) || [] : [];
+    return {
+      item,
+      itemIndex,
+      vProdCents: grossCents + (item.orderItemId ? linkedServiceCents.get(item.orderItemId) || 0 : 0),
+      vDescCents: Math.max(0, grossCents - netCents),
+      incorporatedServices
+    };
+  });
+  const invoiceModel = mode === "65" ? "NFC-e" : "NF-e";
+  const additionalInformation = fiscalProducts.flatMap(
+    ({ item, incorporatedServices }) => incorporatedServices.map(
+      ({ description, allocatedCents, totalServiceCents }) => normalizeInfCplText(
+        `O valor fiscal do item "${normalizeLabel(item.description)}" inclui ${formatBrl(allocatedCents)} do rateio do servi\xE7o "${description || "Servi\xE7o sem descri\xE7\xE3o"}" (valor total do servi\xE7o no pedido: ${formatBrl(totalServiceCents)}). O rateio considera as quantidades dos produtos vinculados e \xE9 matem\xE1tico; n\xE3o afirma que o servi\xE7o foi executado em cada unidade. O servi\xE7o n\xE3o \xE9 cobrado novamente em separado na ${invoiceModel}.`
+      )
+    )
+  ).join("; ");
+  if (additionalInformation.length > 5e3)
+    throw new Error("O detalhamento dos servi\xE7os incorporados excede o limite de informa\xE7\xF5es adicionais da nota fiscal.");
   return {
-    products: products.map(({ item, itemIndex }) => {
-      const quantity = item.quantity || 1;
-      const grossCents = toCents((Number(item.unitPrice) || 0) * quantity);
-      const netCents = getItemNetCents(item);
-      const discountCents = Math.max(0, grossCents - netCents);
-      return {
-        item,
-        itemIndex,
-        vProdCents: grossCents + (item.orderItemId ? linkedServiceCents.get(item.orderItemId) || 0 : 0),
-        vDescCents: discountCents
-      };
-    }),
-    vOutroCents
+    products: fiscalProducts,
+    vOutroCents: 0,
+    pendingServices,
+    ...additionalInformation ? { additionalInformation } : {},
+    incorporatedServiceCents
   };
 }
 
@@ -2711,7 +2907,7 @@ function assertNfeSignature(xml, expectedCertificatePem) {
 function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
   const orderItems = snapshot.order.data.items;
   if (!Array.isArray(orderItems)) throw new Error("Snapshot comercial sem itens do pedido.");
-  const composition = composeServiceFiscalValues(orderItems);
+  const composition = composeServiceFiscalValues(orderItems, document.model);
   const mismatches = [];
   if (composition.products.length !== document.items.length)
     mismatches.push({ field: "itens.count", expected: composition.products.length, actual: document.items.length });
@@ -2748,6 +2944,13 @@ function assertFiscalDocumentMatchesCommercialSnapshot(snapshot, document) {
       field: "total.valorPedidoCalculado",
       expected: expectedCommercialTotal,
       actual: document.totals.invoice
+    });
+  const expectedAdditionalInformation = composition.additionalInformation || "";
+  if ((document.additionalInformation || "") !== expectedAdditionalInformation)
+    mismatches.push({
+      field: "informacoesAdicionais.infCpl",
+      expected: expectedAdditionalInformation || "(ausente)",
+      actual: document.additionalInformation || "(ausente)"
     });
   const orderCustomer = objectValue(snapshot.order.data.customerData);
   const fiscalCustomer = objectValue(snapshot.fiscalInputs?.customer);
@@ -2908,6 +3111,12 @@ function assertSignedFiscalXmlMatchesSnapshot(snapshot, document, xml, identity,
   ];
   for (const [xmlName, expected] of totalFields)
     addNumberMismatch(mismatches, `total.ICMSTot.${xmlName}`, expected, text(totals, xmlName));
+  addTextMismatch(
+    mismatches,
+    "infAdic.infCpl",
+    document.additionalInformation || "",
+    text(child(infNfe, "infAdic"), "infCpl")
+  );
   const paymentDetails = childElements(child(infNfe, "pag"), "detPag");
   if (paymentDetails.length !== document.payments.length)
     mismatches.push({ field: "pag.detPag.count", expected: document.payments.length, actual: paymentDetails.length });
@@ -3833,89 +4042,6 @@ function createHmlTechnicalRuleSet(snapshot, savedDecision, csosnConfiguration) 
   };
 }
 
-// shared-utils/fiscalTransportModel.ts
-function resolveEffectiveFiscalDeliveryMethod(input) {
-  if (input.fiscalModel === "65" && typeof input.hasTransport === "boolean") {
-    return input.hasTransport ? "delivery" : "pickup";
-  }
-  if (input.fiscalModel === "55") {
-    if (input.transportResponsible === "CUSTOMER") return "pickup";
-    if (input.transportResponsible === "OWN_COMPANY" || input.transportResponsible === "THIRD_PARTY") {
-      return "delivery";
-    }
-  }
-  return input.orderDeliveryMethod;
-}
-function resolveTransport(input) {
-  const { fiscalModel, deliveryMethod } = input;
-  if (fiscalModel === "65" && deliveryMethod === "pickup") {
-    return {
-      hasTransport: false,
-      transportResponsible: "NONE",
-      modFrete: "9",
-      modFreteDescription: "9 \u2014 Sem ocorr\xEAncia de transporte",
-      isEmitterTransporter: false,
-      requiresTransporterData: false,
-      allowsEditHasTransport: false,
-      derivedReason: "Definido pela modalidade selecionada para esta emiss\xE3o.",
-      statusBadge: "9 \u2014 Sem ocorr\xEAncia de transporte [OFF \u{1F512}]",
-      friendlyDescription: "Sem ocorr\xEAncia de transporte nesta NFC-e"
-    };
-  }
-  if (fiscalModel === "55" && deliveryMethod === "pickup") {
-    return {
-      hasTransport: true,
-      transportResponsible: "CUSTOMER",
-      modFrete: "4",
-      modFreteDescription: "4 \u2014 Transporte pr\xF3prio por conta do destinat\xE1rio",
-      isEmitterTransporter: false,
-      requiresTransporterData: false,
-      allowsEditHasTransport: false,
-      derivedReason: "Definido pela modalidade selecionada para esta emiss\xE3o.",
-      statusBadge: "4 \u2014 Transporte pr\xF3prio pelo destinat\xE1rio [ON \u{1F512}]",
-      friendlyDescription: "Transporte pr\xF3prio por conta do destinat\xE1rio nesta NF-e"
-    };
-  }
-  const responsible = input.transportResponsible === "THIRD_PARTY" ? "THIRD_PARTY" : "OWN_COMPANY";
-  if (responsible === "THIRD_PARTY") {
-    const contract = input.freightContractResponsible || "SENDER";
-    let modFrete = "0";
-    let modDesc = "0 \u2014 Contrata\xE7\xE3o do frete por conta do remetente (CIF)";
-    if (contract === "RECIPIENT") {
-      modFrete = "1";
-      modDesc = "1 \u2014 Contrata\xE7\xE3o do frete por conta do destinat\xE1rio (FOB)";
-    } else if (contract === "THIRD_PARTY") {
-      modFrete = "2";
-      modDesc = "2 \u2014 Contrata\xE7\xE3o do frete por conta de terceiros";
-    }
-    return {
-      hasTransport: true,
-      transportResponsible: "THIRD_PARTY",
-      freightContractResponsible: contract,
-      modFrete,
-      modFreteDescription: modDesc,
-      isEmitterTransporter: false,
-      requiresTransporterData: true,
-      allowsEditHasTransport: false,
-      derivedReason: "Definido automaticamente: pedido com entrega.",
-      statusBadge: `Transporte ${modFrete} \u2014 Transportador terceirizado [ON \u{1F512}]`,
-      friendlyDescription: "Transportador terceirizado \u2014 definido pelo pedido com entrega"
-    };
-  }
-  return {
-    hasTransport: true,
-    transportResponsible: "OWN_COMPANY",
-    modFrete: "3",
-    modFreteDescription: "3 \u2014 Transporte pr\xF3prio por conta do remetente",
-    isEmitterTransporter: true,
-    requiresTransporterData: false,
-    allowsEditHasTransport: false,
-    derivedReason: "Definido automaticamente: pedido com entrega.",
-    statusBadge: "3 \u2014 Entrega pela pr\xF3pria empresa [ON \u{1F512}]",
-    friendlyDescription: "Entrega pela pr\xF3pria empresa \u2014 definido pelo pedido com entrega"
-  };
-}
-
 // api/nfe/xml/xmlPrimitives.ts
 var escapeXml = (value) => String(value).replace(
   /[&<>"']/g,
@@ -4041,7 +4167,7 @@ function serializeFiscalItems(document) {
       environment: document.environment,
       printType
     });
-    const product = `<prod>${tag("cProd", p.code)}${tag("cEAN", p.gtin)}${tag("xProd", isHomologationFirstItem ? HOMOLOGATION_FIRST_ITEM_DESCRIPTION : p.description)}${tag("NCM", c.ncm)}${c.cest ? tag("CEST", requireCode(c.cest, /^\d{7}$/, "CEST")) : ""}${c.benefitCode ? tag("cBenef", c.benefitCode) : ""}${tag("CFOP", c.cfop)}${tag("uCom", c.unit)}${tag("qCom", decimal2(p.quantity, 4))}${tag("vUnCom", decimal2(p.unitValue, 4))}${tag("vProd", money(p.gross))}${tag("cEANTrib", p.gtin)}${tag("uTrib", c.unit)}${tag("qTrib", decimal2(p.quantity, 4))}${tag("vUnTrib", decimal2(p.unitValue, 4))}${p.freight ? tag("vFrete", money(p.freight)) : ""}${p.insurance ? tag("vSeg", money(p.insurance)) : ""}${p.discount ? tag("vDesc", money(p.discount)) : ""}${p.otherExpenses ? tag("vOutro", money(p.otherExpenses)) : ""}${tag("indTot", "1")}</prod>`;
+    const product = `<prod>${tag("cProd", p.code)}${tag("cEAN", p.gtin)}${tag("xProd", isHomologationFirstItem ? HOMOLOGATION_FIRST_ITEM_DESCRIPTION : p.description)}${tag("NCM", c.ncm)}${c.cest ? tag("CEST", requireCode(c.cest, /^\d{7}$/, "CEST")) : ""}${c.benefitCode ? tag("cBenef", c.benefitCode) : ""}${tag("CFOP", c.cfop)}${tag("uCom", c.unit)}${tag("qCom", decimal2(p.quantity, 4))}${tag("vUnCom", decimal2(p.unitValue, 10))}${tag("vProd", money(p.gross))}${tag("cEANTrib", p.gtin)}${tag("uTrib", c.unit)}${tag("qTrib", decimal2(p.quantity, 4))}${tag("vUnTrib", decimal2(p.unitValue, 10))}${p.freight ? tag("vFrete", money(p.freight)) : ""}${p.insurance ? tag("vSeg", money(p.insurance)) : ""}${p.discount ? tag("vDesc", money(p.discount)) : ""}${p.otherExpenses ? tag("vOutro", money(p.otherExpenses)) : ""}${tag("indTot", "1")}</prod>`;
     const taxes = serializeFiscalTaxes(item.taxes, c.origin);
     const additionalProductInfo = isHomologationFirstItem ? tag("infAdProd", p.description) : "";
     return `<det nItem="${item.itemNumber}">${product}${taxes}${additionalProductInfo}</det>`;
@@ -4175,7 +4301,8 @@ function serializeFiscalDocument(snapshot, document, ruleSet, identity) {
   const requiresHomeDeliveryTransportGroup = document.model === "65" && operation.presence === "4";
   const transport = `<transp>${tag("modFrete", operation.freightMode)}${transporter ? "<transporta>" + tag(transporter.cnpj ? "CNPJ" : "CPF", transporter.cnpj || transporter.cpf || "") + tag("xNome", transporter.name) + (transporter.ie ? tag("IE", transporter.ie) : "") + (transporter.address ? tag("xEnder", transporter.address) : "") + (transporter.city ? tag("xMun", transporter.city) : "") + (transporter.uf ? tag("UF", transporter.uf) : "") + "</transporta>" : requiresHomeDeliveryTransportGroup ? "<transporta/>" : ""}</transp>`;
   const supplement = document.model === "65" ? `<infNFeSupl><qrCode><![CDATA[http://www.fazenda.pr.gov.br/nfce/qrcode?p=${key}|3|${document.environment}]]></qrCode><urlChave>http://www.fazenda.pr.gov.br/nfce/consulta</urlChave></infNFeSupl>` : "";
-  return `<?xml version="1.0" encoding="UTF-8"?><NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${key}" versao="4.00">${ide}${issuer}${recipient}${items}${total}${transport}${billing}${payments}</infNFe>${supplement}</NFe>`;
+  const additionalInformation = document.additionalInformation?.trim() ? `<infAdic>${tag("infCpl", document.additionalInformation.trim())}</infAdic>` : "";
+  return `<?xml version="1.0" encoding="UTF-8"?><NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${key}" versao="4.00">${ide}${issuer}${recipient}${items}${total}${transport}${billing}${payments}${additionalInformation}</infNFe>${supplement}</NFe>`;
 }
 
 // api/nfe/responsibleTechnician.ts
@@ -5522,17 +5649,17 @@ async function loadNormalSaleInputs(db, facts, appSettings) {
       )
     )
   );
-  const customerId = obj(facts.order.data.customerData).id;
+  const customerId = String(obj(facts.order.data.customerData).id || "").trim();
   const selections = parseFiscalItemSelections(facts.emissionRequest.itemFiscalSelections);
   const codes = [...new Set(Object.values(selections).map((selected) => selected.ncm))];
   if (!codes.length) throw new Error("Confirme os campos fiscais de todos os itens no modal.");
   const [catalog, customer, decision, ncms] = await Promise.all([
     ids.length ? db.from("products").select("id,fiscal,unit").in("id", ids) : Promise.resolve({ data: [], error: null }),
-    db.from("people").select("id,full_name,cpf_cnpj,address,rg_ie,person_type_pf_pj,deleted").eq("id", String(customerId || "")).maybeSingle(),
+    customerId ? db.from("people").select("id,full_name,cpf_cnpj,address,rg_ie,person_type_pf_pj,deleted").eq("id", customerId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     db.from("settings").select("id,data").in("id", [normalSaleContributionSettingsId()]),
     db.from("ncms").select("code,active,is_active,start_date,end_date").in("code", codes)
   ]);
-  if (catalog.error || customer.error || decision.error || ncms.error || !customer.data || customer.data.deleted)
+  if (catalog.error || customer.error || decision.error || ncms.error || customerId && (!customer.data || customer.data.deleted))
     throw new Error("Cadastro real do destinat\xE1rio ou fatos fiscais indispon\xEDveis.");
   facts.fiscalInputs = {
     products: Object.fromEntries(
@@ -5541,14 +5668,14 @@ async function loadNormalSaleInputs(db, facts, appSettings) {
         row.fiscal || {}
       ])
     ),
-    customer: {
+    customer: customer.data ? {
       id: customer.data.id,
       fullName: customer.data.full_name,
       cpfCnpj: customer.data.cpf_cnpj,
       address: customer.data.address,
       ie: customer.data.rg_ie,
       personType: customer.data.person_type_pf_pj
-    },
+    } : {},
     contributionDecision: decision.data?.find(
       (row) => row.id === normalSaleContributionSettingsId()
     )?.data || null,
@@ -5588,16 +5715,30 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
       "Modalidade atual do pedido ausente ou inv\xE1lida; confirme entrega ou retirada."
     );
   }
+  const persistedDeliveryMethod = shippingData.deliveryMethod;
+  const fiscalDeliveryMethod = resolveFiscalScopeDeliveryMethod({
+    orderDeliveryMethod: persistedDeliveryMethod,
+    hasTransport: facts.emissionRequest.hasTransport,
+    transportResponsible: facts.emissionRequest.transportResponsible
+  });
+  const fiscalShippingData = {
+    ...shippingData,
+    deliveryMethod: fiscalDeliveryMethod
+  };
+  const fiscalOrderData = {
+    ...orderData,
+    shipping: fiscalShippingData
+  };
   const customer = resolveNormalSaleCustomer(orderData, inputs);
   const { ieIndicator, recipientIe } = resolveRecipientIeContext(facts, customer, contextData);
   const address2 = getFiscalRecipientAddress({
-    ...orderData,
+    ...fiscalOrderData,
     customerData: { ...obj(orderData.customerData || {}), fullAddress: customer.address }
   });
   const operationScope = resolveFiscalCfopOrderScope({
     issuerUf: String(facts.issuerProfile.companyUF || ""),
-    deliveryMethod: String(shippingData.deliveryMethod || ""),
-    shipping: shippingData,
+    deliveryMethod: fiscalDeliveryMethod,
+    shipping: fiscalShippingData,
     customerAddress: customer.address
   });
   if (operationScope.destination === null) {
@@ -5611,12 +5752,11 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
     contextData,
     facts.emissionRequest.finalConsumer
   );
-  const initialComposition = composeServiceFiscalValues(orderData.items);
-  const modelTotal = initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + initialComposition.vOutroCents + money2(shippingData.value ?? 0, "Frete comercial");
+  const modelSelectionTotal = orderData.items.reduce((sum, item) => sum + getItemNetCents(item), 0) + money2(shippingData.value ?? 0, "Frete comercial");
   const decisionOrder = {
-    ...orderData,
+    ...fiscalOrderData,
     orderType: facts.order.type,
-    paymentsSummary: { totalOrderValue: modelTotal / 100 },
+    paymentsSummary: { totalOrderValue: modelSelectionTotal / 100 },
     items: orderData.items.filter((item) => item.itemType !== "service").map((item, index) => ({
       ...item,
       fiscal: {
@@ -5643,13 +5783,21 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
       `${modelDecision.reason} Esta opera\xE7\xE3o exige matriz tribut\xE1ria espec\xEDfica aprovada.`
     );
   }
-  const persistedDeliveryMethod = shippingData.deliveryMethod;
+  const initialComposition = composeServiceFiscalValues(
+    orderData.items,
+    modelDecision.model
+  );
+  assertServiceFiscalCompositionReady(initialComposition);
+  const modelTotal = initialComposition.products.reduce((sum, item) => sum + item.vProdCents - item.vDescCents, 0) + initialComposition.vOutroCents + money2(shippingData.value ?? 0, "Frete comercial");
   const deliveryMethod = resolveEffectiveFiscalDeliveryMethod({
     fiscalModel: modelDecision.model,
     orderDeliveryMethod: persistedDeliveryMethod,
     hasTransport: facts.emissionRequest.hasTransport,
     transportResponsible: facts.emissionRequest.transportResponsible
   });
+  if (deliveryMethod !== fiscalDeliveryMethod) {
+    throw new Error("Modalidade fiscal de entrega divergiu do escopo geogr\xE1fico da opera\xE7\xE3o.");
+  }
   validateInterstateNormalSaleMatrix({
     facts,
     operationScope,
@@ -5709,10 +5857,25 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
       const data = snapshot.order.data;
       const snapshotShipping = data.shipping ? obj(data.shipping) : {};
       const snapshotCustomer = data.customerData ? obj(data.customerData) : {};
+      const snapshotPersistedDeliveryMethod = String(
+        snapshotShipping.deliveryMethod || ""
+      );
+      const snapshotFiscalDeliveryMethod = resolveFiscalScopeDeliveryMethod({
+        orderDeliveryMethod: snapshotPersistedDeliveryMethod,
+        hasTransport: snapshot.emissionRequest.hasTransport,
+        transportResponsible: snapshot.emissionRequest.transportResponsible
+      });
+      const snapshotFiscalShipping = {
+        ...snapshotShipping,
+        deliveryMethod: snapshotFiscalDeliveryMethod
+      };
+      if (snapshotFiscalDeliveryMethod !== deliveryMethod) {
+        throw new Error("Modalidade fiscal divergiu durante a captura do snapshot.");
+      }
       const snapshotScope = resolveFiscalCfopOrderScope({
         issuerUf: String(snapshot.issuerProfile.companyUF || ""),
-        deliveryMethod: String(snapshotShipping.deliveryMethod || ""),
-        shipping: snapshotShipping,
+        deliveryMethod: snapshotFiscalDeliveryMethod,
+        shipping: snapshotFiscalShipping,
         customerAddress: snapshotCustomer.fullAddress || snapshotCustomer.address || customer.address || void 0
       });
       if (snapshotScope.destination === null) {
@@ -5725,7 +5888,13 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
       );
       const items = data.items;
       const selections = parseFiscalItemSelections(snapshot.emissionRequest.itemFiscalSelections);
-      const composition = composeServiceFiscalValues(items);
+      const composition = composeServiceFiscalValues(
+        items,
+        modelDecision.model
+      );
+      assertServiceFiscalCompositionReady(
+        composition
+      );
       if (!composition.products.length || Object.keys(selections).length !== composition.products.length) {
         throw new Error("Campos confirmados n\xE3o cobrem todos os produtos.");
       }
@@ -5827,6 +5996,7 @@ async function createNormalSaleRuleSet(facts, ruleSetVersion = NORMAL_SALE_RULES
         },
         items: determinedItems,
         payments,
+        ...composition.additionalInformation ? { additionalInformation: composition.additionalInformation } : {},
         ...billingInstallments?.length ? { billingInstallments } : {},
         decisions: traces,
         totals: {
@@ -7430,7 +7600,12 @@ async function resolveNormalSaleFactsAndRules(db, command, candidate, appSetting
         422,
         "FISCAL_DETERMINATION_REQUIRED",
         "O pedido n\xE3o passou pela determina\xE7\xE3o fiscal.",
-        { blockers: preflight.blockers, numberReserved: false, sefazContacted: false }
+        {
+          blockers: preflight.blockers,
+          pending: false,
+          numberReserved: false,
+          sefazContacted: false
+        }
       )
     };
   }

@@ -1,14 +1,12 @@
 import React from 'react';
 import Item from '../../../types/items.type';
 import Product, { Variation } from '../../../types/product.type';
-import Service from '../../../types/service.type';
 import { calcItemTotalValue } from '../../../utils/calculations';
 import CurrencyOrPercentInput from '../../../../components/CurrencyOrPercentInput';
 import UnitInput from './UnitInput';
 import CurrencyInput from '../../../../components/CurrencyInput';
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 import ProductAutocomplete from '../../../../components/ProductAutocomplete';
-import ServiceAutocomplete from './ServiceAutocomplete';
 import TemporaryProductWarning from './TemporaryProductWarning';
 import { BodyRowPricing } from './useBodyRowPricing';
 import { getSettings, AppSettings } from '@/pages/utils/settingsService';
@@ -38,7 +36,6 @@ export interface BodyRowViewProps {
   onToggleDiscountType: () => void;
   onDelete: () => void;
   onSelectProduct: (idx: number, product: Product, variation?: Variation) => void;
-  handleSelectService: (service: Service) => void;
   handleStockOriginChange: (rawCondition: string) => void;
   handleHandlingChange: (handlingType: string) => void;
   isService: boolean;
@@ -70,7 +67,6 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
   onChange,
   onDelete,
   onSelectProduct,
-  handleSelectService,
   handleStockOriginChange,
   handleHandlingChange,
   isService,
@@ -241,12 +237,13 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
         </label>
         {isService ? (
           <>
-            <ServiceAutocomplete
+            <input
+              type="text"
+              aria-label="Descrição do serviço"
               value={item.description}
-              onChange={(val) => onChange(idx, 'description', val)}
-              onSelectService={handleSelectService}
-              placeholder="Digite para buscar um serviço ou adicione um novo..."
-              className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500/20' : ''}
+              onChange={(event) => onChange(idx, 'description', event.target.value)}
+              placeholder="Digite a descrição do serviço..."
+              className={`w-full rounded-xl border bg-slate-50/70 px-3 py-2 text-sm text-slate-700 outline-none transition-all focus:border-blue-500 dark:bg-slate-800/40 dark:text-slate-200 ${error ? 'border-red-500 ring-2 ring-red-500/20' : 'border-slate-200 dark:border-slate-700'}`}
             />
             {serviceProductLink}
           </>

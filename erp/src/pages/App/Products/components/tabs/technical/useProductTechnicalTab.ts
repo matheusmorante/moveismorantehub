@@ -10,6 +10,8 @@ import {
   isTechnicalFieldVariable,
   resolveVariableTechnicalFieldNames,
 } from '@/pages/utils/technicalValuesService';
+import { applyTechnicalValueChangeToProduct } from './technicalSyncUtils';
+import { hasCharacteristicValue } from './technicalTabUtils';
 
 export interface UseProductTechnicalTabParams {
   readonly formData: Partial<Product>;
@@ -96,16 +98,40 @@ export const useProductTechnicalTab = ({
   });
 
   const handleToggleVariableField = useCallback(
-    (fieldName: string) => {
+    (
+      fieldName: string,
+      scope?: 'not_inform' | 'global' | 'variation'
+    ) => {
       setFormData((prev) => {
         const variableFields = resolveVariableTechnicalFieldNames(
           prev.variableTechnicalFields,
           prev.variations || []
         );
-        const nextVariableFields = isTechnicalFieldVariable(fieldName, variableFields)
-          ? variableFields.filter((name) => !isTechnicalFieldVariable(fieldName, [name]))
-          : [...variableFields, fieldName];
-        return { ...prev, variableTechnicalFields: nextVariableFields };
+        const isVariable = isTechnicalFieldVariable(fieldName, variableFields);
+        const nextScope = scope || (isVariable ? 'global' : 'variation');
+        const nextVariableFields =
+          nextScope === 'variation'
+            ? isVariable
+              ? variableFields
+              : [...variableFields, fieldName]
+            : variableFields.filter((name) => !isTechnicalFieldVariable(fieldName, [name]));
+        const next = { ...prev, variableTechnicalFields: nextVariableFields };
+
+        if (nextScope === 'not_inform') {
+          return applyTechnicalValueChangeToProduct(next, fieldName, undefined);
+        }
+
+        if (nextScope === 'global') {
+          const storedValue = prev.technicalValues?.[fieldName];
+          const hasConfiguredValue =
+            (storedValue !== undefined && storedValue !== null) ||
+            hasCharacteristicValue({ id: `scope-${fieldName}`, name: fieldName }, prev);
+          return hasConfiguredValue
+            ? next
+            : applyTechnicalValueChangeToProduct(next, fieldName, '');
+        }
+
+        return next;
       });
     },
     [setFormData]

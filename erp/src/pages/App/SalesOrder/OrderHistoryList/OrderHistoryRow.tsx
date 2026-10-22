@@ -175,7 +175,7 @@ const OrderHistoryRow = ({
   const rowColors = settings.orderTypeColors ?? {
     delivery: 'green',
     pickup: 'purple',
-    assistance: 'orange',
+    assistance: 'amber',
   };
   const rowColorKey = resolveOrderColor(order.orderType, order.shipping?.deliveryMethod, rowColors);
   const cls = getOrderTypeClasses(isDraft ? 'slate' : (rowColorKey as any));
@@ -215,17 +215,31 @@ const OrderHistoryRow = ({
                 </span>
               </div>
               {order.linkedOrderId && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onFilterByOrderId?.(order.linkedOrderId!);
-                  }}
-                  className="flex items-center gap-1 text-[9px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-widest bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-1.5 py-0.5 rounded-md mt-0.5 w-fit cursor-pointer"
-                  title="Filtrar por pedido vinculado"
-                >
-                  <i className="bi bi-link-45deg" />
-                  Pedido #{order.linkedOrderCode || formatOrderCode(order)}
-                </button>
+                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onFilterByOrderId?.(order.linkedOrderId!);
+                    }}
+                    className="flex items-center gap-1 text-[9px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors tracking-widest bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-1.5 py-0.5 rounded-md w-fit cursor-pointer"
+                    title="Filtrar por pedido vinculado"
+                  >
+                    <i className="bi bi-link-45deg" />
+                    Pedido #{order.linkedOrderCode || formatOrderCode(order)}
+                  </button>
+                  {order.orderType === 'assistance' && (
+                    <span
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                        (order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod) === 'pickup'
+                          ? 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800'
+                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800'
+                      }`}
+                      title={`Método de entrega do pedido vinculado: ${(order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod) === 'pickup' ? 'Retirada' : 'Entrega'}`}
+                    >
+                      {(order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod) === 'pickup' ? 'Retirada' : 'Entrega'}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </td>

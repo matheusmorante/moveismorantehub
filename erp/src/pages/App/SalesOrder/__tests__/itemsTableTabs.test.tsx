@@ -34,10 +34,6 @@ vi.mock('@/pages/utils/settingsService', () => {
   };
 });
 
-vi.mock('../ItemsTable/ServiceAutocomplete', () => ({
-  default: () => <input aria-label="Buscar serviço" />,
-}));
-
 import ItemsTable from '../ItemsTable';
 import BodyRow from '../ItemsTable/BodyRow';
 import { Item, ItemsSummary } from '@/pages/types/items.type';
@@ -137,24 +133,27 @@ describe('ItemsTable - Abas Produtos e Serviços e Densidade Compacta', () => {
     expect(screen.queryByText('Cadeira Estofada')).toBeNull();
   });
 
-  it('só oferece vínculo com produtos que têm descrição e usa o rótulo curto', () => {
+  it('aceita descrição avulsa e permite vincular o serviço a vários produtos', () => {
     const service = initialItems[2];
     const describedProduct = { ...initialItems[0], orderItemId: 'product-described' };
+    const secondProduct = { ...initialItems[1], orderItemId: 'product-second' };
     const blankDescriptionProduct = {
       ...initialItems[1],
       description: '   ',
       orderItemId: 'product-blank-description',
     };
+    const onChange = vi.fn();
+    const onBatchChange = vi.fn();
 
-    render(
+    const { rerender } = render(
       <table>
         <tbody>
           <BodyRow
             item={service}
-            productItems={[describedProduct, blankDescriptionProduct]}
+            productItems={[describedProduct, secondProduct, blankDescriptionProduct]}
             idx={2}
-            onChange={vi.fn()}
-            onBatchChange={vi.fn()}
+            onChange={onChange}
+            onBatchChange={onBatchChange}
             onToggleDiscountType={vi.fn()}
             onDelete={vi.fn()}
             deliveryMethod="delivery"
@@ -165,11 +164,44 @@ describe('ItemsTable - Abas Produtos e Serviços e Densidade Compacta', () => {
       </table>
     );
 
-    const productLink = screen.getByRole('combobox', { name: 'Vincular produto' });
-    expect(screen.getByText('Vincular produto')).toBeTruthy();
-    expect(
-      Array.from((productLink as HTMLSelectElement).options).map((option) => option.value)
-    ).toEqual(['', 'product-described']);
+    const description = screen.getByRole('textbox', { name: 'Descrição do serviço' });
+    fireEvent.change(description, { target: { value: 'Instalação avulsa' } });
+    expect(onChange).toHaveBeenCalledWith(2, 'description', 'Instalação avulsa');
+    expect(screen.queryByRole('combobox', { name: 'Vincular produto' })).toBeNull();
+
+    const firstLink = screen.getByRole('checkbox', { name: /Mesa de Jantar Madeira/ });
+    const secondLink = screen.getByRole('checkbox', { name: /Cadeira Estofada/ });
+    expect(screen.queryByRole('checkbox', { name: /produto-blank-description/i })).toBeNull();
+
+    fireEvent.click(firstLink);
+    expect(onBatchChange).toHaveBeenLastCalledWith(2, {
+      linkedProductOrderItemIds: ['product-described'],
+      linkedProductOrderItemId: undefined,
+    });
+
+    rerender(
+      <table>
+        <tbody>
+          <BodyRow
+            item={{ ...service, linkedProductOrderItemIds: ['product-described'] }}
+            productItems={[describedProduct, secondProduct, blankDescriptionProduct]}
+            idx={2}
+            onChange={onChange}
+            onBatchChange={onBatchChange}
+            onToggleDiscountType={vi.fn()}
+            onDelete={vi.fn()}
+            deliveryMethod="delivery"
+            errors={{}}
+            onSelectProduct={vi.fn()}
+          />
+        </tbody>
+      </table>
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: /Cadeira Estofada/ }));
+    expect(onBatchChange).toHaveBeenLastCalledWith(2, {
+      linkedProductOrderItemIds: ['product-described', 'product-second'],
+      linkedProductOrderItemId: undefined,
+    });
   });
 
   it('o botão contextual de adicionar deve mudar conforme a aba selecionada e ser único na linha das abas', () => {

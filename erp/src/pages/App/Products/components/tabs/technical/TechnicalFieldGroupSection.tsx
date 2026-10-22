@@ -21,7 +21,10 @@ export interface TechnicalFieldGroupSectionProps {
   readonly manualFieldNames: string[];
   readonly validationErrors?: Record<string, boolean>;
   readonly variableTechnicalFieldNames?: readonly string[];
-  readonly onToggleVariableField?: (fieldName: string) => void;
+  readonly onToggleVariableField?: (
+    fieldName: string,
+    scope?: 'not_inform' | 'global' | 'variation'
+  ) => void;
   readonly onValueChange: (fieldName: string, value: unknown) => void;
   readonly onOpenAttributeModal: () => void;
   readonly onToggleDepthLength: (field: TechnicalFieldDefinition) => void;

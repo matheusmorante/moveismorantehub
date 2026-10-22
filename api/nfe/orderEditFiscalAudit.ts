@@ -75,6 +75,10 @@ export function hasPotentialFiscalOrderEdit(current: JsonObject, proposed: JsonO
           discountType: item.discountType,
           condition: item.condition,
           itemType: item.itemType,
+          linkedProductOrderItemIds: Array.isArray(item.linkedProductOrderItemIds)
+            ? [...item.linkedProductOrderItemIds]
+            : undefined,
+          linkedProductOrderItemId: item.linkedProductOrderItemId,
           fiscal: item.fiscal
             ? {
                 ncm: item.fiscal.ncm,

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { FiscalSituationNotice } from '../components/FiscalSituationNotice';
 import { FiscalXmlViewer } from '../components/FiscalXmlViewer';
 import NfeOperationDraftModal from './NfeOperationDraftModal';
@@ -21,20 +22,7 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
 ) => {
   const { fullScreen = false, onClose, document, emissionResult } = props;
   const state = useIssuedFiscalDocumentDetails(props);
-
-  React.useLayoutEffect(() => {
-    const body = window.document.body;
-    const root = window.document.documentElement;
-    const previousBodyOverflowY = body.style.overflowY;
-    const previousRootOverflowY = root.style.overflowY;
-    body.style.overflowY = 'hidden';
-    root.style.overflowY = 'hidden';
-
-    return () => {
-      body.style.overflowY = previousBodyOverflowY;
-      root.style.overflowY = previousRootOverflowY;
-    };
-  }, []);
+  useBodyScrollLock(true);
 
   if (state.reviewingDraft && state.operationDraft?.sourceDocument) {
     return (

@@ -90,7 +90,7 @@ export const VariationCompositionItemsTab: React.FC<VariationCompositionItemsTab
         <div>
           <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
             <i className="bi bi-box-seam text-blue-500"></i>
-            Produtos que compõem a composição
+            Produtos que compõem o produto composto
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
             Adicione os produtos reais que compõem esta variação. O estoque será deduzido deles.
@@ -113,7 +113,7 @@ export const VariationCompositionItemsTab: React.FC<VariationCompositionItemsTab
             <i className="bi bi-diagram-3 text-2xl"></i>
           </div>
           <h4 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-2">
-            Composição Vazia
+            Produto Composto Vazio
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
             Esta variação ainda não possui itens. Adicione os produtos reais para que a baixa de

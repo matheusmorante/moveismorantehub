@@ -1,17 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Product from '../../../../../types/product.type';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
+import { formatNcmSubtitle } from '@/services/fiscal/ncmDisplay';
 import type { PendingNcmSuggestion } from '../../../hooks/fiscal/useProductJevClassification';
-
-function formatNcmDisplay(code?: string, description?: string | null): string {
-  if (!code) return '';
-  const cleanCode = code.replace(/\D/g, '').slice(0, 8);
-  if (!cleanCode) return code;
-  if (description && description.trim()) {
-    return `${cleanCode} - ${description.trim()}`;
-  }
-  return cleanCode;
-}
 
 function parseNcmCode(val: string): string {
   if (!val) return '';
@@ -38,8 +29,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
   onRejectSuggestion,
 }) => {
   const initialCode = formData.fiscal?.ncm || '';
-  const initialDesc = formData.fiscal?.ncmDescription || '';
-  const [searchQuery, setSearchQuery] = useState(() => formatNcmDisplay(initialCode, initialDesc));
+  const [searchQuery, setSearchQuery] = useState(() => parseNcmCode(initialCode));
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [results, setResults] = useState<NcmSearchResult[]>([]);
@@ -47,6 +37,8 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
   const [currentCatalogEntry, setCurrentCatalogEntry] =
     useState<Awaited<ReturnType<typeof ncmService.getCatalogEntry>>>(null);
   const [hasCheckedCatalogEntry, setHasCheckedCatalogEntry] = useState(false);
+  const [selectedInternalDescription, setSelectedInternalDescription] = useState('');
+  const [selectedInternalDescriptionCode, setSelectedInternalDescriptionCode] = useState('');
 
   useEffect(() => {
     const rawCode = (formData.fiscal?.ncm || '').trim();
@@ -55,15 +47,16 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
       return;
     }
     const clean = rawCode.replace(/\D/g, '').slice(0, 8);
-    const desc = formData.fiscal?.ncmDescription || currentCatalogEntry?.official_description || '';
-    setSearchQuery(formatNcmDisplay(clean || rawCode, desc));
+    setSearchQuery(clean || rawCode);
   }, [formData.fiscal?.ncm, formData.fiscal?.ncmDescription]);
 
   useEffect(() => {
     if (currentCatalogEntry?.code) {
       const currentCode = (formData.fiscal?.ncm || '').replace(/\D/g, '').slice(0, 8);
       if (currentCatalogEntry.code === currentCode && currentCatalogEntry.official_description) {
-        setSearchQuery(formatNcmDisplay(currentCatalogEntry.code, currentCatalogEntry.official_description));
+        setSearchQuery(currentCatalogEntry.code);
+        setSelectedInternalDescription(currentCatalogEntry.internal_description || '');
+        setSelectedInternalDescriptionCode(currentCatalogEntry.code);
         if (!formData.fiscal?.ncmDescription) {
           setFormData((prev) => ({
             ...prev,
@@ -93,7 +86,8 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
       setResults([]);
       return;
     }
-    if (!isDropdownOpen && searchQuery.includes(' - ')) {
+    if (!isDropdownOpen && /^\d{8}$/.test(term.replace(/\D/g, ''))) {
+      setResults([]);
       return;
     }
     setIsLoadingNcms(true);
@@ -120,6 +114,8 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
     if (code.length !== 8) {
       setCurrentCatalogEntry(null);
       setHasCheckedCatalogEntry(false);
+      setSelectedInternalDescription('');
+      setSelectedInternalDescriptionCode('');
       return;
     }
     let cancelled = false;
@@ -127,7 +123,11 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
     const timer = window.setTimeout(async () => {
       try {
         const entry = await ncmService.getCatalogEntry(code);
-        if (!cancelled) setCurrentCatalogEntry(entry);
+        if (!cancelled) {
+          setCurrentCatalogEntry(entry);
+          setSelectedInternalDescription(entry?.internal_description || '');
+          setSelectedInternalDescriptionCode(entry ? code : '');
+        }
       } catch (error) {
         console.warn('[NCM] Não foi possível consultar a vigência do código.', error);
         if (!cancelled) setCurrentCatalogEntry(null);
@@ -141,6 +141,18 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
     };
   }, [formData.fiscal?.ncm]);
 
+  const currentCode = (formData.fiscal?.ncm || '').replace(/\D/g, '').slice(0, 8);
+  const matchingCatalogEntry = currentCatalogEntry?.code === currentCode ? currentCatalogEntry : null;
+  const currentOfficialDescription =
+    formData.fiscal?.ncmDescription || matchingCatalogEntry?.official_description || '';
+  const currentInternalDescription =
+    selectedInternalDescriptionCode === currentCode
+      ? selectedInternalDescription
+      : matchingCatalogEntry?.internal_description || '';
+  const ncmSubtitle = formatNcmSubtitle(currentOfficialDescription, currentInternalDescription);
+  const descriptionId = 'product-ncm-description';
+  const hasSubtitle = currentCode.length === 8 && Boolean(ncmSubtitle);
+
   return (
     <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
       <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
@@ -150,14 +162,22 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
         <input
           type="text"
           aria-label="NCM do produto"
-          title={searchQuery}
+          title={ncmSubtitle || searchQuery}
           aria-invalid={hasError}
-          aria-describedby={hasError ? 'product-ncm-error' : undefined}
+          aria-describedby={
+            [hasError ? 'product-ncm-error' : '', hasSubtitle ? descriptionId : ''].filter(Boolean).join(' ') ||
+            undefined
+          }
           value={searchQuery}
           onChange={(e) => {
             const val = e.target.value;
-            setSearchQuery(val);
             const code = val.includes(' - ') ? parseNcmCode(val) : val;
+            setSearchQuery(code);
+            if (code.replace(/\D/g, '').slice(0, 8) !== currentCode) {
+              setCurrentCatalogEntry(null);
+              setSelectedInternalDescription('');
+              setSelectedInternalDescriptionCode('');
+            }
             setFormData((prev) => ({
               ...prev,
               fiscal: {
@@ -176,11 +196,14 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
             const code = parseNcmCode(searchQuery);
             if (/^\d{8}$/.test(code)) {
               if (currentCatalogEntry?.code === code && currentCatalogEntry.official_description) {
-                setSearchQuery(formatNcmDisplay(code, currentCatalogEntry.official_description));
+                setSearchQuery(code);
               } else {
                 void ncmService.getCatalogEntry(code).then((entry) => {
                   if (entry?.official_description) {
-                    setSearchQuery(formatNcmDisplay(code, entry.official_description));
+                    setCurrentCatalogEntry(entry);
+                    setSelectedInternalDescription(entry.internal_description || '');
+                    setSelectedInternalDescriptionCode(code);
+                    setSearchQuery(code);
                     setFormData((prev) => ({
                       ...prev,
                       fiscal: {
@@ -195,14 +218,24 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
             }
           }}
           placeholder="Digite ou pesquise o NCM..."
-          className={`w-full pl-1 pr-8 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 outline-none text-xs font-bold dark:text-slate-200 tracking-wider font-mono transition-colors ${
+          className={`h-[62px] w-full pl-1 pr-8 pt-2 pb-7 bg-transparent border-b-2 border-t-0 border-x-0 outline-none text-xs leading-4 font-bold dark:text-slate-200 tracking-wider font-mono transition-colors ${
             hasError
               ? 'border-red-500 focus:border-red-600'
               : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-400'
           }`}
         />
+        {hasSubtitle && (
+          <p
+            id={descriptionId}
+            data-testid="product-ncm-official-description"
+            title={ncmSubtitle}
+            className="pointer-events-none absolute left-1 right-8 top-8 line-clamp-2 text-[9px] leading-3 text-slate-500 dark:text-slate-400"
+          >
+            {ncmSubtitle}
+          </p>
+        )}
         <i
-          className={`bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-transform pointer-events-none ${isDropdownOpen ? 'rotate-180' : ''}`}
+          className={`bi bi-chevron-down absolute right-4 top-3 text-slate-400 transition-transform pointer-events-none ${isDropdownOpen ? 'rotate-180' : ''}`}
         />
       </div>
       {hasError && (
@@ -264,15 +297,6 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
           emitir documentos fiscais.
         </p>
       )}
-      {currentCatalogEntry?.active && currentCatalogEntry.is_active && currentCatalogEntry.official_description && (
-        <p
-          data-testid="product-ncm-official-description"
-          className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium leading-relaxed bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 rounded-lg px-2.5 py-1.5 flex items-start gap-1.5"
-        >
-          <i className="bi bi-check-circle-fill text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-          <span>{currentCatalogEntry.official_description}</span>
-        </p>
-      )}
       {isDropdownOpen && (
         <div className="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-2 max-h-60 overflow-y-auto custom-scrollbar flex flex-col gap-0.5">
           {isLoadingNcms ? (
@@ -285,7 +309,8 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                 key={item.code}
                 onClick={(e) => {
                   e.stopPropagation();
-                  const formatted = `${item.code} - ${item.official_description}`;
+                  setSelectedInternalDescription(item.internal_description || '');
+                  setSelectedInternalDescriptionCode(item.code);
                   setFormData((prev) => ({
                     ...prev,
                     fiscal: {
@@ -294,7 +319,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                       ncmDescription: item.official_description,
                     },
                   }));
-                  setSearchQuery(formatted);
+                  setSearchQuery(item.code);
                   setIsDropdownOpen(false);
                 }}
                 className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors text-left rounded-xl group"
@@ -302,14 +327,12 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                 <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-600">
                   {item.code}
                 </span>
-                <p className="text-[10px] text-slate-500 line-clamp-2">
-                  {item.official_description}
+                <p
+                  title={formatNcmSubtitle(item.official_description, item.internal_description)}
+                  className="text-[10px] text-slate-500 line-clamp-2"
+                >
+                  {formatNcmSubtitle(item.official_description, item.internal_description)}
                 </p>
-                {item.alias_match && (
-                  <p className="text-[9px] text-slate-400 mt-1 italic flex items-center gap-1">
-                    <i className="bi bi-tag-fill" /> {item.alias_match}
-                  </p>
-                )}
               </div>
             ))
           ) : searchQuery.length >= 2 ? (

@@ -113,7 +113,8 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
           </div>
         ) : (
           <div className="min-w-0 hidden lg:block">
-            <h1 className="text-xl xl:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all leading-tight">
+            <h1 className="text-xl xl:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight transition-all leading-tight flex items-center gap-2">
+              {isAssistanceRoute && <i className="bi bi-tools text-amber-500" />}
               {isBudgetRoute
                 ? 'Orçamentos'
                 : isAssistanceRoute
@@ -234,7 +235,7 @@ export const SalesOrderTopToolbar: React.FC<SalesOrderTopToolbarProps> = ({
           {isAssistanceRoute && (
             <button
               onClick={() => onCreateOrder('assistance')}
-              className="hidden lg:flex items-center justify-center gap-1.5 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-orange-500/20 transition-all active:scale-95"
+              className="hidden lg:flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md shadow-amber-500/20 transition-all active:scale-95"
             >
               <i className="bi bi-tools text-sm" />
               <span>Nova Assistência Avulsa</span>

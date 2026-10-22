@@ -11,6 +11,7 @@ import { removeNonStockItemLinks } from '../saleInventoryRules';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import { queryClient } from '@/lib/queryClient';
 import { ensureOrderItemsHaveFiscalSnapshots } from '../orderFiscalSnapshotService';
+import { assertOrderHasNoCompositionLines } from './orderCompositionRules';
 import {
   UUID_PATTERN,
   applyTestArtifactCreateRules,
@@ -36,6 +37,7 @@ export const executeSaveOrder = async (
   }
 
   try {
+    await assertOrderHasNoCompositionLines(order);
     const sanitizedOrder = removeNonStockItemLinks(order);
     const [orderWithCustomerSnapshot, itemsWithFiscalSnapshots] = await Promise.all([
       resolveOrderCustomerSnapshot(sanitizedOrder),

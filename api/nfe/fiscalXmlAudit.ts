@@ -7,7 +7,9 @@ import {
   shouldUseHomologationFirstItemDescription,
 } from '../../shared-utils/fiscalDocumentModel';
 import { ZERO_OWN_ICMS_CSOSNS, zeroOwnIcmsGroup } from '../../shared-utils/fiscalIcmsGroups';
-import { composeServiceFiscalValues } from '../../erp/src/pages/utils/nfe/serviceFiscalComposition';
+import {
+  composeServiceFiscalValues,
+} from '../../erp/src/pages/utils/nfe/serviceFiscalComposition';
 import { canonicalFiscalCommand } from './normal-sale/attemptPolicy';
 import type {
   DeterminedFiscalItem,
@@ -399,7 +401,7 @@ export function assertFiscalDocumentMatchesCommercialSnapshot(
 ): void {
   const orderItems = snapshot.order.data.items;
   if (!Array.isArray(orderItems)) throw new Error('Snapshot comercial sem itens do pedido.');
-  const composition = composeServiceFiscalValues(orderItems as never[]);
+  const composition = composeServiceFiscalValues(orderItems as never[], document.model);
   const mismatches: FiscalXmlAuditMismatch[] = [];
   if (composition.products.length !== document.items.length)
     mismatches.push({ field: 'itens.count', expected: composition.products.length, actual: document.items.length });
@@ -445,6 +447,14 @@ export function assertFiscalDocumentMatchesCommercialSnapshot(
       field: 'total.valorPedidoCalculado',
       expected: expectedCommercialTotal,
       actual: document.totals.invoice,
+    });
+
+  const expectedAdditionalInformation = composition.additionalInformation || '';
+  if ((document.additionalInformation || '') !== expectedAdditionalInformation)
+    mismatches.push({
+      field: 'informacoesAdicionais.infCpl',
+      expected: expectedAdditionalInformation || '(ausente)',
+      actual: document.additionalInformation || '(ausente)',
     });
 
   const orderCustomer = objectValue(snapshot.order.data.customerData);
@@ -645,6 +655,13 @@ export function assertSignedFiscalXmlMatchesSnapshot(
   ] as const;
   for (const [xmlName, expected] of totalFields)
     addNumberMismatch(mismatches, `total.ICMSTot.${xmlName}`, expected, text(totals, xmlName));
+
+  addTextMismatch(
+    mismatches,
+    'infAdic.infCpl',
+    document.additionalInformation || '',
+    text(child(infNfe, 'infAdic'), 'infCpl')
+  );
 
   const paymentDetails = childElements(child(infNfe, 'pag'), 'detPag');
   if (paymentDetails.length !== document.payments.length)

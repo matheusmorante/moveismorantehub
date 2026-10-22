@@ -119,4 +119,36 @@ describe('assistanceOrderService', () => {
     expect(payload.assistanceItems).toHaveLength(1);
     expect(payload.assistanceItems?.[0]?.description).toBe('Mesa de Jantar');
   });
+
+  it('preserva linkedOrderCode e linkedOrderDeliveryMethod quando fornecidos no vínculo', () => {
+    const payload = buildAssistanceOrderPayload({
+      currentOrderId: 'ast-502',
+      isDraft: false,
+      status: 'scheduled',
+      customerData: dummyCustomer,
+      description: 'Troca de tampo danificado',
+      observation: '',
+      scheduling: {
+        time: '',
+        date: '2026-10-26',
+        startTime: '10:00',
+        endTime: '',
+        type: 'fixed',
+      },
+      isLinked: true,
+      linkedOrderId: 'sale-1234',
+      linkedOrderCode: '1234',
+      linkedOrderDeliveryMethod: 'pickup',
+      selectedAssistanceItems: [],
+      extraItems: [],
+      assistanceCost: 0,
+      assistanceServiceValue: 0,
+      seller: 'Vendedor João',
+    });
+
+    expect(payload.linkedOrderId).toBe('sale-1234');
+    expect(payload.linkedOrderCode).toBe('1234');
+    expect(payload.linkedOrderDeliveryMethod).toBe('pickup');
+    expect(payload.shipping?.deliveryMethod).toBe('pickup');
+  });
 });

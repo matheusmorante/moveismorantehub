@@ -1,4 +1,5 @@
 import type { FiscalInfo } from './product.type.js';
+import type { ServiceFiscalSnapshot } from './service.type.js';
 
 type DiscountType = 'percentage' | 'fixed';
 
@@ -7,8 +8,12 @@ export type Item = {
   orderItemId?: string;
   /** Índice zero-based da linha da venda original em um item de devolução. */
   originalOrderItemIndex?: number;
-  /** Linha de produto à qual este serviço compõe fiscalmente. */
+  /** Linhas de produto às quais o serviço foi vinculado no pedido. */
+  linkedProductOrderItemIds?: string[];
+  /** Vínculo singular legado, preservado para pedidos antigos. */
   linkedProductOrderItemId?: string;
+  /** Snapshot legado de cadastro fiscal de serviço; não é usado na composição atual. */
+  serviceFiscalSnapshot?: ServiceFiscalSnapshot;
   productId?: string;
   variationId?: string;
   isTemporaryProduct?: boolean;

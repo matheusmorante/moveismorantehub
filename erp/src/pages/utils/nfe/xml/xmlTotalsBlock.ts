@@ -1,5 +1,9 @@
 import Order from '@/pages/types/order.type';
-import { composeServiceFiscalValues, fiscalMoneyFromCents } from '../serviceFiscalComposition';
+import {
+  composeServiceFiscalValues,
+  fiscalMoneyFromCents,
+  servicesMissingProductLinksMessage,
+} from '../serviceFiscalComposition';
 import { escapeXml } from './xmlEmitterBlock';
 
 export function buildTotalsAndPaymentXml(
@@ -9,11 +13,19 @@ export function buildTotalsAndPaymentXml(
   model?: '55' | '65'
 ): string {
   const vFrete = Number(order.shipping?.value || 0);
-  const vOutro = fiscalMoneyFromCents(composeServiceFiscalValues(order.items || []).vOutroCents);
+  const effectiveModel = model || '55';
+  const composition = composeServiceFiscalValues(order.items || [], effectiveModel);
+  const pendingMessage = servicesMissingProductLinksMessage(composition);
+  if (pendingMessage) throw new Error(pendingMessage);
+  const vOutro = fiscalMoneyFromCents(composition.vOutroCents);
   const vNF = (vProdTotal - vDescTotal + vFrete + vOutro).toFixed(2);
   const orderReference = order.orderIndex || order.id;
-  const additionalInfoXml = orderReference
-    ? `<infAdic><infCpl>Pedido #${escapeXml(String(orderReference))}</infCpl></infAdic>`
+  const additionalInfoLines = [
+    orderReference ? `Pedido #${String(orderReference)}` : '',
+    composition.additionalInformation || '',
+  ].filter(Boolean);
+  const additionalInfoXml = additionalInfoLines.length
+    ? `<infAdic><infCpl>${escapeXml(additionalInfoLines.join('; '))}</infCpl></infAdic>`
     : '';
 
   const modFrete =

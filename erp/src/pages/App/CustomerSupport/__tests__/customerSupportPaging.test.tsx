@@ -6,10 +6,17 @@ import { useCustomerSupportMessages } from '../hooks/useCustomerSupportMessages'
 import type { WhatsAppConversation, WhatsAppMessage } from '../types';
 
 const mocks = vi.hoisted(() => ({ fetchConversations: vi.fn(), fetchConversationCounts: vi.fn(),
-  fetchConversationMessages: vi.fn(), fetchPreviousConversationMessages: vi.fn(), markConversationAsRead: vi.fn() }));
-vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({ ...mocks, mapRowToMessage: (row: unknown) => row }));
+  fetchConversationMessages: vi.fn(), fetchPreviousConversationMessages: vi.fn(), markConversationAsRead: vi.fn(),
+  messageListener: undefined as undefined | ((payload: any) => unknown) }));
+vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({ fetchConversations: mocks.fetchConversations,
+  fetchConversationCounts: mocks.fetchConversationCounts, fetchConversationMessages: mocks.fetchConversationMessages,
+  fetchPreviousConversationMessages: mocks.fetchPreviousConversationMessages, markConversationAsRead: mocks.markConversationAsRead,
+  mapRowToMessage: (row: unknown) => row }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
-  channel: () => ({ on() { return this; }, subscribe() { return this; } }), removeChannel: vi.fn(),
+  channel: () => ({ on(_event: string, filter: { table: string }, callback: (payload: any) => unknown) {
+    if (filter.table === 'whatsapp_messages') mocks.messageListener = callback;
+    return this;
+  }, subscribe() { return this; } }), removeChannel: vi.fn(),
 } }));
 
 function deferred<T>() {
@@ -26,8 +33,10 @@ beforeEach(() => {
   mocks.fetchConversationCounts.mockResolvedValue({ all: 51, mine: 0, unassigned: 0, unread: 0 });
   mocks.fetchConversationMessages.mockResolvedValue(messages(80));
   mocks.fetchPreviousConversationMessages.mockResolvedValue([]);
+  mocks.markConversationAsRead.mockResolvedValue(true);
+  mocks.messageListener = undefined;
 });
-afterEach(() => { cleanup(); vi.resetAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.resetAllMocks(); });
 
 describe('Paginação da Inbox', () => {
   it('uma atualização automática durante a abertura não invalida a consulta que libera o loading', async () => {
@@ -129,6 +138,65 @@ describe('Paginação da Inbox', () => {
 });
 
 describe('Paginação do histórico', () => {
+  it('a consulta automática não apaga uma falha de leitura e trocar conversa limpa o aviso', async () => {
+    mocks.markConversationAsRead.mockResolvedValueOnce(false);
+    const clear = vi.fn();
+    const { result, rerender } = renderHook(({ id }) => useCustomerSupportMessages({
+      selectedConversation: { ...conversation(id), unreadCount: id === 'a' ? 1 : 0 }, onClearUnread: clear,
+    }), { initialProps: { id: 'a' } });
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    expect(result.current.messagesError).toContain('Não foi possível confirmar a leitura');
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+    expect(mocks.fetchConversationMessages).toHaveBeenCalledTimes(2);
+    expect(result.current.messagesError).toContain('Não foi possível confirmar a leitura');
+    expect(clear).not.toHaveBeenCalled();
+    rerender({ id: 'b' });
+    expect(result.current.messagesError).toBe('');
+  });
+
+  it('só limpa o contador depois da confirmação de leitura e permite repetir após erro', async () => {
+    const read = deferred<boolean>();
+    const clear = vi.fn();
+    mocks.markConversationAsRead.mockReturnValueOnce(read.promise);
+    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: { ...conversation(), unreadCount: 2 }, onClearUnread: clear }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    expect(clear).not.toHaveBeenCalled();
+    await act(async () => { read.resolve(false); });
+    expect(clear).not.toHaveBeenCalled();
+    expect(result.current.messagesError).toContain('Não foi possível confirmar a leitura');
+    await act(() => result.current.refreshMessages());
+    expect(clear).toHaveBeenCalledWith('a');
+    expect(result.current.messagesError).toBe('');
+  });
+
+  it('mostra o inbound em tempo real sem aguardar a confirmação de leitura', async () => {
+    const read = deferred<boolean>();
+    const clear = vi.fn();
+    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation(), onClearUnread: clear }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    mocks.markConversationAsRead.mockReturnValueOnce(read.promise);
+    act(() => { void mocks.messageListener!({ eventType: 'INSERT', new: { ...messages(1, 'inbound')[0], direction: 'inbound' } }); });
+    expect(result.current.messages.some(row => row.id === 'inbound-0')).toBe(true);
+    expect(clear).not.toHaveBeenCalled();
+    await act(async () => { read.resolve(true); });
+    expect(clear).toHaveBeenCalledWith('a');
+  });
+
+  it('uma leitura da conversa anterior não altera o contador ou erro da conversa atual', async () => {
+    const read = deferred<boolean>();
+    const clear = vi.fn();
+    mocks.markConversationAsRead.mockReturnValueOnce(read.promise);
+    const { result, rerender } = renderHook(({ id }) => useCustomerSupportMessages({
+      selectedConversation: { ...conversation(id), unreadCount: id === 'a' ? 1 : 0 }, onClearUnread: clear,
+    }), { initialProps: { id: 'a' } });
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    rerender({ id: 'b' });
+    await act(async () => { read.resolve(false); });
+    expect(clear).not.toHaveBeenCalled();
+    expect(result.current.messagesError).toBe('');
+  });
+
   it('não reabre o fim do histórico nem descarta mensagens antigas na atualização', async () => {
     const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation(), onClearUnread: vi.fn() }));
     await waitFor(() => expect(result.current.messages).toHaveLength(80));

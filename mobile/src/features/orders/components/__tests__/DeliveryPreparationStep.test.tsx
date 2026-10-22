@@ -23,7 +23,7 @@ vi.mock('lucide-react-native', () => ({
   ClipboardCheck: () => null,
 }));
 
-vi.mock('../SlideHoldToStart', () => ({
+vi.mock('../delivery/SlideHoldToStart', () => ({
   SlideHoldToStart: (props: any) => {
     capturedSlideProps = props;
     return React.createElement('div', {

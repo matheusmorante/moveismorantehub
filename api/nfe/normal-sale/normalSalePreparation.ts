@@ -19,8 +19,8 @@ import {
   outboundFailure,
   describeActiveNormalSaleConflict,
   reconcileNormalSale,
-  recoverNormalSale,
 } from './outboundAttempt';
+import { readOutboundAttemptStatus } from './outboundStatus';
 import { withNfeEmissionStage } from '../nfeEmissionPerformance';
 import { appendResponsibleTechnician } from '../responsibleTechnician';
 import { validateNfeAgainstOfficialSchema, validateUnsignedNfeStructure } from '../schemaValidator';
@@ -39,6 +39,183 @@ export interface CasPreparationContext {
   issuedAt: string;
   randomCode: string;
   actorId: string;
+}
+
+function recordPreparationRpcFailure(
+  emissionRequestId: string,
+  error: unknown
+): { diagnosticId: string; diagnosticStage: string; databaseCode?: string } {
+  const diagnosticId = randomUUID();
+  const candidate = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
+  const rawCode = typeof candidate.code === 'string' ? candidate.code : undefined;
+  const databaseCode = rawCode && /^[A-Za-z0-9_.-]{1,48}$/.test(rawCode) ? rawCode : undefined;
+  const errorType =
+    typeof candidate.name === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(candidate.name)
+      ? candidate.name
+      : undefined;
+  const httpStatus =
+    Number.isInteger(candidate.status) && Number(candidate.status) >= 100 && Number(candidate.status) <= 599
+      ? Number(candidate.status)
+      : undefined;
+
+  console.error('[NF-e preparation] prepare-attempt RPC was not confirmed', {
+    diagnosticId,
+    diagnosticStage: 'prepare-attempt-rpc',
+    emissionRequestId,
+    ...(databaseCode ? { databaseCode } : {}),
+    ...(errorType ? { errorType } : {}),
+    ...(httpStatus ? { httpStatus } : {}),
+  });
+
+  return {
+    diagnosticId,
+    diagnosticStage: 'prepare-attempt-rpc',
+    ...(databaseCode ? { databaseCode } : {}),
+  };
+}
+
+async function resolvePreparationRpcFailure(
+  db: OutboundDatabase,
+  command: FiscalEmissionCommand,
+  error: unknown,
+  confirmedFailure?: OutboundResult
+): Promise<OutboundResult> {
+  const diagnostic = recordPreparationRpcFailure(command.emissionRequestId, error);
+  let status: Awaited<ReturnType<typeof readOutboundAttemptStatus>>;
+  try {
+    status = await readOutboundAttemptStatus(
+      db,
+      command.orderId,
+      command.environment,
+      command.emissionRequestId,
+      diagnostic.diagnosticId
+    );
+  } catch {
+    status = { kind: 'unavailable', diagnosticId: diagnostic.diagnosticId };
+  }
+
+  const identity = {
+    emissionRequestId: command.emissionRequestId,
+    orderId: command.orderId,
+    environment: command.environment,
+    ...diagnostic,
+  };
+
+  if (status.kind === 'not_found' && confirmedFailure)
+    return {
+      status: confirmedFailure.status,
+      body: {
+        ...confirmedFailure.body,
+        ...identity,
+        pending: false,
+        numberReserved: false,
+        sefazContacted: false,
+      },
+    };
+
+  if (status.kind === 'not_found')
+    return outboundFailure(
+      503,
+      'FISCAL_PREPARATION_UNCONFIRMED',
+      'A consulta local confirmou que a tentativa não foi persistida. Preserve o identificador e retome a mesma tentativa quando estiver pronto.',
+      {
+        ...identity,
+        pending: false,
+        preparationReconciled: true,
+        numberReserved: false,
+        sefazContacted: false,
+        databaseReason: 'PREPARATION_NOT_PERSISTED',
+      }
+    );
+
+  if (status.kind === 'unavailable')
+    return outboundFailure(
+      503,
+      'FISCAL_RECOVERY_UNAVAILABLE',
+      'A gravação não foi confirmada e a consulta local da mesma tentativa também falhou. Preserve o identificador e consulte novamente.',
+      { ...identity, pending: true, sefazContacted: false }
+    );
+
+  if (status.kind === 'inconsistent')
+    return outboundFailure(
+      503,
+      'FISCAL_ATTEMPT_STATUS_INCONSISTENT',
+      'A consulta encontrou registros locais incompletos para esta tentativa. Preserve-a para conferência antes de continuar.',
+      {
+        ...identity,
+        ...(status.documentId ? { documentId: status.documentId } : {}),
+        pending: true,
+        numberReserved: status.numberReserved,
+      }
+    );
+
+  const { attempt, document } = status;
+  const metadata = {
+    ...identity,
+    documentId: attempt.document_id,
+    model: attempt.model,
+    series: attempt.series,
+    nfeNumber: attempt.number,
+    state: attempt.state,
+    numberReserved: true,
+    sefazContacted: attempt.transmission_started_at ? undefined : false,
+  };
+
+  if (
+    attempt.state === 'authorized' &&
+    ['autorizada', 'homologada'].includes(document.status) &&
+    document.numero_protocolo
+  )
+    return {
+      status: 200,
+      body: {
+        success: true,
+        ...metadata,
+        pending: false,
+        protocolNumber: document.numero_protocolo || undefined,
+      },
+    };
+
+  if (attempt.state === 'rejected' && document.status === 'erro')
+    return outboundFailure(422, 'FISCAL_SEFAZ_REJECTED', 'A tentativa original está registrada como rejeitada.', {
+      ...metadata,
+      pending: false,
+    });
+
+  if (attempt.state === 'confirmed_not_found' && document.status === 'erro')
+    return outboundFailure(
+      409,
+      'FISCAL_CONFIRMED_NOT_FOUND',
+      'A tentativa original foi consultada e consta como não encontrada na SEFAZ.',
+      { ...metadata, pending: false }
+    );
+
+  if (['authorized', 'rejected', 'confirmed_not_found'].includes(attempt.state))
+    return outboundFailure(
+      503,
+      'FISCAL_ATTEMPT_STATUS_INCONSISTENT',
+      'O estado local do documento diverge da tentativa. Preserve-a para conferência fiscal.',
+      { ...metadata, pending: true }
+    );
+
+  if (attempt.state === 'prepared' && !attempt.transmission_started_at)
+    return outboundFailure(
+      503,
+      'FISCAL_PREPARATION_UNCONFIRMED',
+      'A tentativa foi gravada e reservou o número; a transmissão ainda não começou. Retome somente esta tentativa.',
+      {
+        ...metadata,
+        pending: true,
+        databaseReason: 'PREPARED_ATTEMPT_FOUND',
+      }
+    );
+
+  return outboundFailure(
+    502,
+    'FISCAL_TRANSMISSION_UNCERTAIN',
+    'A tentativa persistida já iniciou o fluxo de transmissão. Consulte o estado da mesma nota antes de continuar.',
+    { ...metadata, pending: true, state: 'unknown' }
+  );
 }
 
 export async function executeCasPreparationLoop(
@@ -220,27 +397,8 @@ export async function executeCasPreparationLoop(
           }),
         { emissionRequestId: command.emissionRequestId }
       );
-    } catch {
-      try {
-        const recovery = await recoverNormalSale(db, command);
-        if (recovery) return { result: recovery };
-      } catch {
-        /* A transport error can hide a committed preparation. */
-      }
-      return {
-        result: outboundFailure(
-          503,
-          'FISCAL_PREPARATION_UNCONFIRMED',
-          'A resposta da preparação não foi confirmada. Preserve esta intenção e consulte antes de repetir.',
-          {
-            pending: true,
-            emissionRequestId: command.emissionRequestId,
-            orderId: command.orderId,
-            environment: command.environment,
-            sefazContacted: false,
-          }
-        ),
-      };
+    } catch (error) {
+      return { result: await resolvePreparationRpcFailure(db, command, error) };
     }
 
     if (
@@ -251,46 +409,42 @@ export async function executeCasPreparationLoop(
     }
 
     if (saved.error || !saved.data?.documentId) {
-      const recovery = await recoverNormalSale(db, command);
-      if (recovery) return { result: recovery };
+      if (saved.error) {
+        const reason =
+          saved.error.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || 'FISCAL_PREPARATION_FAILED';
+        if (reason === 'ALREADY_ACTIVE_FISCAL_ATTEMPT') {
+          const conflict = await describeActiveNormalSaleConflict(
+            db,
+            command,
+            resolved.document.issuer.cnpj
+          );
+          return { result: conflict };
+        }
 
-      const reason =
-        saved.error?.message.match(/\b[A-Z][A-Z_]{4,}\b/)?.[0] || 'FISCAL_PREPARATION_FAILED';
-
-      if (reason === 'ALREADY_ACTIVE_FISCAL_ATTEMPT') {
-        const conflict = await describeActiveNormalSaleConflict(
-          db,
-          command,
-          resolved.document.issuer.cnpj
-        );
-        return { result: conflict };
-      }
-
-      if (!saved.error?.code && (!reason || reason === 'FISCAL_PREPARATION_FAILED'))
         return {
-          result: outboundFailure(
-            503,
-            'FISCAL_PREPARATION_UNCONFIRMED',
-            'A resposta da preparação não foi confirmada. Preserve esta intenção e consulte antes de repetir.',
-            {
-              pending: true,
-              emissionRequestId: command.emissionRequestId,
-              orderId: command.orderId,
-              environment: command.environment,
-              sefazContacted: false,
-            }
+          result: await resolvePreparationRpcFailure(
+            db,
+            command,
+            saved.error,
+            reason === 'FISCAL_PREPARATION_FAILED'
+              ? undefined
+              : outboundFailure(
+                  reason === 'IDEMPOTENCY_KEY_REUSED' ? 409 : 503,
+                  reason,
+                  reason === 'FISCAL_SOURCE_CHANGED'
+                    ? 'Os dados do pedido, produtos ou cliente foram alterados durante a preparação. Atualize os dados fiscais e tente novamente.'
+                    : 'A preparação fiscal foi recusada. Consulte o código técnico antes de corrigir os dados.',
+                  { pending: false }
+                )
           ),
         };
+      }
 
       return {
-        result: outboundFailure(
-          reason === 'IDEMPOTENCY_KEY_REUSED' ? 409 : 503,
-          reason,
-          reason === 'FISCAL_SOURCE_CHANGED'
-            ? 'Os dados do pedido, produtos ou cliente foram alterados durante a preparação. Atualize os dados fiscais e tente novamente.'
-            : saved.error?.message ||
-              'A preparação fiscal não foi concluída. Atualize os dados ou consulte a tentativa original.',
-          { numberReserved: false, sefazContacted: false, pending: false }
+        result: await resolvePreparationRpcFailure(
+          db,
+          command,
+          new Error('MissingPreparedDocumentId')
         ),
       };
     }

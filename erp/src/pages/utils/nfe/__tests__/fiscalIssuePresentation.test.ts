@@ -69,6 +69,25 @@ describe('mensagens fiscais para a interface', () => {
     expect(reconciled.description).toContain('a SEFAZ não foi contatada');
   });
 
+  it('não apresenta preparação inválida confirmada antes da transmissão como pendente', () => {
+    const issue = getFiscalIssuePresentation({
+      code: 'FISCAL_PREPARATION_INVALID',
+      pending: false,
+      numberReserved: false,
+      sefazContacted: false,
+      emissionRequestId: 'aa1146c0-ea67-47aa-9ec6-8af7e5907dcd',
+      error: 'Cadastro real do destinatário ou fatos fiscais indisponíveis.',
+    });
+
+    expect(issue).toMatchObject({
+      title: 'Preparação fiscal interrompida',
+      action: 'retry-safely',
+      tone: 'error',
+    });
+    expect(issue.description).toContain('Cadastro real do destinatário');
+    expect(issue.nextStep).toContain('não reservou número nem contatou a SEFAZ');
+  });
+
   it('mantém códigos técnicos fora da mensagem principal', () => {
     expect(
       safeFiscalIssueMessage('HML_IDEMPOTENCY_MISMATCH: HTTP 409', 'Confira os detalhes técnicos.')

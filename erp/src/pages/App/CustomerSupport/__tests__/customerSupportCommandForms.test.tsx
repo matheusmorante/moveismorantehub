@@ -2,12 +2,21 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'react-toastify';
 import { ChatHeader } from '../components/chat/ChatHeader';
 import type { WhatsAppConversation } from '../types';
 
 const conversationId = '00000000-0000-4000-8000-000000000001';
 const userId = '00000000-0000-4000-8000-000000000002';
-afterEach(() => cleanup());
+vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.clearAllMocks();
+  if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard);
+  else Reflect.deleteProperty(navigator, 'clipboard');
+});
 const props = () => ({
   conversation: { id: conversationId, tags: [], isArchived: false } as unknown as WhatsAppConversation,
   displayName: 'Contato', formattedPhone: '', initials: 'C',
@@ -16,6 +25,50 @@ const props = () => ({
   onToggleSearchInChat: vi.fn(), onToggleInfoPanel: vi.fn(), onToggleTimeline: vi.fn(), onBackMobile: vi.fn(), onOpenSnippets: vi.fn(),
   onToggleArchive: vi.fn().mockResolvedValue(true), teamMembers: [{ id: userId, fullName: 'Operador' }],
   onAssign: vi.fn().mockResolvedValue(true), onUpdateStatus: vi.fn().mockResolvedValue(true), currentUserId: userId, currentUserName: 'Operador',
+});
+
+describe('Cópia de telefone no cabeçalho', () => {
+  const openCopy = () => {
+    const input = props();
+    render(<ChatHeader {...input} conversation={{ ...input.conversation, contactPhone: '5500000000000' }} />);
+    fireEvent.click(screen.getByTitle('Mais opções da conversa'));
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar telefone' }));
+    return input;
+  };
+
+  it('informa sucesso somente depois da confirmação da área de transferência', async () => {
+    let finish!: () => void;
+    const writeText = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const alert = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    const input = openCopy();
+    expect(writeText).toHaveBeenCalledWith('5500000000000');
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+    await act(async () => finish());
+    expect(toast.success).toHaveBeenCalledWith('Telefone copiado para a área de transferência.');
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(input.onToggleArchive).not.toHaveBeenCalled();
+    expect(input.onAssign).not.toHaveBeenCalled();
+    expect(input.onUpdateStatus).not.toHaveBeenCalled();
+  });
+
+  it('informa recusa do navegador sem anunciar sucesso', async () => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+      writeText: vi.fn().mockRejectedValue(new Error('NotAllowedError')),
+    } });
+    vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    openCopy();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Não foi possível copiar o telefone. Verifique a permissão da área de transferência.'));
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('informa indisponibilidade da API sem falha não tratada', async () => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    openCopy();
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Não foi possível copiar o telefone. Verifique a permissão da área de transferência.'));
+    expect(toast.success).not.toHaveBeenCalled();
+  });
 });
 
 describe('Resolver das ações do cabeçalho', () => {

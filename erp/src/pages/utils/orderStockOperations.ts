@@ -53,6 +53,11 @@ export async function handleStockAndBusinessRules(
           .eq('id', item.productId)
           .single();
         if (!p) continue;
+        if (p.item_type === 'composition') {
+          throw new Error(
+            `O produto composto "${item.description}" é apenas uma referência. Adicione os produtos componentes ao pedido.`
+          );
+        }
 
         const currentStock = p.stock || 0;
 

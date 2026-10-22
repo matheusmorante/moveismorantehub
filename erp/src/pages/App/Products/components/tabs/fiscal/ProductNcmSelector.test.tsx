@@ -63,7 +63,7 @@ it('mantém a seleção por busca de texto/código sem controles ou chamadas de 
   expect(screen.getByText('94036000')).toBeTruthy();
   expect(screen.getByLabelText('NCM do produto')).toHaveProperty(
     'value',
-    '94036000 - Outros móveis de madeira'
+    '94036000'
   );
 });
 
@@ -119,7 +119,7 @@ it('exibe a descrição oficial do NCM ativo selecionado como feedback visual', 
   expect(screen.getByTestId('product-ncm-official-description').textContent).toContain('Outros móveis de madeira');
 });
 
-it('exibe o número do ncm - descrição da sefaz diretamente no campo do select ao carregar e selecionar', () => {
+it('exibe o código no campo e a descrição oficial como subtítulo ao carregar', () => {
   render(
     <ProductNcmSelector
       formData={{ fiscal: { ncm: '94036000', ncmDescription: 'Outros móveis de madeira' } }}
@@ -128,6 +128,9 @@ it('exibe o número do ncm - descrição da sefaz diretamente no campo do select
   );
   expect(screen.getByLabelText('NCM do produto')).toHaveProperty(
     'value',
-    '94036000 - Outros móveis de madeira'
+    '94036000'
+  );
+  expect(screen.getByTestId('product-ncm-official-description').textContent).toBe(
+    'Outros móveis de madeira'
   );
 });

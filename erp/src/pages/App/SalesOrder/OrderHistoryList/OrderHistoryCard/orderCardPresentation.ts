@@ -92,6 +92,8 @@ export function resolveCardHeaderAccentClass(
       return 'bg-emerald-200/90 dark:bg-emerald-950/80 border-b border-emerald-300 dark:border-emerald-800';
     case 'purple':
       return 'bg-purple-400 dark:bg-purple-800/80 border-b border-purple-500 dark:border-purple-700';
+    case 'amber':
+      return 'bg-amber-100/90 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900/40';
     case 'orange':
       return 'bg-orange-50/80 dark:bg-orange-950/20 border-b border-orange-100 dark:border-orange-900/30';
     default:

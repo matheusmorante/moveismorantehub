@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supportFolderFormSchema, type SupportFolderFormInput } from '../../../../../../../shared-utils/customerSupportFormSchemas';
@@ -97,7 +98,7 @@ export const AddCustomInboxModal: React.FC<AddCustomInboxModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div role="dialog" aria-modal="true" aria-labelledby="add-custom-inbox-title" className="fixed inset-0 z-[999999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in select-none">
       <div onClick={(event) => event.stopPropagation()} className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-5 animate-slide-up max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -171,6 +172,7 @@ export const AddCustomInboxModal: React.FC<AddCustomInboxModalProps> = ({
           </fieldset>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

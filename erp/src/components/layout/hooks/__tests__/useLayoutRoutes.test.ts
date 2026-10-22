@@ -61,6 +61,18 @@ describe('useLayoutRoutes Hook', () => {
     );
   });
 
+  it('deve identificar módulo de assistência com pt-0 para equilibrar espaçamentos do cabeçalho', () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(MemoryRouter, { initialEntries: ['/assistance-orders'] }, children);
+
+    const { result } = renderHook(() => useLayoutRoutes(), { wrapper });
+
+    expect(result.current.isAssistancePage).toBe(true);
+    expect(result.current.mainContentClassName).toBe(
+      'px-3 sm:px-4 md:px-6 lg:px-6 xl:px-8 pt-0 pb-6 xl:pb-8'
+    );
+  });
+
   it('deve retornar padding padrão para rotas comuns do sistema', () => {
     const wrapper = ({ children }: { children: React.ReactNode }) =>
       React.createElement(MemoryRouter, { initialEntries: ['/dashboard'] }, children);

@@ -150,7 +150,6 @@ export const migrateSettings = (settings: any): AppSettings => {
       viewCustomers: 'viewPeople',
       deletePeople: 'viewPeople',
       viewEmployees: 'viewPeople',
-      viewServices: 'viewPeople',
       viewCustomerDesires: 'viewPeople',
       viewInboundFiscal: 'viewFiscal',
       viewNcmCatalog: 'viewFiscal',
@@ -240,6 +239,14 @@ export const migrateSettings = (settings: any): AppSettings => {
       viewProductReconciliation: removeStockistDefault('viewProductReconciliation'),
     };
     settings.rolePermissionsMigrationVersion = 8;
+  }
+
+  if ((settings.rolePermissionsMigrationVersion ?? 0) < 9) {
+    const rolePermissions = settings.rolePermissions || {};
+    const currentPermissions = { ...rolePermissions };
+    delete currentPermissions.viewServices;
+    settings.rolePermissions = currentPermissions;
+    settings.rolePermissionsMigrationVersion = 9;
   }
 
   // Migração de manuseio: string[] -> HandlingOption[]

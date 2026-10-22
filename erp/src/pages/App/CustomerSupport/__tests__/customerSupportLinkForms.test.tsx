@@ -7,10 +7,10 @@ import { ManualLinkModal } from '../components/ManualLinkModal';
 import { CustomerInfoPanel } from '../components/CustomerInfoPanel';
 import type { WhatsAppConversation } from '../types';
 
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), link: vi.fn(), unlink: vi.fn(), orders: vi.fn() }));
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), link: vi.fn(), unlink: vi.fn(), orders: vi.fn(), canCommercial: true }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { rpc: mocks.rpc } }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'operator' }, profile: { role: 'administrator' } }) }));
-vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => true }));
+vi.mock('@/pages/utils/permissionService', () => ({ canPerform: () => mocks.canCommercial }));
 vi.mock('@/pages/utils/accessRoles', () => ({ getProfileRoles: () => ['administrator'] }));
 vi.mock('@/pages/utils/customerSupport/customerMatchingService', async (original) => ({
   ...await original<typeof import('@/pages/utils/customerSupport/customerMatchingService')>(),
@@ -22,11 +22,78 @@ vi.mock('@/pages/utils/customerSupport/supportOrdersService', async (original) =
 const id = '00000000-0000-4000-8000-000000000001';
 const row = { id: 'legacy-person-id', full_name: 'Cliente sintético' };
 beforeEach(() => {
+  mocks.canCommercial = true;
   mocks.rpc.mockResolvedValue({ data: [row], error: null });
   mocks.link.mockResolvedValue({ success: true });
   mocks.unlink.mockResolvedValue({ success: true });
   mocks.orders.mockResolvedValue([]);
   vi.spyOn(window, 'confirm').mockReturnValue(true);
+});
+
+describe('Pedidos do painel — falha, repetição e troca de contexto', () => {
+  const conversation = (customerId = 'legacy-person-id') => ({ id, customerId,
+    customer: { id: customerId, fullName: 'Cliente sintético' }, contactPhone: '+12025550100',
+    customerLinkStatus: 'manually_linked', tags: [], internalNotes: '', lastCustomerMessageAt: null } as unknown as WhatsAppConversation);
+  const panel = (customerId?: string) => <MemoryRouter><CustomerInfoPanel conversation={conversation(customerId)} messages={[]} isOpen
+    onClose={vi.fn()} onConversationUpdated={vi.fn()} /></MemoryRouter>;
+  const openOrders = () => fireEvent.click(screen.getByText('Pedidos', { exact: true }));
+  const order = (orderNumber: string) => ({ id: orderNumber, orderNumber, status: 'active', totalAmount: 100,
+    createdAt: '2026-10-21T12:00:00Z', itemsCount: 1, itemsPreview: 'Item sintético', isActive: true });
+
+  it('mostra erro e permite repetir, reservando o vazio para resposta válida', async () => {
+    mocks.orders.mockRejectedValueOnce(new Error('Não foi possível carregar os pedidos deste cliente. Tente novamente.'));
+    render(panel());
+    openOrders();
+    await screen.findByText('Não foi possível carregar os pedidos deste cliente. Tente novamente.');
+    expect(screen.queryByText('Nenhum pedido de venda registrado para este cliente.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar carregar pedidos novamente' }));
+    await screen.findByText('Nenhum pedido de venda registrado para este cliente.');
+    expect(mocks.orders).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('não mostra pedidos do cliente anterior quando a consulta do novo cliente falha', async () => {
+    mocks.orders.mockResolvedValueOnce([order('ANTERIOR')]);
+    const { rerender } = render(panel());
+    openOrders();
+    await screen.findByText('Pedido #ANTERIOR');
+    mocks.orders.mockRejectedValueOnce(new Error('Não foi possível carregar os pedidos deste cliente. Tente novamente.'));
+    rerender(panel('outro-cliente'));
+    await screen.findByRole('alert');
+    expect(screen.queryByText('Pedido #ANTERIOR')).toBeNull();
+  });
+
+  it('ignora resposta antiga após troca de cliente e preserva o resultado atual', async () => {
+    let resolve!: (value: unknown[]) => void;
+    mocks.orders.mockReturnValueOnce(new Promise(value => { resolve = value; }));
+    const { rerender } = render(panel());
+    openOrders();
+    mocks.orders.mockResolvedValueOnce([order('ATUAL')]);
+    rerender(panel('outro-cliente'));
+    await screen.findByText('Pedido #ATUAL');
+    await act(async () => resolve([order('ANTERIOR')]));
+    expect(screen.queryByText('Pedido #ANTERIOR')).toBeNull();
+    expect(screen.getByText('Pedido #ATUAL')).toBeTruthy();
+  });
+
+  it('não consulta pedidos sem permissão comercial', async () => {
+    mocks.canCommercial = false;
+    render(panel());
+    openOrders();
+    expect(screen.getByText(/não possui permissão/)).toBeTruthy();
+    expect(mocks.orders).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Tentar carregar pedidos novamente' })).toBeNull();
+  });
+
+  it('prioriza a permissão quando o vínculo está oculto pela restrição comercial', () => {
+    mocks.canCommercial = false;
+    render(<MemoryRouter><CustomerInfoPanel conversation={{ ...conversation(), customer: null }} messages={[]} isOpen
+      onClose={vi.fn()} onConversationUpdated={vi.fn()} /></MemoryRouter>);
+    openOrders();
+    expect(screen.getByText(/não possui permissão/)).toBeTruthy();
+    expect(screen.queryByText(/Vincule um cliente/)).toBeNull();
+    expect(mocks.orders).not.toHaveBeenCalled();
+  });
 });
 afterEach(() => { cleanup(); vi.resetAllMocks(); vi.restoreAllMocks(); });
 const search = async () => {

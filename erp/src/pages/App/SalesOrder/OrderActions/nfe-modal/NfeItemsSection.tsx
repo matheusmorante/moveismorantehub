@@ -12,6 +12,10 @@ import { normalizeRecipientTaxId } from '../../../../../../../shared-utils/recip
 import { getSettings } from '@/pages/utils/settingsService';
 import { NfeItemRow } from './NfeItemRow';
 import { resolveNfeItemCfopOptions } from './domain/itemFiscalCfopOptions';
+import {
+  composeServiceFiscalValues,
+  servicesMissingProductLinksMessage,
+} from '@/pages/utils/nfe/serviceFiscalComposition';
 
 export interface NfeItemFiscal {
   ncm: string;
@@ -118,6 +122,11 @@ export const NfeItemsSection: React.FC<Props> = ({
       ? 'Operação com exterior sem matriz fiscal aprovada.'
       : undefined;
   const effectiveAt = useRef(new Date().toISOString()).current;
+  const serviceComposition = useMemo(
+    () => composeServiceFiscalValues(order.items || [], fiscalModel),
+    [order.items, fiscalModel]
+  );
+  const serviceCompositionWarning = servicesMissingProductLinksMessage(serviceComposition);
   const cfopDecisions = useMemo(
     () =>
       items.map((item) =>
@@ -191,6 +200,12 @@ export const NfeItemsSection: React.FC<Props> = ({
         {matrixWarning && <span className="ml-1 font-semibold">{matrixWarning}</span>}
       </div>
 
+      {serviceCompositionWarning && (
+        <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+          {serviceCompositionWarning}
+        </div>
+      )}
+
       {/* Lista dos Itens da Venda */}
       <div className="flex flex-col gap-2.5 max-h-[360px] overflow-y-auto custom-scrollbar pr-1">
         {items.map((item, index) => {
@@ -203,6 +218,7 @@ export const NfeItemsSection: React.FC<Props> = ({
               key={`${item.productId || 'item'}_${index}`}
               item={item}
               itemIndex={index}
+              fiscalComposition={serviceComposition.products[index]}
               cfopOptions={cfopDecisions[index]?.options}
               cfopContextMessage={
                 cfopDecisions[index]?.reason

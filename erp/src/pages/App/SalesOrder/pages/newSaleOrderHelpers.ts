@@ -61,6 +61,10 @@ export const applyImportedOrderDataToForm = (migrated: any, actions: FormActions
   if (migrated.items && Array.isArray(migrated.items)) {
     const mappedItems = migrated.items.map((item: any) => ({
       orderItemId: item.orderItemId || crypto.randomUUID(),
+      itemType: item.itemType,
+      linkedProductOrderItemIds: Array.isArray(item.linkedProductOrderItemIds)
+        ? [...item.linkedProductOrderItemIds]
+        : undefined,
       linkedProductOrderItemId: item.linkedProductOrderItemId || undefined,
       productId: item.productId || undefined,
       variationId: item.variationId || undefined,

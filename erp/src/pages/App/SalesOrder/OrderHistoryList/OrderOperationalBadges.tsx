@@ -29,14 +29,17 @@ export const OrderOperationalBadges = ({
   const isCancelled = order.status === 'cancelled';
   const isAssis = order.orderType === 'assistance';
   const isRet = order.orderType === 'return';
-  const isPick = order.shipping?.deliveryMethod === 'pickup';
+  const linkedMethod = order.linkedOrderDeliveryMethod || order.shipping?.deliveryMethod;
+  const isAssisLinkedPickup = isAssis && Boolean(order.linkedOrderId) && linkedMethod === 'pickup';
+  const isAssisLinkedDelivery = isAssis && Boolean(order.linkedOrderId) && linkedMethod !== 'pickup';
+  const isPick = isAssis ? isAssisLinkedPickup : order.shipping?.deliveryMethod === 'pickup';
   const hasLinkedReturn = !isRet && Boolean(order.returnOrderId);
   const isPendingScheduling =
     Boolean(order.shipping?.scheduling?.pendingScheduling) &&
     order.status !== 'cancelled' &&
     order.status !== 'fulfilled';
 
-  const tIcon = isAssis ? 'bi-tools' : isRet ? 'bi-arrow-return-left' : isPick ? 'bi-shop' : 'bi-truck';
+  const tIcon = isRet ? 'bi-arrow-return-left' : isPick ? 'bi-shop' : 'bi-truck';
   const sIcons: Record<string, string> = {
     draft: 'bi-clock',
     scheduled: 'bi-calendar3',
@@ -144,7 +147,7 @@ export const OrderOperationalBadges = ({
                 ? 'bg-slate-400 dark:bg-slate-600 border border-slate-500 dark:border-slate-600'
                 : currentStatus.bg.replace('/10', '').replace('/20', '').replace('-50', '-500')
           } text-white transition-all shadow-2xs border border-black/10 ${isStatusBadgeReadOnly ? 'cursor-default' : 'hover:brightness-110 active:scale-95'}`}
-          title={`Status: ${currentStatus.label}${isPendingScheduling ? ' (Agendamento pendente)' : ''} | Tipo: ${isRet ? 'Devolução' : isAssis ? 'Assistência' : isPick ? 'Retirada' : 'Entrega'}`}
+          title={`Status: ${currentStatus.label}${isPendingScheduling ? ' (Agendamento pendente)' : ''} | Tipo: ${isRet ? 'Devolução' : isAssis ? (isAssisLinkedPickup ? 'Assistência (Retirada)' : isAssisLinkedDelivery ? 'Assistência (Entrega)' : 'Assistência') : isPick ? 'Retirada' : 'Entrega'}`}
         >
           <i className={`bi ${sIcon} text-white text-[16px] leading-none`} />
           {isPendingScheduling && (
@@ -194,21 +197,36 @@ export const OrderOperationalBadges = ({
         )}
       </div>
 
-      {/* A própria lista identifica a devolução; o selo fica na venda vinculada. */}
+      {/* 5. Método de Entrega / Retirada / Devolução Vinculada */}
       {hasLinkedReturn ? (
         <div className="flex h-6 w-6 items-center justify-center rounded-md border border-orange-600 bg-orange-500 text-white shadow-2xs" title="Devolução vinculada">
           <ReturnIcon white className="h-5 w-5" />
         </div>
+      ) : isAssis ? (
+        order.linkedOrderId ? (
+          <div
+            className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
+              isAssisLinkedPickup
+                ? 'bg-purple-600 text-white border-purple-700'
+                : 'bg-emerald-600 text-white border-emerald-700'
+            }`}
+            title={isAssisLinkedPickup ? 'Retirada' : 'Entrega'}
+          >
+            {isAssisLinkedPickup ? (
+              <PickupIcon white className="h-5 w-5" />
+            ) : (
+              <i className="bi bi-truck text-[16px] leading-none text-white" />
+            )}
+          </div>
+        ) : null
       ) : !isRet ? (
         <div
           className={`flex items-center justify-center h-6 w-6 rounded-md border shadow-2xs ${
-            isAssis
-              ? 'bg-orange-500 text-white border-orange-600'
-              : isPick
-                ? 'bg-purple-600 text-white border-purple-700'
-                : 'bg-emerald-600 text-white border-emerald-700'
+            isPick
+              ? 'bg-purple-600 text-white border-purple-700'
+              : 'bg-emerald-600 text-white border-emerald-700'
           }`}
-          title={isAssis ? 'Assistência' : isPick ? 'Retirada' : 'Entrega'}
+          title={isPick ? 'Retirada' : 'Entrega'}
         >
           {isPick ? (
             <PickupIcon white className="h-5 w-5" />

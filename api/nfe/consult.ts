@@ -11,6 +11,7 @@ import { authorizeFiscalOperator } from './fiscalAuthorization';
 import { retryHmlTechnical, consultAuthorizedHmlTechnical, isHmlRuleSet } from './emitHmlTechnical';
 import { getNfeServiceEndpoint } from './fiscalEnvironmentPolicy';
 import { reconcileNormalSale } from './normal-sale/outboundAttempt';
+import { readOutboundAttemptStatus } from './normal-sale/outboundStatus';
 import { NORMAL_SALE_RULESET_VERSION } from './normal-sale/constants';
 import { consultAuthorizedDocument } from './consultAuthorizedDocument';
 
@@ -40,6 +41,147 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success: false,
       error: fiscalAuthorization.message,
     });
+
+  const emissionRequestId = String(req.body?.emissionRequestId || '');
+  if (emissionRequestId) {
+    const orderId = String(req.body?.orderId || '');
+    const environment = Number(req.body?.environment);
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        emissionRequestId
+      ) ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        orderId
+      ) ||
+      ![1, 2].includes(environment)
+    )
+      return res.status(400).json({ success: false, error: 'Identidade da tentativa inválida.' });
+
+    const statusDiagnosticId = randomUUID();
+    const lookup = await readOutboundAttemptStatus(
+      supabase,
+      orderId,
+      environment as 1 | 2,
+      emissionRequestId,
+      statusDiagnosticId
+    );
+    if (lookup.kind === 'unavailable')
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        code: 'FISCAL_ATTEMPT_STATUS_UNAVAILABLE',
+        diagnosticStage: 'read-only-attempt-status',
+        diagnosticId: lookup.diagnosticId,
+        error: 'Não foi possível consultar o estado local da tentativa. Consulte novamente antes de continuar.',
+      });
+    if (lookup.kind === 'not_found')
+      return res.status(200).json({
+        success: true,
+        code: 'FISCAL_PREPARATION_NOT_PERSISTED',
+        state: 'not_found',
+        pending: false,
+        preparationReconciled: true,
+        orderId,
+        environment,
+        emissionRequestId,
+        numberReserved: false,
+        sefazContacted: false,
+      });
+    if (lookup.kind === 'inconsistent')
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        code: 'FISCAL_ATTEMPT_STATUS_INCONSISTENT',
+        ...(lookup.documentId ? { documentId: lookup.documentId } : {}),
+        orderId,
+        environment,
+        emissionRequestId,
+        numberReserved: lookup.numberReserved,
+        error: 'Os registros locais desta tentativa estão incompletos. Preserve a tentativa e solicite conferência fiscal antes de continuar.',
+      });
+
+    const { attempt, document } = lookup;
+    const metadata = {
+      documentId: attempt.document_id,
+      orderId: attempt.order_id,
+      emissionRequestId: attempt.emission_request_id,
+      model: attempt.model,
+      environment: attempt.environment,
+      series: attempt.series,
+      nfeNumber: attempt.number,
+      numberReserved: true,
+      sefazContacted: attempt.transmission_started_at ? undefined : false,
+      transmissionStartedAt: attempt.transmission_started_at,
+      pending: ['prepared', 'transmitting', 'reconciling'].includes(attempt.state),
+      state: attempt.state,
+    };
+
+    if (attempt.state === 'authorized') {
+      if (!['autorizada', 'homologada'].includes(document.status) || !document.numero_protocolo)
+        return res.status(503).json({
+          success: false,
+          pending: true,
+          code: 'FISCAL_ATTEMPT_STATUS_INCONSISTENT',
+          ...metadata,
+          error: 'O estado local do documento diverge da tentativa. Preserve-a para conferência fiscal.',
+        });
+      return res.status(200).json({
+        success: true,
+        ...metadata,
+        state: 'authorized',
+        pending: false,
+        protocolNumber: document.numero_protocolo || undefined,
+      });
+    }
+    if (attempt.state === 'rejected') {
+      if (document.status !== 'erro')
+        return res.status(503).json({
+          success: false,
+          pending: true,
+          code: 'FISCAL_ATTEMPT_STATUS_INCONSISTENT',
+          ...metadata,
+          error: 'O estado local do documento diverge da tentativa. Preserve-a para conferência fiscal.',
+        });
+      return res.status(200).json({
+        success: true,
+        code: 'FISCAL_SEFAZ_REJECTED',
+        ...metadata,
+        pending: false,
+        state: 'rejected',
+        error: 'A tentativa está registrada como rejeitada. Consulte o motivo no documento fiscal.',
+      });
+    }
+    if (attempt.state === 'confirmed_not_found') {
+      if (document.status !== 'erro')
+        return res.status(503).json({
+          success: false,
+          pending: true,
+          code: 'FISCAL_ATTEMPT_STATUS_INCONSISTENT',
+          ...metadata,
+          error: 'O estado local do documento diverge da tentativa. Preserve-a para conferência fiscal.',
+        });
+      return res.status(200).json({
+        success: true,
+        code: 'FISCAL_CONFIRMED_NOT_FOUND',
+        ...metadata,
+        pending: false,
+        state: 'not_found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      ...metadata,
+      databaseReason:
+        attempt.state === 'prepared' && !attempt.transmission_started_at
+          ? 'PREPARED_ATTEMPT_FOUND'
+          : 'ATTEMPT_STATUS_FOUND',
+      error:
+        attempt.state === 'prepared' && !attempt.transmission_started_at
+          ? 'A tentativa foi gravada e reservou o número; a transmissão ainda não começou.'
+          : 'A tentativa foi gravada e pode já ter iniciado a transmissão. Consulte o estado fiscal antes de continuar.',
+    });
+  }
 
   const documentId = String(req.body?.documentId || '');
   if (!documentId)

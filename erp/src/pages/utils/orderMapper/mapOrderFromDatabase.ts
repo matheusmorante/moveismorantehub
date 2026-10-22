@@ -109,6 +109,8 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
     marketingOrigin,
     returnOrderId: row.return_order_id || rawLegacy.returnOrderId || undefined,
     linkedOrderId: row.linked_order_id || rawLegacy.linkedOrderId || undefined,
+    linkedOrderCode: rawLegacy.linkedOrderCode || undefined,
+    linkedOrderDeliveryMethod: rawLegacy.linkedOrderDeliveryMethod || undefined,
     returnKind: (row.return_kind as any) || rawLegacy.returnKind || undefined,
     returnedTotalAmount:
       row.returned_total_amount != null

@@ -177,9 +177,6 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
               <h3 id="product-type-heading" className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
                 Tipo do produto
               </h3>
-              <p className="mt-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                Produto simples: apenas 1 variação. Produto com variações: 2 ou mais.
-              </p>
             </div>
           </div>
 
@@ -207,7 +204,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                       : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
-                Produto Simples
+                Simples
               </button>
 
               <button
@@ -220,7 +217,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
-                Produto com Variações
+                Com variações
               </button>
             </div>
             {showSimpleModeTooltip && isMultiVariationMode && simpleModeBlocked && (

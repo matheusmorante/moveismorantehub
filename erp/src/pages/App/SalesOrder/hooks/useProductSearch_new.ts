@@ -77,6 +77,7 @@ export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
 
           const mapped: SelectableCatalogItem[] = data.map((row: any) => {
             const isComp = row.entity_type.startsWith('composition');
+            const isProductComposition = isComp || row.item_type === 'composition';
             const hasVar = row.entity_type.includes('variation');
 
             const p: any = {
@@ -87,7 +88,8 @@ export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
               category: row.category,
               unitPrice: Number(row.unit_price || 0),
               costPrice: Number(row.cost_price || 0),
-              isComposition: isComp,
+              isComposition: isProductComposition,
+              itemType: isProductComposition ? 'composition' : row.item_type || 'product',
             };
 
             let v: any = undefined;
@@ -108,7 +110,7 @@ export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
               p,
               v,
               key: row.key,
-              isComposition: isComp,
+              isComposition: isProductComposition,
               shallowRow: row,
             };
           });

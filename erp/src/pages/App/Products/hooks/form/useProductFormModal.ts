@@ -87,7 +87,8 @@ export function useProductFormModal({
   });
   const latestFormDataRef = useRef(formData);
   latestFormDataRef.current = formData;
-  const isSingleVariation = (formData.variations || []).length <= 1;
+  const isSingleVariation =
+    !formData.hasVariations && (formData.variations || []).length <= 1;
   const variationSchema = useMemo(
     () => createProductVariationFormSchema(formData, isSingleVariation),
     [formData, isSingleVariation]
@@ -101,6 +102,8 @@ export function useProductFormModal({
   const hasChanged = useRef(false);
   const initialFormDataRef = useRef<string>('');
   const isService = formData.itemType === 'service';
+  const isMultiVariationMode =
+    Boolean(formData.hasVariations) || (formData.variations || []).length > 1;
   const isProductCreation = !product?.id;
   const isRegisteredProduct = isExistingRegisteredProduct(product);
   const isDraftProduct =
@@ -181,6 +184,12 @@ export function useProductFormModal({
       setActiveTab('geral');
     }
   }, [isService, activeTab]);
+
+  useEffect(() => {
+    if (!isMultiVariationMode && activeTab === 'variacoes') {
+      setActiveTab('geral');
+    }
+  }, [isMultiVariationMode, activeTab]);
 
   useEffect(() => {
     if (
@@ -507,7 +516,7 @@ export function useProductFormModal({
   }, [autoSaveDraft, isDraftProduct]);
 
   const handleDeleteVariation = useCallback(
-    async (variationId: string) => {
+    async (variationId: string, skipConfirm = false) => {
       const current = latestFormDataRef.current;
       if ((current.variations?.length || 0) <= 1) {
         toast.info('A última variação só pode ser excluída junto com o produto.');
@@ -515,6 +524,7 @@ export function useProductFormModal({
       }
       if (!isRegisteredProduct) return;
       if (
+        !skipConfirm &&
         !window.confirm(
           'Excluir esta variação permanentemente? O sistema verificará se o UUID possui vínculos antes de continuar.'
         )
@@ -562,7 +572,12 @@ export function useProductFormModal({
 
   const isComposition =
     formData.itemType === 'composition' || (formData as any).item_type === 'composition';
-  const formTabs = getProductFormTabs(isService, isComposition, isStockistOnly);
+  const formTabs = getProductFormTabs(
+    isService,
+    isComposition,
+    isStockistOnly,
+    isMultiVariationMode
+  );
   const currentTabIndex = formTabs.findIndex((t) => t.id === activeTab);
   const isLastStep = currentTabIndex === formTabs.length - 1;
   const handleNextStep = useCallback(() => {

@@ -8,6 +8,8 @@ import { whatsappSupportGuard } from '@/pages/utils/customerSupport/whatsappSupp
 import {
   getCustomerOrders,
   SupportOrderSummary,
+  SUPPORT_ORDERS_LOAD_ERROR,
+  SUPPORT_ORDERS_PERMISSION_ERROR,
 } from '@/pages/utils/customerSupport/supportOrdersService';
 import {
   unlinkCustomer,
@@ -48,6 +50,8 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
   const [activeTab, setActiveTab] = useState<PanelTab>('customer');
   const [orders, setOrders] = useState<SupportOrderSummary[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
+  const [ordersAttempt, setOrdersAttempt] = useState(0);
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [tags, setTags] = useState<string[]>(conversation.tags || []);
   const [customerActionError, setCustomerActionError] = useState('');
@@ -69,8 +73,10 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
 
   // Carrega pedidos vinculados sob demanda (Egress otimizado)
   useEffect(() => {
+    setOrders([]);
+    setOrdersError('');
+    setIsLoadingOrders(false);
     if (!conversation.customerId || !canViewCommercial) {
-      setOrders([]);
       return;
     }
 
@@ -81,6 +87,13 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
       .then((data) => {
         if (isMounted) setOrders(data);
       })
+      .catch((error) => {
+        if (isMounted) {
+          setOrders([]);
+          setOrdersError(error instanceof Error && error.message === SUPPORT_ORDERS_PERMISSION_ERROR
+            ? SUPPORT_ORDERS_PERMISSION_ERROR : SUPPORT_ORDERS_LOAD_ERROR);
+        }
+      })
       .finally(() => {
         if (isMounted) setIsLoadingOrders(false);
       });
@@ -88,7 +101,7 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [conversation.customerId, canViewCommercial]);
+  }, [conversation.customerId, canViewCommercial, ordersAttempt]);
 
   if (!isOpen) return null;
 
@@ -267,6 +280,8 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
               canViewCommercial={canViewCommercial}
               isLoadingOrders={isLoadingOrders}
               orders={orders}
+              ordersError={ordersError}
+              onRetryOrders={() => setOrdersAttempt((attempt) => attempt + 1)}
             />
           )}
 

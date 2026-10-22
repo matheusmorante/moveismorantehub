@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAppNotifications } from '../contexts/NotificationContext';
 
 import { DashboardHeader } from '../features/dashboard/components/DashboardHeader';
-import { NativeBottomNav } from '../features/dashboard/components/NativeBottomNav';
+import { NativeBottomNav } from '../features/dashboard/components/bottom-nav';
 
 import { NativeOrdersScreen } from '../features/orders/screens/NativeOrdersScreen';
 import { NativeLogisticsScreen } from '../features/logistics/screens/NativeLogisticsScreen';

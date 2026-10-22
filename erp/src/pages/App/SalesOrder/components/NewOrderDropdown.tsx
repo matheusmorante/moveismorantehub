@@ -32,7 +32,7 @@ const ORDER_OPTIONS: {
     label: 'Pedido de Assistência',
     icon: 'bi-tools',
     description: 'Atendimento técnico local ou em loja',
-    color: 'text-orange-500',
+    color: 'text-amber-500 dark:text-amber-400',
   },
 ];
 

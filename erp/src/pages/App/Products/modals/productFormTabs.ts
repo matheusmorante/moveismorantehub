@@ -12,7 +12,8 @@ export type ProductFormTab =
 export const getProductFormTabs = (
   isService: boolean,
   isComposition?: boolean,
-  isStockistOnly = false
+  isStockistOnly = false,
+  isMultiVariationMode = false
 ): Array<{ id: ProductFormTab; label: string }> => {
   const tabs: Array<{ id: ProductFormTab; label: string }> = [
     { id: 'geral', label: 'Informações Básicas' },
@@ -25,7 +26,7 @@ export const getProductFormTabs = (
               ]
             : []),
           { id: 'estoque' as const, label: 'Estoque e Precificação' },
-          { id: 'variacoes' as const, label: 'Variações' },
+          ...(isMultiVariationMode ? [{ id: 'variacoes' as const, label: 'Variações' }] : []),
         ]
       : []),
     ...(!isComposition ? [{ id: 'fiscal' as const, label: 'Tributário / NF' }] : []),
