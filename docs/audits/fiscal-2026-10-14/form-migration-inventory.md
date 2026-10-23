@@ -373,7 +373,7 @@ As colunas de validação abaixo registram símbolos encontrados, não certifica
 | [ ] | pages/App/Settings/components/operations/ReceiptConfigSection.tsx:17 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Settings/components/operations/ScannerConfigSection.tsx:24 | props/contexto | onChange / callback inline; conferir proprietário | nenhum símbolo explícito neste arquivo |
 | [x] | pages/App/Settings/index.tsx:29 | campos filhos do proprietário | debounce/fila/RHF real | Vinculado ao proprietário principal; busca visual local sem submissão. Treze provas anteriores agora14 após contexto por usuário;69 no lote final. Ações próprias dos filhos permanecem separadas. |
-| [ ] | pages/App/Stock/BlingStock/index.tsx:141 | loading, searchTerm, products, page, totalPages, selectedProduct, isDetailOpen | handleOAuthCallback, handleViewDetail | nenhum símbolo explícito neste arquivo |
+| [x] | pages/App/Stock/BlingStock/index.tsx:141 | removido | integração retirada em 2026-10-23 | Removido junto com o Bling; não há formulário ativo para migrar. |
 | [ ] | pages/App/Stock/components/purchase-items/PurchaseItemsEntrySection.tsx:117 | props/contexto | onAddNewItemRow, onAddItemClick | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/components/purchase-items/PurchaseItemsMobileList.tsx:100 | props/contexto | handleAddNewItemRow | nenhum símbolo explícito neste arquivo |
 | [ ] | pages/App/Stock/components/purchase-items/PurchaseItemsTable.tsx:120 | props/contexto | handleAddNewItemRow | nenhum símbolo explícito neste arquivo |

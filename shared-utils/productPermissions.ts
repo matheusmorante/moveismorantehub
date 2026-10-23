@@ -200,6 +200,23 @@ export const isProductIdentificationLabelOnlyProfile = (roles: readonly unknown[
   return normalizedRoles.length > 0 && normalizedRoles.every((role) => labelOnlyRoles.has(role));
 };
 
+export const hasRolePermission = (
+  actionId: string,
+  roles: readonly unknown[],
+  defaultRoles: readonly string[],
+  rolePermissions?: Record<string, readonly string[] | undefined>
+): boolean => {
+  const normalizedRoles = normalizePermissionRoles(roles);
+  if (normalizedRoles.length === 0) return false;
+  if (normalizedRoles.includes('administrator')) return true;
+
+  const configuredRoles = rolePermissions?.[actionId];
+  const allowedRoles = configuredRoles ?? defaultRoles;
+  return allowedRoles.some((role) =>
+    normalizePermissionRoles([role]).some((normalizedRole) => normalizedRoles.includes(normalizedRole))
+  );
+};
+
 export const hasProductPermission = (
   actionId: string,
   roles: readonly unknown[],
@@ -208,11 +225,5 @@ export const hasProductPermission = (
   const action = PRODUCT_PERMISSION_ACTIONS.find((permission) => permission.id === actionId);
   if (!action) return false;
 
-  const normalizedRoles = normalizePermissionRoles(roles);
-  if (normalizedRoles.length === 0) return false;
-  if (normalizedRoles.includes('administrator')) return true;
-
-  const configuredRoles = rolePermissions?.[actionId];
-  const allowedRoles = configuredRoles ?? action.defaultRoles;
-  return allowedRoles.some((role) => normalizedRoles.includes(role as ProductPermissionRole));
+  return hasRolePermission(actionId, roles, action.defaultRoles, rolePermissions);
 };

@@ -37,6 +37,18 @@ const normalizeValue = (value: unknown) =>
     .trim()
     .toLocaleLowerCase('pt-BR');
 
+const normalizeYesNoValue = (value: unknown) =>
+  normalizeValue(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const isYesNoField = (field: Props['field']) => {
+  if (field.data_type === 'boolean') return true;
+  const options = (field.options || []).map((option) => normalizeYesNoValue(option.value));
+  const allowed = new Set(['sim', 'nao', 'nao se aplica', '']);
+  const optionsAreYesNo =
+    options.length > 0 && options.length <= 3 && options.every((option) => allowed.has(option));
+  return optionsAreYesNo || (/^possui\s+/i.test(field.name.trim()) && options.length <= 2);
+};
+
 const formatDecimal = (value: unknown, decimalPlaces: 1 | 2 | 3) => {
   if (value === '' || value === null || value === undefined) return '';
   const numeric = Number(String(value).trim().replace(',', '.'));
@@ -176,66 +188,42 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
     );
   }
 
-  if (type === 'boolean') {
+  if (type === 'boolean' || isYesNoField(field)) {
+    const isBoolean = type === 'boolean' || field.data_type === 'boolean';
+    const yesValue =
+      options.find((option) => normalizeYesNoValue(option.value) === 'sim')?.value || 'Sim';
+    const noValue =
+      options.find((option) => normalizeYesNoValue(option.value) === 'nao')?.value || 'Não';
+    const normalizedValue = normalizeYesNoValue(value);
     const currentValue =
-      value === true || value === 'true'
-        ? 'true'
-        : value === false || value === 'false'
-          ? 'false'
+      value === true || value === 1 || ['true', '1', 'sim', 's', 'yes', 'ligado'].includes(normalizedValue)
+        ? 'yes'
+        : value === false || value === 0 || ['false', '0', 'nao', 'no', 'desligado'].includes(normalizedValue)
+          ? 'no'
           : '';
     return (
-      <View>
-        <TouchableOpacity
-          disabled={disabled}
-          onPress={() => {
-            setSearch('');
-            setPickerVisible(true);
-          }}
-          style={[
-            styles.input,
-            styles.pickerButton,
-            dark && styles.darkInput,
-            disabled && styles.disabled,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel={`Selecionar sim ou não para ${field.name}`}
-        >
-          <Text style={[styles.pickerText, dark && styles.lightText]}>
-            {currentValue === 'true' ? 'Sim' : currentValue === 'false' ? 'Não' : 'Selecione'}
-          </Text>
-        </TouchableOpacity>
-        <Modal
-          visible={pickerVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setPickerVisible(false)}
-        >
-          <View style={styles.modalBackdrop}>
-            <View style={[styles.modalCard, dark && styles.darkModalCard]}>
-              <Text style={[styles.modalTitle, dark && styles.lightText]}>
-                {`Escolher ${field.name}`}
+      <View style={[styles.booleanOptions, disabled && styles.disabled]}>
+        {[
+          { key: 'yes', label: yesValue, booleanValue: true },
+          { key: 'no', label: noValue, booleanValue: false },
+        ].map((option) => {
+          const selected = currentValue === option.key;
+          return (
+            <TouchableOpacity
+              key={option.key}
+              disabled={disabled}
+              onPress={() => onChange(isBoolean ? option.booleanValue : option.label)}
+              accessibilityRole="button"
+              accessibilityLabel={`${option.label} para ${field.name}`}
+              accessibilityState={{ selected, disabled }}
+              style={[styles.booleanOption, dark && styles.darkChip, selected && styles.selectedChip]}
+            >
+              <Text style={[styles.chipText, dark && styles.lightText, selected && styles.selectedText]}>
+                {option.label}
               </Text>
-              {[
-                { label: 'Selecione', value: '' },
-                { label: 'Sim', value: 'true' },
-                { label: 'Não', value: 'false' },
-              ].map((option) => (
-                <TouchableOpacity
-                  key={option.value || 'empty'}
-                  onPress={() => {
-                    onChange(option.value === '' ? '' : option.value === 'true');
-                    setPickerVisible(false);
-                  }}
-                  style={[styles.option, dark && styles.darkOption]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: currentValue === option.value }}
-                >
-                  <Text style={[styles.optionText, dark && styles.lightText]}>{option.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </Modal>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     );
   }
@@ -419,6 +407,18 @@ const styles = StyleSheet.create({
   darkInput: { borderColor: '#475569', color: '#f1f5f9', backgroundColor: '#0f172a' },
   disabled: { opacity: 0.5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  booleanOptions: { flexDirection: 'row', gap: 8 },
+  booleanOption: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff',
+  },
   chip: {
     minHeight: 44,
     justifyContent: 'center',

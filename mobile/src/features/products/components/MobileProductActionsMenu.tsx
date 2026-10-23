@@ -1,4 +1,4 @@
-import { Clock3, Copy, Eye, EyeOff, Link2, PackagePlus, Pencil, Trash2 } from 'lucide-react-native';
+import { Clock3, Copy, Eye, EyeOff, Link2, PackagePlus, Pencil, Tag, Trash2 } from 'lucide-react-native';
 import type React from 'react';
 import {
   Alert,
@@ -22,10 +22,12 @@ interface MobileProductActionsMenuProps {
   onEdit: (product: any) => void;
   onToggleActive: (id: string, active: boolean) => void;
   onDelete: (id: string, isDraft?: boolean) => void;
+  onMoveToTrash?: (id: string) => void;
   onDuplicate?: (product: any) => void;
   onLaunchStock?: (product: any) => void;
   onShowHistory?: (product: any) => void;
   onShowOrders?: (product: any) => void;
+  onPrintPriceLabel?: (product: any) => void;
 }
 
 export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> = ({
@@ -40,10 +42,12 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
   onEdit,
   onToggleActive,
   onDelete,
+  onMoveToTrash,
   onDuplicate,
   onLaunchStock,
   onShowHistory,
   onShowOrders,
+  onPrintPriceLabel,
 }) => {
   const handleEdit = () => {
     onClose();
@@ -162,6 +166,23 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                 </TouchableOpacity>
               )}
 
+              {onPrintPriceLabel && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    onClose();
+                    onPrintPriceLabel(product);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Imprimir etiqueta de preço"
+                >
+                  <Tag size={16} color="#059669" />
+                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
+                    Etiqueta de Preço
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {/* Se RASCUNHO: Apenas opção de Descartar Rascunho */}
               {isDraft ? (
                 canDelete ? (
@@ -195,6 +216,54 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                       </>
                     )}
                   </TouchableOpacity>
+                  {onMoveToTrash && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        disabled={product.can_trash !== true}
+                        accessibilityRole="button"
+                        accessibilityLabel="Mover para lixeira"
+                        accessibilityState={{ disabled: product.can_trash !== true }}
+                        accessibilityHint={product.trash_block_reason || 'Move o produto e suas variações para a lixeira.'}
+                        onPress={() =>
+                          Alert.alert(
+                            'Mover produto para a lixeira?',
+                            'O produto e todas as suas variações serão movidos para a lixeira. Você poderá restaurá-los durante 30 dias.',
+                            [
+                              { text: 'Cancelar', style: 'cancel' },
+                              {
+                                text: 'Mover para lixeira',
+                                style: 'destructive',
+                                onPress: () => {
+                                  onClose();
+                                  onMoveToTrash(product.id);
+                                },
+                              },
+                            ]
+                          )
+                        }
+                      >
+                        <Trash2
+                          size={16}
+                          color={product.can_trash === true ? '#ef4444' : '#94a3b8'}
+                        />
+                        <Text
+                          style={[
+                            styles.menuItemText,
+                            styles.dangerText,
+                            product.can_trash !== true && styles.disabledText,
+                          ]}
+                        >
+                          Mover para lixeira
+                        </Text>
+                      </TouchableOpacity>
+                      {product.can_trash !== true && Boolean(product.trash_block_reason) && (
+                        <Text style={[styles.disabledReason, dark && styles.darkDisabledReason]}>
+                          {product.trash_block_reason}
+                        </Text>
+                      )}
+                    </>
+                  )}
                 </>
               ) : null}
             </View>
@@ -260,4 +329,13 @@ const styles = StyleSheet.create({
   dangerText: {
     color: '#ef4444',
   },
+  disabledText: { color: '#94a3b8' },
+  disabledReason: {
+    color: '#64748b',
+    fontSize: 10,
+    lineHeight: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  darkDisabledReason: { color: '#94a3b8' },
 });

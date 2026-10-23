@@ -5,7 +5,7 @@ export const purchaseListFormSchema = z.object({ page: z.number().int().nonnegat
 export const supplierListFormSchema = z.object({ page: z.number().int().nonnegative(), search: z.string(), sortBy: z.enum(['full_name', 'created_at']), sortOrder: z.enum(['asc', 'desc']), activeOnly: z.boolean().optional() });
 export const productListFormSchema = z.object({
   page: z.number().int().positive(), search: z.string(), statusFilter: z.enum(['all', 'active', 'disabled', 'draft']),
-  category: z.string(), catalogStatus: z.enum(['all', 'published', 'hidden']), itemType: z.enum(['standard', 'composition']), generalType: z.enum(['all', 'product', 'service']), includeDeactivated: z.boolean(),
+  category: z.string(), catalogStatus: z.enum(['all', 'published', 'hidden']), itemType: z.enum(['standard', 'composition']), generalType: z.enum(['all', 'product', 'service']), includeDeactivated: z.boolean(), showTrash: z.boolean().optional(),
 });
 const month = (value: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && !value.startsWith('0000');
 export const invoiceDateFilterFormSchema = z.object({

@@ -33,7 +33,7 @@ export const CardHeaderBadges: React.FC<CardHeaderBadgesProps> = ({
           ? ''
           : `rounded-md text-white border border-white/20 shadow-2xs ${
               isAssistance
-                ? 'bg-amber-500 border-amber-600'
+                ? 'bg-orange-500 border-orange-600'
                 : isPickup
                   ? 'bg-purple-600 border-purple-700'
                   : 'bg-emerald-600 border-emerald-700'
@@ -52,7 +52,7 @@ export const CardHeaderBadges: React.FC<CardHeaderBadgesProps> = ({
       {orderType === 'return' ? (
         <ReturnIcon className="h-6 w-6 text-orange-500" />
       ) : isAssistance ? (
-        <i className="bi bi-tools text-[11px] text-white" />
+        <i className="bi bi-wrench-adjustable text-[13px] text-white" />
       ) : isPickup ? (
         <PickupIcon white className="h-3.5 w-3.5" />
       ) : (

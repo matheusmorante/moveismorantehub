@@ -11,14 +11,34 @@ import { PERMISSION_ACTIONS } from '../permissionConfig';
  */
 export const migrateSettings = (settings: any): AppSettings => {
   if (!settings) return settings;
+  delete settings.blingConfig;
+  if (settings.rolePermissions && typeof settings.rolePermissions === 'object') {
+    const rolePermissions = { ...settings.rolePermissions };
+    delete rolePermissions.viewBlingStock;
+    settings.rolePermissions = rolePermissions;
+  }
   // Legacy fiscal credentials must not survive in browser storage or cloud sync.
   for (const key of [
     'certificateBase64',
     'certificatePassword',
     'certificateFileName',
     'cscToken',
+    'openRouteServiceApiKey',
+    'googleMapsApiKey',
+    'geminiApiKey',
   ]) {
     delete settings[key];
+  }
+  if (settings.whatsappConfig && typeof settings.whatsappConfig === 'object') {
+    delete settings.whatsappConfig.accessToken;
+  }
+  if (Array.isArray(settings.importMappings)) {
+    settings.importMappings = settings.importMappings.filter((mapping: any) => {
+      const identifiers = [mapping?.id, mapping?.name].filter(
+        (value): value is string => typeof value === 'string'
+      );
+      return !identifiers.some((value) => /bling/i.test(value));
+    });
   }
 
   if ((settings.rolePermissionsMigrationVersion ?? 0) < 1) {
@@ -141,7 +161,6 @@ export const migrateSettings = (settings: any): AppSettings => {
       viewStockPurchases: 'viewStock',
       viewStockReceipts: 'viewStock',
       viewStockLabels: 'viewStock',
-      viewBlingStock: 'viewStock',
       viewSuppliers: 'viewStock',
       viewMarketingPosts: 'viewMarketing',
       viewChannelCatalog: 'viewMarketing',
@@ -180,13 +199,8 @@ export const migrateSettings = (settings: any): AppSettings => {
     const identificationLabelDefaults =
       PERMISSION_ACTIONS.find((permission) => permission.id === 'printProductIdentificationLabels')
         ?.defaultRoles || [];
-    const blingStockRoles = Array.isArray(rolePermissions.viewBlingStock)
-      ? rolePermissions.viewBlingStock
-      : PERMISSION_ACTIONS.find((permission) => permission.id === 'viewBlingStock')?.defaultRoles || [];
-
     settings.rolePermissions = {
       ...rolePermissions,
-      viewBlingStock: blingStockRoles.filter((role: string) => role !== 'stockist'),
       printProductIdentificationLabels: Array.isArray(rolePermissions.printProductIdentificationLabels)
         ? rolePermissions.printProductIdentificationLabels
         : [...identificationLabelDefaults],
@@ -285,15 +299,6 @@ export const migrateSettings = (settings: any): AppSettings => {
   }
   if (settingsUseGenericDefaults(settings.pickupHandlingOptions)) {
     settings.pickupHandlingOptions = MORANTE_PICKUP_HANDLING_OPTIONS;
-  }
-
-  if (!settings.googleMapsApiKey || !settings.googleMapsApiKey.trim()) {
-    settings.googleMapsApiKey =
-      (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string)?.trim() || '__REDACTED_GCP_API_KEY__';
-  }
-
-  if (!settings.geminiApiKey || !settings.geminiApiKey.trim()) {
-    settings.geminiApiKey = (import.meta.env.VITE_GEMINI_API_KEY as string)?.trim() || '';
   }
 
   return settings as AppSettings;

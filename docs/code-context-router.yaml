@@ -58,11 +58,6 @@ estoque:
     ui:
       - erp/src/pages/App/Stock/Purchases/Index.tsx
 
-  bling_estoque:
-    ui:
-      - erp/src/pages/App/Stock/BlingStock.tsx
-      - erp/src/pages/App/SalesOrder/ReportsBling/
-
   impressao_etiquetas:
     ui:
       - erp/src/pages/App/Stock/LabelPrinting/Index.tsx

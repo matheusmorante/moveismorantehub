@@ -16,10 +16,17 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
 
   const verifySlowRefresh = process.env.SUPPORT_READONLY_SLOW_REFRESH === '1';
   const verifyReadReceipt = process.env.SUPPORT_READONLY_READ_RECEIPT === '1';
+  if (verifyReadReceipt) test.setTimeout(90_000);
   const verifyPhoneCopy = process.env.SUPPORT_READONLY_COPY_PHONE === '1';
   const verifyOrdersPanel = process.env.SUPPORT_READONLY_ORDERS_PANEL === '1';
+  const verifySnippets = process.env.SUPPORT_READONLY_SNIPPETS === '1';
+  const verifyMobileLayout = process.env.SUPPORT_READONLY_MOBILE_LAYOUT === '1';
+  const verifyMissedReadRecovery = process.env.SUPPORT_READONLY_MISSED_READ === '1';
   if (verifyPhoneCopy && !verifyReadReceipt) throw new Error('A prova de cópia exige a conversa própria retida e suas guardas de leitura.');
   if (verifyOrdersPanel && !verifyReadReceipt) throw new Error('A prova de pedidos exige a conversa própria retida e suas guardas de leitura.');
+  if (verifySnippets && !verifyReadReceipt) throw new Error('A prova dos modelos exige a conversa própria retida e suas guardas de leitura.');
+  if (verifyMobileLayout && !verifyReadReceipt) throw new Error('A prova em tela pequena exige o histórico próprio retido e suas guardas de leitura.');
+  if (verifyMissedReadRecovery && !verifyReadReceipt) throw new Error('A recuperação de leitura exige o histórico próprio e suas guardas de leitura.');
   const retainedManifest = verifyReadReceipt
     ? JSON.parse(readFileSync(resolve(process.env.SUPPORT_REOPENING_MANIFEST || ''), 'utf8')) : null;
   if (verifyReadReceipt && (retainedManifest?.projectRef !== 'hkoxhourxwlddgsfdgws'
@@ -35,6 +42,13 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   let clipboardGranted = false;
   let failFolderReads = false;
   let rejectedFolderReads = 0;
+  let failAgentReads = false;
+  let rejectedAgentReads = 0;
+  let agentDirectoryReads = 0;
+  let directoryReadsAfterRetry = 0;
+  let ownedReadConversationId: string | null = null;
+  let simulateReadAcknowledgement = false;
+  let simulatedReadAcknowledgements = 0;
 
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9225');
   const context = browser.contexts()[0];
@@ -52,6 +66,25 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     const request = route.request();
     const url = new URL(request.url());
     const method = request.method();
+    if (method === 'POST' && url.pathname === '/rest/v1/rpc/customer_support_list_agents') {
+      agentDirectoryReads++;
+      if (failAgentReads) {
+        rejectedAgentReads++;
+        await route.fulfill({ status: 403, contentType: 'application/json',
+          body: JSON.stringify({ code: '42501', message: 'SUPPORT_TEST_AGENT_READ_DENIED' }) });
+        return;
+      }
+    }
+    if (verifyMissedReadRecovery && simulateReadAcknowledgement && ownedReadConversationId
+      && method === 'PATCH' && url.pathname === '/rest/v1/whatsapp_conversations'
+      && url.searchParams.get('id') === `eq.${ownedReadConversationId}`
+      && url.searchParams.get('unread_count') === 'gt.0'
+      && JSON.stringify(request.postDataJSON()) === JSON.stringify({ unread_count: 0 })) {
+      simulateReadAcknowledgement = false;
+      simulatedReadAcknowledgements++;
+      await route.fulfill({ status: 204 });
+      return;
+    }
     if (failFolderReads && method === 'GET' && url.pathname === '/rest/v1/customer_support_inboxes') {
       rejectedFolderReads++;
       await route.fulfill({ status: 403, contentType: 'application/json',
@@ -86,7 +119,8 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   };
   await context.route('**/*', guard);
   try {
-    await page.goto('http://localhost:5173/login');
+    if (verifyOrdersPanel) await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto('http://localhost:5173/login', { waitUntil: 'domcontentloaded' });
     try {
       const sameOperator = await page.evaluate(async (expected) => {
         const modulePath = '/src/pages/utils/supabaseConfig.ts';
@@ -97,7 +131,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
         return same;
       }, email);
       if (!sameOperator) {
-        await page.goto('http://localhost:5173/login');
+        await page.goto('http://localhost:5173/login', { waitUntil: 'domcontentloaded' });
         await page.getByRole('textbox', { name: 'exemplo@email.com' }).fill(email);
         await page.getByRole('textbox', { name: '••••••••' }).fill(password);
         await page.getByRole('button', { name: /Entrar no Sistema/ }).click();
@@ -122,6 +156,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     expect(operatorGateStatus, 'A identidade deve passar pelo gate real do operador.').toBe(204);
     console.info('[support-readonly] Identidade e gate do operador confirmados.');
     failFolderReads = true;
+    failAgentReads = true;
     await page.goto('http://localhost:5173/atendimento');
     await expect(page.getByText('Pastas compartilhadas', { exact: true })).toBeVisible();
     await expect(page.getByText('Não foi possível carregar as pastas. Tente atualizar.', { exact: true })).toBeVisible();
@@ -137,6 +172,20 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     await expect(page.getByText('Não foi possível carregar as pastas. Tente atualizar.', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Carregando pastas...', { exact: true })).toHaveCount(0);
     console.info('[support-readonly] Falha de pastas simulada e recuperação por consulta remota confirmadas.');
+    await expect(page.getByText('Não foi possível carregar os atendentes. Tente novamente.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Nenhum atendente autorizado encontrado.', { exact: true })).toHaveCount(0);
+    expect(rejectedAgentReads).toBeGreaterThan(0);
+    failAgentReads = false;
+    const [directoryRetry] = await Promise.all([
+      page.waitForResponse(response => new URL(response.url()).pathname === '/rest/v1/rpc/customer_support_list_agents'
+        && response.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Tentar carregar atendentes novamente', exact: true }).click(),
+    ]);
+    expect(directoryRetry.status()).toBe(200);
+    await expect(page.getByText('Não foi possível carregar os atendentes. Tente novamente.', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Carregando atendentes...', { exact: true })).toHaveCount(0);
+    directoryReadsAfterRetry = agentDirectoryReads;
+    console.info('[support-readonly] Falha do diretório simulada e recuperação remota dos atendentes confirmadas.');
     await expect(page.getByText('Conversas', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('textbox', { name: '••••••••' })).toHaveCount(0);
     console.info('[support-readonly] Inbox carregada sem formulário de credenciais.');
@@ -218,6 +267,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
         return rows.data.find((row: { unread_count: number }) => row.unread_count > 0) || null;
       }, retainedManifest);
       expect(ownFixture, 'A prova usa somente conversa própria arquivada e com não lidas; não cria massa.').toBeTruthy();
+      ownedReadConversationId = ownFixture!.id;
       const searchToggle = page.getByTitle('Alternar campo de busca', { exact: true });
       if (!await page.getByPlaceholder('Pesquisar por cliente, telefone ou pedido...').isVisible()) await searchToggle.click();
       await page.getByPlaceholder('Pesquisar por cliente, telefone ou pedido...').fill(ownFixture!.contact_name);
@@ -227,6 +277,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       await expect(page.getByText('Não foi possível confirmar a leitura. Atualize a conversa para tentar novamente.', { exact: true })).toBeVisible();
       const history = page.getByRole('region', { name: 'Histórico da conversa', exact: true });
       await expect(history.locator('[data-message-id]').first()).toBeVisible();
+      expect(agentDirectoryReads, 'Abrir o chat deve reutilizar o diretório já carregado pela Inbox.').toBe(directoryReadsAfterRetry);
       for (const title of [
         'Emojis',
         'Gravar áudio',
@@ -236,8 +287,9 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
         'Assistente de IA / Respostas Inteligentes',
         'Expandir editor',
       ]) {
-        await expect(page.getByTitle(title, { exact: true })).toHaveCount(0);
+        await expect(page.getByRole('button').and(page.getByTitle(title, { exact: true }))).toHaveCount(0);
       }
+      await expect(page.getByText('Whatsapp', { exact: true })).toBeVisible();
       await expect(page.getByTitle('Modelos Rápidos / Snippets', { exact: true })).toBeVisible();
       await expect(page.getByTitle('O envio de mensagens para o cliente está bloqueado pela política da empresa', { exact: true })).toBeDisabled();
       await expect(page.getByText('Envio bloqueado pela política da empresa', { exact: true })).toBeVisible();
@@ -247,6 +299,19 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       await expect(page.getByText('Não foi possível confirmar a leitura. Atualize a conversa para tentar novamente.', { exact: true })).toBeVisible();
       test.info().annotations.push({ type: 'read-receipt-refused', description: 'Histórico próprio retido renderizado; PATCH bloqueado antes do banco, erro de leitura visível e nova tentativa também bloqueada.' });
       console.info('[support-readonly] Histórico próprio e recusa de gravação confirmados.');
+      if (verifyMissedReadRecovery) {
+        const refusedBeforeRecovery = rejectedReadWrites;
+        simulateReadAcknowledgement = true;
+        await page.getByRole('button', { name: 'Recarregar mensagens', exact: true }).click();
+        await expect.poll(() => simulatedReadAcknowledgements).toBe(1);
+        const readError = page.getByText('Não foi possível confirmar a leitura. Atualize a conversa para tentar novamente.', { exact: true });
+        await expect(readError).toHaveCount(0);
+        // The database was not written: its next normal list poll still reports unread messages.
+        await expect.poll(() => rejectedReadWrites, { timeout: 15_000 }).toBeGreaterThan(refusedBeforeRecovery);
+        await expect(readError).toBeVisible();
+        test.info().annotations.push({ type: 'missed-realtime-read', description: 'Um ACK de leitura foi simulado somente no navegador da fixture com ownership comprovado; nenhum PATCH foi enviado ao banco. A lista remota real voltou a informar não lidas, sem novo INSERT, e a UI tentou confirmar leitura novamente (tentativa bloqueada).' });
+        console.info('[support-readonly] Recuperação de leitura por atualização da lista confirmada, sem escritas.');
+      }
       if (verifyOrdersPanel) {
         await page.getByRole('button', { name: 'Painel de informações do cliente', exact: true }).click();
         const panel = page.locator('aside').filter({ has: page.getByRole('heading', { name: /Informações Comerciais/ }) });
@@ -259,6 +324,21 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
         await expect(panel).toHaveCount(0);
         test.info().annotations.push({ type: 'orders-panel-unlinked', description: 'Painel e aba Pedidos abertos pela UI na conversa própria sem cliente; zero consultas comerciais e zero escritas. Erro/retry comercial coberto somente em RTL.' });
       }
+      if (verifySnippets) {
+        const pixText = 'Olá! Para orientar seu pagamento via PIX, vou conferir as instruções oficiais vinculadas ao seu pedido. Aguarde a confirmação dos dados antes de realizar a transferência.';
+        await page.bringToFront();
+        await context.grantPermissions(['clipboard-write'], { origin: 'http://localhost:5173' });
+        clipboardGranted = true;
+        await page.getByTitle('Modelos Rápidos / Snippets', { exact: true }).click();
+        const dialog = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Orientação de Pagamento via PIX', exact: true }) });
+        await expect(dialog.getByText(pixText, { exact: true })).toBeVisible();
+        await dialog.getByRole('button', { name: /Copiar/ }).first().click();
+        await expect(page.getByText('Modelo "Orientação de Pagamento via PIX" copiado para a área de transferência.', { exact: true })).toBeVisible();
+        console.info('[support-readonly] Cópia nativa do modelo público confirmada pela UI.');
+        await dialog.getByRole('button', { name: 'Fechar', exact: true }).click();
+        await expect(dialog).toHaveCount(0);
+        test.info().annotations.push({ type: 'neutral-snippet-copy', description: 'Modelo público neutro aberto e writeText nativo confirmado pela UI; argumento e ausência de nota conferidos em RTL. Conteúdo do clipboard do sistema não relido. Todas as escritas de negócio bloqueadas.' });
+      }
       if (verifyPhoneCopy) {
         await page.bringToFront();
         await context.grantPermissions(['clipboard-write'], { origin: 'http://localhost:5173' });
@@ -267,6 +347,40 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
         await page.getByRole('button', { name: /Copiar telefone/ }).click();
         await expect(page.getByText('Telefone copiado para a área de transferência.', { exact: true })).toBeVisible();
         test.info().annotations.push({ type: 'copy-own-phone', description: 'writeText nativo confirmado pela UI usando somente telefone sintético próprio; argumento coberto em RTL, conteúdo do sistema não relido. Sem mensagens ou notas.' });
+      }
+    }
+
+    if (verifyMobileLayout) {
+      const previousViewport = page.viewportSize();
+      try {
+        await page.setViewportSize({ width: 390, height: 844 });
+        const history = page.getByRole('region', { name: 'Histórico da conversa', exact: true });
+        const list = page.getByRole('region', { name: 'Lista de conversas', exact: true });
+        await expect(history).toBeVisible();
+        await expect(list).toBeHidden();
+        const bounds = await history.boundingBox();
+        expect(bounds).toBeTruthy();
+        expect(bounds!.x).toBeGreaterThanOrEqual(-1);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(391);
+        await expect(page.getByPlaceholder('O envio para o cliente está desativado pela política da empresa.', { exact: true })).toBeDisabled();
+        if (verifyOrdersPanel) {
+          await page.getByRole('button', { name: 'Painel de informações do cliente', exact: true }).click();
+          const panel = page.locator('aside').filter({ has: page.getByRole('heading', { name: /Informações Comerciais/ }) });
+          await expect(panel).toBeVisible();
+          const panelBounds = await panel.boundingBox();
+          expect(panelBounds).toBeTruthy();
+          expect(panelBounds!.x).toBeGreaterThanOrEqual(-1);
+          expect(panelBounds!.x + panelBounds!.width).toBeLessThanOrEqual(391);
+          await panel.getByRole('button', { name: 'Fechar painel', exact: true }).click();
+          await expect(panel).toHaveCount(0);
+        }
+        await page.getByRole('button', { name: 'Voltar para a lista', exact: true }).click();
+        await expect(list).toBeVisible();
+        await expect(history).toHaveCount(0);
+        test.info().annotations.push({ type: 'small-screen-readonly', description: 'Viewport Chromium 390x844: histórico próprio cabe na largura, lista oculta com chat aberto, voltar reexibe lista e envio permanece bloqueado. Não é dispositivo nativo nem prova offline.' });
+        console.info('[support-readonly] Navegação lista/chat em 390x844 confirmada sem escritas.');
+      } finally {
+        if (previousViewport) await page.setViewportSize(previousViewport);
       }
     }
 
@@ -280,6 +394,8 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
         page.evaluate(() => navigator.clipboard.writeText('')), { timeout: 3_000 }).catch(() => undefined);
       await context.clearPermissions();
     }
+    // Stop the app before releasing the write guard; the visible browser stays open.
+    await page.goto('about:blank');
     await context.unroute('**/*', guard);
     // Disconnect this runner; the CLI retains its visible browser and session.
     await browser.close();

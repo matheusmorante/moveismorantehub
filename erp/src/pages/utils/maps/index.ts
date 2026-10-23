@@ -1,11 +1,7 @@
 export { getNeighborhoodCoords, parseCoordinatesFromMapsUrl } from '../mapCoordinates';
 export { normalizeUf, parseAddressPrediction } from '../addressParsing';
 
-export {
-  getEffectiveGoogleMapsApiKey,
-  isGoogleQuotaError,
-  loadGoogleMapsApi,
-} from './googleMapsLoader';
+export { isGoogleQuotaError, loadGoogleMapsApi } from './googleMapsLoader';
 
 export {
   geocodeCache,

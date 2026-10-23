@@ -7,6 +7,7 @@ import { canSeeFinanceModuleBeta, canUseFinanceModule } from '../../../pages/uti
 export interface DesktopNavPermissions {
   // Roles
   roles: readonly string[];
+  canViewDashboard: boolean;
 
   // Central de Atendimento
   canViewCustomerSupport: boolean;
@@ -26,7 +27,6 @@ export interface DesktopNavPermissions {
   canViewStockPurchases: boolean;
   canViewStockReceipts: boolean;
   canViewStockLabels: boolean;
-  canViewBlingStock: boolean;
   canViewSuppliers: boolean;
   canViewStock: boolean;
 
@@ -72,6 +72,7 @@ export interface DesktopNavPermissions {
 export function useDesktopNavPermissions(profile: UserProfile | null): DesktopNavPermissions {
   return useMemo(() => {
     const roles = profile ? getProfileRoles(profile) : [];
+    const canViewDashboard = roles.some((role) => role === 'administrator' || role === 'manager');
 
     // Produtos
     const canViewProducts = canPerform('viewProducts', roles);
@@ -93,7 +94,6 @@ export function useDesktopNavPermissions(profile: UserProfile | null): DesktopNa
     const canViewStockPurchases = canPerform('viewStockPurchases', roles);
     const canViewStockReceipts = canPerform('viewStockReceipts', roles);
     const canViewStockLabels = canPerform('viewStockLabels', roles);
-    const canViewBlingStock = canPerform('viewBlingStock', roles);
     const canViewSuppliers = canPerform('viewSuppliers', roles);
     const canViewStock =
       canViewStockMovements ||
@@ -101,8 +101,7 @@ export function useDesktopNavPermissions(profile: UserProfile | null): DesktopNa
       canViewStockUnavailabilities ||
       canViewStockPurchases ||
       canViewStockReceipts ||
-      canViewStockLabels ||
-      canViewBlingStock;
+      canViewStockLabels;
 
     // Pessoas
     const canViewCustomers = canPerform('viewCustomers', roles);
@@ -156,6 +155,7 @@ export function useDesktopNavPermissions(profile: UserProfile | null): DesktopNa
 
     return {
       roles,
+      canViewDashboard,
       canViewCustomerSupport,
       canViewProducts,
       canViewProductCharacteristics,
@@ -169,7 +169,6 @@ export function useDesktopNavPermissions(profile: UserProfile | null): DesktopNa
       canViewStockPurchases,
       canViewStockReceipts,
       canViewStockLabels,
-      canViewBlingStock,
       canViewSuppliers,
       canViewStock,
       canViewCustomers,

@@ -142,14 +142,13 @@ export function useCustomerSupportMessages({
         setMessages([]);
         setHasOlderMessages(false);
         void loadMessages(convId);
-        if (unreadCount > 0) {
-          void confirmRead(convId);
-        }
       } else {
         setMessages([]);
         setHasOlderMessages(false);
       }
     }
+    // A lista também recupera mensagens cujo evento Realtime não chegou.
+    if (convId && unreadCount > 0) void confirmRead(convId);
   }, [selectedConversation?.id, selectedConversation?.unreadCount, loadMessages, confirmRead]);
 
   useEffect(() => {

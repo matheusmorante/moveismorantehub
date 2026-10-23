@@ -1,15 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import {
   canShowMobileTestProducts,
+  DEFAULT_MOBILE_PRODUCT_LIST_FILTERS,
   resolveAppliedMobileProductSearch,
   resolveMobileProductStatusFilter,
 } from './mobileProductListFilters';
 
 describe('mobileProductListFilters', () => {
-  it('applies searches only at three characters and preserves the last search for shorter input', () => {
-    expect(resolveAppliedMobileProductSearch('ca', 'cadeira')).toBe('cadeira');
-    expect(resolveAppliedMobileProductSearch(' cadeira ', '')).toBe('cadeira');
-    expect(resolveAppliedMobileProductSearch('  ', 'cadeira')).toBe('');
+  it('usa os padrões do ERP ao limpar filtros', () => {
+    expect(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS).toEqual({
+      searchTerm: '',
+      statusFilter: 'all',
+      showDeactivated: true,
+      categoryFilter: '',
+      catalogStatusFilter: 'all',
+      generalTypeFilter: 'all',
+    });
+  });
+
+  it('applies searches at three characters and clears the previous search for shorter input', () => {
+    expect(resolveAppliedMobileProductSearch('ca')).toBe('');
+    expect(resolveAppliedMobileProductSearch(' cadeira ')).toBe('cadeira');
+    expect(resolveAppliedMobileProductSearch('  ')).toBe('');
   });
 
   it('preserves status filters without a search and keeps draft searches scoped to drafts', () => {

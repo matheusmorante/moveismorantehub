@@ -1,25 +1,45 @@
 // @vitest-environment happy-dom
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useLabelPrintingState } from './useLabelPrintingState';
 import { createInitialLabelConfig } from '../services/labelModelMapper';
 
-const mocks = vi.hoisted(() => ({ error: vi.fn(), setImage: vi.fn(), setName: vi.fn(), openLogo: vi.fn(), category: 'precos', confirmLogo: vi.fn(), print: vi.fn() }));
+const mocks = vi.hoisted(() => ({ error: vi.fn(), setImage: vi.fn(), setName: vi.fn(), openLogo: vi.fn(), category: 'precos', confirmLogo: vi.fn(), print: vi.fn(), initialProduct: null as any }));
 vi.mock('react-router-dom', () => ({ useLocation: () => ({ pathname: '/labels', state: null }), useSearchParams: () => [new URLSearchParams()] }));
 vi.mock('./useLabelCategory', () => ({ useLabelCategory: () => ({ selectedCategory: mocks.category, printingMode: 'simple' }) }));
 vi.mock('./useLabelLayouts', () => ({ useLabelLayouts: () => ({ config: createInitialLabelConfig() }) }));
-vi.mock('./useLabelProducts', () => ({ useLabelProducts: () => ({ products: [] }) }));
+vi.mock('./useLabelProducts', () => ({ useLabelProducts: () => ({ products: [], initialProduct: mocks.initialProduct }) }));
 vi.mock('./useLabelModalsAndAssets', () => ({ useLabelModalsAndAssets: () => ({ setNewLogoImage: mocks.setImage, setNewLogoName: mocks.setName, setIsNewLogoModalOpen: mocks.openLogo, setSelectedImage: mocks.setImage, handleConfirmNewLogo: mocks.confirmLogo }) }));
 vi.mock('./useLabelPreview', () => ({ useLabelPreview: () => ({}) }));
 vi.mock('./useLabelPrintMode', () => ({ useLabelPrintMode: () => mocks.print }));
 vi.mock('../services/inventoryLabelService', () => ({ generateInventoryLabelsBatch: vi.fn() }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn() } }));
 afterEach(() => { cleanup(); vi.useRealTimers(); });
-beforeEach(() => { vi.clearAllMocks(); mocks.category = 'precos'; });
+beforeEach(() => { vi.clearAllMocks(); mocks.category = 'precos'; mocks.initialProduct = null; });
 const image = () => new File(['photo'], 'Logo.png', { type: 'image/png' });
 const event = (file: File) => ({ target: { files: [file], value: 'chosen' } }) as never;
 
 describe('label image read owner', () => {
+  it('adds a linked price-label product to the queue only once', async () => {
+    mocks.initialProduct = {
+      id: 'product-id',
+      description: 'Camiseta Azul',
+      unitPrice: 49.9,
+      promo_price: 39.9,
+      images: [],
+    };
+    const { result, rerender } = renderHook(useLabelPrintingState);
+
+    await waitFor(() => expect(result.current.labelItems).toHaveLength(1));
+    expect(result.current.labelItems[0]).toMatchObject({
+      name: 'Camiseta Azul',
+      productId: 'product-id',
+      price: expect.any(String),
+    });
+    rerender();
+    expect(result.current.labelItems).toHaveLength(1);
+  });
+
   it('blocks invalid input before FileReader and reports a read failure without changing the queue', async () => {
     const read = vi.spyOn(FileReader.prototype, 'readAsDataURL');
     const { result } = renderHook(useLabelPrintingState);

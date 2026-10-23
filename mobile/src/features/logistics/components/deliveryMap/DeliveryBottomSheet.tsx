@@ -22,6 +22,7 @@ import {
   Timer,
 } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
+import { DeliveryFlowIcon } from '../../../../components/shared/DeliveryFlowIcon';
 
 interface Props {
   item: DeliveryRouteItem | null;
@@ -30,6 +31,7 @@ interface Props {
   onClose: () => void;
   onStartDelivery: (item: DeliveryRouteItem) => Promise<void> | void;
   onViewOrder: (item: DeliveryRouteItem) => void;
+  onOpenDeliveryFlow: (item: DeliveryRouteItem) => void;
   isDarkMode?: boolean;
 }
 
@@ -40,6 +42,7 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
   onClose,
   onStartDelivery,
   onViewOrder,
+  onOpenDeliveryFlow,
   isDarkMode = false,
 }) => {
   const insets = useSafeAreaInsets();
@@ -79,6 +82,11 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
   const handleViewOrderDetails = () => {
     onClose();
     onViewOrder(item);
+  };
+
+  const handleOpenDeliveryFlow = () => {
+    onClose();
+    onOpenDeliveryFlow(item);
   };
 
   const primaryDeliveryAction = canStartDelivery
@@ -290,6 +298,22 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
                     Detalhes do Pedido
                   </Text>
                 </TouchableOpacity>
+
+                {item.activityType === 'delivery' && (
+                  <TouchableOpacity
+                    style={[
+                      styles.deliveryFlowActionBtn,
+                      isDarkMode && styles.deliveryFlowActionBtnDark,
+                    ]}
+                    onPress={handleOpenDeliveryFlow}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Abrir fluxo de entrega"
+                  >
+                    <DeliveryFlowIcon size={20} color="#ffffff" />
+                    <Text style={styles.deliveryFlowActionText}>FLUXO DE ENTREGA</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </View>
@@ -552,6 +576,25 @@ const styles = StyleSheet.create({
   },
   secondaryActionTextDark: {
     color: '#93c5fd',
+  },
+  deliveryFlowActionBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#10b981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  deliveryFlowActionBtnDark: {
+    backgroundColor: '#059669',
+  },
+  deliveryFlowActionText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   loadingBox: {
     flex: 1,

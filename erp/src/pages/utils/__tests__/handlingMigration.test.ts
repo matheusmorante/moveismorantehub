@@ -57,7 +57,7 @@ describe('handlingMigration - Preservação e Consistência de Manuseios', () =>
     expect(migrated.items[1].handlingType).toBe('Item não necessita de montagem');
   });
 
-  it('deve converter manuseios legados do Bling corretamente mantendo integridade', () => {
+  it('deve converter rótulos legados de manuseio mantendo a integridade do pedido', () => {
     const order = {
       shipping: {
         deliveryMethod: 'delivery',

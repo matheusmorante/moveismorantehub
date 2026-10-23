@@ -43,7 +43,6 @@ const OrderHistoryCard: React.FC<OrderHistoryCardProps> = ({
   onAction,
   onStatusUpdate,
   showTrash,
-  onBlingUpdate,
   onStockCheckUpdate,
   isHighlighted,
   id,
@@ -135,7 +134,6 @@ const OrderHistoryCard: React.FC<OrderHistoryCardProps> = ({
         onViewFiscalDocument={onViewFiscalDocument}
         onIssueNfe={onIssueNfe}
         onStatusUpdate={onStatusUpdate}
-        onBlingUpdate={onBlingUpdate}
         onStockCheckUpdate={onStockCheckUpdate}
         showTrash={showTrash}
       />

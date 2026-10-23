@@ -28,7 +28,6 @@ export interface OrderDatabaseRow {
   total_cost?: number | null;
   stock_processed?: boolean | null;
   is_stock_checked?: boolean | null;
-  is_registered_in_bling?: boolean | null;
   deleted?: boolean | null;
   deleted_at?: string | null;
   return_order_id?: string | null;

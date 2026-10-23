@@ -11,7 +11,8 @@ import { supabase } from '../supabaseConfig';
  */
 export async function printOrderDanfe(
   order: Order,
-  format?: 'thermal_80mm' | 'a4'
+  format?: 'thermal_80mm' | 'a4',
+  preparedPrintWindow?: Window | null
 ): Promise<void> {
   const nfeData = (order as any).nfeData;
   if (!nfeData) {
@@ -73,6 +74,7 @@ export async function printOrderDanfe(
       fiscalDetails,
       printFormat: nfeData.model === '65' ? format : undefined,
     },
-    nfeData.model === '65' ? format : undefined
+    nfeData.model === '65' ? format : undefined,
+    preparedPrintWindow
   );
 }

@@ -1,4 +1,5 @@
 import { getSettings } from '@/pages/utils/settingsService';
+import { supabase } from '@/pages/utils/supabaseConfig';
 
 export const GRAPH_API_VERSION = 'v26.0';
 export const FACEBOOK_GRAPH_URL = 'https://graph.facebook.com';
@@ -12,19 +13,22 @@ let cachedPhoneStatus: {
 const CACHE_TTL_MS = 60000; // 60 segundos
 
 /**
- * Cliente HTTP base para comunicação autenticada com a Facebook Graph API / WhatsApp Cloud API.
- * Centraliza versionamento de endpoint, montagem de headers de autorização e teste de conexão.
+ * Cliente HTTP para o proxy autenticado de Meta no servidor.
+ * O token da Meta permanece no ambiente de execução server-side.
  */
 export const metaHttpClient = {
-  getHeaders: (config?: any): Record<string, string> => {
-    const targetConfig = config || getSettings().whatsappConfig;
-    if (!targetConfig?.accessToken) {
-      throw new Error('Token de acesso do WhatsApp/Meta não configurado.');
-    }
-    return {
-      Authorization: `Bearer ${targetConfig.accessToken}`,
-      'Content-Type': 'application/json',
-    };
+  request: async (operation: string, payload: Record<string, unknown> = {}): Promise<Response> => {
+    const { data, error } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (error || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
+    return fetch('/api/meta-graph', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ...payload, operation }),
+    });
   },
 
   /**
@@ -33,7 +37,7 @@ export const metaHttpClient = {
    */
   getSenderPhoneStatus: async (config?: any, forceRefresh: boolean = false) => {
     const targetConfig = config || getSettings().whatsappConfig;
-    if (!targetConfig?.phoneNumberId || !targetConfig?.accessToken) {
+    if (!targetConfig?.phoneNumberId) {
       return null;
     }
 
@@ -48,12 +52,9 @@ export const metaHttpClient = {
     }
 
     try {
-      const response = await fetch(
-        `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${targetConfig.phoneNumberId}?fields=verified_name,display_phone_number,quality_rating,code_verification_status,status,quality_score,messaging_limit_tier`,
-        {
-          headers: metaHttpClient.getHeaders(targetConfig),
-        }
-      );
+      const response = await metaHttpClient.request('sender_status', {
+        phoneNumberId: targetConfig.phoneNumberId,
+      });
 
       const data = await response.json();
       if (data.error) {
@@ -81,16 +82,9 @@ export const metaHttpClient = {
     if (!targetConfig?.phoneNumberId) {
       throw new Error('Phone Number ID não configurado.');
     }
-    if (!targetConfig?.accessToken) {
-      throw new Error('Token de acesso não configurado.');
-    }
-
-    const response = await fetch(
-      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${targetConfig.phoneNumberId}?fields=id,verified_name,display_phone_number,quality_rating,code_verification_status,status,quality_score,messaging_limit_tier`,
-      {
-        headers: metaHttpClient.getHeaders(targetConfig),
-      }
-    );
+    const response = await metaHttpClient.request('connection_test', {
+      phoneNumberId: targetConfig.phoneNumberId,
+    });
 
     const data = await response.json();
     if (data.error) {
@@ -106,19 +100,10 @@ export const metaHttpClient = {
     return data;
   },
 
-  postMessages: async (payload: any, config?: any) => {
-    const targetConfig = config || getSettings().whatsappConfig;
-    if (!targetConfig?.phoneNumberId) {
+  postMessages: async (payload: any, purpose: string = 'sales') => {
+    if (!getSettings().whatsappConfig?.phoneNumberId) {
       throw new Error('Phone Number ID não configurado.');
     }
-
-    return fetch(
-      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${targetConfig.phoneNumberId}/messages`,
-      {
-        method: 'POST',
-        headers: metaHttpClient.getHeaders(targetConfig),
-        body: JSON.stringify(payload),
-      }
-    );
+    return metaHttpClient.request('send_message', { payload, purpose });
   },
 };

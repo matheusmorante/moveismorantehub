@@ -38,6 +38,9 @@ export default function CustomerSupport() {
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [agents, setAgents] = useState<AssignedProfileSummary[]>([]);
+  const [isLoadingAgents, setIsLoadingAgents] = useState(true);
+  const [agentsError, setAgentsError] = useState<string | null>(null);
+  const [agentReloadKey, setAgentReloadKey] = useState(0);
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
   const roles = profile ? getProfileRoles(profile) : [];
   const canViewCommercialInfo = canPerform('viewCustomerCommercialInfo', roles);
@@ -90,8 +93,10 @@ export default function CustomerSupport() {
         if (!target || target.unreadCount === 0) return prev;
         return prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c));
       });
+      setSelectedConversation((prev) => prev?.id === convId && prev.unreadCount > 0
+        ? { ...prev, unreadCount: 0 } : prev);
     },
-    [setConversations]
+    [setConversations, setSelectedConversation]
   );
 
   const {
@@ -129,11 +134,20 @@ export default function CustomerSupport() {
 
   useEffect(() => {
     let active = true;
-    fetchTeamProfiles(supabase).then((profiles) => {
-      if (active) setAgents(profiles);
-    });
+    setAgents([]);
+    setAgentsError(null);
+    setIsLoadingAgents(Boolean(user?.id));
+    if (user?.id) {
+      fetchTeamProfiles(supabase).then((profiles) => {
+        if (active) setAgents(profiles);
+      }).catch(() => {
+        if (active) setAgentsError('Não foi possível carregar os atendentes. Tente novamente.');
+      }).finally(() => {
+        if (active) setIsLoadingAgents(false);
+      });
+    }
     return () => { active = false; };
-  }, []);
+  }, [user?.id, agentReloadKey]);
 
   const handleFilterChange = (nextFilter: typeof filter) => {
     setSelectedFolder(null);
@@ -216,6 +230,9 @@ export default function CustomerSupport() {
           isOpen={isInboxSidebarOpen}
           onToggleCollapse={() => setIsInboxSidebarOpen(false)}
           agents={agents}
+          isLoadingAgents={isLoadingAgents}
+          agentsError={agentsError}
+          onReloadAgents={() => setAgentReloadKey((key) => key + 1)}
           activeAgentId={activeAgentId}
           onSelectAgent={handleSelectAgent}
           folders={folders}
@@ -275,6 +292,10 @@ export default function CustomerSupport() {
           <ChatArea
             key={selectedConversation.id}
             conversation={selectedConversation}
+            teamMembers={agents}
+            isLoadingAgents={isLoadingAgents}
+            agentsError={agentsError}
+            onReloadAgents={() => setAgentReloadKey((key) => key + 1)}
             messages={messages}
             isLoadingMessages={isLoadingMessages}
             messagesError={messagesError}

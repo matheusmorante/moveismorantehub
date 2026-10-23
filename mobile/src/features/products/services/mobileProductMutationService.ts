@@ -1,4 +1,7 @@
 import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { validateProductActivationRequirements } from '../../../../../shared-utils/productActivationValidation';
+import type { ProductActivationProduct } from '../../../../../shared-utils/productActivationValidation';
 import { supabase } from '../../../services/supabaseClient';
 import { getPersistableProductTechnicalValues } from '../domain/productCharacteristics';
 import { parseLocalizedNumber as parseLocalizedPrice } from '../domain/productNumbers';
@@ -8,6 +11,7 @@ import {
 } from '../domain/productVariationName';
 import { generateVariationSku } from '../domain/productSku';
 import { getNextSequentialProductCode } from './mobileProductCodeService';
+import { getMobileProductVariationRecords } from '../domain/mobileProductVariationVisibility';
 
 const normalizeVariationSku = (sku?: string) =>
   String(sku || '')
@@ -18,10 +22,10 @@ const normalizeComboItems = (items: unknown) =>
   (Array.isArray(items) ? items : []).map((item: any) => ({
     productId: item.productId ?? item.product_id,
     variationId: item.variationId ?? item.variation_id ?? null,
-    quantity: Math.max(1, Number(item.quantity || 1)),
+    quantity: Math.max(1, parseLocalizedPrice(item.quantity || 1)),
     description: item.description || item.productName || item.name || '',
-    unitPrice: Number(item.unitPrice ?? item.unit_price ?? 0),
-    stock: Number(item.stock ?? item.currentStock ?? 0),
+    unitPrice: parseLocalizedPrice(item.unitPrice ?? item.unit_price ?? 0),
+    stock: parseLocalizedPrice(item.stock ?? item.currentStock ?? 0),
   }));
 
 const createOperationId = () =>
@@ -34,32 +38,67 @@ const isUuid = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+const withMobileMutationTimeout = async <T,>(
+  request: PromiseLike<T>,
+  label: string
+): Promise<T> => {
+  const response = await withTimeout(
+    Promise.resolve(request).then((value) => ({ value })),
+    10_000,
+    null,
+    label
+  );
+  if (!response) throw new Error('A operação expirou. Verifique a conexão e tente novamente.');
+  return response.value;
+};
+
 /** Impede a remoção de variações que já tenham estoque movimentado ou venda vinculada. */
 export const checkMobileProductVariationHasMoves = async (
   productId: string,
   variationId: string
 ): Promise<boolean> => {
   const realProductId = String(productId).split('_')[0];
-  if (!isUuid(realProductId) || !isUuid(variationId)) return false;
+  if (!isUuid(realProductId) || !isUuid(variationId)) return true;
 
-  const [movesResult, orderItemsResult] = await Promise.all([
+  const results = await withTimeout(Promise.all([
     supabase
       .from('inventory_moves')
       .select('id')
-      .eq('product_id', realProductId)
       .eq('variation_id', variationId)
       .limit(1),
     supabase
       .from('order_items')
       .select('id')
-      .eq('product_id', realProductId)
       .eq('variation_id', variationId)
       .limit(1),
-  ]);
+    supabase
+      .from('goods_receipt_items')
+      .select('id')
+      .eq('variation_id', variationId)
+      .limit(1),
+    supabase
+      .from('inbound_invoices')
+      .select('id')
+      .filter('items', 'cs', `[{"variationId": "${variationId}"}]`)
+      .limit(1),
+  ]), 10_000, null, 'mobile:verificar-vinculos-variacao');
+
+  if (!results) {
+    throw new Error('A verificação de vínculos da variação expirou.');
+  }
+
+  const [movesResult, orderItemsResult, receiptItemsResult, inboundInvoicesResult] = results;
 
   if (movesResult.error) throw movesResult.error;
   if (orderItemsResult.error) throw orderItemsResult.error;
-  return Boolean(movesResult.data?.length || orderItemsResult.data?.length);
+  if (receiptItemsResult.error) throw receiptItemsResult.error;
+  if (inboundInvoicesResult.error) throw inboundInvoicesResult.error;
+  return Boolean(
+    movesResult.data?.length ||
+    orderItemsResult.data?.length ||
+    receiptItemsResult.data?.length ||
+    inboundInvoicesResult.data?.length
+  );
 };
 
 export const toggleMobileProductCatalog = async (
@@ -70,11 +109,16 @@ export const toggleMobileProductCatalog = async (
 ) => {
   const nextStatus = currentStatus === 'published' ? 'hidden' : 'published';
   if (nextStatus === 'published') {
-    const { data: prod } = await supabase
-      .from('products')
-      .select('id, code, sku, name, title, observations, is_test')
-      .eq('id', productId)
-      .maybeSingle();
+    const productResult = await withMobileMutationTimeout(
+      supabase
+        .from('products')
+        .select('id, code, sku, name, title, observations, is_test')
+        .eq('id', productId)
+        .maybeSingle(),
+      'mobile:validar-publicacao-produto'
+    );
+    if (productResult.error) throw productResult.error;
+    const prod = productResult.data;
     if (isTestProduct(prod)) {
       throw new Error(
         'Produtos identificados como teste não podem ser publicados no Catálogo Digital.'
@@ -82,19 +126,67 @@ export const toggleMobileProductCatalog = async (
     }
   }
   if (isVariation && variationId) {
-    const { error } = await supabase
-      .from('product_variations')
-      .update({ status: nextStatus, updated_at: new Date().toISOString() })
-      .eq('id', variationId);
-    if (error) throw error;
+    const variationResult = await withMobileMutationTimeout(
+      supabase
+        .from('product_variations')
+        .update({ status: nextStatus, updated_at: new Date().toISOString() })
+        .eq('id', variationId),
+      'mobile:atualizar-status-variacao'
+    );
+    if (variationResult.error) throw variationResult.error;
+
+    if (nextStatus === 'published') {
+      const parentResult = await withMobileMutationTimeout(
+        supabase
+          .from('products')
+          .update({ status: 'published', updated_at: new Date().toISOString() })
+          .eq('id', productId),
+        'mobile:publicar-pai-da-variacao'
+      );
+      if (parentResult.error) throw parentResult.error;
+    } else {
+      const remainingResult = await withMobileMutationTimeout(
+        supabase
+          .from('product_variations')
+          .select('id')
+          .eq('product_id', productId)
+          .neq('id', variationId)
+          .eq('status', 'published'),
+        'mobile:consultar-variacoes-publicadas'
+      );
+      if (remainingResult.error) throw remainingResult.error;
+      if (!remainingResult.data?.length) {
+        const parentResult = await withMobileMutationTimeout(
+          supabase
+            .from('products')
+            .update({ status: 'hidden', updated_at: new Date().toISOString() })
+            .eq('id', productId),
+          'mobile:ocultar-pai-sem-variacoes-publicadas'
+        );
+        if (parentResult.error) throw parentResult.error;
+      }
+    }
     return nextStatus;
   }
 
-  const { error } = await supabase
-    .from('products')
-    .update({ status: nextStatus, updated_at: new Date().toISOString() })
-    .eq('id', productId);
-  if (error) throw error;
+  const productUpdateResult = await withMobileMutationTimeout(
+    supabase
+      .from('products')
+      .update({ status: nextStatus, updated_at: new Date().toISOString() })
+      .eq('id', productId),
+    'mobile:atualizar-status-produto'
+  );
+  if (productUpdateResult.error) throw productUpdateResult.error;
+
+  // Publicar/ocultar o pai no ERP aplica o mesmo status às variações vinculadas.
+  const variationsResult = await withMobileMutationTimeout(
+    supabase
+      .from('product_variations')
+      .update({ status: nextStatus, updated_at: new Date().toISOString() })
+      .eq('product_id', productId),
+    'mobile:atualizar-status-variacoes'
+  );
+  if (variationsResult.error) throw variationsResult.error;
   return nextStatus;
 };
 
@@ -105,31 +197,179 @@ export const toggleMobileProductActive = async (
   variationId?: string
 ) => {
   const nextActive = !currentActive;
-  if (nextActive) {
-    const { data: prod } = await supabase
-      .from('products')
-      .select('product_kind')
-      .eq('id', productId)
-      .maybeSingle();
-    if (prod?.product_kind && prod.product_kind !== 'normal') {
-      throw new Error(
-        'Produtos com origem diferente de Convencional permanecem desativados no ERP.'
-      );
+  let productKind: string | undefined;
+  if (nextActive || (isVariation && variationId)) {
+    const productResult = await withMobileMutationTimeout(
+      supabase
+        .from('products')
+        .select(
+          nextActive
+            ? '*, product_categories(category_id), product_variations(*)'
+            : 'product_kind'
+        )
+        .eq('id', productId)
+        .maybeSingle(),
+      'mobile:consultar-origem-produto'
+    );
+    if (productResult.error) throw productResult.error;
+    const row: any = productResult.data;
+    productKind = row?.product_kind;
+    if (nextActive && !row) throw new Error('Produto não encontrado para ativação.');
+    if (nextActive && row) {
+      const parentCode = String(row.code || row.sku || '');
+      const isDraft = Boolean(row.is_draft || row.status === 'draft');
+      const unitPrice = Number(row.price ?? row.unit_price ?? 0);
+      const visibleVariations = getMobileProductVariationRecords(row, true);
+      const variations = visibleVariations.map((variation: any, index: number) => {
+        const suffix = String(index + 1).padStart(2, '0');
+        const prefix = parentCode ? `${parentCode}-` : '';
+        const sku =
+          variation.sku && prefix && String(variation.sku).startsWith(prefix)
+            ? String(variation.sku)
+            : parentCode
+              ? `${parentCode}-${suffix}`
+              : String(variation.sku || '');
+        const syncUnitPrice = variation.use_parent_price !== false;
+        return {
+          id: String(variation.id),
+          sku,
+          syncUnitPrice,
+          unitPrice: syncUnitPrice ? unitPrice : Number(variation.price || 0),
+          comboItems: Array.isArray(variation.combo_items) ? variation.combo_items : [],
+        };
+      });
+
+      if (
+        !isDraft &&
+        variations.length === 0 &&
+        (!row.item_type || row.item_type === 'product')
+      ) {
+        variations.push({
+          id: `${productId}_${parentCode ? `${parentCode}-01` : '01'}`,
+          sku: parentCode ? `${parentCode}-01` : '01',
+          syncUnitPrice: true,
+          unitPrice,
+          comboItems: [],
+        });
+      }
+
+      const categoryIds = [
+        ...(Array.isArray(row.product_categories)
+          ? row.product_categories.map((relation: any) => relation.category_id).filter(Boolean)
+          : []),
+        ...(row.category_id ? [row.category_id] : []),
+      ].map(String);
+      const itemType = row.item_type || 'product';
+      const hasVariations =
+        isDraft || itemType !== 'product'
+          ? Boolean(row.has_variations)
+          : variations.length > 1;
+      const activationProduct: ProductActivationProduct = {
+        id: String(row.id),
+        code: parentCode,
+        sku: String(row.sku || parentCode),
+        name: row.name || row.title || '',
+        description: row.description || '',
+        unitPrice,
+        category: row.category || '',
+        categoryIds,
+        supplierId: row.supplier_id || row.main_supplier_id || '',
+        mainSupplierId: row.main_supplier_id || row.supplier_id || '',
+        isDraft,
+        hasVariations,
+        itemType,
+        isCombo: Boolean(row.is_combo),
+        comboItems: Array.isArray(row.combo_items) ? row.combo_items : [],
+        variations,
+        productKind: row.product_kind,
+        condition: row.condition,
+        is_salvado: row.is_salvado,
+      };
+
+      if (isVariation && variationId) {
+        const targetVariation = variations.find(
+          (variation) => String(variation.id) === String(variationId)
+        );
+        if (!targetVariation?.sku) {
+          throw new Error('A variação mudou. Atualize a lista antes de ativá-la.');
+        }
+        const validationId = `${productId}_${targetVariation.sku}`;
+        const validation = validateProductActivationRequirements(
+          validationId,
+          [activationProduct],
+          [activationProduct]
+        );
+        if (!validation.isValid) throw new Error(validation.errorMessage || 'Produto incompleto.');
+      } else {
+        const validation = validateProductActivationRequirements(
+          String(productId),
+          [activationProduct],
+          [activationProduct]
+        );
+        if (!validation.isValid) throw new Error(validation.errorMessage || 'Produto incompleto.');
+      }
     }
   }
   if (isVariation && variationId) {
-    const { error } = await supabase
-      .from('product_variations')
-      .update({ active: nextActive, updated_at: new Date().toISOString() })
-      .eq('id', variationId);
-    if (error) throw error;
+    const variationResult = await withMobileMutationTimeout(
+      supabase
+        .from('product_variations')
+        .update({ active: nextActive, updated_at: new Date().toISOString() })
+        .eq('id', variationId),
+      'mobile:atualizar-ativacao-variacao'
+    );
+    if (variationResult.error) throw variationResult.error;
+
+    if (productKind && productKind !== 'normal') {
+      const parentResult = await withMobileMutationTimeout(
+        supabase
+          .from('products')
+          .update({ active: false, updated_at: new Date().toISOString() })
+          .eq('id', productId),
+        'mobile:sincronizar-ativacao-pai'
+      );
+      if (parentResult.error) throw parentResult.error;
+    } else {
+      const siblingsResult = await withMobileMutationTimeout(
+        supabase.from('product_variations').select('active').eq('product_id', productId),
+        'mobile:recalcular-ativacao-pai'
+      );
+      if (siblingsResult.error) throw siblingsResult.error;
+      const parentActive = (siblingsResult.data || []).some(
+        (variation: { active?: boolean | null }) => variation.active !== false
+      );
+      const parentResult = await withMobileMutationTimeout(
+        supabase
+          .from('products')
+          .update({ active: parentActive, updated_at: new Date().toISOString() })
+          .eq('id', productId),
+        'mobile:sincronizar-ativacao-pai'
+      );
+      if (parentResult.error) throw parentResult.error;
+    }
     return nextActive;
   }
-  const { error } = await supabase
-    .from('products')
-    .update({ active: nextActive, updated_at: new Date().toISOString() })
-    .eq('id', productId);
-  if (error) throw error;
+  const productUpdateResult = await withMobileMutationTimeout(
+    supabase
+      .from('products')
+      .update({ active: nextActive, updated_at: new Date().toISOString() })
+      .eq('id', productId),
+    'mobile:atualizar-ativacao-produto'
+  );
+  if (productUpdateResult.error) throw productUpdateResult.error;
+
+  // A ação no produto pai também alterna todas as variações no ERP. Sem esta
+  // atualização, o app só mudava `products.active`, enquanto a lista deriva o
+  // estado do pai pelas linhas de `product_variations` e continuava mostrando
+  // o produto como ativo/inativo incorretamente.
+  const variationsResult = await withMobileMutationTimeout(
+    supabase
+      .from('product_variations')
+      .update({ active: nextActive, updated_at: new Date().toISOString() })
+      .eq('product_id', productId),
+    'mobile:atualizar-ativacao-variacoes'
+  );
+  if (variationsResult.error) throw variationsResult.error;
   return nextActive;
 };
 
@@ -153,6 +393,38 @@ export const deleteMobileProduct = async (productId: string, isDraft = false) =>
     .update({ deleted: true, active: false, updated_at: new Date().toISOString() })
     .eq('id', productId);
   if (error) throw error;
+};
+
+export const moveMobileProductToTrash = async (productId: string) => {
+  const realId = String(productId).split('_')[0];
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId)) {
+    throw new Error('ID do produto inválido.');
+  }
+  const { data, error } = await supabase.rpc('move_product_to_trash', {
+    p_product_id: realId,
+  });
+  if (error) throw error;
+  const result = data as { success?: boolean; message?: string } | null;
+  if (!result?.success) {
+    throw new Error(result?.message || 'Não foi possível mover o produto para a lixeira.');
+  }
+  return result;
+};
+
+export const restoreMobileProductFromTrash = async (productId: string) => {
+  const realId = String(productId).split('_')[0];
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realId)) {
+    throw new Error('ID do produto inválido.');
+  }
+  const { data, error } = await supabase.rpc('restore_product_from_trash', {
+    p_product_id: realId,
+  });
+  if (error) throw error;
+  const result = data as { success?: boolean; message?: string } | null;
+  if (!result?.success) {
+    throw new Error(result?.message || 'Não foi possível restaurar o produto da lixeira.');
+  }
+  return result;
 };
 
 export const saveMobileProduct = async (productData: any) => {
@@ -179,12 +451,20 @@ export const saveMobileProduct = async (productData: any) => {
     productData.product_kind === 'usado';
   const forceInactive = Boolean(productData.isDraft) || isSalvado || isUsado;
 
-  const variationRows = ensureAtLeastOneOperationalVariation(productData, productCode).map(
+  const operationalVariations = ensureAtLeastOneOperationalVariation(productData, productCode).map(
     (variation: any) => ({
       ...variation,
-      active: forceInactive ? false : variation.active !== false,
+      id: isUuid(variation.id) ? variation.id : createOperationId(),
     })
   );
+  const variationRows = operationalVariations.map((variation: any) => ({
+      ...variation,
+      ...(!productData.isDraft && productData.itemType !== 'service' &&
+      Array.isArray(productData.images) && operationalVariations.length === 1
+        ? { images: [...productData.images] }
+        : {}),
+      active: forceInactive ? false : variation.active !== false,
+    }));
   const hasActiveVariation =
     variationRows.length > 0
       ? variationRows.some((variation: any) => variation.active !== false)
@@ -205,6 +485,17 @@ export const saveMobileProduct = async (productData: any) => {
     slug: productData.slug || null,
     marketplace_title:
       productData.marketplaceTitle || productData.title || productData.name?.trim() || null,
+    colors: productData.colors || null,
+    no_colors: Boolean(productData.noColors ?? productData.no_colors),
+    meta_title: productData.metaTitle ?? productData.meta_title ?? null,
+    meta_description: productData.metaDescription ?? productData.meta_description ?? null,
+    seo_description: productData.seoDescription ?? productData.seo_description ?? null,
+    ecommerce_description:
+      productData.ecommerceDescription ?? productData.ecommerce_description ?? null,
+    whatsapp_description:
+      productData.whatsappDescription ?? productData.whatsapp_description ?? null,
+    ecommerce_template: productData.ecommerceTemplate ?? productData.ecommerce_template ?? null,
+    whatsapp_template: productData.whatsappTemplate ?? productData.whatsapp_template ?? null,
     brand: productData.brand || null,
     environment: productData.environment || null,
     include_environment: productData.includeEnvironment !== false,
@@ -227,6 +518,19 @@ export const saveMobileProduct = async (productData: any) => {
     technical_specs: {
       ...(productData.technical_specs || {}),
       technicalValues: getPersistableProductTechnicalValues(productData),
+      ...(Array.isArray(productData.variableTechnicalFields)
+        ? { variableTechnicalFields: productData.variableTechnicalFields }
+        : {}),
+      variationDetails: operationalVariations.map((variation: any) => {
+        const {
+          launchInitialStock: _launchInitialStock,
+          initialStock: _initialStock,
+          initialCost: _initialCost,
+          initialStockEntries: _initialStockEntries,
+          ...details
+        } = variation;
+        return details;
+      }),
     },
     fiscal: productData.fiscal || {},
     combo_items: normalizeComboItems(productData.comboItems),
@@ -246,7 +550,9 @@ export const saveMobileProduct = async (productData: any) => {
         : productData.mainSupplierId || productData.supplierId
           ? [productData.mainSupplierId || productData.supplierId]
           : [],
-    has_variations: productData.itemType !== 'service',
+    has_variations:
+      productData.itemType !== 'service' &&
+      (Boolean(productData.hasVariations) || variationRows.length > 1),
     updated_at: new Date().toISOString(),
   };
 

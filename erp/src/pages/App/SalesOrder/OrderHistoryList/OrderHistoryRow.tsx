@@ -57,7 +57,6 @@ interface OrderHistoryRowProps {
   orderedColumnKeys?: string[];
   isSelected?: boolean;
   onToggleSelection?: () => void;
-  onBlingUpdate?: (id: string, value: boolean) => void;
   onStockCheckUpdate?: (
     id: string,
     value: boolean,
@@ -103,7 +102,6 @@ const OrderHistoryRow = ({
   showTrash,
   orderedColumnKeys,
   isSelected,
-  onBlingUpdate,
   onStockCheckUpdate,
   isHighlighted,
   id,
@@ -344,7 +342,6 @@ const OrderHistoryRow = ({
                   isPaidTraffic={isPaidTraffic}
                   statusConfig={statusConfig}
                   onStatusUpdate={onStatusUpdate}
-                  onBlingUpdate={onBlingUpdate}
                   onStockCheckUpdate={onStockCheckUpdate}
                 />
               </div>

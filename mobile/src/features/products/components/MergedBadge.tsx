@@ -21,11 +21,13 @@ export const MergedBadge: React.FC<MergedBadgeProps> = ({
   useEffect(() => {
     let active = true;
     if (targetVariationId && typeof supabase?.from === 'function') {
-      supabase
-        .from('product_variations')
-        .select('sku')
-        .eq('id', targetVariationId)
-        .single()
+      Promise.resolve(
+        supabase
+          .from('product_variations')
+          .select('sku')
+          .eq('id', targetVariationId)
+          .single()
+      )
         .then(({ data }: any) => {
           if (active && data?.sku) {
             setTargetSku(data.sku);

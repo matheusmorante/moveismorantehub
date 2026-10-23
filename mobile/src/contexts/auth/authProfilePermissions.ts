@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { MASTER_DEFAULT_PROFILE } from '../../services/supabaseClient';
 import {
+  hasRolePermission,
   hasProductPermission,
   normalizePermissionRoles,
   PRODUCT_PERMISSION_ACTIONS,
@@ -74,13 +75,19 @@ export const deriveAuthRoleFlags = (
     if (!rolePermissionsLoaded) return false;
     return hasProductPermission(actionId, roles, rolePermissions);
   };
+  const canUsePermission = (actionId: string, defaultRoles: readonly string[] = []) => {
+    if (!rolePermissionsLoaded && !isAdmin) return false;
+    return hasRolePermission(actionId, roles, defaultRoles, rolePermissions);
+  };
   const canSeeProducts = [
     'viewProducts',
     'viewProductCharacteristics',
     'viewProductCategories',
     'viewProductCompositions',
     'viewProductReconciliation',
-  ].some(canUseProductPermission);
+  ].some(canUseProductPermission) ||
+    canUsePermission('viewMetaCatalog', ['manager']) ||
+    canUsePermission('viewWhatsAppMarketplace', ['manager']);
   const canSeeFinance =
     isAdmin || userProfile?.role === 'manager' || userProfile?.role === 'gerente';
   const canManageStock =
@@ -95,6 +102,7 @@ export const deriveAuthRoleFlags = (
     canSeeReports,
     canSeeProducts,
     canUseProductPermission,
+    canUsePermission,
     canSeeFinance,
     canManageStock,
   };

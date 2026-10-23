@@ -12,6 +12,7 @@ import {
 import { verifyMetaSignature } from '@/pages/utils/customerSupport/whatsappWebhookProcessor';
 import { AddCustomInboxModal } from '../components/inbox/AddCustomInboxModal';
 import { InboxSectionCustom } from '../components/inbox/InboxSectionCustom';
+import { InboxSectionTeam } from '../components/inbox/InboxSectionTeam';
 import { ChatComposer } from '../components/chat/ChatComposer';
 import { CustomerNotesTab } from '../components/infoPanel/CustomerNotesTab';
 import { QuickSnippetsModal } from '../components/QuickSnippetsModal';
@@ -88,6 +89,30 @@ describe('Inbox da Central de Atendimento', () => {
     await expect(fetchConversationCounts(supabase)).resolves.toEqual({ all: 120, mine: 14, unassigned: 8, unread: 17 });
     await expect(fetchTeamProfiles(supabase)).resolves.toEqual([{ id: 'agent-1', fullName: 'Ana', role: 'seller' }]);
     expect(rpc).toHaveBeenNthCalledWith(2, 'customer_support_list_agents');
+  });
+
+  it('distingue falha do diretório de uma resposta válida sem atendentes', async () => {
+    const failed = { rpc: vi.fn().mockResolvedValue({ data: null, error: { code: '42501', message: 'Detalhe interno' } }) };
+    await expect(fetchTeamProfiles(failed as any)).rejects.toThrow('Não foi possível carregar os atendentes. Tente novamente.');
+    const empty = { rpc: vi.fn().mockResolvedValue({ data: [], error: null }) };
+    await expect(fetchTeamProfiles(empty as any)).resolves.toEqual([]);
+  });
+
+  it('mostra falha e carregamento dos atendentes sem informar um falso diretório vazio', () => {
+    const retry = vi.fn();
+    const props = { agents: [], activeAgentId: null, onSelectAgent: vi.fn(), isExpanded: true,
+      onToggleExpand: vi.fn(), onRetry: retry };
+    const error = 'Não foi possível carregar os atendentes. Tente novamente.';
+    const { rerender } = render(<InboxSectionTeam {...props} error={error} />);
+    expect(screen.getByRole('alert').textContent).toContain(error);
+    expect(screen.queryByText('Nenhum atendente autorizado encontrado.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar carregar atendentes novamente' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+    rerender(<InboxSectionTeam {...props} isLoading />);
+    expect(screen.getByRole('status').textContent).toContain('Carregando atendentes');
+    expect(screen.queryByText('Nenhum atendente autorizado encontrado.')).toBeNull();
+    rerender(<InboxSectionTeam {...props} />);
+    expect(screen.getByText('Nenhum atendente autorizado encontrado.')).toBeTruthy();
   });
 
   it.each([
@@ -274,11 +299,14 @@ describe('Inbox da Central de Atendimento', () => {
 
   it('copia um snippet sem criar um comentário interno', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
+    const createNote = vi.spyOn(await import('@/pages/utils/customerSupport/customerSupportService'), 'createInternalNoteMessage');
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     render(<QuickSnippetsModal isOpen onClose={vi.fn()} />);
     fireEvent.click(screen.getAllByRole('button', { name: 'Copiar' })[0]);
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(String(writeText.mock.calls[0][0])).toContain('CNPJ');
+    expect(String(writeText.mock.calls[0][0])).toContain('PIX');
+    expect(String(writeText.mock.calls[0][0])).not.toContain('12.345.678/0001-90');
+    expect(createNote).not.toHaveBeenCalled();
   });
 
   it('mostra somente eventos persistidos e remove duplicatas da linha do tempo', () => {

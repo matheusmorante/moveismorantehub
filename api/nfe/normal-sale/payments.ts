@@ -70,7 +70,7 @@ export function resolveNormalSalePayments(params: {
             ? '01'
             : method.includes('BOLETO')
               ? '15'
-              : isPromissory
+              : isPromissory || (method === 'VERIFICAR' && settlement === 'paid')
                 ? '99'
                 : undefined;
     let description = methodCode === '99' ? originalMethod : undefined;

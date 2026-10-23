@@ -1,33 +1,12 @@
-import { supabase } from '../../../services/supabaseClient';
+import { fetchMobileProductsPage } from './mobileProductFetchService';
 
-interface ProductVariationCandidate {
-  id: string;
-  name: string | null;
-  sku: string | null;
-  price: number | null;
-  unit_price: number | null;
-  stock?: number | null;
-  active: boolean | null;
-  status: string | null;
-}
-
-interface ProductCandidate {
+export interface MobileProductCompositionCandidate {
   id: string;
   name: string;
-  code: string | null;
-  price: number | null;
-  unit_price: number | null;
-  stock: number | null;
-  status: string | null;
-  item_type: string | null;
-  is_combo: boolean | null;
-  supplier_id: string | null;
-  main_supplier_id: string | null;
-  supplier_ids: string[] | null;
-  product_variations: ProductVariationCandidate[] | null;
-}
-
-export interface MobileProductCompositionCandidate extends ProductCandidate {
+  code?: string | null;
+  price?: number | null;
+  unit_price?: number | null;
+  stock?: number | null;
   variationId?: string;
   variationName?: string | null;
   variationSku?: string | null;
@@ -39,46 +18,71 @@ export const searchMobileProductCompositionCandidates = async (
   searchTerm: string,
   supplierId?: string
 ): Promise<MobileProductCompositionCandidate[]> => {
-  const term = `%${searchTerm.toLowerCase()}%`;
-  const { data, error } = await supabase
-    .from('products')
-    .select(
-      'id, name, code, price, unit_price, status, item_type, is_combo, supplier_id, main_supplier_id, supplier_ids, product_variations(id, name, sku, price, unit_price, stock, active, status)'
+  const selectedSupplierId = supplierId?.trim();
+  if (selectedSupplierId && !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(selectedSupplierId)) return [];
+
+  const { data } = await fetchMobileProductsPage(1, 25, {
+    search: searchTerm,
+    statusFilter: 'active',
+    includeMerged: false,
+    itemType: 'standard',
+    supplierId: selectedSupplierId,
+    throwOnError: true,
+  });
+
+  return data
+    .filter((product: any) =>
+      product.itemType !== 'composition' &&
+      product.itemType !== 'combo' &&
+      product.isCombo !== true &&
+      product.is_combo !== true &&
+      !product.isDraft &&
+      product.active !== false
     )
-    .neq('item_type', 'composition')
-    .neq('item_type', 'combo')
-    .or('is_combo.is.null,is_combo.eq.false')
-    .or(`name.ilike.${term},code.ilike.${term}`)
-    // Filtra fornecedor localmente e busca uma janela maior antes do limite visual.
-    .limit(30);
-
-  if (error) throw error;
-
-  const candidates = (data || []) as unknown as ProductCandidate[];
-  return candidates
-    .filter((product) => {
-      if (!supplierId) return true;
-      const supplierIds = Array.isArray(product.supplier_ids) ? product.supplier_ids : [];
-      return (
-        product.supplier_id === supplierId ||
-        product.main_supplier_id === supplierId ||
-        supplierIds.includes(supplierId)
+    .flatMap((product: any) => {
+      const variations = (Array.isArray(product.variations) ? product.variations : []).filter(
+        (variation: any) =>
+          variation.active !== false &&
+          variation.status !== 'merged' &&
+          !variation.mergedToVariationId &&
+          !variation.merged_to_variation_id
       );
-    })
-    .flatMap((product) => {
-      const variations = (product.product_variations || []).filter(
-        (variation) => variation.active !== false && variation.status !== 'merged'
-      );
-      return variations.length > 0
-        ? variations.map((variation) => ({
-            ...product,
-            variationId: variation.id,
-            variationName: variation.name,
-            variationSku: variation.sku,
-            variationPrice: variation.price ?? variation.unit_price,
-            variationStock: variation.stock,
-          }))
-        : [product];
+      if (variations.length > 0) {
+        const realVariations = variations.filter((variation: any) => !variation.isVirtual);
+        if (!realVariations.length) {
+          return [{
+            id: String(product.id),
+            name: String(product.name || ''),
+            code: product.code,
+            price: Number(product.unitPrice ?? product.price ?? 0),
+            unit_price: Number(product.unitPrice ?? product.price ?? 0),
+            stock: Number(product.stock ?? 0),
+          }];
+        }
+
+        return realVariations.map((variation: any) => ({
+          id: String(product.id),
+          name: String(product.name || ''),
+          code: product.code,
+          price: Number(product.unitPrice ?? product.price ?? 0),
+          unit_price: Number(product.unitPrice ?? product.price ?? 0),
+          stock: Number(product.stock ?? 0),
+          variationId: String(variation.id),
+          variationName: variation.name,
+          variationSku: variation.sku,
+          variationPrice: variation.unitPrice ?? variation.price ?? variation.unit_price ?? 0,
+          variationStock: Number(variation.stock ?? 0),
+        }));
+      }
+
+      return [{
+        id: String(product.id),
+        name: String(product.name || ''),
+        code: product.code,
+        price: Number(product.unitPrice ?? product.price ?? 0),
+        unit_price: Number(product.unitPrice ?? product.price ?? 0),
+        stock: Number(product.stock ?? 0),
+      }];
     })
     .slice(0, 5);
 };

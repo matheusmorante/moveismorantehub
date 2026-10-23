@@ -5,6 +5,7 @@ import {
   type NfeEmissionResult,
   printOrderDanfe,
 } from '@/pages/utils/nfe/nfeService';
+import { openDanfePrintPreparationWindow } from '@/pages/utils/printing/printFallbackHandler';
 import { nfeEmissionFormSchema } from '../../../../../../../../shared-utils/nfeEmissionFormValidation';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { getSettings } from '@/pages/utils/settingsService';
@@ -326,14 +327,21 @@ export function useNfeEmissionActions({
 
   const handlePrintDanfe = async () => {
     if (!order) return;
+    const hasStoredNfe = Boolean((order as unknown as { nfeData?: unknown }).nfeData);
+    if (!emissionResult?.danfeData && !hasStoredNfe) return;
+
+    const printWindow = openDanfePrintPreparationWindow();
+    if (!printWindow) return;
+
     try {
       if (emissionResult?.danfeData) {
         const { openDanfePrintWindow } = await import('@/pages/utils/nfe/danfeGenerator');
-        await openDanfePrintWindow(emissionResult.danfeData);
-      } else if ((order as unknown as { nfeData?: unknown }).nfeData) {
-        await printOrderDanfe(order);
+        await openDanfePrintWindow(emissionResult.danfeData, undefined, printWindow);
+      } else if (hasStoredNfe) {
+        await printOrderDanfe(order, undefined, printWindow);
       }
     } catch (error) {
+      if (!printWindow.closed) printWindow.close();
       toast.error(error instanceof Error ? error.message : 'Não foi possível abrir o DANFE.');
     }
   };

@@ -453,6 +453,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         onClose={() => setSelectedMarkerItem(null)}
         onStartDelivery={handleStartDelivery}
         onViewOrder={handleViewOrder}
+        onOpenDeliveryFlow={handleOpenDeliveryFlow}
         isDarkMode={isDarkMode}
       />
     </View>

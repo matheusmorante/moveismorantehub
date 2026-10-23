@@ -14,7 +14,6 @@ import WhatsAppConfigSection from './components/WhatsAppConfigSection';
 import OrderNotificationTestSection from './components/OrderNotificationTestSection';
 import WhatsAppTemplatesSection from './components/WhatsAppTemplatesSection';
 import CardFlagSettings from './components/CardFlagSettings';
-import BlingConfigSection from './components/BlingConfigSection';
 import FiscalSettingsSection from './components/FiscalSettingsSection';
 import ScannerConfigSection from './components/ScannerConfigSection';
 import CompanySettingsSection from './components/CompanySettingsSection';
@@ -236,16 +235,6 @@ export default function Settings(): any {
               <WhatsAppTemplatesSection settings={settings} onChange={handleChange} />
             </SettingsSection>
 
-            <SettingsSection
-              id="bling"
-              title="Integração Bling (API v3)"
-              icon="bi-clouds-fill"
-              isVisible={isVisible('bling')}
-              isSearching={!!search.trim()}
-              isAdminOnly={isAdminGroup('bling')}
-            >
-              <BlingConfigSection settings={settings} onChange={handleChange} />
-            </SettingsSection>
 
             <SettingsSection
               id="impressao"

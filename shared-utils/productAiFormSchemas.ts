@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { productVariationDraftSchema } from './productVariationValidation';
 import { normalizeFiscalIdentifier } from './fiscalIdentifiers';
+
+const nonnegativeMeasure = z.number().nonnegative('Informe um valor finito maior ou igual a zero.');
 
 const technicalValue = z.union([
   z.string(),
@@ -44,7 +45,8 @@ export const productDescriptionAiFormSchema = z.object({
   currentDescription: z.string(),
   material: z.string().optional(), brand: z.string().optional(), line: z.string().optional(),
   model: z.string().optional(), modelOrLine: z.string().optional(),
-  ...productVariationDraftSchema.pick({ width: true, height: true, depth: true, weight: true }).shape,
+  width: nonnegativeMeasure.optional(), height: nonnegativeMeasure.optional(),
+  depth: nonnegativeMeasure.optional(), weight: nonnegativeMeasure.optional(),
   technicalValues: z.record(z.string(), technicalValue).optional(),
 });
 

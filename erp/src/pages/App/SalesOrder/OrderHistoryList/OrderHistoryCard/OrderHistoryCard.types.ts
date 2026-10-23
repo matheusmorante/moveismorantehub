@@ -48,7 +48,6 @@ export interface OrderHistoryCardProps {
   readonly isHighlighted?: boolean;
   readonly id?: string;
   readonly onFilterByOrderId?: (id: string) => void;
-  readonly onBlingUpdate?: (id: string, value: boolean) => void;
   readonly onStockCheckUpdate?: (
     id: string,
     value: boolean,

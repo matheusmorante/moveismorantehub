@@ -16,7 +16,7 @@ export const fetchScheduledAndDraftOrders = async (): Promise<Order[]> => {
                 scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method,
                 delivery_status, delivery_arrived_at, delivery_started_at, delivery_finished_at,
                 marketing_origin, items_subtotal, total_discount, total_cost, stock_processed,
-                is_stock_checked, is_registered_in_bling, deleted, deleted_at, return_order_id,
+                is_stock_checked, deleted, deleted_at, return_order_id,
                 linked_order_id, returned_total_amount, original_sold_total, return_kind,
                 created_at, updated_at,
                 shipping_data:order_data->shipping,

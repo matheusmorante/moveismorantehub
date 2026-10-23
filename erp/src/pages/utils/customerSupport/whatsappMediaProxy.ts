@@ -4,8 +4,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 interface MediaProxyConfiguration {
   supabaseUrl: string;
   supabaseAnonKey: string;
-  supabaseSecretKey?: string;
 }
+
+const WHATSAPP_MEDIA_GRAPH_VERSION = 'v26.0';
 
 /** Shared by the standalone endpoint and the consolidated ERP webhook route. */
 export async function handleWhatsAppMedia(
@@ -45,34 +46,28 @@ export async function handleWhatsAppMedia(
     if (permissionError) return res.status(503).json({ error: 'Não foi possível validar o acesso à Central.' });
     if (canView !== true) return res.status(403).json({ error: 'Sem permissão para acessar a Central.' });
 
-    const { data: message, error: messageError } = await userDb.from('whatsapp_messages')
-      .select('id, conversation_id').eq('media_id', mediaId).limit(1).maybeSingle();
+    const { data: messages, error: messageError } = await userDb.from('whatsapp_messages')
+      .select('id, conversation_id').eq('media_id', mediaId).limit(2);
     if (messageError) return res.status(503).json({ error: 'Não foi possível consultar a mídia.' });
-    if (!message) return res.status(404).json({ error: 'Mídia não encontrada na Central.' });
-
-    let metaToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN;
-    if (!metaToken && configuration.supabaseSecretKey) {
-      const { data: conversation, error: conversationError } = await userDb.from('whatsapp_conversations')
-        .select('business_phone_number_id').eq('id', message.conversation_id).maybeSingle();
-      if (conversationError || !conversation?.business_phone_number_id) {
-        return res.status(503).json({ error: 'Não foi possível validar o canal da mídia.' });
-      }
-      // Read only this integration's configuration, on the server, after the caller's RLS lookup.
-      const configDb = createClient(configuration.supabaseUrl, configuration.supabaseSecretKey, {
-        auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: boundedFetch },
-      });
-      const { data: settings, error: settingsError } = await configDb.from('settings')
-        .select('data->whatsappConfig').eq('id', 'app').maybeSingle();
-      const channel = settings?.whatsappConfig;
-      if (settingsError || !channel || typeof channel !== 'object' || Array.isArray(channel)
-        || channel.phoneNumberId !== conversation.business_phone_number_id
-        || typeof channel.accessToken !== 'string' || !channel.accessToken.trim()) {
-        return res.status(503).json({ error: 'O canal da mídia não está configurado no servidor.' });
-      }
-      metaToken = channel.accessToken.trim();
+    if (!Array.isArray(messages) || messages.length !== 1 || typeof messages[0]?.conversation_id !== 'string') {
+      return res.status(404).json({ error: 'Mídia não encontrada na Central.' });
     }
+
+    const { data: conversation, error: conversationError } = await userDb.from('whatsapp_conversations')
+      .select('business_phone_number_id').eq('id', messages[0].conversation_id).maybeSingle();
+    if (conversationError) return res.status(503).json({ error: 'Não foi possível validar o canal da conversa.' });
+    const phoneNumberId = typeof conversation?.business_phone_number_id === 'string'
+      ? conversation.business_phone_number_id.trim()
+      : '';
+    if (!/^\d+$/.test(phoneNumberId)) {
+      return res.status(404).json({ error: 'Canal da conversa indisponível para a mídia.' });
+    }
+
+    const metaToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
     if (!metaToken) return res.status(503).json({ error: 'Consulta de mídia indisponível na Meta.' });
-    const metaResponse = await boundedFetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
+    const metadataUrl = new URL(`https://graph.facebook.com/${WHATSAPP_MEDIA_GRAPH_VERSION}/${mediaId}`);
+    metadataUrl.searchParams.set('phone_number_id', phoneNumberId);
+    const metaResponse = await boundedFetch(metadataUrl.toString(), {
       headers: { Authorization: `Bearer ${metaToken}` },
     });
     if (!metaResponse.ok) return res.status(502).json({ error: 'Não foi possível consultar a mídia na Meta.' });

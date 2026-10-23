@@ -44,7 +44,6 @@ export interface OrderHistoryTableProps {
   readonly onBulkRestore?: () => void;
   readonly onBulkPermanentDelete?: () => void;
   readonly onClearSelection?: () => void;
-  readonly onBlingUpdate?: (id: string, value: boolean) => void;
   readonly onStockCheckUpdate?: (
     id: string,
     value: boolean,
@@ -75,7 +74,6 @@ const OrderHistoryTable = ({
   onSort,
   selectedOrders,
   onToggleSelection,
-  onBlingUpdate,
   onStockCheckUpdate,
   highlightOrderId,
   onFilterByOrderId,
@@ -266,7 +264,6 @@ const OrderHistoryTable = ({
                     orderedColumnKeys={columnsToRender.map((c) => c.key as string)}
                     isSelected={selectedOrders.includes(order.id!)}
                     onToggleSelection={() => onToggleSelection(order.id!)}
-                    onBlingUpdate={onBlingUpdate}
                     onStockCheckUpdate={onStockCheckUpdate}
                     isHighlighted={highlightOrderId === order.id}
                     id={`order-row-${order.id}`}
@@ -355,7 +352,6 @@ const OrderHistoryTable = ({
                   showTrash={showTrash}
                   isSelected={selectedOrders.includes(order.id!)}
                   onToggleSelection={() => onToggleSelection(order.id!)}
-                  onBlingUpdate={onBlingUpdate}
                   onStockCheckUpdate={onStockCheckUpdate}
                   isHighlighted={highlightOrderId === order.id}
                   id={`order-card-${order.id}`}

@@ -2,12 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  chooseFormat: vi.fn(),
   printDanfe: vi.fn(),
-}));
-
-vi.mock('../danfe/nfcePrintFormatDialog', () => ({
-  chooseNfcePrintFormat: mocks.chooseFormat,
 }));
 
 vi.mock('../../printing/printService', () => ({
@@ -83,37 +78,46 @@ const createPrintWindow = (): Window => ({
   closed: false,
 }) as unknown as Window;
 
-afterEach(() => vi.resetAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.resetAllMocks();
+});
 
 describe('roteamento de impressão do DANFE', () => {
-  it('mantém NF-e modelo 55 no caminho anterior sem abrir o seletor NFC-e', async () => {
+  it('imprime NF-e modelo 55 pela janela preparada no clique', async () => {
+    const printWindow = createPrintWindow();
+    vi.spyOn(window, 'open').mockReturnValue(printWindow);
     mocks.printDanfe.mockResolvedValue({ success: true });
     await openDanfePrintWindow(baseData('55'));
 
-    expect(mocks.chooseFormat).not.toHaveBeenCalled();
+    expect(window.open).toHaveBeenCalledOnce();
     await vi.waitFor(() => expect(mocks.printDanfe).toHaveBeenCalledOnce());
-    expect(mocks.printDanfe).toHaveBeenCalledWith(expect.objectContaining({ model: '55' }));
+    expect(mocks.printDanfe).toHaveBeenCalledWith(expect.objectContaining({ model: '55' }), printWindow);
   });
 
-  it('encaminha o formato escolhido para a janela de impressão da NFC-e modelo 65', async () => {
+  it('imprime NFC-e modelo 65 em A4 por padrão, sem abrir o seletor', async () => {
     const printWindow = createPrintWindow();
-    mocks.chooseFormat.mockResolvedValueOnce({ format: 'a4', printWindow });
+    vi.spyOn(window, 'open').mockReturnValue(printWindow);
     mocks.printDanfe.mockResolvedValueOnce({ success: true });
 
     await openDanfePrintWindow(baseData('65'));
 
-    expect(mocks.chooseFormat).toHaveBeenCalledWith({ a4Available: true, a4UnavailableReason: undefined });
     expect(mocks.printDanfe).toHaveBeenCalledWith(
       expect.objectContaining({ model: '65', printFormat: 'a4' }),
       printWindow
     );
   });
 
-  it('cancela sem imprimir quando a seleção de formato é fechada', async () => {
-    mocks.chooseFormat.mockResolvedValueOnce(null);
+  it('encaminha cupom térmico quando 80 mm é informado explicitamente', async () => {
+    const printWindow = createPrintWindow();
+    vi.spyOn(window, 'open').mockReturnValue(printWindow);
+    mocks.printDanfe.mockResolvedValueOnce({ success: true });
 
-    await openDanfePrintWindow(baseData('65'));
+    await openDanfePrintWindow(baseData('65'), 'thermal_80mm');
 
-    expect(mocks.printDanfe).not.toHaveBeenCalled();
+    expect(mocks.printDanfe).toHaveBeenCalledWith(
+      expect.objectContaining({ model: '65', printFormat: 'thermal_80mm' }),
+      printWindow
+    );
   });
 });

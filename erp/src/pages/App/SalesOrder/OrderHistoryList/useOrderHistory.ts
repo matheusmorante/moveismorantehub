@@ -527,7 +527,6 @@ export const useOrderHistory = (filters?: any) => {
     handleBulkRestore: operations.handleBulkRestore,
     handleBulkPermanentDelete: operations.handleBulkPermanentDelete,
     handleDeleteDrafts: operations.handleBulkPermanentDelete,
-    handleBlingUpdate: operations.handleBlingUpdate,
     handleStockCheckUpdate: operations.handleStockCheckUpdate,
     refresh,
     markFiscalDocumentAuthorized,

@@ -297,6 +297,21 @@ describe('orderSnapshotResolution', () => {
     expect(payload.order_data).toEqual(order);
   });
 
+  it('não persiste os marcadores legados do Bling em pedidos carregados do cache', () => {
+    const order = {
+      id: 'legacy-bling-order',
+      isRegisteredInBling: true,
+      is_registered_in_bling: true,
+      items: [],
+    };
+
+    const payload = buildOrderPersistencePayload(order as any);
+
+    expect(payload.order_data).not.toHaveProperty('isRegisteredInBling');
+    expect(payload.order_data).not.toHaveProperty('is_registered_in_bling');
+    expect(order).toHaveProperty('isRegisteredInBling', true);
+  });
+
   it('buildOrderPersistencePayload sincroniza colunas de devolução (returned_total_amount, original_sold_total, return_kind)', () => {
     const returnOrder: Order = {
       id: 'return-789',

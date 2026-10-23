@@ -1,5 +1,3 @@
-import { getSettings } from '../settingsService';
-
 if (typeof window !== 'undefined') {
   (window as any).gm_authFailure = () => {
     console.error(
@@ -8,28 +6,13 @@ if (typeof window !== 'undefined') {
   };
 }
 
-export const getEffectiveGoogleMapsApiKey = (overrideKey?: string): string => {
-  if (overrideKey && overrideKey.trim().length > 5) {
-    return overrideKey.trim();
-  }
-  const settings = getSettings();
-  const key = (settings.googleMapsApiKey || '').trim();
-  if (key && key.length > 5) {
-    return key;
-  }
-  return (
-    (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string)?.trim() ||
-    '__REDACTED_GCP_API_KEY__'
-  );
-};
-
 export const isGoogleQuotaError = (status: unknown): boolean => {
   const normalized = String(status || '').toUpperCase();
   return normalized.includes('OVER_QUERY_LIMIT') || normalized.includes('OVER_DAILY_LIMIT');
 };
 
-export const loadGoogleMapsApi = async (apiKey?: string): Promise<void> => {
-  const keyToUse = getEffectiveGoogleMapsApiKey(apiKey);
+export const loadGoogleMapsApi = async (): Promise<void> => {
+  const keyToUse = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string)?.trim() || '';
 
   if (!keyToUse || keyToUse.includes('REDACTED')) {
     throw new Error('Chave da API do Google Maps não configurada.');

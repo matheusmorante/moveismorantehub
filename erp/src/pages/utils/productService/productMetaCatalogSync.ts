@@ -27,7 +27,7 @@ export async function syncAllProductsToMetaCatalog(
   onProgress?: (processed: number, total: number) => void
 ): Promise<{ success: boolean; count: number; handles?: string[] }> {
   const { whatsappConfig } = getSettings();
-  if (!whatsappConfig?.catalogId || !whatsappConfig?.accessToken) {
+  if (!whatsappConfig?.catalogId) {
     throw new Error('Credenciais da Meta não configuradas no sistema (Configurações > WhatsApp/Meta).');
   }
 
@@ -48,7 +48,7 @@ export async function syncProductToMetaCatalog(
 ): Promise<{ success: boolean; count: number; error?: string }> {
   try {
     const { whatsappConfig } = getSettings();
-    if (!whatsappConfig?.catalogId || !whatsappConfig?.accessToken) {
+    if (!whatsappConfig?.catalogId) {
       return { success: false, count: 0, error: 'Credenciais da Meta não configuradas.' };
     }
 

@@ -194,14 +194,14 @@ export function useIssuedFiscalDocumentDetails(props: IssuedFiscalDocumentDetail
     downloadBlob(file);
   };
 
-  const handlePrintDanfe = async () => {
+  const handlePrintDanfe = async (format?: 'thermal_80mm' | 'a4') => {
     const printableDocument = details?.document || document;
     if (!printableDocument) {
       toast.error(loadError || 'Carregue os detalhes fiscais antes de imprimir o DANFE.');
       return;
     }
     try {
-      await printDanfe(printableDocument);
+      await printDanfe(printableDocument, format);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível abrir o DANFE.');
     }

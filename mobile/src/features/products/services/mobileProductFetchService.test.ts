@@ -58,6 +58,52 @@ describe('fetchMobileProductsPage', () => {
     expect(result.total).toBe(1);
   });
 
+  it('limits product autocomplete to active non-draft products from the selected supplier', async () => {
+    const query: any = {};
+    for (const method of ['select', 'eq', 'or', 'not', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    supabaseMock.from.mockReturnValue(query);
+
+    await fetchMobileProductsPage(1, 25, {
+      statusFilter: 'active',
+      supplierId: '123e4567-e89b-42d3-a456-426614174000',
+    });
+
+    expect(query.eq).toHaveBeenCalledWith('active', true);
+    expect(query.not).toHaveBeenCalledWith('is_draft', 'is', true);
+    expect(query.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
+    expect(query.or).toHaveBeenCalledWith(
+      'supplier_id.eq.123e4567-e89b-42d3-a456-426614174000,main_supplier_id.eq.123e4567-e89b-42d3-a456-426614174000,supplier_ids.cs.{"123e4567-e89b-42d3-a456-426614174000"}'
+    );
+  });
+
+  it('recusa busca truncada quando há mais variações correspondentes que o ERP permite', async () => {
+    const productQuery: any = {};
+    for (const method of ['select', 'or', 'eq']) {
+      productQuery[method] = vi.fn(() => productQuery);
+    }
+
+    const variationQuery: any = {};
+    variationQuery.select = vi.fn(() => variationQuery);
+    variationQuery.or = vi.fn(() => variationQuery);
+    variationQuery.limit = vi.fn().mockResolvedValue({
+      data: Array.from({ length: 101 }, (_, index) => ({ product_id: `parent-${index}` })),
+      error: null,
+    });
+
+    supabaseMock.from.mockImplementation((table: string) =>
+      table === 'product_variations' ? variationQuery : productQuery
+    );
+
+    await expect(fetchMobileProductsPage(1, 10, { search: 'mesa' })).rejects.toMatchObject({
+      name: 'ProductVariationSearchTooBroadError',
+      message: expect.stringContaining('Refine o termo'),
+    });
+    expect(variationQuery.limit).toHaveBeenCalledWith(101);
+  });
+
   it('oculta produto cujas variações foram todas mescladas quando includeMerged não é true', async () => {
     const query: any = {};
     query.select = vi.fn(() => query);
@@ -122,5 +168,188 @@ describe('fetchMobileProductsPage', () => {
     expect(result.data.length).toBe(1);
     expect(result.data[0].isMerged).toBe(true);
     expect(result.data[0].allVariations[0].isMerged).toBe(true);
+  });
+
+  it('restaura detalhes próprios da variação guardados em technical_specs pelo ERP', async () => {
+    const query: any = {};
+    query.select = vi.fn(() => query);
+    query.eq = vi.fn(() => query);
+    query.or = vi.fn(() => query);
+    query.filter = vi.fn(() => query);
+    query.order = vi.fn(() => query);
+    query.range = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'product-1',
+          name: 'Guarda Roupa Paris',
+          code: '000312',
+          unit_price: 1500,
+          cost_price: 800,
+          ipi_percent: 5,
+          freight_cost: 25,
+          freight_type: 'fixed',
+          condition: 'novo',
+          width: 200,
+          height: 220,
+          depth: 60,
+          weight: 80,
+          active: true,
+          status: 'hidden',
+          item_type: 'product',
+          product_categories: [],
+          product_variations: [
+            {
+              id: 'var-1',
+              product_id: 'product-1',
+              name: 'Guarda Roupa Paris Branco',
+              sku: '000312-01',
+              price: 1500,
+              cost_price: 760,
+              width: 190,
+              use_parent_price: true,
+              use_parent_promo_price: true,
+              use_parent_dimensions: true,
+              use_parent_description: true,
+              attributes: [{ name: 'Cor', value: 'Branco' }],
+            },
+          ],
+          technical_specs: {
+            technicalValues: { Marca: 'Morante' },
+            variationDetails: [
+              {
+                id: 'var-1',
+                syncCostPrice: false,
+                syncWidth: false,
+                syncHeight: true,
+                syncDepth: true,
+                syncWeight: false,
+                syncIpi: false,
+                syncFreight: false,
+                syncFiscal: false,
+                syncCondition: false,
+                costPrice: 760,
+                width: 190,
+                weight: 65,
+                ipiPercent: 8,
+                freightCost: 40,
+                freightType: 'fixed',
+                condition: 'novo',
+                technicalValues: { 'Material da estrutura': 'MDF' },
+                fiscal: { ncm: '94035000' },
+              },
+            ],
+          },
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(1, 10);
+    const variation = result.data[0].allVariations[0];
+
+    expect(variation).toMatchObject({
+      syncCostPrice: false,
+      syncWidth: false,
+      syncWeight: false,
+      syncIpi: false,
+      syncFreight: false,
+      syncFiscal: false,
+      syncCondition: false,
+      costPrice: 760,
+      width: 190,
+      weight: 65,
+      ipiPercent: 8,
+      freightCost: 40,
+      technicalValues: { 'Material da estrutura': 'MDF' },
+      fiscal: { ncm: '94035000' },
+    });
+  });
+
+  it('preserva has_variations de composição com uma única variação, como o ERP', async () => {
+    const query: any = {};
+    for (const method of ['select', 'eq', 'or', 'not', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'composition-1',
+          name: 'Kit sala',
+          code: 'KIT-1',
+          item_type: 'composition',
+          has_variations: true,
+          is_combo: true,
+          combo_items: [],
+          product_categories: [],
+          product_variations: [
+            {
+              id: 'composition-var-1',
+              product_id: 'composition-1',
+              name: 'Kit sala',
+              sku: 'KIT-1-01',
+              active: true,
+              attributes: [],
+              combo_items: [],
+            },
+          ],
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(1, 10);
+
+    expect(result.data[0]).toMatchObject({ itemType: 'composition', hasVariations: true });
+  });
+
+  it('não infla o estoque de uma composição quando um componente tem quantidade inválida', async () => {
+    const productQuery: any = {};
+    for (const method of ['select', 'eq', 'or', 'not', 'filter', 'order']) {
+      productQuery[method] = vi.fn(() => productQuery);
+    }
+    productQuery.range = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'composition-1',
+          name: 'Kit teste',
+          code: 'KIT-1',
+          unit_price: 100,
+          stock: 99,
+          active: true,
+          status: 'published',
+          item_type: 'composition',
+          product_categories: [],
+          product_variations: [],
+          combo_items: [
+            { productId: 'part-1', quantity: 2 },
+            { productId: 'part-2', quantity: 0 },
+          ],
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+
+    const stockQuery: any = {};
+    stockQuery.select = vi.fn(() => stockQuery);
+    stockQuery.in = vi.fn(() => stockQuery);
+    stockQuery.then = (resolve: (value: unknown) => unknown) =>
+      Promise.resolve({
+        data: [
+          { id: 'part-1', stock: 20, product_variations: [] },
+          { id: 'part-2', stock: 20, product_variations: [] },
+        ],
+        error: null,
+      }).then(resolve);
+
+    supabaseMock.from.mockReturnValueOnce(productQuery).mockReturnValueOnce(stockQuery);
+
+    const result = await fetchMobileProductsPage(1, 10, { summaryOnly: true });
+
+    expect(result.data[0].stock).toBe(0);
   });
 });

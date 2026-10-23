@@ -27,7 +27,6 @@ describe('Auditoria de Leitura Normalizada Estrita (Zero Dependência de order_d
       marketing_origin: 'instagram',
       stock_processed: true,
       is_stock_checked: true,
-      is_registered_in_bling: false,
       deleted: false,
       deleted_at: null,
       notes: 'Entregar no período da tarde',

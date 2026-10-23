@@ -14,12 +14,14 @@ interface ProductsHeaderFiltersSheetProps {
   generalTypeFilter?: 'all' | 'product' | 'service';
   onGeneralTypeFilterChange?: (value: 'all' | 'product' | 'service') => void;
   showMergedProducts?: boolean;
+  showTrash?: boolean;
   onToggleMergedProducts?: () => void;
   catalogStatusFilter: 'all' | 'published' | 'hidden';
   onCatalogStatusFilterChange: (value: 'all' | 'published' | 'hidden') => void;
   categories: any[];
   categoryFilter: string;
   onCategoryFilterChange: (value: string) => void;
+  onResetFilters?: () => void;
 }
 
 /**
@@ -35,12 +37,14 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
   generalTypeFilter = 'all',
   onGeneralTypeFilterChange,
   showMergedProducts,
+  showTrash = false,
   onToggleMergedProducts,
   catalogStatusFilter,
   onCatalogStatusFilterChange,
   categories,
   categoryFilter,
   onCategoryFilterChange,
+  onResetFilters,
 }) => {
   return (
     <Modal
@@ -58,8 +62,8 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
             </TouchableOpacity>
           </View>
 
-          <Text style={[styles.filterLabel, dark && styles.light]}>Situação no ERP</Text>
-          <View style={styles.choiceRow}>
+          {!showTrash && <Text style={[styles.filterLabel, dark && styles.light]}>Situação no ERP</Text>}
+          {!showTrash && <View style={styles.choiceRow}>
             {(
               [
                 ['all', 'Todos'],
@@ -80,9 +84,9 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </View>}
 
-          {mode === 'standard' && (
+          {!showTrash && mode === 'standard' && (
             <>
               <Text style={[styles.filterLabel, dark && styles.light]}>Tipo geral</Text>
               <View style={styles.choiceRow}>
@@ -112,7 +116,7 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
             </>
           )}
 
-          {mode === 'standard' && onToggleMergedProducts && (
+          {!showTrash && mode === 'standard' && onToggleMergedProducts && (
             <TouchableOpacity
               accessibilityRole="checkbox"
               accessibilityState={{ checked: showMergedProducts }}
@@ -126,8 +130,8 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
             </TouchableOpacity>
           )}
 
-          <Text style={[styles.filterLabel, dark && styles.light]}>Catálogo digital</Text>
-          <View style={styles.choiceRow}>
+          {!showTrash && <Text style={[styles.filterLabel, dark && styles.light]}>Catálogo digital</Text>}
+          {!showTrash && <View style={styles.choiceRow}>
             {(
               [
                 ['all', 'Todos'],
@@ -150,7 +154,7 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </View>}
 
           <Text style={[styles.filterLabel, dark && styles.light]}>Categoria</Text>
           <ScrollView
@@ -187,9 +191,20 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
             ))}
           </ScrollView>
 
-          <TouchableOpacity style={styles.applyButton} onPress={onClose}>
-            <Text style={styles.applyButtonText}>Aplicar filtros</Text>
-          </TouchableOpacity>
+          <View style={styles.filterActions}>
+            {onResetFilters && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={onResetFilters}
+                style={[styles.resetFiltersButton, dark && styles.darkResetFiltersButton]}
+              >
+                <Text style={[styles.resetFiltersText, dark && styles.light]}>Limpar filtros</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.applyButton} onPress={onClose}>
+              <Text style={styles.applyButtonText}>Aplicar filtros</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>

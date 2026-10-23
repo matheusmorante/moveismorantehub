@@ -33,11 +33,18 @@ interface Props {
   onOpenConfigs: () => void;
   canOpenConfigs?: boolean;
   onOpenReconciliation?: () => void;
+  onOpenMetaCatalog?: () => void;
+  onOpenWhatsAppMarketplace?: () => void;
   canViewReconciliation?: boolean;
+  canViewMetaCatalog?: boolean;
+  canViewWhatsAppMarketplace?: boolean;
   showDeactivated: boolean;
   onToggleDeactivated: () => void;
   showMergedProducts?: boolean;
   onToggleMergedProducts?: () => void;
+  showTrash?: boolean;
+  canViewTrash?: boolean;
+  onToggleTrash?: () => void;
   categories: any[];
   statusFilter: 'all' | 'active' | 'disabled' | 'draft';
   categoryFilter: string;
@@ -47,6 +54,7 @@ interface Props {
   onCategoryFilterChange: (value: string) => void;
   onCatalogStatusFilterChange: (value: 'all' | 'published' | 'hidden') => void;
   onGeneralTypeFilterChange?: (value: 'all' | 'product' | 'service') => void;
+  onResetFilters?: () => void;
 }
 
 /**
@@ -69,10 +77,17 @@ export function ProductsHeader({
   canOpenConfigs = false,
   onOpenReconciliation,
   canViewReconciliation = false,
+  onOpenMetaCatalog,
+  onOpenWhatsAppMarketplace,
+  canViewMetaCatalog = false,
+  canViewWhatsAppMarketplace = false,
   showDeactivated,
   onToggleDeactivated,
   showMergedProducts = false,
   onToggleMergedProducts,
+  showTrash = false,
+  canViewTrash = false,
+  onToggleTrash,
   categories,
   statusFilter,
   categoryFilter,
@@ -82,6 +97,7 @@ export function ProductsHeader({
   onCategoryFilterChange,
   onCatalogStatusFilterChange,
   onGeneralTypeFilterChange,
+  onResetFilters,
 }: Props) {
   const [showMenu, setShowMenu] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -101,7 +117,9 @@ export function ProductsHeader({
       <View style={styles.topRow}>
         <View style={styles.titleArea}>
           <Text style={[styles.title, dark && styles.light]}>
-            {mode === 'composition'
+            {showTrash
+              ? 'Lixeira'
+              : mode === 'composition'
               ? 'Composições'
               : mode === 'categories'
                 ? 'Ambientes e Categorias'
@@ -125,7 +143,7 @@ export function ProductsHeader({
       </View>
 
       {/* Seletor de Modo (Produtos, Composições, Ambientes/Categorias) */}
-      {onModeChange && (
+      {!showTrash && onModeChange && (
         <ProductsHeaderModeSelector
           mode={mode}
           availableModes={availableModes}
@@ -171,13 +189,20 @@ export function ProductsHeader({
         canCreateComposition={canCreateComposition}
         canOpenConfigs={canOpenConfigs}
         canViewReconciliation={canViewReconciliation}
+        canViewMetaCatalog={canViewMetaCatalog}
+        canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
         showDeactivated={showDeactivated}
         showMergedProducts={showMergedProducts}
+        showTrash={showTrash}
+        canViewTrash={canViewTrash}
+        onToggleTrash={onToggleTrash}
         onNewProduct={onNewProduct}
         onNewComposition={onNewComposition}
         onModeChange={onModeChange}
         onOpenConfigs={onOpenConfigs}
         onOpenReconciliation={onOpenReconciliation}
+        onOpenMetaCatalog={onOpenMetaCatalog}
+        onOpenWhatsAppMarketplace={onOpenWhatsAppMarketplace}
         onToggleDeactivated={onToggleDeactivated}
         onToggleMergedProducts={onToggleMergedProducts}
         onOpenFilters={() => setShowFilters(true)}
@@ -194,12 +219,14 @@ export function ProductsHeader({
         generalTypeFilter={generalTypeFilter}
         onGeneralTypeFilterChange={onGeneralTypeFilterChange}
         showMergedProducts={showMergedProducts}
+        showTrash={showTrash}
         onToggleMergedProducts={onToggleMergedProducts}
         catalogStatusFilter={catalogStatusFilter}
         onCatalogStatusFilterChange={onCatalogStatusFilterChange}
         categories={categories}
         categoryFilter={categoryFilter}
         onCategoryFilterChange={onCategoryFilterChange}
+        onResetFilters={onResetFilters}
       />
     </View>
   );

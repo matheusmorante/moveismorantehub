@@ -26,7 +26,6 @@ export const createSalesOrderDuplicate = (order: Order): Order => {
     'linkedReturnMovement',
     'nfeData',
     'nfeDraft',
-    'isRegisteredInBling',
     'isStockChecked',
     'isButtonsClicked',
   ].forEach((key) => delete source[key]);

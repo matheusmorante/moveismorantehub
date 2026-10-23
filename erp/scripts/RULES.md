@@ -9,7 +9,7 @@ Para manter a raiz do projeto limpa e organizada, todos os scripts e arquivos de
 
 ## 2. Scripts de Migração de Dados (TS/JS)
 **Caminho:** `apps/erp/scripts/migration/`
-- Scripts usados para importar dados de planilhas, Bling ou outros sistemas.
+- Scripts usados para importar dados de planilhas ou outros sistemas ainda ativos.
 - Scripts que realizam transformações em massa no banco de dados.
 
 ## 3. Scripts de Debug e Utilitários Temporários

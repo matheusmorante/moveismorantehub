@@ -136,7 +136,7 @@ describe('fetchMobileOrdersPage', () => {
     );
   });
 
-  it('maps operational metadata like stock check, bling, stock processing and linked orders', async () => {
+  it('maps stock check, stock processing and linked order metadata', async () => {
     query.range.mockResolvedValueOnce({
       count: 1,
       error: null,
@@ -149,7 +149,6 @@ describe('fetchMobileOrdersPage', () => {
           customer_name: 'Cliente Operacional',
           total_value: 350,
           is_stock_checked: true,
-          is_registered_in_bling: true,
           stock_processed: true,
           stock_reversed: false,
           return_order_id: 'ret-100',
@@ -170,7 +169,6 @@ describe('fetchMobileOrdersPage', () => {
 
     expect(result.items[0]).toMatchObject({
       is_stock_checked: true,
-      is_registered_in_bling: true,
       stock_processed: true,
       stock_reversed: false,
       return_order_id: 'ret-100',
@@ -178,6 +176,31 @@ describe('fetchMobileOrdersPage', () => {
       linked_order_id: 'orig-200',
       linked_order_code: '200',
     });
+  });
+
+  it('does not return legacy Bling markers from cached order JSON', async () => {
+    query.range.mockResolvedValueOnce({
+      count: 1,
+      error: null,
+      data: [
+        {
+          id: 'legacy-bling-order',
+          status: 'scheduled',
+          order_type: 'sale',
+          order_data: { isRegisteredInBling: true, is_registered_in_bling: true },
+        },
+      ],
+    });
+
+    const result = await fetchMobileOrdersPage({
+      page: 1,
+      pageSize: 15,
+      search: '',
+      status: 'all',
+    });
+
+    expect(result.items[0].order_data).not.toHaveProperty('isRegisteredInBling');
+    expect(result.items[0].order_data).not.toHaveProperty('is_registered_in_bling');
   });
 
   it('resolves fiscal badges with estorno (NFE) and devolução (NFD)', () => {

@@ -21,32 +21,53 @@ vi.mock('@/services/apiMonitoring/apiUsageTracker', () => ({
   },
 }));
 
+vi.mock('../metaHttpClient', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../metaHttpClient')>();
+  return {
+    ...actual,
+    metaHttpClient: {
+      ...actual.metaHttpClient,
+      request: vi.fn(),
+      postMessages: vi.fn(),
+    },
+  };
+});
+
+const response = (body: unknown, ok = true, status = 200) => ({
+  ok,
+  status,
+  json: async () => body,
+}) as Response;
+
 describe('metaWhatsAppService', () => {
-  it('queries the supplied WABA and credentials instead of cached settings', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({ json: async () => ({ data: [] }) } as Response);
-    await metaWhatsAppService.fetchMessageTemplates({ accessToken: 'current-token', wabaId: 'current-waba' });
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/current-waba/message_templates'), { headers: { Authorization: 'Bearer current-token', 'Content-Type': 'application/json' } });
+  it('sends only the WABA identifier to the authenticated server proxy', async () => {
+    vi.mocked(metaHttpClient.request).mockResolvedValueOnce(response({ data: [] }));
+    await metaWhatsAppService.fetchMessageTemplates({ wabaId: 'current-waba' });
+    expect(metaHttpClient.request).toHaveBeenCalledWith('list_templates', { wabaId: 'current-waba' });
+    expect(JSON.stringify(vi.mocked(metaHttpClient.request).mock.calls)).not.toContain('accessToken');
   });
-  it('sends a template with the supplied sender and credentials', async () => {
-    await metaWhatsAppService.sendTemplateMessage('41999998888', 'template', [], 'pt_BR', { accessToken: 'current-token', phoneNumberId: 'current-sender' });
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/current-sender/messages'), expect.objectContaining({ headers: { Authorization: 'Bearer current-token', 'Content-Type': 'application/json' } }));
+  it('sends a template through the authenticated server proxy without integration credentials', async () => {
+    vi.mocked(metaHttpClient.postMessages).mockResolvedValueOnce(response({ messages: [{ id: 'wamid.current' }] }));
+    await metaWhatsAppService.sendTemplateMessage('41999998888', 'template', [], 'pt_BR', { phoneNumberId: 'current-sender' });
+    expect(metaHttpClient.postMessages).toHaveBeenCalledWith(expect.objectContaining({ type: 'template' }), 'sales');
+    expect(JSON.stringify(vi.mocked(metaHttpClient.postMessages).mock.calls)).not.toContain('accessToken');
   });
-  it('requests the sender identity explicitly when testing the current connection', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({ json: async () => ({ id: 'current-sender' }) } as Response);
-    expect(await metaHttpClient.testConnection({ accessToken: 'current-token', phoneNumberId: 'current-sender' })).toMatchObject({ id: 'current-sender' });
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/current-sender?fields=id,'), expect.objectContaining({ headers: { Authorization: 'Bearer current-token', 'Content-Type': 'application/json' } }));
+  it('requests the sender identity through the server proxy', async () => {
+    vi.mocked(metaHttpClient.request).mockResolvedValueOnce(response({ id: 'current-sender' }));
+    const result = await metaHttpClient.request('connection_test', { phoneNumberId: 'current-sender' });
+    expect(await result.json()).toMatchObject({ id: 'current-sender' });
+    expect(metaHttpClient.request).toHaveBeenCalledWith('connection_test', { phoneNumberId: 'current-sender' });
   });
   it('marks a pre-send guard refusal as a confirmed failure that may be corrected', async () => {
     vi.mocked(ApiUsageGuard.check).mockResolvedValueOnce({ allowed: false, reason: 'Limite de teste' } as any);
     await expect(metaWhatsAppService.sendTemplateMessage('41999998888', 'template', [], 'pt_BR')).rejects.toMatchObject({ confirmedFailure: true });
-    expect(fetch).not.toHaveBeenCalled();
+    expect(metaHttpClient.postMessages).not.toHaveBeenCalled();
   });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getSettings).mockReturnValue({
       companyPhone: '(41) 99749-3547',
       whatsappConfig: {
-        accessToken: 'EAAB_VALID_TOKEN',
         phoneNumberId: '1020304050',
         wabaId: '1448795237039238',
         templateLanguage: 'pt_BR',
@@ -59,15 +80,11 @@ describe('metaWhatsAppService', () => {
       limit: 1000,
     } as any);
 
-    // Default global fetch mock
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    vi.mocked(metaHttpClient.postMessages).mockResolvedValue(response({
         messaging_product: 'whatsapp',
         contacts: [{ input: '554199998888', wa_id: '554199998888' }],
         messages: [{ id: 'wamid.HBgM...', message_status: 'accepted' }],
-      }),
-    } as any);
+      }));
   });
 
   describe('sanitizeTemplateParam', () => {
@@ -117,12 +134,9 @@ describe('metaWhatsAppService', () => {
     it('envia mensagem de texto e grava uso na telemetria', async () => {
       const result = await metaWhatsAppService.sendTextMessage('4199998888', 'Olá cliente!');
       expect(result.messages).toBeDefined();
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/messages'),
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('Olá cliente!'),
-        })
+      expect(metaHttpClient.postMessages).toHaveBeenCalledWith(
+        expect.objectContaining({ text: { body: 'Olá cliente!' } }),
+        'sales'
       );
       expect(ApiUsageTracker.record).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -141,12 +155,9 @@ describe('metaWhatsAppService', () => {
         ['Cliente Teste', 'Linha 1\nLinha 2', 'R$  1.500,00']
       );
 
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/messages'),
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('Linha 1 • Linha 2'),
-        })
+      expect(metaHttpClient.postMessages).toHaveBeenCalledWith(
+        expect.objectContaining({ template: expect.objectContaining({ components: expect.arrayContaining([expect.objectContaining({ parameters: expect.arrayContaining([expect.objectContaining({ text: 'Linha 1 • Linha 2' })]) })]) }) }),
+        'sales'
       );
       expect(ApiUsageTracker.record).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -158,21 +169,12 @@ describe('metaWhatsAppService', () => {
 
     it('executa retry automático sem o 9º dígito se a Meta retornar erro 100 para número BR de 13 dígitos', async () => {
       // Primeira chamada falha com código 100, segunda chamada tem sucesso
-      global.fetch = vi
-        .fn()
-        .mockResolvedValueOnce({
-          ok: false,
-          json: async () => ({
-            error: { code: 100, message: 'Invalid parameter' },
-          }),
-        } as any)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            messaging_product: 'whatsapp',
-            messages: [{ id: 'wamid.RETRY_SUCCESS' }],
-          }),
-        } as any);
+      vi.mocked(metaHttpClient.postMessages)
+        .mockResolvedValueOnce(response({ error: { code: 100, message: 'Invalid parameter' } }, false, 400))
+        .mockResolvedValueOnce(response({
+          messaging_product: 'whatsapp',
+          messages: [{ id: 'wamid.RETRY_SUCCESS' }],
+        }));
 
       const result = await metaWhatsAppService.sendTemplateMessage(
         '5541997493547',
@@ -181,9 +183,9 @@ describe('metaWhatsAppService', () => {
       );
 
       expect(result.messages?.[0]?.id).toBe('wamid.RETRY_SUCCESS');
-      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(metaHttpClient.postMessages).toHaveBeenCalledTimes(2);
       // Segunda chamada deve ter enviado para 554197493547 (sem o 9º dígito inicial)
-      const secondCallBody = JSON.parse((fetch as any).mock.calls[1][1].body);
+      const secondCallBody = vi.mocked(metaHttpClient.postMessages).mock.calls[1][0];
       expect(secondCallBody.to).toBe('554197493547');
     });
   });

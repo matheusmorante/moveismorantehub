@@ -3,6 +3,7 @@ import type { FiscalOperationDraftSummary } from '../../types/fiscalDocuments.ty
 
 interface IssuedFiscalDocumentDetailsFooterProps {
   operationDraft?: FiscalOperationDraftSummary;
+  model: string;
   storedXml?: string;
   hasDetailsOrDocument: boolean;
   hasXmlAvailable: boolean;
@@ -12,6 +13,7 @@ interface IssuedFiscalDocumentDetailsFooterProps {
   onReviewDraft: () => void;
   onShowXml: () => void;
   onPrintDanfe: () => void;
+  onPrintNfceCupom: () => void;
   onDownloadXml: () => void;
   onShareDanfe: () => void;
   onClose: () => void;
@@ -19,6 +21,7 @@ interface IssuedFiscalDocumentDetailsFooterProps {
 
 export const IssuedFiscalDocumentDetailsFooter: React.FC<IssuedFiscalDocumentDetailsFooterProps> = ({
   operationDraft,
+  model,
   storedXml,
   hasDetailsOrDocument,
   hasXmlAvailable,
@@ -28,6 +31,7 @@ export const IssuedFiscalDocumentDetailsFooter: React.FC<IssuedFiscalDocumentDet
   onReviewDraft,
   onShowXml,
   onPrintDanfe,
+  onPrintNfceCupom,
   onDownloadXml,
   onShareDanfe,
   onClose,
@@ -64,6 +68,17 @@ export const IssuedFiscalDocumentDetailsFooter: React.FC<IssuedFiscalDocumentDet
             >
               <i className="bi bi-printer-fill" /> Imprimir DANFE
             </button>
+            {model === '65' && (
+              <button
+                type="button"
+                onClick={onPrintNfceCupom}
+                disabled={!hasDetailsOrDocument || isLoading}
+                title="Imprimir cupom NFC-e em bobina de 80 mm"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 sm:px-4"
+              >
+                <i className="bi bi-receipt" /> Imprimir Cupom
+              </button>
+            )}
             <button
               type="button"
               onClick={onDownloadXml}

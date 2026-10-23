@@ -42,8 +42,8 @@ export const SalesNavMenu: React.FC<Required<NavMenuProps>> = ({
       {permissions.canViewAssistanceOrders && (
         <DropdownItem
           to="/assistance-orders"
-          icon="bi-tools"
-          iconColor="text-amber-500 dark:text-amber-400"
+          icon="bi bi-wrench-adjustable"
+          iconColor="text-orange-500"
           title="Assistências"
           description="Garantias e reparos"
           onClick={close}
@@ -69,14 +69,6 @@ export const SalesNavMenu: React.FC<Required<NavMenuProps>> = ({
             icon="bi-bar-chart-fill"
             title="Relatório de vendas"
             description="Exportação CSV"
-            onClick={close}
-          />
-          <DropdownItem
-            to="/sales-order/reports-bling"
-            icon="bi-clouds-fill"
-            title="Relatórios Bling"
-            description="Integração externa"
-            beta={true}
             onClick={close}
           />
         </>

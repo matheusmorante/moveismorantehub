@@ -35,7 +35,7 @@ export const createPersonFormSchema = (
       .object({
         cep: z.string().optional(),
         street: z.string().optional(),
-        number: z.string().optional(),
+        number: z.string().regex(/^[0-9]*$/, 'O número do endereço deve conter apenas números.').optional(),
         city: z.string().optional(),
         state: z.string().optional(),
         neighborhood: z.string().optional(),

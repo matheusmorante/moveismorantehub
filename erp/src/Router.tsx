@@ -52,12 +52,7 @@ const SalesOrderReports = lazy(() => import('./pages/App/SalesOrder/Reports/Inde
 const SalesOrderReportView = lazy(
   () => import('./pages/App/SalesOrder/Reports/components/ReportView')
 );
-const SalesOrderReportsBling = lazy(() => import('./pages/App/SalesOrder/ReportsBling/Index'));
-const SalesOrderReportViewBling = lazy(
-  () => import('./pages/App/SalesOrder/ReportsBling/ReportView')
-);
 const CustomerSupport = lazy(() => import('./pages/App/CustomerSupport/Index'));
-import BlingStock from './pages/App/Stock/BlingStock/index';
 import NewSaleOrder from './pages/App/SalesOrder/pages/NewSaleOrder';
 import OrderEditModal from './pages/App/SalesOrder/modals/OrderEditModal';
 import FiscalDocumentsPage from './pages/App/FiscalDocuments';
@@ -169,16 +164,9 @@ import ResetPassword from './pages/ResetPassword';
 
 const DashboardRoute = () => {
   const { isAdmin, loading, profile } = useAuth();
-  const searchParams = new URLSearchParams(window.location.search);
-  const isMobileAuth =
-    searchParams.has('auth_email') ||
-    searchParams.has('user_id') ||
-    window.location.search.includes('auth_email') ||
-    Boolean((window as any).ReactNativeWebView);
+  if (loading) return null;
 
-  if (loading && !isMobileAuth) return null;
-
-  if (!isAdmin && !isMobileAuth) {
+  if (!isAdmin) {
     const roles = profile ? getProfileRoles(profile) : [];
     const landingPath = canPerform('viewOrders', roles)
       ? '/sales-order'
@@ -289,22 +277,6 @@ function Router() {
                 element={
                   <Suspense fallback={<LoadingFallback />}>
                     <SalesOrderReportView />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/sales-order/reports-bling"
-                element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <SalesOrderReportsBling />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/sales-order/reports-bling/:id"
-                element={
-                  <Suspense fallback={<LoadingFallback />}>
-                    <SalesOrderReportViewBling />
                   </Suspense>
                 }
               />
@@ -474,9 +446,6 @@ function Router() {
             </Route>
             <Route element={<PermissionRoute action="viewStockReceipts" />}>
               <Route path="/estoque/recebimentos" element={<ReceiptsPage />} />
-            </Route>
-            <Route element={<PermissionRoute action="viewBlingStock" />}>
-              <Route path="/estoque/bling" element={<BlingStock />} />
             </Route>
             <Route path="/estoque/etiquetas" element={<ProductIdentificationLabelRoute />} />
             <Route element={<PermissionRoute action="viewStockLabels" />}>

@@ -1,24 +1,36 @@
 import React from 'react';
 import type { InventoryAuditSession } from '../types/inventoryAudit.types';
 
-export const StatusBadge: React.FC<{ status: InventoryAuditSession['status'] }> = ({ status }) => (
-  <span
-    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
-      status !== 'completed'
-        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30'
-        : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30'
-    }`}
-  >
-    <span
-      className={`w-1.5 h-1.5 rounded-full ${status !== 'completed' ? 'bg-amber-500' : 'bg-emerald-500'}`}
-    />
-    {status === 'pending'
+export const StatusBadge: React.FC<{ session: InventoryAuditSession }> = ({ session }) => {
+  const isReversed =
+    session.adjustmentsCount > 0 && session.reversedCount >= session.adjustmentsCount;
+  const colors = isReversed
+    ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30'
+    : session.status !== 'completed'
+      ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30'
+      : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30';
+  const dotColor = isReversed
+    ? 'bg-rose-500'
+    : session.status !== 'completed'
+      ? 'bg-amber-500'
+      : 'bg-emerald-500';
+  const label = isReversed
+    ? 'Estornado'
+    : session.status === 'pending'
       ? 'Aguardando envio'
-      : status === 'in_progress'
+      : session.status === 'in_progress'
         ? 'Em andamento'
-        : 'Concluído'}
-  </span>
-);
+        : 'Concluído';
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${colors}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+      {label}
+    </span>
+  );
+};
 
 export const AdjustmentBadge: React.FC<{ session: InventoryAuditSession }> = ({ session }) => (
   <div className="flex items-center gap-1.5">

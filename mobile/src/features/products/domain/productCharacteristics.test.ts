@@ -7,6 +7,7 @@ import {
   getMissingRequiredDimensions,
   getPersistableProductTechnicalValues,
   getProductCharacteristicAttributes,
+  getMobileVariationColorSummary,
   groupProductTechnicalFields,
   hasTechnicalValue,
   getTechnicalValue,
@@ -24,6 +25,17 @@ import {
 } from './productCharacteristics';
 
 describe('productCharacteristics', () => {
+  it('atualiza o resumo de cores do produto pai a partir das variações, como no ERP', () => {
+    expect(
+      getMobileVariationColorSummary([
+        { attributes: [{ name: 'Cor', value: 'azul' }, { name: 'Tamanho', value: 'M' }] },
+        { attributes: { cor: 'Verde' } },
+        { attributes: [{ name: 'Cor', value: 'AZUL' }] },
+      ])
+    ).toBe('AZUL / VERDE');
+    expect(getMobileVariationColorSummary([{ attributes: [{ name: 'Tamanho', value: 'M' }] }])).toBe('');
+  });
+
   it('exige Cor, Modelo, Marca e Dimensões como características obrigatórias, como no ERP', () => {
     expect(isRequiredCharacteristicName('cor')).toBe(true);
     expect(isRequiredCharacteristicName('modelo')).toBe(true);

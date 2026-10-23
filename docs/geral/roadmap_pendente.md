@@ -1,5 +1,6 @@
 # 📋 Planos Pendentes e Roadmap — Móveis Morante Hub
-> **Última atualização:** Setembro de 2026  
+> **Última atualização:** 23 de outubro de 2026
+>
 > **Status:** Documento vivo de planejamento operacional e técnico.
 
 > **Aviso fiscal:** O status e as pendências de NF-e/NFC-e de saída foram migrados para o roadmap canônico [docs/fiscal/roadmap-configuracao-emissao-producao.md](../fiscal/roadmap-configuracao-emissao-producao.md). Consulte-o como fonte de verdade; os itens fiscais abaixo podem estar desatualizados e não devem ser usados para determinar prontidão de produção.
@@ -73,6 +74,11 @@
 - [ ] Painel analítico de comissões por vendedor com base nos snapshots históricos de `sellerId`.
 - [ ] Regras de comissão diferenciadas por categoria de produto e forma de pagamento.
 - [ ] Abatimento líquido de devoluções atendidas no cálculo de comissão do período.
+
+### 5. 📦 Paridade incremental do módulo de Produtos ERP → App Mobile
+- [ ] Auditar e replicar, uma aba/estado por ciclo, as mudanças comprovadas do ERP no aplicativo, respeitando as particularidades documentadas do mobile. Execução recorrente a cada duas horas; inventário e evidências em [paridade-erp-app.md](../produtos/paridade-erp-app.md). Comparação visual pendente até haver conta de teste do app nas variáveis de desenvolvimento da Vercel. Não declarar conclusão global enquanto houver estados sem conferência.
+- [ ] Ciclo 3 concluiu a auditoria de busca textual da lista; seguem pendentes filtros e comparação visual. A ordenação do ERP tem handler sem efeito, então definir o contrato (e corrigir no ERP, se aplicável) antes de replicá-la no app.
+- [ ] Ciclo 4 adicionou a ação de limpar filtros no app. Permanecem divergências de contrato no tipo geral (ERP inclui composições em “Produtos”; app as separa), no filtro de categoria ERP (UUID da UI comparado ao campo textual legado) e no critério de rascunho. Ver [inventário](../produtos/paridade-erp-app.md) antes de mudar esses comportamentos.
 
 ---
 

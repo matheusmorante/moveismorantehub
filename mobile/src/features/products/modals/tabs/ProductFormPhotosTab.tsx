@@ -14,42 +14,18 @@ import {
   View,
 } from 'react-native';
 import {
-  getMaxParentProductImages,
   MAX_PARENT_PRODUCT_IMAGES,
   MAX_VARIATION_IMAGES,
 } from '../../domain/productImageLimits';
-
-const CATALOG_API_URL = (
-  process.env.EXPO_PUBLIC_CATALOG_API_URL || 'https://www.moveismorante.com.br'
-).replace(/\/$/, '');
-
-const uploadProductPhoto = async (
-  blob: Blob,
-  fileName: string,
-  contentType: string
-): Promise<string> => {
-  const credentialResponse = await fetch(`${CATALOG_API_URL}/api/upload`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      fileName: `products/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, '-')}`,
-      contentType,
-    }),
-  });
-  if (!credentialResponse.ok) {
-    const details = await credentialResponse.json().catch(() => ({}));
-    throw new Error(details.error || 'Não foi possível preparar o envio da foto.');
-  }
-  const { uploadUrl, fileUrl } = await credentialResponse.json();
-  const uploadResponse = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': contentType },
-    body: blob,
-  });
-  if (!uploadResponse.ok)
-    throw new Error('Falha ao enviar a foto para o armazenamento do catálogo.');
-  return fileUrl;
-};
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
+import { replaceMobileProductImageGlobally } from '../../domain/mobileProductImageOrdering';
+import { uploadMobileProductPhoto } from '../../services/mobileProductPhotoService';
+import { ProductSquareImageCropModal } from '../components/ProductSquareImageCropModal';
+import {
+  mobileProductPhotoUploadFormSchema,
+  mobileProductPhotoUrlsFormSchema,
+} from '../../../../../../shared-utils/productImageFormSchemas';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 interface Props {
   formData: any;
@@ -61,7 +37,37 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
   const images: string[] = Array.isArray(formData.images) ? formData.images : [];
   const maxPhotos = MAX_PARENT_PRODUCT_IMAGES;
   const [selectedPhotoIdx, setSelectedPhotoIdx] = useState<number | null>(null);
+  const [croppingPhotoUrl, setCroppingPhotoUrl] = useState('');
   const [uploading, setUploading] = useState(false);
+  const photoUploadForm = useZodForm(mobileProductPhotoUploadFormSchema, { photos: [] });
+  const photoUrlsForm = useZodForm(mobileProductPhotoUrlsFormSchema, { urls: [] });
+
+  const uploadPhotos = async (photos: Array<{ file: Blob; name: string; contentType: string }>) => {
+    const result = await photoUploadForm.validateAndRun(
+      { photos },
+      async ({ photos: validatedPhotos }) => {
+        const urls: string[] = [];
+        for (const photo of validatedPhotos) {
+          urls.push(await uploadMobileProductPhoto(photo.file, photo.name, photo.contentType));
+        }
+        return urls;
+      },
+      (errors) => {
+        const messages = flattenFormErrors(errors);
+        Alert.alert('Foto inválida', Object.values(messages)[0] || 'Selecione uma imagem válida.');
+      }
+    );
+    if (result === false || result.length === 0) return [];
+    const validatedUrls = await photoUrlsForm.validateAndRun(
+      { urls: result },
+      (values) => values.urls,
+      (errors) => {
+        const messages = flattenFormErrors(errors);
+        Alert.alert('Foto não confirmada', Object.values(messages)[0] || 'O serviço não confirmou as fotos enviadas.');
+      }
+    );
+    return validatedUrls === false ? [] : validatedUrls;
+  };
 
   // Selecionar uma ou múltiplas imagens usando leitor do dispositivo / Web
   const pickImages = ({
@@ -78,21 +84,17 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
       if (multiple) {
         input.multiple = true;
       }
-      input.onchange = async (e: any) => {
-        const rawFiles = e.target?.files ? Array.from(e.target.files) : [];
-        const files = multiple ? (rawFiles as File[]) : (rawFiles.slice(0, 1) as File[]);
+      input.onchange = async () => {
+        const rawFiles = Array.from(input.files || []);
+        const files = multiple ? rawFiles : rawFiles.slice(0, 1);
         if (files.length === 0) return;
         setUploading(true);
         try {
-          const uploadedUrls: string[] = [];
-          for (const file of files) {
-            const url = await uploadProductPhoto(
-              file,
-              file.name || 'produto.jpg',
-              file.type || 'image/jpeg'
-            );
-            uploadedUrls.push(url);
-          }
+          const uploadedUrls = await uploadPhotos(files.map((file) => ({
+            file,
+            name: file.name || 'produto.jpg',
+            contentType: file.type || '',
+          })));
           if (uploadedUrls.length > 0) {
             onImagesPicked(uploadedUrls);
           }
@@ -115,13 +117,15 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
           setUploading(true);
           try {
             const uploadedUrls: string[] = [];
+          const photos: Array<{ file: Blob; name: string; contentType: string }> = [];
             for (const asset of assets) {
-              const response = await fetch(asset.uri);
-              const blob = await response.blob();
-              const type = asset.mimeType || blob.type || 'image/jpeg';
-              const url = await uploadProductPhoto(blob, asset.name || 'produto.jpg', type);
-              uploadedUrls.push(url);
+              const response = await withTimeout(fetch(asset.uri), 15_000, null, 'Ler foto selecionada');
+              if (!response?.ok) throw new Error('Não foi possível ler uma das fotos selecionadas.');
+              const blob = await withTimeout(response.blob(), 12_000, null, 'Preparar foto selecionada');
+              if (!blob) throw new Error('A leitura da foto demorou demais. Tente novamente.');
+              photos.push({ file: blob, name: asset.name || 'produto.jpg', contentType: asset.mimeType || blob.type || '' });
             }
+          uploadedUrls.push(...(await uploadPhotos(photos)));
             if (uploadedUrls.length > 0) {
               onImagesPicked(uploadedUrls);
             }
@@ -167,14 +171,13 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
   };
 
   const handleReplacePhoto = (idx: number) => {
+    const oldUrl = images[idx];
     pickImages({
       multiple: false,
-      onImagesPicked: ([dataUrl]) => {
-        if (!dataUrl) return;
+      onImagesPicked: ([newUrl]) => {
+        if (!newUrl || !oldUrl) return;
         setFormData((prev) => {
-          const next = [...(prev.images || [])];
-          next[idx] = dataUrl;
-          return { ...prev, images: next };
+          return replaceMobileProductImageGlobally(prev, oldUrl, newUrl, idx);
         });
         setSelectedPhotoIdx(null);
       },
@@ -225,7 +228,8 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
             Limite da galeria: {maxPhotos} fotos.
           </Text>
           <Text style={[styles.photoNoteText, dark && styles.photoNoteTextDark]}>
-            Cada variação pode vincular até {MAX_VARIATION_IMAGES} fotos desta galeria.
+            Se houver uma única variação, ela herda toda esta galeria. Produtos com várias
+            variações permitem vincular até {MAX_VARIATION_IMAGES} fotos a cada uma.
           </Text>
           {images.length > maxPhotos && (
             <Text
@@ -321,12 +325,12 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
                 accessibilityRole="button"
                 accessibilityLabel="Recortar foto em formato quadrado"
                 style={[styles.modalBtn, styles.modalBtnCrop]}
-                onPress={() =>
-                  Alert.alert(
-                    'Recortar foto',
-                    'O editor de recorte será conectado na etapa de funcionalidades.'
-                  )
-                }
+                onPress={() => {
+                  if (activePhotoUrl) {
+                    setCroppingPhotoUrl(activePhotoUrl);
+                    setSelectedPhotoIdx(null);
+                  }
+                }}
               >
                 <Crop size={16} color="#7e22ce" />
                 <Text style={styles.modalBtnCropText}>Recortar foto (1:1)</Text>
@@ -369,6 +373,18 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
           </View>
         </View>
       </Modal>
+      <ProductSquareImageCropModal
+        visible={Boolean(croppingPhotoUrl)}
+        imageUrl={croppingPhotoUrl}
+        dark={dark}
+        onCancel={() => setCroppingPhotoUrl('')}
+        onConfirm={(newUrl) => {
+          const oldUrl = croppingPhotoUrl;
+          const fallbackIndex = images.indexOf(oldUrl);
+          setFormData((prev) => replaceMobileProductImageGlobally(prev, oldUrl, newUrl, fallbackIndex));
+          setCroppingPhotoUrl('');
+        }}
+      />
     </View>
   );
 };

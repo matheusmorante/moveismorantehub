@@ -8,7 +8,7 @@ export const ORDER_LIST_COLUMNS = `
   scheduled_date, scheduled_start_time, scheduled_end_time, delivery_method,
   delivery_status, delivery_arrived_at, delivery_started_at, delivery_finished_at,
   marketing_origin, items_subtotal, total_discount, total_cost, stock_processed,
-  is_stock_checked, is_registered_in_bling, deleted, deleted_at, return_order_id,
+  is_stock_checked, deleted, deleted_at, return_order_id,
   linked_order_id, returned_total_amount, original_sold_total, return_kind,
   created_at, updated_at, items, order_data,
   order_items(
@@ -24,6 +24,7 @@ export const DASHBOARD_ORDERS_COLUMNS = `
     id, order_number, order_index, status, order_type, customer_id, customer_name,
     total_amount, marketing_origin, scheduled_date, delivery_method, delivery_status,
     deleted, deleted_at, created_at, updated_at,
+    shipping_data:order_data->shipping,
     is_test:order_data->>is_test, test_environment:order_data->>test_environment,
     test_run_id:order_data->>testRunId,
     order_items(id, order_id, item_index, product_id, variation_id, description, quantity, unit_price, unit_discount, cost_price, handling_type, is_temporary_product)

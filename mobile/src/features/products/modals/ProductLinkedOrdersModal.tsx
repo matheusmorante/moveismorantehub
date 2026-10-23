@@ -27,13 +27,15 @@ export const ProductLinkedOrdersModal: React.FC<Props> = ({ visible, dark, produ
   const [orders, setOrders] = useState<LinkedProductOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const productId = product?.parentId || product?.id;
+  const variationId = product?.variationId || (product?.isVariation ? product?.id : undefined);
 
   useEffect(() => {
-    if (!visible || !product?.id) return;
+    if (!visible || !productId) return;
     let alive = true;
     setLoading(true);
     setError(false);
-    fetchLinkedProductOrders(product.id)
+    fetchLinkedProductOrders(String(productId), variationId ? String(variationId) : undefined)
       .then((rows) => {
         if (alive) setOrders(rows);
       })
@@ -44,7 +46,20 @@ export const ProductLinkedOrdersModal: React.FC<Props> = ({ visible, dark, produ
     return () => {
       alive = false;
     };
-  }, [visible, product?.id]);
+  }, [visible, productId, variationId]);
+
+  const totalQuantity = orders.reduce((sum, order) => sum + order.quantity, 0);
+  const unit = product?.unit || 'un';
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  const formatOrderType = (type: string) =>
+    type === 'assistance'
+      ? 'Assistência'
+      : type === 'showroom'
+        ? 'Showroom'
+        : type === 'budget'
+          ? 'Orçamento'
+          : 'Venda';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -60,7 +75,9 @@ export const ProductLinkedOrdersModal: React.FC<Props> = ({ visible, dark, produ
               <Receipt size={20} color="#2563eb" />
               <View>
                 <Text style={[styles.title, dark && styles.light]}>Pedidos Vinculados</Text>
-                <Text style={styles.subtitle}>{product?.name || 'Produto'}</Text>
+                <Text style={styles.subtitle}>
+                  {product?.name || 'Produto'} · SKU: {product?.code || product?.sku || 'N/A'}
+                </Text>
               </View>
             </View>
             <TouchableOpacity
@@ -92,10 +109,24 @@ export const ProductLinkedOrdersModal: React.FC<Props> = ({ visible, dark, produ
                         ? new Date(order.date).toLocaleDateString('pt-BR')
                         : 'Data não informada'}
                     </Text>
+                    <Text style={styles.meta}>
+                      {formatOrderType(order.type)} · {order.status || 'Pendente'}
+                    </Text>
                   </View>
-                  <Text style={styles.qty}>{order.quantity} un.</Text>
+                  <View style={styles.orderValues}>
+                    <Text style={styles.qty}>
+                      {order.quantity} {unit}
+                    </Text>
+                    <Text style={styles.price}>{formatCurrency(order.unitPrice)}</Text>
+                  </View>
                 </View>
               ))}
+              <View style={[styles.totalRow, dark && styles.darkRow]}>
+                <Text style={[styles.totalLabel, dark && styles.light]}>Total acumulado</Text>
+                <Text style={styles.totalQuantity}>
+                  {totalQuantity} {unit}
+                </Text>
+              </View>
             </ScrollView>
           )}
         </View>
@@ -141,4 +172,17 @@ const styles = StyleSheet.create({
   order: { fontWeight: '800', color: '#0f172a', fontSize: 12 },
   meta: { color: '#64748b', fontSize: 11, marginTop: 3 },
   qty: { color: '#2563eb', fontWeight: '900' },
+  orderValues: { alignItems: 'flex-end', gap: 4, marginLeft: 10 },
+  price: { color: '#059669', fontSize: 11, fontWeight: '800' },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: '#eff6ff',
+    marginTop: 4,
+  },
+  totalLabel: { color: '#64748b', fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
+  totalQuantity: { color: '#2563eb', fontSize: 14, fontWeight: '900' },
 });

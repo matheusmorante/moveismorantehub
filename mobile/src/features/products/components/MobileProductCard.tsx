@@ -5,6 +5,7 @@ import {
   MoreVertical,
   Package,
   Pencil,
+  RotateCcw,
   Truck,
 } from 'lucide-react-native';
 import type React from 'react';
@@ -19,6 +20,7 @@ import { MobileProductVariationList } from './MobileProductVariationList';
 import { StockOriginBadge } from './StockOriginBadge';
 import { MergedBadge } from './MergedBadge';
 import { styles } from './MobileProductCard.styles';
+import { buildProductPriceLabelUrl } from '../domain/productLabelLinks';
 
 interface Props {
   product: any;
@@ -30,6 +32,8 @@ interface Props {
   canPrintLabels?: boolean;
   canViewDetails?: boolean;
   isLabelOnlyProfile?: boolean;
+  showTrash?: boolean;
+  onRestore?: (id: string) => void;
   onEdit: (product: any) => void;
   onViewDetails?: (product: any) => void;
   onToggleCatalog: (
@@ -40,6 +44,7 @@ interface Props {
   ) => void;
   onToggleActive: (productId: string, currentActive: boolean) => void;
   onDelete: (productId: string, isDraft?: boolean) => void;
+  onMoveToTrash?: (productId: string) => void;
   onDuplicate?: (product: any) => void;
   onLaunchStock?: (product: any) => void;
   onShowHistory?: (product: any) => void;
@@ -63,11 +68,14 @@ export const MobileProductCard: React.FC<Props> = ({
   canPrintLabels = false,
   canViewDetails = false,
   isLabelOnlyProfile = false,
+  showTrash = false,
+  onRestore,
   onEdit,
   onViewDetails,
   onToggleCatalog,
   onToggleActive,
   onDelete,
+  onMoveToTrash,
   onDuplicate,
   onLaunchStock,
   onShowHistory,
@@ -127,6 +135,32 @@ export const MobileProductCard: React.FC<Props> = ({
     });
   };
 
+  const handlePrintPriceLabel = (targetProduct: any) => {
+    const productId = typeof targetProduct?.id === 'string' ? targetProduct.id.trim() : '';
+    if (!productId) {
+      Alert.alert('Produto indisponível', 'Não foi possível identificar o produto para a etiqueta.');
+      return;
+    }
+
+    Linking.openURL(buildProductPriceLabelUrl(WEB_URL, productId)).catch((error) => {
+      console.warn('Falha ao abrir etiqueta de preço:', error);
+      Alert.alert('Erro', 'Não foi possível abrir a tela de etiquetas de preço.');
+    });
+  };
+
+  const singleVariationTarget =
+    singleVariation && !singleVariation.isVirtual
+      ? {
+          ...product,
+          ...singleVariation,
+          id: singleVariation.id,
+          parentId: product.id,
+          variationId: singleVariation.id,
+          isVariation: true,
+          name: displayTitle,
+        }
+      : product;
+
   return (
     <TouchableOpacity
       activeOpacity={0.88}
@@ -179,6 +213,21 @@ export const MobileProductCard: React.FC<Props> = ({
 
         {/* Atalhos: Editar Rápido e Menu de 3 Pontinhos */}
         <View style={styles.headerActions}>
+          {showTrash && onRestore && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={(e) => {
+                e.stopPropagation();
+                onRestore(product.id);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Restaurar ${product.name || 'produto'}`}
+              style={[styles.actionIconBtn, dark && styles.darkBtn]}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <RotateCcw size={15} color={dark ? '#86efac' : '#16a34a'} />
+            </TouchableOpacity>
+          )}
           {canEdit && (
             <TouchableOpacity
               activeOpacity={0.7}
@@ -401,7 +450,9 @@ export const MobileProductCard: React.FC<Props> = ({
           onMoveVariation={canEdit && !isLabelOnlyProfile ? onMoveVariation : undefined}
           onMergeVariation={canEdit && !isLabelOnlyProfile ? onMergeVariation : undefined}
           onShowHistory={onShowHistory}
+          onShowOrders={onShowOrders}
           onLaunchStock={onLaunchStock}
+          canShowLinkedOrders={cardActionAvailability.canShowLinkedOrders}
           canChangeCatalog={canChangeCatalog}
           showCatalogStatus={showCatalogStatus}
           canPrintLabel={canPrintLabels}
@@ -421,6 +472,7 @@ export const MobileProductCard: React.FC<Props> = ({
         onEdit={onEdit}
         onToggleActive={onToggleActive}
         onDelete={onDelete}
+        onMoveToTrash={onMoveToTrash}
         onDuplicate={
           canEdit && !isLabelOnlyProfile && cardActionAvailability.canDuplicate
             ? onDuplicate
@@ -429,6 +481,7 @@ export const MobileProductCard: React.FC<Props> = ({
         onLaunchStock={onLaunchStock}
         onShowHistory={onShowHistory}
         onShowOrders={cardActionAvailability.canShowLinkedOrders ? onShowOrders : undefined}
+        onPrintPriceLabel={!isLabelOnlyProfile && !showTrash ? handlePrintPriceLabel : undefined}
       />
 
       {/* Modal de Ações da Variação Única */}
@@ -442,9 +495,32 @@ export const MobileProductCard: React.FC<Props> = ({
           onPrintLabel={
             canPrintLabels && !isSingleVariationMerged ? handlePrintLabel : undefined
           }
+          onPrintPriceLabel={
+            !isLabelOnlyProfile && !showTrash && !isSingleVariationMerged
+              ? () => handlePrintPriceLabel(product)
+              : undefined
+          }
           onEdit={
             canEdit && !isLabelOnlyProfile && !isSingleVariationMerged
               ? () => onEdit(product)
+              : undefined
+          }
+          onShowOrders={
+            (cardActionAvailability.canShowLinkedOrders || isSingleVariationCard) &&
+            onShowOrders &&
+            !isSingleVariationMerged &&
+            singleVariation.id
+              ? () => onShowOrders(product)
+              : undefined
+          }
+          onLaunchStock={
+            onLaunchStock && !isSingleVariationMerged
+              ? () => onLaunchStock(singleVariationTarget)
+              : undefined
+          }
+          onShowHistory={
+            onShowHistory && !isSingleVariationMerged
+              ? () => onShowHistory(singleVariationTarget)
               : undefined
           }
           onMoveToAnotherFamily={
@@ -465,6 +541,13 @@ export const MobileProductCard: React.FC<Props> = ({
               ? () => onMergeVariation(singleVariation, product)
               : undefined
           }
+          onMoveProductToTrash={
+            canDelete && !showTrash && !isDraft && onMoveToTrash
+              ? () => onMoveToTrash(product.id)
+              : undefined
+          }
+          canMoveProductToTrash={product.can_trash === true}
+          trashBlockReason={product.trash_block_reason}
         />
       )}
     </TouchableOpacity>

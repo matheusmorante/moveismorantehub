@@ -11,6 +11,7 @@ import type Order from '@/pages/types/order.type';
 import { parseFiscalXmlDetails } from '../utils/fiscalXmlParser';
 import type { NfeDocumentRecord } from '../types/fiscalDocuments.types';
 import { buildAuthorizedNfeDownloadXml } from '@/pages/utils/nfe/authorizedNfeXml';
+import { openDanfePrintPreparationWindow } from '@/pages/utils/printing/printFallbackHandler';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 function createDanfeFallbackOrder(document: NfeDocumentRecord): Order {
@@ -123,11 +124,19 @@ export async function printDanfe(
   doc: NfeDocumentRecord,
   format?: 'thermal_80mm' | 'a4'
 ): Promise<void> {
-  const danfeData = await buildDanfeData(doc);
-  if (doc.modelo === '65' && format) {
-    danfeData.printFormat = format;
+  const printWindow = openDanfePrintPreparationWindow();
+  if (!printWindow) return;
+
+  try {
+    const danfeData = await buildDanfeData(doc);
+    if (doc.modelo === '65' && format) {
+      danfeData.printFormat = format;
+    }
+    await openDanfePrintWindow(danfeData, doc.modelo === '65' ? format : undefined, printWindow);
+  } catch (error) {
+    if (!printWindow.closed) printWindow.close();
+    throw error;
   }
-  await openDanfePrintWindow(danfeData, doc.modelo === '65' ? format : undefined);
 }
 
 export async function createDanfeShareFile(doc: NfeDocumentRecord): Promise<File> {

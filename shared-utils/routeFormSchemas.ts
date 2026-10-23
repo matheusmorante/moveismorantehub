@@ -2,9 +2,10 @@ import { z } from 'zod';
 
 const coordinateSchema = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
 const optionalText = z.string().trim().optional();
+const optionalAddressNumber = z.string().regex(/^[0-9]*$/, 'O número do endereço deve conter apenas números.').optional();
 
 export const routeAddressFormSchema = z.object({
-  street: optionalText, number: optionalText, neighborhood: optionalText, city: optionalText,
+  street: optionalText, number: optionalAddressNumber, neighborhood: optionalText, city: optionalText,
   state: optionalText, cep: optionalText, complement: optionalText, observation: optionalText,
   mapsUrl: optionalText, googleMapsUrl: optionalText, mapsLink: optionalText,
   placeId: optionalText, formattedAddress: optionalText, coords: coordinateSchema.optional(),

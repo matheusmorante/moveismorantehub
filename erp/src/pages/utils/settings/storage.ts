@@ -38,13 +38,30 @@ export const getSettings = (): AppSettings => {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      const hadLegacyFiscalSecrets =
-        parsed &&
-        ['certificateBase64', 'certificatePassword', 'certificateFileName', 'cscToken'].some(
-          (key) => Object.prototype.hasOwnProperty.call(parsed, key)
-        );
+      const hadLegacySecrets = Boolean(parsed) && (
+        [
+          'certificateBase64',
+          'certificatePassword',
+          'certificateFileName',
+          'cscToken',
+          'openRouteServiceApiKey',
+          'googleMapsApiKey',
+          'geminiApiKey',
+          'blingConfig',
+        ].some((key) => Object.prototype.hasOwnProperty.call(parsed, key)) ||
+        Boolean(
+          parsed.whatsappConfig &&
+            Object.prototype.hasOwnProperty.call(parsed.whatsappConfig, 'accessToken')
+        ) ||
+        (Array.isArray(parsed.importMappings) &&
+          parsed.importMappings.some((mapping: any) =>
+            [mapping?.id, mapping?.name].some(
+              (value) => typeof value === 'string' && /bling/i.test(value)
+            )
+          ))
+      );
       const migrated = migrateSettings(parsed);
-      if (hadLegacyFiscalSecrets) localStorage.setItem(SETTINGS_KEY, JSON.stringify(migrated));
+      if (hadLegacySecrets) localStorage.setItem(SETTINGS_KEY, JSON.stringify(migrated));
       return deepMerge(defaults, migrated);
     } catch {
       return defaults;

@@ -25,6 +25,7 @@ import {
   Check,
   Camera,
   Pencil,
+  Sparkles,
   Trash2,
 } from 'lucide-react-native';
 import { parseLocalizedNumber as parseLocalizedPrice } from '../../domain/productNumbers';
@@ -36,6 +37,13 @@ import { ProductVariationPhotosEditor } from '../components/ProductVariationPhot
 import { ProductFormCompositionTab } from './ProductFormCompositionTab';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MergedBadge } from '../../components/MergedBadge';
+import { inheritMobileSimpleVariationFromParent } from '../../domain/productVariationParentSync';
+import { replaceMobileProductImageGlobally } from '../../domain/mobileProductImageOrdering';
+import {
+  generateMobileProductVariations,
+  getInitialMobileVariationStatus,
+} from '../../domain/mobileProductVariationGeneration';
+import { ProductVariationGenerationModal } from '../ProductVariationGenerationModal';
 
 type VariationTabId = 'identificacao' | 'tecnico' | 'descricao' | 'fotos' | 'compostos' | 'estoque';
 
@@ -44,6 +52,8 @@ interface Props {
   setFormData: (fn: (prev: any) => any) => void;
   dark: boolean;
   isStockistOnly?: boolean;
+  isExistingProduct?: boolean;
+  selectedVariationId?: string;
 }
 
 export const ProductFormVariationsTab: React.FC<Props> = ({
@@ -51,12 +61,26 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
   setFormData,
   dark,
   isStockistOnly = false,
+  isExistingProduct = false,
+  selectedVariationId,
 }) => {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [activeVariationTab, setActiveVariationTab] = useState<VariationTabId>('identificacao');
+  const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
   const insets = useSafeAreaInsets();
 
   const variations: any[] = Array.isArray(formData.variations) ? formData.variations : [];
+  const variationIds = variations.map((variation) => String(variation.id || '')).join('|');
+
+  useEffect(() => {
+    if (!selectedVariationId) return;
+    const selectedIndex = variations.findIndex(
+      (variation) => String(variation.id || '') === String(selectedVariationId)
+    );
+    if (selectedIndex < 0) return;
+    setExpanded(selectedIndex);
+    setActiveVariationTab('identificacao');
+  }, [selectedVariationId, variationIds]);
 
   const handleAdd = () => {
     const parentCode = (formData.code || '000000').trim();
@@ -79,7 +103,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
       height: formData.height || '',
       depth: formData.depth || '',
       weight: formData.weight || '',
-      status: 'draft',
+      status: getInitialMobileVariationStatus(formData),
       active: false,
       syncUnitPrice: true,
       syncPromoPrice: true,
@@ -108,9 +132,30 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
     setActiveVariationTab('identificacao');
   };
 
+  const handleGenerateVariations = (options: Array<{ name: string; values: string[]; showName: boolean }>) => {
+    const generated = generateMobileProductVariations(options, formData, variations);
+    if (generated.variations.length === 0) {
+      Alert.alert('Não foi possível gerar', 'Selecione pelo menos um valor para cada característica.');
+      return;
+    }
+    setFormData((previous) => ({
+      ...previous,
+      hasVariations: true,
+      variations: [...(previous.variations || []), ...generated.variations],
+      variableTechnicalFields: generated.variableTechnicalFields,
+    }));
+    Alert.alert(
+      'Variações geradas',
+      `${generated.variations.length} ${generated.variations.length === 1 ? 'variação foi adicionada' : 'variações foram adicionadas'} ao produto.`
+    );
+  };
+
   const handleRemove = async (index: number) => {
-    if (index === 0) {
-      Alert.alert('Variação principal', 'A primeira variação é obrigatória e não pode ser removida.');
+    if (variations.length <= 1) {
+      Alert.alert(
+        'Variação obrigatória',
+        'O produto precisa manter pelo menos uma variação operacional.'
+      );
       return;
     }
 
@@ -147,23 +192,36 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
       }
     }
 
+    const remainsSimple = variations.length === 2;
+    const confirmRemoval = () => {
+      setFormData((previous) => {
+        const nextVariations = (previous.variations || []).filter(
+          (_: any, currentIndex: number) => currentIndex !== index
+        );
+        const becomesSimple = nextVariations.length === 1;
+        return {
+          ...previous,
+          variations:
+            becomesSimple && !isExistingProduct
+              ? [inheritMobileSimpleVariationFromParent(previous, nextVariations[0])]
+              : nextVariations,
+          hasVariations: !becomesSimple,
+        };
+      });
+      if (expanded === index) setExpanded(null);
+      else if (expanded !== null && expanded > index) setExpanded(expanded - 1);
+    };
     Alert.alert(
-      'Remover variação?',
-      `A variação “${variation?.name || variation?.sku || 'Variação'}” será removida ao salvar o produto.`,
+      remainsSimple ? 'O produto se tornará simples' : 'Remover variação?',
+      remainsSimple
+        ? 'Restará uma variação, que herdará a galeria completa de fotos do produto. Você poderá voltar a “Com variações” nas informações básicas.'
+        : `A variação “${variation?.name || variation?.sku || 'Variação'}” será removida ao salvar o produto.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Remover',
+          text: remainsSimple ? 'Confirmar e tornar simples' : 'Remover',
           style: 'destructive',
-          onPress: () => {
-            setFormData((previous) => ({
-              ...previous,
-              variations: (previous.variations || []).filter((_: any, currentIndex: number) => currentIndex !== index),
-              hasVariations: true,
-            }));
-            if (expanded === index) setExpanded(null);
-            else if (expanded !== null && expanded > index) setExpanded(expanded - 1);
-          },
+          onPress: confirmRemoval,
         },
       ]
     );
@@ -214,7 +272,8 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
   const parentCategoryIds: string[] =
     formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
   const isComposition = formData.itemType === 'composition' || formData.item_type === 'composition';
-  const isSingleExistingVariation = variations.length === 1;
+  const isSingleVariation = variations.length === 1;
+  const isSingleExistingVariation = isExistingProduct && isSingleVariation;
   const inheritedDataTabs: readonly VariationTabId[] = [
     'tecnico',
     'descricao',
@@ -222,7 +281,8 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
     'compostos',
   ];
   const showInheritedDataNotice =
-    isSingleExistingVariation && inheritedDataTabs.includes(activeVariationTab);
+    isSingleExistingVariation &&
+    inheritedDataTabs.includes(activeVariationTab);
 
   const variationTabs = [
     { id: 'identificacao' as const, label: 'Informações Básicas', Icon: Info },
@@ -268,19 +328,34 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
         <Text style={[styles.sectionTitle, dark && styles.lightText]}>
           Variações ({variations.length})
         </Text>
-        <TouchableOpacity
-          onPress={handleAdd}
-          disabled={!String(formData.name || '').trim()}
-          style={[
-            styles.addVariationButton,
-            !String(formData.name || '').trim() && styles.addBtnDisabled,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Adicionar variação"
-        >
-          <Plus size={14} color="#ffffff" />
-          <Text style={styles.addBtnText}>Adicionar variação</Text>
-        </TouchableOpacity>
+        <View style={styles.variationActions}>
+          <TouchableOpacity
+            onPress={() => setIsGenerationModalOpen(true)}
+            disabled={!String(formData.name || '').trim()}
+            style={[
+              styles.generateVariationButton,
+              !String(formData.name || '').trim() && styles.addBtnDisabled,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Gerar variações por características"
+          >
+            <Sparkles size={14} color="#2563eb" />
+            <Text style={styles.generateVariationText}>Gerar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleAdd}
+            disabled={!String(formData.name || '').trim()}
+            style={[
+              styles.addVariationButton,
+              !String(formData.name || '').trim() && styles.addBtnDisabled,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Adicionar variação"
+          >
+            <Plus size={14} color="#ffffff" />
+            <Text style={styles.addBtnText}>Adicionar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Lista de Variações */}
@@ -428,7 +503,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                         v.merged_to_variation_id ||
                         v.mergedToVariationId
                       );
-                      const isDeleteDisabled = idx === 0 || isVariationMerged;
+                      const isDeleteDisabled = variations.length <= 1 || isVariationMerged;
                       return (
                         <TouchableOpacity
                           onPress={() => void handleRemove(idx)}
@@ -441,8 +516,8 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                           accessibilityRole="button"
                           accessibilityLabel={
-                            idx === 0
-                              ? 'A variação principal não pode ser removida'
+                            variations.length <= 1
+                              ? 'A última variação não pode ser removida'
                               : isVariationMerged
                               ? 'Esta variação está mesclada e não pode ser removida'
                               : `Remover variação ${v.name || v.sku}`
@@ -538,7 +613,9 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                           {variationTabs.map(({ id, label, Icon }) => {
                             const selected = activeVariationTab === id;
                             const isInheritedDataTab =
-                              isSingleExistingVariation && inheritedDataTabs.includes(id);
+                              isSingleExistingVariation &&
+                              inheritedDataTabs.includes(id) &&
+                              !(isComposition && id === 'compostos');
                             return (
                               <TouchableOpacity
                                 key={id}
@@ -782,6 +859,10 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                             images={Array.isArray(v.images) ? v.images : []}
                             parentImages={Array.isArray(formData.images) ? formData.images : []}
                             onChangeImages={(images) => updateVar(idx, 'images', images)}
+                            onCropPhoto={(oldUrl, newUrl) => {
+                              setFormData((prev) => replaceMobileProductImageGlobally(prev, oldUrl, newUrl));
+                            }}
+                            inheritsParentGallery={isSingleVariation}
                             dark={dark}
                           />
                         )}
@@ -931,7 +1012,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                             <View style={[styles.singleVariationNoticeCard, dark && styles.darkCard]}>
                               <Info size={28} color="#2563eb" style={{ marginBottom: 10, alignSelf: 'center' }} />
                               <Text style={[styles.singleVariationNoticeText, dark && styles.lightText]}>
-                                Como este produto tem apenas uma variação, somente as abas Informações Básicas e Fotos vinculadas permitem edição.
+                                Esta variação única herda os dados do produto principal. A galeria de Fotos vinculadas é apenas para consulta; edite os dados nas abas correspondentes do produto.
                               </Text>
                               <Text style={[styles.singleVariationNoticeSubtext, dark && styles.dimText]}>
                                 Para editar as demais informações, atualize o produto principal ou adicione outra variação.
@@ -958,6 +1039,12 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
             );
           })
       )}
+      <ProductVariationGenerationModal
+        visible={isGenerationModalOpen}
+        dark={dark}
+        onClose={() => setIsGenerationModalOpen(false)}
+        onGenerate={handleGenerateVariations}
+      />
     </View>
   );
 };
@@ -1161,6 +1248,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
+  variationActions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  generateVariationButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    backgroundColor: '#eff6ff',
+  },
+  generateVariationText: { color: '#2563eb', fontSize: 11, fontWeight: '900' },
   addVariationButton: {
     minHeight: 40,
     flexDirection: 'row',

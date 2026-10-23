@@ -49,6 +49,10 @@ async function check() {
     assert.equal(rewrites.get(`/api/nfe/${route}`), expected,
       `${route}: public path is not routed to its whitelisted handler`);
   }
+  for (const route of ['meta-graph', 'gemini-proxy', 'google-routes']) {
+    assert.equal(rewrites.get(`/api/${route}`), `/api/secure-integrations?operation=${route}`,
+      `${route}: secure integration path is not routed to the consolidated handler`);
+  }
   const countFunctions = async (directory) => {
     const entries = await readdir(directory, { withFileTypes: true });
     let count = 0;

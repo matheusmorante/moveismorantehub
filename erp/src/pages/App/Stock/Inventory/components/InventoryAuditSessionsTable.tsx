@@ -62,7 +62,7 @@ export const InventoryAuditSessionsTable: React.FC<InventoryAuditSessionsTablePr
               {session.responsibleName || 'Não informado'}
             </td>
             <td className="px-8 py-5 text-center">
-              <StatusBadge status={session.status} />
+              <StatusBadge session={session} />
             </td>
             <td className="px-8 py-5 text-center text-sm font-black text-slate-600 dark:text-slate-300">
               {session.productsCount}

@@ -23,6 +23,9 @@ interface ChatHeaderProps {
   onOpenSnippets: () => void;
   onToggleArchive: () => Promise<boolean | void> | boolean | void;
   teamMembers: AssignedProfileSummary[];
+  isLoadingAgents?: boolean;
+  agentsError?: string | null;
+  onReloadAgents?: () => void;
   onAssign?: (profileId: string | null, profileName?: string) => Promise<boolean | void>;
   onUpdateStatus?: (status: ConversationStatus) => Promise<boolean | void>;
   currentUserId?: string;
@@ -48,6 +51,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onOpenSnippets,
   onToggleArchive,
   teamMembers,
+  isLoadingAgents = false,
+  agentsError = null,
+  onReloadAgents,
   onAssign,
   onUpdateStatus,
   currentUserId,
@@ -95,7 +101,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     .join('');
 
   return (
-    <div className="relative h-16 px-4 border-b border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between shrink-0 z-10 shadow-xs">
+    <div className="relative min-h-16 px-4 py-2 border-b border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex flex-col gap-2 md:h-16 md:flex-row md:items-center md:justify-between md:py-0 shrink-0 z-10 shadow-xs">
       <fieldset disabled={isSubmitting} className="contents" aria-busy={isSubmitting}>
       {errors.root?.command && <p role="alert" className="absolute top-full right-2 z-50 p-2 rounded-lg bg-red-50 dark:bg-red-950 text-xs text-red-700 dark:text-red-300 shadow-sm">{errors.root.command.message}</p>}
       {isSubmitting && <span role="status" className="absolute top-full right-2 z-50 p-2 rounded-lg bg-white dark:bg-slate-900 text-xs text-emerald-700 animate-pulse">Salvando alteração…</span>}
@@ -112,7 +118,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             e.stopPropagation();
             onBackMobile();
           }}
-          className="md:hidden w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+          className="md:hidden w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
           aria-label="Voltar para a lista"
         >
           <i className="bi bi-chevron-left text-base"></i>
@@ -184,7 +190,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       </div>
 
       {/* Direita: Controles de Atendimento alinhados com a referência */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 relative">
+      <div className="flex flex-wrap md:flex-nowrap items-center gap-1.5 sm:gap-2 shrink-0 relative">
         {/* 1. Seletor de Atendente Responsável (Assignee Dropdown "Ben ▾") */}
         <div className="relative">
           <button
@@ -210,6 +216,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <div className="px-3.5 py-1.5 border-b border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase text-slate-400">
                 Responsável pelo atendimento
               </div>
+
+              {isLoadingAgents && <p role="status" className="flex items-center gap-2 px-3.5 py-2 text-slate-500 dark:text-slate-400"><i aria-hidden="true" className="bi bi-arrow-repeat animate-spin" />Carregando atendentes...</p>}
+              {agentsError && <div role="alert" className="px-3.5 py-2 text-red-600 dark:text-red-300">
+                <p>{agentsError}</p>
+                {onReloadAgents && <button type="button" disabled={isLoadingAgents} onClick={(event) => { event.stopPropagation(); onReloadAgents(); }} aria-label="Tentar carregar atendentes novamente" className="mt-1 underline disabled:opacity-50">Tentar novamente</button>}
+              </div>}
 
               {currentUserId && (
                 <button

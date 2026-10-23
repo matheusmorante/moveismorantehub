@@ -116,8 +116,10 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
             </label>
             <input
               type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={formData.fullAddress?.number || ''}
-              onChange={(e) => handleAddressChange('number', e.target.value)}
+              onChange={(e) => handleAddressChange('number', e.target.value.replace(/\D/g, ''))}
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-bold dark:text-slate-100"
             />
           </div>

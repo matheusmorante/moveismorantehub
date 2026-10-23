@@ -71,9 +71,6 @@ export const AppSettingsFormSchema = z.object({
   "pickupHandlingOptions": z.array(HandlingOptionFormSchema),
   "cardFlagRules": z.array(CardFlagRuleFormSchema),
   "freightPerKm": z.number(),
-  "openRouteServiceApiKey": z.string(),
-  "googleMapsApiKey": z.string(),
-  "geminiApiKey": z.string().optional(),
   "storeOriginCoords": z.tuple([z.number(), z.number()]),
   "companyName": z.string(),
   "companyDanfeLogoUrl": z.string().trim().max(2048).refine((value) => !value || ((value.startsWith('/') && !value.startsWith('//') && !value.includes('..') && !value.includes('\\')) || /^https:\/\/\S+$/i.test(value)), 'Use um caminho público da aplicação ou uma URL HTTPS para o logotipo.').optional(),
@@ -147,7 +144,6 @@ export const AppSettingsFormSchema = z.object({
   "autoUpdateStatusOnConfirm": z.boolean().optional(),
 }).passthrough().optional(),
   "whatsappConfig": z.object({
-  "accessToken": z.string(),
   "phoneNumberId": z.string(),
   "wabaId": z.string(),
   "catalogId": z.string(),
@@ -245,11 +241,4 @@ export const AppSettingsFormSchema = z.object({
   "enableBeep": z.boolean(),
   "vibrate": z.boolean(),
 }).passthrough(),
-  "blingConfig": z.object({
-  "apiKey": z.string(),
-  "apiToken": z.string(),
-  "clientId": z.string(),
-  "clientSecret": z.string(),
-  "syncEnabled": z.boolean(),
-}).passthrough().optional(),
 }).passthrough();

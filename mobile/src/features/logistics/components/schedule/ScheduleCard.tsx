@@ -196,7 +196,9 @@ export const ScheduleCard: React.FC<Props> = ({
           accessibilityLabel={primaryActionConfig.accessibilityLabel}
         >
           {primaryActionConfig.icon}
-          <Text style={styles.startBtnText}>{primaryActionConfig.label}</Text>
+          <Text style={styles.actionBtnText} numberOfLines={1}>
+            {primaryActionConfig.label}
+          </Text>
         </TouchableOpacity>
 
         {/* Botão de Fluxo de Entrega — exclusivo para atividades de entrega */}
@@ -208,8 +210,10 @@ export const ScheduleCard: React.FC<Props> = ({
             accessibilityRole="button"
             accessibilityLabel="Abrir fluxo de entrega"
           >
-            <DeliveryFlowIcon size={20} color="#ffffff" />
-            <Text style={styles.deliveryFlowBtnText}>FLUXO DE ENTREGA</Text>
+            <DeliveryFlowIcon size={18} color="#ffffff" />
+            <Text style={styles.actionBtnText} numberOfLines={1}>
+              FLUXO DE ENTREGA
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -312,47 +316,45 @@ const styles = StyleSheet.create({
     color: '#64748b',
   },
   actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 8,
     marginTop: 4,
   },
   startBtn: {
-    flex: 1,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     backgroundColor: '#2563eb',
-    paddingVertical: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 44,
     borderRadius: 14,
     elevation: 2,
   },
-  startBtnText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 0.5,
-  },
   deliveryFlowBtn: {
-    flex: 1,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     backgroundColor: '#10b981',
-    paddingVertical: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 44,
     borderRadius: 14,
     elevation: 2,
   },
   deliveryFlowBtnDark: {
     backgroundColor: '#059669',
   },
-  deliveryFlowBtnText: {
-    fontSize: 12,
+  actionBtnText: {
+    fontSize: 11,
     fontWeight: '900',
     color: '#ffffff',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   textLight: {
     color: '#f8fafc',

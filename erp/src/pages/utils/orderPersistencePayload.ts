@@ -32,7 +32,6 @@ export const buildOrderPersistencePayload = (order: Order) => {
   const totalCost = order.itemsSummary?.totalItemsCost ?? 0;
   const stockProcessed = Boolean(order.stockProcessed);
   const isStockChecked = Boolean(order.isStockChecked);
-  const isRegisteredInBling = Boolean(order.isRegisteredInBling);
   const deleted = Boolean(order.deleted);
   const deletedAt = order.deletedAt ? new Date(order.deletedAt).toISOString() : null;
   const returnOrderId = (order as any).returnOrderId || null;
@@ -57,6 +56,8 @@ export const buildOrderPersistencePayload = (order: Order) => {
   const sanitizedOrder = { ...order };
   delete sanitizedOrder.updatedAt;
   delete sanitizedOrder.linkedReturnMovement;
+  delete (sanitizedOrder as any).isRegisteredInBling;
+  delete (sanitizedOrder as any).is_registered_in_bling;
   if (sanitizedOrder.date && /^\d{2}\/\d{2}\/\d{4}/.test(sanitizedOrder.date)) {
     const [d, m, y] = sanitizedOrder.date.slice(0, 10).split('/');
     sanitizedOrder.date = `${y}-${m}-${d}T12:00:00.000Z`;
@@ -85,7 +86,6 @@ export const buildOrderPersistencePayload = (order: Order) => {
     total_cost: totalCost,
     stock_processed: stockProcessed,
     is_stock_checked: isStockChecked,
-    is_registered_in_bling: isRegisteredInBling,
     deleted: deleted,
     deleted_at: deletedAt,
     return_order_id: returnOrderId,

@@ -31,6 +31,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useProductFormPermissions } from '../hooks/useProductFormPermissions';
+import { useMobileProductJevClassification } from '../hooks/useMobileProductJevClassification';
+import { getMobileProductRootCompositionItems } from '../domain/mobileProductCompositionItems';
+import {
+  initializeMobileProductCode,
+  resolveMobileProductFormHasVariations,
+  shouldShowMobileProductVariationsTab,
+} from '../domain/mobileProductVariationMode';
 import {
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
@@ -39,6 +46,7 @@ import {
   getProductCharacteristicAttributes,
   getTechnicalValue,
   hasTechnicalValue,
+  resolveMobileVariableTechnicalFieldNames,
 } from '../domain/productCharacteristics';
 import { parseLocalizedNumber as parseLocalizedPrice } from '../domain/productNumbers';
 import {
@@ -99,7 +107,7 @@ const TABS: Tab[] = [
     id: 'variacoes',
     label: 'Variações',
     Icon: Grid3X3,
-    condition: (formData) => formData.itemType !== 'service',
+    condition: (formData) => shouldShowMobileProductVariationsTab(formData),
   },
   {
     id: 'fiscal',
@@ -214,7 +222,8 @@ export const ProductFormScreen: React.FC<Props> = ({
       getMissingRequiredCharacteristics(
         getEffectiveVariationTechnicalValues(
           getEffectiveProductTechnicalValues(formData),
-          variation
+          variation,
+          resolveMobileVariableTechnicalFieldNames(formData)
         )
       ).length > 0
   );
@@ -253,6 +262,8 @@ export const ProductFormScreen: React.FC<Props> = ({
       return variations === next.variations ? next : { ...next, variations };
     });
   }, []);
+
+  const jev = useMobileProductJevClassification(formData, setFormData, visible);
 
   const handleRequestClose = useCallback(() => {
     if (!dirtyRef.current) {
@@ -299,15 +310,7 @@ export const ProductFormScreen: React.FC<Props> = ({
           technicalValues[attribute] = value;
         }
       }
-      const rawComboItems = product.combo_items ?? product.comboItems;
-      let comboItems = Array.isArray(rawComboItems) ? rawComboItems : [];
-      if (typeof rawComboItems === 'string') {
-        try {
-          comboItems = JSON.parse(rawComboItems);
-        } catch {
-          comboItems = [];
-        }
-      }
+      const comboItems = getMobileProductRootCompositionItems(product);
       setFormDataRaw({
         ...INITIAL_FORM,
         ...product,
@@ -409,22 +412,8 @@ export const ProductFormScreen: React.FC<Props> = ({
           product,
           product
         ),
-        comboItems: comboItems.length
-          ? comboItems
-          : product.allVariations && product.allVariations.length > 0
-            ? typeof product.allVariations[0].combo_items === 'string'
-              ? (() => {
-                  try {
-                    return JSON.parse(product.allVariations[0].combo_items);
-                  } catch {
-                    return [];
-                  }
-                })()
-              : product.allVariations[0].combo_items || product.allVariations[0].comboItems || []
-            : [],
-        hasVariations: Boolean(
-          product.has_variations || product.hasVariations || product.allVariations?.length > 0
-        ),
+        comboItems,
+        hasVariations: resolveMobileProductFormHasVariations(product),
         active: product.active ?? true,
         isDraft: Boolean(product.is_draft || product.isDraft || product.status === 'draft'),
         status: product.status || (product.is_draft || product.isDraft ? 'draft' : 'hidden'),
@@ -435,9 +424,17 @@ export const ProductFormScreen: React.FC<Props> = ({
         ecommerceDescription: product.ecommerce_description || product.ecommerceDescription || '',
         whatsappDescription: product.whatsapp_description || product.whatsappDescription || '',
         fiscal: product.fiscal || {},
+        variableTechnicalFields: resolveMobileVariableTechnicalFieldNames({
+          ...product,
+          variations: rawVariations,
+        }),
       });
     } else {
-      const initialFormData = { ...INITIAL_FORM, ...(initialData || {}) };
+      const initialFormData = {
+        ...INITIAL_FORM,
+        ...(product && !product.id ? product : {}),
+        ...(initialData || {}),
+      };
       initialFormData.variations = syncMobileVariationsWithParent(
         initialFormData.variations,
         initialFormData
@@ -472,44 +469,40 @@ export const ProductFormScreen: React.FC<Props> = ({
           setFormDataRaw((prev: any) => {
             const productCode = String(prev.code || nextCode);
             clientProductCodeRef.current = productCode;
-            const nextFormData = {
-              ...prev,
-              code: productCode,
-              ...(prev.itemType === 'composition'
-                ? {}
-                : {
-                    hasVariations: true,
-                    variations:
-                      Array.isArray(prev.variations) && prev.variations.length > 0
-                        ? prev.variations
-                        : [
-                            {
-                              id: `new_${productCode}-01`,
-                              sku: `${productCode}-01`,
-                              name: prev.name || '',
-                              price: '',
-                              costPrice: '',
-                              stock: 0,
-                              attributes: {},
-                              images: [],
-                              syncUnitPrice: true,
-                              syncPromoPrice: true,
-                              syncCostPrice: true,
-                              syncFiscal: true,
-                              syncCondition: true,
-                              syncDescription: true,
-                              syncIpi: true,
-                              syncFreight: true,
-                              syncWidth: true,
-                              syncHeight: true,
-                              syncDepth: true,
-                              syncWeight: true,
-                              active: false,
-                              status: 'hidden',
-                            },
-                          ],
-                  }),
+            const defaultVariation = {
+              id: `new_${productCode}-01`,
+              sku: `${productCode}-01`,
+              name: prev.name || '',
+              price: '',
+              costPrice: '',
+              stock: 0,
+              attributes: [],
+              images: [],
+              comboItems: [],
+              syncUnitPrice: true,
+              syncPromoPrice: true,
+              syncCostPrice: true,
+              syncFiscal: true,
+              syncCondition: true,
+              syncDescription: true,
+              syncIpi: true,
+              syncFreight: true,
+              syncWidth: true,
+              syncHeight: true,
+              syncDepth: true,
+              syncWeight: true,
+              active: false,
+              status: 'hidden',
             };
+            const variationFallback =
+              prev.itemType === 'composition'
+                ? defaultVariation
+                : { ...defaultVariation, attributes: {} };
+            const nextFormData = initializeMobileProductCode(
+              prev,
+              productCode,
+              variationFallback
+            );
             return {
               ...nextFormData,
               variations: syncMobileVariationsWithParent(
@@ -527,8 +520,19 @@ export const ProductFormScreen: React.FC<Props> = ({
     setActiveTab(product?.selectedVariationId ? 'variacoes' : 'geral');
   }, [visible, product, initialData]);
 
-  const draftForm = useZodForm(createMobileProductFormSchema({ draft: true, isStockistOnly, published: false }), formData);
-  const finalForm = useZodForm(createMobileProductFormSchema({ draft: false, isStockistOnly, published: (product?.status || formData.status) === 'published' }), formData);
+  const existingProductImageCount = Array.isArray(product?.images) ? product.images.length : 0;
+  const draftForm = useZodForm(createMobileProductFormSchema({
+    draft: true,
+    isStockistOnly,
+    published: false,
+    existingProductImageCount,
+  }), formData);
+  const finalForm = useZodForm(createMobileProductFormSchema({
+    draft: false,
+    isStockistOnly,
+    published: (product?.status || formData.status) === 'published',
+    existingProductImageCount,
+  }), formData);
 
   const handleSubmit = useCallback(
     async (isDraft: boolean) => {
@@ -562,8 +566,9 @@ export const ProductFormScreen: React.FC<Props> = ({
               active: saveState.active,
               status: saveState.status,
               hasVariations:
-                validated.itemType !== 'composition' ||
-                Boolean(Array.isArray(validated.variations) && validated.variations.length > 0),
+                validated.itemType !== 'service' &&
+                (Boolean(validated.hasVariations) ||
+                  (Array.isArray(validated.variations) && validated.variations.length > 1)),
               variations: saveState.variations,
             });
             dirtyRef.current = false;
@@ -654,8 +659,11 @@ export const ProductFormScreen: React.FC<Props> = ({
             formData={formData}
             setFormData={setFormData}
             dark={dark}
+            isExistingProduct={Boolean(product?.id)}
             isStockistOnly={isStockistOnly}
             canManageCategories={canManageCategories}
+            onFieldFocus={jev.onFieldFocus}
+            onFieldBlur={jev.onFieldBlur}
           />
         );
       case 'fotos':
@@ -673,7 +681,13 @@ export const ProductFormScreen: React.FC<Props> = ({
         );
       case 'description':
         return isStockistOnly ? null : (
-          <ProductFormDescriptionTab formData={formData} setFormData={setFormData} dark={dark} />
+          <ProductFormDescriptionTab
+            formData={formData}
+            setFormData={setFormData}
+            dark={dark}
+            onFieldFocus={jev.onFieldFocus}
+            onFieldBlur={jev.onFieldBlur}
+          />
         );
       case 'estoque':
         return <ProductFormPricesTab formData={formData} setFormData={setFormData} dark={dark} />;
@@ -683,7 +697,9 @@ export const ProductFormScreen: React.FC<Props> = ({
             formData={formData}
             setFormData={setFormData}
             dark={dark}
+            isExistingProduct={Boolean(product?.id)}
             isStockistOnly={isStockistOnly}
+            selectedVariationId={product?.selectedVariationId}
           />
         );
       case 'fiscal':
@@ -695,6 +711,10 @@ export const ProductFormScreen: React.FC<Props> = ({
             canConfigureProductTaxes={canConfigureProductTaxes}
             isStockistOnly={isStockistOnly}
             hasNcmError={ncmError}
+            ncmSuggestion={jev.suggestion}
+            isClassifyingNcm={jev.isClassifying}
+            onAcceptNcmSuggestion={jev.acceptSuggestion}
+            onRejectNcmSuggestion={jev.rejectSuggestion}
           />
         );
     }

@@ -48,7 +48,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
   const labelPhysicalSize = calculateLabelPhysicalSize(config || {});
   const isPriceQueue = selectedCategory === 'precos';
   const shouldShowThumbnail = (item: any) =>
-    selectedCategory === 'identificacao' || !isPriceQueue || item.printingMode !== 'advanced';
+    selectedCategory !== 'identificacao' && (!isPriceQueue || item.printingMode !== 'advanced');
 
   const updateItem = (idx: number, updates: any) => {
     const newItems = [...labelItems];

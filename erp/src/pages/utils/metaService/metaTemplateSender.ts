@@ -1,7 +1,7 @@
 import { getSettings } from '@/pages/utils/settingsService';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
-import { metaHttpClient, GRAPH_API_VERSION, FACEBOOK_GRAPH_URL } from './metaHttpClient';
+import { metaHttpClient } from './metaHttpClient';
 import { metaErrorHandler } from './metaErrorHandler';
 import { templateSanitizer } from './templateSanitizer';
 import type { MetaSendResponse } from './types';
@@ -19,7 +19,8 @@ export const sendTemplateMessage = async (
   templateName: string,
   parameters: string[] = [],
   languageCode?: string,
-  config?: { accessToken: string; phoneNumberId: string; templateLanguage?: string }
+  config?: { phoneNumberId: string; templateLanguage?: string },
+  purpose: 'sales' | 'settings_test' = 'sales'
 ): Promise<MetaSendResponse> => {
   const whatsappConfig = config || getSettings().whatsappConfig;
   if (!whatsappConfig?.phoneNumberId) {
@@ -60,14 +61,7 @@ export const sendTemplateMessage = async (
 
   const startTime = Date.now();
 
-  const response = await fetch(
-    `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
-    {
-      method: 'POST',
-      headers: metaHttpClient.getHeaders(whatsappConfig),
-      body: JSON.stringify(payload),
-    }
-  );
+  const response = await metaHttpClient.postMessages(payload, purpose);
 
   const data = await response.json();
 
@@ -80,14 +74,7 @@ export const sendTemplateMessage = async (
   ) {
     const phoneWithoutNine = `55${formattedPhone.substring(2, 4)}${formattedPhone.substring(5)}`;
     const altPayload = { ...payload, to: phoneWithoutNine };
-    const altResponse = await fetch(
-      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
-      {
-        method: 'POST',
-        headers: metaHttpClient.getHeaders(whatsappConfig),
-        body: JSON.stringify(altPayload),
-      }
-    );
+    const altResponse = await metaHttpClient.postMessages(altPayload, purpose);
     const altData = await altResponse.json();
     if (!altData.error) {
       return altData;
@@ -104,14 +91,7 @@ export const sendTemplateMessage = async (
         language: { code: altLang },
       },
     };
-    const altResponseLang = await fetch(
-      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
-      {
-        method: 'POST',
-        headers: metaHttpClient.getHeaders(whatsappConfig),
-        body: JSON.stringify(altPayloadLang),
-      }
-    );
+    const altResponseLang = await metaHttpClient.postMessages(altPayloadLang, purpose);
     const altDataLang = await altResponseLang.json();
     if (!altDataLang.error) {
       return altDataLang;

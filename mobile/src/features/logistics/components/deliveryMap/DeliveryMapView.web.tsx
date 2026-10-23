@@ -82,20 +82,16 @@ export const DeliveryMapView: React.FC<Props> = ({
 
         if (i.status === 'completed') {
           typeLabel = 'Concluída';
-          bgColor = '#10b981';
           borderColor = '#a7f3d0';
         } else if (i.status === 'unattended') {
           typeLabel = 'Não Atendida';
-          bgColor = '#ef4444';
           borderColor = '#fecaca';
         } else if (i.isCurrent) {
           borderColor = '#ffffff';
         }
 
         let iconType = 'delivery';
-        if (i.status === 'completed') iconType = 'check';
-        else if (i.status === 'unattended') iconType = 'alert';
-        else if (isPickup) iconType = 'pickup';
+        if (isPickup) iconType = 'pickup';
         else if (activityType === 'assistance') iconType = 'assistance';
         else if (activityType === 'return') iconType = 'return';
 
@@ -150,7 +146,9 @@ export const DeliveryMapView: React.FC<Props> = ({
     
     .marker-container { display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3)); }
     .marker-container.marker-highlight { transform: scale(1.18); z-index: 1000; }
-    .marker-badge { width: 32px; height: 32px; border-radius: 50%; border-width: 2.5px; border-style: solid; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+    .marker-badge { position: relative; width: 32px; height: 32px; border-radius: 50%; border-width: 2.5px; border-style: solid; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+    .completed-badge { position: absolute; top: -5px; right: -5px; width: 14px; height: 14px; border-radius: 50%; background: #16a34a; border: 1.5px solid #ffffff; display: flex; align-items: center; justify-content: center; box-sizing: border-box; z-index: 1; }
+    .completed-badge svg { width: 9px; height: 9px; fill: none; stroke: #ffffff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
     .pin-tip { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top-width: 6px; border-top-style: solid; margin-top: -1px; }
 
     .pin-store-container { display: flex; flex-direction: column; align-items: center; cursor: pointer; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35)); }
@@ -174,12 +172,6 @@ export const DeliveryMapView: React.FC<Props> = ({
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     function getIconSvg(type) {
-      if (type === 'check') {
-        return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-      }
-      if (type === 'alert') {
-        return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-      }
       if (type === 'pickup') {
         return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>';
       }
@@ -225,15 +217,15 @@ export const DeliveryMapView: React.FC<Props> = ({
         .addTo(map);
       bounds.push([${defaultLat}, ${defaultLng}]);
 
-      // Minha Posição Atual (Seta Branca Pura) — renderiza somente se houver GPS real
+      // Minha Posição Atual (seta azul compacta do Google Maps) — somente com GPS real
       let driverMarker = null;
       if (${hasDriverLocation}) {
         const driverLat = ${driverCoords?.latitude || defaultLat};
         const driverLng = ${driverCoords?.longitude || defaultLng};
         const driverHtml = 
           '<div class="google-nav-wrapper">' +
-            '<svg viewBox="0 0 24 24" width="28" height="28" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(-45deg); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));">' +
-              '<polygon points="3 11 22 2 13 21 11 13 3 11"/>' +
+            '<svg viewBox="0 0 24 24" width="22" height="22" fill="#4285F4" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));">' +
+              '<path d="M12 2 3 22l9-5 9 5L12 2Z"/>' +
             '</svg>' +
           '</div>';
 
@@ -252,10 +244,14 @@ export const DeliveryMapView: React.FC<Props> = ({
       // Paradas do Roteiro (com ícone por tipo de pedido e pinTip idênticos ao App Nativo)
       const points = ${JSON.stringify(pointsData)};
       points.forEach(p => {
+        const completedBadge = p.status === 'completed'
+          ? '<span class="completed-badge"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>'
+          : '';
         const markerHtml = 
           '<div class="marker-container ' + (p.isCurrent || p.isNext ? 'marker-highlight' : '') + '">' +
             '<div class="marker-badge" style="background-color:' + p.bgColor + '; border-color:' + p.borderColor + ';">' +
               getIconSvg(p.iconType) +
+              completedBadge +
             '</div>' +
             '<div class="pin-tip" style="border-top-color:' + p.bgColor + ';"></div>' +
           '</div>';

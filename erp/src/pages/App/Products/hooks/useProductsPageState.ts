@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { ProductVisibilitySettings } from '../../types/product.type';
+import { ProductVisibilitySettings } from '../../../types/product.type';
 import { ProductFiltersData } from '../ProductFilters';
 import { loadProductCatalogStats } from '../ProductList/services/productCatalogStatsService';
+import {
+  PRODUCT_LIST_SEARCH_DEBOUNCE_MS,
+  PRODUCT_LIST_SEARCH_MIN_LENGTH,
+} from '../../../../../../shared-utils/productListSearch';
 
 export const defaultVisibility: ProductVisibilitySettings = {
   id: false,
@@ -127,14 +131,14 @@ export function useProductsPageState({
         return;
       }
 
-      if (trimmed.length < 3) {
+      if (trimmed.length < PRODUCT_LIST_SEARCH_MIN_LENGTH) {
         // Se houver busca anterior ativa, limpa o filtro após debounce, mantendo o texto digitado
         searchDebounceTimer.current = setTimeout(() => {
           setFilters((previous) =>
             previous.search ? { ...previous, search: '' } : previous
           );
           searchDebounceTimer.current = null;
-        }, 350);
+        }, PRODUCT_LIST_SEARCH_DEBOUNCE_MS);
         return;
       }
 
@@ -144,7 +148,7 @@ export function useProductsPageState({
           (previous.search || '').trim() === trimmed ? previous : { ...previous, search: trimmed }
         );
         searchDebounceTimer.current = null;
-      }, 350);
+      }, PRODUCT_LIST_SEARCH_DEBOUNCE_MS);
     },
     [clearSearchDebounceTimer]
   );
@@ -163,7 +167,7 @@ export function useProductsPageState({
         e.preventDefault();
         clearSearchDebounceTimer();
         const trimmed = searchInput.trim();
-        if (trimmed.length >= 3) {
+        if (trimmed.length >= PRODUCT_LIST_SEARCH_MIN_LENGTH) {
           setFilters((previous) =>
             (previous.search || '').trim() === trimmed ? previous : { ...previous, search: trimmed }
           );

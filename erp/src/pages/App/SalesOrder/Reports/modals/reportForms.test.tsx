@@ -47,13 +47,6 @@ describe('report configuration resolver', () => {
     })));
   });
 
-  it('preserva a seleção Bling sem impor regras de mapeamento CSV', async () => {
-    const onSave = vi.fn();
-    render(<ReportConfigModal isOpen onClose={vi.fn()} onSave={onSave} initialName="Bling" initialSource="bling" />);
-    fireEvent.click(screen.getByRole('button', { name: /Salvar e Atualizar/ }));
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ source: 'bling' })));
-  });
-
   it('bloqueia limiares não finitos antes de atualizar os resultados', async () => {
     const onSave = vi.fn();
     render(<ReportConfigModal isOpen onClose={vi.fn()} onSave={onSave} initialName="Análise" initialConfig={{ turnoverThreshold: Infinity }} />);

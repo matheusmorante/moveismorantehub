@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import Product from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { processProductData } from '../utils/processLabelProductData';
 
 export const ITEMS_PER_PAGE = 15;
@@ -9,14 +10,64 @@ export const ITEMS_PER_PAGE = 15;
 interface UseLabelProductsProps {
   locationState?: any;
   productIdParam?: string | null;
+  autoAddProductParam?: boolean;
 }
 
-export const useLabelProducts = (_props?: UseLabelProductsProps) => {
+export const useLabelProducts = (props?: UseLabelProductsProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [hasMoreProducts, setHasMoreProducts] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedProductToAdd, setSelectedProductToAdd] = useState<Product | null>(null);
   const [productAddQty, setProductAddQty] = useState<number>(1);
+  const [linkedProduct, setLinkedProduct] = useState<{ id: string; product: Product } | null>(null);
+
+  const productIdParam = props?.autoAddProductParam ? props.productIdParam?.trim() || null : null;
+  const initialProduct = linkedProduct?.id === productIdParam ? linkedProduct.product : null;
+
+  useEffect(() => {
+    let current = true;
+    if (!productIdParam) {
+      setLinkedProduct(null);
+      return () => {
+        current = false;
+      };
+    }
+
+    setLinkedProduct(null);
+    void (async () => {
+      try {
+        const response = await withTimeout(
+          supabase
+            .from('products')
+            .select(
+              'id, name, description, code, sku, unit_price, cost_price, promo_price, stock, active, deleted_at, has_variations, category, unit, images'
+            )
+            .eq('id', productIdParam)
+            .is('deleted_at', null)
+            .maybeSingle(),
+          10000,
+          null,
+          'etiqueta-preço:carregar-produto'
+        );
+
+        if (!current) return;
+        if (!response) throw new Error('A consulta do produto para etiqueta excedeu o prazo.');
+        if (response.error) throw response.error;
+        if (!response.data) throw new Error('Produto não encontrado para a etiqueta de preço.');
+
+        const product = processProductData([response.data])[0] as Product | undefined;
+        if (!product) throw new Error('Não foi possível preparar o produto para a etiqueta.');
+        setLinkedProduct({ id: productIdParam, product });
+      } catch (cause) {
+        if (!current) return;
+        toast.error(cause instanceof Error ? cause.message : 'Falha ao carregar produto para etiqueta.');
+      }
+    })();
+
+    return () => {
+      current = false;
+    };
+  }, [productIdParam]);
 
   const fetchAllProducts = async (isLoadMore = false) => {
     // 1. Tentar Cache se não for "Carregar Mais"
@@ -76,6 +127,7 @@ export const useLabelProducts = (_props?: UseLabelProductsProps) => {
     selectedProduct,
     setSelectedProduct,
     selectedProductToAdd,
+    initialProduct,
     setSelectedProductToAdd,
     productAddQty,
     setProductAddQty,

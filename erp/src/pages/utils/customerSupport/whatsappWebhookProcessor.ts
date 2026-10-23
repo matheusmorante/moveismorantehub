@@ -172,8 +172,28 @@ export function extractMessageContent(msg: any): {
       return { type: 'location', text, replyToWamid };
     }
 
-    case 'contacts':
-      return { type: 'contacts', text: '👤 Contato compartilhado', replyToWamid };
+    case 'contacts': {
+      const contacts = Array.isArray(msg.contacts) ? msg.contacts : [];
+      const summaries = contacts.map((contact: any) => {
+        const name = contact?.name?.formatted_name || [
+          contact?.name?.first_name,
+          contact?.name?.middle_name,
+          contact?.name?.last_name,
+        ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0).join(' ');
+        const phones = Array.isArray(contact?.phones)
+          ? contact.phones
+            .map((phone: any) => phone?.phone || phone?.wa_id)
+            .filter((phone: unknown): phone is string => typeof phone === 'string' && phone.trim().length > 0)
+          : [];
+        return [name, ...phones].filter((detail): detail is string => typeof detail === 'string' && detail.trim().length > 0).join(' — ');
+      }).filter((summary: string) => summary.length > 0);
+      const title = summaries.length === 1 ? '👤 Contato compartilhado' : '👤 Contatos compartilhados';
+      return {
+        type: 'contacts',
+        text: summaries.length > 0 ? `${title}:\n${summaries.join('\n')}` : '👤 Contato compartilhado',
+        replyToWamid,
+      };
+    }
 
     default:
       return {

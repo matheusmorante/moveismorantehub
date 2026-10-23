@@ -211,6 +211,12 @@ const optionalTextNumber = (value: number | string | null | undefined): number |
   return Number(value);
 };
 
+const normalizeFieldArray = (value: unknown) =>
+  value == null ||
+  (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0)
+    ? []
+    : value;
+
 export const mapDbToModel = (m: LabelLayoutDatabaseRow): GridModel => {
   const model = {
   id: String(m.id),
@@ -320,8 +326,8 @@ export const mapDbToModel = (m: LabelLayoutDatabaseRow): GridModel => {
   nameBgColor: m.name_bg_color,
   priceBgColor: m.price_bg_color,
   promoBgColor: m.promo_bg_color,
-  extraFields: m.extra_fields === undefined ? [] : m.extra_fields,
-  extraFieldsPromo: m.extra_fields_promo === undefined ? [] : m.extra_fields_promo,
+  extraFields: normalizeFieldArray(m.extra_fields),
+  extraFieldsPromo: normalizeFieldArray(m.extra_fields_promo),
   fontFamily: m.font_family,
   imageFit: m.image_fit === undefined ? 'contain' : m.image_fit,
   imageScale: m.safety_margin === undefined ? 1 : m.safety_margin,

@@ -285,3 +285,26 @@ describe('marcador explícito de pedido de teste', () => {
     expect(normalOrder.is_test).toBeUndefined();
   });
 });
+
+describe('remoção do estado legado da integração Bling', () => {
+  it('não propaga os marcadores antigos do banco nem do snapshot persistido', () => {
+    const row: OrderDatabaseRow = {
+      id: 'legacy-bling-order',
+      order_data: {
+        isRegisteredInBling: true,
+        is_registered_in_bling: true,
+        observation: 'Pedido preservado',
+      },
+    };
+
+    const mapped = mapOrderFromDatabase(row);
+
+    expect(mapped).not.toHaveProperty('isRegisteredInBling');
+    expect(mapped).not.toHaveProperty('is_registered_in_bling');
+    expect(mapped.observation).toBe('Pedido preservado');
+    expect(row.order_data).toMatchObject({
+      isRegisteredInBling: true,
+      is_registered_in_bling: true,
+    });
+  });
+});

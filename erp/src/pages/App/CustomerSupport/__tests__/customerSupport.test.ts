@@ -284,6 +284,25 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
     expect(extAud.mediaId).toBe('media_aud_777');
   });
 
+  it('mostra nome e telefones de cartões de contato compartilhados', () => {
+    const extracted = extractMessageContent({
+      type: 'contacts',
+      contacts: [
+        { name: { formatted_name: 'Ana Silva' }, phones: [{ phone: '+55 11 90000-0001' }] },
+        { name: { first_name: 'João', last_name: 'Santos' }, phones: [{ wa_id: '5511900000002' }] },
+      ],
+    });
+
+    expect(extracted).toEqual(expect.objectContaining({
+      type: 'contacts',
+      text: '👤 Contatos compartilhados:\nAna Silva — +55 11 90000-0001\nJoão Santos — 5511900000002',
+    }));
+  });
+
+  it('mantém o rótulo de contato quando o cartão não tem nome nem telefone', () => {
+    expect(extractMessageContent({ type: 'contacts', contacts: [{}] }).text).toBe('👤 Contato compartilhado');
+  });
+
   // 7. Identificação correta de cliente
   it('7. deve identificar o cliente no cadastro ao receber número brasileiro com/sem nono dígito', async () => {
     const mockSupabase: any = {
@@ -531,6 +550,16 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
     const deliverySnippet = DEFAULT_QUICK_SNIPPETS.find((s) => s.shortcut === '/entrega');
     expect(deliverySnippet).toBeDefined();
     expect(deliverySnippet?.content).toContain('logística');
+  });
+
+  it.each([
+    ['pix-payment', 'Olá! Para orientar seu pagamento via PIX, vou conferir as instruções oficiais vinculadas ao seu pedido. Aguarde a confirmação dos dados antes de realizar a transferência.'],
+    ['delivery-status', 'Olá! Vou consultar a situação do seu pedido e confirmar a previsão de entrega com a equipe de logística.'],
+    ['store-location', 'Olá! Vou confirmar o endereço da loja e o horário de atendimento para a data da sua visita.'],
+    ['warranty-assistance', 'Olá! Para analisar sua solicitação de assistência, informe o número do pedido e descreva o problema. Se puder, envie fotos ou um vídeo do produto. Vamos conferir os próximos passos com a equipe responsável.'],
+    ['welcome-greeting', 'Olá! Boas-vindas à Móveis Morante. Como podemos ajudar?'],
+  ])('oferece o modelo %s sem dados comerciais não verificados ou ações fictícias', (id, content) => {
+    expect(DEFAULT_QUICK_SNIPPETS.find((snippet) => snippet.id === id)?.content).toBe(content);
   });
 
   // 26. Ordenação de conversas (Newest, Oldest, Unread first)

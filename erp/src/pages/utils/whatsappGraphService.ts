@@ -17,7 +17,6 @@ export * from './metaService';
  */
 export const whatsappGraphService = {
   // HTTP Client & Conectividade
-  getHeaders: metaHttpClient.getHeaders,
   testConnection: metaHttpClient.testConnection,
   postMessages: metaHttpClient.postMessages,
   getSenderPhoneStatus: metaHttpClient.getSenderPhoneStatus,

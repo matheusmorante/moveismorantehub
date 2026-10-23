@@ -41,7 +41,7 @@ export const InventoryAuditSessionCards: React.FC<InventoryAuditSessionCardsProp
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-0.5">
-            <StatusBadge status={session.status} />
+            <StatusBadge session={session} />
             <button
               type="button"
               onClick={(event) => onOpenMenu(event, session)}

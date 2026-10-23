@@ -365,6 +365,7 @@ describe('fetchAllOrdersForDashboard', () => {
             id: 'regular-order',
             status: 'scheduled',
             order_type: 'sale',
+            shipping_data: { distance: 12.5 },
             order_items: [],
           },
         ],
@@ -378,7 +379,9 @@ describe('fetchAllOrdersForDashboard', () => {
     });
 
     expect(selectedColumns[0]).toContain('test_run_id:order_data->>testRunId');
+    expect(selectedColumns[0]).toContain('shipping_data:order_data->shipping');
     expect(orders.map((order) => order.id)).toEqual(['regular-order']);
+    expect(orders[0].shipping.distance).toBe(12.5);
   });
 });
 

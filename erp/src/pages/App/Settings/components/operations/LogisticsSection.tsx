@@ -40,22 +40,16 @@ const LogisticsSection: React.FC<Props> = ({ settings, onChange }) => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex-1 max-w-lg">
             <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">
-              Chave de API do Google Maps
+              Google Maps
             </h4>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
-              Usada exclusivamente para geocodificação de endereços, autocompletar e cálculo
-              dinâmico de rotas e distâncias de frete.
+              A chave pública usada para mapas, endereços e rotas é configurada em Vercel como
+              VITE_GOOGLE_MAPS_API_KEY, com restrições por domínio.
             </p>
           </div>
-          <div className="w-full md:w-80 relative">
-            <i className="bi bi-key absolute left-5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-            <input
-              type="password"
-              placeholder="AIzaSy..."
-              value={settings.googleMapsApiKey}
-              onChange={(e) => onChange('googleMapsApiKey', e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-5 py-3.5 text-sm font-bold focus:border-blue-500 outline-none transition-all dark:text-slate-200"
-            />
+          <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <i className="bi bi-shield-check" aria-hidden="true" />
+            Configurada fora do banco
           </div>
         </div>
       </div>

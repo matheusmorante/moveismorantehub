@@ -37,7 +37,7 @@ export function useChannelCatalog() {
       setApiError(null);
       try {
         const settings = getSettings();
-        if (!settings.whatsappConfig?.accessToken || !settings.whatsappConfig?.catalogId) {
+        if (!settings.whatsappConfig?.catalogId) {
           setApiError(
             'Configurações do WhatsApp incompletas. Vá em Configurações > WhatsApp para ajustar.'
           );

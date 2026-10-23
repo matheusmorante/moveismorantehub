@@ -3,7 +3,7 @@
     "name": "App Morante",
     "slug": "mobile",
     "scheme": "morantehub",
-    "version": "1.6.1",
+    "version": "1.6.2",
     "runtimeVersion": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -70,7 +70,7 @@
     },
     "android": {
       "package": "com.morante.mobile",
-      "versionCode": 25,
+      "versionCode": 27,
       "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
@@ -103,7 +103,6 @@
     },
     "updates": {
       "url": "https://u.expo.dev/dd556f93-9a32-4219-84a2-378b626f09ae",
-      "channel": "production",
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
     },

@@ -118,6 +118,8 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
           </label>
           <input
             type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             className={`w-full border-b-2 bg-transparent px-3 py-2 text-sm font-bold text-slate-700 outline-none transition-colors dark:text-slate-300 ${
               errors['deliveryAddress_number']
                 ? 'border-red-500 focus:border-red-500'
@@ -125,7 +127,7 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
             }`}
             placeholder="Ex: 123"
             value={shipping.deliveryAddress?.number || ''}
-            onChange={(e) => updateDeliveryAddress('number', e.target.value)}
+            onChange={(e) => updateDeliveryAddress('number', e.target.value.replace(/\D/g, ''))}
           />
         </div>
       </div>

@@ -39,6 +39,7 @@ export const useLabelPrintingState = () => {
   const productsHook = useLabelProducts({
     locationState: location.state,
     productIdParam: searchParams.get('productId'),
+    autoAddProductParam: searchParams.get('autoAddProduct') === 'true',
   });
 
   // 4. Filas de Impressão e Ações de Renderização
@@ -87,8 +88,17 @@ export const useLabelPrintingState = () => {
       batchProducts.forEach((p: any) => {
         queue.handleProductSelect(p, p.labelQty || p.quantity || 1);
       });
+    } else if (productsHook.initialProduct) {
+      initialProcessedRef.current = true;
+      queue.handleProductSelect(productsHook.initialProduct, 1);
     }
-  }, [location.state, layouts.currentModel, layouts.config.columns, layouts.config.rows]);
+  }, [
+    location.state,
+    layouts.currentModel,
+    layouts.config.columns,
+    layouts.config.rows,
+    productsHook.initialProduct,
+  ]);
 
   // Refs e Modais Auxiliares
   const logoInputRef = useRef<HTMLInputElement>(null);

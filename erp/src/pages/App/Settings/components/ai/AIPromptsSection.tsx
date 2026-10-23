@@ -128,19 +128,13 @@ const AIPromptsSection = ({ settings, onChange }: AIPromptsSectionProps) => {
               </span>
             </h4>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
-              Chave da API do Google Gemini compartilhada entre o ERP e o Aplicativo Mobile para o
-              Assistente Lizandro e Function Calling.
+              A chave do Gemini é mantida em GEMINI_API_KEY no ambiente do servidor e não é
+              exibida nem salva nas configurações do ERP.
             </p>
           </div>
-          <div className="w-full md:w-96 relative">
-            <i className="bi bi-key-fill absolute left-5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-            <input
-              type="password"
-              placeholder="AQ.Ab8..."
-              value={settings.geminiApiKey || ''}
-              onChange={(e) => onChange('geminiApiKey', e.target.value)}
-              className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-12 pr-5 py-3.5 text-sm font-mono font-bold focus:border-indigo-500 outline-none transition-all dark:text-slate-200"
-            />
+          <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <i className="bi bi-shield-check" aria-hidden="true" />
+            Protegida no servidor
           </div>
         </div>
       </div>

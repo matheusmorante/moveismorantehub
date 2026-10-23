@@ -19,12 +19,16 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
 
   const deliveryStatus = data.deliveryStatus || order.delivery_status;
   const isFulfilled =
-    status === 'fulfilled' || status === 'atendido' || deliveryStatus === 'completed';
+    ['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(status) ||
+    deliveryStatus === 'completed';
   const isInService =
-    deliveryStatus === 'in_service' || Boolean(data.deliveryServiceStartedAt);
+    !isFulfilled && (deliveryStatus === 'in_service' || Boolean(data.deliveryServiceStartedAt));
   const isInArrival =
-    (deliveryStatus === 'arrived' || Boolean(data.deliveryArrivedAt)) && !isInService;
+    !isFulfilled &&
+    (deliveryStatus === 'arrived' || Boolean(data.deliveryArrivedAt)) &&
+    !isInService;
   const isInTransit =
+    !isFulfilled &&
     (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) &&
     !isInArrival &&
     !isInService;
@@ -33,7 +37,7 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (isInTransit || isInArrival || isInService) {
+    if (isInTransit || isInService) {
       const loop = Animated.loop(
         Animated.timing(shimmer, {
           toValue: 1,
@@ -44,7 +48,7 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
       loop.start();
       return () => loop.stop();
     }
-  }, [isInTransit, isInArrival, isInService, shimmer]);
+  }, [isInTransit, isInService, shimmer]);
 
   if (pickup && !isFulfilled) return null;
 
@@ -68,7 +72,7 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
   let config = {
     label: 'EM ROTA',
     icon: <Truck size={14} color="#fff" />,
-    bgColor: '#1d4ed8',
+    bgColor: '#f97316',
     subtext: 'A caminho do destino',
   };
 
@@ -76,7 +80,7 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
     config = {
       label: 'EM ATENDIMENTO',
       icon: <MapPin size={14} color="#fff" />,
-      bgColor: '#15803d',
+      bgColor: '#2563eb',
       subtext: 'No local do cliente',
     };
   } else if (isInArrival) {
@@ -119,7 +123,7 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
       activeOpacity={onPress ? 0.8 : 1}
       style={[styles.container, { backgroundColor: config.bgColor }]}
     >
-      {(isInTransit || isInArrival || isInService) && (
+      {(isInTransit || isInService) && (
         <View style={StyleSheet.absoluteFill}>
           <View style={{ flex: 1, overflow: 'hidden', borderRadius: 12 }}>
             <Animated.View

@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { WhatsAppConversation, WhatsAppMessage, ConversationStatus, AssignedProfileSummary } from '../types';
 import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
 import { whatsappSupportGuard } from '@/pages/utils/customerSupport/whatsappSupportGuard';
-import { fetchTeamProfiles } from '@/pages/utils/customerSupport/customerSupportService';
-import { supabase } from '@/pages/utils/supabaseConfig';
 import { useAuth } from '@/context/AuthContext';
 import { QuickSnippetsModal } from './QuickSnippetsModal';
 import { ChatHeader } from './chat/ChatHeader';
@@ -16,6 +14,10 @@ export { groupMessagesByDate };
 
 export interface ChatAreaProps {
   conversation: WhatsAppConversation;
+  teamMembers: AssignedProfileSummary[];
+  isLoadingAgents?: boolean;
+  agentsError?: string | null;
+  onReloadAgents?: () => void;
   messages: WhatsAppMessage[];
   isLoadingMessages: boolean;
   onBackMobile: () => void;
@@ -37,6 +39,10 @@ export interface ChatAreaProps {
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
   conversation,
+  teamMembers,
+  isLoadingAgents,
+  agentsError,
+  onReloadAgents,
   messages,
   isLoadingMessages,
   onBackMobile,
@@ -59,12 +65,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [inChatSearch, setInChatSearch] = useState('');
   const [isSearchingInChat, setIsSearchingInChat] = useState(false);
   const [isSnippetsModalOpen, setIsSnippetsModalOpen] = useState(false);
-  const [teamMembers, setTeamMembers] = useState<AssignedProfileSummary[]>([]);
-
-  // Carrega membros da equipe para o menu de atribuição
-  useEffect(() => {
-    fetchTeamProfiles(supabase).then(setTeamMembers);
-  }, []);
 
   const displayName =
     conversation.customer?.fullName ||
@@ -110,6 +110,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         onOpenSnippets={() => setIsSnippetsModalOpen(true)}
         onToggleArchive={onToggleArchive}
         teamMembers={teamMembers}
+        isLoadingAgents={isLoadingAgents}
+        agentsError={agentsError}
+        onReloadAgents={onReloadAgents}
         onAssign={onAssign}
         onUpdateStatus={onUpdateStatus}
         currentUserId={profile?.id || user?.id}

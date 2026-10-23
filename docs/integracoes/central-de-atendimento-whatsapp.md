@@ -1,11 +1,11 @@
 # Central de Atendimento WhatsApp — MoranteHub ERP
 
-> Estado de implantação em 21/10/2026: [publicação e gates](central-de-atendimento-publicacao-2026-10-21.md). O build e `test:unit` executam `build:support`, que gera a fronteira CJS do processador compartilhado; o adaptador local usa o mesmo produtor. Ver [diagnóstico de runtime](central-de-atendimento-runtime-esm-2026-10-21.md).
+> Estado atualizado em 22/10/2026: candidato combinado publicado em produção; ver [publicação e validações](central-de-atendimento-publicacao-combinada-2026-10-22.md). O build e `test:unit` executam `build:support`, que gera a fronteira CJS do processador compartilhado; o adaptador local usa o mesmo produtor. Ver [diagnóstico de runtime](central-de-atendimento-runtime-esm-2026-10-21.md).
 
 > **Módulo:** Central de Atendimento (`/atendimento`)  
 > **Integração:** WhatsApp Cloud API Oficial da Meta (Graph API)  
-> **Status:** Inbox validada em desenvolvimento; implantação e segredo de assinatura pendentes; envio bloqueado por política da empresa
-> **Data:** 21/10/2026
+> **Status:** Inbox publicada em produção; webhook legítimo da Meta ainda não comprovado; envio bloqueado por política da empresa
+> **Data:** 22/10/2026
 
 ---
 
@@ -36,6 +36,12 @@ Antes da implementação, foram auditadas as estruturas vigentes do MoranteHub:
 ## 3. Modelo de Dados no Supabase (Schema `public`)
 
 As tabelas legadas descritas abaixo estão presentes no projeto remoto operacional (`hkoxhourxwlddgsfdgws`). A consulta de histórico não localizou a versão exata do arquivo-base `20261016030000_customer_support_whatsapp.sql`; sua existência no repositório não comprova essa origem. O complemento da Inbox tem aplicação rastreada conforme a seção 3.4.
+
+### Revalidação do histórico base — 23/10/2026
+
+O projeto MoranteHub foi confirmado `ACTIVE_HEALTHY` (PostgreSQL 17.6.1). O histórico remoto contém as dez migrations `customer_support_*` da Inbox, começando em `20261021032348`, mas não contém `20261016030000_customer_support_whatsapp`. As três tabelas base (`whatsapp_conversations`, `whatsapp_messages` e `whatsapp_usage_monthly`) e `customer_support_inboxes` existem no schema `public`, com RLS habilitada. A consulta de privilégios confirmou `anon` sem `SELECT`, `INSERT` ou `UPDATE`; as políticas instaladas são destinadas a `authenticated` e verificam `customer_support_can_view()` onde aplicável. As políticas de `INSERT` direto em conversas/mensagens e de `UPDATE` direto em mensagens são negativas.
+
+O arquivo-base local ainda declara políticas permissivas para `authenticated, anon`. Ele não deve ser tratado como prova da origem do schema remoto nem aplicado/reaplicado por inferência: isso poderia divergir do estado protegido que está instalado. Não houve DDL nem consulta de conteúdo operacional nesta revalidação. Qualquer reconciliação futura do baseline precisa ser preparada como operação separada, com leitura do catálogo atual e comparação de compatibilidade, sem substituir as migrations incrementais rastreadas.
 
 ### 3.1. Tabela `public.whatsapp_conversations`
 * `id` (UUID, PK): Identificador único da conversa.
@@ -122,7 +128,13 @@ A Central de Atendimento escuta eventos através de canais dedicados:
 * Na ausência de token Meta no ambiente, o backend consulta somente a configuração WhatsApp existente em `settings/app`, após validar JWT, permissão e mensagem pela RLS. O canal da conversa deve corresponder ao número configurado; leitura privilegiada e token permanecem no servidor. Treze testes isolados conferem esse complemento. Metadata remota confirmou presença/vínculo do token, sem validar seu acesso externo nem baixar arquivos reais.
 * O fallback HTTP de desenvolvimento agora reconhece as três rotas WhatsApp, preservando os bytes do webhook para HMAC. A API continua na porta 3000, atrás do frontend na porta 5173.
 
-**Limite:** implementação e prova sem sessão disponíveis em desenvolvimento; deploy ainda pendente. Binários privados de clientes reais não foram usados como fixture. Os sucessos de transporte/MIME com permissão são provas isoladas, sem comprovar RLS autenticada de uma fixture real.
+**Limite:** o deploy de produção está concluído, mas binários privados de clientes reais não foram usados como fixture e os sucessos de transporte/MIME com permissão são provas isoladas, sem comprovar RLS autenticada de uma fixture real. O webhook legítimo ainda não foi exercitado com uma assinatura da Meta; as verificações públicas cobrem somente recusas sem assinatura ou com assinatura forjada.
+
+### Achado de segurança em configurações compartilhadas
+
+Em 22/10/2026, uma consulta somente de metadados e presença confirmou que a política `Authenticated can read settings` permite `SELECT` em `public.settings` para qualquer sessão autenticada (`USING (true)`). A linha `id='app'` contém campos de credenciais não vazios de WhatsApp, Gemini e Bling, além de uma chave de mapas cuja classificação e restrições precisam ser verificadas. Nenhum valor foi selecionado ou registrado. A leitura do proxy de mídia sob JWT e RLS não impede a consulta direta à tabela por uma sessão autenticada. A evidência e o plano de correção entre módulos estão em [segurança das configurações](central-de-atendimento-seguranca-configuracao-2026-10-22.md).
+
+O escopo atravessa consumidores fora da Central e exige um candidato próprio, inventário de consumidores, proteção server-side e autorização específica para migration remota. Nenhuma alteração de banco, rotação ou implantação foi feita para esse achado. Não há conclusão de acesso `anon` a partir desta verificação.
 
 ---
 
@@ -188,3 +200,29 @@ A interface foi estruturada em quatro regiões perfeitamente integradas, espelha
 
 * **Integração no Layout (`AppLayout.tsx`):**
   - Quando a rota ativa for `/atendimento`, o contêiner `<main>` adota `p-0 overflow-hidden flex flex-col`, eliminando faixas vazias ou rolagens duplas indesejadas e ocultando botões flutuantes sobrepostos.
+
+## Autorização de mídia — revalidação em 23/10/2026
+
+O proxy exige GET, JWT válido e `customer_support_can_view()`. Pela mesma sessão sujeita à RLS, encontra exatamente uma mensagem com o `media_id` e carrega o `business_phone_number_id` da conversa vinculada; ausência, duplicidade, erro ou canal não numérico falham fechados. O backend envia esse canal em `phone_number_id` ao consultar a URL da mídia na Graph API v26.0, conforme o [fluxo oficial da Meta](https://www.postman.com/meta/whatsapp-business-platform/request/ptjyi84/retrieve-media-url). O token vem somente de `WHATSAPP_ACCESS_TOKEN` no servidor. Não aceita URL ou canal informado pelo cliente, usa timeout e cabeçalhos privados.
+
+Após a vinculação do canal à conversa, **42/42 testes focados do proxy passaram** e o build completo do ERP passou (11/12 slots de API, verificações fiscais/XSD e 5.903 módulos Vite). O Playwright somente leitura da Inbox já havia passado na porta `5173` antes desta mudança; não foi repetido porque a correção foi restrita ao proxy server-side. Nenhum valor de credencial foi lido para validar a configuração Vercel.
+
+Isso comprova autorização/negação e o contrato do transporte simulado, **não** um download real. Os artefatos remotos de teste examinados não possuem `media_id` próprio e a rota autorizada ainda não foi exercitada contra um binário real da Meta. A alternativa de menor impacto é localizar uma mídia já pertencente a uma conversa de teste/operator-owned com ownership confirmado; se não houver, qualquer geração de fixture com mídia real exige uma operação e autorização específicas. Nenhuma conversa de cliente será usada como fixture.
+
+Rechecagem remota somente de metadados em 23/10: há 56 conversas marcadas como fixtures `test-artifact`, todas arquivadas; nenhuma tem `media_id` e nenhuma mensagem de fixture contém mídia. Assim, não existe fixture própria ativa para provar o download autorizado sem criar uma nova entrada de mídia no canal.
+
+As escolhas ainda abertas sobre prévia de mensagem citada, cobertura integral de timeline/galeria e separação entre comentário e resumo interno estão comparadas em [decisões pendentes de histórico e comentários](central-de-atendimento-decisoes-historico-2026-10-23.md). Nenhuma foi implementada por inferência.
+
+## Revalidação do segredo do webhook — 23/10/2026
+
+O código das duas entradas (`api/whatsapp-webhook.ts` e `erp/api/whatsapp-webhook.ts`) lê `WHATSAPP_APP_SECRET` e aceita `META_APP_SECRET` como fallback. A lista de configuração da Vercel para o projeto `morantehub` contém `WHATSAPP_APP_SECRET` nos ambientes Production, Development e Preview. Foram consultados apenas nome, ambiente e tipo da variável; o valor não foi aberto nem registrado.
+
+Vitest continua cobrindo assinatura HMAC válida com segredo de teste, assinatura inválida e segredo ausente; a produção já respondeu `401` sem assinatura nas verificações públicas anteriores. A presença da variável elimina a hipótese de ausência de configuração, mas não comprova que o valor corresponde ao App Secret da Meta nem que um webhook legítimo será aceito. Nenhum POST válido foi enviado, e o envio de mensagens continua bloqueado.
+
+Reexecução local pelo adaptador HTTP em 23/10: **6/6 Vitest passaram**. As rotas standalone e consolidada de despacho retornaram `403`; assinatura inválida retornou `401`, segredo ausente em produção simulada retornou `503`, e o caso positivo usou somente segredo/body sintéticos. Nenhuma chamada externa foi feita por essa suíte.
+
+## Revalidação da Inbox — 23/10/2026
+
+Nesta continuidade passaram **87/87 Vitest/RTL em cinco arquivos**: `customerSupport.test.ts`, `customerSupportInbox.test.tsx` e `customerSupportLinkForms.test.tsx` (64); `customerSupportLocalApi.test.ts` (6); `customerSupportPaging.test.tsx` (17). Cada execução também concluiu `build:support`. A paginação foi exercitada com mocks isolados.
+
+A reexecução real da UI passou **1/1** por `npm run test:support:readonly` em `localhost:5173`: login com Development da Vercel, gate de operador, Inbox, tentativas de recuperação do diretório de pastas e atendentes, validação de pasta e consulta restrita por atendente. O guard de rede bloqueou gravações de negócio. O teste agora espera `DOMContentLoaded` na rota de login e usa os seletores existentes para aguardar a interface; a execução anterior excedia 15 s esperando o evento `load`, apesar do servidor responder em `5173`. Nenhuma fixture foi criada, mensagem enviada ou chamada à Meta feita nessa validação.

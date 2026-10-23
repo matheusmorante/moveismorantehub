@@ -55,19 +55,6 @@ export function decodePolyline(encoded: string): { latitude: number; longitude: 
 }
 
 /**
- * Obtém a chave do Google Maps configurada no banco (settings)
- */
-export async function getGoogleApiKey(): Promise<string | null> {
-  try {
-    const { data } = await supabase.from('settings').select('data').limit(1).maybeSingle();
-    const key = data?.data?.googleMapsApiKey;
-    return key || '__REDACTED_GCP_API_KEY__';
-  } catch {
-    return '__REDACTED_GCP_API_KEY__';
-  }
-}
-
-/**
  * Calcula trajeto, distância e polyline entre origem e destino via Google Maps Routes API v2
  */
 export async function computeRoute(
@@ -91,48 +78,20 @@ export async function computeRoute(
     return cached.result;
   }
 
-  const apiKey = await getGoogleApiKey();
-  if (!apiKey) {
-    console.warn('[RoutesService] Chave de API Google Maps não encontrada.');
-    return null;
-  }
-
   const startTime = Date.now();
-  const url = 'https://routes.googleapis.com/directions/v2:computeRoutes';
-
-  const body = {
-    origin: {
-      location: {
-        latLng: {
-          latitude: origin.latitude,
-          longitude: origin.longitude,
-        },
-      },
-    },
-    destination: {
-      location: {
-        latLng: {
-          latitude: destination.latitude,
-          longitude: destination.longitude,
-        },
-      },
-    },
-    travelMode: 'DRIVE',
-    routingPreference: 'TRAFFIC_AWARE',
-    computeAlternativeRoutes: false,
-    languageCode: 'pt-BR',
-    units: 'METRIC',
-  };
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (sessionError || !accessToken) return null;
+  const apiBase = (process.env.EXPO_PUBLIC_ERP_API_URL || 'https://morantehub.com').replace(/\/$/, '');
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(`${apiBase}/api/google-routes`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
+        Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ origin, destination }),
     });
 
     const elapsed = Date.now() - startTime;

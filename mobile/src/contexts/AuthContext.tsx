@@ -29,6 +29,7 @@ interface AuthContextProps {
   canSeeReports: boolean;
   canSeeProducts: boolean;
   canUseProductPermission: (actionId: string) => boolean;
+  canUsePermission: (actionId: string, defaultRoles?: readonly string[]) => boolean;
   rolePermissions: Record<string, string[]>;
   rolePermissionsLoaded: boolean;
   rolePermissionsLoadFailed: boolean;

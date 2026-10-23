@@ -4,6 +4,7 @@ import {
   getProductCharacteristicAttributes,
   getTechnicalValue,
   hasTechnicalValue,
+  resolveMobileVariableTechnicalFieldNames,
 } from './productCharacteristics';
 import { parseLocalizedNumber } from './productNumbers';
 import { checkProductErpLegibility } from '../../../../../shared-utils/productErpLegibility';
@@ -55,7 +56,11 @@ const getEffectiveVariationPromoPrice = (parent: any = {}, variation: any = {}) 
 
 const getEffectiveVariationDimensions = (parent: any, variation: any) => {
   const parentValues = getEffectiveProductTechnicalValues(parent);
-  const technicalValues = getEffectiveVariationTechnicalValues(parentValues, variation);
+  const technicalValues = getEffectiveVariationTechnicalValues(
+    parentValues,
+    variation,
+    resolveMobileVariableTechnicalFieldNames(parent)
+  );
   const resolve = (field: 'width' | 'height' | 'depth', sync: unknown, names: string[]) => {
     const directValue = parseLocalizedNumber(
       sync !== false

@@ -1,6 +1,6 @@
 import { ArrowLeftRight, Check, Link, PlusCircle, Search, Trash2, Unlink } from 'lucide-react-native';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -19,9 +19,11 @@ import {
   groupProductTechnicalFields,
   hasTechnicalValue,
   isExcludedProductTechnicalField,
+  isMobileVariableTechnicalField,
   isProductTechnicalFieldRequired,
   isRequiredCharacteristicName,
   upsertProductCharacteristicAttribute,
+  resolveMobileVariableTechnicalFieldNames,
 } from '../../domain/productCharacteristics';
 import {
   applyProductCharacteristicToVariationNames,
@@ -32,6 +34,7 @@ import {
   fetchMobileProductTechnicalFields,
   type MobileProductTechnicalField,
 } from '../../services/mobileProductTechnicalService';
+import { ProductAiCharacteristicsAssistant } from '../components/ProductAiCharacteristicsAssistant';
 import { ProductTechnicalFieldInput } from './ProductTechnicalFieldInput';
 
 interface Props {
@@ -114,13 +117,32 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       parentData?.depth_use_length,
     ]
   );
-  const ownTechnicalValues = useMemo(
-    () => getEffectiveVariationTechnicalValues({}, formData),
-    [formData.attributes, formData.technicalValues]
+  const variableTechnicalFieldNames = useMemo(
+    () => resolveMobileVariableTechnicalFieldNames(parentData || formData),
+    [
+      parentData?.variableTechnicalFields,
+      parentData?.technical_specs,
+      parentData?.variations,
+      formData.variableTechnicalFields,
+      formData.variations,
+    ]
   );
-  const categoryIds: string[] = parentData
-    ? parentData.categoryIds || (parentData.categoryId ? [parentData.categoryId] : [])
-    : formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
+  const ownTechnicalValues = useMemo(
+    () =>
+      getEffectiveVariationTechnicalValues(
+        {},
+        formData,
+        parentData ? variableTechnicalFieldNames : undefined
+      ),
+    [formData.attributes, formData.technicalValues, parentData, variableTechnicalFieldNames]
+  );
+  const categoryIds: string[] = useMemo(
+    () =>
+      parentData
+        ? parentData.categoryIds || (parentData.categoryId ? [parentData.categoryId] : [])
+        : formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []),
+    [parentData?.categoryIds, parentData?.categoryId, formData.categoryIds, formData.categoryId]
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -140,7 +162,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     return () => {
       mounted = false;
     };
-  }, [categoryIds.join('|')]);
+  }, [categoryIds]);
 
   const visibleTechnicalFields = useMemo(() => {
     const values = { ...parentTechnicalValues, ...ownTechnicalValues };
@@ -164,33 +186,53 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         isRequired: isRequiredCharacteristicName(name),
       }));
     const allVisibleFields = [...visible, ...preservedLegacyFields];
+    if (parentData) {
+      const fieldsByName = new Map<string, any>();
+      [...allVisibleFields, ...technicalFields].forEach((field) => {
+        if (!isMobileVariableTechnicalField(field.name, variableTechnicalFieldNames)) return;
+        const key = normalizeSearchTerm(field.name);
+        if (!fieldsByName.has(key)) fieldsByName.set(key, { ...field, isRequired: true });
+      });
+      return [...fieldsByName.values()];
+    }
     return requiredFieldsOnly
       ? allVisibleFields.filter((field) => isProductTechnicalFieldRequired(field, categoryIds))
       : allVisibleFields;
   }, [
     technicalFields,
-    categoryIds.join('|'),
+    categoryIds,
     ownTechnicalValues,
     parentTechnicalValues,
     manualFieldNames,
     requiredFieldsOnly,
+    parentData,
+    variableTechnicalFieldNames,
   ]);
+
+  const isVariationForm = Boolean(parentData);
+  const isFieldRequired = useCallback(
+    (field: MobileProductTechnicalField) =>
+      isVariationForm
+        ? isMobileVariableTechnicalField(field.name, variableTechnicalFieldNames)
+        : isProductTechnicalFieldRequired(field, categoryIds),
+    [isVariationForm, variableTechnicalFieldNames, categoryIds]
+  );
 
   const requiredFieldGroups = useMemo(
     () =>
       groupProductTechnicalFields(
         visibleTechnicalFields.filter((field) =>
-          isProductTechnicalFieldRequired(field, categoryIds)
+          isFieldRequired(field)
         )
       ),
-    [visibleTechnicalFields, categoryIds.join('|')]
+    [visibleTechnicalFields, parentData, variableTechnicalFieldNames, isFieldRequired]
   );
   const optionalTechnicalFields = useMemo(
     () =>
       visibleTechnicalFields.filter(
-        (field) => !isProductTechnicalFieldRequired(field, categoryIds)
+        (field) => !isFieldRequired(field)
       ),
-    [visibleTechnicalFields, categoryIds.join('|')]
+    [visibleTechnicalFields, parentData, variableTechnicalFieldNames, isFieldRequired]
   );
   const selectedOptionalFields = useMemo(() => {
     if (parentData) return optionalTechnicalFields;
@@ -215,7 +257,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         !isExcludedProductTechnicalField(field.name) &&
         !selectedNames.has(normalizeName(field.name))
     );
-  }, [parentData, technicalFields, selectedOptionalFields, categoryIds.join('|')]);
+  }, [parentData, technicalFields, selectedOptionalFields, categoryIds]);
   const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
   const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
   const matchingOptionalFields =
@@ -264,6 +306,50 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       }
       return next;
     });
+
+  const setFieldScope = (
+    fieldName: string,
+    scope: 'not_inform' | 'global' | 'variation'
+  ) => {
+    setFormData((previous: any) => {
+      const configuredNames = resolveMobileVariableTechnicalFieldNames(previous);
+      const isVariable = isMobileVariableTechnicalField(fieldName, configuredNames);
+      const variableTechnicalFields =
+        scope === 'variation'
+          ? isVariable
+            ? configuredNames
+            : [...configuredNames, fieldName]
+          : configuredNames.filter(
+              (name) => !isMobileVariableTechnicalField(fieldName, [name])
+            );
+      const next = { ...previous, variableTechnicalFields };
+      if (scope === 'not_inform') {
+        const technicalValues = Object.fromEntries(
+          Object.entries(previous.technicalValues || {}).filter(
+            ([name]) => normalizeSearchTerm(name) !== normalizeSearchTerm(fieldName)
+          )
+        );
+        const attributes = getProductCharacteristicAttributes(previous.attributes).filter(
+          (attribute) => normalizeSearchTerm(attribute.name) !== normalizeSearchTerm(fieldName)
+        );
+        const dimensionField = getDimensionField(fieldName);
+        return {
+          ...next,
+          technicalValues,
+          attributes,
+          ...(dimensionField ? { [dimensionField]: '' } : {}),
+          ...(normalizeName(fieldName) === 'marca' ? { brand: '' } : {}),
+        };
+      }
+      if (scope === 'global' && !hasTechnicalValue(getEffectiveProductTechnicalValues(previous), fieldName)) {
+        return {
+          ...next,
+          technicalValues: { ...(previous.technicalValues || {}), [fieldName]: '' },
+        };
+      }
+      return next;
+    });
+  };
 
   const toggleDepthLength = (field: any) => {
     const sourceName = field.name;
@@ -385,6 +471,15 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
 
   return (
     <View style={styles.container}>
+      {!parentData && !requiredFieldsOnly && (
+        <ProductAiCharacteristicsAssistant
+          formData={formData}
+          setFormData={setFormData}
+          availableAttributes={technicalFields}
+          categoryName={String(formData.categoryName || formData.category || '')}
+          dark={dark}
+        />
+      )}
       {loadingFields ? (
         <ActivityIndicator color="#2563eb" />
       ) : visibleTechnicalFields.length === 0 ? (
@@ -411,7 +506,18 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                   const currentValue = Array.isArray(storedValue)
                     ? storedValue.join(', ')
                     : String(storedValue ?? '');
-                  const alwaysApplicable = isProductTechnicalFieldRequired(field, categoryIds);
+                  const currentFieldIsRequired = isFieldRequired(field);
+                  const alwaysApplicable = currentFieldIsRequired;
+                  const isCurrentVariableField = isMobileVariableTechnicalField(
+                    field.name,
+                    variableTechnicalFieldNames
+                  );
+                  const currentScope = isCurrentVariableField
+                    ? 'variation'
+                    : hasTechnicalValue(ownTechnicalValues, field.name) ||
+                        (normalizeName(field.name) === 'marca' && Boolean(formData.brand))
+                      ? 'global'
+                      : 'not_inform';
                   const isPhysicalDimension = getDimensionField(field.name) !== null;
                   const hasConfiguredParentValue =
                     Boolean(parentData) && hasTechnicalValue(parentTechnicalValues, field.name);
@@ -431,7 +537,10 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                     parentText.toLocaleLowerCase('pt-BR') !== 'não se aplica' &&
                     !parentIsZero;
                   const isInheritedFromParent = Boolean(
-                    parentData && !hasOwnValue && hasMeaningfulParentValue
+                    parentData &&
+                      !isCurrentVariableField &&
+                      !hasOwnValue &&
+                      hasMeaningfulParentValue
                   );
                   const productVariations =
                     !parentData && Array.isArray(formData.variations) ? formData.variations : [];
@@ -461,7 +570,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                           <Text style={[styles.label, dark && styles.dimText]}>
                             {field.name}
                             {field.unit ? ` (${field.unit})` : ''}
-                            {applicable && <Text style={{ color: '#ef4444' }}> *</Text>}
+                            {currentFieldIsRequired && applicable && (
+                              <Text style={{ color: '#ef4444' }}> *</Text>
+                            )}
                           </Text>
                         </View>
                         <View style={styles.attributeActions}>
@@ -579,13 +690,49 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                           )}
                         </View>
                       </View>
-                      <ProductTechnicalFieldInput
-                        field={field}
-                        value={currentValue === 'Não se aplica' ? '' : storedValue}
-                        disabled={!applicable || isInheritedFromParent}
-                        dark={dark}
-                        onChange={(value) => setTechnicalValue(field.name, value)}
-                      />
+                      {!parentData && (
+                        <View style={styles.scopeRow}>
+                          {([
+                            ['not_inform', 'Não informar'],
+                            ['global', 'Global'],
+                            ['variation', 'Por variação'],
+                          ] as const).map(([scope, label]) => {
+                            const selected = currentScope === scope;
+                            return (
+                              <TouchableOpacity
+                                key={scope}
+                                onPress={() => setFieldScope(field.name, scope)}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected }}
+                                style={[
+                                  styles.scopeButton,
+                                  dark && styles.darkScopeButton,
+                                  selected && styles.scopeButtonSelected,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.scopeButtonText,
+                                    dark && styles.dimText,
+                                    selected && styles.scopeButtonTextSelected,
+                                  ]}
+                                >
+                                  {label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                      {(parentData ? isCurrentVariableField || hasOwnValue : currentScope === 'global') && (
+                        <ProductTechnicalFieldInput
+                          field={field}
+                          value={currentValue === 'Não se aplica' ? '' : storedValue}
+                          disabled={!applicable || isInheritedFromParent}
+                          dark={dark}
+                          onChange={(value) => setTechnicalValue(field.name, value)}
+                        />
+                      )}
                     </View>
                   );
                 })}
@@ -667,6 +814,22 @@ const styles = StyleSheet.create({
   searchResultAction: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   searchResultActionText: { color: '#2563eb', fontSize: 11, fontWeight: '800' },
   attributeField: { gap: 7 },
+  scopeRow: { flexDirection: 'row', gap: 6 },
+  scopeButton: {
+    flex: 1,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 9,
+    paddingHorizontal: 6,
+    backgroundColor: '#fff',
+  },
+  darkScopeButton: { borderColor: '#475569', backgroundColor: '#0f172a' },
+  scopeButtonSelected: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
+  scopeButtonText: { color: '#64748b', fontSize: 9, fontWeight: '800', textAlign: 'center' },
+  scopeButtonTextSelected: { color: '#1d4ed8' },
   attributeHeading: {
     minHeight: 34,
     flexDirection: 'row',

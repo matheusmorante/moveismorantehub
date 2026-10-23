@@ -82,9 +82,9 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 // The Expo web map does not use the native Google Maps SDK. Native Android
-// builds must receive this key while compiling the manifest. Prefer a secure
-// EAS environment secret, allow a local Gradle property, and retain the Expo
-// app configuration as a backwards-compatible fallback.
+// builds must receive this key while compiling the manifest. Prefer an explicit
+// Gradle property, then the current Expo app configuration. Ambient EAS and local
+// .env values are fallbacks so stale keys cannot silently shadow app.json.
 def configuredGoogleMapsApiKey = ""
 def expoAppConfigFile = new File(projectRoot, "app.json")
 if (expoAppConfigFile.exists()) {
@@ -101,7 +101,10 @@ if (envFile.exists()) {
         }
     }
 }
-def googleMapsApiKey = System.getenv("GOOGLE_MAPS_ANDROID_API_KEY") ?: (findProperty("GOOGLE_MAPS_ANDROID_API_KEY") ?: (envFileApiKey ?: configuredGoogleMapsApiKey))
+def explicitGoogleMapsApiKey = findProperty("GOOGLE_MAPS_ANDROID_API_KEY")
+def ambientGoogleMapsApiKey = System.getenv("GOOGLE_MAPS_ANDROID_API_KEY") ?: envFileApiKey
+def hasConfiguredGoogleMapsApiKey = configuredGoogleMapsApiKey?.trim() && !configuredGoogleMapsApiKey.startsWith("__REDACTED")
+def googleMapsApiKey = explicitGoogleMapsApiKey ?: (hasConfiguredGoogleMapsApiKey ? configuredGoogleMapsApiKey : ambientGoogleMapsApiKey)
 if (!googleMapsApiKey?.trim() || googleMapsApiKey.startsWith("__REDACTED")) {
     throw new GradleException("Configure GOOGLE_MAPS_ANDROID_API_KEY before generating an Android build with the delivery map.")
 }
@@ -127,8 +130,8 @@ android {
         applicationId 'com.morante.mobile'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 25
-        versionName "1.6.1"
+        versionCode 27
+        versionName "1.6.2"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
         manifestPlaceholders = [googleMapsApiKey: googleMapsApiKey]

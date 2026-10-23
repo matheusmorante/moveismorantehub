@@ -79,8 +79,18 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder 
               activeOpacity={0.75}
               style={[styles.menuCard, isDarkMode && styles.darkCard]}
             >
-              <View style={[styles.iconBox, isDarkMode && styles.iconBoxDark]}>
-                <Icon size={21} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
+              <View
+                style={[
+                  styles.iconBox,
+                  type === 'assistance' ? styles.assistanceIconBox : isDarkMode && styles.iconBoxDark,
+                ]}
+              >
+                <Icon
+                  size={21}
+                  color={
+                    type === 'assistance' ? '#fef08a' : isDarkMode ? '#93c5fd' : '#2563eb'
+                  }
+                />
               </View>
               <View style={styles.menuCardText}>
                 <Text style={[styles.menuCardTitle, isDarkMode && styles.light]}>{title}</Text>
@@ -230,6 +240,9 @@ const styles = StyleSheet.create({
   },
   iconBoxDark: {
     backgroundColor: 'rgba(30, 58, 138, 0.35)',
+  },
+  assistanceIconBox: {
+    backgroundColor: '#ca8a04',
   },
   menuCardText: {
     flex: 1,

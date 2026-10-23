@@ -63,6 +63,9 @@
     },
     { "source": "/api/whatsapp-media", "destination": "/api/whatsapp-webhook?operation=media" },
     { "source": "/api/whatsapp-dispatch", "destination": "/api/whatsapp-webhook?operation=dispatch" },
+    { "source": "/api/meta-graph", "destination": "/api/secure-integrations?operation=meta-graph" },
+    { "source": "/api/gemini-proxy", "destination": "/api/secure-integrations?operation=gemini-proxy" },
+    { "source": "/api/google-routes", "destination": "/api/secure-integrations?operation=google-routes" },
     {
       "source": "/(.*)",
       "destination": "/index.html"

@@ -2,11 +2,7 @@ import CustomerData from '../../types/customerData.type';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
 import { parseCoordinatesFromMapsUrl } from '../mapCoordinates';
-import {
-  getEffectiveGoogleMapsApiKey,
-  isGoogleQuotaError,
-  loadGoogleMapsApi,
-} from './googleMapsLoader';
+import { isGoogleQuotaError, loadGoogleMapsApi } from './googleMapsLoader';
 
 export interface GeocodeResponse {
   coords: [number, number];
@@ -267,7 +263,6 @@ export const geocodeAddressUncached = async (
     return null;
   }
 
-  const apiKey = getEffectiveGoogleMapsApiKey();
   const { cleanStreet, cleanNumber } = normalizeStreetAndNumber(street, number);
   const candidateQueries = buildGeocodeCandidateQueries({
     cleanStreet,
@@ -295,7 +290,7 @@ export const geocodeAddressUncached = async (
   const startTime = Date.now();
   let lastGeocodeStatus = '';
   try {
-    await loadGoogleMapsApi(apiKey);
+    await loadGoogleMapsApi();
     const google = (window as any).google;
     const geocoder = new google.maps.Geocoder();
 

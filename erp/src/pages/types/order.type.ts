@@ -97,7 +97,6 @@ export type Order = {
   inventoryMovementNote?: string;
   isPartialStockProcessed?: boolean;
   movedProductIds?: string[];
-  isRegisteredInBling?: boolean;
   isStockChecked?: boolean;
   isButtonsClicked?: IsButtonsClicked;
   isButtonsStale?: IsButtonsStale;

@@ -8,6 +8,9 @@ import {
   Eye,
   EyeOff,
   GitMerge,
+  Trash2,
+  Globe2,
+  MessageCircle,
 } from 'lucide-react-native';
 import { styles } from './ProductsHeader.styles';
 import type { ProductListMode } from './ProductsHeaderModeSelector';
@@ -23,15 +26,22 @@ interface ProductsHeaderMenuDropdownProps {
   canCreateComposition: boolean;
   canOpenConfigs: boolean;
   canViewReconciliation: boolean;
+  canViewMetaCatalog: boolean;
+  canViewWhatsAppMarketplace: boolean;
   showDeactivated: boolean;
   showMergedProducts: boolean;
+  showTrash: boolean;
+  canViewTrash: boolean;
   onNewProduct: () => void;
   onNewComposition?: () => void;
   onModeChange?: (mode: ProductListMode) => void;
   onOpenConfigs: () => void;
   onOpenReconciliation?: () => void;
+  onOpenMetaCatalog?: () => void;
+  onOpenWhatsAppMarketplace?: () => void;
   onToggleDeactivated: () => void;
   onToggleMergedProducts?: () => void;
+  onToggleTrash?: () => void;
   onOpenFilters: () => void;
 }
 
@@ -49,15 +59,22 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
   canCreateComposition,
   canOpenConfigs,
   canViewReconciliation,
+  canViewMetaCatalog,
+  canViewWhatsAppMarketplace,
   showDeactivated,
   showMergedProducts,
+  showTrash,
+  canViewTrash,
   onNewProduct,
   onNewComposition,
   onModeChange,
   onOpenConfigs,
   onOpenReconciliation,
+  onOpenMetaCatalog,
+  onOpenWhatsAppMarketplace,
   onToggleDeactivated,
   onToggleMergedProducts,
+  onToggleTrash,
   onOpenFilters,
 }) => {
   return (
@@ -80,7 +97,7 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
               { position: 'absolute', top: menuAnchor.top, right: menuAnchor.right },
             ]}
           >
-            {((mode === 'composition' && canCreateComposition) ||
+            {!showTrash && ((mode === 'composition' && canCreateComposition) ||
               (mode === 'standard' && canCreateProduct)) && (
               <TouchableOpacity
                 style={styles.menuItem}
@@ -97,7 +114,7 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
               </TouchableOpacity>
             )}
 
-            {canCreateComposition && onNewComposition && mode === 'standard' && (
+            {!showTrash && canCreateComposition && onNewComposition && mode === 'standard' && (
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -110,9 +127,9 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
               </TouchableOpacity>
             )}
 
-            <View style={styles.menuDivider} />
+            {!showTrash && <View style={styles.menuDivider} />}
 
-            {onModeChange && availableModes.includes('categories') && (
+            {!showTrash && onModeChange && availableModes.includes('categories') && (
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -127,7 +144,7 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
               </TouchableOpacity>
             )}
 
-            {canOpenConfigs && (
+            {!showTrash && canOpenConfigs && (
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -142,7 +159,7 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
               </TouchableOpacity>
             )}
 
-            {canViewReconciliation && onOpenReconciliation && (
+            {!showTrash && canViewReconciliation && onOpenReconciliation && (
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -157,7 +174,37 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
               </TouchableOpacity>
             )}
 
-            {mode !== 'categories' && (canCreateProduct || canCreateComposition) && (
+            {!showTrash && canViewMetaCatalog && onOpenMetaCatalog && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  onClose();
+                  onOpenMetaCatalog();
+                }}
+                accessibilityRole="button"
+              >
+                <Globe2 size={18} color="#2563eb" />
+                <Text style={[styles.menuItemText, dark && styles.light]}>Catálogo Meta</Text>
+              </TouchableOpacity>
+            )}
+
+            {!showTrash && canViewWhatsAppMarketplace && onOpenWhatsAppMarketplace && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  onClose();
+                  onOpenWhatsAppMarketplace();
+                }}
+                accessibilityRole="button"
+              >
+                <MessageCircle size={18} color="#16a34a" />
+                <Text style={[styles.menuItemText, dark && styles.light]}>
+                  Marketplace WhatsApp
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {!showTrash && mode !== 'categories' && (canCreateProduct || canCreateComposition) && (
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -176,7 +223,7 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
               </TouchableOpacity>
             )}
 
-            {mode !== 'categories' && onToggleMergedProducts && (
+            {!showTrash && mode !== 'categories' && onToggleMergedProducts && (
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -187,6 +234,23 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
                 <GitMerge size={18} color="#64748b" />
                 <Text style={[styles.menuItemText, dark && styles.light]}>
                   {showMergedProducts ? 'Ocultar Mesclados' : 'Mostrar Mesclados'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {canViewTrash && onToggleTrash && mode !== 'categories' && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  onClose();
+                  onToggleTrash();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={showTrash ? 'Voltar aos produtos' : 'Abrir lixeira'}
+              >
+                <Trash2 size={18} color={showTrash ? '#2563eb' : '#dc2626'} />
+                <Text style={[styles.menuItemText, dark && styles.light]}>
+                  {showTrash ? 'Voltar aos produtos' : 'Lixeira'}
                 </Text>
               </TouchableOpacity>
             )}

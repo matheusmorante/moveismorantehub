@@ -15,8 +15,10 @@ import { mapOrderShipping } from './orderShippingMapper';
 export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
   const rawLegacy =
     row.order_data && typeof row.order_data === 'object' && !Array.isArray(row.order_data)
-      ? row.order_data
+      ? { ...row.order_data }
       : {};
+  delete rawLegacy.isRegisteredInBling;
+  delete rawLegacy.is_registered_in_bling;
 
   const id = String(row.id || rawLegacy.id || '');
 
@@ -67,10 +69,6 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
     row.is_stock_checked != null
       ? Boolean(row.is_stock_checked)
       : Boolean(rawLegacy.isStockChecked);
-  const isRegisteredInBling =
-    row.is_registered_in_bling != null
-      ? Boolean(row.is_registered_in_bling)
-      : Boolean(rawLegacy.isRegisteredInBling);
   const marketingOrigin =
     row.marketing_origin || rawLegacy.marketingOrigin || customerData.marketingOrigin || 'organic';
 
@@ -105,7 +103,6 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
     deletedAt,
     stockProcessed,
     isStockChecked,
-    isRegisteredInBling,
     marketingOrigin,
     returnOrderId: row.return_order_id || rawLegacy.returnOrderId || undefined,
     linkedOrderId: row.linked_order_id || rawLegacy.linkedOrderId || undefined,
@@ -124,7 +121,7 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
 
   const mappedOrder = capitalizeOrder(orderDomain);
   if (row.order_data && typeof row.order_data === 'object' && !Array.isArray(row.order_data)) {
-    setPersistedOrderDataSnapshot(mappedOrder, row.order_data);
+    setPersistedOrderDataSnapshot(mappedOrder, rawLegacy);
   }
   return mappedOrder;
 }

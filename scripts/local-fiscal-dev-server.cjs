@@ -13,11 +13,14 @@ if (fs.existsSync(erpEnvPath)) {
 }
 
 const serverNfeDir = path.join(projectRoot, 'erp/server/nfe');
+const serverSecureApiDir = path.join(projectRoot, 'erp/server/secure-api');
 const handlers = new Map();
 
 function getHandler(routeName) {
   if (!/^[a-z][a-z0-9-]*$/.test(routeName)) return null;
-  const filePath = routeName === 'whatsapp-webhook'
+  const filePath = routeName === 'secure-integrations'
+    ? path.join(serverSecureApiDir, 'secure-integrations.cjs')
+    : routeName === 'whatsapp-webhook'
     ? path.join(projectRoot, 'erp/server/customer-support/whatsapp-webhook.cjs')
     : routeName === 'test-artifact-operator'
     ? path.join(projectRoot, 'erp/server/testing/test-artifact-operator.cjs')
@@ -64,6 +67,9 @@ const server = http.createServer(async (req, res) => {
     supportOperation = pathname === '/api/whatsapp-media' ? 'media' : pathname === '/api/whatsapp-dispatch' ? 'dispatch' : null;
   } else if (pathname === '/api/testing/test-artifact-operator') {
     routeName = 'test-artifact-operator';
+  } else if (['/api/meta-graph', '/api/gemini-proxy', '/api/google-routes'].includes(pathname)) {
+    routeName = 'secure-integrations';
+    supportOperation = pathname.slice('/api/'.length);
   } else if (pathname.startsWith('/api/nfe/')) {
     const rawRoute = pathname.slice('/api/nfe/'.length);
     if (rawRoute === 'operations' || rawRoute === 'auxiliary') {

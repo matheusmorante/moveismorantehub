@@ -73,9 +73,6 @@ export interface AppSettings {
 
   // Logística e Valores
   freightPerKm: number;
-  openRouteServiceApiKey: string;
-  googleMapsApiKey: string;
-  geminiApiKey?: string;
   storeOriginCoords: [number, number]; // [lng, lat]
   companyName: string;
   companyDanfeLogoUrl?: string;
@@ -157,7 +154,6 @@ export interface AppSettings {
     autoUpdateStatusOnConfirm?: boolean;
   };
   whatsappConfig?: {
-    accessToken: string;
     phoneNumberId: string;
     wabaId: string;
     catalogId: string;
@@ -256,12 +252,5 @@ export interface AppSettings {
     delay: number;
     enableBeep: boolean;
     vibrate: boolean;
-  };
-  blingConfig?: {
-    apiKey: string;
-    apiToken: string;
-    clientId: string;
-    clientSecret: string;
-    syncEnabled: boolean;
   };
 }

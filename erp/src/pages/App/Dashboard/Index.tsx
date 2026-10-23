@@ -5,7 +5,6 @@ import { useDashboardStock } from './hooks/useDashboardStock';
 import { useDashboardProducts } from './hooks/useDashboardProducts';
 
 import { KpiSkeleton, ChartSkeleton, PanelSkeleton } from './components/DashboardSkeleton';
-import QuickActions from './components/QuickActions';
 import KpiRow from './components/KpiRow';
 import SalesChart from './components/SalesChart';
 import OperationPanel from './components/OperationPanel';
@@ -94,7 +93,6 @@ export default function Dashboard() {
               <i className="bi bi-chevron-down text-[10px]" />
             </div>
           </div>
-          <QuickActions />
         </div>
       </div>
 

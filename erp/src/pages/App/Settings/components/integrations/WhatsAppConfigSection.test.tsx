@@ -7,7 +7,7 @@ vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) 
 vi.mock('@/pages/utils/whatsappGraphService', () => ({ whatsappGraphService: { testConnection: mocks.connection, fetchMessageTemplates: mocks.templates, sendTemplateMessage: mocks.send } }));
 vi.mock('react-toastify', () => ({ toast: { warning: mocks.error, error: mocks.error, info: vi.fn(), success: mocks.success } }));
 import WhatsAppConfigSection from './WhatsAppConfigSection';
-const settings = () => ({ ...getDefaultSettings(), whatsappConfig: { accessToken: ' token ', phoneNumberId: ' sender ', wabaId: ' waba ', catalogId: '', templateNameOrderConfirmation: ' order_template ', templateLanguage: ' pt_BR ', templateVariableCount: 0 } });
+const settings = () => ({ ...getDefaultSettings(), whatsappConfig: { accessToken: ' legacy-token ', phoneNumberId: ' sender ', wabaId: ' waba ', catalogId: '', templateNameOrderConfirmation: ' order_template ', templateLanguage: ' pt_BR ', templateVariableCount: 0 } });
 const deferred = () => { let resolve!: (value: any) => void; let reject!: (error: any) => void; const promise = new Promise<any>((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const send = () => fireEvent.click(screen.getByRole('button', { name: 'Testar Envio' }));
 const phone = () => fireEvent.change(screen.getByPlaceholderText('DDD + Número (ex: 41999999999)'), { target: { value: '(41) 99999-8888' } });
@@ -15,13 +15,14 @@ beforeEach(() => { vi.resetAllMocks(); mocks.user = { id: 'operator' }; mocks.co
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('WhatsApp configuration submission owner', () => {
-  it('executes the resolver before connection and passes parsed credentials', async () => {
-    const draft = settings(); draft.whatsappConfig.accessToken = '';
+  it('validates the connection identifier before calling the service and drops legacy credentials', async () => {
+    const draft = settings(); draft.whatsappConfig.phoneNumberId = '';
     const view = render(<WhatsAppConfigSection settings={draft} onChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Testar Conexão' })); await screen.findByRole('alert'); expect(mocks.connection).not.toHaveBeenCalled();
     view.rerender(<WhatsAppConfigSection settings={settings()} onChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Testar Conexão' }));
-    await waitFor(() => expect(mocks.connection).toHaveBeenCalledWith(expect.objectContaining({ accessToken: 'token', phoneNumberId: 'sender' })));
+    await waitFor(() => expect(mocks.connection).toHaveBeenCalledWith({ phoneNumberId: 'sender' }));
+    expect(JSON.stringify(mocks.connection.mock.calls)).not.toContain('legacy-token');
     await waitFor(() => expect(mocks.success).toHaveBeenCalledOnce());
   });
   it('shares one guard across connection, query and send until the receipt', async () => {
@@ -31,10 +32,11 @@ describe('WhatsApp configuration submission owner', () => {
     await waitFor(() => expect(mocks.connection).toHaveBeenCalledOnce()); expect(mocks.send).not.toHaveBeenCalled(); expect(mocks.templates).not.toHaveBeenCalled();
     await act(async () => { pending.resolve({ id: 'sender' }); }); expect(screen.queryByRole('status')).toBeNull();
   });
-  it('sends current parsed config with the query instead of using cached account credentials', async () => {
+  it('sends only the current WABA identifier with the query', async () => {
     render(<WhatsAppConfigSection settings={settings()} onChange={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /Consultar Modelos na Conta Meta/i }));
-    await waitFor(() => expect(mocks.templates).toHaveBeenCalledWith(expect.objectContaining({ wabaId: 'waba', accessToken: 'token' })));
+    await waitFor(() => expect(mocks.templates).toHaveBeenCalledWith({ wabaId: 'waba' }));
+    expect(JSON.stringify(mocks.templates.mock.calls)).not.toContain('legacy-token');
   });
   it('bounds read-only connection and allows an explicit later retry', async () => {
     vi.useFakeTimers(); mocks.connection.mockReturnValueOnce(new Promise(() => {}));
@@ -52,7 +54,8 @@ describe('WhatsApp configuration submission owner', () => {
   it('validates phone and command config before sending and preserves zero variables', async () => {
     render(<WhatsAppConfigSection settings={settings()} onChange={vi.fn()} />); send();
     await screen.findByRole('alert'); expect(mocks.send).not.toHaveBeenCalled(); phone(); send();
-    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith('41999998888', 'order_template', [], 'pt_BR', expect.objectContaining({ accessToken: 'token', phoneNumberId: 'sender' })));
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith('41999998888', 'order_template', [], 'pt_BR', { phoneNumberId: 'sender', templateLanguage: 'pt_BR' }, 'settings_test'));
+    expect(JSON.stringify(mocks.send.mock.calls)).not.toContain('legacy-token');
     await waitFor(() => expect(mocks.success).toHaveBeenCalledOnce()); send();
     await screen.findByRole('alert'); expect(mocks.send).toHaveBeenCalledOnce();
   });

@@ -57,7 +57,7 @@ export const safeSendWhatsAppOrFallback = async ({
   }
 
   // Modo Meta Graph API (Envio direto via servidor Meta)
-  const hasCloudApi = Boolean(config?.accessToken && config?.phoneNumberId);
+  const hasCloudApi = Boolean(config?.phoneNumberId);
   if (!hasCloudApi) {
     toast.warning('Token de Acesso ou Phone Number ID não configurados. Abrindo WhatsApp Web...');
     window.open(fallbackUrl, '_blank');

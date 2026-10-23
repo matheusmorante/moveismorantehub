@@ -4,7 +4,7 @@ import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
 import { normalizeUf, parseAddressPrediction } from '../addressParsing';
 import { getSettings } from '../settingsService';
 import { geocodeCache } from './addressGeocoding';
-import { getEffectiveGoogleMapsApiKey, loadGoogleMapsApi } from './googleMapsLoader';
+import { loadGoogleMapsApi } from './googleMapsLoader';
 
 export const searchAddressSuggestions = async (
   query: string,
@@ -57,7 +57,7 @@ export const searchAddressSuggestions = async (
   const startTime = Date.now();
 
   try {
-    await loadGoogleMapsApi(settings.googleMapsApiKey);
+    await loadGoogleMapsApi();
     const google = (window as any).google;
 
     if (google?.maps?.places?.AutocompleteService) {
@@ -186,8 +186,6 @@ export const searchAddressSuggestions = async (
 
 export const fetchPlaceDetails = async (placeId: string): Promise<any | null> => {
   if (!placeId) return null;
-  const apiKey = getEffectiveGoogleMapsApiKey();
-
   const guard = await ApiUsageGuard.check('google_places');
   if (!guard.allowed) {
     console.warn(`[ApiUsageGuard] Detalhes de lugar bloqueados: ${guard.reason}`);
@@ -197,7 +195,7 @@ export const fetchPlaceDetails = async (placeId: string): Promise<any | null> =>
   const startTime = Date.now();
 
   try {
-    await loadGoogleMapsApi(apiKey);
+    await loadGoogleMapsApi();
     const google = (window as any).google;
     const geocoder = new google.maps.Geocoder();
 

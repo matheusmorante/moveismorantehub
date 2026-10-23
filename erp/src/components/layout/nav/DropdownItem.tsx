@@ -19,6 +19,11 @@ export const DropdownItem: React.FC<DropdownItemProps> = ({
         <div className="w-6 h-6 flex items-center justify-center shrink-0">
           {icon === 'bi-arrow-return-left' ? (
             <ReturnIcon className={`h-6 w-6 ${iconColor || 'text-orange-500'}`} />
+          ) : icon === 'bi bi-wrench-adjustable' ? (
+            <i
+              className={`${icon} text-[15px] ${iconColor || 'text-orange-500'} transition-colors group-hover:text-orange-600`}
+              aria-hidden="true"
+            />
           ) : (
             <i
               className={`${icon} text-[15px] ${iconColor || 'text-blue-500 dark:text-blue-400'} transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-300`}

@@ -24,7 +24,6 @@ const ORDER_LIST_VIEW_COLUMNS = [
   'unattended_reason',
   'marketing_origin',
   'is_stock_checked',
-  'is_registered_in_bling',
   'item_handling',
 ].join(',');
 
@@ -160,13 +159,17 @@ interface OrderListRow {
   unattended_reason: string | null;
   marketing_origin: string | null;
   is_stock_checked: boolean | null;
-  is_registered_in_bling: boolean | null;
   item_handling: unknown;
   deleted?: boolean | null;
 }
 
 const toListItem = (row: any): MobileOrderListItem => {
-  const data = row.order_data || {};
+  const data =
+    row.order_data && typeof row.order_data === 'object' && !Array.isArray(row.order_data)
+      ? { ...row.order_data }
+      : {};
+  delete data.isRegisteredInBling;
+  delete data.is_registered_in_bling;
   const customerName =
     row.customer_name || data.customerData?.fullName || data.customer_name || 'Cliente';
   const orderNumber = String(
@@ -191,12 +194,6 @@ const toListItem = (row: any): MobileOrderListItem => {
 
   const isStockChecked = Boolean(
     data.isStockChecked ?? data.is_stock_checked ?? row.is_stock_checked ?? row.isStockChecked
-  );
-  const isRegisteredInBling = Boolean(
-    data.isRegisteredInBling ??
-      data.is_registered_in_bling ??
-      row.is_registered_in_bling ??
-      row.isRegisteredInBling
   );
   const isReturnOrder = orderType === 'return';
   const stockProcessed = isReturnOrder
@@ -251,7 +248,6 @@ const toListItem = (row: any): MobileOrderListItem => {
     customer_name: customerName,
     total_value: totalValue,
     is_stock_checked: isStockChecked,
-    is_registered_in_bling: isRegisteredInBling,
     stock_processed: stockProcessed,
     stock_reversed: stockReversed,
     return_order_id: returnOrderId,
@@ -278,7 +274,6 @@ const toListItem = (row: any): MobileOrderListItem => {
       marketingOrigin:
         data.marketingOrigin || data.customerData?.marketingOrigin || row.marketing_origin || '',
       isStockChecked,
-      isRegisteredInBling,
       stockProcessed,
       stockReversed,
       returnStockProcessed: isReturnOrder ? stockProcessed : undefined,

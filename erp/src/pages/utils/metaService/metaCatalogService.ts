@@ -1,6 +1,6 @@
 import { getSettings } from '@/pages/utils/settingsService';
 import { resolveProductType } from '@/pages/App/Products/MetaCatalog/services/metaCatalogPayload';
-import { metaHttpClient, GRAPH_API_VERSION, FACEBOOK_GRAPH_URL } from './metaHttpClient';
+import { metaHttpClient } from './metaHttpClient';
 import { metaErrorHandler } from './metaErrorHandler';
 import type { WhatsAppProduct, MetaProductSet, MetaBatchSyncResult } from './types';
 
@@ -50,10 +50,7 @@ export const metaCatalogService = {
     }
 
     try {
-      const response = await fetch(
-        `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/products?fields=id,retailer_id,name,description,price,currency,image_url,url,visibility,is_hidden`,
-        { headers: metaHttpClient.getHeaders() }
-      );
+      const response = await metaHttpClient.request('list_catalog_products');
 
       const data = await response.json();
       if (!response.ok || data.error) {
@@ -195,14 +192,7 @@ export const metaCatalogService = {
     };
 
     try {
-      const response = await fetch(
-        `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/items_batch`,
-        {
-          method: 'POST',
-          headers: metaHttpClient.getHeaders(),
-          body: JSON.stringify(batchRequest),
-        }
-      );
+      const response = await metaHttpClient.request('sync_catalog_batch', { payload: batchRequest });
 
       const data = await response.json();
 
@@ -423,17 +413,10 @@ ____________________________________
         };
       });
 
-      const response = await fetch(
-        `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/items_batch`,
-        {
-          method: 'POST',
-          headers: metaHttpClient.getHeaders(),
-          body: JSON.stringify({
+      const response = await metaHttpClient.request('sync_catalog_batch', { payload: {
             item_type: 'PRODUCT_ITEM',
             requests,
-          }),
-        }
-      );
+          } });
 
       const data = await response.json();
       if (!response.ok || data.error) {
@@ -462,10 +445,7 @@ ____________________________________
     const { whatsappConfig } = getSettings();
     if (!whatsappConfig?.catalogId) throw new Error('Catalog ID não configurado.');
 
-    const response = await fetch(
-      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/check_batch_request_status?handle=${encodeURIComponent(handle)}`,
-      { headers: metaHttpClient.getHeaders() }
-    );
+    const response = await metaHttpClient.request('check_catalog_batch', { handle });
     const data = await response.json();
     if (data.error) throw new Error(data.error.message || 'Erro ao consultar status do lote.');
     return data;
@@ -478,10 +458,7 @@ ____________________________________
     const { whatsappConfig } = getSettings();
     if (!whatsappConfig?.catalogId) throw new Error('Catalog ID não configurado.');
 
-    const response = await fetch(
-      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.catalogId}/product_sets?fields=id,name,filter`,
-      { headers: metaHttpClient.getHeaders() }
-    );
+    const response = await metaHttpClient.request('list_product_sets');
     const data = await response.json();
     if (data.error) throw new Error(data.error.message || 'Erro ao listar coleções.');
     return data.data || [];
@@ -491,13 +468,7 @@ ____________________________________
    * Deleta uma coleção (product set) da Meta pelo ID
    */
   deleteProductSet: async (productSetId: string): Promise<boolean> => {
-    const response = await fetch(
-      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${productSetId}`,
-      {
-        method: 'DELETE',
-        headers: metaHttpClient.getHeaders(),
-      }
-    );
+    const response = await metaHttpClient.request('delete_product_set', { productSetId });
     const data = await response.json();
     if (data.error) throw new Error(data.error.message || 'Erro ao deletar coleção.');
     return data.success === true;

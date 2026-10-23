@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useState, useEffect, useMemo } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, Settings } from 'lucide-react-native';
 import { fetchMobileCategories, type MobileCategory } from '../../services/mobileCategoryService';
 import {
@@ -15,13 +15,18 @@ import {
   matchCategoryByRules,
 } from '../../../../../../shared-utils/productCategoryResolution';
 import { toTitleCase } from '../../../../../../shared-utils/productText';
+import { inheritMobileSimpleVariationFromParent } from '../../domain/productVariationParentSync';
+import { getMobileVariationColorSummary } from '../../domain/productCharacteristics';
 
 interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
   dark: boolean;
   isStockistOnly?: boolean;
+  isExistingProduct?: boolean;
   canManageCategories?: boolean;
+  onFieldFocus?: (fieldName: string) => void;
+  onFieldBlur?: (fieldName: string) => void;
 }
 
 const FIXED_ENVIRONMENTS = [
@@ -44,7 +49,10 @@ export const ProductFormBasicTab: React.FC<Props> = ({
   setFormData,
   dark,
   isStockistOnly = false,
+  isExistingProduct = false,
   canManageCategories = false,
+  onFieldFocus,
+  onFieldBlur,
 }) => {
   const [categories, setCategories] = useState<MobileCategory[]>([]);
   const [opportunities, setOpportunities] = useState<MobileOpportunity[]>([]);
@@ -62,6 +70,14 @@ export const ProductFormBasicTab: React.FC<Props> = ({
         Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
     );
   }, [formData.name, formData.title, formData.marketplaceTitle]);
+
+  useEffect(() => {
+    if (!formData.hasVariations || !Array.isArray(formData.variations)) return;
+    const colors = getMobileVariationColorSummary(formData.variations);
+    if (colors && colors !== formData.colors) {
+      setFormData((previous) => ({ ...previous, colors, noColors: false }));
+    }
+  }, [formData.hasVariations, formData.variations, formData.colors, setFormData]);
 
   useEffect(() => {
     fetchMobileCategories().then(setCategories);
@@ -171,6 +187,8 @@ export const ProductFormBasicTab: React.FC<Props> = ({
   const isNormal = currentOrigin === 'normal';
   const isSalvado = currentOrigin === 'salvado';
   const isUsado = currentOrigin === 'usado';
+  const variationCount = Array.isArray(formData.variations) ? formData.variations.length : 0;
+  const isMultiVariationMode = Boolean(formData.hasVariations) || variationCount > 1;
 
   const handleSelectOrigin = (origin: 'normal' | 'salvado' | 'usado') => {
     const salvadoOpp = opportunities.find((o) => o.name?.toLowerCase().includes('salvado'));
@@ -191,6 +209,31 @@ export const ProductFormBasicTab: React.FC<Props> = ({
         }
       }
       return next;
+    });
+  };
+
+  const handleSelectProductMode = (hasVariations: boolean) => {
+    if (!hasVariations && variationCount > 1) {
+      Alert.alert(
+        'Remova as variações extras',
+        'Para tornar o produto simples, remova as variações extras na aba Variações. Ao restar uma, ela herdará a galeria completa de fotos.'
+      );
+      return;
+    }
+    setFormData((previous) => {
+      const currentVariations = Array.isArray(previous.variations) ? previous.variations : [];
+      const shouldInheritSimpleFields =
+        !isExistingProduct &&
+        !hasVariations &&
+        Boolean(previous.hasVariations) &&
+        currentVariations.length === 1;
+      return {
+        ...previous,
+        hasVariations,
+        ...(shouldInheritSimpleFields
+          ? { variations: [inheritMobileSimpleVariationFromParent(previous, currentVariations[0])] }
+          : {}),
+      };
     });
   };
 
@@ -288,6 +331,47 @@ export const ProductFormBasicTab: React.FC<Props> = ({
         </View>
       )}
 
+      {formData.itemType !== 'service' && (
+        <View style={styles.field}>
+          <Text style={[styles.label, dark && styles.lightLabel]}>TIPO DE PRODUTO</Text>
+          <View style={styles.originRow}>
+            {[false, true].map((hasVariations) => {
+              const selected = isMultiVariationMode === hasVariations;
+              return (
+                <TouchableOpacity
+                  key={String(hasVariations)}
+                  onPress={() => handleSelectProductMode(hasVariations)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  style={[
+                    styles.originBtn,
+                    selected && styles.originBtnActive,
+                    dark && !selected && styles.darkInput,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.originBtnText,
+                      selected
+                        ? styles.originBtnTextActive
+                        : dark
+                          ? styles.lightText
+                          : styles.dimText,
+                    ]}
+                  >
+                    {hasVariations ? 'Com variações' : 'Simples'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={[styles.dimText, { fontSize: 11, lineHeight: 16 }]}>
+            Produtos simples mantêm uma variação padrão. Para usar opções diferentes de cor,
+            tamanho ou modelo, escolha “Com variações”.
+          </Text>
+        </View>
+      )}
+
       {/* NOME DO PRODUTO */}
       <View style={styles.field}>
         <View style={styles.labelRow}>
@@ -298,6 +382,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
 
         <TextInput
           value={formData.name || ''}
+          onFocus={() => onFieldFocus?.('name')}
           onChangeText={(val) => {
             setFormData((prev) => ({
               ...prev,
@@ -306,6 +391,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
             }));
           }}
           onBlur={() => {
+            onFieldBlur?.('name');
             if (!formData.name) return;
             const formatted = toTitleCase(formData.name);
             if (formatted !== formData.name) {
@@ -342,6 +428,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
           </View>
           <TextInput
             value={formData.title || formData.marketplaceTitle || ''}
+            onFocus={() => onFieldFocus?.('title')}
             onChangeText={(val) => {
               setFormData((prev) => ({
                 ...prev,
@@ -350,6 +437,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
               }));
             }}
             onBlur={() => {
+              onFieldBlur?.('title');
               const currentTitle = formData.title || formData.marketplaceTitle || '';
               if (!currentTitle) return;
               const formatted = toTitleCase(currentTitle);

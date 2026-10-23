@@ -3,8 +3,10 @@ import { formatAccessKey } from './nfeAccessKey';
 import bwipjs from 'bwip-js';
 import { toast } from 'react-toastify';
 import { escapeDanfeHtml } from './danfe/danfeHtmlUtils';
-import { chooseNfcePrintFormat } from './danfe/nfcePrintFormatDialog';
-import { executeDanfePrintFallback } from '../printing/printFallbackHandler';
+import {
+  executeDanfePrintFallback,
+  openDanfePrintPreparationWindow,
+} from '../printing/printFallbackHandler';
 import {
   DanfeData,
   getDanfeOfficialStyles,
@@ -246,53 +248,34 @@ function generateDanfeNfceHtml(data: DanfeData): string {
  */
 export async function openDanfePrintWindow(
   data: DanfeData,
-  format?: 'thermal_80mm' | 'a4'
+  format?: 'thermal_80mm' | 'a4',
+  preparedPrintWindow?: Window | null
 ): Promise<void> {
-  let selectedFormat = format || data.printFormat;
-  let selectedWindow: Window | null = null;
+  const selectedFormat = format || data.printFormat || (data.model === '65' ? 'a4' : undefined);
   const a4UnavailableReason = getDanfeNfceA4UnavailableReason(data);
 
-  if (data.model === '65' && !selectedFormat) {
-    const selection = await chooseNfcePrintFormat({
-      a4Available: !a4UnavailableReason,
-      a4UnavailableReason: a4UnavailableReason || undefined,
-    });
-    if (!selection) return;
-    selectedFormat = selection.format;
-    selectedWindow = selection.printWindow;
-  }
-
   if (data.model === '65' && selectedFormat === 'a4' && a4UnavailableReason) {
+    if (preparedPrintWindow && !preparedPrintWindow.closed) preparedPrintWindow.close();
     toast.error(`DANFE A4 indisponível: ${a4UnavailableReason}`);
     return;
   }
 
+  const printWindow = preparedPrintWindow ?? openDanfePrintPreparationWindow();
+  if (!printWindow) return;
+
   const preparedData: DanfeData =
     data.model === '65' && selectedFormat ? { ...data, printFormat: selectedFormat } : data;
 
-  const targetWindow = selectedWindow;
-  if (targetWindow) {
-    const html = generateDanfeHtml(preparedData);
-    await import('../printing/printService')
-      .then(({ printDanfe }) => printDanfe(preparedData, targetWindow))
-      .catch(() => executeDanfePrintFallback(html, targetWindow));
-    return;
-  }
-
+  const html = generateDanfeHtml(preparedData);
   import('../printing/printService')
     .then(({ printDanfe }) => {
-      printDanfe(preparedData).catch(() => {
-        fallbackDanfeWindow(preparedData);
+      printDanfe(preparedData, printWindow).catch(() => {
+        executeDanfePrintFallback(html, printWindow);
       });
     })
     .catch(() => {
-      fallbackDanfeWindow(preparedData);
+      executeDanfePrintFallback(html, printWindow);
     });
-}
-
-function fallbackDanfeWindow(data: DanfeData): void {
-  const html = generateDanfeHtml(data);
-  executeDanfePrintFallback(html);
 }
 
 export * from './danfe';

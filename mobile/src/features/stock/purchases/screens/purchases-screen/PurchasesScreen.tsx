@@ -15,11 +15,11 @@ import {
 } from '../../mobilePurchaseService';
 import { PurchaseFormModal } from '../../modals/PurchaseFormModal';
 import { PurchaseDetailsModal } from '../../modals/PurchaseDetailsModal';
-import { styles } from './screens/purchases-screen/purchasesScreen.styles';
-import { PurchaseCard } from './screens/purchases-screen/PurchaseCard';
-import { PurchasesListStates } from './screens/purchases-screen/PurchasesListStates';
-import { PurchasesScreenHeader } from './screens/purchases-screen/PurchasesScreenHeader';
-import { PurchaseSupplierFilterModal } from './screens/purchases-screen/PurchaseSupplierFilterModal';
+import { styles } from './purchasesScreen.styles';
+import { PurchaseCard } from './PurchaseCard';
+import { PurchasesListStates } from './PurchasesListStates';
+import { PurchasesScreenHeader } from './PurchasesScreenHeader';
+import { PurchaseSupplierFilterModal } from './PurchaseSupplierFilterModal';
 
 interface Props {
   isDarkMode: boolean;

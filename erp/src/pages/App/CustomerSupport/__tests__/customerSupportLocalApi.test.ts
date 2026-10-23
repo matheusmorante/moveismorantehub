@@ -80,4 +80,34 @@ describe('Rotas da Central no adaptador HTTP de desenvolvimento', () => {
     expect(status).toBe(200);
     expect(outbound).not.toHaveBeenCalled();
   });
+
+  it('responde 503 por HTTP quando o processador não confirma o recebimento', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('WHATSAPP_APP_SECRET', 'unit-secret');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'unit-service-key');
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://unit.supabase.co');
+    const outbound = vi.fn().mockImplementation(async (url: string) => {
+      expect(String(url)).toContain('https://unit.supabase.co/rest/v1/whatsapp_messages');
+      return new Response(JSON.stringify({ code: 'XX000', message: 'Private database detail' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', outbound);
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const body = JSON.stringify({ entry: [{ changes: [{ value: {
+        metadata: { phone_number_id: 'channel-unit' },
+        messages: [{ id: 'wamid.unit-http', from: '5511999990000', type: 'text', text: { body: 'Teste isolado' } }],
+      } }] }] });
+      const signature = 'sha256=' + createHmac('sha256', 'unit-secret').update(body).digest('hex');
+      const response = await fetchHTTP(`${baseURL}/api/whatsapp-webhook`, {
+        method: 'POST', body, headers: { 'x-hub-signature-256': signature },
+      });
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({ error: 'Webhook processing could not be completed.' });
+      expect(outbound).toHaveBeenCalledTimes(1);
+    } finally {
+      logged.mockRestore();
+    }
+  });
 });

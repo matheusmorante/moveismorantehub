@@ -26,7 +26,6 @@ interface OrderCardHeaderProps extends Pick<
   | 'onViewFiscalDocument'
   | 'onIssueNfe'
   | 'onStatusUpdate'
-  | 'onBlingUpdate'
   | 'onStockCheckUpdate'
   | 'showTrash'
 > {
@@ -65,7 +64,6 @@ export const OrderCardHeader: React.FC<OrderCardHeaderProps> = ({
   onViewFiscalDocument,
   onIssueNfe,
   onStatusUpdate,
-  onBlingUpdate,
   onStockCheckUpdate,
   showTrash,
 }) => {
@@ -124,7 +122,6 @@ export const OrderCardHeader: React.FC<OrderCardHeaderProps> = ({
             isPaidTraffic={isPaidTraffic}
             statusConfig={statusConfig}
             onStatusUpdate={onStatusUpdate}
-            onBlingUpdate={onBlingUpdate}
             onStockCheckUpdate={onStockCheckUpdate}
           />
         </div>

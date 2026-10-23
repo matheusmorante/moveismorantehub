@@ -47,7 +47,6 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
   const [testPhone, setTestPhone] = useState('');
 
   const config = settings.whatsappConfig || {
-    accessToken: '',
     phoneNumberId: '',
     wabaId: '',
     catalogId: '',
@@ -65,11 +64,11 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
   const [working, setWorking] = useState(false);
   const inFlight = useRef(false), active = useRef(true), completedSends = useRef(new Set<string>());
   const { user } = useAuth();
-  const identity = [user?.id, config.accessToken, config.phoneNumberId, config.wabaId, config.templateNameOrderConfirmation, config.templateLanguage, config.templateVariableCount, testPhone];
+  const identity = [user?.id, config.phoneNumberId, config.wabaId, config.templateNameOrderConfirmation, config.templateLanguage, config.templateVariableCount, testPhone];
   const context = useRef({ identity });
   if (context.current.identity.some((value, index) => value !== identity[index])) context.current = { identity };
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  useEffect(() => { setFetchedTemplates([]); }, [user?.id, config.wabaId, config.accessToken]);
+  useEffect(() => { setFetchedTemplates([]); }, [user?.id, config.wabaId]);
   const showFormError = (errors: Parameters<typeof flattenFormErrors>[0]) => {
     const message = Object.values(flattenFormErrors(errors))[0]; setOperationError(message); toast.warning(message);
   };
@@ -116,7 +115,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
       : ['Cliente Teste', '26/08/2026', 'Manhã', 'Rua Cascavel, 306, Guaraituba - Colombo/PR', '1x Guarda Roupa Casal 6 Portas', '949,00', 'Pix'];
     const params = sampleList.slice(0, values.variableCount);
     let result;
-    try { result = await withTimeout(whatsappGraphService.sendTemplateMessage(values.phone, values.template, params, values.language, values.config), 30_000, null, 'Teste de mensagem WhatsApp'); }
+    try { result = await withTimeout(whatsappGraphService.sendTemplateMessage(values.phone, values.template, params, values.language, values.config, 'settings_test'), 30_000, null, 'Teste de mensagem WhatsApp'); }
     catch (error) {
       if (!error || typeof error !== 'object' || !('confirmedFailure' in error) || error.confirmedFailure !== true) completedSends.current.add(key);
       throw error;
@@ -141,9 +140,10 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
               Atenção
             </h5>
             <p className="text-amber-700/80 dark:text-amber-500/80 text-xs mt-1 leading-relaxed font-medium">
-              Para o envio direto de mensagens funcionar, utilize um{' '}
-              <b>Token Permanente de Usuário do Sistema</b> gerado no Meta Business Manager com
-              permissões <code>whatsapp_business_messaging</code>.
+              O token da Meta é lido apenas no servidor pela variável secreta{' '}
+              <code> WHATSAPP_ACCESS_TOKEN</code>. Não o salve nestas configurações. Para que as
+              ações de pedidos usem a API da Meta, configure essa variável como <code>sensitive/secret</code>{' '}
+              no Vercel.
             </p>
           </div>
         </div>
@@ -227,24 +227,15 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
         </div>
       </div>
 
-      {/* Token de Acesso */}
       <div className="p-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-          <div className="flex-1 max-w-lg">
-            <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">
-              Token de Acesso
-            </h4>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
-              Token permanente do Usuário do Sistema com permissões de messaging e catalog.
+        <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+          <i className="bi bi-shield-lock-fill mt-0.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+          <div>
+            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Credencial protegida no servidor</h4>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              O token da Meta fica nas variáveis de ambiente do Vercel e não é exibido nem salvo nas configurações do ERP.
             </p>
           </div>
-          <textarea
-            value={config.accessToken}
-            onChange={(e) => handleFieldChange('accessToken', e.target.value)}
-            placeholder="EAAXh..."
-            rows={3}
-            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-5 py-3 text-xs outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full md:w-80 transition-all font-mono"
-          />
         </div>
       </div>
 

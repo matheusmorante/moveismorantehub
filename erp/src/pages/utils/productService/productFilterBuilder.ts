@@ -1,9 +1,9 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { removeAccents } from '../textUtils';
-
-const VARIATION_SEARCH_MATCH_LIMIT = 100;
-const VARIATION_SEARCH_TOO_BROAD_MESSAGE =
-  'A busca encontrou muitas variações correspondentes. Refine o termo e tente novamente.';
+import {
+  buildProductSearchTerms,
+  createProductVariationSearchTooBroadError,
+  PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
+} from '../../../../../shared-utils/productListSearch';
 const NON_TEST_PRODUCT_ARTIFACT_FILTER = [
   'and(',
   'or(technical_specs->>is_test.is.null,technical_specs->>is_test.neq.true),',
@@ -83,16 +83,8 @@ export const applyProductFiltersAndSort = async (
 
   // Filtro de busca textual — busca pelo nome do produto (name) na tabela de produtos e variações utilizando índices GIN trigram
   if (options?.search) {
-    const rawSearch = options.search.trim().replace(/[(),]/g, ' ').replace(/[%_]/g, '');
-    if (rawSearch.length > 0) {
-      const unaccented = removeAccents(rawSearch);
-      const spaceNormalized = unaccented.replace(/[-_]/g, ' ');
-      const yToI = spaceNormalized.replace(/y/gi, 'i');
-      const iToY = spaceNormalized.replace(/i/gi, 'y');
-
-      const searchTerms = Array.from(
-        new Set([rawSearch, unaccented, spaceNormalized, yToI, iToY])
-      ).filter(Boolean);
+    const { searchTerms, wordTerms } = buildProductSearchTerms(options.search);
+    if (searchTerms.length > 0) {
 
       // 1. Buscar variações pelo campo 'name' na tabela product_variations (aproveita idx_product_variations_name_trgm)
       let variationParentIds: string[] = [];
@@ -101,13 +93,10 @@ export const applyProductFiltersAndSort = async (
         .from('product_variations')
         .select('product_id')
         .or(varOrList.join(','))
-        .limit(VARIATION_SEARCH_MATCH_LIMIT + 1);
+        .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1);
       if (variationSearchError) throw variationSearchError;
-      if ((matchedVariations?.length ?? 0) > VARIATION_SEARCH_MATCH_LIMIT) {
-        const tooBroadError = new Error(VARIATION_SEARCH_TOO_BROAD_MESSAGE);
-        tooBroadError.name = 'ProductVariationSearchTooBroadError';
-        throw tooBroadError;
-      }
+      if ((matchedVariations?.length ?? 0) > PRODUCT_VARIATION_SEARCH_MATCH_LIMIT)
+        throw createProductVariationSearchTooBroadError();
 
       if (matchedVariations && matchedVariations.length > 0) {
         variationParentIds = Array.from(
@@ -122,15 +111,12 @@ export const applyProductFiltersAndSort = async (
       });
 
       // Adicionar condição AND palavra por palavra para tolerar ordem ou palavras adicionais
-      const words = spaceNormalized.split(/\s+/).filter(Boolean);
-      if (words.length > 0) {
-        const andConditionsList = words.map((w) => {
-          if (w.includes('y') || w.includes('i')) {
-            const wAlt = w.replace(/y/gi, 'i');
-            return `or(name.ilike.%${w}%,name.ilike.%${wAlt}%)`;
-          }
-          return `name.ilike.%${w}%`;
-        });
+      if (wordTerms.length > 0) {
+        const andConditionsList = wordTerms.map(({ value, alternative }) =>
+          alternative
+            ? `or(name.ilike.%${value}%,name.ilike.%${alternative}%)`
+            : `name.ilike.%${value}%`
+        );
         orConditions.push(`and(${andConditionsList.join(',')})`);
       }
 

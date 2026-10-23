@@ -40,6 +40,16 @@ describe('Pedidos do painel — falha, repetição e troca de contexto', () => {
   const order = (orderNumber: string) => ({ id: orderNumber, orderNumber, status: 'active', totalAmount: 100,
     createdAt: '2026-10-21T12:00:00Z', itemsCount: 1, itemsPreview: 'Item sintético', isActive: true });
 
+  it('limita o painel sobreposto à coluna relativa da Central, abaixo da navegação global', async () => {
+    const { container } = render(<div className="relative">{panel()}</div>);
+    await waitFor(() => expect(mocks.orders).toHaveBeenCalledTimes(1));
+    const aside = container.querySelector('aside');
+    expect(aside?.classList.contains('absolute')).toBe(true);
+    expect(aside?.classList.contains('fixed')).toBe(false);
+    expect(aside?.previousElementSibling?.classList.contains('absolute')).toBe(true);
+    expect(aside?.previousElementSibling?.classList.contains('fixed')).toBe(false);
+  });
+
   it('mostra erro e permite repetir, reservando o vazio para resposta válida', async () => {
     mocks.orders.mockRejectedValueOnce(new Error('Não foi possível carregar os pedidos deste cliente. Tente novamente.'));
     render(panel());

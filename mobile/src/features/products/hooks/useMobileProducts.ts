@@ -4,13 +4,20 @@ import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { productListFormSchema } from '../../../../../shared-utils/listingFormSchemas';
 import { validateCatalogPublication } from '../../../../../shared-utils/catalogPublicationValidation';
 import {
+  isProductVariationSearchTooBroadError,
+  PRODUCT_LIST_SEARCH_DEBOUNCE_MS,
+} from '../../../../../shared-utils/productListSearch';
+import { validateProductActivationRequirements } from '../../../../../shared-utils/productActivationValidation';
+import {
+  DEFAULT_MOBILE_PRODUCT_LIST_FILTERS,
   resolveAppliedMobileProductSearch,
   resolveMobileProductStatusFilter,
 } from '../domain/mobileProductListFilters';
-import { getMobileEffectiveVariationPrice } from '../domain/productRegistrationRules';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
   deleteMobileProduct,
+  moveMobileProductToTrash,
+  restoreMobileProductFromTrash,
   saveMobileProduct,
   toggleMobileProductActive,
   toggleMobileProductCatalog,
@@ -26,25 +33,38 @@ export function useMobileProducts(
   const [loading, setLoading] = useState(enabled);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.searchTerm);
   const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'draft'>('all');
-  const [showDeactivated, setShowDeactivated] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'draft'>(
+    DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.statusFilter
+  );
+  const [showDeactivated, setShowDeactivated] = useState(
+    DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.showDeactivated
+  );
+  const [showTrash, setShowTrashState] = useState(false);
   const [showMergedProducts, setShowMergedProducts] = useState(false);
-  const [generalTypeFilter, setGeneralTypeFilter] = useState<'all' | 'product' | 'service'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [generalTypeFilter, setGeneralTypeFilter] = useState<'all' | 'product' | 'service'>(
+    DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.generalTypeFilter
+  );
+  const [categoryFilter, setCategoryFilter] = useState<string>(
+    DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.categoryFilter
+  );
   const [catalogStatusFilter, setCatalogStatusFilter] = useState<'all' | 'published' | 'hidden'>(
-    'all'
+    DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.catalogStatusFilter
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const { validateValues: validateList } = useZodForm(productListFormSchema, { page: currentPage, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated });
+  const { validateValues: validateList } = useZodForm(productListFormSchema, { page: currentPage, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated, showTrash });
   useEffect(() => {
-    const nextSearch = resolveAppliedMobileProductSearch(searchTerm, appliedSearchTerm);
+    const trimmedSearch = searchTerm.trim();
+    const nextSearch = resolveAppliedMobileProductSearch(searchTerm);
     if (nextSearch === appliedSearchTerm) return;
 
-    if (searchTerm.trim().length >= 3) {
-      const timeout = setTimeout(() => setAppliedSearchTerm(nextSearch), 250);
+    if (trimmedSearch.length > 0) {
+      const timeout = setTimeout(
+        () => setAppliedSearchTerm(nextSearch),
+        PRODUCT_LIST_SEARCH_DEBOUNCE_MS
+      );
       return () => clearTimeout(timeout);
     }
 
@@ -64,7 +84,7 @@ export function useMobileProducts(
       pull ? setRefreshing(true) : setLoading(true);
       setLoadError(null);
       try {
-        const values = await validateList({ page, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated },
+        const values = await validateList({ page, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated, showTrash },
           (errors) => setLoadError(Object.values(flattenFormErrors(errors))[0]));
         if (!values) return;
         const { data, total } = await fetchMobileProductsPage(values.page, ITEMS_PER_PAGE, {
@@ -80,12 +100,17 @@ export function useMobileProducts(
           catalogStatus: values.catalogStatus,
           itemType: values.itemType,
           generalType: values.itemType === 'standard' ? values.generalType : 'all',
+          showTrash: values.showTrash,
         });
         setProducts(data);
         setTotalItems(total);
       } catch (err) {
         console.warn('[useMobileProducts] Erro ao carregar:', err);
-        setLoadError('Não foi possível carregar as informações. Tente novamente.');
+        setLoadError(
+          isProductVariationSearchTooBroadError(err)
+            ? err.message
+            : 'Não foi possível carregar as informações. Tente novamente.'
+        );
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -99,6 +124,7 @@ export function useMobileProducts(
       catalogStatusFilter,
       generalTypeFilter,
       showDeactivated,
+      showTrash,
       showMergedProducts,
       mode,
       enabled,
@@ -129,6 +155,17 @@ export function useMobileProducts(
     showMergedProducts,
     mode,
   ]);
+
+  const resetFilters = useCallback(() => {
+    setSearchTerm(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.searchTerm);
+    setAppliedSearchTerm(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.searchTerm);
+    setStatusFilter(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.statusFilter);
+    setShowDeactivated(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.showDeactivated);
+    setCategoryFilter(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.categoryFilter);
+    setCatalogStatusFilter(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.catalogStatusFilter);
+    setGeneralTypeFilter(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.generalTypeFilter);
+    setCurrentPage(1);
+  }, []);
 
   const handleToggleCatalog = async (
     productId: string,
@@ -162,7 +199,10 @@ export function useMobileProducts(
               const nextVars = (p.allVariations || []).map((v: any) =>
                 v.id === varId ? { ...v, status: next } : v
               );
-              return { ...p, allVariations: nextVars };
+              const parentStatus = nextVars.some((variation: any) => variation.status === 'published')
+                ? 'published'
+                : 'hidden';
+              return { ...p, status: parentStatus, allVariations: nextVars, variations: nextVars };
             }
             const nextVars = (p.allVariations || []).map((variation: any) =>
               variation.isVirtual ? { ...variation, status: next } : variation
@@ -194,68 +234,44 @@ export function useMobileProducts(
       (v: any) => String(v.id) === String(productId)
     );
     const isVariation = Boolean(targetVariation && !targetVariation.isVirtual);
-    if (
-      targetProd &&
-      (targetProd.isDraft || targetProd.is_draft || targetProd.status === 'draft')
-    ) {
-      Alert.alert(
-        'Produto em Rascunho',
-        'Termine o cadastramento deste produto para poder ativá-lo no ERP.'
-      );
-      return;
-    }
     if (!currentActive && targetProd) {
-      const productKind = targetProd.productKind || targetProd.product_kind;
-      if (
-        ['salvado', 'usado'].includes(productKind) ||
-        ['salvado', 'usado'].includes(targetProd.condition) ||
-        targetProd.is_salvado
-      ) {
+      const activationProduct = {
+        ...targetProd,
+        id: String(targetProd.id),
+        name: targetProd.name || targetProd.title || '',
+        unitPrice: Number(targetProd.unitPrice ?? targetProd.unit_price ?? targetProd.price ?? 0),
+        categoryIds:
+          targetProd.categoryIds ||
+          (Array.isArray(targetProd.product_categories)
+            ? targetProd.product_categories.map((relation: any) => relation.category_id).filter(Boolean)
+            : targetProd.category_id
+              ? [targetProd.category_id]
+              : []),
+        supplierId: targetProd.supplierId || targetProd.supplier_id || '',
+        mainSupplierId: targetProd.mainSupplierId || targetProd.main_supplier_id || '',
+        isDraft: Boolean(targetProd.isDraft || targetProd.is_draft || targetProd.status === 'draft'),
+        isCombo: Boolean(targetProd.isCombo || targetProd.is_combo),
+        comboItems: targetProd.comboItems || targetProd.combo_items || [],
+        variations: (targetProd.allVariations || targetProd.variations || []).map((variation: any) => ({
+          ...variation,
+          syncUnitPrice: variation.syncUnitPrice !== false,
+          unitPrice: Number(variation.unitPrice ?? variation.price ?? variation.unit_price ?? 0),
+          comboItems: variation.comboItems || variation.combo_items || [],
+        })),
+      };
+      const validationId = isVariation && targetVariation
+        ? `${targetProd.id}_${targetVariation.sku || targetVariation.id}`
+        : String(targetProd.id);
+      const validation = validateProductActivationRequirements(
+        validationId,
+        [activationProduct],
+        [activationProduct]
+      );
+      if (!validation.isValid) {
         Alert.alert(
-          'Produto Desativado no ERP',
-          'Produtos com origem diferente de Convencional permanecem desativados no ERP.'
+          validation.errorMessage?.includes('rascunho') ? 'Produto em Rascunho' : 'Produto incompleto',
+          validation.errorMessage || 'Preencha os requisitos do ERP antes de ativar.'
         );
-        return;
-      }
-      const missing: string[] = [];
-      if (
-        !String(targetProd.name || targetProd.description || '').trim() ||
-        String(targetProd.name || targetProd.description || '').trim().length < 2
-      )
-        missing.push('nome');
-      if (!targetProd.category && !(targetProd.categoryIds || []).length && !targetProd.category_id)
-        missing.push('categoria');
-      if (!targetProd.mainSupplierId && !targetProd.supplierId && !targetProd.supplier_id)
-        missing.push('fornecedor');
-      const variations = isVariation
-        ? [targetVariation]
-        : Array.isArray(targetProd.allVariations)
-          ? targetProd.allVariations
-          : [];
-      const isComposition =
-        targetProd.item_type === 'composition' ||
-        targetProd.itemType === 'composition' ||
-        targetProd.is_combo === true ||
-        targetProd.isCombo === true;
-      if (isComposition) {
-        const componentCount = variations.reduce((total: number, variation: any) => {
-          const items = variation.combo_items || variation.comboItems;
-          return total + (Array.isArray(items) ? items.length : 0);
-        }, 0);
-        const fallbackItems = targetProd.combo_items || targetProd.comboItems;
-        if (Math.max(componentCount, Array.isArray(fallbackItems) ? fallbackItems.length : 0) < 2)
-          missing.push('pelo menos 2 componentes');
-      } else if (
-        variations.length > 0
-          ? !variations.some(
-              (variation: any) => getMobileEffectiveVariationPrice(targetProd, variation) > 0
-            )
-          : Number(targetProd.unitPrice ?? targetProd.unit_price ?? targetProd.price ?? 0) <= 0
-      ) {
-        missing.push('preço de venda');
-      }
-      if (missing.length > 0) {
-        Alert.alert('Produto incompleto', `Preencha os requisitos do ERP: ${missing.join(', ')}.`);
         return;
       }
     }
@@ -305,6 +321,11 @@ export function useMobileProducts(
       );
     } catch (err) {
       console.warn('Erro ao alternar ativo:', err);
+      Alert.alert(
+        'Não foi possível alterar o status do produto',
+        err instanceof Error ? err.message : 'Atualize a lista e tente novamente.'
+      );
+      void loadProducts(true, currentPage);
     }
   };
 
@@ -315,6 +336,35 @@ export function useMobileProducts(
       setTotalItems((prev) => Math.max(0, prev - 1));
     } catch (err) {
       console.warn('Erro ao excluir:', err);
+    }
+  };
+
+  const setShowTrash = useCallback((value: boolean | ((previous: boolean) => boolean)) => {
+    const next = typeof value === 'function' ? value(showTrash) : value;
+    if (next === showTrash) return;
+    setShowTrashState(next);
+    setCurrentPage(1);
+    setStatusFilter('all');
+    setCatalogStatusFilter('all');
+    setGeneralTypeFilter('all');
+    setShowDeactivated(true);
+  }, [showTrash]);
+
+  const handleMoveToTrash = async (productId: string) => {
+    try {
+      await moveMobileProductToTrash(productId);
+      await loadProducts(true, currentPage);
+    } catch (error: any) {
+      Alert.alert('Não foi possível mover para a lixeira', error?.message || 'Tente novamente.');
+    }
+  };
+
+  const handleRestoreFromTrash = async (productId: string) => {
+    try {
+      await restoreMobileProductFromTrash(productId);
+      await loadProducts(true, currentPage);
+    } catch (error: any) {
+      Alert.alert('Não foi possível restaurar o produto', error?.message || 'Tente novamente.');
     }
   };
 
@@ -332,6 +382,7 @@ export function useMobileProducts(
     searchTerm,
     statusFilter,
     showDeactivated,
+    showTrash,
     categoryFilter,
     catalogStatusFilter,
     generalTypeFilter,
@@ -341,8 +392,10 @@ export function useMobileProducts(
     totalPages,
     itemsPerPage: ITEMS_PER_PAGE,
     setSearchTerm,
+    resetFilters,
     setStatusFilter,
     setShowDeactivated,
+    setShowTrash,
     setCategoryFilter,
     setCatalogStatusFilter,
     setGeneralTypeFilter,
@@ -353,6 +406,8 @@ export function useMobileProducts(
     handleToggleCatalog,
     handleToggleActive,
     handleDelete,
+    handleMoveToTrash,
+    handleRestoreFromTrash,
     handleSave,
   };
 }

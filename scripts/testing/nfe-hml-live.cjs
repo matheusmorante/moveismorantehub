@@ -21,12 +21,12 @@ async function main() {
   if (!/^https:\/\/morantehub-[a-z0-9-]+\.vercel\.app$/.test(deployment || ''))
     throw new Error('Use a verified MoranteHub deployment URL.');
   const env = dotenv.parse(fs.readFileSync(envPath));
-  if (!env.VITE_AUDIT_USER || !env.VITE_AUDIT_PASS || !env.VITE_SUPABASE_ANON_KEY)
+  if (!env.NFE_HML_TEST_OPERATOR_EMAIL || !env.NFE_HML_TEST_OPERATOR_PASSWORD || !env.VITE_SUPABASE_ANON_KEY)
     throw new Error('Configured fiscal audit login is unavailable.');
   const operator = createClient(url, env.VITE_SUPABASE_ANON_KEY,
     { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: login, error: authError } = await operator.auth.signInWithPassword({
-    email: env.VITE_AUDIT_USER, password: env.VITE_AUDIT_PASS });
+    email: env.NFE_HML_TEST_OPERATOR_EMAIL, password: env.NFE_HML_TEST_OPERATOR_PASSWORD });
   if (authError || !login.session) throw new Error('Fiscal audit login failed.');
   const token = login.session.access_token;
   function request(path, body) {

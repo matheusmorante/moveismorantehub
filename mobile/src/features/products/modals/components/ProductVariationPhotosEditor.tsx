@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Check, ImagePlus, Link2, X } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, Check, Crop, ImagePlus, Link2, X } from 'lucide-react-native';
 import type React from 'react';
 import { useState } from 'react';
 import {
@@ -12,23 +12,46 @@ import {
   View,
 } from 'react-native';
 import { MAX_VARIATION_IMAGES } from '../../domain/productImageLimits';
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
+import { createVariationImageSelectionFormSchema } from '../../../../../../shared-utils/productImageFormSchemas';
+import { ProductSquareImageCropModal } from './ProductSquareImageCropModal';
 
 interface Props {
   images: string[];
   parentImages: string[];
   onChangeImages: (images: string[]) => void;
+  onCropPhoto: (oldUrl: string, newUrl: string) => void;
   dark: boolean;
+  inheritsParentGallery?: boolean;
 }
 
 export const ProductVariationPhotosEditor: React.FC<Props> = ({
   images,
   parentImages,
   onChangeImages,
+  onCropPhoto,
   dark,
+  inheritsParentGallery = false,
 }) => {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [croppingPhotoUrl, setCroppingPhotoUrl] = useState('');
   const [draftImages, setDraftImages] = useState<string[]>([]);
   const availableParentImages = Array.from(new Set(parentImages.filter(Boolean)));
+  const selectionForm = useZodForm(
+    createVariationImageSelectionFormSchema(availableParentImages, MAX_VARIATION_IMAGES),
+    { images: [] }
+  );
+
+  const commitImages = (nextImages: string[]) => {
+    void selectionForm.validateAndRun(
+      { images: nextImages },
+      (values) => onChangeImages(values.images),
+      (errors) => {
+        const messages = flattenFormErrors(errors);
+        Alert.alert('Seleção de fotos inválida', Object.values(messages)[0] || 'Revise as fotos selecionadas.');
+      }
+    );
+  };
 
   const openPicker = () => {
     setDraftImages([...images]);
@@ -55,7 +78,7 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
     if (targetIndex < 0 || targetIndex >= images.length) return;
     const next = [...images];
     [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
-    onChangeImages(next);
+    commitImages(next);
   };
 
   return (
@@ -68,7 +91,7 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
           </Text>
         </View>
         <Text style={[styles.counter, dark && styles.darkCounter]}>
-          {images.length}/{MAX_VARIATION_IMAGES}
+          {inheritsParentGallery ? `${images.length} fotos herdadas` : `${images.length}/${MAX_VARIATION_IMAGES}`}
         </Text>
       </View>
 
@@ -85,7 +108,7 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
                 <Text style={[styles.photoLabel, dark && styles.lightText]} numberOfLines={1}>
                   {index === 0 ? 'Capa' : `Foto ${index + 1}`}
                 </Text>
-                <View style={styles.photoActions}>
+                {!inheritsParentGallery && <View style={styles.photoActions}>
                   <TouchableOpacity
                     onPress={() => moveImage(index, -1)}
                     disabled={index === 0}
@@ -115,9 +138,16 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
                     <ArrowDown size={15} color={dark ? '#cbd5e1' : '#475569'} />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() =>
-                      onChangeImages(images.filter((_, imageIndex) => imageIndex !== index))
-                    }
+                    onPress={() => setCroppingPhotoUrl(url)}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Recortar foto da variação ${index + 1}`}
+                    style={[styles.iconButton, styles.cropButton]}
+                  >
+                    <Crop size={15} color="#7e22ce" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => commitImages(images.filter((_, imageIndex) => imageIndex !== index))}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     accessibilityRole="button"
                     accessibilityLabel={`Desvincular foto ${index + 1}`}
@@ -125,18 +155,20 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
                   >
                     <X size={15} color="#dc2626" />
                   </TouchableOpacity>
-                </View>
+                </View>}
               </View>
             </View>
           ))}
         </View>
       ) : (
         <Text style={[styles.emptyText, dark && styles.dimText]}>
-          Nenhuma foto vinculada a esta variação.
+          {inheritsParentGallery
+            ? 'Adicione fotos à galeria do produto para que esta variação as herde.'
+            : 'Nenhuma foto vinculada a esta variação.'}
         </Text>
       )}
 
-      <TouchableOpacity
+      {!inheritsParentGallery && <TouchableOpacity
         onPress={openPicker}
         disabled={availableParentImages.length === 0}
         accessibilityRole="button"
@@ -146,8 +178,8 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
         <Text style={styles.linkButtonText}>
           {images.length ? 'Vincular fotos do pai' : 'Vincular fotos do produto pai'}
         </Text>
-      </TouchableOpacity>
-      {availableParentImages.length === 0 && (
+      </TouchableOpacity>}
+      {!inheritsParentGallery && availableParentImages.length === 0 && (
         <Text style={[styles.helper, dark && styles.dimText]}>
           Adicione fotos ao produto para poder vinculá-las à variação.
         </Text>
@@ -219,10 +251,17 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
                 <Text style={styles.cancelText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => {
-                  onChangeImages(draftImages);
-                  setPickerOpen(false);
-                }}
+                onPress={() => void selectionForm.validateAndRun(
+                  { images: draftImages },
+                  (values) => {
+                    onChangeImages(values.images);
+                    setPickerOpen(false);
+                  },
+                  (errors) => {
+                    const messages = flattenFormErrors(errors);
+                    Alert.alert('Seleção de fotos inválida', Object.values(messages)[0] || 'Revise as fotos selecionadas.');
+                  }
+                )}
                 style={[styles.footerButton, styles.confirmButton]}
               >
                 <Text style={styles.confirmText}>Confirmar ({draftImages.length})</Text>
@@ -231,6 +270,17 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
           </View>
         </View>
       </Modal>
+      <ProductSquareImageCropModal
+        visible={Boolean(croppingPhotoUrl)}
+        imageUrl={croppingPhotoUrl}
+        dark={dark}
+        onCancel={() => setCroppingPhotoUrl('')}
+        onConfirm={(newUrl) => {
+          const oldUrl = croppingPhotoUrl;
+          onCropPhoto(oldUrl, newUrl);
+          setCroppingPhotoUrl('');
+        }}
+      />
     </View>
   );
 };
@@ -304,6 +354,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#e2e8f0',
   },
+  cropButton: { backgroundColor: '#f3e8ff' },
   darkIconButton: { backgroundColor: '#334155' },
   removeButton: { backgroundColor: '#fee2e2' },
   disabledButton: { opacity: 0.45 },

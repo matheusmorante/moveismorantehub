@@ -39,6 +39,25 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.resetAllMocks(); });
 
 describe('Paginação da Inbox', () => {
+  it('preserva dados comerciais carregados após falha de refresh e recupera ao repetir', async () => {
+    const confirmed = { ...conversation('commercial'), customer: { id: 'customer-unit', fullName: 'Cliente unitário' }, orders: [{}, {}] } as WhatsAppConversation;
+    mocks.fetchConversations.mockResolvedValueOnce({ conversations: [confirmed], totalCount: 1 });
+    const { result } = renderHook(() => useCustomerSupportConversations({ canViewCommercialInfo: true }));
+    await waitFor(() => expect(result.current.isLoadingConversations).toBe(false));
+    act(() => result.current.setSelectedConversation(result.current.conversations[0]));
+    const error = 'Não foi possível carregar os dados comerciais das conversas. Tente atualizar a lista.';
+    mocks.fetchConversations.mockRejectedValueOnce(new Error(error));
+    await act(() => result.current.loadConversations(true));
+    expect(result.current.conversationsError).toBe(error);
+    expect(result.current.conversations[0].orders).toHaveLength(2);
+    expect(result.current.selectedConversation?.customer?.fullName).toBe('Cliente unitário');
+    expect(result.current.isRefreshingConversations).toBe(false);
+    mocks.fetchConversations.mockResolvedValueOnce({ conversations: [{ ...confirmed, orders: [{}, {}, {}] }], totalCount: 1 });
+    await act(() => result.current.loadConversations(true));
+    expect(result.current.conversationsError).toBe('');
+    expect(result.current.selectedConversation?.orders).toHaveLength(3);
+  });
+
   it('uma atualização automática durante a abertura não invalida a consulta que libera o loading', async () => {
     const initial = deferred<{ conversations: WhatsAppConversation[]; totalCount: number }>();
     mocks.fetchConversations.mockReturnValueOnce(initial.promise);
@@ -138,6 +157,25 @@ describe('Paginação da Inbox', () => {
 });
 
 describe('Paginação do histórico', () => {
+  it('confirma novas não lidas da conversa aberta mesmo quando o INSERT em tempo real não chega', async () => {
+    const read = deferred<boolean>();
+    const clear = vi.fn();
+    const { result, rerender } = renderHook(({ unreadCount }) => useCustomerSupportMessages({
+      selectedConversation: { ...conversation(), unreadCount }, onClearUnread: clear,
+    }), { initialProps: { unreadCount: 0 } });
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    mocks.markConversationAsRead.mockReturnValueOnce(read.promise);
+    rerender({ unreadCount: 2 });
+    await waitFor(() => expect(mocks.markConversationAsRead).toHaveBeenCalledWith(expect.anything(), 'a'));
+    expect(clear).not.toHaveBeenCalled();
+    expect(mocks.fetchConversationMessages).toHaveBeenCalledTimes(1);
+    await act(async () => { read.resolve(true); });
+    expect(clear).toHaveBeenCalledWith('a');
+    expect(result.current.messages).toHaveLength(80);
+    rerender({ unreadCount: 2 });
+    expect(mocks.markConversationAsRead).toHaveBeenCalledTimes(1);
+  });
+
   it('a consulta automática não apaga uma falha de leitura e trocar conversa limpa o aviso', async () => {
     mocks.markConversationAsRead.mockResolvedValueOnce(false);
     const clear = vi.fn();

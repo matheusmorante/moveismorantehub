@@ -10,6 +10,13 @@ const conversationId = '00000000-0000-4000-8000-000000000001';
 const userId = '00000000-0000-4000-8000-000000000002';
 vi.mock('react-toastify', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+it('organiza o cabeçalho em linhas na tela pequena e mantém o retorno fora das ações', () => {
+  const { container } = render(<ChatHeader {...props()} />);
+  expect(container.firstElementChild?.classList.contains('flex-col')).toBe(true);
+  expect(container.firstElementChild?.classList.contains('md:flex-row')).toBe(true);
+  expect(screen.getByRole('button', { name: 'Voltar para a lista', exact: true }).classList.contains('shrink-0')).toBe(true);
+  expect(screen.getByTitle('Atendente responsável pelo atendimento').parentElement?.parentElement?.classList.contains('flex-wrap')).toBe(true);
+});
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -25,6 +32,20 @@ const props = () => ({
   onToggleSearchInChat: vi.fn(), onToggleInfoPanel: vi.fn(), onToggleTimeline: vi.fn(), onBackMobile: vi.fn(), onOpenSnippets: vi.fn(),
   onToggleArchive: vi.fn().mockResolvedValue(true), teamMembers: [{ id: userId, fullName: 'Operador' }],
   onAssign: vi.fn().mockResolvedValue(true), onUpdateStatus: vi.fn().mockResolvedValue(true), currentUserId: userId, currentUserName: 'Operador',
+});
+
+describe('Diretório de atribuição', () => {
+  it('permite repetir uma falha de consulta sem atribuir ou fechar o menu', () => {
+    const input = props();
+    const reload = vi.fn();
+    render(<ChatHeader {...input} teamMembers={[]} agentsError="Não foi possível carregar os atendentes. Tente novamente." onReloadAgents={reload} />);
+    fireEvent.click(screen.getByTitle('Atendente responsável pelo atendimento'));
+    expect(screen.getByRole('alert').textContent).toContain('Não foi possível carregar os atendentes');
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar carregar atendentes novamente' }));
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(input.onAssign).not.toHaveBeenCalled();
+    expect(screen.getByText('Responsável pelo atendimento')).toBeTruthy();
+  });
 });
 
 describe('Cópia de telefone no cabeçalho', () => {

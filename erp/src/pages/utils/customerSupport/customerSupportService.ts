@@ -21,14 +21,15 @@ export const CONVERSATION_SELECT_COLUMNS =
 export const MESSAGE_SELECT_COLUMNS =
   'id, conversation_id, api_message_id, direction, message_type, text_content, media_id, media_mime_type, media_url, media_filename, media_caption, reply_to_message_id, reply_to_wamid, status, error_code, failure_reason, raw_payload, timestamp, created_at';
 
+// Modelos fixos orientam a conferência; dados e resultados comerciais exigem uma fonte real.
 export const DEFAULT_QUICK_SNIPPETS: QuickSnippet[] = [
   {
     id: 'pix-payment',
-    title: 'Chave PIX e Instruções de Pagamento',
+    title: 'Orientação de Pagamento via PIX',
     category: 'pagamento',
     shortcut: '/pix',
     content:
-      'Olá! Para pagamento via PIX, utilize nossa chave oficial CNPJ: 12.345.678/0001-90 (Móveis Morante Ltda). Após efetuar a transferência, por favor nos envie o comprovante aqui. Muito obrigado! 🛋️',
+      'Olá! Para orientar seu pagamento via PIX, vou conferir as instruções oficiais vinculadas ao seu pedido. Aguarde a confirmação dos dados antes de realizar a transferência.',
   },
   {
     id: 'delivery-status',
@@ -36,23 +37,23 @@ export const DEFAULT_QUICK_SNIPPETS: QuickSnippet[] = [
     category: 'entrega',
     shortcut: '/entrega',
     content:
-      'Olá! Verificamos aqui seu pedido no sistema. Nossa equipe de logística está preparando os produtos para rota de entrega. Entraremos em contato com antecedência para confirmar a data exata e o melhor horário de recebimento! 🚚',
+      'Olá! Vou consultar a situação do seu pedido e confirmar a previsão de entrega com a equipe de logística.',
   },
   {
     id: 'store-location',
-    title: 'Endereço da Loja Física e Horários',
+    title: 'Consultar Endereço e Horários da Loja',
     category: 'loja',
     shortcut: '/loja',
     content:
-      'Nossa loja física está localizada na Av. Principal dos Móveis, 1000 - Centro. Horário de funcionamento: Segunda a Sexta das 08h30 às 18h30, e aos Sábados das 09h às 15h. Temos estacionamento próprio no local! Venha tomar um café conosco! ☕✨',
+      'Olá! Vou confirmar o endereço da loja e o horário de atendimento para a data da sua visita.',
   },
   {
     id: 'warranty-assistance',
-    title: 'Garantia e Solicitação de Assistência Técnica',
+    title: 'Solicitação de Assistência Técnica',
     category: 'assistencia',
     shortcut: '/garantia',
     content:
-      'Compreendemos perfeitamente. Todos os produtos Morante contam com garantia legal e termo de assistência técnica. Para agilizar, por favor nos envie fotos ou um vídeo curto mostrando o detalhe do produto e o número do seu pedido ou CPF. Abriremos o protocolo imediatamente! 🔧📦',
+      'Olá! Para analisar sua solicitação de assistência, informe o número do pedido e descreva o problema. Se puder, envie fotos ou um vídeo do produto. Vamos conferir os próximos passos com a equipe responsável.',
   },
   {
     id: 'welcome-greeting',
@@ -60,7 +61,7 @@ export const DEFAULT_QUICK_SNIPPETS: QuickSnippet[] = [
     category: 'geral',
     shortcut: '/ola',
     content:
-      'Olá! Seja muito bem-vindo(a) à Móveis Morante. Sou seu atendente virtual no MoranteHub. Como posso te ajudar hoje? 🪑',
+      'Olá! Boas-vindas à Móveis Morante. Como podemos ajudar?',
   },
 ];
 
@@ -204,10 +205,11 @@ export async function fetchConversations(
     }), 15_000, null, 'central:clientes');
     const customersData = customerResponse?.data;
 
-    if (customersData) {
-      for (const c of customersData) {
-        customersMap.set(String(c.id), mapPersonToSummary(c));
-      }
+    if (customerResponse?.error || !Array.isArray(customersData)) {
+      throw new Error('Não foi possível carregar os dados comerciais das conversas. Tente atualizar a lista.');
+    }
+    for (const c of customersData) {
+      customersMap.set(String(c.id), mapPersonToSummary(c));
     }
 
     const ordersResponse = await withTimeout<any>(supabase.rpc('customer_support_count_customer_orders', {
@@ -215,10 +217,11 @@ export async function fetchConversations(
     }), 15_000, null, 'central:contagem-pedidos');
     const ordersData = ordersResponse?.data;
 
-    if (ordersData) {
-      for (const row of ordersData) {
-        if (row.customer_id) customerOrdersCountMap.set(row.customer_id, Number(row.order_count) || 0);
-      }
+    if (ordersResponse?.error || !Array.isArray(ordersData)) {
+      throw new Error('Não foi possível carregar os dados comerciais das conversas. Tente atualizar a lista.');
+    }
+    for (const row of ordersData) {
+      if (row.customer_id) customerOrdersCountMap.set(row.customer_id, Number(row.order_count) || 0);
     }
   }
 
@@ -408,7 +411,9 @@ export async function fetchTeamProfiles(
   const response = await withTimeout<any>(supabase.rpc('customer_support_list_agents'), 15_000, null, 'central:atendentes');
   const { data, error } = response || { data: null, error: new Error('Timeout ao carregar atendentes') };
 
-  if (error || !data) return [];
+  if (error || !Array.isArray(data)) {
+    throw new Error('Não foi possível carregar os atendentes. Tente novamente.');
+  }
 
   return (data as Array<{ id: string; full_name: string | null; role: string | null }>).map((p) => ({
     id: p.id,

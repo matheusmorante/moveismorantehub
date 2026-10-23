@@ -1,16 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Marker } from 'react-native-maps';
-import {
-  Check,
-  AlertTriangle,
-  Store,
-  Truck,
-  Wrench,
-  Package,
-  RotateCcw,
-  Navigation,
-} from 'lucide-react-native';
+import { Check, Truck, Wrench, Package, RotateCcw } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { getOperationActivityType } from '../../../schedule/utils/operationActivity';
 import { TeamMemberLocation } from '../../../../services/teamLocationService';
@@ -78,7 +70,7 @@ export const DeliveryMarker: React.FC<Props> = ({
     );
   };
 
-  // Minha Posição Atual: Seta branca pura com contorno (estilo navegação)
+  // Seta azul compacta de posição, seguindo o padrão do Google Maps.
   if (isDriver && isValidCoord(driverCoords)) {
     return (
       <Marker
@@ -89,7 +81,15 @@ export const DeliveryMarker: React.FC<Props> = ({
         tracksViewChanges={tracksViewChanges}
       >
         <View style={styles.googleMapsNavWrapper}>
-          <Navigation size={28} color="#0f172a" fill="#ffffff" style={styles.googleMapsNavArrow} />
+          <Svg width={22} height={22} viewBox="0 0 24 24">
+            <Path
+              d="M12 2 3 22l9-5 9 5L12 2Z"
+              fill="#4285F4"
+              stroke="#ffffff"
+              strokeWidth={2}
+              strokeLinejoin="round"
+            />
+          </Svg>
         </View>
       </Marker>
     );
@@ -193,12 +193,10 @@ export const DeliveryMarker: React.FC<Props> = ({
     backgroundColor = '#f97316'; // Coleta de Devolução (Laranja)
   }
 
-  // Se concluída ou não atendida, cores de estado têm prioridade semântica
+  // Mantém a cor do tipo operacional e usa a borda para indicar o status.
   if (isCompleted) {
-    backgroundColor = '#10b981'; // Concluída
     borderColor = '#a7f3d0';
   } else if (isUnattended) {
-    backgroundColor = '#ef4444'; // Não Atendida
     borderColor = '#fecaca';
   } else if (isCurrent) {
     borderColor = '#ffffff';
@@ -213,11 +211,7 @@ export const DeliveryMarker: React.FC<Props> = ({
     >
       <View style={[styles.markerContainer, (isCurrent || isNext) && styles.markerHighlight]}>
         <View style={[styles.markerBadge, { backgroundColor, borderColor }]}>
-          {isCompleted ? (
-            <Check size={15} color="#ffffff" strokeWidth={3} />
-          ) : isUnattended ? (
-            <AlertTriangle size={13} color="#ffffff" strokeWidth={3} />
-          ) : isPickup ? (
+          {isPickup ? (
             <Package size={14} color="#ffffff" strokeWidth={2.5} />
           ) : activityType === 'assistance' ? (
             <Wrench size={14} color="#ffffff" strokeWidth={2.5} />
@@ -225,6 +219,11 @@ export const DeliveryMarker: React.FC<Props> = ({
             <RotateCcw size={14} color="#ffffff" strokeWidth={2.5} />
           ) : (
             <Truck size={14} color="#ffffff" strokeWidth={2.5} />
+          )}
+          {isCompleted && (
+            <View style={styles.completedBadge}>
+              <Check size={8} color="#ffffff" strokeWidth={3} />
+            </View>
           )}
         </View>
         <View style={[styles.pinTip, { borderTopColor: backgroundColor }]} />
@@ -242,6 +241,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.15 }],
   },
   markerBadge: {
+    position: 'relative',
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -253,6 +253,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3,
     elevation: 5,
+  },
+  completedBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#16a34a',
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
   },
   sequenceText: {
     color: '#ffffff',
@@ -293,8 +307,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   googleMapsNavWrapper: {
-    width: 36,
-    height: 36,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
@@ -302,9 +316,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 3,
     elevation: 6,
-  },
-  googleMapsNavArrow: {
-    transform: [{ rotate: '-45deg' }],
   },
   driverPin: {
     alignItems: 'center',

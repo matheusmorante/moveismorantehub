@@ -12,7 +12,6 @@ interface OrderOperationalBadgesProps {
   isPaidTraffic: boolean;
   statusConfig: Record<string, { label: string; bg: string; text: string; dot: string }>;
   onStatusUpdate: (id: string, newStatus: Order['status']) => void;
-  onBlingUpdate?: (id: string, value: boolean) => void;
   onStockCheckUpdate?: (id: string, value: boolean) => void;
 }
 
@@ -22,7 +21,6 @@ export const OrderOperationalBadges = ({
   isPaidTraffic,
   statusConfig,
   onStatusUpdate,
-  onBlingUpdate,
   onStockCheckUpdate,
 }: OrderOperationalBadgesProps) => {
   const [showPicker, setShowPicker] = useState(false);
@@ -94,33 +92,6 @@ export const OrderOperationalBadges = ({
             </button>
           </div>
       )}
-
-      {/* 2. Bling Status Badge — Selo do Bling */}
-      {order.orderType !== 'assistance' &&
-        order.orderType !== 'return' &&
-        !showTrash &&
-        order.status !== 'draft' &&
-        order.status !== 'cancelled' && (
-          <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => onBlingUpdate?.(order.id!, !order.isRegisteredInBling)}
-              className={`relative flex h-6 items-center justify-center px-2 rounded-md border cursor-pointer select-none transition-all hover:scale-105 shadow-2xs text-[8px] font-black uppercase ${binaryOrderBadgeClass(Boolean(order.isRegisteredInBling))}`}
-              title={
-                order.isRegisteredInBling
-                  ? 'Lançado no Bling (Clique para alternar)'
-                  : 'Falta Lançar no Bling (Clique para marcar)'
-              }
-            >
-              <span className="text-white">Bling</span>
-              {order.isRegisteredInBling && (
-                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-emerald-800 text-white shadow-2xs ring-1 ring-white dark:ring-slate-900 pointer-events-none">
-                  <i className="bi bi-check text-[8px] font-black leading-none" />
-                </span>
-              )}
-            </button>
-          </div>
-        )}
 
       {/* 3. Tráfego Pago Badge */}
       {isPaidTraffic && order.orderType !== 'return' && (

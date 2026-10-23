@@ -194,6 +194,7 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
 
         <IssuedFiscalDocumentDetailsFooter
           operationDraft={state.operationDraft}
+          model={state.model}
           storedXml={state.storedXml}
           hasDetailsOrDocument={Boolean(state.details || document)}
           hasXmlAvailable={Boolean(emissionResult?.xml)}
@@ -202,7 +203,8 @@ export const IssuedFiscalDocumentDetailsModal: React.FC<IssuedFiscalDocumentDeta
           shareFileError={state.shareFileError}
           onReviewDraft={() => state.setReviewingDraft(true)}
           onShowXml={() => state.setShowXml(true)}
-          onPrintDanfe={() => void state.handlePrintDanfe()}
+          onPrintDanfe={() => void state.handlePrintDanfe('a4')}
+          onPrintNfceCupom={() => void state.handlePrintDanfe('thermal_80mm')}
           onDownloadXml={() => void state.handleDownloadXml()}
           onShareDanfe={state.handleShareDanfe}
           onClose={onClose}

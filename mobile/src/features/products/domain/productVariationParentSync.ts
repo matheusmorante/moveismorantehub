@@ -17,7 +17,53 @@ type ParentVariationFields = {
   ipiPercent?: unknown;
   freightCost?: unknown;
   freightType?: unknown;
+  images?: unknown;
 };
+
+/** Mirrors ERP's conversion of an unsaved single-variation product back to simple mode. */
+export const inheritMobileSimpleVariationFromParent = <T extends Record<string, any>>(
+  parent: ParentVariationFields & Record<string, any>,
+  variation: T
+): T => ({
+  ...variation,
+  name: parent.name || parent.title || parent.description || '',
+  title: parent.title || parent.name || '',
+  marketplaceTitle: parent.marketplaceTitle || parent.title || parent.name || '',
+  stock: Number(parent.stock || 0),
+  price: Number(parent.unitPrice || parent.unit_price || parent.price || 0),
+  unitPrice: Number(parent.unitPrice || parent.unit_price || parent.price || 0),
+  promoPrice: Number(parent.promoPrice || parent.promo_price || 0),
+  costPrice: Number(parent.costPrice || parent.cost_price || 0),
+  condition: parent.condition || 'novo',
+  description: parent.description || '',
+  fiscal: parent.fiscal ? { ...parent.fiscal } : undefined,
+  width: Number(parent.width || 0),
+  height: Number(parent.height || 0),
+  depth: Number(parent.depth || 0),
+  weight: Number(parent.weight || 0),
+  ipiPercent: Number(parent.ipiPercent || 0),
+  ipiType: parent.ipiType || 'percentage',
+  freightCost: Number(parent.freightCost || 0),
+  freightType: parent.freightType || 'fixed',
+  finalPurchasePrice: Number(parent.finalPurchasePrice || 0),
+  minStock: Number(parent.minStock || 0),
+  attributes: [],
+  images: [],
+  syncUnitPrice: true,
+  syncPromoPrice: true,
+  syncCostPrice: true,
+  syncCondition: true,
+  syncDescription: true,
+  syncFiscal: true,
+  syncWithParent: true,
+  syncDimensions: true,
+  syncWidth: true,
+  syncHeight: true,
+  syncDepth: true,
+  syncWeight: true,
+  syncIpi: true,
+  syncFreight: true,
+});
 
 const sameValue = (left: unknown, right: unknown) => {
   if (Object.is(left, right)) return true;
@@ -63,6 +109,21 @@ export const syncMobileVariationsWithParent = <T extends Record<string, any>>(
     if (variation.syncFiscal !== false && !sameValue(variation.fiscal, parent.fiscal)) {
       if (next === variation) next = { ...variation };
       next.fiscal = parent.fiscal ? { ...parent.fiscal } : undefined;
+    }
+
+    const parentImages = Array.isArray(parent.images) ? parent.images : undefined;
+    const previousImages = Array.isArray(previousParent?.images)
+      ? previousParent.images
+      : undefined;
+    if (
+      variations.length === 1 &&
+      parentImages &&
+      previousImages &&
+      !sameValue(parentImages, previousImages) &&
+      !sameValue(variation.images, parentImages)
+    ) {
+      if (next === variation) next = { ...variation };
+      next.images = [...parentImages];
     }
 
     const parentName = String(parent.name || parent.description || '').trim();

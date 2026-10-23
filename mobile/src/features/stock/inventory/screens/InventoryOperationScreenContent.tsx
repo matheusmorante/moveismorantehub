@@ -233,10 +233,8 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
           }}
           onScan={handleScan}
           continuous
-          title={activeStage ? `Contagem — ${activeStage}` : 'Contagem geral'}
-          subtitle={
-            activeStage ? 'Somente produtos deste fornecedor' : 'Produtos de todos os fornecedores'
-          }
+          title=""
+          restrictToScannerFrame
           description="Aponte para o QR Code da etiqueta"
         />
       </Modal>

@@ -1,7 +1,7 @@
 import { getSettings } from '@/pages/utils/settingsService';
 import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
-import { metaHttpClient, GRAPH_API_VERSION, FACEBOOK_GRAPH_URL } from './metaHttpClient';
+import { metaHttpClient } from './metaHttpClient';
 import { metaErrorHandler } from './metaErrorHandler';
 import { templateSanitizer } from './templateSanitizer';
 import { sendTemplateMessage } from './metaTemplateSender';
@@ -23,7 +23,11 @@ export const metaWhatsAppService = {
   /**
    * Envia uma mensagem de texto simples via Cloud API
    */
-  sendTextMessage: async (to: string, text: string): Promise<MetaSendResponse> => {
+  sendTextMessage: async (
+    to: string,
+    text: string,
+    purpose: 'sales' | 'delivery' | 'warranty' | 'settings_test' = 'sales'
+  ): Promise<MetaSendResponse> => {
     const { whatsappConfig } = getSettings();
     if (!whatsappConfig?.phoneNumberId) throw new Error('Phone Number ID não configurado.');
 
@@ -36,20 +40,13 @@ export const metaWhatsAppService = {
 
     const startTime = Date.now();
 
-    const response = await fetch(
-      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
-      {
-        method: 'POST',
-        headers: metaHttpClient.getHeaders(),
-        body: JSON.stringify({
+    const response = await metaHttpClient.postMessages({
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
           to: formattedPhone,
           type: 'text',
           text: { body: text },
-        }),
-      }
-    );
+        }, purpose);
 
     const data = await response.json();
     if (data.error) {
@@ -132,12 +129,7 @@ export const metaWhatsAppService = {
 
     const startTime = Date.now();
 
-    const response = await fetch(
-      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
-      {
-        method: 'POST',
-        headers: metaHttpClient.getHeaders(),
-        body: JSON.stringify({
+    const response = await metaHttpClient.postMessages({
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
           to: formattedPhone,
@@ -147,9 +139,7 @@ export const metaWhatsAppService = {
             filename,
             ...(caption ? { caption } : {}),
           },
-        }),
-      }
-    );
+        }, 'warranty');
 
     const data = await response.json();
     if (data.error) {
@@ -211,12 +201,7 @@ export const metaWhatsAppService = {
     const formattedPhone = templateSanitizer.formatRecipientPhone(to);
 
     try {
-      const response = await fetch(
-        `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.phoneNumberId}/messages`,
-        {
-          method: 'POST',
-          headers: metaHttpClient.getHeaders(),
-          body: JSON.stringify({
+      const response = await metaHttpClient.postMessages({
             messaging_product: 'whatsapp',
             recipient_type: 'individual',
             to: formattedPhone,
@@ -233,9 +218,7 @@ export const metaWhatsAppService = {
                 ],
               },
             },
-          }),
-        }
-      );
+          }, 'delivery');
 
       const data = await response.json();
       if (data.error) {
@@ -245,14 +228,16 @@ export const metaWhatsAppService = {
         );
         return await metaWhatsAppService.sendTextMessage(
           to,
-          `${text}\n\n*Responda "${buttonTitle.toUpperCase()}" para confirmar.*`
+          `${text}\n\n*Responda "${buttonTitle.toUpperCase()}" para confirmar.*`,
+          'delivery'
         );
       }
       return data;
     } catch {
       return await metaWhatsAppService.sendTextMessage(
         to,
-        `${text}\n\n*Responda "${buttonTitle.toUpperCase()}" para confirmar.*`
+        `${text}\n\n*Responda "${buttonTitle.toUpperCase()}" para confirmar.*`,
+        'delivery'
       );
     }
   },
@@ -260,19 +245,12 @@ export const metaWhatsAppService = {
   /**
    * Lista todos os modelos de mensagem aprovados no WhatsApp Business Account (WABA)
    */
-  fetchMessageTemplates: async (config?: { accessToken: string; wabaId: string }): Promise<MetaMessageTemplate[]> => {
+  fetchMessageTemplates: async (config?: { wabaId: string }): Promise<MetaMessageTemplate[]> => {
     const whatsappConfig = config || getSettings().whatsappConfig;
     if (!whatsappConfig?.wabaId) {
       throw new Error('WABA ID (WhatsApp Business Account ID) não configurado.');
     }
-    if (!whatsappConfig?.accessToken) {
-      throw new Error('Token de Acesso não configurado.');
-    }
-
-    const response = await fetch(
-      `${FACEBOOK_GRAPH_URL}/${GRAPH_API_VERSION}/${whatsappConfig.wabaId}/message_templates?fields=name,status,language,category,components`,
-      { headers: metaHttpClient.getHeaders(whatsappConfig) }
-    );
+    const response = await metaHttpClient.request('list_templates', { wabaId: whatsappConfig.wabaId });
 
     const data = await response.json();
     if (data.error) {

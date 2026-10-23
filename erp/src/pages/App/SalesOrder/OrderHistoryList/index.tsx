@@ -98,7 +98,6 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       handleBulkTrash: onBulkTrash,
       handleBulkRestore,
       handleBulkPermanentDelete: onBulkPermanentDelete,
-      handleBlingUpdate,
       handleStockCheckUpdate,
       refresh,
       markFiscalDocumentAuthorized,
@@ -212,7 +211,6 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
               onBulkTrash={handleBulkTrash}
               onBulkRestore={handleBulkRestore}
               onBulkPermanentDelete={handleBulkPermanentDelete}
-              onBlingUpdate={handleBlingUpdate}
               onStockCheckUpdate={handleStockCheckUpdate}
               highlightOrderId={highlightOrderId}
               onFilterByOrderId={onFilterByOrderId}

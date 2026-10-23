@@ -13,6 +13,9 @@ import {
   searchMobileProductCompositionCandidates,
   type MobileProductCompositionCandidate,
 } from '../../services/mobileProductCompositionService';
+import { parseLocalizedNumber } from '../../domain/productNumbers';
+import { useZodForm } from '../../../../hooks/useZodForm';
+import { productAutocompleteFormSchema } from '../../../../../../shared-utils/productAutocompleteFormSchema';
 
 interface Props {
   formData: any;
@@ -31,33 +34,63 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
   const [results, setResults] = useState<MobileProductCompositionCandidate[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
+  const [quantityInputs, setQuantityInputs] = useState<Record<number, string>>({});
+  const { validateValues } = useZodForm(productAutocompleteFormSchema, {
+    query: searchTerm,
+    supplierId: supplierId || formData.mainSupplierId || formData.supplierId || undefined,
+    parentsOnly: false,
+    variationsOnly: false,
+    includeDeactivated: false,
+    excludeCombos: true,
+  });
 
   const comboItems = Array.isArray(formData.comboItems) ? formData.comboItems : [];
 
   useEffect(() => {
-    if (searchTerm.length < 2) {
+    if (searchTerm.trim().length < 3) {
       setResults([]);
       setSearchError(false);
+      setSearching(false);
       return;
     }
 
+    let current = true;
     const search = async () => {
       setSearching(true);
       setSearchError(false);
       try {
-        const selectedSupplierId = supplierId || formData.mainSupplierId || formData.supplierId;
-        setResults(await searchMobileProductCompositionCandidates(searchTerm, selectedSupplierId));
+        const selectedSupplierId = supplierId || formData.mainSupplierId || formData.supplierId || undefined;
+        const query = await validateValues({
+          query: searchTerm,
+          supplierId: selectedSupplierId,
+          parentsOnly: false,
+          variationsOnly: false,
+          includeDeactivated: false,
+          excludeCombos: true,
+        });
+        if (!current) return;
+        if (!query) {
+          setResults([]);
+          return;
+        }
+        const candidates = await searchMobileProductCompositionCandidates(query.query, query.supplierId);
+        if (current) setResults(candidates);
       } catch (e) {
         console.warn('[ProductFormCompositionTab] Falha ao buscar componentes:', e);
-        setResults([]);
-        setSearchError(true);
+        if (current) {
+          setResults([]);
+          setSearchError(true);
+        }
       } finally {
-        setSearching(false);
+        if (current) setSearching(false);
       }
     };
     const to = setTimeout(search, 500);
-    return () => clearTimeout(to);
-  }, [searchTerm, supplierId, formData.mainSupplierId, formData.supplierId]);
+    return () => {
+      current = false;
+      clearTimeout(to);
+    };
+  }, [searchTerm, supplierId, formData.mainSupplierId, formData.supplierId, validateValues]);
 
   const handleAddItem = (product: any) => {
     if (
@@ -92,7 +125,9 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
   };
 
   const handleUpdateQuantity = (idx: number, text: string) => {
-    const val = Math.max(1, parseInt(text.replace(/[^0-9]/g, ''), 10) || 1);
+    setQuantityInputs((previous) => ({ ...previous, [idx]: text }));
+    const val = parseLocalizedNumber(text);
+    if (!text.trim() || !Number.isFinite(val) || val < 1) return;
     setFormData((prev) => {
       const arr = [...(prev.comboItems || [])];
       arr[idx] = { ...arr[idx], quantity: val };
@@ -100,7 +135,35 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
     });
   };
 
+  const commitQuantity = (idx: number) => {
+    const text = quantityInputs[idx];
+    if (text === undefined) return;
+    const parsed = parseLocalizedNumber(text);
+    const fallbackValue = parseLocalizedNumber(comboItems[idx]?.quantity ?? 1);
+    const fallback = Number.isFinite(fallbackValue) && fallbackValue >= 1 ? fallbackValue : 1;
+    const quantity = Number.isFinite(parsed) && parsed >= 1 ? parsed : fallback;
+    setFormData((prev) => {
+      const arr = [...(prev.comboItems || [])];
+      if (!arr[idx]) return prev;
+      arr[idx] = { ...arr[idx], quantity };
+      return { ...prev, comboItems: arr };
+    });
+    setQuantityInputs((previous) => ({ ...previous, [idx]: String(quantity) }));
+  };
+
+  const stepQuantity = (idx: number, quantity: number) => {
+    const next = Math.max(1, quantity);
+    setQuantityInputs((previous) => ({ ...previous, [idx]: String(next) }));
+    setFormData((prev) => {
+      const arr = [...(prev.comboItems || [])];
+      if (!arr[idx]) return prev;
+      arr[idx] = { ...arr[idx], quantity: next };
+      return { ...prev, comboItems: arr };
+    });
+  };
+
   const handleRemove = (idx: number) => {
+    setQuantityInputs({});
     setFormData((prev) => {
       const arr = (prev.comboItems || []).filter((_: any, i: number) => i !== idx);
       return { ...prev, comboItems: arr };
@@ -147,7 +210,7 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
             Não foi possível buscar componentes. Tente novamente.
           </Text>
         )}
-        {!searching && !searchError && searchTerm.length >= 2 && results.length === 0 && (
+        {!searching && !searchError && searchTerm.trim().length >= 3 && results.length === 0 && (
           <Text style={[styles.infoText, dark && styles.dimText]}>Nenhum produto encontrado.</Text>
         )}
 
@@ -183,7 +246,9 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
       {comboItems.length === 0 ? (
         <View style={[styles.emptyBox, dark && styles.darkCard]}>
           <Info size={24} color="#94a3b8" style={{ marginBottom: 8 }} />
-          <Text style={styles.emptyText}>Nenhum item na composição.</Text>
+          <Text style={styles.emptyText}>
+            Nenhum item na composição. O estoque montável será zero até adicionar componentes.
+          </Text>
         </View>
       ) : (
         comboItems.map((item: any, idx: number) => (
@@ -211,20 +276,16 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
                     <TouchableOpacity
                       accessibilityRole="button"
                       accessibilityLabel="Diminuir quantidade"
-                      onPress={() =>
-                        handleUpdateQuantity(
-                          idx,
-                          String(Math.max(1, Number(item.quantity || 1) - 1))
-                        )
-                      }
+                      onPress={() => stepQuantity(idx, Number(item.quantity || 1) - 1)}
                       style={styles.quantityButton}
                     >
                       <Minus size={14} color="#64748b" />
                     </TouchableOpacity>
                     <TextInput
-                      value={String(item.quantity ?? 1)}
+                      value={quantityInputs[idx] ?? String(item.quantity ?? 1)}
                       onChangeText={(val) => handleUpdateQuantity(idx, val)}
-                      keyboardType="numeric"
+                      onBlur={() => commitQuantity(idx)}
+                      keyboardType="decimal-pad"
                       style={[
                         styles.input,
                         styles.quantityInput,
@@ -235,9 +296,7 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
                     <TouchableOpacity
                       accessibilityRole="button"
                       accessibilityLabel="Aumentar quantidade"
-                      onPress={() =>
-                        handleUpdateQuantity(idx, String(Number(item.quantity || 1) + 1))
-                      }
+                      onPress={() => stepQuantity(idx, Number(item.quantity || 1) + 1)}
                       style={styles.quantityButton}
                     >
                       <Plus size={14} color="#64748b" />

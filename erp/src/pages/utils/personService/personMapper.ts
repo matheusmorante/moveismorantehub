@@ -1,4 +1,5 @@
 import Person from '../../types/person.type';
+import { normalizeAddressNumberAndComplement } from '../../../../../shared-utils/addressSelection';
 
 export const TABLE_NAME = 'people';
 
@@ -79,12 +80,16 @@ export const mapToDB = (collectionName: string, person: Partial<Person>) => {
 };
 
 export const mapAddress = (data: any) => {
+  const { number, complement } = normalizeAddressNumberAndComplement(
+    data.number || '',
+    data.complement || ''
+  );
   return {
     zipCode: data.zipCode || data.cep || '',
     cep: data.zipCode || data.cep || '',
     street: data.street || data.address || '',
-    number: data.number || '',
-    complement: data.complement || '',
+    number,
+    complement,
     neighborhood: data.neighborhood || data.bairro || '',
     city: data.city || '',
     state: data.state || data.uf || '',

@@ -4,6 +4,20 @@ import { imageFilesFormSchema } from './fileFormSchemas';
 export const productImageCropUploadFormSchema = z.object({ file: imageFilesFormSchema.shape.files.element, oldUrl: z.string().min(1, 'A foto de origem não foi identificada.') });
 export const productImageReplacementFormSchema = productImageCropUploadFormSchema.pick({ oldUrl: true }).extend({ newUrl: z.url('A imagem enviada não foi confirmada.').refine((url) => url.startsWith('https://'), 'A imagem enviada precisa de endereço HTTPS.') });
 
+export const mobileProductPhotoUploadFormSchema = z.object({
+  photos: z.array(z.object({
+    file: z.custom<Blob>((file) => typeof Blob !== 'undefined' && file instanceof Blob && file.size > 0, 'Selecione uma imagem válida.'),
+    name: z.string().min(1, 'Informe o nome da imagem.'),
+    contentType: z.string().startsWith('image/', 'Selecione um arquivo de imagem.'),
+  })).min(1, 'Selecione ao menos uma imagem.'),
+});
+
+export const mobileProductPhotoUrlsFormSchema = z.object({
+  urls: z.array(z.url('O serviço não retornou um endereço de imagem válido.')
+    .refine((url) => url.startsWith('https://'), 'As fotos do produto precisam de endereço HTTPS.'))
+    .min(1, 'O serviço não confirmou o envio de nenhuma foto.'),
+});
+
 export const createVariationImageSelectionFormSchema = (parentImages: readonly string[], maxSelection: number) =>
   z.object({
     images: z.array(z.string().min(1, 'Selecione uma foto válida.'))

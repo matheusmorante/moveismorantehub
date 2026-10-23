@@ -50,7 +50,6 @@
 - **Carimbo CANCELADO**: Pedidos cancelados exibem carimbo em vermelho vívido (`bg-red-600`) com 100% de nitidez sobre um fundo acinzentado atenuado. O botão de editar (lápis) é ocultado em pedidos cancelados e atendidos.
 - **Selos de Triagem Clicáveis**:
   - **Etiquetado (`isStockChecked`)**: Verde sólido (`bg-emerald-600`) quando marcado, cinza slate quando desmarcado.
-  - **Bling (`isRegisteredInBling`)**: Verde sólido quando integrado, cinza quando pendente.
 
 ---
 

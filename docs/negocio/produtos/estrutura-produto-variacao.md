@@ -14,6 +14,7 @@ No Morante Hub, a arquitetura de catálogo é estritamente uniformizada:
 
 - Todo registro de produto (`item_type = 'product'`) deve terminar cada transação com pelo menos uma linha em `product_variations`. O banco cria a variação padrão ao gravar um produto sem variações e rejeita a remoção ou transferência da última variação enquanto o produto pai existir. Serviços não entram nessa regra.
 - Na variação única, preço, preço promocional, dimensões, descrição e nome ficam herdados do produto pai. A interface bloqueia os controles de personalização enquanto ela for a única variação; ao adicionar uma segunda, os controles voltam a ficar disponíveis.
+- Ao abrir produto concluído para edição, o modo com variações é derivado da quantidade operacional: uma linha representa produto simples e duas ou mais representam família com variações. Rascunhos mantêm o modo salvo para que uma família ainda incompleta continue editável. O formulário mobile segue essa mesma regra do ERP; o mapeamento da lista preserva o modo salvo para composições, como no ERP.
 - As fotos da variação única refletem as fotos do produto pai. A sincronização usa os URLs já gravados em `product_images` (com `products.images` como fallback), sem copiar arquivos. A partir da segunda variação, a sincronização para e as URLs específicas existentes são preservadas. Ao voltar de duas variações para uma, a herança e a sincronização são reativadas.
 - Inserts em lote e a gravação móvel usam a mesma validação no commit, para que a transição de uma para várias ou de várias para uma seja avaliada pelo estado final da transação.
 
@@ -61,6 +62,15 @@ classDiagram
 - O valor efetivo continua armazenado em `product_variations.attributes`, inclusive para o produto simples, que possui sua variação principal única.
 - Associar um Produto a uma Categoria ou adicionar uma nova obrigatoriedade não inventa nem preenche valores. Variações sem valor passam a ter uma pendência na Central de Conciliação.
 - Remover uma linha de obrigatoriedade em `category_attributes` não remove nem altera valores já existentes em `product_variations.attributes`.
+
+## Ativação de produtos e variações
+
+- Um produto simples continua tendo uma variação operacional única; essa linha, por si só, não transforma o produto em uma família multi-variação. A ativação do produto simples exige preço de venda no pai.
+- Variações podem ser localizadas pelo UUID estável ou pelo identificador legado `produto_SKU`. A validação da variação consulta o pai, bloqueia rascunhos e exige nome, categoria e fornecedor no pai.
+- Preço herdado exige preço positivo no pai. Preço próprio exige preço positivo na variação, mesmo que o pai tenha outro preço.
+- Uma variação de composição exige pelo menos dois componentes vinculados à própria variação. A composição simples verifica os componentes do produto.
+- A regra está em `shared-utils/productActivationValidation.ts`; a tela do ERP e o serviço de mutação mobile usam a mesma validação.
+- Os formulários atuais expõem edição de componentes dentro da variação. A edição de componentes no produto pai para uma composição simples não foi localizada no ERP nem no mobile, apesar de a validação e a persistência aceitarem `comboItems` no pai; não considerar o fluxo simples de montagem comprovado pela existência do modelo.
 
 ## Visibilidade do atributo no nome da Variação
 

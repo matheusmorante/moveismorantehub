@@ -1,16 +1,28 @@
 import { restoreProductDraftSnapshot } from '../../../../../shared-utils/productDraftSnapshot';
 import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
+import { calculateCompositionAvailability } from '../../../../../shared-utils/compositionMath';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { supabase } from '../../../services/supabaseClient';
-import { buildMobileProductSearchTerms } from '../domain/mobileProductSearch';
+import {
+  buildProductSearchTerms,
+  createProductVariationSearchTooBroadError,
+  isProductVariationSearchTooBroadError,
+  PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
+} from '../../../../../shared-utils/productListSearch';
+import { getMobileProductVariationRecords } from '../domain/mobileProductVariationVisibility';
+import { resolveMobileProductHasVariations } from '../domain/mobileProductVariationMode';
 
 export interface MobileProductFilterOptions {
+  productId?: string;
   search?: string;
   category?: string;
   statusFilter?: 'all' | 'active' | 'disabled' | 'draft';
   catalogStatus?: 'all' | 'published' | 'hidden';
   includeDeactivated?: boolean;
   includeMerged?: boolean;
+  showTrash?: boolean;
   summaryOnly?: boolean;
+  supplierId?: string;
   itemType?: 'standard' | 'composition';
   generalType?: 'all' | 'product' | 'service';
   throwOnError?: boolean;
@@ -21,7 +33,164 @@ const escapePostgrestValue = (value: string) => value.replace(/[%(),]/g, ' ').tr
 const MOBILE_PRODUCT_LIST_COLUMNS =
   '*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)';
 const MOBILE_PRODUCT_SUMMARY_COLUMNS =
-  'id, name, title, description, code, sku, category, brand, condition, unit_price, price, promo_price, cost_price, stock, unit, active, status, item_type, is_draft, is_test, observations, technical_specs, product_categories(category_id), product_variations(*)';
+  'id, name, title, description, code, sku, category, brand, condition, unit_price, price, promo_price, cost_price, stock, unit, active, status, deleted, item_type, is_draft, is_test, observations, technical_specs, combo_items, product_categories(category_id), product_variations(*)';
+
+const applyMobileTrashEligibility = async (products: any[], showTrash = false) => {
+  const productIds = products
+    .filter((product) => !showTrash && !product.isDraft && product.id)
+    .map((product) => String(product.id))
+    .filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+  if (!productIds.length) {
+    return products.map((product) => ({
+      ...product,
+      can_trash: false,
+      trash_block_reason: product.isDraft ? 'Rascunhos devem ser descartados diretamente' : null,
+    }));
+  }
+
+  const lookup = await withTimeout(
+    supabase.rpc('get_products_trash_eligibility', { p_product_ids: productIds })
+      .then((result) => ({ result })),
+    10_000,
+    null,
+    'mobile:elegibilidade-lixeira'
+  );
+  if (!lookup || lookup.result.error || !Array.isArray(lookup.result.data)) {
+    console.warn('[MobileProductService] Não foi possível confirmar a elegibilidade da lixeira.');
+    return products.map((product) => ({
+      ...product,
+      can_trash: false,
+      trash_block_reason: product.isDraft
+        ? 'Rascunhos devem ser descartados diretamente'
+        : 'Não foi possível confirmar a elegibilidade para a lixeira.',
+    }));
+  }
+
+  const eligibility = new Map<string, { can_trash: boolean; trash_block_reason: string | null }>();
+  lookup.result.data.forEach((item: any) => {
+    if (item.product_id) {
+      eligibility.set(String(item.product_id), {
+        can_trash: Boolean(item.can_trash),
+        trash_block_reason: item.trash_block_reason || null,
+      });
+    }
+  });
+  return products.map((product) => {
+    const result = eligibility.get(String(product.id));
+    return {
+      ...product,
+      can_trash: result?.can_trash === true,
+      trash_block_reason: result?.trash_block_reason ||
+        (product.isDraft ? 'Rascunhos devem ser descartados diretamente' : 'Validando elegibilidade...'),
+    };
+  });
+};
+
+const applyMobileCompositionAvailability = async (products: any[]) => {
+  const compositions = products.filter((product) => product.itemType === 'composition');
+  if (!compositions.length) return products;
+
+  const unavailable = () =>
+    products.map((product) =>
+      product.itemType === 'composition'
+        ? {
+            ...product,
+            stock: 0,
+            variations: product.variations?.map((variation: any) => ({ ...variation, stock: 0 })),
+            allVariations: product.allVariations?.map((variation: any) => ({ ...variation, stock: 0 })),
+          }
+        : product
+    );
+  const componentIds = Array.from(
+    new Set(
+      compositions
+        .flatMap((product) => [
+          ...(product.comboItems || []),
+          ...(product.variations || []).flatMap((variation: any) => variation.comboItems || []),
+        ])
+        .map((item: any) => String(item.productId || item.product_id || '').trim())
+        .filter(Boolean)
+    )
+  );
+  if (!componentIds.length) return unavailable();
+
+  const lookup = await withTimeout(
+    supabase
+      .from('products')
+      .select('id, stock, product_variations(id, stock)')
+      .in('id', componentIds)
+      .then((result) => ({ result })),
+    10_000,
+    null,
+    'mobile:saldo-produtos-compostos'
+  );
+  if (!lookup || lookup.result.error) {
+    console.warn('[MobileProductService] Não foi possível consultar o estoque atual dos componentes.');
+    return unavailable();
+  }
+
+  const currentComponents = new Map<string, { stock: number; variations: Map<string, number> }>();
+  for (const row of lookup.result.data || []) {
+    currentComponents.set(String(row.id), {
+      stock: Number(row.stock) || 0,
+      variations: new Map(
+        (row.product_variations || []).map((variation: any) => [
+          String(variation.id),
+          Number(variation.stock) || 0,
+        ])
+      ),
+    });
+  }
+
+  const availabilityFor = (items: any[] | undefined): number => {
+    if (!items?.length) return 0;
+    const requirements = new Map<string, { currentStock: number; quantityNeeded: number }>();
+    for (const item of items) {
+      const productId = String(item.productId || item.product_id || '');
+      const variationId = item.variationId || item.variation_id;
+      const component = currentComponents.get(productId);
+      const quantity = Number(item.quantity);
+      if (!Number.isFinite(quantity) || quantity <= 0) return 0;
+      const currentStock = variationId
+        ? component?.variations.get(String(variationId)) ?? 0
+        : component?.stock ?? 0;
+      const key = `${productId}:${variationId || ''}`;
+      const existing = requirements.get(key);
+      requirements.set(key, {
+        currentStock,
+        quantityNeeded: (existing?.quantityNeeded || 0) + quantity,
+      });
+    }
+    return calculateCompositionAvailability(Array.from(requirements.values()));
+  };
+
+  return products.map((product) => {
+    if (product.itemType !== 'composition') return product;
+    const rootItems = product.comboItems || [];
+    const hasVariationComposition = (product.variations || []).some(
+      (variation: any) => Boolean(variation.comboItems?.length)
+    );
+    const variations = product.variations?.map((variation: any) => ({
+      ...variation,
+      stock: availabilityFor(variation.comboItems?.length ? variation.comboItems : rootItems),
+    }));
+    const stock = hasVariationComposition
+      ? (variations || []).reduce((total: number, variation: any) => total + (Number(variation.stock) || 0), 0)
+      : availabilityFor(rootItems);
+    const variationStocks = new Map(
+      (variations || []).map((variation: any) => [String(variation.id || variation.sku), variation.stock])
+    );
+    return {
+      ...product,
+      stock,
+      variations,
+      allVariations: product.allVariations?.map((variation: any) => ({
+        ...variation,
+        stock: variationStocks.get(String(variation.id || variation.sku)) ?? variation.stock,
+      })),
+    };
+  });
+};
 
 export const fetchMobileProductsPage = async (
   page: number,
@@ -37,8 +206,18 @@ export const fetchMobileProductsPage = async (
       .select(options?.summaryOnly ? MOBILE_PRODUCT_SUMMARY_COLUMNS : MOBILE_PRODUCT_LIST_COLUMNS, {
         count: 'exact',
       })
-      .eq('deleted', false)
       .or('is_test.is.null,is_test.eq.false');
+
+    if (options?.productId) query = query.eq('id', options.productId);
+
+    if (options?.showTrash) {
+      query = query
+        .or('active.eq.false,deleted.eq.true')
+        .not('is_draft', 'is', true)
+        .filter('status', 'isdistinct', 'draft');
+    } else {
+      query = query.eq('deleted', false);
+    }
 
     if (options?.itemType === 'composition') {
       query = query.eq('item_type', 'composition');
@@ -53,14 +232,29 @@ export const fetchMobileProductsPage = async (
       query = query.eq('item_type', 'service');
     }
 
+    if (options?.supplierId) {
+      const supplierId = options.supplierId.trim();
+      if (/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(supplierId)) {
+        query = query.or(
+          `supplier_id.eq.${supplierId},main_supplier_id.eq.${supplierId},supplier_ids.cs.{"${supplierId}"}`
+        );
+      }
+    }
+
     const status = options?.statusFilter || 'all';
-    if (status === 'draft') {
+    if (!options?.showTrash && status === 'draft') {
       query = query.or('is_draft.eq.true,status.eq.draft');
-    } else if (status === 'active') {
-      query = query.not('is_draft', 'is', true).neq('status', 'draft').eq('active', true);
-    } else if (status === 'disabled') {
-      query = query.not('is_draft', 'is', true).neq('status', 'draft').eq('active', false);
-    } else if (options?.includeDeactivated === false) {
+    } else if (!options?.showTrash && status === 'active') {
+      query = query
+        .not('is_draft', 'is', true)
+        .filter('status', 'isdistinct', 'draft')
+        .eq('active', true);
+    } else if (!options?.showTrash && status === 'disabled') {
+      query = query
+        .not('is_draft', 'is', true)
+        .filter('status', 'isdistinct', 'draft')
+        .eq('active', false);
+    } else if (!options?.showTrash && options?.includeDeactivated === false) {
       // Rascunhos seguem acessíveis para conclusão do cadastro; somente os
       // produtos de fato desativados ficam ocultos na visão padrão.
       query = query.or('active.eq.true,is_draft.eq.true,status.eq.draft');
@@ -92,7 +286,7 @@ export const fetchMobileProductsPage = async (
       query = query.or(conditions.join(','));
     }
 
-    const searchTerms = buildMobileProductSearchTerms(options?.search || '');
+    const searchTerms = buildProductSearchTerms(options?.search || '');
     if (searchTerms.searchTerms.length > 0) {
       let matchedParentIds: string[] = [];
 
@@ -101,10 +295,13 @@ export const fetchMobileProductsPage = async (
           .from('product_variations')
           .select('product_id')
           .or(searchTerms.searchTerms.map((term) => `name.ilike.%${term}%`).join(','))
-          .limit(100);
+          .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1);
         if (variationsError && options?.throwOnError) throw variationsError;
         if (variationsError)
           console.warn('[MobileProductService] Erro ao buscar variações filhas:', variationsError);
+
+        if ((matchedVars?.length ?? 0) > PRODUCT_VARIATION_SEARCH_MATCH_LIMIT)
+          throw createProductVariationSearchTooBroadError();
 
         if (matchedVars && matchedVars.length > 0) {
           matchedParentIds = Array.from(
@@ -112,7 +309,7 @@ export const fetchMobileProductsPage = async (
           );
         }
       } catch (e) {
-        if (options?.throwOnError) throw e;
+        if (options?.throwOnError || isProductVariationSearchTooBroadError(e)) throw e;
         console.warn('[MobileProductService] Erro ao buscar variações filhas:', e);
       }
 
@@ -173,7 +370,7 @@ export const fetchMobileProductsPage = async (
       const summaries = visibleData
         .filter((product: any) => {
           if (options?.includeMerged === true) return true;
-          const rawVars = product.product_variations || [];
+          const rawVars = getMobileProductVariationRecords(product, true);
           const isMerged =
             rawVars.length > 0 &&
             rawVars.every((v: any) => Boolean(v.merged_to_variation_id || v.mergedToVariationId));
@@ -181,23 +378,30 @@ export const fetchMobileProductsPage = async (
         })
         .map((product: any) => {
           const parentCode = product.code || product.sku || '000000';
-          let variations = (product.product_variations || [])
-            .filter(
-              (variation: any) =>
-                options.includeMerged === true ||
-                (!variation.merged_to_variation_id && !variation.mergedToVariationId)
-            )
+          let variations = getMobileProductVariationRecords(
+            product,
+            options?.includeMerged === true
+          )
             .map((variation: any) => ({
-            sku: variation.sku,
-            active: variation.active !== false,
-          }));
+              id: variation.id,
+              sku: variation.sku,
+              active: variation.active !== false,
+              stock: Number(variation.stock ?? 0),
+              comboItems: Array.isArray(variation.combo_items) ? variation.combo_items : [],
+            }));
 
         if (
           variations.length === 0 &&
           (product.product_variations || []).length === 0 &&
           (!product.item_type || product.item_type === 'product')
         ) {
-          variations = [{ sku: `${parentCode}-01`, active: Boolean(product.active) }];
+          variations = [{
+            id: `virtual-${String(product.id || parentCode)}`,
+            sku: `${parentCode}-01`,
+            active: Boolean(product.active),
+            stock: Number(product.stock ?? 0),
+            comboItems: [],
+          }];
         }
 
         const isDraft = Boolean(product.is_draft || product.status === 'draft');
@@ -231,11 +435,22 @@ export const fetchMobileProductsPage = async (
           status: product.status,
           itemType: product.item_type || 'product',
           isDraft,
-          allVariations: variations.map((variation: any) => ({ sku: variation.sku })),
+          deleted: Boolean(product.deleted),
+          comboItems: Array.isArray(product.combo_items) ? product.combo_items : [],
+          variations,
+          allVariations: variations.map((variation: any) => ({
+            id: variation.id,
+            sku: variation.sku,
+            stock: variation.stock,
+          })),
         };
       });
 
-      return { data: summaries, total: visibleTotal };
+      const withCompositionAvailability = await applyMobileCompositionAvailability(summaries);
+      return {
+        data: await applyMobileTrashEligibility(withCompositionAvailability, options?.showTrash),
+        total: visibleTotal,
+      };
     }
 
     const formatted = visibleData.map((p: any) => {
@@ -256,13 +471,24 @@ export const fetchMobileProductsPage = async (
               : [];
 
       const storedVariations = p.product_variations || [];
+      const productVariationRecords = getMobileProductVariationRecords(p, true);
+      const variationDetailsById = new Map<string, any>(
+        (Array.isArray(p.technical_specs?.variationDetails)
+          ? p.technical_specs.variationDetails
+          : [])
+          .filter((variation: any) => variation?.id)
+          .map((variation: any): [string, any] => [String(variation.id), variation])
+      );
+      const visibleStoredVariations = getMobileProductVariationRecords(
+        p,
+        options?.includeMerged === true
+      );
       const isParentMerged =
-        storedVariations.length > 0 &&
-        storedVariations.every((v: any) => Boolean(v.merged_to_variation_id || v.mergedToVariationId));
+        productVariationRecords.length > 0 &&
+        productVariationRecords.every((v: any) => Boolean(v.merged_to_variation_id || v.mergedToVariationId));
 
-      let allVars: any[] = storedVariations
-        .filter((v: any) => options?.includeMerged === true || (!v.merged_to_variation_id && !v.mergedToVariationId))
-        .map((v: any, vIdx: number) => {
+      let allVars: any[] = visibleStoredVariations.map((v: any, vIdx: number) => {
+          const details = variationDetailsById.get(String(v.id)) || {};
           const varImages =
             Array.isArray(v.images) && v.images.length > 0
               ? v.images
@@ -287,10 +513,17 @@ export const fetchMobileProductsPage = async (
             .trim()
             .replace(/^(.*-\d{2})-[a-z0-9_-]+$/i, '$1');
 
-          const syncUnitPrice = v.syncUnitPrice ?? v.use_parent_price !== false;
-          const syncPromoPrice = v.syncPromoPrice ?? v.use_parent_promo_price !== false;
-          const syncDescription = v.syncDescription ?? v.use_parent_description !== false;
-          const syncDimensions = v.syncWidth ?? v.use_parent_dimensions !== false;
+          const syncUnitPrice = v.use_parent_price !== false;
+          const syncPromoPrice = v.use_parent_promo_price !== false;
+          const syncDescription = v.use_parent_description !== false;
+          const syncWidth = details.syncWidth ?? v.use_parent_dimensions !== false;
+          const syncHeight = details.syncHeight ?? v.use_parent_dimensions !== false;
+          const syncDepth = details.syncDepth ?? v.use_parent_dimensions !== false;
+          const syncWeight = details.syncWeight ?? v.use_parent_dimensions !== false;
+          const syncCostPrice = details.syncCostPrice !== false;
+          const syncFiscal = details.syncFiscal !== false;
+          const syncIpi = details.syncIpi !== false;
+          const syncFreight = details.syncFreight !== false;
           const variationPrice = syncUnitPrice
             ? Number(p.unit_price ?? p.price ?? 0)
             : Number(v.price ?? 0);
@@ -303,25 +536,45 @@ export const fetchMobileProductsPage = async (
               : Number(v.promo_price);
 
           return {
+            ...details,
             ...v,
             sku: resolvedSku,
-            name: v.name || p.name,
+            name: visibleStoredVariations.length <= 1 && v.use_parent_name === true ? p.name : v.name || p.name,
             stock: Number(v.stock ?? 0),
             price: variationPrice,
             promo_price: variationPromoPrice,
             unitPrice: variationPrice,
             promoPrice: variationPromoPrice,
-            costPrice: Number(v.cost_price ?? p.cost_price ?? 0),
+            costPrice: syncCostPrice
+              ? Number(p.cost_price ?? 0)
+              : Number(v.cost_price ?? details.costPrice ?? 0),
+            condition: details.syncCondition === false ? details.condition || p.condition || 'novo' : p.condition || 'novo',
+            description: syncDescription ? p.description || '' : v.description || details.description || '',
+            fiscal: syncFiscal ? p.fiscal : details.fiscal,
+            ipiPercent: syncIpi ? Number(p.ipi_percent ?? 0) : Number(details.ipiPercent ?? 0),
+            freightCost: syncFreight ? Number(p.freight_cost ?? 0) : Number(details.freightCost ?? 0),
+            freightType: syncFreight ? p.freight_type || 'fixed' : details.freightType || 'fixed',
             syncUnitPrice,
             syncPromoPrice,
+            syncCostPrice,
             syncDescription,
-            syncWidth: syncDimensions,
-            syncHeight: syncDimensions,
-            syncDepth: syncDimensions,
-            syncWeight: syncDimensions,
+            syncName: details.syncName ?? v.use_parent_name !== false,
+            syncCondition: details.syncCondition !== false,
+            syncFiscal,
+            syncIpi,
+            syncFreight,
+            syncWidth,
+            syncHeight,
+            syncDepth,
+            syncWeight,
+            width: syncWidth ? Number(p.width || 0) : v.width ? Number(v.width) : details.width,
+            height: syncHeight ? Number(p.height || 0) : v.height ? Number(v.height) : details.height,
+            depth: syncDepth ? Number(p.depth || 0) : v.depth ? Number(v.depth) : details.depth,
+            weight: syncWeight ? Number(p.weight || 0) : Number(details.weight || 0),
             status: v.status || p.status || 'published',
             active: v.active !== false,
             images: varImages,
+            comboItems: Array.isArray(v.combo_items) ? v.combo_items : [],
             attributes: v.attributes || {},
             isMerged: Boolean(v.merged_to_variation_id || v.mergedToVariationId),
             mergedToVariationId: v.merged_to_variation_id || v.mergedToVariationId || null,
@@ -373,6 +626,10 @@ export const fetchMobileProductsPage = async (
           '',
         allVariations: allVars,
         images: productImages,
+        comboItems: Array.isArray(p.combo_items) ? p.combo_items : [],
+        variableTechnicalFields: Array.isArray(p.technical_specs?.variableTechnicalFields)
+          ? p.technical_specs.variableTechnicalFields
+          : undefined,
         unitPrice: Number(p.unit_price ?? p.price ?? 0),
         promoPrice: Number(p.promo_price ?? 0),
         costPrice: Number(p.cost_price ?? 0),
@@ -424,29 +681,50 @@ export const fetchMobileProductsPage = async (
             };
           })
         : [];
-      const restoredActiveVariationsCount = restoredVariations.filter(
+      const normalizedRestoredVariations = !restoredProduct.isDraft && restoredVariations.length === 1
+        ? [{ ...restoredVariations[0], images: [...productImages] }]
+        : restoredVariations;
+      const restoredActiveVariationsCount = normalizedRestoredVariations.filter(
         (variation: any) => variation.active !== false
       ).length;
+      const itemType = restoredProduct.itemType || p.item_type || 'product';
+      const isDraft = Boolean(restoredProduct.isDraft || p.is_draft || p.status === 'draft');
+      const hasVariations = resolveMobileProductHasVariations({
+        itemType,
+        isDraft,
+        hasVariations: restoredProduct.hasVariations ?? p.has_variations,
+        variations: normalizedRestoredVariations,
+      });
 
       return {
         ...restoredProduct,
-        allVariations: restoredVariations,
+        deleted: Boolean(restoredProduct.deleted ?? p.deleted),
+        allVariations: normalizedRestoredVariations,
+        variations: normalizedRestoredVariations,
+        hasVariations,
+        comboItems: Array.isArray(restoredProduct.comboItems)
+          ? restoredProduct.comboItems
+          : Array.isArray(p.combo_items)
+            ? p.combo_items
+            : [],
+        variableTechnicalFields:
+          restoredProduct.variableTechnicalFields ?? baseProduct.variableTechnicalFields,
         unitPrice: Number(restoredProduct.unitPrice ?? p.unit_price ?? p.price ?? 0),
         promoPrice: Number(restoredProduct.promoPrice ?? p.promo_price ?? 0),
         costPrice: Number(restoredProduct.costPrice ?? p.cost_price ?? 0),
         stock: Number(restoredProduct.stock ?? p.stock ?? 0),
         active: restoredProduct.isDraft
           ? false
-          : restoredVariations.length > 0
+          : normalizedRestoredVariations.length > 0
             ? restoredActiveVariationsCount > 0
             : Boolean(p.active),
         activeVariationsCount: restoredActiveVariationsCount,
-        totalVariationsCount: restoredVariations.length || 1,
+        totalVariationsCount: normalizedRestoredVariations.length || 1,
         isParent: Boolean(
-          restoredProduct.isParent || isProductItem || restoredProduct.hasVariations
+          restoredProduct.isParent || isProductItem || hasVariations
         ),
-        itemType: restoredProduct.itemType || p.item_type || 'product',
-        isDraft: Boolean(restoredProduct.isDraft || p.is_draft || p.status === 'draft'),
+        itemType,
+        isDraft,
         isMerged: isParentMerged,
         hasAnyMergedVariation: storedVariations.some((v: any) =>
           Boolean(v.merged_to_variation_id || v.mergedToVariationId)
@@ -463,9 +741,13 @@ export const fetchMobileProductsPage = async (
         ? formatted
         : formatted.filter((prod: any) => !prod.isMerged);
 
-    return { data: filteredFormatted, total: visibleTotal };
+    const withCompositionAvailability = await applyMobileCompositionAvailability(filteredFormatted);
+    return {
+      data: await applyMobileTrashEligibility(withCompositionAvailability, options?.showTrash),
+      total: visibleTotal,
+    };
   } catch (err) {
-    if (options?.throwOnError) throw err;
+    if (options?.throwOnError || isProductVariationSearchTooBroadError(err)) throw err;
     console.error('[MobileProductService] Exceção ao buscar produtos:', err);
     return { data: [], total: 0 };
   }

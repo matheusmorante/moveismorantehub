@@ -1,7 +1,7 @@
 # Central de Atendimento — atalhos sem função
 
 **Data:** 22/10/2026  
-**Estado:** correção local implementada, validada e compilada em candidato isolado; este lote ainda não foi publicado.
+**Estado:** correção implementada, validada e conferida na produção Git `dpl_GXyA2xGLgWMamjYCpzRwfzrburYE` (READY), commit `bed981061157e1d07164b4cb9c8fdeb91e78abbb`. O deploy foi automático; este agente não publicou nem promoveu o candidato.
 
 ## Problema e causa
 
@@ -31,4 +31,4 @@ Build completo do candidato isolado: aprovado (`npm run build`, ERP, 1m44s); Vit
 
 O candidato foi montado sobre a cópia congelada do deploy atual, com cinco caminhos selecionados e manifesto SHA-256 em `C:\Users\mathe\morantehub-central-inactive-shortcuts-release-20261022\release-manifest.json`.
 
-Este lote não tem autorização de publicação própria. O envio continua bloqueado no frontend e backend.
+A solicitação anterior de publicação manual deixou de ser necessária: o deploy automático Git passou a conter o mesmo blob do compositor validado. Nenhuma autorização nova foi inferida. O manifesto isolado registra a preparação anterior à confirmação; [conferência posterior de código e produção](central-de-atendimento-realtime-pastas-2026-10-22.md). O envio continua bloqueado no frontend e backend.

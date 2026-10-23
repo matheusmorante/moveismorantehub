@@ -53,10 +53,6 @@ export type { FinancialCategory } from './financial/mobileFinanceTypes';
 
 import { MobileAgentClient } from './aiAgent/mobileAgentClient';
 
-export const fetchGeminiApiKey = async (): Promise<string> => {
-  return MobileAgentClient.getApiKey();
-};
-
 export const parseFinancialIntentWithGemini = async (
   userMessage: string,
   history: ChatMessage[] = [],
@@ -64,7 +60,6 @@ export const parseFinancialIntentWithGemini = async (
   activeDraft?: ParsedFinancialIntent | null,
   abortSignal?: AbortSignal
 ): Promise<ParsedFinancialIntent> => {
-  const geminiKey = await fetchGeminiApiKey();
   const todayStr = new Date().toISOString().split('T')[0];
 
   // 1. Tentar slot-filling incremental via fallback determinístico
@@ -350,38 +345,17 @@ Responda APENAS um JSON válido no formato:
   "isReadyForConfirmation": boolean
 }`;
 
-  if (!geminiKey) {
-    const rawHeuristic = fallbackHeuristicParser(userMessage, categories, todayStr, activeDraft);
-    return validateParsedIntent(rawHeuristic, todayStr);
-  }
-
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(geminiKey)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: abortSignal,
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: systemPrompt }] }],
-          generationConfig: {
-            temperature: 0.1,
-            responseMimeType: 'application/json',
-          },
-        }),
-      }
-    );
-
-    if (response.ok) {
-      const resJson = await response.json();
-      const rawText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-      if (rawText) {
-        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]) as ParsedFinancialIntent;
-          return validateParsedIntent(parsed, todayStr);
-        }
+    const resJson = await MobileAgentClient.generateContent({
+      contents: [{ parts: [{ text: systemPrompt }] }],
+      temperature: 0.1,
+    }, abortSignal);
+    const rawText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (rawText) {
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as ParsedFinancialIntent;
+        return validateParsedIntent(parsed, todayStr);
       }
     }
   } catch (err: any) {

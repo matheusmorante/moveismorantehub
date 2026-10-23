@@ -53,7 +53,7 @@ describe('ERP report owner', () => {
   });
   it('blocks unsupported sources and malformed ids before any query', async () => {
     const { result } = renderHook(() => useSalesReport());
-    await act(async () => { await result.current.saveReport('Análise', 'bling', {}, reportData); await result.current.updateReport('bad-id', 'Análise', 'erp', {}, reportData); await result.current.deleteReport('bad-id'); await result.current.getReport('bad-id'); });
+    await act(async () => { await result.current.saveReport('Análise', 'unsupported', {}, reportData); await result.current.updateReport('bad-id', 'Análise', 'erp', {}, reportData); await result.current.deleteReport('bad-id'); await result.current.getReport('bad-id'); });
     expect(mocks.query).not.toHaveBeenCalled();
   });
   it('keeps a synchronous write guard until the acknowledgement and list refresh finish', async () => {
@@ -94,7 +94,7 @@ describe('ERP report owner', () => {
     mocks.query.mockResolvedValueOnce({ data: [], error: null }); await act(async () => { deleted = await result.current.deleteReport(id); }); expect(deleted).toBe(false); expect(result.current.error).toMatch(/exclusão/);
   });
   it('loads stored legacy monthly results without rewriting the report', async () => {
-    const oldResult = { product: 'Mesa', supplier: 'Bling API', totalQuantity: 2, totalRevenue: 10, totalProfit: -12, avgCost: 11, accumulatedPercentage: 100, classification: 'C' };
+    const oldResult = { product: 'Mesa', supplier: 'Fornecedor API', totalQuantity: 2, totalRevenue: 10, totalProfit: -12, avgCost: 11, accumulatedPercentage: 100, classification: 'C' };
     mocks.query.mockResolvedValue({ data: report({ report_data: { ...reportData, monthCount: 2, results: [oldResult] }, created_at: '2026-10-16T12:00:00+00:00' }), error: null });
     const { result } = renderHook(() => useSalesReport()); let loaded: any; await act(async () => { loaded = await result.current.getReport(id); });
     expect(loaded.report_data.results[0]).toMatchObject({ monthlyProfit: -6, monthlyTurnover: 1 }); expect(mocks.query.mock.calls[0][0].filters).toEqual({ type: 'abc_curve', id });
@@ -127,7 +127,7 @@ describe('ERP report owner', () => {
   });
   it('does not modify the displayed analysis while preparing an update', () => {
     const { result } = renderHook(() => useSalesReport()); act(() => { result.current.setTotalProfit(77); }); let data: any;
-    act(() => { data = result.current.calculateABC([{ date: new Date('2026-01-01'), product: 'Mesa', supplier: 'Bling API', quantity: 2, cost: 3, salesValue: 10, profit: 4 }], 'revenue', true); });
+    act(() => { data = result.current.calculateABC([{ date: new Date('2026-01-01'), product: 'Mesa', supplier: 'Fornecedor API', quantity: 2, cost: 3, salesValue: 10, profit: 4 }], 'revenue', true); });
     expect(data.totalProfit).toBe(4); expect(result.current.totalProfit).toBe(77); expect(result.current.rawResults).toEqual([]);
   });
   it('requires the requested report identity in read responses', async () => {

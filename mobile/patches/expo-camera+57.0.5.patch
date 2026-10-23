@@ -1,0 +1,59 @@
+diff --git a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/analyzers/BarcodeAnalyzer.kt b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/analyzers/BarcodeAnalyzer.kt
+index 00a70f6..64d5047 100644
+--- a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/analyzers/BarcodeAnalyzer.kt
++++ b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/analyzers/BarcodeAnalyzer.kt
+@@ -44,31 +44,32 @@ class BarcodeAnalyzer(formats: List<BarcodeType>, val onComplete: (BarCodeScanne
+           if (barcodes.isEmpty()) {
+             return@addOnSuccessListener
+           }
+-          val barcode = barcodes.first()
+-          val raw = barcode.rawValue ?: barcode.rawBytes?.let { String(it) }
++          for (barcode in barcodes) {
++            val raw = barcode.rawValue ?: barcode.rawBytes?.let { String(it) }
+ 
+-          val cornerPoints = barcode.cornerPoints?.let { points ->
+-            // Pre-allocate array
+-            IntArray(points.size * 2).apply {
+-              points.forEachIndexed { index, point ->
+-                this[index * 2] = point.x
+-                this[index * 2 + 1] = point.y
+-              }
+-            }.toMutableList()
+-          } ?: mutableListOf()
++            val cornerPoints = barcode.cornerPoints?.let { points ->
++              // Pre-allocate array
++              IntArray(points.size * 2).apply {
++                points.forEachIndexed { index, point ->
++                  this[index * 2] = point.x
++                  this[index * 2 + 1] = point.y
++                }
++              }.toMutableList()
++            } ?: mutableListOf()
+ 
+-          val extra = BarCodeScannerResultSerializer.parseExtraDate(barcode)
+-          onComplete(
+-            BarCodeScannerResult(
+-              barcode.format,
+-              barcode.displayValue,
+-              raw,
+-              extra,
+-              cornerPoints,
+-              effectiveHeight,
+-              effectiveWidth
++            val extra = BarCodeScannerResultSerializer.parseExtraDate(barcode)
++            onComplete(
++              BarCodeScannerResult(
++                barcode.format,
++                barcode.displayValue,
++                raw,
++                extra,
++                cornerPoints,
++                effectiveHeight,
++                effectiveWidth
++              )
+             )
+-          )
++          }
+         }
+         .addOnFailureListener {
+           Log.d("SCANNER", it.cause?.message ?: "Barcode scanning failed")

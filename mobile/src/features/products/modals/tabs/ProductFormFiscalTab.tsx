@@ -3,6 +3,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +23,10 @@ interface Props {
   canConfigureProductTaxes: boolean;
   isStockistOnly?: boolean;
   hasNcmError?: boolean;
+  ncmSuggestion?: { code: string; description: string } | null;
+  isClassifyingNcm?: boolean;
+  onAcceptNcmSuggestion?: () => void;
+  onRejectNcmSuggestion?: () => void;
 }
 
 const CFOP_OPTIONS = [
@@ -78,6 +83,13 @@ const ORIGEM_OPTIONS = [
   { value: '8', label: '8 - Nacional, conteúdo de importação > 70%' },
 ];
 
+const formatMobileNcmSubtitle = (official?: string | null, internal?: string | null) => {
+  const officialText = String(official || '').trim().replace(/^(?:[-–—]\s*)+/, '');
+  const internalText = String(internal || '').trim();
+  if (!officialText) return internalText;
+  return internalText ? `${officialText} — ${internalText}` : officialText;
+};
+
 export const ProductFormFiscalTab: React.FC<Props> = ({
   formData,
   setFormData,
@@ -85,6 +97,10 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
   canConfigureProductTaxes,
   isStockistOnly = false,
   hasNcmError = false,
+  ncmSuggestion,
+  isClassifyingNcm = false,
+  onAcceptNcmSuggestion,
+  onRejectNcmSuggestion,
 }) => {
   const [showCfopPicker, setShowCfopPicker] = useState(false);
   const [showCestPicker, setShowCestPicker] = useState(false);
@@ -250,6 +266,43 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                 </Text>
               )}
               {ncmLoading && <Text style={styles.ncmDesc}>Pesquisando catálogo oficial...</Text>}
+              {isClassifyingNcm && (
+                <View style={styles.ncmClassificationStatus}>
+                  <ActivityIndicator size="small" color="#2563eb" />
+                  <Text style={styles.ncmDesc}>Jev está conferindo o NCM do produto...</Text>
+                </View>
+              )}
+              {ncmSuggestion && !fiscal.ncm && (
+                <View style={styles.ncmSuggestion}>
+                  <View style={styles.ncmSuggestionCopy}>
+                    <Text style={[styles.ncmCode, dark && styles.lightText]}>
+                      Sugestão de NCM: {ncmSuggestion.code}
+                    </Text>
+                    <Text style={styles.ncmDesc}>{ncmSuggestion.description}</Text>
+                    <Text style={styles.ncmDesc}>
+                      Confirme a classificação antes de usá-la em documentos fiscais.
+                    </Text>
+                  </View>
+                  <View style={styles.ncmSuggestionActions}>
+                    <TouchableOpacity
+                      onPress={onAcceptNcmSuggestion}
+                      accessibilityRole="button"
+                      accessibilityLabel="Aceitar sugestão de NCM"
+                      style={styles.ncmSuggestionAccept}
+                    >
+                      <Text style={styles.ncmSuggestionAcceptText}>Aceitar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={onRejectNcmSuggestion}
+                      accessibilityRole="button"
+                      accessibilityLabel="Rejeitar sugestão de NCM"
+                      style={styles.ncmSuggestionReject}
+                    >
+                      <Text style={styles.ncmSuggestionRejectText}>Recusar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
               {ncmResults.length > 0 && ncmSearch.trim().length >= 2 && (
                 <View style={[styles.dropdownBox, dark && styles.darkCard]}>
                   <ScrollView nestedScrollEnabled style={{ maxHeight: 220 }}>
@@ -267,20 +320,36 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                         <Text style={[styles.ncmCode, dark && styles.lightText]}>
                           {result.code}
                         </Text>
-                        <Text style={styles.ncmDesc}>{result.official_description}</Text>
+                        <Text style={styles.ncmDesc}>
+                          {formatMobileNcmSubtitle(
+                            result.official_description,
+                            result.internal_description
+                          )}
+                        </Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
                 </View>
               )}
               {ncmCatalog && (
-                <Text
-                  style={[styles.ncmDesc, { color: ncmCatalog.active ? '#15803d' : '#b45309' }]}
-                >
-                  {ncmCatalog.active
-                    ? 'Código ativo no catálogo oficial'
-                    : 'Atenção: código inativo no catálogo oficial'}
-                </Text>
+                <View style={styles.ncmCatalogDetails}>
+                  <Text style={styles.ncmDesc}>
+                    {formatMobileNcmSubtitle(
+                      ncmCatalog.official_description,
+                      ncmCatalog.internal_description
+                    )}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.ncmDesc,
+                      { color: ncmCatalog.active && ncmCatalog.is_active !== false ? '#15803d' : '#b45309' },
+                    ]}
+                  >
+                    {ncmCatalog.active && ncmCatalog.is_active !== false
+                      ? 'Código ativo no catálogo oficial'
+                      : 'Atenção: código inativo no catálogo oficial'}
+                  </Text>
+                </View>
               )}
             </>
           )}
@@ -611,4 +680,22 @@ const styles = StyleSheet.create({
   dropdownItemText: { fontSize: 12, fontWeight: '700', color: '#0f172a' },
   ncmCode: { fontSize: 12, fontWeight: '900', color: '#2563eb' },
   ncmDesc: { fontSize: 11, color: '#64748b', marginTop: 2 },
+  ncmCatalogDetails: { gap: 2 },
+  ncmClassificationStatus: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ncmSuggestion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+    borderRadius: 10,
+    backgroundColor: '#fffbeb',
+  },
+  ncmSuggestionCopy: { flex: 1, gap: 2 },
+  ncmSuggestionActions: { gap: 6 },
+  ncmSuggestionAccept: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 7, backgroundColor: '#2563eb' },
+  ncmSuggestionAcceptText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  ncmSuggestionReject: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 7, backgroundColor: '#f1f5f9' },
+  ncmSuggestionRejectText: { color: '#475569', fontSize: 10, fontWeight: '800' },
 });

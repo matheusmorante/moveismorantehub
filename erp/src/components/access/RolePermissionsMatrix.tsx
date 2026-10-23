@@ -70,7 +70,6 @@ const moduleViewChildren: Record<string, string[]> = {
     'viewStockPurchases',
     'viewStockReceipts',
     'viewStockLabels',
-    'viewBlingStock',
     'viewSuppliers',
   ],
   viewPeople: [

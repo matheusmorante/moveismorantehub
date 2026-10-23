@@ -28,26 +28,10 @@ export const salesReportDataSchema = z.object({
   totalProfit: finite, monthCount: finite.int().nonnegative(), avgProfitPerItem: finite, avgTurnoverPerItem: finite,
   reportStartDate: timestamp, reportEndDate: timestamp,
 });
-const blingReportBody = z.object({
+const erpReportBody = z.object({
   id: z.uuid('Identificação do relatório inválida.'), name: z.string().trim().min(1, 'Informe o nome do relatório.'),
-  source: z.literal('bling', { error: 'Este módulo é exclusivo para relatórios Bling.' }),
-  config: salesReportConfigSchema, report_data: salesReportDataSchema,
+  source: z.enum(['erp', 'csv']), config: salesReportConfigSchema, report_data: salesReportDataSchema,
 });
-export const blingReportWriteFormSchema = z.discriminatedUnion('intent', [
-  blingReportBody.extend({ intent: z.literal('create') }), blingReportBody.extend({ intent: z.literal('update') }),
-  z.object({ intent: z.literal('delete'), id: z.uuid('Identificação do relatório inválida.') }),
-  z.object({ intent: z.literal('config'), id: z.uuid('Identificação do relatório inválida.'), config: salesReportConfigSchema }),
-]);
-export const blingReportRowSchema = blingReportBody.extend({
-  type: z.literal('abc_curve_bling'), created_at: z.iso.datetime({ offset: true }), updated_at: z.iso.datetime({ offset: true }).optional(),
-});
-export const blingReportQueryFormSchema = z.discriminatedUnion('intent', [
-  z.object({ intent: z.literal('list') }), z.object({ intent: z.literal('mappings') }),
-  z.object({ intent: z.literal('get'), id: z.uuid('Identificação do relatório inválida.') }),
-]);
-export const blingReportFetchFormSchema = z.object({ range: reportDateRangeFormSchema.optional() });
-export const blingReportEditorFormSchema = blingReportBody.omit({ report_data: true });
-const erpReportBody = blingReportBody.extend({ source: z.enum(['erp', 'csv']) });
 export const erpReportWriteFormSchema = z.discriminatedUnion('intent', [
   erpReportBody.extend({ intent: z.literal('create') }), erpReportBody.extend({ intent: z.literal('update') }),
   z.object({ intent: z.literal('delete'), id: z.uuid('Identificação do relatório inválida.') }),
@@ -59,6 +43,10 @@ export const erpReportReadRowSchema = erpReportBody.extend({
   type: z.literal('abc_curve'), created_at: z.iso.datetime({ offset: true }), updated_at: z.iso.datetime({ offset: true }).optional(),
   report_data: salesReportDataSchema.extend({ allProducts: z.array(z.union([z.string(), salesReportProductSchema.partial({ supplier: true, rev: true, cost: true, quadrant: true })])).default([]) }),
 });
+export const salesReportQueryFormSchema = z.discriminatedUnion('intent', [
+  z.object({ intent: z.literal('list') }), z.object({ intent: z.literal('mappings') }),
+  z.object({ intent: z.literal('get'), id: z.uuid('Identificação do relatório inválida.') }),
+]);
 export const salesReportSaleItemsSchema = z.array(z.object({
   date: z.date(), product: z.string(), supplier: z.string(), quantity: finite,
   cost: finite.optional(), salesValue: finite, profit: finite.optional(), variationId: z.string().optional(),
@@ -88,10 +76,3 @@ export const salesReportViewFormSchema = salesReportFiltersFormSchema.extend({
   reportType: z.enum(['abc', 'matrix']), abcBasis: z.enum(['revenue', 'profit']),
   sortConfig: z.object({ key: z.string(), direction: z.enum(['asc', 'desc']) }),
 });
-// Explicit provider fields consumed by the existing importer. Missing amounts keep
-// its zero default; malformed/non-finite amounts stop the import instead of truncating it.
-const providerAmount = z.union([z.number(), z.string()]).nullish().transform(value => Number(value ?? 0)).pipe(finite);
-export const blingReportPageSchema = z.object({ data: z.array(z.object({
-  data: z.string().nullish(), situacao: z.object({ id: z.number() }).nullish(),
-  itens: z.array(z.object({ quantidade: providerAmount, valor: providerAmount, custo: providerAmount, descricao: z.string().nullish() })).nullish(),
-})) });

@@ -95,13 +95,6 @@ export const settingsCategories: SettingsCategory[] = [
     ],
   },
   {
-    id: 'bling',
-    label: 'Integração Bling (API v3)',
-    icon: 'bi-clouds-fill',
-    group: 'system',
-    keywords: ['bling', 'api', 'v3', 'integração', 'estoque', 'sincronização', 'token', 'key'],
-  },
-  {
     id: 'impressao',
     label: 'Impressão pelo navegador',
     icon: 'bi-printer-fill',

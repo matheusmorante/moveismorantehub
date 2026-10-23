@@ -1,31 +1,38 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { metaCatalogService } from '../metaCatalogService';
+import { metaHttpClient } from '../metaHttpClient';
 import { getSettings } from '@/pages/utils/settingsService';
 
 vi.mock('@/pages/utils/settingsService', () => ({
   getSettings: vi.fn(),
 }));
 
+vi.mock('../metaHttpClient', () => ({
+  metaHttpClient: { request: vi.fn() },
+}));
+
+const response = (body: unknown, ok = true, status = 200) => ({
+  ok,
+  status,
+  json: async () => body,
+}) as Response;
+
 describe('metaCatalogService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getSettings).mockReturnValue({
       whatsappConfig: {
-        accessToken: 'EAAB_VALID_TOKEN',
-        catalogId: 'cat_123456',
+        catalogId: '3456789012',
       },
     } as any);
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    vi.mocked(metaHttpClient.request).mockResolvedValue(response({
         data: [
           { id: '1', name: 'Mesa Madeira', price: '100,00', visibility: 'published', is_hidden: false },
           { id: '2', name: 'Item Staging', price: '200,00', visibility: 'staging', is_hidden: false },
           { id: '3', name: 'Item Oculto', price: '300,00', visibility: 'published', is_hidden: true },
         ],
-      }),
-    } as any);
+      }));
   });
 
   describe('fetchCatalogProducts', () => {
@@ -33,10 +40,8 @@ describe('metaCatalogService', () => {
       const products = await metaCatalogService.fetchCatalogProducts();
       expect(products.length).toBe(1);
       expect(products[0].name).toBe('Mesa Madeira');
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/cat_123456/products'),
-        expect.any(Object)
-      );
+      expect(metaHttpClient.request).toHaveBeenCalledWith('list_catalog_products');
+      expect(JSON.stringify(vi.mocked(metaHttpClient.request).mock.calls)).not.toContain('accessToken');
     });
 
     it('retorna array vazio se catalogId não estiver configurado', async () => {
@@ -46,16 +51,13 @@ describe('metaCatalogService', () => {
 
       const products = await metaCatalogService.fetchCatalogProducts();
       expect(products).toEqual([]);
-      expect(fetch).not.toHaveBeenCalled();
+      expect(metaHttpClient.request).not.toHaveBeenCalled();
     });
   });
 
   describe('syncProductToCatalog', () => {
     it('envia requisição com dados formatados para a Meta API', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ handles: ['h123'] }),
-      } as any);
+      vi.mocked(metaHttpClient.request).mockResolvedValue(response({ handles: ['h123'] }));
 
       const product = {
         id: 'prod-1',
@@ -67,47 +69,30 @@ describe('metaCatalogService', () => {
       };
 
       await metaCatalogService.syncProductToCatalog(product, 'UPDATE');
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/cat_123456/items_batch'),
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('SKU-001'),
-        })
-      );
+      expect(metaHttpClient.request).toHaveBeenCalledWith('sync_catalog_batch', expect.objectContaining({
+        payload: expect.objectContaining({ requests: expect.arrayContaining([expect.objectContaining({ retailer_id: 'SKU-001' })]) }),
+      }));
     });
   });
 
   describe('deleteProductFromCatalog', () => {
     it('executa syncProductToCatalog com a ação DELETE', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ handles: ['h_del'] }),
-      } as any);
+      vi.mocked(metaHttpClient.request).mockResolvedValue(response({ handles: ['h_del'] }));
 
       await metaCatalogService.deleteProductFromCatalog('SKU-001');
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/cat_123456/items_batch'),
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.stringContaining('"method":"DELETE"'),
-        })
-      );
+      expect(metaHttpClient.request).toHaveBeenCalledWith('sync_catalog_batch', expect.objectContaining({
+        payload: expect.objectContaining({ requests: expect.arrayContaining([expect.objectContaining({ method: 'DELETE', retailer_id: 'SKU-001' })]) }),
+      }));
     });
   });
 
   describe('checkBatchStatus', () => {
     it('consulta endpoint check_batch_request_status com o handle informado', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ status: 'finished' }),
-      } as any);
+      vi.mocked(metaHttpClient.request).mockResolvedValue(response({ status: 'finished' }));
 
       const result = await metaCatalogService.checkBatchStatus('handle_abc123');
       expect(result.status).toBe('finished');
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('check_batch_request_status?handle=handle_abc123'),
-        expect.any(Object)
-      );
+      expect(metaHttpClient.request).toHaveBeenCalledWith('check_catalog_batch', { handle: 'handle_abc123' });
     });
   });
 });

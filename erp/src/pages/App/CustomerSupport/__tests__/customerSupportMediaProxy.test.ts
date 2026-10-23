@@ -13,14 +13,25 @@ function response() {
 describe.each([['standalone', mediaHandler], ['webhook consolidado', webhookHandler]] as const)('Mídia autenticada — %s', (_name, handler) => {
   let db: any;
   let graph: ReturnType<typeof vi.fn>;
+  let messageRows: Array<{ id: string; conversation_id: string }>;
+  let messageQueryError: Error | null;
+  let conversationRow: { business_phone_number_id: string } | null;
+  let conversationQueryError: Error | null;
   beforeEach(() => {
     vi.stubEnv('SUPABASE_ANON_KEY', 'public-key');
     vi.stubEnv('WHATSAPP_ACCESS_TOKEN', 'server-meta-token');
+    messageRows = [{ id: 'message', conversation_id: 'conversation' }];
+    messageQueryError = null;
+    conversationRow = { business_phone_number_id: '987654321' };
+    conversationQueryError = null;
     db = {
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'operator' } }, error: null }) },
       rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
-      from: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'message' }, error: null }),
+      currentTable: '',
+      from: vi.fn((table: string) => { db.currentTable = table; return db; }),
+      select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockImplementation(async () => ({ data: messageRows, error: messageQueryError })),
+      maybeSingle: vi.fn().mockImplementation(async () => ({ data: conversationRow, error: conversationQueryError })),
     };
     createClient.mockReturnValue(db);
     graph = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ url: 'https://lookaside.fbsbx.com/file', mime_type: 'image/jpeg' }) })
@@ -64,7 +75,7 @@ describe.each([['standalone', mediaHandler], ['webhook consolidado', webhookHand
   });
 
   it('exige mídia vinculada a uma mensagem visível pela RLS', async () => {
-    db.maybeSingle.mockResolvedValue({ data: null, error: null });
+    messageRows = [];
     expect((await request()).status).toHaveBeenCalledWith(404);
     expect(db.from).toHaveBeenCalledWith('whatsapp_messages');
     expect(db.eq).toHaveBeenCalledWith('media_id', '12345');
@@ -72,8 +83,31 @@ describe.each([['standalone', mediaHandler], ['webhook consolidado', webhookHand
   });
 
   it('falha fechado se a consulta da mensagem falhar', async () => {
-    db.maybeSingle.mockResolvedValue({ data: null, error: new Error('unavailable') });
+    messageQueryError = new Error('unavailable');
     expect((await request()).status).toHaveBeenCalledWith(503);
+    expect(graph).not.toHaveBeenCalled();
+  });
+
+  it('falha fechado se o canal da conversa não estiver visível pela RLS', async () => {
+    conversationQueryError = new Error('unavailable');
+    expect((await request()).status).toHaveBeenCalledWith(503);
+    expect(db.from).toHaveBeenNthCalledWith(2, 'whatsapp_conversations');
+    expect(graph).not.toHaveBeenCalled();
+  });
+
+  it('rejeita um media_id ambíguo associado a mais de uma mensagem', async () => {
+    messageRows = [
+      { id: 'message-1', conversation_id: 'conversation-1' },
+      { id: 'message-2', conversation_id: 'conversation-2' },
+    ];
+    expect((await request()).status).toHaveBeenCalledWith(404);
+    expect(db.from).not.toHaveBeenCalledWith('whatsapp_conversations');
+    expect(graph).not.toHaveBeenCalled();
+  });
+
+  it('rejeita canais sintéticos ou inválidos antes de chamar a Meta', async () => {
+    conversationRow = { business_phone_number_id: 'test-artifact:run-id' };
+    expect((await request()).status).toHaveBeenCalledWith(404);
     expect(graph).not.toHaveBeenCalled();
   });
 
@@ -98,6 +132,8 @@ describe.each([['standalone', mediaHandler], ['webhook consolidado', webhookHand
     expect(createClient).toHaveBeenCalledWith(expect.any(String), expect.any(String), expect.objectContaining({
       global: expect.objectContaining({ headers: { Authorization: 'Bearer user-jwt' } }),
     }));
+    expect(db.from).toHaveBeenNthCalledWith(2, 'whatsapp_conversations');
+    expect(graph.mock.calls[0][0]).toBe('https://graph.facebook.com/v26.0/12345?phone_number_id=987654321');
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.send).toHaveBeenCalledWith(Buffer.from([1, 2, 3]));
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', mime);
@@ -121,93 +157,27 @@ it('mantém despacho bloqueado no dispatcher consolidado', async () => {
   expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ status: 'BLOCKED_FREE_TIER_PROTECTION' }));
 });
 
-describe('Mídia com a configuração existente do canal no ERP', () => {
-  const lookup = (data: unknown) => ({ select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data, error: null }) });
-  let userDb: any;
-  let configDb: any;
-  let message: ReturnType<typeof lookup>;
-  let conversation: ReturnType<typeof lookup>;
-  let settings: ReturnType<typeof lookup>;
-  let graph: ReturnType<typeof vi.fn>;
-  beforeEach(() => {
-    for (const key of ['WHATSAPP_ACCESS_TOKEN', 'META_ACCESS_TOKEN', 'WHATSAPP_TOKEN']) vi.stubEnv(key, '');
-    message = lookup({ id: 'message', conversation_id: 'conversation' });
-    conversation = lookup({ business_phone_number_id: '12345' });
-    settings = lookup({ whatsappConfig: { phoneNumberId: '12345', accessToken: ' stored-token ' } });
-    userDb = { auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'operator' } }, error: null }) },
-      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
-      from: vi.fn((table: string) => table === 'whatsapp_messages' ? message : conversation) };
-    configDb = { from: vi.fn().mockReturnValue(settings) };
-    createClient.mockImplementation((_url, key) => key === 'server-key' ? configDb : userDb);
-    graph = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ url: 'https://lookaside.fbsbx.com/file', mime_type: 'image/jpeg' }) })
-      .mockResolvedValueOnce({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
-    vi.stubGlobal('fetch', graph);
-  });
+describe('Token Meta da mídia', () => {
   afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
-  const request = async () => {
+
+  it('exige token de ambiente e ignora credenciais legadas do banco', async () => {
+    vi.stubEnv('SUPABASE_ANON_KEY', 'public-key');
+    vi.stubEnv('WHATSAPP_ACCESS_TOKEN', '');
+    const userDb = {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'operator' } }, error: null }) },
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
+      from: vi.fn(function (this: any) { return this; }), select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ data: [{ id: 'message', conversation_id: 'conversation' }], error: null }),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { business_phone_number_id: '987654321' }, error: null }),
+    };
+    createClient.mockReturnValue(userDb);
+    const graph = vi.fn(); vi.stubGlobal('fetch', graph);
     const res = response();
     await handleWhatsAppMedia({ method: 'GET', query: { id: '12345' }, headers: { authorization: 'Bearer user-jwt' } } as any,
-      res as any, { supabaseUrl: 'https://unit.supabase.co', supabaseAnonKey: 'public-key', supabaseSecretKey: 'server-key' });
-    return res;
-  };
-
-  it('usa somente a configuração WhatsApp do canal da mensagem, no servidor', async () => {
-    const res = await request();
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(conversation.eq).toHaveBeenCalledWith('id', 'conversation');
-    expect(configDb.from).toHaveBeenCalledWith('settings');
-    expect(settings.select).toHaveBeenCalledWith('data->whatsappConfig');
-    expect(settings.eq).toHaveBeenCalledWith('id', 'app');
-    expect(createClient).toHaveBeenCalledWith('https://unit.supabase.co', 'server-key', expect.objectContaining({
-      auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: expect.any(Function) },
-    }));
-    for (const [, options] of graph.mock.calls) expect(options.headers.Authorization).toBe('Bearer stored-token');
-    expect(JSON.stringify(res.json.mock.calls)).not.toMatch(/stored-token|server-key/);
-  });
-  it('rejeita configuração de outro canal antes da Meta', async () => {
-    settings.maybeSingle.mockResolvedValue({ data: { whatsappConfig: { phoneNumberId: 'other', accessToken: 'stored-token' } }, error: null });
-    expect((await request()).status).toHaveBeenCalledWith(503);
+      res as any, { supabaseUrl: 'https://unit.supabase.co', supabaseAnonKey: 'public-key' });
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(userDb.from).toHaveBeenCalledWith('whatsapp_messages');
     expect(graph).not.toHaveBeenCalled();
-  });
-  it.each(['', 123])('rejeita token de configuração inválido %j', async (accessToken) => {
-    settings.maybeSingle.mockResolvedValue({ data: { whatsappConfig: { phoneNumberId: '12345', accessToken } }, error: null });
-    expect((await request()).status).toHaveBeenCalledWith(503);
-    expect(graph).not.toHaveBeenCalled();
-  });
-  it.each([null, [], true, 'legacy'])('rejeita configuração sem objeto %j', async (whatsappConfig) => {
-    settings.maybeSingle.mockResolvedValue({ data: { whatsappConfig }, error: null });
-    expect((await request()).status).toHaveBeenCalledWith(503);
-    expect(graph).not.toHaveBeenCalled();
-  });
-  it('não consulta configuração privilegiada sem mensagem visível', async () => {
-    message.maybeSingle.mockResolvedValue({ data: null, error: null });
-    expect((await request()).status).toHaveBeenCalledWith(404);
     expect(createClient).toHaveBeenCalledTimes(1);
-    expect(configDb.from).not.toHaveBeenCalled();
-  });
-  it('não consulta configuração privilegiada sem permissão', async () => {
-    userDb.rpc.mockResolvedValue({ data: false, error: null });
-    expect((await request()).status).toHaveBeenCalledWith(403);
-    expect(createClient).toHaveBeenCalledTimes(1);
-    expect(configDb.from).not.toHaveBeenCalled();
-  });
-  it('falha fechado ao consultar o canal', async () => {
-    conversation.maybeSingle.mockResolvedValue({ data: null, error: new Error('unavailable') });
-    expect((await request()).status).toHaveBeenCalledWith(503);
-    expect(configDb.from).not.toHaveBeenCalled();
-    expect(graph).not.toHaveBeenCalled();
-  });
-  it('falha fechado ao consultar a configuração', async () => {
-    settings.maybeSingle.mockResolvedValue({ data: null, error: new Error('unavailable') });
-    expect((await request()).status).toHaveBeenCalledWith(503);
-    expect(graph).not.toHaveBeenCalled();
-  });
-  it('preserva a prioridade do token de ambiente', async () => {
-    vi.stubEnv('WHATSAPP_ACCESS_TOKEN', 'environment-token');
-    expect((await request()).status).toHaveBeenCalledWith(200);
-    expect(configDb.from).not.toHaveBeenCalled();
-    expect(userDb.from).toHaveBeenCalledTimes(1);
-    expect(graph.mock.calls[0][1].headers.Authorization).toBe('Bearer environment-token');
   });
 });

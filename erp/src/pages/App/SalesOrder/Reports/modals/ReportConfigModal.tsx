@@ -19,7 +19,7 @@ interface ReportConfigModalProps {
   onClose: () => void;
   onSave: (config: any) => void | boolean | Promise<void | boolean>;
   initialConfig?: any;
-  initialSource?: 'erp' | 'csv' | 'bling';
+  initialSource?: 'erp' | 'csv';
   initialName?: string;
   initialExcludedItems?: string[];
   availableItems?: any[];
@@ -35,7 +35,7 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
   initialName,
   loading,
 }) => {
-  const [source, setSource] = useState<'erp' | 'csv' | 'bling'>(initialSource || 'erp');
+  const [source, setSource] = useState<'erp' | 'csv'>(initialSource || 'erp');
   const [abcBasis, setAbcBasis] = useState<'revenue' | 'profit'>('profit');
   const [csvData, setCsvData] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -222,12 +222,6 @@ const ReportConfigModal: React.FC<ReportConfigModalProps> = ({
                   className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${source === 'csv' ? 'bg-white dark:bg-slate-900 text-orange-600 shadow-xl' : 'text-slate-400'}`}
                 >
                   CSV
-                </button>
-                <button
-                  onClick={() => setSource('bling')}
-                  className={`flex-1 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${source === 'bling' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-xl' : 'text-slate-400'}`}
-                >
-                  BLING API
                 </button>
               </div>
             </div>

@@ -1,5 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { syncMobileVariationsWithParent } from './productVariationParentSync';
+import {
+  inheritMobileSimpleVariationFromParent,
+  syncMobileVariationsWithParent,
+} from './productVariationParentSync';
+
+describe('inheritMobileSimpleVariationFromParent', () => {
+  it('converte a última variação nova para simples herdando o pai e limpando atributos/fotos próprias', () => {
+    const inherited = inheritMobileSimpleVariationFromParent(
+      {
+        name: 'Poltrona Aurora',
+        unitPrice: '1250',
+        stock: '3',
+        description: 'Descrição do pai',
+        fiscal: { ncm: '94016100' },
+      },
+      {
+        sku: 'POL-01',
+        name: 'Poltrona Aurora Azul',
+        attributes: [{ name: 'Cor', value: 'Azul' }],
+        images: ['variation.jpg'],
+        comboItems: [{ productId: 'component', quantity: 1 }],
+        syncUnitPrice: false,
+      }
+    );
+
+    expect(inherited).toMatchObject({
+      sku: 'POL-01',
+      name: 'Poltrona Aurora',
+      unitPrice: 1250,
+      price: 1250,
+      stock: 3,
+      description: 'Descrição do pai',
+      fiscal: { ncm: '94016100' },
+      attributes: [],
+      images: [],
+      comboItems: [{ productId: 'component', quantity: 1 }],
+      syncUnitPrice: true,
+    });
+  });
+});
 
 describe('syncMobileVariationsWithParent', () => {
   it('atualiza os valores herdados e preserva campos personalizados', () => {

@@ -1,6 +1,6 @@
 const { build } = require('esbuild');
 const { resolve } = require('node:path');
-const { writeFile } = require('node:fs/promises');
+const { mkdir, writeFile } = require('node:fs/promises');
 
 async function buildCustomerSupportApi() {
   const root = resolve(__dirname, '../..');
@@ -18,6 +18,12 @@ async function buildCustomerSupportApi() {
   await build({ ...options,
     entryPoints: [resolve(root, 'erp/api/whatsapp-webhook.ts')],
     outfile: resolve(output, 'whatsapp-webhook.cjs'),
+  });
+  const secureApiOutput = resolve(root, 'erp/server/secure-api');
+  await mkdir(secureApiOutput, { recursive: true });
+  await build({ ...options,
+    entryPoints: [resolve(root, 'erp/api/secure-integrations.ts')],
+    outfile: resolve(secureApiOutput, 'secure-integrations.cjs'),
   });
 }
 

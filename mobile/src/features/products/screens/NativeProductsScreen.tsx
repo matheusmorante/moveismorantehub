@@ -20,6 +20,7 @@ import {
   isStockistOnlyProductProfile,
   shouldHideProductCatalogPublicationStatus,
 } from '../../../../../shared-utils/productPermissions';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { useAuth } from '../../../contexts/AuthContext';
 import { WEB_URL } from '../../../services/supabaseClient';
 import { NativeCategoriesScreen } from '../categories';
@@ -35,6 +36,7 @@ import { ProductFormModal } from '../modals/ProductFormModal';
 import { ProductLinkedOrdersModal } from '../modals/ProductLinkedOrdersModal';
 import { ProductPriceHistoryModal } from '../modals/ProductPriceHistoryModal';
 import { fetchMobileCategories } from '../services/mobileCategoryService';
+import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import { duplicateMobileProduct } from '../services/mobileProductMutationService';
 
 interface Props {
@@ -50,7 +52,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
   onLaunchStock,
 }) => {
   const [screenMode, setScreenMode] = useState<'standard' | 'composition' | 'categories'>(mode);
-  const { canUseProductPermission, userProfile } = useAuth();
+  const { canUseProductPermission, canUsePermission, userProfile } = useAuth();
   const isStockistOnly = isStockistOnlyProductProfile(userProfile);
   const canViewCatalog = canUseProductPermission('viewProducts');
   const canEditProducts = canUseProductPermission('productConfig');
@@ -60,6 +62,8 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const canViewCharacteristics = canUseProductPermission('viewProductCharacteristics');
   const canViewReconciliation =
     !isStockistOnly && canUseProductPermission('viewProductReconciliation');
+  const canViewMetaCatalog = canUsePermission('viewMetaCatalog', ['manager']);
+  const canViewWhatsAppMarketplace = canUsePermission('viewWhatsAppMarketplace', ['manager']);
   const canPrintLabels = canUseProductPermission('printProductIdentificationLabels');
   const userRoles = Array.isArray(userProfile?.roles) ? userProfile.roles : [userProfile?.role];
   const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(userRoles);
@@ -93,6 +97,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const [historyProduct, setHistoryProduct] = useState<any | null>(null);
   const [ordersProduct, setOrdersProduct] = useState<any | null>(null);
   const [detailsProduct, setDetailsProduct] = useState<any | null>(null);
+  const [loadingProductForEdit, setLoadingProductForEdit] = useState(false);
   const [variationToMove, setVariationToMove] = useState<{
     variation: any;
     parentProduct: any;
@@ -122,6 +127,10 @@ export const NativeProductsScreen: React.FC<Props> = ({
     if (activeMode !== screenMode) setScreenMode(activeMode);
   }, [activeMode, screenMode]);
 
+  useEffect(() => {
+    if (!canDeleteProducts && productsHook.showTrash) productsHook.setShowTrash(false);
+  }, [canDeleteProducts, productsHook.showTrash, productsHook.setShowTrash]);
+
   const handlePageChange = (page: number) => {
     productsHook.setCurrentPage(page);
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -134,10 +143,46 @@ export const NativeProductsScreen: React.FC<Props> = ({
     setShowFormModal(true);
   };
 
-  const handleOpenEdit = (prod: any) => {
+  const handleOpenEdit = async (prod: any) => {
     if (!canEditProducts) return;
-    setEditingProduct(prod);
-    setShowFormModal(true);
+    setLoadingProductForEdit(true);
+    try {
+      const result = await withTimeout(
+        fetchMobileProductsPage(1, 1, {
+          productId: String(prod.id),
+          statusFilter: 'all',
+          includeDeactivated: true,
+          includeMerged: true,
+          throwOnError: true,
+        }),
+        10_000,
+        null,
+        'mobile:carregar-produto-completo-para-edicao'
+      );
+      const fullProduct = result?.data[0];
+      if (!fullProduct) throw new Error('O cadastro completo do produto não foi encontrado.');
+      const requestedVariationId = String(prod.selectedVariationId || '');
+      const selectedVariationExists = Boolean(
+        requestedVariationId &&
+          fullProduct.allVariations?.some(
+            (variation: any) => String(variation.id) === requestedVariationId
+          )
+      );
+      setEditingProduct(
+        selectedVariationExists
+          ? { ...fullProduct, selectedVariationId: requestedVariationId }
+          : fullProduct
+      );
+      setNewProductInitialData(undefined);
+      setShowFormModal(true);
+    } catch (error: any) {
+      Alert.alert(
+        'Não foi possível abrir o produto',
+        error?.message || 'Atualize a lista e tente novamente.'
+      );
+    } finally {
+      setLoadingProductForEdit(false);
+    }
   };
 
   const handleDuplicate = async (prod: any) => {
@@ -154,6 +199,18 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const handleOpenReconciliation = () => {
     Linking.openURL(`${WEB_URL}/products/reconciliation/suppliers`).catch(() => {
       Alert.alert('Não foi possível abrir a conciliação', 'Tente novamente mais tarde.');
+    });
+  };
+
+  const handleOpenMetaCatalog = () => {
+    Linking.openURL(`${WEB_URL}/products/meta-catalog`).catch(() => {
+      Alert.alert('Não foi possível abrir o Catálogo Meta', 'Tente novamente mais tarde.');
+    });
+  };
+
+  const handleOpenWhatsAppMarketplace = () => {
+    Linking.openURL(`${WEB_URL}/registrations/whatsapp-marketplace`).catch(() => {
+      Alert.alert('Não foi possível abrir o Marketplace WhatsApp', 'Tente novamente mais tarde.');
     });
   };
 
@@ -178,6 +235,10 @@ export const NativeProductsScreen: React.FC<Props> = ({
             canOpenConfigs={canViewCategories || canViewCharacteristics}
             onOpenReconciliation={handleOpenReconciliation}
             canViewReconciliation={canViewReconciliation}
+            canViewMetaCatalog={canViewMetaCatalog}
+            canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
+            onOpenMetaCatalog={handleOpenMetaCatalog}
+            onOpenWhatsAppMarketplace={handleOpenWhatsAppMarketplace}
             categories={categories}
             statusFilter="all"
             categoryFilter="all"
@@ -214,6 +275,24 @@ export const NativeProductsScreen: React.FC<Props> = ({
               <Text style={styles.retryButtonText}>Abrir conciliação de fornecedores</Text>
             </TouchableOpacity>
           )}
+          {canViewMetaCatalog && (
+            <TouchableOpacity
+              onPress={handleOpenMetaCatalog}
+              style={styles.retryButton}
+              accessibilityRole="button"
+            >
+              <Text style={styles.retryButtonText}>Abrir Catálogo Meta</Text>
+            </TouchableOpacity>
+          )}
+          {canViewWhatsAppMarketplace && (
+            <TouchableOpacity
+              onPress={handleOpenWhatsAppMarketplace}
+              style={styles.retryButton}
+              accessibilityRole="button"
+            >
+              <Text style={styles.retryButtonText}>Abrir Marketplace WhatsApp</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : productsHook.loading && !productsHook.refreshing ? (
         <View style={styles.center}>
@@ -243,8 +322,8 @@ export const NativeProductsScreen: React.FC<Props> = ({
             canCreateProduct={canEditProducts}
             onNewComposition={() => {
               if (!canEditProducts || isStockistOnly) return;
-              setEditingProduct({ itemType: 'composition' });
-              setNewProductInitialData(undefined);
+              setEditingProduct(null);
+              setNewProductInitialData({ itemType: 'composition' });
               setShowFormModal(true);
             }}
             canCreateComposition={canEditProducts && !isStockistOnly}
@@ -254,6 +333,10 @@ export const NativeProductsScreen: React.FC<Props> = ({
             canOpenConfigs={canViewCategories || canViewCharacteristics}
             onOpenReconciliation={handleOpenReconciliation}
             canViewReconciliation={canViewReconciliation}
+            canViewMetaCatalog={canViewMetaCatalog}
+            canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
+            onOpenMetaCatalog={handleOpenMetaCatalog}
+            onOpenWhatsAppMarketplace={handleOpenWhatsAppMarketplace}
             categories={categories}
             statusFilter={productsHook.statusFilter}
             categoryFilter={productsHook.categoryFilter}
@@ -265,8 +348,12 @@ export const NativeProductsScreen: React.FC<Props> = ({
             onCategoryFilterChange={productsHook.setCategoryFilter}
             onCatalogStatusFilterChange={productsHook.setCatalogStatusFilter}
             onGeneralTypeFilterChange={productsHook.setGeneralTypeFilter}
+            onResetFilters={productsHook.resetFilters}
             showDeactivated={productsHook.showDeactivated}
             onToggleDeactivated={() => productsHook.setShowDeactivated((value) => !value)}
+            showTrash={productsHook.showTrash}
+            canViewTrash={canDeleteProducts}
+            onToggleTrash={() => productsHook.setShowTrash((value) => !value)}
           />
 
           {productsHook.loadError ? (
@@ -287,7 +374,9 @@ export const NativeProductsScreen: React.FC<Props> = ({
               <Text style={styles.emptyText}>
                 {activeMode === 'composition'
                   ? 'Nenhuma composição encontrada'
-                  : 'Nenhum produto encontrado'}
+                  : productsHook.showTrash
+                    ? 'A lixeira está vazia'
+                    : 'Nenhum produto encontrado'}
               </Text>
             </View>
           ) : (
@@ -296,31 +385,34 @@ export const NativeProductsScreen: React.FC<Props> = ({
                 key={product.id}
                 product={product}
                 dark={isDarkMode}
+                showTrash={productsHook.showTrash}
+                onRestore={productsHook.showTrash ? productsHook.handleRestoreFromTrash : undefined}
+                onMoveToTrash={productsHook.handleMoveToTrash}
                 onEdit={handleOpenEdit}
                 onToggleCatalog={productsHook.handleToggleCatalog}
                 onToggleActive={productsHook.handleToggleActive}
                 onDelete={productsHook.handleDelete}
-                canEdit={canEditProducts}
-                canDelete={canDeleteProducts}
-                canChangeCatalog={canEditProducts && !hideCatalogPublicationStatus}
+                canEdit={canEditProducts && !productsHook.showTrash}
+                canDelete={canDeleteProducts && !productsHook.showTrash}
+                canChangeCatalog={canEditProducts && !productsHook.showTrash && !hideCatalogPublicationStatus}
                 showCatalogStatus={!hideCatalogPublicationStatus}
-                canPrintLabels={canPrintLabels}
-                canViewDetails={canViewDetails}
+                canPrintLabels={canPrintLabels && !productsHook.showTrash}
+                canViewDetails={canViewDetails && !productsHook.showTrash}
                 isLabelOnlyProfile={isLabelOnlyProfile}
                 onDuplicate={handleDuplicate}
                 onViewDetails={setDetailsProduct}
-                onLaunchStock={canEditProducts && !isLabelOnlyProfile ? onLaunchStock : undefined}
+                onLaunchStock={canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile ? onLaunchStock : undefined}
                 onShowHistory={
-                  canEditProducts && !isLabelOnlyProfile ? setHistoryProduct : undefined
+                  canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile ? setHistoryProduct : undefined
                 }
-                onShowOrders={canEditProducts && !isLabelOnlyProfile ? setOrdersProduct : undefined}
+                onShowOrders={canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile ? setOrdersProduct : undefined}
                 onMoveVariation={
-                  canEditProducts && !isLabelOnlyProfile
+                  canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile
                     ? (variation, parentProduct) => setVariationToMove({ variation, parentProduct })
                     : undefined
                 }
                 onMergeVariation={
-                  canEditProducts && !isLabelOnlyProfile
+                  canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile
                     ? (variation, parentProduct) =>
                         setVariationToMerge({ variation, parentProduct })
                     : undefined
@@ -352,6 +444,12 @@ export const NativeProductsScreen: React.FC<Props> = ({
         }}
         onSave={productsHook.handleSave}
       />
+      {loadingProductForEdit && (
+        <View style={[styles.editLoadingOverlay, isDarkMode && styles.dark]}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={styles.loading}>Carregando variações do produto…</Text>
+        </View>
+      )}
 
       {/* Modal de Configurações (Categorias, Atributos e Variações) */}
       <ProductConfigModal
@@ -410,6 +508,17 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingBottom: 36, gap: 10 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loading: { fontSize: 12, fontWeight: '700', color: '#64748b', marginTop: 10 },
+  editLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(248,250,252,0.9)',
+  },
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 14, fontWeight: '800', color: '#64748b', marginTop: 12 },
   retryButton: {

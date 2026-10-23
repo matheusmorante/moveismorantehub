@@ -4,22 +4,22 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
-import { blingReportWriteFormSchema, blingReportQueryFormSchema, blingReportRowSchema, salesReportDataSchema, erpReportWriteFormSchema, erpReportReadRowSchema } from '../../../../../../../shared-utils/salesReportFormSchemas';
+import { salesReportQueryFormSchema, salesReportDataSchema, erpReportWriteFormSchema, erpReportReadRowSchema } from '../../../../../../../shared-utils/salesReportFormSchemas';
 
 const canonicalJson = (value: unknown) => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
 const requestError = (message: string, knownFailure = true) => Object.assign(new Error(message), { knownFailure });
 const backendError = (error: { message?: string; code?: string }) => requestError(error.message || 'O servidor não confirmou o relatório.', /^(22|23|42)/.test(error.code || '') || /^PGRST20[0-5]$/.test(error.code || ''));
-type ReportRow = z.output<typeof blingReportRowSchema> | z.output<typeof erpReportReadRowSchema>;
-type ReportType = 'abc_curve' | 'abc_curve_bling';
-type WriteCommand = z.input<typeof blingReportWriteFormSchema> | z.input<typeof erpReportWriteFormSchema>;
-const readRow = (raw: any, kind: ReportType, publicRead = false): ReportRow => (kind === 'abc_curve_bling' || (publicRead && raw?.type === 'abc_curve_bling') ? blingReportRowSchema : erpReportReadRowSchema).parse({ ...raw, report_data: {
+type ReportRow = z.output<typeof erpReportReadRowSchema>;
+type ReportType = 'abc_curve';
+type WriteCommand = z.input<typeof erpReportWriteFormSchema>;
+const readRow = (raw: any): ReportRow => erpReportReadRowSchema.parse({ ...raw, report_data: {
   ...raw?.report_data, results: raw?.report_data?.results?.map((item: any) => ({ ...item,
     monthlyProfit: item.monthlyProfit ?? item.totalProfit / (raw.report_data.monthCount || 1),
     monthlyTurnover: item.monthlyTurnover ?? item.totalQuantity / (raw.report_data.monthCount || 1),
   })),
 } });
 
-export function useSavedSalesReports(snapshot: z.input<typeof salesReportDataSchema>, contextKey = 'list', readOnly = false, reportType: ReportType = 'abc_curve_bling') {
+export function useSavedSalesReports(snapshot: z.input<typeof salesReportDataSchema>, contextKey = 'list', readOnly = false, reportType: ReportType = 'abc_curve') {
   const { user } = useAuth();
   const [savedReports, setSavedReports] = useState<any[]>([]);
   const [error, setError] = useState('');
@@ -35,9 +35,9 @@ export function useSavedSalesReports(snapshot: z.input<typeof salesReportDataSch
   const createIntentRef = useRef<{ key: string; id: string } | null>(null);
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
-  const writeSchema = reportType === 'abc_curve_bling' ? blingReportWriteFormSchema : erpReportWriteFormSchema;
-  const writeForm = useZodForm(writeSchema, { intent: 'create', id: '00000000-0000-4000-8000-000000000000', name: '', source: reportType === 'abc_curve_bling' ? 'bling' : 'erp', config: {}, report_data: snapshotRef.current });
-  const queryForm = useZodForm(blingReportQueryFormSchema, { intent: 'list' });
+  const writeSchema = erpReportWriteFormSchema;
+  const writeForm = useZodForm(writeSchema, { intent: 'create', id: '00000000-0000-4000-8000-000000000000', name: '', source: 'erp', config: {}, report_data: snapshotRef.current });
+  const queryForm = useZodForm(salesReportQueryFormSchema, { intent: 'list' });
   const showError = useCallback((message: string) => { if (mountedRef.current) setError(message); }, []);
   const invalid = useCallback((errors: Parameters<typeof flattenFormErrors>[0]) => showError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados do relatório.'), [showError]);
   const begin = useCallback(() => {
@@ -47,7 +47,7 @@ export function useSavedSalesReports(snapshot: z.input<typeof salesReportDataSch
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   useEffect(() => { setSavedReports([]); setError(''); }, [sessionKey]);
   const { enqueueAndRun: validateQuery } = queryForm;
-  const performQuery = useCallback(async (command: z.input<typeof blingReportQueryFormSchema>) => {
+  const performQuery = useCallback(async (command: z.input<typeof salesReportQueryFormSchema>) => {
     const requestScope = scopeRef.current;
     try {
       return await validateQuery(command, async parsed => {
@@ -66,11 +66,11 @@ export function useSavedSalesReports(snapshot: z.input<typeof salesReportDataSch
             return Object.fromEntries(rows.map(row => [row.reference_name, row.master_name]));
           }
           if (parsed.intent === 'get') {
-            const row = readRow(response.data, reportType, readOnly);
+            const row = readRow(response.data);
             if (row.id !== parsed.id) throw new Error('O relatório recebido não corresponde ao solicitado.');
             return row;
           }
-          const rows = z.array(z.unknown()).parse(response.data).map(row => readRow(row, reportType));
+          const rows = z.array(z.unknown()).parse(response.data).map(row => readRow(row));
           setSavedReports(rows); return rows;
         } finally { finish(); }
       }, invalid);
@@ -112,7 +112,7 @@ export function useSavedSalesReports(snapshot: z.input<typeof salesReportDataSch
           if (!receipt.success || receipt.data.length !== 1 || receipt.data[0].id !== parsed.id) throw requestError('A exclusão do relatório não foi confirmada.', false);
           saved = true;
         } else {
-          const receipt = parsed.intent === 'config' ? (() => { try { return { success: true as const, data: readRow(response.data, reportType) }; } catch { return { success: false as const }; } })() : (reportType === 'abc_curve_bling' ? blingReportRowSchema : erpReportReadRowSchema).safeParse(response.data);
+          const receipt = parsed.intent === 'config' ? (() => { try { return { success: true as const, data: readRow(response.data) }; } catch { return { success: false as const }; } })() : erpReportReadRowSchema.safeParse(response.data);
           if (!receipt.success || !(parsed.intent === 'config' ? receipt.data.id === parsed.id && receipt.data.type === reportType && canonicalJson(receipt.data.config) === canonicalJson(parsed.config) : ['id', 'type', 'name', 'source', 'report_data', 'config'].every(key => canonicalJson(receipt.data[key as keyof ReportRow]) === canonicalJson(payload![key as keyof typeof payload])))) throw requestError('O recibo não corresponde ao relatório enviado. Confira o registro salvo antes de repetir.', false);
           saved = receipt.data;
         }
@@ -131,7 +131,7 @@ export function useSavedSalesReports(snapshot: z.input<typeof salesReportDataSch
       return false;
     } finally { if (!options.queued) writeBusyRef.current = false; finish(); }
   }, [begin, invalid, listSavedReports, showError, validateWrite, reportType]);
-  const saveReport = useCallback(async (name: string, source: 'erp' | 'csv' | 'bling', config: any, manualData?: any) => {
+  const saveReport = useCallback(async (name: string, source: 'erp' | 'csv', config: any, manualData?: any) => {
     const data = manualData ?? snapshotRef.current;
     let key: string | undefined;
     try { key = canonicalJson({ scope: scopeRef.current, name, source, config, data }); } catch { showError('Os dados do relatório não puderam ser preparados.'); return false; }
@@ -140,7 +140,7 @@ export function useSavedSalesReports(snapshot: z.input<typeof salesReportDataSch
     if (saved !== false) createIntentRef.current = null;
     return saved as ReportRow | false;
   }, [showError, writeReport]);
-  const updateReport = useCallback((id: string, name: string, source: 'erp' | 'csv' | 'bling', config: any, manualData?: any) => writeReport({ intent: 'update', id, name, source, config, report_data: manualData ?? snapshotRef.current }) as Promise<ReportRow | false>, [writeReport]);
+  const updateReport = useCallback((id: string, name: string, source: 'erp' | 'csv', config: any, manualData?: any) => writeReport({ intent: 'update', id, name, source, config, report_data: manualData ?? snapshotRef.current }) as Promise<ReportRow | false>, [writeReport]);
   const saveReportConfig = useCallback((id: string, config: Record<string, any>, isCurrent?: () => boolean) => writeReport({ intent: 'config', id, config }, { queued: true, isCurrent }) as Promise<ReportRow | false>, [writeReport]);
   const deleteReport = useCallback((id: string) => writeReport({ intent: 'delete', id }) as Promise<true | false>, [writeReport]);
 

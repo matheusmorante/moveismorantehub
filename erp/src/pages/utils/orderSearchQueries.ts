@@ -84,7 +84,7 @@ export const getOrdersByProductId = async (
                 scheduled_date, scheduled_start_time, scheduled_end_time,
                 delivery_method, delivery_status, delivery_arrived_at,
                 delivery_started_at, delivery_finished_at, marketing_origin,
-                stock_processed, is_stock_checked, is_registered_in_bling,
+                stock_processed, is_stock_checked,
                 deleted, deleted_at, return_order_id, linked_order_id,
                 returned_total_amount, original_sold_total, return_kind,
                 created_at, updated_at,
@@ -276,7 +276,7 @@ export const fetchOrderById = async (id: string): Promise<Order | null> => {
                 scheduled_date, scheduled_start_time, scheduled_end_time,
                 delivery_method, delivery_status, delivery_arrived_at,
                 delivery_started_at, delivery_finished_at, marketing_origin,
-                stock_processed, is_stock_checked, is_registered_in_bling,
+                stock_processed, is_stock_checked,
                 deleted, deleted_at, return_order_id, linked_order_id,
                 created_at, updated_at, items, order_data,
                 order_items (

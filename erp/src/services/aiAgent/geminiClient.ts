@@ -1,6 +1,6 @@
 import { ApiUsageGuard } from '../apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '../apiMonitoring/apiUsageTracker';
-import { getSettings } from '../../pages/utils/settingsService';
+import { supabase } from '../../pages/utils/supabaseConfig';
 import { GeminiContent, GeminiTool, GeminiToolConfig } from './geminiAgentTypes';
 
 // Cliente HTTP para a API Gemini v1beta com monitoramento de cotas e circuit breaker
@@ -37,25 +37,12 @@ export class GeminiClient {
       return customTransport(payload);
     }
 
-    const settings = typeof localStorage !== 'undefined' ? getSettings() : ({} as any);
-    const envKey =
-      import.meta.env.VITE_GEMINI_API_KEY ||
-      (typeof process !== 'undefined'
-        ? process.env?.VITE_GEMINI_API_KEY || process.env?.GEMINI_API_KEY
-        : '');
-    const apiKey = (envKey || (settings as any)?.geminiApiKey || '').trim();
-
-    if (!apiKey) {
-      throw new Error('Chave da API Gemini não configurada (VITE_GEMINI_API_KEY).');
-    }
-
     const guard = await ApiUsageGuard.check('gemini_flash');
     if (!guard.allowed) {
       throw new Error(`[ApiUsageGuard] Chamada bloqueada: ${guard.reason}`);
     }
 
     const model = 'gemini-3.8-flash';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
     const startTime = Date.now();
 
     const bodyData: any = {
@@ -75,10 +62,13 @@ export class GeminiClient {
 
     let res: Response;
     try {
-      res = await fetch(url, {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
+      res = await fetch('/api/gemini-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyData),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ model, action: 'generateContent', payload: bodyData }),
       });
     } catch (networkErr: any) {
       ApiUsageTracker.record({

@@ -5,7 +5,7 @@ import { stringifyMapAddress } from '../formatters';
 import { parseCoordinatesFromMapsUrl } from '../mapCoordinates';
 import { getSettings } from '../settingsService';
 import { geocodeAddress } from './addressGeocoding';
-import { getEffectiveGoogleMapsApiKey, loadGoogleMapsApi } from './googleMapsLoader';
+import { loadGoogleMapsApi } from './googleMapsLoader';
 
 export interface RouteResult {
   distanceKm: number;
@@ -43,7 +43,6 @@ export const getShippingRouteUrl = (fullAddress: CustomerData['fullAddress'] | a
 export const calculateRouteViaGoogleMaps = async (
   origin: [number, number],
   destination: [number, number],
-  apiKey?: string,
   onFailure?: (reason: string) => void
 ): Promise<GoogleRouteResult | null> => {
   const routeKey = [...origin, ...destination]
@@ -59,7 +58,6 @@ export const calculateRouteViaGoogleMaps = async (
   if (existingRequest) return existingRequest;
 
   const request = (async () => {
-    const key = getEffectiveGoogleMapsApiKey(apiKey);
     const guard = await ApiUsageGuard.check('google_routes');
     if (!guard.allowed) {
       console.warn(`[ApiUsageGuard] Cálculo de rota bloqueado: ${guard.reason}`);
@@ -69,7 +67,7 @@ export const calculateRouteViaGoogleMaps = async (
 
     const startTime = Date.now();
     try {
-      await loadGoogleMapsApi(key);
+      await loadGoogleMapsApi();
       const googleMaps = (window as any).google.maps;
       const { Route } = await googleMaps.importLibrary('routes');
       const routeRequest = {
@@ -152,7 +150,6 @@ export const autoCalculateRouteDistance = async (
 ): Promise<RouteResult | null> => {
   try {
     const settings = getSettings();
-    const apiKey = getEffectiveGoogleMapsApiKey();
     const origin: [number, number] = settings.storeOriginCoords || [-49.16948, -25.35205];
 
     console.info('[autoCalculateRouteDistance] Iniciando cálculo de distância para:', address);
@@ -212,7 +209,7 @@ export const autoCalculateRouteDistance = async (
       'Calculando rota de:',
       origin
     );
-    const routeData = await calculateRouteViaGoogleMaps(origin, destCoords, apiKey, onFailure);
+    const routeData = await calculateRouteViaGoogleMaps(origin, destCoords, onFailure);
     if (!routeData) {
       console.warn(
         '[autoCalculateRouteDistance] Routes API não encontrou rota viável para as coordenadas:',

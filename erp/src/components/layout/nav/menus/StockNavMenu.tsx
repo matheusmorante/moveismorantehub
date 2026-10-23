@@ -16,8 +16,7 @@ export const StockNavMenu: React.FC<Required<NavMenuProps>> = ({
     permissions.canViewStockMovements ||
     permissions.canViewStockInventory ||
     permissions.canViewStockUnavailabilities ||
-    permissions.canViewStockReceipts ||
-    permissions.canViewBlingStock;
+    permissions.canViewStockReceipts;
 
   return (
     <NavDropdown
@@ -63,15 +62,6 @@ export const StockNavMenu: React.FC<Required<NavMenuProps>> = ({
               icon="bi-clipboard-check"
               title="Recebimentos"
               description="Conferência de mercadorias"
-              onClick={close}
-            />
-          )}
-          {permissions.canViewBlingStock && (
-            <DropdownItem
-              to="/estoque/bling"
-              icon="bi-cloud-arrow-down"
-              title="Estoque Bling"
-              description="Estoque sincronizado"
               onClick={close}
             />
           )}

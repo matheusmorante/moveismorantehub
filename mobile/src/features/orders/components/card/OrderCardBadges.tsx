@@ -5,15 +5,17 @@ import {
   Clock,
   Truck,
   Wrench,
-  RotateCcw,
   Megaphone,
   CheckCircle2,
   XCircle,
   Tag,
-  Package,
+  PackageMinus,
+  PackagePlus,
+  PackageX,
   Check,
 } from 'lucide-react-native';
 import { MobileDrill } from '../../../../components/shared/MobileDrill';
+import ReturnIcon from '../../../../components/shared/ReturnIcon';
 import { FiscalBadgeStatus, FiscalOperationBadgeStatus } from '../../domain/types';
 import { StatusConfig } from './orderCardTheme';
 import { OrderCardFiscalBadges } from './OrderCardFiscalBadges';
@@ -27,7 +29,6 @@ export interface OrderCardBadgesProps {
   isDraft: boolean;
   cancelled: boolean;
   isStockChecked: boolean;
-  isRegisteredInBling: boolean;
   stockProcessed: boolean;
   stockReversed: boolean;
   returnOrderId?: string | null;
@@ -53,7 +54,6 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
   isDraft,
   cancelled,
   isStockChecked,
-  isRegisteredInBling,
   stockProcessed,
   stockReversed,
   returnOrderId,
@@ -98,20 +98,20 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
           isAssistance
             ? styles.badgeOrange
             : isReturn
-              ? styles.badgeAmber
+              ? styles.badgeReturn
               : pickup
                 ? styles.badgePurple
                 : styles.badgeEmerald,
         ]}
       >
         {isAssistance ? (
-          <Wrench size={11} color="#ffffff" />
+          <Wrench size={16} color="#ffffff" />
         ) : isReturn ? (
-          <RotateCcw size={11} color="#ffffff" />
+          <ReturnIcon size={20} />
         ) : pickup ? (
-          <PickupIcon size={14} />
+          <PickupIcon size={20} />
         ) : (
-          <Truck size={11} color="#ffffff" />
+          <Truck size={16} color="#ffffff" />
         )}
       </View>
 
@@ -123,21 +123,6 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
         >
           <Tag size={11} color="#ffffff" />
           {isStockChecked && (
-            <View style={styles.checkIndicator}>
-              <Check size={7} color="#ffffff" strokeWidth={3} />
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* 4. Selo do Bling (idêntico ao ERP) */}
-      {!isReturn && !isAssistance && !isDraft && !cancelled && (
-        <View
-          style={[styles.blingBadge, isRegisteredInBling ? styles.badgeSuccess : styles.badgeMuted]}
-          accessibilityLabel={isRegisteredInBling ? 'Lançado no Bling' : 'Falta lançar no Bling'}
-        >
-          <Text style={styles.blingText}>Bling</Text>
-          {isRegisteredInBling && (
             <View style={styles.checkIndicator}>
               <Check size={7} color="#ffffff" strokeWidth={3} />
             </View>
@@ -160,7 +145,13 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
             stockReversed ? 'Estornado' : stockProcessed ? 'Movimentado' : 'Pendente'
           }`}
         >
-          <Package size={11} color="#ffffff" />
+          {stockReversed ? (
+            <PackageX size={16} color="#ffffff" />
+          ) : orderType === 'return' ? (
+            <PackagePlus size={16} color="#ffffff" />
+          ) : (
+            <PackageMinus size={16} color="#ffffff" />
+          )}
           {stockProcessed && !stockReversed && (
             <View style={styles.checkIndicator}>
               <Check size={7} color="#ffffff" strokeWidth={3} />
@@ -177,7 +168,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
             returnKind === 'complete' ? 'total' : 'parcial'
           } vinculada`}
         >
-          <RotateCcw size={10} color="#ffffff" />
+          <ReturnIcon size={14} />
           <Text style={styles.textBadgeLabel}>
             {returnKind === 'complete' ? 'DEV. TOTAL' : 'DEV. PARCIAL'}
           </Text>
@@ -248,21 +239,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     borderWidth: 1,
   },
-  blingBadge: {
-    height: 24,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    borderWidth: 1,
-  },
-  blingText: {
-    color: '#ffffff',
-    fontSize: 8,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
   textBadge: {
     height: 24,
     paddingHorizontal: 6,
@@ -284,8 +260,8 @@ const styles = StyleSheet.create({
     borderColor: '#047857',
   },
   badgeMuted: {
-    backgroundColor: '#64748b',
-    borderColor: '#475569',
+    backgroundColor: '#94a3b8',
+    borderColor: '#64748b',
   },
   badgeEmerald: {
     backgroundColor: '#059669',
@@ -302,6 +278,10 @@ const styles = StyleSheet.create({
   badgeAmber: {
     backgroundColor: '#d97706',
     borderColor: '#b45309',
+  },
+  badgeReturn: {
+    backgroundColor: '#f97316',
+    borderColor: '#ea580c',
   },
   badgeRed: {
     backgroundColor: '#dc2626',

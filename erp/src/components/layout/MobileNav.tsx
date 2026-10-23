@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { canPerform } from '../../pages/utils/permissionService';
 import { getProfileRoles } from '../../pages/utils/accessRoles';
 import { canSeeFinanceModuleBeta, canUseFinanceModule } from '../../pages/utils/permissionConfig';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import ReturnIcon from '../shared/ReturnIcon';
 
 interface MobileNavProps {
@@ -91,13 +92,6 @@ const menuItems: any[] = [
         label: 'Recebimentos de Mercadorias',
         shortLabel: 'Recebimentos',
       },
-      {
-        type: 'link',
-        to: '/estoque/bling',
-        icon: 'bi-cloud-arrow-down',
-        iconColor: 'text-blue-500',
-        label: 'Estoque Bling',
-      },
       { type: 'header', label: 'COMPRAS' },
       {
         type: 'link',
@@ -180,8 +174,8 @@ const menuItems: any[] = [
       },
       {
         to: '/assistance-orders',
-        icon: 'bi-tools',
-        iconColor: 'text-amber-500 dark:text-amber-400',
+        icon: 'bi bi-wrench-adjustable',
+        iconColor: 'text-orange-500',
         label: 'Assistências',
       },
       {
@@ -318,7 +312,9 @@ const menuItems: any[] = [
 const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProps) => {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  useBodyScrollLock(isOpen);
   const roles = profile ? getProfileRoles(profile) : [];
+  const canViewDashboard = roles.some((role) => role === 'administrator' || role === 'manager');
   const canViewProducts = canPerform('viewProducts', roles);
   const canViewStock = [
     'viewStockMovements',
@@ -327,7 +323,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
     'viewStockPurchases',
     'viewStockReceipts',
     'viewStockLabels',
-    'viewBlingStock',
   ].some((action) => canPerform(action, roles));
   const canViewSuppliers = canPerform('viewSuppliers', roles);
   const canViewProductSubmodules = [
@@ -404,7 +399,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
       '/estoque/inventarios': 'viewStockInventory',
       '/estoque/indisponibilidades': 'viewStockUnavailabilities',
       '/estoque/recebimentos': 'viewStockReceipts',
-      '/estoque/bling': 'viewBlingStock',
       '/estoque/pedidos-compra': 'viewStockPurchases',
       '/estoque/fornecedores': 'viewSuppliers',
       '/estoque/etiquetas': 'viewStockLabels',
@@ -479,14 +473,16 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
 
         {/* Atalho: Dashboard, Atendimento & Documentação */}
         <div className="flex flex-col gap-2 px-4 pt-4">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => handleLink('/')}
-              className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black text-xs shadow-md hover:from-blue-700 hover:to-blue-600 transition-all active:scale-95"
-            >
-              <i className="bi bi-grid-fill text-base"></i>
-              Dashboard
-            </button>
+          <div className={`grid gap-2 ${canViewDashboard ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {canViewDashboard && (
+              <button
+                onClick={() => handleLink('/')}
+                className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black text-xs shadow-md hover:from-blue-700 hover:to-blue-600 transition-all active:scale-95"
+              >
+                <i className="bi bi-grid-fill text-base"></i>
+                Dashboard
+              </button>
+            )}
             <button
               onClick={() => handleLink('/system-docs')}
               className="flex items-center justify-center gap-2 px-3 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-black text-xs shadow-sm hover:bg-indigo-100 transition-all active:scale-95"
@@ -576,6 +572,8 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                         >
                           {link.to === '/returns' ? (
                             <ReturnIcon className={`h-6 w-6 ${link.iconColor || 'text-orange-500'}`} />
+                          ) : link.to === '/assistance-orders' ? (
+                            <i className="bi bi-wrench-adjustable text-[15px] text-orange-500" aria-hidden="true" />
                           ) : (
                             <i className={`bi ${link.icon} text-base ${link.iconColor}`}></i>
                           )}

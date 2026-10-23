@@ -20,7 +20,6 @@ export interface MobileOrderListItem {
   fiscalDevolucaoCount?: number;
   fiscalCancellationState?: OrderFiscalCancellationState;
   is_stock_checked?: boolean;
-  is_registered_in_bling?: boolean;
   stock_processed?: boolean;
   stock_reversed?: boolean;
   return_order_id?: string | null;

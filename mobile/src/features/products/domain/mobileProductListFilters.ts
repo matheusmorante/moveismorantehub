@@ -1,11 +1,21 @@
+import { PRODUCT_LIST_SEARCH_MIN_LENGTH } from '../../../../../shared-utils/productListSearch';
+
 export type MobileProductStatusFilter = 'all' | 'active' | 'disabled' | 'draft';
 
+export const DEFAULT_MOBILE_PRODUCT_LIST_FILTERS = {
+  searchTerm: '',
+  statusFilter: 'all' as const,
+  showDeactivated: true,
+  categoryFilter: '',
+  catalogStatusFilter: 'all' as const,
+  generalTypeFilter: 'all' as const,
+};
+
 export const resolveAppliedMobileProductSearch = (
-  searchInput: string,
-  previousSearch: string
+  searchInput: string
 ): string => {
   const trimmedSearch = searchInput.trim();
-  return trimmedSearch.length === 0 || trimmedSearch.length >= 3 ? trimmedSearch : previousSearch;
+  return trimmedSearch.length >= PRODUCT_LIST_SEARCH_MIN_LENGTH ? trimmedSearch : '';
 };
 
 /**

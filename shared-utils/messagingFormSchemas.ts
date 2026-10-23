@@ -23,17 +23,20 @@ export const attendanceSuggestionFormSchema = z.discriminatedUnion('type', [
   }) }),
 ]);
 export const whatsappConnectionFormSchema = z.object({
-  accessToken: z.string().trim().min(1, 'Preencha o Token de Acesso.'),
   phoneNumberId: z.string().trim().min(1, 'Preencha o ID do telefone.'),
-}).passthrough();
+});
 export const whatsappTemplatesQueryFormSchema = z.object({
-  accessToken: z.string().trim().min(1, 'Preencha o Token de Acesso.'),
   wabaId: z.string().trim().min(1, 'Preencha o WABA ID.'),
-}).passthrough();
+});
 export const whatsappTemplateTestFormSchema = z.object({
   phone: phone.pipe(z.string().min(10, 'Informe um telefone com DDD válido.')),
   template: z.string().trim().min(1, 'Preencha o nome do modelo.'),
   language: z.string().trim().min(1), variableCount: z.number().int().min(0).max(8),
 });
 
-export const whatsappTemplateTestCommandSchema = whatsappTemplateTestFormSchema.extend({ config: whatsappConnectionFormSchema });
+export const whatsappTemplateTestCommandSchema = whatsappTemplateTestFormSchema.extend({
+  config: z.object({
+    phoneNumberId: z.string().trim().min(1, 'Preencha o ID do telefone.'),
+    templateLanguage: z.string().trim().optional(),
+  }),
+});

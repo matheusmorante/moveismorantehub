@@ -48,12 +48,6 @@ export const MobileOrderCard: React.FC<MobileOrderCardProps> = ({
   const isStockChecked = Boolean(
     order?.is_stock_checked ?? order?.isStockChecked ?? data.isStockChecked ?? data.is_stock_checked
   );
-  const isRegisteredInBling = Boolean(
-    order?.is_registered_in_bling ??
-      order?.isRegisteredInBling ??
-      data.isRegisteredInBling ??
-      data.is_registered_in_bling
-  );
   const stockProcessed = Boolean(
     isReturn
       ? order?.returnStockProcessed ??
@@ -153,7 +147,6 @@ export const MobileOrderCard: React.FC<MobileOrderCardProps> = ({
           isDraft={isDraft}
           cancelled={cancelled}
           isStockChecked={isStockChecked}
-          isRegisteredInBling={isRegisteredInBling}
           stockProcessed={stockProcessed}
           stockReversed={stockReversed}
           returnOrderId={returnOrderId}

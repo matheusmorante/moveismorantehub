@@ -27,10 +27,12 @@ export const DesktopNav: React.FC<DesktopNavProps> = ({ activeMenu, setActiveMen
   return (
     <nav className="hidden min-[1600px]:flex h-full items-center gap-2">
       {/* 1. Dashboard Principal */}
-      <Link to="/" className={navLinkClass}>
-        <i className="bi bi-grid-fill" />
-        Dashboard
-      </Link>
+      {permissions.canViewDashboard && (
+        <Link to="/" className={navLinkClass}>
+          <i className="bi bi-grid-fill" />
+          Dashboard
+        </Link>
+      )}
 
       {/* 2. Central de Atendimento Omnichannel */}
       {permissions.canViewCustomerSupport && (

@@ -20,7 +20,9 @@ interface MobileProductVariationCardProps {
   onMoveVariation?: (variation: any, parentProduct: any) => void;
   onMergeVariation?: (variation: any, parentProduct: any) => void;
   onShowHistory?: (product: any) => void;
+  onShowOrders?: (product: any) => void;
   onLaunchStock?: (product: any) => void;
+  canShowLinkedOrders?: boolean;
   canChangeCatalog?: boolean;
   showCatalogStatus?: boolean;
   canPrintLabel?: boolean;
@@ -39,7 +41,9 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   onMoveVariation,
   onMergeVariation,
   onShowHistory,
+  onShowOrders,
   onLaunchStock,
+  canShowLinkedOrders = false,
   canChangeCatalog = false,
   showCatalogStatus = true,
   canPrintLabel = false,
@@ -167,7 +171,11 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
         isMerged={isMerged}
         onClose={() => setMenuVisible(false)}
         onPrintLabel={canPrintLabel && !isMerged ? handlePrintLabel : undefined}
-        onEdit={onEdit && !isMerged ? () => onEdit(parentProduct || {}) : undefined}
+        onEdit={
+          onEdit && !isMerged
+            ? () => onEdit({ ...(parentProduct || {}), selectedVariationId: v.id })
+            : undefined
+        }
         onMoveToAnotherFamily={
           onMoveVariation && !isMerged && !v.isVirtual
             ? () => onMoveVariation(v, parentProduct || {})
@@ -192,6 +200,20 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
         onShowHistory={
           onShowHistory && !isMerged
             ? () => onShowHistory({ ...parentProduct, ...v, id: v.id || parentProduct?.id })
+            : undefined
+        }
+        onShowOrders={
+          canShowLinkedOrders && onShowOrders && !isMerged && !isParentDraft && !v.isVirtual && v.id
+            ? () =>
+                onShowOrders({
+                  ...parentProduct,
+                  ...v,
+                  id: v.id,
+                  parentId: parentProduct?.id,
+                  variationId: v.id,
+                  isVariation: true,
+                  name: varName,
+                })
             : undefined
         }
       />

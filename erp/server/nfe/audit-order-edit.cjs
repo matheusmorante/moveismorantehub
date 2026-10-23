@@ -998,7 +998,7 @@ function resolveNormalSalePayments(params) {
     const method = normalize(originalMethod);
     const isPromissory = isPromissoryPaymentMethod(originalMethod);
     const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
-    let methodCode = method.includes("PIX") ? "17" : method.includes("CREDITO") || method.includes("CREDIT") ? "03" : method.includes("DEBITO") || method.includes("DEBIT") ? "04" : method.includes("DINHEIRO") || method.includes("CASH") ? "01" : method.includes("BOLETO") ? "15" : isPromissory ? "99" : void 0;
+    let methodCode = method.includes("PIX") ? "17" : method.includes("CREDITO") || method.includes("CREDIT") ? "03" : method.includes("DEBITO") || method.includes("DEBIT") ? "04" : method.includes("DINHEIRO") || method.includes("CASH") ? "01" : method.includes("BOLETO") ? "15" : isPromissory || method === "VERIFICAR" && settlement === "paid" ? "99" : void 0;
     let description = methodCode === "99" ? originalMethod : void 0;
     if (!methodCode && settlement === "pending" && (!method || method === "VERIFICAR")) {
       if (!fulfillmentCondition)
@@ -2343,7 +2343,6 @@ var buildOrderPersistencePayload = (order) => {
   const totalCost = order.itemsSummary?.totalItemsCost ?? 0;
   const stockProcessed = Boolean(order.stockProcessed);
   const isStockChecked = Boolean(order.isStockChecked);
-  const isRegisteredInBling = Boolean(order.isRegisteredInBling);
   const deleted = Boolean(order.deleted);
   const deletedAt = order.deletedAt ? new Date(order.deletedAt).toISOString() : null;
   const returnOrderId = order.returnOrderId || null;
@@ -2364,6 +2363,8 @@ var buildOrderPersistencePayload = (order) => {
   const sanitizedOrder = { ...order };
   delete sanitizedOrder.updatedAt;
   delete sanitizedOrder.linkedReturnMovement;
+  delete sanitizedOrder.isRegisteredInBling;
+  delete sanitizedOrder.is_registered_in_bling;
   if (sanitizedOrder.date && /^\d{2}\/\d{2}\/\d{4}/.test(sanitizedOrder.date)) {
     const [d, m, y] = sanitizedOrder.date.slice(0, 10).split("/");
     sanitizedOrder.date = `${y}-${m}-${d}T12:00:00.000Z`;
@@ -2391,7 +2392,6 @@ var buildOrderPersistencePayload = (order) => {
     total_cost: totalCost,
     stock_processed: stockProcessed,
     is_stock_checked: isStockChecked,
-    is_registered_in_bling: isRegisteredInBling,
     deleted,
     deleted_at: deletedAt,
     return_order_id: returnOrderId,

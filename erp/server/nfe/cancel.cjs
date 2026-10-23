@@ -1781,7 +1781,7 @@ function resolveNormalSalePayments(params) {
     const method = normalize(originalMethod);
     const isPromissory = isPromissoryPaymentMethod(originalMethod);
     const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
-    let methodCode = method.includes("PIX") ? "17" : method.includes("CREDITO") || method.includes("CREDIT") ? "03" : method.includes("DEBITO") || method.includes("DEBIT") ? "04" : method.includes("DINHEIRO") || method.includes("CASH") ? "01" : method.includes("BOLETO") ? "15" : isPromissory ? "99" : void 0;
+    let methodCode = method.includes("PIX") ? "17" : method.includes("CREDITO") || method.includes("CREDIT") ? "03" : method.includes("DEBITO") || method.includes("DEBIT") ? "04" : method.includes("DINHEIRO") || method.includes("CASH") ? "01" : method.includes("BOLETO") ? "15" : isPromissory || method === "VERIFICAR" && settlement === "paid" ? "99" : void 0;
     let description = methodCode === "99" ? originalMethod : void 0;
     if (!methodCode && settlement === "pending" && (!method || method === "VERIFICAR")) {
       if (!fulfillmentCondition)

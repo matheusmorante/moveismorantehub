@@ -13,7 +13,9 @@ interface Props {
   onMoveVariation?: (variation: any, parentProduct: any) => void;
   onMergeVariation?: (variation: any, parentProduct: any) => void;
   onShowHistory?: (product: any) => void;
+  onShowOrders?: (product: any) => void;
   onLaunchStock?: (product: any) => void;
+  canShowLinkedOrders?: boolean;
   parentProduct?: any;
   canChangeCatalog?: boolean;
   showCatalogStatus?: boolean;
@@ -31,7 +33,9 @@ export const MobileProductVariationList: React.FC<Props> = ({
   onMoveVariation,
   onMergeVariation,
   onShowHistory,
+  onShowOrders,
   onLaunchStock,
+  canShowLinkedOrders = false,
   parentProduct,
   canChangeCatalog = false,
   showCatalogStatus = true,
@@ -60,7 +64,9 @@ export const MobileProductVariationList: React.FC<Props> = ({
           onMoveVariation={onMoveVariation}
           onMergeVariation={onMergeVariation}
           onShowHistory={onShowHistory}
+          onShowOrders={onShowOrders}
           onLaunchStock={onLaunchStock}
+          canShowLinkedOrders={canShowLinkedOrders}
           canChangeCatalog={canChangeCatalog}
           showCatalogStatus={showCatalogStatus}
           canPrintLabel={canPrintLabel}

@@ -76,7 +76,11 @@ export const generateDeliveryAISummary = async (
 
     let settingsData: any = null;
     try {
-      const { data } = await supabase.from('settings').select('*').eq('id', 'app').maybeSingle();
+      const { data } = await supabase
+        .from('settings')
+        .select('data->handlingOptions,data->orderTypes')
+        .eq('id', 'app')
+        .maybeSingle();
       settingsData = data;
     } catch (e) {
       console.warn('Configurações de IA não carregadas:', e);
@@ -84,7 +88,6 @@ export const generateDeliveryAISummary = async (
 
     const settings = settingsData?.data || settingsData || {};
     const handlingOptions: any[] = settings.handlingOptions || settings.orderTypes || [];
-    const geminiKey = await MobileAgentClient.getApiKey();
 
     // 1. Montar payload canônico e calcular a fingerprint determinística dos dados
     const canonicalPayload: CanonicalSummaryPayload = buildCanonicalSummaryPayload(
@@ -152,37 +155,23 @@ export const generateDeliveryAISummary = async (
       // 4. Gerar o texto com o modelo de logística
       smartText = generateLocalSmartText(canonicalPayload);
 
-      if (geminiKey && canonicalPayload.orders.length > 0) {
+      if (canonicalPayload.orders.length > 0) {
         try {
           const geminiPrompt = buildDeliverySummaryPrompt(smartText);
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${encodeURIComponent(geminiKey)}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ contents: [{ parts: [{ text: geminiPrompt }] }] }),
-            }
-          );
-          if (res.ok) {
-            const resJson = await res.json();
-            const aiText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (aiText && aiText.trim()) {
-              smartText = aiText
-                .trim()
-                .replace(/[*#]/g, '')
-                .replace(/:/g, ' ')
-                .replace(/[()]/g, '')
-                .replace(/\s+/g, ' ');
-            }
-            setSummaryQuotaExceeded(false);
-          } else {
-            const errBody = await res.text().catch(() => '');
-            const is429 = res.status === 429 || /resource_exhausted|quota|exceeded/i.test(errBody);
-            if (is429) {
-              console.warn('[aiSummaryService] Cota do Gemini Flash excedida (HTTP 429).');
-              setSummaryQuotaExceeded(true);
-            }
+          const resJson = await MobileAgentClient.generateContent({
+            model: 'gemini-3.5-flash-lite',
+            contents: [{ parts: [{ text: geminiPrompt }] }],
+          });
+          const aiText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (aiText && aiText.trim()) {
+            smartText = aiText
+              .trim()
+              .replace(/[*#]/g, '')
+              .replace(/:/g, ' ')
+              .replace(/[()]/g, '')
+              .replace(/\s+/g, ' ');
           }
+          setSummaryQuotaExceeded(false);
         } catch (geminiErr: any) {
           const errMsg = String(geminiErr?.message || geminiErr || '');
           if (/429|quota|resource_exhausted/i.test(errMsg)) {

@@ -13,8 +13,8 @@ const {
 export { parseMetaStatusFailure, verifyMetaSignature };
 export const config = { api: { bodyParser: false } };
 
-const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'morante_hub_whatsapp_2026';
-const APP_SECRET = process.env.WHATSAPP_APP_SECRET || process.env.META_APP_SECRET || '';
+const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN?.trim() || '';
+const APP_SECRET = process.env.WHATSAPP_APP_SECRET?.trim() || '';
 const supabaseUrl = getSupabaseUrl();
 const supabaseServiceKey = getSupabaseSecretKey() || '';
 
@@ -25,6 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'GET') {
+    if (!VERIFY_TOKEN) return res.status(503).json({ error: 'Webhook verification is not configured.' });
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
@@ -49,7 +50,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         auth: { persistSession: false, autoRefreshToken: false },
       });
       const result = await processWhatsAppWebhookPayload(supabase, body);
-      if (result.errors.length) console.error(`[WhatsApp Webhook] Eventos com erro: ${result.errors.length}`);
+      if (result.errors.length) {
+        console.error(`[WhatsApp Webhook] Eventos com erro: ${result.errors.length}`);
+        return res.status(503).json({ error: 'Webhook processing could not be completed.' });
+      }
       return res.status(200).json({ status: 'EVENT_RECEIVED' });
     } catch (error: any) {
       console.error('[WhatsApp Webhook] Erro ao processar payload:', error);

@@ -333,6 +333,19 @@ export const getProductCharacteristicAttributes = (
   return [];
 };
 
+/** Mirrors ERP's parent color summary derived from variation attributes. */
+export const getMobileVariationColorSummary = (variations: readonly unknown[] = []): string => {
+  const colors = new Set<string>();
+  variations.forEach((variation: any) => {
+    getProductCharacteristicAttributes(variation?.attributes).forEach((attribute) => {
+      if (attribute.name.toUpperCase() === 'COR' && attribute.value) {
+        colors.add(String(attribute.value).toUpperCase());
+      }
+    });
+  });
+  return Array.from(colors).join(' / ');
+};
+
 /** Atualiza valor sem apagar a opção de ocultar a característica do nome da variação. */
 export const upsertProductCharacteristicAttribute = (
   rawAttributes: unknown,
@@ -371,6 +384,49 @@ export const getEffectiveProductTechnicalValues = (product: any = {}) => {
   };
 
   return normalizeValues({ ...legacyValues, ...technicalValues });
+};
+
+const normalizeVariableFieldName = (value: unknown) =>
+  String(value || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR');
+
+const variableFieldAliases = (value: unknown) => {
+  const normalized = normalizeVariableFieldName(value).replace(/\s/g, '');
+  return ['modelo', 'linha', 'modelolinha', 'linhamodelo'].includes(normalized)
+    ? ['modelo', 'linha', 'modelolinha', 'linhamodelo']
+    : [normalized];
+};
+
+export const isMobileVariableTechnicalField = (
+  fieldName: string,
+  variableFieldNames: readonly string[] = []
+) => {
+  const candidates = new Set(variableFieldAliases(fieldName));
+  return variableFieldNames.some((name) =>
+    variableFieldAliases(name).some((candidate) => candidates.has(candidate))
+  );
+};
+
+/** Uses the persisted scope list, or infers legacy variability from child overrides. */
+export const resolveMobileVariableTechnicalFieldNames = (product: any = {}): string[] => {
+  const configured =
+    product.variableTechnicalFields ?? product.technical_specs?.variableTechnicalFields;
+  if (Array.isArray(configured)) return configured.filter((name): name is string => typeof name === 'string');
+
+  const names = new Map<string, string>();
+  const addName = (rawName: unknown) => {
+    const name = String(rawName || '').trim();
+    const key = normalizeVariableFieldName(name);
+    if (key && !names.has(key)) names.set(key, name);
+  };
+  for (const variation of product.variations || product.allVariations || []) {
+    getProductCharacteristicAttributes(variation?.attributes).forEach(({ name }) => addName(name));
+    Object.keys(toTechnicalValuesMap(variation?.technicalValues)).forEach(addName);
+  }
+  return [...names.values()];
 };
 
 /** Mescla fontes técnicas na ordem de prioridade sem alterar os rótulos salvos pelo ERP. */
@@ -430,15 +486,19 @@ export const getPersistableProductTechnicalValues = (
  */
 export const getEffectiveVariationTechnicalValues = (
   parentValues: Record<string, unknown> = {},
-  variation: any = {}
+  variation: any = {},
+  variableFieldNames?: readonly string[]
 ): Record<string, unknown> => {
+  const isAllowed = (name: string) =>
+    variableFieldNames === undefined || isMobileVariableTechnicalField(name, variableFieldNames);
   const variationAttributes = Object.fromEntries(
-    getProductCharacteristicAttributes(variation?.attributes).map(({ name, value }) => [
-      name,
-      value,
-    ])
+    getProductCharacteristicAttributes(variation?.attributes)
+      .filter(({ name }) => isAllowed(name))
+      .map(({ name, value }) => [name, value])
   );
-  const variationTechnicalValues = toTechnicalValuesMap(variation?.technicalValues);
+  const variationTechnicalValues = Object.fromEntries(
+    Object.entries(toTechnicalValuesMap(variation?.technicalValues)).filter(([name]) => isAllowed(name))
+  );
 
   return normalizeValues({
     ...parentValues,

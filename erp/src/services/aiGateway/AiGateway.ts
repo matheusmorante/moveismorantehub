@@ -217,33 +217,8 @@ export class AiGateway {
     const resolvedModule = moduleSource || inferModuleFromOperation(operation);
     const serviceId = category === 'IMAGE' ? 'gemini_image' : 'gemini_flash';
 
-    let apiKey =
-      import.meta.env.VITE_GEMINI_API_KEY ||
-      (typeof process !== 'undefined' ? process.env?.VITE_GEMINI_API_KEY : '');
-    if (!apiKey) {
-      try {
-        const { data } = await supabase.from('settings').select('*').eq('id', 'app').maybeSingle();
-        apiKey =
-          data?.data?.geminiApiKey || data?.geminiApiKey || data?.settings_data?.geminiApiKey || '';
-      } catch {
-        // Fallback silencioso se der erro no supabase
-      }
-    }
-    if (
-      !apiKey &&
-      typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ) {
-      apiKey = 'mock-key-for-e2e-and-local-development';
-    }
-    if (!apiKey) {
-      AiLatencyTracker.endCall(callId, false, 0, 'Chave de API Gemini não configurada.');
-      throw new Error('Chave de API Gemini não configurada.');
-    }
-
     const isEmbedding = model.includes('embedding') || operation.includes('embedding');
     const action = isEmbedding ? 'embedContent' : 'generateContent';
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${action}?key=${encodeURIComponent(apiKey)}`;
 
     let requestBody: any;
     if (isEmbedding) {
@@ -284,10 +259,13 @@ export class AiGateway {
     let responseHttpStatus: number | null = null;
 
     try {
-      const res = await fetch(endpoint, {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
+      const res = await fetch('/api/gemini-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ model, action, payload: requestBody }),
       });
       responseHttpStatus = res.status;
 

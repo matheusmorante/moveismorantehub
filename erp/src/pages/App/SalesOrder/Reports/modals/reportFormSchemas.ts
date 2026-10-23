@@ -12,7 +12,7 @@ const columnMappingSchema = z.object({
 
 export const reportConfigFormSchema = z.object({
   name: z.string().min(1, 'Dê um nome ao relatório.'),
-  source: z.enum(['erp', 'csv', 'bling']),
+  source: z.enum(['erp', 'csv']),
   config: columnMappingSchema.extend({
     abcBasis: z.enum(['revenue', 'profit']),
     turnoverThresholdMode: z.enum(['avg', 'custom']),

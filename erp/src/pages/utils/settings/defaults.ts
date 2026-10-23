@@ -1,13 +1,5 @@
 import { AppSettings } from './types';
 import {
-  BLING_PRODUCT_DEFAULTS,
-  BLING_VARIATION_DEFAULTS,
-  BLING_CUSTOMER_DEFAULTS,
-  BLING_SUPPLIER_DEFAULTS,
-  BLING_ORDER_DEFAULTS,
-  BLING_RECEIVABLE_DEFAULTS,
-} from '../importMappingTypes';
-import {
   MORANTE_DELIVERY_HANDLING_OPTIONS,
   MORANTE_PICKUP_HANDLING_OPTIONS,
 } from '../handlingMigration';
@@ -63,9 +55,6 @@ export const getDefaultSettings = (): AppSettings => ({
     },
   ],
   freightPerKm: 2,
-  openRouteServiceApiKey: '',
-  googleMapsApiKey: '__REDACTED_GCP_API_KEY__',
-  geminiApiKey: '',
   storeOriginCoords: [-49.16948, -25.35205],
   companyName: 'Móveis Morante',
   companyDanfeLogoUrl: '/images/logo-morante.svg',
@@ -253,7 +242,6 @@ RESPOSTA NO FORMATO JSON:
     },
   },
   whatsappConfig: {
-    accessToken: '',
     phoneNumberId: '',
     wabaId: '',
     catalogId: '',
@@ -370,24 +358,10 @@ RESPOSTA NO FORMATO JSON:
     timezone: 'America/Sao_Paulo',
   },
   defaultLabelLayoutIds: {},
-  importMappings: [
-    BLING_PRODUCT_DEFAULTS,
-    BLING_VARIATION_DEFAULTS,
-    BLING_CUSTOMER_DEFAULTS,
-    BLING_SUPPLIER_DEFAULTS,
-    BLING_ORDER_DEFAULTS,
-    BLING_RECEIVABLE_DEFAULTS,
-  ],
+  importMappings: [],
   scannerConfig: {
     delay: 1500,
     enableBeep: true,
     vibrate: true,
-  },
-  blingConfig: {
-    apiKey: '',
-    apiToken: '',
-    clientId: '',
-    clientSecret: '',
-    syncEnabled: false,
   },
 });

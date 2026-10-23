@@ -1,4 +1,15 @@
-import { ArrowLeftRight, Clock3, Edit3, GitMerge, PackagePlus, QrCode, X } from 'lucide-react-native';
+import {
+  ArrowLeftRight,
+  Clock3,
+  Edit3,
+  GitMerge,
+  PackagePlus,
+  QrCode,
+  Receipt,
+  Tag,
+  Trash2,
+  X,
+} from 'lucide-react-native';
 import type React from 'react';
 import {
   Alert,
@@ -22,6 +33,11 @@ interface Props {
   onMergeWithAnotherVariation?: () => void;
   onLaunchStock?: () => void;
   onShowHistory?: () => void;
+  onShowOrders?: () => void;
+  onPrintPriceLabel?: () => void;
+  onMoveProductToTrash?: () => void;
+  canMoveProductToTrash?: boolean;
+  trashBlockReason?: string | null;
   hasSupplier?: boolean;
   hasValidAttributes?: boolean;
 }
@@ -38,6 +54,11 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
   onMergeWithAnotherVariation,
   onLaunchStock,
   onShowHistory,
+  onShowOrders,
+  onPrintPriceLabel,
+  onMoveProductToTrash,
+  canMoveProductToTrash = false,
+  trashBlockReason,
   hasSupplier = true,
   hasValidAttributes = true,
 }) => (
@@ -164,6 +185,71 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
                 <Text style={[styles.itemText, dark && styles.textDark]}>Histórico de Preços</Text>
               </TouchableOpacity>
             ) : null}
+            {onShowOrders && !isMerged ? (
+              <TouchableOpacity
+                style={styles.item}
+                onPress={() => {
+                  onClose();
+                  onShowOrders();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Pedidos vinculados do produto"
+              >
+                <Receipt size={16} color="#2563eb" />
+                <Text style={[styles.itemText, dark && styles.textDark]}>Pedidos Vinculados</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onPrintPriceLabel && !isMerged ? (
+              <TouchableOpacity
+                style={styles.item}
+                onPress={() => {
+                  onClose();
+                  onPrintPriceLabel();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Imprimir etiqueta de preço"
+              >
+                <Tag size={16} color="#059669" />
+                <Text style={[styles.itemText, dark && styles.textDark]}>Etiqueta de Preço</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onMoveProductToTrash && !isMerged ? (
+              <>
+                <TouchableOpacity
+                  style={styles.item}
+                  disabled={!canMoveProductToTrash}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mover produto para lixeira"
+                  accessibilityState={{ disabled: !canMoveProductToTrash }}
+                  accessibilityHint={trashBlockReason || 'Move o produto e sua variação para a lixeira.'}
+                  onPress={() =>
+                    Alert.alert(
+                      'Mover produto para a lixeira?',
+                      'O produto e sua variação serão movidos para a lixeira. Você poderá restaurá-los durante 30 dias.',
+                      [
+                        { text: 'Cancelar', style: 'cancel' },
+                        {
+                          text: 'Mover para lixeira',
+                          style: 'destructive',
+                          onPress: () => {
+                            onClose();
+                            onMoveProductToTrash();
+                          },
+                        },
+                      ]
+                    )
+                  }
+                >
+                  <Trash2 size={16} color={canMoveProductToTrash ? '#ef4444' : '#94a3b8'} />
+                  <Text style={[styles.itemText, styles.trashText, !canMoveProductToTrash && styles.disabledText]}>
+                    Mover para lixeira
+                  </Text>
+                </TouchableOpacity>
+                {!canMoveProductToTrash && Boolean(trashBlockReason) && (
+                  <Text style={[styles.disabledReason, dark && styles.textDark]}>{trashBlockReason}</Text>
+                )}
+              </>
+            ) : null}
           </View>
         </TouchableWithoutFeedback>
       </View>
@@ -217,6 +303,9 @@ const styles = StyleSheet.create({
   itemText: { color: '#0f172a', fontSize: 13, fontWeight: '800' },
   moveText: { color: '#4f46e5' },
   mergeText: { color: '#7c3aed' },
+  trashText: { color: '#ef4444' },
+  disabledText: { color: '#94a3b8' },
+  disabledReason: { color: '#64748b', fontSize: 10, lineHeight: 14, paddingHorizontal: 10, paddingBottom: 8 },
   mergedNotice: {
     margin: 8,
     padding: 10,

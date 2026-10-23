@@ -171,7 +171,7 @@ export const processDeliveryReminderForOrder = async (
   try {
     if (content.isSameDay) {
       // No mesmo dia: envia apenas texto de lembrete de espaço para montagem (sem botão)
-      await whatsappGraphService.sendTextMessage(phone, content.message);
+      await whatsappGraphService.sendTextMessage(phone, content.message, 'delivery');
       if (forceManual) toast.success('Mensagem enviada com sucesso');
       return { sent: true, mode: 'same_day_space_reminder', message: content.message };
     } else {

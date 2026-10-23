@@ -1,0 +1,33 @@
+import { describe, expect, it, vi } from 'vitest';
+import { deriveAuthRoleFlags } from './authProfilePermissions';
+
+vi.mock('react-native', () => ({ Platform: { OS: 'test' } }));
+vi.mock('../../services/supabaseClient', () => ({
+  MASTER_DEFAULT_PROFILE: { email: 'admin@example.com' },
+}));
+
+describe('mobile module permission flags', () => {
+  it('exposes the products area to a role with only a channel catalog permission', () => {
+    const flags = deriveAuthRoleFlags(
+      { role: 'manager' },
+      {
+        viewProducts: [],
+        viewProductCharacteristics: [],
+        viewProductCategories: [],
+        viewProductCompositions: [],
+        viewProductReconciliation: [],
+      },
+      true
+    );
+
+    expect(flags.canUsePermission('viewMetaCatalog', ['manager'])).toBe(true);
+    expect(flags.canSeeProducts).toBe(true);
+  });
+
+  it('keeps channel access closed while role permissions are loading', () => {
+    const flags = deriveAuthRoleFlags({ role: 'manager' }, {}, false);
+
+    expect(flags.canUsePermission('viewMetaCatalog', ['manager'])).toBe(false);
+    expect(flags.canSeeProducts).toBe(false);
+  });
+});

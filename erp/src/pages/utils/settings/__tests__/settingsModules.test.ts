@@ -46,12 +46,13 @@ describe('settings modular architecture', () => {
   });
 
   describe('migrations', () => {
-    it('remove credenciais fiscais legadas', () => {
+    it('remove segredos fiscais legados e mantém o identificador público do CSC', () => {
       const input = {
         companyCnpj: '44512248000107',
         certificateBase64: 'secret-base64',
         certificatePassword: 'secret-password',
         certificateFileName: 'cert.pfx',
+        cscId: 'legacy-csc-id',
         cscToken: 'secret-csc',
       };
       const migrated = migrateSettings(input);
@@ -59,7 +60,42 @@ describe('settings modular architecture', () => {
       expect(migrated).not.toHaveProperty('certificateBase64');
       expect(migrated).not.toHaveProperty('certificatePassword');
       expect(migrated).not.toHaveProperty('certificateFileName');
+      expect(migrated.cscId).toBe('legacy-csc-id');
       expect(migrated).not.toHaveProperty('cscToken');
+    });
+
+    it('move chaves de integração para o servidor e remove configurações legadas do Bling', () => {
+      const input = {
+        geminiApiKey: 'legacy-gemini',
+        googleMapsApiKey: 'legacy-maps',
+        openRouteServiceApiKey: 'legacy-routing',
+        whatsappConfig: { accessToken: 'legacy-meta', phoneNumberId: '12345' },
+        blingConfig: { clientSecret: 'legacy-bling' },
+        importMappings: [
+          { id: 'bling-products', name: 'Produtos Bling' },
+          { id: 'generic-csv', name: 'Arquivo CSV' },
+        ],
+      };
+
+      const migrated = migrateSettings(input);
+      expect(migrated).not.toHaveProperty('geminiApiKey');
+      expect(migrated).not.toHaveProperty('googleMapsApiKey');
+      expect(migrated).not.toHaveProperty('openRouteServiceApiKey');
+      expect(migrated.whatsappConfig).not.toHaveProperty('accessToken');
+      expect(migrated).not.toHaveProperty('blingConfig');
+      expect(migrated.importMappings.map((mapping) => mapping.id)).toEqual(['generic-csv']);
+    });
+
+    it('regrava o cache local quando ele contém credenciais antigas', () => {
+      store.set(
+        SETTINGS_KEY,
+        JSON.stringify({ geminiApiKey: 'legacy-gemini', cscId: '000001', companyName: 'Morante' })
+      );
+      const settings = getSettings();
+      expect(settings).not.toHaveProperty('geminiApiKey');
+      expect(settings.cscId).toBe('000001');
+      expect(JSON.parse(store.get(SETTINGS_KEY) || '{}')).not.toHaveProperty('geminiApiKey');
+      expect(JSON.parse(store.get(SETTINGS_KEY) || '{}').cscId).toBe('000001');
     });
 
     it('migra manuseio de string[] para HandlingOption[]', () => {

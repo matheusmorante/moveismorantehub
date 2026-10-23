@@ -4,6 +4,7 @@ import type { InventoryScanFeedback } from '../InventoryScannerScreen';
 import { styles } from './inventoryScanner.styles';
 
 interface InventoryScannerFeedbackViewProps {
+  description: string;
   lastFeedback: InventoryScanFeedback | null;
   unitsRead: number;
   productsReadCount: number;
@@ -12,6 +13,7 @@ interface InventoryScannerFeedbackViewProps {
 }
 
 export const InventoryScannerFeedbackView: React.FC<InventoryScannerFeedbackViewProps> = ({
+  description,
   lastFeedback,
   unitsRead,
   productsReadCount,
@@ -53,13 +55,18 @@ export const InventoryScannerFeedbackView: React.FC<InventoryScannerFeedbackView
           )}
         </View>
       )}
-      <Text style={styles.sessionText}>
-        {unitsRead} {unitsRead === 1 ? 'unidade contada' : 'unidades contadas'} ·{' '}
-        {productsReadCount}{' '}
-        {productsReadCount === 1 ? 'produto contado' : 'produtos contados'}
-      </Text>
+      <Text style={[styles.footerText, styles.footerTextInventory]}>{description}</Text>
+      <View style={styles.sessionStatsRow}>
+        <Text style={styles.sessionStat}>
+          {unitsRead} {unitsRead === 1 ? 'unidade contada' : 'unidades contadas'}
+        </Text>
+        <Text style={styles.sessionStat}>
+          {productsReadCount}{' '}
+          {productsReadCount === 1 ? 'produto contado' : 'produtos contados'}
+        </Text>
+      </View>
       <TouchableOpacity style={styles.finishButton} onPress={onClose} disabled={scanned}>
-        <Text style={styles.finishButtonText}>FINALIZAR LEITURA</Text>
+        <Text style={styles.finishButtonText}>Finalizar leitura</Text>
       </TouchableOpacity>
     </>
   );

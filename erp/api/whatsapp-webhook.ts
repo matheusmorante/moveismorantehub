@@ -13,8 +13,8 @@ const {
 export { parseMetaStatusFailure, verifyMetaSignature };
 export const config = { api: { bodyParser: false } };
 
-const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'morante_hub_whatsapp_2026';
-const APP_SECRET = process.env.WHATSAPP_APP_SECRET || process.env.META_APP_SECRET || '';
+const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN?.trim() || '';
+const APP_SECRET = process.env.WHATSAPP_APP_SECRET?.trim() || '';
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://hkoxhourxwlddgsfdgws.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || '';
 
@@ -37,11 +37,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return handleWhatsAppMedia(req, res, {
       supabaseUrl,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
-      supabaseSecretKey: supabaseServiceKey,
     });
   }
 
   if (req.method === 'GET') {
+    if (!VERIFY_TOKEN) return res.status(503).json({ error: 'Webhook verification is not configured.' });
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
@@ -66,7 +66,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         auth: { persistSession: false, autoRefreshToken: false },
       });
       const result = await processWhatsAppWebhookPayload(supabase, body);
-      if (result.errors.length) console.error(`[WhatsApp Webhook] Eventos com erro: ${result.errors.length}`);
+      if (result.errors.length) {
+        console.error(`[WhatsApp Webhook] Eventos com erro: ${result.errors.length}`);
+        return res.status(503).json({ error: 'Webhook processing could not be completed.' });
+      }
       return res.status(200).json({ status: 'EVENT_RECEIVED' });
     } catch (error: any) {
       console.error('[WhatsApp Webhook] Erro ao processar payload:', error);

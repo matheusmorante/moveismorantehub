@@ -1,78 +1,21 @@
-import { getAppSettings } from '../appSettingsCache';
+import { supabase } from '../supabaseClient';
 import { GeminiContent } from './mobileAgentTypes';
 
 // Cliente HTTP leve e tipado para a API oficial do Google Gemini no Mobile
 
-const DEFAULT_GEMINI_API_KEY: string = '';
-
 export class MobileAgentClient {
-  private static cachedApiKey: string | null = null;
-
-  public static clearApiKeyCache() {
-    this.cachedApiKey = null;
-  }
-
-  public static async getApiKey(): Promise<string> {
-    if (this.cachedApiKey) return this.cachedApiKey;
-
-    // 1. Tentar tabela settings no Supabase (prioridade para permitir atualização dinâmica sem re-build)
-    try {
-      const data = await getAppSettings();
-      const dbKey =
-        data?.geminiApiKey || data?.settings_data?.geminiApiKey || data?.value?.geminiApiKey || '';
-
-      if (dbKey && typeof dbKey === 'string' && dbKey.trim()) {
-        this.cachedApiKey = dbKey.trim();
-        return this.cachedApiKey;
-      }
-    } catch (err) {
-      console.warn('Aviso: falha ao carregar chave do Gemini da tabela settings:', err);
-    }
-
-    // 2. Tentar variaveis de ambiente
-    const envKey =
-      (typeof process !== 'undefined' &&
-        (process.env?.EXPO_PUBLIC_GEMINI_API_KEY ||
-          process.env?.VITE_GEMINI_API_KEY ||
-          process.env?.GEMINI_API_KEY)) ||
-      '';
-
-    if (envKey && typeof envKey === 'string' && envKey.trim()) {
-      this.cachedApiKey = envKey.trim();
-      return this.cachedApiKey;
-    }
-
-    // 3. Fallback seguro padrão do projeto Morante Hub para compilações nativas (APK/EAS)
-    if (DEFAULT_GEMINI_API_KEY && DEFAULT_GEMINI_API_KEY.trim()) {
-      this.cachedApiKey = DEFAULT_GEMINI_API_KEY.trim();
-      return this.cachedApiKey;
-    }
-
-    return '';
-  }
-
   public static async generateContent(payload: {
-    systemInstruction: { parts: { text: string }[] };
+    model?: string;
+    systemInstruction?: { parts: { text: string }[] };
     contents: GeminiContent[];
-    tools: any[];
+    tools?: any[];
     toolConfig?: any;
     temperature?: number;
-  }): Promise<any> {
-    let apiKey = await this.getApiKey();
-    if (!apiKey) {
-      this.clearApiKeyCache();
-      apiKey = await this.getApiKey();
-    }
-
-    if (!apiKey) {
-      throw new Error(
-        'Chave de API do Gemini não configurada no servidor. Acesse as Configurações do ERP > Assistente de IA para cadastrar a chave.'
-      );
-    }
-
-    const model = 'gemini-3.8-flash';
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
+  }, signal?: AbortSignal): Promise<any> {
+    const { data, error } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (error || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
+    const model = payload.model || 'gemini-3.8-flash';
     const body: Record<string, any> = {
       contents: payload.contents,
       generationConfig: {
@@ -91,12 +34,15 @@ export class MobileAgentClient {
       body.toolConfig = payload.toolConfig;
     }
 
-    const response = await fetch(endpoint, {
+    const apiBase = (process.env.EXPO_PUBLIC_ERP_API_URL || 'https://morantehub.com').replace(/\/$/, '');
+    const response = await fetch(`${apiBase}/api/gemini-proxy`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ model, action: 'generateContent', payload: body }),
+      signal,
     });
 
     if (!response.ok) {

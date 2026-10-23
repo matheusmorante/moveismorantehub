@@ -107,7 +107,6 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
       action('viewStockPurchases', 'Pedidos de compra', 'view', 'Acessar', 'Consultar pedidos de compra.', 'bi-cart-fill', stockViewers),
       action('viewStockReceipts', 'Recebimentos', 'view', 'Acessar', 'Consultar conferências e recebimentos de mercadoria.', 'bi-clipboard-check', stockViewers),
       action('viewStockLabels', 'Etiquetas', 'view', 'Acessar', 'Consultar e imprimir etiquetas de produtos e preços.', 'bi-upc-scan', stockViewers),
-      action('viewBlingStock', 'Estoque Bling', 'view', 'Acessar', 'Consultar estoque sincronizado com o Bling.', 'bi-cloud-arrow-down', ['manager', 'deliverer']),
       action('viewSuppliers', 'Fornecedores', 'view', 'Acessar', 'Consultar o submódulo de fornecedores do estoque.', 'bi-truck', ['manager', 'seller', 'stockist']),
     ],
   },

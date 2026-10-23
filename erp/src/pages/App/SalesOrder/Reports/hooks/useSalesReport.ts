@@ -25,7 +25,7 @@ export const useSalesReport = (contextKey = 'list', readOnly = false) => {
   const [reportStartDate, setReportStartDate] = useState<Date | null>(null);
   const [reportEndDate, setReportEndDate] = useState<Date | null>(null);
 
-  const persistence = useSavedSalesReports({ results: rawResults, allProducts, totalProfit, monthCount, avgProfitPerItem, avgTurnoverPerItem, reportStartDate, reportEndDate }, contextKey, readOnly, 'abc_curve');
+  const persistence = useSavedSalesReports({ results: rawResults, allProducts, totalProfit, monthCount, avgProfitPerItem, avgTurnoverPerItem, reportStartDate, reportEndDate }, contextKey, readOnly);
   const { begin, scopeRef, mountedRef, invalid, showError } = persistence;
   const loadForm = useZodForm(salesReportLoadFormSchema, { config: {}, productMappings: {} });
   const importForm = useZodForm(salesReportCsvImportFormSchema, { config: {}, productMappings: {}, file: undefined as unknown as File });

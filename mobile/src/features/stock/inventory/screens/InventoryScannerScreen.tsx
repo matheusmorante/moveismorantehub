@@ -5,13 +5,24 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Platform,
+  StatusBar,
+  type LayoutRectangle,
 } from 'react-native';
-import { CameraView, Camera } from 'expo-camera';
+import { CameraView, Camera, type BarcodeScanningResult } from 'expo-camera';
 import { X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { playInventoryCountSound } from '../../../../services/inventoryCountSound';
-import { styles } from './inventory-scanner/inventoryScanner.styles';
+import {
+  frameSize as defaultFrameSize,
+  styles,
+} from './inventory-scanner/inventoryScanner.styles';
 import { recognizeAccessKeyFromCamera } from './inventory-scanner/inventoryScannerOcr';
 import { InventoryScannerFeedbackView } from './inventory-scanner/InventoryScannerFeedbackView';
+import {
+  getScannerFrameRect,
+  isBarcodeWithinScannerFrame,
+} from './inventory-scanner/scannerFrameGeometry';
 
 interface Props {
   isDarkMode: boolean;
@@ -22,6 +33,7 @@ interface Props {
   description?: string;
   accessKeyMode?: boolean;
   continuous?: boolean;
+  restrictToScannerFrame?: boolean;
 }
 
 export interface InventoryScanFeedback {
@@ -43,7 +55,13 @@ export const InventoryScannerScreen: React.FC<Props> = ({
   description = 'Aponte a câmera para o QR Code ou Código de Barras do produto.',
   accessKeyMode = false,
   continuous = false,
+  restrictToScannerFrame = false,
 }) => {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0
+  );
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [isReadingText, setIsReadingText] = useState(false);
@@ -53,10 +71,13 @@ export const InventoryScannerScreen: React.FC<Props> = ({
   const [frameBorderState, setFrameBorderState] = useState<
     'idle' | 'success' | 'error' | 'warning'
   >('idle');
+  const [scannerAreaLayout, setScannerAreaLayout] = useState<LayoutRectangle | null>(null);
   const processingRef = useRef(false);
   const recentScanRef = useRef<{ data: string; at: number }>({ data: '', at: 0 });
   const cameraRef = useRef<CameraView>(null);
   const frameBorderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scannerFrame = scannerAreaLayout ? getScannerFrameRect(scannerAreaLayout) : null;
+  const frameSize = restrictToScannerFrame ? scannerFrame?.width : defaultFrameSize;
 
   useEffect(() => {
     const getCameraPermissions = async () => {
@@ -77,7 +98,14 @@ export const InventoryScannerScreen: React.FC<Props> = ({
     );
   };
 
-  const handleBarCodeScanned = async ({ data }: { type: string; data: string }) => {
+  const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
+    const { data } = result;
+    if (
+      restrictToScannerFrame &&
+      (!scannerFrame || !isBarcodeWithinScannerFrame(result, scannerFrame))
+    ) {
+      return;
+    }
     if (processingRef.current || (!continuous && scanned)) return;
     if (
       continuous &&
@@ -190,25 +218,52 @@ export const InventoryScannerScreen: React.FC<Props> = ({
 
       {/* Overlay */}
       <View style={styles.overlay}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={onClose}
-            style={styles.iconButton}
-            disabled={continuous && scanned}
-          >
-            <X size={24} color="#ffffff" />
-          </TouchableOpacity>
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={styles.headerTitle}>{title}</Text>
-            {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+        {restrictToScannerFrame ? (
+          <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+            <View style={styles.headerContent}>
+              {title ? <Text style={styles.headerTitle}>{title}</Text> : null}
+              {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+            </View>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.iconButton, styles.closeButton, { top: topInset + 8 }]}
+              disabled={continuous && scanned}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar scanner"
+            >
+              <X size={24} color="#ffffff" />
+            </TouchableOpacity>
           </View>
-          <View style={{ width: 40 }} />
-        </View>
+        ) : (
+          <View style={styles.legacyHeader}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.iconButton}
+              disabled={continuous && scanned}
+            >
+              <X size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={styles.headerTitle}>{title}</Text>
+              {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+            </View>
+            <View style={{ width: 40 }} />
+          </View>
+        )}
 
-        <View style={styles.scannerArea}>
+        <View
+          style={styles.scannerArea}
+          onLayout={
+            restrictToScannerFrame
+              ? ({ nativeEvent }) => setScannerAreaLayout(nativeEvent.layout)
+              : undefined
+          }
+        >
           <View
             style={[
               styles.scannerFrame,
+              frameSize !== undefined && { width: frameSize, height: frameSize },
+              restrictToScannerFrame && styles.scannerFrameSquare,
               frameBorderState === 'success' && styles.scannerFrameSuccess,
               frameBorderState === 'error' && styles.scannerFrameError,
               frameBorderState === 'warning' && styles.scannerFrameWarning,
@@ -216,16 +271,29 @@ export const InventoryScannerScreen: React.FC<Props> = ({
           />
         </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>{description}</Text>
+        <View
+          style={
+            restrictToScannerFrame
+              ? [styles.footer, { paddingBottom: insets.bottom + 12 }]
+              : styles.legacyFooter
+          }
+        >
           {continuous && (
             <InventoryScannerFeedbackView
+              description={description}
               lastFeedback={lastFeedback}
               unitsRead={unitsRead}
               productsReadCount={productsRead.size}
               scanned={scanned}
               onClose={onClose}
             />
+          )}
+          {!continuous && (
+            <Text
+              style={[styles.footerText, restrictToScannerFrame && styles.footerTextInventory]}
+            >
+              {description}
+            </Text>
           )}
           {accessKeyMode && (
             <TouchableOpacity

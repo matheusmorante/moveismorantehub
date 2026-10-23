@@ -77,9 +77,9 @@ export const sendDirectCustomerOrderViaMetaApi = async (order: Order): Promise<b
   const config = settings.whatsappConfig;
 
   // 1. Validar se as credenciais da Meta Cloud API estão preenchidas
-  if (!config?.accessToken || !config?.phoneNumberId) {
+  if (!config?.phoneNumberId) {
     toast.error(
-      'Configuração da Meta incompleta: Token de Acesso permanente ou Phone Number ID não informados. Acesse Configurações > WhatsApp API.'
+      'Configuração da Meta incompleta: Phone Number ID não informado. Confira Configurações > WhatsApp API.'
     );
     return false;
   }

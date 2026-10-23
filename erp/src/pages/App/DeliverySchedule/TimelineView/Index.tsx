@@ -136,7 +136,7 @@ const TimelineNode = ({
                 <ReturnIcon className="h-7 w-7" />
               ) : (
                 isAssistance ? (
-                  <i className="bi bi-tools text-[13px] text-white" />
+                  <i className="bi bi-wrench-adjustable text-[15px] text-white" />
                 ) : isPickupTask ? (
                   <PickupIcon white className="h-4 w-4" />
                 ) : (

@@ -14,6 +14,9 @@ export interface InboxSidebarProps {
   isOpen: boolean;
   onToggleCollapse: () => void;
   agents: AssignedProfileSummary[];
+  isLoadingAgents?: boolean;
+  agentsError?: string | null;
+  onReloadAgents?: () => void;
   activeAgentId: string | null;
   onSelectAgent: (agentId: string | null) => void;
   folders: CustomerSupportFolder[];
@@ -40,6 +43,9 @@ export const InboxSidebar: React.FC<InboxSidebarProps> = ({
   isOpen,
   onToggleCollapse,
   agents,
+  isLoadingAgents,
+  agentsError,
+  onReloadAgents,
   activeAgentId,
   onSelectAgent,
   folders,
@@ -124,6 +130,9 @@ export const InboxSidebar: React.FC<InboxSidebarProps> = ({
       <div className="h-px bg-slate-200/70 dark:bg-slate-800/80 mx-3 my-1" />
       <InboxSectionTeam
         agents={visibleAgents}
+        isLoading={isLoadingAgents}
+        error={agentsError}
+        onRetry={onReloadAgents}
         activeAgentId={activeAgentId}
         onSelectAgent={(agentId) => {
           onSelectAgent(agentId);

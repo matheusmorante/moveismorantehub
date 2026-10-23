@@ -55,7 +55,6 @@ vi.mock('./useOrderHistoryOperations', () => ({
     handleBulkTrash: vi.fn(),
     handleBulkRestore: vi.fn(),
     handleBulkPermanentDelete: vi.fn(),
-    handleBlingUpdate: vi.fn(),
     handleStockCheckUpdate: vi.fn(),
     commitStatusUpdate: mocks.commitStatusUpdate,
     retryFiscalCancellation: vi.fn(),
