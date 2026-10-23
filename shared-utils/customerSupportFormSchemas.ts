@@ -30,6 +30,9 @@ export type SupportFolderDeleteInput = z.infer<typeof supportFolderDeleteSchema>
 export const supportCustomerSearchSchema = z.object({
   searchTerm: z.string().trim().min(2, 'Informe pelo menos 2 caracteres para pesquisar cliente por nome, CPF ou telefone.'),
 });
+export const supportAttachmentSearchSchema = z.object({
+  search: z.string().trim().max(100, 'A busca deve ter no máximo 100 caracteres.'),
+});
 export const supportCustomerLinkSchema = z.object({
   conversationId: supportConversationId,
   customerId: z.string().trim().min(1, 'Selecione um cliente válido.'),

@@ -44,7 +44,10 @@ export const createMobileProductFormSchema = (options: {
   existingProductImageCount?: number;
 }) => z.object({
   name: z.string().trim().min(2, 'Informe o nome do produto (mínimo 2 caracteres).'),
+  title: z.string().optional().nullable(),
+  marketplaceTitle: z.string().optional().nullable(),
   itemType: z.string().optional(), productKind: z.string().optional(),
+  environment: z.string().optional(),
   categoryIds: z.array(z.string()).optional(), categoryId: z.string().optional(),
   ...productNumbers,
   images: z.array(z.string()).optional(),

@@ -1,5 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
-import { Camera, Crop, Info, Plus, RefreshCw, Star, Trash2, X } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, Camera, Crop, Info, Plus, RefreshCw, Star, Trash2, X } from 'lucide-react-native';
 import type React from 'react';
 import { useState } from 'react';
 import {
@@ -18,13 +18,18 @@ import {
   MAX_VARIATION_IMAGES,
 } from '../../domain/productImageLimits';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
-import { replaceMobileProductImageGlobally } from '../../domain/mobileProductImageOrdering';
+import {
+  moveMobileProductImageGlobally,
+  replaceMobileProductImageGlobally,
+} from '../../domain/mobileProductImageOrdering';
 import { uploadMobileProductPhoto } from '../../services/mobileProductPhotoService';
 import { ProductSquareImageCropModal } from '../components/ProductSquareImageCropModal';
 import {
   mobileProductPhotoUploadFormSchema,
   mobileProductPhotoUrlsFormSchema,
 } from '../../../../../../shared-utils/productImageFormSchemas';
+import { removeProductImageGlobally } from '../../../../../../shared-utils/productImageOperations';
+import { limitProductImageSelection } from '../../../../../../shared-utils/productImageSelection';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 interface Props {
@@ -72,11 +77,31 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
   // Selecionar uma ou múltiplas imagens usando leitor do dispositivo / Web
   const pickImages = ({
     multiple = true,
+    imageLimit,
     onImagesPicked,
   }: {
     multiple?: boolean;
+    imageLimit?: { currentCount: number; maxCount: number };
     onImagesPicked: (urls: string[]) => void;
   }) => {
+    const limitSelectedFiles = <T,>(files: readonly T[]): T[] => {
+      const candidates = multiple ? [...files] : files.slice(0, 1);
+      if (!imageLimit) return candidates;
+
+      const selection = limitProductImageSelection(
+        candidates,
+        imageLimit.currentCount,
+        imageLimit.maxCount
+      );
+      if (selection.skippedCount > 0) {
+        Alert.alert(
+          'Limite de fotos',
+          `Apenas as primeiras ${selection.filesToUpload.length} foto(s) serão enviadas (limite máximo de ${imageLimit.maxCount} fotos). As demais não serão enviadas.`
+        );
+      }
+      return selection.filesToUpload;
+    };
+
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const input = document.createElement('input');
       input.type = 'file';
@@ -85,8 +110,7 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
         input.multiple = true;
       }
       input.onchange = async () => {
-        const rawFiles = Array.from(input.files || []);
-        const files = multiple ? rawFiles : rawFiles.slice(0, 1);
+        const files = limitSelectedFiles(Array.from(input.files || []));
         if (files.length === 0) return;
         setUploading(true);
         try {
@@ -113,7 +137,8 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
       })
         .then(async (result) => {
           if (result.canceled || !result.assets || result.assets.length === 0) return;
-          const assets = multiple ? result.assets : [result.assets[0]];
+          const assets = limitSelectedFiles(result.assets);
+          if (assets.length === 0) return;
           setUploading(true);
           try {
             const uploadedUrls: string[] = [];
@@ -150,21 +175,13 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
       Alert.alert('Limite de fotos', `O ERP permite até ${maxPhotos} fotos neste produto pai.`);
       return;
     }
-    const availableSlots = maxPhotos - currentCount;
-
     pickImages({
       multiple: true,
+      imageLimit: { currentCount, maxCount: maxPhotos },
       onImagesPicked: (newUrls) => {
-        const urlsToAdd = newUrls.slice(0, availableSlots);
-        if (newUrls.length > availableSlots) {
-          Alert.alert(
-            'Limite de fotos',
-            `Foram adicionadas ${availableSlots} foto(s) respeitando o limite máximo de ${maxPhotos}.`
-          );
-        }
         setFormData((prev) => ({
           ...prev,
-          images: [...(prev.images || []), ...urlsToAdd],
+          images: [...(prev.images || []), ...newUrls],
         }));
       },
     });
@@ -186,20 +203,19 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
 
   const handleMakeCover = (idx: number) => {
     if (idx === 0) return;
-    setFormData((prev) => {
-      const imgs = [...(prev.images || [])];
-      const [target] = imgs.splice(idx, 1);
-      imgs.unshift(target);
-      return { ...prev, images: imgs };
-    });
+    setFormData((prev) => moveMobileProductImageGlobally(prev, idx, 0));
+    setSelectedPhotoIdx(null);
+  };
+
+  const handleMovePhoto = (idx: number, direction: -1 | 1) => {
+    setFormData((prev) => moveMobileProductImageGlobally(prev, idx, idx + direction));
     setSelectedPhotoIdx(null);
   };
 
   const handleRemovePhoto = (idx: number) => {
-    setFormData((prev) => {
-      const next = (prev.images || []).filter((_: string, i: number) => i !== idx);
-      return { ...prev, images: next };
-    });
+    const imageUrl = images[idx];
+    if (!imageUrl) return;
+    setFormData((prev) => removeProductImageGlobally(prev, imageUrl));
     setSelectedPhotoIdx(null);
   };
 
@@ -343,6 +359,33 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
                 <RefreshCw size={16} color="#2563eb" />
                 <Text style={styles.modalBtnReplaceText}>Substituir Foto</Text>
               </TouchableOpacity>
+
+              {selectedPhotoIdx !== null && (selectedPhotoIdx > 0 || selectedPhotoIdx < images.length - 1) && (
+                <View style={styles.modalReorderRow}>
+                  {selectedPhotoIdx > 0 && (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel="Mover foto uma posição para cima"
+                      style={[styles.modalReorderButton, dark && styles.darkModalReorderButton]}
+                      onPress={() => handleMovePhoto(selectedPhotoIdx, -1)}
+                    >
+                      <ArrowUp size={16} color={dark ? '#cbd5e1' : '#475569'} />
+                      <Text style={[styles.modalReorderText, dark && styles.dimText]}>Mover para cima</Text>
+                    </TouchableOpacity>
+                  )}
+                  {selectedPhotoIdx < images.length - 1 && (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel="Mover foto uma posição para baixo"
+                      style={[styles.modalReorderButton, dark && styles.darkModalReorderButton]}
+                      onPress={() => handleMovePhoto(selectedPhotoIdx, 1)}
+                    >
+                      <ArrowDown size={16} color={dark ? '#cbd5e1' : '#475569'} />
+                      <Text style={[styles.modalReorderText, dark && styles.dimText]}>Mover para baixo</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
 
               {selectedPhotoIdx !== null && selectedPhotoIdx > 0 && (
                 <TouchableOpacity
@@ -586,6 +629,20 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 8,
   },
+  modalReorderRow: { flexDirection: 'row', gap: 8 },
+  modalReorderButton: {
+    flex: 1,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    backgroundColor: '#f1f5f9',
+  },
+  darkModalReorderButton: { backgroundColor: '#1e293b' },
+  modalReorderText: { color: '#475569', fontSize: 11, fontWeight: '800' },
   modalBtn: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   moveProductImage,
+  moveProductImageGlobally,
   replaceImageUrlAcrossList,
   replaceProductImage,
   replaceProductImageGlobally,
@@ -14,6 +15,20 @@ describe('productImageOrdering', () => {
   it('reordena sem mutar a lista original', () => {
     expect(moveProductImage(images, 0, 2)).toEqual(['b.jpg', 'c.jpg', 'a.jpg', 'd.jpg']);
     expect(images).toEqual(['a.jpg', 'b.jpg', 'c.jpg', 'd.jpg']);
+  });
+
+  it('reordena o pai e sincroniza a galeria herdada da variação única', () => {
+    const product = {
+      images: ['a.jpg', 'b.jpg', 'c.jpg'],
+      variations: [{ images: ['a.jpg', 'b.jpg', 'c.jpg'] }],
+    };
+
+    expect(moveProductImageGlobally(product, 2, 1)).toEqual({
+      images: ['a.jpg', 'c.jpg', 'b.jpg'],
+      variations: [{ images: ['a.jpg', 'c.jpg', 'b.jpg'] }],
+    });
+    expect(product.images).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
+    expect(product.variations[0].images).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
   });
 
   it('promove uma imagem a capa', () => {
@@ -66,6 +81,18 @@ describe('productImageOrdering', () => {
     // Objeto original não foi mutado
     expect(product.images[0]).toBe('photo-1.jpg');
     expect(product.variations[0].images[0]).toBe('photo-1.jpg');
+  });
+
+  it('atualiza o campo legado da imagem principal e usa o índice quando a URL ficou desatualizada', () => {
+    const product = {
+      images: ['first.jpg', 'second.jpg'],
+      variations: [{ image_url: 'stale-parent.jpg' }, { image_url: 'second.jpg' }],
+    };
+
+    expect(replaceProductImageGlobally(product, 'stale-parent.jpg', 'new.jpg', 1)).toEqual({
+      images: ['first.jpg', 'new.jpg'],
+      variations: [{ image_url: 'new.jpg' }, { image_url: 'second.jpg' }],
+    });
   });
 });
 

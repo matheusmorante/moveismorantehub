@@ -1,38 +1,15 @@
 import { getSettings } from '@/pages/utils/settingsService';
-import { resolveProductType } from '@/pages/App/Products/MetaCatalog/services/metaCatalogPayload';
+import { resolveProductType } from '../../../../../shared-utils/metaCatalogPayload';
+import {
+  buildMetaCatalogBatchPayload,
+  formatMetaCatalogDecimalPrice as formatDecimalPrice,
+  META_CATALOG_BATCH_LIMIT,
+  META_CATALOG_FALLBACK_IMAGE_URL,
+  sanitizeMetaCatalogImageUrl as sanitizeImageUrl,
+} from '../../../../../shared-utils/metaCatalogBatchPayload';
 import { metaHttpClient } from './metaHttpClient';
 import { metaErrorHandler } from './metaErrorHandler';
 import type { WhatsAppProduct, MetaProductSet, MetaBatchSyncResult } from './types';
-
-function formatDecimalPrice(val: any): string {
-  if (val === null || val === undefined || val === '') return '';
-  const num = Number(val);
-  if (isNaN(num)) return '';
-  return num.toFixed(2).replace('.', ',');
-}
-
-const SUPABASE_STORAGE_PATTERN =
-  /https:\/\/.*?\.supabase\.co\/storage\/v1\/object\/public\/products\/(.*)/i;
-const R2_BASE_URL = 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev';
-const FALLBACK_IMAGE_URL = 'https://moveismorante.com.br/logo.png';
-
-function sanitizeImageUrl(urlStr: string, fallback: string = FALLBACK_IMAGE_URL): string {
-  if (!urlStr) return fallback;
-  let str = String(urlStr).trim().split('?')[0];
-
-  if (SUPABASE_STORAGE_PATTERN.test(str)) {
-    const match = str.match(SUPABASE_STORAGE_PATTERN);
-    if (match && match[1]) {
-      const fileName = match[1].split('/').pop();
-      str = `${R2_BASE_URL}/${fileName}`;
-    }
-  }
-
-  if (!str.startsWith('http://') && !str.startsWith('https://')) {
-    str = `https://${str}`;
-  }
-  return encodeURI(str);
-}
 
 /**
  * Serviço especializado na gestão de catálogo de produtos e coleções na Meta Catalog API.
@@ -119,7 +96,8 @@ export const metaCatalogService = {
     }
 
     const sanitizedImages = singleImageUrls.map((u) => sanitizeImageUrl(u)).filter(Boolean);
-    const mainImageUrl = sanitizedImages.length > 0 ? sanitizedImages[0] : FALLBACK_IMAGE_URL;
+    const mainImageUrl =
+      sanitizedImages.length > 0 ? sanitizedImages[0] : META_CATALOG_FALLBACK_IMAGE_URL;
     const additionalImageUrls = sanitizedImages.length > 1 ? sanitizedImages.slice(1, 10) : [];
 
     const retailerId = String(product.code || product.sku || product.id);
@@ -230,8 +208,7 @@ export const metaCatalogService = {
 
     if (!productsList || productsList.length === 0) return { success: true, count: 0 };
 
-    // Limite de até 250 itens por requisição na Meta (limite máximo suportado: 300)
-    const BATCH_SIZE = 250;
+    const BATCH_SIZE = META_CATALOG_BATCH_LIMIT;
     let syncedCount = 0;
     const total = productsList.length;
     const handles: string[] = [];
@@ -240,184 +217,8 @@ export const metaCatalogService = {
 
     for (let i = 0; i < productsList.length; i += BATCH_SIZE) {
       const chunk = productsList.slice(i, i + BATCH_SIZE);
-      const requests = chunk.map((product) => {
-        const isHidden = product.status === 'hidden' || product.hidden === true;
-        const isDeleted =
-          product.deleted === true ||
-          (product.deleted_at !== undefined && product.deleted_at !== null);
-        const isInactiveOrHidden =
-          isHidden ||
-          isDeleted ||
-          product.status === 'draft';
-        const retailerId = String(product.code || product.sku || product.id);
-
-        if (isInactiveOrHidden) {
-          return {
-            method: 'DELETE',
-            retailer_id: retailerId,
-            data: { id: retailerId },
-          };
-        }
-
-        const cleanTitle =
-          product.name ||
-          product.title ||
-          (product.description ? String(product.description).split('\n')[0] : 'Produto Morante');
-        const baseProdDesc =
-          product.whatsappDescription ||
-          product.whatsapp_description ||
-          product.description ||
-          cleanTitle;
-
-        const globalPrefix = `🚚📦 Entrega rápida (1 a 5 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete
-
-💳 Pagamento parcelado nas bandeiras VISA, MASTER, MASTERCARD, MAESTRO, HIPERCARD, ELO, em até 10x sem juros no cartão de crédito
-
-🚨⚠️ Aceitamos Senff com juros.
-
-✅ À vista tem desconto no pix, débito ou dinheiro!
-
-
-✅ Sem taxa de frete para endereços próximos.
-
-
-✅ Montagem Incluída para a retirada ou entrega.
-
-
-✅ Atendimento Via WhatsApp
-
-https://wa.me/5541997493547
-
-
-🛒 VEJA MAIS DOS NOSSOS PRODUTOS CLICANDO NO LINK ABAIXO:
-
-https://moveismorante.com.br
-
-___________________________________
-
-Móveis Morante
-
-▶ CNPJ: 44.512 248/0001-07
-
-🕒 Aberto: Seg a Sex ( 9h às 18h ) e Sab ( 9h às 17h )
-
-🗺📍Rua Cascavel, 306, Guaraituba, Colombo - PR
-
-____________________________________
-
-
-👁‍🗨 ESPECIFICAÇÕES:`;
-
-        const cleanDescription = `${globalPrefix}\n\n${baseProdDesc}`;
-        const rawPrice =
-          product.sales_price ?? product.salesPrice ?? product.price ?? product.unitPrice ?? product.unit_price ?? 0;
-        let itemPrice = Number(rawPrice);
-        const promoPrice = (product.promo_price ?? product.promoPrice) ? Number(product.promo_price ?? product.promoPrice) : 0;
-        if (itemPrice <= 0 && promoPrice > 0) {
-          itemPrice = promoPrice;
-        }
-        const hasPromo = promoPrice > 0 && promoPrice < itemPrice;
-        const currentPrice = hasPromo ? promoPrice : itemPrice;
-        const oldPriceFormatted = hasPromo ? formatDecimalPrice(itemPrice) : undefined;
-        const oppName = product.opportunityName || product.opportunity_name || (product.opportunities?.name) || '';
-        const productType =
-          product.productType ||
-          (product.groupName && product.groupName !== 'Furniture' ? product.groupName : undefined) ||
-          (product.group_name && product.group_name !== 'Furniture' ? product.group_name : undefined) ||
-          resolveProductType(product);
-
-        const condition =
-          product.condition === 'used' || product.condition === 'usado'
-            ? 'used'
-            : product.is_salvado || product.condition === 'refurbished'
-              ? 'refurbished'
-              : 'new';
-
-        const productLink =
-          product.url ||
-          (product.slug
-            ? `https://moveismorante.com.br/produto/${product.slug}`
-            : `https://moveismorante.com.br/produto/${product.id}`);
-
-        const quantityToSell =
-          product.stock !== null && product.stock !== undefined
-            ? Math.max(0, Number(product.stock))
-            : 1;
-
-        const allImageUrls: string[] = [];
-        if (Array.isArray(product.images) && product.images.length > 0) {
-          product.images.forEach((imgItem: any) => {
-            if (imgItem) {
-              String(imgItem)
-                .split(',')
-                .forEach((url) => {
-                  const trimmed = url.trim();
-                  if (trimmed && !allImageUrls.includes(trimmed)) {
-                    allImageUrls.push(trimmed);
-                  }
-                });
-            }
-          });
-        } else if (product.image_url) {
-          String(product.image_url)
-            .split(',')
-            .forEach((url) => {
-              const trimmed = url.trim();
-              if (trimmed && !allImageUrls.includes(trimmed)) {
-                allImageUrls.push(trimmed);
-              }
-            });
-        }
-
-        const sanitizedImages = allImageUrls.map((u) => sanitizeImageUrl(u, '')).filter(Boolean);
-        const mainImageUrl = sanitizedImages.length > 0 ? sanitizedImages[0] : '';
-        const additionalImageUrls = sanitizedImages.length > 1 ? sanitizedImages.slice(1, 10) : [];
-
-        // Meta exige preço positivo e imagem válida
-        if (itemPrice <= 0 || !mainImageUrl) {
-          return {
-            method: 'DELETE',
-            retailer_id: retailerId,
-            data: { id: retailerId },
-          };
-        }
-
-        return {
-          method: 'UPDATE',
-          retailer_id: retailerId,
-          data: {
-            id: retailerId,
-            title: cleanTitle,
-            description: cleanDescription,
-            price: `${itemPrice.toFixed(2)} BRL`,
-            sale_price: hasPromo ? `${promoPrice.toFixed(2)} BRL` : undefined,
-            condition,
-            availability: 'in stock',
-            image_link: mainImageUrl,
-            additional_image_link: additionalImageUrls.join(',') || undefined,
-            brand: product.brand || 'Móveis Morante',
-            link: productLink,
-            product_type: productType,
-            item_group_id: '',
-            custom_label_0: productType,
-            custom_label_1: formatDecimalPrice(currentPrice),
-            custom_label_2: oldPriceFormatted,
-            custom_label_3: oppName || undefined,
-            color: product.color || undefined,
-            size: product.size || undefined,
-            material: product.material || undefined,
-            gender: 'unisex',
-            identifier_exists: 'no',
-            quantity_to_sell_on_facebook: quantityToSell,
-          },
-        };
-      });
-
-      const response = await metaHttpClient.request('sync_catalog_batch', { payload: {
-            item_type: 'PRODUCT_ITEM',
-            requests,
-          } });
-
+      const payload = buildMetaCatalogBatchPayload(chunk);
+      const response = await metaHttpClient.request('sync_catalog_batch', { payload });
       const data = await response.json();
       if (!response.ok || data.error) {
         console.error('[MetaCatalogService] Erro no Lote Meta API:', data.error || data);

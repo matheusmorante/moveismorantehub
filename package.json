@@ -22,6 +22,8 @@
     "test:support:reopening:serve": "npm run test:support:reopening:serve --prefix erp",
     "test:support:reopening:ui": "node scripts/run-vercel-env-dev.cjs support-reopening-ui",
     "test:support:reopening:ui:serve": "npm run test:support:reopening:ui:serve --prefix erp",
+    "test:support:comment-persistence": "node scripts/run-vercel-env-dev.cjs support-comment-persistence",
+    "test:support:comment-persistence:serve": "npm run test:support:comment-persistence:serve --prefix erp",
     "dev:erp:test": "npm run dev:test --prefix erp",
     "dev:catalog": "npm run dev --prefix digital-catalog -- -p 3001",
     "dev:all": "concurrently \"npm run dev:erp\" \"npm run dev:catalog\"",

@@ -3,6 +3,8 @@ import React from 'react';
 import { Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { WEB_URL } from '../../../services/supabaseClient';
 import { toMobileVariationAttributes } from '../services/mobileProductVariationActionsService';
+import { isSalvadoProduct } from '../domain/mobileProductCardRules';
+import { isNonConventionalProduct } from '../../../../../shared-utils/productActivationValidation';
 import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
 import { MergedBadge } from './MergedBadge';
@@ -63,11 +65,9 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   const isPublished = v.status === 'published';
   const isActive = v.active !== false;
   const isMerged = Boolean(v.merged_to_variation_id || v.mergedToVariationId);
-  const isSalvado =
-    parentProduct?.productKind === 'salvado' ||
-    parentProduct?.product_kind === 'salvado' ||
-    v.productKind === 'salvado' ||
-    v.product_kind === 'salvado';
+  const isSalvado = isSalvadoProduct(parentProduct) || isSalvadoProduct(v);
+  const isNonConventional =
+    isNonConventionalProduct(parentProduct) || isNonConventionalProduct(v);
   const imgUrl =
     Array.isArray(v.images) && v.images[0] ? v.images[0] : v.imageUrl || parentImage || null;
   const normalPrice = Number(v.price ?? v.unit_price ?? 0);
@@ -77,10 +77,12 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   const stock = Number(v.stock ?? 0);
 
   const handleToggleActive = () => {
-    if (isSalvado) {
+    if (isNonConventional) {
       Alert.alert(
-        'Origem do Estoque: Salvados',
-        'Produtos de origem do estoque Salvados não podem ser ativos no ERP.'
+        'Status ERP indisponível',
+        isSalvado
+          ? 'Produtos de origem de estoque Salvados não podem ser ativados no ERP, apenas no catálogo digital.'
+          : 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
       );
       return;
     }
@@ -223,6 +225,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
         <MobileChannelBadges
           dark={dark}
           isSalvado={isSalvado}
+          isNonConventional={isNonConventional}
           isActive={isActive && !isParentDraft}
           isPublished={isPublished && !isParentDraft}
           isDraft={isParentDraft}

@@ -3,6 +3,7 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
 import { fetchConversationCounts, fetchConversations, fetchTeamProfiles, type FetchConversationsOptions } from '@/pages/utils/customerSupport/customerSupportService';
+import * as customerSupportService from '@/pages/utils/customerSupport/customerSupportService';
 import {
   DEFAULT_SUPPORT_FOLDER_CRITERIA,
   fetchCustomerSupportFolders,
@@ -19,7 +20,7 @@ import { QuickSnippetsModal } from '../components/QuickSnippetsModal';
 import { ActivityTimelineDrawer } from '../components/ActivityTimelineDrawer';
 import whatsappDispatchHandler from '../../../../../../api/whatsapp-dispatch';
 
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const makeFolder = (id: string, name: string, createdBy: string) => ({
   id,
@@ -309,7 +310,7 @@ describe('Inbox da Central de Atendimento', () => {
     expect(createNote).not.toHaveBeenCalled();
   });
 
-  it('mostra somente eventos persistidos e remove duplicatas da linha do tempo', () => {
+  it('carrega atividades persistidas em páginas independentes e remove duplicatas', async () => {
     const event = {
       id: 'event-1', conversationId: 'conversation-1', apiMessageId: null,
       direction: 'outbound' as const, messageType: 'system_event' as const,
@@ -319,10 +320,27 @@ describe('Inbox da Central de Atendimento', () => {
       errorCode: null, failureReason: null, timestamp: '2026-10-20T10:00:00Z',
       createdAt: '2026-10-20T10:00:00Z',
     };
-    const { container } = render(<ActivityTimelineDrawer messages={[event, event]} isOpen onClose={vi.fn()} />);
+    const nextEvent = { ...event, id: 'event-2', textContent: 'Mensagem atribuída' };
+    vi.spyOn(customerSupportService, 'fetchConversationActivityPage')
+      .mockResolvedValueOnce({
+        messages: [event, event], hasMore: true, nextCursor: { timestamp: event.timestamp, id: event.id },
+      })
+      .mockResolvedValueOnce({ messages: [event, nextEvent], hasMore: false, nextCursor: null });
+    const { container, rerender } = render(<ActivityTimelineDrawer conversationId="conversation-1" activityRefreshKey="event-1" isOpen onClose={vi.fn()} />);
+    await screen.findByText('Atendimento atribuído a Ana por Carlos');
+    fireEvent.click(screen.getByRole('button', { name: 'Carregar atividades anteriores' }));
+    await screen.findByText('Mensagem atribuída');
     expect(container.textContent?.match(/Atendimento atribuído a Ana por Carlos/g)).toHaveLength(1);
     expect(container.textContent).not.toContain('Fluxo Automático Iniciado');
     expect(container.textContent).not.toContain('Conversa iniciada via WhatsApp');
+    const statusEvent = { ...nextEvent, id: 'event-3', textContent: 'Status alterado para fechado' };
+    vi.mocked(customerSupportService.fetchConversationActivityPage).mockResolvedValueOnce({
+      messages: [statusEvent, nextEvent, event], hasMore: false, nextCursor: null,
+    });
+    rerender(<ActivityTimelineDrawer conversationId="conversation-1" activityRefreshKey="event-1|event-2|event-3" isOpen onClose={vi.fn()} />);
+    await screen.findByText('Status alterado para fechado');
+    expect(customerSupportService.fetchConversationActivityPage).toHaveBeenCalledTimes(3);
+    expect(container.textContent?.match(/Atendimento atribuído a Ana por Carlos/g)).toHaveLength(1);
   });
 
   it('rejeita assinatura inválida e segredo ausente', () => {

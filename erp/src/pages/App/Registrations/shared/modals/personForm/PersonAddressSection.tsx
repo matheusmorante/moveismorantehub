@@ -246,6 +246,7 @@ export const PersonAddressSection: React.FC<PersonAddressSectionProps> = ({
               number: formData.fullAddress?.number || '',
               neighborhood: formData.fullAddress?.neighborhood || '',
               city: formData.fullAddress?.city || '',
+              state: formData.fullAddress?.state || '',
             }}
             coords={formData.fullAddress?.coords}
             placeId={formData.fullAddress?.placeId}

@@ -13,6 +13,7 @@ import {
   matchCategoryByRules,
 } from '@/pages/utils/categoryResolutionService';
 import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { productTitleFieldsFromName } from '../../../../../../../shared-utils/productTitle';
 
 interface ProductGeneralTabProps {
   readonly onOpenCategorySearch: () => void;
@@ -254,8 +255,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
               setFormData((prev) => ({
                 ...prev,
                 name: val,
-                title: val,
-                marketplaceTitle: val,
+                ...productTitleFieldsFromName(val),
               }));
             }}
             onBlur={() => {
@@ -265,8 +265,7 @@ const ProductGeneralTab: React.FC<ProductGeneralTabProps> = ({
                   setFormData((prev) => ({
                     ...prev,
                     name: formatted,
-                    title: formatted,
-                    marketplaceTitle: formatted,
+                    ...productTitleFieldsFromName(formatted),
                   }));
                 }
 

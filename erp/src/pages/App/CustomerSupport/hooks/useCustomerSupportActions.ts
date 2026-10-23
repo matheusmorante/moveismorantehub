@@ -125,7 +125,6 @@ export function useCustomerSupportActions({
         ? prev
         : [...prev, created].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id))
       );
-      setSelectedConversation((prev) => (prev?.id === selectedConversation.id ? { ...prev, internalNotes: created.textContent } : prev));
     }
     return Boolean(created);
   };

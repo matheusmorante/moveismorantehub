@@ -113,6 +113,7 @@ export const MobileProductCard: React.FC<Props> = ({
     oppName,
     supplierNames,
     isSalvado,
+    isNonConventional,
     oppBadgeInfo,
     displaySku,
   } = useMobileProductCardState({
@@ -403,12 +404,13 @@ export const MobileProductCard: React.FC<Props> = ({
         <MobileChannelBadges
           dark={dark}
           isParent={isParent && !isSingleVariationCard}
-          isSalvado={product.productKind === 'salvado' || product.product_kind === 'salvado'}
+          isSalvado={isSalvado}
+          isNonConventional={isNonConventional}
           isActive={isActive}
           isPublished={isPublished}
           isDraft={isDraft}
           showCatalog={(!isParent || isSingleVariationCard) && showCatalogStatus}
-          canToggleActive={canDelete}
+          canToggleActive={canDelete && !isNonConventional}
           canToggleCatalog={canChangeCatalog}
           disabled={isMerged}
           disabledReason={
@@ -468,6 +470,7 @@ export const MobileProductCard: React.FC<Props> = ({
         isActive={isActive}
         canEdit={canEdit && !isLabelOnlyProfile}
         canDelete={canDelete && !isLabelOnlyProfile}
+        canToggleActive={canDelete && !isLabelOnlyProfile && !isNonConventional}
         onClose={() => setMenuVisible(false)}
         onEdit={onEdit}
         onToggleActive={onToggleActive}

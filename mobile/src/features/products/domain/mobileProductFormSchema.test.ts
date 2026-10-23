@@ -42,6 +42,27 @@ describe('mobileProductFormSchema - single variation error routing', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('preserva o ambiente derivado das categorias no payload validado', () => {
+    const schema = createMobileProductFormSchema({
+      draft: false,
+      isStockistOnly: false,
+      published: false,
+    });
+    const parsed = schema.safeParse({
+      ...baseValidProduct,
+      title: 'Guarda Roupa Aurora',
+      marketplaceTitle: 'Guarda Roupa Aurora',
+      environment: 'QUARTO',
+    });
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.environment).toBe('QUARTO');
+      expect(parsed.data.title).toBe('Guarda Roupa Aurora');
+      expect(parsed.data.marketplaceTitle).toBe('Guarda Roupa Aurora');
+    }
+  });
+
   it('exige pelo menos duas variações quando o modo múltiplo está selecionado', () => {
     const schema = createMobileProductFormSchema({
       draft: false,

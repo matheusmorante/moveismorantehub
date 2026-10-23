@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import VariationParentImagesSelectModal from './VariationParentImagesSelectModal';
 import { createVariationImageSelectionFormSchema } from '../../../../../../../../shared-utils/productImageFormSchemas';
+import { toggleAllParentProductImages } from '../../../../../../../../shared-utils/productImageSelection';
 const mocks = vi.hoisted(() => ({ error: vi.fn() }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error } }));
 const photos = ['https://example.test/1.jpg', 'https://example.test/2.jpg'];
@@ -32,6 +33,16 @@ describe('seleção de fotos da variação', () => {
     const { onConfirm, onClose } = mount(photos);
     fireEvent.click(screen.getByRole('button', { name: 'Desmarcar Todas' })); fireEvent.click(confirm());
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1)); expect(onConfirm).toHaveBeenCalledWith([]);
+  });
+  it('seleciona as fotos disponíveis até o limite antes de confirmar', async () => {
+    const { onConfirm, onClose } = mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar Todas' }));
+    fireEvent.click(confirm());
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onConfirm).toHaveBeenCalledWith(photos);
+  });
+  it('compartilha a ordem da galeria e o limite de seleção entre as plataformas', () => {
+    expect(toggleAllParentProductImages([], [...photos, 'https://example.test/3.jpg'], 2)).toEqual(photos);
   });
   it('mantém a trava até o callback concluir e permite retomar após falha', async () => {
     let fail!: (error: Error) => void;

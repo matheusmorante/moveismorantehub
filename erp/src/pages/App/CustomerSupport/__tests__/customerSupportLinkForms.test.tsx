@@ -34,8 +34,8 @@ describe('Pedidos do painel — falha, repetição e troca de contexto', () => {
   const conversation = (customerId = 'legacy-person-id') => ({ id, customerId,
     customer: { id: customerId, fullName: 'Cliente sintético' }, contactPhone: '+12025550100',
     customerLinkStatus: 'manually_linked', tags: [], internalNotes: '', lastCustomerMessageAt: null } as unknown as WhatsAppConversation);
-  const panel = (customerId?: string) => <MemoryRouter><CustomerInfoPanel conversation={conversation(customerId)} messages={[]} isOpen
-    onClose={vi.fn()} onConversationUpdated={vi.fn()} /></MemoryRouter>;
+  const panel = (customerId?: string) => <MemoryRouter><CustomerInfoPanel conversation={conversation(customerId)} isOpen
+    onClose={vi.fn()} onConversationUpdated={vi.fn()} onJumpToMessage={vi.fn()} /></MemoryRouter>;
   const openOrders = () => fireEvent.click(screen.getByText('Pedidos', { exact: true }));
   const order = (orderNumber: string) => ({ id: orderNumber, orderNumber, status: 'active', totalAmount: 100,
     createdAt: '2026-10-21T12:00:00Z', itemsCount: 1, itemsPreview: 'Item sintético', isActive: true });
@@ -97,8 +97,8 @@ describe('Pedidos do painel — falha, repetição e troca de contexto', () => {
 
   it('prioriza a permissão quando o vínculo está oculto pela restrição comercial', () => {
     mocks.canCommercial = false;
-    render(<MemoryRouter><CustomerInfoPanel conversation={{ ...conversation(), customer: null }} messages={[]} isOpen
-      onClose={vi.fn()} onConversationUpdated={vi.fn()} /></MemoryRouter>);
+    render(<MemoryRouter><CustomerInfoPanel conversation={{ ...conversation(), customer: null }} isOpen
+      onClose={vi.fn()} onConversationUpdated={vi.fn()} onJumpToMessage={vi.fn()} /></MemoryRouter>);
     openOrders();
     expect(screen.getByText(/não possui permissão/)).toBeTruthy();
     expect(screen.queryByText(/Vincule um cliente/)).toBeNull();
@@ -176,7 +176,7 @@ describe('Desvínculo no formulário proprietário', () => {
     customer: { id: 'legacy-person-id', fullName: 'Cliente sintético' }, contactPhone: '+12025550100',
     customerLinkStatus: 'manually_linked', tags: [], internalNotes: '', lastCustomerMessageAt: null } as unknown as WhatsAppConversation);
   it('rejeita contexto inválido antes da confirmação e do serviço', async () => {
-    render(<MemoryRouter><CustomerInfoPanel conversation={conversation('inválida')} messages={[]} isOpen onClose={vi.fn()} onConversationUpdated={vi.fn()} /></MemoryRouter>);
+    render(<MemoryRouter><CustomerInfoPanel conversation={conversation('inválida')} isOpen onClose={vi.fn()} onConversationUpdated={vi.fn()} onJumpToMessage={vi.fn()} /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Desvincular' }));
     await screen.findByText('Conversa ou cliente inválido para desvincular.');
     expect(window.confirm).not.toHaveBeenCalled();
@@ -185,7 +185,7 @@ describe('Desvínculo no formulário proprietário', () => {
   it('aplica o resultado confirmado e informa falha sem fingir desvínculo', async () => {
     mocks.unlink.mockResolvedValueOnce({ success: false, error: 'Falha controlada no vínculo.' });
     const updated = vi.fn();
-    render(<MemoryRouter><CustomerInfoPanel conversation={conversation(id)} messages={[]} isOpen onClose={vi.fn()} onConversationUpdated={updated} /></MemoryRouter>);
+    render(<MemoryRouter><CustomerInfoPanel conversation={conversation(id)} isOpen onClose={vi.fn()} onConversationUpdated={updated} onJumpToMessage={vi.fn()} /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Desvincular' }));
     await screen.findByText('Falha controlada no vínculo.');
     expect(updated).not.toHaveBeenCalled();

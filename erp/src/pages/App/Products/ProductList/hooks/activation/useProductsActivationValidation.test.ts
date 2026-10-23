@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type Product from '@/pages/types/product.type';
+import { isNonConventionalProduct } from '../../../../../../../../shared-utils/productActivationValidation';
 import { validateErpActivationRequirements } from './useProductsActivationValidation';
 
 const validComposition = (productKind?: Product['productKind']): Product => ({
@@ -21,6 +22,14 @@ const validComposition = (productKind?: Product['productKind']): Product => ({
 });
 
 describe('validação da ativação ERP por tipo do produto', () => {
+  it.each([
+    [{ productKind: 'usados' }, true],
+    [{ stock_origin: 'usados' }, true],
+    [{ productKind: 'normal' }, false],
+  ])('classifica corretamente produtos não convencionais: %o', (product, expected) => {
+    expect(isNonConventionalProduct(product)).toBe(expected);
+  });
+
   it('bloqueia a ativação de uma composição Salvado', () => {
     const salvado = validComposition('salvado');
 

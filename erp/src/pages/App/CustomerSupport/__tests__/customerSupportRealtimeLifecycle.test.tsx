@@ -14,7 +14,7 @@ type TestChannel = {
 const mocks = vi.hoisted(() => ({ channel: vi.fn(), removeChannel: vi.fn(),
   fetchConversations: vi.fn(), fetchConversationCounts: vi.fn(),
   fetchConversationMessages: vi.fn(), fetchPreviousConversationMessages: vi.fn(),
-  markConversationAsRead: vi.fn(), channels: [] as TestChannel[] }));
+  fetchConversationReplyTarget: vi.fn(), markConversationAsRead: vi.fn(), channels: [] as TestChannel[] }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
   channel: mocks.channel, removeChannel: mocks.removeChannel,
 } }));
@@ -22,6 +22,7 @@ vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({
   fetchConversations: mocks.fetchConversations, fetchConversationCounts: mocks.fetchConversationCounts,
   fetchConversationMessages: mocks.fetchConversationMessages,
   fetchPreviousConversationMessages: mocks.fetchPreviousConversationMessages,
+  fetchConversationReplyTarget: mocks.fetchConversationReplyTarget,
   markConversationAsRead: mocks.markConversationAsRead, mapRowToMessage: (row: unknown) => row,
 }));
 

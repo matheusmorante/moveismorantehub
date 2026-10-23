@@ -11,6 +11,10 @@ interface ChatMessageTimelineProps {
   hasOlderMessages?: boolean;
   isLoadingOlderMessages?: boolean;
   onLoadOlderMessages?: () => Promise<number>;
+  onResolveReplyTarget?: (reference: { conversationId: string; messageId: string | null; apiMessageId: string | null }) => Promise<WhatsAppMessage | null>;
+  onJumpToMessage?: (message: WhatsAppMessage) => void;
+  jumpToMessageId?: string | null;
+  onJumpComplete?: () => void;
   error?: string;
 }
 
@@ -66,6 +70,10 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   isLoadingOlderMessages = false,
   error = '',
   onLoadOlderMessages,
+  onResolveReplyTarget,
+  onJumpToMessage,
+  jumpToMessageId = null,
+  onJumpComplete,
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -112,13 +120,30 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   };
 
   // Filtragem local se busca interna estiver ativa
-  const filteredMessages = inChatSearch.trim()
+  const matchedMessages = inChatSearch.trim()
     ? messages.filter(
         (m) =>
           m.textContent?.toLowerCase().includes(inChatSearch.toLowerCase().trim()) ||
           m.mediaFilename?.toLowerCase().includes(inChatSearch.toLowerCase().trim())
       )
     : messages;
+  const filteredMessages = jumpToMessageId && !matchedMessages.some((message) => message.id === jumpToMessageId)
+    ? [...matchedMessages, ...messages.filter((message) => message.id === jumpToMessageId)].sort((a, b) =>
+        a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id)
+      )
+    : matchedMessages;
+
+  const messagesById = new Map(messages.map((message) => [message.id, message]));
+  const messagesByApiId = new Map(messages.filter((message) => message.apiMessageId).map((message) => [message.apiMessageId as string, message]));
+
+  useEffect(() => {
+    if (!jumpToMessageId || !timelineRef.current) return;
+    const target = Array.from(timelineRef.current.querySelectorAll<HTMLElement>('[data-message-id]'))
+      .find((element) => element.dataset.messageId === jumpToMessageId);
+    if (!target) return;
+    target.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    onJumpComplete?.();
+  }, [jumpToMessageId, filteredMessages.length, onJumpComplete]);
 
   const grouped = groupMessagesByDate(filteredMessages);
 
@@ -155,8 +180,15 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
 
             {/* Balões de Mensagem */}
             {group.items.map((msg) => (
-              <div key={msg.id} data-message-id={msg.id}>
-                <MessageBubble message={msg} contactName={displayName} />
+              <div key={msg.id} data-message-id={msg.id} className={msg.id === jumpToMessageId ? 'rounded-xl ring-2 ring-emerald-500' : ''}>
+                <MessageBubble
+                  message={msg}
+                  contactName={displayName}
+                  quotedMessage={(msg.replyToMessageId ? messagesById.get(msg.replyToMessageId) : undefined)
+                    || (msg.replyToWamid ? messagesByApiId.get(msg.replyToWamid) : undefined)}
+                  onResolveReplyTarget={onResolveReplyTarget}
+                  onJumpToMessage={onJumpToMessage}
+                />
               </div>
             ))}
           </div>

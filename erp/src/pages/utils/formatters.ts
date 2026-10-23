@@ -26,9 +26,9 @@ export const stringifyMapAddress = (address: any) => {
     address.street || address.logradouro || address.rua || address.address || ''
   );
   const number = address.number || address.numero || '';
-  const neighborhood = toTitleCase(address.neighborhood || address.bairro || '');
   const city = toTitleCase(address.city || address.cidade || '');
-  return [street, number, neighborhood, city].filter(Boolean).join(', ').trim();
+  const state = toTitleCase(address.state || address.uf || '');
+  return [street, number, city, state].filter(Boolean).join(', ').trim();
 };
 
 export const stringifyFullAddressWithObservation = (address: any) => {

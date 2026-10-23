@@ -4,6 +4,7 @@ import { WhatsAppConversation, WhatsAppMessage } from '../types';
 import {
   fetchConversationMessages,
   fetchPreviousConversationMessages,
+  fetchConversationReplyTarget,
   markConversationAsRead,
   mapRowToMessage,
 } from '@/pages/utils/customerSupport/customerSupportService';
@@ -21,6 +22,8 @@ export function useCustomerSupportMessages({
   onClearUnread,
 }: UseCustomerSupportMessagesParams) {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
+  const messagesRef = useRef<WhatsAppMessage[]>([]);
+  const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
@@ -42,6 +45,35 @@ export function useCustomerSupportMessages({
   const initializedHistoryRef = useRef<number | null>(null);
   const readRequestRef = useRef(0);
   const readNeedsRetryRef = useRef(false);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  const resolveReplyTarget = useCallback(async (reference: {
+    conversationId: string;
+    messageId: string | null;
+    apiMessageId: string | null;
+  }) => {
+    const conversationId = activeConvIdRef.current;
+    if (!conversationId || reference.conversationId !== conversationId) return null;
+    return fetchConversationReplyTarget(supabase, conversationId, reference);
+  }, []);
+
+  const jumpToMessage = useCallback((message: WhatsAppMessage) => {
+    if (!message.id || message.conversationId !== activeConvIdRef.current) return;
+    const current = messagesRef.current;
+    if (!current.some((item) => item.id === message.id)) {
+      const oldest = current[0];
+      if (oldest && (message.timestamp < oldest.timestamp || (message.timestamp === oldest.timestamp && message.id < oldest.id))) {
+        setHasOlderMessages(true);
+      }
+      setMessages((existing) => existing.some((item) => item.id === message.id)
+        ? existing
+        : [...existing, message].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id))
+      );
+    }
+    setJumpToMessageId(message.id);
+  }, []);
+
+  const clearJumpToMessage = useCallback(() => setJumpToMessageId(null), []);
   const confirmRead = useCallback(async (convId: string) => {
     const generation = generationRef.current;
     const request = ++readRequestRef.current;
@@ -137,6 +169,8 @@ export function useCustomerSupportMessages({
       setIsRefreshingMessages(false);
       setMessagesError('');
       setReadError('');
+      setJumpToMessageId(null);
+      messagesRef.current = [];
       readNeedsRetryRef.current = false;
       if (convId) {
         setMessages([]);
@@ -238,6 +272,10 @@ export function useCustomerSupportMessages({
   return {
     messages,
     setMessages,
+    resolveReplyTarget,
+    jumpToMessage,
+    jumpToMessageId,
+    clearJumpToMessage,
     isLoadingMessages,
     isLoadingOlderMessages,
     hasOlderMessages,

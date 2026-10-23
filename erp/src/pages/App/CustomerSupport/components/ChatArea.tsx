@@ -34,6 +34,10 @@ export interface ChatAreaProps {
   onLoadOlderMessages?: () => Promise<number>;
   onRefreshMessages?: () => Promise<void> | void;
   isRefreshingMessages?: boolean;
+  onResolveReplyTarget?: (reference: { conversationId: string; messageId: string | null; apiMessageId: string | null }) => Promise<WhatsAppMessage | null>;
+  onJumpToMessage?: (message: WhatsAppMessage) => void;
+  jumpToMessageId?: string | null;
+  onJumpComplete?: () => void;
   messagesError?: string;
 }
 
@@ -59,6 +63,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onLoadOlderMessages,
   onRefreshMessages,
   isRefreshingMessages = false,
+  onResolveReplyTarget,
+  onJumpToMessage,
+  jumpToMessageId,
+  onJumpComplete,
   messagesError = '',
 }) => {
   const { profile, user } = useAuth();
@@ -145,6 +153,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         hasOlderMessages={hasOlderMessages}
         isLoadingOlderMessages={isLoadingOlderMessages}
         onLoadOlderMessages={onLoadOlderMessages}
+        onResolveReplyTarget={onResolveReplyTarget}
+        onJumpToMessage={onJumpToMessage}
+        jumpToMessageId={jumpToMessageId}
+        onJumpComplete={onJumpComplete}
       />
 
       {/* 4. Rodapé de Composição (WhatsApp vs Comentário Interno) */}

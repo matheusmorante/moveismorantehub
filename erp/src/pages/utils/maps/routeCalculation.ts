@@ -190,7 +190,7 @@ export const autoCalculateRouteDistance = async (
       }
     }
 
-    // PRIORIDADE 3: Geocodificação inteligente com fallbacks
+    // PRIORIDADE 3: Geocodificação pelo endereço principal (rua, número, cidade e UF)
     if (!destCoords) {
       const geoRes = await geocodeAddress(address, onFailure);
       if (!geoRes) {

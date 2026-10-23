@@ -33,7 +33,7 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
   );
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center">
       {/* Pílula de Requisitos do ERP */}
       {!isSalvado && (
         <div className="relative group cursor-help">
@@ -43,7 +43,7 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
             <span>ERP: {erpStatus.isLegible ? 'Ativo' : 'Pendente'}</span>
           </div>
 
-          <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-left">
+          <div className="absolute top-full left-0 mt-2 w-80 max-w-[calc(100vw-2rem)] sm:max-w-none bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-left">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
               Requisitos do ERP (Cadastro / Ativação)
             </p>
@@ -189,7 +189,7 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
           <span>Catálogo: {formData.status === 'published' ? 'Publicado' : 'Ocultado'}</span>
         </div>
 
-        <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-left">
+        <div className="absolute top-full left-0 mt-2 w-80 max-w-[calc(100vw-2rem)] sm:max-w-none bg-white dark:bg-slate-955 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-left">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
             Requisitos do Catálogo
           </p>

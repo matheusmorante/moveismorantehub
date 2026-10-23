@@ -2,6 +2,8 @@
 
 **Status:** em andamento. Este inventário acompanha as execuções cíclicas da auditoria.
 
+> **Recuperação do inventário — 23/10/2026:** o arquivo do workspace foi encontrado com 0 bytes após falta de espaço no volume C:. A versão rastreada no Git foi restaurada; ela continha os ciclos 1–5. Os ciclos 8–12 abaixo foram recompostos apenas a partir dos registros atuais em `docs/geral/roadmap_pendente.md` e `docs/forms/inventario-mobile-catalogo-2026-10-15.md`. Não há evidência localizada para reconstituir os ciclos 6–7, então eles permanecem sem status de conclusão.
+
 ## Regras e referências consultadas
 
 - `AGENTS.md` e `docs/geral/USER_RULES.md`.
@@ -9,6 +11,7 @@
 - `docs/negocio/produtos/estrutura-produto-variacao.md` e `docs/negocio/produtos/operacoes-troca-pai-merge.md`.
 - `docs/arquitetura/offline-e-sincronizacao.md` e `docs/mobile/arquitetura_offline_first.md`.
 - Regras em `rules/`; nenhuma regra específica de Produtos foi localizada. A regra de escrita de movimentos de estoque não se aplica ao recorte auditado.
+- A skill atual não foi localizada fora do cache de build `erp/.vercel/builders-backup-72ebb3b0/node_modules/morante-hub-root/.agents/skills/erp-web-to-mobile-replication/SKILL.md`; suas instruções foram usadas como orientação, sem tratá-la como fonte canônica.
 
 ## Ciclo 1 — modos simples/variações e composição
 
@@ -101,14 +104,52 @@
 - TypeScript mobile: a verificação completa ainda retorna diagnósticos preexistentes em outros módulos; não houve diagnóstico em `useMobileProducts.ts` nem no teste alterado.
 - `git diff --check`: aprovado. A tela autenticada e o comportamento nativo não foram validados visualmente neste ciclo.
 
+## Ciclos 6–13 — evidências recuperadas e atualizações recentes
+
+### Ciclos 6–7 — histórico não reconstruído
+
+- [ ] A cópia rastreada recuperada termina no Ciclo 5, e as referências atuais consultadas não descrevem os Ciclos 6–7. Não atribuir conclusão a esses ciclos sem localizar evidência adicional.
+
+### Ciclo 8 — ambiente e categoria no formulário básico
+
+- [x] O registro do roadmap informa que a resolução de ambiente pelas categorias passou a usar a travessia compartilhada ERP/app em `shared-utils/productCategoryResolution.ts`; o campo `environment` foi explicitado no schema Zod mobile e o seletor Oportunidade foi bloqueado no ERP. A validação visual autenticada permanece pendente.
+
+### Ciclo 9 — informações básicas e título
+
+- [x] O registro do roadmap confirma que `ProductTitleTab` não está conectado ao formulário ativo do ERP e que o mobile alinhou a sincronização de `name`, `title` e `marketplaceTitle` ao fluxo ativo. A inspeção visual autenticada não foi possível; não tratar a aba desconectada do ERP como paridade visual comprovada.
+
+### Ciclos 10–12 — remoção, limite, substituição e recorte de fotos
+
+- [x] A remoção de imagem do produto pai usa `removeProductImageGlobally`, compartilhada entre ERP e mobile. O limite de seleção passou a ser aplicado a arquivos/assets antes de leitura e upload, por `limitProductImageSelection`. A substituição é centralizada em `replaceProductImageGlobally` em `shared-utils/productImageOperations.ts`, com propagação compatível para produto pai, variação única e referências legadas.
+- [x] O checkpoint de formulários registra 12 testes mobile e 24 ERP aprovados para o conjunto de operações de fotos dos Ciclos 10–12. Isso prova os casos cobertos pelos testes, não upload remoto real nem comportamento nativo.
+- [ ] Diferença de recorte ainda sem decisão: o ERP compõe o resultado em um palco branco de 1080×1080; o recorte nativo do mobile conserva somente os pixels da origem. A documentação do projeto não justifica a diferença e `expo-image-manipulator` não oferece `extent` nativo no setup conferido. Definir a estratégia nativa para reproduzir o fundo branco antes de encerrar esta parte.
+
+### Ciclo 13 — fotos: ordenação da galeria do produto pai
+
+- [x] No ERP, o arraste da galeria move uma foto para qualquer posição e, quando há exatamente uma variação, sincroniza a ordem herdada nessa variação. O app oferecia apenas “Definir como Capa” e alterava somente `images` do pai; não permitia posições intermediárias e podia deixar a galeria local da variação única desatualizada.
+- [x] A regra pura passou a ser compartilhada por `shared-utils/productImageOrdering.ts`, com `moveProductImageGlobally` para reordenar o pai e alinhar a variação única sem mutar a entrada. ERP e mobile usam a função compartilhada. O modal mobile agora oferece mover para cima/baixo com área de toque mínima de 44 px; variações múltiplas mantêm suas galerias próprias.
+- [x] Vitest focado: **2 arquivos / 14 testes ERP** e **1 arquivo / 5 testes mobile** aprovados. A suíte adicional `VariationPhotosTab.test.tsx` falhou ao buscar o título `Clique para ver opções ou arraste para reordenar`; o componente e o teste dessa suíte não foram alterados neste ciclo, então a falha é inconclusiva e precisa de investigação separada. TypeScript completo reportou 413 diagnósticos ERP e 66 mobile, sem diagnóstico nos caminhos alterados.
+- [ ] Playwright permaneceu na tela `/login`; não havia credencial geral de teste nas variáveis consultadas e nenhuma guarda foi contornada. A comparação visual autenticada e a validação nativa continuam pendentes. Expo Web não prova o runtime nativo.
+- [x] O Ciclo 14 concluiu a comparação funcional do seletor de fotos por variação e adicionou ao mobile “Selecionar todas/Desmarcar todas” com o mesmo limite e ordem da galeria do ERP, além do indicador numérico da ordem selecionada.
+- [ ] A comparação visual autenticada do seletor e a validação nativa continuam pendentes; Playwright ainda mostra `/login` sem conta geral de teste disponível.
+
+### Ciclo 14 — fotos: seleção em lote da galeria do produto pai
+
+- [x] O modal ERP permite selecionar individualmente e em lote, limpar a seleção, conferir a ordem de seleção e limitar a no máximo 15 fotos. A ação final executa `createVariationImageSelectionFormSchema` por `useZodForm` antes de aplicar as URLs ao rascunho da variação.
+- [x] O app já mantinha seleção em rascunho, confirmação, validação pelo mesmo schema Zod e ordenação por toques/arrows, mas não tinha a ação em lote nem mostrava a posição de cada foto dentro do seletor. `toggleAllParentProductImages` foi adicionada a `shared-utils/productImageSelection.ts` e é usada no ERP e mobile; o app agora mostra “Selecionar todas/Desmarcar todas”, respeita o limite e exibe o número de ordem em cada foto selecionada.
+- [x] A seleção continua local ao formulário até confirmar e salvar o produto; não houve escrita remota. O mobile mantém o modal nativo e apresenta a orientação de adicionar fotos ao pai com o botão desativado quando a galeria está vazia; é a adaptação nativa correspondente ao estado vazio do modal ERP.
+- [x] Vitest ERP em `VariationParentImagesSelectModal.test.tsx`: **1 arquivo / 9 testes aprovados**, incluindo seleção em lote, limpeza, validação e ordem/limite compartilhados. TypeScript completo: **41 diagnósticos mobile** e **415 ERP**, sem diagnóstico nos arquivos tocados neste ciclo.
+- [ ] Playwright não alcançou o seletor autenticado: a tela disponível é `/login`. A interação nativa não foi verificada em aparelho; Expo Web não substitui essa validação.
+
 ### Pendências para próximos ciclos
 
-- [ ] Com conta de teste disponível, comparar com Playwright o seletor Simples/Com variações, a lista expandida e o editor de componentes da variação composta entre ERP e Expo Web, uma aba/estado por execução.
+- [ ] Reconstituir evidências dos Ciclos 6–7, caso existam em registros adicionais.
 - [x] Auditar a busca textual da lista no Ciclo 3 e os estados de carregamento, erro, vazio e busca sem resultados no Ciclo 5; permanece pendente a comparação visual autenticada.
 - [x] Auditar o estado de filtros e adicionar a limpeza no mobile no Ciclo 4; a correção do contrato de categoria do ERP está pendente.
-- [ ] Retomar a ordenação após definir o contrato do ERP, pois os controles atuais não alteram a consulta.
-- [ ] Auditar abas restantes do formulário: informações básicas, fotos, características, descrição, preço/estoque e fiscal, conferindo as particularidades documentadas e o inventário RHF/Zod.
-- [ ] Auditar ações da lista, categorias/atributos e demais estados (vazio, erro, sem resultados, permissões e confirmação).
+- [x] Ordenação livre da galeria do produto pai e sincronização da variação única alinhadas no Ciclo 13; a seleção em lote e sua ordem no seletor da variação foram alinhadas no Ciclo 14. Permanecem pendentes o resultado do crop nativo e a validação visual/nativa autenticada.
+- [ ] Concluir auditoria das abas e estados ainda não cobertos: características, descrição, preço/estoque, fiscal, seletor de fotos por variação, ações da lista, categorias/atributos, permissões e confirmações.
+- [ ] Resolver divergências da lista identificadas no Ciclo 4: tipo geral que inclui composição no ERP, filtro ERP por UUID comparado ao campo textual legado e critério mais tolerante do rascunho no app.
+- [ ] Comparar com Playwright os estados autenticados entre ERP e Expo Web assim que houver conta de teste disponível; validar o runtime nativo separadamente, sem inferi-lo do Expo Web.
 - [ ] Confirmar origem canônica da skill `erp-web-to-mobile-replication`; a cópia consultada está apenas em cache de build.
 
 **Critério de encerramento global:** concluir cada área aplicável, registrar exceções justificadas e manter pendentes explícitas as validações que dependam de runtime nativo; não declarar equivalência nativa com base somente no Expo Web.

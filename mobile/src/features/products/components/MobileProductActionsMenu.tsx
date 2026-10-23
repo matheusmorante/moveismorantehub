@@ -18,6 +18,7 @@ interface MobileProductActionsMenuProps {
   isActive: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
+  canToggleActive?: boolean;
   onClose: () => void;
   onEdit: (product: any) => void;
   onToggleActive: (id: string, active: boolean) => void;
@@ -38,6 +39,7 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
   isActive,
   canEdit = false,
   canDelete = false,
+  canToggleActive = false,
   onClose,
   onEdit,
   onToggleActive,
@@ -199,23 +201,25 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
               ) : canDelete ? (
                 <>
                   {/* Desativar / Reativar */}
-                  <TouchableOpacity style={styles.menuItem} onPress={handleToggleActiveClick}>
-                    {isActive ? (
-                      <>
-                        <EyeOff size={16} color="#e11d48" />
-                        <Text style={[styles.menuItemText, { color: '#e11d48' }]}>
-                          Desativar Produto
-                        </Text>
-                      </>
-                    ) : (
-                      <>
-                        <Eye size={16} color="#059669" />
-                        <Text style={[styles.menuItemText, { color: '#059669' }]}>
-                          Reativar Produto
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                  {canToggleActive && (
+                    <TouchableOpacity style={styles.menuItem} onPress={handleToggleActiveClick}>
+                      {isActive ? (
+                        <>
+                          <EyeOff size={16} color="#e11d48" />
+                          <Text style={[styles.menuItemText, { color: '#e11d48' }]}>
+                            Desativar Produto
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Eye size={16} color="#059669" />
+                          <Text style={[styles.menuItemText, { color: '#059669' }]}>
+                            Reativar Produto
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
                   {onMoveToTrash && (
                     <>
                       <TouchableOpacity

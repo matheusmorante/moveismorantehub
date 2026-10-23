@@ -1,6 +1,12 @@
 import { useState, useCallback } from 'react';
+import { toast } from 'react-toastify';
 import Product, { Variation } from '../../types/product.type';
 import { resolveProductVariation } from '../utils/resolveProductVariation';
+import {
+  generateVariationSku,
+  getFullProduct,
+  getNextSequentialProductCode,
+} from '@/pages/utils/productService';
 
 export interface StockLaunchTarget {
   product?: Product | null;
@@ -41,6 +47,44 @@ export function useProductsModals() {
     } else {
       setEditingProduct(p);
       setIsFormModalOpen(true);
+    }
+  }, []);
+
+  const openDuplicateProduct = useCallback(async (product: Product) => {
+    try {
+      const source = product.id ? await getFullProduct(product.id) : product;
+      if (!source) throw new Error('Não foi possível carregar os dados completos do produto.');
+      const code = await getNextSequentialProductCode();
+      const duplicate: Product = {
+        ...source,
+        id: undefined,
+        code,
+        sku: code,
+        createdAt: undefined,
+        updatedAt: undefined,
+        deleted: false,
+        parentId: undefined,
+        isVariation: false,
+        isDraft: true,
+        active: false,
+        status: 'draft',
+        variations: (source.variations || []).map((variation, index) => ({
+          ...variation,
+          id: crypto.randomUUID(),
+          isVirtual: false,
+          mergedToVariationId: undefined,
+          sku: generateVariationSku(code, index),
+          active: false,
+          status: 'draft',
+        })),
+      };
+      setEditingProduct(duplicate);
+      setInitialFormData(null);
+      setIsFormModalOpen(true);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Não foi possível preparar a cópia do produto.'
+      );
     }
   }, []);
 
@@ -101,6 +145,7 @@ export function useProductsModals() {
     // Handlers
     openNewProduct,
     openEditProduct,
+    openDuplicateProduct,
     openShowHistory,
     openLaunchStock,
     closeFormModal,

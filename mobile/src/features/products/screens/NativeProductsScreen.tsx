@@ -37,7 +37,8 @@ import { ProductLinkedOrdersModal } from '../modals/ProductLinkedOrdersModal';
 import { ProductPriceHistoryModal } from '../modals/ProductPriceHistoryModal';
 import { fetchMobileCategories } from '../services/mobileCategoryService';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
-import { duplicateMobileProduct } from '../services/mobileProductMutationService';
+import { generateVariationSku } from '../domain/productSku';
+import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 
 interface Props {
   isDarkMode: boolean;
@@ -187,12 +188,59 @@ export const NativeProductsScreen: React.FC<Props> = ({
 
   const handleDuplicate = async (prod: any) => {
     if (!canEditProducts) return;
+    setLoadingProductForEdit(true);
     try {
-      await duplicateMobileProduct(prod);
-      await productsHook.refresh();
-      Alert.alert('Produto duplicado', 'A cópia foi criada como rascunho.');
+      const result = await withTimeout(
+        fetchMobileProductsPage(1, 1, {
+          productId: String(prod.id),
+          statusFilter: 'all',
+          includeDeactivated: true,
+          includeMerged: true,
+          throwOnError: true,
+        }),
+        10_000,
+        null,
+        'mobile:carregar-produto-completo-para-duplicacao'
+      );
+      const source = result?.data[0];
+      if (!source) throw new Error('O cadastro completo do produto não foi encontrado.');
+
+      const code = await getNextSequentialProductCode();
+      const variations = (source.allVariations || source.variations || []).map(
+        (variation: any, index: number) => ({
+          ...variation,
+          id: crypto.randomUUID(),
+          isVirtual: false,
+          mergedToVariationId: undefined,
+          sku: generateVariationSku(code, index),
+          status: 'draft',
+          active: false,
+        })
+      );
+      setEditingProduct({
+        ...source,
+        id: undefined,
+        code,
+        sku: code,
+        createdAt: undefined,
+        created_at: undefined,
+        updatedAt: undefined,
+        updated_at: undefined,
+        parentId: undefined,
+        selectedVariationId: undefined,
+        isDraft: true,
+        is_draft: true,
+        active: false,
+        status: 'draft',
+        allVariations: variations,
+        variations,
+      });
+      setNewProductInitialData(undefined);
+      setShowFormModal(true);
     } catch (error: any) {
       Alert.alert('Não foi possível duplicar', error?.message || 'Tente novamente.');
+    } finally {
+      setLoadingProductForEdit(false);
     }
   };
 
@@ -440,6 +488,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
         dark={isDarkMode}
         onClose={() => {
           setShowFormModal(false);
+          setEditingProduct(null);
           setNewProductInitialData(undefined);
         }}
         onSave={productsHook.handleSave}

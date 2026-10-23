@@ -12,6 +12,7 @@ import { setTestArtifactMode } from '../../../../../../../shared-utils/testArtif
 import { readTestArtifactIdentity } from '../../../../../../../shared-utils/testArtifactPolicy';
 import { checkEcomLegibility } from '../../domain/productLegibilityRules';
 import { getProductFormTabs, isExistingRegisteredProduct } from '../../modals/productFormTabs';
+import { getProductCategoryRootNames } from '../../components/tabs/sections/productCategoryEnvironment';
 // Initial Data & Rules
 import { INITIAL_PRODUCT_FORM_DATA } from '../../utils/form/productFormInitialData';
 import {
@@ -251,21 +252,7 @@ export function useProductFormModal({
 
   useEffect(() => {
     if (formData.categoryIds?.length && availableCategories.length) {
-      const roots = new Set<string>();
-      const visited = new Set<string>();
-      const find = (catId: string) => {
-        if (visited.has(catId)) return;
-        visited.add(catId);
-        const c = availableCategories.find((item) => item.id === catId);
-        if (!c) return;
-        if (!c.parents || c.parents.length === 0) roots.add(c.name);
-        else
-          c.parents.forEach((pid: string) => {
-            find(pid);
-          });
-      };
-      formData.categoryIds.forEach(find);
-      const allEnvs = Array.from(roots);
+      const allEnvs = getProductCategoryRootNames(formData.categoryIds, availableCategories);
 
       setFormData((prev) => {
         const next = { ...prev };
@@ -392,20 +379,17 @@ export function useProductFormModal({
       const newIds = isSelected
         ? formData.categoryIds?.filter((id) => id !== cid)
         : [...(formData.categoryIds || []), cid];
-      let detectedEnv = formData.environment;
-      if (newIds && newIds.length > 0) {
-        const selectedCats = availableCategories.filter((c) => newIds.includes(c.id));
-        const rootSelected = selectedCats.find((c) => !c.parents || c.parents.length === 0);
-        if (rootSelected) detectedEnv = rootSelected.name;
-        else {
-          const firstCat = selectedCats[0];
-          if (firstCat?.parents?.length > 0) {
-            const parentCat = availableCategories.find((c) => c.id === firstCat.parents[0]);
-            if (parentCat) detectedEnv = parentCat.name;
-          }
-        }
-      }
-      setFormData((prev) => ({ ...prev, categoryIds: newIds, environment: detectedEnv }));
+      const categoryIds = newIds || [];
+      const availableEnvironments = getProductCategoryRootNames(categoryIds, availableCategories);
+      setFormData((prev) => ({
+        ...prev,
+        categoryIds,
+        environment:
+          prev.environment && availableEnvironments.includes(prev.environment)
+            ? prev.environment
+            : availableEnvironments[0] || '',
+        availableEnvironments,
+      }));
     },
     [formData.categoryIds, formData.environment, availableCategories]
   );

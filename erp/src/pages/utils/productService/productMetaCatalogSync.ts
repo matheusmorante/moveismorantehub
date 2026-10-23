@@ -6,12 +6,13 @@ import {
   fetchMetaCatalogSyncSources,
   type MetaCatalogSyncSources,
 } from '@/pages/App/Products/MetaCatalog/services/metaCatalogDataService';
-import {
-  buildMetaCatalogItems,
-  type MetaCatalogItem,
-  type MetaCatalogProductSource,
-  type MetaCatalogVariationSource,
-} from '@/pages/App/Products/MetaCatalog/services/metaCatalogPayload';
+import { buildMetaCatalogItems } from '@/pages/App/Products/MetaCatalog/services/metaCatalogPayload';
+import type {
+  MetaCatalogOpportunitySource,
+  MetaCatalogProductSource,
+  MetaCatalogVariationSource,
+} from '../../../../../shared-utils/metaCatalogPayload';
+import { buildProductMetaCatalogSyncItems } from '../../../../../shared-utils/productMetaCatalogSyncItems';
 
 /**
  * Cache de temporizadores para debounce por productId,
@@ -84,94 +85,12 @@ export async function syncProductToMetaCatalog(
       return { success: true, count: 0 };
     }
 
-    const itemsToSend: any[] = [];
-    const isParentEligible =
-      product.status === 'published' &&
-      !product.deleted_at &&
-      !product.deleted &&
-      !product.is_draft;
-
     const varList = (variations || []) as MetaCatalogVariationSource[];
-    const hasVariations = varList.length > 0;
-
-    if (hasVariations) {
-      // O ID pai de um produto que possui variações nunca é vendido avulso
-      itemsToSend.push({
-        id: product.id,
-        code: product.code || product.id,
-        deleted: true,
-        status: 'hidden',
-      });
-
-      if (!isParentEligible) {
-        // Se o pai foi desativado/ocultado, remove todas as variações da Meta
-        for (let idx = 0; idx < varList.length; idx++) {
-          const v = varList[idx];
-          const varSku =
-            String(v.sku || v.code || '').trim() ||
-            (product.code ? `${product.code}-${String(idx + 1).padStart(2, '0')}` : v.id);
-          itemsToSend.push({
-            id: v.id,
-            code: varSku,
-            deleted: true,
-            status: 'hidden',
-          });
-        }
-      } else {
-        // Pai está publicado: envia cada variação com seu respectivo status
-        const singleSources: MetaCatalogSyncSources = {
-          products: [product as MetaCatalogProductSource],
-          variations: varList,
-          opportunities: (opportunities || []) as any[],
-        };
-        const built = buildMetaCatalogItems(
-          singleSources.products,
-          singleSources.variations,
-          singleSources.opportunities
-        );
-
-        const publishedIds = new Set(built.map((item) => item.code));
-
-        for (let idx = 0; idx < varList.length; idx++) {
-          const v = varList[idx];
-          const varCode =
-            String(v.sku || v.code || '').trim() ||
-            (product.code ? `${product.code}-${String(idx + 1).padStart(2, '0')}` : v.id);
-          if (publishedIds.has(varCode)) {
-            const item = built.find((b) => b.code === varCode);
-            if (item) itemsToSend.push(item);
-          } else {
-            // Variação inativa ou oculta -> DELETE na Meta
-            itemsToSend.push({
-              id: v.id,
-              code: varCode,
-              deleted: true,
-              status: 'hidden',
-            });
-          }
-        }
-      }
-    } else {
-      // Produto simples sem variações
-      if (!isParentEligible) {
-        itemsToSend.push({
-          id: product.id,
-          code: product.code || product.id,
-          deleted: true,
-          status: 'hidden',
-        });
-      } else {
-        const built = buildMetaCatalogItems(
-          [product as MetaCatalogProductSource],
-          [],
-          (opportunities || []) as any[]
-        );
-        if (built.length > 0) {
-          itemsToSend.push(...built);
-        }
-      }
-    }
-
+    const itemsToSend = buildProductMetaCatalogSyncItems(
+      product as MetaCatalogProductSource,
+      varList,
+      (opportunities || []) as MetaCatalogOpportunitySource[]
+    );
     if (itemsToSend.length === 0) return { success: true, count: 0 };
 
     const result = await whatsappGraphService.syncBatchProductsToCatalog(itemsToSend);

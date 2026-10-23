@@ -75,6 +75,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
     stockLaunchTarget,
     openNewProduct,
     openEditProduct,
+    openDuplicateProduct,
     openShowHistory,
     openLaunchStock,
     closeFormModal,
@@ -140,6 +141,7 @@ const Products: React.FC<ProductsProps> = ({ mode = 'standard' }) => {
                   readOnly ? { ...visibilitySettings, actions: true } : visibilitySettings
                 }
                 onEdit={(p: Product) => openEditProduct(p, readOnly)}
+                onDuplicate={canManageProducts ? openDuplicateProduct : undefined}
                 onShowHistory={canManageProducts ? openShowHistory : undefined}
                 onLaunchStock={canManageProducts ? openLaunchStock : undefined}
                 onToggleColumn={toggleVisibility}

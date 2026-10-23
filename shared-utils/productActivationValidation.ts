@@ -38,7 +38,7 @@ export interface ProductActivationValidationResult {
   readonly errorMessage?: string;
 }
 
-const isNonConventionalProduct = (product?: ProductActivationProduct): boolean => {
+export const isNonConventionalProduct = (product?: ProductActivationProduct): boolean => {
   const kind = product?.productKind ?? product?.product_kind ?? product?.condition;
   if (
     kind === 'salvado' ||

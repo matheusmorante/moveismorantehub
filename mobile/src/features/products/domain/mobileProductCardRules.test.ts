@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isNonConventionalProduct } from '../../../../../shared-utils/productActivationValidation';
 import {
   getMobileProductCardActionAvailability,
   isMobileProductStockLow,
@@ -48,6 +49,14 @@ describe('isSalvadoProduct', () => {
     expect(isSalvadoProduct({ isSalvado: true })).toBe(true);
     expect(isSalvadoProduct({ productKind: 'normal' })).toBe(false);
     expect(isSalvadoProduct(null)).toBe(false);
+  });
+});
+
+describe('isNonConventionalProduct', () => {
+  it('recognizes Usados in parent and variation fields and leaves Normal unrestricted', () => {
+    expect(isNonConventionalProduct({ productKind: 'usados' })).toBe(true);
+    expect(isNonConventionalProduct({ stock_origin: 'usados' })).toBe(true);
+    expect(isNonConventionalProduct({ productKind: 'normal' })).toBe(false);
   });
 });
 

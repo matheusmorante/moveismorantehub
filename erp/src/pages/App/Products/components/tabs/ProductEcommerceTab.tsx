@@ -11,7 +11,7 @@ import { uploadFile } from '@/pages/utils/storageService';
 import type Product from '../../../../types/product.type';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
-import { moveProductImage, replaceProductImage, replaceProductImageGlobally } from './images/productImageOrdering';
+import { moveProductImageGlobally, replaceProductImage, replaceProductImageGlobally } from './images/productImageOrdering';
 import { SquareImageCropper } from './images/SquareImageCropper';
 import { uploadOptimizedProductImage } from './images/productImageUpload';
 
@@ -150,15 +150,8 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                   onDragOver={(e) => {
                     e.preventDefault();
                     if (draggedIndex === null || draggedIndex === index) return;
-                    const newImages = moveProductImage(formData.images || [], draggedIndex, index);
                     setDraggedIndex(index);
-                    setFormData((prev) => ({
-                      ...prev,
-                      images: newImages,
-                      ...(prev.variations?.length === 1
-                        ? { variations: [{ ...prev.variations[0], images: newImages }] }
-                        : {}),
-                    }));
+                    setFormData((prev) => moveProductImageGlobally(prev, draggedIndex, index));
                   }}
                   onDragEnd={() => setDraggedIndex(null)}
                   className={`group relative aspect-square w-full rounded-none overflow-hidden border-2 cursor-move transition-all shadow-sm ${borderClass}`}

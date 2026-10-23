@@ -67,7 +67,7 @@ O marcador era um campo residual da integração de importação e exportação 
 
 ### Arquivos e linhas
 
-- `supabase/migrations/20261023103833_remove_bling_and_settings_credentials.sql:1` — remove a coluna Bling da RPC e da view `order_list_items`, preserva `security_invoker`, proprietário e grants, e elimina a coluna física; limpa credenciais antigas de `public.settings` sem remover o identificador público `cscId`.
+- `supabase/migrations/20261023103833_remove_bling_and_settings_credentials.sql:1-2,56-59,61-155` — preserva snapshots antigos em vez de executar `UPDATE orders`, recria `order_list_items` sem a coluna mantendo `security_invoker`, proprietário e grants, remove a coluna física e limpa credenciais antigas de `public.settings` sem remover o identificador público `cscId`.
 - `erp/src/pages/types/order.type.ts:99` — remove o campo do tipo `Order`.
 - `erp/src/pages/utils/orderMapper/mapOrderFromDatabase.ts:16-21,124` — copia o JSON antes de sanitizar os dois nomes legados e grava o snapshot sem o estado Bling, sem modificar a linha de origem.
 - `erp/src/pages/utils/orderMapper/orderMapperTypes.ts:30` — remove o campo do contrato do banco.
@@ -77,6 +77,8 @@ O marcador era um campo residual da integração de importação e exportação 
 - `erp/src/pages/utils/settings/migrations.ts:14-40` e `storage.ts:41-64` — eliminam segredos e configuração antiga do Bling das configurações/cache, sem apagar o `cscId` público.
 - `erp/src/pages/utils/__tests__/orderMapper.test.ts:290`, `erp/src/pages/utils/__tests__/orderSnapshotResolution.test.ts:300` e `mobile/src/features/orders/services/mobileOrderListService.test.ts:181` — provam limpeza no mapeador, no payload salvo e na lista mobile.
 - `erp/server/nfe/audit-order-edit.cjs:2345-2394` e `erp/server/nfe/audit-order-edit.cjs.map` — artefatos compilados regenerados sem o campo.
+- `docs/fiscal/README.md:12` e `docs/fiscal/historico-correcoes-2026-10-23.md:58-97` — atualizam o índice fiscal e registram os guards que impediram a limpeza de snapshots, a migration aplicada e as validações remotas.
+- `docs/integracoes/seguranca-integracoes-remocao-bling-2026-10-23.md:14,24-36` — registra a preservação das chaves históricas, o estado da publicação e o resultado da pós-verificação.
 
 ### Solução e limites
 
@@ -86,7 +88,7 @@ Na leitura imediatamente anterior à aplicação, 316 pedidos tinham uma das cha
 
 O identificador público `cscId` permanece em `public.settings` e no formulário fiscal porque não é o segredo CSC; somente o token CSC e os dados do certificado são retirados do JSON compartilhado.
 
-A publicação de produção foi concluída antes da migration. A chamada Supabase aplicou a migration registrada no histórico remoto como versão `20261023130851`, nome `20261023103833_remove_bling_and_settings_credentials`; a versão de histórico é gerada no momento da aplicação pelo conector. A implantação de produção mais recente é `dpl_8BqN79XPkSLtVfuPkF6WeWWdzkAk`, `READY`, com os aliases `morantehub.vercel.app` e `morantehub.com`.
+A publicação de produção foi concluída antes da migration. A migration aparece no histórico remoto como versão `20261023130851`, nome `20261023103833_remove_bling_and_settings_credentials`. A implantação de produção mais recente é `dpl_8BqN79XPkSLtVfuPkF6WeWWdzkAk`, `READY`, com os aliases `morantehub.vercel.app` e `morantehub.com`.
 
 ### Validação
 

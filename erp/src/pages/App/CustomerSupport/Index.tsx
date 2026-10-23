@@ -102,6 +102,10 @@ export default function CustomerSupport() {
   const {
     messages,
     setMessages,
+    resolveReplyTarget,
+    jumpToMessage,
+    jumpToMessageId,
+    clearJumpToMessage,
     isLoadingMessages,
     isLoadingOlderMessages,
     hasOlderMessages,
@@ -188,6 +192,11 @@ export default function CustomerSupport() {
       folderDeleteLock.current = false;
     }
   };
+
+  const activityRefreshKey = messages
+    .filter((message) => message.messageType === 'internal_note' || message.messageType === 'system_event')
+    .map((message) => message.id)
+    .join('|');
 
   return (
     <div className="flex flex-1 min-h-0 h-full w-full overflow-hidden bg-white dark:bg-slate-900 select-none">
@@ -319,21 +328,29 @@ export default function CustomerSupport() {
             onAddInternalNote={handleAddInternalNote}
             onRefreshMessages={refreshMessages}
             isRefreshingMessages={isRefreshingMessages}
+            onResolveReplyTarget={resolveReplyTarget}
+            onJumpToMessage={jumpToMessage}
+            jumpToMessageId={jumpToMessageId}
+            onJumpComplete={clearJumpToMessage}
           />
 
           {/* Coluna 5: Painel Contextual do ERP (Dados do Cliente e Pedidos) */}
           <CustomerInfoPanel
             key={selectedConversation.id}
             conversation={selectedConversation}
-            messages={messages}
             isOpen={isInfoPanelOpen}
             onClose={() => setIsInfoPanelOpen(false)}
             onConversationUpdated={handleConversationUpdated}
+            onJumpToMessage={(message) => {
+              jumpToMessage(message);
+              setIsInfoPanelOpen(false);
+            }}
           />
 
           {/* Linha do Tempo / Histórico de Atividades (Ativado via botão 🕒 do cabeçalho) */}
           <ActivityTimelineDrawer
-            messages={messages}
+            conversationId={selectedConversation.id}
+            activityRefreshKey={activityRefreshKey}
             isOpen={isTimelineOpen}
             onClose={() => setIsTimelineOpen(false)}
           />

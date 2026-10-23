@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Check, Crop, ImagePlus, Link2, X } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, Crop, ImagePlus, Link2, X } from 'lucide-react-native';
 import type React from 'react';
 import { useState } from 'react';
 import {
@@ -14,6 +14,7 @@ import {
 import { MAX_VARIATION_IMAGES } from '../../domain/productImageLimits';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { createVariationImageSelectionFormSchema } from '../../../../../../shared-utils/productImageFormSchemas';
+import { toggleAllParentProductImages } from '../../../../../../shared-utils/productImageSelection';
 import { ProductSquareImageCropModal } from './ProductSquareImageCropModal';
 
 interface Props {
@@ -56,6 +57,14 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
   const openPicker = () => {
     setDraftImages([...images]);
     setPickerOpen(true);
+  };
+
+  const selectableParentImageCount = Math.min(availableParentImages.length, MAX_VARIATION_IMAGES);
+  const allSelectableParentImagesSelected = draftImages.length === selectableParentImageCount;
+  const toggleAllParentImages = () => {
+    setDraftImages((selected) =>
+      toggleAllParentProductImages(selected, availableParentImages, MAX_VARIATION_IMAGES)
+    );
   };
 
   const toggleImage = (url: string) => {
@@ -197,8 +206,7 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
               <View style={styles.titleGroup}>
                 <Text style={[styles.title, dark && styles.lightText]}>Vincular Fotos</Text>
                 <Text style={[styles.helper, dark && styles.dimText]}>
-                  Selecione até {MAX_VARIATION_IMAGES} fotos do produto pai. {draftImages.length}{' '}
-                  selecionada(s).
+                  Selecione até {MAX_VARIATION_IMAGES} fotos do produto pai.
                 </Text>
               </View>
               <TouchableOpacity
@@ -210,9 +218,29 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
                 <X size={22} color={dark ? '#cbd5e1' : '#475569'} />
               </TouchableOpacity>
             </View>
+            <View style={styles.selectionToolbar}>
+              <Text style={[styles.selectionCount, dark && styles.dimText]}>
+                Selecionadas: {draftImages.length} de {MAX_VARIATION_IMAGES} máx.
+              </Text>
+              <TouchableOpacity
+                onPress={toggleAllParentImages}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  allSelectableParentImagesSelected
+                    ? 'Desmarcar todas as fotos do produto pai'
+                    : 'Selecionar todas as fotos do produto pai'
+                }
+                style={[styles.selectAllButton, dark && styles.darkSelectAllButton]}
+              >
+                <Text style={[styles.selectAllText, dark && styles.darkSelectAllText]}>
+                  {allSelectableParentImagesSelected ? 'Desmarcar todas' : 'Selecionar todas'}
+                </Text>
+              </TouchableOpacity>
+            </View>
             <ScrollView contentContainerStyle={styles.imageGrid}>
               {availableParentImages.map((url, index) => {
                 const selected = draftImages.includes(url);
+                const selectionOrder = draftImages.indexOf(url) + 1;
                 return (
                   <TouchableOpacity
                     key={url}
@@ -225,7 +253,7 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
                     <Image source={{ uri: url }} style={styles.parentImage} />
                     {selected && (
                       <View style={styles.checkBadge}>
-                        <Check size={15} color="#ffffff" />
+                        <Text style={styles.selectionOrderText}>{selectionOrder}</Text>
                       </View>
                     )}
                     <Text style={styles.parentPhotoLabel}>
@@ -382,6 +410,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  selectionToolbar: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  selectionCount: { flex: 1, color: '#475569', fontSize: 11, fontWeight: '700' },
+  selectAllButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 9,
+    backgroundColor: '#eff6ff',
+  },
+  darkSelectAllButton: { backgroundColor: '#1e3a8a55' },
+  selectAllText: { color: '#2563eb', fontSize: 10, fontWeight: '900' },
+  darkSelectAllText: { color: '#93c5fd' },
   imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 4 },
   parentPhoto: {
     width: '31.5%',
@@ -414,6 +460,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#2563eb',
   },
+  selectionOrderText: { color: '#ffffff', fontSize: 11, fontWeight: '900' },
   noImages: {
     width: '100%',
     minHeight: 130,

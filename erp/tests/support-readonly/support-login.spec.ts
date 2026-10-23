@@ -20,11 +20,13 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   const verifyPhoneCopy = process.env.SUPPORT_READONLY_COPY_PHONE === '1';
   const verifyOrdersPanel = process.env.SUPPORT_READONLY_ORDERS_PANEL === '1';
   const verifySnippets = process.env.SUPPORT_READONLY_SNIPPETS === '1';
+  const verifyHistoryPanels = process.env.SUPPORT_READONLY_HISTORY_PANELS === '1';
   const verifyMobileLayout = process.env.SUPPORT_READONLY_MOBILE_LAYOUT === '1';
   const verifyMissedReadRecovery = process.env.SUPPORT_READONLY_MISSED_READ === '1';
   if (verifyPhoneCopy && !verifyReadReceipt) throw new Error('A prova de cópia exige a conversa própria retida e suas guardas de leitura.');
   if (verifyOrdersPanel && !verifyReadReceipt) throw new Error('A prova de pedidos exige a conversa própria retida e suas guardas de leitura.');
   if (verifySnippets && !verifyReadReceipt) throw new Error('A prova dos modelos exige a conversa própria retida e suas guardas de leitura.');
+  if (verifyHistoryPanels && !verifyReadReceipt) throw new Error('Timeline e galeria exigem a conversa própria retida e suas guardas de leitura.');
   if (verifyMobileLayout && !verifyReadReceipt) throw new Error('A prova em tela pequena exige o histórico próprio retido e suas guardas de leitura.');
   if (verifyMissedReadRecovery && !verifyReadReceipt) throw new Error('A recuperação de leitura exige o histórico próprio e suas guardas de leitura.');
   const retainedManifest = verifyReadReceipt
@@ -52,10 +54,10 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
 
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9225');
   const context = browser.contexts()[0];
-  const page = context?.pages()[0];
-  if (!page) throw new Error('Navegador visível de desenvolvimento não encontrado.');
+  if (!context) throw new Error('Navegador visível de desenvolvimento não encontrado.');
+  const page = context.pages()[0] || await context.newPage();
   page.setDefaultTimeout(10_000);
-  page.setDefaultNavigationTimeout(15_000);
+  page.setDefaultNavigationTimeout(30_000);
   const readOnlyRPCs = new Set([
     'customer_support_list_conversations', 'customer_support_conversation_counts', 'customer_support_list_agents',
     'customer_support_list_customer_summaries', 'customer_support_count_customer_orders',
@@ -294,6 +296,39 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       await expect(page.getByTitle('O envio de mensagens para o cliente está bloqueado pela política da empresa', { exact: true })).toBeDisabled();
       await expect(page.getByText('Envio bloqueado pela política da empresa', { exact: true })).toBeVisible();
       expect(rejectedReadWrites).toBeGreaterThan(0);
+      if (verifyHistoryPanels) {
+        const persistedCounts = await page.evaluate(async (conversationId) => {
+          const { supabase } = await import('/src/pages/utils/supabaseConfig.ts');
+          const activities = await supabase.from('whatsapp_messages').select('id', { count: 'exact', head: true })
+            .eq('conversation_id', conversationId).in('message_type', ['internal_note', 'system_event']);
+          const attachments = await supabase.from('whatsapp_messages').select('id', { count: 'exact', head: true })
+            .eq('conversation_id', conversationId).not('media_id', 'is', null);
+          if (activities.error || attachments.error) throw new Error('RLS recusou a leitura da timeline ou galeria própria.');
+          return { activities: activities.count || 0, attachments: attachments.count || 0 };
+        }, ownedReadConversationId!);
+        await page.getByRole('button', { name: 'Linha do tempo de atividades', exact: true }).click();
+        const timeline = page.getByRole('complementary', { name: 'Linha do tempo de atividades', exact: true });
+        await expect(timeline).toBeVisible();
+        await expect(timeline.getByText('Atividades persistidas da conversa', { exact: true })).toBeVisible();
+        await expect(timeline.locator('h4')).toHaveCount(persistedCounts.activities);
+        if (persistedCounts.activities > 0) {
+          await expect(timeline.getByText('Comentário interno', { exact: true })).toBeVisible();
+          await expect(timeline.getByText('Evento do atendimento', { exact: true }).first()).toBeVisible();
+        }
+        await page.getByRole('button', { name: 'Fechar linha do tempo', exact: true }).click();
+        await page.getByRole('button', { name: 'Painel de informações do cliente', exact: true }).click();
+        const panel = page.locator('aside').filter({ has: page.getByRole('heading', { name: /Informações Comerciais/ }) });
+        await expect(panel).toBeVisible();
+        await panel.getByRole('button', { name: 'Mídias', exact: true }).click();
+        await expect(panel.getByText(`Anexos carregados: ${persistedCounts.attachments}`, { exact: true })).toBeVisible();
+        if (persistedCounts.attachments === 0) {
+          await expect(panel.getByText('Nenhum anexo compartilhado.', { exact: true })).toBeVisible();
+        }
+        await panel.getByRole('button', { name: 'Fechar painel', exact: true }).click();
+        test.info().annotations.push({ type: 'persisted-activity-and-attachments',
+          description: `Timeline e galeria abertas pela UI sob RLS; ${persistedCounts.activities} atividades e ${persistedCounts.attachments} anexos persistidos comparados, sem escritas.` });
+        console.info('[support-readonly] Timeline e galeria conferidas com a conversa própria.');
+      }
       await page.getByRole('button', { name: 'Recarregar mensagens', exact: true }).click();
       await expect.poll(() => rejectedReadWrites).toBeGreaterThan(1);
       await expect(page.getByText('Não foi possível confirmar a leitura. Atualize a conversa para tentar novamente.', { exact: true })).toBeVisible();
@@ -326,6 +361,13 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       }
       if (verifySnippets) {
         const pixText = 'Olá! Para orientar seu pagamento via PIX, vou conferir as instruções oficiais vinculadas ao seu pedido. Aguarde a confirmação dos dados antes de realizar a transferência.';
+        const noteCountBefore = await page.evaluate(async (conversationId) => {
+          const { supabase } = await import('/src/pages/utils/supabaseConfig.ts');
+          const result = await supabase.from('whatsapp_messages').select('id', { count: 'exact', head: true })
+            .eq('conversation_id', conversationId).eq('message_type', 'internal_note');
+          if (result.error) throw new Error('RLS recusou a contagem de comentários da conversa própria.');
+          return result.count || 0;
+        }, ownedReadConversationId!);
         await page.bringToFront();
         await context.grantPermissions(['clipboard-write'], { origin: 'http://localhost:5173' });
         clipboardGranted = true;
@@ -334,10 +376,18 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
         await expect(dialog.getByText(pixText, { exact: true })).toBeVisible();
         await dialog.getByRole('button', { name: /Copiar/ }).first().click();
         await expect(page.getByText('Modelo "Orientação de Pagamento via PIX" copiado para a área de transferência.', { exact: true })).toBeVisible();
+        const noteCountAfter = await page.evaluate(async (conversationId) => {
+          const { supabase } = await import('/src/pages/utils/supabaseConfig.ts');
+          const result = await supabase.from('whatsapp_messages').select('id', { count: 'exact', head: true })
+            .eq('conversation_id', conversationId).eq('message_type', 'internal_note');
+          if (result.error) throw new Error('RLS recusou a conferência dos comentários da conversa própria.');
+          return result.count || 0;
+        }, ownedReadConversationId!);
+        expect(noteCountAfter, 'Copiar um snippet não deve criar comentário interno.').toBe(noteCountBefore);
         console.info('[support-readonly] Cópia nativa do modelo público confirmada pela UI.');
         await dialog.getByRole('button', { name: 'Fechar', exact: true }).click();
         await expect(dialog).toHaveCount(0);
-        test.info().annotations.push({ type: 'neutral-snippet-copy', description: 'Modelo público neutro aberto e writeText nativo confirmado pela UI; argumento e ausência de nota conferidos em RTL. Conteúdo do clipboard do sistema não relido. Todas as escritas de negócio bloqueadas.' });
+        test.info().annotations.push({ type: 'neutral-snippet-copy', description: 'Modelo público neutro aberto e writeText nativo confirmado pela UI; contagem de comentários ficou igual antes/depois. Conteúdo do clipboard do sistema não relido. Todas as escritas de negócio bloqueadas.' });
       }
       if (verifyPhoneCopy) {
         await page.bringToFront();

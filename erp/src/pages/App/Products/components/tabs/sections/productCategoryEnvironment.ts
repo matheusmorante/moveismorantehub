@@ -1,11 +1,13 @@
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { getProductCategoryRootNames } from '../../../../../../../../shared-utils/productCategoryResolution';
+
+export { getProductCategoryRootNames };
 
 export interface ProductCategoryOption {
   id: string;
   name: string;
   parents?: string[];
 }
-
 export function filterProductSelectableCategories(
   categories: ProductCategoryOption[]
 ): ProductCategoryOption[] {
@@ -38,29 +40,4 @@ export function searchProductCategories(
 
     return parentNames.some((pName) => normalizeSearchTerm(pName).includes(term));
   });
-}
-
-export function getProductCategoryRootNames(
-  categoryIds: string[],
-  categories: ProductCategoryOption[]
-): string[] {
-  const roots = new Set<string>();
-  const visited = new Set<string>();
-
-  function findRoot(categoryId: string) {
-    if (visited.has(categoryId)) return;
-    visited.add(categoryId);
-
-    const category = categories.find((item) => item.id === categoryId);
-    if (!category) return;
-    if (!category.parents || category.parents.length === 0) {
-      roots.add(category.name);
-      return;
-    }
-
-    category.parents.forEach(findRoot);
-  }
-
-  categoryIds.forEach(findRoot);
-  return Array.from(roots);
 }

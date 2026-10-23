@@ -28,20 +28,20 @@ import { CustomerMediaTab } from './infoPanel/CustomerMediaTab';
 
 export interface CustomerInfoPanelProps {
   conversation: WhatsAppConversation;
-  messages: WhatsAppMessage[];
   isOpen: boolean;
   onClose: () => void;
   onConversationUpdated: (updated: Partial<WhatsAppConversation>) => void;
+  onJumpToMessage: (message: WhatsAppMessage) => void;
 }
 
 export type PanelTab = 'customer' | 'orders' | 'support' | 'media';
 
 export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
   conversation,
-  messages,
   isOpen,
   onClose,
   onConversationUpdated,
+  onJumpToMessage,
 }) => {
   const { profile } = useAuth();
   const roles = profile ? getProfileRoles(profile) : [];
@@ -157,14 +157,6 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
     onConversationUpdated({ tags: nextTags });
     return true;
   };
-
-  // Separação de mídias por tipo
-  const imageMessages = messages.filter(
-    (m) => m.messageType === 'image' && (m.mediaId || m.mediaUrl)
-  );
-  const docMessages = messages.filter(
-    (m) => m.messageType === 'document' && (m.mediaId || m.mediaUrl)
-  );
 
   return (
     <>
@@ -300,8 +292,8 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
 
           {activeTab === 'media' && (
             <CustomerMediaTab
-              imageMessages={imageMessages}
-              docMessages={docMessages}
+              conversationId={conversation.id}
+              onJumpToMessage={onJumpToMessage}
             />
           )}
         </div>

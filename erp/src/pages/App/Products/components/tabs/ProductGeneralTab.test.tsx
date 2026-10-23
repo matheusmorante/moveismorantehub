@@ -35,6 +35,31 @@ describe('ProductGeneralTab product name field', () => {
     expect(screen.getByText('Nome do Produto')).toBeTruthy();
   });
 
+  it('sincroniza título e título do catálogo ao alterar o nome do produto', () => {
+    const setFormData = vi.fn();
+    render(
+      <ProductGeneralTab
+        onOpenCategorySearch={vi.fn()}
+        isService
+        formData={{ name: 'Mesa' }}
+        setFormData={setFormData}
+        availableCategories={[]}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/Digite o nome do produto/i), {
+      target: { value: 'Mesa Aurora' },
+    });
+
+    const update = setFormData.mock.calls[0]?.[0];
+    expect(typeof update).toBe('function');
+    expect(update({ name: 'Mesa' })).toMatchObject({
+      name: 'Mesa Aurora',
+      title: 'Mesa Aurora',
+      marketplaceTitle: 'Mesa Aurora',
+    });
+  });
+
   it('mostra as duas opções dentro do controle na primeira aba e destaca o modo selecionado', () => {
     const onSetHasVariations = vi.fn();
     const { rerender } = render(

@@ -6,11 +6,12 @@ import { useCustomerSupportMessages } from '../hooks/useCustomerSupportMessages'
 import type { WhatsAppConversation, WhatsAppMessage } from '../types';
 
 const mocks = vi.hoisted(() => ({ fetchConversations: vi.fn(), fetchConversationCounts: vi.fn(),
-  fetchConversationMessages: vi.fn(), fetchPreviousConversationMessages: vi.fn(), markConversationAsRead: vi.fn(),
+  fetchConversationMessages: vi.fn(), fetchPreviousConversationMessages: vi.fn(), fetchConversationReplyTarget: vi.fn(), markConversationAsRead: vi.fn(),
   messageListener: undefined as undefined | ((payload: any) => unknown) }));
 vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({ fetchConversations: mocks.fetchConversations,
   fetchConversationCounts: mocks.fetchConversationCounts, fetchConversationMessages: mocks.fetchConversationMessages,
   fetchPreviousConversationMessages: mocks.fetchPreviousConversationMessages, markConversationAsRead: mocks.markConversationAsRead,
+  fetchConversationReplyTarget: mocks.fetchConversationReplyTarget,
   mapRowToMessage: (row: unknown) => row }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
   channel: () => ({ on(_event: string, filter: { table: string }, callback: (payload: any) => unknown) {
@@ -39,6 +40,28 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.resetAllMocks(); });
 
 describe('Paginação da Inbox', () => {
+  it('resolve citações só na conversa ativa e injeta a origem na timeline ao saltar', async () => {
+    const source = { id: 'source', conversationId: 'a', timestamp: '2026-10-21T11:00:00Z' } as WhatsAppMessage;
+    mocks.fetchConversationReplyTarget.mockResolvedValue(source);
+    mocks.fetchConversationMessages.mockResolvedValueOnce(messages(5));
+    const { result } = renderHook(() => useCustomerSupportMessages({
+      selectedConversation: conversation('a'), onClearUnread: vi.fn(),
+    }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(5));
+
+    let resolved!: WhatsAppMessage | null;
+    await act(async () => {
+      resolved = await result.current.resolveReplyTarget({ conversationId: 'a', messageId: null, apiMessageId: 'wamid.source' });
+    });
+    expect(resolved).toBe(source);
+    await act(async () => { await result.current.resolveReplyTarget({ conversationId: 'other', messageId: null, apiMessageId: 'wamid.source' }); });
+    expect(mocks.fetchConversationReplyTarget).toHaveBeenCalledTimes(1);
+    act(() => result.current.jumpToMessage(source));
+    await waitFor(() => expect(result.current.messages.some((message) => message.id === 'source')).toBe(true));
+    expect(result.current.jumpToMessageId).toBe('source');
+    expect(result.current.hasOlderMessages).toBe(true);
+  });
+
   it('preserva dados comerciais carregados após falha de refresh e recupera ao repetir', async () => {
     const confirmed = { ...conversation('commercial'), customer: { id: 'customer-unit', fullName: 'Cliente unitário' }, orders: [{}, {}] } as WhatsAppConversation;
     mocks.fetchConversations.mockResolvedValueOnce({ conversations: [confirmed], totalCount: 1 });

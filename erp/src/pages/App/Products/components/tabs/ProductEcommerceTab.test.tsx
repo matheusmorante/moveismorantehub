@@ -56,7 +56,7 @@ describe('ProductEcommerceTab image limits', () => {
 
     const notice = screen.getByRole('note', { name: 'Limite de fotos do produto' });
     expect(notice.textContent).toContain('Limite da galeria: 75 fotos');
-    expect(notice.textContent).toContain('Cada variação pode vincular até 15 fotos desta galeria');
+    expect(notice.textContent).toContain('Produtos com várias variações podem vincular até 15 fotos por variação');
   });
 
   it('keeps the 75 photo limit when the product has no variations or single variation', () => {
@@ -64,7 +64,7 @@ describe('ProductEcommerceTab image limits', () => {
 
     const notice = screen.getByRole('note', { name: 'Limite de fotos do produto' });
     expect(notice.textContent).toContain('Limite da galeria: 75 fotos');
-    expect(notice.textContent).toContain('Cada variação pode vincular até 15 fotos desta galeria');
+    expect(notice.textContent).toContain('Produtos com várias variações podem vincular até 15 fotos por variação');
   });
 
   it('warns when existing photos exceed the 75 cap without hiding them', () => {

@@ -7,6 +7,12 @@ export interface CategoryCandidate {
   category?: string;
 }
 
+export interface ProductCategoryHierarchyNode {
+  id: string;
+  name: string;
+  parents?: readonly string[];
+}
+
 export interface RankedCategoryCandidate {
   category: CategoryCandidate;
   score: number;
@@ -238,6 +244,33 @@ export function keepManualCategorySelection(
 ): string[] {
   if (selectedIds.length || !suggestedId) return [...selectedIds];
   return [suggestedId];
+}
+
+/** Resolve os ambientes raiz associados às categorias selecionadas. */
+export function getProductCategoryRootNames(
+  categoryIds: readonly string[],
+  categories: readonly ProductCategoryHierarchyNode[]
+): string[] {
+  const roots = new Set<string>();
+  const visited = new Set<string>();
+  const byId = new Map(categories.map((category) => [category.id, category]));
+
+  function findRoot(categoryId: string) {
+    if (visited.has(categoryId)) return;
+    visited.add(categoryId);
+
+    const category = byId.get(categoryId);
+    if (!category) return;
+    if (!category.parents?.length) {
+      roots.add(category.name);
+      return;
+    }
+
+    category.parents.forEach(findRoot);
+  }
+
+  categoryIds.forEach(findRoot);
+  return Array.from(roots);
 }
 
 /** Resolve automaticamente apenas com regras locais; nunca chama serviços de IA. */

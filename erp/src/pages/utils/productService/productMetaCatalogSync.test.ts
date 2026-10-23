@@ -176,7 +176,15 @@ describe('productMetaCatalogSync', () => {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             maybeSingle: vi.fn().mockResolvedValue({
-              data: { id: 'p1', code: '001', status: 'published', active: true },
+              data: {
+                id: 'p1',
+                code: '001',
+                status: 'published',
+                active: true,
+                deleted: false,
+                deleted_at: null,
+                is_draft: false,
+              },
               error: null,
             }),
           }),

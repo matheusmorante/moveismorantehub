@@ -10,19 +10,24 @@ interface AddressVerificationMapProps {
     number: string;
     neighborhood: string;
     city: string;
+    state?: string;
     cep?: string;
     complement?: string;
     observation?: string;
     coords?: [number, number];
     placeId?: string;
   };
+  coords?: [number, number];
+  placeId?: string;
 }
 
-const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
+const AddressVerificationMap = ({ address, coords: addressCoords, placeId: addressPlaceId }: AddressVerificationMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const marker = useRef<maplibregl.Marker | null>(null);
-  const { street, number, neighborhood, city, coords: directCoords, placeId } = address;
+  const { street, number, neighborhood, city, state } = address;
+  const directCoords = addressCoords || address.coords;
+  const placeId = addressPlaceId || address.placeId;
 
   const settings = getSettings();
   const originLongitude = settings.storeOriginCoords?.[0] ?? -49.16948;
@@ -62,7 +67,7 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const geoResult = await geocodeAddress({ street, number, neighborhood, city, placeId });
+        const geoResult = await geocodeAddress({ street, number, city, state, placeId });
         if (geoResult) {
           setCoords(geoResult.coords);
           setIsPrecision(geoResult.isPrecision);
@@ -78,7 +83,7 @@ const AddressVerificationMap = ({ address }: AddressVerificationMapProps) => {
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [street, number, neighborhood, city, directCoords, placeId]);
+  }, [street, number, city, state, directCoords, placeId]);
 
   // Map initialization
   useEffect(() => {

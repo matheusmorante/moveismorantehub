@@ -103,7 +103,9 @@ export const ProductsTopToolbar: React.FC<ProductsTopToolbarProps> = ({
               <button
                 type="button"
                 onClick={() => setIsActionsMenuOpen((prev) => !prev)}
-                className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl transition-all shadow-sm active:scale-95"
+                aria-label="Ações de produtos"
+                aria-expanded={isActionsMenuOpen}
+                className="w-11 h-11 xl:w-8 xl:h-8 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl transition-all shadow-sm active:scale-95"
                 title="Opções"
               >
                 <i className="bi bi-three-dots-vertical text-lg" />

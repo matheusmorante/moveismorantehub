@@ -11,6 +11,7 @@ import {
 } from '../domain/productVariationName';
 import { generateVariationSku } from '../domain/productSku';
 import { getNextSequentialProductCode } from './mobileProductCodeService';
+import { triggerMobileProductMetaCatalogSync } from './mobileProductMetaCatalogSyncService';
 import { getMobileProductVariationRecords } from '../domain/mobileProductVariationVisibility';
 
 const normalizeVariationSku = (sku?: string) =>
@@ -166,6 +167,7 @@ export const toggleMobileProductCatalog = async (
         if (parentResult.error) throw parentResult.error;
       }
     }
+    triggerMobileProductMetaCatalogSync(productId);
     return nextStatus;
   }
 
@@ -187,6 +189,7 @@ export const toggleMobileProductCatalog = async (
     'mobile:atualizar-status-variacoes'
   );
   if (variationsResult.error) throw variationsResult.error;
+  triggerMobileProductMetaCatalogSync(productId);
   return nextStatus;
 };
 
@@ -347,6 +350,7 @@ export const toggleMobileProductActive = async (
       );
       if (parentResult.error) throw parentResult.error;
     }
+    triggerMobileProductMetaCatalogSync(productId);
     return nextActive;
   }
   const productUpdateResult = await withMobileMutationTimeout(
@@ -370,6 +374,7 @@ export const toggleMobileProductActive = async (
     'mobile:atualizar-ativacao-variacoes'
   );
   if (variationsResult.error) throw variationsResult.error;
+  triggerMobileProductMetaCatalogSync(productId);
   return nextActive;
 };
 

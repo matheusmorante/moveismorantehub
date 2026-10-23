@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createVariationImageSelectionFormSchema } from '../../../../../../../../shared-utils/productImageFormSchemas';
+import { toggleAllParentProductImages } from '../../../../../../../../shared-utils/productImageSelection';
 
 export interface VariationParentImagesSelectModalProps {
   readonly isOpen: boolean;
@@ -55,11 +56,9 @@ export const VariationParentImagesSelectModal: React.FC<VariationParentImagesSel
   };
 
   const handleSelectAll = () => {
-    if (tempSelected.length === Math.min(parentImages.length, maxSelection)) {
-      setTempSelected([]);
-    } else {
-      setTempSelected(parentImages.slice(0, maxSelection));
-    }
+    setTempSelected((selected) =>
+      toggleAllParentProductImages(selected, parentImages, maxSelection)
+    );
   };
 
   const handleFinish = async () => {

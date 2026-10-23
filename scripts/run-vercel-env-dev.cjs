@@ -26,7 +26,8 @@ const command = mode === 'api' ? 'dev:api:serve'
   : mode === 'support-owned' ? 'test:support:owned:serve'
   : mode === 'support-cleanup' ? 'test:support:cleanup:serve'
   : mode === 'support-reopening' ? 'test:support:reopening:serve'
-  : mode === 'support-reopening-ui' ? 'test:support:reopening:ui:serve' : 'dev:stack';
+  : mode === 'support-reopening-ui' ? 'test:support:reopening:ui:serve'
+  : mode === 'support-comment-persistence' ? 'test:support:comment-persistence:serve' : 'dev:stack';
 const args = [
   '-y',
   'vercel',

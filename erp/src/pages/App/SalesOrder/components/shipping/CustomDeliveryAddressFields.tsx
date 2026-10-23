@@ -272,6 +272,7 @@ export const CustomDeliveryAddressFields: React.FC<CustomDeliveryAddressFieldsPr
             number: shipping.deliveryAddress?.number || '',
             neighborhood: shipping.deliveryAddress?.neighborhood || '',
             city: shipping.deliveryAddress?.city || '',
+            state: shipping.deliveryAddress?.state || '',
           }}
           coords={shipping.deliveryAddress?.coords || shipping.destinationCoords}
           placeId={shipping.deliveryAddress?.placeId}

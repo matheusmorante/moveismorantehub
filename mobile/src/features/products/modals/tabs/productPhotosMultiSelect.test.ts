@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-
-const MAX_PRODUCT_IMAGES = 75;
+import { limitProductImageSelection } from '../../../../../../shared-utils/productImageSelection';
+import { MAX_PARENT_PRODUCT_IMAGES } from '../../domain/productImageLimits';
 
 describe('Product Photos Multi-Selection & Limit Logic', () => {
   it('allows adding multiple images up to the available slots', () => {
@@ -12,11 +12,15 @@ describe('Product Photos Multi-Selection & Limit Logic', () => {
     ];
 
     const currentCount = existingImages.length;
-    const availableSlots = MAX_PRODUCT_IMAGES - currentCount;
-    const urlsToAdd = newSelectedUrls.slice(0, availableSlots);
+    const selection = limitProductImageSelection(
+      newSelectedUrls,
+      currentCount,
+      MAX_PARENT_PRODUCT_IMAGES
+    );
 
-    const updatedImages = [...existingImages, ...urlsToAdd];
+    const updatedImages = [...existingImages, ...selection.filesToUpload];
     expect(updatedImages).toHaveLength(5);
+    expect(selection.skippedCount).toBe(0);
     expect(updatedImages).toEqual([
       'https://cdn.example.com/img1.jpg',
       'https://cdn.example.com/img2.jpg',
@@ -28,24 +32,31 @@ describe('Product Photos Multi-Selection & Limit Logic', () => {
 
   it('truncates excess images when user selects more than available capacity', () => {
     const existingImages = new Array(73).fill('https://cdn.example.com/existing.jpg');
-    const newSelectedUrls = [
-      'https://cdn.example.com/new1.jpg',
-      'https://cdn.example.com/new2.jpg',
-      'https://cdn.example.com/new3.jpg',
-      'https://cdn.example.com/new4.jpg',
+    const newSelectedFiles = [
+      { name: 'new1.jpg' },
+      { name: 'new2.jpg' },
+      { name: 'new3.jpg' },
+      { name: 'new4.jpg' },
     ];
 
     const currentCount = existingImages.length;
-    const availableSlots = MAX_PRODUCT_IMAGES - currentCount; // 75 - 73 = 2
-    const urlsToAdd = newSelectedUrls.slice(0, availableSlots);
+    const selection = limitProductImageSelection(
+      newSelectedFiles,
+      currentCount,
+      MAX_PARENT_PRODUCT_IMAGES
+    );
 
-    expect(urlsToAdd).toHaveLength(2);
-    expect(urlsToAdd).toEqual([
-      'https://cdn.example.com/new1.jpg',
-      'https://cdn.example.com/new2.jpg',
+    expect(selection.filesToUpload).toHaveLength(2);
+    expect(selection.skippedCount).toBe(2);
+    expect(selection.filesToUpload).toEqual([
+      { name: 'new1.jpg' },
+      { name: 'new2.jpg' },
     ]);
 
-    const updatedImages = [...existingImages, ...urlsToAdd];
+    const uploadedUrls = selection.filesToUpload.map(
+      ({ name }) => `https://cdn.example.com/${name}`
+    );
+    const updatedImages = [...existingImages, ...uploadedUrls];
     expect(updatedImages).toHaveLength(75);
   });
 

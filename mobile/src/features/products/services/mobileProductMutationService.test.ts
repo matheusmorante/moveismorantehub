@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   rpc: vi.fn(),
+  triggerMetaCatalogSync: vi.fn(),
 }));
 
 vi.mock('../../../services/supabaseClient', () => ({
@@ -10,6 +11,10 @@ vi.mock('../../../services/supabaseClient', () => ({
     from: mocks.from,
     rpc: mocks.rpc,
   },
+}));
+
+vi.mock('./mobileProductMetaCatalogSyncService', () => ({
+  triggerMobileProductMetaCatalogSync: mocks.triggerMetaCatalogSync,
 }));
 
 import {
@@ -352,6 +357,7 @@ describe('toggleMobileProductCatalog', () => {
     expect(mocks.from).toHaveBeenCalledWith('product_variations');
     expect(query.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'hidden' }));
     expect(query.eq).toHaveBeenCalledWith('product_id', 'prod-test-1');
+    expect(mocks.triggerMetaCatalogSync).toHaveBeenCalledWith('prod-test-1');
   });
 
   it('publica o produto pai quando publica uma variação', async () => {
@@ -432,6 +438,7 @@ describe('toggleMobileProductActive', () => {
     expect(mocks.from).toHaveBeenCalledWith('product_variations');
     expect(query.update).toHaveBeenCalledWith(expect.objectContaining({ active: true }));
     expect(query.eq).toHaveBeenCalledWith('product_id', '123e4567-e89b-42d3-a456-426614174000');
+    expect(mocks.triggerMetaCatalogSync).toHaveBeenCalledWith('123e4567-e89b-42d3-a456-426614174000');
   });
 
   it('recalcula a ativação do produto pai ao alternar uma variação', async () => {

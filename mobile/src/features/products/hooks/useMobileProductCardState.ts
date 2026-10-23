@@ -4,6 +4,7 @@ import {
   isSalvadoProduct,
   resolveCanonicalOpportunityBadge,
 } from '../domain/mobileProductCardRules';
+import { isNonConventionalProduct } from '../../../../../shared-utils/productActivationValidation';
 import { useMobileProductMetadata } from './useMobileProductMetadata';
 import { getSingleVariationDisplayName } from '../domain/mobileProductCardDisplay';
 import { normalizeVariationSku } from '../domain/productSku';
@@ -93,6 +94,8 @@ export function useMobileProductCardState({
 
   const { oppName, supplierNames } = useMobileProductMetadata(product);
   const isSalvado = isSalvadoProduct(product) || isSalvadoProduct(singleVariation);
+  const isNonConventional =
+    isNonConventionalProduct(product) || isNonConventionalProduct(singleVariation);
   const oppBadgeInfo = resolveCanonicalOpportunityBadge(
     { ...product, ...(isSalvado ? { productKind: 'salvado' } : {}) },
     oppName
@@ -137,6 +140,7 @@ export function useMobileProductCardState({
     oppName,
     supplierNames,
     isSalvado,
+    isNonConventional,
     oppBadgeInfo,
     displaySku,
   };

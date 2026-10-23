@@ -36,12 +36,50 @@ Deno.serve(async (request) => {
     });
     const { data: release, error: releaseError } = await admin
       .from("app_release_current")
-      .select("platform,version,build_number,min_supported_build,storage_path,file_size,sha256,is_mandatory,release_notes,updated_at")
+      .select("platform,version,build_number,min_supported_build,storage_path,file_size,sha256,is_mandatory,release_notes,download_url,updated_at")
       .eq("platform", "android")
       .maybeSingle();
 
     if (releaseError) return jsonResponse({ error: "Release metadata unavailable" }, 503);
-    if (!release || release.storage_path !== APK_PATH || release.file_size <= 0) {
+    if (!release || release.file_size <= 0) {
+      return jsonResponse({ error: "Android release not found" }, 404);
+    }
+
+    if (release.storage_path === "drive") {
+      if (typeof release.download_url !== "string") {
+        return jsonResponse({ error: "Android release not found" }, 404);
+      }
+      let artifactUrl: URL;
+      try {
+        artifactUrl = new URL(release.download_url);
+      } catch {
+        return jsonResponse({ error: "Android release not found" }, 404);
+      }
+      if (
+        artifactUrl.protocol !== "https:" ||
+        artifactUrl.hostname !== "expo.dev" ||
+        !/^\/artifacts\/eas\/[a-zA-Z0-9_-]+\.apk$/.test(artifactUrl.pathname)
+      ) {
+        return jsonResponse({ error: "Android release not found" }, 404);
+      }
+
+      if (request.method === "GET") {
+        return new Response(null, {
+          status: 302,
+          headers: { ...corsHeaders, Location: artifactUrl.toString() },
+        });
+      }
+
+      return jsonResponse({
+        signedUrl: artifactUrl.toString(),
+        version: release.version,
+        buildNumber: release.build_number,
+        fileSize: release.file_size,
+        contentType: APK_MIME_TYPE,
+      });
+    }
+
+    if (release.storage_path !== APK_PATH) {
       return jsonResponse({ error: "Android release not found" }, 404);
     }
 

@@ -58,11 +58,11 @@ export const getGeocodeRequestKey = (address: any): string => {
   if (!address) return '';
 
   const mapsUrl = address.mapsUrl || address.googleMapsUrl || address.mapsLink || '';
-  if (
-    ![mapsUrl, address.street, address.number, address.neighborhood, address.city, address.cep].some(
-      (value) => String(value || '').trim()
-    )
-  ) {
+  const coords = Array.isArray(address.coords) ? address.coords.join(',') : '';
+  const placeId = address.placeId || '';
+  if (![mapsUrl, address.street, address.number, address.city, address.state, placeId, coords].some(
+    (value) => String(value || '').trim()
+  )) {
     return '';
   }
 
@@ -70,10 +70,10 @@ export const getGeocodeRequestKey = (address: any): string => {
     String(mapsUrl).trim(),
     address.street,
     address.number,
-    address.neighborhood,
     address.city,
     address.state || 'PR',
-    address.cep,
+    placeId,
+    coords,
   ]
     .map((value, index) =>
       index === 0
@@ -115,81 +115,23 @@ export const normalizeStreetAndNumber = (
 };
 
 /**
- * Monta lista ordenada de queries candidatas para o Geocoder do Google,
- * garantindo fallbacks inteligentes caso o bairro retornado pelo Places seja conflitante.
+ * Busca a rua pelo endereço principal e deixa bairro, CEP e país fora da consulta.
  */
 export const buildGeocodeCandidateQueries = (params: {
   cleanStreet: string;
   cleanNumber: string;
-  neighborhood: string;
   city: string;
   state: string;
-  cep: string;
 }): string[] => {
-  const { cleanStreet, cleanNumber, neighborhood, city, state, cep } = params;
-  const targetCity = city || 'Colombo';
-  const targetState = state || 'PR';
+  const { cleanStreet, cleanNumber } = params;
+  const targetCity = String(params.city || '').trim();
+  const targetState = String(params.state || 'PR').trim();
+  if (!cleanStreet.trim() || !targetCity) return [];
+
   const streetWithNumber = cleanStreet
     ? `${cleanStreet}${cleanNumber ? ', ' + cleanNumber : ''}`
     : '';
-
-  const queries: string[] = [];
-
-  // 1. Query primária completa (Rua + Número, Bairro, CEP, Cidade, UF, Brasil)
-  queries.push(
-    [streetWithNumber, neighborhood, cep ? `CEP ${cep}` : '', targetCity, targetState, 'Brasil']
-      .filter(Boolean)
-      .join(', ')
-  );
-
-  // 2. Se houver CEP e Bairro: tenta Rua + Número + CEP + Cidade + UF (SEM bairro conflitante)
-  if (cep && neighborhood && streetWithNumber) {
-    queries.push(
-      [streetWithNumber, `CEP ${cep}`, targetCity, targetState, 'Brasil']
-        .filter(Boolean)
-        .join(', ')
-    );
-  }
-
-  // 3. Fallback crucial: Rua + Número + Cidade + UF (SEM bairro).
-  // Elimina divergências comuns onde o Places retorna sub-bairro/vila não reconhecido pelo Geocoder.
-  if (neighborhood && streetWithNumber) {
-    queries.push(
-      [streetWithNumber, targetCity, targetState, 'Brasil']
-        .filter(Boolean)
-        .join(', ')
-    );
-  }
-
-  // 4. Rua + Bairro + Cidade + UF (sem número)
-  if (cleanNumber && neighborhood && cleanStreet) {
-    queries.push(
-      [cleanStreet, neighborhood, targetCity, targetState, 'Brasil']
-        .filter(Boolean)
-        .join(', ')
-    );
-  }
-
-  // 5. Rua + Cidade + UF (fallback clássico de via)
-  if (cleanStreet) {
-    queries.push(
-      [cleanStreet, targetCity, targetState, 'Brasil']
-        .filter(Boolean)
-        .join(', ')
-    );
-  }
-
-  // 6. CEP + Cidade + UF (quando rua for muito nova ou não localizada)
-  if (cep) {
-    queries.push(
-      [cep ? `CEP ${cep}` : '', targetCity, targetState, 'Brasil']
-        .filter(Boolean)
-        .join(', ')
-    );
-  }
-
-  // Retorna lista com elementos únicos não vazios
-  return Array.from(new Set(queries.filter((q) => q.trim().length > 0)));
+  return [[streetWithNumber, targetCity, targetState].filter(Boolean).join(', ')];
 };
 
 export const geocodeAddressUncached = async (
@@ -197,11 +139,9 @@ export const geocodeAddressUncached = async (
   onFailure?: (reason: string) => void
 ): Promise<GeocodeResponse | null> => {
   let street = '',
-    neighborhood = '',
     city = '',
     number = '',
     state = 'PR',
-    cep = '',
     placeId = '';
 
   if (typeof address === 'string') {
@@ -235,30 +175,24 @@ export const geocodeAddressUncached = async (
           isPrecision: true,
         };
       }
-      if (!address.street && !address.neighborhood && !address.city && !address.cep) {
+      if (!address.street && !address.city && !address.placeId) {
         onFailure?.(
-          'A URL de localização não contém coordenadas reconhecíveis. Confira o link do Google Maps ou informe o endereço físico.'
+          'A URL de localização não contém coordenadas reconhecíveis. Confira o link do Google Maps ou informe rua, número, cidade e UF.'
         );
         return null;
       }
     }
 
     street = address.street || '';
-    neighborhood = address.neighborhood || '';
     city = address.city || '';
     number = address.number || '';
     state = address.state || 'PR';
-    cep = address.cep || '';
     placeId = address.placeId || '';
   }
 
-  // Não consumir cota com uma tentativa de geocodificação sem endereço real.
-  const hasAddressData = [street, neighborhood, city, cep, placeId].some(
-    (value) => String(value || '').trim().length > 0
-  );
-  if (!hasAddressData) {
+  if ((!String(street).trim() || !String(city).trim()) && !placeId) {
     onFailure?.(
-      'Endereço insuficiente para geocodificação. Informe ao menos rua, bairro ou cidade.'
+      'Endereço insuficiente para geocodificação. Informe rua, número, cidade e UF.'
     );
     return null;
   }
@@ -267,10 +201,8 @@ export const geocodeAddressUncached = async (
   const candidateQueries = buildGeocodeCandidateQueries({
     cleanStreet,
     cleanNumber,
-    neighborhood,
     city,
     state,
-    cep,
   });
 
   // Verificar se alguma das queries já está em cache
@@ -298,7 +230,7 @@ export const geocodeAddressUncached = async (
       return new Promise((resolve, reject) => {
         geocoder.geocode(
           typeof requestParam === 'string'
-            ? { address: requestParam, region: 'br', componentRestrictions: { country: 'br' } }
+            ? { address: requestParam }
             : requestParam,
           (results: any, status: any) => {
             if (status === 'OK' && results && results.length > 0) resolve(results[0]);
@@ -390,7 +322,7 @@ export const geocodeAddressUncached = async (
     );
   } else {
     onFailure?.(
-      `O Google Maps não localizou o endereço informado${lastGeocodeStatus ? ` (${lastGeocodeStatus})` : ''}. Confira rua, número, bairro, cidade e UF.`
+      `O Google Maps não localizou o endereço informado${lastGeocodeStatus ? ` (${lastGeocodeStatus})` : ''}. Confira rua, número, cidade e UF.`
     );
   }
   return null;

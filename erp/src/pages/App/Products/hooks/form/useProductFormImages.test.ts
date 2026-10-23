@@ -90,6 +90,66 @@ describe('useProductFormImages', () => {
     expect(setLoading).not.toHaveBeenCalled();
   });
 
+  it('limits selected files to the remaining gallery slots before compression or upload', async () => {
+    let formData = { images: Array.from({ length: 74 }, (_, index) => `url-${index}`) };
+    const setFormData = vi.fn((updater) => {
+      formData = typeof updater === 'function' ? updater(formData) : updater;
+    });
+    const { result } = renderHook(() => useProductFormImages(formData, setFormData, vi.fn()));
+    const files = [
+      new File(['first'], 'first.jpg', { type: 'image/jpeg' }),
+      new File(['second'], 'second.jpg', { type: 'image/jpeg' }),
+      new File(['third'], 'third.jpg', { type: 'image/jpeg' }),
+    ];
+
+    await act(async () => {
+      await result.current.handleFileChange({ files });
+    });
+
+    expect(toast.info).toHaveBeenCalledWith(
+      'Apenas as primeiras 1 foto(s) serão adicionadas (limite máximo de 75 fotos).'
+    );
+    expect(compressImageToFile).toHaveBeenCalledTimes(2);
+    expect(uploadFile).toHaveBeenCalledTimes(3);
+    expect(formData.images).toHaveLength(75);
+  });
+
+  it('unlinks a removed parent photo from every variation that uses it', () => {
+    let formData = {
+      images: ['cover.jpg', 'side.jpg'],
+      variations: [
+        {
+          id: 'v1', sku: 'SKU-1', name: 'Variação 1', stock: 0, unitPrice: 0,
+          active: true, attributes: [], images: ['cover.jpg', 'side.jpg'],
+        },
+        {
+          id: 'v2', sku: 'SKU-2', name: 'Variação 2', stock: 0, unitPrice: 0,
+          active: true, attributes: [], images: ['cover.jpg'],
+        },
+      ],
+    };
+    const setFormData = vi.fn((updater) => {
+      formData = typeof updater === 'function' ? updater(formData) : updater;
+    });
+    const { result } = renderHook(() => useProductFormImages(formData, setFormData, vi.fn()));
+
+    act(() => result.current.removePhoto('cover.jpg'));
+
+    expect(formData).toEqual({
+      images: ['side.jpg'],
+      variations: [
+        {
+          id: 'v1', sku: 'SKU-1', name: 'Variação 1', stock: 0, unitPrice: 0,
+          active: true, attributes: [], images: ['side.jpg'],
+        },
+        {
+          id: 'v2', sku: 'SKU-2', name: 'Variação 2', stock: 0, unitPrice: 0,
+          active: true, attributes: [], images: [],
+        },
+      ],
+    });
+  });
+
   it('still succeeds and keeps original image if medium or thumb optimization upload fails', async () => {
     let formData = { images: [] as string[] };
     const setFormData = vi.fn().mockImplementation((updater) => {

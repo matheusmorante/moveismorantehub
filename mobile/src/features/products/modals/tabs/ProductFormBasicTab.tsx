@@ -1,8 +1,12 @@
 import type React from 'react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, Settings } from 'lucide-react-native';
-import { fetchMobileCategories, type MobileCategory } from '../../services/mobileCategoryService';
+import {
+  fetchMobileCategories,
+  fetchMobileEnvironments,
+  type MobileCategory,
+} from '../../services/mobileCategoryService';
 import {
   fetchMobileOpportunities,
   type MobileOpportunity,
@@ -11,10 +15,12 @@ import { OpportunitySelectModal } from '../components/OpportunitySelectModal';
 import { CategoryMultiSelectList } from '../components/CategoryMultiSelectList';
 import { CategoriesManagerModal } from '../CategoriesManagerModal';
 import {
+  getProductCategoryRootNames,
   keepManualCategorySelection,
   matchCategoryByRules,
 } from '../../../../../../shared-utils/productCategoryResolution';
 import { toTitleCase } from '../../../../../../shared-utils/productText';
+import { productTitleFieldsFromName } from '../../../../../../shared-utils/productTitle';
 import { inheritMobileSimpleVariationFromParent } from '../../domain/productVariationParentSync';
 import { getMobileVariationColorSummary } from '../../domain/productCharacteristics';
 
@@ -55,21 +61,10 @@ export const ProductFormBasicTab: React.FC<Props> = ({
   onFieldBlur,
 }) => {
   const [categories, setCategories] = useState<MobileCategory[]>([]);
+  const [categoryHierarchyReady, setCategoryHierarchyReady] = useState(false);
   const [opportunities, setOpportunities] = useState<MobileOpportunity[]>([]);
   const [showOpportunityModal, setShowOpportunityModal] = useState(false);
   const [showCategoriesManager, setShowCategoriesManager] = useState(false);
-
-  const [diferenciarTitulo, setDiferenciarTitulo] = useState<boolean>(
-    Boolean(formData.title && formData.title !== formData.name) ||
-      Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
-  );
-
-  useEffect(() => {
-    setDiferenciarTitulo(
-      Boolean(formData.title && formData.title !== formData.name) ||
-        Boolean(formData.marketplaceTitle && formData.marketplaceTitle !== formData.name)
-    );
-  }, [formData.name, formData.title, formData.marketplaceTitle]);
 
   useEffect(() => {
     if (!formData.hasVariations || !Array.isArray(formData.variations)) return;
@@ -79,10 +74,41 @@ export const ProductFormBasicTab: React.FC<Props> = ({
     }
   }, [formData.hasVariations, formData.variations, formData.colors, setFormData]);
 
-  useEffect(() => {
-    fetchMobileCategories().then(setCategories);
-    fetchMobileOpportunities().then(setOpportunities);
+  const refreshCategories = useCallback(async () => {
+    const [nextCategories, environmentResult] = await Promise.all([
+      fetchMobileCategories(),
+      fetchMobileEnvironments()
+        .then((data) => ({ data }))
+        .catch((error: unknown) => ({ error })),
+    ]);
+
+    if ('data' in environmentResult) {
+      setCategories([
+        ...nextCategories,
+        ...environmentResult.data.map((environment) => ({
+          id: environment.id,
+          name: environment.name,
+          type: 'environment',
+          parents: [],
+        })),
+      ]);
+      setCategoryHierarchyReady(true);
+    } else {
+      console.warn(
+        '[ProductFormBasicTab] Erro ao carregar ambientes das categorias:',
+        environmentResult.error
+      );
+      setCategories(nextCategories);
+      setCategoryHierarchyReady(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshCategories();
+    fetchMobileOpportunities().then(setOpportunities);
+  }, [refreshCategories]);
+
+  const categoryHierarchy = categories;
 
   const set = (field: string, val: any) => setFormData((prev) => ({ ...prev, [field]: val }));
 
@@ -117,22 +143,56 @@ export const ProductFormBasicTab: React.FC<Props> = ({
     }
 
     const firstSelected = categories.find((c) => c.id === nextIds[0]);
+    const availableEnvironments = categoryHierarchyReady
+      ? getProductCategoryRootNames(nextIds, categoryHierarchy)
+      : [];
 
     setFormData((prev) => ({
       ...prev,
       categoryIds: nextIds,
       categoryId: nextIds[0] || '',
       category: firstSelected?.name || '',
+      ...(categoryHierarchyReady
+        ? {
+            environment:
+              prev.environment && availableEnvironments.includes(prev.environment)
+                ? prev.environment
+                : availableEnvironments[0] || '',
+          }
+        : {}),
     }));
   };
 
   const selectedOpportunity = opportunities.find((o) => o.id === formData.opportunityId);
-  const selectedCategoryIds: string[] =
-    Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0
-      ? formData.categoryIds
-      : formData.categoryId
-        ? [formData.categoryId]
-        : [];
+  const selectedCategoryIds: string[] = useMemo(
+    () =>
+      Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0
+        ? formData.categoryIds
+        : formData.categoryId
+          ? [formData.categoryId]
+          : [],
+    [formData.categoryIds, formData.categoryId]
+  );
+  const selectedCategoryKey = selectedCategoryIds.join('|');
+
+  useEffect(() => {
+    if (!categoryHierarchyReady || selectedCategoryIds.length === 0) return;
+    const availableEnvironments = getProductCategoryRootNames(selectedCategoryIds, categoryHierarchy);
+    if (availableEnvironments.length === 0) return;
+
+    setFormData((previous) => {
+      const previousIds: string[] =
+        Array.isArray(previous.categoryIds) && previous.categoryIds.length > 0
+          ? previous.categoryIds
+          : previous.categoryId
+            ? [previous.categoryId]
+            : [];
+      if (previousIds.join('|') !== selectedCategoryKey) return previous;
+      if (previous.environment) return previous;
+      return { ...previous, environment: availableEnvironments[0] };
+    });
+  }, [categoryHierarchy, categoryHierarchyReady, selectedCategoryIds, selectedCategoryKey, setFormData]);
+
   const autoAppliedNameRef = useMemo(() => ({ current: '' }), []);
 
   useEffect(() => {
@@ -168,11 +228,22 @@ export const ProductFormBasicTab: React.FC<Props> = ({
             : [];
       if (currentIds.length > 0) return prev;
       const categoryIds = keepManualCategorySelection(currentIds, category.id);
+      const availableEnvironments = categoryHierarchyReady
+        ? getProductCategoryRootNames(categoryIds, categoryHierarchy)
+        : [];
       return {
         ...prev,
         categoryIds,
         categoryId: categoryIds[0] || '',
         category: category.name || '',
+        ...(categoryHierarchyReady
+          ? {
+              environment:
+                prev.environment && availableEnvironments.includes(prev.environment)
+                  ? prev.environment
+                  : availableEnvironments[0] || '',
+            }
+          : {}),
       };
     });
   };
@@ -186,6 +257,9 @@ export const ProductFormBasicTab: React.FC<Props> = ({
 
   const isNormal = currentOrigin === 'normal';
   const isSalvado = currentOrigin === 'salvado';
+  const isOpportunityDisabled =
+    formData.itemType !== 'service' &&
+    (!formData.productKind || formData.productKind === 'salvado');
   const isUsado = currentOrigin === 'usado';
   const variationCount = Array.isArray(formData.variations) ? formData.variations.length : 0;
   const isMultiVariationMode = Boolean(formData.hasVariations) || variationCount > 1;
@@ -387,7 +461,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
             setFormData((prev) => ({
               ...prev,
               name: val,
-              ...(!diferenciarTitulo ? { title: val, marketplaceTitle: val } : {}),
+              ...productTitleFieldsFromName(val),
             }));
           }}
           onBlur={() => {
@@ -398,7 +472,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
               setFormData((prev) => ({
                 ...prev,
                 name: formatted,
-                ...(!diferenciarTitulo ? { title: formatted, marketplaceTitle: formatted } : {}),
+                ...productTitleFieldsFromName(formatted),
               }));
             }
             if (selectedCategoryIds.length === 0) {
@@ -414,47 +488,6 @@ export const ProductFormBasicTab: React.FC<Props> = ({
           style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
         />
       </View>
-
-      {/* TÍTULO NO CATÁLOGO */}
-      {diferenciarTitulo && (
-        <View style={styles.field}>
-          <View style={styles.labelRow}>
-            <View style={styles.labelBadgeRow}>
-              <Text style={[styles.label, dark && styles.lightLabel]}>TÍTULO NO CATÁLOGO</Text>
-              <View style={styles.catalogBadge}>
-                <Text style={styles.catalogBadgeText}>CATÁLOGO</Text>
-              </View>
-            </View>
-          </View>
-          <TextInput
-            value={formData.title || formData.marketplaceTitle || ''}
-            onFocus={() => onFieldFocus?.('title')}
-            onChangeText={(val) => {
-              setFormData((prev) => ({
-                ...prev,
-                title: val,
-                marketplaceTitle: val,
-              }));
-            }}
-            onBlur={() => {
-              onFieldBlur?.('title');
-              const currentTitle = formData.title || formData.marketplaceTitle || '';
-              if (!currentTitle) return;
-              const formatted = toTitleCase(currentTitle);
-              if (formatted !== currentTitle) {
-                setFormData((prev) => ({
-                  ...prev,
-                  title: formatted,
-                  marketplaceTitle: formatted,
-                }));
-              }
-            }}
-            placeholder="Digite o título no catálogo..."
-            placeholderTextColor="#94a3b8"
-            style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-          />
-        </View>
-      )}
 
       {/* CATEGORIA(S) */}
       {formData.itemType !== 'service' && (
@@ -509,18 +542,23 @@ export const ProductFormBasicTab: React.FC<Props> = ({
 
         <TouchableOpacity
           onPress={() => {
-            if (isSalvado) return;
+            if (isOpportunityDisabled) return;
             setShowOpportunityModal(true);
           }}
-          disabled={isSalvado}
-          style={[styles.selectBox, dark && styles.darkInput, isSalvado && { opacity: 0.7 }]}
+          disabled={isOpportunityDisabled}
+          style={[styles.selectBox, dark && styles.darkInput, isOpportunityDisabled && { opacity: 0.7 }]}
           accessibilityRole="button"
           accessibilityLabel="Selecionar Oportunidade"
+          accessibilityState={{ disabled: isOpportunityDisabled }}
         >
           <Text style={[styles.selectBoxText, dark && styles.lightText]} numberOfLines={1}>
-            {selectedOpportunity ? selectedOpportunity.name : 'Nenhuma (Produto Convencional)'}
+            {!formData.productKind && formData.itemType !== 'service'
+              ? 'Selecione primeiro a origem do estoque'
+              : selectedOpportunity
+                ? selectedOpportunity.name
+                : 'Nenhuma (Produto Convencional)'}
           </Text>
-          {!isSalvado && <ChevronDown size={16} color="#94a3b8" />}
+          {!isOpportunityDisabled && <ChevronDown size={16} color="#94a3b8" />}
         </TouchableOpacity>
       </View>}
 
@@ -556,11 +594,11 @@ export const ProductFormBasicTab: React.FC<Props> = ({
         visible={showCategoriesManager && canManageCategories}
         dark={dark}
         onCategoriesUpdated={() => {
-          void fetchMobileCategories().then(setCategories);
+          void refreshCategories();
         }}
         onClose={() => {
           setShowCategoriesManager(false);
-          void fetchMobileCategories().then(setCategories);
+          void refreshCategories();
         }}
       />
     </View>

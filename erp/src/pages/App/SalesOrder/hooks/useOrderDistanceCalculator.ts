@@ -12,7 +12,7 @@ import type { z } from 'zod';
 const getAddressKey = (input: unknown) => {
   const address = input && typeof input === 'object' ? input as Record<string, unknown> : {};
   return JSON.stringify([
-    ...['street', 'number', 'neighborhood', 'city', 'state', 'cep', 'mapsUrl', 'googleMapsUrl', 'mapsLink', 'placeId']
+    ...['street', 'number', 'city', 'state', 'mapsUrl', 'googleMapsUrl', 'mapsLink', 'placeId']
       .map((field) => typeof address[field] === 'string' ? address[field].trim().toLocaleLowerCase() : ''),
     Array.isArray(address.coords) && address.coords.every((value) => typeof value === 'number') ? address.coords : null,
   ]);

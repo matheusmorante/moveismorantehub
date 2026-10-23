@@ -14,10 +14,22 @@ import {
 export interface MessageBubbleProps {
   message: WhatsAppMessage;
   contactName?: string;
+  quotedMessage?: WhatsAppMessage;
+  onResolveReplyTarget?: (reference: { conversationId: string; messageId: string | null; apiMessageId: string | null }) => Promise<WhatsAppMessage | null>;
+  onJumpToMessage?: (message: WhatsAppMessage) => void;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, contactName }) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({
+  message,
+  contactName,
+  quotedMessage,
+  onResolveReplyTarget,
+  onJumpToMessage,
+}) => {
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [resolvedQuote, setResolvedQuote] = useState<WhatsAppMessage | null>(null);
+  const [isResolvingQuote, setIsResolvingQuote] = useState(false);
+  const [quoteError, setQuoteError] = useState('');
   const isInbound = message.direction === 'inbound';
   const isInternalNote = message.messageType === 'internal_note';
   const isSystemEvent = message.messageType === 'system_event';
@@ -31,6 +43,39 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, contactNa
         minute: '2-digit',
       })
     : '';
+
+  const quote = resolvedQuote || quotedMessage;
+  const quotePreview = quote?.textContent || quote?.mediaCaption || quote?.mediaFilename ||
+    (quote?.messageType === 'image' ? 'Foto' : quote?.messageType === 'document' ? 'Documento' : quote ? 'Mídia compartilhada' : 'Referência à mensagem anterior');
+  const quoteAuthor = quote
+    ? quote.direction === 'inbound' ? contactName || 'Cliente' : quote.authorName || 'Atendente'
+    : '';
+  const handleQuotedMessage = async () => {
+    setQuoteError('');
+    if (quote) {
+      onJumpToMessage?.(quote);
+      return;
+    }
+    if (!onResolveReplyTarget || isResolvingQuote) return;
+    setIsResolvingQuote(true);
+    try {
+      const resolved = await onResolveReplyTarget({
+        conversationId: message.conversationId,
+        messageId: message.replyToMessageId,
+        apiMessageId: message.replyToWamid,
+      });
+      if (!resolved) {
+        setQuoteError('A mensagem citada não está disponível nesta conversa.');
+        return;
+      }
+      setResolvedQuote(resolved);
+      onJumpToMessage?.(resolved);
+    } catch (error) {
+      setQuoteError(error instanceof Error ? error.message : 'Não foi possível localizar a mensagem citada.');
+    } finally {
+      setIsResolvingQuote(false);
+    }
+  };
 
   // 1. Eventos de Sistema / Automação (Centralizados na timeline)
   if (isSystemEvent) {
@@ -81,12 +126,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, contactNa
         }`}
       >
         {/* Caixa de Mensagem Respondida (Quote / Reply) */}
-        {message.replyToWamid && (
+        {(message.replyToWamid || message.replyToMessageId) && (
           <div className="mb-2 p-2 rounded-xl bg-black/5 dark:bg-white/10 border-l-4 border-emerald-600 dark:border-emerald-400 text-[11px] text-slate-600 dark:text-slate-300">
             <span className="font-semibold block text-[10px] text-emerald-700 dark:text-emerald-400">
-              Mensagem citada
+              {quoteAuthor ? `Mensagem de ${quoteAuthor}` : 'Mensagem citada'}
             </span>
-            <span className="truncate block opacity-80">Referência à mensagem anterior</span>
+            <span className="truncate block opacity-80" title={quotePreview}>{quotePreview}</span>
+            <button type="button" onClick={() => void handleQuotedMessage()} disabled={isResolvingQuote}
+              className="mt-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 disabled:opacity-50">
+              {isResolvingQuote ? 'Localizando…' : quote ? 'Ir para a mensagem' : 'Carregar contexto citado'}
+            </button>
+            {quoteError && <span role="alert" className="block mt-1 text-[10px] text-red-600 dark:text-red-300">{quoteError}</span>}
           </div>
         )}
 

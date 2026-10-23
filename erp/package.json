@@ -70,6 +70,7 @@
         "test:support:cleanup:serve": "vitest run --config tests/support-cleanup.config.ts",
         "test:support:reopening:serve": "vitest run --config tests/support-reopening.config.ts",
         "test:support:reopening:ui:serve": "playwright test --config tests/support-reopening-ui.config.ts",
+        "test:support:comment-persistence:serve": "vitest run --config tests/support-comment-persistence.config.ts",
         "test:coverage:critical": "vitest run --config vitest.config.ts src/pages/utils/productKindRules.test.ts src/pages/App/Products/ProductList/utils/productActivationState.test.ts src/pages/App/Products/ProductList/utils/productCatalogState.test.ts src/pages/App/Products/ProductList/hooks/useProductsActivePersistence.test.ts src/pages/App/Products/ProductList/hooks/useProductsActivationValidation.test.ts --coverage.enabled --coverage.provider=v8 --coverage.include=src/pages/utils/productKindRules.ts --coverage.include=src/pages/App/Products/ProductList/utils/productActivationState.ts --coverage.include=src/pages/App/Products/ProductList/utils/productCatalogState.ts --coverage.include=src/pages/App/Products/ProductList/hooks/useProductsActivationValidation.ts --coverage.reporter=lcov --coverage.reporter=text",
         "test:mutation:critical": "stryker run stryker.critical.config.mjs",
         "test:unit:watch": "vitest --config vitest.config.ts",

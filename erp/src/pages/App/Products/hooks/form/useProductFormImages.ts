@@ -1,15 +1,13 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { compressImageToFile } from '@/pages/utils/imageUtils';
-import {
-  getMaxParentProductImages,
-  MAX_PARENT_PRODUCT_IMAGES,
-  MAX_VARIATION_IMAGES,
-} from '@/pages/utils/productImageLimits';
+import { MAX_PARENT_PRODUCT_IMAGES } from '@/pages/utils/productImageLimits';
 import { uploadFile } from '@/pages/utils/storageService';
 import type Product from '../../../../types/product.type';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
+import { removeProductImageGlobally } from '../../../../../../../shared-utils/productImageOperations';
+import { limitProductImageSelection } from '../../../../../../../shared-utils/productImageSelection';
 
 export type FileInputSource =
   | React.ChangeEvent<HTMLInputElement>
@@ -38,27 +36,23 @@ export function useProductFormImages(
 
     if (files.length === 0) return;
 
-    const MAX_PHOTOS = MAX_PARENT_PRODUCT_IMAGES;
     const currentCount = (formData.images || []).length;
 
-    if (currentCount >= MAX_PHOTOS) {
-      toast.warning(`Limite máximo de ${MAX_PHOTOS} fotos atingido!`);
+    const selection = limitProductImageSelection(files, currentCount, MAX_PARENT_PRODUCT_IMAGES);
+    if (selection.availableSlots === 0) {
+      toast.warning(`Limite máximo de ${MAX_PARENT_PRODUCT_IMAGES} fotos atingido!`);
       return;
     }
 
-    const availableSlots = MAX_PHOTOS - currentCount;
-    let filesToProcess = files;
-
-    if (files.length > availableSlots) {
+    if (selection.skippedCount > 0) {
       toast.info(
-        `Apenas as primeiras ${availableSlots} foto(s) serão adicionadas (limite máximo de ${MAX_PHOTOS} fotos).`
+        `Apenas as primeiras ${selection.filesToUpload.length} foto(s) serão adicionadas (limite máximo de ${MAX_PARENT_PRODUCT_IMAGES} fotos).`
       );
-      filesToProcess = files.slice(0, availableSlots);
     }
 
-    return uploadForm.validateAndRun({ files: filesToProcess }, async (values) => {
+    return uploadForm.validateAndRun({ files: selection.filesToUpload }, async (values) => {
     setLoading(true);
-    setIsDraggingPhoto(filesToProcess.length);
+    setIsDraggingPhoto(selection.filesToUpload.length);
     try {
       const uploadPromises = values.files.map(async (file) => {
         const fileExt = file.name.split('.').pop() || 'jpg';
@@ -124,27 +118,7 @@ export function useProductFormImages(
 
   const removePhoto = (url: string) => {
     setRemovingPhoto(url);
-    setFormData((prev: Partial<Product>) => {
-      const updatedImages = prev.images?.filter((i: string) => i !== url);
-      const updatedVariations = prev.variations?.map((variation) => {
-        if (prev.variations?.length === 1) {
-          return { ...variation, images: updatedImages || [] };
-        }
-        if (variation.images?.includes(url)) {
-          return {
-            ...variation,
-            images: variation.images.filter((i: string) => i !== url),
-          };
-        }
-        return variation;
-      });
-
-      return {
-        ...prev,
-        images: updatedImages,
-        ...(updatedVariations ? { variations: updatedVariations } : {}),
-      };
-    });
+    setFormData((prev: Partial<Product>) => removeProductImageGlobally(prev, url));
     setRemovingPhoto(null);
   };
 

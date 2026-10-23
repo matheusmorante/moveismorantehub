@@ -51,6 +51,22 @@ describe('Contexto de comandos da Central', () => {
     expect(state.setSelectedConversation).not.toHaveBeenCalled();
   });
 
+  it('acrescenta o comentário ao histórico sem substituir o resumo interno', async () => {
+    const state = setters();
+    const originalSummary = 'Resumo editável da conversa';
+    mocks.createInternalNoteMessage.mockResolvedValueOnce({
+      id: 'note', conversationId: 'a', textContent: 'Comentário cronológico', timestamp: '2026-10-21T12:00:00Z',
+    } as WhatsAppMessage);
+    const { result } = renderHook(() => useCustomerSupportActions({
+      ...state,
+      selectedConversation: { ...conversation(), internalNotes: originalSummary },
+    }));
+
+    await act(() => result.current.handleAddInternalNote('Comentário cronológico'));
+    expect(state.setMessages).toHaveBeenCalledTimes(1);
+    expect(state.setSelectedConversation).not.toHaveBeenCalled();
+  });
+
   it('ignora callback parcial de um painel anterior', () => {
     const state = setters();
     const { result, rerender } = renderHook(({ selected }) => useCustomerSupportActions({ ...state, selectedConversation: selected }), { initialProps: { selected: conversation('a') } });

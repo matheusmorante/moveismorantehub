@@ -7,6 +7,7 @@ interface MobileChannelBadgesProps {
   disabled?: boolean;
   disabledReason?: string;
   isSalvado?: boolean;
+  isNonConventional?: boolean;
   isActive: boolean;
   isPublished: boolean;
   isDraft: boolean;
@@ -23,6 +24,7 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   disabled = false,
   disabledReason,
   isSalvado = false,
+  isNonConventional = false,
   isActive,
   isPublished,
   isDraft,
@@ -32,7 +34,7 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   onToggleActive,
   onToggleCatalog,
 }) => {
-  const erpActive = isActive && !isDraft && !isSalvado;
+  const erpActive = isActive && !isDraft && !isNonConventional && !isSalvado;
 
   const handleToggleERP = () => {
     if (disabled) {
@@ -79,13 +81,25 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       {!isSalvado && (
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={canToggleActive || disabled ? handleToggleERP : undefined}
-          disabled={(!canToggleActive && !disabled) || isParent}
+          onPress={(canToggleActive || disabled) && !isNonConventional ? handleToggleERP : undefined}
+          disabled={(!canToggleActive && !disabled) || isParent || isNonConventional}
+          accessibilityRole="button"
+          accessibilityLabel={
+            isNonConventional
+              ? 'Status ERP: Desativado'
+              : `Status ERP: ${erpActive ? 'Ativo' : 'Desativado'}`
+          }
+          accessibilityHint={
+            isNonConventional
+              ? 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
+              : undefined
+          }
           style={[
             styles.bipartiteBtn,
             erpActive ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
             dark && styles.darkBipartiteBorder,
             disabled && styles.disabledBtn,
+            isNonConventional && styles.nonConventionalBtn,
           ]}
         >
           <View style={[styles.bipartiteTag, styles.erpTag, dark && styles.darkErpTag]}>
@@ -188,6 +202,9 @@ const styles = StyleSheet.create({
   },
   disabledBtn: {
     opacity: 0.6,
+  },
+  nonConventionalBtn: {
+    opacity: 0.5,
   },
   bipartiteTag: {
     paddingHorizontal: 7,

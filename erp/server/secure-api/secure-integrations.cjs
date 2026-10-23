@@ -842,6 +842,15 @@ function getOperation(req) {
   const value = req.query?.operation;
   return Array.isArray(value) ? String(value[0] || "") : String(value || "");
 }
+function getMetaGraphSettings(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const config = value;
+  return {
+    phoneNumberId: config.phoneNumberId,
+    wabaId: config.wabaId,
+    catalogId: config.catalogId
+  };
+}
 function validPoint(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const point = value;
@@ -864,7 +873,7 @@ async function handleMetaGraph(req, res) {
   if (settingsError) return res.status(503).json({ error: "N\xE3o foi poss\xEDvel carregar a configura\xE7\xE3o Meta." });
   let plan;
   try {
-    plan = planMetaGraphRequest(body, settings?.whatsappConfig || {});
+    plan = planMetaGraphRequest(body, getMetaGraphSettings(settings?.whatsappConfig));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Solicita\xE7\xE3o inv\xE1lida.";
     return res.status(message.includes("pol\xEDtica da empresa") ? 403 : 400).json({ error: message });
