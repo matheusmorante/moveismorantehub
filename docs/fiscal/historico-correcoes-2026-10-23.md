@@ -2,6 +2,29 @@
 
 Este registro complementa o índice de vigência. Não altera as regras fiscais, snapshots de documentos, XMLs, transmissão SEFAZ ou histórico de documentos emitidos.
 
+## DANFE NFC-e A4 preenche a tabela de itens em todas as folhas
+
+### Problema e sintomas
+
+O DANFE A4 da NFC-e 65 podia deixar uma área grande sem uso abaixo dos itens. Em documentos com mais de uma folha, as folhas de continuação também precisavam usar o espaço disponível para a tabela.
+
+### Causa raiz
+
+`danfeNfceA4.ts` já definia o paginador que separa os itens por capacidade de cada folha e acrescenta uma linha de preenchimento até o rodapé. Porém, a constante `DANFE_NFCE_A4_PAGINATION_SCRIPT` não era incluída no HTML retornado; o navegador imprimia o HTML inicial sem executar a paginação e o preenchimento.
+
+### Arquivos e linhas
+
+- `erp/src/pages/utils/nfe/danfe/danfeNfceA4.ts:11-242,1487-1489` — inclui no HTML o paginador existente antes de fechar o `body`; a lógica existente trata todas as folhas que contêm itens.
+- `docs/fiscal/README.md:9` — adiciona esta correção às referências atuais.
+
+### Solução e limites
+
+O HTML agora executa o paginador depois de montar o documento. Ele divide os itens entre folhas, mantém o cabeçalho da tabela e aumenta a linha de preenchimento para ocupar o espaço restante em cada folha de itens. Dados, valores, QR Code e autorização continuam vinculados ao XML autorizado; o modelo 55 e o cupom de 80 mm não foram alterados.
+
+### Validação
+
+A inspeção confirmou que a constante estava definida, mas não era referenciada, e que o fallback de impressão inicia `window.print()` no evento `load`, após a execução do script inline no fim do HTML. Não foram executados testes automatizados, navegador ou impressão física nesta alteração; a confirmação visual da distribuição das linhas em diferentes navegadores permanece pendente. Nenhum dado, XML, banco ou comunicação com a SEFAZ foi alterado.
+
 ## Remoção do marcador legado do Bling dos pedidos
 
 ### Problema e sintomas

@@ -1485,6 +1485,7 @@ export function generateDanfeNfceA4Html(data: DanfeData): string {
       </section>
     </div>
   </main>
+<script>${DANFE_NFCE_A4_PAGINATION_SCRIPT}</script>
 </body>
 </html>`;
 }

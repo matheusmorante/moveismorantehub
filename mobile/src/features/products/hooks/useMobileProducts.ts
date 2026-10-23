@@ -101,6 +101,9 @@ export function useMobileProducts(
           itemType: values.itemType,
           generalType: values.itemType === 'standard' ? values.generalType : 'all',
           showTrash: values.showTrash,
+          // A lista precisa distinguir erro de consulta de uma consulta sem resultados,
+          // como no ERP, que chama fetchProductsPage com throwOnError habilitado.
+          throwOnError: true,
         });
         setProducts(data);
         setTotalItems(total);

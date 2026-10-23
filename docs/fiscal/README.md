@@ -6,6 +6,8 @@
 
 ## Referências atuais
 
+- [DANFE NFC-e A4 preenche a tabela de itens em todas as folhas — 23/10](historico-correcoes-2026-10-23.md#danfe-nfc-e-a4-preenche-a-tabela-de-itens-em-todas-as-folhas): ativa o paginador já existente para dividir e preencher a área útil da tabela em todas as folhas com itens; dados e valores autorizados permanecem intactos.
+
 - [Remoção do marcador legado do Bling dos pedidos — 23/10](historico-correcoes-2026-10-23.md#remoção-do-marcador-legado-do-bling-dos-pedidos): o candidato remove o campo técnico e as cópias JSON antigas sem alterar dados fiscais; a migration remota aguarda publicação aprovada.
 
 - [Forma de pagamento “Verificar” como 99 — Outros — 22/10](historico-correcoes-2026-10-22.md#tpag-99-para-a-forma-de-pagamento-verificar): pagamentos confirmados com essa forma passam a usar `tPag=99`; os pendentes preservam a descrição fiscal de entrega/retirada. Documentos já emitidos não foram alterados.

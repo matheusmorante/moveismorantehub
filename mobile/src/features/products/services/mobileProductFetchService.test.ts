@@ -11,6 +11,18 @@ describe('fetchMobileProductsPage', () => {
     vi.clearAllMocks();
   });
 
+  it('propaga falhas da consulta quando a lista habilita throwOnError', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    const queryError = new Error('Falha ao consultar produtos');
+    query.range = vi.fn().mockResolvedValue({ data: null, count: null, error: queryError });
+    supabaseMock.from.mockReturnValue(query);
+
+    await expect(fetchMobileProductsPage(1, 15, { throwOnError: true })).rejects.toBe(queryError);
+  });
+
   it('uses a compact projection for agent summaries and keeps virtual variant SKUs', async () => {
     const query: any = {};
     query.select = vi.fn(() => query);

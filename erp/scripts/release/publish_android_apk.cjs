@@ -34,14 +34,17 @@ function readAppRelease() {
   const appBuild = Number(versionSource.match(/APP_BUILD\s*=\s*(\d+)/)?.[1]);
   const gradleVersion = gradleSource.match(/versionName\s+"([^"]+)"/)?.[1];
   const gradleBuild = Number(gradleSource.match(/versionCode\s+(\d+)/)?.[1]);
-  const buildNumber = Number(appJson.android?.versionCode);
+  const configuredBuildNumber = process.env.ANDROID_RELEASE_BUILD_NUMBER;
+  const buildNumber = Number(configuredBuildNumber || appJson.android?.versionCode);
 
-  if (!appJson.version || appJson.runtimeVersion !== appJson.version || !buildNumber) {
-    fail('Expo version, runtimeVersion, or Android versionCode is missing or inconsistent.');
+  if (!appJson.version || !appJson.runtimeVersion || !Number.isSafeInteger(buildNumber) || buildNumber <= 0) {
+    fail('Expo version, runtimeVersion, or Android build number is missing or invalid.');
   }
-  if (appVersion !== appJson.version || gradleVersion !== appJson.version
-      || appBuild !== buildNumber || gradleBuild !== buildNumber) {
+  if (appVersion !== appJson.version || gradleVersion !== appJson.version) {
     fail('Android release versions differ between app.json, appVersion.ts, and build.gradle.');
+  }
+  if (!configuredBuildNumber && (appBuild !== buildNumber || gradleBuild !== buildNumber)) {
+    fail('Android release build numbers differ between app.json, appVersion.ts, and build.gradle.');
   }
 
   const minimumBuild = Number(process.env.ANDROID_MIN_SUPPORTED_BUILD || 19);

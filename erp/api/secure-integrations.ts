@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { authenticateErpRequest, hasErpPermission } from './_lib/authenticatedErpRequest';
-import { planMetaGraphRequest } from '../src/pages/utils/metaService/metaGraphProxyPolicy';
+import { planMetaGraphRequest, type MetaGraphSettings } from '../src/pages/utils/metaService/metaGraphProxyPolicy';
 
 const MAX_META_REQUEST_BYTES = 1_000_000;
 const MAX_GEMINI_REQUEST_BYTES = 1_000_000;
@@ -19,6 +19,16 @@ function bodySize(value: unknown): number {
 function getOperation(req: VercelRequest): string {
   const value = req.query?.operation;
   return Array.isArray(value) ? String(value[0] || '') : String(value || '');
+}
+
+function getMetaGraphSettings(value: unknown): MetaGraphSettings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const config = value as Record<string, unknown>;
+  return {
+    phoneNumberId: config.phoneNumberId,
+    wabaId: config.wabaId,
+    catalogId: config.catalogId,
+  };
 }
 
 function validPoint(value: unknown): value is { latitude: number; longitude: number } {
@@ -55,7 +65,7 @@ async function handleMetaGraph(req: VercelRequest, res: VercelResponse) {
 
   let plan;
   try {
-    plan = planMetaGraphRequest(body, settings?.whatsappConfig || {});
+    plan = planMetaGraphRequest(body, getMetaGraphSettings(settings?.whatsappConfig));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Solicitação inválida.';
     return res.status(message.includes('política da empresa') ? 403 : 400).json({ error: message });
